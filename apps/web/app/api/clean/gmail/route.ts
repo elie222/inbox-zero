@@ -139,15 +139,19 @@ async function saveToDatabase({
 
 export const POST = withError(
   "clean/gmail",
-  verifySignatureAppRouter(async (request: Request) => {
-    const json = await request.json();
-    const body = cleanGmailSchema.parse(json);
-
-    await performGmailAction({
-      ...body,
-      logger: (request as RequestWithLogger).logger,
-    });
-
-    return NextResponse.json({ success: true });
-  }),
+  verifySignatureAppRouter(async (request: Request) =>
+    handleCleanGmailRequest(request as RequestWithLogger),
+  ),
 );
+
+export async function handleCleanGmailRequest(request: RequestWithLogger) {
+  const json = await request.json();
+  const body = cleanGmailSchema.parse(json);
+
+  await performGmailAction({
+    ...body,
+    logger: request.logger,
+  });
+
+  return NextResponse.json({ success: true });
+}

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { sendDigestEmail } from "@inboxzero/resend";
-import { withEmailAccount, withError } from "@/utils/middleware";
+import {
+  withEmailAccount,
+  withError,
+  type RequestWithLogger,
+} from "@/utils/middleware";
 import { env } from "@/env";
 import { captureException, SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
@@ -44,35 +48,9 @@ export const GET = withEmailAccount("resend/digest", async (request) => {
 });
 
 export const POST = verifySignatureAppRouter(
-  withError("resend/digest", async (request) => {
-    const json = await request.json();
-    const { success, data, error } = sendDigestEmailBody.safeParse(json);
-
-    if (!success) {
-      request.logger.error("Invalid request body", { error });
-      return NextResponse.json(
-        { error: "Invalid request body" },
-        { status: 400 },
-      );
-    }
-    const { emailAccountId } = data;
-
-    const logger = request.logger.with({ emailAccountId });
-
-    logger.info("Sending digest email to user POST");
-
-    try {
-      const result = await sendEmail({ emailAccountId, logger });
-      return NextResponse.json(result);
-    } catch (error) {
-      logger.error("Error sending digest email", { error });
-      captureException(error, { emailAccountId });
-      return NextResponse.json(
-        { success: false, error: "Error sending digest email" },
-        { status: 500 },
-      );
-    }
-  }),
+  withError("resend/digest", async (request) =>
+    handleDigestSendRequest(request),
+  ),
 );
 
 async function getDigestSchedule({
@@ -353,4 +331,34 @@ async function sendEmail({
   }
 
   return { success: true, message: "Digest email sent successfully" };
+}
+
+export async function handleDigestSendRequest(request: RequestWithLogger) {
+  const json = await request.json();
+  const { success, data, error } = sendDigestEmailBody.safeParse(json);
+
+  if (!success) {
+    request.logger.error("Invalid request body", { error });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+  const { emailAccountId } = data;
+
+  const logger = request.logger.with({ emailAccountId });
+
+  logger.info("Sending digest email to user POST");
+
+  try {
+    const result = await sendEmail({ emailAccountId, logger });
+    return NextResponse.json(result);
+  } catch (error) {
+    logger.error("Error sending digest email", { error });
+    captureException(error, { emailAccountId });
+    return NextResponse.json(
+      { success: false, error: "Error sending digest email" },
+      { status: 500 },
+    );
+  }
 }

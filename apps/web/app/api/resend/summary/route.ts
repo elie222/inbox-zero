@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { subHours } from "date-fns/subHours";
 import { sendSummaryEmail } from "@inboxzero/resend";
-import { withEmailAccount, withError } from "@/utils/middleware";
+import {
+  withEmailAccount,
+  withError,
+  type RequestWithLogger,
+} from "@/utils/middleware";
 import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
@@ -38,31 +42,7 @@ export const POST = withError("resend/summary", async (request) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const json = await request.json();
-  const { success, data, error } = sendSummaryEmailBody.safeParse(json);
-
-  if (!success) {
-    logger.error("Invalid request body", { error });
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400 },
-    );
-  }
-  const { emailAccountId } = data;
-
-  logger.info("Sending summary email to user POST", { emailAccountId });
-
-  try {
-    await sendEmail({ emailAccountId, logger });
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    logger.error("Error sending summary email", { error });
-    captureException(error);
-    return NextResponse.json(
-      { success: false, error: "Error sending summary email" },
-      { status: 500 },
-    );
-  }
+  return handleSummarySendRequest(request);
 });
 
 async function sendEmail({
@@ -288,4 +268,32 @@ async function sendEmail({
   ]);
 
   return { success: true };
+}
+
+export async function handleSummarySendRequest(request: RequestWithLogger) {
+  const json = await request.json();
+  const { success, data, error } = sendSummaryEmailBody.safeParse(json);
+
+  if (!success) {
+    request.logger.error("Invalid request body", { error });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+  const { emailAccountId } = data;
+
+  request.logger.info("Sending summary email to user POST", { emailAccountId });
+
+  try {
+    await sendEmail({ emailAccountId, logger: request.logger });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    request.logger.error("Error sending summary email", { error });
+    captureException(error);
+    return NextResponse.json(
+      { success: false, error: "Error sending summary email" },
+      { status: 500 },
+    );
+  }
 }

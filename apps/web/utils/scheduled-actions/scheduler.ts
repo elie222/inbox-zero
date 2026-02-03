@@ -92,13 +92,14 @@ export async function createScheduledAction({
       });
     }
 
-    logger.info("Created and scheduled action with QStash", {
+    logger.info("Created scheduled action", {
       scheduledActionId: scheduledAction.id,
       actionType: actionItem.type,
       scheduledFor,
       messageId,
       threadId,
       deduplicationId,
+      schedulingStatus: scheduledId ? "SCHEDULED" : "PENDING",
     });
 
     return scheduledAction;
@@ -155,7 +156,7 @@ export async function scheduleDelayedActions({
     scheduledActions.push(scheduledAction);
   }
 
-  logger.info("Scheduled delayed actions with QStash", {
+  logger.info("Scheduled delayed actions", {
     count: scheduledActions.length,
     executedRuleId,
     messageId,
@@ -293,25 +294,16 @@ async function scheduleMessage({
       });
 
       return messageId;
-    } else {
-      logger.error(
-        "QStash client not available, scheduled action cannot be executed",
-        {
-          scheduledActionId: payload.scheduledActionId,
-        },
-      );
-
-      await prisma.scheduledAction.update({
-        where: { id: payload.scheduledActionId },
-        data: {
-          schedulingStatus: "FAILED" as const,
-        },
-      });
-
-      throw new Error(
-        "QStash client not available - scheduled action cannot be executed",
-      );
     }
+
+    logger.info("QStash not configured; deferring scheduled action to cron", {
+      scheduledActionId: payload.scheduledActionId,
+      notBefore,
+      delayInMinutes,
+      deduplicationId,
+    });
+
+    return null;
   } catch (error) {
     logger.error("Failed to schedule with QStash", {
       error,
