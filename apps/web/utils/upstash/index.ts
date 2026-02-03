@@ -86,20 +86,25 @@ export async function publishToQstashQueue<T>({
     }
   }
 
-  return fallbackPublishToQstash<T>(url, body);
+  return fallbackPublishToQstash<T>(url, body, headers);
 }
 
-async function fallbackPublishToQstash<T>(url: string, body: T) {
+async function fallbackPublishToQstash<T>(
+  url: string,
+  body: T,
+  headers?: HeadersInit,
+) {
   // Fallback to fetch if Qstash client is not found
   logger.warn("Qstash client not found");
 
+  const internalHeaders = new Headers(headers);
+  internalHeaders.set("Content-Type", "application/json");
+  internalHeaders.set(INTERNAL_API_KEY_HEADER, env.INTERNAL_API_KEY);
+
   // Don't await. Run in background
-  fetch(`${url}/simple`, {
+  fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
-    },
+    headers: internalHeaders,
     body: JSON.stringify(body),
   });
   // Wait for 100ms to ensure the request is sent

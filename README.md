@@ -269,6 +269,7 @@ Then update the webhook endpoint in the [Google PubSub subscriptions dashboard](
 
 | Endpoint | Frequency | Cron Expression | Description |
 |----------|-----------|-----------------|-------------|
+| `/api/cron/scheduled-actions` | Every minute | `* * * * *` | Executes due scheduled actions when QStash is not configured |
 | `/api/watch/all` | Every 6 hours | `0 */6 * * *` | Renews Gmail/Outlook push notification subscriptions |
 | `/api/meeting-briefs` | Every 15 minutes | `*/15 * * * *` | Sends pre-meeting briefings (optional, only if using meeting briefs feature) |
 | `/api/follow-up-reminders` | Every 30 minutes | `*/30 * * * *` | Processes follow-up reminder notifications (optional, only if using follow-up reminders feature) |

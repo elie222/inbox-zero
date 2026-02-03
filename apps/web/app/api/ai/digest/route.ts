@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { digestBody } from "./validation";
 import { DigestStatus } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
@@ -10,9 +9,11 @@ import type { StoredDigestContent } from "@/app/api/resend/digest/validation";
 import { withError } from "@/utils/middleware";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { env } from "@/env";
+import { withQstashOrInternal } from "@/utils/qstash";
 
-export const POST = verifySignatureAppRouter(
-  withError("digest", async (request) => {
+export const POST = withError(
+  "digest",
+  withQstashOrInternal(async (request) => {
     let logger = request.logger;
 
     try {

@@ -4,6 +4,7 @@ import { sendSummaryEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
+import { isValidInternalApiKey } from "@/utils/internal-api";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { SystemType, ThreadTrackerType } from "@/generated/prisma/enums";
@@ -32,7 +33,10 @@ export const GET = withEmailAccount("resend/summary", async (request) => {
 
 export const POST = withError("resend/summary", async (request) => {
   const logger = request.logger;
-  if (!hasCronSecret(request)) {
+  if (
+    !hasCronSecret(request) &&
+    !isValidInternalApiKey(request.headers, logger)
+  ) {
     logger.error("Unauthorized cron request");
     captureException(new Error("Unauthorized cron request: resend"));
     return new Response("Unauthorized", { status: 401 });
