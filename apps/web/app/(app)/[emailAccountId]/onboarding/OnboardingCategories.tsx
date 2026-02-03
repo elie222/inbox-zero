@@ -184,8 +184,13 @@ export function CategoriesSetup({
         )}
       </LoadingContent>
 
-      <div className="flex justify-center mt-8">
-        <ContinueButton type="submit" onClick={onSubmit} />
+      <div className="flex w-full max-w-xs mx-auto mt-8">
+        <ContinueButton
+          type="submit"
+          onClick={onSubmit}
+          size="default"
+          className="w-full"
+        />
       </div>
     </div>
   );

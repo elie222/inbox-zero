@@ -179,10 +179,10 @@ export function StepWho({
             </div>
           )}
 
-          <div className="flex justify-center">
+          <div className="flex w-full max-w-xs mx-auto">
             <Button
               type="submit"
-              size="sm"
+              className="w-full"
               loading={form.formState.isSubmitting}
               disabled={
                 !watchedRole || (watchedRole === "Other" && !customRole.trim())
