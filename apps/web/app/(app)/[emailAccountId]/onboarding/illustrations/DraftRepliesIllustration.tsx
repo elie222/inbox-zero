@@ -28,7 +28,7 @@ export function DraftRepliesIllustration() {
   }, []);
 
   return (
-    <div className="flex h-[240px] w-[400px] flex-col justify-center gap-1.5">
+    <div className="flex h-[240px] w-full max-w-[360px] sm:w-[400px] sm:max-w-none flex-col justify-center gap-1.5">
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}

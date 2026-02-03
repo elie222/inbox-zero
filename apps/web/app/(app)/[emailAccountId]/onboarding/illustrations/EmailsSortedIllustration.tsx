@@ -57,7 +57,7 @@ export function EmailsSortedIllustration() {
   }, []);
 
   return (
-    <div className="flex h-[200px] w-[420px] flex-col justify-center gap-2">
+    <div className="flex h-[200px] w-full max-w-[360px] flex-col justify-center gap-2 sm:w-[420px] sm:max-w-none">
       {emails.map((email, index) => (
         <motion.div
           key={email.id}
@@ -81,7 +81,7 @@ export function EmailsSortedIllustration() {
             </span>
           </div>
 
-          <div className="flex h-5 shrink-0 items-center px-2">
+          <div className="flex h-5 shrink-0 items-center px-2 ml-auto sm:ml-0">
             <motion.span
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{
@@ -98,7 +98,7 @@ export function EmailsSortedIllustration() {
             </motion.span>
           </div>
 
-          <div className="flex h-5 min-w-0 flex-1 items-center truncate">
+          <div className="hidden h-5 min-w-0 flex-1 items-center truncate sm:flex">
             <span className="text-[12px] font-medium text-gray-900 dark:text-gray-100">
               {email.subject}
             </span>

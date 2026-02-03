@@ -185,7 +185,7 @@ export function BulkUnsubscribeIllustration() {
       <motion.div
         initial={{ opacity: 0.3 }}
         animate={{ opacity: stage > 0 ? 1 : 0.3 }}
-        className="z-10 flex items-center"
+        className="z-10 hidden items-center sm:flex"
       >
         <svg
           className="h-4 w-6 text-gray-300"
