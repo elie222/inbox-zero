@@ -17,7 +17,8 @@ export function StepEmailsSorted({ onNext }: { onNext: () => void }) {
 
         <TypographyP className="text-muted-foreground mb-8">
           Emails are automatically organized into categories like "To Reply",
-          "Newsletters", and "Cold Emails".
+          "Newsletters", and "Cold Emails". You can create any categories you
+          want.
         </TypographyP>
 
         <div className="flex flex-col gap-2 w-full max-w-xs">
