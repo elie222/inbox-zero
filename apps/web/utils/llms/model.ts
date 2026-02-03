@@ -1,4 +1,5 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
+import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
@@ -11,6 +12,9 @@ import { env } from "@/env";
 import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
+
+// Thinking budget for Google models (set low to minimize cost)
+const GOOGLE_THINKING_BUDGET = 0;
 
 const logger = createScopedLogger("llms/model");
 
@@ -102,6 +106,13 @@ function selectModel(
         model: createGoogleGenerativeAI({
           apiKey: aiApiKey || env.GOOGLE_API_KEY,
         })(mod),
+        providerOptions: {
+          google: {
+            thinkingConfig: {
+              thinkingBudget: GOOGLE_THINKING_BUDGET,
+            },
+          } satisfies GoogleGenerativeAIProviderOptions,
+        },
         backupModel: getBackupModel(aiApiKey),
       };
     }
@@ -143,6 +154,15 @@ function selectModel(
         provider: Provider.AI_GATEWAY,
         modelName,
         model: gateway(modelName),
+        providerOptions: {
+          // Disable/cap thinking for Google models (Gemini)
+          google: {
+            thinkingConfig: {
+              thinkingBudget: GOOGLE_THINKING_BUDGET,
+            },
+          } satisfies GoogleGenerativeAIProviderOptions,
+          // Note: Anthropic thinking is disabled by default (not including the config)
+        },
         backupModel: getBackupModel(aiApiKey),
       };
     }
@@ -173,6 +193,7 @@ function selectModel(
             sessionToken: undefined,
           }),
         })(modelName),
+        // Note: Anthropic thinking is disabled by default (not including the config)
         backupModel: getBackupModel(aiApiKey),
       };
     }
@@ -184,6 +205,7 @@ function selectModel(
         model: createAnthropic({
           apiKey: aiApiKey || env.ANTHROPIC_API_KEY,
         })(modelName),
+        // Note: Anthropic thinking is disabled by default (not including the config)
         backupModel: getBackupModel(aiApiKey),
       };
     }
