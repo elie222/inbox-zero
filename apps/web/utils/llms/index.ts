@@ -70,6 +70,11 @@ export function createGenerateText({
         {
           ...options,
           ...commonOptions,
+          providerOptions: {
+            ...commonOptions.providerOptions,
+            ...modelOptions.providerOptions,
+            ...options.providerOptions,
+          },
           model,
         },
         ...restArgs,
@@ -182,6 +187,11 @@ export function createGenerateObject({
           },
           ...options,
           ...commonOptions,
+          providerOptions: {
+            ...commonOptions.providerOptions,
+            ...modelOptions.providerOptions,
+            ...options.providerOptions,
+          },
           model: modelOptions.model,
         },
         ...restArgs,
@@ -261,8 +271,11 @@ export async function chatCompletionStream({
     messages,
     tools,
     stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
-    providerOptions,
     ...commonOptions,
+    providerOptions: {
+      ...commonOptions.providerOptions,
+      ...providerOptions,
+    },
     experimental_transform: smoothStream({ chunking: "word" }),
     onStepFinish,
     onFinish: async (result) => {
