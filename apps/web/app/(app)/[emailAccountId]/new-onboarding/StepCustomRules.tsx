@@ -3,7 +3,7 @@
 import { ArrowRightIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
-import { CustomRulesIllustration } from "@/app/(app)/[emailAccountId]/new-onboarding/illustrations/CustomRulesIllustration";
+import { CustomRulesModalIllustrationSimple } from "@/app/(app)/[emailAccountId]/new-onboarding/illustrations/CustomRulesModalIllustrationSimple";
 
 export function StepCustomRules({
   onNext,
@@ -15,7 +15,7 @@ export function StepCustomRules({
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
       <div className="flex flex-col items-center text-center max-w-lg">
         <div className="mb-6 h-[260px] flex items-end justify-center">
-          <CustomRulesIllustration />
+          <CustomRulesModalIllustrationSimple />
         </div>
 
         <PageHeading className="mb-3">Custom rules</PageHeading>
