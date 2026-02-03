@@ -49,6 +49,7 @@ import { isValidEmail } from "@/utils/email";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { DismissibleVideoCard } from "@/components/VideoCard";
 import { PremiumExpiredCardContent } from "@/components/PremiumCard";
+import { AnnouncementDialogDemo } from "@/components/feature-announcements/AnnouncementDialogDemo";
 import {
   ResultsDisplay,
   ResultDisplayContent,
@@ -328,6 +329,13 @@ export default function Components() {
               thumbnailSrc="https://img.youtube.com/vi/SoeNDVr7ve4/0.jpg"
               storageKey={`video-dismissible-${Date.now()}`}
             />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">AnnouncementDialog</div>
+          <div className="mt-4">
+            <AnnouncementDialogDemo />
           </div>
         </div>
 
