@@ -152,7 +152,7 @@ export async function cleanupThreadAIDrafts({
   emailAccountId: string;
   provider: EmailProvider;
   logger: Logger;
-  excludeMessageId?: string;
+  excludeMessageId: string;
 }) {
   logger.info("Starting cleanup of old AI drafts for thread");
 
@@ -160,13 +160,13 @@ export async function cleanupThreadAIDrafts({
     // Find all draft actions for this thread that:
     // 1. Haven't been logged yet (draftSendLog is null), OR
     // 2. Were logged but the user sent a different reply (wasDraftSent is false)
-    // Optionally exclude drafts for a specific message (e.g., the current message being processed)
+    // Excludes drafts for the current message to avoid deleting a draft that was just created
     const potentialDraftsToClean = await prisma.executedAction.findMany({
       where: {
         executedRule: {
           emailAccountId,
           threadId: threadId,
-          ...(excludeMessageId && { messageId: { not: excludeMessageId } }),
+          messageId: { not: excludeMessageId },
         },
         type: ActionType.DRAFT_EMAIL,
         draftId: { not: null },
