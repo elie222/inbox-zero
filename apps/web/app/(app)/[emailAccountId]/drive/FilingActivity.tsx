@@ -1,8 +1,10 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ExternalLinkIcon, InfoIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
+import { toastError } from "@/components/Toast";
 import { MutedText, SectionHeader } from "@/components/Typography";
 import {
   Table,
@@ -20,13 +22,19 @@ import { useDriveConnections } from "@/hooks/useDriveConnections";
 import type { GetDriveConnectionsResponse } from "@/app/api/user/drive/connections/route";
 import { YesNoIndicator } from "@/components/drive/YesNoIndicator";
 import type { DriveProviderType } from "@/utils/drive/types";
+import { submitPreviewFeedbackAction } from "@/utils/actions/drive";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function FilingActivity() {
-  const { data, isLoading, error } = useFilingActivity({
+  const { emailAccountId } = useAccount();
+  const { data, isLoading, error, mutate } = useFilingActivity({
     limit: 10,
     offset: 0,
   });
   const { data: connectionsData } = useDriveConnections();
+  const refreshFilings = useCallback(() => {
+    mutate();
+  }, [mutate]);
 
   return (
     <div>
@@ -52,8 +60,10 @@ export function FilingActivity() {
                 {data?.filings.map((filing) => (
                   <FilingRow
                     key={filing.id}
+                    emailAccountId={emailAccountId}
                     filing={filing}
                     connections={connectionsData?.connections || []}
+                    onFeedbackSaved={refreshFilings}
                   />
                 ))}
               </TableBody>
@@ -71,17 +81,71 @@ export function FilingActivity() {
 }
 
 function FilingRow({
+  emailAccountId,
   filing,
   connections,
+  onFeedbackSaved,
 }: {
+  emailAccountId: string;
   filing: GetFilingsResponse["filings"][number];
   connections: GetDriveConnectionsResponse["connections"];
+  onFeedbackSaved: () => void;
 }) {
+  const [vote, setVote] = useState<boolean | null>(
+    filing.feedbackPositive ?? null,
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const connection = connections.find((c) => c.id === filing.driveConnectionId);
 
   const driveUrl = filing.fileId
     ? getDriveFileUrl(filing.fileId, connection?.provider as DriveProviderType)
     : null;
+
+  const canGiveFeedback =
+    filing.status !== "PENDING" && filing.status !== "ERROR";
+
+  useEffect(() => {
+    setVote(filing.feedbackPositive ?? null);
+  }, [filing.feedbackPositive]);
+
+  const handleFeedbackClick = useCallback(
+    async (value: boolean) => {
+      if (!canGiveFeedback || isSubmitting) return;
+
+      const previousValue = vote;
+      setVote(value);
+      setIsSubmitting(true);
+
+      try {
+        const result = await submitPreviewFeedbackAction(emailAccountId, {
+          filingId: filing.id,
+          feedbackPositive: value,
+        });
+
+        if (result?.serverError) {
+          setVote(previousValue ?? null);
+          toastError({ description: "Failed to submit feedback" });
+          return;
+        }
+
+        onFeedbackSaved();
+      } catch {
+        setVote(previousValue ?? null);
+        toastError({ description: "Failed to submit feedback" });
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [
+      canGiveFeedback,
+      emailAccountId,
+      filing.id,
+      isSubmitting,
+      onFeedbackSaved,
+      vote,
+    ],
+  );
 
   return (
     <TableRow>
@@ -100,7 +164,12 @@ function FilingRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center justify-center">
-          <YesNoIndicator value={filing.feedbackPositive} />
+          <YesNoIndicator
+            value={vote}
+            onClick={
+              canGiveFeedback && !isSubmitting ? handleFeedbackClick : undefined
+            }
+          />
         </div>
       </TableCell>
       <TableCell>
