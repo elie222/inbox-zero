@@ -97,8 +97,15 @@ async function fallbackPublishToQstash<T>(
   // Fallback to fetch if Qstash client is not found
   logger.warn("Qstash client not found");
 
-  const internalHeaders = new Headers();
-  mergeHeaders(internalHeaders, headers);
+  const internalHeaders = new Headers(
+    headers instanceof Headers
+      ? headers
+      : Array.isArray(headers)
+        ? headers
+        : headers && typeof headers === "object" && Symbol.iterator in headers
+          ? Array.from(headers as Iterable<[string, string]>)
+          : headers,
+  );
   internalHeaders.set("Content-Type", "application/json");
   internalHeaders.set(INTERNAL_API_KEY_HEADER, env.INTERNAL_API_KEY);
 
@@ -110,35 +117,6 @@ async function fallbackPublishToQstash<T>(
   });
   // Wait for 100ms to ensure the request is sent
   await sleep(100);
-}
-
-function mergeHeaders(target: Headers, headers?: HeadersInit) {
-  if (!headers) return;
-  if (headers instanceof Headers) {
-    for (const [key, value] of headers.entries()) {
-      target.set(key, value);
-    }
-    return;
-  }
-  if (Array.isArray(headers)) {
-    for (const [key, value] of headers) {
-      target.set(key, value);
-    }
-    return;
-  }
-  if (
-    typeof headers === "object" &&
-    headers !== null &&
-    Symbol.iterator in headers
-  ) {
-    for (const [key, value] of headers as Iterable<[string, string]>) {
-      target.set(key, value);
-    }
-    return;
-  }
-  for (const [key, value] of Object.entries(headers)) {
-    target.set(key, value);
-  }
 }
 
 export async function listQueues() {
