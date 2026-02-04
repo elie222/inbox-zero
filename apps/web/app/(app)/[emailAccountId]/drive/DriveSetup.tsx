@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { ExternalLinkIcon } from "lucide-react";
+import { ExternalLinkIcon, PlusIcon } from "lucide-react";
 import {
   TypographyH3,
   SectionDescription,
@@ -53,7 +53,11 @@ import {
   updateFilingPromptBody,
   type UpdateFilingPromptBody,
 } from "@/utils/actions/drive.validation";
-import { FolderNode, NoFoldersFound } from "./AllowedFolders";
+import {
+  CreateFolderDialog,
+  FolderNode,
+  NoFoldersFound,
+} from "./AllowedFolders";
 import type {
   FolderItem,
   SavedFolder,
@@ -615,6 +619,7 @@ function SetupFolderSelection({
   const [optimisticFolderIds, setOptimisticFolderIds] = useState<Set<string>>(
     () => new Set(savedFolders.map((f) => f.folderId)),
   );
+  const driveConnectionId = connections[0]?.id ?? null;
 
   // Sync optimistic state when server data changes
   const serverFolderIds = savedFolders.map((f) => f.folderId).join(",");
@@ -716,7 +721,12 @@ function SetupFolderSelection({
   return (
     <div>
       <TypographyH4>1. Pick your folders</TypographyH4>
-      <MutedText className="mt-1">Which folders can we file to?</MutedText>
+      <MutedText className="mt-1">
+        Which folders can we file to?{" "}
+        <span className="text-muted-foreground">
+          (We'll only ever put files in folders you select)
+        </span>
+      </MutedText>
 
       <LoadingContent loading={isLoading} error={undefined}>
         {rootFolders.length > 0 ? (
@@ -746,14 +756,23 @@ function SetupFolderSelection({
                 </TreeView>
               </TreeProvider>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              We'll only ever put files in folders you select
-            </p>
+            <div className="mt-2">
+              <CreateFolderDialog
+                emailAccountId={emailAccountId}
+                driveConnectionId={driveConnectionId}
+                onFolderCreated={mutateFolders}
+                triggerLabel="Add folder"
+                triggerVariant="ghost"
+                triggerSize="xs-2"
+                triggerIcon={PlusIcon}
+                triggerClassName="text-muted-foreground hover:text-foreground"
+              />
+            </div>
           </>
         ) : (
           <NoFoldersFound
             emailAccountId={emailAccountId}
-            driveConnectionId={connections[0]?.id}
+            driveConnectionId={driveConnectionId}
             onFolderCreated={mutateFolders}
           />
         )}
