@@ -132,6 +132,7 @@ The Docker Compose setup includes a `cron` container that handles scheduled task
 
 | Task | Frequency | Endpoint | Cron Expression | Description |
 |------|-----------|----------|-----------------|-------------|
+| **Scheduled actions** | Every minute | `/api/cron/scheduled-actions` | `* * * * *` | Executes delayed/scheduled actions when QStash is not configured |
 | **Email watch renewal** | Every 6 hours | `/api/watch/all` | `0 */6 * * *` | Renews Gmail/Outlook push notification subscriptions |
 | **Meeting briefs** | Every 15 minutes | `/api/meeting-briefs` | `*/15 * * * *` | Sends pre-meeting briefings to users with the feature enabled |
 | **Follow-up reminders** | Every 30 minutes | `/api/follow-up-reminders` | `*/30 * * * *` | Processes follow-up reminder notifications |
@@ -139,6 +140,9 @@ The Docker Compose setup includes a `cron` container that handles scheduled task
 **If you're not using Docker Compose** you need to set up cron jobs manually:
 
 ```bash
+# Scheduled actions - every minute (only needed when QStash is not configured)
+* * * * * curl -s -X GET "https://yourdomain.com/api/cron/scheduled-actions" -H "Authorization: Bearer YOUR_CRON_SECRET"
+
 # Email watch renewal - every 6 hours
 0 */6 * * * curl -s -X GET "https://yourdomain.com/api/watch/all" -H "Authorization: Bearer YOUR_CRON_SECRET"
 
@@ -155,14 +159,16 @@ Replace `YOUR_CRON_SECRET` with the value of `CRON_SECRET` from your `.env` file
 
 [Upstash QStash](https://upstash.com/docs/qstash/overall/getstarted) is a serverless message queue that enables scheduled and delayed actions. It's optional but recommended for the full feature set.
 
-**Features that require QStash:**
+When QStash isn't configured, we fall back to internal API calls and cron for scheduled actions. This works without QStash, but lacks built-in retries/deduping.
+
+**Features that benefit from QStash:**
 
 | Feature | Without QStash | With QStash |
 |---------|---------------|-------------|
-| **Email digest** | ❌ Not available | ✅ Full support |
-| **Delayed/scheduled email actions** | ❌ Not available | ✅ Full support |
+| **Email digest** | ✅ Works (sync, no retries) | ✅ Full support |
+| **Delayed/scheduled email actions** | ✅ Works via cron fallback | ✅ Full support |
 | **AI categorization of senders*** | ✅ Works (sync) | ✅ Works (async with retries) |
-| **Bulk inbox cleaning*** | ❌ Not available | ✅ Full support |
+| **Bulk inbox cleaning*** | ✅ Works (sync, no throttling) | ✅ Full support |
 
 *Early access features - available on the Early Access page.
 
@@ -271,4 +277,3 @@ If you're still stuck:
 1. Check [GitHub Issues](https://github.com/elie222/inbox-zero/issues) for similar problems
 2. Join the [Discord community](https://www.getinboxzero.com/discord)
 3. Include relevant logs and your setup details when asking for help
-
