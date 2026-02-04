@@ -30,7 +30,7 @@ tags:
 
 ## Goal
 
-Verify that enabling the To Reply rule results in a Outlook category and a reply draft for a message that needs a response.
+Verify that enabling the Calendar rule results in a Outlook category and a reply draft for a message that needs a response.
 
 ## Steps
 

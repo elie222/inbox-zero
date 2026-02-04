@@ -1,5 +1,5 @@
 ---
-id: awiting-reply-rule-gmail-to-outlook
+id: awaiting-reply-rule-gmail-to-outlook
 title: "Awaiting Reply rule applies category to sent message"
 description: "Ensure the Awaiting Reply rule is enabled and that Gmail -> Outlook messages get categorized."
 category: email
