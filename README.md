@@ -274,6 +274,8 @@ Then update the webhook endpoint in the [Google PubSub subscriptions dashboard](
 | `/api/meeting-briefs` | Every 15 minutes | `*/15 * * * *` | Sends pre-meeting briefings (optional, only if using meeting briefs feature) |
 | `/api/follow-up-reminders` | Every 30 minutes | `*/30 * * * *` | Processes follow-up reminder notifications (optional, only if using follow-up reminders feature) |
 
+When QStash isn't configured, background jobs are executed via internal API calls and scheduled actions run via cron. This works without QStash, but lacks built-in retries/deduping.
+
 See [Self-Hosting Guide](docs/hosting/self-hosting.md#scheduled-tasks) for detailed cron configuration.
 
 ### Microsoft OAuth Setup

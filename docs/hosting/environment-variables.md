@@ -32,8 +32,8 @@ cp apps/web/.env.example apps/web/.env
 | `GOOGLE_PUBSUB_TOPIC_NAME` | Yes | Full topic name (e.g., `projects/my-project/topics/gmail`) | — |
 | `GOOGLE_PUBSUB_VERIFICATION_TOKEN` | No | Token for webhook verification | — |
 | **Redis** ||||
-| `UPSTASH_REDIS_URL` | No* | Upstash Redis URL (*required if not using Docker Compose with local Redis) | — |
-| `UPSTASH_REDIS_TOKEN` | No* | Upstash Redis token (*required if not using Docker Compose) | — |
+| `UPSTASH_REDIS_URL` | No* | Upstash Redis URL or any Upstash-compatible HTTP Redis endpoint (*required if not using Docker Compose with local Redis) | — |
+| `UPSTASH_REDIS_TOKEN` | No* | Upstash Redis token or serverless-redis-http token (*required if not using Docker Compose) | — |
 | `REDIS_URL` | No | Alternative Redis URL (for subscriptions) | — |
 | **LLM Provider Selection** ||||
 | `DEFAULT_LLM_PROVIDER` | No | Primary LLM provider (`anthropic`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`) | `anthropic` |
@@ -62,8 +62,8 @@ cp apps/web/.env.example apps/web/.env
 | **Ollama (Local LLM)** ||||
 | `OLLAMA_BASE_URL` | No | Ollama API endpoint (e.g., `http://localhost:11434/api`) | — |
 | `OLLAMA_MODEL` | No | Model to use with Ollama (e.g., `llama3`) | — |
-| **Background Jobs (QStash)** ||||
-| `QSTASH_TOKEN` | No | QStash API token | — |
+| **Background Jobs (QStash, optional)** ||||
+| `QSTASH_TOKEN` | No | QStash API token (optional; fallback runs jobs via internal API + cron) | — |
 | `QSTASH_CURRENT_SIGNING_KEY` | No | Current signing key for webhooks | — |
 | `QSTASH_NEXT_SIGNING_KEY` | No | Next signing key for key rotation | — |
 | **Sentry** ||||
@@ -86,7 +86,7 @@ cp apps/web/.env.example apps/web/.env
 | `NEXT_PUBLIC_CONTACTS_ENABLED` | No | Enable contacts feature | `false` |
 | `NEXT_PUBLIC_EMAIL_SEND_ENABLED` | No | Enable email sending | `true` |
 | `NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS` | No | Bypass premium checks (recommended for self-hosting) | `true` |
-| `NEXT_PUBLIC_DIGEST_ENABLED` | No | Enable email digest feature, which sends periodic summaries of emails. Requires QStash to be configured. | `false` |
+| `NEXT_PUBLIC_DIGEST_ENABLED` | No | Enable email digest feature, which sends periodic summaries of emails. Works without QStash (no retries). | `false` |
 | `NEXT_PUBLIC_MEETING_BRIEFS_ENABLED` | No | Enable meeting briefs, which automatically sends pre-meeting briefings to users. Requires the meeting briefs cron job to be running. | `false` |
 | `NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED` | No | Enable follow-up reminders, which allows users to add labels to emails for automatic follow-up tracking. Requires the follow-up reminders cron job to be running. | `false` |
 | `NEXT_PUBLIC_INTEGRATIONS_ENABLED` | No | Enable the integrations feature, allowing users to connect external services. | `false` |

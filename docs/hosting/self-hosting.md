@@ -159,7 +159,9 @@ Replace `YOUR_CRON_SECRET` with the value of `CRON_SECRET` from your `.env` file
 
 [Upstash QStash](https://upstash.com/docs/qstash/overall/getstarted) is a serverless message queue that enables scheduled and delayed actions. It's optional but recommended for the full feature set.
 
-**Features that require QStash:**
+When QStash isn't configured, we fall back to internal API calls and cron for scheduled actions. This works without QStash, but lacks built-in retries/deduping.
+
+**Features that benefit from QStash:**
 
 | Feature | Without QStash | With QStash |
 |---------|---------------|-------------|
