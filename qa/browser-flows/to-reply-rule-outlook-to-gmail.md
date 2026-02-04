@@ -47,15 +47,15 @@ Verify that enabling the To Reply rule results in a Gmail label and a reply draf
 
 ## Expected results
 
-- The Calendar rule is enabled in Inbox Zero.
+- The To Reply rule is enabled in Inbox Zero.
 - The Outlook email arrives in Gmail.
-- The Gmail message is labeled "Calendar".
+- The Gmail message is labeled "To Reply".
 - A reply draft is present for the thread.
 
 ## Failure indicators
 
-- The Calendar rule cannot be enabled or does not remain enabled after saving.
-- The message arrives without the "Calendar" label after the wait window.
+- The To Reply rule cannot be enabled or does not remain enabled after saving.
+- The message arrives without the "To Reply" label after the wait window.
 - No reply draft is created for the thread.
 
 ## Cleanup
