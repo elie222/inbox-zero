@@ -199,21 +199,6 @@ export async function processHistoryItem(
 
     logger.info("Pre-rules check", { hasAutomationRules, hasAiAccess });
 
-    // Clean up old AI drafts before potentially creating new ones
-    if (actualThreadId) {
-      try {
-        await cleanupThreadAIDrafts({
-          threadId: actualThreadId,
-          emailAccountId,
-          provider,
-          logger,
-        });
-      } catch (error) {
-        logger.error("Error during inbound thread draft cleanup", { error });
-        captureException(error, { emailAccountId });
-      }
-    }
-
     if (hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...");
 
@@ -278,6 +263,25 @@ export async function processHistoryItem(
     } catch (error) {
       logger.error("Error removing follow-up label on inbound", { error });
       captureException(error, { emailAccountId });
+    }
+
+    // Clean up old AI drafts (runs after response to avoid slowing down processing)
+    // Excludes drafts for the current message since rules may have just created one
+    if (actualThreadId) {
+      after(async () => {
+        try {
+          await cleanupThreadAIDrafts({
+            threadId: actualThreadId,
+            emailAccountId,
+            provider,
+            logger,
+            excludeMessageId: messageId,
+          });
+        } catch (error) {
+          logger.error("Error during inbound thread draft cleanup", { error });
+          captureException(error, { emailAccountId });
+        }
+      });
     }
   } catch (error: unknown) {
     // Handle provider-specific "not found" errors
