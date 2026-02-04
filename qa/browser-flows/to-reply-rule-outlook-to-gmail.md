@@ -42,7 +42,7 @@ Verify that enabling the To Reply rule results in a Gmail label and a reply draf
 6. Send the email.
 7. In Gmail, wait for the message to arrive in the inbox.
 8. Wait a bit longer for automation to run.
-9. Verify the message shows the "Calendar" label in Gmail.
+9. Verify the message shows the "To Reply" label in Gmail.
 10. Open the message (or inspect the conversation list) and confirm a reply draft exists for the thread.
 
 ## Expected results
