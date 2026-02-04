@@ -87,17 +87,31 @@ services:
     command: >
       sh -c "
         apk add --no-cache curl &&
+        LOOP_INTERVAL=60 &&
+        SCHEDULED_ACTIONS_INTERVAL=60 &&
         FOLLOW_UP_INTERVAL=1800 &&
         MEETING_BRIEFS_INTERVAL=900 &&
         WATCH_INTERVAL=21600 &&
+        LAST_SCHEDULED_ACTIONS=0 &&
+        LAST_FOLLOW_UP=0 &&
         LAST_MEETING_BRIEFS=0 &&
         LAST_WATCH=0 &&
         while true; do
           NOW=$$(date +%s)
 
+          # Scheduled actions: every 1 minute
+          if [ $$((NOW - LAST_SCHEDULED_ACTIONS)) -ge $$SCHEDULED_ACTIONS_INTERVAL ]; then
+            echo \"[cron] Processing scheduled actions...\"
+            curl -s -X GET 'http://web:3000/api/cron/scheduled-actions' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: scheduled-actions request failed\"
+            LAST_SCHEDULED_ACTIONS=$$NOW
+          fi
+
           # Follow-up reminders: every 30 minutes
-          echo \"[cron] Processing follow-up reminders...\"
-          curl -s -X GET 'http://web:3000/api/follow-up-reminders' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: follow-up-reminders request failed\"
+          if [ $$((NOW - LAST_FOLLOW_UP)) -ge $$FOLLOW_UP_INTERVAL ]; then
+            echo \"[cron] Processing follow-up reminders...\"
+            curl -s -X GET 'http://web:3000/api/follow-up-reminders' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: follow-up-reminders request failed\"
+            LAST_FOLLOW_UP=$$NOW
+          fi
 
           # Meeting briefs: every 15 minutes
           if [ $$((NOW - LAST_MEETING_BRIEFS)) -ge $$MEETING_BRIEFS_INTERVAL ]; then
@@ -113,8 +127,8 @@ services:
             LAST_WATCH=$$NOW
           fi
 
-          echo \"[cron] Sleeping for 30 minutes...\"
-          sleep $$FOLLOW_UP_INTERVAL
+          echo \"[cron] Sleeping for $$LOOP_INTERVAL seconds...\"
+          sleep $$LOOP_INTERVAL
         done
       "
     env_file:
