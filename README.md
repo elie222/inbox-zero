@@ -139,13 +139,59 @@ The fastest way to get started is using [devcontainers](https://containers.dev/)
 
 - [Node.js](https://nodejs.org/en/) >= 22.0.0
 - [pnpm](https://pnpm.io/) >= 10.0.0
-- [Docker desktop](https://www.docker.com/products/docker-desktop/) (recommended for running Postgres and Redis)
+- [Docker desktop](https://www.docker.com/products/docker-desktop/) (for running Redis locally)
+
+#### Database Setup
+
+Choose one of the following database options:
+
+##### Option A: Supabase (Recommended)
+
+Supabase provides a cloud-hosted PostgreSQL database that persists across machines and doesn't require local Docker containers.
+
+1. **Create a Supabase project:**
+   - Go to [supabase.com](https://supabase.com) and create a new project
+   - Wait for your database to be provisioned (takes ~2 minutes)
+
+2. **Get your connection strings:**
+   - In your Supabase project dashboard, go to **Settings → Database**
+   - Find the connection strings section
+   - Copy the **Transaction pooler** connection string (port 6543) for `DATABASE_URL`
+   - Copy the **Session pooler** connection string (port 5432) for `DIRECT_URL`
+   - Both strings will look like:
+     ```
+     postgresql://postgres.[project-ref]:[password]@aws-0-us-east-1.pooler.supabase.com:PORT/postgres
+     ```
+
+3. **Configure environment variables:**
+   - Add to your `apps/web/.env` file:
+     ```bash
+     DATABASE_URL="postgresql://postgres.[project-ref]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+     DIRECT_URL="postgresql://postgres.[project-ref]:[password]@aws-0-us-east-1.pooler.supabase.com:5432/postgres"
+     ```
+   - Replace `[project-ref]` and `[password]` with your actual values
+
+**Note:** The transaction pooler (port 6543) is optimized for serverless environments and uses PgBouncer for connection pooling. The session pooler (port 5432) is used for long-running connections like Prisma migrations.
+
+##### Option B: Docker PostgreSQL (Alternative)
+
+If you prefer running PostgreSQL locally:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d postgres
+```
+
+Then use the default connection strings from `.env.example`:
+```bash
+DATABASE_URL="postgresql://postgres:password@localhost:5432/inboxzero?schema=public"
+DIRECT_URL="postgresql://postgres:password@localhost:5432/inboxzero?schema=public"
+```
 
 #### Quick Start
 
-1. **Start PostgreSQL and Redis:**
+1. **Start Redis:**
    ```bash
-   docker compose -f docker-compose.dev.yml up -d
+   docker compose -f docker-compose.dev.yml up -d redis serverless-redis-http
    ```
 
 2. **Install dependencies and set up environment:**
