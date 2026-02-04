@@ -3,9 +3,10 @@
 import { useCallback, useMemo, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FolderIcon, Loader2Icon } from "lucide-react";
+import { FolderIcon, Loader2Icon, PlusIcon } from "lucide-react";
 import {
   Card,
+  CardBasic,
   CardContent,
   CardDescription,
   CardHeader,
@@ -48,7 +49,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -171,6 +172,7 @@ function AllowedFoldersContent({
     () => new Set(savedFolders.map((f) => f.folderId)),
     [savedFolders],
   );
+  const hasFolders = rootFolders.length > 0;
 
   return (
     <Card size="sm">
@@ -179,30 +181,47 @@ function AllowedFoldersContent({
         <CardDescription>AI can only file to these folders</CardDescription>
       </CardHeader>
       <CardContent>
-        {rootFolders.length > 0 ? (
-          <TreeProvider
-            showLines
-            showIcons
-            selectable={false}
-            animateExpand
-            indent={16}
-          >
-            <TreeView className="p-0">
-              {rootFolders.map((folder, index) => (
-                <FolderNode
-                  key={folder.id}
-                  folder={folder}
-                  isLast={index === rootFolders.length - 1}
-                  selectedFolderIds={savedFolderIds}
-                  onToggle={handleFolderToggle}
-                  isDisabled={isFolderBusy}
-                  level={0}
-                  parentPath=""
-                  knownChildren={folderChildrenMap.get(folder.id)}
-                />
-              ))}
-            </TreeView>
-          </TreeProvider>
+        {hasFolders ? (
+          <>
+            <TreeProvider
+              showLines
+              showIcons
+              selectable={false}
+              animateExpand
+              indent={16}
+            >
+              <TreeView className="p-0">
+                {rootFolders.map((folder, index) => (
+                  <FolderNode
+                    key={folder.id}
+                    folder={folder}
+                    isLast={index === rootFolders.length - 1}
+                    selectedFolderIds={savedFolderIds}
+                    onToggle={handleFolderToggle}
+                    isDisabled={isFolderBusy}
+                    level={0}
+                    parentPath=""
+                    knownChildren={folderChildrenMap.get(folder.id)}
+                  />
+                ))}
+              </TreeView>
+            </TreeProvider>
+            <div className="mt-2">
+              <CreateFolderDialog
+                emailAccountId={emailAccountId}
+                driveConnectionId={driveConnectionId}
+                onFolderCreated={mutateFolders}
+                triggerLabel="Add folder"
+                triggerVariant="ghost"
+                triggerSize="xs-2"
+                triggerIcon={PlusIcon}
+                triggerClassName="text-muted-foreground hover:text-foreground"
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              We'll only ever put files in folders you select
+            </p>
+          </>
         ) : (
           <NoFoldersFound
             emailAccountId={emailAccountId}
@@ -363,44 +382,125 @@ export function NoFoldersFound({
   );
 
   return (
-    <Empty>
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <FolderIcon />
-        </EmptyMedia>
-        <EmptyTitle>No folders found</EmptyTitle>
-        <EmptyDescription>
-          Create a folder in your drive to get started.
-        </EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <Dialog open={isOpen} onOpenChange={onToggle}>
-          <DialogTrigger asChild>
-            <Button disabled={!driveConnectionId}>Create folder</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create folder</DialogTitle>
-              <DialogDescription>
-                Create a new folder in your drive to organize your files.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <Input
-                type="text"
-                name="folderName"
-                label="Folder name"
-                placeholder="e.g. Receipts"
-                registerProps={register("folderName")}
-                error={errors.folderName}
-              />
-              <Button type="submit" loading={isSubmitting}>
-                Create folder
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </EmptyContent>
-    </Empty>
+    <CardBasic className="mt-4 p-2">
+      <Empty className="border-0 p-0">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <FolderIcon />
+          </EmptyMedia>
+          <EmptyTitle>No folders found</EmptyTitle>
+          <EmptyDescription>
+            Create a folder in your drive to get started.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <CreateFolderDialog
+            emailAccountId={emailAccountId}
+            driveConnectionId={driveConnectionId}
+            onFolderCreated={onFolderCreated}
+            triggerLabel="Create folder"
+          />
+        </EmptyContent>
+      </Empty>
+    </CardBasic>
+  );
+}
+
+export function CreateFolderDialog({
+  emailAccountId,
+  driveConnectionId,
+  onFolderCreated,
+  triggerLabel,
+  triggerVariant = "default",
+  triggerSize = "default",
+  triggerIcon,
+  triggerClassName,
+}: {
+  emailAccountId: string;
+  driveConnectionId: string | null;
+  onFolderCreated?: () => void;
+  triggerLabel: string;
+  triggerVariant?: ButtonProps["variant"];
+  triggerSize?: ButtonProps["size"];
+  triggerIcon?: ButtonProps["Icon"];
+  triggerClassName?: string;
+}) {
+  const { isOpen, onClose, onToggle } = useDialogState();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+  } = useForm<CreateDriveFolderBody>({
+    resolver: zodResolver(createDriveFolderBody),
+    defaultValues: { driveConnectionId: "" },
+  });
+
+  const onSubmit: SubmitHandler<CreateDriveFolderBody> = useCallback(
+    async (data) => {
+      if (!driveConnectionId) {
+        toastError({
+          title: "Error creating folder",
+          description: "No drive connection found",
+        });
+        return;
+      }
+
+      const result = await createDriveFolderAction(emailAccountId, {
+        ...data,
+        driveConnectionId,
+      });
+
+      if (result?.serverError) {
+        toastError({
+          title: "Error creating folder",
+          description: result.serverError,
+        });
+      } else {
+        toastSuccess({ description: "Folder created!" });
+        reset();
+        onClose();
+        onFolderCreated?.();
+      }
+    },
+    [emailAccountId, reset, onClose, onFolderCreated, driveConnectionId],
+  );
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onToggle}>
+      <DialogTrigger asChild>
+        <Button
+          disabled={!driveConnectionId}
+          variant={triggerVariant}
+          size={triggerSize}
+          Icon={triggerIcon}
+          className={triggerClassName}
+        >
+          {triggerLabel}
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create folder</DialogTitle>
+          <DialogDescription>
+            Create a new folder in your drive to organize your files.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <Input
+            type="text"
+            name="folderName"
+            label="Folder name"
+            placeholder="e.g. Receipts"
+            registerProps={register("folderName")}
+            error={errors.folderName}
+          />
+          <Button type="submit" loading={isSubmitting}>
+            Create folder
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
