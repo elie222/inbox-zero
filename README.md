@@ -1,3 +1,8 @@
+# Inbox Zero - CLI LLM Integration Fork
+
+Fork of Inbox Zero with support for routing LLM requests to multiple CLI tools.
+
+---
 [![](apps/web/app/opengraph-image.png)](https://www.getinboxzero.com)
 
 <p align="center">
