@@ -18,7 +18,7 @@ export const POST = withError(
 
     try {
       const body = digestBody.parse(await request.json());
-      const { emailAccountId, coldEmailId, actionId, message } = body;
+      const { emailAccountId, actionId, message } = body;
 
       logger = logger.with({ emailAccountId, messageId: message.id });
 
@@ -71,7 +71,6 @@ export const POST = withError(
         threadId: message.threadId || "",
         emailAccountId,
         actionId,
-        coldEmailId,
         content: summary,
         logger,
       });
@@ -127,14 +126,12 @@ async function updateDigestItem(
   itemId: string,
   contentString: string,
   actionId?: string,
-  coldEmailId?: string,
 ) {
   return await prisma.digestItem.update({
     where: { id: itemId },
     data: {
       content: contentString,
       ...(actionId && { actionId }),
-      ...(coldEmailId && { coldEmailId }),
     },
   });
 }
@@ -145,14 +142,12 @@ async function createDigestItem({
   threadId,
   contentString,
   actionId,
-  coldEmailId,
 }: {
   digestId: string;
   messageId: string;
   threadId: string;
   contentString: string;
   actionId?: string;
-  coldEmailId?: string;
 }) {
   return await prisma.digestItem.upsert({
     where: {
@@ -165,7 +160,6 @@ async function createDigestItem({
     update: {
       content: contentString,
       ...(actionId && { actionId }),
-      ...(coldEmailId && { coldEmailId }),
     },
     create: {
       messageId,
@@ -173,7 +167,6 @@ async function createDigestItem({
       content: contentString,
       digestId,
       ...(actionId && { actionId }),
-      ...(coldEmailId && { coldEmailId }),
     },
   });
 }
@@ -183,7 +176,6 @@ async function upsertDigest({
   threadId,
   emailAccountId,
   actionId,
-  coldEmailId,
   content,
   logger,
 }: {
@@ -191,7 +183,6 @@ async function upsertDigest({
   threadId: string;
   emailAccountId: string;
   actionId?: string;
-  coldEmailId?: string;
   content: StoredDigestContent;
   logger: Logger;
 }) {
@@ -206,12 +197,7 @@ async function upsertDigest({
 
     if (existingItem) {
       logger.info("Updating existing digest item");
-      await updateDigestItem(
-        existingItem.id,
-        contentString,
-        actionId,
-        coldEmailId,
-      );
+      await updateDigestItem(existingItem.id, contentString, actionId);
     } else {
       logger.info("Creating new digest item");
       await createDigestItem({
@@ -220,7 +206,6 @@ async function upsertDigest({
         threadId,
         contentString,
         actionId,
-        coldEmailId,
       });
     }
   } catch (error) {
