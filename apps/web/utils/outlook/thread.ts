@@ -213,7 +213,7 @@ export async function getThreadMessages(
 ): Promise<ParsedMessage[]> {
   const [messages, folderIds, categoryMap] = await Promise.all([
     getThread(threadId, client, logger),
-    getFolderIds(client, logger),
+    getFolderIds(client, logger, { includeDrafts: false }),
     getCategoryMap(client, logger),
   ]);
 

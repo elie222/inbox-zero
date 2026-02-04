@@ -30,12 +30,32 @@ export const WELL_KNOWN_FOLDERS = {
   junkemail: "junkemail",
 } as const;
 
-export async function getFolderIds(client: OutlookClient, logger: Logger) {
+export async function getFolderIds(
+  client: OutlookClient,
+  logger: Logger,
+  options: { includeDrafts?: boolean } = {},
+) {
+  const includeDrafts = options.includeDrafts ?? true;
   const cachedFolderIds = client.getFolderIdCache();
-  if (cachedFolderIds) return cachedFolderIds;
+  if (cachedFolderIds && (!includeDrafts || cachedFolderIds.drafts)) {
+    return cachedFolderIds;
+  }
+
+  const folderEntries = Object.entries(WELL_KNOWN_FOLDERS).filter(
+    ([key]) => includeDrafts || key !== "drafts",
+  );
+
+  const existingFolderIds = cachedFolderIds ?? {};
+  const entriesToFetch = folderEntries.filter(
+    ([key]) => !existingFolderIds[key],
+  );
+
+  if (entriesToFetch.length === 0) {
+    return existingFolderIds;
+  }
 
   const wellKnownFolders = await Promise.all(
-    Object.entries(WELL_KNOWN_FOLDERS).map(async ([key, folderName]) => {
+    entriesToFetch.map(async ([key, folderName]) => {
       const response: { id?: string | null } = await withOutlookRetry(
         () =>
           client
@@ -53,7 +73,7 @@ export async function getFolderIds(client: OutlookClient, logger: Logger) {
     }),
   );
 
-  const userFolderIds = wellKnownFolders.reduce(
+  const fetchedFolderIds = wellKnownFolders.reduce(
     (acc, [key, id]) => {
       if (id) acc[key] = id;
       return acc;
@@ -61,9 +81,10 @@ export async function getFolderIds(client: OutlookClient, logger: Logger) {
     {} as Record<string, string>,
   );
 
-  client.setFolderIdCache(userFolderIds);
+  const mergedFolderIds = { ...existingFolderIds, ...fetchedFolderIds };
+  client.setFolderIdCache(mergedFolderIds);
 
-  return userFolderIds;
+  return mergedFolderIds;
 }
 
 export async function getCategoryMap(
@@ -274,7 +295,7 @@ export async function queryBatchMessages(
   }
 
   const [folderIds, categoryMap] = await Promise.all([
-    getFolderIds(client, logger),
+    getFolderIds(client, logger, { includeDrafts: false }),
     getCategoryMap(client, logger),
   ]);
 
@@ -437,7 +458,7 @@ export async function queryMessagesWithFilters(
   }
 
   const [folderIds, categoryMap] = await Promise.all([
-    getFolderIds(client, logger),
+    getFolderIds(client, logger, { includeDrafts: false }),
     getCategoryMap(client, logger),
   ]);
 
@@ -597,7 +618,7 @@ export async function getMessage(
   );
 
   const [folderIds, categoryMap] = await Promise.all([
-    getFolderIds(client, logger),
+    getFolderIds(client, logger, { includeDrafts: false }),
     getCategoryMap(client, logger),
   ]);
 
@@ -626,7 +647,7 @@ export async function getMessages(
     await withOutlookRetry(() => request.get(), logger);
 
   const [folderIds, categoryMap] = await Promise.all([
-    getFolderIds(client, logger),
+    getFolderIds(client, logger, { includeDrafts: false }),
     getCategoryMap(client, logger),
   ]);
   const messages = await convertMessages(
