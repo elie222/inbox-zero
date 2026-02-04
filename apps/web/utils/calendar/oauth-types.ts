@@ -31,6 +31,7 @@ export interface OAuthCallbackValidation {
   code: string;
   redirectUrl: URL;
   response: NextResponse;
+  calendarState: CalendarOAuthState;
 }
 
 export interface CalendarOAuthState {
