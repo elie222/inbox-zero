@@ -39,6 +39,10 @@ import { withNetworkRetry, withLLMRetry } from "./retry";
 
 const logger = createScopedLogger("llms");
 
+function isCLIProvider(model: LanguageModelV2 | LLMProvider): model is LLMProvider {
+  return (model as LLMProvider).complete !== undefined;
+}
+
 const MAX_LOG_LENGTH = 200;
 
 const commonOptions: {
@@ -59,12 +63,44 @@ export function createGenerateText({
   return async (...args) => {
     const [options, ...restArgs] = args;
 
-    const generate = async (model: LanguageModelV2) => {
+    const generate = async (model: LanguageModelV2 | LLMProvider) => {
       logger.trace("Generating text", {
         label,
         system: options.system?.slice(0, MAX_LOG_LENGTH),
         prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
+
+      if (isCLIProvider(model)) {
+        if (typeof options.prompt !== "string") {
+          throw new Error("CLI provider only supports string prompts");
+        }
+
+        let fullPrompt = options.prompt;
+
+        // Append system prompt if present (although options may have system separate)
+        // CLI provider interface supports systemPrompt in options
+
+        const response = await model.complete(fullPrompt, {
+          systemPrompt: options.system as string,
+        });
+
+        // Mocking the result structure of generateText
+        // This is a simplification as generateText returns much more
+        return {
+          text: response.content,
+          finishReason: 'stop',
+          usage: {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+          },
+          toolCalls: [],
+          toolResults: [],
+          request: {},
+          response: {},
+          warnings: [],
+        } as any;
+      }
 
       const result = await generateText(
         {
@@ -176,6 +212,36 @@ export function createGenerateObject({
         !options.prompt?.includes("JSON")
       ) {
         logger.warn("Missing JSON in prompt", { label });
+      }
+
+      if (isCLIProvider(modelOptions.model)) {
+        if (typeof options.prompt !== "string") {
+          throw new Error("CLI provider only supports string prompts");
+        }
+
+        const response = await modelOptions.model.complete(options.prompt, {
+           systemPrompt: options.system as string,
+        });
+
+        let object: any;
+        try {
+           // Try to parse the content as JSON directly
+           object = JSON.parse(response.content);
+        } catch (e) {
+           // If that fails, try jsonrepair
+           logger.info("Repairing text for CLI provider", { label });
+           const fixed = jsonrepair(response.content);
+           object = JSON.parse(fixed);
+        }
+
+        return {
+          object,
+          usage: {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+          },
+        } as any;
       }
 
       const result = await generateObject(

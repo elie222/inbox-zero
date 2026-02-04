@@ -12,6 +12,8 @@ import { env } from "@/env";
 import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
+import { providerManager } from "./cli/provider-manager";
+import type { LLMProvider } from "./cli/types";
 
 // Thinking budget for Google models (set low to minimize cost)
 const GOOGLE_THINKING_BUDGET = 0;
@@ -23,7 +25,7 @@ export type ModelType = "default" | "economy" | "chat";
 export type SelectModel = {
   provider: string;
   modelName: string;
-  model: LanguageModelV2;
+  model: LanguageModelV2 | LLMProvider;
   providerOptions?: Record<string, any>;
   backupModel: LanguageModelV2 | null;
 };
@@ -207,6 +209,19 @@ function selectModel(
         })(modelName),
         // Note: Anthropic thinking is disabled by default (not including the config)
         backupModel: getBackupModel(aiApiKey),
+      };
+    }
+    case Provider.GEMINI_CLI: {
+      const modelName = "gemini-cli";
+      const model = providerManager.get("gemini-cli");
+      if (!model) {
+        throw new Error("Gemini CLI provider not found");
+      }
+      return {
+        provider: Provider.GEMINI_CLI,
+        modelName,
+        model,
+        backupModel: null,
       };
     }
     default: {
