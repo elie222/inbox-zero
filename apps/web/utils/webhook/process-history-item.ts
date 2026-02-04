@@ -11,6 +11,7 @@ import {
   getExtractableAttachments,
 } from "@/utils/drive/filing-engine";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
+import { cleanupThreadAIDrafts } from "@/utils/reply-tracker/draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailAccount } from "@/generated/prisma/client";
@@ -197,6 +198,21 @@ export async function processHistoryItem(
     }
 
     logger.info("Pre-rules check", { hasAutomationRules, hasAiAccess });
+
+    // Clean up old AI drafts before potentially creating new ones
+    if (actualThreadId) {
+      try {
+        await cleanupThreadAIDrafts({
+          threadId: actualThreadId,
+          emailAccountId,
+          provider,
+          logger,
+        });
+      } catch (error) {
+        logger.error("Error during inbound thread draft cleanup", { error });
+        captureException(error, { emailAccountId });
+      }
+    }
 
     if (hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...");
