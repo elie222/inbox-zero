@@ -154,8 +154,20 @@ async function createDigestItem({
   actionId?: string;
   coldEmailId?: string;
 }) {
-  return await prisma.digestItem.create({
-    data: {
+  return await prisma.digestItem.upsert({
+    where: {
+      digestId_threadId_messageId: {
+        digestId,
+        threadId,
+        messageId,
+      },
+    },
+    update: {
+      content: contentString,
+      ...(actionId && { actionId }),
+      ...(coldEmailId && { coldEmailId }),
+    },
+    create: {
       messageId,
       threadId,
       content: contentString,
