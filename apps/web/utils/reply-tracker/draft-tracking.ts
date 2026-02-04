@@ -137,20 +137,23 @@ export async function trackSentDraftStatus({
 }
 
 /**
- * Cleans up old, unmodified AI-generated drafts in a thread.
- * Finds drafts created by executed actions that haven't been logged as sent,
- * checks if they still exist and are unmodified, and deletes them.
+ * Cleans up old AI-generated drafts in a thread.
+ * Handles both rule-based drafts (ExecutedAction) and follow-up drafts (ThreadTracker).
+ * For rule drafts: checks if unmodified before deleting.
+ * For follow-up drafts: deletes unconditionally (stale if new message arrived).
  */
 export async function cleanupThreadAIDrafts({
   threadId,
   emailAccountId,
   provider,
   logger,
+  excludeMessageId,
 }: {
   threadId: string;
   emailAccountId: string;
   provider: EmailProvider;
   logger: Logger;
+  excludeMessageId: string;
 }) {
   logger.info("Starting cleanup of old AI drafts for thread");
 
@@ -158,11 +161,13 @@ export async function cleanupThreadAIDrafts({
     // Find all draft actions for this thread that:
     // 1. Haven't been logged yet (draftSendLog is null), OR
     // 2. Were logged but the user sent a different reply (wasDraftSent is false)
+    // Excludes drafts for the current message to avoid deleting a draft that was just created
     const potentialDraftsToClean = await prisma.executedAction.findMany({
       where: {
         executedRule: {
           emailAccountId,
           threadId: threadId,
+          messageId: { not: excludeMessageId },
         },
         type: ActionType.DRAFT_EMAIL,
         draftId: { not: null },
@@ -277,6 +282,49 @@ export async function cleanupThreadAIDrafts({
           ...actionLoggerOptions,
           error,
         });
+      }
+    }
+
+    // Also clean up follow-up drafts for this thread
+    // No excludeMessageId filter needed: follow-up drafts are created asynchronously
+    // by a cron job, not in the same request that processes incoming messages
+    const followUpTrackers = await prisma.threadTracker.findMany({
+      where: {
+        emailAccountId,
+        threadId,
+        followUpDraftId: { not: null },
+      },
+      select: {
+        id: true,
+        followUpDraftId: true,
+      },
+    });
+
+    if (followUpTrackers.length > 0) {
+      logger.info("Found follow-up drafts to cleanup", {
+        count: followUpTrackers.length,
+      });
+
+      for (const tracker of followUpTrackers) {
+        if (!tracker.followUpDraftId) continue;
+
+        try {
+          await provider.deleteDraft(tracker.followUpDraftId);
+          await prisma.threadTracker.update({
+            where: { id: tracker.id },
+            data: { followUpDraftId: null },
+          });
+          logger.info("Deleted follow-up draft", {
+            trackerId: tracker.id,
+            draftId: tracker.followUpDraftId,
+          });
+        } catch (error) {
+          logger.error("Error deleting follow-up draft", {
+            trackerId: tracker.id,
+            draftId: tracker.followUpDraftId,
+            error,
+          });
+        }
       }
     }
 
