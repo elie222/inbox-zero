@@ -1,28 +1,17 @@
 ---
 id: flow-id
 title: "Short flow title"
-description: "What this flow validates in 1-2 sentences."
-category: settings
-estimated_duration: 60s
 resources:
   - assistant-settings
-requires:
-  - authenticated_session
-conflicts_with: []
-parallel_safe: false
-timeout_minutes: 20
-preconditions:
-  - "Signed into Inbox Zero as the test account"
-cleanup:
-  - "Revert any settings changed by this flow"
-tags:
-  - settings
-  - regression
 ---
 
 ## Goal
 
 Describe the user-visible behavior being verified.
+
+## Preconditions
+
+- List any prerequisites (logins, connected accounts, feature flags).
 
 ## Steps
 

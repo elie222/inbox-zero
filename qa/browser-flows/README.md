@@ -26,19 +26,10 @@ Each flow is a Markdown file with YAML front matter and core sections.
 
 - `id` (required) Unique slug for the flow. Must match filename.
 - `title` (required) Short, human-friendly name.
-- `description` (required) 1-2 sentence summary of what the flow validates.
-- `category` (optional) Short bucket like `settings`, `rules`, `email`, `integration`.
-- `estimated_duration` (optional) Rough runtime like `30s`, `60s`, `120s`, `180s`.
 - `resources` (required) List of shared resources that this flow mutates or depends on.
   - Examples: `assistant-settings`, `conversation-rules`, `gmail-account`, `outlook-account`.
-- `requires` (optional) Capabilities or accounts needed (e.g., `authenticated_session`, `gmail_account`).
-- `conflicts_with` (optional) Flow ids that should not run in parallel.
-- `parallel_safe` (required) `true` only if the flow can run in parallel with other flows that touch
-  different resources.
-- `timeout_minutes` (optional) Soft limit for the flow.
-- `preconditions` (optional) List of prerequisites (logged in, feature flags, etc.).
-- `cleanup` (optional) List of cleanup actions if the flow modifies state.
-- `tags` (optional) Short labels to help filtering.
+- `parallel_safe` (optional) Set to `true` only if the flow can run in parallel. Omit to default to `false`.
+- `conflicts_with` (optional) Flow ids that should not run in parallel. Omit if none.
 
 **Core sections (required):**
 
@@ -49,6 +40,7 @@ Each flow is a Markdown file with YAML front matter and core sections.
 
 **Optional sections:**
 
+- `Preconditions`
 - `Failure indicators`
 
 ## Parallelization rules
@@ -56,8 +48,8 @@ Each flow is a Markdown file with YAML front matter and core sections.
 When running with `--parallel`, only run flows together if **all** of these are true:
 
 - Their `resources` lists do not overlap.
-- No flow lists another flow in `conflicts_with`.
-- Every flow has `parallel_safe: true`.
+- No flow lists another flow in `conflicts_with` (missing means none).
+- Every flow has `parallel_safe: true` (missing means `false`).
 
 If either condition is not met, run the flow in a separate batch.
 

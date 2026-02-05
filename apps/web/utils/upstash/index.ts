@@ -1,10 +1,10 @@
 import { Client, type FlowControl, type HeadersInit } from "@upstash/qstash";
+import { after } from "next/server";
 import { env } from "@/env";
 import {
   INTERNAL_API_KEY_HEADER,
   getInternalApiUrl,
 } from "@/utils/internal-api";
-import { sleep } from "@/utils/sleep";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("upstash");
@@ -109,14 +109,17 @@ async function fallbackPublishToQstash<T>(
   internalHeaders.set("Content-Type", "application/json");
   internalHeaders.set(INTERNAL_API_KEY_HEADER, env.INTERNAL_API_KEY);
 
-  // Don't await. Run in background
-  fetch(url, {
-    method: "POST",
-    headers: internalHeaders,
-    body: JSON.stringify(body),
+  after(async () => {
+    try {
+      await fetch(url, {
+        method: "POST",
+        headers: internalHeaders,
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      logger.error("Fallback QStash fetch failed", { url, error });
+    }
   });
-  // Wait for 100ms to ensure the request is sent
-  await sleep(100);
 }
 
 export async function listQueues() {

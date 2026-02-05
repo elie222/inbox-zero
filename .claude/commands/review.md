@@ -2,6 +2,8 @@
 
 Code review with craftsman's eye. Auto-fix obvious issues, surface real bugs.
 
+Reference @AGENTS.md for project conventions. Apply those patterns as review criteria.
+
 ## Critical Rules
 
 1. **AUTO-FIX safe obvious issues** - Don't ask permission for no-brainers
@@ -38,6 +40,51 @@ Code review with craftsman's eye. Auto-fix obvious issues, surface real bugs.
 - Any logic change
 - AI slop removal (might be intentional)
 
+## Project-Specific Checks
+
+**Always ask these questions during review:**
+
+### Can this be simpler?
+- Is there unnecessary abstraction? Could this be done with less code?
+- Are there helpers/utils being created for one-time operations?
+- Over-engineered error handling, feature flags, or backwards-compat shims?
+- Unnecessary wrapper components or HOCs?
+
+### Can we remove any code?
+- Dead code, unused exports, commented-out blocks?
+- Re-exports or barrel files (we don't use barrel files)?
+- Backwards-compatibility hacks like renamed `_vars` or `// removed` comments?
+- Types/interfaces exported but only used in the same file?
+
+### Is it DRY without premature abstraction?
+- Obvious copy-paste of entire functions or large blocks → refactor
+- But 2-3 similar lines are fine — don't abstract too early
+- The wrong abstraction is worse than duplication
+
+### Is it structured correctly?
+- **Colocate page-specific components** next to their page (not in a nested `components/` subfolder — we don't do that in route directories)
+- **General/reusable components** go in `apps/web/components/`
+- **API routes**: One resource per route, not combined data endpoints
+- **Server actions** for mutations, not POST routes
+- **Validation schemas** in separate `.validation.ts` files
+- **Helper functions** at the bottom of files, not the top
+- **All imports** at the top — no mid-file dynamic imports
+- **No barrel files** (index.ts re-exporting everything from a folder)
+
+### Does it follow project patterns? (see @AGENTS.md)
+- GET routes wrapped with `withAuth` or `withEmailAccount`?
+- Response types exported as `Awaited<ReturnType<typeof fn>>`?
+- SWR for client-side data fetching?
+- `LoadingContent` for loading/error states?
+- `useAction` from `next-safe-action/hooks` for form submissions?
+- Zod schemas with `z.infer<typeof schema>` instead of duplicate interfaces?
+- Self-documenting code? Comments explain "why" not "what"?
+- `logger.trace()` for PII fields?
+
+### Learnings check
+- Did this change teach us something that should be captured in `AGENTS.md` or this review file?
+- Are there patterns that keep coming up that we should document?
+
 ## Mindset
 
 **Inheritance Test:** Would I curse the previous author? Understand at 2am?
@@ -56,9 +103,9 @@ git diff --cached --name-only  # or HEAD
 
 **Group files by area/dependency:**
 ```
-Batch 1: src/auth/* (3 files)
-Batch 2: src/api/user.ts, src/types/user.ts (related)
-Batch 3: src/utils/* (2 files)
+Batch 1: apps/web/app/api/agent/* (3 files)
+Batch 2: apps/web/app/(app)/[emailAccountId]/agent/* (related components)
+Batch 3: apps/web/utils/actions/* (2 files)
 ```
 
 **Output:** `Found X files in Y batches`
@@ -70,9 +117,9 @@ Batch 3: src/utils/* (2 files)
 **BEFORE reading any file content**, create todo list:
 
 ```
-- [ ] Batch 1: auth area (auth.ts, login.ts, session.ts)
-- [ ] Batch 2: user area (user.ts, user.types.ts)
-- [ ] Batch 3: utils (helpers.ts, format.ts)
+- [ ] Batch 1: API routes (skills, allowed-actions)
+- [ ] Batch 2: agent page components (agent-page, chat, tools)
+- [ ] Batch 3: server actions (agent.ts, agent.validation.ts)
 ```
 
 Use `todo_write` to track batches.
@@ -119,6 +166,10 @@ What to fix?
 - d) Custom (e.g., "1,3")
 
 I'll assume a) if you don't specify.
+
+Learnings:
+- Any patterns worth adding to AGENTS.md?
+- Any new review checks to add to this file?
 ```
 
 **STOP. Wait for selection.**
@@ -142,6 +193,7 @@ Process fixes batch-by-batch (same grouping):
 - Business logic errors, wrong conditions
 - Race conditions, data loss
 - Security: injection, XSS, exposed secrets
+- API routes missing auth middleware
 - Null/undefined not handled
 - Edge cases that break
 
@@ -151,6 +203,9 @@ Process fixes batch-by-batch (same grouping):
 - Test coverage gaps
 - AI slop (WHAT comments, unnecessary try/catch, `as any`)
 - Missing validation
+- Combined API routes that should be separate
+- POST routes used for mutations instead of server actions
+- Barrel files / re-export patterns
 
 **CONSIDER (Opinions):**
 - Refactoring opportunities

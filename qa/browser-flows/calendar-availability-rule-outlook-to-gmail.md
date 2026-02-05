@@ -1,36 +1,22 @@
 ---
 id: calendar-availability-rule-outlook-to-gmail
 title: "Calendar rule applies label and draft upon availability request"
-description: "Ensure the Calendar rule is enabled and that Outlook -> Gmail messages get labeled and drafted upon availability request."
-category: email
-estimated_duration: 180s
 resources:
   - conversation-rules
   - gmail-account
   - outlook-account
-requires:
-  - authenticated_session
-  - gmail_account
-  - outlook_account
-conflicts_with: []
-parallel_safe: false
-timeout_minutes: 20
-preconditions:
-  - "Signed into Inbox Zero as a test account"
-  - "Signed into Outlook test account in another tab"
-  - "Signed into Gmail test account in another tab"
-  - "Inbox Zero is connected to both Gmail and Outlook"
-cleanup:
-  - close all tabs used for the test
-tags:
-  - rules
-  - outlook
-  - gmail
 ---
 
 ## Goal
 
 Verify that enabling the Calendar rule results in a Gmail label and a reply draft for a message that requests calendar availability.
+
+## Preconditions
+
+- Signed into Inbox Zero as a test account.
+- Signed into Outlook test account in another tab.
+- Signed into Gmail test account in another tab.
+- Inbox Zero is connected to both Gmail and Outlook.
 
 ## Steps
 

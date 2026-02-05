@@ -170,7 +170,9 @@ export async function createCalendarConnection(params: {
   });
 }
 
-export function extractAadstsCode(errorDescription: string | null): string | null {
+export function extractAadstsCode(
+  errorDescription: string | null,
+): string | null {
   if (!errorDescription) return null;
   const match = errorDescription.match(/AADSTS\d+/);
   return match ? match[0] : null;
@@ -189,7 +191,10 @@ export function mapCalendarOAuthError(params: {
     return "admin_consent_required";
   }
 
-  if (params.oauthError === "access_denied" && params.errorSubcode === "cancel") {
+  if (
+    params.oauthError === "access_denied" &&
+    params.errorSubcode === "cancel"
+  ) {
     return "consent_declined";
   }
 

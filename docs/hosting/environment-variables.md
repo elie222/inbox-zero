@@ -36,7 +36,7 @@ cp apps/web/.env.example apps/web/.env
 | `UPSTASH_REDIS_TOKEN` | No* | Upstash Redis token or serverless-redis-http token (*required if not using Docker Compose) | — |
 | `REDIS_URL` | No | Alternative Redis URL (for subscriptions) | — |
 | **LLM Provider Selection** ||||
-| `DEFAULT_LLM_PROVIDER` | No | Primary LLM provider (`anthropic`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`) | `anthropic` |
+| `DEFAULT_LLM_PROVIDER` | Yes | Primary LLM provider (`anthropic`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`) | — |
 | `DEFAULT_LLM_MODEL` | No | Model to use with default provider | Provider default |
 | `DEFAULT_OPENROUTER_PROVIDERS` | No | Comma-separated list of OpenRouter providers | — |
 | `ECONOMY_LLM_PROVIDER` | No | Provider for cheaper operations | — |
