@@ -11,6 +11,8 @@ import {
   EnableSendingTool,
 } from "@/components/agent-tools";
 
+const noop = () => {};
+
 const mockSearchResults = {
   query: "newsletter unsubscribe",
   results: [
@@ -196,7 +198,7 @@ export function AgentToolsDemo() {
         <DraftReplyTool
           input={{ emailId: "1", instructions: "Write a brief acknowledgment" }}
           output={mockDraftReply}
-          onViewDraft={(id) => console.log("View draft:", id)}
+          onViewDraft={noop}
         />
       </section>
 
@@ -204,11 +206,7 @@ export function AgentToolsDemo() {
         <h3 className="mb-3 font-medium text-muted-foreground">
           Send Reply (Action Required)
         </h3>
-        <SendReplyTool
-          input={mockSendReply}
-          onApprove={() => console.log("Approved")}
-          onDeny={() => console.log("Denied")}
-        />
+        <SendReplyTool input={mockSendReply} onApprove={noop} onDeny={noop} />
       </section>
 
       <section>
@@ -217,8 +215,8 @@ export function AgentToolsDemo() {
         </h3>
         <UpdateSettingsTool
           input={mockSettingsUpdate}
-          onConfirm={() => console.log("Settings confirmed")}
-          onCancel={() => console.log("Settings cancelled")}
+          onConfirm={noop}
+          onCancel={noop}
         />
       </section>
 
@@ -226,10 +224,7 @@ export function AgentToolsDemo() {
         <h3 className="mb-3 font-medium text-muted-foreground">
           Enable Sending (Action Required)
         </h3>
-        <EnableSendingTool
-          onEnable={() => console.log("Sending enabled")}
-          onSkip={() => console.log("Skipped")}
-        />
+        <EnableSendingTool onEnable={noop} onSkip={noop} />
       </section>
     </div>
   );
