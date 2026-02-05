@@ -74,6 +74,7 @@ export const updateDigestScheduleAction = actionClient
   .inputSchema(saveDigestScheduleBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
     const { intervalDays, daysOfWeek, timeOfDay, occurrences } = parsedInput;
+    const timezone = await getEmailAccountTimezone(emailAccountId);
 
     const create: Prisma.ScheduleUpsertArgs["create"] = {
       emailAccountId,
@@ -82,10 +83,13 @@ export const updateDigestScheduleAction = actionClient
       timeOfDay,
       occurrences,
       lastOccurrenceAt: new Date(),
-      nextOccurrenceAt: calculateNextScheduleDate({
-        ...parsedInput,
-        lastOccurrenceAt: null,
-      }),
+      nextOccurrenceAt: calculateNextScheduleDate(
+        {
+          ...parsedInput,
+          lastOccurrenceAt: null,
+        },
+        timezone,
+      ),
     };
 
     const { emailAccountId: _emailAccountId, ...update } = create;
@@ -161,11 +165,12 @@ export const toggleDigestAction = actionClient
       parsedInput: { enabled, timeOfDay },
     }) => {
       if (enabled) {
+        const timezone = await getEmailAccountTimezone(emailAccountId);
         const defaultSchedule = {
           intervalDays: 1,
           occurrences: 1,
           daysOfWeek: 127,
-          timeOfDay: timeOfDay ?? createCanonicalTimeOfDay(9, 0),
+          timeOfDay: timeOfDay ?? createCanonicalTimeOfDay(9, 0, timezone),
         };
 
         await prisma.schedule.upsert({
@@ -174,10 +179,13 @@ export const toggleDigestAction = actionClient
             emailAccountId,
             ...defaultSchedule,
             lastOccurrenceAt: new Date(),
-            nextOccurrenceAt: calculateNextScheduleDate({
-              ...defaultSchedule,
-              lastOccurrenceAt: null,
-            }),
+            nextOccurrenceAt: calculateNextScheduleDate(
+              {
+                ...defaultSchedule,
+                lastOccurrenceAt: null,
+              },
+              timezone,
+            ),
           },
           update: {},
         });
@@ -204,3 +212,12 @@ export const toggleDigestAction = actionClient
       return { success: true };
     },
   );
+
+async function getEmailAccountTimezone(emailAccountId: string) {
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: { timezone: true },
+  });
+
+  return emailAccount?.timezone ?? null;
+}

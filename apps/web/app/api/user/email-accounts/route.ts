@@ -26,6 +26,7 @@ async function getEmailAccounts({ userId }: { userId: string }) {
       accountId: true,
       name: true,
       image: true,
+      timezone: true,
       account: {
         select: {
           provider: true,

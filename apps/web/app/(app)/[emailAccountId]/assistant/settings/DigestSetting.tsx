@@ -23,6 +23,7 @@ import { createCanonicalTimeOfDay } from "@/utils/schedule";
 export function DigestSetting() {
   const [open, setOpen] = useState(false);
   const { data, isLoading, mutate } = useEmailAccountFull();
+  const timezone = data?.timezone ?? null;
 
   const enabled = data?.digestSchedule != null;
 
@@ -49,10 +50,12 @@ export function DigestSetting() {
       mutate(optimisticData as typeof data, false);
       executeToggle({
         enabled: enable,
-        timeOfDay: enable ? createCanonicalTimeOfDay(9, 0) : undefined,
+        timeOfDay: enable
+          ? createCanonicalTimeOfDay(9, 0, timezone)
+          : undefined,
       });
     },
-    [data, mutate, executeToggle],
+    [data, timezone, mutate, executeToggle],
   );
 
   return (

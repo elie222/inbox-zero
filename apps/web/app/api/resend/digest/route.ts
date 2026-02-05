@@ -110,6 +110,7 @@ async function sendEmail({
     where: { id: emailAccountId },
     select: {
       email: true,
+      timezone: true,
       account: { select: { provider: true } },
     },
   });
@@ -125,6 +126,12 @@ async function sendEmail({
   });
 
   const digestScheduleData = await getDigestSchedule({ emailAccountId });
+  const scheduleRunAt = new Date();
+  const scheduleUpdate = buildDigestScheduleUpdate({
+    digestSchedule: digestScheduleData,
+    timezone: emailAccount.timezone,
+    runAt: scheduleRunAt,
+  });
 
   const pendingDigests = await prisma.digest.findMany({
     where: {
@@ -173,6 +180,15 @@ async function sendEmail({
     // Return early if no digests were found, unless force is true
     if (pendingDigests.length === 0) {
       if (!force) {
+        if (scheduleUpdate && digestScheduleData) {
+          await prisma.schedule.update({
+            where: {
+              id: digestScheduleData.id,
+              emailAccountId,
+            },
+            data: scheduleUpdate,
+          });
+        }
         return { success: true, message: "No digests to process" };
       }
       // When force is true, send an empty digest to indicate the system is working
@@ -301,17 +317,14 @@ async function sendEmail({
     // Only update database if email sending succeeded
     // Use a transaction to ensure atomicity - all updates succeed or none are applied
     await prisma.$transaction([
-      ...(digestScheduleData
+      ...(digestScheduleData && scheduleUpdate
         ? [
             prisma.schedule.update({
               where: {
                 id: digestScheduleData.id,
                 emailAccountId,
               },
-              data: {
-                lastOccurrenceAt: new Date(),
-                nextOccurrenceAt: calculateNextScheduleDate(digestScheduleData),
-              },
+              data: scheduleUpdate,
             }),
           ]
         : []),
@@ -354,4 +367,29 @@ async function sendEmail({
   }
 
   return { success: true, message: "Digest email sent successfully" };
+}
+
+function buildDigestScheduleUpdate({
+  digestSchedule,
+  timezone,
+  runAt,
+}: {
+  digestSchedule: Awaited<ReturnType<typeof getDigestSchedule>> | null;
+  timezone: string | null | undefined;
+  runAt: Date;
+}) {
+  if (!digestSchedule) return null;
+
+  const scheduledAt = digestSchedule.nextOccurrenceAt ?? runAt;
+  const nextOccurrenceAt = calculateNextScheduleDate(
+    { ...digestSchedule, lastOccurrenceAt: scheduledAt },
+    timezone,
+  );
+
+  if (!nextOccurrenceAt) return null;
+
+  return {
+    lastOccurrenceAt: runAt,
+    nextOccurrenceAt,
+  };
 }

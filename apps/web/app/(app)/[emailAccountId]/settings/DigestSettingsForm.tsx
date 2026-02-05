@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { TZDate } from "@date-fns/tz";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,6 +34,7 @@ import {
   dayOfWeekToBitmask,
   bitmaskToDayOfWeek,
 } from "@/utils/schedule";
+import { formatDateTimeInUserTimezone } from "@/utils/date";
 
 const digestSettingsSchema = z.object({
   selectedItems: z.set(z.string()),
@@ -60,7 +62,8 @@ const daysOfWeek = [
 ];
 
 export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, emailAccount } = useAccount();
+  const timezone = emailAccount?.timezone ?? null;
   const {
     data: rules,
     isLoading: rulesLoading,
@@ -158,13 +161,16 @@ export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
       setSelectedDigestItems(selectedItems);
 
       // Initialize schedule form data
-      const initialScheduleProps = getInitialScheduleProps(scheduleData);
+      const initialScheduleProps = getInitialScheduleProps(
+        scheduleData,
+        timezone,
+      );
       reset({
         selectedItems,
         ...initialScheduleProps,
       });
     }
-  }, [rules, digestSettings, scheduleData, reset]);
+  }, [rules, digestSettings, scheduleData, reset, timezone]);
 
   // Update form when selectedDigestItems changes
   useEffect(() => {
@@ -207,7 +213,7 @@ export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
       const hour24 = Number.parseInt(hourStr, 10);
       const minute = Number.parseInt(minuteStr, 10);
 
-      const timeOfDay = createCanonicalTimeOfDay(hour24, minute);
+      const timeOfDay = createCanonicalTimeOfDay(hour24, minute, timezone);
 
       const scheduleUpdateData = {
         intervalDays,
@@ -233,8 +239,15 @@ export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
         });
       }
     },
-    [rules, executeItems, executeSchedule, onSuccess],
+    [rules, executeItems, executeSchedule, onSuccess, timezone],
   );
+
+  const lastRunText = scheduleData?.lastOccurrenceAt
+    ? formatDateTimeInUserTimezone(
+        new Date(scheduleData.lastOccurrenceAt),
+        timezone,
+      )
+    : "Not yet";
 
   // Create options for MultiSelectFilter
   const digestOptions = [
@@ -329,6 +342,11 @@ export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
                   onChange={(value) => setValue("time", value)}
                 />
               </div>
+              {scheduleData && (
+                <p className="text-sm text-muted-foreground mt-3">
+                  Last run: {lastRunText}
+                </p>
+              )}
             </div>
 
             <Button type="submit" loading={isSubmitting} className="mt-4">
@@ -390,6 +408,7 @@ function EmailPreview({
 
 function getInitialScheduleProps(
   digestSchedule?: GetDigestScheduleResponse | null,
+  timezone?: string | null,
 ) {
   const initialSchedule = (() => {
     if (!digestSchedule) return "daily";
@@ -414,17 +433,7 @@ function getInitialScheduleProps(
   })();
 
   const initialTime = digestSchedule?.timeOfDay
-    ? (() => {
-        const hours = new Date(digestSchedule.timeOfDay)
-          .getHours()
-          .toString()
-          .padStart(2, "0");
-        const minutes = new Date(digestSchedule.timeOfDay)
-          .getMinutes()
-          .toString()
-          .padStart(2, "0");
-        return `${hours}:${minutes}`;
-      })()
+    ? formatTimeOfDay(digestSchedule.timeOfDay, timezone)
     : "09:00";
 
   return {
@@ -432,4 +441,19 @@ function getInitialScheduleProps(
     dayOfWeek: initialDayOfWeek,
     time: initialTime,
   };
+}
+
+function formatTimeOfDay(timeOfDay: Date, timezone?: string | null) {
+  try {
+    const timeInTimezone = timezone
+      ? new TZDate(timeOfDay, timezone)
+      : new Date(timeOfDay);
+    const hours = timeInTimezone.getHours().toString().padStart(2, "0");
+    const minutes = timeInTimezone.getMinutes().toString().padStart(2, "0");
+    return `${hours}:${minutes}`;
+  } catch {
+    const hours = timeOfDay.getHours().toString().padStart(2, "0");
+    const minutes = timeOfDay.getMinutes().toString().padStart(2, "0");
+    return `${hours}:${minutes}`;
+  }
 }

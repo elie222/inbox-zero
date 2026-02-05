@@ -2,6 +2,7 @@ import { z } from "zod";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useCallback } from "react";
 import useSWR from "swr";
+import { TZDate } from "@date-fns/tz";
 import {
   Select,
   SelectItem,
@@ -100,7 +101,8 @@ function DigestScheduleFormInner({
   mutate: () => void;
   showSaveButton: boolean;
 }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, emailAccount } = useAccount();
+  const timezone = emailAccount?.timezone ?? null;
 
   const {
     handleSubmit,
@@ -109,7 +111,7 @@ function DigestScheduleFormInner({
     formState: { errors, isSubmitting },
   } = useForm<DigestScheduleFormValues>({
     resolver: zodResolver(digestScheduleFormSchema),
-    defaultValues: getInitialScheduleProps(data),
+    defaultValues: getInitialScheduleProps(data, timezone),
   });
 
   const watchedValues = watch();
@@ -161,6 +163,7 @@ function DigestScheduleFormInner({
       const timeOfDay = createCanonicalTimeOfDay(
         hour24,
         Number.parseInt(minute, 10),
+        timezone,
       );
 
       const scheduleData = {
@@ -172,7 +175,7 @@ function DigestScheduleFormInner({
 
       execute(scheduleData);
     },
-    [execute],
+    [execute, timezone],
   );
 
   return (
@@ -333,6 +336,7 @@ function DigestScheduleFormInner({
 
 function getInitialScheduleProps(
   digestSchedule?: GetDigestScheduleResponse | null,
+  timezone?: string | null,
 ) {
   const initialSchedule = (() => {
     if (!digestSchedule) return "daily";
@@ -357,18 +361,7 @@ function getInitialScheduleProps(
   })();
 
   const initialTimeOfDay = digestSchedule?.timeOfDay
-    ? (() => {
-        // Extract time from canonical date (1970-01-01T00:00:00Z + time)
-        const hours = new Date(digestSchedule.timeOfDay)
-          .getHours()
-          .toString()
-          .padStart(2, "0");
-        const minutes = new Date(digestSchedule.timeOfDay)
-          .getMinutes()
-          .toString()
-          .padStart(2, "0");
-        return `${hours}:${minutes}`;
-      })()
+    ? formatTimeOfDay(digestSchedule.timeOfDay, timezone)
     : "09:00";
 
   const [initHour24, initMinute] = initialTimeOfDay.split(":");
@@ -386,4 +379,19 @@ function getInitialScheduleProps(
     minute: initMinute || "00",
     ampm,
   };
+}
+
+function formatTimeOfDay(timeOfDay: Date, timezone?: string | null) {
+  try {
+    const timeInTimezone = timezone
+      ? new TZDate(timeOfDay, timezone)
+      : new Date(timeOfDay);
+    const hours = timeInTimezone.getHours().toString().padStart(2, "0");
+    const minutes = timeInTimezone.getMinutes().toString().padStart(2, "0");
+    return `${hours}:${minutes}`;
+  } catch {
+    const hours = timeOfDay.getHours().toString().padStart(2, "0");
+    const minutes = timeOfDay.getMinutes().toString().padStart(2, "0");
+    return `${hours}:${minutes}`;
+  }
 }

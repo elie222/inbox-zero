@@ -748,6 +748,46 @@ describe("calculateNextScheduleDate", () => {
       expect(result!.getMinutes()).toBe(0);
     });
   });
+
+  describe("timezone-aware scheduling", () => {
+    it("should schedule daily digest in the specified timezone", () => {
+      const timezone = "America/Sao_Paulo";
+      const timeOfDay = createCanonicalTimeOfDay(9, 0, timezone);
+      const fromDate = new Date("2024-01-15T10:00:00Z"); // 7 AM in Sao Paulo
+
+      const result = calculateNextScheduleDate(
+        {
+          intervalDays: 1,
+          daysOfWeek: null,
+          timeOfDay,
+          occurrences: 1,
+          lastOccurrenceAt: fromDate,
+        },
+        timezone,
+      );
+
+      expect(result?.toISOString()).toBe("2024-01-15T12:00:00.000Z");
+    });
+
+    it("should respect DST shifts in the specified timezone", () => {
+      const timezone = "America/New_York";
+      const timeOfDay = createCanonicalTimeOfDay(9, 0, timezone);
+      const fromDate = new Date("2024-03-09T14:00:00Z"); // 9 AM EST
+
+      const result = calculateNextScheduleDate(
+        {
+          intervalDays: 1,
+          daysOfWeek: null,
+          timeOfDay,
+          occurrences: 1,
+          lastOccurrenceAt: fromDate,
+        },
+        timezone,
+      );
+
+      expect(result?.toISOString()).toBe("2024-03-10T13:00:00.000Z");
+    });
+  });
 });
 
 describe("calculateNextScheduleDate - Bug Fix Tests", () => {

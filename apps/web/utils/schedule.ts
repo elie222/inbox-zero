@@ -1,5 +1,5 @@
 import type { Schedule } from "@/generated/prisma/client";
-import { addDays } from "date-fns";
+import { TZDate } from "@date-fns/tz";
 
 /**
  * Creates a canonical timeOfDay Date object using Unix epoch (1970-01-01).
@@ -9,7 +9,19 @@ import { addDays } from "date-fns";
  * @param minutes - Minutes (0-59)
  * @returns Date object with canonical date and specified time
  */
-export function createCanonicalTimeOfDay(hours: number, minutes: number): Date {
+export function createCanonicalTimeOfDay(
+  hours: number,
+  minutes: number,
+  timezone?: string | null,
+): Date {
+  if (timezone) {
+    try {
+      return new TZDate(1970, 0, 1, hours, minutes, 0, 0, timezone);
+    } catch {
+      // Fall back to local time if timezone is invalid
+    }
+  }
+
   return new Date(1970, 0, 1, hours, minutes, 0, 0);
 }
 
@@ -127,22 +139,20 @@ export function calculateNextScheduleDate(
     "intervalDays" | "daysOfWeek" | "timeOfDay" | "occurrences"
   > &
     Partial<Pick<Schedule, "lastOccurrenceAt">>,
+  timezone?: string | null,
 ): Date | null {
   if (!frequency) return null;
 
   const { intervalDays, daysOfWeek, timeOfDay, occurrences, lastOccurrenceAt } =
     frequency;
 
-  const fromDate = lastOccurrenceAt || new Date();
+  const fromDate = createScheduleDate(lastOccurrenceAt || new Date(), timezone);
+  const timeParts = getTimeParts(timeOfDay, timezone);
 
   // Helper to set the time of day
   function setTime(date: Date) {
-    if (timeOfDay) {
-      // Extract time from canonical date (1970-01-01T00:00:00Z + time)
-      // timeOfDay should always use canonical date for consistency
-      const hours = timeOfDay.getHours();
-      const minutes = timeOfDay.getMinutes();
-      date.setHours(hours, minutes, 0, 0);
+    if (timeParts) {
+      date.setHours(timeParts.hours, timeParts.minutes, 0, 0);
     } else {
       // Reset to midnight when no specific time is set
       date.setHours(0, 0, 0, 0);
@@ -156,14 +166,14 @@ export function calculateNextScheduleDate(
     const slotLength = intervalDays / occ;
 
     // Find the start of the current interval
-    const intervalStart = new Date(fromDate);
+    const intervalStart = createScheduleDate(fromDate, timezone);
     intervalStart.setHours(0, 0, 0, 0);
 
     // Find the next slot
     for (let i = 0; i < occ; i++) {
       // Calculate slot offset in days (preserves fractional spacing)
       const dayOffset = i * slotLength;
-      const slotDate = addDays(intervalStart, dayOffset);
+      const slotDate = addDaysByCalendar(intervalStart, dayOffset, timezone);
       setTime(slotDate);
 
       if (slotDate > fromDate) {
@@ -171,7 +181,11 @@ export function calculateNextScheduleDate(
       }
     }
     // If all slots for this interval are in the past, return the first slot of the next interval
-    const nextIntervalStart = addDays(intervalStart, intervalDays);
+    const nextIntervalStart = addDaysByCalendar(
+      intervalStart,
+      intervalDays,
+      timezone,
+    );
     setTime(nextIntervalStart);
     return nextIntervalStart;
   }
@@ -188,14 +202,11 @@ export function calculateNextScheduleDate(
       const nextDayMask = maskFor(nextDayOfWeek);
 
       if (daysOfWeek & nextDayMask) {
-        const nextDate = addDays(fromDate, daysToAdd);
+        const nextDate = addDaysByCalendar(fromDate, daysToAdd, timezone);
 
         // If timeOfDay is set, set the time
-        if (timeOfDay) {
-          // Extract time from canonical date (1970-01-01T00:00:00Z + time)
-          const hours = timeOfDay.getHours();
-          const minutes = timeOfDay.getMinutes();
-          nextDate.setHours(hours, minutes, 0, 0);
+        if (timeParts) {
+          nextDate.setHours(timeParts.hours, timeParts.minutes, 0, 0);
 
           // If this is today (daysToAdd === 0) and the time has already passed,
           // continue to the next day
@@ -224,4 +235,40 @@ export function calculateNextScheduleDate(
 
   // If no valid pattern is found
   return null;
+}
+
+function createScheduleDate(date: Date, timezone?: string | null) {
+  if (!timezone) {
+    return new Date(date);
+  }
+
+  try {
+    return new TZDate(date, timezone);
+  } catch {
+    return new Date(date);
+  }
+}
+
+function addDaysByCalendar(date: Date, days: number, timezone?: string | null) {
+  const next = createScheduleDate(date, timezone);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function getTimeParts(timeOfDay?: Date | null, timezone?: string | null) {
+  if (!timeOfDay) return null;
+
+  if (!timezone) {
+    return { hours: timeOfDay.getHours(), minutes: timeOfDay.getMinutes() };
+  }
+
+  try {
+    const timeInTimezone = new TZDate(timeOfDay, timezone);
+    return {
+      hours: timeInTimezone.getHours(),
+      minutes: timeInTimezone.getMinutes(),
+    };
+  } catch {
+    return { hours: timeOfDay.getHours(), minutes: timeOfDay.getMinutes() };
+  }
 }
