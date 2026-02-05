@@ -29,6 +29,10 @@
 - Never use import/export patterns (importing something just to re-export it). If consumers need a type, they should import it from its original source.
 - Infer types from Zod schemas using `z.infer<typeof schema>` instead of duplicating as separate interfaces.
 - Balance DRY vs WET: Avoid premature abstraction. Duplicating code 2-3 times is often better than creating an abstraction too early. Only extract shared code when you see a clear, stable pattern. WET (Write Everything Twice) code is easier to change than the wrong abstraction. However, obvious copy-paste of entire functions or large blocks should be refactored.
+- No barrel files. Import directly from source files.
+- Colocate page components next to their `page.tsx`. No nested `components/` subfolders in route directories.
+- Reusable components shared across pages go in `apps/web/components/`.
+- One resource per API route file.
 
 ## Component Guidelines
 - Use shadcn/ui components when available
