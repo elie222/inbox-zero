@@ -325,6 +325,7 @@ export const createRulesOnboardingAction = actionClient
             emailAccountId,
             systemType,
             runOnThreads,
+            enabled: true,
             logger,
           });
         })();
@@ -705,6 +706,7 @@ async function toggleRule({
     emailAccountId,
     systemType,
     runOnThreads: ruleConfig.runOnThreads,
+    enabled,
     logger,
   });
 
