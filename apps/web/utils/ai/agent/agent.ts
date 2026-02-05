@@ -19,6 +19,7 @@ import {
   searchEmailsTool,
   sendEmailTool,
   showSetupPreviewTool,
+  completeOnboardingTool,
   updateSettingsTool,
 } from "@/utils/ai/agent/tools";
 import type { ParsedMessage } from "@/utils/types";
@@ -146,6 +147,12 @@ export function createAgentTools({
       searchEmails: searchEmailsTool(baseContext),
       bulkArchive: bulkArchiveTool(baseContext),
       showSetupPreview: showSetupPreviewTool(),
+      completeOnboarding: completeOnboardingTool({
+        emailAccountId: emailAccount.id,
+        userId: emailAccount.userId,
+        provider: emailAccount.account.provider,
+        logger,
+      }),
     };
   }
 

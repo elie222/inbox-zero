@@ -10,7 +10,7 @@ export {
   updateSettingsTool,
   updateAllowedActionsTool,
 } from "./settings";
-export { showSetupPreviewTool } from "./onboarding";
+export { showSetupPreviewTool, completeOnboardingTool } from "./onboarding";
 export { bulkArchiveTool } from "./bulk";
 
 export type { SearchEmailsTool, GetEmailTool } from "./email";
@@ -28,5 +28,8 @@ export type {
   UpdateSettingsTool,
   UpdateAllowedActionsTool,
 } from "./settings";
-export type { ShowSetupPreviewTool } from "./onboarding";
+export type {
+  ShowSetupPreviewTool,
+  CompleteOnboardingTool,
+} from "./onboarding";
 export type { BulkArchiveTool } from "./bulk";

@@ -13,6 +13,7 @@ import type {
   GetSettingsTool,
   UpdateSettingsTool,
   ShowSetupPreviewTool,
+  CompleteOnboardingTool,
   BulkArchiveTool,
 } from "@/utils/ai/agent/tools";
 
@@ -30,6 +31,7 @@ export type AgentChatTools = {
   getSettings: GetSettingsTool;
   updateSettings: UpdateSettingsTool;
   showSetupPreview: ShowSetupPreviewTool;
+  completeOnboarding: CompleteOnboardingTool;
   bulkArchive: BulkArchiveTool;
 };
 

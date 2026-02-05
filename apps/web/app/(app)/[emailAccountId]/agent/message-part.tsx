@@ -16,6 +16,7 @@ import {
   SendEmailResult,
   UpdateSettingsResult,
   PatternResult,
+  OnboardingCompleteResult,
 } from "./tools";
 import { LabelsPreview } from "@/components/labels-preview";
 
@@ -271,6 +272,25 @@ export function MessagePart({
       return (
         <UpdateSettingsResult key={part.toolCallId} output={part.output} />
       );
+    }
+  }
+
+  if (part.type === "tool-completeOnboarding") {
+    if (part.state === "input-available") {
+      return (
+        <BasicToolInfo key={part.toolCallId} text="Activating your agent..." />
+      );
+    }
+    if (part.state === "output-available") {
+      if (isOutputWithError(part.output)) {
+        return (
+          <ErrorToolCard
+            key={part.toolCallId}
+            error={String(part.output.error)}
+          />
+        );
+      }
+      return <OnboardingCompleteResult key={part.toolCallId} />;
     }
   }
 

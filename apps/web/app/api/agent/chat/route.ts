@@ -39,7 +39,8 @@ export const POST = withEmailAccount("agent-chat", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
   const user = await getEmailAccountWithAiInsights({ emailAccountId });
 
-  if (!user) return NextResponse.json({ error: "Not authenticated" });
+  if (!user)
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const json = await request.json();
   const { data, error } = agentInputSchema.safeParse(json);

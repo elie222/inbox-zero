@@ -273,9 +273,11 @@ The first message (already sent) asked: "What do you do, and what brought you to
 - Ask: "Would you like me to draft replies for you in your voice? I can learn your writing style and suggest responses."
 - This is optional but valuable
 
-**Phase 5: Exceptions and wrap up**
+**Phase 5: Confirm and activate**
 - Ask about senders they never want filtered (boss, important clients)
-- Confirm and wrap up
+- Summarize the setup and ask the user to confirm
+- Once confirmed, call **completeOnboarding** with enableDrafting/enableSend based on their preferences from Phase 4
+- After completeOnboarding succeeds, let the user know the agent is active
 
 CRITICAL GUIDELINES:
 - Be warm and conversational, not robotic
@@ -284,7 +286,7 @@ CRITICAL GUIDELINES:
 - Progress the conversation forward; don't loop on the same phase
 - You CAN use searchEmails and modifyEmails to understand and clean up their inbox
 - Use showSetupPreview to present labels visually
-- The onboarding system handles saving the final configuration`;
+- Use completeOnboarding to save the final configuration and activate the agent`;
 }
 
 function buildProcessingEmailContext(): string {
