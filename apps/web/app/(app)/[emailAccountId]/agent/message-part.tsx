@@ -304,7 +304,10 @@ export function MessagePart({
           />
         );
       }
-      return <LabelsPreview key={part.toolCallId} items={part.output.labels} />;
+      const output = part.output as {
+        labels: { name: string; actions: string[] }[];
+      };
+      return <LabelsPreview key={part.toolCallId} items={output.labels} />;
     }
     return null;
   }
