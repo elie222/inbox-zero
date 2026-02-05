@@ -78,8 +78,8 @@ FROM node:22-alpine AS runner
 
 WORKDIR /app
 
-# Install openssl for Prisma and ca-certificates for RDS SSL trust store
-RUN apk add --no-cache openssl ca-certificates
+# Install openssl for Prisma
+RUN apk add --no-cache openssl
 
 # Copy the standalone server output (contains node_modules subset + server.js)
 COPY --from=builder /app/apps/web/.next/standalone ./

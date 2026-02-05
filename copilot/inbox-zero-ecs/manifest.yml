@@ -36,7 +36,6 @@ network:
 
 variables:                    # Pass environment variables as key value pairs.
   HOSTNAME: 0.0.0.0
-  NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca-certificates.crt
   NEXT_PUBLIC_BASE_URL: # YOUR_DOMAIN, e.g. https://www.getinboxzero.com (with http or https)
   DEFAULT_LLM_PROVIDER:
 

@@ -1191,7 +1191,6 @@ locals {
     for item in [
       { name = "NODE_ENV", value = "production" },
       { name = "HOSTNAME", value = "0.0.0.0" },
-      { name = "NODE_EXTRA_CA_CERTS", value = "/etc/ssl/certs/ca-certificates.crt" },
       { name = "NEXT_PUBLIC_BASE_URL", value = local.base_url },
       { name = "DEFAULT_LLM_PROVIDER", value = var.default_llm_provider },
       var.default_llm_model != "" ? { name = "DEFAULT_LLM_MODEL", value = var.default_llm_model } : null,

@@ -10,22 +10,20 @@ echo "🚀 Starting Inbox Zero..."
 # Only runs when DATABASE_URL points to an RDS instance. Managed databases use
 # Amazon's own CA which isn't in the default Alpine trust store, causing the
 # Prisma query engine to reject the certificate.
+RDS_CA_BUNDLE="/app/rds-combined-ca-bundle.pem"
 if echo "$DATABASE_URL" | grep -q "amazonaws.com"; then
-    RDS_CA_BUNDLE="/usr/local/share/ca-certificates/aws-rds-global-bundle.crt"
     if [ ! -f "$RDS_CA_BUNDLE" ]; then
         echo "🔒 Downloading AWS RDS CA bundle..."
         if wget -q -O "$RDS_CA_BUNDLE" \
             "https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem" 2>/dev/null; then
-            update-ca-certificates 2>/dev/null || true
             echo "✅ RDS CA certificates installed"
         else
             echo "⚠️  Could not download RDS CA bundle, continuing..."
             rm -f "$RDS_CA_BUNDLE"
         fi
     fi
-    # Tell Node.js / Prisma to trust the system CA store
-    if [ -f /etc/ssl/certs/ca-certificates.crt ]; then
-        export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+    if [ -f "$RDS_CA_BUNDLE" ]; then
+        export NODE_EXTRA_CA_CERTS="$RDS_CA_BUNDLE"
     fi
 fi
 
