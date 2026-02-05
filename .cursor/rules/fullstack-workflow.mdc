@@ -10,7 +10,7 @@ Complete guide for building features from API to UI, combining GET API routes, d
 
 When building a new feature, follow this pattern:
 1. **GET API Route** - For fetching data
-2. **Server Action** - For mutations (create/update/delete)
+2. **Server Action** - For mutations (create/update/delete). Only use POST requests if we need streaming.
 3. **Data Fetching** - Using SWR on the client
 4. **Form Handling** - Using React Hook Form with Zod validation
 
@@ -46,7 +46,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
 
 ## 2. Server Action
 
-For mutations. Use `next-safe-action` with proper validation:
+For mutations. Use `next-safe-action` with proper validation. POST requests should be server actions, not API routes:
 
 **Validation Schema** (`apps/web/utils/actions/example.validation.ts`):
 ```typescript

@@ -1,5 +1,8 @@
 import prisma from "@/utils/prisma";
-import type { EmailAccountWithAI } from "@/utils/llms/types";
+import type {
+  EmailAccountWithAI,
+  EmailAccountWithAIInsights,
+} from "@/utils/llms/types";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type EmailAccountWithAIAndTokens = Prisma.EmailAccountGetPayload<{
@@ -47,6 +50,43 @@ export async function getEmailAccountWithAi({
       userId: true,
       email: true,
       about: true,
+      agentModeEnabled: true,
+      multiRuleSelectionEnabled: true,
+      timezone: true,
+      calendarBookingLink: true,
+      name: true,
+      user: {
+        select: {
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
+        },
+      },
+      account: {
+        select: {
+          provider: true,
+        },
+      },
+    },
+  });
+}
+
+export async function getEmailAccountWithAiInsights({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}): Promise<(EmailAccountWithAIInsights & { name: string | null }) | null> {
+  return prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      id: true,
+      userId: true,
+      email: true,
+      about: true,
+      writingStyle: true,
+      behaviorProfile: true,
+      personaAnalysis: true,
+      agentModeEnabled: true,
       multiRuleSelectionEnabled: true,
       timezone: true,
       calendarBookingLink: true,

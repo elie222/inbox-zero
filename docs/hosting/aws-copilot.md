@@ -228,7 +228,7 @@ If you need to manually run migrations:
 ```bash
 copilot svc exec
 # Then inside the container:
-prisma migrate deploy --schema=./apps/web/prisma/schema.prisma
+prisma migrate deploy --schema=./apps/web/prisma
 ```
 
 ## Troubleshooting

@@ -58,7 +58,7 @@ import {
   ActivityLog,
   type ActivityLogEntry,
 } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
-import { AgentToolsDemo } from "@/components/agent-onboarding/tools-demo";
+import { AgentToolsDemo } from "@/app/(landing)/components/AgentToolsDemo";
 
 export const maxDuration = 3;
 

@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import type { Prisma } from "@/generated/prisma/client";
+import { ChatType, type Prisma } from "@/generated/prisma/client";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
 import { captureException } from "@/utils/error";
 import { messageContextSchema } from "@/app/api/chat/validation";
@@ -106,7 +106,7 @@ async function createNewChat({
 }) {
   try {
     const newChat = await prisma.chat.create({
-      data: { emailAccountId, id: chatId },
+      data: { emailAccountId, id: chatId, type: ChatType.RULES },
       include: { messages: true },
     });
     logger.info("New chat created", { chatId: newChat.id, emailAccountId });
@@ -118,8 +118,8 @@ async function createNewChat({
 }
 
 async function getChatById(chatId: string) {
-  const chat = await prisma.chat.findUnique({
-    where: { id: chatId },
+  const chat = await prisma.chat.findFirst({
+    where: { id: chatId, type: ChatType.RULES },
     include: { messages: true },
   });
   return chat;

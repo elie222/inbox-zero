@@ -27,8 +27,8 @@ COPY packages/tinybird/package.json packages/tinybird/package.json
 COPY packages/tinybird-ai-analytics/package.json packages/tinybird-ai-analytics/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
 
-# Copy Prisma schema file needed for postinstall script
-COPY apps/web/prisma/schema.prisma apps/web/prisma/schema.prisma
+# Copy Prisma schema files needed for postinstall script
+COPY apps/web/prisma apps/web/prisma
 # Copy postinstall script
 COPY clone-marketing.sh clone-marketing.sh
 
@@ -78,7 +78,7 @@ ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
 ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
 
 # Step 1: Generate Prisma client (separate step = memory freed after)
-RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
+RUN npx prisma generate --schema=apps/web/prisma
 
 # Step 2: Build Next.js with webpack (not Turbopack) for lower memory usage
 # --webpack: Use webpack/SWC instead of Turbopack (Next.js 16 default)

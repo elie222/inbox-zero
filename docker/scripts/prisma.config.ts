@@ -9,7 +9,7 @@ const migrationUrl =
   process.env.DATABASE_URL;
 
 export default defineConfig({
-  schema: "/app/apps/web/prisma/schema.prisma",
+  schema: "/app/apps/web/prisma",
   datasource: {
     url: migrationUrl,
   },

@@ -9,7 +9,7 @@ import {
   SendReplyTool,
   UpdateSettingsTool,
   EnableSendingTool,
-} from "./tools";
+} from "@/components/agent-tools";
 
 const mockSearchResults = {
   query: "newsletter unsubscribe",

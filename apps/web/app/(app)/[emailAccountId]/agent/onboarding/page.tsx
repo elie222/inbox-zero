@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
-import { AgentOnboardingChat } from "@/components/agent-onboarding/chat";
+import { AgentOnboardingChat } from "./chat";
 import { EmailProvider } from "@/providers/EmailProvider";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
