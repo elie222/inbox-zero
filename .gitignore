@@ -84,3 +84,9 @@ copilot/.workspace
 copilot/environments/**/manifest.yml
 
 /apps/web/app/(app)/\[emailAccountId\]/demo/*
+
+# Cursor
+.cursor/plans/
+
+# AI SDK devtools
+.devtools/
