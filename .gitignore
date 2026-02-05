@@ -85,6 +85,12 @@ copilot/environments/**/manifest.yml
 
 /apps/web/app/(app)/\[emailAccountId\]/demo/*
 
+# Cursor
+.cursor/plans/
+
+# AI SDK devtools
+.devtools/
+
 # browser QA flow results
 qa/browser-flows/results/*
 !qa/browser-flows/results/README.md

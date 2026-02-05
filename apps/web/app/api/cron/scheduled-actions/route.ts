@@ -15,47 +15,41 @@ export const maxDuration = 300;
 
 const BATCH_SIZE = 100;
 
-export const GET = withError(
-  "cron/scheduled-actions",
-  async (request) => {
-    if (!hasCronSecret(request)) {
-      captureException(
-        new Error("Unauthorized request: api/cron/scheduled-actions"),
-      );
-      return new Response("Unauthorized", { status: 401 });
-    }
+export const GET = withError("cron/scheduled-actions", async (request) => {
+  if (!hasCronSecret(request)) {
+    captureException(
+      new Error("Unauthorized request: api/cron/scheduled-actions"),
+    );
+    return new Response("Unauthorized", { status: 401 });
+  }
 
-    if (env.QSTASH_TOKEN) {
-      request.logger.info("QStash configured, skipping cron fallback");
-      return NextResponse.json({ skipped: true, reason: "qstash-configured" });
-    }
+  if (env.QSTASH_TOKEN) {
+    request.logger.info("QStash configured, skipping cron fallback");
+    return NextResponse.json({ skipped: true, reason: "qstash-configured" });
+  }
 
-    const result = await processScheduledActions(request.logger);
+  const result = await processScheduledActions(request.logger);
 
-    return NextResponse.json(result);
-  },
-);
+  return NextResponse.json(result);
+});
 
-export const POST = withError(
-  "cron/scheduled-actions",
-  async (request) => {
-    if (!(await hasPostCronSecret(request))) {
-      captureException(
-        new Error("Unauthorized cron request: api/cron/scheduled-actions"),
-      );
-      return new Response("Unauthorized", { status: 401 });
-    }
+export const POST = withError("cron/scheduled-actions", async (request) => {
+  if (!(await hasPostCronSecret(request))) {
+    captureException(
+      new Error("Unauthorized cron request: api/cron/scheduled-actions"),
+    );
+    return new Response("Unauthorized", { status: 401 });
+  }
 
-    if (env.QSTASH_TOKEN) {
-      request.logger.info("QStash configured, skipping cron fallback");
-      return NextResponse.json({ skipped: true, reason: "qstash-configured" });
-    }
+  if (env.QSTASH_TOKEN) {
+    request.logger.info("QStash configured, skipping cron fallback");
+    return NextResponse.json({ skipped: true, reason: "qstash-configured" });
+  }
 
-    const result = await processScheduledActions(request.logger);
+  const result = await processScheduledActions(request.logger);
 
-    return NextResponse.json(result);
-  },
-);
+  return NextResponse.json(result);
+});
 
 async function processScheduledActions(logger: Logger) {
   const now = new Date();
