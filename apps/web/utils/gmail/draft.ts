@@ -26,12 +26,17 @@ export async function getDraft(draftId: string, gmail: gmail_v1.Gmail) {
       embeddedThreadId: response.data.message?.threadId,
     });
 
-    const message = parseMessage(response.data.message as MessageWithPayload);
+    const parsedMessage = parseMessage(
+      response.data.message as MessageWithPayload,
+    );
+    const mergedLabelIds =
+      response.data.message?.labelIds ?? parsedMessage.labelIds ?? [];
+    const message = { ...parsedMessage, labelIds: mergedLabelIds };
 
     // Safety: Gmail can sometimes keep a Draft wrapper around a message that has
     // already been sent (moved to Sent). Treat those as "no draft" so cleanup
     // routines don't accidentally delete sent mail.
-    const labelIds = message.labelIds ?? [];
+    const labelIds = mergedLabelIds;
     const hasDraftLabel = labelIds.includes(GmailLabel.DRAFT);
     const hasSentLabel = labelIds.includes(GmailLabel.SENT);
 

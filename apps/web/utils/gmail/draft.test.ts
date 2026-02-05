@@ -1,23 +1,9 @@
-import { describe, expect, it, vi, type Mock } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { deleteDraft, getDraft } from "@/utils/gmail/draft";
 import { GmailLabel } from "@/utils/gmail/label";
+import { parseMessage } from "@/utils/gmail/message";
 
 vi.mock("server-only", () => ({}));
-
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    trace: vi.fn(),
-    with: () => ({
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      trace: vi.fn(),
-    }),
-  }),
-}));
 
 vi.mock("@/utils/gmail/retry", () => ({
   withGmailRetry: (fn: () => unknown) => fn(),
@@ -28,30 +14,44 @@ vi.mock("@/utils/gmail/message", () => ({
 }));
 
 describe("gmail/draft", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("getDraft returns null when embedded message is SENT or missing DRAFT label", async () => {
     const gmail = {
       users: {
         drafts: {
           get: vi.fn().mockResolvedValue({
-            data: { id: "r-1", message: { id: "m-1", threadId: "t-1" } },
+            data: {
+              id: "r-1",
+              message: {
+                id: "m-1",
+                threadId: "t-1",
+                labelIds: [GmailLabel.SENT],
+              },
+            },
           }),
         },
       },
     } as any;
 
-    const { parseMessage } = await import("@/utils/gmail/message");
-
     (parseMessage as Mock).mockReturnValueOnce({
       id: "m-1",
       threadId: "t-1",
-      labelIds: [GmailLabel.SENT],
     });
     await expect(getDraft("r-1", gmail)).resolves.toBeNull();
 
+    // No DRAFT label
+    (gmail.users.drafts.get as Mock).mockResolvedValueOnce({
+      data: {
+        id: "r-1",
+        message: { id: "m-1", threadId: "t-1", labelIds: [] },
+      },
+    });
     (parseMessage as Mock).mockReturnValueOnce({
       id: "m-1",
       threadId: "t-1",
-      labelIds: [],
     });
     await expect(getDraft("r-1", gmail)).resolves.toBeNull();
   });
@@ -67,12 +67,17 @@ describe("gmail/draft", () => {
       },
     } as any;
 
-    const { parseMessage } = await import("@/utils/gmail/message");
+    // Provide labelIds on the raw message, since parseMessage may not preserve them.
+    (gmail.users.drafts.get as Mock).mockResolvedValueOnce({
+      data: {
+        id: "r-1",
+        message: { id: "m-1", threadId: "t-1", labelIds: [GmailLabel.DRAFT] },
+      },
+    });
 
     (parseMessage as Mock).mockReturnValueOnce({
       id: "m-1",
       threadId: "t-1",
-      labelIds: [GmailLabel.DRAFT],
       snippet: "",
       historyId: "1",
       inline: [],
@@ -99,11 +104,16 @@ describe("gmail/draft", () => {
       },
     } as any;
 
-    const { parseMessage } = await import("@/utils/gmail/message");
+    // Raw message indicates SENT, so getDraft should return null.
+    (gmail.users.drafts.get as Mock).mockResolvedValueOnce({
+      data: {
+        id: "r-1",
+        message: { id: "m-1", threadId: "t-1", labelIds: [GmailLabel.SENT] },
+      },
+    });
     (parseMessage as Mock).mockReturnValueOnce({
       id: "m-1",
       threadId: "t-1",
-      labelIds: [GmailLabel.SENT],
     });
 
     await deleteDraft(gmail, "r-1");
@@ -123,11 +133,16 @@ describe("gmail/draft", () => {
       },
     } as any;
 
-    const { parseMessage } = await import("@/utils/gmail/message");
+    // Raw message indicates DRAFT, so delete should proceed.
+    (gmail.users.drafts.get as Mock).mockResolvedValueOnce({
+      data: {
+        id: "r-1",
+        message: { id: "m-1", threadId: "t-1", labelIds: [GmailLabel.DRAFT] },
+      },
+    });
     (parseMessage as Mock).mockReturnValueOnce({
       id: "m-1",
       threadId: "t-1",
-      labelIds: [GmailLabel.DRAFT],
       snippet: "",
       historyId: "1",
       inline: [],
