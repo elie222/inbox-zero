@@ -1,6 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { createScopedLogger } from "@/utils/logger";
 import { parseMessage } from "@/utils/gmail/message";
+import { GmailLabel } from "@/utils/gmail/label";
 import type { MessageWithPayload } from "@/utils/types";
 import { isGmailError } from "@/utils/error";
 import { withGmailRetry } from "@/utils/gmail/retry";
@@ -26,6 +27,29 @@ export async function getDraft(draftId: string, gmail: gmail_v1.Gmail) {
     });
 
     const message = parseMessage(response.data.message as MessageWithPayload);
+
+    // Safety: Gmail can sometimes keep a Draft wrapper around a message that has
+    // already been sent (moved to Sent). Treat those as "no draft" so cleanup
+    // routines don't accidentally delete sent mail.
+    const labelIds = message.labelIds ?? [];
+    const hasDraftLabel = labelIds.includes(GmailLabel.DRAFT);
+    const hasSentLabel = labelIds.includes(GmailLabel.SENT);
+
+    if (!hasDraftLabel || hasSentLabel) {
+      logger.info(
+        "Draft embedded message is not a draft anymore, returning null",
+        {
+          draftId,
+          embeddedMessageId: message.id,
+          embeddedThreadId: message.threadId,
+          hasDraftLabel,
+          hasSentLabel,
+          labelIds,
+        },
+      );
+      return null;
+    }
+
     return message;
   } catch (error) {
     if (isNotFoundError(error)) {
@@ -110,6 +134,15 @@ export async function deleteDraft(gmail: gmail_v1.Gmail, draftId: string) {
   }
 
   try {
+    // Defensive check: only delete if this is still a real draft.
+    const existingDraft = await getDraft(draftId, gmail);
+    if (!existingDraft) {
+      logger.warn("Draft not found or no longer a draft, skipping deletion.", {
+        draftId,
+      });
+      return;
+    }
+
     const response = await withGmailRetry(() =>
       gmail.users.drafts.delete({
         userId: "me",
