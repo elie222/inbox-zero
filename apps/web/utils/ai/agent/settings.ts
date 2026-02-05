@@ -1,5 +1,6 @@
 import prisma from "@/utils/prisma";
 import { validateConditions } from "@/utils/ai/agent/validation/schemas";
+import { Prisma } from "@/generated/prisma/client";
 
 export type TargetGroupInput = {
   name: string;
@@ -102,28 +103,46 @@ async function upsertAllowedAction({
   config?: unknown;
   conditions?: unknown;
 }) {
-  return prisma.allowedAction.upsert({
+  const where = {
+    emailAccountId,
+    actionType,
+    resourceType,
+  } satisfies Prisma.AllowedActionWhereInput;
+  const payload = {
+    enabled,
+    config: toInputJsonValue(config),
+    conditions: toInputJsonValue(conditions),
+  } satisfies Pick<
+    Prisma.AllowedActionUncheckedCreateInput,
+    "enabled" | "config" | "conditions"
+  >;
+
+  const existing = await prisma.allowedAction.findFirst({
+    where,
+    select: { id: true },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+  });
+
+  const saved = existing
+    ? await prisma.allowedAction.update({
+        where: { id: existing.id },
+        data: payload,
+      })
+    : await prisma.allowedAction.create({
+        data: {
+          ...where,
+          ...payload,
+        },
+      });
+
+  await prisma.allowedAction.deleteMany({
     where: {
-      emailAccountId_resourceType_actionType: {
-        emailAccountId,
-        resourceType,
-        actionType,
-      },
-    },
-    create: {
-      emailAccountId,
-      resourceType,
-      actionType,
-      enabled,
-      config: config ?? undefined,
-      conditions: conditions ?? undefined,
-    },
-    update: {
-      enabled,
-      config: config ?? undefined,
-      conditions: conditions ?? undefined,
+      ...where,
+      NOT: { id: saved.id },
     },
   });
+
+  return saved;
 }
 
 async function upsertTargetGroup({
@@ -168,59 +187,91 @@ async function upsertAllowedActionOption({
   const externalId = option.externalId ?? null;
 
   if (externalId) {
-    return prisma.allowedActionOption.upsert({
-      where: {
-        AAO_email_action_resource_provider_kind_ext_key: {
-          emailAccountId,
-          actionType: option.actionType,
-          resourceType,
-          provider: option.provider,
-          kind: option.kind,
-          externalId,
-        },
-      },
-      create: {
-        emailAccountId,
-        actionType: option.actionType,
-        resourceType,
-        provider: option.provider,
-        kind: option.kind,
-        externalId,
-        name: option.name,
-        targetGroupId,
-      },
-      update: {
-        name: option.name,
-        targetGroupId,
-      },
-    });
-  }
-
-  return prisma.allowedActionOption.upsert({
-    where: {
-      AAO_email_action_resource_provider_kind_name_key: {
-        emailAccountId,
-        actionType: option.actionType,
-        resourceType,
-        provider: option.provider,
-        kind: option.kind,
-        name: option.name,
-      },
-    },
-    create: {
+    const where = {
       emailAccountId,
       actionType: option.actionType,
       resourceType,
       provider: option.provider,
       kind: option.kind,
-      externalId: null,
-      name: option.name,
-      targetGroupId,
-    },
-    update: {
-      targetGroupId,
+      externalId,
+    } satisfies Prisma.AllowedActionOptionWhereInput;
+
+    const existing = await prisma.allowedActionOption.findFirst({
+      where,
+      select: { id: true },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    });
+
+    const saved = existing
+      ? await prisma.allowedActionOption.update({
+          where: { id: existing.id },
+          data: {
+            name: option.name,
+            targetGroupId,
+          },
+        })
+      : await prisma.allowedActionOption.create({
+          data: {
+            ...where,
+            name: option.name,
+            targetGroupId,
+          },
+        });
+
+    await prisma.allowedActionOption.deleteMany({
+      where: {
+        ...where,
+        NOT: { id: saved.id },
+      },
+    });
+
+    return saved;
+  }
+
+  const where = {
+    emailAccountId,
+    actionType: option.actionType,
+    resourceType,
+    provider: option.provider,
+    kind: option.kind,
+    name: option.name,
+    externalId: null,
+  } satisfies Prisma.AllowedActionOptionWhereInput;
+
+  const existing = await prisma.allowedActionOption.findFirst({
+    where,
+    select: { id: true },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+  });
+
+  const saved = existing
+    ? await prisma.allowedActionOption.update({
+        where: { id: existing.id },
+        data: { targetGroupId },
+      })
+    : await prisma.allowedActionOption.create({
+        data: {
+          ...where,
+          targetGroupId,
+        },
+      });
+
+  await prisma.allowedActionOption.deleteMany({
+    where: {
+      ...where,
+      NOT: { id: saved.id },
     },
   });
+
+  return saved;
+}
+
+function toInputJsonValue(
+  value: unknown,
+): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return Prisma.JsonNull;
+  return value as Prisma.InputJsonValue;
 }
 
 async function deleteAllowedActionOption({

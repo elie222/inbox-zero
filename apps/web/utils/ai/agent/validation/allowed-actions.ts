@@ -118,6 +118,7 @@ export async function validateAction({
         ],
       },
       include: { targetGroup: true },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
     });
 
     if (!target) {
@@ -177,6 +178,7 @@ async function getAllowedAction({
       actionType,
       OR: [{ resourceType }, { resourceType: null }],
     },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
   });
 
   return (
@@ -198,6 +200,7 @@ async function getProviderTargetGroupValue({
 
   const options = await prisma.allowedActionOption.findMany({
     where: { emailAccountId, targetGroupId },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
   });
 
   const currentLabels = message.labelIds ?? [];

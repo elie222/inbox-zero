@@ -45,6 +45,8 @@ export async function runAgentOnIncomingEmail({
     logger,
     executeAction,
     mode: "processing_email",
+    emailId: message.id,
+    threadId: message.threadId,
   });
 
   const emailPrompt = stringifyEmail(

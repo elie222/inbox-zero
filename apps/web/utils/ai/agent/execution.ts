@@ -131,6 +131,7 @@ export async function approveAgentAction({
   userId: string;
   logger: Logger;
 }) {
+  const approvedTrigger = `user:${userId}:approved`;
   const log = await prisma.executedAgentAction.findUnique({
     where: { id: approvalId },
     include: {
@@ -155,6 +156,15 @@ export async function approveAgentAction({
     return { error: "Action is not pending approval" };
   }
 
+  const claimed = await transitionPendingApproval({
+    approvalId,
+    nextStatus: "PENDING",
+  });
+
+  if (claimed.count === 0) {
+    return { error: "Action is not pending approval" };
+  }
+
   const action = log.actionData as NormalizedStructuredAction;
   const context: ActionContext = {
     emailAccountId: log.emailAccountId,
@@ -162,7 +172,7 @@ export async function approveAgentAction({
     resourceType: action.type === "updateSettings" ? "settings" : "email",
     emailId: log.resourceId ?? undefined,
     threadId: log.threadId ?? undefined,
-    triggeredBy: `user:${userId}:approved`,
+    triggeredBy: approvedTrigger,
   };
 
   try {
@@ -177,7 +187,7 @@ export async function approveAgentAction({
       where: { id: approvalId },
       data: {
         status: "SUCCESS",
-        triggeredBy: `user:${userId}:approved`,
+        triggeredBy: approvedTrigger,
       },
     });
 
@@ -201,7 +211,7 @@ export async function approveAgentAction({
       data: {
         status: "FAILED",
         error: message,
-        triggeredBy: `user:${userId}:approved`,
+        triggeredBy: approvedTrigger,
       },
     });
 
@@ -216,6 +226,7 @@ export async function denyAgentAction({
   approvalId: string;
   userId: string;
 }) {
+  const deniedTrigger = `user:${userId}:denied`;
   const log = await prisma.executedAgentAction.findUnique({
     where: { id: approvalId },
     include: {
@@ -233,13 +244,15 @@ export async function denyAgentAction({
     return { error: "Action is not pending approval" };
   }
 
-  await prisma.executedAgentAction.update({
-    where: { id: approvalId },
-    data: {
-      status: "CANCELLED",
-      triggeredBy: `user:${userId}:denied`,
-    },
+  const denied = await transitionPendingApproval({
+    approvalId,
+    nextStatus: "CANCELLED",
+    triggeredBy: deniedTrigger,
   });
+
+  if (denied.count === 0) {
+    return { error: "Action is not pending approval" };
+  }
 
   return { success: true };
 }
@@ -571,6 +584,7 @@ async function enforceTargetGroupCardinality({
       ],
     },
     include: { targetGroup: true },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
   });
 
   if (!target?.targetGroup || target.targetGroup.cardinality !== "SINGLE") {
@@ -620,4 +634,25 @@ async function resolveLabelIds({
   }
 
   return labelIds;
+}
+
+async function transitionPendingApproval({
+  approvalId,
+  nextStatus,
+  triggeredBy,
+}: {
+  approvalId: string;
+  nextStatus: "PENDING" | "CANCELLED";
+  triggeredBy?: string;
+}) {
+  return prisma.executedAgentAction.updateMany({
+    where: {
+      id: approvalId,
+      status: "PENDING_APPROVAL",
+    },
+    data: {
+      status: nextStatus,
+      ...(triggeredBy ? { triggeredBy } : {}),
+    },
+  });
 }
