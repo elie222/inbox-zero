@@ -51,12 +51,29 @@ export async function processFilingReply({
     return;
   }
 
-  const filing = await prisma.documentFiling.findUnique({
+  let filing = await prisma.documentFiling.findUnique({
     where: { notificationMessageId: inReplyTo },
     include: {
       driveConnection: true,
     },
   });
+
+  if (!filing) {
+    try {
+      const notificationMessage =
+        await emailProvider.getMessageByRfc822MessageId(inReplyTo);
+      if (notificationMessage?.id) {
+        filing = await prisma.documentFiling.findUnique({
+          where: { notificationMessageId: notificationMessage.id },
+          include: {
+            driveConnection: true,
+          },
+        });
+      }
+    } catch (error) {
+      logger.warn("Failed to resolve In-Reply-To RFC822 message ID", { error });
+    }
+  }
 
   if (!filing) {
     logger.error("Filing not found for In-Reply-To message", { inReplyTo });
