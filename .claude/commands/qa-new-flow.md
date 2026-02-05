@@ -21,7 +21,7 @@ Steps:
 5. If optional fields are provided (`parallel_safe`, `conflicts_with`), include them in the front matter.
    - Always serialize `conflicts_with` as a YAML list by splitting the `--conflicts-with` value on commas (even for a single id).
 6. If `--goal` is provided, replace the Goal section placeholder with it.
-7. If `--preconditions` is provided, add a `Preconditions` section with those items.
+7. If `--preconditions` is provided, replace the existing `Preconditions` section placeholder list with those items.
 8. If `--cleanup` is provided, replace the Cleanup section placeholder with it.
 9. Leave the other section bodies as editable placeholders if the user does not provide step details.
 10. Confirm the file path and next steps to edit the flow.
