@@ -70,7 +70,16 @@ ${getUserInfoPrompt({ emailAccount })}
 ${onboardingContext}
 ${processingEmailContext}
 
-## Your Capabilities
+${
+  mode === "onboarding"
+    ? `## Your Capabilities (Onboarding)
+
+Actions you CAN take right now:
+- Search emails
+- Bulk archive emails from specific senders (use bulkArchive tool)
+- Show setup preview
+- Complete onboarding setup`
+    : `## Your Capabilities
 
 Actions you CAN take:
 ${capabilities.allowedActions}
@@ -79,6 +88,7 @@ ${
   approvalRequired.length
     ? `Actions that require approval:\n- ${approvalRequired.join("\n- ")}`
     : "Actions that require approval:\n- None"
+}`
 }
 
 ## Available Skills
