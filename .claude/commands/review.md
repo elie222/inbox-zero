@@ -103,9 +103,9 @@ git diff --cached --name-only  # or HEAD
 
 **Group files by area/dependency:**
 ```
-Batch 1: app/api/agent/* (3 files)
-Batch 2: app/(app)/[emailAccountId]/agent/* (related components)
-Batch 3: utils/actions/* (2 files)
+Batch 1: apps/web/app/api/agent/* (3 files)
+Batch 2: apps/web/app/(app)/[emailAccountId]/agent/* (related components)
+Batch 3: apps/web/utils/actions/* (2 files)
 ```
 
 **Output:** `Found X files in Y batches`
