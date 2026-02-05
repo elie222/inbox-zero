@@ -108,12 +108,15 @@ export function AnnouncementDialog() {
   );
 }
 
-interface AnnouncementCardProps {
+export interface AnnouncementCardProps {
   announcement: Announcement;
   onClose: () => void;
 }
 
-function AnnouncementCard({ announcement, onClose }: AnnouncementCardProps) {
+export function AnnouncementCard({
+  announcement,
+  onClose,
+}: AnnouncementCardProps) {
   return (
     <div className="overflow-hidden rounded-xl bg-white dark:bg-gray-800">
       <div className="p-5">

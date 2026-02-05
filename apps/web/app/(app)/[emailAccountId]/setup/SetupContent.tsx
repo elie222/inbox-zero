@@ -237,7 +237,6 @@ function Checklist({
   provider,
   completedCount,
   totalSteps,
-  progressPercentage,
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
   isCalendarConnected,
@@ -247,7 +246,6 @@ function Checklist({
   provider: string;
   completedCount: number;
   totalSteps: number;
-  progressPercentage: number;
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
@@ -270,6 +268,14 @@ function Checklist({
   );
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const isMeetingBriefsEnabled = useMeetingBriefsEnabled();
+
+  const isTeamInviteSkipped =
+    teamInvite && isTeamInviteViewed && !teamInvite.completed;
+  const adjustedCompletedCount = isTeamInviteSkipped
+    ? completedCount + 1
+    : completedCount;
+  const adjustedProgressPercentage =
+    (adjustedCompletedCount / totalSteps) * 100;
 
   const handleMarkExtensionDone = () => {
     setIsExtensionInstalled(true);
@@ -294,12 +300,12 @@ function Checklist({
           <h2 className="font-semibold text-foreground">Complete your setup</h2>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden sm:block">
-              {completedCount} of {totalSteps} completed
+              {adjustedCompletedCount} of {totalSteps} completed
             </span>
             <div className="h-2 w-32 overflow-hidden rounded-full bg-muted">
               <div
                 className="h-2 rounded-full bg-primary"
-                style={{ width: `${progressPercentage}%` }}
+                style={{ width: `${adjustedProgressPercentage}%` }}
               />
             </div>
           </div>
@@ -405,6 +411,16 @@ function Checklist({
 export function SetupContent() {
   const { emailAccountId, provider } = useAccount();
   const { data, isLoading, error } = useSetupProgress();
+  const [isTeamInviteViewed] = useLocalStorage(
+    "inbox-zero-team-invite-viewed",
+    false,
+  );
+
+  const isTeamInviteSkipped =
+    data?.teamInvite && isTeamInviteViewed && !data.teamInvite.completed;
+  const allBaseStepsDone = data && data.completed === data.total - 1;
+  const adjustedIsComplete =
+    data?.isComplete || (isTeamInviteSkipped && allBaseStepsDone);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -417,7 +433,7 @@ export function SetupContent() {
           isCalendarConnected={data.steps.calendarConnected}
           completedCount={data.completed}
           totalSteps={data.total}
-          isSetupComplete={data.isComplete}
+          isSetupComplete={adjustedIsComplete ?? false}
           teamInvite={data.teamInvite}
         />
       )}
@@ -449,8 +465,6 @@ function SetupPageContent({
     organizationId: string | undefined;
   } | null;
 }) {
-  const progressPercentage = (completedCount / totalSteps) * 100;
-
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
       <div className="mb-4 sm:mb-8">
@@ -475,7 +489,6 @@ function SetupPageContent({
           isCalendarConnected={isCalendarConnected}
           completedCount={completedCount}
           totalSteps={totalSteps}
-          progressPercentage={progressPercentage}
           teamInvite={teamInvite}
         />
       )}

@@ -92,7 +92,7 @@ export async function createScheduledAction({
       });
     }
 
-    logger.info("Created and scheduled action with QStash", {
+    logger.info("Created scheduled action", {
       scheduledActionId: scheduledAction.id,
       actionType: actionItem.type,
       scheduledFor,
@@ -294,23 +294,10 @@ async function scheduleMessage({
 
       return messageId;
     } else {
-      logger.error(
-        "QStash client not available, scheduled action cannot be executed",
-        {
-          scheduledActionId: payload.scheduledActionId,
-        },
-      );
-
-      await prisma.scheduledAction.update({
-        where: { id: payload.scheduledActionId },
-        data: {
-          schedulingStatus: "FAILED" as const,
-        },
+      logger.info("QStash client not available, using cron fallback", {
+        scheduledActionId: payload.scheduledActionId,
       });
-
-      throw new Error(
-        "QStash client not available - scheduled action cannot be executed",
-      );
+      return null;
     }
   } catch (error) {
     logger.error("Failed to schedule with QStash", {

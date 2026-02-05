@@ -1,4 +1,3 @@
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withError, type RequestWithLogger } from "@/utils/middleware";
@@ -24,6 +23,7 @@ import { internalDateToDate } from "@/utils/date";
 import { CleanAction } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import { isActivePremium } from "@/utils/premium";
+import { withQstashOrInternal } from "@/utils/qstash";
 
 const cleanThreadBody = z.object({
   emailAccountId: z.string(),
@@ -294,13 +294,13 @@ function getPublish({
 }
 
 export const POST = withError(
-  verifySignatureAppRouter(async (request: Request) => {
+  withQstashOrInternal(async (request: RequestWithLogger) => {
     const json = await request.json();
     const body = cleanThreadBody.parse(json);
 
     await cleanThread({
       ...body,
-      logger: (request as RequestWithLogger).logger,
+      logger: request.logger,
     });
 
     return NextResponse.json({ success: true });

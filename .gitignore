@@ -90,3 +90,7 @@ copilot/environments/**/manifest.yml
 
 # AI SDK devtools
 .devtools/
+
+# browser QA flow results
+qa/browser-flows/results/*
+!qa/browser-flows/results/README.md

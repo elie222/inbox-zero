@@ -1,8 +1,9 @@
-import { CheckCheckIcon } from "lucide-react";
+"use client";
+
+import { ArrowRightIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
-import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
-import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
+import { Button } from "@/components/ui/button";
+import { InboxReadyIllustration } from "@/app/(app)/[emailAccountId]/onboarding/illustrations/InboxReadyIllustration";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { usePremium } from "@/components/PremiumAlert";
 
@@ -10,14 +11,15 @@ export function StepInboxProcessed({ onNext }: { onNext: () => void }) {
   const { isPremium } = usePremium();
 
   return (
-    <OnboardingWrapper>
-      <IconCircle size="lg" className="mx-auto">
-        <CheckCheckIcon className="size-6" />
-      </IconCircle>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
+      <div className="flex flex-col items-center text-center max-w-md">
+        <div className="mb-6 h-[240px] flex items-end justify-center">
+          <InboxReadyIllustration />
+        </div>
 
-      <div className="text-center mt-4">
-        <PageHeading>Inbox Preview Ready</PageHeading>
-        <TypographyP className="mt-2 max-w-xl mx-auto">
+        <PageHeading className="mb-3">Inbox Preview Ready</PageHeading>
+
+        <TypographyP className="text-muted-foreground mb-8">
           We labeled your last {ONBOARDING_PROCESS_EMAILS_COUNT} emails and
           drafted replies (nothing was archived).
           {!isPremium && (
@@ -28,11 +30,14 @@ export function StepInboxProcessed({ onNext }: { onNext: () => void }) {
             </>
           )}
         </TypographyP>
-      </div>
 
-      <div className="flex justify-center mt-8">
-        <ContinueButton onClick={onNext} />
+        <div className="flex flex-col gap-2 w-full max-w-xs">
+          <Button className="w-full" onClick={onNext}>
+            Continue
+            <ArrowRightIcon className="size-4 ml-2" />
+          </Button>
+        </div>
       </div>
-    </OnboardingWrapper>
+    </div>
   );
 }

@@ -57,16 +57,13 @@ export function FilingStatusCell({
   // status === "filed"
   const displayPath = folderPath || "—";
   return (
-    <Tooltip content={displayPath}>
-      <span
-        className={cn(
-          "flex items-center gap-1.5 text-muted-foreground truncate",
-          className,
-        )}
-      >
-        <span className="truncate">{displayPath}</span>
-        <InfoIcon className="size-3.5 flex-shrink-0" />
-      </span>
-    </Tooltip>
+    <span
+      className={cn(
+        "flex items-center text-muted-foreground truncate",
+        className,
+      )}
+    >
+      <span className="truncate">{displayPath}</span>
+    </span>
   );
 }

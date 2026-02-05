@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { digestBody } from "./validation";
 import { DigestStatus } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
@@ -10,14 +9,16 @@ import type { StoredDigestContent } from "@/app/api/resend/digest/validation";
 import { withError } from "@/utils/middleware";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { env } from "@/env";
+import { withQstashOrInternal } from "@/utils/qstash";
 
-export const POST = verifySignatureAppRouter(
-  withError("digest", async (request) => {
+export const POST = withError(
+  "digest",
+  withQstashOrInternal(async (request) => {
     let logger = request.logger;
 
     try {
       const body = digestBody.parse(await request.json());
-      const { emailAccountId, coldEmailId, actionId, message } = body;
+      const { emailAccountId, actionId, message } = body;
 
       logger = logger.with({ emailAccountId, messageId: message.id });
 
@@ -70,7 +71,6 @@ export const POST = verifySignatureAppRouter(
         threadId: message.threadId || "",
         emailAccountId,
         actionId,
-        coldEmailId,
         content: summary,
         logger,
       });
@@ -126,14 +126,12 @@ async function updateDigestItem(
   itemId: string,
   contentString: string,
   actionId?: string,
-  coldEmailId?: string,
 ) {
   return await prisma.digestItem.update({
     where: { id: itemId },
     data: {
       content: contentString,
       ...(actionId && { actionId }),
-      ...(coldEmailId && { coldEmailId }),
     },
   });
 }
@@ -144,23 +142,31 @@ async function createDigestItem({
   threadId,
   contentString,
   actionId,
-  coldEmailId,
 }: {
   digestId: string;
   messageId: string;
   threadId: string;
   contentString: string;
   actionId?: string;
-  coldEmailId?: string;
 }) {
-  return await prisma.digestItem.create({
-    data: {
+  return await prisma.digestItem.upsert({
+    where: {
+      digestId_threadId_messageId: {
+        digestId,
+        threadId,
+        messageId,
+      },
+    },
+    update: {
+      content: contentString,
+      ...(actionId && { actionId }),
+    },
+    create: {
       messageId,
       threadId,
       content: contentString,
       digestId,
       ...(actionId && { actionId }),
-      ...(coldEmailId && { coldEmailId }),
     },
   });
 }
@@ -170,7 +176,6 @@ async function upsertDigest({
   threadId,
   emailAccountId,
   actionId,
-  coldEmailId,
   content,
   logger,
 }: {
@@ -178,7 +183,6 @@ async function upsertDigest({
   threadId: string;
   emailAccountId: string;
   actionId?: string;
-  coldEmailId?: string;
   content: StoredDigestContent;
   logger: Logger;
 }) {
@@ -193,12 +197,7 @@ async function upsertDigest({
 
     if (existingItem) {
       logger.info("Updating existing digest item");
-      await updateDigestItem(
-        existingItem.id,
-        contentString,
-        actionId,
-        coldEmailId,
-      );
+      await updateDigestItem(existingItem.id, contentString, actionId);
     } else {
       logger.info("Creating new digest item");
       await createDigestItem({
@@ -207,7 +206,6 @@ async function upsertDigest({
         threadId,
         contentString,
         actionId,
-        coldEmailId,
       });
     }
   } catch (error) {

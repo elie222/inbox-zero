@@ -10,13 +10,11 @@ export async function enqueueDigestItem({
   email,
   emailAccountId,
   actionId,
-  coldEmailId,
   logger,
 }: {
   email: ParsedMessage | EmailForAction;
   emailAccountId: string;
   actionId?: string;
-  coldEmailId?: string;
   logger: Logger;
 }) {
   const url = `${getInternalApiUrl()}/api/ai/digest`;
@@ -28,7 +26,6 @@ export async function enqueueDigestItem({
       body: {
         emailAccountId,
         actionId,
-        coldEmailId,
         message: {
           id: email.id,
           threadId: email.threadId,
