@@ -1,36 +1,22 @@
 ---
 id: reply-with-unedited-draft-from-gmail
 title: "Reply with unedited draft from Gmail"
-description: "Make sure that when you reply from Gmail with an unedited auto-generated draft, that draft is not deleted permanently after it's sent. "
-category: email
-estimated_duration: 180s
 resources:
   - conversation-rules
   - gmail-account
   - outlook-account
-requires:
-  - authenticated_session
-  - gmail_account
-  - outlook_account
-conflicts_with: []
-parallel_safe: false
-timeout_minutes: 20
-preconditions:
-  - "Signed into Inbox Zero as a test account"
-  - "Signed into Outlook test account in another tab"
-  - "Signed into Gmail test account in another tab"
-  - "Inbox Zero is connected to both Gmail and Outlook"
-cleanup:
-  - close all tabs used for the test
-tags:
-  - rules
-  - outlook
-  - gmail
 ---
 
 ## Goal
 
 Verify that when you reply from Gmail with an unedited auto-generated draft, that draft is not deleted permanently after it's sent.
+
+## Preconditions
+
+- Signed into Inbox Zero as a test account.
+- Signed into Outlook test account in another tab.
+- Signed into Gmail test account in another tab.
+- Inbox Zero is connected to both Gmail and Outlook.
 
 ## Steps
 

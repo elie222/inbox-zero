@@ -1,27 +1,18 @@
 ---
 id: assistant-writing-style
 title: "Assistant writing style persists"
-description: "Verify that changing the Assistant writing style persists after saving and refreshing."
-category: settings
-estimated_duration: 60s
 resources:
   - assistant-settings
-requires:
-  - authenticated_session
-conflicts_with: []
-parallel_safe: false
-timeout_minutes: 10
-preconditions:
-  - "Signed into Inbox Zero as a test account"
-  - "Assistant settings page is accessible"
-tags:
-  - settings
-  - assistant
 ---
 
 ## Goal
 
 Ensure writing style changes are saved and persist across a page refresh.
+
+## Preconditions
+
+- Signed into Inbox Zero as a test account.
+- Assistant settings page is accessible.
 
 ## Steps
 
