@@ -7,11 +7,12 @@ set -e
 echo "🚀 Starting Inbox Zero..."
 
 # Install AWS RDS CA certificates for SSL database connections.
-# Only runs when DATABASE_URL points to an RDS instance. Managed databases use
-# Amazon's own CA which isn't in the default Alpine trust store, causing the
-# Prisma query engine to reject the certificate.
+# Only runs when any database URL points to an RDS instance. Managed databases
+# use Amazon's own CA which isn't in the default Alpine trust store, causing
+# Prisma to reject the certificate. Checks all DB URLs since migrations may use
+# DIRECT_URL or PREVIEW_DATABASE_URL_UNPOOLED instead of DATABASE_URL.
 RDS_CA_BUNDLE="/app/rds-combined-ca-bundle.pem"
-if echo "$DATABASE_URL" | grep -q "amazonaws.com"; then
+if echo "$DATABASE_URL $DIRECT_URL $PREVIEW_DATABASE_URL_UNPOOLED" | grep -q "amazonaws.com"; then
     if [ ! -f "$RDS_CA_BUNDLE" ]; then
         echo "🔒 Downloading AWS RDS CA bundle..."
         if wget -q -O "$RDS_CA_BUNDLE" \
