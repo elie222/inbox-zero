@@ -93,7 +93,7 @@ FROM node:22-alpine AS runner
 
 WORKDIR /app
 
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl ca-certificates
 
 # Copy standalone build
 COPY --from=builder /app/apps/web/.next/standalone ./
