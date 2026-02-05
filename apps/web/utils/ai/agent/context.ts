@@ -107,7 +107,10 @@ function formatCapabilities({
   allowedActionOptions: Array<{
     actionType: string;
     name: string;
-    targetGroup?: { name: string; cardinality: TargetGroupCardinality | null };
+    targetGroup?: {
+      name: string;
+      cardinality: TargetGroupCardinality | null;
+    } | null;
   }>;
 }) {
   const lines: string[] = [];
@@ -164,7 +167,10 @@ function formatTargets({
   allowedActionOptions: Array<{
     actionType: string;
     name: string;
-    targetGroup?: { name: string; cardinality: TargetGroupCardinality | null };
+    targetGroup?: {
+      name: string;
+      cardinality: TargetGroupCardinality | null;
+    } | null;
   }>;
 }) {
   const options = allowedActionOptions.filter(

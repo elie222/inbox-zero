@@ -97,13 +97,12 @@ export async function aiProcessAgentChat({
     onStepFinish: async ({ text, toolCalls }) => {
       logger.trace("Agent step finished", { text, toolCalls });
     },
-    onFinish: async ({ result }) => {
-      if (!result?.usage) return;
+    onFinish: async ({ totalUsage }) => {
       await saveAiUsage({
         email: emailAccount.email,
         provider,
         model: modelName,
-        usage: result.usage,
+        usage: totalUsage,
         label: "agent-chat",
       });
     },

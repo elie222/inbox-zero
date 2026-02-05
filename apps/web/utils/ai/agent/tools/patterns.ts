@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { tool, type InferUITool } from "ai";
 import { z } from "zod";
 import prisma from "@/utils/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { AgentToolContext } from "@/utils/ai/agent/types";
 
@@ -39,14 +40,14 @@ export const createPatternTool = ({
           data: {
             provider,
             resourceType,
-            matcher,
+            matcher: matcher as Prisma.InputJsonValue,
             matcherHash,
             reason,
             emailAccountId,
             actions: {
               create: actions.map((action) => ({
                 actionType: action.actionType,
-                actionData: action.actionData,
+                actionData: action.actionData as Prisma.InputJsonValue,
               })),
             },
           },

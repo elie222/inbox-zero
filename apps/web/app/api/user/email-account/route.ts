@@ -18,6 +18,7 @@ async function getEmailAccount({ emailAccountId }: { emailAccountId: string }) {
       digestSchedule: true,
       userId: true,
       about: true,
+      agentModeEnabled: true,
       multiRuleSelectionEnabled: true,
       timezone: true,
       calendarBookingLink: true,

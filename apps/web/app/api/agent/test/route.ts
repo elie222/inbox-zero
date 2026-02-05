@@ -82,13 +82,12 @@ export const POST = withEmailAccount("agent-test", async (request) => {
     stopWhen: stepCountIs(8),
     providerOptions,
     experimental_telemetry: { isEnabled: true },
-    onFinish: async ({ result }) => {
-      if (!result?.usage) return;
+    onFinish: async ({ totalUsage }) => {
       await saveAiUsage({
         email: user.email,
         provider,
         model: modelName,
-        usage: result.usage,
+        usage: totalUsage,
         label: "agent-test",
       });
     },

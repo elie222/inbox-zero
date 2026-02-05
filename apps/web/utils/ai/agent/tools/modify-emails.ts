@@ -74,7 +74,7 @@ export const modifyEmailsTool = ({
       const results = [];
 
       for (const action of actions) {
-        const structuredAction: StructuredAction = {
+        const structuredAction = {
           type: getStructuredActionType(action.type),
           resourceId: emailId,
           ...(action.type === "markRead" ? { read: action.read } : {}),
@@ -90,7 +90,7 @@ export const modifyEmailsTool = ({
                 targetName: action.targetName,
               }
             : {}),
-        };
+        } as StructuredAction;
 
         const result = await executeAction(structuredAction, {
           emailAccountId,

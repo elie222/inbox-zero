@@ -59,7 +59,7 @@ export const getSettingsTool = ({ emailAccountId, logger }: AgentToolContext) =>
         }),
         prisma.targetGroup.findMany({
           where: { emailAccountId },
-          orderBy: { createdAt: "asc" },
+          orderBy: { name: "asc" },
         }),
       ]);
 

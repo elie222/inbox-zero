@@ -1,4 +1,5 @@
 import prisma from "@/utils/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { createEmailProvider } from "@/utils/email/provider";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import type { Logger } from "@/utils/logger";
@@ -80,7 +81,10 @@ export async function executeAction({
     data: {
       actionType: normalizedActionType,
       actionData: normalizedAction,
-      resourceId: context.emailId ?? action.resourceId ?? null,
+      resourceId:
+        context.emailId ??
+        ("resourceId" in action ? action.resourceId : null) ??
+        null,
       threadId: context.threadId ?? null,
       messageSubject: context.messageSubject ?? null,
       status: initialStatus,
@@ -88,7 +92,9 @@ export async function executeAction({
       triggeredBy: context.triggeredBy,
       patternId: context.patternId,
       skillId: context.skillId,
-      matchMetadata: { conditionsChecked: validation.conditionsChecked },
+      matchMetadata: {
+        conditionsChecked: validation.conditionsChecked,
+      } as unknown as Prisma.InputJsonValue,
       emailAccountId: context.emailAccountId,
     },
   });
@@ -331,12 +337,17 @@ async function performAction({
     logger,
   });
 
+  // NormalizedStructuredAction uses Omit on a union which flattens it,
+  // losing discriminated-union narrowing. Cast for property access.
+  // biome-ignore lint/suspicious/noExplicitAny: flattened union type
+  const a = action as any;
+
   switch (action.type) {
     case "archive": {
       const threadId = await resolveThreadId({
         emailProvider,
         context,
-        fallbackMessageId: action.resourceId,
+        fallbackMessageId: a.resourceId,
       });
       await emailProvider.archiveThread(threadId, emailAccountEmail);
       return {};
@@ -345,15 +356,15 @@ async function performAction({
       const threadId = await resolveThreadId({
         emailProvider,
         context,
-        fallbackMessageId: action.resourceId,
+        fallbackMessageId: a.resourceId,
       });
-      await emailProvider.markReadThread(threadId, action.read ?? true);
+      await emailProvider.markReadThread(threadId, a.read ?? true);
       return {};
     }
     case "classify": {
-      const messageId = context.emailId ?? action.resourceId;
-      const labelName = action.targetName ?? null;
-      let labelId = action.targetExternalId ?? null;
+      const messageId = context.emailId ?? a.resourceId;
+      const labelName = a.targetName ?? null;
+      let labelId = a.targetExternalId ?? null;
 
       if (!labelId && labelName) {
         const label = await emailProvider.getLabelByName(labelName);
@@ -385,8 +396,8 @@ async function performAction({
         emailProvider,
         threadId,
         selected: {
-          externalId: action.targetExternalId ?? null,
-          name: action.targetName ?? null,
+          externalId: a.targetExternalId ?? null,
+          name: a.targetName ?? null,
         },
         actionType: action.type,
         provider: context.provider,
@@ -399,14 +410,12 @@ async function performAction({
       const threadId = await resolveThreadId({
         emailProvider,
         context,
-        fallbackMessageId: action.resourceId,
+        fallbackMessageId: a.resourceId,
       });
 
-      let folderId = action.targetExternalId ?? null;
-      if (!folderId && action.targetName) {
-        folderId = await emailProvider.getOrCreateFolderIdByName(
-          action.targetName,
-        );
+      let folderId = a.targetExternalId ?? null;
+      if (!folderId && a.targetName) {
+        folderId = await emailProvider.getOrCreateFolderIdByName(a.targetName);
       }
 
       if (!folderId) {
@@ -421,12 +430,12 @@ async function performAction({
       return {};
     }
     case "draft": {
-      const messageId = context.emailId ?? action.resourceId;
+      const messageId = context.emailId ?? a.resourceId;
       const message = await emailProvider.getMessage(messageId);
       const draftId = await createAssistantDraft({
         emailProvider,
         message,
-        action,
+        action: a,
         emailAccountId: context.emailAccountId,
         emailAccountEmail,
         logger,
@@ -446,41 +455,39 @@ async function performAction({
     case "send": {
       ensureEmailSendingEnabled();
 
-      if (action.draftId) {
-        await emailProvider.sendDraft(action.draftId);
+      if (a.draftId) {
+        await emailProvider.sendDraft(a.draftId);
         await prisma.assistantDraft.deleteMany({
           where: {
             emailAccountId: context.emailAccountId,
-            draftId: action.draftId,
+            draftId: a.draftId,
           },
         });
         return {};
       }
 
-      if (!action.to || !action.subject || !action.content) {
+      if (!a.to || !a.subject || !a.content) {
         throw new Error("Missing recipient, subject, or content");
       }
 
       await emailProvider.sendEmail({
-        to: action.to,
-        cc: action.cc ?? undefined,
-        bcc: action.bcc ?? undefined,
-        subject: action.subject,
-        messageText: action.content,
+        to: a.to,
+        cc: a.cc ?? undefined,
+        bcc: a.bcc ?? undefined,
+        subject: a.subject,
+        messageText: a.content,
       });
       return {};
     }
     case "updateSettings": {
       await applySettingsUpdate({
         emailAccountId: context.emailAccountId,
-        payload: action.settings,
+        payload: a.settings,
       });
       return {};
     }
-    default: {
-      const exhaustiveCheck: never = action;
-      throw new Error(`Unknown action type ${JSON.stringify(exhaustiveCheck)}`);
-    }
+    default:
+      throw new Error(`Unknown action type: ${action.type}`);
   }
 }
 
@@ -579,7 +586,7 @@ async function enforceTargetGroupCardinality({
               ? { externalId: selected.externalId }
               : undefined,
             selected.name ? { name: selected.name } : undefined,
-          ].filter(Boolean) as Array<Record<string, string>>,
+          ].filter(Boolean) as unknown as Array<Record<string, string>>,
         },
       ],
     },

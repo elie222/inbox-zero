@@ -61,13 +61,12 @@ export async function runAgentOnIncomingEmail({
     stopWhen: stepCountIs(8),
     providerOptions,
     experimental_telemetry: { isEnabled: true },
-    onFinish: async ({ result }) => {
-      if (!result?.usage) return;
+    onFinish: async ({ totalUsage }) => {
       await saveAiUsage({
         email: emailAccount.email,
         provider,
         model: modelName,
-        usage: result.usage,
+        usage: totalUsage,
         label: "agent-webhook",
       });
     },

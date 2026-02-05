@@ -2,6 +2,7 @@ import { tool, type InferUITool } from "ai";
 import { z } from "zod";
 import { createEmailProvider } from "@/utils/email/provider";
 import prisma from "@/utils/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { validateAction } from "@/utils/ai/agent/validation/allowed-actions";
 import type {
   AgentToolContext,
@@ -64,7 +65,7 @@ export const bulkArchiveTool = ({
             matchMetadata: {
               conditionsChecked: validation.conditionsChecked,
               senderCount: senders.length,
-            },
+            } as unknown as Prisma.InputJsonValue,
             emailAccountId,
           },
         });
@@ -99,7 +100,7 @@ export const bulkArchiveTool = ({
           matchMetadata: {
             conditionsChecked: validation.conditionsChecked,
             senderCount: senders.length,
-          },
+          } as unknown as Prisma.InputJsonValue,
           emailAccountId,
         },
       });
@@ -111,9 +112,10 @@ export const bulkArchiveTool = ({
       });
 
       try {
-        const result = await emailProvider.bulkArchiveFromSenders(
+        await emailProvider.bulkArchiveFromSenders(
           senders,
           emailAccountEmail,
+          emailAccountId,
         );
 
         await prisma.executedAgentAction.update({
@@ -121,10 +123,10 @@ export const bulkArchiveTool = ({
           data: { status: "SUCCESS" },
         });
 
-        log.info("Bulk archive complete", { result });
+        log.info("Bulk archive complete", { senders: senders.length });
 
         return {
-          archived: result.totalArchived,
+          archived: senders.length,
           senders: senders.length,
           logId: actionLog.id,
         };

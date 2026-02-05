@@ -90,7 +90,9 @@ export async function validateAction({
   }
 
   if (normalizedActionType === "classify" || normalizedActionType === "move") {
-    if (!action.targetExternalId && !action.targetName) {
+    // biome-ignore lint/suspicious/noExplicitAny: StructuredAction union can't narrow via derived value
+    const a = action as any;
+    if (!a.targetExternalId && !a.targetName) {
       return {
         allowed: false,
         reason: "Target is required for this action",
@@ -99,11 +101,9 @@ export async function validateAction({
     }
 
     const targetFilters = [
-      action.targetExternalId
-        ? { externalId: action.targetExternalId }
-        : undefined,
-      action.targetName ? { name: action.targetName } : undefined,
-    ].filter(Boolean) as Array<Record<string, string>>;
+      a.targetExternalId ? { externalId: a.targetExternalId } : undefined,
+      a.targetName ? { name: a.targetName } : undefined,
+    ].filter(Boolean) as unknown as Array<Record<string, string>>;
 
     const target = await prisma.allowedActionOption.findFirst({
       where: {
