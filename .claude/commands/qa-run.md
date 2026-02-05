@@ -17,7 +17,7 @@ Process:
 1. Read `qa/browser-flows/README.md` and the selected flow files.
 2. If `--list`, print each flow id + title + resources and stop.
 3. Determine run mode (`all` or `only`). Fail fast if any requested ids are missing.
-4. If `--parallel`, batch flows so no batch contains overlapping `resources`, no flow lists another in `conflicts_with`, and every flow in the batch has `parallel_safe: true`.
+4. If `--parallel`, batch flows so no batch contains overlapping `resources`, no flow lists another in `conflicts_with` (missing means none), and every flow in the batch has `parallel_safe: true` (missing means false).
    If batching is not possible, run sequentially.
 5. Execute each flow exactly as written. Use deliberate waits when moving between Gmail, Outlook, and Inbox Zero.
 6. Record evidence. Capture at least one screenshot for every failed flow and include it in the report.

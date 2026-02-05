@@ -1,36 +1,22 @@
 ---
 id: to-reply-rule-gmail-to-outlook
 title: "To Reply rule applies category and draft"
-description: "Ensure the To Reply rule is enabled and that Gmail -> Outlook messages get categorized and drafted."
-category: email
-estimated_duration: 180s
 resources:
   - conversation-rules
   - gmail-account
   - outlook-account
-requires:
-  - authenticated_session
-  - gmail_account
-  - outlook_account
-conflicts_with: []
-parallel_safe: false
-timeout_minutes: 20
-preconditions:
-  - "Signed into Inbox Zero as a test account"
-  - "Signed into Gmail test account in another tab"
-  - "Signed into Outlook test account in another tab"
-  - "Inbox Zero is connected to both Gmail and Outlook"
-cleanup:
-  - close all tabs used for the test
-tags:
-  - rules
-  - gmail
-  - outlook
 ---
 
 ## Goal
 
 Verify that enabling the To Reply rule results in a Outlook category and a reply draft for a message that needs a response.
+
+## Preconditions
+
+- Signed into Inbox Zero as a test account.
+- Signed into Gmail test account in another tab.
+- Signed into Outlook test account in another tab.
+- Inbox Zero is connected to both Gmail and Outlook.
 
 ## Steps
 
