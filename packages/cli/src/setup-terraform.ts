@@ -7,7 +7,6 @@ const DEFAULT_APP_NAME = "inbox-zero";
 const DEFAULT_ENVIRONMENT = "production";
 const DEFAULT_REGION = "us-east-1";
 const DEFAULT_OUTPUT_DIR_NAME = "terraform";
-const DEFAULT_LLM_PROVIDER = "anthropic";
 
 const RDS_INSTANCE_OPTIONS = [
   {
@@ -289,12 +288,14 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
   const llmProvider =
     validatedLlmProvider ||
     (nonInteractive
-      ? DEFAULT_LLM_PROVIDER
+      ? ""
       : await promptSelect({
           message: "Default LLM provider:",
           options: LLM_PROVIDER_OPTIONS,
-          initialValue: DEFAULT_LLM_PROVIDER,
         }));
+  if (nonInteractive) {
+    assertNonEmpty("DEFAULT_LLM_PROVIDER", llmProvider);
+  }
 
   const llmModel =
     options.llmModel ||
@@ -1498,8 +1499,12 @@ variable "google_pubsub_topic_name" {
 }
 
 variable "default_llm_provider" {
-  type    = string
-  default = "anthropic"
+  type = string
+
+  validation {
+    condition     = var.default_llm_provider != ""
+    error_message = "default_llm_provider is required."
+  }
 }
 
 variable "default_llm_model" {
