@@ -305,7 +305,7 @@ export function MessagePart({
         );
       }
       const output = part.output as {
-        labels: { name: string; actions: string[] }[];
+        labels: { name: string; actions: ("label" | "skipInbox")[] }[];
       };
       return <LabelsPreview key={part.toolCallId} items={output.labels} />;
     }
