@@ -23,12 +23,14 @@ Process:
 6. Record evidence. Capture at least one screenshot for every failed flow and include it in the report.
 7. Write the JSON report to `qa/browser-flows/results/<run-id>.json` and save screenshots under
    `qa/browser-flows/results/<run-id>/`.
-8. Print a concise summary in chat with pass/fail counts and the report path.
+8. Write a companion Markdown summary to `qa/browser-flows/results/<run-id>.md` following the template in the README.
+9. Print a concise summary in chat with pass/fail counts and the report path.
 
 Output rules:
 - Use the JSON schema described in `qa/browser-flows/README.md`.
 - Keep reports free of secrets. Use placeholders for sensitive values.
 - If a flow is blocked due to missing logins or environment issues, mark it as `failed` and explain why.
+- If a flow fails, specify which step failed and add the reason for failing.
 
 Behavior rules:
 - Do not invent steps. Follow each flow spec exactly.
