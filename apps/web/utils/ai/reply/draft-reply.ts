@@ -23,6 +23,7 @@ IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't a
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
 IMPORTANT: ${PLAIN_TEXT_OUTPUT_INSTRUCTION}
+IMPORTANT: Format paragraphs using Unix newlines: use "\n\n" between paragraphs and "\n" for single line breaks.
 
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
@@ -245,5 +246,51 @@ export async function aiDraftReply({
     schema: draftSchema,
   });
 
-  return result.object.reply;
+  return normalizeDraftReplyFormatting(result.object.reply);
+}
+
+function normalizeDraftReplyFormatting(reply: string): string {
+  const withNormalizedLineEndings = reply.replace(/\r\n?|\u2028|\u2029/g, "\n");
+
+  const withDecodedEscapedNewlines = /\\r\\n|\\n|\\r/.test(
+    withNormalizedLineEndings,
+  )
+    ? withNormalizedLineEndings
+        .replace(/\\r\\n/g, "\n")
+        .replace(/\\n/g, "\n")
+        .replace(/\\r/g, "\n")
+    : withNormalizedLineEndings;
+
+  const cleaned = withDecodedEscapedNewlines
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+$/g, ""))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  const nonEmptyLines = cleaned
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (shouldConvertSingleLineBreaksToParagraphs(nonEmptyLines)) {
+    return nonEmptyLines.join("\n\n");
+  }
+
+  return cleaned;
+}
+
+function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
+  if (lines.length < 2) return false;
+
+  if (lines.some((line) => isLikelyListItem(line))) return false;
+
+  const punctuatedLines = lines.filter((line) => /[.!?]$/.test(line)).length;
+  const punctuationRatio = punctuatedLines / lines.length;
+
+  return punctuationRatio >= 0.6;
+}
+
+function isLikelyListItem(line: string): boolean {
+  return /^(\s*[-*]\s+|\s*\d+[.)]\s+|\s*[a-zA-Z][.)]\s+|>\s+)/.test(line);
 }

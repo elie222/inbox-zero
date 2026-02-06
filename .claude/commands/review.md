@@ -80,6 +80,8 @@ Reference @AGENTS.md for project conventions. Apply those patterns as review cri
 - Zod schemas with `z.infer<typeof schema>` instead of duplicate interfaces?
 - Self-documenting code? Comments explain "why" not "what"?
 - `logger.trace()` for PII fields?
+- Test changes follow `.cursor/rules/testing.mdc`?
+- Tests avoid mocking `@/utils/logger`?
 
 ### Learnings check
 - Did this change teach us something that should be captured in `AGENTS.md` or this review file?
