@@ -6,6 +6,7 @@ import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSecti
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/MultiAccountSection";
 import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
+import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 import { RuleImportExportSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
@@ -61,6 +62,7 @@ export default function SettingsPage() {
               <div className="space-y-2 mt-4">
                 <OrgAnalyticsConsentSection />
                 <RuleImportExportSetting />
+                <CleanupDraftsSection />
                 <ResetAnalyticsSection />
               </div>
 
