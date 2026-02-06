@@ -105,3 +105,41 @@ Claude Code should write a JSON report to `qa/browser-flows/results/<run-id>.jso
 ```
 
 Keep results free of secrets. Use placeholders for sensitive values.
+
+### Companion summary
+
+In addition to the JSON report, write a human-readable Markdown summary to
+`qa/browser-flows/results/<run-id>.md`.
+
+**Template:**
+
+````markdown
+# QA Run `<run-id>`
+
+**Mode:** `<mode>` | **Parallel:** `<yes/no>` | **Duration:** `<HH:MM:SS>`
+
+## <flow-title> — <STATUS>
+
+| Check | Result |
+|---|---|
+| <description of what was verified> | PASSED |
+| <description of what was verified> | FAILED — <short explanation> |
+
+**Failure reason:** <one-liner, only for failed flows>
+
+---
+
+## Summary
+
+| Passed | Failed | Skipped |
+|---|---|---|
+| N | N | N |
+
+**Report:** `qa/browser-flows/results/<run-id>.json`
+**Screenshots:** `qa/browser-flows/results/<run-id>/`
+````
+
+Rules for the checks table:
+- One row per verifiable assertion in the flow (settings saved, email sent, label applied, draft generated, etc.).
+- Use `PASSED` or `FAILED — <short reason>` in the Result column.
+- Keep descriptions concise (under ~80 chars).
