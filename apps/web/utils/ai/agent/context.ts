@@ -32,8 +32,13 @@ export async function buildAgentSystemPrompt({
     ["send", "updateSettings"].includes(type),
   );
 
+  const isGmail = emailAccount.account?.provider === "google";
+  const filteredActionTypes = Array.from(allowedActionTypes).filter(
+    (type) => !(type === "move" && isGmail),
+  );
+
   const capabilities = formatCapabilities({
-    allowedActionTypes: Array.from(allowedActionTypes),
+    allowedActionTypes: filteredActionTypes,
     allowedActionOptions,
   });
 

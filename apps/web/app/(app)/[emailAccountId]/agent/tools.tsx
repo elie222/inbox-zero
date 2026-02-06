@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronRightIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAccount } from "@/providers/EmailAccountProvider";
 import { PendingApprovalCard } from "./pending-approvals";
 
 export function BasicToolInfo({ text }: { text: string }) {
@@ -176,11 +179,20 @@ export function PatternResult({ text }: { text: string }) {
 }
 
 export function OnboardingCompleteResult() {
+  const { emailAccountId } = useAccount();
+  const router = useRouter();
+
   return (
     <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950">
       <div className="text-sm font-medium text-green-800 dark:text-green-200">
         Your agent is now active! It will process incoming emails automatically.
       </div>
+      <Button
+        className="mt-3"
+        onClick={() => router.push(`/${emailAccountId}/agent`)}
+      >
+        Go to Agent
+      </Button>
     </div>
   );
 }

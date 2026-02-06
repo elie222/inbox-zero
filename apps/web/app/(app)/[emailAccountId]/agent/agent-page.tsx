@@ -3,8 +3,10 @@
 import { Suspense, useCallback } from "react";
 import useSWR from "swr";
 import { useAction } from "next-safe-action/hooks";
+import { formatDistanceToNow } from "date-fns";
 import type { GetAgentSkillsResponse } from "@/app/api/agent/skills/route";
 import type { GetAllowedActionsResponse } from "@/app/api/agent/allowed-actions/route";
+import type { GetAgentActivityResponse } from "@/app/api/agent/activity/route";
 import { AgentChat } from "./chat";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +23,7 @@ export function AgentPage() {
         <div className="border-b px-4 py-2">
           <TabsList>
             <TabsTrigger value="chat">Chat</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
             <TabsTrigger value="skills">Skills</TabsTrigger>
             <TabsTrigger value="tools">Tools</TabsTrigger>
           </TabsList>
@@ -28,6 +31,10 @@ export function AgentPage() {
 
         <TabsContent value="chat" className="mt-0 flex-1">
           <AgentChat />
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-0 flex-1 overflow-auto p-4">
+          <ActivityPanel />
         </TabsContent>
 
         <TabsContent value="skills" className="mt-0 flex-1 overflow-auto p-4">
@@ -74,6 +81,86 @@ const EMAIL_CAPABILITIES = [
     description: "Send emails (requires approval)",
   },
 ] as const;
+
+function ActivityPanel() {
+  const { data, isLoading, error } = useSWR<GetAgentActivityResponse>(
+    "/api/agent/activity",
+    { refreshInterval: 30_000 },
+  );
+
+  return (
+    <div className="mx-auto max-w-3xl">
+      <h2 className="mb-4 text-lg font-semibold">Activity</h2>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Recent actions taken by the agent on your emails.
+      </p>
+
+      <LoadingContent loading={isLoading} error={error}>
+        {data?.actions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No activity yet. The agent will log actions here when it processes
+            emails.
+          </p>
+        ) : (
+          <div className="space-y-1">
+            {data?.actions.map((action) => (
+              <div
+                key={action.id}
+                className="flex items-start justify-between gap-4 rounded-lg border p-4"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{action.actionType}</Badge>
+                    <StatusBadge status={action.status} />
+                  </div>
+                  {action.messageSubject && (
+                    <p className="mt-1 truncate text-sm">
+                      {action.messageSubject}
+                    </p>
+                  )}
+                  {action.error && (
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                      {action.error}
+                    </p>
+                  )}
+                  {action.triggeredBy && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {action.triggeredBy}
+                    </p>
+                  )}
+                </div>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(action.createdAt), {
+                    addSuffix: true,
+                  })}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </LoadingContent>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case "SUCCESS":
+      return <Badge variant="green">success</Badge>;
+    case "FAILED":
+      return <Badge variant="red">failed</Badge>;
+    case "BLOCKED":
+      return <Badge variant="outline">blocked</Badge>;
+    case "PENDING_APPROVAL":
+      return <Badge variant="outline">pending approval</Badge>;
+    case "PENDING":
+      return <Badge variant="secondary">pending</Badge>;
+    case "CANCELLED":
+      return <Badge variant="secondary">cancelled</Badge>;
+    default:
+      return <Badge variant="secondary">{status.toLowerCase()}</Badge>;
+  }
+}
 
 function SkillsPanel() {
   const { data, isLoading, error } =
@@ -128,7 +215,7 @@ function SkillsPanel() {
 }
 
 function ToolsPanel() {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
   const { data, isLoading, error, mutate } = useSWR<GetAllowedActionsResponse>(
     "/api/agent/allowed-actions",
   );
@@ -156,6 +243,11 @@ function ToolsPanel() {
     [data?.allowedActions],
   );
 
+  const capabilities =
+    provider === "google"
+      ? EMAIL_CAPABILITIES.filter((cap) => cap.actionType !== "move")
+      : EMAIL_CAPABILITIES;
+
   return (
     <div className="mx-auto max-w-3xl">
       <h2 className="mb-4 text-lg font-semibold">Email Processing</h2>
@@ -165,7 +257,7 @@ function ToolsPanel() {
 
       <LoadingContent loading={isLoading} error={error}>
         <div className="space-y-1">
-          {EMAIL_CAPABILITIES.map((cap) => (
+          {capabilities.map((cap) => (
             <div
               key={cap.actionType}
               className="flex items-center justify-between rounded-lg border p-4"

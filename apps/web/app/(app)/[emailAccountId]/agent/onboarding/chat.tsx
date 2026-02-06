@@ -2,8 +2,7 @@
 
 import { useChat as useAiChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader } from "@/components/ai-elements/loader";
 import {
   Conversation,
@@ -23,7 +22,6 @@ import type { AgentChatMessage } from "@/app/(app)/[emailAccountId]/agent/types"
 
 export function AgentOnboardingChat() {
   const { emailAccountId } = useAccount();
-  const router = useRouter();
   const [input, setInput] = useState("");
   const { messages, sendMessage, setMessages, status, stop } =
     useAiChat<AgentChatMessage>({
@@ -56,28 +54,6 @@ export function AgentOnboardingChat() {
     setMessages(initialMessages);
     didSeedMessages.current = true;
   }, [messages.length, setMessages, initialMessages]);
-
-  const isOnboardingComplete = useCallback(() => {
-    return messages.some((message) =>
-      message.parts?.some(
-        (part) =>
-          part.type === "tool-completeOnboarding" &&
-          part.state === "output-available" &&
-          part.output &&
-          typeof part.output === "object" &&
-          "completed" in part.output &&
-          part.output.completed === true,
-      ),
-    );
-  }, [messages]);
-
-  useEffect(() => {
-    if (!isOnboardingComplete()) return;
-    const timeout = setTimeout(() => {
-      router.push(`/${emailAccountId}/agent`);
-    }, 3000);
-    return () => clearTimeout(timeout);
-  }, [isOnboardingComplete, router, emailAccountId]);
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
