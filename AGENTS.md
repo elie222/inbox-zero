@@ -9,6 +9,7 @@
 - Run single test: `pnpm test __tests__/test-file.test.ts`
 - Run specific AI test: `pnpm test-ai ai-categorize-senders`
 - Do not run `dev` or `build` unless explicitly asked
+- Before writing or updating tests, review `.cursor/rules/testing.mdc`.
 
 ## Code Style
 - TypeScript with strict null checks
@@ -16,6 +17,7 @@
 - NextJS app router with (app) directory, tailwindcss
 - Only add comments for "why", not "what". Prefer self-documenting code.
 - Logging: avoid duplicating logger context fields from higher in the call chain. Use `logger.trace()` for PII fields (from, to, subject, etc.).
+- Tests should use the real logger implementation (do not mock `@/utils/logger`).
 - Helper functions go at the bottom of files, not the top
 - All imports at the top of files, no mid-file dynamic imports
 - Co-locate test files next to source files (e.g., `utils/example.test.ts`). Only E2E and AI tests go in `__tests__/`.
