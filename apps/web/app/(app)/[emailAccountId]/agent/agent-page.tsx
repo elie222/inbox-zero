@@ -102,38 +102,37 @@ function ActivityPanel() {
             emails.
           </p>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-2">
             {data?.actions.map((action) => (
-              <div
-                key={action.id}
-                className="flex items-start justify-between gap-4 rounded-lg border p-4"
-              >
-                <div className="min-w-0 flex-1">
+              <div key={action.id} className="rounded-lg border p-4">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{action.actionType}</Badge>
+                    <span className="text-sm font-medium">
+                      {formatActionType(action.actionType)}
+                    </span>
                     <StatusBadge status={action.status} />
                   </div>
-                  {action.messageSubject && (
-                    <p className="mt-1 truncate text-sm">
-                      {action.messageSubject}
-                    </p>
-                  )}
-                  {action.error && (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      {action.error}
-                    </p>
-                  )}
-                  {action.triggeredBy && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {action.triggeredBy}
-                    </p>
-                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(action.createdAt), {
+                      addSuffix: true,
+                    })}
+                  </span>
                 </div>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(action.createdAt), {
-                    addSuffix: true,
-                  })}
-                </span>
+                {action.messageSubject && (
+                  <p className="mt-1 truncate text-sm text-muted-foreground">
+                    {action.messageSubject}
+                  </p>
+                )}
+                {action.status === "BLOCKED" && action.error && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {action.error}
+                  </p>
+                )}
+                {action.status === "FAILED" && action.error && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    {action.error}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -146,20 +145,32 @@ function ActivityPanel() {
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case "SUCCESS":
-      return <Badge variant="green">success</Badge>;
+      return <Badge variant="green">Success</Badge>;
     case "FAILED":
-      return <Badge variant="red">failed</Badge>;
+      return <Badge variant="red">Failed</Badge>;
     case "BLOCKED":
-      return <Badge variant="outline">blocked</Badge>;
+      return <Badge variant="secondary">Blocked</Badge>;
     case "PENDING_APPROVAL":
-      return <Badge variant="outline">pending approval</Badge>;
+      return <Badge variant="outline">Pending approval</Badge>;
     case "PENDING":
-      return <Badge variant="secondary">pending</Badge>;
+      return <Badge variant="secondary">Pending</Badge>;
     case "CANCELLED":
-      return <Badge variant="secondary">cancelled</Badge>;
+      return <Badge variant="secondary">Cancelled</Badge>;
     default:
       return <Badge variant="secondary">{status.toLowerCase()}</Badge>;
   }
+}
+
+function formatActionType(actionType: string): string {
+  const labels: Record<string, string> = {
+    archive: "Archive",
+    classify: "Label",
+    move: "Move",
+    markRead: "Mark read",
+    draft: "Draft reply",
+    send: "Send email",
+  };
+  return labels[actionType] ?? actionType;
 }
 
 function SkillsPanel() {
