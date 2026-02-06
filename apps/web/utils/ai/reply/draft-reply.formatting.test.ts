@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getEmail, getEmailAccount } from "@/__tests__/helpers";
 import { aiDraftReply } from "@/utils/ai/reply/draft-reply";
 
 const { mockCreateGenerateObject, mockGenerateObject } = vi.hoisted(() => {
@@ -83,6 +84,20 @@ describe("aiDraftReply formatting", () => {
     );
   });
 
+  it("decodes escaped newline sequences in mixed newline output", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "First paragraph.\nSecond paragraph.\\nThird paragraph.",
+      },
+    });
+
+    const result = await aiDraftReply(getDraftParams());
+
+    expect(result).toBe(
+      "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.",
+    );
+  });
+
   it("does not convert list output into double-spaced paragraphs", async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {
@@ -97,28 +112,31 @@ describe("aiDraftReply formatting", () => {
 });
 
 function getDraftParams() {
-  return {
-    messages: [
-      {
-        id: "msg-1",
-        from: "sender@example.com",
-        to: "user@example.com",
-        subject: "Question",
-        date: new Date("2026-02-06T12:00:00.000Z"),
-        content: "Can you help with this?",
-      },
-    ],
-    emailAccount: {
-      id: "account-1",
-      email: "user@example.com",
-      about: null,
-      calendarBookingLink: null,
-      user: {
-        aiProvider: "openai",
-        aiModel: "gpt-5.1",
-        aiApiKey: null,
-      },
+  const message = getEmail({
+    from: "sender@example.com",
+    subject: "Question",
+    to: "user@example.com",
+    date: new Date("2026-02-06T12:00:00.000Z"),
+    content: "Can you help with this?",
+  });
+
+  const baseEmailAccount = getEmailAccount({
+    email: "user@example.com",
+  });
+  const emailAccount = {
+    ...baseEmailAccount,
+    id: "account-1",
+    user: {
+      ...baseEmailAccount.user,
+      aiProvider: "openai",
+      aiModel: "gpt-5.1",
+      aiApiKey: null,
     },
+  };
+
+  return {
+    messages: [{ ...message, id: "msg-1" }],
+    emailAccount,
     knowledgeBaseContent: null,
     emailHistorySummary: null,
     emailHistoryContext: null,

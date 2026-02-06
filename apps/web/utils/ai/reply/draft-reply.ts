@@ -252,14 +252,14 @@ export async function aiDraftReply({
 function normalizeDraftReplyFormatting(reply: string): string {
   const withNormalizedLineEndings = reply.replace(/\r\n?|\u2028|\u2029/g, "\n");
 
-  const withDecodedEscapedNewlines =
-    !withNormalizedLineEndings.includes("\n") &&
-    /\\r\\n|\\n|\\r/.test(withNormalizedLineEndings)
-      ? withNormalizedLineEndings
-          .replace(/\\r\\n/g, "\n")
-          .replace(/\\n/g, "\n")
-          .replace(/\\r/g, "\n")
-      : withNormalizedLineEndings;
+  const withDecodedEscapedNewlines = /\\r\\n|\\n|\\r/.test(
+    withNormalizedLineEndings,
+  )
+    ? withNormalizedLineEndings
+        .replace(/\\r\\n/g, "\n")
+        .replace(/\\n/g, "\n")
+        .replace(/\\r/g, "\n")
+    : withNormalizedLineEndings;
 
   const cleaned = withDecodedEscapedNewlines
     .split("\n")
