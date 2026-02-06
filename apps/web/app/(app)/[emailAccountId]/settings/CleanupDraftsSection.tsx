@@ -12,11 +12,8 @@ import { getActionErrorMessage } from "@/utils/error";
 export function CleanupDraftsSection() {
   const { emailAccountId } = useAccount();
   const [result, setResult] = useState<{
-    total: number;
     deleted: number;
     skippedModified: number;
-    alreadyGone: number;
-    errors: number;
   } | null>(null);
 
   const { execute, isExecuting } = useAction(
@@ -25,7 +22,7 @@ export function CleanupDraftsSection() {
       onSuccess: (res) => {
         if (res.data) {
           setResult(res.data);
-          if (res.data.total === 0) {
+          if (res.data.deleted === 0) {
             toastSuccess({ description: "No stale drafts found." });
           } else {
             toastSuccess({
@@ -57,11 +54,11 @@ export function CleanupDraftsSection() {
           >
             Clean Up Drafts
           </Button>
-          {result && result.total > 0 && (
+          {result && result.deleted > 0 && result.skippedModified > 0 && (
             <p className="text-muted-foreground text-xs">
-              {result.deleted} deleted, {result.skippedModified} edited by you,{" "}
-              {result.alreadyGone} already gone
-              {result.errors > 0 && `, ${result.errors} errors`}
+              {result.skippedModified} draft
+              {result.skippedModified === 1 ? " was" : "s were"} kept because you
+              edited {result.skippedModified === 1 ? "it" : "them"}
             </p>
           )}
         </div>
