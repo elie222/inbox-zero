@@ -5,8 +5,10 @@ import type { Logger } from "@/utils/logger";
 import { saveAiUsage } from "@/utils/usage";
 import {
   buildAgentSystemPrompt,
+  fetchOnboardingData,
   type AgentMode,
 } from "@/utils/ai/agent/context";
+import { createEmailProvider } from "@/utils/email/provider";
 import { getAgentSystemData } from "@/utils/ai/agent/system-data";
 import { createExecuteAction } from "@/utils/ai/agent/execution";
 import {
@@ -48,10 +50,28 @@ export async function aiProcessAgentChat({
     emailAccountId: emailAccount.id,
   });
 
+  let onboardingData: OnboardingData | undefined;
+  if (context.mode === "onboarding") {
+    try {
+      onboardingData = await fetchOnboardingData({
+        emailProvider: await createEmailProvider({
+          emailAccountId: emailAccount.id,
+          provider: emailAccount.account.provider,
+          logger,
+        }),
+        personaAnalysis: (emailAccount as Record<string, unknown>)
+          .personaAnalysis,
+      });
+    } catch (error) {
+      logger.error("Failed to fetch onboarding data", { error });
+    }
+  }
+
   const system = await buildAgentSystemPrompt({
     emailAccount,
     mode: context.mode,
     systemData,
+    onboardingData,
   });
 
   const executeAction = createExecuteAction({

@@ -17,6 +17,7 @@ async function getActivity({ emailAccountId }: { emailAccountId: string }) {
       id: true,
       createdAt: true,
       actionType: true,
+      actionData: true,
       resourceId: true,
       threadId: true,
       messageSubject: true,

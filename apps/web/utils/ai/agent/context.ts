@@ -1,21 +1,60 @@
-import type {
-  EmailAccountWithAI,
-  EmailAccountWithAIInsights,
-} from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getTodayForLLM, getUserInfoPrompt } from "@/utils/ai/helpers";
 import { TargetGroupCardinality } from "@/generated/prisma/enums";
 import type { AgentSystemData } from "@/utils/ai/agent/system-data";
+import type { EmailProvider } from "@/utils/email/types";
+import { getInboxCount } from "@/utils/assess";
 
 export type AgentMode = "onboarding" | "chat" | "processing_email" | "test";
+
+export type OnboardingData = {
+  inboxCount: number;
+  topSenders: { from: string; count: number }[];
+  persona: string | null;
+};
+
+export async function fetchOnboardingData({
+  emailProvider,
+  personaAnalysis,
+}: {
+  emailProvider: EmailProvider;
+  personaAnalysis: unknown;
+}): Promise<OnboardingData> {
+  const [inboxCount, recentMessages] = await Promise.all([
+    getInboxCount(emailProvider),
+    emailProvider.getInboxMessages(50).catch(() => []),
+  ]);
+
+  const senderCounts = new Map<string, number>();
+  for (const msg of recentMessages) {
+    const from = msg.headers.from;
+    if (from) {
+      senderCounts.set(from, (senderCounts.get(from) || 0) + 1);
+    }
+  }
+
+  const topSenders = Array.from(senderCounts.entries())
+    .map(([from, count]) => ({ from, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20);
+
+  return {
+    inboxCount,
+    topSenders,
+    persona: formatPersonaAnalysis(personaAnalysis),
+  };
+}
 
 export async function buildAgentSystemPrompt({
   emailAccount,
   mode,
   systemData,
+  onboardingData,
 }: {
   emailAccount: EmailAccountWithAI & { name?: string | null };
   mode: AgentMode;
   systemData: AgentSystemData;
+  onboardingData?: OnboardingData;
 }) {
   const { allowedActions, allowedActionOptions, skills } = systemData;
 
@@ -47,7 +86,9 @@ export async function buildAgentSystemPrompt({
     : "- None";
 
   const onboardingContext =
-    mode === "onboarding" ? buildOnboardingContext(emailAccount) : "";
+    mode === "onboarding" && onboardingData
+      ? buildOnboardingContext(onboardingData)
+      : "";
   const processingEmailContext =
     mode === "processing_email" ? buildProcessingEmailContext() : "";
 
@@ -238,76 +279,56 @@ function formatMode(mode: AgentMode) {
   }
 }
 
-type EmailAccountWithOptionalInsights = EmailAccountWithAI &
-  Partial<
-    Pick<EmailAccountWithAIInsights, "behaviorProfile" | "personaAnalysis">
-  >;
-
-function buildOnboardingContext(
-  emailAccount: EmailAccountWithOptionalInsights,
-): string {
-  const insights = formatBehaviorProfile(emailAccount.behaviorProfile);
-  const persona = formatPersonaAnalysis(emailAccount.personaAnalysis);
-  const defaults = getDefaultRuleSuggestions(emailAccount.behaviorProfile);
-
-  const hasInsights = Boolean(insights);
-  const hasPersona = Boolean(persona);
-  const hasAnyInsights = hasInsights || hasPersona;
+function buildOnboardingContext(data: OnboardingData): string {
+  const defaults = getDefaultRuleSuggestions();
+  const topSendersFormatted = data.topSenders
+    .map((s) => `- ${s.from}: ${s.count} emails`)
+    .join("\n");
 
   return `## Onboarding Context
-This is a personal, conversational onboarding. Think of it like a friendly sales call or concierge experience. Your goal is to make the user feel heard and understood before jumping into setup.
+This is a personal, conversational onboarding. Think of it like a friendly concierge experience. Your goal is to make the user feel heard and build trust before taking any action.
 
-## Data we've gathered (DO NOT use silently - see guidelines below)
-${hasAnyInsights ? "" : "No inbox analysis available yet."}
-${hasInsights ? `Inbox stats:\n${insights}` : ""}
-${hasPersona ? `\nPersona (from analyzing their emails):\n${persona}` : ""}
+## Live inbox data (fetched just now)
+- ${data.inboxCount} emails in inbox
+${data.persona ? `\nPersona (from analyzing their emails):\n${data.persona}` : ""}
+${data.topSenders.length > 0 ? `\nTop senders in inbox (by volume):\n${topSendersFormatted}` : "\nNo recent inbox messages found."}
 
-## Default Setup (for later)
+## Default Setup
 Labels: ${defaults.labels.join(", ")}
 Skip Inbox (labeled but stays out of inbox): ${defaults.autoArchive.join(", ")}
 
 ## Onboarding Flow
-The first message (already sent) asked: "What do you do, and what brought you to Inbox Zero?"
 
-**Phase 1: Get to know them (1-2 exchanges)**
-- Listen to what they share about their role/situation
-- Show you understand their pain point
-- NEVER repeat a question the user has already answered (even partially)
-- If they only answer part of a question, acknowledge what they shared and move forward - don't re-ask
-- You can use searchEmails to understand their inbox better (e.g., find how many unread, newsletters, etc.)
+**Opening message (you need to write this):**
+The user's first message will be "__onboarding_start__" — this is an automatic trigger, not a real message. Respond with your opening greeting.
+Use the data above to make it personal. Reference their role/industry if persona data is available, and mention their inbox size. For example: "Hey! I'm your inbox assistant. Looks like you're running product at a SaaS company — and I can see you've got about X emails sitting in your inbox. I'd love to help you get that under control."
+Keep it to 2-3 sentences. Warm and conversational. End by asking what brought them to Inbox Zero.
 
-**Using inbox data (be transparent):**
-- Before referencing inbox data, disclose it: "I took a look at your inbox - [observations]. Does that sound right?"
-- You can search their inbox to understand patterns and offer to help
+**Phase 1: Connect and offer cleanup (same turn)**
+- Acknowledge what they shared — show you understand their pain point
+- You already have their top senders data above. Use it immediately — no need to call searchEmails. Identify the noisy senders (newsletters, marketing, notifications) and offer to archive them.
+- Share what you found: "I took a look and found a lot of emails from [specific senders]. Want me to archive those?"
+- If they say yes → use **bulkArchive** with the sender emails
+- If they decline, that's fine — move to Phase 2
 
-**Phase 2: Offer to help clean up**
-- If they have a lot of unread/old emails, offer to help: "I can help clean up some of this right now. Want me to archive old newsletters and marketing emails?"
-- Use **bulkArchive** tool to clean up efficiently - it can archive thousands of emails from specific senders at once
-- First use searchEmails to identify high-volume senders (newsletters, marketing), then bulkArchive those senders
-- This is a powerful first experience - clearing thousands of emails in seconds shows immediate value
-
-**Phase 3: Show the default setup**
-- Say ONE short sentence like "Here's what I'd set up going forward:" then call **showSetupPreview**
-- Just ask "Does this work for you?" after the table
-
-**Phase 4: Ask about drafting**
-- Ask: "Would you like me to draft replies for you in your voice? I can learn your writing style and suggest responses."
-- This is optional but valuable
-
-**Phase 5: Confirm and activate**
-- Ask about senders they never want filtered (boss, important clients)
-- Summarize the setup and ask the user to confirm
-- Once confirmed, call **completeOnboarding** with enableDrafting/enableSend based on their preferences from Phase 4
-- After completeOnboarding succeeds, let the user know the agent is active
+**Phase 2: Set up the assistant going forward**
+- Transition naturally: "Now let's set up your assistant so things stay organized going forward."
+- Call **showSetupPreview** to show the proposed labels and rules
+- Mention that drafting is included: "I'll also draft replies in your voice when appropriate."
+- Ask "Does this look good?"
+- Once confirmed → call **completeOnboarding** with enableDrafting: true
+- After completeOnboarding succeeds, let them know the agent is active
 
 CRITICAL GUIDELINES:
 - Be warm and conversational, not robotic
 - Short responses (2-3 sentences max)
-- NEVER repeat the same question - if the user answered (even partially), acknowledge and move on
+- Be proactive — use searchEmails freely to understand their inbox, don't ask permission
+- Only ask permission before MODIFYING emails (archiving, labeling) — reading is always fine
+- NEVER repeat the same question — if the user answered, acknowledge and move on
 - Progress the conversation forward; don't loop on the same phase
-- You CAN use searchEmails and modifyEmails to understand and clean up their inbox
 - Use showSetupPreview to present labels visually
-- Use completeOnboarding to save the final configuration and activate the agent`;
+- Use completeOnboarding to save the final configuration and activate the agent
+- Always call completeOnboarding with enableDrafting: true`;
 }
 
 function buildProcessingEmailContext(): string {
@@ -321,43 +342,7 @@ Guidelines:
 - If no action is needed, respond with "No action needed."`;
 }
 
-function formatBehaviorProfile(
-  profile: EmailAccountWithAIInsights["behaviorProfile"] | undefined,
-) {
-  if (!profile || typeof profile !== "object") return null;
-  const data = profile as Record<string, unknown>;
-
-  const unread = formatCount(data.unreadCount, "unread");
-  const inbox = formatCount(data.inboxCount, "inbox");
-  const sent = formatCount(data.sentCount, "sent");
-  const labels = formatCount(data.labelCount, "custom labels");
-  const filters = formatCount(data.filtersCount, "filters");
-  const forwarding = formatCount(
-    data.forwardingAddressesCount,
-    "forwarding addresses",
-  );
-
-  const emailClients =
-    typeof data.emailClients === "object" && data.emailClients
-      ? (data.emailClients as { primary?: string }).primary
-      : null;
-
-  const lines = [
-    unread,
-    inbox,
-    sent,
-    labels,
-    filters,
-    forwarding,
-    emailClients ? `- Primary email client: ${emailClients}` : null,
-  ].filter(Boolean);
-
-  return lines.length ? lines.join("\n") : null;
-}
-
-function formatPersonaAnalysis(
-  personaAnalysis: EmailAccountWithAIInsights["personaAnalysis"] | undefined,
-) {
+function formatPersonaAnalysis(personaAnalysis: unknown) {
   if (!personaAnalysis || typeof personaAnalysis !== "object") return null;
   const data = personaAnalysis as Record<string, unknown>;
   const persona = data.persona ? `Persona: ${data.persona}` : null;
@@ -371,9 +356,7 @@ function formatPersonaAnalysis(
   return lines.length ? lines.map((line) => `- ${line}`).join("\n") : null;
 }
 
-function getDefaultRuleSuggestions(
-  _profile: EmailAccountWithAIInsights["behaviorProfile"] | undefined,
-) {
+function getDefaultRuleSuggestions() {
   return {
     labels: [
       "To Reply",
@@ -387,9 +370,4 @@ function getDefaultRuleSuggestions(
     ],
     autoArchive: ["Marketing", "Cold Email"],
   };
-}
-
-function formatCount(value: unknown, label: string) {
-  if (typeof value !== "number") return null;
-  return `- ${value} ${label}`;
 }
