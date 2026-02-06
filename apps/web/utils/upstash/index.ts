@@ -50,28 +50,37 @@ export async function bulkPublishToQstash<T>({
   }[];
 }) {
   const client = getQstashClient();
-  const qstashItems = client
-    ? items.map((item) => {
-        const qstashUrl = resolveQstashTargetUrl(item.url);
-        if (!qstashUrl) return null;
-        return {
-          ...item,
-          url: qstashUrl,
-        };
-      })
-    : null;
+  const mappedItems = items.map((item) => {
+    const qstashUrl = client ? resolveQstashTargetUrl(item.url) : null;
+    return {
+      original: item,
+      qstashItem: qstashUrl
+        ? {
+            ...item,
+            url: qstashUrl,
+          }
+        : null,
+    };
+  });
 
-  if (client && qstashItems?.every((item) => item)) {
-    return client.batchJSON(
-      qstashItems as {
-        url: string;
-        body: T;
-        flowControl?: FlowControl;
-      }[],
+  const reachableQstashItems = mappedItems
+    .map((item) => item.qstashItem)
+    .filter(
+      (item): item is { url: string; body: T; flowControl?: FlowControl } =>
+        !!item,
     );
+
+  if (client && reachableQstashItems.length > 0) {
+    await client.batchJSON(reachableQstashItems);
   }
 
-  for (const item of items) {
+  const fallbackItems = client
+    ? mappedItems
+        .map((item) => (item.qstashItem ? null : item.original))
+        .filter((item): item is { url: string; body: T } => !!item)
+    : items;
+
+  for (const item of fallbackItems) {
     await fallbackPublishToQstash(item.url, item.body, undefined, {
       reason: client ? "unreachable-url" : "missing-client",
     });
@@ -186,9 +195,12 @@ function resolveQstashTargetUrl(url: string): string | null {
   const internalBaseUrl = normalizeBaseUrl(getInternalApiUrl());
   const publicBaseUrl = normalizeBaseUrl(getPublicApiUrl());
 
-  const qstashUrl = url.startsWith(internalBaseUrl)
-    ? `${publicBaseUrl}${url.slice(internalBaseUrl.length)}`
-    : url;
+  const qstashUrl =
+    url === internalBaseUrl
+      ? publicBaseUrl
+      : url.startsWith(`${internalBaseUrl}/`)
+        ? `${publicBaseUrl}${url.slice(internalBaseUrl.length)}`
+        : url;
 
   return isReachableByQstash(qstashUrl) ? qstashUrl : null;
 }
@@ -230,6 +242,8 @@ function isPrivateIpv4(hostname: string): boolean {
   if (a === 10) return true;
   if (a === 127) return true;
   if (a === 0) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
   if (a === 192 && b === 168) return true;
   if (a === 172 && b >= 16 && b <= 31) return true;
 
