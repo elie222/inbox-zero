@@ -22,8 +22,13 @@ export function CleanupDraftsSection() {
       onSuccess: (res) => {
         if (res.data) {
           setResult(res.data);
-          if (res.data.deleted === 0) {
+          if (res.data.deleted === 0 && res.data.skippedModified === 0) {
             toastSuccess({ description: "No stale drafts found." });
+          } else if (res.data.deleted === 0) {
+            toastSuccess({
+              description:
+                "All stale drafts were edited by you, so none were removed.",
+            });
           } else {
             toastSuccess({
               description: `Cleaned up ${res.data.deleted} draft${res.data.deleted === 1 ? "" : "s"}.`,
@@ -57,8 +62,8 @@ export function CleanupDraftsSection() {
           {result && result.deleted > 0 && result.skippedModified > 0 && (
             <p className="text-muted-foreground text-xs">
               {result.skippedModified} draft
-              {result.skippedModified === 1 ? " was" : "s were"} kept because you
-              edited {result.skippedModified === 1 ? "it" : "them"}
+              {result.skippedModified === 1 ? " was" : "s were"} kept because
+              you edited {result.skippedModified === 1 ? "it" : "them"}
             </p>
           )}
         </div>
