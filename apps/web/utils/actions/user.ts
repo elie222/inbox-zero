@@ -90,8 +90,7 @@ export const cleanupAIDraftsAction = actionClient
           executedRule: { emailAccountId },
           type: ActionType.DRAFT_EMAIL,
           draftId: { not: null },
-          wasDraftSent: null,
-          draftSendLog: null,
+          OR: [{ draftSendLog: null }, { wasDraftSent: false }],
           createdAt: { lt: cutoffDate },
         },
         select: {
