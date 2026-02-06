@@ -35,6 +35,7 @@ export async function processAllFollowUpReminders(logger: Logger) {
       email: true,
       about: true,
       userId: true,
+      agentModeEnabled: true,
       multiRuleSelectionEnabled: true,
       timezone: true,
       calendarBookingLink: true,

@@ -58,6 +58,7 @@ import {
   ActivityLog,
   type ActivityLogEntry,
 } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
+import { AgentToolsDemo } from "@/app/(landing)/components/AgentToolsDemo";
 
 export const maxDuration = 3;
 
@@ -877,6 +878,13 @@ export default function Components() {
           <div className="underline">Email Row Truncation</div>
           <div className="mt-4">
             <EmailRowExample />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">Agent Onboarding Tools</div>
+          <div className="mt-4">
+            <AgentToolsDemo />
           </div>
         </div>
 

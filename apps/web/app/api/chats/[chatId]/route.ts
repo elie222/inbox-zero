@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
+import { ChatType } from "@/generated/prisma/client";
 
 export type GetChatResponse = Awaited<ReturnType<typeof getChat>>;
 
@@ -34,6 +35,7 @@ async function getChat({
     where: {
       id: chatId,
       emailAccountId,
+      type: ChatType.RULES,
     },
     include: {
       messages: {

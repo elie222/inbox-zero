@@ -46,6 +46,7 @@ export const analyzeWritingStyleAction = actionClient
         userId: true,
         email: true,
         about: true,
+        agentModeEnabled: true,
         multiRuleSelectionEnabled: true,
         timezone: true,
         calendarBookingLink: true,

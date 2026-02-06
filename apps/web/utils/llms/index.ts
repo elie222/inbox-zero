@@ -15,7 +15,7 @@ import {
   TypeValidationError,
 } from "ai";
 import { jsonrepair } from "jsonrepair";
-import type { LanguageModelV2 } from "@ai-sdk/provider";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { saveAiUsage } from "@/utils/usage";
 import type { EmailAccountWithAI, UserAIFields } from "@/utils/llms/types";
 import {
@@ -59,10 +59,13 @@ export function createGenerateText({
   return async (...args) => {
     const [options, ...restArgs] = args;
 
-    const generate = async (model: LanguageModelV2) => {
+    const generate = async (model: LanguageModelV3) => {
+      const systemText =
+        typeof options.system === "string" ? options.system : undefined;
+
       logger.trace("Generating text", {
         label,
-        system: options.system?.slice(0, MAX_LOG_LENGTH),
+        system: systemText?.slice(0, MAX_LOG_LENGTH),
         prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
 
@@ -164,14 +167,17 @@ export function createGenerateObject({
     const [options, ...restArgs] = args;
 
     const generate = async () => {
+      const systemText =
+        typeof options.system === "string" ? options.system : undefined;
+
       logger.trace("Generating object", {
         label,
-        system: options.system?.slice(0, MAX_LOG_LENGTH),
+        system: systemText?.slice(0, MAX_LOG_LENGTH),
         prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
 
       if (
-        !options.system?.includes("JSON") &&
+        !systemText?.includes("JSON") &&
         typeof options.prompt === "string" &&
         !options.prompt?.includes("JSON")
       ) {

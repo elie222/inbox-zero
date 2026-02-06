@@ -22,6 +22,7 @@ import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
+import { runAgentOnIncomingEmail } from "@/utils/ai/agent/process-email";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -199,7 +200,14 @@ export async function processHistoryItem(
 
     logger.info("Pre-rules check", { hasAutomationRules, hasAiAccess });
 
-    if (hasAutomationRules && hasAiAccess) {
+    if (emailAccount.agentModeEnabled && hasAiAccess) {
+      logger.info("Agent mode enabled. Running agent...");
+      await runAgentOnIncomingEmail({
+        emailAccount,
+        message: parsedMessage,
+        logger,
+      });
+    } else if (hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...");
 
       await runRules({

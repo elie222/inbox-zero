@@ -1,0 +1,206 @@
+// Schema extensions for the agentic system.
+// Loaded via the Prisma schema folder at apps/web/prisma.
+// References existing models in schema.prisma (e.g., EmailAccount).
+
+model ProviderResource {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  provider     String // gmail, outlook, gdrive, hubspot
+  resourceType String // email, doc, calendarEvent, design, crmRecord
+  externalId   String // Provider ID
+  name         String?
+  metadata     Json?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, provider, resourceType, externalId])
+}
+
+model AllowedAction {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  actionType   String // "archive", "classify", "move", "draft", "send", "createEvent"
+  resourceType String? // email, doc, calendarEvent, design (null = all types)
+  enabled      Boolean @default(true)
+
+  // Structured config for action defaults/constraints
+  // Examples: { targetExternalId: "abc", targetName: "Newsletter" } or { targetContainerId: "folder_123" }
+  config Json?
+
+  // Extensible conditions (JSON array, validated by Zod on write)
+  conditions Json?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, resourceType, actionType])
+}
+
+model AllowedActionOption {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  actionType   String // "classify", "move", "setStatus"
+  resourceType String? // email, doc, calendarEvent (null = any)
+  provider     String // gmail, outlook, gdrive, hubspot
+  kind         String // label, category, folder, status (connector-defined)
+  externalId   String? // Provider ID (nullable for migration)
+  name         String // Human-readable name
+
+  targetGroupId String?
+  targetGroup   TargetGroup? @relation(fields: [targetGroupId], references: [id], onDelete: SetNull)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, actionType, resourceType, provider, kind, externalId], map: "AAO_email_action_resource_provider_kind_ext_key")
+  @@unique([emailAccountId, actionType, resourceType, provider, kind, name], map: "AAO_email_action_resource_provider_kind_name_key")
+}
+
+model TargetGroup {
+  id                    String                 @id @default(cuid())
+  name                  String // "ThreadStatus", "PipelineStage", "DocStatus"
+  cardinality           TargetGroupCardinality @default(MULTI)
+  appliesToResourceType String? // Optional scope: email, doc, calendarEvent
+
+  options AllowedActionOption[]
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, name])
+}
+
+model LearnedPattern {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  provider     String // gmail, outlook, gdrive, hubspot
+  resourceType String // email, attachment, doc, calendarEvent, crmRecord
+
+  matcher     Json // Connector-defined matcher (field + operator + value)
+  matcherHash String // Deterministic hash for de-dupe
+
+  reason String? // Why this was created (for debugging)
+
+  actions PatternAction[]
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, provider, resourceType, matcherHash])
+}
+
+model PatternAction {
+  id         String @id @default(cuid())
+  actionType String // "archive", "classify", "move", "createEvent"
+  actionData Json // Structured action payload
+
+  patternId String
+  pattern   LearnedPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+}
+
+model Skill {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name        String // "conversation-status", "sponsorship-reply"
+  description String // "Use when deciding thread status"
+  content     String // Full markdown instructions
+
+  version Int         @default(1)
+  status  SkillStatus @default(ACTIVE)
+
+  lastUsedAt DateTime?
+  useCount   Int       @default(0)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, name])
+}
+
+model ExecutedAgentAction {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  actionType String // "archive", "classify", "draft", etc.
+  actionData Json // Full structured action payload
+
+  resourceId     String?
+  threadId       String?
+  messageSubject String?
+
+  status ExecutionStatus
+  error  String?
+
+  triggeredBy   String // "pattern:xyz", "ai:decision", "user:manual"
+  patternId     String?
+  skillId       String?
+  matchMetadata Json?
+
+  emailAccountId String
+  emailAccount   EmailAccount     @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  artifacts      ActionArtifact[]
+
+  @@index([emailAccountId, createdAt])
+  @@index([emailAccountId, status])
+  @@index([triggeredBy])
+}
+
+model ActionArtifact {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  artifactType String // "draft", "event", "file", "task"
+  externalId   String? // Provider ID for the artifact
+  name         String?
+  metadata     Json?
+
+  executedAgentActionId String
+  executedAgentAction   ExecutedAgentAction @relation(fields: [executedAgentActionId], references: [id], onDelete: Cascade)
+
+  @@index([executedAgentActionId])
+}
+
+// Email-specific tracking for assistant-created drafts (not a generic Resource).
+model AssistantDraft {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  draftId  String // Provider draft ID
+  threadId String
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, draftId])
+  @@index([emailAccountId, threadId])
+}
+
+enum TargetGroupCardinality {
+  SINGLE
+  MULTI
+}
+
+enum SkillStatus {
+  DRAFT
+  ACTIVE
+  DEPRECATED
+}
+
+enum ExecutionStatus {
+  PENDING
+  PENDING_APPROVAL
+  SUCCESS
+  FAILED
+  BLOCKED
+  CANCELLED
+}

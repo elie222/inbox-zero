@@ -108,6 +108,7 @@ async function processAssistantEmailInternal({
         userId: true,
         email: true,
         about: true,
+        agentModeEnabled: true,
         multiRuleSelectionEnabled: true,
         timezone: true,
         calendarBookingLink: true,

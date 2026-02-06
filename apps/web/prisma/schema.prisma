@@ -139,6 +139,7 @@ model EmailAccount {
   rulesPrompt               String? // @deprecated
   autoCategorizeSenders     Boolean           @default(false)
   multiRuleSelectionEnabled Boolean           @default(false)
+  agentModeEnabled          Boolean           @default(false)
 
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
@@ -175,15 +176,23 @@ model EmailAccount {
   scheduledActions ScheduledAction[]
   responseTimes    ResponseTime[]
 
-  members             Member[]
-  invitations         Invitation[]
-  ssoproviders        SsoProvider[]
-  calendarConnections CalendarConnection[]
-  mcpConnections      McpConnection[]
-  meetingBriefings    MeetingBriefing[]
-  driveConnections    DriveConnection[]
-  documentFilings     DocumentFiling[]
-  filingFolders       FilingFolder[]
+  members              Member[]
+  invitations          Invitation[]
+  ssoproviders         SsoProvider[]
+  calendarConnections  CalendarConnection[]
+  mcpConnections       McpConnection[]
+  meetingBriefings     MeetingBriefing[]
+  driveConnections     DriveConnection[]
+  documentFilings      DocumentFiling[]
+  filingFolders        FilingFolder[]
+  allowedActions       AllowedAction[]
+  allowedActionOptions AllowedActionOption[]
+  targetGroups         TargetGroup[]
+  providerResources    ProviderResource[]
+  learnedPatterns      LearnedPattern[]
+  skills               Skill[]
+  executedAgentActions ExecutedAgentAction[]
+  assistantDrafts      AssistantDraft[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -897,12 +906,14 @@ model Chat {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  type      ChatType @default(RULES)
 
   messages       ChatMessage[]
   emailAccountId String
   emailAccount   EmailAccount  @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@index([emailAccountId])
+  @@index([emailAccountId, type])
 }
 
 model ChatMessage {
@@ -1302,6 +1313,11 @@ enum MeetingBriefingStatus {
   SENT
   FAILED
   SKIPPED
+}
+
+enum ChatType {
+  RULES
+  AGENT
 }
 
 enum GroupItemSource {

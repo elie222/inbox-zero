@@ -1,5 +1,7 @@
-import type { LanguageModelV2 } from "@ai-sdk/provider";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
+import { devToolsMiddleware } from "@ai-sdk/devtools";
+import { wrapLanguageModel } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
@@ -23,9 +25,9 @@ export type ModelType = "default" | "economy" | "chat";
 export type SelectModel = {
   provider: string;
   modelName: string;
-  model: LanguageModelV2;
+  model: LanguageModelV3;
   providerOptions?: Record<string, any>;
-  backupModel: LanguageModelV2 | null;
+  backupModel: LanguageModelV3 | null;
 };
 
 export function getModel(
@@ -88,7 +90,7 @@ function selectModel(
             openai: { ...(baseOptions.openai ?? {}), store: false },
           }
         : providerOptions;
-      return {
+      return wrapSelection({
         provider: Provider.OPEN_AI,
         modelName,
         model: createOpenAI({ apiKey: aiApiKey || env.OPENAI_API_KEY })(
@@ -96,11 +98,11 @@ function selectModel(
         ),
         providerOptions: openAiProviderOptions,
         backupModel: getBackupModel(aiApiKey),
-      };
+      });
     }
     case Provider.GOOGLE: {
       const mod = aiModel || "gemini-2.0-flash";
-      return {
+      return wrapSelection({
         provider: Provider.GOOGLE,
         modelName: mod,
         model: createGoogleGenerativeAI({
@@ -114,16 +116,16 @@ function selectModel(
           } satisfies GoogleGenerativeAIProviderOptions,
         },
         backupModel: getBackupModel(aiApiKey),
-      };
+      });
     }
     case Provider.GROQ: {
       const modelName = aiModel || "llama-3.3-70b-versatile";
-      return {
+      return wrapSelection({
         provider: Provider.GROQ,
         modelName,
         model: createGroq({ apiKey: aiApiKey || env.GROQ_API_KEY })(modelName),
         backupModel: getBackupModel(aiApiKey),
-      };
+      });
     }
     case Provider.OPENROUTER: {
       let modelName = aiModel || "anthropic/claude-sonnet-4.5";
@@ -138,19 +140,19 @@ function selectModel(
       });
       const chatModel = openrouter.chat(modelName);
 
-      return {
+      return wrapSelection({
         provider: Provider.OPENROUTER,
         modelName,
         model: chatModel,
         providerOptions,
         backupModel: getBackupModel(aiApiKey),
-      };
+      });
     }
     case Provider.AI_GATEWAY: {
       const modelName = aiModel || "google/gemini-3-flash";
       const aiGatewayApiKey = aiApiKey || env.AI_GATEWAY_API_KEY;
       const gateway = createGateway({ apiKey: aiGatewayApiKey });
-      return {
+      return wrapSelection({
         provider: Provider.AI_GATEWAY,
         modelName,
         model: gateway(modelName),
@@ -164,24 +166,24 @@ function selectModel(
           // Note: Anthropic thinking is disabled by default (not including the config)
         },
         backupModel: getBackupModel(aiApiKey),
-      };
+      });
     }
     case "ollama": {
       const modelName = env.OLLAMA_MODEL;
       if (!modelName)
         throw new Error("OLLAMA_MODEL environment variable is not set");
-      return {
+      return wrapSelection({
         provider: Provider.OLLAMA,
         modelName,
         model: createOllama({ baseURL: env.OLLAMA_BASE_URL })(modelName),
         backupModel: null,
-      };
+      });
     }
 
     case Provider.BEDROCK: {
       const modelName =
         aiModel || "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
-      return {
+      return wrapSelection({
         provider: Provider.BEDROCK,
         modelName,
         // Based on: https://github.com/vercel/ai/issues/4996#issuecomment-2751630936
@@ -195,11 +197,11 @@ function selectModel(
         })(modelName),
         // Note: Anthropic thinking is disabled by default (not including the config)
         backupModel: getBackupModel(aiApiKey),
-      };
+      });
     }
     case Provider.ANTHROPIC: {
       const modelName = aiModel || "claude-sonnet-4-5-20250929";
-      return {
+      return wrapSelection({
         provider: Provider.ANTHROPIC,
         modelName,
         model: createAnthropic({
@@ -207,7 +209,7 @@ function selectModel(
         })(modelName),
         // Note: Anthropic thinking is disabled by default (not including the config)
         backupModel: getBackupModel(aiApiKey),
-      };
+      });
     }
     default: {
       logger.error("LLM provider not supported", { aiProvider });
@@ -381,7 +383,7 @@ function getProviderApiKey(provider: string) {
   return providerApiKeys[provider];
 }
 
-function getBackupModel(userApiKey: string | null): LanguageModelV2 | null {
+function getBackupModel(userApiKey: string | null): LanguageModelV3 | null {
   // disable backup model if user is using their own api key
   if (userApiKey) return null;
   if (!env.OPENROUTER_BACKUP_MODEL) return null;
@@ -389,4 +391,28 @@ function getBackupModel(userApiKey: string | null): LanguageModelV2 | null {
   return createOpenRouter({
     apiKey: env.OPENROUTER_API_KEY,
   }).chat(env.OPENROUTER_BACKUP_MODEL);
+}
+
+function wrapSelection(selection: SelectModel): SelectModel {
+  if (!isDevToolsEnabled()) return selection;
+
+  const middleware = devToolsMiddleware();
+
+  return {
+    ...selection,
+    model: wrapLanguageModel({
+      model: selection.model,
+      middleware,
+    }),
+    backupModel: selection.backupModel
+      ? wrapLanguageModel({
+          model: selection.backupModel,
+          middleware,
+        })
+      : null,
+  };
+}
+
+function isDevToolsEnabled() {
+  return env.NODE_ENV === "development";
 }

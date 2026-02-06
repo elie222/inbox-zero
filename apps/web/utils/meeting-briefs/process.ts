@@ -17,6 +17,7 @@ export type EmailAccountForBrief = {
   userId: string;
   email: string;
   about: string | null;
+  agentModeEnabled: boolean;
   multiRuleSelectionEnabled: boolean;
   timezone: string | null;
   calendarBookingLink: string | null;
@@ -94,6 +95,7 @@ export async function processMeetingBriefings({
       userId: true,
       email: true,
       about: true,
+      agentModeEnabled: true,
       multiRuleSelectionEnabled: true,
       timezone: true,
       calendarBookingLink: true,
