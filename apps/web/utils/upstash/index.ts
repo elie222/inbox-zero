@@ -21,10 +21,11 @@ export async function publishToQstash<T>(
 ) {
   const client = getQstashClient();
   const url = `${getInternalApiUrl()}${path}`;
+  const qstashUrl = resolveQstashTargetUrl(url);
 
-  if (client) {
+  if (client && qstashUrl) {
     return client.publishJSON({
-      url,
+      url: qstashUrl,
       body,
       flowControl,
       retries: 3,
@@ -34,7 +35,9 @@ export async function publishToQstash<T>(
     });
   }
 
-  return fallbackPublishToQstash(url, body);
+  return fallbackPublishToQstash(url, body, undefined, {
+    reason: client ? "unreachable-url" : "missing-client",
+  });
 }
 
 export async function bulkPublishToQstash<T>({
@@ -47,12 +50,31 @@ export async function bulkPublishToQstash<T>({
   }[];
 }) {
   const client = getQstashClient();
-  if (client) {
-    return client.batchJSON(items);
+  const qstashItems = client
+    ? items.map((item) => {
+        const qstashUrl = resolveQstashTargetUrl(item.url);
+        if (!qstashUrl) return null;
+        return {
+          ...item,
+          url: qstashUrl,
+        };
+      })
+    : null;
+
+  if (client && qstashItems?.every((item) => item)) {
+    return client.batchJSON(
+      qstashItems as {
+        url: string;
+        body: T;
+        flowControl?: FlowControl;
+      }[],
+    );
   }
 
   for (const item of items) {
-    await fallbackPublishToQstash(item.url, item.body);
+    await fallbackPublishToQstash(item.url, item.body, undefined, {
+      reason: client ? "unreachable-url" : "missing-client",
+    });
   }
 }
 
@@ -70,15 +92,16 @@ export async function publishToQstashQueue<T>({
   headers?: HeadersInit;
 }) {
   const client = getQstashClient();
+  const qstashUrl = resolveQstashTargetUrl(url);
 
-  if (client) {
+  if (client && qstashUrl) {
     try {
       const queue = client.queue({ queueName });
       await queue.upsert({ parallelism });
-      return await queue.enqueueJSON({ url, body, headers });
+      return await queue.enqueueJSON({ url: qstashUrl, body, headers });
     } catch (error) {
       logger.error("Failed to publish to Qstash queue", {
-        url,
+        qstashUrl,
         queueName,
         error,
       });
@@ -86,16 +109,24 @@ export async function publishToQstashQueue<T>({
     }
   }
 
-  return fallbackPublishToQstash<T>(url, body, headers);
+  return fallbackPublishToQstash<T>(url, body, headers, {
+    reason: client ? "unreachable-url" : "missing-client",
+  });
 }
 
 async function fallbackPublishToQstash<T>(
   url: string,
   body: T,
   headers?: HeadersInit,
+  options?: {
+    reason?: "missing-client" | "unreachable-url";
+  },
 ) {
-  // Fallback to fetch if Qstash client is not found
-  logger.warn("Qstash client not found");
+  if (options?.reason === "unreachable-url") {
+    logger.info("Skipping Qstash for unreachable callback URL", { url });
+  } else {
+    logger.warn("Qstash client not found");
+  }
 
   const internalHeaders = new Headers(
     headers instanceof Headers
@@ -136,4 +167,71 @@ export async function deleteQueue(queueName: string) {
     logger.info("Deleting queue", { queueName });
     await client.queue({ queueName }).delete();
   }
+}
+
+function getPublicApiUrl() {
+  const url = env.NEXT_PUBLIC_BASE_URL;
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    return `https://${url}`;
+  }
+
+  return url;
+}
+
+function normalizeBaseUrl(url: string) {
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+function resolveQstashTargetUrl(url: string): string | null {
+  const internalBaseUrl = normalizeBaseUrl(getInternalApiUrl());
+  const publicBaseUrl = normalizeBaseUrl(getPublicApiUrl());
+
+  const qstashUrl = url.startsWith(internalBaseUrl)
+    ? `${publicBaseUrl}${url.slice(internalBaseUrl.length)}`
+    : url;
+
+  return isReachableByQstash(qstashUrl) ? qstashUrl : null;
+}
+
+function isReachableByQstash(url: string): boolean {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return false;
+  }
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) return false;
+
+  const hostname = parsedUrl.hostname.toLowerCase();
+  if (!hostname) return false;
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal") ||
+    hostname === "::1"
+  ) {
+    return false;
+  }
+  if (!hostname.includes(".")) return false;
+
+  return !isPrivateIpv4(hostname);
+}
+
+function isPrivateIpv4(hostname: string): boolean {
+  const octets = hostname.split(".");
+  if (octets.length !== 4) return false;
+
+  const [a, b, c, d] = octets.map((part) => Number(part));
+  if ([a, b, c, d].some((part) => Number.isNaN(part))) return false;
+  if ([a, b, c, d].some((part) => part < 0 || part > 255)) return false;
+
+  if (a === 10) return true;
+  if (a === 127) return true;
+  if (a === 0) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+
+  return false;
 }
