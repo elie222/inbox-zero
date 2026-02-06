@@ -164,7 +164,7 @@ export function createAgentTools({
   if (mode === "onboarding") {
     return {
       searchEmails: searchEmailsTool(baseContext),
-      bulkArchive: bulkArchiveTool(baseContext),
+      bulkArchive: bulkArchiveTool({ ...baseContext, skipValidation: true }),
       showSetupPreview: showSetupPreviewTool(),
       completeOnboarding: completeOnboardingTool({
         emailAccountId: emailAccount.id,

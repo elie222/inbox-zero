@@ -333,7 +333,7 @@ export function MessagePart({
       return (
         <BasicToolInfo
           key={part.toolCallId}
-          text={`Archived ${part.output.archived} emails from ${part.output.senders} senders`}
+          text={`Archived emails from ${part.output.senders} senders`}
         />
       );
     }

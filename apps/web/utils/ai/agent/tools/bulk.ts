@@ -23,7 +23,8 @@ export const bulkArchiveTool = ({
   provider,
   logger,
   dryRun,
-}: AgentToolContext) =>
+  skipValidation,
+}: AgentToolContext & { skipValidation?: boolean }) =>
   tool({
     description:
       "Archive all emails from specific senders in bulk. Use this for cleanup during onboarding - much faster than archiving one by one.",
@@ -34,49 +35,51 @@ export const bulkArchiveTool = ({
         senderCount: senders.length,
       });
 
-      const action: StructuredAction = {
-        type: "archive",
-        resourceId: "bulk-archive",
-      };
-      const validation = await validateAction({
-        action,
-        context: {
-          emailAccountId,
-          provider,
-          resourceType: "email",
-          triggeredBy: "ai:decision:bulk-archive",
-          dryRun,
-        },
-        logger: log,
-      });
-
-      if (!validation.allowed) {
-        const blocked = await prisma.executedAgentAction.create({
-          data: {
-            actionType: "archive",
-            actionData: {
-              type: "archive",
-              mode: "bulkArchiveFromSenders",
-              senders,
-            },
-            status: "BLOCKED",
-            error: validation.reason ?? 'Action type "archive" not enabled',
-            triggeredBy: "ai:decision:bulk-archive",
-            matchMetadata: {
-              conditionsChecked: validation.conditionsChecked,
-              senderCount: senders.length,
-            } as unknown as Prisma.InputJsonValue,
+      if (!skipValidation) {
+        const action: StructuredAction = {
+          type: "archive",
+          resourceId: "bulk-archive",
+        };
+        const validation = await validateAction({
+          action,
+          context: {
             emailAccountId,
+            provider,
+            resourceType: "email",
+            triggeredBy: "ai:decision:bulk-archive",
+            dryRun,
           },
+          logger: log,
         });
 
-        return {
-          archived: 0,
-          senders: senders.length,
-          blocked: true,
-          reason: validation.reason,
-          logId: blocked.id,
-        };
+        if (!validation.allowed) {
+          const blocked = await prisma.executedAgentAction.create({
+            data: {
+              actionType: "archive",
+              actionData: {
+                type: "archive",
+                mode: "bulkArchiveFromSenders",
+                senders,
+              },
+              status: "BLOCKED",
+              error: validation.reason ?? 'Action type "archive" not enabled',
+              triggeredBy: "ai:decision:bulk-archive",
+              matchMetadata: {
+                conditionsChecked: validation.conditionsChecked,
+                senderCount: senders.length,
+              } as unknown as Prisma.InputJsonValue,
+              emailAccountId,
+            },
+          });
+
+          return {
+            archived: 0,
+            senders: senders.length,
+            blocked: true,
+            reason: validation.reason,
+            logId: blocked.id,
+          };
+        }
       }
 
       if (dryRun) {
@@ -98,7 +101,6 @@ export const bulkArchiveTool = ({
           status: "PENDING",
           triggeredBy: "ai:decision:bulk-archive",
           matchMetadata: {
-            conditionsChecked: validation.conditionsChecked,
             senderCount: senders.length,
           } as unknown as Prisma.InputJsonValue,
           emailAccountId,
@@ -126,7 +128,6 @@ export const bulkArchiveTool = ({
         log.info("Bulk archive complete", { senders: senders.length });
 
         return {
-          archived: senders.length,
           senders: senders.length,
           logId: actionLog.id,
         };
