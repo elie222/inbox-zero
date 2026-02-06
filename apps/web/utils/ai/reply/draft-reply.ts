@@ -268,8 +268,6 @@ function normalizeDraftReplyFormatting(reply: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  if (cleaned.includes("\n\n")) return cleaned;
-
   const nonEmptyLines = cleaned
     .split("\n")
     .map((line) => line.trim())
@@ -283,7 +281,7 @@ function normalizeDraftReplyFormatting(reply: string): string {
 }
 
 function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
-  if (lines.length < 2 || lines.length > 8) return false;
+  if (lines.length < 2) return false;
 
   if (lines.some((line) => isLikelyListItem(line))) return false;
 

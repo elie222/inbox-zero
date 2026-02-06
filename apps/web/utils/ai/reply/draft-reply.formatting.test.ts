@@ -98,6 +98,37 @@ describe("aiDraftReply formatting", () => {
     );
   });
 
+  it("normalizes mixed single and double newline paragraph separators", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply:
+          "First paragraph.\nSecond paragraph.\n\nThird paragraph.\nFourth paragraph.",
+      },
+    });
+
+    const result = await aiDraftReply(getDraftParams());
+
+    expect(result).toBe(
+      "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.\n\nFourth paragraph.",
+    );
+  });
+
+  it("normalizes long replies with more than 8 single-line paragraphs", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: Array.from({ length: 9 }, (_, i) => `Paragraph ${i + 1}.`).join(
+          "\n",
+        ),
+      },
+    });
+
+    const result = await aiDraftReply(getDraftParams());
+
+    expect(result).toBe(
+      Array.from({ length: 9 }, (_, i) => `Paragraph ${i + 1}.`).join("\n\n"),
+    );
+  });
+
   it("does not convert list output into double-spaced paragraphs", async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {
