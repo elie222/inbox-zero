@@ -51,8 +51,20 @@ export async function processFilingReply({
     return;
   }
 
+  let resolvedNotificationMessageId = inReplyTo;
+
+  try {
+    const notificationMessage =
+      await emailProvider.getMessageByRfc822MessageId(inReplyTo);
+    if (notificationMessage?.id) {
+      resolvedNotificationMessageId = notificationMessage.id;
+    }
+  } catch (error) {
+    logger.warn("Failed to resolve In-Reply-To RFC822 message ID", { error });
+  }
+
   const filing = await prisma.documentFiling.findUnique({
-    where: { notificationMessageId: inReplyTo },
+    where: { notificationMessageId: resolvedNotificationMessageId },
     include: {
       driveConnection: true,
     },
