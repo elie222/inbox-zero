@@ -21,9 +21,12 @@ export async function publishToQstash<T>(
 ) {
   const client = getQstashClient();
   const url = `${getInternalApiUrl()}${path}`;
-  const qstashUrl = resolveQstashTargetUrl(url);
+  if (client) {
+    const qstashUrl = resolveQstashTargetUrl(url);
+    if (!qstashUrl) {
+      throw new Error("QStash callback URL is unreachable");
+    }
 
-  if (client && qstashUrl) {
     return client.publishJSON({
       url: qstashUrl,
       body,
@@ -35,9 +38,7 @@ export async function publishToQstash<T>(
     });
   }
 
-  return fallbackPublishToQstash(url, body, undefined, {
-    reason: client ? "unreachable-url" : "missing-client",
-  });
+  return fallbackPublishToQstash(url, body, undefined);
 }
 
 export async function bulkPublishToQstash<T>({
@@ -50,40 +51,25 @@ export async function bulkPublishToQstash<T>({
   }[];
 }) {
   const client = getQstashClient();
-  const mappedItems = items.map((item) => {
-    const qstashUrl = client ? resolveQstashTargetUrl(item.url) : null;
-    return {
-      original: item,
-      qstashItem: qstashUrl
-        ? {
-            ...item,
-            url: qstashUrl,
-          }
-        : null,
-    };
-  });
+  if (client) {
+    const qstashItems = items.map((item) => {
+      const qstashUrl = resolveQstashTargetUrl(item.url);
+      if (!qstashUrl) {
+        throw new Error("QStash callback URL is unreachable");
+      }
 
-  const reachableQstashItems = mappedItems
-    .map((item) => item.qstashItem)
-    .filter(
-      (item): item is { url: string; body: T; flowControl?: FlowControl } =>
-        !!item,
-    );
+      return {
+        ...item,
+        url: qstashUrl,
+      };
+    });
 
-  if (client && reachableQstashItems.length > 0) {
-    await client.batchJSON(reachableQstashItems);
+    await client.batchJSON(qstashItems);
+    return;
   }
 
-  const fallbackItems = client
-    ? mappedItems
-        .map((item) => (item.qstashItem ? null : item.original))
-        .filter((item): item is { url: string; body: T } => !!item)
-    : items;
-
-  for (const item of fallbackItems) {
-    await fallbackPublishToQstash(item.url, item.body, undefined, {
-      reason: client ? "unreachable-url" : "missing-client",
-    });
+  for (const item of items) {
+    await fallbackPublishToQstash(item.url, item.body, undefined);
   }
 }
 
@@ -101,9 +87,12 @@ export async function publishToQstashQueue<T>({
   headers?: HeadersInit;
 }) {
   const client = getQstashClient();
-  const qstashUrl = resolveQstashTargetUrl(url);
+  if (client) {
+    const qstashUrl = resolveQstashTargetUrl(url);
+    if (!qstashUrl) {
+      throw new Error("QStash callback URL is unreachable");
+    }
 
-  if (client && qstashUrl) {
     try {
       const queue = client.queue({ queueName });
       await queue.upsert({ parallelism });
@@ -118,24 +107,15 @@ export async function publishToQstashQueue<T>({
     }
   }
 
-  return fallbackPublishToQstash<T>(url, body, headers, {
-    reason: client ? "unreachable-url" : "missing-client",
-  });
+  return fallbackPublishToQstash<T>(url, body, headers);
 }
 
 async function fallbackPublishToQstash<T>(
   url: string,
   body: T,
   headers?: HeadersInit,
-  options?: {
-    reason?: "missing-client" | "unreachable-url";
-  },
 ) {
-  if (options?.reason === "unreachable-url") {
-    logger.info("Skipping Qstash for unreachable callback URL", { url });
-  } else {
-    logger.warn("Qstash client not found");
-  }
+  logger.warn("Qstash client not found");
 
   const internalHeaders = new Headers(
     headers instanceof Headers

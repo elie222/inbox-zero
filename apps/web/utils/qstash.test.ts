@@ -56,7 +56,7 @@ describe("withQstashOrInternal", () => {
     vi.clearAllMocks();
   });
 
-  it("uses internal API key when present and valid even if QStash is enabled", async () => {
+  it("uses QStash verification when configured even if internal key is present", async () => {
     const {
       withQstashOrInternal,
       isValidInternalApiKey,
@@ -64,6 +64,7 @@ describe("withQstashOrInternal", () => {
     } = await loadMiddleware({
       qstashToken: "qstash-token",
       internalApiKeyValid: true,
+      verifyResponse: new Response("verified"),
     });
 
     const handler = vi.fn(() => new Response("ok"));
@@ -74,9 +75,9 @@ describe("withQstashOrInternal", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(handler).toHaveBeenCalledTimes(1);
-    expect(isValidInternalApiKey).toHaveBeenCalledTimes(1);
-    expect(verifySignatureAppRouter).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+    expect(isValidInternalApiKey).not.toHaveBeenCalled();
+    expect(verifySignatureAppRouter).toHaveBeenCalledTimes(1);
   });
 
   it("uses QStash signature verification when no internal key is provided", async () => {
@@ -116,6 +117,25 @@ describe("withQstashOrInternal", () => {
 
     expect(response.status).toBe(401);
     expect(handler).not.toHaveBeenCalled();
-    expect(isValidInternalApiKey).not.toHaveBeenCalled();
+    expect(isValidInternalApiKey).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses internal API key when QStash is disabled", async () => {
+    const { withQstashOrInternal, isValidInternalApiKey } =
+      await loadMiddleware({
+        qstashToken: undefined,
+        internalApiKeyValid: true,
+      });
+
+    const handler = vi.fn(() => new Response("ok"));
+    const wrapped = withQstashOrInternal(handler as any);
+
+    const response = await wrapped(createRequest({ "x-api-key": "secret" }), {
+      params: Promise.resolve({}),
+    });
+
+    expect(response.status).toBe(200);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(isValidInternalApiKey).toHaveBeenCalledTimes(1);
   });
 });

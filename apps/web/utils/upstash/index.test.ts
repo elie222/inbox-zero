@@ -59,7 +59,7 @@ describe("bulkPublishToQstash", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses QStash for reachable items and fallback only for unreachable items", async () => {
+  it("uses QStash when configured and all URLs are reachable", async () => {
     const fetchMock = setupFetchMock();
     const upstash = await loadUpstashModule({ qstashToken: "token" });
 
@@ -73,10 +73,6 @@ describe("bulkPublishToQstash", () => {
           url: "https://api.example.com/task",
           body: { id: 2 },
         },
-        {
-          url: "http://10.0.0.1/private",
-          body: { id: 3 },
-        },
       ],
     });
 
@@ -86,11 +82,24 @@ describe("bulkPublishToQstash", () => {
     expect(batchItems[0].url).toBe("https://public.example.com/api/internal");
     expect(batchItems[1].url).toBe("https://api.example.com/task");
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://10.0.0.1/private",
-      expect.objectContaining({ method: "POST" }),
-    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("throws when QStash is configured and any URL is unreachable", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({ qstashToken: "token" });
+
+    await expect(
+      upstash.bulkPublishToQstash({
+        items: [
+          { url: "https://api.example.com/task", body: { id: 1 } },
+          { url: "http://10.0.0.1/private", body: { id: 2 } },
+        ],
+      }),
+    ).rejects.toThrow("QStash callback URL is unreachable");
+
+    expect(mockBatchJSON).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("falls back for all items when QStash client is unavailable", async () => {
@@ -114,9 +123,36 @@ describe("publishToQstashQueue", () => {
     vi.unstubAllGlobals();
   });
 
-  it("falls back for link-local and cgnat URLs", async () => {
+  it("throws for link-local and cgnat URLs when QStash is configured", async () => {
     const fetchMock = setupFetchMock();
     const upstash = await loadUpstashModule({ qstashToken: "token" });
+
+    await expect(
+      upstash.publishToQstashQueue({
+        queueName: "test",
+        parallelism: 1,
+        url: "http://169.254.1.10/task",
+        body: { id: "a" },
+      }),
+    ).rejects.toThrow("QStash callback URL is unreachable");
+
+    await expect(
+      upstash.publishToQstashQueue({
+        queueName: "test",
+        parallelism: 1,
+        url: "http://100.64.1.10/task",
+        body: { id: "b" },
+      }),
+    ).rejects.toThrow("QStash callback URL is unreachable");
+
+    expect(mockQueueUpsert).not.toHaveBeenCalled();
+    expect(mockQueueEnqueueJSON).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back when QStash client is unavailable", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({ qstashToken: undefined });
 
     await upstash.publishToQstashQueue({
       queueName: "test",
@@ -124,24 +160,12 @@ describe("publishToQstashQueue", () => {
       url: "http://169.254.1.10/task",
       body: { id: "a" },
     });
-    await upstash.publishToQstashQueue({
-      queueName: "test",
-      parallelism: 1,
-      url: "http://100.64.1.10/task",
-      body: { id: "b" },
-    });
 
     expect(mockQueueUpsert).not.toHaveBeenCalled();
     expect(mockQueueEnqueueJSON).not.toHaveBeenCalled();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
       "http://169.254.1.10/task",
-      expect.objectContaining({ method: "POST" }),
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "http://100.64.1.10/task",
       expect.objectContaining({ method: "POST" }),
     );
   });

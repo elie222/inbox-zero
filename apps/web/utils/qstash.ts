@@ -1,23 +1,12 @@
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { env } from "@/env";
-import {
-  INTERNAL_API_KEY_HEADER,
-  isValidInternalApiKey,
-} from "@/utils/internal-api";
+import { isValidInternalApiKey } from "@/utils/internal-api";
 import type { NextHandler, RequestWithLogger } from "@/utils/middleware";
 
 export function withQstashOrInternal(
   handler: NextHandler<RequestWithLogger>,
 ): NextHandler<RequestWithLogger> {
   return async (request, context) => {
-    const hasInternalApiKey = !!request.headers.get(INTERNAL_API_KEY_HEADER);
-    if (
-      hasInternalApiKey &&
-      isValidInternalApiKey(request.headers, request.logger)
-    ) {
-      return handler(request, context);
-    }
-
     if (env.QSTASH_TOKEN) {
       const verified = verifySignatureAppRouter(
         (req: Request, params?: { params?: Record<string, string> }) =>
@@ -26,7 +15,11 @@ export function withQstashOrInternal(
       return verified(request, context);
     }
 
-    return new Response("Unauthorized", { status: 401 });
+    if (!isValidInternalApiKey(request.headers, request.logger)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    return handler(request, context);
   };
 }
 
