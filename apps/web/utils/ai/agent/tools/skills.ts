@@ -3,7 +3,6 @@ import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { AgentToolContext } from "@/utils/ai/agent/types";
-import { SkillStatus } from "@/generated/prisma/enums";
 
 const getSkillSchema = z.object({
   name: z.string().min(1).describe("Skill name to load"),
@@ -11,7 +10,7 @@ const getSkillSchema = z.object({
 
 export const getSkillTool = ({ emailAccountId, logger }: AgentToolContext) =>
   tool({
-    description: "Load a skill's content by name (ACTIVE only)",
+    description: "Load a skill's content by name (enabled only)",
     inputSchema: getSkillSchema,
     execute: async ({ name }) => {
       const log = logger.with({ tool: "getSkill" });
@@ -25,8 +24,8 @@ export const getSkillTool = ({ emailAccountId, logger }: AgentToolContext) =>
         return { error: `Skill "${name}" not found` };
       }
 
-      if (skill.status !== SkillStatus.ACTIVE) {
-        return { error: `Skill "${name}" is ${skill.status.toLowerCase()}` };
+      if (!skill.enabled) {
+        return { error: `Skill "${name}" is disabled` };
       }
 
       await prisma.skill.update({
@@ -47,22 +46,16 @@ const createSkillSchema = z.object({
   name: z.string().min(1).describe("Unique skill name"),
   description: z.string().min(1).describe("Short description"),
   content: z.string().min(1).describe("Full markdown content"),
-  status: z
-    .enum([SkillStatus.DRAFT, SkillStatus.ACTIVE, SkillStatus.DEPRECATED])
-    .optional()
-    .describe("Lifecycle status"),
+  enabled: z.boolean().optional().describe("Whether the skill is enabled"),
 });
 
 export const createSkillTool = ({ emailAccountId, logger }: AgentToolContext) =>
   tool({
     description: "Create a new skill",
     inputSchema: createSkillSchema,
-    execute: async ({ name, description, content, status }) => {
+    execute: async ({ name, description, content, enabled }) => {
       const log = logger.with({ tool: "createSkill" });
-      log.info("Creating skill", {
-        name,
-        status: status ?? SkillStatus.ACTIVE,
-      });
+      log.info("Creating skill", { name, enabled: enabled ?? true });
 
       try {
         const skill = await prisma.skill.create({
@@ -70,7 +63,7 @@ export const createSkillTool = ({ emailAccountId, logger }: AgentToolContext) =>
             name,
             description,
             content,
-            status: status ?? SkillStatus.ACTIVE,
+            enabled: enabled ?? true,
             emailAccountId,
           },
         });
@@ -97,18 +90,16 @@ const updateSkillSchema = z.object({
   name: z.string().min(1).describe("Skill name to update"),
   description: z.string().min(1).optional().describe("Updated description"),
   content: z.string().min(1).describe("Updated markdown content"),
-  status: z
-    .enum([SkillStatus.DRAFT, SkillStatus.ACTIVE, SkillStatus.DEPRECATED])
-    .optional(),
+  enabled: z.boolean().optional().describe("Whether the skill is enabled"),
 });
 
 export const updateSkillTool = ({ emailAccountId, logger }: AgentToolContext) =>
   tool({
     description: "Update an existing skill and bump version",
     inputSchema: updateSkillSchema,
-    execute: async ({ name, description, content, status }) => {
+    execute: async ({ name, description, content, enabled }) => {
       const log = logger.with({ tool: "updateSkill" });
-      log.info("Updating skill", { name, status });
+      log.info("Updating skill", { name, enabled });
 
       const skill = await prisma.skill.findUnique({
         where: { emailAccountId_name: { emailAccountId, name } },
@@ -123,7 +114,7 @@ export const updateSkillTool = ({ emailAccountId, logger }: AgentToolContext) =>
         data: {
           content,
           description: description ?? skill.description,
-          status: status ?? skill.status,
+          enabled: enabled ?? skill.enabled,
           version: skill.version + 1,
         },
       });

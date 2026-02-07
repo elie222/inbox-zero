@@ -4,6 +4,9 @@ import { actionClient } from "@/utils/actions/safe-action";
 import {
   agentApprovalBody,
   toggleAllowedActionBody,
+  createSkillBody,
+  updateSkillBody,
+  deleteSkillBody,
 } from "@/utils/actions/agent.validation";
 import {
   approveAgentAction as approveAgentExecution,
@@ -68,3 +71,57 @@ export const toggleAllowedActionAction = actionClient
       });
     },
   );
+
+export const createSkillAction = actionClient
+  .metadata({ name: "createSkill" })
+  .inputSchema(createSkillBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { name, description, content },
+    }) => {
+      return prisma.skill.create({
+        data: {
+          emailAccountId,
+          name,
+          description,
+          content,
+        },
+      });
+    },
+  );
+
+export const updateSkillAction = actionClient
+  .metadata({ name: "updateSkill" })
+  .inputSchema(updateSkillBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { skillId, name, description, content, enabled },
+    }) => {
+      const contentChanged =
+        name !== undefined ||
+        description !== undefined ||
+        content !== undefined;
+
+      return prisma.skill.update({
+        where: { id: skillId, emailAccountId },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(description !== undefined && { description }),
+          ...(content !== undefined && { content }),
+          ...(enabled !== undefined && { enabled }),
+          ...(contentChanged && { version: { increment: 1 } }),
+        },
+      });
+    },
+  );
+
+export const deleteSkillAction = actionClient
+  .metadata({ name: "deleteSkill" })
+  .inputSchema(deleteSkillBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { skillId } }) => {
+    return prisma.skill.delete({
+      where: { id: skillId, emailAccountId },
+    });
+  });

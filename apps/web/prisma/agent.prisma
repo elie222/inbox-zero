@@ -116,8 +116,8 @@ model Skill {
   description String // "Use when deciding thread status"
   content     String // Full markdown instructions
 
-  version Int         @default(1)
-  status  SkillStatus @default(ACTIVE)
+  version Int     @default(1)
+  enabled Boolean @default(true)
 
   lastUsedAt DateTime?
   useCount   Int       @default(0)
@@ -190,11 +190,6 @@ enum TargetGroupCardinality {
   MULTI
 }
 
-enum SkillStatus {
-  DRAFT
-  ACTIVE
-  DEPRECATED
-}
 
 enum ExecutionStatus {
   PENDING

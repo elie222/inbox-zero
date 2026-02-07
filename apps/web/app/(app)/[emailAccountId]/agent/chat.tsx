@@ -70,10 +70,13 @@ export function AgentChat({
             value={input}
             onChange={(event) => setInput(event.target.value)}
             placeholder="Ask the agent to help with your inbox..."
-            minHeight={24}
-            maxHeight={180}
+            className="pr-12"
           />
-          <PromptInputSubmit status={chat.status} />
+          <PromptInputSubmit
+            status={chat.status}
+            disabled={!input.trim() || chat.status !== "ready"}
+            className="absolute bottom-1 right-1"
+          />
         </PromptInput>
       </div>
     </div>
