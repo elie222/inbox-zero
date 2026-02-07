@@ -20,16 +20,34 @@ async function getAllowedActions({
 }: {
   emailAccountId: string;
 }) {
-  const allowedActions = await prisma.allowedAction.findMany({
-    where: { emailAccountId },
+  const account = await prisma.emailAccount.findUniqueOrThrow({
+    where: { id: emailAccountId },
     select: {
-      id: true,
-      actionType: true,
-      resourceType: true,
-      enabled: true,
+      allowedActions: {
+        select: {
+          id: true,
+          actionType: true,
+          resourceType: true,
+          enabled: true,
+        },
+        orderBy: { actionType: "asc" },
+      },
+      allowedActionOptions: {
+        select: {
+          id: true,
+          actionType: true,
+          provider: true,
+          kind: true,
+          externalId: true,
+          name: true,
+        },
+        orderBy: { name: "asc" },
+      },
     },
-    orderBy: { actionType: "asc" },
   });
 
-  return { allowedActions };
+  return {
+    allowedActions: account.allowedActions,
+    allowedActionOptions: account.allowedActionOptions,
+  };
 }

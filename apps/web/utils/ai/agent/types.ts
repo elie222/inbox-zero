@@ -21,6 +21,7 @@ export type AgentActionType =
   | "markRead"
   | "draft"
   | "send"
+  | "forward"
   | "updateSettings";
 
 type InternalActionType =
@@ -30,6 +31,7 @@ type InternalActionType =
   | "markRead"
   | "draft"
   | "send"
+  | "forward"
   | "updateSettings";
 
 export function normalizeAgentActionType(
@@ -104,6 +106,14 @@ export type StructuredAction =
       to?: string;
       cc?: string;
       bcc?: string;
+    }
+  | {
+      type: "forward";
+      resourceId: string;
+      to: string;
+      cc?: string;
+      bcc?: string;
+      content?: string;
     }
   | {
       type: "updateSettings";

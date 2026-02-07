@@ -14,6 +14,7 @@ import { createExecuteAction } from "@/utils/ai/agent/execution";
 import {
   bulkArchiveTool,
   draftReplyTool,
+  forwardEmailTool,
   getEmailTool,
   getSettingsTool,
   getSkillTool,
@@ -184,6 +185,7 @@ export function createAgentTools({
       getEmail: getEmailTool(emailContext),
       draftReply: draftReplyTool({ ...emailContext, executeAction }),
       sendEmail: sendEmailTool({ ...baseContext, executeAction }),
+      forwardEmail: forwardEmailTool({ ...emailContext, executeAction }),
       getSkill: getSkillTool(baseContext),
     };
   }

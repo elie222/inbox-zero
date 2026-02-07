@@ -7,6 +7,8 @@ import {
   createSkillBody,
   updateSkillBody,
   deleteSkillBody,
+  addAllowedActionOptionBody,
+  removeAllowedActionOptionBody,
 } from "@/utils/actions/agent.validation";
 import {
   approveAgentAction as approveAgentExecution,
@@ -123,5 +125,50 @@ export const deleteSkillAction = actionClient
   .action(async ({ ctx: { emailAccountId }, parsedInput: { skillId } }) => {
     return prisma.skill.delete({
       where: { id: skillId, emailAccountId },
+    });
+  });
+
+export const addAllowedActionOptionAction = actionClient
+  .metadata({ name: "addAllowedActionOption" })
+  .inputSchema(addAllowedActionOptionBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { actionType, provider, kind, externalId, name },
+    }) => {
+      const where = {
+        emailAccountId,
+        actionType,
+        provider,
+        kind,
+        ...(externalId ? { externalId } : { name }),
+      };
+
+      const existing = await prisma.allowedActionOption.findFirst({
+        where,
+        select: { id: true },
+      });
+
+      if (existing) return existing;
+
+      return prisma.allowedActionOption.create({
+        data: {
+          emailAccountId,
+          actionType,
+          provider,
+          kind,
+          externalId,
+          name,
+        },
+      });
+    },
+  );
+
+export const removeAllowedActionOptionAction = actionClient
+  .metadata({ name: "removeAllowedActionOption" })
+  .inputSchema(removeAllowedActionOptionBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { optionId } }) => {
+    return prisma.allowedActionOption.delete({
+      where: { id: optionId, emailAccountId },
     });
   });

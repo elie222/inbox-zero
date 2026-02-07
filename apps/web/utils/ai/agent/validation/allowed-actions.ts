@@ -89,10 +89,19 @@ export async function validateAction({
     }
   }
 
-  if (normalizedActionType === "classify" || normalizedActionType === "move") {
+  if (
+    normalizedActionType === "classify" ||
+    normalizedActionType === "move" ||
+    normalizedActionType === "forward"
+  ) {
     // biome-ignore lint/suspicious/noExplicitAny: StructuredAction union can't narrow via derived value
     const a = action as any;
-    if (!a.targetExternalId && !a.targetName) {
+
+    const isForward = normalizedActionType === "forward";
+    const targetName = isForward ? a.to : a.targetName;
+    const targetExternalId = isForward ? null : a.targetExternalId;
+
+    if (!targetExternalId && !targetName) {
       return {
         allowed: false,
         reason: "Target is required for this action",
@@ -100,9 +109,20 @@ export async function validateAction({
       };
     }
 
+    const optionCount = await prisma.allowedActionOption.count({
+      where: {
+        emailAccountId: context.emailAccountId,
+        actionType: normalizedActionType,
+      },
+    });
+
+    if (optionCount === 0) {
+      return { allowed: true, conditionsChecked };
+    }
+
     const targetFilters = [
-      a.targetExternalId ? { externalId: a.targetExternalId } : undefined,
-      a.targetName ? { name: a.targetName } : undefined,
+      targetExternalId ? { externalId: targetExternalId } : undefined,
+      targetName ? { name: targetName } : undefined,
     ].filter(Boolean) as unknown as Array<Record<string, string>>;
 
     const target = await prisma.allowedActionOption.findFirst({
@@ -129,7 +149,7 @@ export async function validateAction({
       };
     }
 
-    if (target.targetGroup?.cardinality === "SINGLE") {
+    if (!isForward && target.targetGroup?.cardinality === "SINGLE") {
       const targetKey = target.externalId ?? target.name;
 
       if (!emailProvider) {

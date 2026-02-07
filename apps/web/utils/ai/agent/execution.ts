@@ -19,7 +19,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { applySettingsUpdate } from "@/utils/ai/agent/settings";
 
-const APPROVAL_REQUIRED_ACTIONS = ["send", "updateSettings"];
+const APPROVAL_REQUIRED_ACTIONS = ["send", "forward", "updateSettings"];
 
 type ExecuteActionOptions = {
   action: StructuredAction;
@@ -476,6 +476,20 @@ async function performAction({
         bcc: a.bcc ?? undefined,
         subject: a.subject,
         messageText: a.content,
+      });
+      return {};
+    }
+    case "forward": {
+      ensureEmailSendingEnabled();
+
+      const messageId = context.emailId ?? a.resourceId;
+      const message = await emailProvider.getMessage(messageId);
+
+      await emailProvider.forwardEmail(message, {
+        to: a.to,
+        cc: a.cc ?? undefined,
+        bcc: a.bcc ?? undefined,
+        content: a.content ?? undefined,
       });
       return {};
     }

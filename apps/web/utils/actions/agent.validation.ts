@@ -27,3 +27,15 @@ export const updateSkillBody = z.object({
 export const deleteSkillBody = z.object({
   skillId: z.string().min(1),
 });
+
+export const addAllowedActionOptionBody = z.object({
+  actionType: z.string().min(1),
+  provider: z.string().min(1),
+  kind: z.string().min(1),
+  externalId: z.string().nullable(),
+  name: z.string().min(1),
+});
+
+export const removeAllowedActionOptionBody = z.object({
+  optionId: z.string().min(1),
+});
