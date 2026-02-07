@@ -1,0 +1,150 @@
+import { convertToModelMessages, type UIMessage } from "ai";
+import prisma from "@/utils/prisma";
+import { MessagingProvider } from "@/generated/prisma/enums";
+import { createSlackClient } from "@inboxzero/slack";
+import { getEmailAccountWithAi } from "@/utils/user/get";
+import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
+import type { Logger } from "@/utils/logger";
+import type { Prisma } from "@/generated/prisma/client";
+
+type SlackEventPayload = {
+  team_id: string;
+  event: {
+    type: string;
+    user?: string;
+    bot_id?: string;
+    text?: string;
+    channel?: string;
+    channel_type?: string;
+    ts?: string;
+    thread_ts?: string;
+  };
+};
+
+export async function processSlackEvent(
+  body: SlackEventPayload,
+  logger: Logger,
+): Promise<void> {
+  const { team_id: teamId, event } = body;
+  const { type, user, bot_id, text, channel, ts, thread_ts, channel_type } =
+    event;
+
+  if (!type || !channel || !ts) return;
+
+  // Ignore bot messages
+  if (bot_id || !user) return;
+
+  // Only handle messages and app_mentions
+  if (type !== "message" && type !== "app_mention") return;
+
+  // For DMs, only process direct messages (not channel messages)
+  if (type === "message" && channel_type !== "im") return;
+
+  const messagingChannel = await prisma.messagingChannel.findFirst({
+    where: {
+      provider: MessagingProvider.SLACK,
+      teamId,
+      isConnected: true,
+    },
+    select: {
+      id: true,
+      accessToken: true,
+      providerUserId: true,
+      emailAccountId: true,
+    },
+  });
+
+  if (!messagingChannel || !messagingChannel.accessToken) {
+    logger.info("No messaging channel found for Slack event", { teamId });
+    return;
+  }
+
+  const { emailAccountId, accessToken } = messagingChannel;
+
+  // Strip bot mention from text for app_mention events
+  let messageText = text ?? "";
+  if (type === "app_mention" && messagingChannel.providerUserId) {
+    messageText = messageText
+      .replace(new RegExp(`<@${messagingChannel.providerUserId}>`, "g"), "")
+      .trim();
+  }
+
+  if (!messageText) return;
+
+  const emailAccountUser = await getEmailAccountWithAi({ emailAccountId });
+  if (!emailAccountUser) {
+    logger.error("Email account not found for Slack chat", { emailAccountId });
+    return;
+  }
+
+  // Deterministic chat ID from Slack context
+  const chatId = thread_ts
+    ? `slack-${channel}-${thread_ts}`
+    : `slack-${channel}`;
+
+  const chat =
+    (await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: { messages: true },
+    })) ??
+    (await prisma.chat.create({
+      data: { id: chatId, emailAccountId },
+      include: { messages: true },
+    }));
+
+  // Build message history
+  const existingMessages: UIMessage[] = chat.messages.map((m) => ({
+    id: m.id,
+    role: m.role as UIMessage["role"],
+    parts: m.parts as UIMessage["parts"],
+  }));
+
+  const userMessageId = `slack-${ts}`;
+  const newUserMessage: UIMessage = {
+    id: userMessageId,
+    role: "user",
+    parts: [{ type: "text", text: messageText }],
+  };
+
+  const allMessages = [...existingMessages, newUserMessage];
+
+  // Save user message
+  await prisma.chatMessage.create({
+    data: {
+      id: userMessageId,
+      chat: { connect: { id: chat.id } },
+      role: "user",
+      parts: newUserMessage.parts as Prisma.InputJsonValue,
+    },
+  });
+
+  // Process with AI
+  const result = await aiProcessAssistantChat({
+    messages: convertToModelMessages(allMessages),
+    emailAccountId,
+    user: emailAccountUser,
+    logger,
+  });
+
+  const fullText = await result.text;
+
+  // Save assistant message
+  const assistantParts = [{ type: "text" as const, text: fullText }];
+  await prisma.chatMessage.create({
+    data: {
+      chat: { connect: { id: chat.id } },
+      role: "assistant",
+      parts: assistantParts as unknown as Prisma.InputJsonValue,
+    },
+  });
+
+  // Send response to Slack
+  const client = createSlackClient(accessToken);
+  const replyThreadTs = type === "app_mention" ? (thread_ts ?? ts) : undefined;
+
+  await client.chat.postMessage({
+    channel,
+    text: fullText,
+    ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
+  });
+}

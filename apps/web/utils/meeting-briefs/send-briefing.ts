@@ -8,12 +8,15 @@ import MeetingBriefingEmail, {
   type BriefingContent,
   type InternalTeamMember,
 } from "@inboxzero/resend/emails/meeting-briefing";
+import { sendMeetingBriefingToSlack } from "@inboxzero/slack";
+import { MessagingProvider } from "@/generated/prisma/enums";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { formatTimeInUserTimezone } from "@/utils/date";
+import prisma from "@/utils/prisma";
 
-export async function sendBriefingEmail({
+export async function sendBriefing({
   event,
   briefingContent,
   internalTeamMembers,
@@ -36,15 +39,120 @@ export async function sendBriefingEmail({
 
   const formattedTime = formatTimeInUserTimezone(event.startTime, userTimezone);
 
-  const unsubscribeToken = await createUnsubscribeToken({ emailAccountId });
-
-  // Merge internal team members into briefing content for the email.
-  // The AI generates only {guests}, while internalTeamMembers comes from
-  // gather-context.ts (domain-based filtering, not AI-researched).
   const briefingContentWithTeam: BriefingContent = {
     ...briefingContent,
     internalTeamMembers,
   };
+
+  // Fetch delivery preferences
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: { meetingBriefsSendEmail: true },
+  });
+
+  const sendEmail = emailAccount?.meetingBriefsSendEmail ?? true;
+
+  // Fetch connected messaging channels with briefs enabled
+  const channels = await prisma.messagingChannel.findMany({
+    where: {
+      emailAccountId,
+      isConnected: true,
+      sendMeetingBriefs: true,
+      channelId: { not: null },
+    },
+    select: {
+      provider: true,
+      accessToken: true,
+      channelId: true,
+    },
+  });
+
+  const deliveryPromises: Promise<void>[] = [];
+
+  if (sendEmail) {
+    deliveryPromises.push(
+      sendBriefingViaEmail({
+        event,
+        briefingContent: briefingContentWithTeam,
+        emailAccountId,
+        userEmail,
+        provider,
+        formattedTime,
+        logger,
+      }),
+    );
+  }
+
+  for (const channel of channels) {
+    if (!channel.accessToken || !channel.channelId) continue;
+
+    switch (channel.provider) {
+      case MessagingProvider.SLACK:
+        deliveryPromises.push(
+          sendBriefingViaSlack({
+            accessToken: channel.accessToken,
+            channelId: channel.channelId,
+            meetingTitle: event.title,
+            formattedTime,
+            videoConferenceLink: event.videoConferenceLink ?? undefined,
+            eventUrl: event.eventUrl ?? undefined,
+            briefingContent: briefingContentWithTeam,
+            logger,
+          }),
+        );
+        break;
+    }
+  }
+
+  // Fallback: if nothing is configured, send email
+  if (deliveryPromises.length === 0) {
+    deliveryPromises.push(
+      sendBriefingViaEmail({
+        event,
+        briefingContent: briefingContentWithTeam,
+        emailAccountId,
+        userEmail,
+        provider,
+        formattedTime,
+        logger,
+      }),
+    );
+  }
+
+  const results = await Promise.allSettled(deliveryPromises);
+  const failures = results.filter((r) => r.status === "rejected");
+
+  if (failures.length > 0) {
+    for (const failure of failures) {
+      logger.error("Delivery channel failed", {
+        reason: (failure as PromiseRejectedResult).reason,
+      });
+    }
+
+    if (failures.length === results.length) {
+      throw new Error("All delivery channels failed");
+    }
+  }
+}
+
+async function sendBriefingViaEmail({
+  event,
+  briefingContent,
+  emailAccountId,
+  userEmail,
+  provider,
+  formattedTime,
+  logger,
+}: {
+  event: CalendarEvent;
+  briefingContent: BriefingContent;
+  emailAccountId: string;
+  userEmail: string;
+  provider: string;
+  formattedTime: string;
+  logger: Logger;
+}): Promise<void> {
+  const unsubscribeToken = await createUnsubscribeToken({ emailAccountId });
 
   const emailProps: MeetingBriefingEmailProps = {
     baseUrl: env.NEXT_PUBLIC_BASE_URL,
@@ -53,11 +161,10 @@ export async function sendBriefingEmail({
     formattedTime,
     videoConferenceLink: event.videoConferenceLink ?? "",
     eventUrl: event.eventUrl ?? "",
-    briefingContent: briefingContentWithTeam,
+    briefingContent,
     unsubscribeToken,
   };
 
-  // Try Resend first if configured
   if (env.RESEND_API_KEY) {
     logger.info("Sending briefing via Resend");
     try {
@@ -75,49 +182,53 @@ export async function sendBriefingEmail({
     }
   }
 
-  // Fallback: Send via user's own email provider
   logger.info("Sending briefing via user's email provider");
-  await sendViaSelfEmail({
-    emailProps,
+  const emailProvider = await createEmailProvider({
     emailAccountId,
-    userEmail,
     provider,
     logger,
   });
+
+  const subject = generateMeetingBriefingSubject(emailProps);
+  const htmlContent = await render(MeetingBriefingEmail(emailProps));
+
+  await emailProvider.sendEmailWithHtml({
+    to: userEmail,
+    subject,
+    messageHtml: htmlContent,
+  });
+
+  logger.info("Briefing sent successfully via self-email");
 }
 
-async function sendViaSelfEmail({
-  emailProps,
-  emailAccountId,
-  userEmail,
-  provider,
+async function sendBriefingViaSlack({
+  accessToken,
+  channelId,
+  meetingTitle,
+  formattedTime,
+  videoConferenceLink,
+  eventUrl,
+  briefingContent,
   logger,
 }: {
-  emailProps: MeetingBriefingEmailProps;
-  emailAccountId: string;
-  userEmail: string;
-  provider: string;
+  accessToken: string;
+  channelId: string;
+  meetingTitle: string;
+  formattedTime: string;
+  videoConferenceLink?: string;
+  eventUrl?: string;
+  briefingContent: BriefingContent;
   logger: Logger;
 }): Promise<void> {
-  try {
-    const emailProvider = await createEmailProvider({
-      emailAccountId,
-      provider,
-      logger,
-    });
-
-    const subject = generateMeetingBriefingSubject(emailProps);
-    const htmlContent = await render(MeetingBriefingEmail(emailProps));
-
-    await emailProvider.sendEmailWithHtml({
-      to: userEmail,
-      subject,
-      messageHtml: htmlContent,
-    });
-
-    logger.info("Briefing sent successfully via self-email");
-  } catch (error) {
-    logger.error("Failed to send briefing via self-email", { error });
-    throw error;
-  }
+  logger.info("Sending briefing to Slack");
+  await sendMeetingBriefingToSlack({
+    accessToken,
+    channelId,
+    meetingTitle,
+    formattedTime,
+    videoConferenceLink,
+    eventUrl,
+    briefingContent,
+  });
+  logger.info("Briefing sent successfully to Slack");
 }
