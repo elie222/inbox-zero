@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
-import { ActivityPanel, SkillsPanel, ToolsPanel } from "./agent-page";
+import { ActivityPanel } from "./activity-panel";
+import { KnowledgePanel } from "./knowledge-panel";
+import { PermissionsPanel } from "./permissions-panel";
 import { AgentChat } from "./chat";
 import { EmailProvider } from "@/providers/EmailProvider";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
@@ -68,8 +70,8 @@ export default async function AgentPageRoute({
               </div>
             )}
             {selectedTab === "activity" && <ActivityPanel />}
-            {selectedTab === "skills" && <SkillsPanel />}
-            {selectedTab === "tools" && <ToolsPanel />}
+            {selectedTab === "skills" && <KnowledgePanel />}
+            {selectedTab === "tools" && <PermissionsPanel />}
           </div>
         </PageWrapper>
       </Suspense>
