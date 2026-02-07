@@ -11,6 +11,7 @@ import {
   getExtractableAttachments,
 } from "@/utils/drive/filing-engine";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
+import { cleanupThreadAIDrafts } from "@/utils/reply-tracker/draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailAccount } from "@/generated/prisma/client";
@@ -262,6 +263,25 @@ export async function processHistoryItem(
     } catch (error) {
       logger.error("Error removing follow-up label on inbound", { error });
       captureException(error, { emailAccountId });
+    }
+
+    // Clean up old AI drafts (runs after response to avoid slowing down processing)
+    // Excludes drafts for the current message since rules may have just created one
+    if (actualThreadId) {
+      after(async () => {
+        try {
+          await cleanupThreadAIDrafts({
+            threadId: actualThreadId,
+            emailAccountId,
+            provider,
+            logger,
+            excludeMessageId: messageId,
+          });
+        } catch (error) {
+          logger.error("Error during inbound thread draft cleanup", { error });
+          captureException(error, { emailAccountId });
+        }
+      });
     }
   } catch (error: unknown) {
     // Handle provider-specific "not found" errors

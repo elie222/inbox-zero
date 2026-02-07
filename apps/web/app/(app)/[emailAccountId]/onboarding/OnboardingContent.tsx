@@ -3,7 +3,10 @@
 import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
-import { StepIntro } from "@/app/(app)/[emailAccountId]/onboarding/StepIntro";
+import { StepWelcome } from "@/app/(app)/[emailAccountId]/onboarding/StepWelcome";
+import { StepEmailsSorted } from "@/app/(app)/[emailAccountId]/onboarding/StepEmailsSorted";
+import { StepDraftReplies } from "@/app/(app)/[emailAccountId]/onboarding/StepDraftReplies";
+import { StepBulkUnsubscribe } from "@/app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe";
 import { StepLabels } from "@/app/(app)/[emailAccountId]/onboarding/StepLabels";
 import { usePersona } from "@/hooks/usePersona";
 import { analyzePersonaAction } from "@/utils/actions/email-account";
@@ -22,7 +25,9 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useSignUpEvent } from "@/hooks/useSignupEvent";
 import { isDefined } from "@/utils/types";
 import { StepCompanySize } from "@/app/(app)/[emailAccountId]/onboarding/StepCompanySize";
+import { StepInviteTeam } from "@/app/(app)/[emailAccountId]/onboarding/StepInviteTeam";
 import { usePremium } from "@/components/PremiumAlert";
+import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
 import {
   STEP_KEYS,
   STEP_ORDER,
@@ -35,11 +40,20 @@ interface OnboardingContentProps {
 export function OnboardingContent({ step }: OnboardingContentProps) {
   const { emailAccountId, provider, isLoading } = useAccount();
   const { isPremium } = usePremium();
+  const { data: membership, isLoading: isMembershipLoading } =
+    useOrganizationMembership();
 
   useSignUpEvent();
 
-  const stepMap = {
-    [STEP_KEYS.INTRO]: () => <StepIntro onNext={onNext} />,
+  const canInviteTeam =
+    (membership?.isOwner && membership?.organizationId) ||
+    (!membership?.organizationId && !membership?.hasPendingInvitationToOrg);
+
+  const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
+    [STEP_KEYS.WELCOME]: () => <StepWelcome onNext={onNext} />,
+    [STEP_KEYS.EMAILS_SORTED]: () => <StepEmailsSorted onNext={onNext} />,
+    [STEP_KEYS.DRAFT_REPLIES]: () => <StepDraftReplies onNext={onNext} />,
+    [STEP_KEYS.BULK_UNSUBSCRIBE]: () => <StepBulkUnsubscribe onNext={onNext} />,
     [STEP_KEYS.FEATURES]: () => <StepFeatures onNext={onNext} />,
     [STEP_KEYS.WHO]: () => (
       <StepWho
@@ -66,6 +80,16 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     [STEP_KEYS.CUSTOM_RULES]: () => (
       <StepCustomRules provider={provider} onNext={onNext} />
     ),
+    [STEP_KEYS.INVITE_TEAM]: canInviteTeam
+      ? () => (
+          <StepInviteTeam
+            emailAccountId={emailAccountId}
+            organizationId={membership?.organizationId ?? undefined}
+            userName={membership?.userName}
+            onNext={onNext}
+          />
+        )
+      : undefined,
     [STEP_KEYS.INBOX_PROCESSED]: () => <StepInboxProcessed onNext={onNext} />,
   };
 
@@ -118,6 +142,11 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   // Show loading if provider is needed but not loaded yet
   if (isLoading && !provider) {
+    return null;
+  }
+
+  // Wait for membership data to load before determining steps
+  if (isMembershipLoading) {
     return null;
   }
 

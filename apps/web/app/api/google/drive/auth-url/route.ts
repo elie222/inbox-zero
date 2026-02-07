@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
-import { getGoogleDriveOAuth2Url } from "@/utils/drive/client";
+import {
+  getGoogleDriveOAuth2Url,
+  type GoogleDriveAccessLevel,
+} from "@/utils/drive/client";
 import { DRIVE_STATE_COOKIE_NAME } from "@/utils/drive/constants";
 import {
   generateOAuthState,
@@ -13,7 +16,9 @@ export const GET = withEmailAccount(
   "google/drive/auth-url",
   async (request) => {
     const { emailAccountId } = request.auth;
-    const { url, state } = getAuthUrl({ emailAccountId });
+    const { searchParams } = new URL(request.url);
+    const accessLevel = getAccessLevel(searchParams);
+    const { url, state } = getAuthUrl({ emailAccountId, accessLevel });
 
     const res: GetDriveAuthUrlResponse = { url };
     const response = NextResponse.json(res);
@@ -28,13 +33,23 @@ export const GET = withEmailAccount(
   },
 );
 
-const getAuthUrl = ({ emailAccountId }: { emailAccountId: string }) => {
+const getAuthUrl = ({
+  emailAccountId,
+  accessLevel,
+}: {
+  emailAccountId: string;
+  accessLevel: GoogleDriveAccessLevel;
+}) => {
   const state = generateOAuthState({
     emailAccountId,
     type: "drive",
   });
 
-  const url = getGoogleDriveOAuth2Url(state);
+  const url = getGoogleDriveOAuth2Url(state, accessLevel);
 
   return { url, state };
 };
+
+function getAccessLevel(params: URLSearchParams): GoogleDriveAccessLevel {
+  return params.get("access") === "full" ? "full" : "limited";
+}

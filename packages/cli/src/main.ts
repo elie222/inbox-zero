@@ -8,6 +8,8 @@ import { program } from "commander";
 import * as p from "@clack/prompts";
 import { generateSecret, generateEnvFile, type EnvConfig } from "./utils";
 import { runGoogleSetup } from "./setup-google";
+import { runAwsSetup } from "./setup-aws";
+import { runTerraformSetup } from "./setup-terraform";
 
 // Detect if we're running from within the repo
 function findRepoRoot(): string | null {
@@ -65,6 +67,8 @@ function checkDockerCompose(): boolean {
 }
 
 async function main() {
+  stripSetupAwsDoubleDash(process.argv);
+
   program
     .name("inbox-zero")
     .description("CLI tool for running Inbox Zero - AI email assistant")
@@ -115,12 +119,80 @@ async function main() {
     .option("--skip-pubsub", "Skip Pub/Sub setup")
     .action(runGoogleSetup);
 
+  program
+    .command("setup-aws")
+    .description("Deploy Inbox Zero to AWS using Copilot (ECS/Fargate)")
+    .option("--profile <profile>", "AWS CLI profile to use")
+    .option("--region <region>", "AWS region")
+    .option("--environment <env>", "Environment name (e.g., production)")
+    .option("--import-vpc-id <id>", "Use an existing VPC ID")
+    .option(
+      "--import-public-subnets <ids>",
+      "Comma-separated public subnet IDs",
+    )
+    .option(
+      "--import-private-subnets <ids>",
+      "Comma-separated private subnet IDs",
+    )
+    .option("--import-cert-arns <arns>", "Comma-separated ACM certificate ARNs")
+    .option("-y, --yes", "Non-interactive mode with defaults")
+    .action(runAwsSetup);
+
+  program
+    .command("setup-terraform")
+    .description("Generate Terraform files for AWS deployment")
+    .option("--output-dir <dir>", "Output directory for Terraform files")
+    .option("--environment <env>", "Environment name (e.g., production)")
+    .option("--region <region>", "AWS region")
+    .option(
+      "--base-url <url>",
+      "Public base URL (e.g., https://app.example.com)",
+    )
+    .option("--domain-name <domain>", "Domain name for DNS/HTTPS")
+    .option("--acm-certificate-arn <arn>", "ACM certificate ARN for HTTPS")
+    .option("--route53-zone-id <id>", "Route53 hosted zone ID for DNS")
+    .option("--rds-instance-class <class>", "RDS instance class")
+    .option("--enable-redis", "Provision ElastiCache Redis")
+    .option("--redis-instance-class <class>", "Redis instance class")
+    .option("--llm-provider <provider>", "Default LLM provider")
+    .option("--llm-model <model>", "Default LLM model")
+    .option("--google-client-id <id>", "Google OAuth client ID")
+    .option("--google-client-secret <secret>", "Google OAuth client secret")
+    .option("--google-pubsub-topic-name <name>", "Google Pub/Sub topic name")
+    .option("--anthropic-api-key <key>", "Anthropic API key")
+    .option("--openai-api-key <key>", "OpenAI API key")
+    .option("--google-api-key <key>", "Google Gemini API key")
+    .option("--openrouter-api-key <key>", "OpenRouter API key")
+    .option("--groq-api-key <key>", "Groq API key")
+    .option("--ai-gateway-api-key <key>", "AI Gateway API key")
+    .option("--bedrock-access-key <key>", "AWS access key for Bedrock")
+    .option("--bedrock-secret-key <key>", "AWS secret key for Bedrock")
+    .option("--bedrock-region <region>", "AWS region for Bedrock")
+    .option("--ollama-base-url <url>", "Ollama base URL")
+    .option("--ollama-model <model>", "Ollama model name")
+    .option("--microsoft-client-id <id>", "Microsoft OAuth client ID")
+    .option(
+      "--microsoft-client-secret <secret>",
+      "Microsoft OAuth client secret",
+    )
+    .option("-y, --yes", "Non-interactive mode with defaults")
+    .action(runTerraformSetup);
+
   // Default to help if no command
   if (process.argv.length === 2) {
     program.help();
   }
 
   await program.parseAsync();
+}
+
+function stripSetupAwsDoubleDash(argv: string[]) {
+  const commandIndex = argv.indexOf("setup-aws");
+  if (commandIndex === -1) return;
+  const dashIndex = argv.indexOf("--", commandIndex + 1);
+  if (dashIndex !== -1) {
+    argv.splice(dashIndex, 1);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

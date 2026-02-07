@@ -201,7 +201,9 @@ export class OutlookProvider implements EmailProvider {
       return null;
     }
 
-    const folderIds = await getFolderIds(this.client, this.logger);
+    const folderIds = await getFolderIds(this.client, this.logger, {
+      includeDrafts: false,
+    });
     return convertMessage(message, folderIds);
   }
 
@@ -245,7 +247,9 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
-    const folderIds = await getFolderIds(this.client, this.logger);
+    const folderIds = await getFolderIds(this.client, this.logger, {
+      includeDrafts: false,
+    });
 
     const response: { value: Message[] } = await withOutlookRetry(
       () =>
@@ -265,7 +269,9 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getInboxMessages(maxResults = 20): Promise<ParsedMessage[]> {
-    const folderIds = await getFolderIds(this.client, this.logger);
+    const folderIds = await getFolderIds(this.client, this.logger, {
+      includeDrafts: false,
+    });
 
     const response: { value: Message[] } = await withOutlookRetry(
       () =>

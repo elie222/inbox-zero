@@ -64,6 +64,7 @@ const createRawMailMessage = async (
     to,
     cc,
     bcc,
+    replyTo,
     subject,
     messageHtml,
     messageText,
@@ -80,6 +81,7 @@ const createRawMailMessage = async (
     to,
     cc,
     bcc,
+    replyTo,
     subject,
     alternatives: [
       {

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { z } from "zod";
 import { withError, type RequestWithLogger } from "@/utils/middleware";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
@@ -10,6 +9,7 @@ import { isDefined } from "@/utils/types";
 import type { Logger } from "@/utils/logger";
 import { CleanAction } from "@/generated/prisma/enums";
 import { updateThread } from "@/utils/redis/clean";
+import { withQstashOrInternal } from "@/utils/qstash";
 
 const cleanGmailSchema = z.object({
   emailAccountId: z.string(),
@@ -139,13 +139,13 @@ async function saveToDatabase({
 
 export const POST = withError(
   "clean/gmail",
-  verifySignatureAppRouter(async (request: Request) => {
+  withQstashOrInternal(async (request: RequestWithLogger) => {
     const json = await request.json();
     const body = cleanGmailSchema.parse(json);
 
     await performGmailAction({
       ...body,
-      logger: (request as RequestWithLogger).logger,
+      logger: request.logger,
     });
 
     return NextResponse.json({ success: true });

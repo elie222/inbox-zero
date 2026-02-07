@@ -9,6 +9,7 @@ import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { formatEmailWithName } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
+import { isOutlookThrottlingError } from "@/utils/error";
 
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
@@ -29,31 +30,50 @@ export const WELL_KNOWN_FOLDERS = {
   junkemail: "junkemail",
 } as const;
 
-export async function getFolderIds(client: OutlookClient, logger: Logger) {
+export async function getFolderIds(
+  client: OutlookClient,
+  logger: Logger,
+  options: { includeDrafts?: boolean } = {},
+) {
+  const includeDrafts = options.includeDrafts ?? true;
   const cachedFolderIds = client.getFolderIdCache();
-  if (cachedFolderIds) return cachedFolderIds;
+  if (cachedFolderIds && (!includeDrafts || cachedFolderIds.drafts)) {
+    return cachedFolderIds;
+  }
 
-  // First get the well-known folders
+  const folderEntries = Object.entries(WELL_KNOWN_FOLDERS).filter(
+    ([key]) => includeDrafts || key !== "drafts",
+  );
+
+  const existingFolderIds = cachedFolderIds ?? {};
+  const entriesToFetch = folderEntries.filter(
+    ([key]) => !existingFolderIds[key],
+  );
+
+  if (entriesToFetch.length === 0) {
+    return existingFolderIds;
+  }
+
   const wellKnownFolders = await Promise.all(
-    Object.entries(WELL_KNOWN_FOLDERS).map(async ([key, folderName]) => {
-      try {
-        const response = await client
-          .getClient()
-          .api(`/me/mailFolders/${folderName}`)
-          .select("id")
-          .get();
-        return [key, response.id];
-      } catch (error) {
-        logger.warn("Failed to get well-known folder", {
-          folderName,
-          error,
-        });
-        return [key, null];
-      }
+    entriesToFetch.map(async ([key, folderName]) => {
+      const response: { id?: string | null } = await withOutlookRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/mailFolders/${folderName}`)
+            .select("id")
+            .get(),
+        logger,
+      ).catch((error) => {
+        logWellKnownFolderFetchError(logger, folderName, error);
+        return { id: null };
+      });
+
+      return [key, response.id ?? null] as [string, string | null];
     }),
   );
 
-  const userFolderIds = wellKnownFolders.reduce(
+  const fetchedFolderIds = wellKnownFolders.reduce(
     (acc, [key, id]) => {
       if (id) acc[key] = id;
       return acc;
@@ -61,9 +81,10 @@ export async function getFolderIds(client: OutlookClient, logger: Logger) {
     {} as Record<string, string>,
   );
 
-  client.setFolderIdCache(userFolderIds);
+  const mergedFolderIds = { ...existingFolderIds, ...fetchedFolderIds };
+  client.setFolderIdCache(mergedFolderIds);
 
-  return userFolderIds;
+  return mergedFolderIds;
 }
 
 export async function getCategoryMap(
@@ -75,7 +96,10 @@ export async function getCategoryMap(
 
   try {
     const response: { value: Array<{ id?: string; displayName?: string }> } =
-      await client.getClient().api("/me/outlook/masterCategories").get();
+      await withOutlookRetry(
+        () => client.getClient().api("/me/outlook/masterCategories").get(),
+        logger,
+      );
 
     const categoryMap = new Map<string, string>();
     for (const category of response.value) {
@@ -271,7 +295,7 @@ export async function queryBatchMessages(
   }
 
   const [folderIds, categoryMap] = await Promise.all([
-    getFolderIds(client, logger),
+    getFolderIds(client, logger, { includeDrafts: false }),
     getCategoryMap(client, logger),
   ]);
 
@@ -434,7 +458,7 @@ export async function queryMessagesWithFilters(
   }
 
   const [folderIds, categoryMap] = await Promise.all([
-    getFolderIds(client, logger),
+    getFolderIds(client, logger, { includeDrafts: false }),
     getCategoryMap(client, logger),
   ]);
 
@@ -542,21 +566,35 @@ export async function queryMessagesWithAttachments(
         logger,
       );
 
-    const messages = await convertMessages(response.value, {}, categoryMap);
+    // Sort in memory for consistent ordering across all pages
+    const sortedMessages = response.value.sort((a, b) => {
+      const dateA = new Date(a.receivedDateTime || 0).getTime();
+      const dateB = new Date(b.receivedDateTime || 0).getTime();
+      return dateB - dateA;
+    });
+
+    const messages = await convertMessages(sortedMessages, {}, categoryMap);
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
 
   // Build request with hasAttachments filter
+  // Note: createMessagesRequest already includes .expand(MESSAGE_EXPAND_ATTACHMENTS)
+  // Avoid adding .orderby() to prevent "restriction or sort order is too complex" error
   const request = createMessagesRequest(client)
     .top(maxResults)
-    .filter("hasAttachments eq true")
-    .expand("attachments($select=id,name,contentType,size)")
-    .orderby("receivedDateTime DESC");
+    .filter("hasAttachments eq true");
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
     await withOutlookRetry(() => request.get(), logger);
 
-  const messages = await convertMessages(response.value, {}, categoryMap);
+  // Sort in memory to avoid "restriction or sort order is too complex" error
+  const sortedMessages = response.value.sort((a, b) => {
+    const dateA = new Date(a.receivedDateTime || 0).getTime();
+    const dateB = new Date(b.receivedDateTime || 0).getTime();
+    return dateB - dateA;
+  });
+
+  const messages = await convertMessages(sortedMessages, {}, categoryMap);
 
   logger.info("Messages with attachments fetched", {
     messageCount: messages.length,
@@ -580,7 +618,7 @@ export async function getMessage(
   );
 
   const [folderIds, categoryMap] = await Promise.all([
-    getFolderIds(client, logger),
+    getFolderIds(client, logger, { includeDrafts: false }),
     getCategoryMap(client, logger),
   ]);
 
@@ -609,7 +647,7 @@ export async function getMessages(
     await withOutlookRetry(() => request.get(), logger);
 
   const [folderIds, categoryMap] = await Promise.all([
-    getFolderIds(client, logger),
+    getFolderIds(client, logger, { includeDrafts: false }),
     getCategoryMap(client, logger),
   ]);
   const messages = await convertMessages(
@@ -752,4 +790,16 @@ function convertAttachments(
       "content-id": "",
     },
   }));
+}
+
+function logWellKnownFolderFetchError(
+  logger: Logger,
+  folderName: string,
+  error: unknown,
+) {
+  const log = isOutlookThrottlingError(error) ? logger.info : logger.warn;
+  log("Failed to get well-known folder", {
+    folderName,
+    error,
+  });
 }

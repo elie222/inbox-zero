@@ -33,16 +33,16 @@ export function Footer({ className, variant = "default" }: FooterProps) {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
     return (
       <footer className="relative z-50 border-t border-[#E7E7E7A3] bg-cover bg-center bg-no-repeat overflow-hidden">
-        <div
-          className={cn("overflow-hidden px-6 py-12 lg:px-8", className)}
-        >
+        <div className={cn("overflow-hidden px-6 py-12 lg:px-8", className)}>
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
             {selfHostedFooter.resources.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
                 target={item.target}
-                rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
+                rel={
+                  item.target === "_blank" ? "noopener noreferrer" : undefined
+                }
                 className="text-sm leading-6 text-gray-500 hover:text-gray-900"
               >
                 {item.name}

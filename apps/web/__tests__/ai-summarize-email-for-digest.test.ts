@@ -20,6 +20,9 @@ function getEmailAccount(overrides = {}): EmailAccountForDigest {
     email: "user@test.com",
     about: "Software engineer working on email automation",
     name: "Test User",
+    timezone: null,
+    calendarBookingLink: null,
+    multiRuleSelectionEnabled: false,
     account: {
       provider: "gmail",
     },

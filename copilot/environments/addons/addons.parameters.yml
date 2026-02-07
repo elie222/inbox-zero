@@ -1,0 +1,36 @@
+# Parameters for environment addons
+#
+# This file passes values from the Copilot environment stack to addon templates.
+# These values are available because environment addons have access to the 
+# environment's underlying CloudFormation resources.
+#
+# See: https://aws.github.io/copilot-cli/docs/developing/addons/environment/
+
+Parameters:
+  # VPC ID from the Copilot environment
+  VPCID: !Ref VPC
+
+  # VPC CIDR block from the Copilot environment
+  VPCCIDR: !GetAtt VPC.CidrBlock
+
+  # Private subnet IDs for VPC Link
+  # These subnets are where API Gateway creates ENIs to reach the internal ALB
+  PrivateSubnets: !Join [',', [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
+
+  # =============================================================================
+  # RDS PostgreSQL Configuration
+  # =============================================================================
+
+  # RDS instance size
+  RDSInstanceClass: 'db.t3.micro'
+
+  # =============================================================================
+  # ElastiCache Redis Configuration
+  # =============================================================================
+
+  # Whether to create ElastiCache Redis
+  # Set to 'false' to skip Redis creation (e.g., if using external Redis)
+  EnableRedis: 'true'
+
+  # Redis instance size
+  RedisInstanceClass: 'cache.t4g.micro'

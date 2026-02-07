@@ -54,6 +54,7 @@ async function getData({
     path: string;
     driveConnectionId: string;
     provider: string;
+    parentId?: string;
   }> = [];
 
   const connectionErrors: Array<{ provider: string; error: unknown }> = [];
@@ -72,6 +73,7 @@ async function getData({
           path: folder.name,
           driveConnectionId: connection.id,
           provider: connection.provider,
+          parentId: folder.parentId,
         });
       }
     } catch (error) {

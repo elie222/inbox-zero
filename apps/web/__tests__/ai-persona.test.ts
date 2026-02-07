@@ -27,10 +27,16 @@ describe.runIf(isAiTest)(
         email: "user@test.com",
         userId: "test-user-id",
         about: null,
+        timezone: null,
+        calendarBookingLink: null,
+        multiRuleSelectionEnabled: false,
         user: {
           aiModel: null,
           aiProvider: null,
           aiApiKey: null,
+        },
+        account: {
+          provider: "google",
         },
         ...overrides,
       };

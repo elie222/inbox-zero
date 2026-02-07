@@ -6,6 +6,7 @@ import { getWritingStyle } from "@/utils/user/get";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { extractEmailAddress } from "@/utils/email";
+import { escapeHtml } from "@/utils/string";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
@@ -97,7 +98,7 @@ export async function generateFollowUpDraft({
       throw new Error("Follow-up draft result is not a string");
     }
 
-    let draftContent = result;
+    let draftContent = escapeHtml(result);
 
     // Add signatures
     const emailAccountWithSignatures = await prisma.emailAccount.findUnique({
@@ -141,6 +142,18 @@ export async function generateFollowUpDraft({
 
     logger.info("Follow-up draft created", { threadId, draftId });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // Skip draft generation for messages that don't support replies
+    // (e.g., calendar invites, meeting requests, delivery reports)
+    if (errorMessage.includes("Item type is invalid for creating a Reply")) {
+      logger.info(
+        "Skipping draft generation - message type doesn't support replies",
+        { threadId },
+      );
+      return;
+    }
+
     logger.error("Failed to generate follow-up draft", { threadId, error });
     throw error;
   }

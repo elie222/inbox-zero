@@ -132,6 +132,7 @@ The Docker Compose setup includes a `cron` container that handles scheduled task
 
 | Task | Frequency | Endpoint | Cron Expression | Description |
 |------|-----------|----------|-----------------|-------------|
+| **Scheduled actions** | Every minute | `/api/cron/scheduled-actions` | `* * * * *` | Executes delayed/scheduled actions when QStash is not configured |
 | **Email watch renewal** | Every 6 hours | `/api/watch/all` | `0 */6 * * *` | Renews Gmail/Outlook push notification subscriptions |
 | **Meeting briefs** | Every 15 minutes | `/api/meeting-briefs` | `*/15 * * * *` | Sends pre-meeting briefings to users with the feature enabled |
 | **Follow-up reminders** | Every 30 minutes | `/api/follow-up-reminders` | `*/30 * * * *` | Processes follow-up reminder notifications |
@@ -139,6 +140,9 @@ The Docker Compose setup includes a `cron` container that handles scheduled task
 **If you're not using Docker Compose** you need to set up cron jobs manually:
 
 ```bash
+# Scheduled actions - every minute (only needed when QStash is not configured)
+* * * * * curl -s -X GET "https://yourdomain.com/api/cron/scheduled-actions" -H "Authorization: Bearer YOUR_CRON_SECRET"
+
 # Email watch renewal - every 6 hours
 0 */6 * * * curl -s -X GET "https://yourdomain.com/api/watch/all" -H "Authorization: Bearer YOUR_CRON_SECRET"
 
@@ -155,14 +159,16 @@ Replace `YOUR_CRON_SECRET` with the value of `CRON_SECRET` from your `.env` file
 
 [Upstash QStash](https://upstash.com/docs/qstash/overall/getstarted) is a serverless message queue that enables scheduled and delayed actions. It's optional but recommended for the full feature set.
 
-**Features that require QStash:**
+When QStash isn't configured, we fall back to internal API calls and cron for scheduled actions. This works without QStash, but lacks built-in retries/deduping.
+
+**Features that benefit from QStash:**
 
 | Feature | Without QStash | With QStash |
 |---------|---------------|-------------|
-| **Email digest** | ❌ Not available | ✅ Full support |
-| **Delayed/scheduled email actions** | ❌ Not available | ✅ Full support |
+| **Email digest** | ✅ Works (sync, no retries) | ✅ Full support |
+| **Delayed/scheduled email actions** | ✅ Works via cron fallback | ✅ Full support |
 | **AI categorization of senders*** | ✅ Works (sync) | ✅ Works (async with retries) |
-| **Bulk inbox cleaning*** | ❌ Not available | ✅ Full support |
+| **Bulk inbox cleaning*** | ✅ Works (sync, no throttling) | ✅ Full support |
 
 *Early access features - available on the Early Access page.
 
@@ -198,3 +204,76 @@ NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
 
 **Note**: Building from source requires significantly more resources (4GB+ RAM recommended) and takes longer than pulling the pre-built image.
 
+## Troubleshooting
+
+### Container Won't Start
+
+**Check logs for errors:**
+```bash
+docker logs inbox-zero-services-web-1
+docker logs inbox-zero-services-db-1
+docker logs inbox-zero-services-redis-1
+```
+
+**Common issues:**
+- **Port conflicts**: Another service is using port 3000, 5432, or 6379
+  - Solution: Stop conflicting services or modify ports in `docker-compose.yml`
+- **Insufficient memory**: Container is being killed by OOM
+  - Solution: Increase VPS RAM or add swap space
+- **Missing environment variables**: Check `.env` file exists and has required values
+  - Solution: Run `npm run setup` again
+
+### Database Connection Errors
+
+**Error: "Can't reach database server"**
+- Wait 30-60 seconds for Postgres to fully initialize
+- Check database container is running: `docker ps | grep postgres`
+- Verify `DATABASE_URL` in `.env` matches your setup
+
+**Error: "relation does not exist"**
+- Migrations haven't run yet
+- Wait for web container to complete startup (check logs)
+- Manually run: `docker exec inbox-zero-services-web-1 npm run db:migrate`
+
+### OAuth Configuration Issues
+
+**Error: "redirect_uri_mismatch"**
+- Your OAuth redirect URI doesn't match what's configured in Google/Microsoft console
+- Ensure `NEXT_PUBLIC_BASE_URL` is set correctly when running `docker compose up`
+- Add `https://yourdomain.com/api/auth/callback/google` to authorized redirect URIs
+
+**Error: "invalid_client"**
+- `GOOGLE_CLIENT_ID` or `GOOGLE_CLIENT_SECRET` is incorrect
+- Double-check credentials in Google Cloud Console
+- Ensure no extra spaces or quotes in `.env` file
+
+### Application Not Accessible
+
+**Can't access via domain:**
+- Verify DNS records point to your VPS IP: `dig yourdomain.com`
+- Check firewall allows traffic on port 3000: `sudo ufw status`
+- Set up reverse proxy (Nginx/Caddy) for HTTPS
+
+**Can access via IP but not domain:**
+- SSL/TLS certificate issue
+- Use Let's Encrypt with Caddy for automatic HTTPS
+- Or set up Nginx with Certbot
+
+### Performance Issues
+
+**Slow response times:**
+- Check VPS resources: `htop` or `docker stats`
+- Increase VPS RAM if consistently above 80%
+- Consider using external managed database services
+
+**High memory usage:**
+- Normal for Next.js applications (expect 500MB-1GB)
+- If exceeding 1.5GB, check for memory leaks in logs
+- Restart containers: `docker compose restart web`
+
+### Getting Help
+
+If you're still stuck:
+1. Check [GitHub Issues](https://github.com/elie222/inbox-zero/issues) for similar problems
+2. Join the [Discord community](https://www.getinboxzero.com/discord)
+3. Include relevant logs and your setup details when asking for help

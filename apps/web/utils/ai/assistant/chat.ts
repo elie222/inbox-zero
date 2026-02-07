@@ -701,10 +701,14 @@ A condition can be:
 An action can be:
 1. Archive
 2. Label
-3. Draft a reply${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? `
+3. Draft a reply${
+    env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+      ? `
 4. Reply
 5. Send an email
-6. Forward` : ""}
+6. Forward`
+      : ""
+  }
 7. Mark as read
 8. Mark spam
 9. Call a webhook

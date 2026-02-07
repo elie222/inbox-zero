@@ -25,11 +25,6 @@ export function EmailAccountProvider({
   const [data, setData] = useState<GetEmailAccountsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Tracks session-level account ID for pages without emailAccountId in URL (e.g., /organization)
-  const [lastKnownEmailAccountId, setLastKnownEmailAccountId] = useState<
-    string | null
-  >(null);
-
   useEffect(() => {
     async function fetchAccounts() {
       try {
@@ -37,8 +32,8 @@ export function EmailAccountProvider({
         // This is the simplest fix
         const response = await fetch("/api/user/email-accounts");
         if (response.ok) {
-          const emailAccounts: GetEmailAccountsResponse = await response.json();
-          setData(emailAccounts);
+          const result: GetEmailAccountsResponse = await response.json();
+          setData(result);
         }
       } catch (error) {
         console.error("Error fetching accounts:", error);
@@ -52,14 +47,15 @@ export function EmailAccountProvider({
 
   useEffect(() => {
     if (emailAccountId) {
-      setLastKnownEmailAccountId(emailAccountId);
-      setLastEmailAccountAction({ emailAccountId });
+      setLastEmailAccountAction({ emailAccountId }).catch(() => {});
     }
   }, [emailAccountId]);
 
+  const lastKnownEmailAccountId = data?.lastEmailAccountId ?? null;
+
   const emailAccount = useMemo(() => {
     if (data?.emailAccounts) {
-      // Priority: URL param > last known from this session > first account
+      // Priority: URL param > last known from cookie > first account
       const currentEmailAccount =
         data.emailAccounts.find((acc) => acc.id === emailAccountId) ??
         data.emailAccounts.find((acc) => acc.id === lastKnownEmailAccountId) ??

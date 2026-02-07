@@ -184,8 +184,13 @@ export function CategoriesSetup({
         )}
       </LoadingContent>
 
-      <div className="flex justify-center mt-8">
-        <ContinueButton type="submit" onClick={onSubmit} />
+      <div className="flex w-full max-w-xs mx-auto mt-8">
+        <ContinueButton
+          type="submit"
+          onClick={onSubmit}
+          size="default"
+          className="w-full"
+        />
       </div>
     </div>
   );
@@ -214,12 +219,12 @@ function CategoryCard({
 }) {
   return (
     <Card>
-      <CardContent className="flex flex-col sm:flex-row sm:items-center gap-4 p-4">
-        <div className="flex items-center gap-2">
+      <CardContent className="flex items-center gap-4 p-4">
+        <div className="flex flex-1 min-w-0 items-center gap-2">
           <IconCircle size="sm" color={iconColor} Icon={Icon} />
           <div>
             {useTooltip ? (
-              <div className="flex flex-1 items-center gap-2 text-sm sm:text-base">
+              <div className="flex flex-1 min-w-0 items-center gap-2 text-sm sm:text-base">
                 {label}
                 {description && (
                   <TooltipExplanation
@@ -237,7 +242,7 @@ function CategoryCard({
           </div>
         </div>
 
-        <div className="sm:ml-auto flex items-center gap-4">
+        <div className="ml-auto flex shrink-0 items-center gap-4">
           <Select
             value={value || undefined}
             onValueChange={(value) => {

@@ -61,6 +61,7 @@ export async function handleOutboundMessage({
       emailAccountId: emailAccount.id,
       provider,
       logger,
+      excludeMessageId: message.id,
     });
   } catch (error) {
     logger.error("Error during thread draft cleanup", { error });

@@ -207,17 +207,18 @@ model Organization {
 }
 
 model Member {
-  id             String       @id @default(cuid())
-  organizationId String
-  emailAccountId String
-  role           String       @default("member") // "admin" | "member"
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  id                     String       @id @default(cuid())
+  organizationId         String
+  emailAccountId         String
+  role                   String       @default("member") // "admin" | "member"
+  allowOrgAdminAnalytics Boolean      @default(false)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailAccount           EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, emailAccountId])
-  @@index([emailAccountId])
+  @@unique([emailAccountId])
 }
 
 model Invitation {

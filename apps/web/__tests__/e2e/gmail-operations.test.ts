@@ -20,6 +20,9 @@ import {
   ensureTestPremiumAccount,
   findOldMessage,
 } from "@/__tests__/e2e/helpers";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -70,6 +73,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Gmail Webhook Payload", () => {
       const provider = (await createEmailProvider({
         emailAccountId: emailAccount.id,
         provider: "google",
+        logger,
       })) as GmailProvider;
 
       try {
@@ -198,6 +202,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Gmail Webhook Payload", () => {
       const provider = (await createEmailProvider({
         emailAccountId: emailAccount.id,
         provider: "google",
+        logger,
       })) as GmailProvider;
 
       const draft = await provider.getDraft(draftAction.draftId);

@@ -22,3 +22,9 @@ export const GOOGLE_DRIVE_SCOPES = [
   // Note: We use drive.file instead of drive (full access) to minimize permissions
   // This allows us to create files and access files the user explicitly opens with our app
 ] as const;
+
+export const GOOGLE_DRIVE_FULL_SCOPES = [
+  "https://www.googleapis.com/auth/userinfo.profile",
+  "https://www.googleapis.com/auth/userinfo.email",
+  "https://www.googleapis.com/auth/drive", // Full access to all files and folders
+] as const;

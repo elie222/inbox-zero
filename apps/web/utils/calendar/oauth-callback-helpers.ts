@@ -29,13 +29,56 @@ export async function validateOAuthCallback(
 ): Promise<OAuthCallbackValidation> {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
+  const oauthError = searchParams.get("error");
+  const errorDescription = searchParams.get("error_description");
+  const errorSubcode = searchParams.get("error_subcode");
   const receivedState = searchParams.get("state");
   const storedState = request.cookies.get(CALENDAR_STATE_COOKIE_NAME)?.value;
 
-  const redirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
-  const response = NextResponse.redirect(redirectUrl);
+  const baseRedirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
+  const response = NextResponse.redirect(baseRedirectUrl);
 
   response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
+
+  if (!storedState || !receivedState || storedState !== receivedState) {
+    logger.warn("Invalid state during calendar callback", {
+      receivedState,
+      hasStoredState: !!storedState,
+    });
+    baseRedirectUrl.searchParams.set("error", "invalid_state");
+    throw new RedirectError(baseRedirectUrl, response.headers);
+  }
+
+  const calendarState = parseAndValidateCalendarState(
+    receivedState,
+    logger,
+    baseRedirectUrl,
+    response.headers,
+  );
+
+  const redirectUrl = buildCalendarRedirectUrl(calendarState.emailAccountId);
+
+  if (oauthError) {
+    const aadstsCode = extractAadstsCode(errorDescription);
+    const mappedError = mapCalendarOAuthError({
+      oauthError,
+      errorSubcode,
+      aadstsCode,
+    });
+
+    logger.warn("OAuth error in calendar callback", {
+      oauthError,
+      errorSubcode,
+      aadstsCode,
+    });
+
+    redirectUrl.searchParams.set("error", mappedError);
+    const safeErrorDescription = getSafeOAuthErrorDescription(errorDescription);
+    if (safeErrorDescription) {
+      redirectUrl.searchParams.set("error_description", safeErrorDescription);
+    }
+    throw new RedirectError(redirectUrl, response.headers);
+  }
 
   if (!code || code.length < 10) {
     logger.warn("Missing or invalid code in calendar callback");
@@ -43,16 +86,7 @@ export async function validateOAuthCallback(
     throw new RedirectError(redirectUrl, response.headers);
   }
 
-  if (!storedState || !receivedState || storedState !== receivedState) {
-    logger.warn("Invalid state during calendar callback", {
-      receivedState,
-      hasStoredState: !!storedState,
-    });
-    redirectUrl.searchParams.set("error", "invalid_state");
-    throw new RedirectError(redirectUrl, response.headers);
-  }
-
-  return { code, redirectUrl, response };
+  return { code, redirectUrl, response, calendarState };
 }
 
 /**
@@ -134,4 +168,47 @@ export async function createCalendarConnection(params: {
       isConnected: true,
     },
   });
+}
+
+export function extractAadstsCode(
+  errorDescription: string | null,
+): string | null {
+  if (!errorDescription) return null;
+  const match = errorDescription.match(/AADSTS\d+/);
+  return match ? match[0] : null;
+}
+
+export function mapCalendarOAuthError(params: {
+  oauthError: string;
+  errorSubcode: string | null;
+  aadstsCode: string | null;
+}): string {
+  if (params.aadstsCode === "AADSTS65004") {
+    return "consent_declined";
+  }
+
+  if (params.aadstsCode === "AADSTS65001") {
+    return "admin_consent_required";
+  }
+
+  if (
+    params.oauthError === "access_denied" &&
+    params.errorSubcode === "cancel"
+  ) {
+    return "consent_declined";
+  }
+
+  if (params.oauthError === "access_denied") {
+    return "access_denied";
+  }
+
+  return "oauth_error";
+}
+
+export function getSafeOAuthErrorDescription(
+  errorDescription: string | null,
+): string | null {
+  const aadstsCode = extractAadstsCode(errorDescription);
+  if (!aadstsCode) return null;
+  return `Microsoft error ${aadstsCode}.`;
 }

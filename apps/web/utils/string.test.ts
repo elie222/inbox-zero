@@ -125,7 +125,7 @@ describe("string utils", () => {
   describe("escapeHtml", () => {
     it("should escape basic HTML characters", () => {
       expect(escapeHtml("<script>alert('xss')</script>")).toBe(
-        "&lt;script&gt;alert(&apos;xss&apos;)&lt;/script&gt;",
+        "&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;",
       );
     });
 
@@ -168,6 +168,32 @@ describe("string utils", () => {
 
     it("should handle empty string", () => {
       expect(escapeHtml("")).toBe("");
+    });
+
+    it("should preserve Polish diacritics", () => {
+      const polishText = "Dziękuję za wiadomość. Proszę o odpowiedź.";
+      expect(escapeHtml(polishText)).toBe(polishText);
+    });
+
+    it("should preserve all Polish special characters", () => {
+      const allPolishChars = "ą ę ó ś ć ż ź ń ł Ą Ę Ó Ś Ć Ż Ź Ń Ł";
+      expect(escapeHtml(allPolishChars)).toBe(allPolishChars);
+    });
+
+    it("should preserve other Unicode characters", () => {
+      expect(escapeHtml("Größe")).toBe("Größe");
+      expect(escapeHtml("café résumé")).toBe("café résumé");
+      expect(escapeHtml("日本語")).toBe("日本語");
+      expect(escapeHtml("Привет")).toBe("Привет");
+    });
+
+    it("should escape HTML while preserving Polish characters", () => {
+      const mixed = "Cześć <script>alert('xss')</script> świat";
+      const result = escapeHtml(mixed);
+      expect(result).toContain("Cześć");
+      expect(result).toContain("świat");
+      expect(result).not.toContain("<script>");
+      expect(result).toContain("&lt;script&gt;");
     });
   });
 });

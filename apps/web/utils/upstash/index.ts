@@ -1,10 +1,10 @@
 import { Client, type FlowControl, type HeadersInit } from "@upstash/qstash";
+import { after } from "next/server";
 import { env } from "@/env";
 import {
   INTERNAL_API_KEY_HEADER,
   getInternalApiUrl,
 } from "@/utils/internal-api";
-import { sleep } from "@/utils/sleep";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("upstash");
@@ -21,10 +21,14 @@ export async function publishToQstash<T>(
 ) {
   const client = getQstashClient();
   const url = `${getInternalApiUrl()}${path}`;
-
   if (client) {
+    const qstashUrl = resolveQstashTargetUrl(url);
+    if (!qstashUrl) {
+      throw new Error("QStash callback URL is unreachable");
+    }
+
     return client.publishJSON({
-      url,
+      url: qstashUrl,
       body,
       flowControl,
       retries: 3,
@@ -34,7 +38,7 @@ export async function publishToQstash<T>(
     });
   }
 
-  return fallbackPublishToQstash(url, body);
+  return fallbackPublishToQstash(url, body, undefined);
 }
 
 export async function bulkPublishToQstash<T>({
@@ -48,11 +52,24 @@ export async function bulkPublishToQstash<T>({
 }) {
   const client = getQstashClient();
   if (client) {
-    return client.batchJSON(items);
+    const qstashItems = items.map((item) => {
+      const qstashUrl = resolveQstashTargetUrl(item.url);
+      if (!qstashUrl) {
+        throw new Error("QStash callback URL is unreachable");
+      }
+
+      return {
+        ...item,
+        url: qstashUrl,
+      };
+    });
+
+    await client.batchJSON(qstashItems);
+    return;
   }
 
   for (const item of items) {
-    await fallbackPublishToQstash(item.url, item.body);
+    await fallbackPublishToQstash(item.url, item.body, undefined);
   }
 }
 
@@ -70,15 +87,19 @@ export async function publishToQstashQueue<T>({
   headers?: HeadersInit;
 }) {
   const client = getQstashClient();
-
   if (client) {
+    const qstashUrl = resolveQstashTargetUrl(url);
+    if (!qstashUrl) {
+      throw new Error("QStash callback URL is unreachable");
+    }
+
     try {
       const queue = client.queue({ queueName });
       await queue.upsert({ parallelism });
-      return await queue.enqueueJSON({ url, body, headers });
+      return await queue.enqueueJSON({ url: qstashUrl, body, headers });
     } catch (error) {
       logger.error("Failed to publish to Qstash queue", {
-        url,
+        qstashUrl,
         queueName,
         error,
       });
@@ -86,24 +107,39 @@ export async function publishToQstashQueue<T>({
     }
   }
 
-  return fallbackPublishToQstash<T>(url, body);
+  return fallbackPublishToQstash<T>(url, body, headers);
 }
 
-async function fallbackPublishToQstash<T>(url: string, body: T) {
-  // Fallback to fetch if Qstash client is not found
+async function fallbackPublishToQstash<T>(
+  url: string,
+  body: T,
+  headers?: HeadersInit,
+) {
   logger.warn("Qstash client not found");
 
-  // Don't await. Run in background
-  fetch(`${url}/simple`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
-    },
-    body: JSON.stringify(body),
+  const internalHeaders = new Headers(
+    headers instanceof Headers
+      ? headers
+      : Array.isArray(headers)
+        ? headers
+        : headers && typeof headers === "object" && Symbol.iterator in headers
+          ? Array.from(headers as Iterable<[string, string]>)
+          : headers,
+  );
+  internalHeaders.set("Content-Type", "application/json");
+  internalHeaders.set(INTERNAL_API_KEY_HEADER, env.INTERNAL_API_KEY);
+
+  after(async () => {
+    try {
+      await fetch(url, {
+        method: "POST",
+        headers: internalHeaders,
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      logger.error("Fallback QStash fetch failed", { url, error });
+    }
   });
-  // Wait for 100ms to ensure the request is sent
-  await sleep(100);
 }
 
 export async function listQueues() {
@@ -120,4 +156,76 @@ export async function deleteQueue(queueName: string) {
     logger.info("Deleting queue", { queueName });
     await client.queue({ queueName }).delete();
   }
+}
+
+function getPublicApiUrl() {
+  const url = env.NEXT_PUBLIC_BASE_URL;
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    return `https://${url}`;
+  }
+
+  return url;
+}
+
+function normalizeBaseUrl(url: string) {
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+function resolveQstashTargetUrl(url: string): string | null {
+  const internalBaseUrl = normalizeBaseUrl(getInternalApiUrl());
+  const publicBaseUrl = normalizeBaseUrl(getPublicApiUrl());
+
+  const qstashUrl =
+    url === internalBaseUrl
+      ? publicBaseUrl
+      : url.startsWith(`${internalBaseUrl}/`)
+        ? `${publicBaseUrl}${url.slice(internalBaseUrl.length)}`
+        : url;
+
+  return isReachableByQstash(qstashUrl) ? qstashUrl : null;
+}
+
+function isReachableByQstash(url: string): boolean {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return false;
+  }
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) return false;
+
+  const hostname = parsedUrl.hostname.toLowerCase();
+  if (!hostname) return false;
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal") ||
+    hostname === "::1"
+  ) {
+    return false;
+  }
+  if (!hostname.includes(".")) return false;
+
+  return !isPrivateIpv4(hostname);
+}
+
+function isPrivateIpv4(hostname: string): boolean {
+  const octets = hostname.split(".");
+  if (octets.length !== 4) return false;
+
+  const [a, b, c, d] = octets.map((part) => Number(part));
+  if ([a, b, c, d].some((part) => Number.isNaN(part))) return false;
+  if ([a, b, c, d].some((part) => part < 0 || part > 255)) return false;
+
+  if (a === 10) return true;
+  if (a === 127) return true;
+  if (a === 0) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+
+  return false;
 }

@@ -503,6 +503,10 @@ function getGroupItem(item: Partial<GroupItem>): GroupItem {
     updatedAt: new Date(),
     groupId: "group1",
     exclude: false,
+    source: null,
+    messageId: null,
+    threadId: null,
+    reason: null,
     ...item,
   };
 }

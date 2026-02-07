@@ -34,8 +34,12 @@ export function StepCustomRules({
             </ul>
           </div>
 
-          <div className="flex justify-center">
-            <ContinueButton onClick={onNext} />
+          <div className="flex w-full max-w-xs mx-auto">
+            <ContinueButton
+              onClick={onNext}
+              size="default"
+              className="w-full"
+            />
           </div>
         </OnboardingWrapper>
       </div>

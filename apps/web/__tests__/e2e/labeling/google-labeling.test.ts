@@ -22,6 +22,9 @@ import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { GmailProvider } from "@/utils/email/google";
 import { findOldMessage } from "@/__tests__/e2e/helpers";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -83,6 +86,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
     provider = (await createEmailProvider({
       emailAccountId: emailAccount.id,
       provider: "google",
+      logger,
     })) as GmailProvider;
 
     // If message ID not provided, fetch a real message from the account

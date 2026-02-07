@@ -53,7 +53,6 @@ import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
-  useSmartFilingEnabled,
   useCleanerEnabled,
   useIntegrationsEnabled,
   useMeetingBriefsEnabled,
@@ -80,21 +79,46 @@ type NavItem = {
 };
 
 export const useNavigation = () => {
-  const showSmartFiling = useSmartFilingEnabled();
   const showCleaner = useCleanerEnabled();
   const showMeetingBriefs = useMeetingBriefsEnabled();
   const showIntegrations = useIntegrationsEnabled();
 
-  const { emailAccountId, emailAccount, provider } = useAccount();
+  const { emailAccount, emailAccountId, provider } = useAccount();
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
 
-  const navItems: NavItem[] = useMemo(
+  const automateItems: NavItem[] = useMemo(
     () => [
       {
         name: "Assistant",
         href: prefixPath(currentEmailAccountId, "/automation"),
         icon: SparklesIcon,
       },
+      {
+        name: "Attachments",
+        href: prefixPath(currentEmailAccountId, "/drive"),
+        icon: HardDriveIcon,
+        new: true,
+      },
+      ...(showMeetingBriefs
+        ? [
+            {
+              name: "Meeting Briefs",
+              href: prefixPath(currentEmailAccountId, "/briefs"),
+              icon: FileTextIcon,
+            },
+          ]
+        : []),
+      {
+        name: "Calendars",
+        href: prefixPath(currentEmailAccountId, "/calendars"),
+        icon: CalendarIcon,
+      },
+    ],
+    [currentEmailAccountId, showMeetingBriefs],
+  );
+
+  const cleanupItems: NavItem[] = useMemo(
+    () => [
       {
         name: "Bulk Unsubscribe",
         href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
@@ -105,26 +129,28 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/bulk-archive"),
         icon: ArchiveIcon,
       },
+      {
+        name: "Analytics",
+        href: prefixPath(currentEmailAccountId, "/stats"),
+        icon: BarChartBigIcon,
+      },
       ...(isGoogleProvider(provider) && showCleaner
         ? [
             {
               name: "Deep Clean",
               href: prefixPath(currentEmailAccountId, "/clean"),
               icon: BrushIcon,
+              beta: true,
             },
           ]
         : []),
-      {
-        name: "Analytics",
-        href: prefixPath(currentEmailAccountId, "/stats"),
-        icon: BarChartBigIcon,
-      },
-      {
-        name: "Calendars",
-        href: prefixPath(currentEmailAccountId, "/calendars"),
-        icon: CalendarIcon,
-      },
-      ...(showIntegrations
+    ],
+    [currentEmailAccountId, provider, showCleaner],
+  );
+
+  const platformItems: NavItem[] = useMemo(
+    () =>
+      showIntegrations
         ? [
             {
               name: "Integrations",
@@ -133,49 +159,14 @@ export const useNavigation = () => {
               beta: true,
             },
           ]
-        : []),
-      ...(showSmartFiling
-        ? [
-            {
-              name: "Smart Filing",
-              href: prefixPath(currentEmailAccountId, "/drive"),
-              icon: HardDriveIcon,
-              beta: true,
-            },
-          ]
-        : []),
-      ...(showMeetingBriefs
-        ? [
-            {
-              name: "Meeting Briefs",
-              href: prefixPath(currentEmailAccountId, "/briefs"),
-              icon: FileTextIcon,
-            },
-          ]
-        : []),
-    ],
-    [
-      currentEmailAccountId,
-      provider,
-      showSmartFiling,
-      showMeetingBriefs,
-      showIntegrations,
-      showCleaner,
-    ],
-  );
-
-  const navItemsFiltered = useMemo(
-    () =>
-      navItems.filter((item) => {
-        if (item.href === `/${emailAccountId}/clean` || item.href === "/clean")
-          return showCleaner;
-        return true;
-      }),
-    [showCleaner, emailAccountId, navItems],
+        : [],
+    [currentEmailAccountId, showIntegrations],
   );
 
   return {
-    navItems: navItemsFiltered,
+    automateItems,
+    cleanupItems,
+    platformItems,
   };
 };
 
@@ -278,10 +269,31 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {showMailNav ? (
             <MailNav path={path} />
           ) : (
-            <SidebarGroup>
-              <SidebarGroupLabel>Platform</SidebarGroupLabel>
-              <SideNavMenu items={navigation.navItems} activeHref={path} />
-            </SidebarGroup>
+            <>
+              <SidebarGroup>
+                <SidebarGroupLabel>Automate</SidebarGroupLabel>
+                <SideNavMenu
+                  items={navigation.automateItems}
+                  activeHref={path}
+                />
+              </SidebarGroup>
+              <SidebarGroup>
+                <SidebarGroupLabel>Cleanup</SidebarGroupLabel>
+                <SideNavMenu
+                  items={navigation.cleanupItems}
+                  activeHref={path}
+                />
+              </SidebarGroup>
+              {navigation.platformItems.length > 0 && (
+                <SidebarGroup>
+                  <SidebarGroupLabel>Platform</SidebarGroupLabel>
+                  <SideNavMenu
+                    items={navigation.platformItems}
+                    activeHref={path}
+                  />
+                </SidebarGroup>
+              )}
+            </>
           )}
         </SidebarGroupContent>
       </SidebarContent>

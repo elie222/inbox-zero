@@ -1,0 +1,223 @@
+# API Gateway HTTP API with JWT Authorization for Google Pub/Sub Webhooks
+#
+# This addon creates a public API Gateway endpoint that validates Google Pub/Sub
+# OIDC JWTs before forwarding webhook requests to the internal ALB.
+#
+# Use this for firewalled deployments where the main ALB is not publicly accessible.
+#
+# Deployment:
+#   copilot env deploy --name <environment>
+#
+# Required configuration:
+# 1. Set WebhookAudience in addons.parameters.yml (or leave empty to auto-generate)
+# 2. Configure Google Pub/Sub push subscription with OIDC authentication
+#
+# See docs/hosting/aws-copilot.md for detailed setup instructions.
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'API Gateway with JWT auth for Google Pub/Sub webhooks'
+
+Parameters:
+  # Required by Copilot for environment addons
+  App:
+    Type: String
+    Description: Your application's name.
+  Env:
+    Type: String
+    Description: The environment name.
+
+  # VPC parameters - passed from environment via addons.parameters.yml
+  VPCID:
+    Type: String
+    Description: The VPC ID from the Copilot environment.
+  PrivateSubnets:
+    Type: String
+    Description: Comma-separated private subnet IDs from the Copilot environment.
+
+  # Custom parameters
+  WebhookAudience:
+    Type: String
+    Description: |
+      The audience claim expected in Google Pub/Sub JWTs. 
+      Typically the API Gateway endpoint URL or a custom domain.
+      Leave empty to use the auto-generated API Gateway URL.
+    Default: ''
+
+Conditions:
+  # If no audience is provided, use the API Gateway URL as the audience
+  UseDefaultAudience: !Equals [!Ref WebhookAudience, '']
+
+Resources:
+  # =============================================================================
+  # HTTP API
+  # =============================================================================
+  WebhookApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${App}-${Env}-webhook-api'
+      Description: !Sub 'Webhook API Gateway for ${App} ${Env} environment - validates Google Pub/Sub OIDC tokens'
+      ProtocolType: HTTP
+      Tags:
+        copilot-application: !Ref App
+        copilot-environment: !Ref Env
+
+  # =============================================================================
+  # JWT Authorizer for Google OIDC
+  # =============================================================================
+  GoogleJwtAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref WebhookApi
+      AuthorizerType: JWT
+      Name: GooglePubSubAuthorizer
+      IdentitySource:
+        - '$request.header.Authorization'
+      JwtConfiguration:
+        # Google's OIDC issuer - this is fixed for all Google service accounts
+        Issuer: 'https://accounts.google.com'
+        # Audience must match what's configured in Google Pub/Sub push subscription
+        Audience:
+          - !If
+            - UseDefaultAudience
+            - !Sub 'https://${WebhookApi}.execute-api.${AWS::Region}.amazonaws.com/api/google/webhook'
+            - !Ref WebhookAudience
+
+  # =============================================================================
+  # Security Group for VPC Link
+  # =============================================================================
+  VpcLinkSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub 'Security group for ${App}-${Env} webhook API Gateway VPC Link'
+      VpcId: !Ref VPCID
+      # Egress rules - allow traffic to the internal ALB
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTP to ALB
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTPS to ALB
+      Tags:
+        - Key: Name
+          Value: !Sub '${App}-${Env}-webhook-vpclink-sg'
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # VPC Link for Private Integration
+  # =============================================================================
+  WebhookVpcLink:
+    Type: AWS::ApiGatewayV2::VpcLink
+    Properties:
+      Name: !Sub '${App}-${Env}-webhook-vpclink'
+      SubnetIds: !Split [',', !Ref PrivateSubnets]
+      SecurityGroupIds:
+        - !Ref VpcLinkSecurityGroup
+      Tags:
+        copilot-application: !Ref App
+        copilot-environment: !Ref Env
+
+  # =============================================================================
+  # Integration to Internal ALB
+  # =============================================================================
+  WebhookIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebhookApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: POST
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref WebhookVpcLink
+      # Reference the HTTPS listener ARN exported by Copilot environment
+      # This export is created when you have a Load Balanced Web Service deployed
+      IntegrationUri:
+        Fn::ImportValue: !Sub '${App}-${Env}-HTTPSListenerArn'
+      PayloadFormatVersion: '1.0'
+      TimeoutInMillis: 29000
+
+  # =============================================================================
+  # Route: POST /api/google/webhook (with JWT auth)
+  # =============================================================================
+  WebhookRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebhookApi
+      RouteKey: 'POST /api/google/webhook'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref GoogleJwtAuthorizer
+      Target: !Sub 'integrations/${WebhookIntegration}'
+
+  # =============================================================================
+  # Default Stage with Auto-Deploy
+  # =============================================================================
+  WebhookStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref WebhookApi
+      StageName: '$default'
+      AutoDeploy: true
+      DefaultRouteSettings:
+        # Throttling to protect against abuse
+        ThrottlingBurstLimit: 100
+        ThrottlingRateLimit: 50
+      AccessLogSettings:
+        DestinationArn: !GetAtt WebhookApiLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","path":"$context.path","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","errorMessage":"$context.error.message"}'
+      Tags:
+        copilot-application: !Ref App
+        copilot-environment: !Ref Env
+
+  # =============================================================================
+  # CloudWatch Log Group for API Gateway Access Logs
+  # =============================================================================
+  WebhookApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${App}-${Env}-webhook-api'
+      RetentionInDays: 30
+      Tags:
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+Outputs:
+  # =============================================================================
+  # Exported Values
+  # =============================================================================
+
+  WebhookEndpointUrl:
+    Description: |
+      Public webhook endpoint URL for Google Pub/Sub push subscription.
+      Configure this as the push endpoint in your Google Cloud Pub/Sub subscription.
+    Value: !Sub 'https://${WebhookApi}.execute-api.${AWS::Region}.amazonaws.com/api/google/webhook'
+    Export:
+      Name: !Sub '${App}-${Env}-WebhookEndpointUrl'
+
+  WebhookApiId:
+    Description: 'API Gateway HTTP API ID'
+    Value: !Ref WebhookApi
+    Export:
+      Name: !Sub '${App}-${Env}-WebhookApiId'
+
+  WebhookVpcLinkId:
+    Description: 'VPC Link ID for debugging and monitoring'
+    Value: !Ref WebhookVpcLink
+
+  JwtAudience:
+    Description: |
+      The JWT audience value to configure in Google Pub/Sub OIDC settings.
+      This value MUST match exactly in both AWS and Google configurations.
+    Value: !If
+      - UseDefaultAudience
+      - !Sub 'https://${WebhookApi}.execute-api.${AWS::Region}.amazonaws.com/api/google/webhook'
+      - !Ref WebhookAudience
+    Export:
+      Name: !Sub '${App}-${Env}-WebhookJwtAudience'

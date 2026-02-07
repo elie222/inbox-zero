@@ -221,7 +221,6 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
         emailAccount,
         promptFile,
         isEditing: false,
-        availableCategories: ["Job Applications", "HR", "Recruiting"],
       });
 
       expect(result.length).toBe(1);

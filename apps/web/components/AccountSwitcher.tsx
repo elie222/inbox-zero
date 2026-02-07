@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronsUpDown, Plus } from "lucide-react";
 import {
@@ -21,6 +21,7 @@ import {
 import { useAccounts } from "@/hooks/useAccounts";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { setLastEmailAccountAction } from "@/utils/actions/email-account-cookie";
 import { ProfileImage } from "@/components/ProfileImage";
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
@@ -45,22 +46,42 @@ export function AccountSwitcherInternal({
 
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const params = useParams<{ emailAccountId?: string }>();
 
   const getHref = useCallback(
     (emailAccountId: string) => {
       if (!activeEmailAccountId) return `/${emailAccountId}/setup`;
 
       const basePath = pathname.split("?")[0] || "/";
-      const newBasePath = basePath.replace(
-        activeEmailAccountId,
-        emailAccountId,
-      );
-
       const tab = searchParams.get("tab");
 
-      return `${newBasePath}${tab ? `?tab=${tab}` : ""}`;
+      if (params.emailAccountId) {
+        const segments = basePath.split("/").filter(Boolean);
+        if (segments[0] === params.emailAccountId) {
+          segments[0] = emailAccountId;
+          const newBasePath = `/${segments.join("/")}`;
+          return `${newBasePath}${tab ? `?tab=${tab}` : ""}`;
+        }
+      }
+
+      return `${basePath}${tab ? `?tab=${tab}` : ""}`;
     },
-    [pathname, activeEmailAccountId, searchParams],
+    [pathname, activeEmailAccountId, params.emailAccountId, searchParams],
+  );
+
+  const handleSelect = useCallback(
+    async (emailAccountId: string) => {
+      try {
+        await setLastEmailAccountAction({ emailAccountId });
+      } catch {
+        // Ignore cookie update failures and continue navigation.
+      }
+
+      // Force a hard page reload to refresh all data.
+      // I tried to fix with resetting the SWR cache but it didn't seem to work. This is much more reliable anyway.
+      window.location.href = getHref(emailAccountId);
+    },
+    [getHref],
   );
 
   if (isLoading) return null;
@@ -116,9 +137,7 @@ export function AccountSwitcherInternal({
                 key={emailAccount.id}
                 className="gap-2 p-2"
                 onSelect={() => {
-                  // Force a hard page reload to refresh all data.
-                  // I tried to fix with resetting the SWR cache but it didn't seem to work. This is much more reliable anyway.
-                  window.location.href = getHref(emailAccount.id);
+                  handleSelect(emailAccount.id);
                 }}
               >
                 <ProfileImage

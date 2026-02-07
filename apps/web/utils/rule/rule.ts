@@ -154,6 +154,7 @@ export async function upsertSystemRule({
   emailAccountId,
   systemType,
   runOnThreads,
+  enabled,
   logger,
 }: {
   name: string;
@@ -162,6 +163,7 @@ export async function upsertSystemRule({
   emailAccountId: string;
   systemType: SystemType;
   runOnThreads: boolean;
+  enabled: boolean;
   logger: Logger;
 }) {
   logger.info("Upserting system rule", { name, systemType });
@@ -179,6 +181,7 @@ export async function upsertSystemRule({
     instructions,
     systemType,
     runOnThreads,
+    enabled,
   };
 
   if (existingRule) {
@@ -207,7 +210,6 @@ export async function upsertSystemRule({
     const rule = await prisma.rule.create({
       data: {
         ...data,
-        enabled: true,
         emailAccountId,
         actions: { createMany: { data: actions } },
       },
