@@ -18,7 +18,9 @@ export const GET = withEmailAccount(
       );
     }
 
-    const chat = await getChat({ chatId, emailAccountId });
+    const { searchParams } = new URL(request.url);
+    const type = parseChatType(searchParams.get("type"));
+    const chat = await getChat({ chatId, emailAccountId, type });
 
     return NextResponse.json(chat);
   },
@@ -27,15 +29,17 @@ export const GET = withEmailAccount(
 async function getChat({
   chatId,
   emailAccountId,
+  type,
 }: {
   chatId: string;
   emailAccountId: string;
+  type: ChatType;
 }) {
   const chat = await prisma.chat.findUnique({
     where: {
       id: chatId,
       emailAccountId,
-      type: ChatType.RULES,
+      type,
     },
     include: {
       messages: {
@@ -47,4 +51,9 @@ async function getChat({
   });
 
   return chat;
+}
+
+function parseChatType(value: string | null): ChatType {
+  if (value === ChatType.AGENT) return ChatType.AGENT;
+  return ChatType.RULES;
 }

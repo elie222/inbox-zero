@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useChat as useAiChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import type { UIMessage } from "ai";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { Messages } from "./messages";
@@ -12,6 +13,8 @@ import {
   PromptInputTextarea,
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
+import { NewChatButton, ChatHistoryDropdown } from "@/components/chat-history";
+import { useChatMessages } from "@/hooks/useChatMessages";
 
 export function AgentChat({
   mode = "chat",
@@ -24,10 +27,12 @@ export function AgentChat({
 }) {
   const { emailAccountId } = useAccount();
   const [input, setInput] = useState("");
-  const [chatId] = useState(generateUUID());
+  const [chatId, setChatId] = useState<string | null>(generateUUID);
+
+  const { data: chatData } = useChatMessages(chatId, "AGENT");
 
   const chat = useAiChat<AgentChatMessage>({
-    id: chatId,
+    id: chatId ?? undefined,
     transport: new DefaultChatTransport({
       api: "/api/agent/chat",
       headers: {
@@ -48,8 +53,25 @@ export function AgentChat({
     generateId: generateUUID,
   });
 
+  useEffect(() => {
+    chat.setMessages(chatData ? convertToAgentMessages(chatData) : []);
+  }, [chat.setMessages, chatData]);
+
+  const handleNewChat = useCallback(() => {
+    setChatId(generateUUID());
+  }, []);
+
+  const handleSelectChat = useCallback((id: string) => {
+    setChatId(id);
+  }, []);
+
   return (
     <div className="flex h-full min-w-0 flex-col">
+      <div className="flex items-center justify-end gap-1 px-2 pt-2">
+        <NewChatButton onNewChat={handleNewChat} />
+        <ChatHistoryDropdown setChatId={handleSelectChat} type="AGENT" />
+      </div>
+
       <Messages status={chat.status} messages={chat.messages} />
 
       <div className="mx-auto w-full px-4 pb-4 md:max-w-3xl md:pb-6">
@@ -83,7 +105,18 @@ export function AgentChat({
   );
 }
 
-// NOTE: not sure why we don't just use the default from AI SDK
+function convertToAgentMessages(
+  chat: NonNullable<Awaited<ReturnType<typeof useChatMessages>>["data"]>,
+): AgentChatMessage[] {
+  return (
+    chat?.messages.map((message) => ({
+      id: message.id,
+      role: message.role as UIMessage<AgentChatMessage>["role"],
+      parts: message.parts as AgentChatMessage["parts"],
+    })) || []
+  );
+}
+
 function generateUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
