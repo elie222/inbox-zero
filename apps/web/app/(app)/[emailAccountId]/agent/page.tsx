@@ -23,12 +23,12 @@ const tabOptions = (emailAccountId: string) => [
   },
   {
     id: "skills",
-    label: "Skills",
+    label: "Knowledge",
     href: `/${emailAccountId}/agent?tab=skills`,
   },
   {
     id: "tools",
-    label: "Tools",
+    label: "Permissions",
     href: `/${emailAccountId}/agent?tab=tools`,
   },
 ];

@@ -154,7 +154,7 @@ export function MessagePart({
 
   if (part.type === "tool-getSkill") {
     if (part.state === "input-available") {
-      return <BasicToolInfo key={part.toolCallId} text="Loading skill..." />;
+      return <BasicToolInfo key={part.toolCallId} text="Loading doc..." />;
     }
     if (part.state === "output-available") {
       if (isOutputWithError(part.output)) {
@@ -165,13 +165,13 @@ export function MessagePart({
           />
         );
       }
-      return <BasicToolInfo key={part.toolCallId} text="Loaded skill" />;
+      return <BasicToolInfo key={part.toolCallId} text="Loaded doc" />;
     }
   }
 
   if (part.type === "tool-createSkill") {
     if (part.state === "input-available") {
-      return <BasicToolInfo key={part.toolCallId} text="Creating skill..." />;
+      return <BasicToolInfo key={part.toolCallId} text="Creating doc..." />;
     }
     if (part.state === "output-available") {
       if (isOutputWithError(part.output)) {
@@ -182,13 +182,13 @@ export function MessagePart({
           />
         );
       }
-      return <BasicToolInfo key={part.toolCallId} text="Skill created" />;
+      return <BasicToolInfo key={part.toolCallId} text="Doc created" />;
     }
   }
 
   if (part.type === "tool-updateSkill") {
     if (part.state === "input-available") {
-      return <BasicToolInfo key={part.toolCallId} text="Updating skill..." />;
+      return <BasicToolInfo key={part.toolCallId} text="Saving doc..." />;
     }
     if (part.state === "output-available") {
       if (isOutputWithError(part.output)) {
@@ -199,7 +199,7 @@ export function MessagePart({
           />
         );
       }
-      return <BasicToolInfo key={part.toolCallId} text="Skill updated" />;
+      return <BasicToolInfo key={part.toolCallId} text="Doc saved" />;
     }
   }
 
