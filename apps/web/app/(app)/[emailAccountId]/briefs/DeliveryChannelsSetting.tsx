@@ -121,9 +121,14 @@ export function DeliveryChannelsSetting() {
                   const res = await fetch(
                     `/api/slack/auth-url?emailAccountId=${emailAccountId}`,
                   );
+                  if (!res.ok) {
+                    throw new Error("Failed to get Slack auth URL");
+                  }
                   const data: GetSlackAuthUrlResponse = await res.json();
                   if (data.url) {
                     window.location.href = data.url;
+                  } else {
+                    throw new Error("No auth URL returned");
                   }
                 } catch {
                   toastError({ description: "Failed to connect Slack" });

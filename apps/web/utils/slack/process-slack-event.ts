@@ -40,11 +40,12 @@ export async function processSlackEvent(
   // For DMs, only process direct messages (not channel messages)
   if (type === "message" && channel_type !== "im") return;
 
-  const messagingChannel = await prisma.messagingChannel.findFirst({
+  const candidates = await prisma.messagingChannel.findMany({
     where: {
       provider: MessagingProvider.SLACK,
       teamId,
       isConnected: true,
+      accessToken: { not: null },
     },
     select: {
       id: true,
@@ -54,8 +55,36 @@ export async function processSlackEvent(
     },
   });
 
-  if (!messagingChannel || !messagingChannel.accessToken) {
+  if (candidates.length === 0) {
     logger.info("No messaging channel found for Slack event", { teamId });
+    return;
+  }
+
+  // Disambiguate when multiple accounts share one Slack workspace
+  let messagingChannel = candidates[0];
+  if (candidates.length > 1) {
+    const chatId = thread_ts
+      ? `slack-${channel}-${thread_ts}`
+      : `slack-${channel}`;
+    const existingChat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      select: { emailAccountId: true },
+    });
+    if (existingChat) {
+      const match = candidates.find(
+        (c) => c.emailAccountId === existingChat.emailAccountId,
+      );
+      if (match) messagingChannel = match;
+    } else {
+      logger.warn("Ambiguous workspace-to-account routing, using first match", {
+        teamId,
+        candidateCount: candidates.length,
+      });
+    }
+  }
+
+  if (!messagingChannel.accessToken) {
+    logger.info("No access token for messaging channel", { teamId });
     return;
   }
 

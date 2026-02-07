@@ -20,6 +20,16 @@ export const POST = withError("slack/events", async (request) => {
   const timestamp = request.headers.get("x-slack-request-timestamp") ?? "";
   const signature = request.headers.get("x-slack-signature") ?? "";
 
+  // Reject requests older than 5 minutes to prevent replay attacks
+  const timestampSeconds = Number.parseInt(timestamp, 10);
+  if (
+    Number.isNaN(timestampSeconds) ||
+    Math.abs(Math.floor(Date.now() / 1000) - timestampSeconds) > 60 * 5
+  ) {
+    logger.warn("Stale Slack request timestamp", { timestamp });
+    return NextResponse.json({ error: "Request too old" }, { status: 401 });
+  }
+
   if (
     !verifySlackSignature(
       env.SLACK_SIGNING_SECRET,

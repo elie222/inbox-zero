@@ -12,8 +12,10 @@ export function verifySlackSignature(
     .update(sigBasestring)
     .digest("hex")}`;
 
-  return crypto.timingSafeEqual(
-    Buffer.from(mySignature),
-    Buffer.from(signature),
-  );
+  const mySignatureBuffer = Buffer.from(mySignature);
+  const signatureBuffer = Buffer.from(signature ?? "");
+  if (mySignatureBuffer.length !== signatureBuffer.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(mySignatureBuffer, signatureBuffer);
 }
