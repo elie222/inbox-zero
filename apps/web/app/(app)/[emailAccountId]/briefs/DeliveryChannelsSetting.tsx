@@ -23,7 +23,7 @@ import {
   useChannelTargets,
 } from "@/hooks/useMessagingChannels";
 import {
-  updateChannelTargetAction,
+  updateSlackChannelAction,
   updateChannelFeaturesAction,
   updateEmailDeliveryAction,
 } from "@/utils/actions/messaging-channels";
@@ -144,7 +144,7 @@ function ChannelRow({
   );
 
   const { execute: executeTarget } = useAction(
-    updateChannelTargetAction.bind(null, emailAccountId),
+    updateSlackChannelAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "Slack channel updated" });

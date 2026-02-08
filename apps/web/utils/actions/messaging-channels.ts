@@ -2,7 +2,7 @@
 
 import { actionClient } from "@/utils/actions/safe-action";
 import {
-  updateChannelTargetBody,
+  updateSlackChannelBody,
   updateChannelFeaturesBody,
   updateEmailDeliveryBody,
   disconnectChannelBody,
@@ -11,9 +11,9 @@ import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { sendChannelConfirmation } from "@inboxzero/slack";
 
-export const updateChannelTargetAction = actionClient
-  .metadata({ name: "updateChannelTarget" })
-  .inputSchema(updateChannelTargetBody)
+export const updateSlackChannelAction = actionClient
+  .metadata({ name: "updateSlackChannel" })
+  .inputSchema(updateSlackChannelBody)
   .action(
     async ({
       ctx: { emailAccountId, logger },

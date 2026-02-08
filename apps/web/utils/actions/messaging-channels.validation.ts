@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const updateChannelTargetBody = z.object({
+export const updateSlackChannelBody = z.object({
   channelId: z.string().min(1),
   targetId: z.string().min(1),
   targetName: z.string().min(1),
