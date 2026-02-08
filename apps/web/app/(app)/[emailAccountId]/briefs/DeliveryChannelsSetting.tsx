@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { MailIcon, HashIcon, MessageSquareIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -75,43 +75,46 @@ export function DeliveryChannelsSetting() {
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Delivery Channels</CardTitle>
-        <MutedText>Choose where to receive meeting briefings</MutedText>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-3">
-          <MailIcon className="h-5 w-5 text-muted-foreground" />
-          <div className="flex-1 font-medium text-sm">Email</div>
-          <Toggle
-            name="emailDelivery"
-            enabled={briefSettings?.meetingBriefsSendEmail ?? true}
-            onChange={(sendEmail) => executeEmailDelivery({ sendEmail })}
-          />
+      <CardContent className="p-4 space-y-4">
+        <div>
+          <h3 className="font-medium">Delivery Channels</h3>
+          <MutedText>Choose where to receive meeting briefings</MutedText>
         </div>
 
-        <LoadingContent loading={isLoadingChannels} error={channelsError}>
-          {connectedChannels.map((channel) => (
-            <ChannelRow
-              key={channel.id}
-              channel={channel}
-              emailAccountId={emailAccountId}
-              onUpdate={mutateChannels}
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <MailIcon className="h-5 w-5 text-muted-foreground" />
+            <div className="flex-1 font-medium text-sm">Email</div>
+            <Toggle
+              name="emailDelivery"
+              enabled={briefSettings?.meetingBriefsSendEmail ?? true}
+              onChange={(sendEmail) => executeEmailDelivery({ sendEmail })}
             />
-          ))}
-        </LoadingContent>
+          </div>
 
-        {!hasSlack && (
-          <MutedText className="pt-2 text-xs">
-            Want to receive briefs in Slack?{" "}
-            <Link
-              href={prefixPath(emailAccountId, "/settings?tab=email")}
-              className="underline text-foreground"
-            >
-              Connect Slack in Settings
-            </Link>
-          </MutedText>
-        )}
+          <LoadingContent loading={isLoadingChannels} error={channelsError}>
+            {connectedChannels.map((channel) => (
+              <ChannelRow
+                key={channel.id}
+                channel={channel}
+                emailAccountId={emailAccountId}
+                onUpdate={mutateChannels}
+              />
+            ))}
+          </LoadingContent>
+
+          {!hasSlack && (
+            <MutedText className="text-xs">
+              Want to receive briefs in Slack?{" "}
+              <Link
+                href={prefixPath(emailAccountId, "/settings?tab=email")}
+                className="underline text-foreground"
+              >
+                Connect Slack in Settings
+              </Link>
+            </MutedText>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
