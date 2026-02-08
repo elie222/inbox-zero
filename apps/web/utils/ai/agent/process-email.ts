@@ -40,32 +40,43 @@ export async function runAgentOnIncomingEmail({
     });
 
     for (const patternAction of match.actions) {
-      const actionData =
-        typeof patternAction.actionData === "object" &&
-        patternAction.actionData !== null
-          ? patternAction.actionData
-          : {};
+      const {
+        type: _t,
+        resourceId: _r,
+        ...safeData
+      } = typeof patternAction.actionData === "object" &&
+      patternAction.actionData !== null
+        ? (patternAction.actionData as Record<string, unknown>)
+        : {};
       const action = {
-        ...actionData,
+        ...safeData,
         type: patternAction.actionType,
         resourceId: message.id,
       } as StructuredAction;
 
-      await executeAction({
-        action,
-        context: {
-          emailAccountId: emailAccount.id,
-          provider,
-          resourceType: "email",
-          emailId: message.id,
-          threadId: message.threadId,
-          messageSubject: message.headers.subject,
-          triggeredBy: "pattern",
+      try {
+        await executeAction({
+          action,
+          context: {
+            emailAccountId: emailAccount.id,
+            provider,
+            resourceType: "email",
+            emailId: message.id,
+            threadId: message.threadId,
+            messageSubject: message.headers.subject,
+            triggeredBy: "pattern",
+            patternId: match.patternId,
+          },
+          logger,
+          emailAccountEmail: emailAccount.email,
+        });
+      } catch (error) {
+        logger.error("Pattern action failed, continuing", {
           patternId: match.patternId,
-        },
-        logger,
-        emailAccountEmail: emailAccount.email,
-      });
+          actionType: patternAction.actionType,
+          error,
+        });
+      }
     }
 
     return;
