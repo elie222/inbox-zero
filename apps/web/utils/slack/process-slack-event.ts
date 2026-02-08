@@ -147,15 +147,28 @@ export async function processSlackEvent(
     },
   });
 
-  // Process with AI
-  const result = await aiProcessAssistantChat({
-    messages: convertToModelMessages(allMessages),
-    emailAccountId,
-    user: emailAccountUser,
-    logger,
-  });
+  const client = createSlackClient(accessToken);
+  const replyThreadTs = type === "app_mention" ? (thread_ts ?? ts) : undefined;
 
-  const fullText = await result.text;
+  // Process with AI
+  let fullText: string;
+  try {
+    const result = await aiProcessAssistantChat({
+      messages: convertToModelMessages(allMessages),
+      emailAccountId,
+      user: emailAccountUser,
+      logger,
+    });
+    fullText = await result.text;
+  } catch (error) {
+    logger.error("AI processing failed for Slack message", { error });
+    await client.chat.postMessage({
+      channel,
+      text: "Sorry, I ran into an error processing your message. Please try again.",
+      ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
+    });
+    return;
+  }
 
   // Save assistant message
   const assistantParts = [{ type: "text" as const, text: fullText }];
@@ -166,10 +179,6 @@ export async function processSlackEvent(
       parts: assistantParts as unknown as Prisma.InputJsonValue,
     },
   });
-
-  // Send response to Slack
-  const client = createSlackClient(accessToken);
-  const replyThreadTs = type === "app_mention" ? (thread_ts ?? ts) : undefined;
 
   await client.chat.postMessage({
     channel,
