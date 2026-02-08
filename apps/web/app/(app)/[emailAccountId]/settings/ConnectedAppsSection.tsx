@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { HashIcon, MessageSquareIcon, XIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
@@ -163,12 +163,17 @@ function useSlackNotifications() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const handled = useRef(false);
 
   useEffect(() => {
+    if (handled.current) return;
+
     const message = searchParams.get("message");
     const error = searchParams.get("error");
 
     if (!message && !error) return;
+
+    handled.current = true;
 
     if (message === "slack_connected") {
       toastSuccess({ description: "Slack connected successfully" });
@@ -182,7 +187,6 @@ function useSlackNotifications() {
       });
     }
 
-    // Clean up query params
     router.replace(pathname);
   }, [pathname, router, searchParams]);
 }
