@@ -817,6 +817,7 @@ export class GmailProvider implements EmailProvider {
       references?: string;
     };
     to: string;
+    from?: string;
     cc?: string;
     bcc?: string;
     replyTo?: string;

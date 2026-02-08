@@ -9,7 +9,7 @@ import { emailToContent } from "@/utils/mail";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
 import { aiParseFilingReply } from "@/utils/ai/document-filing/parse-filing-reply";
-import { getFilebotEmail } from "@/utils/filebot/is-filebot-email";
+import { getFilebotReplyTo } from "@/utils/filebot/is-filebot-email";
 
 interface ProcessFilingReplyArgs {
   emailAccountId: string;
@@ -85,9 +85,9 @@ export async function processFilingReply({
   });
 
   if (parseResult.reply) {
-    const filebotEmail = getFilebotEmail({ userEmail });
+    const filebotReplyTo = getFilebotReplyTo({ userEmail });
     await emailProvider.replyToEmail(message, parseResult.reply, {
-      replyTo: filebotEmail,
+      replyTo: filebotReplyTo,
     });
   }
 

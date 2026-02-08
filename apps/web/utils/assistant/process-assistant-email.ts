@@ -6,7 +6,7 @@ import prisma from "@/utils/prisma";
 import { emailToContent } from "@/utils/mail";
 import {
   isAssistantEmail,
-  getAssistantEmail,
+  getAssistantReplyTo,
 } from "@/utils/assistant/is-assistant-email";
 import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
@@ -73,14 +73,14 @@ async function processAssistantEmailInternal({
 
   const threadMessages = await provider.getThreadMessages(message.threadId);
 
-  const assistantEmail = getAssistantEmail({ userEmail });
+  const assistantReplyTo = getAssistantReplyTo({ userEmail });
 
   if (!threadMessages?.length) {
     logger.error("No thread messages found");
     await provider.replyToEmail(
       message,
       "Something went wrong. I couldn't read any messages.",
-      { replyTo: assistantEmail },
+      { replyTo: assistantReplyTo },
     );
     return;
   }
@@ -99,7 +99,7 @@ async function processAssistantEmailInternal({
     await provider.replyToEmail(
       message,
       "Something went wrong. I couldn't find the first message to the personal assistant.",
-      { replyTo: assistantEmail },
+      { replyTo: assistantReplyTo },
     );
     return;
   }
@@ -224,7 +224,7 @@ async function processAssistantEmailInternal({
   if (lastToolCall?.toolName === "reply") {
     const input = lastToolCall.input as { content: string } | undefined;
     await provider.replyToEmail(message, input?.content || "", {
-      replyTo: assistantEmail,
+      replyTo: assistantReplyTo,
     });
   }
 }

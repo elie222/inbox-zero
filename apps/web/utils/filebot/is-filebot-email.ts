@@ -1,9 +1,10 @@
 import { env } from "@/env";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, formatEmailWithName } from "@/utils/email";
 
 // In prod: hello+ai@example.com
 // In dev: hello+ai-test@example.com
 const FILEBOT_SUFFIX = `ai${env.NODE_ENV === "development" ? "-test" : ""}`;
+const FILEBOT_DISPLAY_NAME = "Inbox Zero Assistant";
 
 /**
  * Check if any recipient in the email is a filebot reply address.
@@ -47,6 +48,21 @@ export function getFilebotEmail({ userEmail }: { userEmail: string }): string {
     throw new Error("Invalid email format");
   }
   return `${localPart}+${FILEBOT_SUFFIX}@${domain}`;
+}
+
+export function getFilebotReplyTo({
+  userEmail,
+}: {
+  userEmail: string;
+}): string {
+  return formatEmailWithName(
+    FILEBOT_DISPLAY_NAME,
+    getFilebotEmail({ userEmail }),
+  );
+}
+
+export function getFilebotFrom({ userEmail }: { userEmail: string }): string {
+  return formatEmailWithName(FILEBOT_DISPLAY_NAME, userEmail);
 }
 
 /**

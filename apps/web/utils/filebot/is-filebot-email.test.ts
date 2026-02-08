@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { isFilebotEmail, getFilebotEmail } from "./is-filebot-email";
+import {
+  isFilebotEmail,
+  getFilebotEmail,
+  getFilebotFrom,
+  getFilebotReplyTo,
+} from "./is-filebot-email";
 
 describe("isFilebotEmail", () => {
   it("should return true for valid filebot email", () => {
@@ -128,5 +133,23 @@ describe("getFilebotEmail", () => {
         userEmail: "notanemail",
       }),
     ).toThrow("Invalid email format");
+  });
+});
+
+describe("getFilebotReplyTo", () => {
+  it("should include Inbox Zero Assistant display name", () => {
+    const result = getFilebotReplyTo({
+      userEmail: "john@example.com",
+    });
+    expect(result).toBe("Inbox Zero Assistant <john+ai@example.com>");
+  });
+});
+
+describe("getFilebotFrom", () => {
+  it("should include Inbox Zero Assistant display name with primary address", () => {
+    const result = getFilebotFrom({
+      userEmail: "john@example.com",
+    });
+    expect(result).toBe("Inbox Zero Assistant <john@example.com>");
   });
 });

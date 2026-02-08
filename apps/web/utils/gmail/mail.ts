@@ -36,6 +36,7 @@ export const sendEmailBody = z.object({
     })
     .optional(),
   to: z.string(),
+  from: z.string().optional(),
   cc: z.string().optional(),
   bcc: z.string().optional(),
   replyTo: z.string().optional(),
@@ -59,23 +60,21 @@ const createMail = async (options: Mail.Options) => {
   return encodeMessage(message);
 };
 
-const createRawMailMessage = async (
-  {
-    to,
-    cc,
-    bcc,
-    replyTo,
-    subject,
-    messageHtml,
-    messageText,
-    attachments,
-    replyToEmail,
-  }: Omit<SendEmailBody, "attachments"> & {
-    attachments?: Attachment[];
-    messageText: string;
-  },
-  from?: string,
-) => {
+const createRawMailMessage = async ({
+  to,
+  from,
+  cc,
+  bcc,
+  replyTo,
+  subject,
+  messageHtml,
+  messageText,
+  attachments,
+  replyToEmail,
+}: Omit<SendEmailBody, "attachments"> & {
+  attachments?: Attachment[];
+  messageText: string;
+}) => {
   return await createMail({
     from,
     to,
@@ -167,21 +166,19 @@ export async function replyToEmail(
   });
 
   // Only replying to the original sender
-  const raw = await createRawMailMessage(
-    {
-      to: message.headers["reply-to"] || message.headers.from,
-      replyTo: options?.replyTo,
-      subject: formatReplySubject(message.headers.subject),
-      messageText: text,
-      messageHtml: html,
-      replyToEmail: {
-        threadId: message.threadId,
-        headerMessageId: message.headers["message-id"] || "",
-        references: message.headers.references,
-      },
-    },
+  const raw = await createRawMailMessage({
+    to: message.headers["reply-to"] || message.headers.from,
     from,
-  );
+    replyTo: options?.replyTo,
+    subject: formatReplySubject(message.headers.subject),
+    messageText: text,
+    messageHtml: html,
+    replyToEmail: {
+      threadId: message.threadId,
+      headerMessageId: message.headers["message-id"] || "",
+      references: message.headers.references,
+    },
+  });
 
   const result = await withGmailRetry(() =>
     gmail.users.messages.send({

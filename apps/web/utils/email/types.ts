@@ -134,6 +134,7 @@ export interface EmailProvider {
       messageId?: string; // Platform-specific message ID (Graph ID for Outlook)
     };
     to: string;
+    from?: string;
     cc?: string;
     bcc?: string;
     replyTo?: string;
