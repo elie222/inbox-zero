@@ -1,3 +1,4 @@
+import type { WebClient } from "@slack/web-api";
 import { createSlackClient } from "./client";
 import {
   buildMeetingBriefingBlocks,
@@ -28,8 +29,7 @@ export async function sendMeetingBriefingToSlack({
     briefingContent,
   });
 
-  await client.chat.postMessage({
-    channel: channelId,
+  await postMessageWithJoin(client, channelId, {
     blocks,
     text: `Briefing for ${meetingTitle}, starting at ${formattedTime}`,
   });
@@ -44,8 +44,30 @@ export async function sendChannelConfirmation({
 }): Promise<void> {
   const client = createSlackClient(accessToken);
 
-  await client.chat.postMessage({
-    channel: channelId,
+  await postMessageWithJoin(client, channelId, {
     text: "Inbox Zero connected! Meeting briefings will be delivered to this channel.",
   });
+}
+
+async function postMessageWithJoin(
+  client: WebClient,
+  channelId: string,
+  message: Parameters<WebClient["chat"]["postMessage"]>[0],
+): Promise<void> {
+  try {
+    await client.chat.postMessage({ ...message, channel: channelId });
+  } catch (error: unknown) {
+    if (isSlackError(error) && error.data?.error === "not_in_channel") {
+      await client.conversations.join({ channel: channelId });
+      await client.chat.postMessage({ ...message, channel: channelId });
+      return;
+    }
+    throw error;
+  }
+}
+
+function isSlackError(
+  error: unknown,
+): error is Error & { data?: { error?: string } } {
+  return error instanceof Error && "data" in error;
 }

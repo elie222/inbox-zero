@@ -22,6 +22,7 @@ For local development, use ngrok and set `WEBHOOK_URL` to your ngrok domain (see
 | Scope | Purpose |
 |-------|---------|
 | `channels:read` | List public channels for delivery target picker |
+| `channels:join` | Auto-join public channels when selected for delivery |
 | `groups:read` | List private channels |
 | `chat:write` | Send meeting briefs and AI responses |
 | `app_mentions:read` | Respond to @mentions in channels |
