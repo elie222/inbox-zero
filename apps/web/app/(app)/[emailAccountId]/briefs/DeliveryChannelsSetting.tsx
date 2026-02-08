@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { MailIcon, HashIcon, XIcon, MessageSquareIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +30,7 @@ import {
   disconnectChannelAction,
 } from "@/utils/actions/messaging-channels";
 import { getActionErrorMessage } from "@/utils/error";
-import type { GetSlackAuthUrlResponse } from "@/app/api/slack/auth-url/route";
+import { prefixPath } from "@/utils/path";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 
 const PROVIDER_CONFIG: Record<
@@ -53,7 +54,6 @@ export function DeliveryChannelsSetting() {
     error: channelsError,
     mutate: mutateChannels,
   } = useMessagingChannels();
-  const [connectingSlack, setConnectingSlack] = useState(false);
 
   const { execute: executeEmailDelivery } = useAction(
     updateEmailDeliveryAction.bind(null, emailAccountId),
@@ -108,41 +108,16 @@ export function DeliveryChannelsSetting() {
           ))}
         </LoadingContent>
 
-        {/* Connect Slack button */}
         {!hasSlack && (
-          <div className="pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={connectingSlack}
-              onClick={async () => {
-                setConnectingSlack(true);
-                try {
-                  const res = await fetch(
-                    `/api/slack/auth-url?emailAccountId=${emailAccountId}`,
-                  );
-                  if (!res.ok) {
-                    throw new Error("Failed to get Slack auth URL");
-                  }
-                  const data: GetSlackAuthUrlResponse = await res.json();
-                  if (data.url) {
-                    window.location.href = data.url;
-                  } else {
-                    throw new Error("No auth URL returned");
-                  }
-                } catch {
-                  toastError({ description: "Failed to connect Slack" });
-                  setConnectingSlack(false);
-                }
-              }}
+          <MutedText className="pt-2 text-xs">
+            Want to receive briefs in Slack?{" "}
+            <Link
+              href={prefixPath(emailAccountId, "/settings?tab=email")}
+              className="underline text-foreground"
             >
-              <MessageSquareIcon className="mr-2 h-4 w-4" />
-              {connectingSlack ? "Connecting..." : "Connect Slack"}
-            </Button>
-            <MutedText className="mt-1 text-xs">
-              Chat with your assistant via DMs or @mentions after connecting
-            </MutedText>
-          </div>
+              Connect Slack in Settings
+            </Link>
+          </MutedText>
         )}
       </CardContent>
     </Card>

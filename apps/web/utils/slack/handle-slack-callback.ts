@@ -64,7 +64,7 @@ export async function handleSlackCallback(
 
     const { emailAccountId } = decodedState;
 
-    const finalRedirectUrl = buildBriefsRedirectUrl(emailAccountId);
+    const finalRedirectUrl = buildSettingsRedirectUrl(emailAccountId);
 
     await verifyEmailAccountAccess(
       emailAccountId,
@@ -105,7 +105,7 @@ export async function handleSlackCallback(
 
     logger.error("Error in Slack callback", { error });
 
-    const errorRedirectUrl = new URL("/briefs", env.NEXT_PUBLIC_BASE_URL);
+    const errorRedirectUrl = new URL("/settings", env.NEXT_PUBLIC_BASE_URL);
     return redirectWithError(
       errorRedirectUrl,
       "connection_failed",
@@ -180,11 +180,13 @@ function parseAndValidateSlackState(
   return validationResult.data;
 }
 
-function buildBriefsRedirectUrl(emailAccountId: string): URL {
-  return new URL(
-    prefixPath(emailAccountId, "/briefs"),
+function buildSettingsRedirectUrl(emailAccountId: string): URL {
+  const url = new URL(
+    prefixPath(emailAccountId, "/settings"),
     env.NEXT_PUBLIC_BASE_URL,
   );
+  url.searchParams.set("tab", "email");
+  return url;
 }
 
 async function exchangeCodeForTokens(
