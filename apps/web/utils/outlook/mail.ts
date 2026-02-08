@@ -96,6 +96,7 @@ export async function replyToEmail(
   message: EmailForAction,
   reply: string,
   logger: Logger,
+  options?: { replyTo?: string },
 ) {
   ensureEmailSendingEnabled();
 
@@ -124,6 +125,11 @@ export async function replyToEmail(
             contentType: "html",
             content: html,
           },
+          ...(options?.replyTo
+            ? {
+                replyTo: [{ emailAddress: { address: options.replyTo } }],
+              }
+            : {}),
         }),
     logger,
   );

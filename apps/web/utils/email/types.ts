@@ -114,7 +114,11 @@ export interface EmailProvider {
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }>;
-  replyToEmail(email: ParsedMessage, content: string): Promise<void>;
+  replyToEmail(
+    email: ParsedMessage,
+    content: string,
+    options?: { replyTo?: string },
+  ): Promise<void>;
   sendEmail(args: {
     to: string;
     cc?: string;
