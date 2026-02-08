@@ -19,23 +19,28 @@ Connect to your VPS and install:
 1. **Docker Engine**: Follow [the official guide](https://docs.docker.com/engine/install) and the [Post installation steps](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user)
 2. **Node.js**: Follow [the official guide](https://nodejs.org/en/download) (required for the setup CLI)
 
-### 2. Setup Docker Compose
+### 2. Setup and Configure
 
-Clone the repository:
+The easiest way to get started is with the Inbox Zero CLI. You can either use it standalone or from within the cloned repo.
+
+**Option A: Standalone (no clone needed)**
+
+```bash
+npx @inbox-zero/cli setup
+```
+
+This downloads the Docker Compose file and `.env` template automatically.
+
+**Option B: From the cloned repo**
 
 ```bash
 git clone https://github.com/elie222/inbox-zero.git
 cd inbox-zero
-```
-
-### 3. Configure
-
-Install dependencies and run the setup CLI to create your environment file with auto-generated secrets:
-
-```bash
 npm install
 npm run setup
 ```
+
+The setup wizard will walk you through configuring Google OAuth, choosing an AI provider, and generating secrets.
 
 **Optional: Automated Google Cloud Setup**
 
@@ -106,9 +111,40 @@ Your application should now be accessible at:
 
 **Note:** For production deployments, you should set up a reverse proxy (like Nginx, Caddy, or use a cloud load balancer) to handle SSL/TLS termination and route traffic to your Docker container.
 
+## CLI Commands
+
+The Inbox Zero CLI (`@inbox-zero/cli`) provides commands for managing your self-hosted instance:
+
+```bash
+npx @inbox-zero/cli setup      # One-time setup wizard
+npx @inbox-zero/cli start      # Start containers
+npx @inbox-zero/cli stop       # Stop containers
+npx @inbox-zero/cli update     # Pull latest image and restart
+npx @inbox-zero/cli config     # Interactive configuration editor
+npx @inbox-zero/cli config set <key> <value>  # Set a config value
+npx @inbox-zero/cli config get <key>          # Get a config value
+npx @inbox-zero/cli logs -f    # Follow container logs
+npx @inbox-zero/cli status     # Show container status
+```
+
+You can also install the CLI globally for shorter commands:
+
+```bash
+npm install -g @inbox-zero/cli
+inbox-zero setup
+inbox-zero update
+inbox-zero config
+```
+
 ## Updates
 
 To update to the latest version:
+
+```bash
+inbox-zero update
+```
+
+Or manually with Docker Compose:
 
 ```bash
 # Pull the latest image
@@ -119,6 +155,13 @@ NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
 ```
 
 ## Monitoring
+
+```bash
+inbox-zero logs -f
+inbox-zero status
+```
+
+Or with Docker Compose directly:
 
 ```bash
 # View logs
@@ -217,7 +260,7 @@ docker logs inbox-zero-services-redis-1
 
 **Common issues:**
 - **Port conflicts**: Another service is using port 3000, 5432, or 6379
-  - Solution: Stop conflicting services or modify ports in `docker-compose.yml`
+  - Solution: Set custom ports via environment variables before starting: `WEB_PORT=3001 POSTGRES_PORT=5433 REDIS_PORT=6381 inbox-zero start`
 - **Insufficient memory**: Container is being killed by OOM
   - Solution: Increase VPS RAM or add swap space
 - **Missing environment variables**: Check `.env` file exists and has required values
