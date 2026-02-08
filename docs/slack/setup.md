@@ -2,10 +2,19 @@
 
 ## 1. Create a Slack App
 
-1. Go to [https://api.slack.com/apps](https://api.slack.com/apps) and click **Create New App** > **From scratch**
-2. Name it (e.g. "Inbox Zero") and select a workspace
+The easiest way is to use the included manifest:
 
-## 2. Configure OAuth & Permissions
+1. Go to [https://api.slack.com/apps](https://api.slack.com/apps) and click **Create New App** > **From an app manifest**
+2. Select a workspace
+3. Paste the contents of [`manifest.yaml`](manifest.yaml), replacing `YOUR_DOMAIN` with your actual domain
+4. Click **Create**
+
+This configures all scopes, event subscriptions, and the bot user automatically.
+
+<details>
+<summary>Manual setup (without manifest)</summary>
+
+### Configure OAuth & Permissions
 
 Under **OAuth & Permissions**:
 
@@ -14,8 +23,6 @@ Under **OAuth & Permissions**:
 ```
 https://<your-domain>/api/slack/callback
 ```
-
-For local development, use ngrok and set `WEBHOOK_URL` to your ngrok domain (see step 4).
 
 **Bot Token Scopes** — add these scopes:
 
@@ -30,7 +37,7 @@ For local development, use ngrok and set `WEBHOOK_URL` to your ngrok domain (see
 | `im:write` | Send DM responses |
 | `im:history` | Read DM conversation history |
 
-## 3. Enable Event Subscriptions
+### Enable Event Subscriptions
 
 Under **Event Subscriptions**:
 
@@ -45,7 +52,9 @@ Under **Event Subscriptions**:
 
 Slack will send a verification challenge to the URL; the app handles this automatically.
 
-## 4. Set Environment Variables
+</details>
+
+## 2. Set Environment Variables
 
 From **Basic Information** and **OAuth & Permissions** pages, set these in your `.env`:
 
@@ -65,7 +74,7 @@ WEBHOOK_URL=https://your-domain.ngrok-free.app
 
 This is used for the OAuth callback and events webhook URLs. `NEXT_PUBLIC_BASE_URL` stays as `http://localhost:3000` so other auth flows aren't affected.
 
-## 5. Run the Database Migration
+## 3. Run the Database Migration
 
 The `MessagingChannel` model and `meetingBriefsSendEmail` column are created by the migration at:
 
@@ -79,7 +88,7 @@ Apply with:
 pnpm prisma migrate deploy
 ```
 
-## 6. Connect from the UI
+## 4. Connect from the UI
 
 1. Navigate to **Settings** > **Email Account** tab
 2. Click **Connect Slack** under Connected Apps
