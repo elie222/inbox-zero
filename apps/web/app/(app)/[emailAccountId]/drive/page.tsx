@@ -141,8 +141,6 @@ function IntegrationsPopover({ emailAccountId }: { emailAccountId: string }) {
   const allConnected = data?.channels.filter((c) => c.isConnected) ?? [];
   const withChannel = allConnected.filter((c) => c.channelId);
 
-  const hasAnyActive = withChannel.some((c) => c.sendDocumentFilings);
-
   if (isLoading || allConnected.length === 0) return null;
 
   return (
@@ -150,9 +148,6 @@ function IntegrationsPopover({ emailAccountId }: { emailAccountId: string }) {
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm">
           Integrations
-          {hasAnyActive && (
-            <span className="ml-1.5 h-2 w-2 rounded-full bg-blue-500" />
-          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72">
