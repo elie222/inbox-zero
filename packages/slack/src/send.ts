@@ -52,7 +52,7 @@ export async function sendChannelConfirmation({
 async function postMessageWithJoin(
   client: WebClient,
   channelId: string,
-  message: Parameters<WebClient["chat"]["postMessage"]>[0],
+  message: Omit<Parameters<WebClient["chat"]["postMessage"]>[0], "channel">,
 ): Promise<void> {
   try {
     await client.chat.postMessage({ ...message, channel: channelId });

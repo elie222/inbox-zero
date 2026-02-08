@@ -19,16 +19,16 @@ export const updateChannelTargetAction = actionClient
       ctx: { emailAccountId, logger },
       parsedInput: { channelId, targetId, targetName },
     }) => {
-      const channel = await prisma.messagingChannel.findFirst({
-        where: {
-          id: channelId,
-          emailAccountId,
-          isConnected: true,
-        },
+      const channel = await prisma.messagingChannel.findUnique({
+        where: { id: channelId },
       });
 
-      if (!channel) {
+      if (!channel || channel.emailAccountId !== emailAccountId) {
         throw new SafeError("Messaging channel not found");
+      }
+
+      if (!channel.isConnected) {
+        throw new SafeError("Messaging channel is not connected");
       }
 
       await prisma.messagingChannel.update({
@@ -40,12 +40,14 @@ export const updateChannelTargetAction = actionClient
       });
 
       if (channel.accessToken) {
-        sendChannelConfirmation({
-          accessToken: channel.accessToken,
-          channelId: targetId,
-        }).catch((error) => {
+        try {
+          await sendChannelConfirmation({
+            accessToken: channel.accessToken,
+            channelId: targetId,
+          });
+        } catch (error) {
           logger.error("Failed to send channel confirmation", { error });
-        });
+        }
       }
     },
   );
@@ -58,16 +60,16 @@ export const updateChannelFeaturesAction = actionClient
       ctx: { emailAccountId },
       parsedInput: { channelId, sendMeetingBriefs },
     }) => {
-      const channel = await prisma.messagingChannel.findFirst({
-        where: {
-          id: channelId,
-          emailAccountId,
-          isConnected: true,
-        },
+      const channel = await prisma.messagingChannel.findUnique({
+        where: { id: channelId },
       });
 
-      if (!channel) {
+      if (!channel || channel.emailAccountId !== emailAccountId) {
         throw new SafeError("Messaging channel not found");
+      }
+
+      if (!channel.isConnected) {
+        throw new SafeError("Messaging channel is not connected");
       }
 
       if (sendMeetingBriefs && !channel.channelId) {
@@ -97,14 +99,11 @@ export const disconnectChannelAction = actionClient
   .metadata({ name: "disconnectChannel" })
   .inputSchema(disconnectChannelBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { channelId } }) => {
-    const channel = await prisma.messagingChannel.findFirst({
-      where: {
-        id: channelId,
-        emailAccountId,
-      },
+    const channel = await prisma.messagingChannel.findUnique({
+      where: { id: channelId },
     });
 
-    if (!channel) {
+    if (!channel || channel.emailAccountId !== emailAccountId) {
       throw new SafeError("Messaging channel not found");
     }
 
