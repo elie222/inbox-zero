@@ -15,7 +15,7 @@ Under **OAuth & Permissions**:
 https://<your-domain>/api/slack/callback
 ```
 
-For local development: `http://localhost:3000/api/slack/callback`
+For local development, use ngrok and set `WEBHOOK_URL` to your ngrok domain (see step 4).
 
 **Bot Token Scopes** — add these scopes:
 
@@ -56,6 +56,14 @@ SLACK_SIGNING_SECRET=  # Basic Information > Signing Secret
 
 All three are optional. If not set, the Slack connect button is hidden and the events endpoint returns 503.
 
+For local development with ngrok, also set:
+
+```bash
+WEBHOOK_URL=https://your-domain.ngrok-free.app
+```
+
+This is used for the OAuth callback and events webhook URLs. `NEXT_PUBLIC_BASE_URL` stays as `http://localhost:3000` so other auth flows aren't affected.
+
 ## 5. Run the Database Migration
 
 The `MessagingChannel` model and `meetingBriefsSendEmail` column are created by the migration at:
@@ -72,10 +80,10 @@ pnpm prisma migrate deploy
 
 ## 6. Connect from the UI
 
-1. Navigate to **Briefs** settings (`/<emailAccountId>/briefs`)
-2. Click **Connect Slack**
+1. Navigate to **Settings** > **Email Account** tab
+2. Click **Connect Slack** under Connected Apps
 3. Authorize the app in the Slack OAuth flow
-4. Select a channel to receive meeting briefs
+4. Go to **Meeting Briefs** and select a Slack channel for delivery
 5. Toggle meeting briefs on
 
 Users can also DM the bot or @mention it in channels to chat with the AI assistant.
