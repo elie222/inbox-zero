@@ -65,3 +65,6 @@ The service uses the ALB DNS name if `base_url` is not set.
 - Secrets are stored in SSM Parameter Store at `/${app_name}/${environment}/secrets`.
 - If you want an API Gateway with JWT validation for Pub/Sub webhooks, add it
   separately (see `copilot/templates/webhook-gateway.yml` for the pattern).
+- If your app is on a private network, one option is to expose only a small AWS
+  Lambda webhook relay (or Lambda behind API Gateway) that forwards verified
+  Pub/Sub webhook requests to `/api/google/webhook`.

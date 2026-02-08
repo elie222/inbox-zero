@@ -257,6 +257,8 @@ When creating the subscription, select **Push** and set the URL to:
 
 Set `GOOGLE_PUBSUB_VERIFICATION_TOKEN` in your `.env` file to the value of `TOKEN`.
 
+> **Private network deploys:** If your app is not publicly reachable, you can expose only a small AWS Lambda webhook relay (optionally behind API Gateway) and forward verified requests to `/api/google/webhook`.
+
 **For local development**, use ngrok to expose your local server:
 
 ```sh
