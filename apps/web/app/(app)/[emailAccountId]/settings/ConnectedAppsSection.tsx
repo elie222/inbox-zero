@@ -126,7 +126,7 @@ function ConnectedChannelRow({
     disconnectChannelAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Channel disconnected" });
+        toastSuccess({ description: "Slack disconnected" });
         onUpdate();
       },
       onError: (error) => {
@@ -182,7 +182,7 @@ function useSlackNotifications() {
     handled.current = true;
 
     if (message === "slack_connected") {
-      toastSuccess({ description: "Slack connected successfully" });
+      toastSuccess({ description: "Slack connected" });
     }
 
     if (error === "connection_failed") {

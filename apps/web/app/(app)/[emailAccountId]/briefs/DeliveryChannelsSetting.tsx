@@ -57,7 +57,7 @@ export function DeliveryChannelsSetting() {
     updateEmailDeliveryAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Email delivery updated" });
+        toastSuccess({ description: "Settings saved" });
         mutateBriefSettings();
       },
       onError: (error) => {
@@ -147,7 +147,7 @@ function ChannelRow({
     updateChannelTargetAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Channel target updated" });
+        toastSuccess({ description: "Slack channel updated" });
         setSelectingTarget(false);
         onUpdate();
       },
@@ -163,7 +163,7 @@ function ChannelRow({
     updateChannelFeaturesAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Settings updated" });
+        toastSuccess({ description: "Settings saved" });
         onUpdate();
       },
       onError: (error) => {
