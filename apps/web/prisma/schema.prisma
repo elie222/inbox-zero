@@ -1345,3 +1345,7 @@ enum GroupItemSource {
   LABEL_REMOVED
 }
 
+enum MessagingProvider {
+  SLACK
+}
+
