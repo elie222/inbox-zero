@@ -105,7 +105,10 @@ export async function handleSlackCallback(
 
     logger.error("Error in Slack callback", { error });
 
-    const errorRedirectUrl = new URL("/settings", env.NEXT_PUBLIC_BASE_URL);
+    const errorRedirectUrl = new URL(
+      "/settings?tab=email",
+      env.NEXT_PUBLIC_BASE_URL,
+    );
     return redirectWithError(
       errorRedirectUrl,
       "connection_failed",
@@ -127,7 +130,8 @@ function validateOAuthCallback(
   const receivedState = searchParams.get("state");
   const storedState = request.cookies.get(SLACK_STATE_COOKIE_NAME)?.value;
 
-  const redirectUrl = new URL("/briefs", env.NEXT_PUBLIC_BASE_URL);
+  const redirectUrl = new URL("/settings", env.NEXT_PUBLIC_BASE_URL);
+  redirectUrl.searchParams.set("tab", "email");
   const response = NextResponse.redirect(redirectUrl);
 
   response.cookies.delete(SLACK_STATE_COOKIE_NAME);
@@ -138,7 +142,18 @@ function validateOAuthCallback(
     throw new RedirectError(redirectUrl, response.headers);
   }
 
-  if (!storedState || !receivedState || storedState !== receivedState) {
+  // When WEBHOOK_URL differs from NEXT_PUBLIC_BASE_URL (e.g. ngrok for local
+  // dev), the cookie set on localhost won't be sent to the ngrok domain.
+  // In that case we skip the cookie check — the state is still validated
+  // structurally (parseAndValidateSlackState) and the emailAccountId ownership
+  // is verified via session (verifyEmailAccountAccess).
+  const webhookDiffers =
+    env.WEBHOOK_URL && env.WEBHOOK_URL !== env.NEXT_PUBLIC_BASE_URL;
+
+  if (
+    !webhookDiffers &&
+    (!storedState || !receivedState || storedState !== receivedState)
+  ) {
     logger.warn("Invalid state during Slack callback", {
       receivedState,
       hasStoredState: !!storedState,
