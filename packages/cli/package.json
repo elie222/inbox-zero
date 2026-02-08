@@ -1,5 +1,5 @@
 {
-  "name": "inboxzero",
+  "name": "@inbox-zero/cli",
   "version": "1.0.0",
   "description": "CLI tool for setting up and managing Inbox Zero - AI email assistant",
   "type": "module",
