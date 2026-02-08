@@ -39,7 +39,7 @@ function getAuthUrl({ emailAccountId }: { emailAccountId: string }) {
     type: SLACK_OAUTH_STATE_TYPE,
   });
 
-  const redirectUri = `${env.NEXT_PUBLIC_BASE_URL}/api/slack/callback`;
+  const redirectUri = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/slack/callback`;
 
   const params = new URLSearchParams({
     client_id: env.SLACK_CLIENT_ID!,

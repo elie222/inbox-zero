@@ -201,7 +201,7 @@ async function exchangeCodeForTokens(
       client_id: env.SLACK_CLIENT_ID!,
       client_secret: env.SLACK_CLIENT_SECRET!,
       code,
-      redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/slack/callback`,
+      redirect_uri: `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/slack/callback`,
     }),
   });
 
