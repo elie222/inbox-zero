@@ -3,6 +3,7 @@ export { createSlackClient } from "./client";
 export { listChannels, type SlackChannel } from "./channels";
 export {
   sendMeetingBriefingToSlack,
+  sendChannelConfirmation,
   type SlackBriefingParams,
 } from "./send";
 export {

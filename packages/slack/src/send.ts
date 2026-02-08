@@ -34,3 +34,18 @@ export async function sendMeetingBriefingToSlack({
     text: `Briefing for ${meetingTitle}, starting at ${formattedTime}`,
   });
 }
+
+export async function sendChannelConfirmation({
+  accessToken,
+  channelId,
+}: {
+  accessToken: string;
+  channelId: string;
+}): Promise<void> {
+  const client = createSlackClient(accessToken);
+
+  await client.chat.postMessage({
+    channel: channelId,
+    text: "Inbox Zero connected! Meeting briefings will be delivered to this channel.",
+  });
+}

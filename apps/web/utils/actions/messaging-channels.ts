@@ -9,13 +9,14 @@ import {
 } from "@/utils/actions/messaging-channels.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
+import { sendChannelConfirmation } from "@inboxzero/slack";
 
 export const updateChannelTargetAction = actionClient
   .metadata({ name: "updateChannelTarget" })
   .inputSchema(updateChannelTargetBody)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, logger },
       parsedInput: { channelId, targetId, targetName },
     }) => {
       const channel = await prisma.messagingChannel.findFirst({
@@ -36,6 +37,13 @@ export const updateChannelTargetAction = actionClient
           channelId: targetId,
           channelName: targetName,
         },
+      });
+
+      sendChannelConfirmation({
+        accessToken: channel.accessToken,
+        channelId: targetId,
+      }).catch((error) => {
+        logger.error("Failed to send channel confirmation", { error });
       });
     },
   );
