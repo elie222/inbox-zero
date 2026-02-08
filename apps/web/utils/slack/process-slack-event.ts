@@ -94,7 +94,7 @@ export async function processSlackEvent(
   let messageText = text ?? "";
   if (type === "app_mention" && messagingChannel.providerUserId) {
     messageText = messageText
-      .replace(new RegExp(`<@${messagingChannel.providerUserId}>`, "g"), "")
+      .replaceAll(`<@${messagingChannel.providerUserId}>`, "")
       .trim();
   }
 
@@ -111,15 +111,12 @@ export async function processSlackEvent(
     ? `slack-${channel}-${thread_ts}`
     : `slack-${channel}`;
 
-  const chat =
-    (await prisma.chat.findUnique({
-      where: { id: chatId },
-      include: { messages: true },
-    })) ??
-    (await prisma.chat.create({
-      data: { id: chatId, emailAccountId },
-      include: { messages: true },
-    }));
+  const chat = await prisma.chat.upsert({
+    where: { id: chatId },
+    create: { id: chatId, emailAccountId },
+    update: {},
+    include: { messages: true },
+  });
 
   // Build message history
   const existingMessages: UIMessage[] = chat.messages.map((m) => ({

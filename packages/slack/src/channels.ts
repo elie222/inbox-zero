@@ -6,9 +6,12 @@ export type SlackChannel = {
   isPrivate: boolean;
 };
 
+const MAX_PAGES = 10;
+
 export async function listChannels(client: WebClient): Promise<SlackChannel[]> {
   const channels: SlackChannel[] = [];
   let cursor: string | undefined;
+  let pages = 0;
 
   do {
     const response = await client.conversations.list({
@@ -31,7 +34,8 @@ export async function listChannels(client: WebClient): Promise<SlackChannel[]> {
     }
 
     cursor = response.response_metadata?.next_cursor;
-  } while (cursor);
+    pages++;
+  } while (cursor && pages < MAX_PAGES);
 
   return channels.sort((a, b) => a.name.localeCompare(b.name));
 }
