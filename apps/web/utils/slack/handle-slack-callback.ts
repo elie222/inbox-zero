@@ -7,10 +7,9 @@ import {
   redirectWithMessage,
   redirectWithError,
 } from "@/utils/oauth/redirect";
-import { verifyEmailAccountAccess } from "@/utils/oauth/verify";
 import { SLACK_STATE_COOKIE_NAME } from "./constants";
 import prisma from "@/utils/prisma";
-import { parseOAuthState } from "@/utils/oauth/state";
+import { parseOAuthState, parseSignedOAuthState } from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
 import { MessagingProvider } from "@/generated/prisma/enums";
 
@@ -39,43 +38,21 @@ export async function handleSlackCallback(
   let redirectHeaders = new Headers();
 
   try {
-    const { code, redirectUrl, response } = validateOAuthCallback(
-      request,
-      logger,
-    );
+    const { code, redirectUrl, response, receivedState, allowUnsignedState } =
+      validateOAuthCallback(request, logger);
     redirectHeaders = response.headers;
-
-    const receivedState = request.nextUrl.searchParams.get("state");
-    if (!receivedState) {
-      throw new Error("Missing validated state");
-    }
 
     const decodedState = parseAndValidateSlackState(
       receivedState,
       logger,
       redirectUrl,
       response.headers,
+      allowUnsignedState,
     );
 
     const { emailAccountId } = decodedState;
 
     const finalRedirectUrl = buildSettingsRedirectUrl(emailAccountId);
-
-    // When WEBHOOK_URL differs from NEXT_PUBLIC_BASE_URL, the session cookie
-    // won't be sent to the callback domain. Skip session-based ownership check
-    // in that case — the auth-url endpoint (protected by withEmailAccount)
-    // already verified ownership before generating this state.
-    const webhookDiffers =
-      env.WEBHOOK_URL && env.WEBHOOK_URL !== env.NEXT_PUBLIC_BASE_URL;
-
-    if (!webhookDiffers) {
-      await verifyEmailAccountAccess(
-        emailAccountId,
-        logger,
-        finalRedirectUrl,
-        response.headers,
-      );
-    }
 
     const tokens = await exchangeCodeForTokens(code);
 
@@ -116,10 +93,8 @@ export async function handleSlackCallback(
     try {
       const state = request.nextUrl.searchParams.get("state");
       if (state) {
-        const parsed = parseOAuthState<{ emailAccountId?: string }>(state);
-        if (parsed?.emailAccountId) {
-          errorPath = prefixPath(parsed.emailAccountId, "/settings");
-        }
+        const parsed = extractEmailAccountIdFromState(state);
+        if (parsed) errorPath = prefixPath(parsed, "/settings");
       }
     } catch {
       // Ignore — use fallback path
@@ -141,6 +116,8 @@ function validateOAuthCallback(
   code: string;
   redirectUrl: URL;
   response: NextResponse;
+  receivedState: string;
+  allowUnsignedState: boolean;
 } {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
@@ -159,16 +136,13 @@ function validateOAuthCallback(
     throw new RedirectError(redirectUrl, response.headers);
   }
 
-  // When WEBHOOK_URL differs from NEXT_PUBLIC_BASE_URL, the state cookie
-  // won't be sent to the callback domain. Skip the cookie check — the state
-  // is still validated structurally via parseAndValidateSlackState.
-  const webhookDiffers =
-    env.WEBHOOK_URL && env.WEBHOOK_URL !== env.NEXT_PUBLIC_BASE_URL;
+  if (!receivedState) {
+    logger.warn("Missing state in Slack callback");
+    redirectUrl.searchParams.set("error", "missing_state");
+    throw new RedirectError(redirectUrl, response.headers);
+  }
 
-  if (
-    !webhookDiffers &&
-    (!storedState || !receivedState || storedState !== receivedState)
-  ) {
+  if (storedState && storedState !== receivedState) {
     logger.warn("Invalid state during Slack callback", {
       receivedState,
       hasStoredState: !!storedState,
@@ -177,25 +151,45 @@ function validateOAuthCallback(
     throw new RedirectError(redirectUrl, response.headers);
   }
 
-  return { code, redirectUrl, response };
+  return {
+    code,
+    redirectUrl,
+    response,
+    receivedState,
+    allowUnsignedState: storedState === receivedState,
+  };
 }
 
 function parseAndValidateSlackState(
-  storedState: string,
+  receivedState: string,
   logger: Logger,
   redirectUrl: URL,
   responseHeaders: Headers,
+  allowUnsignedState: boolean,
 ) {
   let rawState: unknown;
   try {
-    rawState = parseOAuthState<{
+    rawState = parseSignedOAuthState<{
       emailAccountId: string;
       type: "slack";
-    }>(storedState);
-  } catch (error) {
-    logger.error("Failed to decode state", { error });
-    redirectUrl.searchParams.set("error", "invalid_state_format");
-    throw new RedirectError(redirectUrl, responseHeaders);
+    }>(receivedState);
+  } catch (signedError) {
+    if (!allowUnsignedState) {
+      logger.error("Failed to decode signed state", { error: signedError });
+      redirectUrl.searchParams.set("error", "invalid_state_format");
+      throw new RedirectError(redirectUrl, responseHeaders);
+    }
+
+    try {
+      rawState = parseOAuthState<{
+        emailAccountId: string;
+        type: "slack";
+      }>(receivedState);
+    } catch (legacyError) {
+      logger.error("Failed to decode state", { error: legacyError });
+      redirectUrl.searchParams.set("error", "invalid_state_format");
+      throw new RedirectError(redirectUrl, responseHeaders);
+    }
   }
 
   const validationResult = slackOAuthStateSchema.safeParse(rawState);
@@ -208,6 +202,16 @@ function parseAndValidateSlackState(
   }
 
   return validationResult.data;
+}
+
+function extractEmailAccountIdFromState(state: string): string | null {
+  try {
+    const parsed = parseSignedOAuthState<{ emailAccountId?: string }>(state);
+    return parsed.emailAccountId ?? null;
+  } catch {
+    const parsed = parseOAuthState<{ emailAccountId?: string }>(state);
+    return parsed.emailAccountId ?? null;
+  }
 }
 
 function buildSettingsRedirectUrl(emailAccountId: string): URL {

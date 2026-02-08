@@ -7,7 +7,7 @@ import {
   SLACK_SCOPES,
 } from "@/utils/slack/constants";
 import {
-  generateOAuthState,
+  generateSignedOAuthState,
   oauthStateCookieOptions,
 } from "@/utils/oauth/state";
 
@@ -34,7 +34,7 @@ export const GET = withEmailAccount("slack/auth-url", async (request) => {
 });
 
 function getAuthUrl({ emailAccountId }: { emailAccountId: string }) {
-  const state = generateOAuthState({
+  const state = generateSignedOAuthState({
     emailAccountId,
     type: SLACK_OAUTH_STATE_TYPE,
   });
