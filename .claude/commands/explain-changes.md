@@ -1,5 +1,5 @@
 ---
-description: Review recent changes and provide a structured summary with security checks
+description: Explain recent changes and provide a structured summary with security checks
 ---
 
 Review the recent changes and provide:
