@@ -107,7 +107,7 @@ export function DeliveryChannelsSetting() {
             ))}
           </LoadingContent>
 
-          {!hasSlack && (
+          {!isLoadingChannels && !hasSlack && (
             <MutedText className="text-xs">
               Want to receive briefs in Slack?{" "}
               <Link
