@@ -19,7 +19,7 @@ import type { GetSlackAuthUrlResponse } from "@/app/api/slack/auth-url/route";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 
 const PROVIDER_CONFIG: Record<
-  string,
+  MessagingProvider,
   { name: string; icon: typeof MessageSquareIcon }
 > = {
   SLACK: { name: "Slack", icon: HashIcon },

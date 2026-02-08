@@ -32,7 +32,7 @@ import { prefixPath } from "@/utils/path";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 
 const PROVIDER_CONFIG: Record<
-  string,
+  MessagingProvider,
   {
     name: string;
     icon: typeof MessageSquareIcon;
@@ -44,8 +44,11 @@ const PROVIDER_CONFIG: Record<
 
 export function DeliveryChannelsSetting() {
   const { emailAccountId } = useAccount();
-  const { data: briefSettings, mutate: mutateBriefSettings } =
-    useMeetingBriefSettings();
+  const {
+    data: briefSettings,
+    isLoading: isLoadingBriefSettings,
+    mutate: mutateBriefSettings,
+  } = useMeetingBriefSettings();
   const {
     data: channelsData,
     isLoading: isLoadingChannels,
@@ -88,6 +91,7 @@ export function DeliveryChannelsSetting() {
             <Toggle
               name="emailDelivery"
               enabled={briefSettings?.meetingBriefsSendEmail ?? true}
+              disabled={isLoadingBriefSettings}
               onChange={(sendEmail) => executeEmailDelivery({ sendEmail })}
             />
           </div>
@@ -139,9 +143,11 @@ function ChannelRow({
   const Icon = config?.icon ?? MessageSquareIcon;
   const [selectingTarget, setSelectingTarget] = useState(!channel.channelId);
 
-  const { data: targetsData, isLoading: isLoadingTargets } = useChannelTargets(
-    selectingTarget ? channel.id : null,
-  );
+  const {
+    data: targetsData,
+    isLoading: isLoadingTargets,
+    error: targetsError,
+  } = useChannelTargets(selectingTarget ? channel.id : null);
 
   const { execute: executeTarget } = useAction(
     updateSlackChannelAction.bind(null, emailAccountId),
@@ -194,12 +200,16 @@ function ChannelRow({
                   });
                 }
               }}
-              disabled={isLoadingTargets}
+              disabled={isLoadingTargets || !!targetsError}
             >
               <SelectTrigger className="h-8 w-48 text-xs">
                 <SelectValue
                   placeholder={
-                    isLoadingTargets ? "Loading channels..." : "Select channel"
+                    targetsError
+                      ? "Failed to load channels"
+                      : isLoadingTargets
+                        ? "Loading channels..."
+                        : "Select channel"
                   }
                 />
               </SelectTrigger>
