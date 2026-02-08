@@ -243,10 +243,9 @@ export function parsePortConflict(stderr: string): string | null {
     return `Port ${match[1]} is already in use by another process.`;
   }
 
-  const addrMatch = stderr.match(/(\d+):\s*address already in use|address already in use[^\d]*(\d+)/);
+  const addrMatch = stderr.match(/:(\d+):\s*address already in use/);
   if (addrMatch) {
-    const port = addrMatch[1] || addrMatch[2];
-    return `Port ${port} is already in use by another process.`;
+    return `Port ${addrMatch[1]} is already in use by another process.`;
   }
 
   return null;

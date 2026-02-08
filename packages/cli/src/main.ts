@@ -114,37 +114,6 @@ function fixComposeEnvPaths(composeContent: string): string {
     .replace(/- .\/apps\/web\/.env/g, "- ./.env");
 }
 
-function runDockerCommand(
-  args: string[],
-): Promise<{ status: number; stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("docker", args, { stdio: "pipe" });
-    const stdoutChunks: Buffer[] = [];
-    const stderrChunks: Buffer[] = [];
-
-    child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
-    child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
-
-    child.on("close", (code) => {
-      resolve({
-        status: code ?? 1,
-        stdout: Buffer.concat(stdoutChunks).toString(),
-        stderr: Buffer.concat(stderrChunks).toString(),
-      });
-    });
-
-    child.on("error", reject);
-  });
-}
-
-function checkContainersRunning(composeArgs: string[]): boolean {
-  const result = spawnSync("docker", [...composeArgs, "ps", "-q"], {
-    stdio: "pipe",
-  });
-  if (result.status !== 0) return false;
-  return (result.stdout?.toString().trim() ?? "") !== "";
-}
-
 function findEnvFile(name?: string): string | null {
   const envFileName = name ? `.env.${name}` : ".env";
 
@@ -1387,9 +1356,12 @@ async function runStart(options: { detach: boolean }) {
     const child = spawn("docker", [...composeArgs, "--profile", "all", "up"], {
       stdio: "inherit",
     });
-    await new Promise<void>((resolve) => {
-      child.on("close", () => resolve());
+    const code = await new Promise<number | null>((resolve) => {
+      child.on("close", (c) => resolve(c));
     });
+    if (code !== 0) {
+      process.exit(code ?? 1);
+    }
   }
 }
 
@@ -1524,9 +1496,26 @@ async function runUpdate() {
     await runDockerCommand([
       "compose", "-f", STANDALONE_COMPOSE_FILE, "down",
     ]);
-    await runDockerCommand([
+    const upResult = await runDockerCommand([
       "compose", "-f", STANDALONE_COMPOSE_FILE, "--profile", "all", "up", "-d",
     ]);
+
+    if (upResult.status !== 0) {
+      const portError = parsePortConflict(upResult.stderr);
+      spinner.stop("Failed to restart");
+      if (portError) {
+        p.log.error(portError);
+        p.log.info(
+          "Stop the conflicting process or change the port:\n" +
+            "  inbox-zero config set WEB_PORT <port>\n" +
+            "  inbox-zero config set POSTGRES_PORT <port>\n" +
+            "  inbox-zero config set REDIS_PORT <port>",
+        );
+      } else {
+        p.log.error(upResult.stderr || "Unknown error");
+      }
+      process.exit(1);
+    }
 
     spinner.stop("Restarted");
   }
@@ -1747,6 +1736,41 @@ async function fetchDockerCompose(): Promise<string> {
     );
   }
   return response.text();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Docker Command Helpers
+// ═══════════════════════════════════════════════════════════════════════════
+
+function runDockerCommand(
+  args: string[],
+): Promise<{ status: number; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("docker", args, { stdio: "pipe" });
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+
+    child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
+
+    child.on("close", (code) => {
+      resolve({
+        status: code ?? 1,
+        stdout: Buffer.concat(stdoutChunks).toString(),
+        stderr: Buffer.concat(stderrChunks).toString(),
+      });
+    });
+
+    child.on("error", reject);
+  });
+}
+
+function checkContainersRunning(composeArgs: string[]): boolean {
+  const result = spawnSync("docker", [...composeArgs, "ps", "-q"], {
+    stdio: "pipe",
+  });
+  if (result.status !== 0) return false;
+  return (result.stdout?.toString().trim() ?? "") !== "";
 }
 
 // Only run main() when executed directly, not when imported for testing
