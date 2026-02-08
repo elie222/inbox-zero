@@ -9,7 +9,6 @@ import { useDriveConnections } from "@/hooks/useDriveConnections";
 import { DriveConnections } from "./DriveConnections";
 import { FilingPreferences } from "./FilingPreferences";
 import { FilingActivity } from "./FilingActivity";
-import { FilingNotificationChannels } from "./FilingNotificationChannels";
 import { DriveOnboarding } from "./DriveOnboarding";
 import { DriveSetup } from "./DriveSetup";
 import { Switch } from "@/components/ui/switch";
@@ -100,7 +99,6 @@ export default function DrivePage() {
             >
               <DriveConnections />
               <FilingPreferences />
-              <FilingNotificationChannels />
               <FilingActivity />
             </div>
           </>
