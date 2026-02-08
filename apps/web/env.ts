@@ -47,8 +47,7 @@ export const env = createEnv({
 
     DEFAULT_LLM_PROVIDER: z
       // custom is deprecated
-      .enum([...llmProviderEnum.options, "custom"])
-      .default("anthropic"),
+      .enum([...llmProviderEnum.options, "custom"]),
     DEFAULT_LLM_MODEL: z.string().optional(),
     DEFAULT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for default model (e.g., "Google Vertex,Anthropic")
     // Set this to a cheaper model like Gemini Flash
