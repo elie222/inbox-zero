@@ -200,7 +200,10 @@ export function updateEnvValue(
   value: string,
 ): string {
   const needsQuotes = /[\s"'#]/.test(value) || value.includes("://");
-  const formatted = needsQuotes ? `"${value}"` : value;
+  const escaped = needsQuotes
+    ? value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    : value;
+  const formatted = needsQuotes ? `"${escaped}"` : value;
 
   const uncommented = new RegExp(`^${key}=.*$`, "m");
   if (uncommented.test(content)) {

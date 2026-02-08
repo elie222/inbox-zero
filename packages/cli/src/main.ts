@@ -112,12 +112,17 @@ function fixComposeEnvPaths(composeContent: string): string {
     .replace(/- .\/apps\/web\/.env/g, "- ./.env");
 }
 
-function findEnvFile(): string | null {
+function findEnvFile(name?: string): string | null {
+  const envFileName = name ? `.env.${name}` : ".env";
+
   if (REPO_ROOT) {
-    const repoEnv = resolve(REPO_ROOT, "apps/web/.env");
+    const repoEnv = resolve(REPO_ROOT, "apps/web", envFileName);
     if (existsSync(repoEnv)) return repoEnv;
   }
-  if (existsSync(STANDALONE_ENV_FILE)) return STANDALONE_ENV_FILE;
+
+  const standaloneEnv = resolve(STANDALONE_CONFIG_DIR, envFileName);
+  if (existsSync(standaloneEnv)) return standaloneEnv;
+
   return null;
 }
 
@@ -165,19 +170,29 @@ async function main() {
 
   const configCmd = program
     .command("config")
-    .description("View and update configuration");
+    .description("View and update configuration")
+    .option("-n, --name <name>", "Configuration name (e.g., staging)");
 
   configCmd
     .command("set <key> <value>")
     .description("Set a configuration value")
-    .action(runConfigSet);
+    .action((key: string, value: string) => {
+      const name = configCmd.opts().name;
+      return runConfigSet(key, value, name);
+    });
 
   configCmd
     .command("get <key>")
     .description("Get a configuration value")
-    .action(runConfigGet);
+    .action((key: string) => {
+      const name = configCmd.opts().name;
+      return runConfigGet(key, name);
+    });
 
-  configCmd.action(runConfigInteractive);
+  configCmd.action(() => {
+    const name = configCmd.opts().name;
+    return runConfigInteractive(name);
+  });
 
   program
     .command("setup-google")
@@ -516,7 +531,7 @@ async function runSetupQuick(options: { name?: string }) {
   // ── Step 3: Start ──
 
   p.note(
-    `Environment file: ${envFile}\n` + `Docker Compose: ${composeFile}`,
+    `Environment file: ${envFile}\nDocker Compose: ${composeFile}`,
     "Files created",
   );
 
@@ -1474,21 +1489,22 @@ const CONFIG_CATEGORIES: Record<
   },
 };
 
-function requireEnvFile(): { envFile: string; content: string } {
-  const envFile = findEnvFile();
+function requireEnvFile(name?: string): { envFile: string; content: string } {
+  const envFile = findEnvFile(name);
   if (!envFile) {
+    const suffix = name ? ` (${name})` : "";
     p.log.error(
-      "No .env file found.\nRun 'inbox-zero setup' first to create one.",
+      `No .env file found${suffix}.\nRun 'inbox-zero setup' first to create one.`,
     );
     process.exit(1);
   }
   return { envFile, content: readFileSync(envFile, "utf-8") };
 }
 
-async function runConfigInteractive() {
+async function runConfigInteractive(name?: string) {
   p.intro("Inbox Zero Configuration");
 
-  const { envFile, content } = requireEnvFile();
+  const { envFile, content } = requireEnvFile(name);
   const env = parseEnvFile(content);
 
   const category = await p.select({
@@ -1561,15 +1577,26 @@ async function runConfigInteractive() {
   p.outro("Done!");
 }
 
-async function runConfigSet(key: string, value: string) {
-  const { envFile, content } = requireEnvFile();
+const VALID_CONFIG_KEYS = new Set(
+  Object.values(CONFIG_CATEGORIES).flatMap((c) => c.keys),
+);
+
+async function runConfigSet(key: string, value: string, name?: string) {
+  if (!VALID_CONFIG_KEYS.has(key)) {
+    p.log.error(`Unknown key: ${key}`);
+    p.log.info(
+      `Valid keys:\n${[...VALID_CONFIG_KEYS].map((k) => `  ${k}`).join("\n")}`,
+    );
+    process.exit(1);
+  }
+  const { envFile, content } = requireEnvFile(name);
   const updated = updateEnvValue(content, key, value);
   writeFileSync(envFile, updated);
   p.log.success(`Set ${key}`);
 }
 
-async function runConfigGet(key: string) {
-  const { content } = requireEnvFile();
+async function runConfigGet(key: string, name?: string) {
+  const { content } = requireEnvFile(name);
   const env = parseEnvFile(content);
   const value = env[key];
   if (value === undefined) {

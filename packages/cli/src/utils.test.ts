@@ -498,6 +498,12 @@ describe("updateEnvValue", () => {
     expect(result).toContain("FOO=simple");
     expect(result).not.toContain('"simple"');
   });
+
+  it("should escape double quotes in values", () => {
+    const content = "FOO=old";
+    const result = updateEnvValue(content, "FOO", 'hello"world');
+    expect(result).toContain('FOO="hello\\"world"');
+  });
 });
 
 describe("redactValue", () => {
