@@ -32,22 +32,11 @@ export interface AwsSetupOptions {
   region?: string;
   environment?: string;
   yes?: boolean; // Non-interactive mode with defaults
-  importVpcId?: string;
-  importPublicSubnets?: string;
-  importPrivateSubnets?: string;
-  importCertArns?: string;
 }
 
 interface SecretConfig {
   name: string;
   value: string;
-}
-
-interface VpcImportConfig {
-  vpcId: string;
-  publicSubnets: string[];
-  privateSubnets: string[];
-  certArns?: string[];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -272,112 +261,6 @@ export async function runAwsSetup(options: AwsSetupOptions) {
       }
 
       envName = envInput;
-    }
-  }
-
-  // Step 5: Existing VPC import (optional)
-  let vpcImport: VpcImportConfig | null = null;
-  const flagVpcId = options.importVpcId?.trim();
-  const flagPublicSubnets = parseCsvList(options.importPublicSubnets);
-  const flagPrivateSubnets = parseCsvList(options.importPrivateSubnets);
-  const flagCertArns = parseCsvList(options.importCertArns);
-  const hasVpcFlags =
-    !!flagVpcId ||
-    flagPublicSubnets.length > 0 ||
-    flagPrivateSubnets.length > 0 ||
-    flagCertArns.length > 0;
-
-  if (hasVpcFlags) {
-    if (
-      !flagVpcId ||
-      flagPublicSubnets.length === 0 ||
-      flagPrivateSubnets.length === 0
-    ) {
-      p.log.error(
-        "Using an existing VPC requires --import-vpc-id, --import-public-subnets, and --import-private-subnets.",
-      );
-      process.exit(1);
-    }
-    vpcImport = {
-      vpcId: flagVpcId,
-      publicSubnets: flagPublicSubnets,
-      privateSubnets: flagPrivateSubnets,
-      certArns: flagCertArns.length ? flagCertArns : undefined,
-    };
-    p.log.info(`Using existing VPC: ${vpcImport.vpcId}`);
-  } else if (!nonInteractive) {
-    const useExistingVpc = await p.confirm({
-      message: "Use an existing VPC?",
-      initialValue: false,
-    });
-
-    if (p.isCancel(useExistingVpc)) {
-      p.cancel("Setup cancelled.");
-      process.exit(0);
-    }
-
-    if (useExistingVpc) {
-      const vpcInput = await p.text({
-        message: "VPC ID:",
-        placeholder: "vpc-xxxxxxxx",
-        validate: (v) => (v ? undefined : "VPC ID is required"),
-      });
-
-      if (p.isCancel(vpcInput)) {
-        p.cancel("Setup cancelled.");
-        process.exit(0);
-      }
-
-      const publicInput = await p.text({
-        message: "Public subnet IDs (comma-separated):",
-        placeholder: "subnet-aaa,subnet-bbb",
-        validate: (v) => (v ? undefined : "Public subnets are required"),
-      });
-
-      if (p.isCancel(publicInput)) {
-        p.cancel("Setup cancelled.");
-        process.exit(0);
-      }
-
-      const privateInput = await p.text({
-        message: "Private subnet IDs (comma-separated):",
-        placeholder: "subnet-ccc,subnet-ddd",
-        validate: (v) => (v ? undefined : "Private subnets are required"),
-      });
-
-      if (p.isCancel(privateInput)) {
-        p.cancel("Setup cancelled.");
-        process.exit(0);
-      }
-
-      const certInput = await p.text({
-        message:
-          "ACM cert ARNs for the public ALB (optional, comma-separated):",
-        placeholder: "arn:aws:acm:region:account:certificate/...",
-      });
-
-      if (p.isCancel(certInput)) {
-        p.cancel("Setup cancelled.");
-        process.exit(0);
-      }
-
-      const publicSubnets = parseCsvList(publicInput);
-      const privateSubnets = parseCsvList(privateInput);
-      const certArns = parseCsvList(certInput);
-
-      vpcImport = {
-        vpcId: vpcInput,
-        publicSubnets,
-        privateSubnets,
-        certArns: certArns.length ? certArns : undefined,
-      };
-
-      if (vpcImport.publicSubnets.length < 2) {
-        p.log.warn("Copilot recommends at least 2 public subnets.");
-      }
-      if (vpcImport.privateSubnets.length < 2) {
-        p.log.warn("Copilot recommends at least 2 private subnets.");
-      }
     }
   }
 
@@ -664,7 +547,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
 • AWS Profile: ${profile}
 • AWS Region: ${region}
 • Environment: ${envName}
-• VPC: ${vpcImport ? `Existing (${vpcImport.vpcId})` : "Copilot-managed"}
+• VPC: Copilot-managed
 • RDS Instance: ${rdsSize}
 • Redis: ${enableRedis ? `Yes (${redisSize})` : "No"}
 • Domain: ${domain || "(none)"}
@@ -754,7 +637,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
   // Step 15: Initialize environment
   spinner.start(`Initializing ${envName} environment...`);
 
-  const envInitResult = initCopilotEnv(envName, profile, env, vpcImport);
+  const envInitResult = initCopilotEnv(envName, profile, env);
   if (!envInitResult.success) {
     spinner.stop("Failed to initialize environment");
     p.log.error(envInitResult.error || "Unknown error");
@@ -822,7 +705,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
 
       // Re-init environment
       spinner.start("Re-initializing environment...");
-      initCopilotEnv(envName, profile, env, vpcImport);
+      initCopilotEnv(envName, profile, env);
       spinner.stop("Environment re-initialized");
 
       spinner.start(
@@ -1647,20 +1530,16 @@ function initCopilotEnv(
   envName: string,
   profile: string,
   env: NodeJS.ProcessEnv,
-  vpcImport?: VpcImportConfig | null,
 ): { success: boolean; error?: string } {
-  const args = ["env", "init", "--name", envName, "--profile", profile];
-
-  if (vpcImport?.vpcId) {
-    args.push("--import-vpc-id", vpcImport.vpcId);
-    args.push("--import-public-subnets", vpcImport.publicSubnets.join(","));
-    args.push("--import-private-subnets", vpcImport.privateSubnets.join(","));
-    if (vpcImport.certArns?.length) {
-      args.push("--import-cert-arns", vpcImport.certArns.join(","));
-    }
-  } else {
-    args.push("--default-config");
-  }
+  const args = [
+    "env",
+    "init",
+    "--name",
+    envName,
+    "--profile",
+    profile,
+    "--default-config",
+  ];
 
   const result = spawnSync("copilot", args, { stdio: "pipe", env });
 
@@ -1919,14 +1798,6 @@ function normalizeSecretReference(content: string, secretName: string): string {
 
 function getSecretReference(secretName: string): string {
   return `/copilot/\${COPILOT_APPLICATION_NAME}/\${COPILOT_ENVIRONMENT_NAME}/secrets/${secretName}`;
-}
-
-function parseCsvList(value?: string): string[] {
-  if (!value) return [];
-  return value
-    .split(/[,\s]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function removeSecrets(content: string, secretNames: string[]): string {

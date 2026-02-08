@@ -125,16 +125,6 @@ async function main() {
     .option("--profile <profile>", "AWS CLI profile to use")
     .option("--region <region>", "AWS region")
     .option("--environment <env>", "Environment name (e.g., production)")
-    .option("--import-vpc-id <id>", "Use an existing VPC ID")
-    .option(
-      "--import-public-subnets <ids>",
-      "Comma-separated public subnet IDs",
-    )
-    .option(
-      "--import-private-subnets <ids>",
-      "Comma-separated private subnet IDs",
-    )
-    .option("--import-cert-arns <arns>", "Comma-separated ACM certificate ARNs")
     .option("-y, --yes", "Non-interactive mode with defaults")
     .action(runAwsSetup);
 
