@@ -61,11 +61,10 @@ export async function handleSlackCallback(
 
     const finalRedirectUrl = buildSettingsRedirectUrl(emailAccountId);
 
-    // When WEBHOOK_URL differs (ngrok), the session cookie isn't sent to the
-    // external domain. Skip session-based ownership check in that case — the
-    // auth-url endpoint (protected by withEmailAccount) already verified
-    // ownership before generating this state, and the state round-tripped
-    // through Slack's OAuth proving the user initiated the flow.
+    // When WEBHOOK_URL differs from NEXT_PUBLIC_BASE_URL, the session cookie
+    // won't be sent to the callback domain. Skip session-based ownership check
+    // in that case — the auth-url endpoint (protected by withEmailAccount)
+    // already verified ownership before generating this state.
     const webhookDiffers =
       env.WEBHOOK_URL && env.WEBHOOK_URL !== env.NEXT_PUBLIC_BASE_URL;
 
@@ -160,11 +159,9 @@ function validateOAuthCallback(
     throw new RedirectError(redirectUrl, response.headers);
   }
 
-  // When WEBHOOK_URL differs from NEXT_PUBLIC_BASE_URL (e.g. ngrok for local
-  // dev), the cookie set on localhost won't be sent to the ngrok domain.
-  // In that case we skip the cookie check — the state is still validated
-  // structurally (parseAndValidateSlackState) and the emailAccountId ownership
-  // is verified via session (verifyEmailAccountAccess).
+  // When WEBHOOK_URL differs from NEXT_PUBLIC_BASE_URL, the state cookie
+  // won't be sent to the callback domain. Skip the cookie check — the state
+  // is still validated structurally via parseAndValidateSlackState.
   const webhookDiffers =
     env.WEBHOOK_URL && env.WEBHOOK_URL !== env.NEXT_PUBLIC_BASE_URL;
 
