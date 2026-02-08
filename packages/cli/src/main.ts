@@ -18,6 +18,7 @@ import {
 import { runGoogleSetup } from "./setup-google";
 import { runAwsSetup } from "./setup-aws";
 import { runTerraformSetup } from "./setup-terraform";
+import packageJson from "../package.json" with { type: "json" };
 
 // Detect if we're running from within the repo
 function findRepoRoot(): string | null {
@@ -132,7 +133,7 @@ async function main() {
   program
     .name("inbox-zero")
     .description("CLI tool for running Inbox Zero - AI email assistant")
-    .version("2.21.38");
+    .version(packageJson.version);
 
   program
     .command("setup")

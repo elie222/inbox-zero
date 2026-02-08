@@ -51,6 +51,39 @@ jobs:
           name: ${{ matrix.artifact }}
           path: packages/cli/dist/${{ matrix.artifact }}.tar.gz
 
+  publish-npm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Set version from tag
+        if: github.ref_type == 'tag'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd packages/cli
+          npm version "$VERSION" --no-git-tag-version
+
+      - name: Install dependencies
+        run: cd packages/cli && bun install
+
+      - name: Build
+        run: cd packages/cli && bun run build
+
+      - name: Publish to npm
+        run: cd packages/cli && npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
   release:
     needs: build
     runs-on: ubuntu-latest
