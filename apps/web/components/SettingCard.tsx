@@ -6,11 +6,13 @@ export function SettingCard({
   description,
   right,
   collapseOnMobile = false,
+  children,
 }: {
   title: string;
   description: string;
-  right: React.ReactNode;
+  right?: React.ReactNode;
   collapseOnMobile?: boolean;
+  children?: React.ReactNode;
 }) {
   return (
     <Card>
@@ -29,6 +31,7 @@ export function SettingCard({
 
           {right}
         </div>
+        {children}
       </CardContent>
     </Card>
   );
