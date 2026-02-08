@@ -1,9 +1,16 @@
+import type { KnownBlock, Block } from "@slack/types";
 import type { WebClient } from "@slack/web-api";
 import { createSlackClient } from "./client";
 import {
   buildMeetingBriefingBlocks,
   type MeetingBriefingBlocksParams,
 } from "./messages/meeting-briefing";
+import {
+  buildDocumentFiledBlocks,
+  buildDocumentAskBlocks,
+  type DocumentFiledBlocksParams,
+  type DocumentAskBlocksParams,
+} from "./messages/document-filing";
 
 export type SlackBriefingParams = MeetingBriefingBlocksParams & {
   accessToken: string;
@@ -49,7 +56,52 @@ export async function sendChannelConfirmation({
   });
 }
 
-type Blocks = ReturnType<typeof buildMeetingBriefingBlocks>;
+export type SlackDocumentFiledParams = DocumentFiledBlocksParams & {
+  accessToken: string;
+  channelId: string;
+};
+
+export async function sendDocumentFiledToSlack({
+  accessToken,
+  channelId,
+  filename,
+  folderPath,
+  driveProvider,
+}: SlackDocumentFiledParams): Promise<void> {
+  const client = createSlackClient(accessToken);
+  const blocks = buildDocumentFiledBlocks({
+    filename,
+    folderPath,
+    driveProvider,
+  });
+
+  await postMessageWithJoin(client, channelId, {
+    blocks,
+    text: `Filed ${filename} to ${folderPath}`,
+  });
+}
+
+export type SlackDocumentAskParams = DocumentAskBlocksParams & {
+  accessToken: string;
+  channelId: string;
+};
+
+export async function sendDocumentAskToSlack({
+  accessToken,
+  channelId,
+  filename,
+  reasoning,
+}: SlackDocumentAskParams): Promise<void> {
+  const client = createSlackClient(accessToken);
+  const blocks = buildDocumentAskBlocks({ filename, reasoning });
+
+  await postMessageWithJoin(client, channelId, {
+    blocks,
+    text: `Where should I file ${filename}?`,
+  });
+}
+
+type Blocks = (KnownBlock | Block)[];
 
 async function postMessageWithJoin(
   client: WebClient,

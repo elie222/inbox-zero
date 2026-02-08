@@ -4,7 +4,11 @@ export { listChannels, type SlackChannel } from "./channels";
 export {
   sendMeetingBriefingToSlack,
   sendChannelConfirmation,
+  sendDocumentFiledToSlack,
+  sendDocumentAskToSlack,
   type SlackBriefingParams,
+  type SlackDocumentFiledParams,
+  type SlackDocumentAskParams,
 } from "./send";
 export {
   buildMeetingBriefingBlocks,

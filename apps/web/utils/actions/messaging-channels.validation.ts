@@ -8,7 +8,8 @@ export const updateSlackChannelBody = z.object({
 
 export const updateChannelFeaturesBody = z.object({
   channelId: z.string().min(1),
-  sendMeetingBriefs: z.boolean(),
+  sendMeetingBriefs: z.boolean().optional(),
+  sendDocumentFilings: z.boolean().optional(),
 });
 
 export const updateEmailDeliveryBody = z.object({

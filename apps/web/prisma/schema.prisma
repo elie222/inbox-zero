@@ -1000,7 +1000,8 @@ model MessagingChannel {
   channelName String?
 
   // Feature toggles
-  sendMeetingBriefs Boolean @default(false)
+  sendMeetingBriefs   Boolean @default(false)
+  sendDocumentFilings Boolean @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)

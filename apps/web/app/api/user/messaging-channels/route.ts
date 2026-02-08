@@ -24,6 +24,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       channelName: true,
       isConnected: true,
       sendMeetingBriefs: true,
+      sendDocumentFilings: true,
     },
     orderBy: { createdAt: "desc" },
   });

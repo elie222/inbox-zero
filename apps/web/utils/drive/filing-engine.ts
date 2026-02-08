@@ -15,6 +15,7 @@ import {
   sendFiledNotification,
   sendAskNotification,
 } from "@/utils/drive/filing-notifications";
+import { sendFilingSlackNotifications } from "@/utils/drive/filing-slack-notifications";
 
 // ============================================================================
 // Types
@@ -288,6 +289,16 @@ export async function processAttachment({
         // Don't fail the filing if notification fails
         log.error("Failed to send notification", { error: notificationError });
       }
+    }
+
+    try {
+      await sendFilingSlackNotifications({
+        emailAccountId: emailAccount.id,
+        filingId: filing.id,
+        logger: log,
+      });
+    } catch (slackError) {
+      log.error("Failed to send Slack notification", { error: slackError });
     }
 
     return {
