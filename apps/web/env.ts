@@ -16,8 +16,6 @@ const llmProviderEnum = z.enum([
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
 const getBaseUrl = (): string | undefined => {
-  // Don't override for the OAuth proxy server (staging) - it needs its custom domain
-  // for OAuth callbacks to work correctly
   const isOAuthProxyServer = process.env.IS_OAUTH_PROXY_SERVER === "true";
   if (
     process.env.VERCEL_ENV === "preview" &&
