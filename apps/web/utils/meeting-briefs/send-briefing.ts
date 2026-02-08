@@ -104,21 +104,6 @@ export async function sendBriefing({
     }
   }
 
-  // Fallback: if nothing is configured and email isn't disabled, send email
-  if (deliveryPromises.length === 0 && sendEmail) {
-    deliveryPromises.push(
-      sendBriefingViaEmail({
-        event,
-        briefingContent: briefingContentWithTeam,
-        emailAccountId,
-        userEmail,
-        provider,
-        formattedTime,
-        logger,
-      }),
-    );
-  }
-
   if (deliveryPromises.length === 0) {
     logger.info("No delivery channels configured, skipping briefing");
     return;
