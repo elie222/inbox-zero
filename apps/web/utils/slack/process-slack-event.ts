@@ -134,31 +134,34 @@ export async function processSlackEvent(
 
   const allMessages = [...existingMessages, newUserMessage];
 
-  // Save user message
-  await prisma.chatMessage.create({
-    data: {
+  // Save user message (upsert to handle Slack retries gracefully)
+  await prisma.chatMessage.upsert({
+    where: { id: userMessageId },
+    create: {
       id: userMessageId,
       chat: { connect: { id: chat.id } },
       role: "user",
       parts: newUserMessage.parts as Prisma.InputJsonValue,
     },
+    update: {},
   });
 
   const client = createSlackClient(accessToken);
   const replyThreadTs = type === "app_mention" ? (thread_ts ?? ts) : undefined;
 
   // Process with AI
+  const slackLogger = logger.with({ teamId, channel, emailAccountId });
   let fullText: string;
   try {
     const result = await aiProcessAssistantChat({
       messages: convertToModelMessages(allMessages),
       emailAccountId,
       user: emailAccountUser,
-      logger,
+      logger: slackLogger,
     });
     fullText = await result.text;
   } catch (error) {
-    logger.error("AI processing failed for Slack message", { error });
+    slackLogger.error("AI processing failed for Slack message", { error });
     await client.chat.postMessage({
       channel,
       text: "Sorry, I ran into an error processing your message. Please try again.",

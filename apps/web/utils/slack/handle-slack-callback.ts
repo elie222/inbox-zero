@@ -79,7 +79,7 @@ export async function handleSlackCallback(
       teamId: tokens.team.id,
       teamName: tokens.team.name,
       accessToken: tokens.access_token,
-      providerUserId: tokens.authed_user.id,
+      providerUserId: tokens.bot_user_id,
       emailAccountId,
     });
 
