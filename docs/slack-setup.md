@@ -70,7 +70,7 @@ This is used for the OAuth callback and events webhook URLs. `NEXT_PUBLIC_BASE_U
 The `MessagingChannel` model and `meetingBriefsSendEmail` column are created by the migration at:
 
 ```
-prisma/migrations/20260208000000_add_messaging_channels/
+apps/web/prisma/migrations/20260208000000_add_messaging_channels/
 ```
 
 Apply with:

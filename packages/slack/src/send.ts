@@ -58,7 +58,19 @@ async function postMessageWithJoin(
     await client.chat.postMessage({ ...message, channel: channelId });
   } catch (error: unknown) {
     if (isSlackError(error) && error.data?.error === "not_in_channel") {
-      await client.conversations.join({ channel: channelId });
+      try {
+        await client.conversations.join({ channel: channelId });
+      } catch (joinError: unknown) {
+        if (
+          isSlackError(joinError) &&
+          joinError.data?.error === "missing_scope"
+        ) {
+          throw new Error(
+            "Bot lacks channels:join scope. Please reconnect Slack in Settings to update permissions.",
+          );
+        }
+        throw joinError;
+      }
       await client.chat.postMessage({ ...message, channel: channelId });
       return;
     }

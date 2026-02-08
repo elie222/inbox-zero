@@ -214,13 +214,18 @@ function ChannelRow({
             </Select>
           </div>
         ) : (
-          <div className="font-medium text-sm">
+          <button
+            type="button"
+            className="font-medium text-sm text-left hover:underline"
+            onClick={() => setSelectingTarget(true)}
+            title="Change channel"
+          >
             {config?.name ?? channel.provider}{" "}
             <span className="text-muted-foreground font-normal">
               &middot; {config?.targetPrefix}
               {channel.channelName}
             </span>
-          </div>
+          </button>
         )}
       </div>
 

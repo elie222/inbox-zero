@@ -39,12 +39,14 @@ export const updateChannelTargetAction = actionClient
         },
       });
 
-      sendChannelConfirmation({
-        accessToken: channel.accessToken,
-        channelId: targetId,
-      }).catch((error) => {
-        logger.error("Failed to send channel confirmation", { error });
-      });
+      if (channel.accessToken) {
+        sendChannelConfirmation({
+          accessToken: channel.accessToken,
+          channelId: targetId,
+        }).catch((error) => {
+          logger.error("Failed to send channel confirmation", { error });
+        });
+      }
     },
   );
 
@@ -66,6 +68,12 @@ export const updateChannelFeaturesAction = actionClient
 
       if (!channel) {
         throw new SafeError("Messaging channel not found");
+      }
+
+      if (sendMeetingBriefs && !channel.channelId) {
+        throw new SafeError(
+          "Please select a target channel before enabling briefs",
+        );
       }
 
       await prisma.messagingChannel.update({

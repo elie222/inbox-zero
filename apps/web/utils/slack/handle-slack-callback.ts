@@ -20,22 +20,17 @@ const slackOAuthStateSchema = z.object({
   nonce: z.string().min(8).max(128),
 });
 
-type SlackOAuthResponse = {
-  ok: boolean;
-  access_token: string;
-  token_type: string;
-  scope: string;
-  bot_user_id: string;
-  app_id: string;
-  team: {
-    id: string;
-    name: string;
-  };
-  authed_user: {
-    id: string;
-  };
-  error?: string;
-};
+const slackOAuthResponseSchema = z.object({
+  ok: z.literal(true),
+  access_token: z.string().min(1),
+  bot_user_id: z.string().min(1),
+  team: z.object({
+    id: z.string().min(1),
+    name: z.string(),
+  }),
+});
+
+type SlackOAuthResponse = z.infer<typeof slackOAuthResponseSchema>;
 
 export async function handleSlackCallback(
   request: NextRequest,
@@ -115,15 +110,28 @@ export async function handleSlackCallback(
 
     logger.error("Error in Slack callback", { error });
 
-    const errorRedirectUrl = new URL(
-      "/settings?tab=email",
-      env.NEXT_PUBLIC_BASE_URL,
-    );
-    return redirectWithError(
-      errorRedirectUrl,
-      "connection_failed",
-      redirectHeaders,
-    );
+    // Best-effort: try to extract emailAccountId from the state param for a
+    // proper account-scoped redirect. Fall back to prefix-less /settings which
+    // the (redirects) page will handle.
+    let errorPath = "/settings";
+    try {
+      const state = request.nextUrl.searchParams.get("state");
+      if (state) {
+        const parsed = parseOAuthState<{ emailAccountId?: string }>(state);
+        if (parsed?.emailAccountId) {
+          errorPath = prefixPath(parsed.emailAccountId, "/settings");
+        }
+      }
+    } catch {
+      // Ignore — use fallback path
+    }
+
+    const errorRedirectUrl = new URL(errorPath, env.NEXT_PUBLIC_BASE_URL);
+    errorRedirectUrl.searchParams.set("tab", "email");
+    errorRedirectUrl.searchParams.set("error", "connection_failed");
+    return NextResponse.redirect(errorRedirectUrl, {
+      headers: redirectHeaders,
+    });
   }
 }
 
@@ -230,13 +238,20 @@ async function exchangeCodeForTokens(
     }),
   });
 
-  const data = (await response.json()) as SlackOAuthResponse;
+  const raw = await response.json();
 
-  if (!data.ok) {
-    throw new Error(`Slack OAuth error: ${data.error}`);
+  if (!raw.ok) {
+    throw new Error(`Slack OAuth error: ${raw.error}`);
   }
 
-  return data;
+  const result = slackOAuthResponseSchema.safeParse(raw);
+  if (!result.success) {
+    throw new Error(
+      `Invalid Slack OAuth response: ${result.error.issues.map((i) => i.message).join(", ")}`,
+    );
+  }
+
+  return result.data;
 }
 
 async function upsertMessagingChannel(params: {

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { HashIcon, MessageSquareIcon, XIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingContent } from "@/components/LoadingContent";
 import { MutedText } from "@/components/Typography";
@@ -68,32 +68,38 @@ export function ConnectedAppsSection() {
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Connected Apps</CardTitle>
-        <MutedText>Manage connected messaging services</MutedText>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <LoadingContent loading={isLoading} error={error}>
-          {connectedChannels.map((channel) => (
-            <ConnectedChannelRow
-              key={channel.id}
-              channel={channel}
-              emailAccountId={emailAccountId}
-              onUpdate={mutateChannels}
-            />
-          ))}
-        </LoadingContent>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <h3 className="font-medium">Connected Apps</h3>
+            <MutedText>Manage connected messaging services</MutedText>
+          </div>
+          {!hasSlack && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={connectingSlack}
+              onClick={handleConnectSlack}
+            >
+              <MessageSquareIcon className="mr-2 h-4 w-4" />
+              {connectingSlack ? "Connecting..." : "Connect Slack"}
+            </Button>
+          )}
+        </div>
 
-        {!hasSlack && (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={connectingSlack}
-            onClick={handleConnectSlack}
-          >
-            <MessageSquareIcon className="mr-2 h-4 w-4" />
-            {connectingSlack ? "Connecting..." : "Connect Slack"}
-          </Button>
+        {connectedChannels.length > 0 && (
+          <div className="mt-4 space-y-3">
+            <LoadingContent loading={isLoading} error={error}>
+              {connectedChannels.map((channel) => (
+                <ConnectedChannelRow
+                  key={channel.id}
+                  channel={channel}
+                  emailAccountId={emailAccountId}
+                  onUpdate={mutateChannels}
+                />
+              ))}
+            </LoadingContent>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -187,6 +193,13 @@ function useSlackNotifications() {
       });
     }
 
-    router.replace(pathname);
+    const preserved = new URLSearchParams();
+    for (const [key, value] of searchParams.entries()) {
+      if (key !== "message" && key !== "error") {
+        preserved.set(key, value);
+      }
+    }
+    const qs = preserved.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
   }, [pathname, router, searchParams]);
 }
