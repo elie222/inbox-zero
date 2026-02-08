@@ -142,6 +142,7 @@ model EmailAccount {
 
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
+  meetingBriefsSendEmail        Boolean @default(true)
 
   filingEnabled Boolean @default(false)
   filingPrompt  String?
@@ -182,6 +183,7 @@ model EmailAccount {
   mcpConnections      McpConnection[]
   meetingBriefings    MeetingBriefing[]
   driveConnections    DriveConnection[]
+  messagingChannels   MessagingChannel[]
   documentFilings     DocumentFiling[]
   filingFolders       FilingFolder[]
 
@@ -975,6 +977,39 @@ model MeetingBriefing {
   @@index([emailAccountId])
 }
 
+model MessagingChannel {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  provider    MessagingProvider
+  isConnected Boolean @default(true)
+
+  // Provider workspace/account
+  teamId         String  // Slack workspace ID, Discord server ID, etc.
+  teamName       String? // Display name
+  providerUserId String? // Slack user ID of the person who installed the bot
+
+  // OAuth credentials (encrypted via prisma-extensions)
+  accessToken  String?
+  refreshToken String?
+  expiresAt    DateTime?
+
+  // Target channel for notifications (meeting briefs, alerts)
+  channelId   String?
+  channelName String?
+
+  // Feature toggles
+  sendMeetingBriefs Boolean @default(false)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, provider, teamId])
+  @@index([emailAccountId])
+  @@index([provider, teamId])
+}
+
 // Drive connection for document auto-organization (Google Drive or OneDrive/SharePoint)
 // One connection per provider. But we can remove unique constraint in the future if we want
 model DriveConnection {
@@ -1309,3 +1344,8 @@ enum GroupItemSource {
   USER
   LABEL_REMOVED
 }
+
+enum MessagingProvider {
+  SLACK
+}
+
