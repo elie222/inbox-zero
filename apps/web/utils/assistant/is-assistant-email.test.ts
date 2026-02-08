@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getAssistantReplyTo, isAssistantEmail } from "./is-assistant-email";
+import { isAssistantEmail } from "./is-assistant-email";
 
 describe("isAssistantEmail", () => {
   it("should return true when recipient is user's assistant email", () => {
@@ -80,14 +80,5 @@ describe("isAssistantEmail", () => {
       emailToCheck: "john+assistant42@example.com",
     });
     expect(result).toBe(true);
-  });
-});
-
-describe("getAssistantReplyTo", () => {
-  it("should include Inbox Zero Assistant display name", () => {
-    const result = getAssistantReplyTo({
-      userEmail: "john@example.com",
-    });
-    expect(result).toBe("Inbox Zero Assistant <john+assistant@example.com>");
   });
 });

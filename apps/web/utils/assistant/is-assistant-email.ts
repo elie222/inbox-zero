@@ -1,12 +1,11 @@
 import { env } from "@/env";
-import { extractEmailAddress, formatEmailWithName } from "@/utils/email";
+import { extractEmailAddress } from "@/utils/email";
 
 // In prod: hello+assistant@example.com
 // In dev: hello+assistant-test@example.com
 const ASSISTANT_SUFFIX = `assistant${
   env.NODE_ENV === "development" ? "-test" : ""
 }`;
-const ASSISTANT_DISPLAY_NAME = "Inbox Zero Assistant";
 
 export function isAssistantEmail({
   userEmail,
@@ -33,15 +32,4 @@ export function getAssistantEmail({
 }): string {
   const [localPart, domain] = userEmail.split("@");
   return `${localPart}+${ASSISTANT_SUFFIX}@${domain}`;
-}
-
-export function getAssistantReplyTo({
-  userEmail,
-}: {
-  userEmail: string;
-}): string {
-  return formatEmailWithName(
-    ASSISTANT_DISPLAY_NAME,
-    getAssistantEmail({ userEmail }),
-  );
 }
