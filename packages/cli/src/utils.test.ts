@@ -4,6 +4,7 @@ import {
   generateEnvFile,
   isSensitiveKey,
   parseEnvFile,
+  parsePortConflict,
   updateEnvValue,
   redactValue,
   type EnvConfig,
@@ -555,5 +556,30 @@ describe("isSensitiveKey", () => {
   it("should not flag non-sensitive keys", () => {
     expect(isSensitiveKey("DEFAULT_LLM_PROVIDER")).toBe(false);
     expect(isSensitiveKey("NEXT_PUBLIC_BASE_URL")).toBe(false);
+  });
+});
+
+describe("parsePortConflict", () => {
+  it("should detect 'port is already allocated' errors", () => {
+    const stderr =
+      "Error response from daemon: failed to set up container networking: " +
+      "driver failed programming external connectivity on endpoint " +
+      "inbox-zero-services-redis-1 (abc123): Bind for 0.0.0.0:6380 failed: port is already allocated";
+    expect(parsePortConflict(stderr)).toBe(
+      "Port 6380 is already in use by another process.",
+    );
+  });
+
+  it("should detect 'address already in use' errors", () => {
+    const stderr = "listen tcp 0.0.0.0:3000: address already in use";
+    expect(parsePortConflict(stderr)).toBe(
+      "Port 3000 is already in use by another process.",
+    );
+  });
+
+  it("should return null for unrelated errors", () => {
+    expect(parsePortConflict("image not found")).toBeNull();
+    expect(parsePortConflict("network timeout")).toBeNull();
+    expect(parsePortConflict("")).toBeNull();
   });
 });
