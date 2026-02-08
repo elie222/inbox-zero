@@ -16,6 +16,7 @@ import {
   parseLastEmailAccountCookieValue,
 } from "@/utils/cookies";
 import type { Logger } from "@/utils/logger";
+import { buildRedirectUrl } from "@/utils/redirect";
 
 export async function getGmailClientForEmail({
   emailAccountId,
@@ -157,21 +158,10 @@ export async function redirectToEmailAccountPath(
     notFound();
   }
 
-  let redirectUrl = `/${emailAccountId}${path}`;
-
-  if (searchParams) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (value === undefined) continue;
-      if (Array.isArray(value)) {
-        for (const v of value) params.append(key, v);
-      } else {
-        params.set(key, value);
-      }
-    }
-    const qs = params.toString();
-    if (qs) redirectUrl += `?${qs}`;
-  }
+  const redirectUrl = buildRedirectUrl(
+    `/${emailAccountId}${path}`,
+    searchParams,
+  );
 
   redirect(redirectUrl);
 }
