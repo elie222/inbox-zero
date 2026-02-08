@@ -1,11 +1,78 @@
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getTodayForLLM, getUserInfoPrompt } from "@/utils/ai/helpers";
 import { TargetGroupCardinality } from "@/generated/prisma/enums";
-import type { AgentSystemData } from "@/utils/ai/agent/system-data";
 import type { EmailProvider } from "@/utils/email/types";
 import { getInboxCount } from "@/utils/assess";
+import prisma from "@/utils/prisma";
 
 export type AgentMode = "onboarding" | "chat" | "processing_email" | "test";
+
+export type AgentSystemData = {
+  allowedActions: Array<{ actionType: string; resourceType: string | null }>;
+  allowedActionOptions: Array<{
+    actionType: string;
+    name: string;
+    targetGroup?: {
+      name: string;
+      cardinality: TargetGroupCardinality | null;
+    } | null;
+  }>;
+  skills: Array<{ name: string; description: string }>;
+  patterns: Array<{
+    id: string;
+    matcher: unknown;
+    reason: string | null;
+    actions: Array<{ actionType: string }>;
+  }>;
+};
+
+export async function getAgentSystemData({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}): Promise<AgentSystemData> {
+  const [allowedActions, allowedActionOptions, skills, patterns] =
+    await Promise.all([
+      prisma.allowedAction.findMany({
+        where: { emailAccountId, enabled: true },
+        select: { actionType: true, resourceType: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.allowedActionOption.findMany({
+        where: { emailAccountId },
+        select: {
+          actionType: true,
+          name: true,
+          targetGroup: {
+            select: { name: true, cardinality: true },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.skill.findMany({
+        where: { emailAccountId, enabled: true },
+        select: { name: true, description: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.learnedPattern.findMany({
+        where: { emailAccountId, resourceType: "email" },
+        select: {
+          id: true,
+          matcher: true,
+          reason: true,
+          actions: { select: { actionType: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
+
+  return {
+    allowedActions,
+    allowedActionOptions,
+    skills,
+    patterns,
+  };
+}
 
 export type OnboardingData = {
   inboxCount: number;
@@ -68,7 +135,7 @@ export async function buildAgentSystemPrompt({
   );
 
   const approvalRequired = Array.from(allowedActionTypes).filter((type) =>
-    ["send", "updateSettings"].includes(type),
+    ["send", "forward", "updateSettings"].includes(type),
   );
 
   const isGmail = emailAccount.account?.provider === "google";
@@ -81,9 +148,21 @@ export async function buildAgentSystemPrompt({
     allowedActionOptions,
   });
 
+  const { patterns } = systemData;
+
   const skillsList = skills.length
     ? skills.map((skill) => `- ${skill.name}: ${skill.description}`).join("\n")
     : "- None";
+
+  const patternsList = patterns.length
+    ? patterns
+        .map((p) => {
+          const matcher = p.matcher as { field?: string; value?: string };
+          const actions = p.actions.map((a) => a.actionType).join(", ");
+          return `- ${matcher.field ?? "?"}="${matcher.value ?? "?"}" → ${actions} (id: ${p.id})`;
+        })
+        .join("\n")
+    : "";
 
   const onboardingContext =
     mode === "onboarding" && onboardingData
@@ -140,6 +219,17 @@ ${
 ## Available Skills
 ${skillsList}
 (Use getSkill to load full instructions. Only these skills exist.)
+${
+  patternsList
+    ? `
+## Learned Patterns
+These patterns auto-execute on incoming emails without invoking the LLM:
+${patternsList}
+You can create new patterns with createPattern or remove them with removePattern.`
+    : `
+## Learned Patterns
+No patterns yet. Use createPattern to create patterns for recurring emails you handle the same way.`
+}
 
 ## Current Mode
 ${formatMode(mode)}`.trim();
@@ -339,6 +429,7 @@ Guidelines:
 - Use modifyEmails to archive, mark read, or label this email.
 - Use draftReply to draft a response when appropriate.
 - Do NOT invent actions or targets that are not in the allow list.
+- If you handle a recurring sender or subject the same way every time, use createPattern to automate it. Patterns bypass the LLM and execute instantly on future emails.
 - If no action is needed, respond with "No action needed."`;
 }
 

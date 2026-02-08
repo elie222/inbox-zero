@@ -6,19 +6,22 @@ import { saveAiUsage } from "@/utils/usage";
 import {
   buildAgentSystemPrompt,
   fetchOnboardingData,
+  getAgentSystemData,
   type AgentMode,
+  type OnboardingData,
 } from "@/utils/ai/agent/context";
 import { createEmailProvider } from "@/utils/email/provider";
-import { getAgentSystemData } from "@/utils/ai/agent/system-data";
 import { createExecuteAction } from "@/utils/ai/agent/execution";
 import {
   bulkArchiveTool,
+  createPatternTool,
   draftReplyTool,
   forwardEmailTool,
   getEmailTool,
   getSettingsTool,
   getSkillTool,
   modifyEmailsTool,
+  removePatternTool,
   searchEmailsTool,
   sendEmailTool,
   showSetupPreviewTool,
@@ -187,6 +190,8 @@ export function createAgentTools({
       sendEmail: sendEmailTool({ ...baseContext, executeAction }),
       forwardEmail: forwardEmailTool({ ...emailContext, executeAction }),
       getSkill: getSkillTool(baseContext),
+      createPattern: createPatternTool(baseContext),
+      removePattern: removePatternTool(baseContext),
     };
   }
 
@@ -197,5 +202,7 @@ export function createAgentTools({
     getSettings: getSettingsTool(baseContext),
     updateSettings: updateSettingsTool({ ...baseContext, executeAction }),
     showSetupPreview: showSetupPreviewTool(),
+    createPattern: createPatternTool(baseContext),
+    removePattern: removePatternTool(baseContext),
   };
 }

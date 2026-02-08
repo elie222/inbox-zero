@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runAgentOnIncomingEmail } from "./process-email";
 import type { ParsedMessage } from "@/utils/types";
-import { buildAgentSystemPrompt } from "@/utils/ai/agent/context";
+import {
+  buildAgentSystemPrompt,
+  getAgentSystemData,
+} from "@/utils/ai/agent/context";
 import { createAgentTools } from "@/utils/ai/agent/agent";
 import { createExecuteAction } from "@/utils/ai/agent/execution";
-import { getAgentSystemData } from "@/utils/ai/agent/system-data";
 import { getModel } from "@/utils/llms/model";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
@@ -19,15 +21,13 @@ vi.mock("ai", () => ({
 
 vi.mock("@/utils/ai/agent/context", () => ({
   buildAgentSystemPrompt: vi.fn(),
+  getAgentSystemData: vi.fn(),
 }));
 vi.mock("@/utils/ai/agent/agent", () => ({
   createAgentTools: vi.fn(),
 }));
 vi.mock("@/utils/ai/agent/execution", () => ({
   createExecuteAction: vi.fn(),
-}));
-vi.mock("@/utils/ai/agent/system-data", () => ({
-  getAgentSystemData: vi.fn(),
 }));
 vi.mock("@/utils/llms/model", () => ({
   getModel: vi.fn(),
@@ -41,6 +41,9 @@ vi.mock("@/utils/stringify-email", () => ({
 vi.mock("@/utils/get-email-from-message", () => ({
   getEmailForLLM: vi.fn(),
 }));
+vi.mock("@/utils/ai/agent/match-patterns", () => ({
+  findMatchingPatterns: vi.fn().mockResolvedValue(null),
+}));
 
 const logger = createScopedLogger("test");
 vi.spyOn(logger, "with").mockReturnValue(logger);
@@ -53,6 +56,7 @@ describe("runAgentOnIncomingEmail", () => {
       allowedActions: [],
       allowedActionOptions: [],
       skills: [],
+      patterns: [],
     });
     vi.mocked(buildAgentSystemPrompt).mockResolvedValue("system");
     vi.mocked(getModel).mockReturnValue({

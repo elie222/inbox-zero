@@ -4,10 +4,12 @@ import { ToolLoopAgent, stepCountIs } from "ai";
 import { withEmailAccount } from "@/utils/middleware";
 import { getEmailAccountWithAiInsights } from "@/utils/user/get";
 import { createEmailProvider } from "@/utils/email/provider";
-import { buildAgentSystemPrompt } from "@/utils/ai/agent/context";
+import {
+  buildAgentSystemPrompt,
+  getAgentSystemData,
+} from "@/utils/ai/agent/context";
 import { createAgentTools } from "@/utils/ai/agent/agent";
 import { createExecuteAction } from "@/utils/ai/agent/execution";
-import { getAgentSystemData } from "@/utils/ai/agent/system-data";
 import { getModel } from "@/utils/llms/model";
 import { saveAiUsage } from "@/utils/usage";
 import { stringifyEmail } from "@/utils/stringify-email";
