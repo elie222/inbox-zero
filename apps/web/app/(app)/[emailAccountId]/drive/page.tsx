@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { useAction } from "next-safe-action/hooks";
-import { CableIcon, HashIcon } from "lucide-react";
+import { HashIcon } from "lucide-react";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -148,10 +148,10 @@ function IntegrationsPopover({ emailAccountId }: { emailAccountId: string }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative h-8 w-8">
-          <CableIcon className="h-4 w-4" />
+        <Button variant="outline" size="sm">
+          Integrations
           {hasAnyActive && (
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500" />
+            <span className="ml-1.5 h-2 w-2 rounded-full bg-blue-500" />
           )}
         </Button>
       </PopoverTrigger>
