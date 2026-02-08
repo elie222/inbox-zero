@@ -66,12 +66,22 @@ export async function handleSlackCallback(
 
     const finalRedirectUrl = buildSettingsRedirectUrl(emailAccountId);
 
-    await verifyEmailAccountAccess(
-      emailAccountId,
-      logger,
-      finalRedirectUrl,
-      response.headers,
-    );
+    // When WEBHOOK_URL differs (ngrok), the session cookie isn't sent to the
+    // external domain. Skip session-based ownership check in that case — the
+    // auth-url endpoint (protected by withEmailAccount) already verified
+    // ownership before generating this state, and the state round-tripped
+    // through Slack's OAuth proving the user initiated the flow.
+    const webhookDiffers =
+      env.WEBHOOK_URL && env.WEBHOOK_URL !== env.NEXT_PUBLIC_BASE_URL;
+
+    if (!webhookDiffers) {
+      await verifyEmailAccountAccess(
+        emailAccountId,
+        logger,
+        finalRedirectUrl,
+        response.headers,
+      );
+    }
 
     const tokens = await exchangeCodeForTokens(code);
 
