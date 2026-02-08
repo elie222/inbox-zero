@@ -231,6 +231,15 @@ You can create new patterns with createPattern or remove them with removePattern
 No patterns yet. Use createPattern to create patterns for recurring emails you handle the same way.`
 }
 
+${
+  mode === "chat"
+    ? `## Memory
+- Use \`updateAbout\` to save important facts about the user (preferences, role, company, communication style). These are included in every future conversation.
+- Use \`searchConversations\` to search past conversations when the user references something discussed before or when you need background for a decision.
+- Only save facts that are broadly useful across conversations. Don't save trivial or transient information.
+`
+    : ""
+}
 ## Current Mode
 ${formatMode(mode)}`.trim();
 }
@@ -430,7 +439,8 @@ Guidelines:
 - Use draftReply to draft a response when appropriate.
 - Do NOT invent actions or targets that are not in the allow list.
 - If you handle a recurring sender or subject the same way every time, use createPattern to automate it. Patterns bypass the LLM and execute instantly on future emails.
-- If no action is needed, respond with "No action needed."`;
+- If no action is needed, respond with "No action needed."
+- Use \`searchConversations\` to look up past context if the sender or topic has been discussed before.`;
 }
 
 function formatPersonaAnalysis(personaAnalysis: unknown) {

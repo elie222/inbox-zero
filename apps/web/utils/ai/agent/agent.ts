@@ -27,6 +27,8 @@ import {
   showSetupPreviewTool,
   completeOnboardingTool,
   updateSettingsTool,
+  updateAboutTool,
+  searchConversationsTool,
 } from "@/utils/ai/agent/tools";
 import type { ParsedMessage } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -192,6 +194,7 @@ export function createAgentTools({
       getSkill: getSkillTool(baseContext),
       createPattern: createPatternTool(baseContext),
       removePattern: removePatternTool(baseContext),
+      searchConversations: searchConversationsTool(baseContext),
     };
   }
 
@@ -204,5 +207,7 @@ export function createAgentTools({
     showSetupPreview: showSetupPreviewTool(),
     createPattern: createPatternTool(baseContext),
     removePattern: removePatternTool(baseContext),
+    updateAbout: updateAboutTool(baseContext),
+    searchConversations: searchConversationsTool(baseContext),
   };
 }

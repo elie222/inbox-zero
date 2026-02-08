@@ -13,6 +13,7 @@ export {
 } from "./settings";
 export { showSetupPreviewTool, completeOnboardingTool } from "./onboarding";
 export { bulkArchiveTool } from "./bulk";
+export { updateAboutTool, searchConversationsTool } from "./memory";
 
 export type { SearchEmailsTool, GetEmailTool } from "./email";
 export type { ModifyEmailsTool } from "./modify-emails";
@@ -35,3 +36,4 @@ export type {
   CompleteOnboardingTool,
 } from "./onboarding";
 export type { BulkArchiveTool } from "./bulk";
+export type { UpdateAboutTool, SearchConversationsTool } from "./memory";
