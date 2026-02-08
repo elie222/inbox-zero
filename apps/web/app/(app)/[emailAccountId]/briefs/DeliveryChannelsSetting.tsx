@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MailIcon, HashIcon, XIcon, MessageSquareIcon } from "lucide-react";
+import { MailIcon, HashIcon, MessageSquareIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Toggle } from "@/components/Toggle";
-import { Button } from "@/components/ui/button";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import { MutedText } from "@/components/Typography";
@@ -27,7 +26,6 @@ import {
   updateChannelTargetAction,
   updateChannelFeaturesAction,
   updateEmailDeliveryAction,
-  disconnectChannelAction,
 } from "@/utils/actions/messaging-channels";
 import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
@@ -82,13 +80,9 @@ export function DeliveryChannelsSetting() {
         <MutedText>Choose where to receive meeting briefings</MutedText>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Email row */}
         <div className="flex items-center gap-3">
           <MailIcon className="h-5 w-5 text-muted-foreground" />
-          <div className="flex-1">
-            <div className="font-medium text-sm">Email</div>
-            <MutedText>Receive briefings in your inbox</MutedText>
-          </div>
+          <div className="flex-1 font-medium text-sm">Email</div>
           <Toggle
             name="emailDelivery"
             enabled={briefSettings?.meetingBriefsSendEmail ?? true}
@@ -96,7 +90,6 @@ export function DeliveryChannelsSetting() {
           />
         </div>
 
-        {/* Connected messaging channels */}
         <LoadingContent loading={isLoadingChannels} error={channelsError}>
           {connectedChannels.map((channel) => (
             <ChannelRow
@@ -132,7 +125,6 @@ function ChannelRow({
   channel: {
     id: string;
     provider: MessagingProvider;
-    teamName: string | null;
     channelId: string | null;
     channelName: string | null;
     sendMeetingBriefs: boolean;
@@ -179,38 +171,15 @@ function ChannelRow({
     },
   );
 
-  const { execute: executeDisconnect, status: disconnectStatus } = useAction(
-    disconnectChannelAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        toastSuccess({ description: "Channel disconnected" });
-        onUpdate();
-      },
-      onError: (error) => {
-        toastError({
-          description:
-            getActionErrorMessage(error.error) ?? "Failed to disconnect",
-        });
-      },
-    },
-  );
-
   return (
     <div className="flex items-center gap-3">
       <Icon className="h-5 w-5 text-muted-foreground" />
       <div className="flex-1">
-        <div className="font-medium text-sm">
-          {config?.name ?? channel.provider}
-          {channel.teamName && (
-            <span className="text-muted-foreground font-normal">
-              {" "}
-              &middot; {channel.teamName}
-            </span>
-          )}
-        </div>
-
         {!channel.channelId || selectingTarget ? (
-          <div className="mt-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm">
+              {config?.name ?? channel.provider}
+            </span>
             <Select
               onValueChange={(value) => {
                 const target = targetsData?.targets.find((t) => t.id === value);
@@ -242,10 +211,13 @@ function ChannelRow({
             </Select>
           </div>
         ) : (
-          <MutedText>
-            Posting to {config?.targetPrefix}
-            {channel.channelName}
-          </MutedText>
+          <div className="font-medium text-sm">
+            {config?.name ?? channel.provider}{" "}
+            <span className="text-muted-foreground font-normal">
+              &middot; {config?.targetPrefix}
+              {channel.channelName}
+            </span>
+          </div>
         )}
       </div>
 
@@ -261,16 +233,6 @@ function ChannelRow({
           }
         />
       )}
-
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8"
-        disabled={disconnectStatus === "executing"}
-        onClick={() => executeDisconnect({ channelId: channel.id })}
-      >
-        <XIcon className="h-4 w-4" />
-      </Button>
     </div>
   );
 }
