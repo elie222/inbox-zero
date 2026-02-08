@@ -138,3 +138,96 @@ export function generateEnvFile(config: {
 
   return content;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Env file reading and updating (used by `config` command)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SENSITIVE_KEYS = new Set([
+  "GOOGLE_CLIENT_SECRET",
+  "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
+  "MICROSOFT_CLIENT_SECRET",
+  "MICROSOFT_WEBHOOK_CLIENT_STATE",
+  "ANTHROPIC_API_KEY",
+  "OPENAI_API_KEY",
+  "GOOGLE_API_KEY",
+  "OPENROUTER_API_KEY",
+  "AI_GATEWAY_API_KEY",
+  "GROQ_API_KEY",
+  "BEDROCK_ACCESS_KEY",
+  "BEDROCK_SECRET_KEY",
+  "AUTH_SECRET",
+  "EMAIL_ENCRYPT_SECRET",
+  "EMAIL_ENCRYPT_SALT",
+  "INTERNAL_API_KEY",
+  "API_KEY_SALT",
+  "CRON_SECRET",
+  "UPSTASH_REDIS_TOKEN",
+  "POSTGRES_PASSWORD",
+]);
+
+export function isSensitiveKey(key: string): boolean {
+  return (
+    SENSITIVE_KEYS.has(key) ||
+    key.toLowerCase().includes("secret") ||
+    key.toLowerCase().includes("password")
+  );
+}
+
+export function parseEnvFile(content: string): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIndex = trimmed.indexOf("=");
+    if (eqIndex === -1) continue;
+    const key = trimmed.slice(0, eqIndex).trim();
+    let value = trimmed.slice(eqIndex + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    env[key] = value;
+  }
+  return env;
+}
+
+export function updateEnvValue(
+  content: string,
+  key: string,
+  value: string,
+): string {
+  const needsQuotes = /[\s"'#]/.test(value) || value.includes("://");
+  const formatted = needsQuotes ? `"${value}"` : value;
+
+  const uncommented = new RegExp(`^${key}=.*$`, "m");
+  if (uncommented.test(content)) {
+    return content.replace(uncommented, `${key}=${formatted}`);
+  }
+
+  const commented = new RegExp(`^# ${key}=.*$`, "m");
+  if (commented.test(content)) {
+    return content.replace(commented, `${key}=${formatted}`);
+  }
+
+  return `${content.trimEnd()}\n${key}=${formatted}\n`;
+}
+
+export function redactValue(key: string, value: string): string {
+  if (value.startsWith("your-") || value === "skipped") {
+    return "(not configured)";
+  }
+
+  if ((key === "DATABASE_URL" || key === "DIRECT_URL") && value.includes("@")) {
+    return value.replace(/:([^@]+)@/, ":****@");
+  }
+
+  if (isSensitiveKey(key)) {
+    if (value.length <= 4) return "****";
+    return `${value.slice(0, 4)}****`;
+  }
+
+  return value;
+}

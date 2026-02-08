@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -6,7 +6,15 @@ import { basename, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { program } from "commander";
 import * as p from "@clack/prompts";
-import { generateSecret, generateEnvFile, type EnvConfig } from "./utils";
+import {
+  generateSecret,
+  generateEnvFile,
+  isSensitiveKey,
+  parseEnvFile,
+  updateEnvValue,
+  redactValue,
+  type EnvConfig,
+} from "./utils";
 import { runGoogleSetup } from "./setup-google";
 import { runAwsSetup } from "./setup-aws";
 import { runTerraformSetup } from "./setup-terraform";
@@ -66,6 +74,53 @@ function checkDockerCompose(): boolean {
   return standaloneResult.status === 0;
 }
 
+function requireDocker() {
+  if (!checkDocker()) {
+    const platform = process.platform;
+    let installMsg =
+      "Please install Docker Desktop: https://www.docker.com/products/docker-desktop/";
+    if (platform === "win32") {
+      installMsg =
+        "Please install Docker Desktop for Windows:\nhttps://docs.docker.com/desktop/setup/install/windows-install/";
+    } else if (platform === "darwin") {
+      installMsg =
+        "Please install Docker Desktop for Mac:\nhttps://docs.docker.com/desktop/setup/install/mac-install/";
+    } else if (platform === "linux") {
+      installMsg =
+        "Please install Docker Engine:\nhttps://docs.docker.com/engine/install/";
+    }
+    p.log.error(`Docker is not installed or not running.\n${installMsg}`);
+    process.exit(1);
+  }
+
+  if (!checkDockerCompose()) {
+    p.log.error(
+      "Docker Compose is not available.\n" +
+        "Please update Docker Desktop or install Docker Compose:\n" +
+        "https://docs.docker.com/compose/install/",
+    );
+    process.exit(1);
+  }
+}
+
+// When running in standalone mode (~/.inbox-zero/), the compose file's
+// env_file references to ./apps/web/.env won't resolve. Rewrite them
+// to ./.env so they point to the .env in the same directory.
+function fixComposeEnvPaths(composeContent: string): string {
+  return composeContent
+    .replace(/- path: .\/apps\/web\/.env/g, "- path: ./.env")
+    .replace(/- .\/apps\/web\/.env/g, "- ./.env");
+}
+
+function findEnvFile(): string | null {
+  if (REPO_ROOT) {
+    const repoEnv = resolve(REPO_ROOT, "apps/web/.env");
+    if (existsSync(repoEnv)) return repoEnv;
+  }
+  if (existsSync(STANDALONE_ENV_FILE)) return STANDALONE_ENV_FILE;
+  return null;
+}
+
 async function main() {
   stripSetupAwsDoubleDash(process.argv);
 
@@ -107,6 +162,22 @@ async function main() {
     .command("update")
     .description("Pull latest Inbox Zero image")
     .action(runUpdate);
+
+  const configCmd = program
+    .command("config")
+    .description("View and update configuration");
+
+  configCmd
+    .command("set <key> <value>")
+    .description("Set a configuration value")
+    .action(runConfigSet);
+
+  configCmd
+    .command("get <key>")
+    .description("Get a configuration value")
+    .action(runConfigGet);
+
+  configCmd.action(runConfigInteractive);
 
   program
     .command("setup-google")
@@ -190,6 +261,335 @@ function stripSetupAwsDoubleDash(argv: string[]) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runSetup(options: { name?: string }) {
+  p.intro("Inbox Zero Setup");
+
+  const mode = await p.select({
+    message: "How would you like to set up?",
+    options: [
+      {
+        value: "quick",
+        label: "Quick setup",
+        hint: "just the essentials, we handle the rest",
+      },
+      {
+        value: "custom",
+        label: "Custom setup",
+        hint: "configure infrastructure, providers, and more",
+      },
+    ],
+  });
+
+  if (p.isCancel(mode)) {
+    p.cancel("Setup cancelled.");
+    process.exit(0);
+  }
+
+  if (mode === "custom") {
+    return runSetupAdvanced(options);
+  }
+  return runSetupQuick(options);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Quick Setup (minimal questions)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function runSetupQuick(options: { name?: string }) {
+  const configName = options.name;
+
+  requireDocker();
+
+  // ── Step 1: Google OAuth ──
+
+  const callbackUrl = "http://localhost:3000/api/auth/callback/google";
+  const linkingCallbackUrl =
+    "http://localhost:3000/api/google/linking/callback";
+
+  p.note(
+    "You need a Google OAuth app to connect your Gmail.\n\n" +
+      "1. Open: https://console.cloud.google.com/apis/credentials\n" +
+      `2. Click "Create Credentials" → "OAuth client ID"\n` +
+      `3. Select "Web application"\n` +
+      `4. Under "Authorized redirect URIs" add:\n` +
+      `   ${callbackUrl}\n` +
+      `   ${linkingCallbackUrl}\n` +
+      "5. Copy the Client ID and Client Secret\n\n" +
+      "Full guide: https://docs.getinboxzero.com/self-hosting/google-oauth",
+    "Step 1 of 3: Google OAuth",
+  );
+
+  const googleClientId = await p.text({
+    message: "Google Client ID",
+    placeholder: "paste your Client ID here",
+  });
+  if (p.isCancel(googleClientId)) {
+    p.cancel("Setup cancelled.");
+    process.exit(0);
+  }
+
+  const googleClientSecret = await p.text({
+    message: "Google Client Secret",
+    placeholder: "paste your Client Secret here",
+  });
+  if (p.isCancel(googleClientSecret)) {
+    p.cancel("Setup cancelled.");
+    process.exit(0);
+  }
+
+  // ── Step 2: LLM Provider ──
+
+  const llmLinks: Record<string, string> = {
+    anthropic: "https://console.anthropic.com/settings/keys",
+    openai: "https://platform.openai.com/api-keys",
+    google: "https://aistudio.google.com/apikey",
+    openrouter: "https://openrouter.ai/settings/keys",
+    groq: "https://console.groq.com/keys",
+  };
+
+  p.note(
+    "Choose which AI service will process your emails.",
+    "Step 2 of 3: AI Provider",
+  );
+
+  const llmProvider = await p.select({
+    message: "AI Provider",
+    options: [
+      { value: "anthropic", label: "Anthropic (Claude)" },
+      { value: "openai", label: "OpenAI (ChatGPT)" },
+      { value: "google", label: "Google (Gemini)" },
+      {
+        value: "openrouter",
+        label: "OpenRouter",
+        hint: "access multiple models",
+      },
+      { value: "groq", label: "Groq", hint: "fast inference" },
+    ],
+  });
+  if (p.isCancel(llmProvider)) {
+    p.cancel("Setup cancelled.");
+    process.exit(0);
+  }
+
+  p.log.info(`Get your API key at: ${llmLinks[llmProvider]}`);
+
+  const apiKey = await p.text({
+    message: "API Key",
+    placeholder: "paste your API key here",
+    validate: (v) => (!v ? "API key is required" : undefined),
+  });
+  if (p.isCancel(apiKey)) {
+    p.cancel("Setup cancelled.");
+    process.exit(0);
+  }
+
+  // ── Generate config ──
+
+  const spinner = p.spinner();
+  spinner.start("Generating configuration...");
+
+  const defaultModels: Record<string, { default: string; economy: string }> = {
+    anthropic: {
+      default: "claude-sonnet-4-5-20250929",
+      economy: "claude-haiku-4-5-20251001",
+    },
+    openai: { default: "gpt-5.1", economy: "gpt-5.1-mini" },
+    google: { default: "gemini-3-flash", economy: "gemini-2-5-flash" },
+    openrouter: {
+      default: "anthropic/claude-sonnet-4.5",
+      economy: "anthropic/claude-haiku-4.5",
+    },
+    groq: {
+      default: "llama-3.3-70b-versatile",
+      economy: "llama-3.1-8b-instant",
+    },
+  };
+
+  const apiKeyEnvVar: Record<string, string> = {
+    anthropic: "ANTHROPIC_API_KEY",
+    openai: "OPENAI_API_KEY",
+    google: "GOOGLE_API_KEY",
+    openrouter: "OPENROUTER_API_KEY",
+    groq: "GROQ_API_KEY",
+  };
+
+  const redisToken = generateSecret(32);
+  const env: EnvConfig = {
+    NODE_ENV: "production",
+    // Database (Docker internal networking)
+    POSTGRES_USER: "postgres",
+    POSTGRES_PASSWORD: generateSecret(16),
+    POSTGRES_DB: "inboxzero",
+    DATABASE_URL: `postgresql://postgres:${generateSecret(16)}@db:5432/inboxzero`,
+    UPSTASH_REDIS_TOKEN: redisToken,
+    UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
+    INTERNAL_API_URL: "http://web:3000",
+    // Secrets
+    AUTH_SECRET: generateSecret(32),
+    EMAIL_ENCRYPT_SECRET: generateSecret(32),
+    EMAIL_ENCRYPT_SALT: generateSecret(16),
+    INTERNAL_API_KEY: generateSecret(32),
+    API_KEY_SALT: generateSecret(32),
+    CRON_SECRET: generateSecret(32),
+    GOOGLE_PUBSUB_VERIFICATION_TOKEN: generateSecret(32),
+    // Google OAuth
+    GOOGLE_CLIENT_ID: googleClientId || "your-google-client-id",
+    GOOGLE_CLIENT_SECRET: googleClientSecret || "your-google-client-secret",
+    GOOGLE_PUBSUB_TOPIC_NAME:
+      "projects/your-project-id/topics/inbox-zero-emails",
+    // LLM
+    DEFAULT_LLM_PROVIDER: llmProvider,
+    DEFAULT_LLM_MODEL: defaultModels[llmProvider].default,
+    ECONOMY_LLM_PROVIDER: llmProvider,
+    ECONOMY_LLM_MODEL: defaultModels[llmProvider].economy,
+    [apiKeyEnvVar[llmProvider]]: apiKey,
+    // App
+    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
+  };
+
+  // Fix DATABASE_URL to use the actual password
+  env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@db:5432/${env.POSTGRES_DB}`;
+  env.DIRECT_URL = env.DATABASE_URL;
+
+  // Determine file paths
+  const configDir = REPO_ROOT ?? STANDALONE_CONFIG_DIR;
+  const envFileName = configName ? `.env.${configName}` : ".env";
+  const envFile = REPO_ROOT
+    ? resolve(REPO_ROOT, "apps/web", envFileName)
+    : resolve(STANDALONE_CONFIG_DIR, envFileName);
+  const composeFile = REPO_ROOT
+    ? resolve(REPO_ROOT, "docker-compose.yml")
+    : STANDALONE_COMPOSE_FILE;
+
+  ensureConfigDir(configDir);
+
+  // Check if already configured
+  if (existsSync(envFile)) {
+    spinner.stop("Paused");
+    const overwrite = await p.confirm({
+      message: "Existing configuration found. Overwrite it?",
+      initialValue: false,
+    });
+    if (p.isCancel(overwrite) || !overwrite) {
+      p.cancel("Setup cancelled. Existing configuration preserved.");
+      process.exit(0);
+    }
+    spinner.start("Generating configuration...");
+  }
+
+  // Fetch docker-compose.yml if not in the repo
+  if (!REPO_ROOT) {
+    try {
+      let composeContent = await fetchDockerCompose();
+      composeContent = fixComposeEnvPaths(composeContent);
+      writeFileSync(composeFile, composeContent);
+    } catch {
+      spinner.stop("Failed to download Docker setup");
+      p.log.error(
+        "Could not fetch docker-compose.yml from GitHub.\n" +
+          "Please check your internet connection and try again.",
+      );
+      process.exit(1);
+    }
+  }
+
+  // Write .env from template
+  let template: string;
+  try {
+    template = await getEnvTemplate();
+  } catch {
+    spinner.stop("Failed to fetch configuration template");
+    p.log.error("Could not fetch .env.example template.");
+    process.exit(1);
+  }
+
+  const envContent = generateEnvFile({
+    env,
+    useDockerInfra: true,
+    llmProvider,
+    template,
+  });
+  writeFileSync(envFile, envContent);
+
+  spinner.stop("Configuration ready");
+
+  // ── Step 3: Start ──
+
+  p.note(
+    `Environment file: ${envFile}\n` + `Docker Compose: ${composeFile}`,
+    "Files created",
+  );
+
+  const shouldStart = await p.confirm({
+    message: "Start Inbox Zero now?",
+    initialValue: true,
+  });
+
+  if (p.isCancel(shouldStart) || !shouldStart) {
+    p.note(
+      "Start later with:\n  inbox-zero start\n\n" +
+        "Update settings with:\n  inbox-zero config",
+      "Next steps",
+    );
+    p.outro("Setup complete!");
+    return;
+  }
+
+  // Pull and start
+  const pullSpinner = p.spinner();
+  pullSpinner.start("Pulling Docker images (this may take a minute)...");
+
+  const composeArgs = REPO_ROOT ? ["compose"] : ["compose", "-f", composeFile];
+
+  const pullResult = spawnSync("docker", [...composeArgs, "pull"], {
+    stdio: "pipe",
+  });
+
+  if (pullResult.status !== 0) {
+    pullSpinner.stop("Failed to pull images");
+    p.log.error(pullResult.stderr?.toString() || "Unknown error");
+    p.log.info("You can try again later with: inbox-zero start");
+    process.exit(1);
+  }
+
+  pullSpinner.stop("Images pulled");
+
+  const startSpinner = p.spinner();
+  startSpinner.start("Starting Inbox Zero...");
+
+  const upResult = spawnSync(
+    "docker",
+    [...composeArgs, "--profile", "all", "up", "-d"],
+    { stdio: "pipe" },
+  );
+
+  if (upResult.status !== 0) {
+    startSpinner.stop("Failed to start");
+    p.log.error(upResult.stderr?.toString() || "Unknown error");
+    p.log.info("You can try again with: inbox-zero start");
+    process.exit(1);
+  }
+
+  startSpinner.stop("Inbox Zero is running!");
+
+  p.note(
+    "Open http://localhost:3000 to get started.\n\n" +
+      "Useful commands:\n" +
+      "  inbox-zero config    — update settings (e.g. add Pub/Sub token)\n" +
+      "  inbox-zero logs -f   — view live logs\n" +
+      "  inbox-zero stop      — stop the app\n" +
+      "  inbox-zero update    — update to latest version",
+    "You're all set!",
+  );
+
+  p.outro("Inbox Zero is ready!");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Advanced Setup (full options)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function runSetupAdvanced(options: { name?: string }) {
   const configName = options.name;
   p.intro(`🚀 Inbox Zero Setup${configName ? ` (${configName})` : ""}`);
 
@@ -268,23 +668,8 @@ async function runSetup(options: { name?: string }) {
     runWebInDocker = fullStackDocker === "yes";
   }
 
-  // Check Docker if needed
   if (useDockerInfra) {
-    if (!checkDocker()) {
-      p.log.error(
-        "Docker is not installed or not running.\n" +
-          "Please install Docker Desktop: https://www.docker.com/products/docker-desktop/",
-      );
-      process.exit(1);
-    }
-
-    if (!checkDockerCompose()) {
-      p.log.error(
-        "Docker Compose is not available.\n" +
-          "Please update Docker Desktop or install Docker Compose.",
-      );
-      process.exit(1);
-    }
+    requireDocker();
   }
 
   // Determine paths - if in repo, write to apps/web/.env, otherwise use standalone
@@ -689,6 +1074,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     let composeContent: string;
     try {
       composeContent = await fetchDockerCompose();
+      composeContent = fixComposeEnvPaths(composeContent);
     } catch {
       spinner.stop("Failed to fetch docker-compose.yml");
       p.log.error(
@@ -806,6 +1192,8 @@ http://localhost:${webPort}`;
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runStart(options: { detach: boolean }) {
+  requireDocker();
+
   if (!existsSync(STANDALONE_COMPOSE_FILE)) {
     p.log.error(
       "Inbox Zero is not configured for production mode.\n" +
@@ -886,6 +1274,8 @@ async function runStart(options: { detach: boolean }) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runStop() {
+  requireDocker();
+
   if (!existsSync(STANDALONE_COMPOSE_FILE)) {
     p.log.error("Inbox Zero is not configured.");
     process.exit(1);
@@ -917,6 +1307,8 @@ async function runStop() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runLogs(options: { follow: boolean; tail: string }) {
+  requireDocker();
+
   if (!existsSync(STANDALONE_COMPOSE_FILE)) {
     p.log.error("Inbox Zero is not configured.");
     process.exit(1);
@@ -953,6 +1345,8 @@ async function runLogs(options: { follow: boolean; tail: string }) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runStatus() {
+  requireDocker();
+
   if (!existsSync(STANDALONE_COMPOSE_FILE)) {
     p.log.error("Inbox Zero is not configured.\nRun 'inbox-zero setup' first.");
     process.exit(1);
@@ -968,6 +1362,8 @@ async function runStatus() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runUpdate() {
+  requireDocker();
+
   if (!existsSync(STANDALONE_COMPOSE_FILE)) {
     p.log.error("Inbox Zero is not configured.");
     process.exit(1);
@@ -1020,6 +1416,167 @@ async function runUpdate() {
   }
 
   p.outro("Update complete! 🎉");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Config Command
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CONFIG_CATEGORIES: Record<
+  string,
+  { description: string; keys: string[] }
+> = {
+  "Google (OAuth & Pub/Sub)": {
+    description: "Gmail integration and real-time notifications",
+    keys: [
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_PUBSUB_TOPIC_NAME",
+      "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
+    ],
+  },
+  "Microsoft (OAuth)": {
+    description: "Outlook / Microsoft 365 integration",
+    keys: [
+      "MICROSOFT_CLIENT_ID",
+      "MICROSOFT_CLIENT_SECRET",
+      "MICROSOFT_TENANT_ID",
+    ],
+  },
+  "AI Provider": {
+    description: "LLM provider and API keys",
+    keys: [
+      "DEFAULT_LLM_PROVIDER",
+      "DEFAULT_LLM_MODEL",
+      "ANTHROPIC_API_KEY",
+      "OPENAI_API_KEY",
+      "GOOGLE_API_KEY",
+      "OPENROUTER_API_KEY",
+      "AI_GATEWAY_API_KEY",
+      "GROQ_API_KEY",
+      "BEDROCK_ACCESS_KEY",
+      "BEDROCK_SECRET_KEY",
+      "BEDROCK_REGION",
+    ],
+  },
+  "Database & Redis": {
+    description: "Database and cache connections",
+    keys: [
+      "DATABASE_URL",
+      "DIRECT_URL",
+      "UPSTASH_REDIS_URL",
+      "UPSTASH_REDIS_TOKEN",
+    ],
+  },
+  "App Settings": {
+    description: "Application URL and feature flags",
+    keys: ["NEXT_PUBLIC_BASE_URL", "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS"],
+  },
+};
+
+function requireEnvFile(): { envFile: string; content: string } {
+  const envFile = findEnvFile();
+  if (!envFile) {
+    p.log.error(
+      "No .env file found.\nRun 'inbox-zero setup' first to create one.",
+    );
+    process.exit(1);
+  }
+  return { envFile, content: readFileSync(envFile, "utf-8") };
+}
+
+async function runConfigInteractive() {
+  p.intro("Inbox Zero Configuration");
+
+  const { envFile, content } = requireEnvFile();
+  const env = parseEnvFile(content);
+
+  const category = await p.select({
+    message: "What would you like to configure?",
+    options: Object.entries(CONFIG_CATEGORIES).map(
+      ([name, { description }]) => ({
+        value: name,
+        label: name,
+        hint: description,
+      }),
+    ),
+  });
+
+  if (p.isCancel(category)) {
+    p.cancel("Cancelled.");
+    process.exit(0);
+  }
+
+  const { keys } = CONFIG_CATEGORIES[category];
+
+  const currentValues = keys
+    .map((key) => {
+      const value = env[key];
+      const display = value ? redactValue(key, value) : "(not set)";
+      return `  ${key} = ${display}`;
+    })
+    .join("\n");
+
+  p.note(currentValues, `Current ${category} settings`);
+
+  const keyToUpdate = await p.select({
+    message: "Which setting to update?",
+    options: keys.map((key) => ({
+      value: key,
+      label: key,
+      hint: env[key] ? redactValue(key, env[key]) : "(not set)",
+    })),
+  });
+
+  if (p.isCancel(keyToUpdate)) {
+    p.cancel("Cancelled.");
+    process.exit(0);
+  }
+
+  const currentValue = env[keyToUpdate];
+  const newValue = await p.text({
+    message: `New value for ${keyToUpdate}`,
+    placeholder: currentValue || "enter value",
+    initialValue: isSensitiveKey(keyToUpdate) ? "" : currentValue || "",
+  });
+
+  if (p.isCancel(newValue)) {
+    p.cancel("Cancelled.");
+    process.exit(0);
+  }
+
+  if (!newValue) {
+    p.log.warn("No value entered. Nothing changed.");
+    process.exit(0);
+  }
+
+  const updated = updateEnvValue(content, keyToUpdate, newValue);
+  writeFileSync(envFile, updated);
+
+  p.log.success(`Updated ${keyToUpdate}`);
+  p.note(
+    "If containers are running, restart for changes to take effect:\n  inbox-zero stop && inbox-zero start",
+    "Next step",
+  );
+  p.outro("Done!");
+}
+
+async function runConfigSet(key: string, value: string) {
+  const { envFile, content } = requireEnvFile();
+  const updated = updateEnvValue(content, key, value);
+  writeFileSync(envFile, updated);
+  p.log.success(`Set ${key}`);
+}
+
+async function runConfigGet(key: string) {
+  const { content } = requireEnvFile();
+  const env = parseEnvFile(content);
+  const value = env[key];
+  if (value === undefined) {
+    p.log.warn(`${key} is not set`);
+  } else {
+    p.log.info(`${key} = ${redactValue(key, value)}`);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

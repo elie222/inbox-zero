@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { generateSecret, generateEnvFile, type EnvConfig } from "./utils";
+import {
+  generateSecret,
+  generateEnvFile,
+  isSensitiveKey,
+  parseEnvFile,
+  updateEnvValue,
+  redactValue,
+  type EnvConfig,
+} from "./utils";
 
 describe("generateSecret", () => {
   it("should generate a hex string of correct length", () => {
@@ -388,7 +396,7 @@ UPSTASH_REDIS_TOKEN=redis-token-abc123
     expect(result).toBe(expectedOutput);
   });
 
-  it("should not write 'undefined' string when env values are undefined", () => {
+  it("should not write undefined string when env values are undefined", () => {
     const template = `DATABASE_URL=placeholder
 UPSTASH_REDIS_URL=placeholder
 AUTH_SECRET=
@@ -413,5 +421,133 @@ AUTH_SECRET=
     expect(result).toContain("DATABASE_URL=placeholder");
     expect(result).toContain("UPSTASH_REDIS_URL=placeholder");
     expect(result).toContain("AUTH_SECRET=secret123");
+  });
+});
+
+describe("parseEnvFile", () => {
+  it("should parse KEY=value pairs", () => {
+    const content = `FOO=bar
+BAZ=qux`;
+    expect(parseEnvFile(content)).toEqual({ FOO: "bar", BAZ: "qux" });
+  });
+
+  it("should handle quoted values", () => {
+    const content = `URL="http://localhost:3000"
+NAME='hello world'`;
+    expect(parseEnvFile(content)).toEqual({
+      URL: "http://localhost:3000",
+      NAME: "hello world",
+    });
+  });
+
+  it("should skip comments and empty lines", () => {
+    const content = `# This is a comment
+FOO=bar
+
+# Another comment
+BAZ=qux
+`;
+    expect(parseEnvFile(content)).toEqual({ FOO: "bar", BAZ: "qux" });
+  });
+
+  it("should handle values with = signs", () => {
+    const content = "URL=postgresql://user:pass@host:5432/db?sslmode=require";
+    expect(parseEnvFile(content)).toEqual({
+      URL: "postgresql://user:pass@host:5432/db?sslmode=require",
+    });
+  });
+
+  it("should handle empty values", () => {
+    const content = `FOO=
+BAR=value`;
+    expect(parseEnvFile(content)).toEqual({ FOO: "", BAR: "value" });
+  });
+});
+
+describe("updateEnvValue", () => {
+  it("should update an existing uncommented value", () => {
+    const content = "FOO=old\nBAR=other";
+    const result = updateEnvValue(content, "FOO", "new");
+    expect(result).toContain("FOO=new");
+    expect(result).toContain("BAR=other");
+  });
+
+  it("should uncomment and set a commented value", () => {
+    const content = "# FOO=placeholder\nBAR=other";
+    const result = updateEnvValue(content, "FOO", "value");
+    expect(result).toContain("FOO=value");
+    expect(result).not.toContain("# FOO=");
+  });
+
+  it("should append if key not found", () => {
+    const content = "FOO=bar";
+    const result = updateEnvValue(content, "NEW_KEY", "new_value");
+    expect(result).toContain("FOO=bar");
+    expect(result).toContain("NEW_KEY=new_value");
+  });
+
+  it("should quote values with special characters", () => {
+    const content = "URL=old";
+    const result = updateEnvValue(content, "URL", "http://localhost:3000");
+    expect(result).toContain('URL="http://localhost:3000"');
+  });
+
+  it("should not quote simple values", () => {
+    const content = "FOO=old";
+    const result = updateEnvValue(content, "FOO", "simple");
+    expect(result).toContain("FOO=simple");
+    expect(result).not.toContain('"simple"');
+  });
+});
+
+describe("redactValue", () => {
+  it("should redact sensitive keys", () => {
+    expect(redactValue("ANTHROPIC_API_KEY", "sk-ant-12345")).toBe("sk-a****");
+    expect(redactValue("GOOGLE_CLIENT_SECRET", "GOCSPX-abc")).toBe("GOCS****");
+  });
+
+  it("should show placeholder values as not configured", () => {
+    expect(redactValue("GOOGLE_CLIENT_ID", "your-google-client-id")).toBe(
+      "(not configured)",
+    );
+    expect(redactValue("GOOGLE_CLIENT_ID", "skipped")).toBe("(not configured)");
+  });
+
+  it("should show non-sensitive values in full", () => {
+    expect(redactValue("DEFAULT_LLM_PROVIDER", "anthropic")).toBe("anthropic");
+    expect(redactValue("NEXT_PUBLIC_BASE_URL", "http://localhost:3000")).toBe(
+      "http://localhost:3000",
+    );
+  });
+
+  it("should redact passwords in database URLs", () => {
+    const result = redactValue(
+      "DATABASE_URL",
+      "postgresql://postgres:secretpass@db:5432/inboxzero",
+    );
+    expect(result).toContain("****@");
+    expect(result).not.toContain("secretpass");
+  });
+
+  it("should fully redact short sensitive values", () => {
+    expect(redactValue("AUTH_SECRET", "ab")).toBe("****");
+  });
+});
+
+describe("isSensitiveKey", () => {
+  it("should identify known sensitive keys", () => {
+    expect(isSensitiveKey("ANTHROPIC_API_KEY")).toBe(true);
+    expect(isSensitiveKey("AUTH_SECRET")).toBe(true);
+    expect(isSensitiveKey("CRON_SECRET")).toBe(true);
+  });
+
+  it("should identify keys containing secret/password", () => {
+    expect(isSensitiveKey("MY_CUSTOM_SECRET")).toBe(true);
+    expect(isSensitiveKey("DB_PASSWORD")).toBe(true);
+  });
+
+  it("should not flag non-sensitive keys", () => {
+    expect(isSensitiveKey("DEFAULT_LLM_PROVIDER")).toBe(false);
+    expect(isSensitiveKey("NEXT_PUBLIC_BASE_URL")).toBe(false);
   });
 });
