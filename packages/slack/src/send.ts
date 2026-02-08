@@ -49,13 +49,19 @@ export async function sendChannelConfirmation({
   });
 }
 
+type Blocks = ReturnType<typeof buildMeetingBriefingBlocks>;
+
 async function postMessageWithJoin(
   client: WebClient,
   channelId: string,
-  message: Omit<Parameters<WebClient["chat"]["postMessage"]>[0], "channel">,
+  message: { text: string; blocks?: Blocks },
 ): Promise<void> {
+  const args = message.blocks
+    ? { channel: channelId, blocks: message.blocks, text: message.text }
+    : { channel: channelId, text: message.text };
+
   try {
-    await client.chat.postMessage({ ...message, channel: channelId });
+    await client.chat.postMessage(args);
   } catch (error: unknown) {
     if (isSlackError(error) && error.data?.error === "not_in_channel") {
       try {
@@ -71,7 +77,7 @@ async function postMessageWithJoin(
         }
         throw joinError;
       }
-      await client.chat.postMessage({ ...message, channel: channelId });
+      await client.chat.postMessage(args);
       return;
     }
     throw error;
