@@ -58,7 +58,7 @@ export const updateChannelFeaturesAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { channelId, sendMeetingBriefs },
+      parsedInput: { channelId, sendMeetingBriefs, sendDocumentFilings },
     }) => {
       const channel = await prisma.messagingChannel.findUnique({
         where: { id: channelId },
@@ -72,15 +72,20 @@ export const updateChannelFeaturesAction = actionClient
         throw new SafeError("Messaging channel is not connected");
       }
 
-      if (sendMeetingBriefs && !channel.channelId) {
+      const enablingFeature =
+        sendMeetingBriefs === true || sendDocumentFilings === true;
+      if (enablingFeature && !channel.channelId) {
         throw new SafeError(
-          "Please select a target channel before enabling briefs",
+          "Please select a target channel before enabling features",
         );
       }
 
       await prisma.messagingChannel.update({
         where: { id: channelId },
-        data: { sendMeetingBriefs },
+        data: {
+          ...(sendMeetingBriefs !== undefined && { sendMeetingBriefs }),
+          ...(sendDocumentFilings !== undefined && { sendDocumentFilings }),
+        },
       });
     },
   );
@@ -114,6 +119,7 @@ export const disconnectChannelAction = actionClient
         channelId: null,
         channelName: null,
         sendMeetingBriefs: false,
+        sendDocumentFilings: false,
       },
     });
   });
