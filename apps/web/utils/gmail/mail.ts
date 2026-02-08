@@ -157,6 +157,7 @@ export async function replyToEmail(
   >,
   reply: string,
   from?: string,
+  options?: { replyTo?: string },
 ) {
   ensureEmailSendingEnabled();
 
@@ -169,6 +170,7 @@ export async function replyToEmail(
   const raw = await createRawMailMessage(
     {
       to: message.headers["reply-to"] || message.headers.from,
+      replyTo: options?.replyTo,
       subject: formatReplySubject(message.headers.subject),
       messageText: text,
       messageHtml: html,

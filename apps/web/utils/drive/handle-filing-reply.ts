@@ -9,6 +9,7 @@ import { emailToContent } from "@/utils/mail";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
 import { aiParseFilingReply } from "@/utils/ai/document-filing/parse-filing-reply";
+import { getFilebotEmail } from "@/utils/filebot/is-filebot-email";
 
 interface ProcessFilingReplyArgs {
   emailAccountId: string;
@@ -44,34 +45,17 @@ export async function processFilingReply({
     return;
   }
 
-  const inReplyTo = message.headers["in-reply-to"];
-
-  if (!inReplyTo) {
-    logger.error("No In-Reply-To header found");
-    return;
-  }
-
-  let resolvedNotificationMessageId = inReplyTo;
-
-  try {
-    const notificationMessage =
-      await emailProvider.getMessageByRfc822MessageId(inReplyTo);
-    if (notificationMessage?.id) {
-      resolvedNotificationMessageId = notificationMessage.id;
-    }
-  } catch (error) {
-    logger.warn("Failed to resolve In-Reply-To RFC822 message ID", { error });
-  }
-
-  const filing = await prisma.documentFiling.findUnique({
-    where: { notificationMessageId: resolvedNotificationMessageId },
-    include: {
-      driveConnection: true,
-    },
+  const filing = await findFilingFromThread({
+    message,
+    emailProvider,
+    emailAccountId,
+    logger,
   });
 
   if (!filing) {
-    logger.error("Filing not found for In-Reply-To message", { inReplyTo });
+    logger.error("Filing not found for thread", {
+      threadId: message.threadId,
+    });
     return;
   }
 
@@ -102,7 +86,10 @@ export async function processFilingReply({
   });
 
   if (parseResult.reply) {
-    await emailProvider.replyToEmail(message, parseResult.reply);
+    const filebotEmail = getFilebotEmail({ userEmail });
+    await emailProvider.replyToEmail(message, parseResult.reply, {
+      replyTo: filebotEmail,
+    });
   }
 
   switch (parseResult.action) {
@@ -267,4 +254,60 @@ async function handleMove({
       data: { status: "ERROR" },
     });
   }
+}
+
+/**
+ * Find the filing by walking the thread to find a message whose ID matches
+ * a notificationMessageId. This supports multi-turn conversations where
+ * In-Reply-To no longer points directly to the original notification.
+ */
+async function findFilingFromThread({
+  message,
+  emailProvider,
+  emailAccountId,
+  logger,
+}: {
+  message: ParsedMessage;
+  emailProvider: EmailProvider;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  // First, try the direct In-Reply-To lookup (fast path)
+  const inReplyTo = message.headers["in-reply-to"];
+  if (inReplyTo) {
+    let resolvedMessageId = inReplyTo;
+    try {
+      const resolved =
+        await emailProvider.getMessageByRfc822MessageId(inReplyTo);
+      if (resolved?.id) resolvedMessageId = resolved.id;
+    } catch (error) {
+      logger.warn("Failed to resolve In-Reply-To RFC822 message ID", {
+        error,
+      });
+    }
+
+    const filing = await prisma.documentFiling.findUnique({
+      where: { notificationMessageId: resolvedMessageId },
+      include: { driveConnection: true },
+    });
+
+    if (filing && filing.emailAccountId === emailAccountId) return filing;
+  }
+
+  // Fallback: search all thread messages for one that matches a filing
+  const threadMessages = await emailProvider.getThreadMessages(
+    message.threadId,
+  );
+  if (!threadMessages?.length) return null;
+
+  const messageIds = threadMessages.map((m) => m.id);
+  const filing = await prisma.documentFiling.findFirst({
+    where: {
+      emailAccountId,
+      notificationMessageId: { in: messageIds },
+    },
+    include: { driveConnection: true },
+  });
+
+  return filing;
 }
