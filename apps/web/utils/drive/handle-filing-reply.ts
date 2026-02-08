@@ -49,7 +49,6 @@ export async function processFilingReply({
     message,
     emailProvider,
     emailAccountId,
-    logger,
   });
 
   if (!filing) {
@@ -257,57 +256,30 @@ async function handleMove({
 }
 
 /**
- * Find the filing by walking the thread to find a message whose ID matches
- * a notificationMessageId. This supports multi-turn conversations where
- * In-Reply-To no longer points directly to the original notification.
+ * Find the filing by walking the thread to find a message whose
+ * notificationMessageId matches one of the thread's message IDs.
  */
 async function findFilingFromThread({
   message,
   emailProvider,
   emailAccountId,
-  logger,
 }: {
   message: ParsedMessage;
   emailProvider: EmailProvider;
   emailAccountId: string;
-  logger: Logger;
 }) {
-  // First, try the direct In-Reply-To lookup (fast path)
-  const inReplyTo = message.headers["in-reply-to"];
-  if (inReplyTo) {
-    let resolvedMessageId = inReplyTo;
-    try {
-      const resolved =
-        await emailProvider.getMessageByRfc822MessageId(inReplyTo);
-      if (resolved?.id) resolvedMessageId = resolved.id;
-    } catch (error) {
-      logger.warn("Failed to resolve In-Reply-To RFC822 message ID", {
-        error,
-      });
-    }
-
-    const filing = await prisma.documentFiling.findUnique({
-      where: { notificationMessageId: resolvedMessageId },
-      include: { driveConnection: true },
-    });
-
-    if (filing && filing.emailAccountId === emailAccountId) return filing;
-  }
-
-  // Fallback: search all thread messages for one that matches a filing
   const threadMessages = await emailProvider.getThreadMessages(
     message.threadId,
   );
   if (!threadMessages?.length) return null;
 
   const messageIds = threadMessages.map((m) => m.id);
-  const filing = await prisma.documentFiling.findFirst({
+
+  return prisma.documentFiling.findFirst({
     where: {
       emailAccountId,
       notificationMessageId: { in: messageIds },
     },
     include: { driveConnection: true },
   });
-
-  return filing;
 }
