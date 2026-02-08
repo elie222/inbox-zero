@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { useAction } from "next-safe-action/hooks";
-import { BellIcon, HashIcon } from "lucide-react";
+import { CableIcon, HashIcon } from "lucide-react";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -97,7 +97,7 @@ export default function DrivePage() {
             <div className="flex items-center justify-between">
               <PageHeader title="Auto-file attachments" />
               <div className="flex items-center gap-3">
-                <NotificationsPopover emailAccountId={emailAccountId} />
+                <IntegrationsPopover emailAccountId={emailAccountId} />
                 {!filingEnabled && <Badge variant="destructive">Paused</Badge>}
                 <Switch
                   checked={filingEnabled}
@@ -135,7 +135,7 @@ function getDriveView(
   return "settings";
 }
 
-function NotificationsPopover({ emailAccountId }: { emailAccountId: string }) {
+function IntegrationsPopover({ emailAccountId }: { emailAccountId: string }) {
   const { data, isLoading, mutate } = useMessagingChannels();
 
   const allConnected = data?.channels.filter((c) => c.isConnected) ?? [];
@@ -149,7 +149,7 @@ function NotificationsPopover({ emailAccountId }: { emailAccountId: string }) {
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative h-8 w-8">
-          <BellIcon className="h-4 w-4" />
+          <CableIcon className="h-4 w-4" />
           {hasAnyActive && (
             <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500" />
           )}
@@ -158,9 +158,9 @@ function NotificationsPopover({ emailAccountId }: { emailAccountId: string }) {
       <PopoverContent align="end" className="w-72">
         <div className="space-y-3">
           <div>
-            <h4 className="text-sm font-medium">Notifications</h4>
+            <h4 className="text-sm font-medium">Integrations</h4>
             <MutedText className="text-xs">
-              Get notified when documents are filed
+              Send filing updates to connected apps
             </MutedText>
           </div>
 
@@ -225,7 +225,15 @@ function SlackChannelToggle({
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         <HashIcon className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm">{channel.channelName ?? "Slack"}</span>
+        <span className="text-sm">
+          Slack
+          {channel.channelName && (
+            <span className="text-muted-foreground">
+              {" "}
+              &middot; #{channel.channelName}
+            </span>
+          )}
+        </span>
       </div>
       <Toggle
         name={`filing-${channel.id}`}
