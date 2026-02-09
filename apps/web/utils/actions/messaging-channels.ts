@@ -56,7 +56,7 @@ export const updateSlackChannelAction = actionClient
         where: { id: channelId },
         data: {
           channelId: targetId,
-          channelName: targetName,
+          channelName: channelInfo.name,
         },
       });
 

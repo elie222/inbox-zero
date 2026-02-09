@@ -235,9 +235,7 @@ async function resolveMessagingChannel({
   logger: Logger;
   teamId: string;
 }): Promise<Candidate | null> {
-  if (candidates.length === 1) return candidates[0];
-
-  // For @mentions in channels, route by matching the channel to channelId
+  // For @mentions in channels, always enforce channel assignment
   if (type === "app_mention") {
     const channelMatch = candidates.find((c) => c.channelId === channel);
     if (channelMatch) return channelMatch;
@@ -262,6 +260,9 @@ async function resolveMessagingChannel({
     });
     return null;
   }
+
+  // For DMs: single account can be used directly
+  if (candidates.length === 1) return candidates[0];
 
   // For DMs with multiple accounts, check for existing chat thread
   const chatId = thread_ts
