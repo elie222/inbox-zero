@@ -52,7 +52,7 @@ export async function sendChannelConfirmation({
   const client = createSlackClient(accessToken);
 
   await postMessageWithJoin(client, channelId, {
-    text: "Inbox Zero connected! Meeting briefings will be delivered to this channel.",
+    text: "Inbox Zero connected! Meeting briefings will be delivered to this channel. You can also @mention me here to chat about your emails.",
   });
 }
 
