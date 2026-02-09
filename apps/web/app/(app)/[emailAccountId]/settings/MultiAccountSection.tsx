@@ -11,6 +11,7 @@ import { capitalCase } from "capital-case";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { LoadingContent } from "@/components/LoadingContent";
+import { SettingsSection } from "@/components/SettingsSection";
 import {
   saveMultiAccountPremiumBody,
   type SaveMultiAccountPremiumBody,
@@ -67,16 +68,12 @@ export function MultiAccountSection() {
   }
 
   return (
-    <section id="manage-users" className="space-y-4">
-      <div>
-        <h3 className="font-medium">Manage Team Access</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Grant premium access to additional email accounts. Additional members
-          are billed to your subscription. Each account maintains separate email
-          privacy.
-        </p>
-      </div>
-
+    <SettingsSection
+      id="manage-users"
+      title="Manage Team Access"
+      description="Grant premium access to additional email accounts. Additional members are billed to your subscription. Each account maintains separate email privacy."
+      className="space-y-4"
+    >
       <LoadingContent loading={isLoadingPremium} error={errorPremium}>
         {isPremium ? (
           <LoadingContent loading={isLoading} error={error}>
@@ -120,7 +117,7 @@ export function MultiAccountSection() {
         )}
       </LoadingContent>
       <PremiumModal />
-    </section>
+    </SettingsSection>
   );
 }
 

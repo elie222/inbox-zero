@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { Switch } from "@/components/ui/switch";
 import { LoadingContent } from "@/components/LoadingContent";
+import { SettingsSection } from "@/components/SettingsSection";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import { updateAnalyticsConsentAction } from "@/utils/actions/organization";
@@ -61,23 +62,18 @@ export function OrgAnalyticsConsentSection({
   return (
     <LoadingContent loading={isLoading} error={error}>
       {data && (
-        <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-0.5">
-            <h3 className="text-sm font-medium">
-              Organization Analytics Access
-            </h3>
-            <p className="text-xs text-muted-foreground sm:text-sm">
-              Allow organization admins
-              {data.organizationName ? ` from ${data.organizationName}` : ""} to
-              view your personal analytics and usage statistics.
-            </p>
-          </div>
-
-          <Switch
-            checked={data.allowOrgAdminAnalytics}
-            onCheckedChange={handleToggle}
-          />
-        </section>
+        <SettingsSection
+          title="Organization Analytics Access"
+          description={`Allow organization admins${data.organizationName ? ` from ${data.organizationName}` : ""} to view your personal analytics and usage statistics.`}
+          titleClassName="text-sm"
+          descriptionClassName="text-xs sm:text-sm"
+          actions={
+            <Switch
+              checked={data.allowOrgAdminAnalytics}
+              onCheckedChange={handleToggle}
+            />
+          }
+        />
       )}
     </LoadingContent>
   );

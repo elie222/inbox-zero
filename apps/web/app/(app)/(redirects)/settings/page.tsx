@@ -64,7 +64,7 @@ export default function SettingsPage() {
           description="Manage your account, team access, and email configurations"
         />
 
-        <SettingsGroupCard
+        <SettingsCard
           icon={<MailIcon className="size-5" />}
           title="Email Accounts"
         >
@@ -100,30 +100,26 @@ export default function SettingsPage() {
               </div>
             )}
           </LoadingContent>
-        </SettingsGroupCard>
+        </SettingsCard>
 
         {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
-          <SettingsGroupCard
+          <SettingsCard
             icon={<CreditCardIcon className="size-5" />}
             title="Account & Billing"
           >
-            <div className="space-y-6">
-              <MultiAccountSection />
-              <Separator />
-              <BillingSection />
-            </div>
-          </SettingsGroupCard>
+            <BillingSection />
+          </SettingsCard>
         )}
 
-        <SettingsGroupCard
+        <SettingsCard
           icon={<SettingsIcon className="size-5" />}
           title="AI Model"
           description="Configure which AI provider powers your email automation"
         >
           <ModelSection />
-        </SettingsGroupCard>
+        </SettingsCard>
 
-        <SettingsGroupCard
+        <SettingsCard
           icon={<WebhookIcon className="size-5" />}
           title="Developer Settings"
         >
@@ -132,22 +128,15 @@ export default function SettingsPage() {
             <Separator />
             <ApiKeysSection />
           </div>
-        </SettingsGroupCard>
+        </SettingsCard>
 
-        <Card className="border-red-200">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangleIcon className="size-5 text-red-600" />
-              <CardTitle className="text-lg text-red-600">
-                Danger Zone
-              </CardTitle>
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            <DeleteSection />
-          </CardContent>
-        </Card>
+        <SettingsCard
+          variant="danger"
+          icon={<AlertTriangleIcon className="size-5 text-red-600" />}
+          title="Danger Zone"
+        >
+          <DeleteSection />
+        </SettingsCard>
       </div>
     </div>
   );
@@ -228,23 +217,29 @@ function EmailAccountSettingsCard({
   );
 }
 
-function SettingsGroupCard({
+function SettingsCard({
   icon,
   title,
   description,
+  variant = "default",
   children,
 }: {
   icon: React.ReactNode;
   title: string;
   description?: string;
+  variant?: "default" | "danger";
   children: React.ReactNode;
 }) {
   return (
-    <Card>
+    <Card className={cn(variant === "danger" && "border-red-200")}>
       <CardHeader>
         <div className="flex items-center gap-2">
           {icon}
-          <CardTitle className="text-lg">{title}</CardTitle>
+          <CardTitle
+            className={cn("text-lg", variant === "danger" && "text-red-600")}
+          >
+            {title}
+          </CardTitle>
         </div>
         {description ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>

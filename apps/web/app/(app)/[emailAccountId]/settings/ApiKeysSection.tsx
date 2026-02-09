@@ -13,6 +13,7 @@ import {
   ApiKeysDeactivateButton,
 } from "@/app/(app)/[emailAccountId]/settings/ApiKeysCreateForm";
 import { Card } from "@/components/ui/card";
+import { SettingsSection } from "@/components/SettingsSection";
 import { useApiKeys } from "@/hooks/useApiKeys";
 import { LoadingContent } from "@/components/LoadingContent";
 
@@ -20,16 +21,10 @@ export function ApiKeysSection() {
   const { data, isLoading, error, mutate } = useApiKeys();
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h3 className="font-medium">API keys</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Create an API key to access the Inbox Zero API. Do not share your API
-          key with others, or expose it in the browser or other client-side
-          code.
-        </p>
-      </div>
-
+    <SettingsSection
+      title="API keys"
+      description="Create an API key to access the Inbox Zero API. Do not share your API key with others, or expose it in the browser or other client-side code."
+    >
       <LoadingContent loading={isLoading} error={error}>
         <div className="space-y-4">
           {data && data.apiKeys.length > 0 ? (
@@ -63,6 +58,6 @@ export function ApiKeysSection() {
           <ApiKeysCreateButtonModal mutate={mutate} />
         </div>
       </LoadingContent>
-    </section>
+    </SettingsSection>
   );
 }

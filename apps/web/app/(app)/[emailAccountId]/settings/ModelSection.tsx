@@ -10,6 +10,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { Input } from "@/components/Input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoadingContent } from "@/components/LoadingContent";
+import { SettingsSection } from "@/components/SettingsSection";
 import {
   saveAiSettingsBody,
   type SaveAiSettingsBody,
@@ -39,18 +40,20 @@ export function ModelSection() {
     );
 
   return (
-    <LoadingContent loading={isLoading || isLoadingModels} error={error}>
-      {data && (
-        <ModelSectionForm
-          aiProvider={data.aiProvider}
-          aiModel={data.aiModel}
-          aiApiKey={data.aiApiKey}
-          models={dataModels}
-          refetchUser={mutate}
-          emailAccountId={emailAccountId}
-        />
-      )}
-    </LoadingContent>
+    <SettingsSection>
+      <LoadingContent loading={isLoading || isLoadingModels} error={error}>
+        {data && (
+          <ModelSectionForm
+            aiProvider={data.aiProvider}
+            aiModel={data.aiModel}
+            aiApiKey={data.aiApiKey}
+            models={dataModels}
+            refetchUser={mutate}
+            emailAccountId={emailAccountId}
+          />
+        )}
+      </LoadingContent>
+    </SettingsSection>
   );
 }
 

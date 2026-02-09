@@ -4,6 +4,7 @@ import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { DownloadIcon, UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SettingsSection } from "@/components/SettingsSection";
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -116,41 +117,40 @@ export function RuleImportExportSetting({
   );
 
   return (
-    <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="space-y-0.5">
-        <h3 className="text-sm font-medium">Import / Export Rules</h3>
-        <p className="text-xs text-muted-foreground sm:text-sm">
-          Backup your rules to a JSON file or restore from a previous export.
-        </p>
-      </div>
-
-      <div className="flex gap-2">
-        <input
-          type="file"
-          ref={fileInputRef}
-          accept=".json"
-          onChange={importRules}
-          className="hidden"
-          aria-label="Import rules from JSON file"
-        />
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <UploadIcon className="mr-2 size-4" />
-          Import
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={exportRules}
-          disabled={!data?.length}
-        >
-          <DownloadIcon className="mr-2 size-4" />
-          Export
-        </Button>
-      </div>
-    </section>
+    <SettingsSection
+      title="Import / Export Rules"
+      description="Backup your rules to a JSON file or restore from a previous export."
+      titleClassName="text-sm"
+      descriptionClassName="text-xs sm:text-sm"
+      actions={
+        <div className="flex gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".json"
+            onChange={importRules}
+            className="hidden"
+            aria-label="Import rules from JSON file"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <UploadIcon className="mr-2 size-4" />
+            Import
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={exportRules}
+            disabled={!data?.length}
+          >
+            <DownloadIcon className="mr-2 size-4" />
+            Export
+          </Button>
+        </div>
+      }
+    />
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
+import { SettingsSection } from "@/components/SettingsSection";
 import { cleanupAIDraftsAction } from "@/utils/actions/user";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -49,32 +50,31 @@ export function CleanupDraftsSection({
   );
 
   return (
-    <section className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="space-y-0.5">
-        <h3 className="text-sm font-medium">Clean Up AI Drafts</h3>
-        <p className="text-xs text-muted-foreground sm:text-sm">
-          Remove stale AI-generated drafts that are older than 3 days and
-          haven't been edited.
-        </p>
-      </div>
-
-      <div className="flex flex-col items-start gap-2 sm:items-end">
-        <Button
-          size="sm"
-          variant="outline"
-          loading={isExecuting}
-          onClick={() => execute()}
-        >
-          Clean Up Drafts
-        </Button>
-        {result && result.deleted > 0 && result.skippedModified > 0 && (
-          <p className="text-xs text-muted-foreground">
-            {result.skippedModified} draft
-            {result.skippedModified === 1 ? " was" : "s were"} kept because you
-            edited {result.skippedModified === 1 ? "it" : "them"}
-          </p>
-        )}
-      </div>
-    </section>
+    <SettingsSection
+      title="Clean Up AI Drafts"
+      description="Remove stale AI-generated drafts that are older than 3 days and haven't been edited."
+      titleClassName="text-sm"
+      descriptionClassName="text-xs sm:text-sm"
+      align="start"
+      actions={
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <Button
+            size="sm"
+            variant="outline"
+            loading={isExecuting}
+            onClick={() => execute()}
+          >
+            Clean Up Drafts
+          </Button>
+          {result && result.deleted > 0 && result.skippedModified > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {result.skippedModified} draft
+              {result.skippedModified === 1 ? " was" : "s were"} kept because
+              you edited {result.skippedModified === 1 ? "it" : "them"}
+            </p>
+          )}
+        </div>
+      }
+    />
   );
 }

@@ -6,7 +6,7 @@ import { HashIcon, MessageSquareIcon, SlackIcon, XIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import { LoadingContent } from "@/components/LoadingContent";
-import { MutedText } from "@/components/Typography";
+import { SettingsSection } from "@/components/SettingsSection";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
@@ -76,16 +76,14 @@ export function ConnectedAppsSection({
   };
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-0.5">
-          <h3 className="text-sm font-medium">Connected Apps</h3>
-          <MutedText className="text-xs sm:text-sm">
-            Manage connected messaging services
-          </MutedText>
-        </div>
-
-        {!hasSlack && (
+    <SettingsSection
+      title="Connected Apps"
+      description="Manage connected messaging services"
+      titleClassName="text-sm"
+      descriptionClassName="text-xs sm:text-sm"
+      align="start"
+      actions={
+        !hasSlack ? (
           <Button
             variant="outline"
             size="sm"
@@ -95,9 +93,9 @@ export function ConnectedAppsSection({
             <SlackIcon className="mr-2 h-4 w-4" />
             {connectingSlack ? "Connecting..." : "Connect Slack"}
           </Button>
-        )}
-      </div>
-
+        ) : null
+      }
+    >
       <LoadingContent loading={isLoading} error={error}>
         {connectedChannels.length > 0 && emailAccountId && (
           <div className="space-y-2">
@@ -112,7 +110,7 @@ export function ConnectedAppsSection({
           </div>
         )}
       </LoadingContent>
-    </section>
+    </SettingsSection>
   );
 }
 
