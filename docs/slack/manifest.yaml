@@ -1,0 +1,35 @@
+# Inbox Zero Slack App Manifest
+#
+# Use this to create a Slack app via: Create New App > From a manifest
+# Replace YOUR_DOMAIN with your actual domain (e.g. app.inboxzero.com or your-ngrok-domain.ngrok-free.app)
+
+display_information:
+  name: Inbox Zero
+  description: AI executive assistant
+  background_color: "#1a1a2e"
+
+features:
+  bot_user:
+    display_name: Inbox Zero
+    always_online: false
+
+oauth_config:
+  scopes:
+    bot:
+      - channels:read
+      - channels:join
+      - groups:read
+      - chat:write
+      - app_mentions:read
+      - im:read
+      - im:write
+      - im:history
+  redirect_urls:
+    - https://YOUR_DOMAIN/api/slack/callback
+
+settings:
+  event_subscriptions:
+    request_url: https://YOUR_DOMAIN/api/slack/events
+    bot_events:
+      - message.im
+      - app_mention

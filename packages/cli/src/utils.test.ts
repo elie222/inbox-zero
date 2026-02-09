@@ -577,9 +577,9 @@ describe("parsePortConflict", () => {
     expect(
       parsePortConflict("listen tcp 127.0.0.1:8080: address already in use"),
     ).toBe("Port 8080 is already in use by another process.");
-    expect(
-      parsePortConflict("listen tcp :5432: address already in use"),
-    ).toBe("Port 5432 is already in use by another process.");
+    expect(parsePortConflict("listen tcp :5432: address already in use")).toBe(
+      "Port 5432 is already in use by another process.",
+    );
   });
 
   it("should return null for unrelated errors", () => {

@@ -145,7 +145,9 @@ async function main() {
 
   program
     .command("setup")
-    .description("Interactive setup — Google OAuth, AI provider, Pub/Sub, and Docker")
+    .description(
+      "Interactive setup — Google OAuth, AI provider, Pub/Sub, and Docker",
+    )
     .option("-n, --name <name>", "Configuration name (creates .env.<name>)")
     .action(runSetup);
 
@@ -362,14 +364,6 @@ async function runSetupQuick(options: { name?: string }) {
 
   // ── Step 2: LLM Provider ──
 
-  const llmLinks: Record<string, string> = {
-    anthropic: "https://console.anthropic.com/settings/keys",
-    openai: "https://platform.openai.com/api-keys",
-    google: "https://aistudio.google.com/apikey",
-    openrouter: "https://openrouter.ai/settings/keys",
-    groq: "https://console.groq.com/keys",
-  };
-
   p.note(
     "Choose which AI service will process your emails.",
     "Step 2 of 4: AI Provider",
@@ -377,34 +371,13 @@ async function runSetupQuick(options: { name?: string }) {
 
   const llmProvider = await p.select({
     message: "AI Provider",
-    options: [
-      { value: "anthropic", label: "Anthropic (Claude)" },
-      { value: "openai", label: "OpenAI (ChatGPT)" },
-      { value: "google", label: "Google (Gemini)" },
-      {
-        value: "openrouter",
-        label: "OpenRouter",
-        hint: "access multiple models",
-      },
-      { value: "groq", label: "Groq", hint: "fast inference" },
-    ],
+    options: LLM_PROVIDER_OPTIONS,
   });
-  if (p.isCancel(llmProvider)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
-  }
+  if (p.isCancel(llmProvider)) cancelSetup();
 
-  p.log.info(`Get your API key at: ${llmLinks[llmProvider]}`);
-
-  const apiKey = await p.text({
-    message: "API Key",
-    placeholder: "paste your API key here",
-    validate: (v) => (!v ? "API key is required" : undefined),
-  });
-  if (p.isCancel(apiKey)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
-  }
+  // Gather LLM credentials before generating config
+  const llmEnv: EnvConfig = { DEFAULT_LLM_PROVIDER: llmProvider };
+  await promptLlmCredentials(llmProvider, llmEnv);
 
   // ── Step 3: Google Pub/Sub ──
 
@@ -443,31 +416,6 @@ async function runSetupQuick(options: { name?: string }) {
   const spinner = p.spinner();
   spinner.start("Generating configuration...");
 
-  const defaultModels: Record<string, { default: string; economy: string }> = {
-    anthropic: {
-      default: "claude-sonnet-4-5-20250929",
-      economy: "claude-haiku-4-5-20251001",
-    },
-    openai: { default: "gpt-5.1", economy: "gpt-5.1-mini" },
-    google: { default: "gemini-3-flash", economy: "gemini-2-5-flash" },
-    openrouter: {
-      default: "anthropic/claude-sonnet-4.5",
-      economy: "anthropic/claude-haiku-4.5",
-    },
-    groq: {
-      default: "llama-3.3-70b-versatile",
-      economy: "llama-3.1-8b-instant",
-    },
-  };
-
-  const apiKeyEnvVar: Record<string, string> = {
-    anthropic: "ANTHROPIC_API_KEY",
-    openai: "OPENAI_API_KEY",
-    google: "GOOGLE_API_KEY",
-    openrouter: "OPENROUTER_API_KEY",
-    groq: "GROQ_API_KEY",
-  };
-
   const redisToken = generateSecret(32);
   const env: EnvConfig = {
     NODE_ENV: "production",
@@ -493,11 +441,7 @@ async function runSetupQuick(options: { name?: string }) {
     GOOGLE_PUBSUB_TOPIC_NAME:
       pubsubTopic || "projects/your-project-id/topics/inbox-zero-emails",
     // LLM
-    DEFAULT_LLM_PROVIDER: llmProvider,
-    DEFAULT_LLM_MODEL: defaultModels[llmProvider].default,
-    ECONOMY_LLM_PROVIDER: llmProvider,
-    ECONOMY_LLM_MODEL: defaultModels[llmProvider].economy,
-    [apiKeyEnvVar[llmProvider]]: apiKey,
+    ...llmEnv,
     // App
     NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
@@ -600,7 +544,10 @@ async function runSetupQuick(options: { name?: string }) {
       initialValue: true,
     });
     if (p.isCancel(restart) || !restart) {
-      p.note("Inbox Zero is still running at http://localhost:3000", "Already running");
+      p.note(
+        "Inbox Zero is still running at http://localhost:3000",
+        "Already running",
+      );
       p.outro("Setup complete!");
       return;
     }
@@ -629,7 +576,11 @@ async function runSetupQuick(options: { name?: string }) {
   startSpinner.start("Starting Inbox Zero...");
 
   const upResult = await runDockerCommand([
-    ...composeArgs, "--profile", "all", "up", "-d",
+    ...composeArgs,
+    "--profile",
+    "all",
+    "up",
+    "-d",
   ]);
 
   if (upResult.status !== 0) {
@@ -954,133 +905,12 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
 
   const llmProvider = await p.select({
     message: "LLM Provider",
-    options: [
-      { value: "anthropic", label: "Anthropic (Claude)" },
-      { value: "openai", label: "OpenAI (GPT)" },
-      { value: "google", label: "Google (Gemini)" },
-      {
-        value: "openrouter",
-        label: "OpenRouter",
-        hint: "access multiple models",
-      },
-      {
-        value: "aigateway",
-        label: "Vercel AI Gateway",
-        hint: "access multiple models",
-      },
-      { value: "bedrock", label: "AWS Bedrock" },
-      { value: "groq", label: "Groq", hint: "fast inference" },
-    ],
+    options: LLM_PROVIDER_OPTIONS,
   });
-
-  if (p.isCancel(llmProvider)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
-  }
+  if (p.isCancel(llmProvider)) cancelSetup();
 
   env.DEFAULT_LLM_PROVIDER = llmProvider;
-
-  const defaultModels: Record<string, { default: string; economy: string }> = {
-    anthropic: {
-      default: "claude-sonnet-4-5-20250929",
-      economy: "claude-haiku-4-5-20251001",
-    },
-    openai: { default: "gpt-5.1", economy: "gpt-5.1-mini" },
-    google: { default: "gemini-3-flash", economy: "gemini-2-5-flash" },
-    openrouter: {
-      default: "anthropic/claude-sonnet-4.5",
-      economy: "anthropic/claude-haiku-4.5",
-    },
-    aigateway: {
-      default: "anthropic/claude-sonnet-4.5",
-      economy: "anthropic/claude-haiku-4.5",
-    },
-    bedrock: {
-      default: "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
-      economy: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-    },
-    groq: {
-      default: "llama-3.3-70b-versatile",
-      economy: "llama-3.1-8b-instant",
-    },
-  };
-
-  env.DEFAULT_LLM_MODEL = defaultModels[llmProvider].default;
-  env.ECONOMY_LLM_PROVIDER = llmProvider;
-  env.ECONOMY_LLM_MODEL = defaultModels[llmProvider].economy;
-
-  // Handle Bedrock separately (needs ACCESS_KEY, SECRET_KEY, REGION)
-  if (llmProvider === "bedrock") {
-    p.log.info(
-      "Get your AWS credentials from the AWS Console:\nhttps://console.aws.amazon.com/iam/",
-    );
-
-    const bedrockCreds = await p.group(
-      {
-        accessKey: () =>
-          p.text({
-            message: "Bedrock Access Key",
-            placeholder: "AKIA...",
-            validate: (v) => (!v ? "Access key is required" : undefined),
-          }),
-        secretKey: () =>
-          p.text({
-            message: "Bedrock Secret Key",
-            placeholder: "your-secret-key",
-            validate: (v) => (!v ? "Secret key is required" : undefined),
-          }),
-        region: () =>
-          p.text({
-            message: "Bedrock Region",
-            placeholder: "us-west-2",
-            initialValue: "us-west-2",
-          }),
-      },
-      {
-        onCancel: () => {
-          p.cancel("Setup cancelled.");
-          process.exit(0);
-        },
-      },
-    );
-
-    env.BEDROCK_ACCESS_KEY = bedrockCreds.accessKey;
-    env.BEDROCK_SECRET_KEY = bedrockCreds.secretKey;
-    env.BEDROCK_REGION = bedrockCreds.region || "us-west-2";
-  } else {
-    const llmLinks: Record<string, string> = {
-      anthropic: "https://console.anthropic.com/settings/keys",
-      openai: "https://platform.openai.com/api-keys",
-      google: "https://aistudio.google.com/apikey",
-      openrouter: "https://openrouter.ai/settings/keys",
-      aigateway: "https://vercel.com/docs/ai-gateway",
-      groq: "https://console.groq.com/keys",
-    };
-
-    const apiKeyEnvVar: Record<string, string> = {
-      anthropic: "ANTHROPIC_API_KEY",
-      openai: "OPENAI_API_KEY",
-      google: "GOOGLE_API_KEY",
-      openrouter: "OPENROUTER_API_KEY",
-      aigateway: "AI_GATEWAY_API_KEY",
-      groq: "GROQ_API_KEY",
-    };
-
-    p.log.info(`Get your API key at:\n${llmLinks[llmProvider]}`);
-
-    const apiKey = await p.text({
-      message: `${llmProvider.charAt(0).toUpperCase() + llmProvider.slice(1)} API Key`,
-      placeholder: "sk-...",
-      validate: (v) => (!v ? "API key is required for AI features" : undefined),
-    });
-
-    if (p.isCancel(apiKey)) {
-      p.cancel("Setup cancelled.");
-      process.exit(0);
-    }
-
-    env[apiKeyEnvVar[llmProvider]] = apiKey;
-  }
+  await promptLlmCredentials(llmProvider, env);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Auto-generated values
@@ -1318,7 +1148,11 @@ async function runStart(options: { detach: boolean }) {
     spinner.start("Starting containers...");
 
     const upResult = await runDockerCommand([
-      ...composeArgs, "--profile", "all", "up", "-d",
+      ...composeArgs,
+      "--profile",
+      "all",
+      "up",
+      "-d",
     ]);
 
     if (upResult.status !== 0) {
@@ -1390,7 +1224,10 @@ async function runStop() {
   spinner.start("Stopping containers...");
 
   const result = await runDockerCommand([
-    "compose", "-f", STANDALONE_COMPOSE_FILE, "down",
+    "compose",
+    "-f",
+    STANDALONE_COMPOSE_FILE,
+    "down",
   ]);
 
   if (result.status !== 0) {
@@ -1476,7 +1313,10 @@ async function runUpdate() {
   spinner.start("Pulling latest image...");
 
   const pullResult = await runDockerCommand([
-    "compose", "-f", STANDALONE_COMPOSE_FILE, "pull",
+    "compose",
+    "-f",
+    STANDALONE_COMPOSE_FILE,
+    "pull",
   ]);
 
   if (pullResult.status !== 0) {
@@ -1500,11 +1340,15 @@ async function runUpdate() {
   if (restart) {
     spinner.start("Restarting...");
 
-    await runDockerCommand([
-      "compose", "-f", STANDALONE_COMPOSE_FILE, "down",
-    ]);
+    await runDockerCommand(["compose", "-f", STANDALONE_COMPOSE_FILE, "down"]);
     const upResult = await runDockerCommand([
-      "compose", "-f", STANDALONE_COMPOSE_FILE, "--profile", "all", "up", "-d",
+      "compose",
+      "-f",
+      STANDALONE_COMPOSE_FILE,
+      "--profile",
+      "all",
+      "up",
+      "-d",
     ]);
 
     if (upResult.status !== 0) {
@@ -1726,6 +1570,180 @@ async function getEnvTemplate(): Promise<string> {
     }
   }
   return fetchEnvExample();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LLM Provider Helpers
+// ═══════════════════════════════════════════════════════════════════════════
+
+const LLM_PROVIDER_OPTIONS = [
+  { value: "anthropic", label: "Anthropic (Claude)" },
+  { value: "openai", label: "OpenAI (ChatGPT)" },
+  { value: "google", label: "Google (Gemini)" },
+  {
+    value: "openrouter",
+    label: "OpenRouter",
+    hint: "access multiple models",
+  },
+  {
+    value: "aigateway",
+    label: "Vercel AI Gateway",
+    hint: "access multiple models",
+  },
+  { value: "bedrock", label: "AWS Bedrock" },
+  { value: "groq", label: "Groq" },
+  { value: "ollama", label: "Ollama", hint: "self-hosted" },
+];
+
+const LLM_LINKS: Record<string, string> = {
+  anthropic: "https://console.anthropic.com/settings/keys",
+  openai: "https://platform.openai.com/api-keys",
+  google: "https://aistudio.google.com/apikey",
+  openrouter: "https://openrouter.ai/settings/keys",
+  aigateway: "https://vercel.com/docs/ai-gateway",
+  groq: "https://console.groq.com/keys",
+};
+
+const DEFAULT_MODELS: Record<string, { default: string; economy: string }> = {
+  anthropic: {
+    default: "claude-sonnet-4-5-20250929",
+    economy: "claude-haiku-4-5-20251001",
+  },
+  openai: { default: "gpt-5.1", economy: "gpt-5.1-mini" },
+  google: { default: "gemini-3-flash", economy: "gemini-2-5-flash" },
+  openrouter: {
+    default: "anthropic/claude-sonnet-4.5",
+    economy: "anthropic/claude-haiku-4.5",
+  },
+  aigateway: {
+    default: "anthropic/claude-sonnet-4.5",
+    economy: "anthropic/claude-haiku-4.5",
+  },
+  bedrock: {
+    default: "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    economy: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  },
+  groq: {
+    default: "llama-3.3-70b-versatile",
+    economy: "llama-3.1-8b-instant",
+  },
+};
+
+const API_KEY_ENV_VAR: Record<string, string> = {
+  anthropic: "ANTHROPIC_API_KEY",
+  openai: "OPENAI_API_KEY",
+  google: "GOOGLE_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  aigateway: "AI_GATEWAY_API_KEY",
+  groq: "GROQ_API_KEY",
+};
+
+function cancelSetup(): never {
+  p.cancel("Setup cancelled.");
+  process.exit(0);
+}
+
+async function promptOllamaCreds(): Promise<{
+  baseUrl: string;
+  model: string;
+}> {
+  const creds = await p.group(
+    {
+      baseUrl: () =>
+        p.text({
+          message: "Ollama Base URL",
+          placeholder: "http://localhost:11434",
+          initialValue: "http://localhost:11434",
+        }),
+      model: () =>
+        p.text({
+          message: "Ollama Model",
+          placeholder: "llama3.1",
+          validate: (v) => (!v ? "Model name is required" : undefined),
+        }),
+    },
+    { onCancel: cancelSetup },
+  );
+  return {
+    baseUrl: creds.baseUrl || "http://localhost:11434",
+    model: creds.model,
+  };
+}
+
+async function promptBedrockCreds(): Promise<{
+  accessKey: string;
+  secretKey: string;
+  region: string;
+}> {
+  p.log.info(
+    "Get your AWS credentials from the AWS Console:\nhttps://console.aws.amazon.com/iam/",
+  );
+  const creds = await p.group(
+    {
+      accessKey: () =>
+        p.text({
+          message: "Bedrock Access Key",
+          placeholder: "AKIA...",
+          validate: (v) => (!v ? "Access key is required" : undefined),
+        }),
+      secretKey: () =>
+        p.text({
+          message: "Bedrock Secret Key",
+          placeholder: "your-secret-key",
+          validate: (v) => (!v ? "Secret key is required" : undefined),
+        }),
+      region: () =>
+        p.text({
+          message: "Bedrock Region",
+          placeholder: "us-west-2",
+          initialValue: "us-west-2",
+        }),
+    },
+    { onCancel: cancelSetup },
+  );
+  return {
+    accessKey: creds.accessKey,
+    secretKey: creds.secretKey,
+    region: creds.region || "us-west-2",
+  };
+}
+
+async function promptApiKey(provider: string): Promise<string> {
+  p.log.info(`Get your API key at:\n${LLM_LINKS[provider]}`);
+  const apiKey = await p.text({
+    message: `${provider.charAt(0).toUpperCase() + provider.slice(1)} API Key`,
+    placeholder: "paste your API key here",
+    validate: (v) => (!v ? "API key is required" : undefined),
+  });
+  if (p.isCancel(apiKey)) cancelSetup();
+  return apiKey;
+}
+
+async function promptLlmCredentials(
+  provider: string,
+  env: EnvConfig,
+): Promise<void> {
+  if (provider === "ollama") {
+    const ollama = await promptOllamaCreds();
+    env.OLLAMA_BASE_URL = ollama.baseUrl;
+    env.OLLAMA_MODEL = ollama.model;
+    env.DEFAULT_LLM_MODEL = ollama.model;
+    env.ECONOMY_LLM_PROVIDER = provider;
+    env.ECONOMY_LLM_MODEL = ollama.model;
+  } else {
+    env.DEFAULT_LLM_MODEL = DEFAULT_MODELS[provider].default;
+    env.ECONOMY_LLM_PROVIDER = provider;
+    env.ECONOMY_LLM_MODEL = DEFAULT_MODELS[provider].economy;
+
+    if (provider === "bedrock") {
+      const bedrock = await promptBedrockCreds();
+      env.BEDROCK_ACCESS_KEY = bedrock.accessKey;
+      env.BEDROCK_SECRET_KEY = bedrock.secretKey;
+      env.BEDROCK_REGION = bedrock.region;
+    } else {
+      env[API_KEY_ENV_VAR[provider]] = await promptApiKey(provider);
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

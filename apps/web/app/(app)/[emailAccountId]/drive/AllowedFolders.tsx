@@ -218,9 +218,6 @@ function AllowedFoldersContent({
                 triggerClassName="text-muted-foreground hover:text-foreground"
               />
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              We'll only ever put files in folders you select
-            </p>
           </>
         ) : (
           <NoFoldersFound
