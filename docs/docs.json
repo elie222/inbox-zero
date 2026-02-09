@@ -38,6 +38,27 @@
             ]
           },
           {
+            "group": "API",
+            "pages": [
+              "api-reference/introduction",
+              "api-reference/endpoint/get-statsby-period",
+              "api-reference/endpoint/get-statsresponse-time",
+              "api-reference/endpoint/get-group-emails"
+            ]
+          }
+        ]
+      },
+      {
+        "anchor": "Developers",
+        "icon": "code",
+        "groups": [
+          {
+            "group": "Developer Guide",
+            "pages": [
+              "development"
+            ]
+          },
+          {
             "group": "Self-Hosting",
             "pages": [
               "hosting/self-hosting",
@@ -51,21 +72,6 @@
             "group": "Integrations",
             "pages": [
               "slack/setup"
-            ]
-          },
-          {
-            "group": "API",
-            "pages": [
-              "api-reference/introduction",
-              "api-reference/endpoint/get-statsby-period",
-              "api-reference/endpoint/get-statsresponse-time",
-              "api-reference/endpoint/get-group-emails"
-            ]
-          },
-          {
-            "group": "Developer Guide",
-            "pages": [
-              "development"
             ]
           }
         ]
