@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   build:
@@ -63,8 +64,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
+
+      - name: Upgrade npm
+        run: npm install -g npm@latest
 
       - name: Set version from tag
         if: github.ref_type == 'tag'
@@ -80,9 +84,7 @@ jobs:
         run: cd packages/cli && bun run build
 
       - name: Publish to npm
-        run: cd packages/cli && npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: cd packages/cli && npm publish --provenance --access public
 
   release:
     needs: build
