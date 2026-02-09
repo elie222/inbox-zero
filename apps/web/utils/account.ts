@@ -16,6 +16,7 @@ import {
   parseLastEmailAccountCookieValue,
 } from "@/utils/cookies";
 import type { Logger } from "@/utils/logger";
+import { buildRedirectUrl } from "@/utils/redirect";
 
 export async function getGmailClientForEmail({
   emailAccountId,
@@ -133,7 +134,10 @@ async function getTokens({ emailAccountId }: { emailAccountId: string }) {
   };
 }
 
-export async function redirectToEmailAccountPath(path: `/${string}`) {
+export async function redirectToEmailAccountPath(
+  path: `/${string}`,
+  searchParams?: Record<string, string | string[] | undefined>,
+) {
   const session = await auth();
   const userId = session?.user.id;
   if (!userId) throw new Error("Not authenticated");
@@ -154,7 +158,10 @@ export async function redirectToEmailAccountPath(path: `/${string}`) {
     notFound();
   }
 
-  const redirectUrl = `/${emailAccountId}${path}`;
+  const redirectUrl = buildRedirectUrl(
+    `/${emailAccountId}${path}`,
+    searchParams,
+  );
 
   redirect(redirectUrl);
 }
