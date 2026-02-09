@@ -11,6 +11,7 @@ import {
   generateEnvFile,
   isSensitiveKey,
   parseEnvFile,
+  parsePortConflict,
   updateEnvValue,
   redactValue,
   type EnvConfig,
@@ -132,24 +133,31 @@ async function main() {
 
   program
     .name("inbox-zero")
-    .description("CLI tool for running Inbox Zero - AI email assistant")
-    .version(packageJson.version);
+    .description(
+      "CLI tool for self-hosting Inbox Zero — AI email assistant.\n\n" +
+        "Quick start:\n" +
+        "  inbox-zero setup      Set up Google OAuth, AI provider, Pub/Sub, and Docker\n" +
+        "  inbox-zero start      Pull latest image and start all containers\n" +
+        "  inbox-zero config     View and update environment variables\n\n" +
+        "Docs: https://docs.getinboxzero.com/self-hosting",
+    )
+    .version(packageJson.version, "-v, --version");
 
   program
     .command("setup")
-    .description("Interactive setup for Inbox Zero")
+    .description("Interactive setup — Google OAuth, AI provider, Pub/Sub, and Docker")
     .option("-n, --name <name>", "Configuration name (creates .env.<name>)")
     .action(runSetup);
 
   program
     .command("start")
-    .description("Start Inbox Zero containers")
-    .option("--no-detach", "Run in foreground (default: runs in background)")
+    .description("Pull latest image and start all containers")
+    .option("--no-detach", "Run in foreground instead of background")
     .action(runStart);
 
   program
     .command("stop")
-    .description("Stop Inbox Zero containers")
+    .description("Stop all running containers")
     .action(runStop);
 
   program
@@ -161,12 +169,12 @@ async function main() {
 
   program
     .command("status")
-    .description("Show status of Inbox Zero containers")
+    .description("Show status of running containers")
     .action(runStatus);
 
   program
     .command("update")
-    .description("Pull latest Inbox Zero image")
+    .description("Pull latest image and optionally restart")
     .action(runUpdate);
 
   const configCmd = program
@@ -331,7 +339,7 @@ async function runSetupQuick(options: { name?: string }) {
       `   ${linkingCallbackUrl}\n` +
       "5. Copy the Client ID and Client Secret\n\n" +
       "Full guide: https://docs.getinboxzero.com/self-hosting/google-oauth",
-    "Step 1 of 3: Google OAuth",
+    "Step 1 of 4: Google OAuth",
   );
 
   const googleClientId = await p.text({
@@ -364,7 +372,7 @@ async function runSetupQuick(options: { name?: string }) {
 
   p.note(
     "Choose which AI service will process your emails.",
-    "Step 2 of 3: AI Provider",
+    "Step 2 of 4: AI Provider",
   );
 
   const llmProvider = await p.select({
@@ -394,6 +402,38 @@ async function runSetupQuick(options: { name?: string }) {
     validate: (v) => (!v ? "API key is required" : undefined),
   });
   if (p.isCancel(apiKey)) {
+    p.cancel("Setup cancelled.");
+    process.exit(0);
+  }
+
+  // ── Step 3: Google Pub/Sub ──
+
+  p.note(
+    "Google Pub/Sub enables real-time email notifications.\n\n" +
+      "1. Go to: https://console.cloud.google.com/cloudpubsub/topic/list\n" +
+      '2. Create a topic (e.g., "inbox-zero-emails")\n' +
+      "3. Add gmail-api-push@system.gserviceaccount.com as a Publisher\n" +
+      "4. Create a push subscription pointing to your webhook URL:\n" +
+      "   https://yourdomain.com/api/google/webhook\n\n" +
+      "Your webhook must be publicly accessible.\n" +
+      "For local development, use ngrok or a similar tunnel.\n\n" +
+      "Press Enter to skip — configure later with: inbox-zero config",
+    "Step 3 of 4: Google Pub/Sub (optional)",
+  );
+
+  const pubsubTopic = await p.text({
+    message: "Google Pub/Sub Topic Name",
+    placeholder: "projects/your-project-id/topics/inbox-zero-emails",
+    validate: (v) => {
+      if (!v) return undefined;
+      if (!v.startsWith("projects/") || !v.includes("/topics/")) {
+        return "Topic name must be in format: projects/PROJECT_ID/topics/TOPIC_NAME";
+      }
+      return undefined;
+    },
+  });
+
+  if (p.isCancel(pubsubTopic)) {
     p.cancel("Setup cancelled.");
     process.exit(0);
   }
@@ -451,7 +491,7 @@ async function runSetupQuick(options: { name?: string }) {
     GOOGLE_CLIENT_ID: googleClientId || "your-google-client-id",
     GOOGLE_CLIENT_SECRET: googleClientSecret || "your-google-client-secret",
     GOOGLE_PUBSUB_TOPIC_NAME:
-      "projects/your-project-id/topics/inbox-zero-emails",
+      pubsubTopic || "projects/your-project-id/topics/inbox-zero-emails",
     // LLM
     DEFAULT_LLM_PROVIDER: llmProvider,
     DEFAULT_LLM_MODEL: defaultModels[llmProvider].default,
@@ -551,19 +591,34 @@ async function runSetupQuick(options: { name?: string }) {
     return;
   }
 
+  // Check if already running
+  const composeArgs = REPO_ROOT ? ["compose"] : ["compose", "-f", composeFile];
+
+  if (checkContainersRunning(composeArgs)) {
+    const restart = await p.confirm({
+      message: "Inbox Zero is already running. Restart?",
+      initialValue: true,
+    });
+    if (p.isCancel(restart) || !restart) {
+      p.note("Inbox Zero is still running at http://localhost:3000", "Already running");
+      p.outro("Setup complete!");
+      return;
+    }
+    const stopSpinner = p.spinner();
+    stopSpinner.start("Stopping existing containers...");
+    await runDockerCommand([...composeArgs, "down"]);
+    stopSpinner.stop("Stopped");
+  }
+
   // Pull and start
   const pullSpinner = p.spinner();
   pullSpinner.start("Pulling Docker images (this may take a minute)...");
 
-  const composeArgs = REPO_ROOT ? ["compose"] : ["compose", "-f", composeFile];
-
-  const pullResult = spawnSync("docker", [...composeArgs, "pull"], {
-    stdio: "pipe",
-  });
+  const pullResult = await runDockerCommand([...composeArgs, "pull"]);
 
   if (pullResult.status !== 0) {
     pullSpinner.stop("Failed to pull images");
-    p.log.error(pullResult.stderr?.toString() || "Unknown error");
+    p.log.error(pullResult.stderr || "Unknown error");
     p.log.info("You can try again later with: inbox-zero start");
     process.exit(1);
   }
@@ -573,15 +628,24 @@ async function runSetupQuick(options: { name?: string }) {
   const startSpinner = p.spinner();
   startSpinner.start("Starting Inbox Zero...");
 
-  const upResult = spawnSync(
-    "docker",
-    [...composeArgs, "--profile", "all", "up", "-d"],
-    { stdio: "pipe" },
-  );
+  const upResult = await runDockerCommand([
+    ...composeArgs, "--profile", "all", "up", "-d",
+  ]);
 
   if (upResult.status !== 0) {
+    const portError = parsePortConflict(upResult.stderr);
     startSpinner.stop("Failed to start");
-    p.log.error(upResult.stderr?.toString() || "Unknown error");
+    if (portError) {
+      p.log.error(portError);
+      p.log.info(
+        "Stop the conflicting process or change the port:\n" +
+          "  inbox-zero config set WEB_PORT <port>\n" +
+          "  inbox-zero config set POSTGRES_PORT <port>\n" +
+          "  inbox-zero config set REDIS_PORT <port>",
+      );
+    } else {
+      p.log.error(upResult.stderr || "Unknown error");
+    }
     p.log.info("You can try again with: inbox-zero start");
     process.exit(1);
   }
@@ -1220,18 +1284,31 @@ async function runStart(options: { detach: boolean }) {
 
   p.intro("🚀 Starting Inbox Zero");
 
+  const composeArgs = ["compose", "-f", STANDALONE_COMPOSE_FILE];
+
+  if (checkContainersRunning(composeArgs)) {
+    const restart = await p.confirm({
+      message: "Inbox Zero is already running. Restart?",
+      initialValue: true,
+    });
+    if (p.isCancel(restart) || !restart) {
+      p.outro("Inbox Zero is already running.");
+      return;
+    }
+    const stopSpinner = p.spinner();
+    stopSpinner.start("Stopping existing containers...");
+    await runDockerCommand([...composeArgs, "down"]);
+    stopSpinner.stop("Stopped");
+  }
+
   const spinner = p.spinner();
   spinner.start("Pulling latest image...");
 
-  const pullResult = spawnSync(
-    "docker",
-    ["compose", "-f", STANDALONE_COMPOSE_FILE, "pull"],
-    { stdio: "pipe" },
-  );
+  const pullResult = await runDockerCommand([...composeArgs, "pull"]);
 
   if (pullResult.status !== 0) {
     spinner.stop("Failed to pull image");
-    p.log.error(pullResult.stderr?.toString() || "Unknown error");
+    p.log.error(pullResult.stderr || "Unknown error");
     process.exit(1);
   }
 
@@ -1239,27 +1316,25 @@ async function runStart(options: { detach: boolean }) {
 
   if (options.detach) {
     spinner.start("Starting containers...");
-  } else {
-    spinner.stop("Starting containers in foreground...");
-  }
 
-  const args = ["compose", "-f", STANDALONE_COMPOSE_FILE, "up"];
-  if (options.detach) {
-    args.push("-d");
-  }
+    const upResult = await runDockerCommand([
+      ...composeArgs, "--profile", "all", "up", "-d",
+    ]);
 
-  const upResult = spawnSync("docker", args, {
-    stdio: options.detach ? "pipe" : "inherit",
-  });
-
-  if (options.detach) {
     if (upResult.status !== 0) {
+      const portError = parsePortConflict(upResult.stderr);
       spinner.stop("Failed to start");
-      p.log.error(
-        upResult.error?.message ||
-          upResult.stderr?.toString() ||
-          `Unknown error (status: ${upResult.status})`,
-      );
+      if (portError) {
+        p.log.error(portError);
+        p.log.info(
+          "Stop the conflicting process or change the port:\n" +
+            "  inbox-zero config set WEB_PORT <port>\n" +
+            "  inbox-zero config set POSTGRES_PORT <port>\n" +
+            "  inbox-zero config set REDIS_PORT <port>",
+        );
+      } else {
+        p.log.error(upResult.stderr || "Unknown error");
+      }
       process.exit(1);
     }
 
@@ -1282,6 +1357,18 @@ async function runStart(options: { detach: boolean }) {
     );
 
     p.outro("Inbox Zero started! 🎉");
+  } else {
+    p.log.info("Starting containers in foreground...");
+
+    const child = spawn("docker", [...composeArgs, "--profile", "all", "up"], {
+      stdio: "inherit",
+    });
+    const code = await new Promise<number | null>((resolve) => {
+      child.on("close", (c) => resolve(c));
+    });
+    if (code !== 0) {
+      process.exit(code ?? 1);
+    }
   }
 }
 
@@ -1302,15 +1389,13 @@ async function runStop() {
   const spinner = p.spinner();
   spinner.start("Stopping containers...");
 
-  const result = spawnSync(
-    "docker",
-    ["compose", "-f", STANDALONE_COMPOSE_FILE, "down"],
-    { stdio: "pipe" },
-  );
+  const result = await runDockerCommand([
+    "compose", "-f", STANDALONE_COMPOSE_FILE, "down",
+  ]);
 
   if (result.status !== 0) {
     spinner.stop("Failed to stop");
-    p.log.error(result.stderr?.toString() || "Unknown error");
+    p.log.error(result.stderr || "Unknown error");
     process.exit(1);
   }
 
@@ -1390,15 +1475,13 @@ async function runUpdate() {
   const spinner = p.spinner();
   spinner.start("Pulling latest image...");
 
-  const pullResult = spawnSync(
-    "docker",
-    ["compose", "-f", STANDALONE_COMPOSE_FILE, "pull"],
-    { stdio: "pipe" },
-  );
+  const pullResult = await runDockerCommand([
+    "compose", "-f", STANDALONE_COMPOSE_FILE, "pull",
+  ]);
 
   if (pullResult.status !== 0) {
     spinner.stop("Failed to pull");
-    p.log.error(pullResult.stderr?.toString() || "Unknown error");
+    p.log.error(pullResult.stderr || "Unknown error");
     process.exit(1);
   }
 
@@ -1417,16 +1500,29 @@ async function runUpdate() {
   if (restart) {
     spinner.start("Restarting...");
 
-    spawnSync("docker", ["compose", "-f", STANDALONE_COMPOSE_FILE, "down"], {
-      stdio: "pipe",
-    });
-    spawnSync(
-      "docker",
-      ["compose", "-f", STANDALONE_COMPOSE_FILE, "up", "-d"],
-      {
-        stdio: "pipe",
-      },
-    );
+    await runDockerCommand([
+      "compose", "-f", STANDALONE_COMPOSE_FILE, "down",
+    ]);
+    const upResult = await runDockerCommand([
+      "compose", "-f", STANDALONE_COMPOSE_FILE, "--profile", "all", "up", "-d",
+    ]);
+
+    if (upResult.status !== 0) {
+      const portError = parsePortConflict(upResult.stderr);
+      spinner.stop("Failed to restart");
+      if (portError) {
+        p.log.error(portError);
+        p.log.info(
+          "Stop the conflicting process or change the port:\n" +
+            "  inbox-zero config set WEB_PORT <port>\n" +
+            "  inbox-zero config set POSTGRES_PORT <port>\n" +
+            "  inbox-zero config set REDIS_PORT <port>",
+        );
+      } else {
+        p.log.error(upResult.stderr || "Unknown error");
+      }
+      process.exit(1);
+    }
 
     spinner.stop("Restarted");
   }
@@ -1647,6 +1743,41 @@ async function fetchDockerCompose(): Promise<string> {
     );
   }
   return response.text();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Docker Command Helpers
+// ═══════════════════════════════════════════════════════════════════════════
+
+function runDockerCommand(
+  args: string[],
+): Promise<{ status: number; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("docker", args, { stdio: "pipe" });
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+
+    child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
+
+    child.on("close", (code) => {
+      resolve({
+        status: code ?? 1,
+        stdout: Buffer.concat(stdoutChunks).toString(),
+        stderr: Buffer.concat(stderrChunks).toString(),
+      });
+    });
+
+    child.on("error", reject);
+  });
+}
+
+function checkContainersRunning(composeArgs: string[]): boolean {
+  const result = spawnSync("docker", [...composeArgs, "ps", "-q"], {
+    stdio: "pipe",
+  });
+  if (result.status !== 0) return false;
+  return (result.stdout?.toString().trim() ?? "") !== "";
 }
 
 // Only run main() when executed directly, not when imported for testing
