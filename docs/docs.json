@@ -25,6 +25,9 @@
             "group": "Essentials",
             "pages": [
               "essentials/email-ai-personal-assistant",
+              "essentials/meeting-briefs",
+              "essentials/auto-file-attachments",
+              "essentials/slack-integration",
               "essentials/inbox-zero-tabs-extension",
               "essentials/bulk-email-unsubscriber",
               "essentials/cold-email-blocker",

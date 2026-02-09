@@ -1,0 +1,76 @@
+---
+title: 'Auto-File Attachments'
+description: 'Automatically organize email attachments into your Google Drive or OneDrive.'
+icon: 'folder-open'
+---
+
+## Overview
+
+Auto-File Attachments automatically saves and organizes email attachments to your Google Drive or OneDrive. When you receive an email with attachments, the AI determines the right folder and files it for you. No more manually downloading and sorting files.
+
+## Getting Started
+
+### 1. Connect your drive
+
+Navigate to **Attachments** in the left sidebar. You'll be prompted to connect either:
+
+- **Google Drive**
+- **OneDrive / SharePoint**
+
+### 2. Set up folders
+
+After connecting your drive, set up the folders you want files organized into. You can:
+
+- **Select existing folders** from your drive
+- **Create new folders** directly from the Inbox Zero interface
+
+Give each folder a description so the AI knows what types of files belong there. For example:
+
+| Folder | Description |
+|--------|-------------|
+| Receipts | Purchase receipts, invoices, and payment confirmations |
+| Contracts | Signed agreements, proposals, and legal documents |
+| Travel | Flight confirmations, hotel bookings, and itineraries |
+
+### 3. Enable auto-filing
+
+Once your folders are configured, enable auto-filing. The AI will start processing attachments from incoming emails.
+
+## How It Works
+
+1. When an email arrives with attachments, the AI analyzes the attachment (filename, content, and email context)
+2. It matches the attachment to one of your configured folders
+3. The file is uploaded to the correct folder in your drive
+4. You receive a notification (via email or Slack) confirming where it was filed
+
+### When the AI is unsure
+
+If the AI can't confidently determine the right folder, it will ask you. You'll receive an email notification with the filename and the AI's reasoning. Simply reply to the email to tell it where to put the file, and it will learn from your correction for next time.
+
+### Correcting a filing
+
+If a file was put in the wrong folder, you can reply to the notification email with the correct location. The AI supports:
+
+- **Approve** the filing if it got it right
+- **Move** to a different folder
+- **Undo** the filing if it shouldn't have been filed at all
+
+## Supported File Types
+
+The AI can analyze the content of these file types to make smarter filing decisions:
+
+- PDF documents
+- Word documents (.docx)
+- Plain text files
+
+Other attachment types are filed based on filename and email context.
+
+## Slack Notifications
+
+If you've connected Slack (see [Slack Integration](/essentials/slack-integration)), you can receive filing notifications in a Slack channel. This gives you a quick log of everything being filed without cluttering your inbox.
+
+## Tips
+
+- Write clear folder descriptions. The more specific, the better the AI's filing accuracy
+- Start with a few broad folders and add more specific ones as needed
+- Check the filing history on the Attachments page to see what's been filed and correct any mistakes

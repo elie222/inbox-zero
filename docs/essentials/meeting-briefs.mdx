@@ -1,0 +1,79 @@
+---
+title: 'Meeting Briefs'
+description: 'Get AI-generated briefings before every meeting with external contacts.'
+icon: 'calendar-check'
+---
+
+## Overview
+
+Meeting Briefs automatically sends you an AI-generated briefing before each meeting with external contacts. Each briefing includes context about your attendees pulled from your email history, past meetings, and web research so you're always prepared.
+
+Briefings are delivered to your inbox (and optionally Slack) ahead of each meeting on your schedule.
+
+## What's in a briefing?
+
+Each briefing includes:
+
+- **Attendee profiles** with name, email, and relevant background
+- **Email history** summarizing recent conversations with each guest
+- **Past meetings** you've had with them
+- **Web research** pulling in professional context when available
+
+Internal team members (people on your same email domain) are noted but don't receive individual profiles since you already know them.
+
+Meetings with no external guests are automatically skipped.
+
+## Getting Started
+
+### 1. Connect your calendar
+
+Navigate to **Briefs** in the left sidebar. If you haven't connected a calendar yet, you'll be prompted to connect Google Calendar or Microsoft Outlook Calendar.
+
+### 2. Enable Meeting Briefs
+
+Once your calendar is connected, click **Enable Meeting Briefs** to turn on the feature.
+
+<Note>Meeting Briefs is a premium feature.</Note>
+
+### 3. Configure timing
+
+Set how far in advance you want to receive briefings. The default is **4 hours** before each meeting, but you can adjust this from 1 minute to 48 hours.
+
+### 4. Choose delivery channels
+
+Select where you want to receive your briefings:
+
+- **Email** (enabled by default)
+- **Slack** (requires connecting your Slack workspace first, see [Slack Integration](/essentials/slack-integration))
+
+## Upcoming Meetings
+
+The Briefs page shows your upcoming meetings for the next 7 days that have external guests. For each meeting, you can:
+
+- **Send a test brief** to preview what the briefing looks like
+- **View send history** to see past briefings and their delivery status
+
+## Briefing Statuses
+
+| Status | Meaning |
+|--------|---------|
+| Sent | Briefing was delivered successfully |
+| Pending | Briefing is being generated |
+| Skipped | No external guests found for the meeting |
+| Failed | Delivery encountered an error |
+
+## How It Works
+
+1. The system checks your calendar periodically for upcoming meetings
+2. When a meeting falls within your configured time window, it gathers context:
+   - Recent email threads with each external attendee
+   - Past calendar events with the same people
+   - Web research about each guest (when available)
+3. AI generates a concise briefing with key talking points for each guest
+4. The briefing is delivered via your chosen channels
+
+## Tips
+
+- Connect Slack for quick-glance briefings right in your workflow
+- Use the "Send test brief" button to see what your briefings look like before your next real meeting
+- Adjust the timing to match your prep style. Some people prefer 4 hours ahead, others want it 30 minutes before
