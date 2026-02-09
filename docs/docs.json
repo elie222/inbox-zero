@@ -17,25 +17,53 @@
           {
             "group": "Get Started",
             "pages": [
-              "introduction",
-              "development"
+              "introduction"
             ]
           },
           {
             "group": "Essentials",
             "pages": [
               "essentials/email-ai-personal-assistant",
+              "essentials/bulk-email-unsubscriber",
+              "essentials/bulk-archiver",
+              "essentials/email-analytics",
               "essentials/meeting-briefs",
               "essentials/auto-file-attachments",
-              "essentials/slack-integration",
               "essentials/inbox-zero-tabs-extension",
-              "essentials/bulk-email-unsubscriber",
-              "essentials/cold-email-blocker",
-              "essentials/email-analytics",
               "essentials/calendar-integration",
+              "essentials/slack-integration",
+              "essentials/cold-email-blocker",
               "essentials/reply-zero",
               "essentials/smart-categories",
               "essentials/faq"
+            ]
+          }
+        ]
+      },
+      {
+        "anchor": "Developers",
+        "icon": "code",
+        "groups": [
+          {
+            "group": "Developer Guide",
+            "pages": [
+              "development"
+            ]
+          },
+          {
+            "group": "Self-Hosting",
+            "pages": [
+              "hosting/self-hosting",
+              "hosting/environment-variables",
+              "hosting/ec2-deployment",
+              "hosting/terraform",
+              "hosting/aws-copilot"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "slack/setup"
             ]
           },
           {

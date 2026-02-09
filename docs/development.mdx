@@ -44,9 +44,6 @@ We use Vercel to deploy Inbox Zero. Make sure to set all the environment variabl
 Here's how to solve some common problems.
 
 <AccordionGroup>
-  <Accordion title="Tinybird isn't working">
-    Make sure you have the correct region set. You can adjust the region in the `.env` file.
-  </Accordion>
   <Accordion title="I'm getting rate limited by my email provider">
     This can happen if your email account (Gmail or Outlook) is connected to another service that's making requests.
 
@@ -55,11 +52,14 @@ Here's how to solve some common problems.
     For Gmail: Visit https://myaccount.google.com/security and check "Your connections to third-party apps & services"
     For Outlook: Visit https://account.microsoft.com/privacy/app-access to review connected apps
   </Accordion>
-  <Accordion title="I'm getting rate limited by OpenAI">
+  <Accordion title="I'm getting rate limited by my AI provider">
     To solve this you can:
-    
+
     * Use a different AI model with higher rate limits.
-    * Move to a higher tier on OpenAI that has increased rate limits.
+    * Move to a higher tier with your AI provider that has increased rate limits.
     * Slow down the rate at which you are making requests.
+  </Accordion>
+  <Accordion title="Tinybird isn't working">
+    Make sure you have the correct region set. You can adjust the region in the `.env` file.
   </Accordion>
 </AccordionGroup>
