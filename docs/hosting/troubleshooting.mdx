@@ -3,14 +3,25 @@ title: 'Troubleshooting'
 description: 'Solutions for common issues when running Inbox Zero'
 ---
 
-## Container Won't Start
+## Viewing Logs
 
-**Check logs for errors:**
+If you installed via the CLI, use the built-in logs command:
+```bash
+inbox-zero logs            # Show last 100 lines
+inbox-zero logs -f         # Follow logs in real-time
+inbox-zero logs -n 500     # Show last 500 lines
+```
+
+If you're running Docker directly, use:
 ```bash
 docker logs inbox-zero-services-web-1
 docker logs inbox-zero-services-db-1
 docker logs inbox-zero-services-redis-1
 ```
+
+## Container Won't Start
+
+Check logs for errors using the commands above.
 
 **Common issues:**
 - **Port conflicts**: Another service is using port 3000, 5432, or 6379
