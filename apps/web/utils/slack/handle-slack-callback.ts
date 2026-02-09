@@ -27,6 +27,9 @@ const slackOAuthResponseSchema = z.object({
     id: z.string().min(1),
     name: z.string(),
   }),
+  authed_user: z.object({
+    id: z.string().min(1),
+  }),
 });
 
 type SlackOAuthResponse = z.infer<typeof slackOAuthResponseSchema>;
@@ -60,7 +63,8 @@ export async function handleSlackCallback(
       teamId: tokens.team.id,
       teamName: tokens.team.name,
       accessToken: tokens.access_token,
-      providerUserId: tokens.bot_user_id,
+      providerUserId: tokens.authed_user.id,
+      botUserId: tokens.bot_user_id,
       emailAccountId,
     });
 
@@ -260,6 +264,7 @@ async function upsertMessagingChannel(params: {
   teamName: string;
   accessToken: string;
   providerUserId: string;
+  botUserId: string;
   emailAccountId: string;
 }) {
   return prisma.messagingChannel.upsert({
@@ -274,6 +279,7 @@ async function upsertMessagingChannel(params: {
       teamName: params.teamName,
       accessToken: params.accessToken,
       providerUserId: params.providerUserId,
+      botUserId: params.botUserId,
       isConnected: true,
     },
     create: {
@@ -282,6 +288,7 @@ async function upsertMessagingChannel(params: {
       teamName: params.teamName,
       accessToken: params.accessToken,
       providerUserId: params.providerUserId,
+      botUserId: params.botUserId,
       emailAccountId: params.emailAccountId,
       isConnected: true,
     },

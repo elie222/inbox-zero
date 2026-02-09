@@ -989,7 +989,8 @@ model MessagingChannel {
   // Provider workspace/account
   teamId         String  // Slack workspace ID, Discord server ID, etc.
   teamName       String? // Display name
-  providerUserId String? // Slack user ID of the person who installed the bot
+  providerUserId String? // Slack user ID of the person who authorized the connection
+  botUserId      String? // Slack bot user ID (for mention stripping)
 
   // OAuth credentials (encrypted via prisma-extensions)
   accessToken  String?

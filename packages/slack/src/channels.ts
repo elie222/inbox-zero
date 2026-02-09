@@ -6,6 +6,21 @@ export type SlackChannel = {
   isPrivate: boolean;
 };
 
+export async function getChannelInfo(
+  client: WebClient,
+  channelId: string,
+): Promise<SlackChannel | null> {
+  const response = await client.conversations.info({ channel: channelId });
+
+  if (!response.channel?.id || !response.channel?.name) return null;
+
+  return {
+    id: response.channel.id,
+    name: response.channel.name,
+    isPrivate: response.channel.is_private ?? false,
+  };
+}
+
 const MAX_PAGES = 10;
 
 export async function listChannels(client: WebClient): Promise<SlackChannel[]> {
