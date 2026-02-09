@@ -1,13 +1,14 @@
 {
   "name": "@inbox-zero/cli",
   "version": "1.0.0",
-  "description": "CLI tool for setting up Inbox Zero",
+  "description": "CLI tool for setting up and managing Inbox Zero - AI email assistant",
   "type": "module",
   "bin": {
-    "inbox-zero": "./dist/inbox-zero.js"
+    "inbox-zero": "bin/inbox-zero.js"
   },
   "scripts": {
-    "build": "bun build src/main.ts --outfile dist/inbox-zero.js --target node",
+    "build": "bun build src/main.ts --outfile bin/inbox-zero.js --target node",
+    "prepublishOnly": "pnpm build",
     "build:binary": "bun build src/main.ts --compile --outfile dist/inbox-zero",
     "build:binary:all": "pnpm build:binary:macos-arm64 && pnpm build:binary:macos-x64 && pnpm build:binary:linux-x64",
     "build:binary:macos-arm64": "bun build src/main.ts --compile --target=bun-darwin-arm64 --outfile dist/inbox-zero-darwin-arm64",
@@ -27,14 +28,14 @@
     "vitest": "4.0.15"
   },
   "files": [
-    "dist"
+    "bin"
   ],
   "engines": {
     "node": ">=18.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/elie222/inbox-zero.git",
+    "url": "git+https://github.com/elie222/inbox-zero.git",
     "directory": "packages/cli"
   },
   "keywords": [

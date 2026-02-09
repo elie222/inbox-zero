@@ -7,7 +7,7 @@ import {
 } from "./fetch-upcoming-events";
 import { gatherContextForEvent } from "./gather-context";
 import { aiGenerateMeetingBriefing } from "@/utils/ai/meeting-briefs/generate-briefing";
-import { sendBriefingEmail } from "./send-briefing";
+import { sendBriefing } from "./send-briefing";
 import type { Logger } from "@/utils/logger";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { extractDomainFromEmail } from "@/utils/email";
@@ -208,7 +208,7 @@ export async function runMeetingBrief({
       logger: eventLog,
     });
 
-    await sendBriefingEmail({
+    await sendBriefing({
       event,
       briefingContent,
       internalTeamMembers: briefingData.internalTeamMembers,

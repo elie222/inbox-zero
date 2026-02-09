@@ -16,6 +16,7 @@ import { TimeDurationSetting } from "@/app/(app)/[emailAccountId]/briefs/TimeDur
 import { UpcomingMeetings } from "@/app/(app)/[emailAccountId]/briefs/UpcomingMeetings";
 import { BriefsOnboarding } from "@/app/(app)/[emailAccountId]/briefs/Onboarding";
 import { IntegrationsSetting } from "@/app/(app)/[emailAccountId]/briefs/IntegrationsSetting";
+import { DeliveryChannelsSetting } from "@/app/(app)/[emailAccountId]/briefs/DeliveryChannelsSetting";
 
 export default function MeetingBriefsPage() {
   const { emailAccountId } = useAccount();
@@ -94,6 +95,8 @@ export default function MeetingBriefsPage() {
                     />
                   }
                 />
+
+                <DeliveryChannelsSetting />
 
                 <IntegrationsSetting />
               </>
