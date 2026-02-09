@@ -234,3 +234,19 @@ export function redactValue(key: string, value: string): string {
 
   return value;
 }
+
+export function parsePortConflict(stderr: string): string | null {
+  const match = stderr.match(
+    /Bind for \S+:(\d+) failed: port is already allocated/,
+  );
+  if (match) {
+    return `Port ${match[1]} is already in use by another process.`;
+  }
+
+  const addrMatch = stderr.match(/:(\d+):\s*address already in use/);
+  if (addrMatch) {
+    return `Port ${addrMatch[1]} is already in use by another process.`;
+  }
+
+  return null;
+}
