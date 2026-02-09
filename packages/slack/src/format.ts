@@ -11,7 +11,7 @@ export function markdownToSlackMrkdwn(text: string): string {
   return (
     text
       // Links: [text](url) → <url|text>  (must come before bold conversion)
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<$2|$1>")
+      .replace(/\[([^[\]]+)\]\(([^()]+)\)/g, "<$2|$1>")
       // Bold: **text** → *text*
       .replace(/\*\*(.+?)\*\*/g, "*$1*")
       // Headings: # text → *text*
