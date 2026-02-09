@@ -1,0 +1,42 @@
+---
+title: 'AWS Deployment'
+description: 'Choose the right AWS deployment method for Inbox Zero'
+---
+
+There are three ways to deploy Inbox Zero on AWS. Choose the one that fits your team and infrastructure.
+
+| Approach | Best for | Infrastructure |
+|----------|----------|----------------|
+| [EC2 + Docker](/hosting/ec2-deployment) | Simple VPS-style deployment | Single EC2 instance with ALB |
+| [Terraform](/hosting/terraform) | Infrastructure-as-code teams | ECS Fargate + RDS + optional ElastiCache |
+| [AWS Copilot](/hosting/aws-copilot) | AWS-native teams | ECS Fargate (managed by Copilot) |
+
+## EC2 + Docker
+
+The most straightforward approach. Launch an EC2 instance, install Docker, and use the same Docker Compose setup from the [Self-Hosting Guide](/hosting/self-hosting). Add an ALB for HTTPS.
+
+Best if you want full control over a single server and are comfortable with SSH.
+
+<Card title="EC2 Deployment Guide" icon="server" href="/hosting/ec2-deployment">
+  Step-by-step EC2 setup with ALB and SSL.
+</Card>
+
+## Terraform
+
+Generate a complete Terraform configuration with one command. Provisions ECS Fargate, RDS PostgreSQL, optional ElastiCache Redis, and manages secrets via SSM Parameter Store.
+
+Best if your team uses infrastructure-as-code and wants repeatable deployments.
+
+<Card title="Terraform Deployment Guide" icon="rectangle-terminal" href="/hosting/terraform">
+  Deploy with `terraform init && terraform apply`.
+</Card>
+
+## AWS Copilot
+
+AWS Copilot handles the infrastructure for you. It creates ECS services, load balancers, and networking with simple CLI commands.
+
+Best if you prefer AWS-managed tooling and want to avoid writing infrastructure code.
+
+<Card title="AWS Copilot Deployment Guide" icon="cloud" href="/hosting/aws-copilot">
+  Deploy with `copilot init` and `copilot svc deploy`.
+</Card>

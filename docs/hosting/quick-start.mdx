@@ -1,0 +1,88 @@
+---
+title: 'Quick Start'
+description: 'Self-host Inbox Zero in under 5 minutes'
+---
+
+The fastest way to self-host Inbox Zero is with two commands:
+
+```bash
+npx @inbox-zero/cli setup      # One-time setup wizard
+npx @inbox-zero/cli start      # Start containers
+```
+
+Then open [http://localhost:3000](http://localhost:3000) (or your domain).
+
+<Info>
+  **Prerequisites:** [Docker](https://docs.docker.com/engine/install/) and [Node.js](https://nodejs.org/) v22+ must be installed.
+</Info>
+
+## What the CLI Does
+
+- **`setup`** downloads the Docker Compose file, creates your `.env`, and walks you through configuring Google/Microsoft OAuth and your AI provider.
+- **`start`** pulls the latest pre-built Docker image from `ghcr.io/elie222/inbox-zero:latest` and starts all containers (app, Postgres, Redis).
+
+## Install Options
+
+You can also install the CLI globally instead of using `npx`:
+
+<CodeGroup>
+
+```bash Homebrew
+brew install inbox-zero/inbox-zero/inbox-zero
+inbox-zero setup
+inbox-zero start
+```
+
+```bash npm
+npm install -g @inbox-zero/cli
+inbox-zero setup
+inbox-zero start
+```
+
+</CodeGroup>
+
+## CLI Command Reference
+
+| Command | Description |
+|---------|-------------|
+| `inbox-zero setup` | One-time setup wizard |
+| `inbox-zero start` | Start containers |
+| `inbox-zero stop` | Stop containers |
+| `inbox-zero update` | Pull latest image and restart |
+| `inbox-zero logs -f` | Follow container logs |
+| `inbox-zero status` | Show container status |
+| `inbox-zero config` | Interactive configuration editor |
+| `inbox-zero config set <key> <value>` | Set a config value |
+| `inbox-zero config get <key>` | Get a config value |
+
+## Updating
+
+To update to the latest version:
+
+```bash
+inbox-zero update
+```
+
+Or manually with Docker Compose:
+
+```bash
+docker compose pull web
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Self-Hosting Guide" icon="server" href="/hosting/self-hosting">
+    Production deployment, Docker profiles, scheduled tasks, and troubleshooting.
+  </Card>
+  <Card title="AWS Deployment" icon="aws" href="/hosting/aws">
+    Deploy on AWS using EC2, Terraform, or AWS Copilot.
+  </Card>
+  <Card title="Environment Variables" icon="gear" href="/hosting/environment-variables">
+    Full reference for all configuration options.
+  </Card>
+  <Card title="Contributing" icon="code" href="/contributing">
+    Set up a local development environment and contribute.
+  </Card>
+</CardGroup>

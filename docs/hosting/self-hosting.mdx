@@ -1,11 +1,13 @@
 ---
-title: 'Self-Hosting with Docker'
-description: 'Deploy Inbox Zero on a VPS using Docker and Docker Compose'
+title: 'Self-Hosting Guide'
+description: 'Production deployment with Docker and Docker Compose'
 ---
 
-# Self-Hosting Inbox Zero with Docker on a VPS
+<Info>
+  For the fastest setup, see the [Quick Start](/hosting/quick-start).
+</Info>
 
-This guide will walk you through self-hosting the Inbox Zero application on a VPS using Docker and Docker Compose.
+This guide covers production deployment on a VPS using Docker and Docker Compose.
 
 ## Prerequisites
 
@@ -115,64 +117,6 @@ Your application should now be accessible at:
 - `https://yourdomain.com` (if you've set up a reverse proxy with SSL)
 
 **Note:** For production deployments, you should set up a reverse proxy (like Nginx, Caddy, or use a cloud load balancer) to handle SSL/TLS termination and route traffic to your Docker container.
-
-## CLI Commands
-
-The Inbox Zero CLI (`@inbox-zero/cli`) provides commands for managing your self-hosted instance:
-
-```bash
-npx @inbox-zero/cli setup      # One-time setup wizard
-npx @inbox-zero/cli start      # Start containers
-npx @inbox-zero/cli stop       # Stop containers
-npx @inbox-zero/cli update     # Pull latest image and restart
-npx @inbox-zero/cli config     # Interactive configuration editor
-npx @inbox-zero/cli config set <key> <value>  # Set a config value
-npx @inbox-zero/cli config get <key>          # Get a config value
-npx @inbox-zero/cli logs -f    # Follow container logs
-npx @inbox-zero/cli status     # Show container status
-```
-
-You can also install the CLI globally for shorter commands:
-
-```bash
-npm install -g @inbox-zero/cli
-inbox-zero setup
-inbox-zero update
-inbox-zero config
-```
-
-## Updates
-
-To update to the latest version:
-
-```bash
-inbox-zero update
-```
-
-Or manually with Docker Compose:
-
-```bash
-# Pull the latest image
-docker compose pull web
-
-# Restart with the new image
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
-```
-
-## Monitoring
-
-```bash
-inbox-zero logs -f
-inbox-zero status
-```
-
-Or with Docker Compose directly:
-
-```bash
-# View logs
-docker compose logs -f web
-docker compose logs -f db
-```
 
 ## Scheduled Tasks
 
