@@ -133,24 +133,31 @@ async function main() {
 
   program
     .name("inbox-zero")
-    .description("CLI tool for running Inbox Zero - AI email assistant")
-    .version(packageJson.version);
+    .description(
+      "CLI tool for self-hosting Inbox Zero — AI email assistant.\n\n" +
+        "Quick start:\n" +
+        "  inbox-zero setup      Set up Google OAuth, AI provider, Pub/Sub, and Docker\n" +
+        "  inbox-zero start      Pull latest image and start all containers\n" +
+        "  inbox-zero config     View and update environment variables\n\n" +
+        "Docs: https://docs.getinboxzero.com/self-hosting",
+    )
+    .version(packageJson.version, "-v, --version");
 
   program
     .command("setup")
-    .description("Interactive setup for Inbox Zero")
+    .description("Interactive setup — Google OAuth, AI provider, Pub/Sub, and Docker")
     .option("-n, --name <name>", "Configuration name (creates .env.<name>)")
     .action(runSetup);
 
   program
     .command("start")
-    .description("Start Inbox Zero containers")
-    .option("--no-detach", "Run in foreground (default: runs in background)")
+    .description("Pull latest image and start all containers")
+    .option("--no-detach", "Run in foreground instead of background")
     .action(runStart);
 
   program
     .command("stop")
-    .description("Stop Inbox Zero containers")
+    .description("Stop all running containers")
     .action(runStop);
 
   program
@@ -162,12 +169,12 @@ async function main() {
 
   program
     .command("status")
-    .description("Show status of Inbox Zero containers")
+    .description("Show status of running containers")
     .action(runStatus);
 
   program
     .command("update")
-    .description("Pull latest Inbox Zero image")
+    .description("Pull latest image and optionally restart")
     .action(runUpdate);
 
   const configCmd = program
