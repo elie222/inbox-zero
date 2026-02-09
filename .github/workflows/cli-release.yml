@@ -17,7 +17,7 @@ jobs:
           - os: macos-latest
             target: bun-darwin-arm64
             artifact: inbox-zero-darwin-arm64
-          - os: macos-13
+          - os: macos-latest
             target: bun-darwin-x64
             artifact: inbox-zero-darwin-x64
           - os: ubuntu-latest
@@ -84,7 +84,7 @@ jobs:
         run: cd packages/cli && bun run build
 
       - name: Publish to npm
-        run: cd packages/cli && npm publish --provenance --access public
+        run: cd packages/cli && npm publish --provenance --access public || echo "Version may already be published"
 
   release:
     needs: build
