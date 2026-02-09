@@ -36,15 +36,6 @@
               "essentials/smart-categories",
               "essentials/faq"
             ]
-          },
-          {
-            "group": "API",
-            "pages": [
-              "api-reference/introduction",
-              "api-reference/endpoint/get-statsby-period",
-              "api-reference/endpoint/get-statsresponse-time",
-              "api-reference/endpoint/get-group-emails"
-            ]
           }
         ]
       },
@@ -56,6 +47,15 @@
             "group": "Developer Guide",
             "pages": [
               "development"
+            ]
+          },
+          {
+            "group": "API",
+            "pages": [
+              "api-reference/introduction",
+              "api-reference/endpoint/get-statsby-period",
+              "api-reference/endpoint/get-statsresponse-time",
+              "api-reference/endpoint/get-group-emails"
             ]
           },
           {
