@@ -9,6 +9,7 @@ import { emailToContent } from "@/utils/mail";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
 import { aiParseFilingReply } from "@/utils/ai/document-filing/parse-filing-reply";
+import { getFilebotEmail } from "@/utils/filebot/is-filebot-email";
 
 interface ProcessFilingReplyArgs {
   emailAccountId: string;
@@ -44,22 +45,16 @@ export async function processFilingReply({
     return;
   }
 
-  const inReplyTo = message.headers["in-reply-to"];
-
-  if (!inReplyTo) {
-    logger.error("No In-Reply-To header found");
-    return;
-  }
-
-  const filing = await prisma.documentFiling.findUnique({
-    where: { notificationMessageId: inReplyTo },
-    include: {
-      driveConnection: true,
-    },
+  const filing = await findFilingFromThread({
+    message,
+    emailProvider,
+    emailAccountId,
   });
 
   if (!filing) {
-    logger.error("Filing not found for In-Reply-To message", { inReplyTo });
+    logger.error("Filing not found for thread", {
+      threadId: message.threadId,
+    });
     return;
   }
 
@@ -90,7 +85,10 @@ export async function processFilingReply({
   });
 
   if (parseResult.reply) {
-    await emailProvider.replyToEmail(message, parseResult.reply);
+    const filebotEmail = getFilebotEmail({ userEmail });
+    await emailProvider.replyToEmail(message, parseResult.reply, {
+      replyTo: filebotEmail,
+    });
   }
 
   switch (parseResult.action) {
@@ -255,4 +253,33 @@ async function handleMove({
       data: { status: "ERROR" },
     });
   }
+}
+
+/**
+ * Find the filing by walking the thread to find a message whose
+ * notificationMessageId matches one of the thread's message IDs.
+ */
+async function findFilingFromThread({
+  message,
+  emailProvider,
+  emailAccountId,
+}: {
+  message: ParsedMessage;
+  emailProvider: EmailProvider;
+  emailAccountId: string;
+}) {
+  const threadMessages = await emailProvider.getThreadMessages(
+    message.threadId,
+  );
+  if (!threadMessages?.length) return null;
+
+  const messageIds = threadMessages.map((m) => m.id);
+
+  return prisma.documentFiling.findFirst({
+    where: {
+      emailAccountId,
+      notificationMessageId: { in: messageIds },
+    },
+    include: { driveConnection: true },
+  });
 }

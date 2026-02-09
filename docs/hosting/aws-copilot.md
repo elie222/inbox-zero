@@ -20,15 +20,6 @@ The CLI automates Copilot setup, addons (RDS + ElastiCache), secrets, and deploy
 pnpm setup-aws
 ```
 
-Useful flags (existing VPC import):
-```bash
-pnpm setup-aws -- \
-  --import-vpc-id vpc-1234567890abcdef \
-  --import-public-subnets subnet-aaa,subnet-bbb \
-  --import-private-subnets subnet-ccc,subnet-ddd \
-  --import-cert-arns arn:aws:acm:us-east-1:123456789012:certificate/abcd-efgh
-```
-
 Non-interactive mode:
 ```bash
 pnpm setup-aws -- --yes
@@ -86,29 +77,7 @@ copilot env init --name production
 
 This will prompt you for:
 - AWS profile/region (if not already configured)
-- Whether to create a new VPC or use an existing one
 - Other infrastructure options
-
-#### Using an Existing VPC
-
-Copilot can import an existing VPC during `env init`. You’ll need the VPC ID plus
-public/private subnet IDs:
-
-```bash
-copilot env init --name production \
-  --import-vpc-id vpc-1234567890abcdef \
-  --import-public-subnets subnet-aaa,subnet-bbb \
-  --import-private-subnets subnet-ccc,subnet-ddd
-```
-
-Requirements:
-- At least 2 public subnets and 2 private subnets across different AZs
-- Public subnets routed to an Internet Gateway
-- Private subnets routed through a NAT Gateway
-
-Notes:
-- Copilot will create its own ALB and security groups
-- Addons read `PrivateSubnets` from `copilot/environments/addons/addons.parameters.yml`
 
 ### 4. Initialize the Service
 
@@ -449,4 +418,3 @@ aws logs tail /aws/apigateway/inbox-zero-app-production-webhook-api --follow
 - [Copilot Manifest Reference](https://aws.github.io/copilot-cli/docs/manifest/overview/)
 - [Self-Hosting Guide](./self-hosting.md) - For local Docker setup
 - [Google Pub/Sub Push Authentication](https://cloud.google.com/pubsub/docs/authenticate-push-subscriptions)
-

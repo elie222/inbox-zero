@@ -10,11 +10,11 @@ export function StepWelcome({ onNext }: { onNext: () => void }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
       <div className="flex flex-col items-center text-center max-w-md">
-        <div className="mb-6 h-[240px] flex items-center justify-center">
+        <div className="mb-4 flex items-center justify-center">
           <motion.div
-            initial={{ opacity: 0, scale: 1.5 }}
-            animate={{ opacity: 1, scale: 1.8 }}
-            transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
             <IconCircle size="lg">
               <MailIcon className="size-6" />
@@ -22,11 +22,10 @@ export function StepWelcome({ onNext }: { onNext: () => void }) {
           </motion.div>
         </div>
 
-        <PageHeading className="mb-3">Get to know Inbox Zero</PageHeading>
+        <PageHeading className="mb-3">Welcome to Inbox Zero</PageHeading>
 
         <TypographyP className="text-muted-foreground mb-8">
-          We'll take you through the steps to get you started and set you up for
-          success.
+          Here's a quick look at what Inbox Zero can do for you.
         </TypographyP>
 
         <div className="flex flex-col gap-2 w-full max-w-xs">

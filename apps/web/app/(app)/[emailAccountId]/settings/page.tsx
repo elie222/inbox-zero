@@ -1,15 +1,18 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
+import { ConnectedAppsSection } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/MultiAccountSection";
 import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
+import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 import { RuleImportExportSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
-import { FormSection, FormWrapper } from "@/components/Form";
+import { FormWrapper } from "@/components/Form";
 import { PageHeader } from "@/components/PageHeader";
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { SectionDescription } from "@/components/Typography";
@@ -19,6 +22,8 @@ import { env } from "@/env";
 
 export default function SettingsPage() {
   const { emailAccount } = useAccount();
+  const searchParams = useSearchParams();
+  const defaultTab = searchParams.get("tab") === "email" ? "email" : "user";
 
   return (
     <div>
@@ -26,7 +31,7 @@ export default function SettingsPage() {
         <PageHeader title="Settings" />
       </div>
 
-      <Tabs defaultValue="user">
+      <Tabs defaultValue={defaultTab}>
         <TabsToolbar>
           <div className="w-full overflow-x-auto">
             <TabsList>
@@ -59,8 +64,10 @@ export default function SettingsPage() {
               </SectionDescription>
 
               <div className="space-y-2 mt-4">
+                <ConnectedAppsSection />
                 <OrgAnalyticsConsentSection />
                 <RuleImportExportSetting />
+                <CleanupDraftsSection />
                 <ResetAnalyticsSection />
               </div>
 
