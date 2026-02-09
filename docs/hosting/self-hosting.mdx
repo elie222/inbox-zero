@@ -263,6 +263,18 @@ docker logs inbox-zero-services-redis-1
 - If exceeding 1.5GB, check for memory leaks in logs
 - Restart containers: `docker compose restart web`
 
+### Rate Limiting
+
+**Rate limited by email provider (Gmail/Outlook):**
+- This can happen if your email account is connected to another service making requests.
+- For Gmail: Visit https://myaccount.google.com/security and check "Your connections to third-party apps & services"
+- For Outlook: Visit https://account.microsoft.com/privacy/app-access to review connected apps
+
+**Rate limited by AI provider:**
+- Use a different AI model with higher rate limits.
+- Move to a higher tier with your AI provider.
+- Slow down the rate at which you are making requests.
+
 ### Getting Help
 
 If you're still stuck:

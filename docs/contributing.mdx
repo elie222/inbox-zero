@@ -93,31 +93,10 @@ pnpm start
 NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --profile all up --build
 ```
 
-## Troubleshooting
+## Finding Your Way Around
 
-<AccordionGroup>
-  <Accordion title="I'm getting rate limited by my email provider">
-    This can happen if your email account (Gmail or Outlook) is connected to another service that's making requests.
+To understand the codebase, we recommend connecting the repo to an AI coding tool like [Claude Code](https://claude.ai/claude-code) or [Cursor](https://cursor.com/) and asking questions directly. The [ARCHITECTURE.md](https://github.com/elie222/inbox-zero/blob/main/ARCHITECTURE.md) file provides a high-level overview, though it may not reflect recent changes.
 
-    To fix this you can check what other services are connected to your email account and remove any that you don't need.
-
-    For Gmail: Visit https://myaccount.google.com/security and check "Your connections to third-party apps & services"
-    For Outlook: Visit https://account.microsoft.com/privacy/app-access to review connected apps
-  </Accordion>
-  <Accordion title="I'm getting rate limited by my AI provider">
-    To solve this you can:
-
-    * Use a different AI model with higher rate limits.
-    * Move to a higher tier with your AI provider that has increased rate limits.
-    * Slow down the rate at which you are making requests.
-  </Accordion>
-  <Accordion title="Tinybird isn't working">
-    Make sure you have the correct region set. You can adjust the region in the `.env` file.
-  </Accordion>
-</AccordionGroup>
-
-## Contributing to the Project
+For troubleshooting common issues (rate limiting, OAuth errors, etc.), see the [Self-Hosting Guide troubleshooting section](/hosting/self-hosting#troubleshooting).
 
 View open tasks in [GitHub Issues](https://github.com/elie222/inbox-zero/issues) and join the [Discord](https://www.getinboxzero.com/discord) to discuss what's being worked on.
-
-See [ARCHITECTURE.md](https://github.com/elie222/inbox-zero/blob/main/ARCHITECTURE.md) for an overview of the project structure.
