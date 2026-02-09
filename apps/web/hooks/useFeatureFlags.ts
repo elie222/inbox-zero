@@ -10,10 +10,8 @@ export function useCleanerEnabled() {
 }
 
 export function useFollowUpRemindersEnabled() {
-  return (
-    useFeatureFlagEnabled("follow-up-reminders") ||
-    env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED
-  );
+  const posthogEnabled = useFeatureFlagEnabled("follow-up-reminders");
+  return env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED || posthogEnabled;
 }
 
 export function useMeetingBriefsEnabled() {
@@ -22,12 +20,12 @@ export function useMeetingBriefsEnabled() {
 
 export function useIntegrationsEnabled() {
   const posthogEnabled = useFeatureFlagEnabled("integrations");
-  return posthogEnabled || env.NEXT_PUBLIC_INTEGRATIONS_ENABLED;
+  return env.NEXT_PUBLIC_INTEGRATIONS_ENABLED || posthogEnabled;
 }
 
 export function useSmartFilingEnabled() {
   const posthogEnabled = useFeatureFlagEnabled("smart-filing");
-  return posthogEnabled || env.NEXT_PUBLIC_SMART_FILING_ENABLED;
+  return env.NEXT_PUBLIC_SMART_FILING_ENABLED || posthogEnabled;
 }
 
 const HERO_FLAG_NAME = "hero-copy-7";

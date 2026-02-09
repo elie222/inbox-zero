@@ -77,7 +77,7 @@ export const env = createEnv({
     OLLAMA_BASE_URL: z.string().optional(),
     OLLAMA_MODEL: z.string().optional(),
 
-    OPENAI_ZERO_DATA_RETENTION: z.coerce.boolean().optional().default(false),
+    OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
 
     UPSTASH_REDIS_URL: z.string().optional(),
     UPSTASH_REDIS_TOKEN: z.string().optional(),
@@ -96,8 +96,8 @@ export const env = createEnv({
     SENTRY_ORGANIZATION: z.string().optional(),
     SENTRY_PROJECT: z.string().optional(),
 
-    DISABLE_LOG_ZOD_ERRORS: z.coerce.boolean().optional(),
-    ENABLE_DEBUG_LOGS: z.coerce.boolean().default(false),
+    DISABLE_LOG_ZOD_ERRORS: booleanString.optional(),
+    ENABLE_DEBUG_LOGS: booleanString.default(false),
 
     // Lemon Squeezy
     LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),
@@ -135,7 +135,7 @@ export const env = createEnv({
     INTERNAL_API_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),
     WHITELIST_FROM: z.string().optional(),
-    USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
+    USE_BACKUP_MODEL: booleanString.optional().default(false),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
@@ -191,7 +191,7 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_HERO_AB: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string(),
-    NEXT_PUBLIC_CONTACTS_ENABLED: z.coerce.boolean().optional().default(false),
+    NEXT_PUBLIC_CONTACTS_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: booleanString.default(true),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
     NEXT_PUBLIC_SUPPORT_EMAIL: z
@@ -200,8 +200,7 @@ export const env = createEnv({
       .default("elie@getinboxzero.com"),
     NEXT_PUBLIC_GTM_ID: z.string().optional(),
     NEXT_PUBLIC_CRISP_WEBSITE_ID: z.string().optional(),
-    NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED: z.coerce
-      .boolean()
+    NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED: booleanString
       .optional()
       .default(false),
     NEXT_PUBLIC_AXIOM_DATASET: z.string().optional(),
@@ -214,19 +213,18 @@ export const env = createEnv({
         return value.split(",");
       }),
     NEXT_PUBLIC_DUB_REFER_DOMAIN: z.string().optional(),
-    NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: z.coerce
-      .boolean()
+    NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: booleanString
       .optional()
       .default(false),
-    NEXT_PUBLIC_USE_AEONIK_FONT: z.coerce.boolean().optional().default(false),
-    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: z.coerce.boolean().optional(),
-    NEXT_PUBLIC_DIGEST_ENABLED: z.coerce.boolean().optional(),
-    NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: z.coerce.boolean().optional(),
-    NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED: z.coerce.boolean().optional(),
-    NEXT_PUBLIC_INTEGRATIONS_ENABLED: z.coerce.boolean().optional(),
-    NEXT_PUBLIC_SMART_FILING_ENABLED: z.coerce.boolean().optional(),
-    NEXT_PUBLIC_CLEANER_ENABLED: z.coerce.boolean().optional(),
-    NEXT_PUBLIC_IS_RESEND_CONFIGURED: z.coerce.boolean().optional(),
+    NEXT_PUBLIC_USE_AEONIK_FONT: booleanString.optional().default(false),
+    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: booleanString.optional(),
+    NEXT_PUBLIC_DIGEST_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_INTEGRATIONS_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_SMART_FILING_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_CLEANER_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_IS_RESEND_CONFIGURED: booleanString.optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {

@@ -94,6 +94,17 @@ export const useNavigation = () => {
         icon: SparklesIcon,
       },
       {
+        name: "Calendars",
+        href: prefixPath(currentEmailAccountId, "/calendars"),
+        icon: CalendarIcon,
+      },
+    ],
+    [currentEmailAccountId],
+  );
+
+  const cleanupItems: NavItem[] = useMemo(
+    () => [
+      {
         name: "Bulk Unsubscribe",
         href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
@@ -107,11 +118,6 @@ export const useNavigation = () => {
         name: "Analytics",
         href: prefixPath(currentEmailAccountId, "/stats"),
         icon: BarChartBigIcon,
-      },
-      {
-        name: "Calendars",
-        href: prefixPath(currentEmailAccountId, "/calendars"),
-        icon: CalendarIcon,
       },
       ...(isGoogleProvider(provider) && showCleaner
         ? [
@@ -127,7 +133,7 @@ export const useNavigation = () => {
     [currentEmailAccountId, provider, showCleaner],
   );
 
-  const addOnItems: NavItem[] = useMemo(
+  const moreItems: NavItem[] = useMemo(
     () => [
       ...(showMeetingBriefs
         ? [
@@ -160,7 +166,8 @@ export const useNavigation = () => {
 
   return {
     manageItems,
-    addOnItems,
+    cleanupItems,
+    moreItems,
   };
 };
 
@@ -268,13 +275,17 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <SidebarGroupLabel>Manage</SidebarGroupLabel>
                 <SideNavMenu items={navigation.manageItems} activeHref={path} />
               </SidebarGroup>
-              {navigation.addOnItems.length > 0 && (
+              <SidebarGroup>
+                <SidebarGroupLabel>Cleanup</SidebarGroupLabel>
+                <SideNavMenu
+                  items={navigation.cleanupItems}
+                  activeHref={path}
+                />
+              </SidebarGroup>
+              {navigation.moreItems.length > 0 && (
                 <SidebarGroup>
-                  <SidebarGroupLabel>Add-ons</SidebarGroupLabel>
-                  <SideNavMenu
-                    items={navigation.addOnItems}
-                    activeHref={path}
-                  />
+                  <SidebarGroupLabel>More</SidebarGroupLabel>
+                  <SideNavMenu items={navigation.moreItems} activeHref={path} />
                 </SidebarGroup>
               )}
             </>
