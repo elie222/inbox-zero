@@ -17,8 +17,7 @@
           {
             "group": "Get Started",
             "pages": [
-              "introduction",
-              "development"
+              "introduction"
             ]
           },
           {
@@ -39,12 +38,34 @@
             ]
           },
           {
+            "group": "Self-Hosting",
+            "pages": [
+              "hosting/self-hosting",
+              "hosting/environment-variables",
+              "hosting/ec2-deployment",
+              "hosting/terraform",
+              "hosting/aws-copilot"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "slack/setup"
+            ]
+          },
+          {
             "group": "API",
             "pages": [
               "api-reference/introduction",
               "api-reference/endpoint/get-statsby-period",
               "api-reference/endpoint/get-statsresponse-time",
               "api-reference/endpoint/get-group-emails"
+            ]
+          },
+          {
+            "group": "Developer Guide",
+            "pages": [
+              "development"
             ]
           }
         ]
