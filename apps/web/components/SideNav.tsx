@@ -98,12 +98,6 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/calendars"),
         icon: CalendarIcon,
       },
-      {
-        name: "Attachments",
-        href: prefixPath(currentEmailAccountId, "/drive"),
-        icon: HardDriveIcon,
-        new: true,
-      },
     ],
     [currentEmailAccountId],
   );
@@ -150,6 +144,12 @@ export const useNavigation = () => {
             },
           ]
         : []),
+      {
+        name: "Attachments",
+        href: prefixPath(currentEmailAccountId, "/drive"),
+        icon: HardDriveIcon,
+        new: true,
+      },
       ...(showIntegrations
         ? [
             {
