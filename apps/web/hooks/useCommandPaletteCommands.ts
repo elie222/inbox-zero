@@ -144,7 +144,7 @@ export function useCommandPaletteCommands() {
         section: "settings",
         priority: 1,
         keywords: ["settings", "preferences", "configuration"],
-        action: () => router.push(prefixPath(emailAccountId, "/settings")),
+        action: () => router.push("/settings"),
       },
       {
         id: "settings-assistant",

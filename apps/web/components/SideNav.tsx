@@ -224,8 +224,6 @@ const bottomMailLinks: NavItem[] = [
 
 export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigation = useNavigation();
-  const { emailAccountId, emailAccount } = useAccount();
-  const currentEmailAccountId = emailAccount?.id || emailAccountId;
   const path = usePathname();
   const showMailNav = path.includes("/mail") || path.includes("/compose");
 
@@ -308,7 +306,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenuButton>
 
         <SidebarMenuButton asChild>
-          <Link href={prefixPath(currentEmailAccountId, "/settings")}>
+          <Link href="/settings">
             <SettingsIcon className="size-4" />
             <span className="font-semibold">Settings</span>
           </Link>

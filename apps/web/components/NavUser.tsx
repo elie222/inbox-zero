@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   ChevronsUpDownIcon,
-  BarChartIcon,
   MessageCircleReplyIcon,
   ShieldCheckIcon,
   RibbonIcon,
@@ -168,13 +167,6 @@ export function NavUser() {
               </DropdownMenuItem>
             </>
           )}
-          <DropdownMenuItem asChild>
-            <Link href={prefixPath(currentEmailAccountId, "/usage")}>
-              <BarChartIcon className="mr-2 size-4" />
-              Usage
-            </Link>
-          </DropdownMenuItem>
-
           {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
             <DropdownMenuItem asChild>
               <Link href="/premium">
