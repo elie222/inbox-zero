@@ -1,7 +1,7 @@
 import { convertToModelMessages, type UIMessage } from "ai";
 import prisma from "@/utils/prisma";
 import { MessagingProvider } from "@/generated/prisma/enums";
-import { createSlackClient } from "@inboxzero/slack";
+import { createSlackClient, markdownToSlackMrkdwn } from "@inboxzero/slack";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
@@ -182,7 +182,7 @@ export async function processSlackEvent(
 
   await client.chat.postMessage({
     channel,
-    text: fullText,
+    text: markdownToSlackMrkdwn(fullText),
     ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
   });
 }
