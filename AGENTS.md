@@ -10,6 +10,7 @@
 - Run specific AI test: `pnpm test-ai ai-categorize-senders`
 - Do not run `dev` or `build` unless explicitly asked
 - Before writing or updating tests, review `.cursor/rules/testing.mdc`.
+- When adding a new workspace package, add its `package.json` COPY line to `docker/Dockerfile.prod` and `docker/Dockerfile.local`.
 
 ## Code Style
 - TypeScript with strict null checks
