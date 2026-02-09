@@ -9,7 +9,11 @@ import {
 } from "@/utils/actions/messaging-channels.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
-import { sendChannelConfirmation } from "@inboxzero/slack";
+import {
+  createSlackClient,
+  getChannelInfo,
+  sendChannelConfirmation,
+} from "@inboxzero/slack";
 
 export const updateSlackChannelAction = actionClient
   .metadata({ name: "updateSlackChannel" })
@@ -31,23 +35,38 @@ export const updateSlackChannelAction = actionClient
         throw new SafeError("Messaging channel is not connected");
       }
 
+      if (!channel.accessToken) {
+        throw new SafeError("Messaging channel has no access token");
+      }
+
+      const client = createSlackClient(channel.accessToken);
+      const channelInfo = await getChannelInfo(client, targetId);
+
+      if (!channelInfo) {
+        throw new SafeError("Could not find the selected Slack channel");
+      }
+
+      if (!channelInfo.isPrivate) {
+        throw new SafeError(
+          "Only private channels are allowed. Please select a private channel.",
+        );
+      }
+
       await prisma.messagingChannel.update({
         where: { id: channelId },
         data: {
           channelId: targetId,
-          channelName: targetName,
+          channelName: channelInfo.name,
         },
       });
 
-      if (channel.accessToken) {
-        try {
-          await sendChannelConfirmation({
-            accessToken: channel.accessToken,
-            channelId: targetId,
-          });
-        } catch (error) {
-          logger.error("Failed to send channel confirmation", { error });
-        }
+      try {
+        await sendChannelConfirmation({
+          accessToken: channel.accessToken,
+          channelId: targetId,
+        });
+      } catch (error) {
+        logger.error("Failed to send channel confirmation", { error });
       }
     },
   );

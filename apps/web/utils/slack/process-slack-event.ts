@@ -34,54 +34,45 @@ export async function processSlackEvent(
   // Ignore bot messages
   if (bot_id || !user) return;
 
-  // Only handle messages and app_mentions
+  // Only handle DMs and channel @mentions
   if (type !== "message" && type !== "app_mention") return;
 
-  // For DMs, only process direct messages (not channel messages)
+  // For messages, only process DMs (not channel messages without @mention)
   if (type === "message" && channel_type !== "im") return;
 
+  // Auth check: only match channels authorized for this Slack user
   const candidates = await prisma.messagingChannel.findMany({
     where: {
       provider: MessagingProvider.SLACK,
       teamId,
       isConnected: true,
       accessToken: { not: null },
+      providerUserId: user,
     },
     select: {
       id: true,
       accessToken: true,
-      providerUserId: true,
+      botUserId: true,
       emailAccountId: true,
+      channelId: true,
     },
   });
 
   if (candidates.length === 0) {
-    logger.info("No messaging channel found for Slack event", { teamId });
+    await sendUnauthorizedMessage({ teamId, channel, logger });
     return;
   }
 
-  // Disambiguate when multiple accounts share one Slack workspace
-  let messagingChannel = candidates[0];
-  if (candidates.length > 1) {
-    const chatId = thread_ts
-      ? `slack-${channel}-${thread_ts}`
-      : `slack-${channel}`;
-    const existingChat = await prisma.chat.findUnique({
-      where: { id: chatId },
-      select: { emailAccountId: true },
-    });
-    if (existingChat) {
-      const match = candidates.find(
-        (c) => c.emailAccountId === existingChat.emailAccountId,
-      );
-      if (match) messagingChannel = match;
-    } else {
-      logger.warn("Ambiguous workspace-to-account routing, using first match", {
-        teamId,
-        candidateCount: candidates.length,
-      });
-    }
-  }
+  const messagingChannel = await resolveMessagingChannel({
+    candidates,
+    type,
+    channel,
+    thread_ts,
+    logger,
+    teamId,
+  });
+
+  if (!messagingChannel) return;
 
   if (!messagingChannel.accessToken) {
     logger.info("No access token for messaging channel", { teamId });
@@ -92,9 +83,9 @@ export async function processSlackEvent(
 
   // Strip bot mention from text for app_mention events
   let messageText = text ?? "";
-  if (type === "app_mention" && messagingChannel.providerUserId) {
+  if (type === "app_mention" && messagingChannel.botUserId) {
     messageText = messageText
-      .replaceAll(`<@${messagingChannel.providerUserId}>`, "")
+      .replaceAll(`<@${messagingChannel.botUserId}>`, "")
       .trim();
   }
 
@@ -185,4 +176,116 @@ export async function processSlackEvent(
     text: markdownToSlackMrkdwn(fullText),
     ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
   });
+}
+
+type Candidate = {
+  id: string;
+  accessToken: string | null;
+  botUserId: string | null;
+  emailAccountId: string;
+  channelId: string | null;
+};
+
+async function sendUnauthorizedMessage({
+  teamId,
+  channel,
+  logger,
+}: {
+  teamId: string;
+  channel: string;
+  logger: Logger;
+}) {
+  const anyChannel = await prisma.messagingChannel.findFirst({
+    where: {
+      provider: MessagingProvider.SLACK,
+      teamId,
+      isConnected: true,
+      accessToken: { not: null },
+    },
+    select: { accessToken: true },
+  });
+
+  if (anyChannel?.accessToken) {
+    try {
+      const client = createSlackClient(anyChannel.accessToken);
+      await client.chat.postMessage({
+        channel,
+        text: "To use this bot, connect your Inbox Zero account to Slack from your settings page.",
+      });
+    } catch (error) {
+      logger.error("Failed to send unauthorized message", { error, teamId });
+    }
+  }
+
+  logger.info("Unauthorized Slack user attempted bot access", { teamId });
+}
+
+async function resolveMessagingChannel({
+  candidates,
+  type,
+  channel,
+  thread_ts,
+  logger,
+  teamId,
+}: {
+  candidates: Candidate[];
+  type: string;
+  channel: string;
+  thread_ts: string | undefined;
+  logger: Logger;
+  teamId: string;
+}): Promise<Candidate | null> {
+  // For @mentions in channels, always enforce channel assignment
+  if (type === "app_mention") {
+    const channelMatch = candidates.find((c) => c.channelId === channel);
+    if (channelMatch) return channelMatch;
+
+    // Tell the user this channel isn't linked
+    const firstToken = candidates[0].accessToken;
+    if (firstToken) {
+      try {
+        const client = createSlackClient(firstToken);
+        await client.chat.postMessage({
+          channel,
+          text: "This channel isn't linked to an email account. Set one up in your Inbox Zero settings.",
+        });
+      } catch (error) {
+        logger.error("Failed to send unlinked channel message", { error });
+      }
+    }
+
+    logger.info("No email account assigned to this channel", {
+      teamId,
+      channel,
+    });
+    return null;
+  }
+
+  // For DMs: single account can be used directly
+  if (candidates.length === 1) return candidates[0];
+
+  // For DMs with multiple accounts, check for existing chat thread
+  const chatId = thread_ts
+    ? `slack-${channel}-${thread_ts}`
+    : `slack-${channel}`;
+
+  const existingChat = await prisma.chat.findUnique({
+    where: { id: chatId },
+    select: { emailAccountId: true },
+  });
+
+  if (existingChat) {
+    const match = candidates.find(
+      (c) => c.emailAccountId === existingChat.emailAccountId,
+    );
+    if (match) return match;
+  }
+
+  // Multiple accounts in DMs — use first match.
+  // Users should use dedicated private channels for specific accounts.
+  logger.warn("Multiple accounts in DM, using first match", {
+    teamId,
+    candidateCount: candidates.length,
+  });
+  return candidates[0];
 }
