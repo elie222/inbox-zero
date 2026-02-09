@@ -55,7 +55,8 @@
             "pages": [
               "hosting/self-hosting",
               "hosting/setup-guides",
-              "hosting/environment-variables"
+              "hosting/environment-variables",
+              "hosting/troubleshooting"
             ]
           },
           {
