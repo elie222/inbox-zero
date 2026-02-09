@@ -530,6 +530,7 @@ model ExecutedRule {
   @@index([emailAccountId, threadId, messageId, ruleId])
   @@index([emailAccountId, messageId])
   @@index([emailAccountId, status, createdAt])
+  @@index([emailAccountId, createdAt])
 }
 
 model ExecutedAction {
