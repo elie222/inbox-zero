@@ -17,18 +17,10 @@ Deploy Inbox Zero to AWS using Terraform. This provisions:
 - Google OAuth credentials
 - LLM provider API key
 
-## Generate Terraform Files (Recommended)
-
-From the repo root:
+## Generate Terraform Files
 
 ```bash
-pnpm setup-terraform
-```
-
-Or with the packaged CLI:
-
-```bash
-inbox-zero setup-terraform
+npx @inbox-zero/cli setup-terraform
 ```
 
 This creates a `terraform/` directory with:
