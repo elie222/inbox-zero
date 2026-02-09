@@ -1,0 +1,99 @@
+# Slack Integration Setup
+
+## 1. Create a Slack App
+
+The easiest way is to use the included manifest:
+
+1. Go to [https://api.slack.com/apps](https://api.slack.com/apps) and click **Create New App** > **From an app manifest**
+2. Select a workspace
+3. Paste the contents of [`manifest.yaml`](manifest.yaml), replacing `YOUR_DOMAIN` with your actual domain
+4. Click **Create**
+
+This configures all scopes, event subscriptions, and the bot user automatically.
+
+<details>
+<summary>Manual setup (without manifest)</summary>
+
+### Configure OAuth & Permissions
+
+Under **OAuth & Permissions**:
+
+**Redirect URLs** — add:
+
+```
+https://<your-domain>/api/slack/callback
+```
+
+**Bot Token Scopes** — add these scopes:
+
+| Scope | Purpose |
+|-------|---------|
+| `channels:read` | List public channels for delivery target picker |
+| `channels:join` | Auto-join public channels when selected for delivery |
+| `groups:read` | List private channels |
+| `chat:write` | Send meeting briefs and AI responses |
+| `app_mentions:read` | Respond to @mentions in channels |
+| `im:read` | Receive direct messages |
+| `im:write` | Send DM responses |
+| `im:history` | Read DM conversation history |
+
+### Enable Event Subscriptions
+
+Under **Event Subscriptions**:
+
+1. Toggle **Enable Events** to ON
+2. Set **Request URL** to:
+   ```
+   https://<your-domain>/api/slack/events
+   ```
+3. Under **Subscribe to bot events**, add:
+   - `message.im` — direct messages to the bot
+   - `app_mention` — @mentions in channels
+
+Slack will send a verification challenge to the URL; the app handles this automatically.
+
+</details>
+
+## 2. Set Environment Variables
+
+From **Basic Information** and **OAuth & Permissions** pages, set these in your `.env`:
+
+```bash
+SLACK_CLIENT_ID=       # OAuth & Permissions > Client ID
+SLACK_CLIENT_SECRET=   # OAuth & Permissions > Client Secret
+SLACK_SIGNING_SECRET=  # Basic Information > Signing Secret
+```
+
+All three are optional. If not set, the Slack connect button is hidden and the events endpoint returns 503.
+
+For local development with ngrok, also set:
+
+```bash
+WEBHOOK_URL=https://your-domain.ngrok-free.app
+```
+
+This is used for the OAuth callback and events webhook URLs. `NEXT_PUBLIC_BASE_URL` stays as `http://localhost:3000` so other auth flows aren't affected.
+
+## 3. Run the Database Migration
+
+The `MessagingChannel` model and `meetingBriefsSendEmail` column are created by the migration at:
+
+```
+apps/web/prisma/migrations/20260208000000_add_messaging_channels/
+```
+
+Apply with:
+
+```bash
+pnpm prisma migrate deploy
+```
+
+## 4. Connect from the UI
+
+1. Navigate to **Settings** > **Email Account** tab
+2. Click **Connect Slack** under Connected Apps
+3. Authorize the app in the Slack OAuth flow
+4. Go to **Meeting Briefs** and select a Slack channel for delivery
+5. Toggle meeting briefs on
+
+Users can also DM the bot or @mention it in channels to chat with the AI assistant.
