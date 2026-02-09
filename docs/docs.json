@@ -54,6 +54,7 @@
             "group": "Self-Hosting",
             "pages": [
               "hosting/self-hosting",
+              "hosting/setup-guides",
               "hosting/environment-variables"
             ]
           },
