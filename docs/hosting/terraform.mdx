@@ -3,9 +3,7 @@ title: 'Terraform Deployment'
 description: 'Deploy Inbox Zero to AWS using Terraform'
 ---
 
-# Terraform Deployment Guide (AWS)
-
-This guide walks you through deploying Inbox Zero to AWS using Terraform. It provisions:
+Deploy Inbox Zero to AWS using Terraform. This provisions:
 
 - ECS Fargate service + ALB
 - RDS PostgreSQL
@@ -19,19 +17,13 @@ This guide walks you through deploying Inbox Zero to AWS using Terraform. It pro
 - Google OAuth credentials
 - LLM provider API key
 
-## Generate Terraform Files (Recommended)
-
-From the repo root:
+## Generate Terraform Files
 
 ```bash
-pnpm setup-terraform
+npx @inbox-zero/cli setup-terraform
 ```
 
-Or with the packaged CLI:
-
-```bash
-inbox-zero setup-terraform
-```
+If you've [installed the CLI globally](/hosting/quick-start#install-options), you can use `inbox-zero setup-terraform`. From a cloned repo, you can also use `pnpm setup-terraform`.
 
 This creates a `terraform/` directory with:
 

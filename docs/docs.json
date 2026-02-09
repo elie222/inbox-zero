@@ -45,19 +45,33 @@
         "icon": "code",
         "groups": [
           {
-            "group": "Developer Guide",
+            "group": "Quick Start",
             "pages": [
-              "development"
+              "hosting/quick-start"
             ]
           },
           {
             "group": "Self-Hosting",
             "pages": [
               "hosting/self-hosting",
+              "hosting/setup-guides",
               "hosting/environment-variables",
+              "hosting/troubleshooting"
+            ]
+          },
+          {
+            "group": "AWS Deployment",
+            "pages": [
+              "hosting/aws",
               "hosting/ec2-deployment",
               "hosting/terraform",
               "hosting/aws-copilot"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing"
             ]
           },
           {

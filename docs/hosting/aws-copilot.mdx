@@ -1,11 +1,9 @@
 ---
-title: 'AWS Copilot Deployment'
+title: 'Copilot Deployment'
 description: 'Deploy Inbox Zero to AWS using AWS Copilot and ECS Fargate'
 ---
 
-# AWS Copilot Deployment Guide
-
-This guide walks you through deploying Inbox Zero to AWS using AWS Copilot. The deployment uses Amazon ECS on Fargate.
+Deploy Inbox Zero to AWS using AWS Copilot. The deployment uses Amazon ECS on Fargate.
 
 If you prefer Terraform, see [Terraform Deployment Guide](/hosting/terraform).
 
@@ -17,9 +15,9 @@ If you prefer Terraform, see [Terraform Deployment Guide](/hosting/terraform).
 - An AWS account with appropriate permissions
 - Inbox Zero repository cloned locally (run all commands from the repo root)
 
-## Recommended: CLI Setup
+## CLI Setup
 
-The CLI automates Copilot setup, addons (RDS + ElastiCache), secrets, and deployment:
+The CLI automates Copilot setup, addons (RDS + ElastiCache), secrets, and deployment. Run from the cloned repo root:
 
 ```bash
 pnpm setup-aws
@@ -37,9 +35,9 @@ pnpm setup-aws -- --yes
 
 If you use the CLI, you can skip the manual steps below.
 
-## Manual Copilot Setup (Alternative)
+## Manual Copilot Setup
 
-Use this section if you are not running the CLI and prefer to drive Copilot directly.
+Use this section if you prefer to drive Copilot directly.
 
 ### 1. Initialize the Copilot Application
 

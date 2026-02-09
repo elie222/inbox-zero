@@ -1,0 +1,102 @@
+---
+title: 'Contributing'
+description: 'Set up Inbox Zero for local development'
+---
+
+This guide is for developers who want to run Inbox Zero locally and contribute to the project.
+
+<iframe
+  width="560"
+  height="315"
+  src="https://www.youtube.com/embed/hVQENQ4WT2Y"
+  title="Set up Inbox Zero locally"
+  frameBorder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+  style={{ width: '100%', borderRadius: '0.5rem' }}
+></iframe>
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) >= 22.0.0
+- [pnpm](https://pnpm.io/) >= 10.0.0
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for Postgres and Redis)
+
+## Local Development Setup
+
+### Option A: Devcontainer
+
+The fastest way to get started is using [devcontainers](https://containers.dev/), supported by VS Code ([Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)) and JetBrains IDEs:
+
+1. Open the project and select "Reopen in Container" when prompted
+2. Wait for the container to build and `postCreateCommand` to complete
+3. Configure at least one OAuth provider in `apps/web/.env` (see [Setup Guides](/hosting/setup-guides))
+4. Run `pnpm dev`
+
+### Option B: Manual Setup
+
+1. **Start PostgreSQL and Redis:**
+   ```bash
+   docker compose -f docker-compose.dev.yml up -d
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pnpm install
+   ```
+
+3. **Set up environment variables** using one of these methods:
+
+   **Interactive CLI** (recommended) - guides you through each step and auto-generates secrets:
+   ```bash
+   npm run setup
+   ```
+
+   **Manual** - copy the example file and edit it yourself:
+   ```bash
+   cp apps/web/.env.example apps/web/.env
+   # Generate secrets with: openssl rand -hex 32
+   ```
+
+4. **Run database migrations:**
+   ```bash
+   cd apps/web
+   pnpm prisma migrate dev
+   ```
+
+5. **Start the development server:**
+   ```bash
+   pnpm dev
+   ```
+
+The app will be available at [http://localhost:3000](http://localhost:3000).
+
+## Configuration
+
+You'll need to configure at least one OAuth provider and an AI provider. The setup CLI handles this interactively, but for manual configuration see the [Setup Guides](/hosting/setup-guides):
+
+- [Google OAuth Setup](/hosting/setup-guides#google-oauth-setup)
+- [Google PubSub Setup](/hosting/setup-guides#google-pubsub-setup)
+- [Microsoft OAuth Setup](/hosting/setup-guides#microsoft-oauth-setup)
+- [LLM Setup](/hosting/setup-guides#llm-setup)
+
+## Local Production Build
+
+To test a production build locally:
+
+```bash
+# Without Docker
+pnpm run build
+pnpm start --filter=web
+
+# With Docker (includes Postgres and Redis)
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --profile all up --build
+```
+
+## Finding Your Way Around
+
+To understand the codebase, we recommend connecting the repo to an AI coding tool like [Claude Code](https://claude.ai/claude-code) or [Cursor](https://cursor.com/) and asking questions directly. The [ARCHITECTURE.md](https://github.com/elie222/inbox-zero/blob/main/ARCHITECTURE.md) file provides a high-level overview, though it may not reflect recent changes.
+
+For troubleshooting common issues (rate limiting, OAuth errors, etc.), see the [Troubleshooting](/hosting/troubleshooting) page.
+
+View open tasks in [GitHub Issues](https://github.com/elie222/inbox-zero/issues) and join the [Discord](https://www.getinboxzero.com/discord) to discuss what's being worked on.
