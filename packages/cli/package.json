@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "bun build src/main.ts --outfile bin/inbox-zero.js --target node",
-    "prepublishOnly": "pnpm build",
+    "prepublishOnly": "bun run build",
     "build:binary": "bun build src/main.ts --compile --outfile dist/inbox-zero",
     "build:binary:all": "pnpm build:binary:macos-arm64 && pnpm build:binary:macos-x64 && pnpm build:binary:linux-x64",
     "build:binary:macos-arm64": "bun build src/main.ts --compile --target=bun-darwin-arm64 --outfile dist/inbox-zero-darwin-arm64",
