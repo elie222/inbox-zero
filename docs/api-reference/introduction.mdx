@@ -1,0 +1,43 @@
+---
+title: "Introduction"
+---
+
+The Inbox Zero API is a RESTful API that allows you to programmatically interact with the Inbox Zero platform. This API provides developers with the tools to integrate Inbox Zero's email management capabilities into their own applications or workflows.
+
+## Supported Email Providers
+
+Inbox Zero supports integration with:
+- **Gmail** (Google Workspace and personal accounts)
+- **Outlook** (Microsoft 365 and personal accounts)
+
+## Getting Started
+
+To begin using the Inbox Zero API, you'll need to obtain an API key. Here's how:
+
+1. Log in to your Inbox Zero account
+2. Navigate to the [Settings](https://www.getinboxzero.com/settings) page and scroll down to the `API Keys` section
+3. Click on the `Create New Secret Key` button
+
+<img src="/images/settings-api-key.png" alt="Create New Secret Key" />
+
+Your API key is essential for authenticating your requests to the API. Keep it secure and do not share it publicly.
+
+## Base URL
+
+All API requests should be made to the following base URL:
+
+```
+https://www.getinboxzero.com/api/v1
+```
+
+## Authentication
+
+Include your API key in the header of each request:
+
+```
+API-Key: YOUR_API_KEY
+```
+
+## Request New Endpoint
+
+If you have a new endpoint that you would like to add to the API, open an issue on [GitHub](https://github.com/elie222/inbox-zero/issues/new).

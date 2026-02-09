@@ -1,0 +1,459 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Inbox Zero API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://www.getinboxzero.com/api/v1",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:3000/api/v1",
+      "description": "Local development"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "API-Key"
+      }
+    },
+    "schemas": {},
+    "parameters": {}
+  },
+  "paths": {
+    "/group/{groupId}/emails": {
+      "get": {
+        "description": "Get group emails",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "You can find the group id by going to `https://www.getinboxzero.com/automation?tab=groups`, clicking `Matching Emails`, and then copying the id from the URL."
+            },
+            "required": true,
+            "description": "You can find the group id by going to `https://www.getinboxzero.com/automation?tab=groups`, clicking `Matching Emails`, and then copying the id from the URL.",
+            "name": "groupId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "pageToken",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "email",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "threadId": {
+                            "type": "string"
+                          },
+                          "labelIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "snippet": {
+                            "type": "string"
+                          },
+                          "historyId": {
+                            "type": "string"
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {}
+                            }
+                          },
+                          "inline": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {}
+                            }
+                          },
+                          "headers": {
+                            "type": "object",
+                            "properties": {}
+                          },
+                          "textPlain": {
+                            "type": "string"
+                          },
+                          "textHtml": {
+                            "type": "string"
+                          },
+                          "matchingGroupItem": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": ["FROM", "SUBJECT", "BODY"]
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["id", "type", "value"]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "threadId",
+                          "snippet",
+                          "historyId",
+                          "inline",
+                          "headers"
+                        ]
+                      }
+                    },
+                    "nextPageToken": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["messages"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats/by-period": {
+      "get": {
+        "description": "Get email statistics grouped by time period. Returns counts of emails by status (all, sent, read, unread, archived, unarchived) for each period.",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["day", "week", "month", "year"],
+              "default": "week"
+            },
+            "required": false,
+            "name": "period",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "fromDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "toDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "email",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "startOfPeriod": {
+                            "type": "string"
+                          },
+                          "All": {
+                            "type": "number"
+                          },
+                          "Sent": {
+                            "type": "number"
+                          },
+                          "Read": {
+                            "type": "number"
+                          },
+                          "Unread": {
+                            "type": "number"
+                          },
+                          "Unarchived": {
+                            "type": "number"
+                          },
+                          "Archived": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "startOfPeriod",
+                          "All",
+                          "Sent",
+                          "Read",
+                          "Unread",
+                          "Unarchived",
+                          "Archived"
+                        ]
+                      }
+                    },
+                    "allCount": {
+                      "type": "number"
+                    },
+                    "inboxCount": {
+                      "type": "number"
+                    },
+                    "readCount": {
+                      "type": "number"
+                    },
+                    "sentCount": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "result",
+                    "allCount",
+                    "inboxCount",
+                    "readCount",
+                    "sentCount"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats/response-time": {
+      "get": {
+        "description": "Get email response time statistics. Returns summary stats, distribution, and trend data showing how quickly you respond to emails.",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "fromDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "nullable": true
+            },
+            "required": false,
+            "name": "toDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "email",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "medianResponseTime": {
+                          "type": "number"
+                        },
+                        "averageResponseTime": {
+                          "type": "number"
+                        },
+                        "within1Hour": {
+                          "type": "number"
+                        },
+                        "previousPeriodComparison": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "medianResponseTime": {
+                              "type": "number"
+                            },
+                            "percentChange": {
+                              "type": "number"
+                            }
+                          },
+                          "required": ["medianResponseTime", "percentChange"]
+                        }
+                      },
+                      "required": [
+                        "medianResponseTime",
+                        "averageResponseTime",
+                        "within1Hour",
+                        "previousPeriodComparison"
+                      ]
+                    },
+                    "distribution": {
+                      "type": "object",
+                      "properties": {
+                        "lessThan1Hour": {
+                          "type": "number"
+                        },
+                        "oneToFourHours": {
+                          "type": "number"
+                        },
+                        "fourTo24Hours": {
+                          "type": "number"
+                        },
+                        "oneToThreeDays": {
+                          "type": "number"
+                        },
+                        "threeToSevenDays": {
+                          "type": "number"
+                        },
+                        "moreThan7Days": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "lessThan1Hour",
+                        "oneToFourHours",
+                        "fourTo24Hours",
+                        "oneToThreeDays",
+                        "threeToSevenDays",
+                        "moreThan7Days"
+                      ]
+                    },
+                    "trend": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "period": {
+                            "type": "string"
+                          },
+                          "periodDate": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "medianResponseTime": {
+                            "type": "number"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "period",
+                          "periodDate",
+                          "medianResponseTime",
+                          "count"
+                        ]
+                      }
+                    },
+                    "emailsAnalyzed": {
+                      "type": "number"
+                    },
+                    "maxEmailsCap": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "summary",
+                    "distribution",
+                    "trend",
+                    "emailsAnalyzed",
+                    "maxEmailsCap"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
