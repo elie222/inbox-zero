@@ -98,6 +98,12 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/calendars"),
         icon: CalendarIcon,
       },
+      {
+        name: "Attachments",
+        href: prefixPath(currentEmailAccountId, "/drive"),
+        icon: HardDriveIcon,
+        new: true,
+      },
     ],
     [currentEmailAccountId],
   );
@@ -144,12 +150,6 @@ export const useNavigation = () => {
             },
           ]
         : []),
-      {
-        name: "Attachments",
-        href: prefixPath(currentEmailAccountId, "/drive"),
-        icon: HardDriveIcon,
-        new: true,
-      },
       ...(showIntegrations
         ? [
             {
@@ -282,12 +282,10 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   activeHref={path}
                 />
               </SidebarGroup>
-              {navigation.moreItems.length > 0 && (
-                <SidebarGroup>
-                  <SidebarGroupLabel>More</SidebarGroupLabel>
-                  <SideNavMenu items={navigation.moreItems} activeHref={path} />
-                </SidebarGroup>
-              )}
+              <SidebarGroup>
+                <SidebarGroupLabel>More</SidebarGroupLabel>
+                <SideNavMenu items={navigation.moreItems} activeHref={path} />
+              </SidebarGroup>
             </>
           )}
         </SidebarGroupContent>
