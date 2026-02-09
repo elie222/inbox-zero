@@ -86,39 +86,13 @@ export const useNavigation = () => {
   const { emailAccount, emailAccountId, provider } = useAccount();
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
 
-  const automateItems: NavItem[] = useMemo(
+  const manageItems: NavItem[] = useMemo(
     () => [
       {
         name: "Assistant",
         href: prefixPath(currentEmailAccountId, "/automation"),
         icon: SparklesIcon,
       },
-      {
-        name: "Attachments",
-        href: prefixPath(currentEmailAccountId, "/drive"),
-        icon: HardDriveIcon,
-        new: true,
-      },
-      ...(showMeetingBriefs
-        ? [
-            {
-              name: "Meeting Briefs",
-              href: prefixPath(currentEmailAccountId, "/briefs"),
-              icon: FileTextIcon,
-            },
-          ]
-        : []),
-      {
-        name: "Calendars",
-        href: prefixPath(currentEmailAccountId, "/calendars"),
-        icon: CalendarIcon,
-      },
-    ],
-    [currentEmailAccountId, showMeetingBriefs],
-  );
-
-  const cleanupItems: NavItem[] = useMemo(
-    () => [
       {
         name: "Bulk Unsubscribe",
         href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
@@ -134,6 +108,11 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/stats"),
         icon: BarChartBigIcon,
       },
+      {
+        name: "Calendars",
+        href: prefixPath(currentEmailAccountId, "/calendars"),
+        icon: CalendarIcon,
+      },
       ...(isGoogleProvider(provider) && showCleaner
         ? [
             {
@@ -148,9 +127,24 @@ export const useNavigation = () => {
     [currentEmailAccountId, provider, showCleaner],
   );
 
-  const platformItems: NavItem[] = useMemo(
-    () =>
-      showIntegrations
+  const addOnItems: NavItem[] = useMemo(
+    () => [
+      ...(showMeetingBriefs
+        ? [
+            {
+              name: "Meeting Briefs",
+              href: prefixPath(currentEmailAccountId, "/briefs"),
+              icon: FileTextIcon,
+            },
+          ]
+        : []),
+      {
+        name: "Attachments",
+        href: prefixPath(currentEmailAccountId, "/drive"),
+        icon: HardDriveIcon,
+        new: true,
+      },
+      ...(showIntegrations
         ? [
             {
               name: "Integrations",
@@ -159,14 +153,14 @@ export const useNavigation = () => {
               beta: true,
             },
           ]
-        : [],
-    [currentEmailAccountId, showIntegrations],
+        : []),
+    ],
+    [currentEmailAccountId, showMeetingBriefs, showIntegrations],
   );
 
   return {
-    automateItems,
-    cleanupItems,
-    platformItems,
+    manageItems,
+    addOnItems,
   };
 };
 
@@ -271,24 +265,14 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
           ) : (
             <>
               <SidebarGroup>
-                <SidebarGroupLabel>Automate</SidebarGroupLabel>
-                <SideNavMenu
-                  items={navigation.automateItems}
-                  activeHref={path}
-                />
+                <SidebarGroupLabel>Manage</SidebarGroupLabel>
+                <SideNavMenu items={navigation.manageItems} activeHref={path} />
               </SidebarGroup>
-              <SidebarGroup>
-                <SidebarGroupLabel>Cleanup</SidebarGroupLabel>
-                <SideNavMenu
-                  items={navigation.cleanupItems}
-                  activeHref={path}
-                />
-              </SidebarGroup>
-              {navigation.platformItems.length > 0 && (
+              {navigation.addOnItems.length > 0 && (
                 <SidebarGroup>
-                  <SidebarGroupLabel>Platform</SidebarGroupLabel>
+                  <SidebarGroupLabel>Add-ons</SidebarGroupLabel>
                   <SideNavMenu
-                    items={navigation.platformItems}
+                    items={navigation.addOnItems}
                     activeHref={path}
                   />
                 </SidebarGroup>
