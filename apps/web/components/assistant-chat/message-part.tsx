@@ -111,11 +111,12 @@ export function MessagePart({
       if (isOutputWithError(output)) {
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
+      const ruleId = getOutputField<string>(output, "ruleId");
       return (
         <CreatedRuleToolCard
           key={toolCallId}
           args={part.input}
-          ruleId={getOutputField<string>(output, "ruleId") ?? ""}
+          ruleId={ruleId}
         />
       );
     }
@@ -136,11 +137,13 @@ export function MessagePart({
       if (isOutputWithError(output)) {
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
+      const ruleId = getOutputField<string>(output, "ruleId");
+      if (!ruleId) return <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />;
       return (
         <UpdatedRuleConditions
           key={toolCallId}
           args={part.input}
-          ruleId={getOutputField<string>(output, "ruleId") ?? ""}
+          ruleId={ruleId}
           originalConditions={getOutputField(output, "originalConditions")}
           updatedConditions={getOutputField(output, "updatedConditions")}
         />
@@ -163,11 +166,13 @@ export function MessagePart({
       if (isOutputWithError(output)) {
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
+      const ruleId = getOutputField<string>(output, "ruleId");
+      if (!ruleId) return <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />;
       return (
         <UpdatedRuleActions
           key={toolCallId}
           args={part.input}
-          ruleId={getOutputField<string>(output, "ruleId") ?? ""}
+          ruleId={ruleId}
           originalActions={getOutputField(output, "originalActions")}
           updatedActions={getOutputField(output, "updatedActions")}
         />
@@ -190,11 +195,13 @@ export function MessagePart({
       if (isOutputWithError(output)) {
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
+      const ruleId = getOutputField<string>(output, "ruleId");
+      if (!ruleId) return <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />;
       return (
         <UpdatedLearnedPatterns
           key={toolCallId}
           args={part.input}
-          ruleId={getOutputField<string>(output, "ruleId") ?? ""}
+          ruleId={ruleId}
         />
       );
     }
