@@ -23,7 +23,14 @@ export const GET = withEmailAccount("slack/auth-url", async (request) => {
     );
   }
 
-  const { url, state } = getAuthUrl({ emailAccountId });
+  const { url, state, redirectUri } = getAuthUrl({ emailAccountId });
+
+  request.logger.info("Slack auth URL generated", {
+    redirectUri,
+    clientId: env.SLACK_CLIENT_ID,
+    baseUrl: env.NEXT_PUBLIC_BASE_URL,
+    webhookUrl: env.WEBHOOK_URL ?? null,
+  });
 
   const res: GetSlackAuthUrlResponse = { url };
   const response = NextResponse.json(res);
@@ -50,5 +57,5 @@ function getAuthUrl({ emailAccountId }: { emailAccountId: string }) {
 
   const url = `https://slack.com/oauth/v2/authorize?${params.toString()}`;
 
-  return { url, state };
+  return { url, state, redirectUri };
 }

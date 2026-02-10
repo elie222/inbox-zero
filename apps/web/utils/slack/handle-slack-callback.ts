@@ -57,7 +57,7 @@ export async function handleSlackCallback(
 
     const finalRedirectUrl = buildSettingsRedirectUrl(emailAccountId);
 
-    const tokens = await exchangeCodeForTokens(code);
+    const tokens = await exchangeCodeForTokens(code, logger);
 
     await upsertMessagingChannel({
       teamId: tokens.team.id,
@@ -229,7 +229,18 @@ function buildSettingsRedirectUrl(emailAccountId: string): URL {
 
 async function exchangeCodeForTokens(
   code: string,
+  logger: Logger,
 ): Promise<SlackOAuthResponse> {
+  const redirectUri = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/slack/callback`;
+
+  logger.info("Exchanging Slack code for tokens", {
+    redirectUri,
+    clientId: env.SLACK_CLIENT_ID,
+    baseUrl: env.NEXT_PUBLIC_BASE_URL,
+    webhookUrl: env.WEBHOOK_URL ?? null,
+    codeLength: code.length,
+  });
+
   const response = await fetch("https://slack.com/api/oauth.v2.access", {
     method: "POST",
     headers: {
@@ -239,13 +250,18 @@ async function exchangeCodeForTokens(
       client_id: env.SLACK_CLIENT_ID!,
       client_secret: env.SLACK_CLIENT_SECRET!,
       code,
-      redirect_uri: `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/slack/callback`,
+      redirect_uri: redirectUri,
     }),
   });
 
   const raw = await response.json();
 
   if (!raw.ok) {
+    logger.error("Slack token exchange failed", {
+      slackError: raw.error,
+      redirectUri,
+      clientId: env.SLACK_CLIENT_ID,
+    });
     throw new Error(`Slack OAuth error: ${raw.error}`);
   }
 
