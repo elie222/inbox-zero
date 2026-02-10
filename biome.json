@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.2/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
   "linter": {
     "enabled": true,
     "rules": {
@@ -20,7 +20,8 @@
         "useDefaultSwitchClause": "off",
         "useCollapsedElseIf": "off",
         "useConsistentObjectDefinitions": "off",
-        "noMagicNumbers": "off"
+        "noMagicNumbers": "off",
+        "useConsistentTypeDefinitions": "off"
       },
       "suspicious": {
         "noConsole": "warn",
@@ -48,7 +49,6 @@
         "noShadow": "off",
         "noUselessUndefined": "off",
         "useMaxParams": "off",
-        "useConsistentTypeDefinitions": "off",
         "noUnnecessaryConditions": "off"
       },
       "performance": {
@@ -136,5 +136,5 @@
       }
     }
   ],
-  "extends": ["ultracite"]
+  "extends": ["ultracite/core", "ultracite/next"]
 }
