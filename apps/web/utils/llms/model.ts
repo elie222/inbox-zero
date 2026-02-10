@@ -1,4 +1,4 @@
-import type { LanguageModelV2 } from "@ai-sdk/provider";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -23,9 +23,9 @@ export type ModelType = "default" | "economy" | "chat";
 export type SelectModel = {
   provider: string;
   modelName: string;
-  model: LanguageModelV2;
+  model: LanguageModelV3;
   providerOptions?: Record<string, any>;
-  backupModel: LanguageModelV2 | null;
+  backupModel: LanguageModelV3 | null;
 };
 
 export function getModel(
@@ -381,7 +381,7 @@ function getProviderApiKey(provider: string) {
   return providerApiKeys[provider];
 }
 
-function getBackupModel(userApiKey: string | null): LanguageModelV2 | null {
+function getBackupModel(userApiKey: string | null): LanguageModelV3 | null {
   // disable backup model if user is using their own api key
   if (userApiKey) return null;
   if (!env.OPENROUTER_BACKUP_MODEL) return null;

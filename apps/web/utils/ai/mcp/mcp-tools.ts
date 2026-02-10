@@ -1,11 +1,11 @@
-import { experimental_createMCPClient } from "@ai-sdk/mcp";
+import { createMCPClient } from "@ai-sdk/mcp";
 import { getIntegration } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getAuthToken } from "@/utils/mcp/oauth";
 import { createMcpTransport } from "@/utils/mcp/transport";
 
-type MCPClient = Awaited<ReturnType<typeof experimental_createMCPClient>>;
+type MCPClient = Awaited<ReturnType<typeof createMCPClient>>;
 
 export type MCPToolsResult = {
   tools: Record<string, unknown>;
@@ -89,7 +89,7 @@ export async function createMcpToolsForAgent(
 
         const transport = createMcpTransport(serverUrl, authToken);
 
-        const mcpClient = await experimental_createMCPClient({ transport });
+        const mcpClient = await createMCPClient({ transport });
         clients.push(mcpClient);
 
         const mcpTools = await mcpClient.tools();

@@ -27,6 +27,41 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
 import { env } from "@/env";
 
+const emptyInputSchema = z.object({}).describe("No parameters required");
+
+type GetUserRulesAndSettingsOutput = {
+  about: string;
+  rules:
+    | Array<{
+        name: string;
+        conditions: {
+          aiInstructions: string | null;
+          static?: Partial<{
+            from: string | null;
+            to: string | null;
+            subject: string | null;
+          }>;
+          conditionalOperator?: LogicalOperator;
+        };
+        actions: Array<{
+          type: ActionType;
+          fields: Partial<{
+            label: string | null;
+            content: string | null;
+            to: string | null;
+            cc: string | null;
+            bcc: string | null;
+            subject: string | null;
+            url: string | null;
+            folderName: string | null;
+          }>;
+        }>;
+        enabled: boolean;
+        runOnThreads: boolean;
+      }>
+    | undefined;
+};
+
 export const maxDuration = 120;
 
 // tools
@@ -39,12 +74,11 @@ const getUserRulesAndSettingsTool = ({
   emailAccountId: string;
   logger: Logger;
 }) =>
-  tool({
-    name: "getUserRulesAndSettings",
+  tool<z.infer<typeof emptyInputSchema>, GetUserRulesAndSettingsOutput>({
     description:
       "Retrieve all existing rules for the user, their about information",
-    inputSchema: z.object({}),
-    execute: async () => {
+    inputSchema: emptyInputSchema,
+    execute: async (_input: z.infer<typeof emptyInputSchema>) => {
       trackToolCall({
         tool: "get_user_rules_and_settings",
         email,
@@ -141,7 +175,6 @@ const getLearnedPatternsTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "getLearnedPatterns",
     description: "Retrieve the learned patterns for a rule",
     inputSchema: z.object({
       ruleName: z
@@ -197,7 +230,6 @@ const createRuleTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "createRule",
     description: "Create a new rule",
     inputSchema: createRuleSchema(provider),
     execute: async ({ name, condition, actions }) => {
@@ -275,7 +307,6 @@ const updateRuleConditionsTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "updateRuleConditions",
     description: "Update the conditions of an existing rule",
     inputSchema: updateRuleConditionSchema,
     execute: async ({ ruleName, condition }) => {
@@ -351,6 +382,22 @@ export type UpdateRuleConditionsTool = InferUITool<
   ReturnType<typeof updateRuleConditionsTool>
 >;
 
+export type UpdateRuleConditionsOutput = {
+  success: boolean;
+  ruleId: string;
+  error?: string;
+  originalConditions?: {
+    aiInstructions: string | null;
+    static?: Record<string, string | null>;
+    conditionalOperator: string | null;
+  };
+  updatedConditions?: {
+    aiInstructions: string | null | undefined;
+    static?: Record<string, string | null>;
+    conditionalOperator: string | null | undefined;
+  };
+};
+
 const updateRuleActionsTool = ({
   email,
   emailAccountId,
@@ -363,7 +410,6 @@ const updateRuleActionsTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "updateRuleActions",
     description:
       "Update the actions of an existing rule. This replaces the existing actions.",
     inputSchema: z.object({
@@ -481,6 +527,21 @@ export type UpdateRuleActionsTool = InferUITool<
   ReturnType<typeof updateRuleActionsTool>
 >;
 
+export type UpdateRuleActionsOutput = {
+  success: boolean;
+  ruleId: string;
+  error?: string;
+  originalActions?: Array<{
+    type: string;
+    fields: Record<string, string | null>;
+  }>;
+  updatedActions?: Array<{
+    type: string;
+    fields: Record<string, string | null>;
+    delayInMinutes?: number | null;
+  }>;
+};
+
 const updateLearnedPatternsTool = ({
   email,
   emailAccountId,
@@ -491,7 +552,6 @@ const updateLearnedPatternsTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "updateLearnedPatterns",
     description: "Update the learned patterns of an existing rule",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
@@ -598,7 +658,6 @@ const updateAboutTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "updateAbout",
     description:
       "Update the user's about information. Read the user's about information first as this replaces the existing information.",
     inputSchema: z.object({ about: z.string() }),
@@ -636,7 +695,6 @@ const addToKnowledgeBaseTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "addToKnowledgeBase",
     description: "Add content to the knowledge base",
     inputSchema: z.object({
       title: z.string(),

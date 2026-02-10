@@ -74,7 +74,7 @@ export const POST = withEmailAccount("chat", async (request) => {
 
   try {
     const result = await aiProcessAssistantChat({
-      messages: convertToModelMessages(uiMessages),
+      messages: await convertToModelMessages(uiMessages),
       emailAccountId,
       user,
       context,
