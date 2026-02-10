@@ -51,13 +51,13 @@ export function OrgAnalyticsConsentSection({
     [data, execute, mutate],
   );
 
-  if (!isLoading && !data && !error) {
+  if (!isLoading && !data?.organizationId) {
     return null;
   }
 
   return (
     <LoadingContent loading={isLoading} error={error}>
-      {data && (
+      {data?.organizationId && (
         <SettingsSection
           title="Organization Analytics Access"
           description={`Allow organization admins${data.organizationName ? ` from ${data.organizationName}` : ""} to view your personal analytics and usage statistics.`}

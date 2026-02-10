@@ -75,7 +75,7 @@ export function ConnectedAppsSection({
   return (
     <SettingsSection
       title="Connected Apps"
-      description="Manage connected messaging services"
+      description=""
       titleClassName="text-sm"
       descriptionClassName="text-xs sm:text-sm"
       align="start"

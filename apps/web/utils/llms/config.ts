@@ -18,5 +18,5 @@ export const providerOptions: { label: string; value: string }[] = [
   { label: "Google", value: Provider.GOOGLE },
   { label: "Groq", value: Provider.GROQ },
   { label: "OpenRouter", value: Provider.OPENROUTER },
-  { label: "AI Gateway", value: Provider.AI_GATEWAY },
+  { label: "Vercel AI Gateway", value: Provider.AI_GATEWAY },
 ];

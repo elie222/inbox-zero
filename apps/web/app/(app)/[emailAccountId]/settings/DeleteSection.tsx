@@ -64,7 +64,7 @@ export function DeleteSection() {
   return (
     <SettingsSection
       title="Delete account"
-      description="No longer want to use our service? You can delete your account here. This action is not reversible. All information related to this account will be deleted permanently."
+      description="Permanently delete your account and all associated data. This cannot be undone."
       align="start"
       actions={
         <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
