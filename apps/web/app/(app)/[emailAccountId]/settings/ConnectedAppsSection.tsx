@@ -78,7 +78,6 @@ export function ConnectedAppsSection({
       description=""
       titleClassName="text-sm"
       descriptionClassName="text-xs sm:text-sm"
-      align="start"
       actions={
         !hasSlack ? (
           <Button
