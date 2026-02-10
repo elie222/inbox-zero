@@ -5,17 +5,14 @@ import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import { SettingsSection } from "@/components/SettingsSection";
 import { cleanupAIDraftsAction } from "@/utils/actions/user";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 
 export function CleanupDraftsSection({
-  emailAccountId: emailAccountIdProp,
+  emailAccountId,
 }: {
-  emailAccountId?: string;
-} = {}) {
-  const { emailAccountId: activeEmailAccountId } = useAccount();
-  const emailAccountId = emailAccountIdProp ?? activeEmailAccountId;
+  emailAccountId: string;
+}) {
   const [result, setResult] = useState<{
     deleted: number;
     skippedModified: number;

@@ -5,15 +5,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SettingsSection } from "@/components/SettingsSection";
 import { resetAnalyticsAction } from "@/utils/actions/user";
-import { useAccount } from "@/providers/EmailAccountProvider";
-
 export function ResetAnalyticsSection({
-  emailAccountId: emailAccountIdProp,
+  emailAccountId,
 }: {
-  emailAccountId?: string;
-} = {}) {
-  const { emailAccountId: activeEmailAccountId } = useAccount();
-  const emailAccountId = emailAccountIdProp ?? activeEmailAccountId;
+  emailAccountId: string;
+}) {
   const { executeAsync: executeResetAnalytics } = useAction(
     resetAnalyticsAction.bind(null, emailAccountId),
   );

@@ -9,15 +9,11 @@ import { toastSuccess, toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import { updateAnalyticsConsentAction } from "@/utils/actions/organization";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
-import { useAccount } from "@/providers/EmailAccountProvider";
-
 export function OrgAnalyticsConsentSection({
-  emailAccountId: emailAccountIdProp,
+  emailAccountId,
 }: {
-  emailAccountId?: string;
-} = {}) {
-  const { emailAccountId: activeEmailAccountId } = useAccount();
-  const emailAccountId = emailAccountIdProp ?? activeEmailAccountId;
+  emailAccountId: string;
+}) {
   const { data, isLoading, error, mutate } =
     useOrganizationMembership(emailAccountId);
 

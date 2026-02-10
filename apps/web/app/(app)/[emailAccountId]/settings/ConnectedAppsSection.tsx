@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SettingsSection } from "@/components/SettingsSection";
 import { toastSuccess, toastError } from "@/components/Toast";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { disconnectChannelAction } from "@/utils/actions/messaging-channels";
 import { fetchWithAccount } from "@/utils/fetch";
@@ -25,14 +24,12 @@ const PROVIDER_CONFIG: Record<
 };
 
 export function ConnectedAppsSection({
-  emailAccountId: emailAccountIdProp,
+  emailAccountId,
   showNotifications = true,
 }: {
-  emailAccountId?: string;
+  emailAccountId: string;
   showNotifications?: boolean;
-} = {}) {
-  const { emailAccountId: activeEmailAccountId } = useAccount();
-  const emailAccountId = emailAccountIdProp ?? activeEmailAccountId;
+}) {
 
   useSlackNotifications(showNotifications);
 
@@ -51,11 +48,6 @@ export function ConnectedAppsSection({
   );
 
   const handleConnectSlack = async () => {
-    if (!emailAccountId) {
-      toastError({ description: "No email account selected" });
-      return;
-    }
-
     setConnectingSlack(true);
     try {
       const res = await fetchWithAccount({
@@ -92,7 +84,7 @@ export function ConnectedAppsSection({
           <Button
             variant="outline"
             size="sm"
-            disabled={connectingSlack || isLoading || !emailAccountId}
+            disabled={connectingSlack || isLoading}
             onClick={handleConnectSlack}
           >
             <SlackIcon className="mr-2 h-4 w-4" />
@@ -102,7 +94,7 @@ export function ConnectedAppsSection({
       }
     >
       <LoadingContent loading={isLoading} error={error}>
-        {connectedChannels.length > 0 && emailAccountId && (
+        {connectedChannels.length > 0 && (
           <div className="space-y-2">
             {connectedChannels.map((channel) => (
               <ConnectedChannelRow

@@ -7,16 +7,13 @@ import { Button } from "@/components/ui/button";
 import { SettingsSection } from "@/components/SettingsSection";
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import { importRulesAction } from "@/utils/actions/rule";
 
 export function RuleImportExportSetting({
-  emailAccountId: emailAccountIdProp,
+  emailAccountId,
 }: {
-  emailAccountId?: string;
-} = {}) {
-  const { emailAccountId: activeEmailAccountId } = useAccount();
-  const emailAccountId = emailAccountIdProp ?? activeEmailAccountId;
+  emailAccountId: string;
+}) {
   const { data, mutate } = useRules(emailAccountId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -73,11 +70,6 @@ export function RuleImportExportSetting({
       try {
         const text = await file.text();
         const rules = JSON.parse(text);
-        if (!emailAccountId) {
-          toastError({ description: "No email account selected" });
-          return;
-        }
-
         const rulesArray = Array.isArray(rules) ? rules : rules.rules;
 
         if (!Array.isArray(rulesArray) || rulesArray.length === 0) {
