@@ -111,7 +111,7 @@ export function DeliveryChannelsSetting() {
             <MutedText className="text-xs">
               Want to receive briefs in Slack?{" "}
               <Link
-                href={prefixPath(emailAccountId, "/settings?tab=email")}
+                href={prefixPath(emailAccountId, "/settings")}
                 className="underline text-foreground"
               >
                 Connect Slack in Settings
