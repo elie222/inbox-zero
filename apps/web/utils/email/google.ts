@@ -795,9 +795,9 @@ export class GmailProvider implements EmailProvider {
   async replyToEmail(
     email: ParsedMessage,
     content: string,
-    options?: { replyTo?: string },
+    options?: { replyTo?: string; from?: string },
   ): Promise<void> {
-    await replyToEmail(this.client, email, content, undefined, options);
+    await replyToEmail(this.client, email, content, options?.from, options);
   }
 
   async sendEmail(args: {
