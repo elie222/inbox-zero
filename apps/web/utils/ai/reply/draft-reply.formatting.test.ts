@@ -140,6 +140,57 @@ describe("aiDraftReply formatting", () => {
 
     expect(result).toBe("- First item\n- Second item\n- Third item");
   });
+
+  it("retries once then rejects persistent repetitive output", async () => {
+    const repetitiveReply = `Good afternoon, ${"0".repeat(500)}`;
+    mockGenerateObject
+      .mockResolvedValueOnce({ object: { reply: repetitiveReply } })
+      .mockResolvedValueOnce({ object: { reply: repetitiveReply } });
+
+    await expect(aiDraftReply(getDraftParams())).rejects.toThrow(
+      "Draft reply generation produced invalid output",
+    );
+    expect(mockGenerateObject).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts retry result when second attempt succeeds", async () => {
+    const repetitiveReply = `Good afternoon, ${"0".repeat(500)}`;
+    mockGenerateObject
+      .mockResolvedValueOnce({ object: { reply: repetitiveReply } })
+      .mockResolvedValueOnce({
+        object: { reply: "Thank you for your email." },
+      });
+
+    const result = await aiDraftReply(getDraftParams());
+
+    expect(result).toBe("Thank you for your email.");
+    expect(mockGenerateObject).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts text with separator lines like dashes or equals", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: `Please see below.\n${"=".repeat(40)}\nImportant section.`,
+      },
+    });
+
+    const result = await aiDraftReply(getDraftParams());
+
+    expect(result).toContain("Please see below.");
+    expect(result).toContain("Important section.");
+  });
+
+  it("accepts normal text that happens to have short repeated characters", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Hmmm, let me think about that. Sounds good!!!",
+      },
+    });
+
+    const result = await aiDraftReply(getDraftParams());
+
+    expect(result).toBe("Hmmm, let me think about that. Sounds good!!!");
+  });
 });
 
 function getDraftParams() {
