@@ -16,7 +16,6 @@ import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/Clea
 import { ConnectedAppsSection } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
-import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/MultiAccountSection";
 import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
@@ -24,7 +23,6 @@ import { RuleImportExportSetting } from "@/app/(app)/[emailAccountId]/assistant/
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -78,7 +76,6 @@ export default function SettingsPage() {
                     <EmailAccountSettingsCard
                       key={emailAccount.id}
                       emailAccount={emailAccount}
-                      isActive={emailAccount.id === activeEmailAccountId}
                       showAdvanced={showAdvanced}
                       onToggleAdvanced={() =>
                         setShowAdvancedByAccount((current) => ({
@@ -94,7 +91,7 @@ export default function SettingsPage() {
                 <Button asChild variant="outline">
                   <Link href="/accounts">
                     <MailIcon className="mr-2 size-4" />
-                    Manage other email accounts
+                    Add Account
                   </Link>
                 </Button>
               </div>
@@ -144,13 +141,11 @@ export default function SettingsPage() {
 
 function EmailAccountSettingsCard({
   emailAccount,
-  isActive,
   showAdvanced,
   onToggleAdvanced,
   showNotifications,
 }: {
   emailAccount: GetEmailAccountsResponse["emailAccounts"][number];
-  isActive: boolean;
   showAdvanced: boolean;
   onToggleAdvanced: () => void;
   showNotifications: boolean;
@@ -169,10 +164,7 @@ function EmailAccountSettingsCard({
                 {emailAccount.name?.charAt(0) || emailAccount.email?.charAt(0)}
               </AvatarFallback>
             </Avatar>
-            <div className="flex items-center gap-2">
-              <p className="font-medium">{emailAccount.email}</p>
-              {isActive ? <Badge variant="secondary">Active</Badge> : null}
-            </div>
+            <p className="font-medium">{emailAccount.email}</p>
           </div>
 
           <Button
