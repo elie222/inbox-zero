@@ -140,6 +140,30 @@ describe("aiDraftReply formatting", () => {
 
     expect(result).toBe("- First item\n- Second item\n- Third item");
   });
+
+  it("rejects repetitive output with excessive character repetition", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: `Good afternoon, ${"0".repeat(500)}`,
+      },
+    });
+
+    await expect(aiDraftReply(getDraftParams())).rejects.toThrow(
+      "Draft reply generation produced invalid output",
+    );
+  });
+
+  it("accepts normal text that happens to have short repeated characters", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Hmmm, let me think about that. Sounds good!!!",
+      },
+    });
+
+    const result = await aiDraftReply(getDraftParams());
+
+    expect(result).toBe("Hmmm, let me think about that. Sounds good!!!");
+  });
 });
 
 function getDraftParams() {

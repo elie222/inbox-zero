@@ -246,7 +246,14 @@ export async function aiDraftReply({
     schema: draftSchema,
   });
 
-  return normalizeDraftReplyFormatting(result.object.reply);
+  const reply = result.object.reply;
+
+  if (isRepetitiveText(reply)) {
+    logger.warn("Draft reply rejected: repetitive output detected");
+    throw new Error("Draft reply generation produced invalid output");
+  }
+
+  return normalizeDraftReplyFormatting(reply);
 }
 
 function normalizeDraftReplyFormatting(reply: string): string {
@@ -293,4 +300,11 @@ function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
 
 function isLikelyListItem(line: string): boolean {
   return /^(\s*[-*]\s+|\s*\d+[.)]\s+|\s*[a-zA-Z][.)]\s+|>\s+)/.test(line);
+}
+
+const MAX_REPEAT_LENGTH = 20;
+
+function isRepetitiveText(text: string): boolean {
+  // Detect any single character repeated more than MAX_REPEAT_LENGTH times in a row
+  return new RegExp(`(.)\\1{${MAX_REPEAT_LENGTH - 1},}`).test(text);
 }
