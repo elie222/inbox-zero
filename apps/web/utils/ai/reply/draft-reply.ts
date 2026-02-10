@@ -239,21 +239,27 @@ export async function aiDraftReply({
     modelOptions,
   });
 
-  const result = await generateObject({
-    ...modelOptions,
-    system: systemPrompt,
-    prompt,
-    schema: draftSchema,
-  });
+  const generate = () =>
+    generateObject({
+      ...modelOptions,
+      system: systemPrompt,
+      prompt,
+      schema: draftSchema,
+    });
 
-  const reply = result.object.reply;
+  let result = await generate();
 
-  if (isRepetitiveText(reply)) {
-    logger.warn("Draft reply rejected: repetitive output detected");
-    throw new Error("Draft reply generation produced invalid output");
+  if (REPETITIVE_TEXT_PATTERN.test(result.object.reply)) {
+    logger.warn("Draft reply rejected: repetitive output detected, retrying");
+    result = await generate();
+
+    if (REPETITIVE_TEXT_PATTERN.test(result.object.reply)) {
+      logger.warn("Draft reply rejected: repetitive output on retry");
+      throw new Error("Draft reply generation produced invalid output");
+    }
   }
 
-  return normalizeDraftReplyFormatting(reply);
+  return normalizeDraftReplyFormatting(result.object.reply);
 }
 
 function normalizeDraftReplyFormatting(reply: string): string {
@@ -302,9 +308,5 @@ function isLikelyListItem(line: string): boolean {
   return /^(\s*[-*]\s+|\s*\d+[.)]\s+|\s*[a-zA-Z][.)]\s+|>\s+)/.test(line);
 }
 
-const MAX_REPEAT_LENGTH = 20;
-
-function isRepetitiveText(text: string): boolean {
-  // Detect any single character repeated more than MAX_REPEAT_LENGTH times in a row
-  return new RegExp(`(.)\\1{${MAX_REPEAT_LENGTH - 1},}`).test(text);
-}
+// Matches any non-separator, non-whitespace character repeated 50+ times in a row
+const REPETITIVE_TEXT_PATTERN = /([^\s\-=_*])\1{49,}/su;
