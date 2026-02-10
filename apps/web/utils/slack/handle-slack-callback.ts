@@ -40,10 +40,14 @@ export async function handleSlackCallback(
 ): Promise<NextResponse> {
   let redirectHeaders = new Headers();
 
+  console.log("[slack/callback] Handler invoked");
+
   try {
     const { code, redirectUrl, response, receivedState, allowUnsignedState } =
       validateOAuthCallback(request, logger);
     redirectHeaders = response.headers;
+
+    console.log("[slack/callback] State validated, allowUnsignedState:", allowUnsignedState);
 
     const decodedState = parseAndValidateSlackState(
       receivedState,
@@ -80,7 +84,14 @@ export async function handleSlackCallback(
       redirectHeaders,
     );
   } catch (error) {
+    // Use console.error as a reliable fallback — after()-based Axiom flush
+    // may not execute for redirect responses.
+    const errorDetail =
+      error instanceof Error ? error.message : String(error);
+    console.error("[slack/callback]", errorDetail);
+
     if (error instanceof RedirectError) {
+      error.redirectUrl.searchParams.set("error_detail", errorDetail);
       return redirectWithError(
         error.redirectUrl,
         "connection_failed",
@@ -107,6 +118,7 @@ export async function handleSlackCallback(
     const errorRedirectUrl = new URL(errorPath, env.NEXT_PUBLIC_BASE_URL);
     errorRedirectUrl.searchParams.set("tab", "email");
     errorRedirectUrl.searchParams.set("error", "connection_failed");
+    errorRedirectUrl.searchParams.set("error_detail", errorDetail);
     return NextResponse.redirect(errorRedirectUrl, {
       headers: redirectHeaders,
     });
