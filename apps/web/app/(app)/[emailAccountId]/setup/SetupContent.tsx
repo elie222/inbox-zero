@@ -11,7 +11,6 @@ import {
   type LucideIcon,
   ChromeIcon,
   CalendarIcon,
-  FileTextIcon,
   UsersIcon,
 } from "lucide-react";
 import { useLocalStorage } from "usehooks-ts";
@@ -27,7 +26,6 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { EXTENSION_URL } from "@/utils/config";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { useMeetingBriefsEnabled } from "@/hooks/useFeatureFlags";
 import {
   STEP_KEYS,
   getStepNumber,
@@ -258,17 +256,11 @@ function Checklist({
     "inbox-zero-extension-installed",
     false,
   );
-  const [isMeetingBriefsViewed, setIsMeetingBriefsViewed] = useLocalStorage(
-    "inbox-zero-meeting-briefs-viewed",
-    false,
-  );
   const [isTeamInviteViewed, setIsTeamInviteViewed] = useLocalStorage(
     "inbox-zero-team-invite-viewed",
     false,
   );
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const isMeetingBriefsEnabled = useMeetingBriefsEnabled();
-
   const isTeamInviteSkipped =
     teamInvite && isTeamInviteViewed && !teamInvite.completed;
   const adjustedCompletedCount = isTeamInviteSkipped
@@ -279,10 +271,6 @@ function Checklist({
 
   const handleMarkExtensionDone = () => {
     setIsExtensionInstalled(true);
-  };
-
-  const handleMarkMeetingBriefsDone = () => {
-    setIsMeetingBriefsViewed(true);
   };
 
   const handleMarkTeamInviteDone = () => {
@@ -371,21 +359,6 @@ function Checklist({
           open={isInviteModalOpen}
           onOpenChange={setIsInviteModalOpen}
           trigger={null}
-        />
-      )}
-
-      {isMeetingBriefsEnabled && (
-        <StepItem
-          href={prefixPath(emailAccountId, "/briefs")}
-          icon={<FileTextIcon size={20} />}
-          iconBg="bg-pink-100 dark:bg-pink-900/50"
-          iconColor="text-pink-500 dark:text-pink-400"
-          title="Optional: Set up Meeting Briefs"
-          timeEstimate="2 minutes"
-          completed={isMeetingBriefsViewed}
-          actionText="View"
-          onMarkDone={handleMarkMeetingBriefsDone}
-          showMarkDone={true}
         />
       )}
 
