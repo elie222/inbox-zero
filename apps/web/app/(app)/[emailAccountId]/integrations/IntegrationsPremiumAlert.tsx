@@ -12,7 +12,7 @@ export function IntegrationsPremiumAlert() {
     <>
       <ActionCard
         icon={<CrownIcon className="h-5 w-5" />}
-        title="Professional Plan Required"
+        title="Plus Plan Required"
         description="Connect your CRM and tools to help the AI draft better replies and generate richer meeting briefs."
         action={
           <Button variant="primaryBlack" onClick={openModal}>

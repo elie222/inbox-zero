@@ -120,7 +120,7 @@ export default function Pricing(props: PricingProps) {
           setFrequency={setFrequency}
         >
           <div className="ml-1">
-            <DiscountBadge>Save up to 16%</DiscountBadge>
+            <DiscountBadge>Save up to 20%</DiscountBadge>
           </div>
         </PricingFrequencyToggle>
 
