@@ -154,7 +154,7 @@ export async function processSlackEvent(
   let fullText: string;
   try {
     const result = await aiProcessAssistantChat({
-      messages: convertToModelMessages(allMessages),
+      messages: await convertToModelMessages(allMessages),
       emailAccountId,
       user: emailAccountUser,
       logger: slackLogger,

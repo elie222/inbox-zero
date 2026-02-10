@@ -17,6 +17,8 @@ import { posthogCaptureEvent } from "@/utils/posthog";
 import { getModel } from "@/utils/llms/model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
+const emptyInputSchema = z.object({}).describe("No parameters required");
+
 export async function processUserRequest({
   emailAccount,
   rules,
@@ -406,10 +408,10 @@ ${stringifyEmailSimple(getEmailForLLM(originalEmail))}
           }
         },
       }),
-      list_rules: tool({
+      list_rules: tool<z.infer<typeof emptyInputSchema>, string>({
         description: "List all existing rules for the user",
-        inputSchema: z.object({}),
-        execute: async () => {
+        inputSchema: emptyInputSchema,
+        execute: async (_input: z.infer<typeof emptyInputSchema>) => {
           trackToolCall({
             tool: "list_rules",
             email: emailAccount.email,

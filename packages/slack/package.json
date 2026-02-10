@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "main": "src/index.ts",
   "dependencies": {
-    "@slack/types": "^2.9.0",
-    "@slack/web-api": "7.10.0"
+    "@slack/types": "2.19.0",
+    "@slack/web-api": "7.13.0"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

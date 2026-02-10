@@ -3,7 +3,9 @@ import { useQueryState } from "nuqs";
 import type {
   UpdateAboutTool,
   UpdateRuleConditionsTool,
+  UpdateRuleConditionsOutput,
   UpdateRuleActionsTool,
+  UpdateRuleActionsOutput,
   UpdateLearnedPatternsTool,
   AddToKnowledgeBaseTool,
   CreateRuleTool,
@@ -108,8 +110,8 @@ export function UpdatedRuleConditions({
 }: {
   args: UpdateRuleConditionsTool["input"];
   ruleId: string;
-  originalConditions?: UpdateRuleConditionsTool["output"]["originalConditions"];
-  updatedConditions?: UpdateRuleConditionsTool["output"]["updatedConditions"];
+  originalConditions?: UpdateRuleConditionsOutput["originalConditions"];
+  updatedConditions?: UpdateRuleConditionsOutput["updatedConditions"];
 }) {
   const [showChanges, setShowChanges] = useState(false);
 
@@ -197,8 +199,8 @@ export function UpdatedRuleActions({
 }: {
   args: UpdateRuleActionsTool["input"];
   ruleId: string;
-  originalActions?: UpdateRuleActionsTool["output"]["originalActions"];
-  updatedActions?: UpdateRuleActionsTool["output"]["updatedActions"];
+  originalActions?: UpdateRuleActionsOutput["originalActions"];
+  updatedActions?: UpdateRuleActionsOutput["updatedActions"];
 }) {
   const { provider } = useAccount();
   const [showChanges, setShowChanges] = useState(false);

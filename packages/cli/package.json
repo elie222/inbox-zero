@@ -19,13 +19,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@clack/prompts": "0.11.0",
-    "commander": "14.0.2"
+    "@clack/prompts": "1.0.0",
+    "commander": "14.0.3"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
     "typescript": "5.9.3",
-    "vitest": "4.0.15"
+    "vitest": "4.0.18"
   },
   "files": [
     "bin"
