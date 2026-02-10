@@ -826,7 +826,7 @@ export default function Components() {
                   stripeSubscriptionId: "sub_test456",
                   stripeSubscriptionStatus: "canceled",
                   lemonSqueezySubscriptionId: null,
-                  tier: "BUSINESS_MONTHLY",
+                  tier: "STARTER_MONTHLY",
                 }}
               />
             </div>
@@ -855,7 +855,7 @@ export default function Components() {
                     stripeSubscriptionId: "sub_active123",
                     stripeSubscriptionStatus: "active",
                     lemonSqueezySubscriptionId: null,
-                    tier: "BUSINESS_MONTHLY",
+                    tier: "STARTER_MONTHLY",
                   }}
                 />
                 Banner should not appear for active users

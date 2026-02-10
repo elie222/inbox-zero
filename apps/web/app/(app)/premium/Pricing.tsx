@@ -90,8 +90,10 @@ export default function Pricing(props: PricingProps) {
                   </Link>
                 </Button>
                 <div className="mx-auto mt-4 max-w-md">
-                  {userPremiumTier === "BUSINESS_MONTHLY" ||
-                  userPremiumTier === "BUSINESS_ANNUALLY" ? (
+                  {userPremiumTier === "STARTER_MONTHLY" ||
+                  userPremiumTier === "STARTER_ANNUALLY" ||
+                  userPremiumTier === "PLUS_MONTHLY" ||
+                  userPremiumTier === "PLUS_ANNUALLY" ? (
                     <AlertWithButton
                       className="bg-background"
                       variant="blue"

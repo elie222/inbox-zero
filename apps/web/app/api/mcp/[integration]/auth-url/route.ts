@@ -36,11 +36,11 @@ export const GET = withEmailAccount(
     if (
       !hasTierAccess({
         tier: user?.premium?.tier ?? null,
-        minimumTier: "BUSINESS_PLUS_MONTHLY",
+        minimumTier: "PLUS_MONTHLY",
       })
     ) {
       throw new SafeError(
-        "Integrations require a Professional plan. Please upgrade to continue.",
+        "Integrations require a Plus plan or higher. Please upgrade to continue.",
       );
     }
 

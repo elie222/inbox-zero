@@ -48,7 +48,7 @@ export const footerNavigation = {
     { name: "Meeting Cost Calculator", href: "/tools/meeting-cost-calculator" },
   ],
   support: [
-    { name: "Pricing", href: "/#pricing" },
+    { name: "Pricing", href: "/pricing" },
     { name: "Contact", href: "mailto:elie@getinboxzero.com", target: "_blank" },
     {
       name: "Documentation",

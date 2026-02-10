@@ -34,7 +34,7 @@ export const createKnowledgeAction = actionClient
       ) {
         const hasAccess = await checkHasAccess({
           userId,
-          minimumTier: PremiumTier.BUSINESS_PLUS_MONTHLY,
+          minimumTier: PremiumTier.PLUS_MONTHLY,
         });
 
         if (!hasAccess) {
@@ -65,7 +65,7 @@ export const updateKnowledgeAction = actionClient
       if (content.length > KNOWLEDGE_BASIC_MAX_CHARS) {
         const hasAccess = await checkHasAccess({
           userId,
-          minimumTier: PremiumTier.BUSINESS_PLUS_MONTHLY,
+          minimumTier: PremiumTier.PLUS_MONTHLY,
         });
 
         if (!hasAccess) {

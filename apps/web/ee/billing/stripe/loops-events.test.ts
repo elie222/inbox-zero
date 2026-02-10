@@ -50,7 +50,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -71,7 +71,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -92,7 +92,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -114,7 +114,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -138,13 +138,13 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
       expect(completedTrial).toHaveBeenCalledWith(
         "user@example.com",
-        "BUSINESS_MONTHLY",
+        "STARTER_MONTHLY",
       );
       expect(startedTrial).not.toHaveBeenCalled(); // Should not call direct upgrade
     });
@@ -188,13 +188,13 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
       expect(startedTrial).toHaveBeenCalledWith(
         "user@example.com",
-        "BUSINESS_MONTHLY",
+        "STARTER_MONTHLY",
       );
       expect(completedTrial).not.toHaveBeenCalled(); // Should not call trial completion
     });
@@ -214,13 +214,13 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
       expect(startedTrial).toHaveBeenCalledWith(
         "user@example.com",
-        "BUSINESS_MONTHLY",
+        "STARTER_MONTHLY",
       );
       expect(completedTrial).not.toHaveBeenCalled();
     });
@@ -260,7 +260,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -282,7 +282,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -307,7 +307,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -328,7 +328,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -349,7 +349,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -370,7 +370,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -383,7 +383,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium: null,
         newSubscription: mockNewSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -403,7 +403,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription: mockNewSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -429,7 +429,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -457,7 +457,7 @@ describe("handleLoopsEvents", () => {
         handleLoopsEvents({
           currentPremium,
           newSubscription,
-          newTier: "BUSINESS_MONTHLY",
+          newTier: "STARTER_MONTHLY",
           logger,
         }),
       ).resolves.not.toThrow();
@@ -479,7 +479,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 
@@ -505,7 +505,7 @@ describe("handleLoopsEvents", () => {
       await handleLoopsEvents({
         currentPremium,
         newSubscription,
-        newTier: "BUSINESS_MONTHLY",
+        newTier: "STARTER_MONTHLY",
         logger,
       });
 

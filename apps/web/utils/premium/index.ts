@@ -48,7 +48,7 @@ export const getUserTier = (
   > | null,
 ) => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
-    return "BUSINESS_PLUS_ANNUALLY" as const;
+    return "PROFESSIONAL_ANNUALLY" as const;
   }
 
   if (!premium) return null;
@@ -77,12 +77,14 @@ const tierRanking = {
   BASIC_ANNUALLY: 2,
   PRO_MONTHLY: 3,
   PRO_ANNUALLY: 4,
-  BUSINESS_MONTHLY: 5,
-  BUSINESS_ANNUALLY: 6,
-  BUSINESS_PLUS_MONTHLY: 7,
-  BUSINESS_PLUS_ANNUALLY: 8,
-  COPILOT_MONTHLY: 9,
-  LIFETIME: 10,
+  STARTER_MONTHLY: 5,
+  STARTER_ANNUALLY: 6,
+  PLUS_MONTHLY: 7,
+  PLUS_ANNUALLY: 8,
+  PROFESSIONAL_MONTHLY: 9,
+  PROFESSIONAL_ANNUALLY: 10,
+  COPILOT_MONTHLY: 11,
+  LIFETIME: 12,
 };
 
 export const hasUnsubscribeAccess = (
@@ -107,7 +109,7 @@ export const hasAiAccess = (
   const ranking = tierRanking[tier];
 
   const hasAiAccess = !!(
-    ranking >= tierRanking.BUSINESS_MONTHLY ||
+    ranking >= tierRanking.STARTER_MONTHLY ||
     (ranking >= tierRanking.PRO_MONTHLY && aiApiKey)
   );
 

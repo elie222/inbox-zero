@@ -43,9 +43,7 @@ export function StepReady() {
     setLoading(true);
     try {
       const tier =
-        frequency.value === "annually"
-          ? "BUSINESS_ANNUALLY"
-          : "BUSINESS_MONTHLY";
+        frequency.value === "annually" ? "STARTER_ANNUALLY" : "STARTER_MONTHLY";
       const priceId =
         frequency.value === "annually"
           ? BRIEF_MY_MEETING_PRICE_ID_ANNUALLY

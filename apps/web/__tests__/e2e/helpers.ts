@@ -44,7 +44,7 @@ export async function findOldMessage(
 
 /**
  * Ensures the user has premium status for testing AI features.
- * Creates or updates premium to BUSINESS_MONTHLY with active subscription.
+ * Creates or updates premium to STARTER_MONTHLY with active subscription.
  * Also clears any custom aiApiKey to use env defaults.
  */
 export async function ensureTestPremiumAccount(userId: string): Promise<void> {
@@ -62,7 +62,7 @@ export async function ensureTestPremiumAccount(userId: string): Promise<void> {
   if (!user.premium) {
     const premium = await prisma.premium.create({
       data: {
-        tier: "BUSINESS_MONTHLY",
+        tier: "STARTER_MONTHLY",
         stripeSubscriptionStatus: "active",
       },
     });
@@ -76,7 +76,7 @@ export async function ensureTestPremiumAccount(userId: string): Promise<void> {
       where: { id: user.premium.id },
       data: {
         stripeSubscriptionStatus: "active",
-        tier: "BUSINESS_MONTHLY",
+        tier: "STARTER_MONTHLY",
       },
     });
   }

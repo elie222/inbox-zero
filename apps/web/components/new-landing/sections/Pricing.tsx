@@ -53,11 +53,9 @@ type PricingTier = Tier & {
 const pricingTiers: PricingTier[] = [
   {
     ...tiers[0],
-    badges: [
-      { message: "Save 10%", annualOnly: true },
-      { message: "Popular", variant: "green" },
-    ],
+    badges: [{ message: "Save 10%", annualOnly: true }],
     button: {
+      variant: "secondary-two",
       content: "Try free for 7 days",
       href: "/login",
     },
@@ -65,9 +63,11 @@ const pricingTiers: PricingTier[] = [
   },
   {
     ...tiers[1],
-    badges: [{ message: "Save 16%", annualOnly: true }],
+    badges: [
+      { message: "Save 20%", annualOnly: true },
+      { message: "Popular", variant: "green" },
+    ],
     button: {
-      variant: "secondary-two",
       content: "Try free for 7 days",
       href: "/login",
     },
@@ -75,12 +75,11 @@ const pricingTiers: PricingTier[] = [
   },
   {
     ...tiers[2],
+    badges: [{ message: "Save 16%", annualOnly: true }],
     button: {
       variant: "secondary-two",
-      content: "Speak to sales",
-      icon: <Chat />,
-      href: "/sales",
-      target: "_blank",
+      content: "Try free for 7 days",
+      href: "/login",
     },
     icon: <Sparkle />,
   },
@@ -133,6 +132,40 @@ export function Pricing() {
             </CardWrapper>
           ))}
         </div>
+        <CardWrapper className="mt-6 w-full">
+          <Card variant="extra-rounding">
+            <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="text-gray-400">
+                  <Sparkle />
+                </div>
+                <div>
+                  <h3 className="font-title text-lg">Enterprise</h3>
+                  <Paragraph size="sm" className="mt-1">
+                    Need SSO, on-premise deployment, or a dedicated account
+                    manager?
+                  </Paragraph>
+                </div>
+              </div>
+              <Button variant="secondary-two" size="lg" asChild>
+                <Link
+                  href="https://go.getinboxzero.com/sales"
+                  target="_blank"
+                  onClick={() =>
+                    landingPageAnalytics.pricingCtaClicked(
+                      posthog,
+                      "Enterprise",
+                      "Speak to sales",
+                    )
+                  }
+                >
+                  <Chat />
+                  <span className="relative z-10">Speak to sales</span>
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </CardWrapper>
       </SectionContent>
     </Section>
   );
@@ -176,7 +209,7 @@ function PricingCard({ tier, tierIndex, isAnnual, posthog }: PricingCardProps) {
               <>
                 <Subheading>${price}</Subheading>
                 <Paragraph size="xs" color="light" className="-translate-y-1">
-                  /user /month (billed {isAnnual ? "annually" : "monthly"})
+                  /user /month
                 </Paragraph>
               </>
             ) : (

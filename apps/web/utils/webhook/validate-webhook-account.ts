@@ -132,7 +132,7 @@ export async function validateWebhookAccount(
   }
 
   const premium = env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS
-    ? { tier: "BUSINESS_PLUS_ANNUALLY" as const }
+    ? { tier: "PROFESSIONAL_ANNUALLY" as const }
     : isPremium(
           emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
           emailAccount.user.premium?.stripeSubscriptionStatus || null,

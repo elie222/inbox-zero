@@ -21,10 +21,12 @@ const pricing: Record<PremiumTier, number> = {
   BASIC_ANNUALLY: 8,
   PRO_MONTHLY: 16,
   PRO_ANNUALLY: 10,
-  BUSINESS_MONTHLY: 20,
-  BUSINESS_ANNUALLY: 18,
-  BUSINESS_PLUS_MONTHLY: 50,
-  BUSINESS_PLUS_ANNUALLY: 42,
+  STARTER_MONTHLY: 20,
+  STARTER_ANNUALLY: 18,
+  PLUS_MONTHLY: 35,
+  PLUS_ANNUALLY: 28,
+  PROFESSIONAL_MONTHLY: 50,
+  PROFESSIONAL_ANNUALLY: 42,
   COPILOT_MONTHLY: 500,
   LIFETIME: 299,
 };
@@ -34,8 +36,8 @@ const variantIdToTier: Record<number, PremiumTier> = {
   [env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID]: "BASIC_ANNUALLY",
   [env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID]: "PRO_MONTHLY",
   [env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID]: "PRO_ANNUALLY",
-  [env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID]: "BUSINESS_MONTHLY",
-  [env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID]: "BUSINESS_ANNUALLY",
+  [env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID]: "STARTER_MONTHLY",
+  [env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID]: "STARTER_ANNUALLY",
   [env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID]: "COPILOT_MONTHLY",
 };
 
@@ -57,7 +59,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   BASIC_ANNUALLY: { priceId: "price_1RfeDLKGf8mwZWHn5kfC8gcM" },
   PRO_MONTHLY: {},
   PRO_ANNUALLY: {},
-  BUSINESS_MONTHLY: {
+  STARTER_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
     oldPriceIds: [
       "price_1S5u73KGf8mwZWHn8VYFdALA",
@@ -72,7 +74,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       BRIEF_MY_MEETING_PRICE_ID_MONTHLY,
     ],
   },
-  BUSINESS_ANNUALLY: {
+  STARTER_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
     oldPriceIds: [
       "price_1S5u6uKGf8mwZWHnEvPWuQzG",
@@ -83,14 +85,20 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       BRIEF_MY_MEETING_PRICE_ID_ANNUALLY,
     ],
   },
-  BUSINESS_PLUS_MONTHLY: {
+  PLUS_MONTHLY: {
+    priceId: env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
+  },
+  PLUS_ANNUALLY: {
+    priceId: env.NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID,
+  },
+  PROFESSIONAL_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
     oldPriceIds: [
       "price_1S5u6NKGf8mwZWHnZCfy4D5n",
       "price_1RMSoMKGf8mwZWHn5fAKBT19",
     ],
   },
-  BUSINESS_PLUS_ANNUALLY: {
+  PROFESSIONAL_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID,
     oldPriceIds: [
       "price_1S5u6XKGf8mwZWHnba8HX1H2",
@@ -128,21 +136,21 @@ function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }
 
-export const businessTierName = "Starter";
+export const starterTierName = "Starter";
 
-const businessTier: Tier = {
-  name: businessTierName,
+const starterTier: Tier = {
+  name: starterTierName,
   tiers: {
-    monthly: "BUSINESS_MONTHLY",
-    annually: "BUSINESS_ANNUALLY",
+    monthly: "STARTER_MONTHLY",
+    annually: "STARTER_ANNUALLY",
   },
   price: {
-    monthly: pricing.BUSINESS_MONTHLY,
-    annually: pricing.BUSINESS_ANNUALLY,
+    monthly: pricing.STARTER_MONTHLY,
+    annually: pricing.STARTER_ANNUALLY,
   },
   discount: {
     monthly: 0,
-    annually: discount(pricing.BUSINESS_MONTHLY, pricing.BUSINESS_ANNUALLY),
+    annually: discount(pricing.STARTER_MONTHLY, pricing.STARTER_ANNUALLY),
   },
   description:
     "For individuals, entrepreneurs, and executives looking to buy back their time.",
@@ -169,35 +177,70 @@ const businessTier: Tier = {
     },
   ],
   cta: "Try free for 7 days",
+  mostPopular: false,
+};
+
+const plusTier: Tier = {
+  name: "Plus",
+  tiers: {
+    monthly: "PLUS_MONTHLY",
+    annually: "PLUS_ANNUALLY",
+  },
+  price: {
+    monthly: pricing.PLUS_MONTHLY,
+    annually: pricing.PLUS_ANNUALLY,
+  },
+  discount: {
+    monthly: 0,
+    annually: discount(pricing.PLUS_MONTHLY, pricing.PLUS_ANNUALLY),
+  },
+  description:
+    "For power users who need integrations and deeper knowledge base support.",
+  features: [
+    {
+      text: "Everything in Starter, plus:",
+    },
+    {
+      text: "Slack integration",
+      tooltip:
+        "Forward important emails and notifications to your Slack channels automatically.",
+    },
+    {
+      text: "Auto-file attachments",
+      tooltip:
+        "Automatically organize and file email attachments to your preferred storage.",
+    },
+    {
+      text: "Unlimited knowledge base",
+      tooltip:
+        "The knowledge base is used to help draft responses. Store unlimited content in your knowledge base.",
+    },
+  ],
+  cta: "Try free for 7 days",
   mostPopular: true,
 };
 
-const businessPlusTier: Tier = {
+const professionalTier: Tier = {
   name: "Professional",
   tiers: {
-    monthly: "BUSINESS_PLUS_MONTHLY",
-    annually: "BUSINESS_PLUS_ANNUALLY",
+    monthly: "PROFESSIONAL_MONTHLY",
+    annually: "PROFESSIONAL_ANNUALLY",
   },
   price: {
-    monthly: pricing.BUSINESS_PLUS_MONTHLY,
-    annually: pricing.BUSINESS_PLUS_ANNUALLY,
+    monthly: pricing.PROFESSIONAL_MONTHLY,
+    annually: pricing.PROFESSIONAL_ANNUALLY,
   },
   discount: {
     monthly: 0,
     annually: discount(
-      pricing.BUSINESS_PLUS_MONTHLY,
-      pricing.BUSINESS_PLUS_ANNUALLY,
+      pricing.PROFESSIONAL_MONTHLY,
+      pricing.PROFESSIONAL_ANNUALLY,
     ),
   },
   description: "For teams and growing businesses handling high email volumes.",
   features: [
     {
-      text: "Everything in Individual, plus:",
-    },
-    {
-      text: "Unlimited knowledge base",
-      tooltip:
-        "The knowledge base is used to help draft responses. Store up to unlimited content in your knowledge base.",
+      text: "Everything in Plus, plus:",
     },
     { text: "Team-wide analytics" },
     { text: "Priority support" },
@@ -253,4 +296,5 @@ export function getLemonSubscriptionTier({
   return tier;
 }
 
-export const tiers: Tier[] = [businessTier, businessPlusTier, enterpriseTier];
+export const tiers: Tier[] = [starterTier, plusTier, professionalTier];
+export { enterpriseTier };
