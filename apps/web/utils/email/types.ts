@@ -117,7 +117,7 @@ export interface EmailProvider {
   replyToEmail(
     email: ParsedMessage,
     content: string,
-    options?: { replyTo?: string },
+    options?: { replyTo?: string; from?: string },
   ): Promise<void>;
   sendEmail(args: {
     to: string;

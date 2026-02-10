@@ -96,7 +96,7 @@ export async function replyToEmail(
   message: EmailForAction,
   reply: string,
   logger: Logger,
-  options?: { replyTo?: string },
+  options?: { replyTo?: string; from?: string },
 ) {
   ensureEmailSendingEnabled();
 
@@ -114,6 +114,21 @@ export async function replyToEmail(
     logger,
   );
 
+  // Build the from field if a display name is provided
+  const fromField = options?.from
+    ? {
+        from: {
+          emailAddress: {
+            name: extractNameFromEmail(options.from),
+            address:
+              extractEmailAddress(options.from) ||
+              replyDraft.from?.emailAddress?.address ||
+              "",
+          },
+        },
+      }
+    : {};
+
   // Update the draft with our content
   await withOutlookRetry(
     () =>
@@ -125,6 +140,7 @@ export async function replyToEmail(
             contentType: "html",
             content: html,
           },
+          ...fromField,
           ...(options?.replyTo
             ? {
                 replyTo: [{ emailAddress: { address: options.replyTo } }],

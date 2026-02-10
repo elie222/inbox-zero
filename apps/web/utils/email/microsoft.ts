@@ -645,7 +645,7 @@ export class OutlookProvider implements EmailProvider {
   async replyToEmail(
     email: ParsedMessage,
     content: string,
-    options?: { replyTo?: string },
+    options?: { replyTo?: string; from?: string },
   ): Promise<void> {
     await replyToEmail(this.client, email, content, this.logger, options);
   }
