@@ -51,7 +51,7 @@ export function OrgAnalyticsConsentSection({
     [data, execute, mutate],
   );
 
-  if (!isLoading && !data?.organizationId) {
+  if (!isLoading && !error && !data?.organizationId) {
     return null;
   }
 
