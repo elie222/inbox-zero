@@ -1,0 +1,22 @@
+{
+  "reject": [
+    "jsdom",
+    "tailwindcss",
+    "@tailwindcss/forms",
+    "@tailwindcss/typography",
+    "@headlessui/tailwindcss",
+    "tailwind-merge",
+    "tailwindcss-animate",
+    "postcss",
+    "autoprefixer",
+    "@tiptap/extension-mention",
+    "@tiptap/extension-placeholder",
+    "@tiptap/pm",
+    "@tiptap/react",
+    "@tiptap/starter-kit",
+    "@tiptap/suggestion",
+    "tiptap-markdown",
+    "react-day-picker",
+    "zod"
+  ]
+}
