@@ -126,7 +126,7 @@
     "html-to-text": "9.0.5",
     "ioredis": "5.9.2",
     "jotai": "2.17.1",
-    "jsdom": "28.0.0",
+    "jsdom": "27.3.0",
     "jsonrepair": "3.13.2",
     "linkify-react": "4.3.2",
     "linkifyjs": "4.3.2",
