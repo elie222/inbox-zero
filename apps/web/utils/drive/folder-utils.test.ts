@@ -66,7 +66,9 @@ describe("createFolderPath", () => {
 
     const result = await createFolderPath(provider, "Receipts", logger);
 
-    expect(result.name).toBe("Receipts");
+    expect(result.folder.name).toBe("Receipts");
+    expect(result.allFolders).toHaveLength(1);
+    expect(result.allFolders[0].path).toBe("Receipts");
     expect(provider.createFolder).toHaveBeenCalledWith("Receipts", undefined);
   });
 
@@ -79,7 +81,11 @@ describe("createFolderPath", () => {
       logger,
     );
 
-    expect(result.name).toBe("December");
+    expect(result.folder.name).toBe("December");
+    expect(result.allFolders).toHaveLength(3);
+    expect(result.allFolders[0].path).toBe("Receipts");
+    expect(result.allFolders[1].path).toBe("Receipts/2024");
+    expect(result.allFolders[2].path).toBe("Receipts/2024/December");
     expect(provider.createFolder).toHaveBeenCalledTimes(3);
     expect(provider.createFolder).toHaveBeenNthCalledWith(
       1,
@@ -96,7 +102,11 @@ describe("createFolderPath", () => {
 
     const result = await createFolderPath(provider, "Receipts/2024", logger);
 
-    expect(result.name).toBe("2024");
+    expect(result.folder.name).toBe("2024");
+    expect(result.allFolders).toHaveLength(2);
+    expect(result.allFolders[0].folder.id).toBe("existing-1");
+    expect(result.allFolders[0].path).toBe("Receipts");
+    expect(result.allFolders[1].path).toBe("Receipts/2024");
     expect(provider.createFolder).toHaveBeenCalledTimes(1);
     expect(provider.createFolder).toHaveBeenCalledWith("2024", "existing-1");
   });
@@ -109,7 +119,7 @@ describe("createFolderPath", () => {
 
     const result = await createFolderPath(provider, "receipts/2024", logger);
 
-    expect(result.name).toBe("2024");
+    expect(result.folder.name).toBe("2024");
     expect(provider.createFolder).toHaveBeenCalledTimes(1);
     expect(provider.createFolder).toHaveBeenCalledWith("2024", "existing-1");
   });
@@ -119,7 +129,7 @@ describe("createFolderPath", () => {
 
     const result = await createFolderPath(provider, "/Receipts", logger);
 
-    expect(result.name).toBe("Receipts");
+    expect(result.folder.name).toBe("Receipts");
     expect(provider.createFolder).toHaveBeenCalledTimes(1);
   });
 
@@ -128,7 +138,7 @@ describe("createFolderPath", () => {
 
     const result = await createFolderPath(provider, "Receipts/", logger);
 
-    expect(result.name).toBe("Receipts");
+    expect(result.folder.name).toBe("Receipts");
     expect(provider.createFolder).toHaveBeenCalledTimes(1);
   });
 
