@@ -1,4 +1,4 @@
-import { JSDOM } from "jsdom";
+import * as cheerio from "cheerio";
 
 /**
  * Extracts email signature from HTML content for Outlook emails
@@ -10,22 +10,19 @@ export function extractSignatureFromHtml(htmlContent: string): string | null {
   if (!htmlContent) return null;
 
   try {
-    const dom = new JSDOM(htmlContent);
-    const document = dom.window.document;
+    const $ = cheerio.load(htmlContent);
+    const signatureElement = $('[id^="Signature"]');
 
-    // Look for Outlook signature divs
-    const signatureElement = document.querySelector('[id^="Signature"]');
-
-    if (signatureElement) {
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = signatureElement.innerHTML;
-
-      return tempDiv.innerHTML
-        .replace(/&amp;/g, "&") // Convert &amp; to &
-        .replace(/>\s+/g, ">") // Remove spaces after tags
-        .replace(/\s+</g, "<") // Remove spaces before tags
-        .replace(/\s+/g, " ") // Normalize remaining whitespace
-        .trim();
+    if (signatureElement.length > 0) {
+      return (
+        signatureElement
+          .html()
+          ?.replace(/&amp;/g, "&")
+          .replace(/>\s+/g, ">")
+          .replace(/\s+</g, "<")
+          .replace(/\s+/g, " ")
+          .trim() ?? null
+      );
     }
   } catch (error) {
     // biome-ignore lint/suspicious/noConsole: helpful for debugging
