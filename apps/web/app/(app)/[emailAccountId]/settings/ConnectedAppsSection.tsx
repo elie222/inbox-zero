@@ -51,6 +51,11 @@ export function ConnectedAppsSection({
   );
 
   const handleConnectSlack = async () => {
+    if (!emailAccountId) {
+      toastError({ description: "No email account selected" });
+      return;
+    }
+
     setConnectingSlack(true);
     try {
       const res = await fetchWithAccount({
@@ -87,7 +92,7 @@ export function ConnectedAppsSection({
           <Button
             variant="outline"
             size="sm"
-            disabled={connectingSlack || isLoading}
+            disabled={connectingSlack || isLoading || !emailAccountId}
             onClick={handleConnectSlack}
           >
             <SlackIcon className="mr-2 h-4 w-4" />
