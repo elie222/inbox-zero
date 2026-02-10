@@ -21,7 +21,7 @@ export function OrgAnalyticsConsentSection({
   const { data, isLoading, error, mutate } =
     useOrganizationMembership(emailAccountId);
 
-  const { execute } = useAction(
+  const { execute, isExecuting } = useAction(
     updateAnalyticsConsentAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
@@ -71,6 +71,7 @@ export function OrgAnalyticsConsentSection({
             <Switch
               checked={data.allowOrgAdminAnalytics}
               onCheckedChange={handleToggle}
+              disabled={isExecuting}
             />
           }
         />
