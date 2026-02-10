@@ -309,4 +309,4 @@ function isLikelyListItem(line: string): boolean {
 }
 
 // Matches any non-separator, non-whitespace character repeated 50+ times in a row
-const REPETITIVE_TEXT_PATTERN = /([^\s\-=_*])\1{49,}/su;
+const REPETITIVE_TEXT_PATTERN = /([^\s\-=_*.#~])\1{49,}/u;
