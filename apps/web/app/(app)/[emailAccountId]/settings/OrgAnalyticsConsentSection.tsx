@@ -5,6 +5,7 @@ import { useAction } from "next-safe-action/hooks";
 import { Switch } from "@/components/ui/switch";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SettingsSection } from "@/components/SettingsSection";
+import { Separator } from "@/components/ui/separator";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import { updateAnalyticsConsentAction } from "@/utils/actions/organization";
@@ -58,6 +59,8 @@ export function OrgAnalyticsConsentSection({
   return (
     <LoadingContent loading={isLoading} error={error}>
       {data?.organizationId && (
+        <>
+        <Separator />
         <SettingsSection
           title="Organization Analytics Access"
           description={`Allow organization admins${data.organizationName ? ` from ${data.organizationName}` : ""} to view your personal analytics and usage statistics.`}
@@ -71,6 +74,7 @@ export function OrgAnalyticsConsentSection({
             />
           }
         />
+        </>
       )}
     </LoadingContent>
   );

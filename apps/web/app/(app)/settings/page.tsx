@@ -183,14 +183,11 @@ function EmailAccountSettingsCard({
           </Button>
         </div>
 
-        <div className="space-y-4">
-          <ConnectedAppsSection
-            emailAccountId={emailAccount.id}
-            showNotifications={showNotifications}
-          />
-          <Separator />
-          <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
-        </div>
+        <ConnectedAppsSection
+          emailAccountId={emailAccount.id}
+          showNotifications={showNotifications}
+        />
+        <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
 
         {showAdvanced && (
           <>
