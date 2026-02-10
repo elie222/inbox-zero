@@ -151,6 +151,7 @@ export function Pricing() {
                 <Link
                   href="https://go.getinboxzero.com/sales"
                   target="_blank"
+                  rel="noopener noreferrer"
                   onClick={() =>
                     landingPageAnalytics.pricingCtaClicked(
                       posthog,
