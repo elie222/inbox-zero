@@ -39,12 +39,12 @@ To help you spend less time in your inbox, so you can focus on what matters most
 - **AI Personal Assistant:** Organizes your inbox and pre-drafts replies in your tone and style.
 - **Cursor Rules for email:** Explain in plain English how your AI should handle your inbox.
 - **Reply Zero:** Track emails to reply to and those awaiting responses.
-- **Smart Categories:** Automatically categorize every sender.
 - **Bulk Unsubscriber:** One-click unsubscribe and archive emails you never read.
+- **Bulk Archiver:** Clean up your inbox by bulk archiving old emails.
 - **Cold Email Blocker:** Auto‑block cold emails.
 - **Email Analytics:** Track your activity and trends over time.
-- **Meeting Briefs (Beta):** Get personalized briefings before every meeting, pulling context from your email and calendar.
-- **Smart Filing (Early Access):** Automatically save email attachments to Google Drive or OneDrive.
+- **Meeting Briefs:** Get personalized briefings before every meeting, pulling context from your email and calendar.
+- **Smart Filing:** Automatically save email attachments to Google Drive or OneDrive.
 
 
 Learn more in our [docs](https://docs.getinboxzero.com).
@@ -85,30 +85,36 @@ We offer a hosted version of Inbox Zero at [getinboxzero.com](https://www.getinb
 
 ### Self-Hosting
 
-The easiest way to self-host Inbox Zero is using our pre-built Docker image.
+The fastest way to self-host Inbox Zero is with the CLI:
 
-> **Prerequisites**: [Docker Desktop](https://www.docker.com/products/docker-desktop/), [Node.js](https://nodejs.org/) v22+, and [Git](https://git-scm.com/downloads)
+> **Prerequisites**: [Docker](https://docs.docker.com/engine/install/) and [Node.js](https://nodejs.org/) v22+
 
 ```bash
-git clone https://github.com/elie222/inbox-zero.git
-cd inbox-zero
-npm install
-npm run setup
-
-# Start Docker (Linux/Mac)
-NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --profile all up -d
-
-# Start Docker (Windows PowerShell)
-# $env:NEXT_PUBLIC_BASE_URL="http://localhost:3000"; docker compose --profile all up -d
+npx @inbox-zero/cli setup      # One-time setup wizard
+npx @inbox-zero/cli start      # Start containers
 ```
 
 Open http://localhost:3000
 
-For complete self-hosting instructions, production deployment, OAuth setup, and configuration options, see our **[Self-Hosting Docs](https://docs.getinboxzero.com/hosting/self-hosting)**.
+For complete self-hosting instructions, production deployment, OAuth setup, and configuration options, see our **[Self-Hosting Docs](https://docs.getinboxzero.com/hosting/quick-start)**.
 
 ### Local Development
 
-See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for full local development setup (devcontainer and manual options).
+> **Prerequisites**: [Docker](https://docs.docker.com/engine/install/), [Node.js](https://nodejs.org/) v22+, and [pnpm](https://pnpm.io/) v10+
+
+```bash
+git clone https://github.com/elie222/inbox-zero.git
+cd inbox-zero
+docker compose -f docker-compose.dev.yml up -d   # Postgres + Redis
+pnpm install
+npm run setup                                     # Interactive env setup
+cd apps/web && pnpm prisma migrate dev && cd ../..
+pnpm dev
+```
+
+Open http://localhost:3000
+
+See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for more details including devcontainer setup.
 
 ## Contributing
 
