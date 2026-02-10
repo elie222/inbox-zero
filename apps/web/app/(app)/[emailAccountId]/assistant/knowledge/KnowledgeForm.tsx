@@ -46,7 +46,7 @@ export function KnowledgeForm({
 
   const hasFullAccess = hasTierAccess({
     tier: tier || null,
-    minimumTier: "BUSINESS_PLUS_MONTHLY",
+    minimumTier: "PLUS_MONTHLY",
   });
 
   const {
@@ -111,9 +111,7 @@ export function KnowledgeForm({
           <AlertWithButton
             title="Upgrade to add more knowledge base entries"
             description={
-              <>
-                Switch to the Business plan to add more knowledge base entries.
-              </>
+              <>Switch to the Plus plan to add more knowledge base entries.</>
             }
             icon={<CrownIcon className="h-4 w-4" />}
             button={

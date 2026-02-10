@@ -177,7 +177,7 @@ export async function ensureTestPremium(userId: string): Promise<void> {
 
   await upgradeToPremiumLemon({
     userId,
-    tier: PremiumTier.BUSINESS_PLUS_MONTHLY,
+    tier: PremiumTier.PROFESSIONAL_MONTHLY,
     lemonSqueezyRenewsAt: new Date(Date.now() + TEN_YEARS_MS),
     // These fields are null since this is a test upgrade, not a real subscription
     lemonSqueezySubscriptionId: null,

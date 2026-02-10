@@ -30,7 +30,7 @@ describe("transferPremiumDuringMerge", () => {
           premiumAdminId: null,
           premium: {
             id: sourcePremiumId,
-            tier: PremiumTier.BUSINESS_PLUS_MONTHLY,
+            tier: PremiumTier.PROFESSIONAL_MONTHLY,
             users: [{ id: sourceUserId, email: "source@example.com" }],
             admins: [],
           },
@@ -89,7 +89,7 @@ describe("transferPremiumDuringMerge", () => {
           premiumAdminId: null,
           premium: {
             id: targetPremiumId,
-            tier: PremiumTier.BUSINESS_PLUS_MONTHLY,
+            tier: PremiumTier.PROFESSIONAL_MONTHLY,
           },
         } as any);
 

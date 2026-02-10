@@ -324,13 +324,15 @@ export const adminChangePremiumStatusAction = adminActionClient
           switch (period) {
             case PremiumTier.BASIC_ANNUALLY:
             case PremiumTier.PRO_ANNUALLY:
-            case PremiumTier.BUSINESS_ANNUALLY:
-            case PremiumTier.BUSINESS_PLUS_ANNUALLY:
+            case PremiumTier.STARTER_ANNUALLY:
+            case PremiumTier.PLUS_ANNUALLY:
+            case PremiumTier.PROFESSIONAL_ANNUALLY:
               return new Date(now.getTime() + ONE_YEAR_MS * (count || 1));
             case PremiumTier.BASIC_MONTHLY:
             case PremiumTier.PRO_MONTHLY:
-            case PremiumTier.BUSINESS_MONTHLY:
-            case PremiumTier.BUSINESS_PLUS_MONTHLY:
+            case PremiumTier.STARTER_MONTHLY:
+            case PremiumTier.PLUS_MONTHLY:
+            case PremiumTier.PROFESSIONAL_MONTHLY:
             case PremiumTier.COPILOT_MONTHLY:
               return new Date(now.getTime() + ONE_MONTH_MS * (count || 1));
             case PremiumTier.LIFETIME:

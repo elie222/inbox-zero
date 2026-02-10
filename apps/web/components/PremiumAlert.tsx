@@ -7,7 +7,7 @@ import { hasAiAccess, hasUnsubscribeAccess, isPremium } from "@/utils/premium";
 import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import type { PremiumTier } from "@/generated/prisma/enums";
-import { businessTierName } from "@/app/(app)/premium/config";
+import { starterTierName } from "@/app/(app)/premium/config";
 import { useUser } from "@/hooks/useUser";
 import { ActionCard } from "@/components/ui/card";
 import { env } from "@/env";
@@ -27,7 +27,7 @@ export function usePremium() {
       hasUnsubscribeAccess: true,
       hasAiAccess: true,
       isProPlanWithoutApiKey: false,
-      tier: "BUSINESS_PLUS_ANNUALLY" as const,
+      tier: "PROFESSIONAL_ANNUALLY" as const,
     };
   }
 
@@ -90,8 +90,8 @@ export function PremiumAiAssistantAlert({
       {isBasicPlan ? (
         <ActionCard
           icon={<CrownIcon className="h-5 w-5" />}
-          title={`${businessTierName} Plan Required`}
-          description={`Switch to the ${businessTierName} plan to use this feature.`}
+          title={`${starterTierName} Plan Required`}
+          description={`Switch to the ${starterTierName} plan to use this feature.`}
           action={
             <Button variant="primaryBlack" onClick={openModal}>
               Switch Plan
@@ -113,7 +113,7 @@ export function PremiumAiAssistantAlert({
         <ActionCard
           icon={<CrownIcon className="h-5 w-5" />}
           title="Premium Feature"
-          description={`This is a premium feature. Upgrade to the ${businessTierName} plan.`}
+          description={`This is a premium feature. Upgrade to the ${starterTierName} plan.`}
           action={
             <Button variant="primaryBlack" onClick={openModal}>
               Upgrade

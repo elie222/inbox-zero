@@ -56,7 +56,7 @@ export function BulkRunRules() {
 
   const isBusinessPlusTier = hasTierAccess({
     tier: tier || null,
-    minimumTier: "BUSINESS_PLUS_MONTHLY",
+    minimumTier: "PROFESSIONAL_MONTHLY",
   });
 
   const [startDate, setStartDate] = useState<Date | undefined>();

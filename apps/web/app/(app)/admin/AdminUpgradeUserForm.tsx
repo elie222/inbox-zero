@@ -38,7 +38,7 @@ export const AdminUpgradeUserForm = () => {
   } = useForm<ChangePremiumStatusOptions>({
     resolver: zodResolver(changePremiumStatusSchema),
     defaultValues: {
-      period: "BUSINESS_ANNUALLY",
+      period: "STARTER_ANNUALLY",
     },
   });
 
@@ -83,20 +83,28 @@ export const AdminUpgradeUserForm = () => {
         label="Plan"
         options={[
           {
-            label: "BUSINESS_ANNUALLY",
-            value: "BUSINESS_ANNUALLY",
+            label: "STARTER_ANNUALLY",
+            value: "STARTER_ANNUALLY",
           },
           {
-            label: "BUSINESS_MONTHLY",
-            value: "BUSINESS_MONTHLY",
+            label: "STARTER_MONTHLY",
+            value: "STARTER_MONTHLY",
           },
           {
-            label: "BUSINESS_PLUS_ANNUALLY",
-            value: "BUSINESS_PLUS_ANNUALLY",
+            label: "PLUS_ANNUALLY",
+            value: "PLUS_ANNUALLY",
           },
           {
-            label: "BUSINESS_PLUS_MONTHLY",
-            value: "BUSINESS_PLUS_MONTHLY",
+            label: "PLUS_MONTHLY",
+            value: "PLUS_MONTHLY",
+          },
+          {
+            label: "PROFESSIONAL_ANNUALLY",
+            value: "PROFESSIONAL_ANNUALLY",
+          },
+          {
+            label: "PROFESSIONAL_MONTHLY",
+            value: "PROFESSIONAL_MONTHLY",
           },
           {
             label: "PRO_ANNUALLY",

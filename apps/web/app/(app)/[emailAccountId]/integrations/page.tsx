@@ -16,7 +16,7 @@ export default function IntegrationsPage() {
 
   const hasAccess = hasTierAccess({
     tier: tier || null,
-    minimumTier: "BUSINESS_PLUS_MONTHLY",
+    minimumTier: "PLUS_MONTHLY",
   });
 
   // Feature flag check - return null for client-side (notFound() is server-only)

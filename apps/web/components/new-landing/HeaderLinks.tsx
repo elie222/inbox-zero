@@ -22,7 +22,7 @@ import {
 
 const navigation = [
   { name: "Enterprise", href: "/enterprise" },
-  { name: "Pricing", href: "/#pricing" },
+  { name: "Pricing", href: "/pricing" },
 ];
 
 const useCases = [
