@@ -1,5 +1,6 @@
 "use client";
 
+import { KeyIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { regenerateWebhookSecretAction } from "@/utils/actions/webhook";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -36,7 +37,8 @@ export function RegenerateSecretButton({
       loading={isExecuting}
       onClick={() => execute()}
     >
-      {hasSecret ? "Regenerate Secret" : "Generate Secret"}
+      <KeyIcon className="mr-2 size-4" />
+      {hasSecret ? "Regenerate secret" : "Generate secret"}
     </Button>
   );
 }

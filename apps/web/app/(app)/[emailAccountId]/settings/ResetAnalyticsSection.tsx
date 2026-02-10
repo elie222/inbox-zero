@@ -3,21 +3,25 @@
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { SettingCard } from "@/components/SettingCard";
+import { SettingsSection } from "@/components/SettingsSection";
 import { resetAnalyticsAction } from "@/utils/actions/user";
-import { useAccount } from "@/providers/EmailAccountProvider";
-
-export function ResetAnalyticsSection() {
-  const { emailAccountId } = useAccount();
+export function ResetAnalyticsSection({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
   const { executeAsync: executeResetAnalytics } = useAction(
     resetAnalyticsAction.bind(null, emailAccountId),
   );
 
   return (
-    <SettingCard
+    <SettingsSection
       title="Reset Analytics"
       description="Reset analytics for this account. This action is not reversible. All analytics related to this account will be deleted permanently."
-      right={
+      titleClassName="text-sm"
+      descriptionClassName="text-xs sm:text-sm"
+      align="start"
+      actions={
         <Button
           size="sm"
           variant="outline"

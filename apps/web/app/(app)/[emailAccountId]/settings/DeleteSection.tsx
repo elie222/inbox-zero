@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { SettingsSection } from "@/components/SettingsSection";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +17,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { FormSection, FormSectionLeft } from "@/components/Form";
 import { deleteAccountAction } from "@/utils/actions/user";
 import { logOut } from "@/utils/user";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
@@ -62,13 +62,11 @@ export function DeleteSection() {
   const shouldBlockDeletion = hasSubscription && !hasConfirmedCancellation;
 
   return (
-    <FormSection>
-      <FormSectionLeft
-        title="Delete account"
-        description="No longer want to use our service? You can delete your account here. This action is not reversible. All information related to this account will be deleted permanently."
-      />
-
-      <div>
+    <SettingsSection
+      title="Delete account"
+      description="No longer want to use our service? You can delete your account here. This action is not reversible. All information related to this account will be deleted permanently."
+      align="start"
+      actions={
         <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <AlertDialogTrigger asChild>
             <Button variant="destructiveSoft" size="sm">
@@ -130,7 +128,7 @@ export function DeleteSection() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
-    </FormSection>
+      }
+    />
   );
 }

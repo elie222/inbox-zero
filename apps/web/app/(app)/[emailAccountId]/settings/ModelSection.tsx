@@ -1,14 +1,16 @@
 "use client";
 
+import Link from "next/link";
+import { BarChartIcon } from "lucide-react";
 import { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
-import { FormSection, FormSectionLeft } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Input } from "@/components/Input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoadingContent } from "@/components/LoadingContent";
+import { SettingsSection } from "@/components/SettingsSection";
 import {
   saveAiSettingsBody,
   type SaveAiSettingsBody,
@@ -22,25 +24,23 @@ import {
   providerOptions,
 } from "@/utils/llms/config";
 import { useUser } from "@/hooks/useUser";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 import { updateAiSettingsAction } from "@/utils/actions/settings";
 
 export function ModelSection() {
+  const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useUser();
 
   const { data: dataModels, isLoading: isLoadingModels } =
     useSWR<OpenAiModelsResponse>(
-      data?.aiApiKey && data?.aiProvider === Provider.OPEN_AI
+      data?.aiApiKey && data.aiProvider === Provider.OPEN_AI
         ? "/api/ai/models"
         : null,
     );
 
   return (
-    <FormSection>
-      <FormSectionLeft
-        title="AI Model"
-        description="Use the default model at no cost, or choose a custom model with your own API key."
-      />
-
+    <SettingsSection>
       <LoadingContent loading={isLoading || isLoadingModels} error={error}>
         {data && (
           <ModelSectionForm
@@ -49,10 +49,11 @@ export function ModelSection() {
             aiApiKey={data.aiApiKey}
             models={dataModels}
             refetchUser={mutate}
+            emailAccountId={emailAccountId}
           />
         )}
       </LoadingContent>
-    </FormSection>
+    </SettingsSection>
   );
 }
 
@@ -62,8 +63,9 @@ function ModelSectionForm(props: {
   aiApiKey: SaveAiSettingsBody["aiApiKey"] | null;
   models?: OpenAiModelsResponse;
   refetchUser: () => void;
+  emailAccountId: string;
 }) {
-  const { refetchUser } = props;
+  const { refetchUser, emailAccountId } = props;
 
   const {
     register,
@@ -101,13 +103,13 @@ function ModelSectionForm(props: {
     [refetchUser],
   );
 
-  const globalError = (errors as any)[""];
+  const globalError = (errors as Record<string, { message?: string }>)[""];
 
   const modelSelectOptions =
     aiProvider === Provider.OPEN_AI && watch("aiApiKey")
-      ? props.models?.map((m) => ({
-          label: m.id,
-          value: m.id,
+      ? props.models?.map((model) => ({
+          label: model.id,
+          value: model.id,
         })) || []
       : [];
 
@@ -149,7 +151,7 @@ function ModelSectionForm(props: {
         </>
       )}
 
-      {globalError && (
+      {globalError?.message && (
         <AlertError title="Error saving" description={globalError.message} />
       )}
 
@@ -168,9 +170,17 @@ function ModelSectionForm(props: {
           />
         ))}
 
-      <Button type="submit" loading={isSubmitting}>
-        Save
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button type="submit" loading={isSubmitting}>
+          Save
+        </Button>
+        <Button asChild variant="outline">
+          <Link href={prefixPath(emailAccountId, "/usage")}>
+            <BarChartIcon className="mr-2 size-4" />
+            View usage
+          </Link>
+        </Button>
+      </div>
     </form>
   );
 }

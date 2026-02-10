@@ -4,15 +4,17 @@ import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { DownloadIcon, UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SettingCard } from "@/components/SettingCard";
+import { SettingsSection } from "@/components/SettingsSection";
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import { importRulesAction } from "@/utils/actions/rule";
 
-export function RuleImportExportSetting() {
-  const { data, mutate } = useRules();
-  const { emailAccountId } = useAccount();
+export function RuleImportExportSetting({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const { data, mutate } = useRules(emailAccountId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const exportRules = useCallback(() => {
@@ -43,7 +45,6 @@ export function RuleImportExportSetting() {
         url: action.url,
         delayInMinutes: action.delayInMinutes,
       })),
-      // note: group associations are not exported as they require matching group IDs
     }));
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], {
@@ -69,7 +70,6 @@ export function RuleImportExportSetting() {
       try {
         const text = await file.text();
         const rules = JSON.parse(text);
-
         const rulesArray = Array.isArray(rules) ? rules : rules.rules;
 
         if (!Array.isArray(rulesArray) || rulesArray.length === 0) {
@@ -109,10 +109,12 @@ export function RuleImportExportSetting() {
   );
 
   return (
-    <SettingCard
+    <SettingsSection
       title="Import / Export Rules"
       description="Backup your rules to a JSON file or restore from a previous export."
-      right={
+      titleClassName="text-sm"
+      descriptionClassName="text-xs sm:text-sm"
+      actions={
         <div className="flex gap-2">
           <input
             type="file"

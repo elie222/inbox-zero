@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { HashIcon, MessageSquareIcon, XIcon } from "lucide-react";
+import { HashIcon, MessageSquareIcon, SlackIcon, XIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingContent } from "@/components/LoadingContent";
-import { MutedText } from "@/components/Typography";
+import { SettingsSection } from "@/components/SettingsSection";
 import { toastSuccess, toastError } from "@/components/Toast";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { disconnectChannelAction } from "@/utils/actions/messaging-channels";
 import { fetchWithAccount } from "@/utils/fetch";
@@ -25,21 +23,29 @@ const PROVIDER_CONFIG: Record<
   SLACK: { name: "Slack", icon: HashIcon },
 };
 
-export function ConnectedAppsSection() {
-  useSlackNotifications();
+export function ConnectedAppsSection({
+  emailAccountId,
+  showNotifications = true,
+}: {
+  emailAccountId: string;
+  showNotifications?: boolean;
+}) {
 
-  const { emailAccountId } = useAccount();
+  useSlackNotifications(showNotifications);
+
   const {
     data: channelsData,
     isLoading,
     error,
     mutate: mutateChannels,
-  } = useMessagingChannels();
+  } = useMessagingChannels(emailAccountId);
   const [connectingSlack, setConnectingSlack] = useState(false);
 
   const connectedChannels =
-    channelsData?.channels.filter((c) => c.isConnected) ?? [];
-  const hasSlack = connectedChannels.some((c) => c.provider === "SLACK");
+    channelsData?.channels.filter((channel) => channel.isConnected) ?? [];
+  const hasSlack = connectedChannels.some(
+    (channel) => channel.provider === "SLACK",
+  );
 
   const handleConnectSlack = async () => {
     setConnectingSlack(true);
@@ -67,42 +73,41 @@ export function ConnectedAppsSection() {
   };
 
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <h3 className="font-medium">Connected Apps</h3>
-            <MutedText>Manage connected messaging services</MutedText>
-          </div>
-          {!hasSlack && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={connectingSlack}
-              onClick={handleConnectSlack}
-            >
-              <MessageSquareIcon className="mr-2 h-4 w-4" />
-              {connectingSlack ? "Connecting..." : "Connect Slack"}
-            </Button>
-          )}
-        </div>
-
+    <SettingsSection
+      title="Connected Apps"
+      description="Manage connected messaging services"
+      titleClassName="text-sm"
+      descriptionClassName="text-xs sm:text-sm"
+      align="start"
+      actions={
+        !hasSlack ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={connectingSlack || isLoading}
+            onClick={handleConnectSlack}
+          >
+            <SlackIcon className="mr-2 h-4 w-4" />
+            {connectingSlack ? "Connecting..." : "Connect Slack"}
+          </Button>
+        ) : null
+      }
+    >
+      <LoadingContent loading={isLoading} error={error}>
         {connectedChannels.length > 0 && (
-          <div className="mt-4 space-y-3">
-            <LoadingContent loading={isLoading} error={error}>
-              {connectedChannels.map((channel) => (
-                <ConnectedChannelRow
-                  key={channel.id}
-                  channel={channel}
-                  emailAccountId={emailAccountId}
-                  onUpdate={mutateChannels}
-                />
-              ))}
-            </LoadingContent>
+          <div className="space-y-2">
+            {connectedChannels.map((channel) => (
+              <ConnectedChannelRow
+                key={channel.id}
+                channel={channel}
+                emailAccountId={emailAccountId}
+                onUpdate={mutateChannels}
+              />
+            ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </LoadingContent>
+    </SettingsSection>
   );
 }
 
@@ -139,23 +144,24 @@ function ConnectedChannelRow({
   );
 
   return (
-    <div className="flex items-center gap-3">
-      <Icon className="h-5 w-5 text-muted-foreground" />
-      <div className="flex-1">
-        <div className="font-medium text-sm">
+    <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+      <div className="flex items-center gap-2 text-sm">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        <span>
           {config?.name ?? channel.provider}
           {channel.teamName && (
-            <span className="text-muted-foreground font-normal">
+            <span className="text-muted-foreground">
               {" "}
               &middot; {channel.teamName}
             </span>
           )}
-        </div>
+        </span>
       </div>
+
       <Button
         variant="ghost"
         size="icon"
-        className="h-8 w-8"
+        className="h-7 w-7"
         disabled={disconnectStatus === "executing"}
         onClick={() => executeDisconnect({ channelId: channel.id })}
       >
@@ -165,13 +171,14 @@ function ConnectedChannelRow({
   );
 }
 
-function useSlackNotifications() {
+function useSlackNotifications(enabled: boolean) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const handled = useRef(false);
 
   useEffect(() => {
+    if (!enabled) return;
     if (handled.current) return;
 
     const message = searchParams.get("message");
@@ -201,5 +208,5 @@ function useSlackNotifications() {
     }
     const qs = preserved.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
-  }, [pathname, router, searchParams]);
+  }, [enabled, pathname, router, searchParams]);
 }

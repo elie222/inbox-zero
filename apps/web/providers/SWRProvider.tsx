@@ -143,8 +143,12 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
   }, [emailAccountId, resetCache]);
 
   const enhancedFetcher = useCallback(
-    async (url: string, init?: RequestInit) => {
-      return fetcher(url, init, emailAccountId);
+    async (keyOrUrl: string | [string, string], init?: RequestInit) => {
+      if (Array.isArray(keyOrUrl)) {
+        const [url, overrideEmailAccountId] = keyOrUrl;
+        return fetcher(url, init, overrideEmailAccountId);
+      }
+      return fetcher(keyOrUrl, init, emailAccountId);
     },
     [emailAccountId],
   );
