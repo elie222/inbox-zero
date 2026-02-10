@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { ExternalLinkIcon, PlusIcon } from "lucide-react";
+import { ExternalLinkIcon, FolderIcon, PlusIcon } from "lucide-react";
 import {
   TypographyH3,
   SectionDescription,
@@ -21,19 +21,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { FilingStatusCell } from "@/components/drive/FilingStatusCell";
 import { YesNoIndicator } from "@/components/drive/YesNoIndicator";
-import {
-  TreeProvider,
-  TreeView,
-  TreeNode,
-  TreeNodeTrigger,
-  TreeNodeContent,
-  TreeExpander,
-  TreeIcon,
-} from "@/components/kibo-ui/tree";
+import { TreeProvider, TreeView } from "@/components/kibo-ui/tree";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
@@ -243,7 +242,7 @@ export function DriveSetup() {
               emailAccountId={emailAccountId}
               attachments={attachmentsData.attachments}
               noAttachmentsFound={attachmentsData.noAttachmentsFound}
-              availableFolders={foldersData?.availableFolders || []}
+              savedFolders={foldersData?.savedFolders || []}
               filingStates={filingStates}
               onStartFiling={handleStartFiling}
               isStarting={displayPhase === "starting"}
@@ -258,7 +257,7 @@ function PreviewContent({
   emailAccountId,
   attachments,
   noAttachmentsFound,
-  availableFolders,
+  savedFolders,
   filingStates,
   onStartFiling,
   isStarting,
@@ -266,7 +265,7 @@ function PreviewContent({
   emailAccountId: string;
   attachments: AttachmentPreviewItem[];
   noAttachmentsFound: boolean;
-  availableFolders: FolderItem[];
+  savedFolders: SavedFolder[];
   filingStates: Record<string, FilingState>;
   onStartFiling: () => void;
   isStarting: boolean;
@@ -281,7 +280,7 @@ function PreviewContent({
     <PreviewResults
       emailAccountId={emailAccountId}
       attachments={attachments}
-      availableFolders={availableFolders}
+      savedFolders={savedFolders}
       filingStates={filingStates}
       onStartFiling={onStartFiling}
       isStarting={isStarting}
@@ -311,20 +310,19 @@ function NoAttachmentsMessage({
 function PreviewResults({
   emailAccountId,
   attachments,
-  availableFolders,
+  savedFolders,
   filingStates,
   onStartFiling,
   isStarting,
 }: {
   emailAccountId: string;
   attachments: AttachmentPreviewItem[];
-  availableFolders: FolderItem[];
+  savedFolders: SavedFolder[];
   filingStates: Record<string, FilingState>;
   onStartFiling: () => void;
   isStarting: boolean;
 }) {
   const { userEmail, provider } = useAccount();
-  const [correctingId, setCorrectingId] = useState<string | null>(null);
 
   const allComplete = attachments.every((att) => {
     const key = `${att.messageId}-${att.filename}`;
@@ -376,10 +374,7 @@ function PreviewResults({
                   emailAccountId={emailAccountId}
                   attachment={attachment}
                   filingState={filingStates[key] || { status: "filing" }}
-                  availableFolders={availableFolders}
-                  isCorrectingThis={correctingId === key}
-                  onCorrectClick={() => setCorrectingId(key)}
-                  onCancelCorrect={() => setCorrectingId(null)}
+                  savedFolders={savedFolders}
                   userEmail={userEmail}
                   provider={provider}
                 />
@@ -413,58 +408,51 @@ function FilingRow({
   emailAccountId,
   attachment,
   filingState,
-  availableFolders,
-  isCorrectingThis,
-  onCorrectClick,
-  onCancelCorrect,
+  savedFolders,
   userEmail,
   provider,
 }: {
   emailAccountId: string;
   attachment: AttachmentPreviewItem;
   filingState: FilingState;
-  availableFolders: FolderItem[];
-  isCorrectingThis: boolean;
-  onCorrectClick: () => void;
-  onCancelCorrect: () => void;
+  savedFolders: SavedFolder[];
   userEmail: string;
   provider: string;
 }) {
   const [correctedPath, setCorrectedPath] = useState<string | null>(null);
   const [isMoving, setIsMoving] = useState(false);
   const [vote, setVote] = useState<boolean | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const voteBeforeDropdownRef = useRef<boolean | null>(null);
 
   const folderPath = correctedPath ?? filingState.result?.folderPath ?? null;
 
   const handleMoveToFolder = useCallback(
-    async (folder: FolderItem) => {
+    async (folder: SavedFolder) => {
       const filingId = filingState.result?.filingId;
       if (!filingId) return;
 
-      const newPath = folder.path || folder.name;
       setIsMoving(true);
 
       try {
         await moveFilingAction(emailAccountId, {
           filingId,
-          targetFolderId: folder.id,
-          targetFolderPath: newPath,
+          targetFolderId: folder.folderId,
+          targetFolderPath: folder.folderPath,
         });
-        setCorrectedPath(newPath);
-        setVote(true);
-        toastSuccess({ description: `Moved to ${folder.name}` });
+        setCorrectedPath(folder.folderPath);
+        toastSuccess({ description: `Moved to ${folder.folderName}` });
       } catch {
+        setVote(voteBeforeDropdownRef.current);
         toastError({ description: "Failed to move file" });
       } finally {
         setIsMoving(false);
-        onCancelCorrect();
       }
     },
-    [emailAccountId, filingState.result?.filingId, onCancelCorrect],
+    [emailAccountId, filingState.result?.filingId],
   );
 
   const handleCorrectClick = useCallback(async () => {
-    // Use filingId from result (filed items) or directly from state (skipped items)
     const filingId = filingState.result?.filingId || filingState.filingId;
     if (!filingId) return;
 
@@ -480,12 +468,22 @@ function FilingRow({
     }
   }, [emailAccountId, filingState.result?.filingId, filingState.filingId]);
 
-  const handleWrongClick = useCallback(() => {
-    setVote(false);
-    onCorrectClick();
-  }, [onCorrectClick]);
+  const handleWrongClick = useCallback(async () => {
+    const filingId = filingState.result?.filingId;
+    if (!filingId) return;
 
-  // Handle "wrong" feedback for skipped items (just saves negative feedback for now)
+    setVote(false);
+    const result = await submitPreviewFeedbackAction(emailAccountId, {
+      filingId,
+      feedbackPositive: false,
+    });
+
+    if (result?.serverError) {
+      setVote(null);
+      toastError({ description: "Failed to submit feedback" });
+    }
+  }, [emailAccountId, filingState.result?.filingId]);
+
   const handleSkippedWrongClick = useCallback(async () => {
     const filingId = filingState.filingId;
     if (!filingId) return;
@@ -505,32 +503,7 @@ function FilingRow({
   const isFiled = filingState.status === "filed";
   const isSkipped = filingState.status === "skipped";
 
-  if (isCorrectingThis && isFiled) {
-    return (
-      <TableRow>
-        <TableCell colSpan={3}>
-          <div className="space-y-3">
-            <p className="text-sm font-medium">{attachment.filename}</p>
-            <MutedText>Select the correct folder:</MutedText>
-            <SelectableFolderTree
-              folders={availableFolders}
-              selectedPath={folderPath}
-              onSelect={handleMoveToFolder}
-              disabled={isMoving}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onCancelCorrect}
-              disabled={isMoving}
-            >
-              Cancel
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  }
+  const otherFolders = savedFolders.filter((f) => f.folderPath !== folderPath);
 
   const emailUrl = getEmailUrlForMessage(
     attachment.messageId,
@@ -566,16 +539,58 @@ function FilingRow({
         />
       </TableCell>
       <TableCell>
-        {isFiled ? (
+        {isFiled && otherFolders.length > 0 ? (
+          <div className="flex items-center justify-end">
+            <DropdownMenu
+              onOpenChange={(open) => {
+                setDropdownOpen(open);
+                if (open) {
+                  voteBeforeDropdownRef.current = vote;
+                  setVote(false);
+                }
+              }}
+            >
+              <DropdownMenuTrigger asChild>
+                <div>
+                  <YesNoIndicator
+                    value={vote}
+                    onClick={(value) => {
+                      if (value) handleCorrectClick();
+                    }}
+                    dropdownTrigger="wrong"
+                    wrongActive={dropdownOpen}
+                  />
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>
+                  Which folder does this file belong in?
+                </DropdownMenuLabel>
+                {otherFolders.map((folder) => (
+                  <DropdownMenuItem
+                    key={folder.folderId}
+                    disabled={isMoving}
+                    onClick={() => handleMoveToFolder(folder)}
+                  >
+                    <FolderIcon className="size-4" />
+                    {folder.folderName}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem
+                  onClick={() => setVote(voteBeforeDropdownRef.current)}
+                >
+                  Cancel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : isFiled ? (
           <div className="flex items-center justify-end">
             <YesNoIndicator
               value={vote}
               onClick={(value) => {
-                if (value) {
-                  handleCorrectClick();
-                } else {
-                  handleWrongClick();
-                }
+                if (value) handleCorrectClick();
+                else handleWrongClick();
               }}
             />
           </div>
@@ -875,131 +890,5 @@ Receipts go to Receipts by month.`}
         )}
       </form>
     </div>
-  );
-}
-
-function SelectableFolderTree({
-  folders,
-  selectedPath,
-  onSelect,
-  disabled,
-}: {
-  folders: FolderItem[];
-  selectedPath: string | null;
-  onSelect: (folder: FolderItem) => void;
-  disabled: boolean;
-}) {
-  const { rootFolders, folderChildrenMap } = useMemo(() => {
-    const folderMap = new Map<string, FolderItem>();
-    const roots: FolderItem[] = [];
-    const childrenMap = new Map<string, FolderItem[]>();
-
-    for (const folder of folders) {
-      folderMap.set(folder.id, folder);
-    }
-
-    for (const folder of folders) {
-      if (!folder.parentId || !folderMap.has(folder.parentId)) {
-        roots.push(folder);
-      } else {
-        if (!childrenMap.has(folder.parentId)) {
-          childrenMap.set(folder.parentId, []);
-        }
-        childrenMap.get(folder.parentId)!.push(folder);
-      }
-    }
-
-    return { rootFolders: roots, folderChildrenMap: childrenMap };
-  }, [folders]);
-
-  return (
-    <TreeProvider
-      showLines
-      showIcons
-      selectable={false}
-      animateExpand
-      indent={16}
-    >
-      <TreeView className="max-h-48 overflow-y-auto p-0">
-        {rootFolders.map((folder, index) => (
-          <SelectableFolderNode
-            key={folder.id}
-            folder={folder}
-            isLast={index === rootFolders.length - 1}
-            selectedPath={selectedPath}
-            onSelect={onSelect}
-            disabled={disabled}
-            level={0}
-            parentPath=""
-            childrenMap={folderChildrenMap}
-          />
-        ))}
-      </TreeView>
-    </TreeProvider>
-  );
-}
-
-function SelectableFolderNode({
-  folder,
-  isLast,
-  selectedPath,
-  onSelect,
-  disabled,
-  level,
-  parentPath,
-  childrenMap,
-}: {
-  folder: FolderItem;
-  isLast: boolean;
-  selectedPath: string | null;
-  onSelect: (folder: FolderItem) => void;
-  disabled: boolean;
-  level: number;
-  parentPath: string;
-  childrenMap: Map<string, FolderItem[]>;
-}) {
-  const currentPath = parentPath ? `${parentPath}/${folder.name}` : folder.name;
-  const isSelected =
-    selectedPath === currentPath || selectedPath === folder.path;
-  const children = childrenMap.get(folder.id) || [];
-  const hasChildren = children.length > 0;
-
-  return (
-    <TreeNode nodeId={folder.id} level={level} isLast={isLast}>
-      <TreeNodeTrigger className="py-1">
-        <TreeExpander hasChildren={hasChildren} />
-        <TreeIcon hasChildren={hasChildren} />
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect({ ...folder, path: currentPath });
-          }}
-          disabled={disabled}
-          className={`flex-1 text-left rounded px-1 py-0.5 text-sm transition-colors ${
-            isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-          } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-        >
-          {folder.name}
-        </button>
-      </TreeNodeTrigger>
-      {hasChildren && (
-        <TreeNodeContent hasChildren>
-          {children.map((child, index) => (
-            <SelectableFolderNode
-              key={child.id}
-              folder={child}
-              isLast={index === children.length - 1}
-              selectedPath={selectedPath}
-              onSelect={onSelect}
-              disabled={disabled}
-              level={level + 1}
-              parentPath={currentPath}
-              childrenMap={childrenMap}
-            />
-          ))}
-        </TreeNodeContent>
-      )}
-    </TreeNode>
   );
 }
