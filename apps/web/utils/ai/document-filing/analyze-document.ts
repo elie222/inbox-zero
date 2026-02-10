@@ -7,21 +7,13 @@ import { cleanExtractedText } from "@/utils/drive/document-extraction";
 const documentAnalysisSchema = z
   .object({
     action: z
-      .enum(["use_existing", "create_new", "skip"])
-      .describe(
-        "Whether to use an existing folder, create a new one, or skip this document.",
-      ),
+      .enum(["use_existing", "skip"])
+      .describe("Whether to use an existing folder or skip this document."),
     folderId: z
       .string()
       .optional()
       .describe(
         "Required if action is 'use_existing'. The ID of the existing folder from the provided list.",
-      ),
-    folderPath: z
-      .string()
-      .optional()
-      .describe(
-        "Required if action is 'create_new'. The path for the new folder to create.",
       ),
     confidence: z
       .number()
@@ -39,12 +31,10 @@ const documentAnalysisSchema = z
   .refine(
     (data) => {
       if (data.action === "use_existing") return !!data.folderId;
-      if (data.action === "create_new") return !!data.folderPath;
       return true;
     },
     {
-      message:
-        "folderId required for 'use_existing', folderPath required for 'create_new'",
+      message: "folderId required for 'use_existing'",
     },
   );
 export type DocumentAnalysisResult = z.infer<typeof documentAnalysisSchema>;
@@ -99,22 +89,19 @@ Your response must be in valid JSON format.
 </output_format>
 
 Choose one of:
-1. action: "use_existing" + folderId - Use an existing folder from the list (requires folder ID)
-2. action: "create_new" + folderPath - Create a new folder ONLY if:
-   - The document clearly matches the user's preferences, AND
-   - No existing folder fits, AND
-   - The new folder makes sense for the user's stated filing goals
-3. action: "skip" - Skip this document if:
+1. action: "use_existing" + folderId - Use an existing folder from the list (requires folder ID). You MUST only use folder IDs from the provided list.
+2. action: "skip" - Skip this document if:
    - It doesn't match the user's filing preferences
    - It's unrelated to what the user wants to organize
+   - No existing folder fits
    - You're unsure whether it fits
 
 Examples:
-- User wants "file receipts" → Receipt PDF arrives → File it
+- User wants "file receipts" → Receipt PDF arrives → File it to the matching folder
 - User wants "file receipts" → CV PDF arrives → SKIP (not a receipt)
-- User wants "organize invoices by vendor" → Invoice arrives but no vendor folder exists → Create new folder for that vendor
+- No existing folder fits the document → SKIP
 
-Prefer existing folders. Only create folders that align with user preferences. When in doubt, skip.
+You can ONLY file into the provided existing folders. When in doubt, skip.
 Be conservative with confidence scores - only use 0.9+ when very certain.`;
 }
 

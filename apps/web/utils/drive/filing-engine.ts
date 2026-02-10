@@ -5,7 +5,6 @@ import type { ParsedMessage, Attachment } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
-import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
 import {
   extractTextFromDocument,
   isExtractableMimeType,
@@ -192,29 +191,46 @@ export async function processAttachment({
     }
 
     // Step 6: Determine target folder and drive connection
-    const { driveConnection, folderId, folderPath, needsToCreateFolder } =
-      resolveFolderTarget(analysis, allFolders, driveConnections, log);
+    const folderTarget = resolveFolderTarget(
+      analysis,
+      allFolders,
+      driveConnections,
+      log,
+    );
 
-    // Step 6: Create folder if needed
+    if (!folderTarget) {
+      log.info("No valid allowed folder found, skipping");
+
+      const skipFiling = await prisma.documentFiling.create({
+        data: {
+          messageId: message.id,
+          attachmentId: attachment.attachmentId,
+          filename: attachment.filename,
+          folderPath: "",
+          status: "PREVIEW",
+          reasoning: analysis.reasoning || "No matching allowed folder found",
+          confidence: analysis.confidence,
+          driveConnectionId: driveConnections[0].id,
+          emailAccountId: emailAccount.id,
+        },
+      });
+
+      return {
+        success: false,
+        skipped: true,
+        skipReason: "No matching allowed folder found",
+        filingId: skipFiling.id,
+      };
+    }
+
+    const { driveConnection, folderId, folderPath } = folderTarget;
+
     const driveProvider = await createDriveProviderWithRefresh(
       driveConnection,
       log,
     );
-    let targetFolderId = folderId;
-    let targetFolderPath = folderPath;
-
-    if (needsToCreateFolder && folderPath) {
-      log.info("Creating new folder", { path: folderPath });
-      const newFolder = await createAndSaveFilingFolder({
-        driveProvider,
-        folderPath,
-        emailAccountId: emailAccount.id,
-        driveConnectionId: driveConnection.id,
-        logger: log,
-      });
-      targetFolderId = newFolder.id;
-      targetFolderPath = folderPath;
-    }
+    const targetFolderId = folderId;
+    const targetFolderPath = folderPath;
 
     // Step 7: Determine if we should ask the user first
     const shouldAsk = analysis.confidence < 0.7;
@@ -349,17 +365,15 @@ interface FolderTarget {
   driveConnection: DriveConnection;
   folderId: string;
   folderPath: string;
-  needsToCreateFolder: boolean;
 }
 
 function resolveFolderTarget(
-  analysis: { action: string; folderId?: string; folderPath?: string },
+  analysis: { action: string; folderId?: string },
   folders: FolderWithConnection[],
   connections: DriveConnection[],
   logger: Logger,
-): FolderTarget {
+): FolderTarget | null {
   if (analysis.action === "use_existing" && analysis.folderId) {
-    // Find the folder in our list
     const folder = folders.find((f) => f.id === analysis.folderId);
     if (folder) {
       const connection = connections.find(
@@ -370,34 +384,13 @@ function resolveFolderTarget(
           driveConnection: connection,
           folderId: folder.id,
           folderPath: folder.path || folder.name,
-          needsToCreateFolder: false,
         };
       }
     }
-    // Folder not found (stale reference) - fall back to creating a new folder
-    // Use the folder name from our records if available, otherwise use a default
-    const staleFolderName =
-      folders.find((f) => f.id === analysis.folderId)?.name ||
-      "Inbox Zero Filed";
-    logger.warn("Could not find folder from AI response, creating new folder", {
+    logger.warn("Could not find folder from AI response, skipping", {
       folderId: analysis.folderId,
-      fallbackPath: staleFolderName,
     });
-    const connection = connections[0];
-    return {
-      driveConnection: connection,
-      folderId: "root",
-      folderPath: staleFolderName,
-      needsToCreateFolder: true,
-    };
   }
 
-  // Creating new folder - use first connection
-  const connection = connections[0];
-  return {
-    driveConnection: connection,
-    folderId: "root",
-    folderPath: analysis.folderPath || "Inbox Zero Filed",
-    needsToCreateFolder: true,
-  };
+  return null;
 }
