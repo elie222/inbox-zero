@@ -100,7 +100,21 @@ For complete self-hosting instructions, production deployment, OAuth setup, and 
 
 ### Local Development
 
-See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for full local development setup (devcontainer and manual options).
+> **Prerequisites**: [Docker](https://docs.docker.com/engine/install/), [Node.js](https://nodejs.org/) v22+, and [pnpm](https://pnpm.io/) v10+
+
+```bash
+git clone https://github.com/elie222/inbox-zero.git
+cd inbox-zero
+docker compose -f docker-compose.dev.yml up -d   # Postgres + Redis
+pnpm install
+npm run setup                                     # Interactive env setup
+cd apps/web && pnpm prisma migrate dev && cd ../..
+pnpm dev
+```
+
+Open http://localhost:3000
+
+See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for more details including devcontainer setup.
 
 ## Contributing
 
