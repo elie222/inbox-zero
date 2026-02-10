@@ -1,12 +1,13 @@
 import useSWR from "swr";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import type { GetChannelTargetsResponse } from "@/app/api/user/messaging-channels/[channelId]/targets/route";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function useMessagingChannels(emailAccountId?: string) {
+  const { emailAccountId: contextId } = useAccount();
+  const id = emailAccountId ?? contextId;
   return useSWR<GetMessagingChannelsResponse>(
-    emailAccountId
-      ? ["/api/user/messaging-channels", emailAccountId]
-      : "/api/user/messaging-channels",
+    id ? ["/api/user/messaging-channels", id] : null,
   );
 }
 
