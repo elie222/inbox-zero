@@ -5,6 +5,7 @@ import {
   SectionContent,
 } from "@/components/new-landing/common/Section";
 import { SectionHeading } from "@/components/new-landing/common/Typography";
+import { tiers } from "@/app/(app)/premium/config";
 
 type FeatureValue = boolean | string;
 
@@ -94,11 +95,10 @@ const features: {
   },
 ];
 
-const tierHeaders = [
-  { name: "Starter", price: "$20" },
-  { name: "Plus", price: "$35" },
-  { name: "Professional", price: "$50" },
-];
+const tierHeaders = tiers.map((tier) => ({
+  name: tier.name,
+  price: `$${tier.price.monthly}`,
+}));
 
 function FeatureCell({ value }: { value: FeatureValue }) {
   if (typeof value === "string") {

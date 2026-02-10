@@ -91,6 +91,14 @@ export const AdminUpgradeUserForm = () => {
             value: "STARTER_MONTHLY",
           },
           {
+            label: "PLUS_ANNUALLY",
+            value: "PLUS_ANNUALLY",
+          },
+          {
+            label: "PLUS_MONTHLY",
+            value: "PLUS_MONTHLY",
+          },
+          {
             label: "PROFESSIONAL_ANNUALLY",
             value: "PROFESSIONAL_ANNUALLY",
           },
