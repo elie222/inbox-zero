@@ -13,11 +13,12 @@ export function StepEmailsSorted({ onNext }: { onNext: () => void }) {
           <EmailsSortedIllustration />
         </div>
 
-        <PageHeading className="mb-3">Emails sorted automatically</PageHeading>
+        <PageHeading className="mb-3">We sort your emails</PageHeading>
 
         <TypographyP className="text-muted-foreground mb-8">
-          Emails are automatically organized into categories like "To Reply",
-          "Newsletters", and "Cold Emails".
+          Every email is automatically organized into categories like "To
+          Reply", "Newsletters", and "Cold Emails" — so you only see what
+          matters.
         </TypographyP>
 
         <div className="flex flex-col gap-2 w-full max-w-xs">
