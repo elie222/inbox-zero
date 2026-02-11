@@ -224,15 +224,22 @@ function CategoryCard({
           <IconCircle size="sm" color={iconColor} Icon={Icon} />
           <div>
             {useTooltip ? (
-              <div className="flex flex-1 min-w-0 items-center gap-2 text-sm sm:text-base">
-                {label}
+              <>
+                <div className="flex flex-1 min-w-0 items-center gap-2 text-sm sm:text-base">
+                  {label}
+                  {description && (
+                    <TooltipExplanation
+                      text={description}
+                      className="text-muted-foreground hidden sm:inline-flex"
+                    />
+                  )}
+                </div>
                 {description && (
-                  <TooltipExplanation
-                    text={description}
-                    className="text-muted-foreground"
-                  />
+                  <MutedText className="text-xs sm:hidden">
+                    {description}
+                  </MutedText>
                 )}
-              </div>
+              </>
             ) : (
               <>
                 <div className="font-medium">{label}</div>
@@ -269,7 +276,10 @@ function CategoryCard({
                 <>
                   <SelectItem value="label">Label</SelectItem>
                   <SelectItem value="label_archive">
-                    Label & skip inbox
+                    Label & archive{" "}
+                    <span className="text-muted-foreground text-xs">
+                      (removes from inbox)
+                    </span>
                   </SelectItem>
                   {/* <SelectItem value="label_archive_delayed">
                     Label & archive after a week
@@ -288,16 +298,13 @@ function CategoryCard({
 function CustomCategoryCard() {
   return (
     <Card>
-      <CardContent className="flex items-center gap-4 p-4">
+      <CardContent className="flex items-center gap-2 p-4">
         <IconCircle size="sm" color="purple" Icon={PencilLineIcon} />
-
         <div>
-          <div className="flex flex-1 items-center gap-2 font-medium">
-            Custom
-          </div>
+          <div className="flex flex-1 items-center font-medium">Custom</div>
           <div className="ml-auto flex items-center gap-4 text-muted-foreground text-sm">
             You can set your own custom categories later
-          </div>{" "}
+          </div>
         </div>
       </CardContent>
     </Card>

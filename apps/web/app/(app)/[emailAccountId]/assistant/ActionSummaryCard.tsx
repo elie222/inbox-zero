@@ -188,7 +188,7 @@ export function ActionSummaryCard({
       break;
 
     case ActionType.ARCHIVE:
-      summaryContent = "Skip Inbox";
+      summaryContent = "Archive";
       break;
 
     case ActionType.MARK_READ:
