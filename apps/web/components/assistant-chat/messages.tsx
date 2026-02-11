@@ -68,11 +68,13 @@ export function Messages({
 
         {footer && (
           <div className="sticky bottom-0 z-10 pb-4 md:pb-6 pointer-events-none [&>*]:pointer-events-auto">
+            <div className="flex justify-center">
+              <ConversationScrollButton className="static translate-x-0 mb-2" />
+            </div>
             {footer}
           </div>
         )}
       </ConversationContent>
-      <ConversationScrollButton />
     </Conversation>
   );
 }
