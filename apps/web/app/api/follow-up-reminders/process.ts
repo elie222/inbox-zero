@@ -228,9 +228,29 @@ async function processFollowUpsForType({
       ? ThreadTrackerType.AWAITING
       : ThreadTrackerType.NEEDS_REPLY;
 
+  // Batch-check which threads already have follow-up applied.
+  // This avoids N individual DB queries and N Gmail API calls for already-processed threads.
+  const threadIds = threads.map((t) => t.id);
+  const existingTrackers = await prisma.threadTracker.findMany({
+    where: {
+      emailAccountId: emailAccount.id,
+      threadId: { in: threadIds },
+      resolved: false,
+      followUpAppliedAt: { not: null },
+    },
+    select: { threadId: true },
+  });
+  const alreadyProcessedIds = new Set(existingTrackers.map((t) => t.threadId));
+
   let processedCount = 0;
+  let skippedCount = 0;
 
   for (const thread of threads) {
+    if (alreadyProcessedIds.has(thread.id)) {
+      skippedCount++;
+      continue;
+    }
+
     const threadLogger = logger.with({ threadId: thread.id });
 
     try {
@@ -240,16 +260,6 @@ async function processFollowUpsForType({
       const messageDate = internalDateToDate(lastMessage.internalDate);
       if (messageDate >= threshold) continue;
 
-      let tracker = await prisma.threadTracker.findFirst({
-        where: {
-          emailAccountId: emailAccount.id,
-          threadId: thread.id,
-          resolved: false,
-        },
-      });
-
-      if (tracker?.followUpAppliedAt) continue;
-
       await applyFollowUpLabel({
         provider,
         threadId: thread.id,
@@ -258,7 +268,7 @@ async function processFollowUpsForType({
         logger: threadLogger,
       });
 
-      tracker = await prisma.threadTracker.upsert({
+      const tracker = await prisma.threadTracker.upsert({
         where: {
           emailAccountId_threadId_messageId: {
             emailAccountId: emailAccount.id,
@@ -279,18 +289,27 @@ async function processFollowUpsForType({
         },
       });
 
-      if (generateDraft && tracker) {
-        await generateFollowUpDraft({
-          emailAccount,
-          threadId: thread.id,
-          trackerId: tracker.id,
-          provider,
-          logger: threadLogger,
-        });
+      let draftCreated = false;
+      if (generateDraft) {
+        try {
+          await generateFollowUpDraft({
+            emailAccount,
+            threadId: thread.id,
+            trackerId: tracker.id,
+            provider,
+            logger: threadLogger,
+          });
+          draftCreated = true;
+        } catch (draftError) {
+          threadLogger.error("Draft generation failed, label still applied", {
+            error: draftError,
+          });
+          captureException(draftError);
+        }
       }
 
       threadLogger.info("Processed follow-up", {
-        draftGenerated: generateDraft,
+        draftCreated,
       });
       processedCount++;
     } catch (error) {
@@ -302,6 +321,7 @@ async function processFollowUpsForType({
   logger.info("Finished processing follow-ups", {
     systemType,
     processed: processedCount,
+    skipped: skippedCount,
     total: threads.length,
   });
 }

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
+import { env } from "@/env";
+import type { MessagingProvider } from "@/generated/prisma/enums";
 
 export type GetMessagingChannelsResponse = Awaited<ReturnType<typeof getData>>;
 
@@ -29,5 +31,11 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     orderBy: { createdAt: "desc" },
   });
 
-  return { channels };
+  return { channels, availableProviders: getAvailableProviders() };
+}
+
+function getAvailableProviders(): MessagingProvider[] {
+  const providers: MessagingProvider[] = [];
+  if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) providers.push("SLACK");
+  return providers;
 }

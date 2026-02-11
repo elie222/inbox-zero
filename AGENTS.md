@@ -8,6 +8,7 @@
 - Run AI tests: `pnpm test-ai`
 - Run single test: `pnpm test __tests__/test-file.test.ts`
 - Run specific AI test: `pnpm test-ai ai-categorize-senders`
+- Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
 - Do not run `dev` or `build` unless explicitly asked
 - Before writing or updating tests, review `.cursor/rules/testing.mdc`.
 - When adding a new workspace package, add its `package.json` COPY line to `docker/Dockerfile.prod` and `docker/Dockerfile.local`.

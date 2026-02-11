@@ -117,6 +117,8 @@ export async function handleSlackCallback(
       redirectHeaders,
     );
   } catch (error) {
+    const errorDetail = error instanceof Error ? error.message : String(error);
+
     if (error instanceof RedirectError) {
       const reason = getRedirectReason(error.redirectUrl);
       logger.error("Slack callback redirect error", {
@@ -126,6 +128,7 @@ export async function handleSlackCallback(
         hasStoredState: !!request.cookies.get(SLACK_STATE_COOKIE_NAME)?.value,
       });
       error.redirectUrl.searchParams.set("error_reason", reason);
+      error.redirectUrl.searchParams.set("error_detail", errorDetail);
       await flushLogger(logger);
       return redirectWithError(
         error.redirectUrl,
@@ -158,6 +161,7 @@ export async function handleSlackCallback(
     errorRedirectUrl.searchParams.set("tab", "email");
     errorRedirectUrl.searchParams.set("error", "connection_failed");
     errorRedirectUrl.searchParams.set("error_reason", reason);
+    errorRedirectUrl.searchParams.set("error_detail", errorDetail);
     await flushLogger(callbackLogger);
     return NextResponse.redirect(errorRedirectUrl, {
       headers: redirectHeaders,
