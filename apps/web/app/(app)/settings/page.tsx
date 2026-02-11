@@ -5,17 +5,13 @@ import { useMemo, useState } from "react";
 import {
   AlertTriangleIcon,
   ChevronRightIcon,
-  CreditCardIcon,
   MailIcon,
-  SettingsIcon,
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
-import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
 import { ConnectedAppsSection } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
-import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
@@ -36,7 +32,6 @@ import { Separator } from "@/components/ui/separator";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
-import { env } from "@/env";
 
 export default function SettingsPage() {
   const { emailAccountId: activeEmailAccountId } = useAccount();
@@ -57,10 +52,7 @@ export default function SettingsPage() {
   return (
     <div className="content-container pb-12">
       <div className="mx-auto max-w-5xl space-y-6 pt-4">
-        <PageHeader
-          title="Settings"
-          description="Manage your account, team access, and email configurations"
-        />
+        <PageHeader title="Settings" />
 
         <SettingsCard
           icon={<MailIcon className="size-5" />}
@@ -97,23 +89,6 @@ export default function SettingsPage() {
               </div>
             )}
           </LoadingContent>
-        </SettingsCard>
-
-        {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
-          <SettingsCard
-            icon={<CreditCardIcon className="size-5" />}
-            title="Account & Billing"
-          >
-            <BillingSection />
-          </SettingsCard>
-        )}
-
-        <SettingsCard
-          icon={<SettingsIcon className="size-5" />}
-          title="AI Model"
-          description="Configure which AI provider powers your email automation"
-        >
-          <ModelSection />
         </SettingsCard>
 
         <SettingsCard
