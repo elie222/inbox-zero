@@ -259,7 +259,7 @@ function CategoryCard({
               });
             }}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="h-8 w-fit px-2 text-xs sm:h-10 sm:w-[180px] sm:px-3 sm:text-sm">
               <SelectValue placeholder="Select action" />
             </SelectTrigger>
             <SelectContent>
@@ -275,12 +275,7 @@ function CategoryCard({
               {isGoogleProvider(provider) && (
                 <>
                   <SelectItem value="label">Label</SelectItem>
-                  <SelectItem value="label_archive">
-                    Label & archive{" "}
-                    <span className="text-muted-foreground text-xs">
-                      (removes from inbox)
-                    </span>
-                  </SelectItem>
+                  <SelectItem value="label_archive">Label & archive</SelectItem>
                   {/* <SelectItem value="label_archive_delayed">
                     Label & archive after a week
                   </SelectItem> */}
