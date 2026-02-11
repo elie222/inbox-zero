@@ -94,7 +94,7 @@ const filterOptions: {
     icon: <MailXIcon className="size-4" />,
   },
   {
-    label: "Skip Inbox",
+    label: "Auto Archive",
     value: "autoArchived",
     icon: <ArchiveIcon className="size-4" />,
   },

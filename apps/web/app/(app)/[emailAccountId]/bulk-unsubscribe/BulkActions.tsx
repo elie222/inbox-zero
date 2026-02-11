@@ -95,7 +95,7 @@ export function BulkActions({
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
-  const [skipInboxDialogOpen, setSkipInboxDialogOpen] = useState(false);
+  const [autoArchiveDialogOpen, setAutoArchiveDialogOpen] = useState(false);
 
   const posthog = usePostHog();
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
@@ -202,8 +202,8 @@ export function BulkActions({
                   />
                   <ActionButton
                     icon={ArchiveIcon}
-                    label="Skip Inbox"
-                    onClick={() => setSkipInboxDialogOpen(true)}
+                    label="Auto Archive"
+                    onClick={() => setAutoArchiveDialogOpen(true)}
                   />
                   <ActionButton
                     icon={
@@ -364,11 +364,14 @@ export function BulkActions({
         </DialogContent>
       </Dialog>
 
-      {/* Skip Inbox Confirmation Dialog */}
-      <Dialog open={skipInboxDialogOpen} onOpenChange={setSkipInboxDialogOpen}>
+      {/* Auto Archive Confirmation Dialog */}
+      <Dialog
+        open={autoArchiveDialogOpen}
+        onOpenChange={setAutoArchiveDialogOpen}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Skip inbox for these senders?</DialogTitle>
+            <DialogTitle>Auto archive these senders?</DialogTitle>
             <DialogDescription>
               Automatically archive all current and future emails from these
               senders. They will no longer appear in your inbox.
@@ -377,17 +380,17 @@ export function BulkActions({
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setSkipInboxDialogOpen(false)}
+              onClick={() => setAutoArchiveDialogOpen(false)}
             >
               Cancel
             </Button>
             <Button
               onClick={() => {
                 onBulkAutoArchive(getSelectedValues());
-                setSkipInboxDialogOpen(false);
+                setAutoArchiveDialogOpen(false);
               }}
             >
-              Skip Inbox
+              Auto Archive
             </Button>
           </DialogFooter>
         </DialogContent>

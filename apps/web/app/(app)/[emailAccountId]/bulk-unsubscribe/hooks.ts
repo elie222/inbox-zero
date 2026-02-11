@@ -462,9 +462,9 @@ export function useBulkAutoArchive<T extends Row>({
         filter,
         onDeselectItem,
         newStatus: NewsletterStatus.AUTO_ARCHIVED,
-        loadingMessage: "Setting skip inbox for",
-        successMessage: "set to skip inbox",
-        errorMessage: "Failed to set skip inbox for",
+        loadingMessage: "Setting auto archive for",
+        successMessage: "set to auto archive",
+        errorMessage: "Failed to set auto archive for",
         processItem: async (item) => {
           await onAutoArchive({
             emailAccountId,

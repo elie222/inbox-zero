@@ -56,7 +56,7 @@ export function getActionDisplay(
         : terminology.label.action;
     }
     case ActionType.ARCHIVE:
-      return "Skip Inbox";
+      return "Archive";
     case ActionType.MARK_READ:
       return "Mark Read";
     case ActionType.MARK_SPAM:
