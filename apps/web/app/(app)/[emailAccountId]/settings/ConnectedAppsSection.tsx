@@ -9,7 +9,9 @@ import {
   SlackIcon,
   XIcon,
 } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useAction } from "next-safe-action/hooks";
+import { useForm, type SubmitHandler } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +31,10 @@ import {
   connectWhatsAppAction,
   disconnectChannelAction,
 } from "@/utils/actions/messaging-channels";
+import {
+  connectWhatsAppBody,
+  type ConnectWhatsAppBody,
+} from "@/utils/actions/messaging-channels.validation";
 import { fetchWithAccount } from "@/utils/fetch";
 import { captureException } from "@/utils/error";
 import { getActionErrorMessage } from "@/utils/error";
@@ -150,24 +156,31 @@ function ConnectWhatsAppDialog({
   emailAccountId: string;
   onDone: () => void;
 }) {
+  const defaultValues: ConnectWhatsAppBody = {
+    wabaId: "",
+    phoneNumberId: "",
+    accessToken: "",
+    authorizedSender: "",
+    displayName: "",
+  };
   const [open, setOpen] = useState(false);
-  const [wabaId, setWabaId] = useState("");
-  const [phoneNumberId, setPhoneNumberId] = useState("");
-  const [accessToken, setAccessToken] = useState("");
-  const [authorizedSender, setAuthorizedSender] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const {
+    register,
+    reset,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ConnectWhatsAppBody>({
+    resolver: zodResolver(connectWhatsAppBody),
+    defaultValues,
+  });
 
-  const { execute: executeConnectWhatsApp, status } = useAction(
+  const { execute: executeConnectWhatsApp, isExecuting } = useAction(
     connectWhatsAppAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "WhatsApp connected" });
         setOpen(false);
-        setWabaId("");
-        setPhoneNumberId("");
-        setAccessToken("");
-        setAuthorizedSender("");
-        setDisplayName("");
+        reset(defaultValues);
         onDone();
       },
       onError: (error) => {
@@ -179,7 +192,12 @@ function ConnectWhatsAppDialog({
     },
   );
 
-  const isExecuting = status === "executing";
+  const onSubmit: SubmitHandler<ConnectWhatsAppBody> = (values) => {
+    executeConnectWhatsApp({
+      ...values,
+      displayName: values.displayName?.trim() || undefined,
+    });
+  };
 
   return (
     <Dialog
@@ -187,11 +205,7 @@ function ConnectWhatsAppDialog({
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
         if (nextOpen) return;
-        setWabaId("");
-        setPhoneNumberId("");
-        setAccessToken("");
-        setAuthorizedSender("");
-        setDisplayName("");
+        reset(defaultValues);
       }}
     >
       <DialogTrigger asChild>
@@ -208,37 +222,25 @@ function ConnectWhatsAppDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            executeConnectWhatsApp({
-              wabaId,
-              phoneNumberId,
-              accessToken,
-              authorizedSender,
-              displayName: displayName.trim() || undefined,
-            });
-          }}
-        >
+        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-1">
             <Label htmlFor="wabaId">WhatsApp Business Account ID</Label>
-            <Input
-              id="wabaId"
-              value={wabaId}
-              onChange={(event) => setWabaId(event.target.value)}
-              required
-            />
+            <Input id="wabaId" {...register("wabaId")} required />
+            {errors.wabaId && (
+              <p className="text-destructive text-xs">
+                {errors.wabaId.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="phoneNumberId">Phone Number ID</Label>
-            <Input
-              id="phoneNumberId"
-              value={phoneNumberId}
-              onChange={(event) => setPhoneNumberId(event.target.value)}
-              required
-            />
+            <Input id="phoneNumberId" {...register("phoneNumberId")} required />
+            {errors.phoneNumberId && (
+              <p className="text-destructive text-xs">
+                {errors.phoneNumberId.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -246,10 +248,14 @@ function ConnectWhatsAppDialog({
             <Input
               id="accessToken"
               type="password"
-              value={accessToken}
-              onChange={(event) => setAccessToken(event.target.value)}
+              {...register("accessToken")}
               required
             />
+            {errors.accessToken && (
+              <p className="text-destructive text-xs">
+                {errors.accessToken.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -258,20 +264,25 @@ function ConnectWhatsAppDialog({
             </Label>
             <Input
               id="authorizedSender"
-              value={authorizedSender}
-              onChange={(event) => setAuthorizedSender(event.target.value)}
+              {...register("authorizedSender")}
               placeholder="+15551230000"
               required
             />
+            {errors.authorizedSender && (
+              <p className="text-destructive text-xs">
+                {errors.authorizedSender.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="displayName">Display Name (optional)</Label>
-            <Input
-              id="displayName"
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-            />
+            <Input id="displayName" {...register("displayName")} />
+            {errors.displayName && (
+              <p className="text-destructive text-xs">
+                {errors.displayName.message}
+              </p>
+            )}
           </div>
 
           <Button type="submit" className="w-full" disabled={isExecuting}>
