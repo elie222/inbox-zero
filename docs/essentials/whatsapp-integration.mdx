@@ -1,0 +1,65 @@
+---
+title: 'WhatsApp Integration'
+description: 'Chat with your Inbox Zero assistant from WhatsApp.'
+icon: 'message-circle'
+---
+
+## Overview
+
+Connect WhatsApp to chat with your Inbox Zero assistant using your email account context.
+
+This integration is private by default: only the authorized sender number you configure can use the connected WhatsApp channel.
+
+## Connect WhatsApp
+
+1. Go to **Settings** in the left sidebar.
+2. Under **Connected Apps**, click **Connect WhatsApp**.
+3. Enter:
+   - WhatsApp Business Account ID
+   - Phone Number ID
+   - Access Token
+   - Authorized Sender WhatsApp Number
+   - optional Display Name
+4. Save.
+
+After connecting, WhatsApp appears in Connected Apps for that email account.
+
+## Chat Behavior
+
+- Send a text message to the connected WhatsApp number.
+- Inbox Zero processes the message using your connected email account context.
+- The assistant replies in the same WhatsApp chat.
+
+Unsupported inbound message types currently receive:
+
+```text
+We don't support this message type yet.
+```
+
+## Security Model
+
+- Only the configured **Authorized Sender WhatsApp Number** can trigger assistant actions.
+- Messages from other senders are ignored.
+- Each WhatsApp number can only be actively connected to one email account at a time.
+
+## Current Scope
+
+In this version, WhatsApp is for assistant chat only.
+
+Not yet supported:
+- meeting brief delivery to WhatsApp
+- file-filing notifications to WhatsApp
+- multi-email unified WhatsApp chat
+
+## Disconnect
+
+To disconnect WhatsApp:
+
+1. Go to **Settings** > **Connected Apps**
+2. Click **Disconnect** next to WhatsApp
+
+This stops inbound chat processing for that connection.
+
+## Self-Hosted Setup
+
+If you are self-hosting, see [WhatsApp Integration Setup](/whatsapp/setup).

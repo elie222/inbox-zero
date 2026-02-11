@@ -2,14 +2,39 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { HashIcon, MessageSquareIcon, SlackIcon, XIcon } from "lucide-react";
+import {
+  HashIcon,
+  MessageCircleIcon,
+  MessageSquareIcon,
+  SlackIcon,
+  XIcon,
+} from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useAction } from "next-safe-action/hooks";
+import { useForm, type SubmitHandler } from "react-hook-form";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SettingsSection } from "@/components/SettingsSection";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
-import { disconnectChannelAction } from "@/utils/actions/messaging-channels";
+import {
+  connectWhatsAppAction,
+  disconnectChannelAction,
+} from "@/utils/actions/messaging-channels";
+import {
+  connectWhatsAppBody,
+  type ConnectWhatsAppBody,
+} from "@/utils/actions/messaging-channels.validation";
 import { fetchWithAccount } from "@/utils/fetch";
 import { captureException } from "@/utils/error";
 import { getActionErrorMessage } from "@/utils/error";
@@ -21,6 +46,7 @@ const PROVIDER_CONFIG: Record<
   { name: string; icon: typeof MessageSquareIcon }
 > = {
   SLACK: { name: "Slack", icon: HashIcon },
+  WHATSAPP: { name: "WhatsApp", icon: MessageCircleIcon },
 };
 
 export function ConnectedAppsSection({
@@ -30,7 +56,6 @@ export function ConnectedAppsSection({
   emailAccountId: string;
   showNotifications?: boolean;
 }) {
-
   useSlackNotifications(showNotifications);
 
   const {
@@ -45,6 +70,9 @@ export function ConnectedAppsSection({
     channelsData?.channels.filter((channel) => channel.isConnected) ?? [];
   const hasSlack = connectedChannels.some(
     (channel) => channel.provider === "SLACK",
+  );
+  const hasWhatsApp = connectedChannels.some(
+    (channel) => channel.provider === "WHATSAPP",
   );
 
   const handleConnectSlack = async () => {
@@ -79,16 +107,27 @@ export function ConnectedAppsSection({
       titleClassName="text-sm"
       descriptionClassName="text-xs sm:text-sm"
       actions={
-        !hasSlack ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={connectingSlack || isLoading}
-            onClick={handleConnectSlack}
-          >
-            <SlackIcon className="mr-2 h-4 w-4" />
-            {connectingSlack ? "Connecting..." : "Connect Slack"}
-          </Button>
+        !hasSlack || !hasWhatsApp ? (
+          <div className="flex flex-wrap gap-2">
+            {!hasSlack && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={connectingSlack || isLoading}
+                onClick={handleConnectSlack}
+              >
+                <SlackIcon className="mr-2 h-4 w-4" />
+                {connectingSlack ? "Connecting..." : "Connect Slack"}
+              </Button>
+            )}
+
+            {!hasWhatsApp && (
+              <ConnectWhatsAppDialog
+                emailAccountId={emailAccountId}
+                onDone={mutateChannels}
+              />
+            )}
+          </div>
         ) : null
       }
     >
@@ -107,6 +146,151 @@ export function ConnectedAppsSection({
         )}
       </LoadingContent>
     </SettingsSection>
+  );
+}
+
+function ConnectWhatsAppDialog({
+  emailAccountId,
+  onDone,
+}: {
+  emailAccountId: string;
+  onDone: () => void;
+}) {
+  const defaultValues: ConnectWhatsAppBody = {
+    wabaId: "",
+    phoneNumberId: "",
+    accessToken: "",
+    authorizedSender: "",
+    displayName: "",
+  };
+  const [open, setOpen] = useState(false);
+  const {
+    register,
+    reset,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ConnectWhatsAppBody>({
+    resolver: zodResolver(connectWhatsAppBody),
+    defaultValues,
+  });
+
+  const { execute: executeConnectWhatsApp, isExecuting } = useAction(
+    connectWhatsAppAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "WhatsApp connected" });
+        setOpen(false);
+        reset(defaultValues);
+        onDone();
+      },
+      onError: (error) => {
+        toastError({
+          description:
+            getActionErrorMessage(error.error) ?? "Failed to connect WhatsApp",
+        });
+      },
+    },
+  );
+
+  const onSubmit: SubmitHandler<ConnectWhatsAppBody> = (values) => {
+    executeConnectWhatsApp({
+      ...values,
+      displayName: values.displayName?.trim() || undefined,
+    });
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) return;
+        reset(defaultValues);
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <MessageCircleIcon className="mr-2 h-4 w-4" />
+          Connect WhatsApp
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Connect WhatsApp</DialogTitle>
+          <DialogDescription>
+            Enter your WhatsApp Business details to connect this email account.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+          <div className="space-y-1">
+            <Label htmlFor="wabaId">WhatsApp Business Account ID</Label>
+            <Input id="wabaId" {...register("wabaId")} required />
+            {errors.wabaId && (
+              <p className="text-destructive text-xs">
+                {errors.wabaId.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="phoneNumberId">Phone Number ID</Label>
+            <Input id="phoneNumberId" {...register("phoneNumberId")} required />
+            {errors.phoneNumberId && (
+              <p className="text-destructive text-xs">
+                {errors.phoneNumberId.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="accessToken">Access Token</Label>
+            <Input
+              id="accessToken"
+              type="password"
+              {...register("accessToken")}
+              required
+            />
+            {errors.accessToken && (
+              <p className="text-destructive text-xs">
+                {errors.accessToken.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="authorizedSender">
+              Authorized Sender WhatsApp Number
+            </Label>
+            <Input
+              id="authorizedSender"
+              {...register("authorizedSender")}
+              placeholder="+15551230000"
+              required
+            />
+            {errors.authorizedSender && (
+              <p className="text-destructive text-xs">
+                {errors.authorizedSender.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="displayName">Display Name (optional)</Label>
+            <Input id="displayName" {...register("displayName")} />
+            {errors.displayName && (
+              <p className="text-destructive text-xs">
+                {errors.displayName.message}
+              </p>
+            )}
+          </div>
+
+          <Button type="submit" className="w-full" disabled={isExecuting}>
+            {isExecuting ? "Connecting..." : "Connect WhatsApp"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -130,7 +314,8 @@ function ConnectedChannelRow({
     disconnectChannelAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Slack disconnected" });
+        const providerName = config?.name ?? channel.provider;
+        toastSuccess({ description: `${providerName} disconnected` });
         onUpdate();
       },
       onError: (error) => {

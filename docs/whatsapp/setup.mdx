@@ -1,0 +1,90 @@
+---
+title: 'WhatsApp Integration Setup'
+description: 'Configure WhatsApp Business webhooks and connect a number to Inbox Zero.'
+---
+
+# WhatsApp Integration Setup
+
+Use this guide to enable WhatsApp chat with the Inbox Zero assistant in a self-hosted deployment.
+
+## 1. Create a Meta App with WhatsApp
+
+1. Open the [Meta for Developers](https://developers.facebook.com/) dashboard.
+2. Create an app (or use an existing app) and add the **WhatsApp** product.
+3. In WhatsApp Manager, ensure you have:
+   - a **WhatsApp Business Account ID (WABA ID)**
+   - a **Phone Number ID** for the sender number
+
+## 2. Configure the Webhook in Meta
+
+In **WhatsApp > Configuration > Webhooks**:
+
+1. Set **Callback URL** to:
+
+```text
+https://<your-domain>/api/whatsapp/webhook
+```
+
+2. Set **Verify token** to a custom secret string (you will reuse this in env vars).
+3. Subscribe to the `messages` field.
+
+For local development, use an HTTPS tunnel (for example ngrok) and point the callback URL to that public HTTPS domain.
+
+## 3. Set Environment Variables
+
+Set these in your `.env`:
+
+```bash
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=  # same value used in Meta webhook verify token
+WHATSAPP_APP_SECRET=            # Meta app secret (App Settings > Basic)
+```
+
+If these are missing:
+- webhook verification returns `503`
+- webhook event handling returns `503`
+
+## 4. Apply Database Migrations
+
+WhatsApp support uses these migrations:
+
+```text
+apps/web/prisma/migrations/20260211000000_add_whatsapp_provider/
+apps/web/prisma/migrations/20260211013000_whatsapp_security_hardening/
+```
+
+Apply migrations:
+
+```bash
+pnpm prisma migrate deploy
+```
+
+## 5. Connect WhatsApp in Inbox Zero UI
+
+1. Go to **Settings** > **Connected Apps**.
+2. Click **Connect WhatsApp**.
+3. Fill in:
+   - **WhatsApp Business Account ID**
+   - **Phone Number ID**
+   - **Access Token**
+   - **Authorized Sender WhatsApp Number**
+   - optional **Display Name**
+
+Inbox Zero validates that the phone number belongs to the provided WABA before saving.
+
+## 6. Security and Behavior Notes
+
+- Inbound messages are accepted only from the configured **Authorized Sender**.
+- The same active WhatsApp business number cannot be connected to multiple email accounts.
+- V1 is chat-only:
+  - text inbound messages are processed
+  - unsupported inbound types receive: `We don't support this message type yet.`
+  - proactive WhatsApp delivery for briefs/filing is not enabled
+
+## Troubleshooting
+
+- `Invalid verify token` on webhook challenge:
+  - confirm Meta webhook verify token matches `WHATSAPP_WEBHOOK_VERIFY_TOKEN`
+- `Invalid signature` on webhook POST:
+  - confirm `WHATSAPP_APP_SECRET` matches the Meta app secret
+- Connection fails with ownership error:
+  - confirm the Phone Number ID belongs to the specified WABA ID

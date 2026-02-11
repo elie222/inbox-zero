@@ -73,6 +73,8 @@ export async function sendFilingSlackNotifications({
           );
         }
         break;
+      case MessagingProvider.WHATSAPP:
+        break;
     }
   }
 

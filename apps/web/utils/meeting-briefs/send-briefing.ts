@@ -101,6 +101,8 @@ export async function sendBriefing({
           }),
         );
         break;
+      case MessagingProvider.WHATSAPP:
+        break;
     }
   }
 
