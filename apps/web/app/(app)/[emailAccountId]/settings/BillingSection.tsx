@@ -11,7 +11,9 @@ export function BillingSection() {
 
   return (
     <LoadingContent loading={isLoading}>
-      {premium?.lemonSqueezyCustomerId || premium?.stripeSubscriptionId ? (
+      {premium?.isPremium ||
+      premium?.lemonSqueezyCustomerId ||
+      premium?.stripeSubscriptionId ? (
         <ManageSubscription premium={premium} />
       ) : (
         <Button asChild variant="outline">
