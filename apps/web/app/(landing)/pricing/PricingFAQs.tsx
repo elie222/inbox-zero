@@ -15,7 +15,7 @@ const pricingFaqs = [
   {
     question: "Can I try Inbox Zero for free?",
     answer:
-      "Yes! All plans include a 7-day free trial. No credit card required.",
+      "Yes! All plans include a 7-day free trial.",
   },
   {
     question: "Can I switch between plans?",
