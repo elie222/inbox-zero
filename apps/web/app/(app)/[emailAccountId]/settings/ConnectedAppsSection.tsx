@@ -275,7 +275,18 @@ function ConnectWhatsAppDialog({
   const isExecuting = status === "executing";
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) return;
+        setWabaId("");
+        setPhoneNumberId("");
+        setAccessToken("");
+        setAuthorizedSender("");
+        setDisplayName("");
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <MessageCircleIcon className="mr-2 h-4 w-4" />

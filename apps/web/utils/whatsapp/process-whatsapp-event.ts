@@ -152,7 +152,7 @@ async function processInboundMessage({
     where: { id: chatId },
     create: { id: chatId, emailAccountId },
     update: {},
-    include: { messages: true },
+    include: { messages: { orderBy: { createdAt: "asc" } } },
   });
 
   const existingMessages: UIMessage[] = chat.messages.map((chatMessage) => ({
@@ -271,8 +271,7 @@ async function reserveInboundEvent({
       logger.trace("Skipping duplicate WhatsApp delivery", { id });
       return false;
     }
-    logger.error("Failed reserving WhatsApp inbound event", { error, id });
-    return false;
+    throw error;
   }
 }
 

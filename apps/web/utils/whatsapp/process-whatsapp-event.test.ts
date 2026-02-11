@@ -172,4 +172,14 @@ describe("processWhatsAppEvent", () => {
     expect(prisma.chat.upsert).not.toHaveBeenCalled();
     expect(mockSendWhatsAppTextMessage).not.toHaveBeenCalled();
   });
+
+  it("throws when reserving inbound event fails with non-duplicate error", async () => {
+    prisma.messagingInboundEvent.create.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+
+    await expect(processWhatsAppEvent(makePayload({}), logger)).rejects.toThrow(
+      "database unavailable",
+    );
+  });
 });

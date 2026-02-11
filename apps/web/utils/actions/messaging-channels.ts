@@ -137,10 +137,7 @@ export const connectWhatsAppAction = actionClient
         accessToken,
       });
 
-      if (
-        phoneNumberData.account?.id &&
-        phoneNumberData.account.id !== wabaId
-      ) {
+      if (phoneNumberData.account.id !== wabaId) {
         throw new SafeError(
           "WhatsApp phone number does not belong to the provided business account",
         );
@@ -355,11 +352,9 @@ const whatsappPhoneNumberSchema = z.object({
   id: z.string().min(1),
   display_phone_number: z.string().optional(),
   verified_name: z.string().optional(),
-  account: z
-    .object({
-      id: z.string().min(1),
-    })
-    .optional(),
+  account: z.object({
+    id: z.string().min(1),
+  }),
 });
 
 const whatsappErrorSchema = z.object({

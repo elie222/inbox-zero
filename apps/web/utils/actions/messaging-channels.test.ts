@@ -136,4 +136,29 @@ describe("messaging channel actions", () => {
     );
     expect(prisma.messagingChannel.upsert).not.toHaveBeenCalled();
   });
+
+  it("rejects connect when account ownership data is missing", async () => {
+    prisma.messagingChannel.findFirst.mockResolvedValue(null);
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "phone-1",
+        display_phone_number: "+15551230000",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const result = await connectWhatsAppAction("email-1" as any, {
+      wabaId: "waba-1",
+      phoneNumberId: "phone-1",
+      accessToken: "token-1",
+      authorizedSender: "15551230000",
+    });
+
+    expect(result?.serverError).toBe(
+      "Unexpected response while validating WhatsApp",
+    );
+    expect(prisma.messagingChannel.upsert).not.toHaveBeenCalled();
+  });
 });
