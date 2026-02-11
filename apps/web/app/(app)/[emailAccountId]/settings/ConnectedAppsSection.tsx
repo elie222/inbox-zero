@@ -7,7 +7,7 @@ import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SettingsSection } from "@/components/SettingsSection";
-import { toastSuccess, toastError } from "@/components/Toast";
+import { toastSuccess, toastError, toastInfo } from "@/components/Toast";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { disconnectChannelAction } from "@/utils/actions/messaging-channels";
 import { fetchWithAccount } from "@/utils/fetch";
@@ -30,7 +30,6 @@ export function ConnectedAppsSection({
   emailAccountId: string;
   showNotifications?: boolean;
 }) {
-
   useSlackNotifications(showNotifications);
 
   const {
@@ -187,30 +186,91 @@ function useSlackNotifications(enabled: boolean) {
 
     const message = searchParams.get("message");
     const error = searchParams.get("error");
+    const errorReason = searchParams.get("error_reason");
+    const errorDetail = searchParams.get("error_detail");
+    const resolvedReason = resolveSlackErrorReason(errorReason, errorDetail);
 
-    if (!message && !error) return;
+    if (!message && !error && !errorReason && !errorDetail) return;
 
     handled.current = true;
 
     if (message === "slack_connected") {
       toastSuccess({ description: "Slack connected" });
     }
+    if (message === "processing") {
+      toastInfo({
+        title: "Slack connection in progress",
+        description:
+          "Slack is still finalizing your connection. Please refresh in a moment.",
+      });
+    }
 
-    if (error === "connection_failed") {
+    if (error === "connection_failed" || errorDetail) {
       toastError({
         title: "Slack connection failed",
-        description:
-          "We couldn't complete the Slack connection. Please try again.",
+        description: getSlackConnectionFailedDescription(resolvedReason),
       });
     }
 
     const preserved = new URLSearchParams();
     for (const [key, value] of searchParams.entries()) {
-      if (key !== "message" && key !== "error") {
+      if (
+        key !== "message" &&
+        key !== "error" &&
+        key !== "error_reason" &&
+        key !== "error_detail"
+      ) {
         preserved.set(key, value);
       }
     }
     const qs = preserved.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }, [enabled, pathname, router, searchParams]);
+}
+
+function getSlackConnectionFailedDescription(
+  errorReason: string | null,
+): string {
+  if (errorReason === "oauth_invalid_code") {
+    return "Slack returned an invalid or expired code. Please try connecting again.";
+  }
+
+  if (
+    errorReason === "missing_code" ||
+    errorReason === "missing_state" ||
+    errorReason === "invalid_state" ||
+    errorReason === "invalid_state_format"
+  ) {
+    return "Slack session validation failed. Please try connecting again.";
+  }
+
+  return "We couldn't complete the Slack connection. Please try again.";
+}
+
+function resolveSlackErrorReason(
+  errorReason: string | null,
+  errorDetail: string | null,
+): string | null {
+  if (errorReason) return errorReason;
+  if (!errorDetail) return null;
+
+  const normalized = errorDetail.toLowerCase();
+
+  if (normalized.includes("invalid_code")) {
+    return "oauth_invalid_code";
+  }
+  if (normalized.includes("invalid_state_format")) {
+    return "invalid_state_format";
+  }
+  if (normalized.includes("invalid_state")) {
+    return "invalid_state";
+  }
+  if (normalized.includes("missing_state")) {
+    return "missing_state";
+  }
+  if (normalized.includes("missing_code")) {
+    return "missing_code";
+  }
+
+  return null;
 }
