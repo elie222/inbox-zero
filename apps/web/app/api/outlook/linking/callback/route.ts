@@ -376,6 +376,16 @@ async function updateMicrosoftAccountTokens(
       expires_at: parseMicrosoftExpiresAt(tokens),
       scope: tokens.scope,
       token_type: tokens.token_type,
+      disconnectedAt: null,
+    },
+  });
+
+  // Force subscription renewal on next watch cycle after reconnect.
+  // This avoids reusing stale subscription state that can survive token issues.
+  await prisma.emailAccount.updateMany({
+    where: { accountId },
+    data: {
+      watchEmailsExpirationDate: new Date(0),
     },
   });
 }
