@@ -12,10 +12,30 @@ const _prisma =
   global.prisma ||
   (new PrismaClient({
     adapter: new PrismaPg({
-      connectionString: env.PREVIEW_DATABASE_URL ?? env.DATABASE_URL,
+      connectionString: normalizeSslMode(
+        env.PREVIEW_DATABASE_URL ?? env.DATABASE_URL,
+      ),
     }),
   }).$extends(encryptedTokens) as unknown as PrismaClient);
 
 if (env.NODE_ENV === "development") global.prisma = _prisma;
 
 export default _prisma;
+
+function normalizeSslMode(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const sslmode = parsed.searchParams.get("sslmode");
+    if (
+      sslmode === "require" ||
+      sslmode === "prefer" ||
+      sslmode === "verify-ca"
+    ) {
+      parsed.searchParams.set("sslmode", "verify-full");
+      return parsed.toString();
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
