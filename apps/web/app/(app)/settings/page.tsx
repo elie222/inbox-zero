@@ -99,7 +99,7 @@ export default function SettingsPage() {
         {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
           <SettingsCard
             icon={<CreditCardIcon className="size-5" />}
-            title="Account & Billing"
+            title="Billing"
           >
             <BillingSection />
           </SettingsCard>
