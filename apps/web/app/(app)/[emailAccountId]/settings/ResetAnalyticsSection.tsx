@@ -17,7 +17,7 @@ export function ResetAnalyticsSection({
   return (
     <SettingsSection
       title="Reset Analytics"
-      description="Reset analytics for this account. This action is not reversible. All analytics related to this account will be deleted permanently."
+      description="Permanently delete all analytics for this account."
       titleClassName="text-sm"
       descriptionClassName="text-xs sm:text-sm"
       align="start"

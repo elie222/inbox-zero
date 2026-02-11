@@ -57,10 +57,7 @@ export default function SettingsPage() {
   return (
     <div className="content-container pb-12">
       <div className="mx-auto max-w-5xl space-y-6 pt-4">
-        <PageHeader
-          title="Settings"
-          description="Manage your account, team access, and email configurations"
-        />
+        <PageHeader title="Settings" />
 
         <SettingsCard
           icon={<MailIcon className="size-5" />}
@@ -111,7 +108,6 @@ export default function SettingsPage() {
         <SettingsCard
           icon={<SettingsIcon className="size-5" />}
           title="AI Model"
-          description="Configure which AI provider powers your email automation"
         >
           <ModelSection />
         </SettingsCard>
