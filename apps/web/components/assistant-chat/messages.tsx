@@ -33,7 +33,7 @@ export function Messages({
         className="mx-auto flex min-h-full flex-col max-w-[var(--chat-max-w)] px-[var(--chat-px)] pt-0 pb-0"
         scrollClassName="![scrollbar-gutter:auto] scrollbar-thin"
       >
-        <div className="flex flex-1 flex-col gap-6 pb-24">
+        <div className="flex flex-1 flex-col gap-6">
           {messages.length === 0 && <Overview setInput={setInput} />}
 
           {messages.map((message) => (
