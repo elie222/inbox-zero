@@ -178,6 +178,9 @@ importers:
       '@inboxzero/tinybird-ai-analytics':
         specifier: workspace:*
         version: link:../../packages/tinybird-ai-analytics
+      '@inboxzero/whatsapp':
+        specifier: workspace:*
+        version: link:../../packages/whatsapp
       '@lemonsqueezy/lemonsqueezy.js':
         specifier: 4.0.0
         version: 4.0.0
@@ -833,6 +836,18 @@ importers:
         version: 5.9.3
 
   packages/tsconfig: {}
+
+  packages/whatsapp:
+    devDependencies:
+      '@types/node':
+        specifier: 24.10.1
+        version: 24.10.1
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
 
 packages:
 

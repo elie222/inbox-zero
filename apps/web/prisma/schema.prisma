@@ -1025,6 +1025,7 @@ model MessagingChannel {
   teamName       String? // Display name
   providerUserId String? // Slack user ID of the person who authorized the connection
   botUserId      String? // Slack bot user ID (for mention stripping)
+  authorizedSenderId String? // Authorized external sender ID for inbound providers (WhatsApp)
 
   // OAuth credentials (encrypted via prisma-extensions)
   accessToken  String?
@@ -1045,6 +1046,15 @@ model MessagingChannel {
   @@unique([emailAccountId, provider, teamId])
   @@index([emailAccountId])
   @@index([provider, teamId])
+}
+
+model MessagingInboundEvent {
+  id        String   @id
+  createdAt DateTime @default(now())
+
+  provider MessagingProvider
+
+  @@index([provider, createdAt])
 }
 
 // Drive connection for document auto-organization (Google Drive or OneDrive/SharePoint)
@@ -1386,5 +1396,5 @@ enum GroupItemSource {
 
 enum MessagingProvider {
   SLACK
+  WHATSAPP
 }
-

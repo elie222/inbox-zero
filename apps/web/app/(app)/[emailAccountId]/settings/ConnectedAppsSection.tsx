@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   HashIcon,
   LockIcon,
+  MessageCircleIcon,
   MessageSquareIcon,
   SlackIcon,
   XIcon,
@@ -18,6 +19,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
   Item,
@@ -32,6 +43,7 @@ import {
   useMessagingChannels,
 } from "@/hooks/useMessagingChannels";
 import {
+  connectWhatsAppAction,
   disconnectChannelAction,
   linkSlackWorkspaceAction,
   updateSlackChannelAction,
@@ -47,13 +59,17 @@ const PROVIDER_CONFIG: Record<
   { name: string; icon: typeof MessageSquareIcon }
 > = {
   SLACK: { name: "Slack", icon: HashIcon },
+  WHATSAPP: { name: "WhatsApp", icon: MessageCircleIcon },
 };
 
 export function ConnectedAppsSection({
   emailAccountId,
+  showNotifications = true,
 }: {
   emailAccountId: string;
+  showNotifications?: boolean;
 }) {
+  useSlackNotifications(showNotifications);
 
   const {
     data: channelsData,
@@ -72,6 +88,9 @@ export function ConnectedAppsSection({
     channelsData?.channels.filter((channel) => channel.isConnected) ?? [];
   const hasSlack = connectedChannels.some(
     (channel) => channel.provider === "SLACK",
+  );
+  const hasWhatsApp = connectedChannels.some(
+    (channel) => channel.provider === "WHATSAPP",
   );
   const slackAvailable =
     channelsData?.availableProviders?.includes("SLACK") ?? false;
@@ -99,9 +118,6 @@ export function ConnectedAppsSection({
       },
     },
   );
-
-  if (!isLoading && !slackAvailable && connectedChannels.length === 0)
-    return null;
 
   const handleConnectSlack = async () => {
     setConnectingSlack(true);
@@ -149,41 +165,52 @@ export function ConnectedAppsSection({
           <ItemTitle>Connected Apps</ItemTitle>
         </ItemContent>
         <ItemActions>
-          {!hasSlack && slackAvailable ? (
-            existingWorkspace ? (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={linkStatus === "executing"}
-                  onClick={handleLinkSlack}
-                >
-                  <SlackIcon className="mr-2 h-4 w-4" />
-                  {linkStatus === "executing"
-                    ? "Linking..."
-                    : `Link to ${existingWorkspace.teamName}`}
-                </Button>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground underline underline-offset-4"
-                  onClick={() => {
-                    if (authUrl) window.location.href = authUrl;
-                  }}
-                >
-                  Install manually
-                </button>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={connectingSlack || isLoading}
-                onClick={handleConnectSlack}
-              >
-                <SlackIcon className="mr-2 h-4 w-4" />
-                {connectingSlack ? "Connecting..." : "Connect Slack"}
-              </Button>
-            )
+          {(!hasSlack && slackAvailable) || !hasWhatsApp ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {!hasSlack && slackAvailable ? (
+                existingWorkspace ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={linkStatus === "executing"}
+                      onClick={handleLinkSlack}
+                    >
+                      <SlackIcon className="mr-2 h-4 w-4" />
+                      {linkStatus === "executing"
+                        ? "Linking..."
+                        : `Link to ${existingWorkspace.teamName}`}
+                    </Button>
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground underline underline-offset-4"
+                      onClick={() => {
+                        if (authUrl) window.location.href = authUrl;
+                      }}
+                    >
+                      Install manually
+                    </button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={connectingSlack || isLoading}
+                    onClick={handleConnectSlack}
+                  >
+                    <SlackIcon className="mr-2 h-4 w-4" />
+                    {connectingSlack ? "Connecting..." : "Connect Slack"}
+                  </Button>
+                )
+              ) : null}
+
+              {!hasWhatsApp && (
+                <ConnectWhatsAppDialog
+                  emailAccountId={emailAccountId}
+                  onDone={mutateChannels}
+                />
+              )}
+            </div>
           ) : null}
         </ItemActions>
       </Item>
@@ -206,6 +233,135 @@ export function ConnectedAppsSection({
         )}
       </LoadingContent>
     </>
+  );
+}
+
+function ConnectWhatsAppDialog({
+  emailAccountId,
+  onDone,
+}: {
+  emailAccountId: string;
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [wabaId, setWabaId] = useState("");
+  const [phoneNumberId, setPhoneNumberId] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+  const [authorizedSender, setAuthorizedSender] = useState("");
+  const [displayName, setDisplayName] = useState("");
+
+  const { execute: executeConnectWhatsApp, status } = useAction(
+    connectWhatsAppAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "WhatsApp connected" });
+        setOpen(false);
+        setWabaId("");
+        setPhoneNumberId("");
+        setAccessToken("");
+        setAuthorizedSender("");
+        setDisplayName("");
+        onDone();
+      },
+      onError: (error) => {
+        toastError({
+          description:
+            getActionErrorMessage(error.error) ?? "Failed to connect WhatsApp",
+        });
+      },
+    },
+  );
+
+  const isExecuting = status === "executing";
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <MessageCircleIcon className="mr-2 h-4 w-4" />
+          Connect WhatsApp
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Connect WhatsApp</DialogTitle>
+          <DialogDescription>
+            Enter your WhatsApp Business details to connect this email account.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            executeConnectWhatsApp({
+              wabaId,
+              phoneNumberId,
+              accessToken,
+              authorizedSender,
+              displayName: displayName.trim() || undefined,
+            });
+          }}
+        >
+          <div className="space-y-1">
+            <Label htmlFor="wabaId">WhatsApp Business Account ID</Label>
+            <Input
+              id="wabaId"
+              value={wabaId}
+              onChange={(event) => setWabaId(event.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="phoneNumberId">Phone Number ID</Label>
+            <Input
+              id="phoneNumberId"
+              value={phoneNumberId}
+              onChange={(event) => setPhoneNumberId(event.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="accessToken">Access Token</Label>
+            <Input
+              id="accessToken"
+              type="password"
+              value={accessToken}
+              onChange={(event) => setAccessToken(event.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="authorizedSender">
+              Authorized Sender WhatsApp Number
+            </Label>
+            <Input
+              id="authorizedSender"
+              value={authorizedSender}
+              onChange={(event) => setAuthorizedSender(event.target.value)}
+              placeholder="+15551230000"
+              required
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="displayName">Display Name (optional)</Label>
+            <Input
+              id="displayName"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+            />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={isExecuting}>
+            {isExecuting ? "Connecting..." : "Connect WhatsApp"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -253,7 +409,8 @@ function ConnectedChannelRow({
     disconnectChannelAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Slack disconnected" });
+        const providerName = config?.name ?? channel.provider;
+        toastSuccess({ description: `${providerName} disconnected` });
         onUpdate();
       },
       onError: (error) => {

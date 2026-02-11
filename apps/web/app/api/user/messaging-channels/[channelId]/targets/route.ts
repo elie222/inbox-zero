@@ -41,13 +41,17 @@ async function getData({
     },
   });
 
-  if (!channel || !channel.accessToken) {
+  if (!channel) {
     return { targets: [], error: "Channel not found or not connected" };
   }
 
   try {
     switch (channel.provider) {
       case MessagingProvider.SLACK: {
+        if (!channel.accessToken) {
+          return { targets: [], error: "Channel not found or not connected" };
+        }
+
         const client = createSlackClient(channel.accessToken);
         const channels = await listChannels(client);
         return {
@@ -58,6 +62,8 @@ async function getData({
           })),
         };
       }
+      case MessagingProvider.WHATSAPP:
+        return { targets: [] };
       default:
         return { targets: [], error: "Unsupported provider" };
     }
