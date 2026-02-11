@@ -103,3 +103,27 @@
 * {
   font-variant-ligatures: none;
 }
+
+/* Chat layout */
+.chat-layout {
+  --chat-px: 1.5rem;
+  --chat-max-w: 800px;
+}
+
+/* Thin scrollbar matching shadcn ScrollArea style */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border));
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
