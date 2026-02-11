@@ -12,6 +12,12 @@ import prisma from "@/utils/prisma";
 import { parseOAuthState, parseSignedOAuthState } from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
 import { MessagingProvider } from "@/generated/prisma/enums";
+import {
+  acquireOAuthCodeLock,
+  clearOAuthCode,
+  getOAuthCodeResult,
+  setOAuthCodeResult,
+} from "@/utils/redis/oauth-code";
 
 const slackOAuthStateSchema = z.object({
   emailAccountId: z.string().min(1).max(64),
@@ -39,10 +45,13 @@ export async function handleSlackCallback(
   logger: Logger,
 ): Promise<NextResponse> {
   let redirectHeaders = new Headers();
+  let codeForCleanup: string | null = null;
+  let callbackLogger = logger;
 
   try {
     const { code, redirectUrl, response, receivedState, allowUnsignedState } =
       validateOAuthCallback(request, logger);
+    codeForCleanup = code;
     redirectHeaders = response.headers;
 
     const decodedState = parseAndValidateSlackState(
@@ -54,8 +63,35 @@ export async function handleSlackCallback(
     );
 
     const { emailAccountId } = decodedState;
+    callbackLogger = logger.with({ emailAccountId });
 
     const finalRedirectUrl = buildSettingsRedirectUrl(emailAccountId);
+    const cachedResult = await getOAuthCodeResult(code);
+    if (cachedResult) {
+      callbackLogger.info(
+        "Slack OAuth code already processed, returning cached result",
+      );
+      applyRedirectParams(finalRedirectUrl, cachedResult.params);
+      await flushLogger(callbackLogger);
+      return NextResponse.redirect(finalRedirectUrl, {
+        headers: redirectHeaders,
+      });
+    }
+
+    const acquiredLock = await acquireOAuthCodeLock(code);
+    if (!acquiredLock) {
+      callbackLogger.warn(
+        "Slack OAuth code is being processed by another request",
+      );
+      const inFlightResult = await getOAuthCodeResult(code);
+      if (inFlightResult) {
+        applyRedirectParams(finalRedirectUrl, inFlightResult.params);
+      }
+      await flushLogger(callbackLogger);
+      return NextResponse.redirect(finalRedirectUrl, {
+        headers: redirectHeaders,
+      });
+    }
 
     const tokens = await exchangeCodeForTokens(code, logger);
 
@@ -68,11 +104,12 @@ export async function handleSlackCallback(
       emailAccountId,
     });
 
-    logger.info("Slack connected successfully", {
-      emailAccountId,
+    callbackLogger.info("Slack connected successfully", {
       teamId: tokens.team.id,
       teamName: tokens.team.name,
     });
+    await setOAuthCodeResult(code, { message: "slack_connected" });
+    await flushLogger(callbackLogger);
 
     return redirectWithMessage(
       finalRedirectUrl,
@@ -81,6 +118,15 @@ export async function handleSlackCallback(
     );
   } catch (error) {
     if (error instanceof RedirectError) {
+      const reason = getRedirectReason(error.redirectUrl);
+      logger.error("Slack callback redirect error", {
+        reason,
+        hasCode: request.nextUrl.searchParams.has("code"),
+        hasState: request.nextUrl.searchParams.has("state"),
+        hasStoredState: !!request.cookies.get(SLACK_STATE_COOKIE_NAME)?.value,
+      });
+      error.redirectUrl.searchParams.set("error_reason", reason);
+      await flushLogger(logger);
       return redirectWithError(
         error.redirectUrl,
         "connection_failed",
@@ -88,7 +134,11 @@ export async function handleSlackCallback(
       );
     }
 
-    logger.error("Error in Slack callback", { error });
+    const reason = mapSlackCallbackErrorReason(error);
+    callbackLogger.error("Error in Slack callback", { error, reason });
+    if (codeForCleanup) {
+      await clearOAuthCode(codeForCleanup);
+    }
 
     // Best-effort: try to extract emailAccountId from the state param for a
     // proper account-scoped redirect. Fall back to prefix-less /settings which
@@ -107,6 +157,8 @@ export async function handleSlackCallback(
     const errorRedirectUrl = new URL(errorPath, env.NEXT_PUBLIC_BASE_URL);
     errorRedirectUrl.searchParams.set("tab", "email");
     errorRedirectUrl.searchParams.set("error", "connection_failed");
+    errorRedirectUrl.searchParams.set("error_reason", reason);
+    await flushLogger(callbackLogger);
     return NextResponse.redirect(errorRedirectUrl, {
       headers: redirectHeaders,
     });
@@ -309,4 +361,46 @@ async function upsertMessagingChannel(params: {
       isConnected: true,
     },
   });
+}
+
+function getRedirectReason(redirectUrl: URL): string {
+  const reason = redirectUrl.searchParams.get("error");
+  if (!reason) return "redirect_error";
+
+  return sanitizeReason(reason);
+}
+
+function mapSlackCallbackErrorReason(error: unknown): string {
+  if (!(error instanceof Error)) return "unexpected_error";
+
+  const oauthErrorPrefix = "Slack OAuth error: ";
+  if (error.message.startsWith(oauthErrorPrefix)) {
+    const oauthError = error.message.slice(oauthErrorPrefix.length);
+    if (!oauthError) return "oauth_error";
+
+    return `oauth_${sanitizeReason(oauthError)}`;
+  }
+
+  return "unexpected_error";
+}
+
+function sanitizeReason(reason: string): string {
+  return reason
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .slice(0, 80);
+}
+
+function applyRedirectParams(url: URL, params: Record<string, string>) {
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value);
+  }
+}
+
+async function flushLogger(logger: Logger): Promise<void> {
+  try {
+    await logger.flush();
+  } catch {
+    // Ignore flush errors on OAuth callback responses
+  }
 }
