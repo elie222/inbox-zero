@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MailIcon, HashIcon, LockIcon, MessageSquareIcon } from "lucide-react";
+import {
+  MailIcon,
+  HashIcon,
+  LockIcon,
+  MessageCircleIcon,
+  MessageSquareIcon,
+} from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -40,6 +46,7 @@ const PROVIDER_CONFIG: Record<
   }
 > = {
   SLACK: { name: "Slack", icon: HashIcon, targetPrefix: "#" },
+  WHATSAPP: { name: "WhatsApp", icon: MessageCircleIcon, targetPrefix: "" },
 };
 
 export function DeliveryChannelsSetting() {
@@ -141,13 +148,16 @@ function ChannelRow({
 }) {
   const config = PROVIDER_CONFIG[channel.provider];
   const Icon = config?.icon ?? MessageSquareIcon;
-  const [selectingTarget, setSelectingTarget] = useState(!channel.channelId);
+  const supportsTargets = channel.provider === "SLACK";
+  const [selectingTarget, setSelectingTarget] = useState(
+    supportsTargets && !channel.channelId,
+  );
 
   const {
     data: targetsData,
     isLoading: isLoadingTargets,
     error: targetsError,
-  } = useChannelTargets(selectingTarget ? channel.id : null);
+  } = useChannelTargets(supportsTargets && selectingTarget ? channel.id : null);
 
   const privateTargets = targetsData?.targets.filter((t) => t.isPrivate);
 
@@ -182,6 +192,20 @@ function ChannelRow({
     },
   );
 
+  if (channel.provider === "WHATSAPP") {
+    return (
+      <div className="flex items-center gap-3">
+        <Icon className="h-5 w-5 text-muted-foreground" />
+        <div className="flex-1">
+          <div className="font-medium text-sm">{config.name}</div>
+          <MutedText className="text-xs">
+            Meeting brief delivery via WhatsApp is not supported yet.
+          </MutedText>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-3">
       <Icon className="h-5 w-5 text-muted-foreground" />
@@ -199,7 +223,6 @@ function ChannelRow({
                     executeTarget({
                       channelId: channel.id,
                       targetId: target.id,
-                      targetName: target.name,
                     });
                   }
                 }}

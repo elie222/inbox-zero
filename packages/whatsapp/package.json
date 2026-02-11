@@ -1,0 +1,10 @@
+{
+  "name": "@inboxzero/whatsapp",
+  "version": "0.0.0",
+  "main": "src/index.ts",
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "tsconfig": "workspace:*",
+    "typescript": "5.9.3"
+  }
+}

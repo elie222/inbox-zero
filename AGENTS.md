@@ -16,6 +16,7 @@
 - TypeScript with strict null checks
 - Path aliases: `@/` for imports from project root
 - NextJS app router with (app) directory, tailwindcss
+- Next.js 16 dynamic APIs: in `page.tsx`, `searchParams` is async (`await searchParams` or `use()`); in client components `useSearchParams()` and route handlers `new URL(request.url).searchParams` are synchronous.
 - Only add comments for "why", not "what". Prefer self-documenting code.
 - Logging: avoid duplicating logger context fields from higher in the call chain. Use `logger.trace()` for PII fields (from, to, subject, etc.).
 - Tests should use the real logger implementation (do not mock `@/utils/logger`).

@@ -3,7 +3,6 @@ import { z } from "zod";
 export const updateSlackChannelBody = z.object({
   channelId: z.string().min(1),
   targetId: z.string().min(1),
-  targetName: z.string().min(1),
 });
 
 export const updateChannelFeaturesBody = z.object({
@@ -18,4 +17,12 @@ export const updateEmailDeliveryBody = z.object({
 
 export const disconnectChannelBody = z.object({
   channelId: z.string().min(1),
+});
+
+export const connectWhatsAppBody = z.object({
+  wabaId: z.string().min(1),
+  phoneNumberId: z.string().min(1),
+  accessToken: z.string().min(1),
+  authorizedSender: z.string().min(1),
+  displayName: z.string().trim().optional(),
 });
