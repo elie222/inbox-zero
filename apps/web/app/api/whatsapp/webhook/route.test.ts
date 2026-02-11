@@ -3,30 +3,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-vi.mock("@/utils/middleware", () => ({
-  withError:
-    (
-      _scope: string,
-      handler: (request: NextRequest & { logger: any }, context: any) => any,
-    ) =>
-    async (request: NextRequest, context: any) => {
-      const logger: {
-        warn: ReturnType<typeof vi.fn>;
-        error: ReturnType<typeof vi.fn>;
-        info: ReturnType<typeof vi.fn>;
-        trace: ReturnType<typeof vi.fn>;
-        with: ReturnType<typeof vi.fn>;
-      } = {
-        warn: vi.fn(),
-        error: vi.fn(),
-        info: vi.fn(),
-        trace: vi.fn(),
-        with: vi.fn(),
-      };
-      logger.with.mockReturnValue(logger);
-      return handler(Object.assign(request, { logger }), context);
-    },
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createScopedLogger } = await import("@/utils/logger");
+
+  return {
+    withError:
+      (
+        _scope: string,
+        handler: (
+          request: NextRequest & {
+            logger: ReturnType<typeof createScopedLogger>;
+          },
+          context: any,
+        ) => any,
+      ) =>
+      async (request: NextRequest, context: any) => {
+        const logger = createScopedLogger("test-whatsapp-webhook-route");
+        return handler(Object.assign(request, { logger }), context);
+      },
+  };
+});
 
 const mockVerifyWhatsAppSignature = vi.fn();
 vi.mock("@inboxzero/whatsapp", () => ({

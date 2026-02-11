@@ -32,6 +32,7 @@
               "essentials/inbox-zero-tabs-extension",
               "essentials/calendar-integration",
               "essentials/slack-integration",
+              "essentials/whatsapp-integration",
               "essentials/cold-email-blocker",
               "essentials/reply-zero",
               "essentials/smart-categories",
@@ -77,7 +78,8 @@
           {
             "group": "Integrations",
             "pages": [
-              "slack/setup"
+              "slack/setup",
+              "whatsapp/setup"
             ]
           },
           {

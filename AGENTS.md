@@ -21,6 +21,7 @@
 - Only add comments for "why", not "what". Prefer self-documenting code.
 - Logging: avoid duplicating logger context fields from higher in the call chain. Use `logger.trace()` for PII fields (from, to, subject, etc.).
 - Tests should use the real logger implementation (do not mock `@/utils/logger`).
+- In tests, do not mock logger methods; use the real logger behavior.
 - Helper functions go at the bottom of files, not the top
 - All imports at the top of files, no mid-file dynamic imports
 - Co-locate test files next to source files (e.g., `utils/example.test.ts`). Only E2E and AI tests go in `__tests__/`.

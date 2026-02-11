@@ -30,3 +30,4 @@ export const connectWhatsAppBody = z.object({
   authorizedSender: z.string().min(1),
   displayName: z.string().trim().optional(),
 });
+export type ConnectWhatsAppBody = z.infer<typeof connectWhatsAppBody>;
