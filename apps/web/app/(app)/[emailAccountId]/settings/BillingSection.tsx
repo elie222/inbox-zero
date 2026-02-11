@@ -7,14 +7,14 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 
 export function BillingSection() {
-  const { premium, isLoading } = usePremium();
+  const { premium, isPremium, isLoading } = usePremium();
 
   return (
     <LoadingContent loading={isLoading}>
-      {premium?.isPremium ||
+      {isPremium ||
       premium?.lemonSqueezyCustomerId ||
       premium?.stripeSubscriptionId ? (
-        <ManageSubscription premium={premium} />
+        <ManageSubscription premium={premium!} />
       ) : (
         <Button asChild variant="outline">
             <Link href="/premium">Upgrade</Link>
