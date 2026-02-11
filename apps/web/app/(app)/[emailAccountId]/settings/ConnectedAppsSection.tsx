@@ -75,7 +75,7 @@ export function ConnectedAppsSection({
   return (
     <SettingsSection
       title="Connected Apps"
-      description=""
+      description="Integrate with external services for notifications and actions."
       titleClassName="text-sm"
       descriptionClassName="text-xs sm:text-sm"
       actions={
