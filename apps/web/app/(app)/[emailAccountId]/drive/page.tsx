@@ -141,7 +141,10 @@ function IntegrationsPopover({ emailAccountId }: { emailAccountId: string }) {
   const allConnected = data?.channels.filter((c) => c.isConnected) ?? [];
   const withChannel = allConnected.filter((c) => c.channelId);
 
-  if (isLoading || allConnected.length === 0) return null;
+  const availableProviders = data?.availableProviders ?? [];
+
+  if (isLoading || (allConnected.length === 0 && availableProviders.length === 0))
+    return null;
 
   return (
     <Popover>

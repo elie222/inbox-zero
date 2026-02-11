@@ -46,6 +46,11 @@ export function ConnectedAppsSection({
   const hasSlack = connectedChannels.some(
     (channel) => channel.provider === "SLACK",
   );
+  const slackAvailable =
+    channelsData?.availableProviders?.includes("SLACK") ?? false;
+
+  if (!isLoading && !slackAvailable && connectedChannels.length === 0)
+    return null;
 
   const handleConnectSlack = async () => {
     setConnectingSlack(true);
@@ -79,7 +84,7 @@ export function ConnectedAppsSection({
       titleClassName="text-sm"
       descriptionClassName="text-xs sm:text-sm"
       actions={
-        !hasSlack ? (
+        !hasSlack && slackAvailable ? (
           <Button
             variant="outline"
             size="sm"

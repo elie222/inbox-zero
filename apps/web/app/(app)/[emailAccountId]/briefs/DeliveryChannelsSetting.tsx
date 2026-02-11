@@ -75,6 +75,8 @@ export function DeliveryChannelsSetting() {
     channelsData?.channels.filter((c) => c.isConnected) ?? [];
 
   const hasSlack = connectedChannels.some((c) => c.provider === "SLACK");
+  const slackAvailable =
+    channelsData?.availableProviders?.includes("SLACK") ?? false;
 
   return (
     <Card>
@@ -107,7 +109,7 @@ export function DeliveryChannelsSetting() {
             ))}
           </LoadingContent>
 
-          {!isLoadingChannels && !hasSlack && (
+          {!isLoadingChannels && !hasSlack && slackAvailable && (
             <MutedText className="text-xs">
               Want to receive briefs in Slack?{" "}
               <Link
