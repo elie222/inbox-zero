@@ -224,22 +224,15 @@ function CategoryCard({
           <IconCircle size="sm" color={iconColor} Icon={Icon} />
           <div>
             {useTooltip ? (
-              <>
-                <div className="flex flex-1 min-w-0 items-center gap-2 text-sm sm:text-base">
-                  {label}
-                  {description && (
-                    <TooltipExplanation
-                      text={description}
-                      className="text-muted-foreground hidden sm:inline-flex"
-                    />
-                  )}
-                </div>
+              <div className="flex flex-1 min-w-0 items-center gap-2 text-sm sm:text-base">
+                {label}
                 {description && (
-                  <MutedText className="text-xs sm:hidden">
-                    {description}
-                  </MutedText>
+                  <TooltipExplanation
+                    text={description}
+                    className="text-muted-foreground hidden sm:inline-flex"
+                  />
                 )}
-              </>
+              </div>
             ) : (
               <>
                 <div className="font-medium">{label}</div>
@@ -259,7 +252,7 @@ function CategoryCard({
               });
             }}
           >
-            <SelectTrigger className="h-8 w-fit px-2 text-xs sm:h-10 sm:w-[180px] sm:px-3 sm:text-sm">
+            <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select action" />
             </SelectTrigger>
             <SelectContent>
