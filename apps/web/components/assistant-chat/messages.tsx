@@ -67,10 +67,8 @@ export function Messages({
         </div>
 
         {footer && (
-          <div className="sticky bottom-0 z-10 pb-4 md:pb-6 pointer-events-none [&>*]:pointer-events-auto">
-            <div className="flex justify-center">
-              <ConversationScrollButton className="static translate-x-0 mb-2" />
-            </div>
+          <div className="sticky bottom-0 z-10 pb-4 md:pb-6 pointer-events-none [&>*]:pointer-events-auto relative">
+            <ConversationScrollButton className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2" />
             {footer}
           </div>
         )}
