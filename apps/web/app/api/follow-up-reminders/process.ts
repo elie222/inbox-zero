@@ -289,6 +289,7 @@ async function processFollowUpsForType({
         },
       });
 
+      let draftCreated = false;
       if (generateDraft) {
         try {
           await generateFollowUpDraft({
@@ -298,6 +299,7 @@ async function processFollowUpsForType({
             provider,
             logger: threadLogger,
           });
+          draftCreated = true;
         } catch (draftError) {
           threadLogger.error("Draft generation failed, label still applied", {
             error: draftError,
@@ -307,7 +309,7 @@ async function processFollowUpsForType({
       }
 
       threadLogger.info("Processed follow-up", {
-        draftGenerated: generateDraft,
+        draftCreated,
       });
       processedCount++;
     } catch (error) {
