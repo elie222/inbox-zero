@@ -7,7 +7,7 @@ import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SettingsSection } from "@/components/SettingsSection";
-import { toastSuccess, toastError } from "@/components/Toast";
+import { toastSuccess, toastError, toastInfo } from "@/components/Toast";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { disconnectChannelAction } from "@/utils/actions/messaging-channels";
 import { fetchWithAccount } from "@/utils/fetch";
@@ -190,12 +190,19 @@ function useSlackNotifications(enabled: boolean) {
     const errorDetail = searchParams.get("error_detail");
     const resolvedReason = resolveSlackErrorReason(errorReason, errorDetail);
 
-    if (!message && !error && !errorDetail) return;
+    if (!message && !error && !errorReason && !errorDetail) return;
 
     handled.current = true;
 
     if (message === "slack_connected") {
       toastSuccess({ description: "Slack connected" });
+    }
+    if (message === "processing") {
+      toastInfo({
+        title: "Slack connection in progress",
+        description:
+          "Slack is still finalizing your connection. Please refresh in a moment.",
+      });
     }
 
     if (error === "connection_failed" || errorDetail) {

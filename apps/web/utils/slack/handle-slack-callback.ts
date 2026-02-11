@@ -86,6 +86,8 @@ export async function handleSlackCallback(
       const inFlightResult = await getOAuthCodeResult(code);
       if (inFlightResult) {
         applyRedirectParams(finalRedirectUrl, inFlightResult.params);
+      } else {
+        applyRedirectParams(finalRedirectUrl, { message: "processing" });
       }
       await flushLogger(callbackLogger);
       return NextResponse.redirect(finalRedirectUrl, {
