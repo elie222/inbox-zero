@@ -11,13 +11,14 @@ export function BillingSection() {
 
   return (
     <LoadingContent loading={isLoading}>
-      {isPremium ||
-      premium?.lemonSqueezyCustomerId ||
-      premium?.stripeSubscriptionId ? (
+      {premium &&
+      (isPremium ||
+        premium.lemonSqueezyCustomerId ||
+        premium.stripeSubscriptionId) ? (
         <>
-          <ManageSubscription premium={premium!} />
-          {!premium?.lemonSqueezyCustomerId &&
-            !premium?.stripeSubscriptionId && (
+          <ManageSubscription premium={premium} />
+          {!premium.lemonSqueezyCustomerId &&
+            !premium.stripeSubscriptionId && (
               <p className="text-sm text-muted-foreground">
                 You&apos;re on the premium plan.
               </p>
