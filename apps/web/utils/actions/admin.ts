@@ -330,59 +330,45 @@ export const adminGetUserInfoAction = adminActionClient
   .metadata({ name: "adminGetUserInfo" })
   .inputSchema(getUserInfoBody)
   .action(async ({ parsedInput: { email } }) => {
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-      select: {
-        id: true,
-        createdAt: true,
-        lastLogin: true,
-        completedOnboardingAt: true,
-        completedAppOnboardingAt: true,
-        premium: {
-          select: {
-            tier: true,
-            lemonSqueezyRenewsAt: true,
-            stripeRenewsAt: true,
-            stripeSubscriptionStatus: true,
-            lemonSubscriptionStatus: true,
-          },
-        },
-        emailAccounts: {
-          select: {
-            email: true,
-            createdAt: true,
-            watchEmailsExpirationDate: true,
-            account: {
-              select: {
-                provider: true,
-                disconnectedAt: true,
-              },
-            },
-            _count: {
-              select: {
-                rules: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            emailAccounts: true,
-          },
-        },
-      },
-    });
+    const lowerEmail = email.toLowerCase();
+
+    // Try finding by User.email first, then fall back to EmailAccount.email
+    let user = await findUserWithDetails(lowerEmail);
+
+    if (!user) {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { email: lowerEmail },
+        select: { userId: true },
+      });
+
+      if (emailAccount) {
+        user = await findUserWithDetails(undefined, emailAccount.userId);
+      }
+    }
 
     if (!user) {
       throw new SafeError("User not found");
     }
 
+    // Get last executed rule date per email account
+    const emailAccountIds = user.emailAccounts.map((ea) => ea.id);
+    const lastExecutedRules =
+      emailAccountIds.length > 0
+        ? await prisma.executedRule.groupBy({
+            by: ["emailAccountId"],
+            where: { emailAccountId: { in: emailAccountIds } },
+            _max: { createdAt: true },
+          })
+        : [];
+
+    const lastExecutedMap = new Map(
+      lastExecutedRules.map((r) => [r.emailAccountId, r._max.createdAt]),
+    );
+
     return {
       id: user.id,
       createdAt: user.createdAt,
       lastLogin: user.lastLogin,
-      completedOnboardingAt: user.completedOnboardingAt,
-      completedAppOnboardingAt: user.completedAppOnboardingAt,
       emailAccountCount: user._count.emailAccounts,
       premium: user.premium
         ? {
@@ -404,6 +390,51 @@ export const adminGetUserInfoAction = adminActionClient
         disconnected: !!ea.account.disconnectedAt,
         watchExpirationDate: ea.watchEmailsExpirationDate,
         ruleCount: ea._count.rules,
+        lastExecutedRuleAt: lastExecutedMap.get(ea.id) || null,
       })),
     };
   });
+
+async function findUserWithDetails(email?: string, userId?: string) {
+  return prisma.user.findUnique({
+    where: email ? { email } : { id: userId },
+    select: {
+      id: true,
+      createdAt: true,
+      lastLogin: true,
+      premium: {
+        select: {
+          tier: true,
+          lemonSqueezyRenewsAt: true,
+          stripeRenewsAt: true,
+          stripeSubscriptionStatus: true,
+          lemonSubscriptionStatus: true,
+        },
+      },
+      emailAccounts: {
+        select: {
+          id: true,
+          email: true,
+          createdAt: true,
+          watchEmailsExpirationDate: true,
+          account: {
+            select: {
+              provider: true,
+              disconnectedAt: true,
+            },
+          },
+          _count: {
+            select: {
+              rules: true,
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          emailAccounts: true,
+        },
+      },
+    },
+  });
+}

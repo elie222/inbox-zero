@@ -71,16 +71,6 @@ export function AdminUserInfo() {
               value={data.lastLogin ? formatDate(data.lastLogin) : "Never"}
             />
             <InfoRow
-              label="Onboarding"
-              value={data.completedOnboardingAt ? "Completed" : "Not completed"}
-            />
-            <InfoRow
-              label="App Onboarding"
-              value={
-                data.completedAppOnboardingAt ? "Completed" : "Not completed"
-              }
-            />
-            <InfoRow
               label="Email Accounts"
               value={String(data.emailAccountCount)}
             />
@@ -110,6 +100,14 @@ export function AdminUserInfo() {
                   value={ea.disconnected ? "Yes" : "No"}
                 />
                 <InfoRow label="Rules" value={String(ea.ruleCount)} />
+                <InfoRow
+                  label="Last Rule Executed"
+                  value={
+                    ea.lastExecutedRuleAt
+                      ? formatDate(ea.lastExecutedRuleAt)
+                      : "Never"
+                  }
+                />
                 <InfoRow
                   label="Watch Expires"
                   value={
