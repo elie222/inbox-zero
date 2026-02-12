@@ -197,6 +197,8 @@ export interface EmailProvider {
     pageToken?: string;
     before?: Date;
     after?: Date;
+    inboxOnly?: boolean;
+    unreadOnly?: boolean;
   }): Promise<{
     messages: ParsedMessage[];
     nextPageToken?: string;

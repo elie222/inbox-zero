@@ -21,10 +21,7 @@ import { posthogCaptureEvent } from "@/utils/posthog";
 import { chatCompletionStream } from "@/utils/llms";
 import { filterNullProperties } from "@/utils";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
-import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import type { MessageContext } from "@/app/api/chat/validation";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
@@ -832,7 +829,7 @@ const searchInboxInputSchema = z.object({
     .max(300)
     .optional()
     .describe(
-      "Inbox search query. Supports provider search syntax, including from:, to:, and subject: patterns.",
+      "Inbox search query. Use concise keywords by default. For Google accounts, Gmail syntax like from:, to:, subject:, and in: is supported.",
     ),
   after: z.coerce
     .date()
@@ -896,19 +893,15 @@ const searchInboxTool = ({
           logger,
         });
 
-        const effectiveQuery = buildInboxQuery({
-          provider,
-          query,
-          inboxOnly,
-        });
-
         const { messages, nextPageToken } =
           await emailProvider.getMessagesWithPagination({
-            query: effectiveQuery,
+            query: query?.trim(),
             maxResults: limit,
             pageToken,
             after,
             before,
+            inboxOnly,
+            unreadOnly,
           });
 
         let labels: Array<{ id: string; name: string }> = [];
@@ -935,7 +928,7 @@ const searchInboxTool = ({
         );
 
         return {
-          queryUsed: effectiveQuery || null,
+          queryUsed: query?.trim() || null,
           totalReturned: items.length,
           nextPageToken,
           summary: summarizeSearchResults(items),
@@ -1227,6 +1220,11 @@ Tool usage strategy (progressive disclosure):
 - For write operations that affect many emails, first summarize what will change, then execute after clear user confirmation.
 - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
 - Only send emails when the user clearly asks to send now.
+
+Provider context:
+- Current provider: ${user.account.provider}.
+- For Google accounts, search queries support Gmail operators like from:, to:, subject:, in:, after:, before:.
+- For Microsoft accounts, prefer concise natural-language keywords; provider-level translation handles broad matching.
 
 A rule is comprised of:
 1. A condition
@@ -1647,25 +1645,6 @@ async function listLabelNames({
     logger.warn("Failed to load label names", { error });
     return [];
   }
-}
-
-function buildInboxQuery({
-  provider,
-  query,
-  inboxOnly,
-}: {
-  provider: string;
-  query?: string;
-  inboxOnly: boolean;
-}) {
-  const trimmed = query?.trim();
-
-  if (!inboxOnly) return trimmed;
-  if (!isGoogleProvider(provider)) return trimmed;
-  if (!trimmed) return "in:inbox";
-  if (trimmed.includes("in:")) return trimmed;
-
-  return `in:inbox ${trimmed}`;
 }
 
 function shouldIncludeMessage({

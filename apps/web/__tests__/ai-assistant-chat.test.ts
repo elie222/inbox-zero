@@ -119,6 +119,7 @@ describe("aiProcessAssistantChat", () => {
     expect(args.messages[0].content).toContain(
       "Tool usage strategy (progressive disclosure):",
     );
+    expect(args.messages[0].content).toContain("Provider context:");
     expect(args.messages[0].content).toContain("Inbox triage guidance:");
 
     expect(args.tools.getAccountOverview).toBeDefined();
@@ -157,46 +158,48 @@ describe("aiProcessAssistantChat", () => {
         if (threadId === "thread-2") throw new Error("archive failed");
       });
 
-    mockCreateEmailProvider.mockResolvedValue({
-      getMessagesWithPagination: vi.fn().mockResolvedValue({
-        messages: [
-          {
-            id: "message-1",
-            threadId: "thread-1",
-            labelIds: undefined,
-            snippet: "Message without labels",
-            historyId: "hist-1",
-            inline: [],
-            headers: {
-              from: "sender1@example.com",
-              to: "user@example.com",
-              subject: "No labels",
-              date: new Date().toISOString(),
-            },
+    const getMessagesWithPagination = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "message-1",
+          threadId: "thread-1",
+          labelIds: undefined,
+          snippet: "Message without labels",
+          historyId: "hist-1",
+          inline: [],
+          headers: {
+            from: "sender1@example.com",
+            to: "user@example.com",
             subject: "No labels",
             date: new Date().toISOString(),
-            attachments: [],
           },
-          {
-            id: "message-2",
-            threadId: "thread-2",
-            labelIds: ["inbox", "to reply", "unread"],
-            snippet: "Needs reply",
-            historyId: "hist-2",
-            inline: [],
-            headers: {
-              from: "sender2@example.com",
-              to: "user@example.com",
-              subject: "Needs response",
-              date: new Date().toISOString(),
-            },
+          subject: "No labels",
+          date: new Date().toISOString(),
+          attachments: [],
+        },
+        {
+          id: "message-2",
+          threadId: "thread-2",
+          labelIds: ["inbox", "to reply", "unread"],
+          snippet: "Needs reply",
+          historyId: "hist-2",
+          inline: [],
+          headers: {
+            from: "sender2@example.com",
+            to: "user@example.com",
             subject: "Needs response",
             date: new Date().toISOString(),
-            attachments: [],
           },
-        ],
-        nextPageToken: undefined,
-      }),
+          subject: "Needs response",
+          date: new Date().toISOString(),
+          attachments: [],
+        },
+      ],
+      nextPageToken: undefined,
+    });
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessagesWithPagination,
       getLabels: vi.fn().mockRejectedValue(new Error("labels unavailable")),
       archiveThreadWithLabel,
       markReadThread: vi.fn(),
@@ -215,6 +218,13 @@ describe("aiProcessAssistantChat", () => {
     });
 
     expect(mockCreateEmailProvider).toHaveBeenCalled();
+    expect(getMessagesWithPagination).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: "today",
+        inboxOnly: true,
+        unreadOnly: false,
+      }),
+    );
     expect(searchResult.totalReturned).toBe(2);
     expect(searchResult.messages).toEqual(
       expect.arrayContaining([
