@@ -2200,6 +2200,231 @@ describe("findMatchingRules - Integration Tests", () => {
     });
   });
 
+  describe("Learned patterns and runOnThreads interaction", () => {
+    it("should skip learned pattern match when runOnThreads=false and rule not previously applied", async () => {
+      const marketingRule = getRule({
+        id: "marketing-rule",
+        groupId: "marketing-group",
+        runOnThreads: false,
+        instructions: "Marketing: Promotional emails",
+      });
+
+      prisma.group.findMany.mockResolvedValue([
+        getGroup({
+          id: "marketing-group",
+          items: [
+            getGroupItem({
+              type: GroupItemType.FROM,
+              value: "sender@example.com",
+            }),
+          ],
+          rule: marketingRule,
+        }),
+      ]);
+
+      // No previously executed rules in this thread
+      prisma.executedRule.findMany.mockResolvedValue([]);
+
+      const threadProvider = {
+        isReplyInThread: vi.fn().mockReturnValue(true),
+      } as unknown as EmailProvider;
+
+      const rules = [marketingRule];
+      const message = getMessage({
+        headers: getHeaders({ from: "sender@example.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: threadProvider,
+        modelType: "default",
+        logger,
+      });
+
+      // Should NOT match: runOnThreads=false, rule never applied to this thread
+      expect(result.matches).toHaveLength(0);
+    });
+
+    it("should allow learned pattern match in thread when rule was previously applied (thread continuity)", async () => {
+      const notifRule = getRule({
+        id: "notif-rule",
+        groupId: "notif-group",
+        runOnThreads: false,
+      });
+
+      prisma.group.findMany.mockResolvedValue([
+        getGroup({
+          id: "notif-group",
+          items: [
+            getGroupItem({
+              type: GroupItemType.FROM,
+              value: "alerts@service.com",
+            }),
+          ],
+          rule: notifRule,
+        }),
+      ]);
+
+      // Rule WAS previously applied to this thread
+      prisma.executedRule.findMany.mockResolvedValue([
+        { ruleId: "notif-rule" },
+      ] as any);
+
+      const threadProvider = {
+        isReplyInThread: vi.fn().mockReturnValue(true),
+      } as unknown as EmailProvider;
+
+      const rules = [notifRule];
+      const message = getMessage({
+        headers: getHeaders({ from: "alerts@service.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: threadProvider,
+        modelType: "default",
+        logger,
+      });
+
+      // Should match: thread continuity allows the rule, and learned pattern confirms it
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0]?.rule.id).toBe("notif-rule");
+      expect(result.matches[0]?.matchReasons?.[0]?.type).toBe(
+        ConditionType.LEARNED_PATTERN,
+      );
+    });
+
+    it("should allow learned pattern match on first message in thread (not a reply)", async () => {
+      const marketingRule = getRule({
+        id: "marketing-rule",
+        groupId: "marketing-group",
+        runOnThreads: false,
+      });
+
+      prisma.group.findMany.mockResolvedValue([
+        getGroup({
+          id: "marketing-group",
+          items: [
+            getGroupItem({
+              type: GroupItemType.FROM,
+              value: "promo@store.com",
+            }),
+          ],
+          rule: marketingRule,
+        }),
+      ]);
+
+      // First message: isReplyInThread=false, so runOnThreads check doesn't apply
+      const nonThreadProvider = {
+        isReplyInThread: vi.fn().mockReturnValue(false),
+      } as unknown as EmailProvider;
+
+      const rules = [marketingRule];
+      const message = getMessage({
+        headers: getHeaders({ from: "promo@store.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: nonThreadProvider,
+        modelType: "default",
+        logger,
+      });
+
+      // Should match: first message, runOnThreads check doesn't fire
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0]?.rule.id).toBe("marketing-rule");
+      expect(prisma.executedRule.findMany).not.toHaveBeenCalled();
+    });
+
+    it("should allow learned pattern match in thread when runOnThreads=true", async () => {
+      const rule = getRule({
+        id: "thread-ok-rule",
+        groupId: "thread-ok-group",
+        runOnThreads: true,
+      });
+
+      prisma.group.findMany.mockResolvedValue([
+        getGroup({
+          id: "thread-ok-group",
+          items: [
+            getGroupItem({
+              type: GroupItemType.FROM,
+              value: "team@company.com",
+            }),
+          ],
+          rule,
+        }),
+      ]);
+
+      const threadProvider = {
+        isReplyInThread: vi.fn().mockReturnValue(true),
+      } as unknown as EmailProvider;
+
+      const rules = [rule];
+      const message = getMessage({
+        headers: getHeaders({ from: "team@company.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: threadProvider,
+        modelType: "default",
+        logger,
+      });
+
+      // Should match: runOnThreads=true, no restriction
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0]?.rule.id).toBe("thread-ok-rule");
+      expect(prisma.executedRule.findMany).not.toHaveBeenCalled();
+    });
+
+    it("should skip AI match on thread when runOnThreads=false and rule not previously applied", async () => {
+      const marketingRule = getRule({
+        id: "marketing-ai-rule",
+        runOnThreads: false,
+        instructions: "Marketing: Promotional emails",
+      });
+
+      prisma.executedRule.findMany.mockResolvedValue([]);
+
+      const threadProvider = {
+        isReplyInThread: vi.fn().mockReturnValue(true),
+      } as unknown as EmailProvider;
+
+      const rules = [marketingRule];
+      const message = getMessage({
+        headers: getHeaders({ from: "someone@example.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: threadProvider,
+        modelType: "default",
+        logger,
+      });
+
+      // Should NOT match and AI should not be called
+      expect(result.matches).toHaveLength(0);
+      expect(aiChooseRule).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Group rules fallthrough when no groups exist", () => {
     it("falls through to static/AI evaluation when getGroupsWithRules returns empty", async () => {
       const groupRule = getRule({

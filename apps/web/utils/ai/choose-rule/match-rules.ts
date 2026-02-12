@@ -169,6 +169,18 @@ async function findPotentialMatchingRules({
       // Don't continue - let it also be evaluated for AI matching below
     }
 
+    // Skip rules with runOnThreads=false, unless this rule was previously applied in the thread
+    // This ensures thread continuity (e.g., notifications continue to be labeled as notifications)
+    // Must be checked before learned patterns to prevent pattern matches from bypassing this guard
+    if (isThread && !rule.runOnThreads) {
+      const previousRuleIds = await previousRulesLoader.getRuleIds();
+      const wasPreviouslyApplied = previousRuleIds.has(rule.id);
+
+      if (!wasPreviouslyApplied) {
+        continue;
+      }
+    }
+
     // Learned patterns (groups)
     // Note: Groups are independent of the AND/OR operator (which only applies to AI/Static conditions)
     if (rule.groupId) {
@@ -197,17 +209,6 @@ async function findPotentialMatchingRules({
           });
           continue;
         }
-      }
-    }
-
-    // Skip rules with runOnThreads=false, unless this rule was previously applied in the thread
-    // This ensures thread continuity (e.g., notifications continue to be labeled as notifications)
-    if (isThread && !rule.runOnThreads) {
-      const previousRuleIds = await previousRulesLoader.getRuleIds();
-      const wasPreviouslyApplied = previousRuleIds.has(rule.id);
-
-      if (!wasPreviouslyApplied) {
-        continue;
       }
     }
 
