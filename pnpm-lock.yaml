@@ -562,9 +562,6 @@ importers:
       tldts:
         specifier: ^7.0.23
         version: 7.0.23
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
       unpdf:
         specifier: 1.4.0
         version: 1.4.0
@@ -659,6 +656,9 @@ importers:
       tsconfig:
         specifier: workspace:*
         version: link:../../packages/tsconfig
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
       vite-tsconfig-paths:
         specifier: 6.1.0
         version: 6.1.0(typescript@5.9.3)(vite@7.2.6(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1))
