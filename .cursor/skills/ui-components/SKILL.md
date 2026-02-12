@@ -1,7 +1,6 @@
 ---
+name: ui-components
 description: UI component and styling guidelines using Shadcn UI, Radix UI, and Tailwind
-globs: 
-alwaysApply: false
 ---
 # UI Components and Styling
 
@@ -67,4 +66,4 @@ Use the `LoadingContent` component to handle loading states:
   registerProps={register("message", { required: true })}
   error={errors.message}
 />
-``` 
+```

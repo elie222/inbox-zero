@@ -1,7 +1,6 @@
 ---
+name: llm
 description: Guidelines for implementing LLM (Language Model) functionality in the application
-globs: 
-alwaysApply: false
 ---
 # LLM Implementation Guidelines
 

@@ -1,7 +1,6 @@
 ---
+name: form-handling
 description: Form handling
-globs: 
-alwaysApply: false
 ---
 # Form Handling
 

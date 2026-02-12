@@ -1,7 +1,6 @@
 ---
+name: utilities
 description: Util functions
-globs: 
-alwaysApply: false
 ---
 # Utility Functions
 

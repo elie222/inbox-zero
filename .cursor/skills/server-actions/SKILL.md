@@ -1,7 +1,6 @@
 ---
+name: server-actions
 description: Guidelines for implementing Next.js server actions
-globs: 
-alwaysApply: false
 ---
 # Server Actions
 

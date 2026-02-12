@@ -1,7 +1,6 @@
 ---
+name: gmail-api
 description: Guidelines for working with Gmail API
-globs: 
-alwaysApply: false
 ---
 # Gmail API Usage
 

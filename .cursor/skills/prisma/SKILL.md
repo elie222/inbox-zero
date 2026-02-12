@@ -1,7 +1,6 @@
 ---
+name: prisma
 description: How to use Prisma
-globs: 
-alwaysApply: false
 ---
 # Prisma Usage
 

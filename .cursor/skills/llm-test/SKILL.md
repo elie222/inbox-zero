@@ -1,7 +1,6 @@
 ---
+name: llm-test
 description: Guidelines for writing tests for LLM-related functionality
-globs: 
-alwaysApply: false
 ---
 # LLM Testing Guidelines
 
