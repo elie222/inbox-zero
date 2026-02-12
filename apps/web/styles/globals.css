@@ -105,9 +105,3 @@
 * {
   font-variant-ligatures: none;
 }
-
-/* Chat layout */
-.chat-layout {
-  --chat-px: 1.5rem;
-  --chat-max-w: 800px;
-}

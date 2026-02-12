@@ -122,7 +122,15 @@ export function Chat({ open }: { open: boolean }) {
   );
 
   return (
-    <div className="chat-layout flex h-full min-w-0 flex-col">
+    <div
+      className="flex h-full min-w-0 flex-col"
+      style={
+        {
+          "--chat-px": "1.5rem",
+          "--chat-max-w": "800px",
+        } as React.CSSProperties
+      }
+    >
       <ChatTopBar
         messages={messages}
         hasMessages={hasMessages}
