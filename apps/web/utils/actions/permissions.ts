@@ -43,7 +43,8 @@ export const checkPermissionsAction = actionClient
 
       if (error) throw new SafeError(error);
 
-      if (!hasAllPermissions) return { hasAllPermissions: false };
+      if (!hasAllPermissions)
+        return { hasRefreshToken: true, hasAllPermissions: false };
 
       if (!tokens.refreshToken)
         return { hasRefreshToken: false, hasAllPermissions };
