@@ -17,7 +17,7 @@ Always write a helpful, concise reply.`;
 
 const schema = z.object({
   action: z.enum(["approve", "move", "undo", "none"]),
-  folderPath: z.string().optional(),
+  folderPath: z.string().nullable(),
   reply: z.string(),
 });
 
@@ -40,7 +40,7 @@ export async function aiParseFilingReply({
   emailAccount: EmailAccountWithAI;
 }): Promise<ParseFilingReplyResult> {
   if (!messages.length) {
-    return { action: "none", reply: "" };
+    return { action: "none", reply: "", folderPath: null };
   }
 
   const formattedMessages = messages

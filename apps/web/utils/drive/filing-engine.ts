@@ -353,7 +353,11 @@ interface FolderTarget {
 }
 
 function resolveFolderTarget(
-  analysis: { action: string; folderId?: string; folderPath?: string },
+  analysis: {
+    action: string;
+    folderId?: string | null;
+    folderPath?: string | null;
+  },
   folders: FolderWithConnection[],
   connections: DriveConnection[],
   logger: Logger,

@@ -208,7 +208,7 @@ async function handleMove({
   filingWasCorrected: boolean;
   filingOriginalPath: string | null;
   driveConnection: DriveConnection;
-  folderPath: string | undefined;
+  folderPath: string | null;
   emailAccountId: string;
   logger: Logger;
 }): Promise<void> {

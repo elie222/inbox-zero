@@ -13,13 +13,13 @@ const documentAnalysisSchema = z
       ),
     folderId: z
       .string()
-      .optional()
+      .nullable()
       .describe(
         "Required if action is 'use_existing'. The ID of the existing folder from the provided list.",
       ),
     folderPath: z
       .string()
-      .optional()
+      .nullable()
       .describe(
         "Required if action is 'create_new'. The path for the new folder to create.",
       ),
