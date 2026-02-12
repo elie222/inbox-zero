@@ -12,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   adminDeleteAccountAction,
   adminProcessHistoryAction,
+  adminWatchEmailsAction,
 } from "@/utils/actions/admin";
 import { adminCheckPermissionsAction } from "@/utils/actions/permissions";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -55,6 +56,30 @@ export const AdminUserControls = () => {
         });
       },
     });
+  const { execute: watchEmails, isExecuting: isWatching } = useAction(
+    adminWatchEmailsAction,
+    {
+      onSuccess: (result) => {
+        const results = result.data?.results || [];
+        const successCount = results.filter(
+          (r) => r.status === "success",
+        ).length;
+        const errorCount = results.filter((r) => r.status === "error").length;
+        toastSuccess({
+          title: "Watch completed",
+          description: successCount
+            ? `${successCount} succeeded, ${errorCount} failed`
+            : "No watchable email accounts found",
+        });
+      },
+      onError: (error) => {
+        toastError({
+          title: "Error watching emails",
+          description: getActionErrorMessage(error.error),
+        });
+      },
+    },
+  );
   const { execute: deleteAccount, isExecuting: isDeleting } = useAction(
     adminDeleteAccountAction,
     {
@@ -108,6 +133,15 @@ export const AdminUserControls = () => {
           }}
         >
           Check Permissions
+        </Button>
+        <Button
+          variant="outline"
+          loading={isWatching}
+          onClick={() => {
+            watchEmails({ email: getValues("email") });
+          }}
+        >
+          Watch
         </Button>
         <Button
           variant="destructive"
