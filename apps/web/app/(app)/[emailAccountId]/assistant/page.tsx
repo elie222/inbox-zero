@@ -40,7 +40,7 @@ export default async function AssistantPage({
       <Suspense>
         <PermissionsCheck />
 
-        <div className="flex h-[calc(100vh-theme(spacing.9))] md:h-screen flex-col">
+        <div className="flex h-[calc(100vh-theme(spacing.9)-theme(spacing.14)-env(safe-area-inset-bottom))] md:h-screen flex-col">
           <Chat open />
         </div>
       </Suspense>

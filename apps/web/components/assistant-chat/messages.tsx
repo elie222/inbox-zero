@@ -38,7 +38,7 @@ export function Messages({
 
           {messages.map((message) => (
             <Message from={message.role} key={message.id}>
-              <MessageContent>
+              <MessageContent variant="flat">
                 {message.parts?.map((part, index) => (
                   <MessagePart
                     key={`${message.id}-${index}`}
@@ -56,7 +56,7 @@ export function Messages({
             messages.length > 0 &&
             messages[messages.length - 1].role === "user" && (
               <Message from="assistant">
-                <MessageContent>
+                <MessageContent variant="flat">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader />
                     <span>Thinking...</span>
