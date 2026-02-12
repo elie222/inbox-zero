@@ -19,6 +19,9 @@ const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));
 function ContentWrapper({ children }: { children: React.ReactNode }) {
   const { state } = useSidebar();
   const isRightSidebarOpen = state.includes("chat-sidebar");
+  const pathname = usePathname();
+
+  const noTopPadding = pathname?.includes("/assistant");
 
   return (
     <div
@@ -27,7 +30,12 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
         isRightSidebarOpen && "lg:mr-[450px]",
       )}
     >
-      <SidebarInset className="overflow-hidden bg-background pt-9 md:pt-0 max-w-full">
+      <SidebarInset
+        className={cn(
+          "overflow-hidden bg-background pt-9 max-w-full",
+          noTopPadding && "pt-0",
+        )}
+      >
         {children}
         <div
           className="md:hidden md:pt-0"
