@@ -1658,7 +1658,7 @@ function shouldIncludeMessage({
   inboxOnly: boolean;
   unreadOnly: boolean;
 }) {
-  if (!message.labelIds?.length) return true;
+  if (!message.labelIds?.length) return !unreadOnly;
 
   const labelIds =
     message.labelIds?.map((labelId) => labelId.toLowerCase()) || [];

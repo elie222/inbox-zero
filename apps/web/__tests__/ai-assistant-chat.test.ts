@@ -233,6 +233,52 @@ describe("aiProcessAssistantChat", () => {
     expect(result.totalReturned).toBe(1);
   });
 
+  it("excludes unlabeled messages in unread-only searches", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessagesWithPagination: vi.fn().mockResolvedValue({
+        messages: [
+          {
+            id: "message-1",
+            threadId: "thread-1",
+            labelIds: undefined,
+            snippet: "Message without labels",
+            historyId: "hist-1",
+            inline: [],
+            headers: {
+              from: "sender1@example.com",
+              to: "user@example.com",
+              subject: "No labels",
+              date: new Date().toISOString(),
+            },
+            subject: "No labels",
+            date: new Date().toISOString(),
+            attachments: [],
+          },
+        ],
+        nextPageToken: undefined,
+      }),
+      getLabels: vi.fn().mockResolvedValue([]),
+      archiveThreadWithLabel: vi.fn(),
+      markReadThread: vi.fn(),
+      bulkArchiveFromSenders: vi.fn(),
+      sendEmailWithHtml: vi.fn(),
+    });
+
+    const result = await tools.searchInbox.execute({
+      query: "today",
+      after: undefined,
+      before: undefined,
+      limit: 20,
+      pageToken: undefined,
+      inboxOnly: true,
+      unreadOnly: true,
+    });
+
+    expect(result.totalReturned).toBe(0);
+  });
+
   it("executes searchInbox and manageInbox tools with resilient behavior", async () => {
     const tools = await captureToolSet(true, "microsoft");
 
