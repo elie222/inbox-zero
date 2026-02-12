@@ -1,7 +1,6 @@
 ---
+name: hooks
 description: React hooks
-globs: 
-alwaysApply: false
 ---
 # Custom Hook Guidelines
 

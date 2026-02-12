@@ -1,7 +1,6 @@
 ---
+name: environment-variables
 description: Add environment variable
-globs: 
-alwaysApply: false
 ---
 # Environment Variables
 

@@ -1,7 +1,6 @@
 ---
+name: reply-tracker
 description: Reply tracking system that manages "To Reply" and "Awaiting Reply" labels automatically
-globs: 
-alwaysApply: false
 ---
 # Reply Tracker
 

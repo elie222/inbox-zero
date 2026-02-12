@@ -1,7 +1,6 @@
 ---
+name: logging
 description: How to do backend logging
-globs: 
-alwaysApply: false
 ---
 # Logging
 

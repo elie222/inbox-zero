@@ -1,7 +1,6 @@
 ---
+name: security-audit
 description: Security audit report commands
-globs: 
-alwaysApply: false
 ---
 # Security Audit Tools
 
