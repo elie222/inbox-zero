@@ -253,15 +253,15 @@ function ChatTopBar({
   setInput: (input: string) => void;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] items-center justify-between px-[var(--chat-px)] pt-2">
-      <div>
-        {messages.length > MAX_MESSAGES ? (
-          <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
+    <div className="relative mx-auto w-full max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-2">
+      {messages.length > MAX_MESSAGES ? (
+        <div className="absolute inset-x-0 top-2 z-10 flex justify-center">
+          <div className="w-fit rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
             The chat is too long. Please start a new conversation.
           </div>
-        ) : null}
-      </div>
-      <div className="flex items-center gap-1">
+        </div>
+      ) : null}
+      <div className="flex items-center justify-end gap-1">
         {hasMessages ? (
           <>
             <NewChatButton />
