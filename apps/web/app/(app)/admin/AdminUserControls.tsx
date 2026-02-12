@@ -65,11 +65,15 @@ export const AdminUserControls = () => {
           (r) => r.status === "success",
         ).length;
         const errorCount = results.filter((r) => r.status === "error").length;
+        const description =
+          successCount > 0
+            ? `${successCount} succeeded, ${errorCount} failed`
+            : errorCount > 0
+              ? `0 succeeded, ${errorCount} failed`
+              : "No watchable email accounts found";
         toastSuccess({
           title: "Watch completed",
-          description: successCount
-            ? `${successCount} succeeded, ${errorCount} failed`
-            : "No watchable email accounts found",
+          description,
         });
       },
       onError: (error) => {

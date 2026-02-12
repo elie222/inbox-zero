@@ -309,17 +309,30 @@ export const adminWatchEmailsAction = adminActionClient
   .metadata({ name: "adminWatchEmails" })
   .inputSchema(watchEmailsBody)
   .action(async ({ parsedInput: { email }, ctx: { logger } }) => {
-    const emailAccount = await prisma.emailAccount.findUnique({
-      where: { email: email.toLowerCase() },
-      select: { userId: true },
+    const lowerEmail = email.toLowerCase();
+
+    // Try user email first, then fall back to email account email
+    const user = await prisma.user.findUnique({
+      where: { email: lowerEmail },
+      select: { id: true },
     });
 
-    if (!emailAccount) {
-      throw new SafeError("Email account not found");
+    let userId: string;
+    if (user) {
+      userId = user.id;
+    } else {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { email: lowerEmail },
+        select: { userId: true },
+      });
+      if (!emailAccount) {
+        throw new SafeError("User not found");
+      }
+      userId = emailAccount.userId;
     }
 
     const results = await ensureEmailAccountsWatched({
-      userIds: [emailAccount.userId],
+      userIds: [userId],
       logger,
     });
 
@@ -330,48 +343,66 @@ export const adminGetUserInfoAction = adminActionClient
   .metadata({ name: "adminGetUserInfo" })
   .inputSchema(getUserInfoBody)
   .action(async ({ parsedInput: { email } }) => {
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-      select: {
-        id: true,
-        createdAt: true,
-        lastLogin: true,
-        completedOnboardingAt: true,
-        completedAppOnboardingAt: true,
-        premium: {
-          select: {
-            tier: true,
-            lemonSqueezyRenewsAt: true,
-            stripeRenewsAt: true,
-            stripeSubscriptionStatus: true,
-            lemonSubscriptionStatus: true,
-          },
+    const lowerEmail = email.toLowerCase();
+
+    const userSelect = {
+      id: true,
+      createdAt: true,
+      lastLogin: true,
+      completedOnboardingAt: true,
+      completedAppOnboardingAt: true,
+      premium: {
+        select: {
+          tier: true,
+          lemonSqueezyRenewsAt: true,
+          stripeRenewsAt: true,
+          stripeSubscriptionStatus: true,
+          lemonSubscriptionStatus: true,
         },
-        emailAccounts: {
-          select: {
-            email: true,
-            createdAt: true,
-            watchEmailsExpirationDate: true,
-            account: {
-              select: {
-                provider: true,
-                disconnectedAt: true,
-              },
-            },
-            _count: {
-              select: {
-                rules: true,
-              },
+      },
+      emailAccounts: {
+        select: {
+          email: true,
+          createdAt: true,
+          watchEmailsExpirationDate: true,
+          account: {
+            select: {
+              provider: true,
+              disconnectedAt: true,
             },
           },
-        },
-        _count: {
-          select: {
-            emailAccounts: true,
+          _count: {
+            select: {
+              rules: true,
+            },
           },
         },
       },
+      _count: {
+        select: {
+          emailAccounts: true,
+        },
+      },
+    } as const;
+
+    // Try user email first, then fall back to email account email
+    let user = await prisma.user.findUnique({
+      where: { email: lowerEmail },
+      select: userSelect,
     });
+
+    if (!user) {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { email: lowerEmail },
+        select: { userId: true },
+      });
+      if (emailAccount) {
+        user = await prisma.user.findUnique({
+          where: { id: emailAccount.userId },
+          select: userSelect,
+        });
+      }
+    }
 
     if (!user) {
       throw new SafeError("User not found");
