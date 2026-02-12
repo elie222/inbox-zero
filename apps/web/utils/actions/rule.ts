@@ -76,7 +76,7 @@ export const createRuleAction = actionClient
           result: {
             name,
             condition: {
-              aiInstructions: conditions.instructions,
+              aiInstructions: conditions.instructions ?? null,
               conditionalOperator: conditionalOperator || null,
               static: {
                 from: conditions.from || null,
@@ -129,7 +129,7 @@ export const updateRuleAction = actionClient
           result: {
             name: name || "",
             condition: {
-              aiInstructions: conditions.instructions,
+              aiInstructions: conditions.instructions ?? null,
               conditionalOperator: conditionalOperator || null,
               static: {
                 from: conditions.from || null,

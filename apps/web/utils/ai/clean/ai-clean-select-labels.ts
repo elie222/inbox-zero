@@ -3,7 +3,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 
-const schema = z.object({ labels: z.array(z.string()).optional() });
+const schema = z.object({ labels: z.array(z.string()).nullable() });
 
 export async function aiCleanSelectLabels({
   emailAccount,

@@ -256,6 +256,7 @@ const createRuleTool = ({
                     }),
                   }
                 : null,
+              delayInMinutes: null,
             })),
           },
           emailAccountId,
