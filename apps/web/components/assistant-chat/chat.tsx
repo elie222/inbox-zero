@@ -122,7 +122,15 @@ export function Chat({ open }: { open: boolean }) {
   );
 
   return (
-    <div className="flex h-full min-w-0 flex-col">
+    <div
+      className="flex h-full min-w-0 flex-col"
+      style={
+        {
+          "--chat-px": "1.5rem",
+          "--chat-max-w": "800px",
+        } as React.CSSProperties
+      }
+    >
       <ChatTopBar
         messages={messages}
         hasMessages={hasMessages}
@@ -216,8 +224,8 @@ function NewChatView({
   setInput: (input: string) => void;
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6">
-      <div className="w-full max-w-[800px]">
+    <div className="flex flex-1 flex-col items-center justify-center px-[var(--chat-px)]">
+      <div className="w-full max-w-[var(--chat-max-w)]">
         <h1 className="mb-6 text-center text-4xl font-extralight tracking-tight">
           Good afternoon{firstName ? `, ${firstName}` : ""}
         </h1>
@@ -245,7 +253,7 @@ function ChatTopBar({
   setInput: (input: string) => void;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-[calc(800px+3rem)] items-center justify-between px-6 pt-2">
+    <div className="mx-auto flex w-full max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] items-center justify-between px-[var(--chat-px)] pt-2">
       <div>
         {messages.length > MAX_MESSAGES ? (
           <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
