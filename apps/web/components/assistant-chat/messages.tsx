@@ -30,7 +30,7 @@ export function Messages({
   return (
     <Conversation className="flex min-w-0 flex-1">
       <ConversationContent
-        className="mx-auto flex min-h-full flex-col max-w-[var(--chat-max-w)] px-[var(--chat-px)] pt-0 pb-0"
+        className="mx-auto flex min-h-full flex-col max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-0 pb-0"
         scrollClassName="![scrollbar-gutter:auto] scrollbar-thin"
       >
         <div className="flex flex-1 flex-col gap-6">
