@@ -227,7 +227,7 @@ function NewChatView({
     <div className="flex flex-1 flex-col items-center justify-center px-[var(--chat-px)]">
       <div className="w-full max-w-[var(--chat-max-w)]">
         <h1 className="mb-6 text-center text-4xl font-extralight tracking-tight">
-          Good afternoon{firstName ? `, ${firstName}` : ""}
+          {getGreeting(firstName)}
         </h1>
         {inputArea}
         <div className="mt-4 flex justify-center">
@@ -346,4 +346,13 @@ function ChatHistoryDropdown() {
       </DropdownMenuContent>
     </DropdownMenu>
   );
+}
+
+function getGreeting(firstName: string | undefined): string {
+  const hour = new Date().getHours();
+  const name = firstName ? `, ${firstName}` : "";
+  if (hour < 5) return `Hey there${name}`;
+  if (hour < 12) return `Good morning${name}`;
+  if (hour < 18) return `Good afternoon${name}`;
+  return `Good evening${name}`;
 }
