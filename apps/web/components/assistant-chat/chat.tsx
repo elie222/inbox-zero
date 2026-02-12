@@ -171,7 +171,7 @@ function ChatMessagesView({
 }) {
   return (
     <>
-      <div className="pointer-events-none h-10 -mb-10 z-10 bg-gradient-to-b from-background to-transparent" />
+      <div className="pointer-events-none h-2 -mb-2 z-10 bg-gradient-to-b from-background to-transparent" />
       <Messages
         status={status}
         messages={messages}
