@@ -154,6 +154,39 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.sendEmail).toBeUndefined();
   });
 
+  it("returns cleared filing prompt in updateInboxFeatures response", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    mockPrisma.emailAccount.findUnique.mockResolvedValue({
+      meetingBriefingsEnabled: true,
+      meetingBriefingsMinutesBefore: 30,
+      meetingBriefsSendEmail: true,
+      filingEnabled: true,
+      filingPrompt: "Old prompt",
+    });
+    mockPrisma.emailAccount.update.mockResolvedValue({});
+
+    const result = await tools.updateInboxFeatures.execute({
+      filingPrompt: null,
+    });
+
+    expect(mockPrisma.emailAccount.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          filingPrompt: null,
+        }),
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        updated: expect.objectContaining({
+          filingPrompt: null,
+        }),
+      }),
+    );
+  });
+
   it("keeps unlabeled Google messages as pass-through", async () => {
     const tools = await captureToolSet(true, "google");
 

@@ -1142,7 +1142,8 @@ const updateInboxFeaturesTool = ({
           meetingBriefsSendEmail:
             meetingBriefsSendEmail ?? existing.meetingBriefsSendEmail,
           filingEnabled: filingEnabled ?? existing.filingEnabled,
-          filingPrompt: filingPrompt ?? existing.filingPrompt,
+          filingPrompt:
+            filingPrompt !== undefined ? filingPrompt : existing.filingPrompt,
         },
       };
     },
