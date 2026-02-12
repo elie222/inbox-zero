@@ -197,7 +197,8 @@ function ChatMessagesView({
                 </span>
               </div>
             ) : null}
-            {inputArea}
+            <div className="relative z-10">{inputArea}</div>
+            <div className="absolute w-full bottom-0 h-20 bg-white pointer-events-none" />
           </>
         }
       />
