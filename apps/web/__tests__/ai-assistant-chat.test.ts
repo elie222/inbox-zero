@@ -1,0 +1,243 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ModelMessage } from "ai";
+import { getEmailAccount } from "@/__tests__/helpers";
+import { createScopedLogger } from "@/utils/logger";
+
+vi.mock("server-only", () => ({}));
+
+const {
+  envState,
+  mockChatCompletionStream,
+  mockCreateEmailProvider,
+  mockPosthogCaptureEvent,
+  mockPrisma,
+} = vi.hoisted(() => ({
+  envState: {
+    sendEmailEnabled: true,
+  },
+  mockChatCompletionStream: vi.fn(),
+  mockCreateEmailProvider: vi.fn(),
+  mockPosthogCaptureEvent: vi.fn(),
+  mockPrisma: {
+    emailAccount: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
+    rule: {
+      findUnique: vi.fn(),
+    },
+    knowledge: {
+      create: vi.fn(),
+    },
+  },
+}));
+
+vi.mock("@/utils/llms", () => ({
+  chatCompletionStream: mockChatCompletionStream,
+}));
+
+vi.mock("@/utils/email/provider", () => ({
+  createEmailProvider: mockCreateEmailProvider,
+}));
+
+vi.mock("@/utils/posthog", () => ({
+  posthogCaptureEvent: mockPosthogCaptureEvent,
+}));
+
+vi.mock("@/utils/prisma", () => ({
+  default: mockPrisma,
+}));
+
+vi.mock("@/env", () => ({
+  env: {
+    get NEXT_PUBLIC_EMAIL_SEND_ENABLED() {
+      return envState.sendEmailEnabled;
+    },
+  },
+}));
+
+const logger = createScopedLogger("ai-assistant-chat-test");
+
+const baseMessages: ModelMessage[] = [
+  {
+    role: "user",
+    content: "Give me an inbox update.",
+  },
+];
+
+async function loadAssistantChatModule({ emailSend }: { emailSend: boolean }) {
+  envState.sendEmailEnabled = emailSend;
+  vi.resetModules();
+  return await import("@/utils/ai/assistant/chat");
+}
+
+async function captureToolSet(emailSend = true) {
+  const { aiProcessAssistantChat } = await loadAssistantChatModule({
+    emailSend,
+  });
+
+  mockChatCompletionStream.mockResolvedValue({
+    toUIMessageStreamResponse: vi.fn(),
+  });
+
+  await aiProcessAssistantChat({
+    messages: baseMessages,
+    emailAccountId: "email-account-id",
+    user: getEmailAccount(),
+    logger,
+  });
+
+  return mockChatCompletionStream.mock.calls[0][0].tools;
+}
+
+describe("aiProcessAssistantChat", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    envState.sendEmailEnabled = true;
+  });
+
+  it("includes expanded prompt guidance and new tool set when email sending is enabled", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockChatCompletionStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockChatCompletionStream.mock.calls[0][0];
+
+    expect(args.messages[0].role).toBe("system");
+    expect(args.messages[0].content).toContain("Core responsibilities:");
+    expect(args.messages[0].content).toContain(
+      "Tool usage strategy (progressive disclosure):",
+    );
+    expect(args.messages[0].content).toContain("Inbox triage guidance:");
+
+    expect(args.tools.getAccountOverview).toBeDefined();
+    expect(args.tools.searchInbox).toBeDefined();
+    expect(args.tools.manageInbox).toBeDefined();
+    expect(args.tools.updateInboxFeatures).toBeDefined();
+    expect(args.tools.sendEmail).toBeDefined();
+  });
+
+  it("omits sendEmail tool when email sending is disabled", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: false,
+    });
+
+    mockChatCompletionStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockChatCompletionStream.mock.calls[0][0];
+    expect(args.tools.sendEmail).toBeUndefined();
+  });
+
+  it("executes searchInbox and manageInbox tools with resilient behavior", async () => {
+    const tools = await captureToolSet(true);
+
+    const archiveThreadWithLabel = vi
+      .fn()
+      .mockImplementation(async (threadId: string) => {
+        if (threadId === "thread-2") throw new Error("archive failed");
+      });
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessagesWithPagination: vi.fn().mockResolvedValue({
+        messages: [
+          {
+            id: "message-1",
+            threadId: "thread-1",
+            labelIds: undefined,
+            snippet: "Message without labels",
+            historyId: "hist-1",
+            inline: [],
+            headers: {
+              from: "sender1@example.com",
+              to: "user@example.com",
+              subject: "No labels",
+              date: new Date().toISOString(),
+            },
+            subject: "No labels",
+            date: new Date().toISOString(),
+            attachments: [],
+          },
+          {
+            id: "message-2",
+            threadId: "thread-2",
+            labelIds: ["inbox", "to reply", "unread"],
+            snippet: "Needs reply",
+            historyId: "hist-2",
+            inline: [],
+            headers: {
+              from: "sender2@example.com",
+              to: "user@example.com",
+              subject: "Needs response",
+              date: new Date().toISOString(),
+            },
+            subject: "Needs response",
+            date: new Date().toISOString(),
+            attachments: [],
+          },
+        ],
+        nextPageToken: undefined,
+      }),
+      getLabels: vi.fn().mockRejectedValue(new Error("labels unavailable")),
+      archiveThreadWithLabel,
+      markReadThread: vi.fn(),
+      bulkArchiveFromSenders: vi.fn(),
+      sendEmailWithHtml: vi.fn(),
+    });
+
+    const searchResult = await tools.searchInbox.execute({
+      query: "today",
+      after: undefined,
+      before: undefined,
+      limit: 20,
+      pageToken: undefined,
+      inboxOnly: true,
+      unreadOnly: false,
+    });
+
+    expect(mockCreateEmailProvider).toHaveBeenCalled();
+    expect(searchResult.totalReturned).toBe(2);
+    expect(searchResult.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ messageId: "message-1" }),
+        expect.objectContaining({ category: "to_reply" }),
+      ]),
+    );
+
+    const manageResult = await tools.manageInbox.execute({
+      action: "archive_threads",
+      threadIds: ["thread-1", "thread-2"],
+      labelId: undefined,
+    });
+
+    expect(archiveThreadWithLabel).toHaveBeenCalledTimes(2);
+    expect(manageResult).toEqual(
+      expect.objectContaining({
+        success: false,
+        requestedCount: 2,
+        successCount: 1,
+        failedCount: 1,
+        failedThreadIds: ["thread-2"],
+      }),
+    );
+  });
+});

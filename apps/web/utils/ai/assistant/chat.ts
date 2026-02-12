@@ -918,9 +918,7 @@ const searchInboxTool = ({
           logger.warn("Failed to load labels for search results", { error });
         }
 
-        const labelsById = new Map(
-          labels.map((label) => [label.id.toLowerCase(), label.name]),
-        );
+        const labelsById = createLabelLookupMap(labels);
 
         const filteredMessages = messages
           .filter((message) =>
@@ -1021,11 +1019,9 @@ const manageInboxTool = ({
           };
         }
 
-        const failedThreadIds: string[] = [];
-        let successCount = 0;
-
-        for (const threadId of input.threadIds) {
-          try {
+        const threadActionResults = await runThreadActionsInParallel({
+          threadIds: input.threadIds,
+          runAction: async (threadId) => {
             if (input.action === "archive_threads") {
               await emailProvider.archiveThreadWithLabel(
                 threadId,
@@ -1035,12 +1031,14 @@ const manageInboxTool = ({
             } else {
               await emailProvider.markReadThread(threadId, input.read);
             }
+          },
+        });
 
-            successCount += 1;
-          } catch {
-            failedThreadIds.push(threadId);
-          }
-        }
+        const failedThreadIds = threadActionResults
+          .filter((result) => !result.success)
+          .map((result) => result.threadId);
+        const successCount =
+          threadActionResults.length - failedThreadIds.length;
 
         return {
           success: failedThreadIds.length === 0,
@@ -1679,6 +1677,8 @@ function shouldIncludeMessage({
   inboxOnly: boolean;
   unreadOnly: boolean;
 }) {
+  if (!message.labelIds?.length) return true;
+
   const labelIds =
     message.labelIds?.map((labelId) => labelId.toLowerCase()) || [];
   const isInInbox = labelIds.includes("inbox");
@@ -1765,4 +1765,61 @@ function summarizeSearchResults(
       },
     },
   );
+}
+
+function createLabelLookupMap(labels: Array<{ id: string; name: string }>) {
+  const labelsById = new Map(
+    labels.map((label) => [label.id.toLowerCase(), label.name]),
+  );
+
+  if (labelsById.size > 0) return labelsById;
+
+  const toReplyLabel = getRuleLabel(SystemType.TO_REPLY);
+  const awaitingReplyLabel = getRuleLabel(SystemType.AWAITING_REPLY);
+  const fyiLabel = getRuleLabel(SystemType.FYI);
+  const actionedLabel = getRuleLabel(SystemType.ACTIONED);
+
+  return new Map([
+    [toReplyLabel.toLowerCase(), toReplyLabel],
+    [awaitingReplyLabel.toLowerCase(), awaitingReplyLabel],
+    [fyiLabel.toLowerCase(), fyiLabel],
+    [actionedLabel.toLowerCase(), actionedLabel],
+    ["to_reply", toReplyLabel],
+    ["awaiting_reply", awaitingReplyLabel],
+    ["fyi", fyiLabel],
+    ["actioned", actionedLabel],
+    ["inbox", "Inbox"],
+    ["unread", "Unread"],
+  ] as const);
+}
+
+async function runThreadActionsInParallel({
+  threadIds,
+  runAction,
+}: {
+  threadIds: string[];
+  runAction: (threadId: string) => Promise<void>;
+}) {
+  const BATCH_SIZE = 10;
+  const results: Array<{ threadId: string; success: boolean }> = [];
+
+  for (let i = 0; i < threadIds.length; i += BATCH_SIZE) {
+    const batch = threadIds.slice(i, i + BATCH_SIZE);
+
+    const batchResults = await Promise.allSettled(
+      batch.map(async (threadId) => {
+        await runAction(threadId);
+        return threadId;
+      }),
+    );
+
+    for (const [index, result] of batchResults.entries()) {
+      results.push({
+        threadId: batch[index],
+        success: result.status === "fulfilled",
+      });
+    }
+  }
+
+  return results;
 }
