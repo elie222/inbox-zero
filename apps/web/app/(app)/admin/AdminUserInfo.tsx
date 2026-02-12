@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 import { adminGetUserInfoAction } from "@/utils/actions/admin";
 import {
   getUserInfoBody,
@@ -16,9 +17,10 @@ import {
 
 export function AdminUserInfo() {
   const { execute, isExecuting, result } = useAction(adminGetUserInfoAction, {
-    onError: ({ error }) => {
+    onError: (error) => {
       toastError({
-        description: `Error looking up user: ${error.serverError || "An error occurred"}`,
+        title: "Error looking up user",
+        description: getActionErrorMessage(error.error),
       });
     },
   });
