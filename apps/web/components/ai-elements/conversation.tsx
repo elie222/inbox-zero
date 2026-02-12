@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/index";
 import { ArrowDownIcon } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import type { ComponentProps } from "react";
 import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
@@ -65,10 +66,12 @@ export const ConversationEmptyState = ({
   </div>
 );
 
-export type ConversationScrollButtonProps = ComponentProps<typeof Button>;
+export type ConversationScrollButtonProps = ComponentProps<typeof Button> & {
+  wrapperClassName?: string;
+};
 
 export const ConversationScrollButton = ({
-  className,
+  wrapperClassName,
   ...props
 }: ConversationScrollButtonProps) => {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
@@ -78,20 +81,30 @@ export const ConversationScrollButton = ({
   }, [scrollToBottom]);
 
   return (
-    !isAtBottom && (
-      <Button
-        className={cn(
-          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full",
-          className,
-        )}
-        onClick={handleScrollToBottom}
-        size="icon"
-        type="button"
-        variant="outline"
-        {...props}
-      >
-        <ArrowDownIcon className="size-4" />
-      </Button>
-    )
+    <AnimatePresence>
+      {!isAtBottom && (
+        <motion.div
+          className={cn(
+            "absolute bottom-4 left-[50%] translate-x-[-50%]",
+            wrapperClassName,
+          )}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ duration: 0.15 }}
+        >
+          <Button
+            size="icon"
+            type="button"
+            variant="outline"
+            {...props}
+            className={cn("rounded-full", props.className)}
+            onClick={handleScrollToBottom}
+          >
+            <ArrowDownIcon className="size-4" />
+          </Button>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
