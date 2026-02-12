@@ -66,10 +66,12 @@ export const ConversationEmptyState = ({
   </div>
 );
 
-export type ConversationScrollButtonProps = ComponentProps<typeof Button>;
+export type ConversationScrollButtonProps = ComponentProps<typeof Button> & {
+  wrapperClassName?: string;
+};
 
 export const ConversationScrollButton = ({
-  className,
+  wrapperClassName,
   ...props
 }: ConversationScrollButtonProps) => {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
@@ -84,7 +86,7 @@ export const ConversationScrollButton = ({
         <motion.div
           className={cn(
             "absolute bottom-4 left-[50%] translate-x-[-50%]",
-            className,
+            wrapperClassName,
           )}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -92,12 +94,12 @@ export const ConversationScrollButton = ({
           transition={{ duration: 0.15 }}
         >
           <Button
-            className="rounded-full"
-            onClick={handleScrollToBottom}
             size="icon"
             type="button"
             variant="outline"
             {...props}
+            className={cn("rounded-full", props.className)}
+            onClick={handleScrollToBottom}
           >
             <ArrowDownIcon className="size-4" />
           </Button>
