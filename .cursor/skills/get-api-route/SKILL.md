@@ -1,7 +1,6 @@
 ---
+name: get-api-route
 description: Guidelines for implementing GET API routes in Next.js
-globs: 
-alwaysApply: false
 ---
 # GET API Route Guidelines
 

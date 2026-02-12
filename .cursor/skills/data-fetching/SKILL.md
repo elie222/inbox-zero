@@ -1,7 +1,6 @@
 ---
+name: data-fetching
 description: Fetching data from the API using SWR
-globs: 
-alwaysApply: false
 ---
 # Data Fetching
 

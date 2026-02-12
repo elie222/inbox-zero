@@ -167,7 +167,7 @@ ${stringifyEmail(email, 500)}
         .describe("The reason you chose the rule. Keep it concise"),
       ruleName: z
         .string()
-        .nullish()
+        .nullable()
         .describe("The exact name of the rule you want to apply"),
       noMatchFound: z
         .boolean()

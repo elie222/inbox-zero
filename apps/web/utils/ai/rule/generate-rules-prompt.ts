@@ -18,7 +18,7 @@ const parametersSnippets = z.object({
         rule: z.string().describe("The rule to apply to the email"),
         snippet: z
           .string()
-          .optional()
+          .nullable()
           .describe(
             "Optional: Include ONLY if this is a snippet-based rule. The exact snippet text this rule is based on.",
           ),

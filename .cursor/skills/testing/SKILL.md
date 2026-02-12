@@ -1,7 +1,6 @@
 ---
+name: testing
 description: Guidelines for testing the application with Vitest
-globs: 
-alwaysApply: false
 ---
 # Testing Guidelines
 

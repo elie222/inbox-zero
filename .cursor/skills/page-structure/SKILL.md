@@ -1,7 +1,6 @@
 ---
+name: page-structure
 description: Page structure
-globs: 
-alwaysApply: false
 ---
 # Page Structure
 

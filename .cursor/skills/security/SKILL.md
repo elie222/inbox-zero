@@ -1,7 +1,6 @@
 ---
+name: security
 description: Security guidelines for API route development
-globs: 
-alwaysApply: false
 ---
 # Security Guidelines
 

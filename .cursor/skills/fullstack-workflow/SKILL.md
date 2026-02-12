@@ -1,6 +1,6 @@
 ---
+name: fullstack-workflow
 description: Complete fullstack workflow combining GET API routes, server actions, SWR data fetching, and form handling. Use when building features that need both data fetching and mutations from API to UI.
-alwaysApply: false
 ---
 # Fullstack Workflow
 
@@ -263,7 +263,7 @@ apps/web/
 ├── utils/actions/example.validation.ts    # Zod schemas
 ├── utils/actions/example.ts               # Server actions
 ├── hooks/useExamples.ts                   # SWR hook
-└── components/ExampleForm.tsx             # Form component
+└── components/ExampleForm.tsx              # Form component
 ```
 
 ## Related Rules

@@ -1,31 +1,31 @@
 import { z } from "zod";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
-import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
 import { env } from "@/env";
+import { NINETY_DAYS_MINUTES } from "@/utils/date";
 
 const conditionSchema = z
   .object({
     conditionalOperator: z
       .enum([LogicalOperator.AND, LogicalOperator.OR])
-      .nullish()
+      .nullable()
       .describe(
         "The conditional operator to use. AND means all conditions must be true for the rule to match. OR means any condition can be true for the rule to match. This does not impact sub-conditions.",
       ),
     aiInstructions: z
       .string()
-      .nullish()
+      .nullable()
       .describe(
         "Instructions for the AI to determine when to apply this rule. For example: 'Apply this rule to emails about product updates' or 'Use this rule for messages discussing project deadlines'. Be specific about the email content or characteristics that should trigger this rule.",
       ),
     static: z
       .object({
-        from: z.string().nullish().describe("The from email address to match"),
-        to: z.string().nullish().describe("The to email address to match"),
-        subject: z.string().nullish().describe("The subject to match"),
+        from: z.string().nullable().describe("The from email address to match"),
+        to: z.string().nullable().describe("The to email address to match"),
+        subject: z.string().nullable().describe("The subject to match"),
       })
-      .nullish()
+      .nullable()
       .describe(
         "The static conditions to match. If multiple static conditions are specified, the rule will match if ALL of the conditions match (AND operation)",
       ),
@@ -64,52 +64,56 @@ const actionSchema = (provider: string) =>
       .object({
         label: z
           .string()
-          .nullish()
+          .nullable()
           .transform((v) => v ?? null)
           .describe("The label to apply to the email"),
         to: z
           .string()
-          .nullish()
+          .nullable()
           .transform((v) => v ?? null)
           .describe("The to email address to send the email to"),
         cc: z
           .string()
-          .nullish()
+          .nullable()
           .transform((v) => v ?? null)
           .describe("The cc email address to send the email to"),
         bcc: z
           .string()
-          .nullish()
+          .nullable()
           .transform((v) => v ?? null)
           .describe("The bcc email address to send the email to"),
         subject: z
           .string()
-          .nullish()
+          .nullable()
           .transform((v) => v ?? null)
           .describe("The subject of the email"),
         content: z
           .string()
-          .nullish()
+          .nullable()
           .transform((v) => v ?? null)
           .describe("The content of the email"),
         webhookUrl: z
           .string()
-          .nullish()
+          .nullable()
           .transform((v) => v ?? null)
           .describe("The webhook URL to call"),
         ...(isMicrosoftProvider(provider) && {
           folderName: z
             .string()
-            .nullish()
+            .nullable()
             .transform((v) => v ?? null)
             .describe("The folder to move the email to"),
         }),
       })
-      .nullish()
+      .nullable()
       .describe(
         "The fields to use for the action. Static text can be combined with dynamic values using double braces {{}}. For example: 'Hi {{sender's name}}' or 'Re: {{subject}}' or '{{when I'm available for a meeting}}'. Dynamic values will be replaced with actual email data when the rule is executed. Dynamic values are generated in real time by the AI. Only use dynamic values where absolutely necessary. Otherwise, use plain static text. A field can be also be fully static or fully dynamic.",
       ),
-    delayInMinutes: delayInMinutesSchema,
+    delayInMinutes: z
+      .number()
+      .min(1, "Minimum supported delay is 1 minute")
+      .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
+      .nullable(),
   });
 
 export const createRuleSchema = (provider: string) =>

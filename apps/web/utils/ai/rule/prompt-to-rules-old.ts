@@ -13,7 +13,7 @@ const logger = createScopedLogger("ai-prompt-to-rules");
 
 const updateRuleSchema = (provider: string) =>
   createRuleSchema(provider).extend({
-    ruleId: z.string().optional(),
+    ruleId: z.string().nullable(),
   });
 
 export async function aiPromptToRulesOld({
