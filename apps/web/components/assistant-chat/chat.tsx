@@ -255,7 +255,7 @@ function ChatTopBar({
   return (
     <div className="relative mx-auto w-full max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-2">
       {messages.length > MAX_MESSAGES ? (
-        <div className="absolute inset-x-0 top-2 z-10 flex justify-center">
+        <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center">
           <div className="w-fit rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
             The chat is too long. Please start a new conversation.
           </div>
