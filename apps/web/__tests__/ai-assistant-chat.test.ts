@@ -71,10 +71,15 @@ async function loadAssistantChatModule({ emailSend }: { emailSend: boolean }) {
   return await import("@/utils/ai/assistant/chat");
 }
 
-async function captureToolSet(emailSend = true) {
+async function captureToolSet(
+  emailSend = true,
+  provider: "google" | "microsoft" = "google",
+) {
   const { aiProcessAssistantChat } = await loadAssistantChatModule({
     emailSend,
   });
+  const user = getEmailAccount();
+  user.account.provider = provider;
 
   mockChatCompletionStream.mockResolvedValue({
     toUIMessageStreamResponse: vi.fn(),
@@ -83,7 +88,7 @@ async function captureToolSet(emailSend = true) {
   await aiProcessAssistantChat({
     messages: baseMessages,
     emailAccountId: "email-account-id",
-    user: getEmailAccount(),
+    user,
     logger,
   });
 
@@ -149,8 +154,54 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.sendEmail).toBeUndefined();
   });
 
+  it("keeps inbox filtering strict for unlabeled Google messages", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessagesWithPagination: vi.fn().mockResolvedValue({
+        messages: [
+          {
+            id: "message-1",
+            threadId: "thread-1",
+            labelIds: undefined,
+            snippet: "Message without labels",
+            historyId: "hist-1",
+            inline: [],
+            headers: {
+              from: "sender1@example.com",
+              to: "user@example.com",
+              subject: "No labels",
+              date: new Date().toISOString(),
+            },
+            subject: "No labels",
+            date: new Date().toISOString(),
+            attachments: [],
+          },
+        ],
+        nextPageToken: undefined,
+      }),
+      getLabels: vi.fn().mockResolvedValue([]),
+      archiveThreadWithLabel: vi.fn(),
+      markReadThread: vi.fn(),
+      bulkArchiveFromSenders: vi.fn(),
+      sendEmailWithHtml: vi.fn(),
+    });
+
+    const result = await tools.searchInbox.execute({
+      query: "today",
+      after: undefined,
+      before: undefined,
+      limit: 20,
+      pageToken: undefined,
+      inboxOnly: true,
+      unreadOnly: false,
+    });
+
+    expect(result.totalReturned).toBe(0);
+  });
+
   it("executes searchInbox and manageInbox tools with resilient behavior", async () => {
-    const tools = await captureToolSet(true);
+    const tools = await captureToolSet(true, "microsoft");
 
     const archiveThreadWithLabel = vi
       .fn()
