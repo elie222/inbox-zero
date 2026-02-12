@@ -64,6 +64,102 @@ export function MessagePart({
   }
 
   // Tool handling
+  if (part.type === "tool-getAccountOverview") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return (
+        <BasicToolInfo key={toolCallId} text="Loading account overview..." />
+      );
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      return <BasicToolInfo key={toolCallId} text="Loaded account overview" />;
+    }
+  }
+
+  if (part.type === "tool-searchInbox") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Searching inbox..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      const totalReturned =
+        getOutputField<number>(output, "totalReturned") || 0;
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`Searched inbox (${totalReturned} messages)`}
+        />
+      );
+    }
+  }
+
+  if (part.type === "tool-manageInbox") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Applying inbox action..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      const action = getOutputField<string>(output, "action");
+      const successCount = getOutputField<number>(output, "successCount");
+      const sendersCount = getOutputField<number>(output, "sendersCount");
+
+      const text =
+        action === "bulk_archive_senders"
+          ? `Bulk archived ${sendersCount || 0} sender${sendersCount === 1 ? "" : "s"}`
+          : `Completed inbox action${typeof successCount === "number" ? ` (${successCount} items)` : ""}`;
+
+      return <BasicToolInfo key={toolCallId} text={text} />;
+    }
+  }
+
+  if (part.type === "tool-updateInboxFeatures") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return (
+        <BasicToolInfo key={toolCallId} text="Updating inbox features..." />
+      );
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      return <BasicToolInfo key={toolCallId} text="Updated inbox features" />;
+    }
+  }
+
+  if (part.type === "tool-sendEmail") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Sending email..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      const to = getOutputField<string>(output, "to");
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`Sent email${to ? ` to ${to}` : ""}`}
+        />
+      );
+    }
+  }
+
   if (part.type === "tool-getUserRulesAndSettings") {
     const { toolCallId, state } = part;
     if (state === "input-available") {
@@ -138,7 +234,10 @@ export function MessagePart({
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
       const ruleId = getOutputField<string>(output, "ruleId");
-      if (!ruleId) return <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />;
+      if (!ruleId)
+        return (
+          <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />
+        );
       return (
         <UpdatedRuleConditions
           key={toolCallId}
@@ -167,7 +266,10 @@ export function MessagePart({
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
       const ruleId = getOutputField<string>(output, "ruleId");
-      if (!ruleId) return <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />;
+      if (!ruleId)
+        return (
+          <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />
+        );
       return (
         <UpdatedRuleActions
           key={toolCallId}
@@ -196,7 +298,10 @@ export function MessagePart({
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
       const ruleId = getOutputField<string>(output, "ruleId");
-      if (!ruleId) return <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />;
+      if (!ruleId)
+        return (
+          <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />
+        );
       return (
         <UpdatedLearnedPatterns
           key={toolCallId}

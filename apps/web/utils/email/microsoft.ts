@@ -975,6 +975,8 @@ export class OutlookProvider implements EmailProvider {
     pageToken?: string;
     before?: Date;
     after?: Date;
+    inboxOnly?: boolean;
+    unreadOnly?: boolean;
   }): Promise<{
     messages: ParsedMessage[];
     nextPageToken?: string;
@@ -1014,6 +1016,14 @@ export class OutlookProvider implements EmailProvider {
 
     const searchQuery = stripGmailPrefixes(options.query || "");
 
+    let inboxFolderId: string | undefined;
+    if (options.inboxOnly) {
+      const folderIds = await getFolderIds(this.client, this.logger, {
+        includeDrafts: false,
+      });
+      inboxFolderId = folderIds.inbox;
+    }
+
     // Build date filter for Outlook (no quotes for DateTimeOffset comparison)
     const dateFilters: string[] = [];
     if (options.before) {
@@ -1041,12 +1051,21 @@ export class OutlookProvider implements EmailProvider {
         dateFilters,
         maxResults: options.maxResults || 20,
         pageToken: options.pageToken,
+        folderId: inboxFolderId,
       },
       this.logger,
     );
 
+    const filteredMessages = options.unreadOnly
+      ? response.messages.filter((message) =>
+          message.labelIds?.some(
+            (labelId) => labelId.toLowerCase() === "unread",
+          ),
+        )
+      : response.messages;
+
     return {
-      messages: response.messages || [],
+      messages: filteredMessages || [],
       nextPageToken: response.nextPageToken,
     };
   }

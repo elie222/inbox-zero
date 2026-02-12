@@ -13,6 +13,7 @@ import {
   ActionType,
   GroupItemType,
   LogicalOperator,
+  SystemType,
 } from "@/generated/prisma/enums";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
@@ -26,6 +27,9 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
 import { env } from "@/env";
+import { createEmailProvider } from "@/utils/email/provider";
+import { sendEmailBody } from "@/utils/gmail/mail";
+import { getRuleLabel } from "@/utils/rule/consts";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 
@@ -731,6 +735,466 @@ export type AddToKnowledgeBaseTool = InferUITool<
   ReturnType<typeof addToKnowledgeBaseTool>
 >;
 
+const getAccountOverviewTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Get account context for inbox operations: provider, labels, meeting briefs settings, and auto-filing attachment settings.",
+    inputSchema: emptyInputSchema,
+    execute: async () => {
+      trackToolCall({ tool: "get_account_overview", email, logger });
+
+      const [emailAccount, labelNames] = await Promise.all([
+        prisma.emailAccount.findUnique({
+          where: { id: emailAccountId },
+          select: {
+            email: true,
+            timezone: true,
+            meetingBriefingsEnabled: true,
+            meetingBriefingsMinutesBefore: true,
+            meetingBriefsSendEmail: true,
+            filingEnabled: true,
+            filingPrompt: true,
+            filingFolders: {
+              select: {
+                folderName: true,
+                folderPath: true,
+              },
+              take: 50,
+            },
+            driveConnections: {
+              select: {
+                id: true,
+              },
+              take: 1,
+            },
+          },
+        }),
+        listLabelNames({
+          emailAccountId,
+          provider,
+          logger,
+        }),
+      ]);
+
+      if (!emailAccount) {
+        return { error: "Email account not found" };
+      }
+
+      return {
+        account: {
+          email: emailAccount.email,
+          provider,
+          timezone: emailAccount.timezone,
+        },
+        meetingBriefs: {
+          enabled: emailAccount.meetingBriefingsEnabled,
+          minutesBefore: emailAccount.meetingBriefingsMinutesBefore,
+          sendEmail: emailAccount.meetingBriefsSendEmail,
+        },
+        attachmentFiling: {
+          enabled: emailAccount.filingEnabled,
+          promptConfigured: Boolean(emailAccount.filingPrompt),
+          driveConnected: emailAccount.driveConnections.length > 0,
+          folders: emailAccount.filingFolders.map((folder) => ({
+            name: folder.folderName,
+            path: folder.folderPath,
+          })),
+        },
+        labels: {
+          count: labelNames.length,
+          names: labelNames.slice(0, 200),
+        },
+      };
+    },
+  });
+
+export type GetAccountOverviewTool = InferUITool<
+  ReturnType<typeof getAccountOverviewTool>
+>;
+
+const searchInboxInputSchema = z.object({
+  query: z
+    .string()
+    .trim()
+    .min(1)
+    .max(300)
+    .optional()
+    .describe(
+      "Inbox search query. Use concise keywords by default. For Google accounts, Gmail syntax like from:, to:, subject:, and in: is supported.",
+    ),
+  after: z.coerce
+    .date()
+    .optional()
+    .describe("Only include messages after this datetime (ISO format)."),
+  before: z.coerce
+    .date()
+    .optional()
+    .describe("Only include messages before this datetime (ISO format)."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .default(20)
+    .describe("Maximum number of messages to return."),
+  pageToken: z
+    .string()
+    .optional()
+    .describe("Use the page token returned from a prior search to paginate."),
+  inboxOnly: z
+    .boolean()
+    .default(true)
+    .describe("If true, restrict results to inbox messages."),
+  unreadOnly: z
+    .boolean()
+    .default(false)
+    .describe("If true, only return unread messages."),
+});
+
+const searchInboxTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Search inbox messages and return concise message metadata for triage and summarization.",
+    inputSchema: searchInboxInputSchema,
+    execute: async ({
+      query,
+      after,
+      before,
+      limit,
+      pageToken,
+      inboxOnly,
+      unreadOnly,
+    }) => {
+      trackToolCall({ tool: "search_inbox", email, logger });
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+
+        const { messages, nextPageToken } =
+          await emailProvider.getMessagesWithPagination({
+            query: query?.trim(),
+            maxResults: limit,
+            pageToken,
+            after,
+            before,
+            inboxOnly,
+            unreadOnly,
+          });
+
+        let labels: Array<{ id: string; name: string }> = [];
+        try {
+          labels = await emailProvider.getLabels();
+        } catch (error) {
+          logger.warn("Failed to load labels for search results", { error });
+        }
+
+        const labelsById = createLabelLookupMap(labels);
+
+        const filteredMessages = messages
+          .filter((message) =>
+            shouldIncludeMessage({
+              message,
+              inboxOnly,
+              unreadOnly,
+            }),
+          )
+          .slice(0, limit);
+
+        const items = filteredMessages.map((message) =>
+          mapMessageForSearchResult(message, labelsById),
+        );
+
+        return {
+          queryUsed: query?.trim() || null,
+          totalReturned: items.length,
+          nextPageToken,
+          summary: summarizeSearchResults(items),
+          messages: items,
+        };
+      } catch (error) {
+        logger.error("Failed to search inbox", { error });
+        return { error: "Failed to search inbox" };
+      }
+    },
+  });
+
+export type SearchInboxTool = InferUITool<ReturnType<typeof searchInboxTool>>;
+
+const threadIdsSchema = z
+  .array(z.string())
+  .min(1)
+  .max(100)
+  .transform((ids) => [...new Set(ids)]);
+
+const senderEmailsSchema = z
+  .array(z.string().trim().min(3))
+  .min(1)
+  .max(100)
+  .transform((emails) => [...new Set(emails)]);
+
+const manageInboxInputSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("archive_threads"),
+    threadIds: threadIdsSchema,
+    labelId: z.string().optional(),
+  }),
+  z.object({
+    action: z.literal("mark_read_threads"),
+    threadIds: threadIdsSchema,
+    read: z.boolean().default(true),
+  }),
+  z.object({
+    action: z.literal("bulk_archive_senders"),
+    fromEmails: senderEmailsSchema,
+  }),
+]);
+
+const manageInboxTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Run inbox actions: archive threads, mark threads read/unread, or bulk archive by sender.",
+    inputSchema: manageInboxInputSchema,
+    execute: async (input) => {
+      trackToolCall({ tool: "manage_inbox", email, logger });
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+
+        if (input.action === "bulk_archive_senders") {
+          await emailProvider.bulkArchiveFromSenders(
+            input.fromEmails,
+            email,
+            emailAccountId,
+          );
+
+          return {
+            success: true,
+            action: input.action,
+            sendersCount: input.fromEmails.length,
+            senders: input.fromEmails,
+          };
+        }
+
+        const threadActionResults = await runThreadActionsInParallel({
+          threadIds: input.threadIds,
+          runAction: async (threadId) => {
+            if (input.action === "archive_threads") {
+              await emailProvider.archiveThreadWithLabel(
+                threadId,
+                email,
+                input.labelId,
+              );
+            } else {
+              await emailProvider.markReadThread(threadId, input.read);
+            }
+          },
+        });
+
+        const failedThreadIds = threadActionResults
+          .filter((result) => !result.success)
+          .map((result) => result.threadId);
+        const successCount =
+          threadActionResults.length - failedThreadIds.length;
+
+        return {
+          success: failedThreadIds.length === 0,
+          action: input.action,
+          requestedCount: input.threadIds.length,
+          successCount,
+          failedCount: failedThreadIds.length,
+          failedThreadIds,
+        };
+      } catch (error) {
+        logger.error("Failed to run inbox action", { error });
+        return { error: "Failed to run inbox action" };
+      }
+    },
+  });
+
+export type ManageInboxTool = InferUITool<ReturnType<typeof manageInboxTool>>;
+
+const updateInboxFeaturesInputSchema = z
+  .object({
+    meetingBriefsEnabled: z.boolean().optional(),
+    meetingBriefsMinutesBefore: z.number().int().min(1).max(2880).optional(),
+    meetingBriefsSendEmail: z.boolean().optional(),
+    filingEnabled: z.boolean().optional(),
+    filingPrompt: z.string().max(6000).optional().nullable(),
+  })
+  .refine(
+    (value) =>
+      value.meetingBriefsEnabled !== undefined ||
+      value.meetingBriefsMinutesBefore !== undefined ||
+      value.meetingBriefsSendEmail !== undefined ||
+      value.filingEnabled !== undefined ||
+      value.filingPrompt !== undefined,
+    { message: "At least one field must be provided." },
+  );
+
+const updateInboxFeaturesTool = ({
+  email,
+  emailAccountId,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Update account-level inbox features, including meeting briefs and auto-file attachments.",
+    inputSchema: updateInboxFeaturesInputSchema,
+    execute: async ({
+      meetingBriefsEnabled,
+      meetingBriefsMinutesBefore,
+      meetingBriefsSendEmail,
+      filingEnabled,
+      filingPrompt,
+    }) => {
+      trackToolCall({ tool: "update_inbox_features", email, logger });
+
+      const existing = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: {
+          meetingBriefingsEnabled: true,
+          meetingBriefingsMinutesBefore: true,
+          meetingBriefsSendEmail: true,
+          filingEnabled: true,
+          filingPrompt: true,
+        },
+      });
+
+      if (!existing) return { error: "Email account not found" };
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: {
+          ...(meetingBriefsEnabled !== undefined && {
+            meetingBriefingsEnabled: meetingBriefsEnabled,
+          }),
+          ...(meetingBriefsMinutesBefore !== undefined && {
+            meetingBriefingsMinutesBefore: meetingBriefsMinutesBefore,
+          }),
+          ...(meetingBriefsSendEmail !== undefined && {
+            meetingBriefsSendEmail,
+          }),
+          ...(filingEnabled !== undefined && {
+            filingEnabled,
+          }),
+          ...(filingPrompt !== undefined && {
+            filingPrompt,
+          }),
+        },
+      });
+
+      return {
+        success: true,
+        previous: {
+          meetingBriefsEnabled: existing.meetingBriefingsEnabled,
+          meetingBriefsMinutesBefore: existing.meetingBriefingsMinutesBefore,
+          meetingBriefsSendEmail: existing.meetingBriefsSendEmail,
+          filingEnabled: existing.filingEnabled,
+          filingPrompt: existing.filingPrompt,
+        },
+        updated: {
+          meetingBriefsEnabled:
+            meetingBriefsEnabled ?? existing.meetingBriefingsEnabled,
+          meetingBriefsMinutesBefore:
+            meetingBriefsMinutesBefore ??
+            existing.meetingBriefingsMinutesBefore,
+          meetingBriefsSendEmail:
+            meetingBriefsSendEmail ?? existing.meetingBriefsSendEmail,
+          filingEnabled: filingEnabled ?? existing.filingEnabled,
+          filingPrompt:
+            filingPrompt !== undefined ? filingPrompt : existing.filingPrompt,
+        },
+      };
+    },
+  });
+
+export type UpdateInboxFeaturesTool = InferUITool<
+  ReturnType<typeof updateInboxFeaturesTool>
+>;
+
+const sendEmailTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Send an email immediately from the connected mailbox. Use only when the user clearly asks to send now.",
+    inputSchema: sendEmailBody,
+    execute: async (input) => {
+      trackToolCall({ tool: "send_email", email, logger });
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+        const result = await emailProvider.sendEmailWithHtml(input);
+        return {
+          success: true,
+          messageId: result.messageId,
+          threadId: result.threadId,
+          to: input.to,
+          subject: input.subject,
+        };
+      } catch (error) {
+        logger.error("Failed to send email from chat", { error });
+        return { error: "Failed to send email" };
+      }
+    },
+  });
+
+export type SendEmailTool = InferUITool<ReturnType<typeof sendEmailTool>>;
+
 export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
@@ -744,10 +1208,25 @@ export async function aiProcessAssistantChat({
   context?: MessageContext;
   logger: Logger;
 }) {
-  const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
-  
-You can't perform any actions on their inbox.
-You can only adjust the rules that manage the inbox.
+  const system = `You are the Inbox Zero assistant. You help users understand their inbox, take inbox actions, update account features, and manage automation rules.
+
+Core responsibilities:
+1. Search and summarize inbox activity (especially what's new and what needs attention)
+2. Take inbox actions (archive, mark read, and bulk archive by sender)
+3. Update account features (meeting briefs and auto-file attachments)
+4. Create and update rules
+
+Tool usage strategy (progressive disclosure):
+- Use the minimum number of tools needed.
+- Start with read-only context tools before write tools.
+- For write operations that affect many emails, first summarize what will change, then execute after clear user confirmation.
+- If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
+- Only send emails when the user clearly asks to send now.
+
+Provider context:
+- Current provider: ${user.account.provider}.
+- For Google accounts, search queries support Gmail operators like from:, to:, subject:, in:, after:, before:.
+- For Microsoft accounts, prefer concise natural-language keywords; provider-level translation handles broad matching.
 
 A rule is comprised of:
 1. A condition
@@ -775,6 +1254,13 @@ An action can be:
 You can use {{variables}} in the fields to insert AI generated content. For example:
 "Hi {{name}}, {{write a friendly reply}}, Best regards, Alice"
 
+Inbox triage guidance:
+- For "what came in today?" requests, use inbox search with a tight time range for today.
+- Group results into: must handle now, can wait, and can archive/mark read.
+- Prioritize messages labelled "To Reply" as must handle.
+- If labels are missing (new user), infer urgency from sender, subject, and snippet.
+- Suggest bulk archive by sender for low-priority repeated senders.
+
 Rule matching logic:
 - All static conditions (from, to, subject) use AND logic - meaning all static conditions must match
 - Top level conditions (AI instructions, static) can use either AND or OR logic, controlled by the "conditionalOperator" setting
@@ -790,7 +1276,7 @@ ${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? `- IMPORTANT: prefer "draft a reply" over
 
 Always explain the changes you made.
 Use simple language and avoid jargon in your reply.
-If you are unable to fix the rule, say so.
+If you are unable to complete a requested action, say so and explain why.
 
 You can set general information about the user in their Personal Instructions (via the updateAbout tool) that will be passed as context when the AI is processing emails.
 
@@ -1017,6 +1503,41 @@ Examples:
       </explanation>
     </output>
   </example>
+
+  <example>
+    <input>
+      Give me an update on what came into the inbox today. What do I have to handle? What can we put to the side?
+    </input>
+    <output>
+      <search_inbox>
+        {
+          "after": "[today at start of day in user's timezone]",
+          "inboxOnly": true,
+          "limit": 50
+        }
+      </search_inbox>
+      <explanation>
+        I reviewed today's inbox, highlighted the must-handle items first, and separated lower-priority messages that can wait or be archived.
+      </explanation>
+    </output>
+  </example>
+
+  <example>
+    <input>
+      Turn off meeting briefs and enable auto-file attachments.
+    </input>
+    <output>
+      <update_inbox_features>
+        {
+          "meetingBriefsEnabled": false,
+          "filingEnabled": true
+        }
+      </update_inbox_features>
+      <explanation>
+        I turned off meeting briefs and enabled auto-file attachments.
+      </explanation>
+    </output>
+  </example>
 </examples>`;
 
   const toolOptions = {
@@ -1071,6 +1592,10 @@ Examples:
     },
     maxSteps: 10,
     tools: {
+      getAccountOverview: getAccountOverviewTool(toolOptions),
+      searchInbox: searchInboxTool(toolOptions),
+      manageInbox: manageInboxTool(toolOptions),
+      updateInboxFeatures: updateInboxFeaturesTool(toolOptions),
       getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),
       getLearnedPatterns: getLearnedPatternsTool(toolOptions),
       createRule: createRuleTool(toolOptions),
@@ -1079,6 +1604,9 @@ Examples:
       updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
       updateAbout: updateAboutTool(toolOptions),
       addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
+      ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+        ? { sendEmail: sendEmailTool(toolOptions) }
+        : {}),
     },
   });
 
@@ -1096,4 +1624,183 @@ async function trackToolCall({
 }) {
   logger.info("Tracking tool call", { tool, email });
   return posthogCaptureEvent(email, "AI Assistant Chat Tool Call", { tool });
+}
+
+async function listLabelNames({
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) {
+  try {
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+      logger,
+    });
+    const labels = await emailProvider.getLabels();
+    return labels.map((label) => label.name).filter(Boolean);
+  } catch (error) {
+    logger.warn("Failed to load label names", { error });
+    return [];
+  }
+}
+
+function shouldIncludeMessage({
+  message,
+  inboxOnly,
+  unreadOnly,
+}: {
+  message: ParsedMessage;
+  inboxOnly: boolean;
+  unreadOnly: boolean;
+}) {
+  if (!message.labelIds?.length) return !unreadOnly;
+
+  const labelIds =
+    message.labelIds?.map((labelId) => labelId.toLowerCase()) || [];
+  const isInInbox = labelIds.includes("inbox");
+  const isUnread = labelIds.includes("unread");
+
+  if (inboxOnly && !isInInbox) return false;
+  if (unreadOnly && !isUnread) return false;
+
+  return true;
+}
+
+function mapMessageForSearchResult(
+  message: ParsedMessage,
+  labelsById: Map<string, string>,
+) {
+  const labelIds = message.labelIds || [];
+  const labelNames = labelIds.map(
+    (labelId) => labelsById.get(labelId.toLowerCase()) || labelId,
+  );
+  const category = inferConversationCategory(labelNames);
+  const isUnread = labelIds.some(
+    (labelId) => labelId.toLowerCase() === "unread",
+  );
+
+  return {
+    messageId: message.id,
+    threadId: message.threadId,
+    subject: message.subject,
+    from: message.headers.from,
+    to: message.headers.to,
+    snippet: message.snippet,
+    date: message.date,
+    labelNames,
+    category,
+    isUnread,
+    hasAttachments: Boolean(message.attachments?.length),
+  };
+}
+
+type ConversationCategory =
+  | "to_reply"
+  | "awaiting_reply"
+  | "fyi"
+  | "actioned"
+  | "uncategorized";
+
+function inferConversationCategory(labelNames: string[]): ConversationCategory {
+  const normalized = new Set(
+    labelNames.map((labelName) => labelName.trim().toLowerCase()),
+  );
+
+  if (normalized.has(getRuleLabel(SystemType.TO_REPLY).toLowerCase()))
+    return "to_reply";
+  if (normalized.has(getRuleLabel(SystemType.AWAITING_REPLY).toLowerCase()))
+    return "awaiting_reply";
+  if (normalized.has(getRuleLabel(SystemType.FYI).toLowerCase())) return "fyi";
+  if (normalized.has(getRuleLabel(SystemType.ACTIONED).toLowerCase()))
+    return "actioned";
+  return "uncategorized";
+}
+
+function summarizeSearchResults(
+  items: Array<{
+    category: ConversationCategory;
+    isUnread: boolean;
+  }>,
+) {
+  return items.reduce(
+    (acc, item) => {
+      acc.total += 1;
+      if (item.isUnread) acc.unread += 1;
+      acc.byCategory[item.category] += 1;
+      return acc;
+    },
+    {
+      total: 0,
+      unread: 0,
+      byCategory: {
+        to_reply: 0,
+        awaiting_reply: 0,
+        fyi: 0,
+        actioned: 0,
+        uncategorized: 0,
+      },
+    },
+  );
+}
+
+function createLabelLookupMap(labels: Array<{ id: string; name: string }>) {
+  const labelsById = new Map(
+    labels.map((label) => [label.id.toLowerCase(), label.name]),
+  );
+
+  if (labelsById.size > 0) return labelsById;
+
+  const toReplyLabel = getRuleLabel(SystemType.TO_REPLY);
+  const awaitingReplyLabel = getRuleLabel(SystemType.AWAITING_REPLY);
+  const fyiLabel = getRuleLabel(SystemType.FYI);
+  const actionedLabel = getRuleLabel(SystemType.ACTIONED);
+
+  return new Map([
+    [toReplyLabel.toLowerCase(), toReplyLabel],
+    [awaitingReplyLabel.toLowerCase(), awaitingReplyLabel],
+    [fyiLabel.toLowerCase(), fyiLabel],
+    [actionedLabel.toLowerCase(), actionedLabel],
+    ["to_reply", toReplyLabel],
+    ["awaiting_reply", awaitingReplyLabel],
+    ["fyi", fyiLabel],
+    ["actioned", actionedLabel],
+    ["inbox", "Inbox"],
+    ["unread", "Unread"],
+  ] as const);
+}
+
+async function runThreadActionsInParallel({
+  threadIds,
+  runAction,
+}: {
+  threadIds: string[];
+  runAction: (threadId: string) => Promise<void>;
+}) {
+  const BATCH_SIZE = 10;
+  const results: Array<{ threadId: string; success: boolean }> = [];
+
+  for (let i = 0; i < threadIds.length; i += BATCH_SIZE) {
+    const batch = threadIds.slice(i, i + BATCH_SIZE);
+
+    const batchResults = await Promise.allSettled(
+      batch.map(async (threadId) => {
+        await runAction(threadId);
+        return threadId;
+      }),
+    );
+
+    for (const [index, result] of batchResults.entries()) {
+      results.push({
+        threadId: batch[index],
+        success: result.status === "fulfilled",
+      });
+    }
+  }
+
+  return results;
 }

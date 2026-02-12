@@ -1010,12 +1010,22 @@ export class GmailProvider implements EmailProvider {
     pageToken?: string;
     before?: Date;
     after?: Date;
+    inboxOnly?: boolean;
+    unreadOnly?: boolean;
   }): Promise<{
     messages: ParsedMessage[];
     nextPageToken?: string;
   }> {
     // Build query string for date filtering
     let query = options.query || "";
+
+    if (options.inboxOnly && !query.includes("in:")) {
+      query += " in:inbox";
+    }
+
+    if (options.unreadOnly && !query.includes("is:unread")) {
+      query += " is:unread";
+    }
 
     if (options.before) {
       query += ` before:${Math.floor(options.before.getTime() / 1000) + 1}`;
