@@ -15,3 +15,13 @@ export const getLabelsBody = z.object({
   emailAccountId: z.string().min(1, "Email account ID is required"),
 });
 export type GetLabelsBody = z.infer<typeof getLabelsBody>;
+
+export const watchEmailsBody = z.object({
+  email: z.string().trim().email("Valid email address is required"),
+});
+export type WatchEmailsBody = z.infer<typeof watchEmailsBody>;
+
+export const getUserInfoBody = z.object({
+  email: z.string().trim().email("Valid email address is required"),
+});
+export type GetUserInfoBody = z.infer<typeof getUserInfoBody>;

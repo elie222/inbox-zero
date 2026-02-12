@@ -14,7 +14,10 @@ import {
   hashEmailBody,
   convertGmailUrlBody,
   getLabelsBody,
+  watchEmailsBody,
+  getUserInfoBody,
 } from "@/utils/actions/admin.validation";
+import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })
@@ -300,4 +303,107 @@ export const adminGetLabelsAction = adminActionClient
     const labels = await emailProvider.getLabels();
 
     return { labels };
+  });
+
+export const adminWatchEmailsAction = adminActionClient
+  .metadata({ name: "adminWatchEmails" })
+  .inputSchema(watchEmailsBody)
+  .action(async ({ parsedInput: { email }, ctx: { logger } }) => {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { email: email.toLowerCase() },
+      select: { userId: true },
+    });
+
+    if (!emailAccount) {
+      throw new SafeError("Email account not found");
+    }
+
+    const results = await ensureEmailAccountsWatched({
+      userIds: [emailAccount.userId],
+      logger,
+    });
+
+    return { results };
+  });
+
+export const adminGetUserInfoAction = adminActionClient
+  .metadata({ name: "adminGetUserInfo" })
+  .inputSchema(getUserInfoBody)
+  .action(async ({ parsedInput: { email } }) => {
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: {
+        id: true,
+        createdAt: true,
+        lastLogin: true,
+        completedOnboardingAt: true,
+        completedAppOnboardingAt: true,
+        premium: {
+          select: {
+            tier: true,
+            lemonSqueezyRenewsAt: true,
+            stripeRenewsAt: true,
+            stripeSubscriptionStatus: true,
+            lemonSubscriptionStatus: true,
+          },
+        },
+        emailAccounts: {
+          select: {
+            email: true,
+            createdAt: true,
+            watchEmailsExpirationDate: true,
+            account: {
+              select: {
+                provider: true,
+                disconnectedAt: true,
+              },
+            },
+            _count: {
+              select: {
+                rules: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            emailAccounts: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new SafeError("User not found");
+    }
+
+    return {
+      id: user.id,
+      createdAt: user.createdAt,
+      lastLogin: user.lastLogin,
+      completedOnboardingAt: user.completedOnboardingAt,
+      completedAppOnboardingAt: user.completedAppOnboardingAt,
+      emailAccountCount: user._count.emailAccounts,
+      premium: user.premium
+        ? {
+            tier: user.premium.tier,
+            renewsAt:
+              user.premium.stripeRenewsAt ||
+              user.premium.lemonSqueezyRenewsAt ||
+              null,
+            subscriptionStatus:
+              user.premium.stripeSubscriptionStatus ||
+              user.premium.lemonSubscriptionStatus ||
+              null,
+          }
+        : null,
+      emailAccounts: user.emailAccounts.map((ea) => ({
+        email: ea.email,
+        createdAt: ea.createdAt,
+        provider: ea.account.provider,
+        disconnected: !!ea.account.disconnectedAt,
+        watchExpirationDate: ea.watchEmailsExpirationDate,
+        ruleCount: ea._count.rules,
+      })),
+    };
   });

@@ -8,6 +8,7 @@ import {
   AdminSyncStripeCustomers,
 } from "@/app/(app)/admin/AdminSyncStripe";
 import { RegisterSSOModal } from "@/app/(app)/admin/RegisterSSOModal";
+import { AdminUserInfo } from "@/app/(app)/admin/AdminUserInfo";
 import { AdminHashEmail } from "@/app/(app)/admin/AdminHashEmail";
 import { GmailUrlConverter } from "@/app/(app)/admin/GmailUrlConverter";
 import { DebugLabels } from "@/app/(app)/admin/DebugLabels";
@@ -36,6 +37,7 @@ export default async function AdminPage() {
       <div className="space-y-8 mt-4 mb-20">
         <AdminUpgradeUserForm />
         <AdminUserControls />
+        <AdminUserInfo />
         <AdminHashEmail />
         <GmailUrlConverter />
         <DebugLabels />
