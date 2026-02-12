@@ -226,7 +226,7 @@ function NewChatView({
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-[var(--chat-px)]">
       <div className="w-full max-w-[var(--chat-max-w)]">
-        <h1 className="mb-6 text-center text-4xl font-extralight tracking-tight">
+        <h1 className="mb-6 text-center text-2xl sm:text-3xl md:text-4xl font-extralight tracking-tight">
           {getGreeting(firstName)}
         </h1>
         {inputArea}
