@@ -917,7 +917,6 @@ const searchInboxTool = ({
           .filter((message) =>
             shouldIncludeMessage({
               message,
-              provider,
               inboxOnly,
               unreadOnly,
             }),
@@ -1650,19 +1649,14 @@ async function listLabelNames({
 
 function shouldIncludeMessage({
   message,
-  provider,
   inboxOnly,
   unreadOnly,
 }: {
   message: ParsedMessage;
-  provider: string;
   inboxOnly: boolean;
   unreadOnly: boolean;
 }) {
-  if (!message.labelIds?.length) {
-    if (isMicrosoftProvider(provider)) return !unreadOnly;
-    return !inboxOnly && !unreadOnly;
-  }
+  if (!message.labelIds?.length) return true;
 
   const labelIds =
     message.labelIds?.map((labelId) => labelId.toLowerCase()) || [];

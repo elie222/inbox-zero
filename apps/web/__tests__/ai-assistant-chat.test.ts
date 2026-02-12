@@ -154,7 +154,7 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.sendEmail).toBeUndefined();
   });
 
-  it("keeps inbox filtering strict for unlabeled Google messages", async () => {
+  it("keeps unlabeled Google messages as pass-through", async () => {
     const tools = await captureToolSet(true, "google");
 
     mockCreateEmailProvider.mockResolvedValue({
@@ -197,7 +197,7 @@ describe("aiProcessAssistantChat", () => {
       unreadOnly: false,
     });
 
-    expect(result.totalReturned).toBe(0);
+    expect(result.totalReturned).toBe(1);
   });
 
   it("executes searchInbox and manageInbox tools with resilient behavior", async () => {
