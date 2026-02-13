@@ -172,6 +172,7 @@ describe("processSlackEvent", () => {
         expect.objectContaining({
           channel: "D-DM-CHANNEL",
           text: "AI response",
+          mrkdwn: true,
         }),
       );
     });

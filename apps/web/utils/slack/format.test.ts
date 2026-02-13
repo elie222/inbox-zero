@@ -9,6 +9,13 @@ describe("markdownToSlackMrkdwn", () => {
     );
   });
 
+  it("converts escaped bold markdown to Slack bold", () => {
+    expect(markdownToSlackMrkdwn("\\*\\*Hello\\*\\*")).toBe("*Hello*");
+    expect(markdownToSlackMrkdwn("This is \\*\\*bold\\*\\* text")).toBe(
+      "This is *bold* text",
+    );
+  });
+
   it("converts Markdown links to Slack links", () => {
     expect(markdownToSlackMrkdwn("[Click here](https://example.com)")).toBe(
       "<https://example.com|Click here>",
@@ -24,6 +31,12 @@ describe("markdownToSlackMrkdwn", () => {
     expect(markdownToSlackMrkdwn("* Item one")).toBe("• Item one");
     expect(markdownToSlackMrkdwn("- Item two")).toBe("• Item two");
     expect(markdownToSlackMrkdwn("  * Nested item")).toBe("  • Nested item");
+  });
+
+  it("converts escaped bullet points", () => {
+    expect(markdownToSlackMrkdwn("\\* Item one")).toBe("• Item one");
+    expect(markdownToSlackMrkdwn("\\- Item two")).toBe("• Item two");
+    expect(markdownToSlackMrkdwn("  \\* Nested item")).toBe("  • Nested item");
   });
 
   it("handles bold inside bullet points", () => {
@@ -50,6 +63,30 @@ describe("markdownToSlackMrkdwn", () => {
 • *Draft Replies:* Automatically draft responses.
 
 *Is there a specific task you'd like help with?*`;
+
+    expect(markdownToSlackMrkdwn(markdown)).toBe(expected);
+  });
+
+  it("handles a full AI response with escaped markdown", () => {
+    const markdown = `You have a few items that need your attention today.
+
+\\*\\*Must Handle (To Reply)\\*\\*
+\\* Customer Support:
+    \\* \\*\\*Aldo:\\*\\* Mentioned an issue with API key.
+    \\* \\*\\*Sara:\\*\\* Reporting an error.
+
+\\*\\*Can Wait (FYI)\\*\\*
+\\* Newsletter from a service.`;
+
+    const expected = `You have a few items that need your attention today.
+
+*Must Handle (To Reply)*
+• Customer Support:
+    • *Aldo:* Mentioned an issue with API key.
+    • *Sara:* Reporting an error.
+
+*Can Wait (FYI)*
+• Newsletter from a service.`;
 
     expect(markdownToSlackMrkdwn(markdown)).toBe(expected);
   });

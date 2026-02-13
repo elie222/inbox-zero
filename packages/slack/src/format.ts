@@ -12,10 +12,14 @@ export function markdownToSlackMrkdwn(text: string): string {
     text
       // Links: [text](url) → <url|text>  (must come before bold conversion)
       .replace(/\[([^[\]]+)\]\(([^()]+)\)/g, "<$2|$1>")
+      // Handle escaped Markdown from model outputs: \*\*text\*\* → *text*
+      .replace(/\\\*\\\*(.+?)\\\*\\\*/g, "*$1*")
       // Bold: **text** → *text*
       .replace(/\*\*(.+?)\*\*/g, "*$1*")
       // Headings: # text → *text*
       .replace(/^#{1,6}\s+(.+)$/gm, "*$1*")
+      // Escaped unordered list bullets: \* item / \- item → • item
+      .replace(/^(\s*)\\[*-]\s+/gm, "$1• ")
       // Unordered list bullets: * item or - item → • item
       .replace(/^(\s*)[*-]\s+/gm, "$1• ")
   );

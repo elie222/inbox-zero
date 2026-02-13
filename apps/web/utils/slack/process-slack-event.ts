@@ -174,6 +174,7 @@ export async function processSlackEvent(
   await client.chat.postMessage({
     channel,
     text: markdownToSlackMrkdwn(fullText),
+    mrkdwn: true,
     ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
   });
 }
