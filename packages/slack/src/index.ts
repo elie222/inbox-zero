@@ -16,3 +16,4 @@ export {
 } from "./messages/meeting-briefing";
 export { verifySlackSignature } from "./verify";
 export { markdownToSlackMrkdwn } from "./format";
+export { addReaction, removeReaction } from "./reactions";
