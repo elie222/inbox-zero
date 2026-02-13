@@ -386,7 +386,6 @@ describe("aiProcessAssistantChat", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("Rule changed since the last read");
   });
-
   it("returns cleared filing prompt in updateInboxFeatures response", async () => {
     const tools = await captureToolSet(true, "google");
 
