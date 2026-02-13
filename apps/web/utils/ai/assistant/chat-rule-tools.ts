@@ -335,7 +335,6 @@ export const updateRuleConditionsTool = ({
       if (readValidationError) {
         return {
           success: false,
-          ruleId: "",
           error: readValidationError,
         };
       }
@@ -357,7 +356,6 @@ export const updateRuleConditionsTool = ({
       if (!rule) {
         return {
           success: false,
-          ruleId: "",
           error:
             "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
         };
@@ -371,7 +369,6 @@ export const updateRuleConditionsTool = ({
       if (staleReadError) {
         return {
           success: false,
-          ruleId: "",
           error: staleReadError,
         };
       }
@@ -426,7 +423,7 @@ export type UpdateRuleConditionsTool = InferUITool<
 
 export type UpdateRuleConditionsOutput = {
   success: boolean;
-  ruleId: string;
+  ruleId?: string;
   error?: string;
   originalConditions?: {
     aiInstructions: string | null;
@@ -497,7 +494,6 @@ export const updateRuleActionsTool = ({
       if (readValidationError) {
         return {
           success: false,
-          ruleId: "",
           error: readValidationError,
         };
       }
@@ -527,7 +523,6 @@ export const updateRuleActionsTool = ({
       if (!rule) {
         return {
           success: false,
-          ruleId: "",
           error:
             "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
         };
@@ -541,7 +536,6 @@ export const updateRuleActionsTool = ({
       if (staleReadError) {
         return {
           success: false,
-          ruleId: "",
           error: staleReadError,
         };
       }
@@ -601,7 +595,7 @@ export type UpdateRuleActionsTool = InferUITool<
 
 export type UpdateRuleActionsOutput = {
   success: boolean;
-  ruleId: string;
+  ruleId?: string;
   error?: string;
   originalActions?: Array<{
     type: string;
@@ -659,7 +653,6 @@ export const updateLearnedPatternsTool = ({
       if (readValidationError) {
         return {
           success: false,
-          ruleId: "",
           error: readValidationError,
         };
       }
@@ -672,7 +665,6 @@ export const updateLearnedPatternsTool = ({
       if (!rule) {
         return {
           success: false,
-          ruleId: "",
           error:
             "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
         };
@@ -686,7 +678,6 @@ export const updateLearnedPatternsTool = ({
       if (staleReadError) {
         return {
           success: false,
-          ruleId: "",
           error: staleReadError,
         };
       }
