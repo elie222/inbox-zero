@@ -30,6 +30,7 @@ import { env } from "@/env";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sendEmailBody } from "@/utils/gmail/mail";
 import { getRuleLabel } from "@/utils/rule/consts";
+import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 
@@ -312,7 +313,8 @@ const updateRuleConditionsTool = ({
   logger: Logger;
 }) =>
   tool({
-    description: "Update the conditions of an existing rule",
+    description:
+      "Update the conditions of an existing rule. For conversation status rules (To Reply, Awaiting Reply, FYI, Actioned), only aiInstructions are supported.",
     inputSchema: updateRuleConditionSchema,
     execute: async ({ ruleName, condition }) => {
       trackToolCall({ tool: "update_rule_conditions", email, logger });
@@ -327,6 +329,7 @@ const updateRuleConditionsTool = ({
           to: true,
           subject: true,
           conditionalOperator: true,
+          systemType: true,
         },
       });
 
@@ -350,28 +353,56 @@ const updateRuleConditionsTool = ({
         conditionalOperator: rule.conditionalOperator,
       };
 
+      const isConversationRule = isConversationStatusType(rule.systemType);
+      const hasStaticUpdate =
+        condition.static !== undefined && condition.static !== null;
+      const hasConditionalOperatorUpdate =
+        condition.conditionalOperator !== undefined &&
+        condition.conditionalOperator !== null;
+      const hasAiInstructionUpdate = condition.aiInstructions !== undefined;
+
+      if (isConversationRule && !hasAiInstructionUpdate) {
+        return {
+          success: false,
+          ruleId: rule.id,
+          error:
+            "Conversation status rules only support aiInstructions updates. Use updateAbout for user-specific preferences like CC/support handling.",
+        };
+      }
+
+      const data = isConversationRule
+        ? {
+            instructions: condition.aiInstructions,
+          }
+        : {
+            instructions: condition.aiInstructions,
+            from: condition.static?.from,
+            to: condition.static?.to,
+            subject: condition.static?.subject,
+            conditionalOperator: condition.conditionalOperator ?? undefined,
+          };
+
       await partialUpdateRule({
         ruleId: rule.id,
-        data: {
-          instructions: condition.aiInstructions,
-          from: condition.static?.from,
-          to: condition.static?.to,
-          subject: condition.static?.subject,
-          conditionalOperator: condition.conditionalOperator ?? undefined,
-        },
+        data,
       });
 
       // Prepare updated state
       const updatedConditions = {
-        aiInstructions: condition.aiInstructions,
-        static: condition.static
-          ? filterNullProperties({
-              from: condition.static.from,
-              to: condition.static.to,
-              subject: condition.static.subject,
-            })
-          : undefined,
-        conditionalOperator: condition.conditionalOperator,
+        aiInstructions: hasAiInstructionUpdate
+          ? condition.aiInstructions
+          : rule.instructions,
+        static:
+          isConversationRule || !condition.static
+            ? undefined
+            : filterNullProperties({
+                from: condition.static.from,
+                to: condition.static.to,
+                subject: condition.static.subject,
+              }),
+        conditionalOperator: isConversationRule
+          ? rule.conditionalOperator
+          : condition.conditionalOperator,
       };
 
       return {
@@ -379,6 +410,10 @@ const updateRuleConditionsTool = ({
         ruleId: rule.id,
         originalConditions,
         updatedConditions,
+        ...(isConversationRule &&
+          (hasStaticUpdate || hasConditionalOperatorUpdate) && {
+            note: "Ignored static and conditionalOperator updates for conversation status rule.",
+          }),
       };
     },
   });
@@ -391,6 +426,7 @@ export type UpdateRuleConditionsOutput = {
   success: boolean;
   ruleId: string;
   error?: string;
+  note?: string;
   originalConditions?: {
     aiInstructions: string | null;
     static?: Record<string, string | null>;
@@ -1250,6 +1286,8 @@ An action can be:
 7. Mark as read
 8. Mark spam
 9. Call a webhook
+10. Add to digest
+11. Move to folder (Microsoft only)
 
 You can use {{variables}} in the fields to insert AI generated content. For example:
 "Hi {{name}}, {{write a friendly reply}}, Best regards, Alice"
@@ -1282,28 +1320,29 @@ You can set general information about the user in their Personal Instructions (v
 
 Conversation status categorization:
 - Emails are automatically categorized as "To Reply", "FYI", "Awaiting Reply", or "Actioned".
-- IMPORTANT: Unlike regular automation rules, the prompts that determine these conversation statuses CANNOT be modified. They use fixed logic.
-- However, the user's Personal Instructions ARE passed to the AI when making these determinations. So if users want to influence how emails are categorized (e.g., "emails where I'm CC'd shouldn't be To Reply"), update their Personal Instructions with these preferences.
-- Use the updateAbout tool to add these preferences to the user's Personal Instructions.
+- The base classifier logic is fixed, but you can still influence outcomes.
+- The user's Personal Instructions are passed into status determination. For broad preferences (e.g. CC/support handling), use updateAbout.
+- Conversation-status rule aiInstructions are also passed as conversation preferences when customized.
+- For conversation status rules, static conditions (from/to/subject) and learned patterns are ignored by the status engine.
 
-Reply Zero is a feature that labels emails that need a reply "To Reply". And labels emails that are awaiting a response "Awaiting". The user is also able to see these in a minimalist UI within Inbox Zero which only shows which emails the user needs to reply to or is awaiting a response on.
+Reply Zero is a feature that labels emails that need a reply "To Reply". And labels emails that are awaiting a response "Awaiting Reply". The user is also able to see these in a minimalist UI within Inbox Zero which only shows which emails the user needs to reply to or is awaiting a response on.
 
 Don't tell the user which tools you're using. The tools you use will be displayed in the UI anyway.
 Don't use placeholders in rules you create. For example, don't use @company.com. Use the user's actual company email address. And if you don't know some information you need, ask the user.
 
 Static conditions:
-- In FROM and TO fields, you can use the pipe symbol (|) to represent OR logic. For example, "@company1.com|@company2.com" will match emails from either domain.
+- In FROM and TO fields, you can use pipe (|), comma (,), or the word OR to represent OR logic. For example, "@company1.com|@company2.com" will match emails from either domain.
 - In the SUBJECT field, pipe symbols are treated as literal characters and must match exactly.
 
 Learned patterns:
-- Learned patterns override the conditional logic for a rule.
+- Learned patterns override the conditional logic for regular rules.
 - This avoids us having to use AI to process emails from the same sender over and over again.
-- There's some similarity to static rules, but you can only use one static condition for a rule. But you can use multiple learned patterns. And over time the list of learned patterns will grow.
+- Learned patterns can include sender and subject values, and you can have multiple learned patterns.
 - You can use includes or excludes for learned patterns. Usually you will use includes, but if the user has explained that an email is being wrongly labelled, check if we have a learned pattern for it and then fix it to be an exclude instead.
 
 Knowledge base:
 - The knowledge base is used to draft reply content.
-- It is only used when an action of type DRAFT_REPLY is used AND the rule has no preset draft content.
+- It is only used when an action of type DRAFT_EMAIL is used AND the rule has no preset draft content.
 
 Examples:
 
@@ -1313,24 +1352,24 @@ Examples:
       When I get a newsletter, archive it and label it as "Newsletter"
     </input>
     <output>
-      <create_rule>
+      <createRule>
         {
           "name": "Newsletters",
           "condition": { "aiInstructions": "Newsletters" },
           "actions": [
             {
-              "type": "archive",
+              "type": "ARCHIVE",
               "fields": {}
             },
             {
-              "type": "label",
+              "type": "LABEL",
               "fields": {
                 "label": "Newsletter"
               }
             }
           ]
         }
-      </create_rule>
+      </createRule>
       <explanation>
         I created a rule to label newsletters.
       </explanation>
@@ -1347,64 +1386,63 @@ Examples:
       If you don't know how to respond, label it as "Needs review".
     </input>
     <output>
-      <update_about>
-        I run a marketing agency and use this email address for cold outreach.
-        My cal link is https://cal.com/alice
-        My deck is https://drive.google.com/alice-deck.pdf
-        Write concise and friendly replies.
-      </update_about>
-      <create_rule>
+      <updateAbout>
+        {
+          "about": "I run a marketing agency and use this email address for cold outreach.\nMy cal link is https://cal.com/alice\nMy deck is https://drive.google.com/alice-deck.pdf\nWrite concise and friendly replies."
+        }
+      </updateAbout>
+      <createRule>
         {
           "name": "Interested",
           "condition": { "aiInstructions": "When someone shows interest in setting up a call or learning more." },
           "actions": [
             {
-              "type": "label",
+              "type": "LABEL",
               "fields": {
                 "label": "Interested"
               }
             },
             {
-              "type": "draft",
+              "type": "DRAFT_EMAIL",
               "fields": {
                 "content": "{{draft a reply}}"
               }
             }
           ]
         }
-      </create_rule>
-      <create_rule>
+      </createRule>
+      <createRule>
         {
           "name": "Not Interested",
           "condition": { "aiInstructions": "When someone says they're not interested." },
           "actions": [
             {
-              "type": "label",
+              "type": "LABEL",
               "fields": {
                 "label": "Not Interested"
               }
             },
             {
-              "type": "archive",
+              "type": "ARCHIVE",
               "fields": {}
             }
           ]
         }
-      </create_rule>
-      <create_rule>
+      </createRule>
+      <createRule>
         {
           "name": "Needs Review",
           "condition": { "aiInstructions": "When you don't know how to respond." },
           "actions": [
             {
-              "type": "label",
+              "type": "LABEL",
               "fields": {
                 "label": "Needs Review"
               }
             }
           ]
         }
-      </create_rule>
+      </createRule>
       <explanation>
         I created three rules to handle different types of responses.
       </explanation>
@@ -1425,44 +1463,44 @@ Examples:
       Create some good default rules for me.
     </input>
     <output>
-      <create_rule>
+      <createRule>
         {
           "name": "Urgent",
           "condition": { "aiInstructions": "Urgent emails" },
           "actions": [
-            { "type": "label", "fields": { "label": "Urgent" } }
+            { "type": "LABEL", "fields": { "label": "Urgent" } }
           ]
         }
-      </create_rule>
-      <create_rule>
+      </createRule>
+      <createRule>
         {
           "name": "Newsletters",
           "condition": { "aiInstructions": "Newsletters" },
           "actions": [
-            { "type": "archive", "fields": {} },
-            { "type": "label", "fields": { "label": "Newsletter" } }
+            { "type": "ARCHIVE", "fields": {} },
+            { "type": "LABEL", "fields": { "label": "Newsletter" } }
           ]
         }
-      </create_rule>
-      <create_rule>
+      </createRule>
+      <createRule>
         {
           "name": "Promotions",
           "condition": { "aiInstructions": "Marketing and promotional emails" },
           "actions": [
-            { "type": "archive", "fields": {} },
-            { "type": "label", "fields": { "label": "Promotions" } }
+            { "type": "ARCHIVE", "fields": {} },
+            { "type": "LABEL", "fields": { "label": "Promotions" } }
           ]
         }
-      </create_rule>
-      <create_rule>
+      </createRule>
+      <createRule>
         {
           "name": "Team",
           "condition": { "static": { "from": "@company.com" } },
           "actions": [
-            { "type": "label", "fields": { "label": "Team" } }
+            { "type": "LABEL", "fields": { "label": "Team" } }
           ]
         }
-      </create_rule>
+      </createRule>
       <explanation>
         I created 4 rules to handle different types of emails.
       </explanation>
@@ -1474,16 +1512,13 @@ Examples:
       I don't need to reply to emails from GitHub, stop labelling them as "To reply".
     </input>
     <output>
-      <update_rule>
+      <updateAbout>
         {
-          "name": "To reply",
-          "learnedPatterns": [
-            { "exclude": { "from": "@github.com" } }
-          ]
+          "about": "[existing about content...]\n\n- Emails from @github.com are FYI and should not be marked To Reply."
         }
-      </update_rule>
+      </updateAbout>
       <explanation>
-        I updated the rule to stop labelling emails from GitHub as "To reply".
+        I added this preference to your Personal Instructions so conversation status classification treats these as FYI.
       </explanation>
     </output>
   </example>
@@ -1493,11 +1528,11 @@ Examples:
       If I'm CC'd on an email it shouldn't be marked as "To Reply"
     </input>
     <output>
-      <update_about>
-        [existing about content...]
-        
-        - Emails where I am CC'd (not in the TO field) should not be marked as "To Reply" - they are FYI only.
-      </update_about>
+      <updateAbout>
+        {
+          "about": "[existing about content...]\n\n- Emails where I am CC'd (not in the TO field) should not be marked as \"To Reply\" - they are FYI only."
+        }
+      </updateAbout>
       <explanation>
         I can't directly modify the conversation status prompts, but I've added this preference to your Personal Instructions. The AI will now take this into account when categorizing your emails.
       </explanation>
@@ -1509,13 +1544,13 @@ Examples:
       Give me an update on what came into the inbox today. What do I have to handle? What can we put to the side?
     </input>
     <output>
-      <search_inbox>
+      <searchInbox>
         {
           "after": "[today at start of day in user's timezone]",
           "inboxOnly": true,
           "limit": 50
         }
-      </search_inbox>
+      </searchInbox>
       <explanation>
         I reviewed today's inbox, highlighted the must-handle items first, and separated lower-priority messages that can wait or be archived.
       </explanation>
@@ -1527,12 +1562,12 @@ Examples:
       Turn off meeting briefs and enable auto-file attachments.
     </input>
     <output>
-      <update_inbox_features>
+      <updateInboxFeatures>
         {
           "meetingBriefsEnabled": false,
           "filingEnabled": true
         }
-      </update_inbox_features>
+      </updateInboxFeatures>
       <explanation>
         I turned off meeting briefs and enabled auto-file attachments.
       </explanation>

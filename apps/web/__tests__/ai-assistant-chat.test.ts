@@ -25,6 +25,7 @@ const {
     },
     rule: {
       findUnique: vi.fn(),
+      update: vi.fn(),
     },
     knowledge: {
       create: vi.fn(),
@@ -126,6 +127,17 @@ describe("aiProcessAssistantChat", () => {
     );
     expect(args.messages[0].content).toContain("Provider context:");
     expect(args.messages[0].content).toContain("Inbox triage guidance:");
+    expect(args.messages[0].content).toContain(
+      "For conversation status rules, static conditions (from/to/subject) and learned patterns are ignored by the status engine.",
+    );
+    expect(args.messages[0].content).toContain(
+      "It is only used when an action of type DRAFT_EMAIL is used AND the rule has no preset draft content.",
+    );
+    expect(args.messages[0].content).toContain("<createRule>");
+    expect(args.messages[0].content).toContain("<updateAbout>");
+    expect(args.messages[0].content).not.toContain("DRAFT_REPLY");
+    expect(args.messages[0].content).not.toContain("<create_rule>");
+    expect(args.messages[0].content).not.toContain("<update_about>");
 
     expect(args.tools.getAccountOverview).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
@@ -377,6 +389,80 @@ describe("aiProcessAssistantChat", () => {
         successCount: 1,
         failedCount: 1,
         failedThreadIds: ["thread-2"],
+      }),
+    );
+  });
+
+  it("rejects static-only updates for conversation status rules", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    mockPrisma.rule.findUnique.mockResolvedValue({
+      id: "rule-to-reply",
+      name: "To Reply",
+      instructions: "Emails I need to respond to",
+      from: null,
+      to: null,
+      subject: null,
+      conditionalOperator: "AND",
+      systemType: "TO_REPLY",
+    });
+
+    const result = await tools.updateRuleConditions.execute({
+      ruleName: "To Reply",
+      condition: {
+        static: { to: "support@example.com" },
+      },
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: false,
+        ruleId: "rule-to-reply",
+      }),
+    );
+    expect(result.error).toContain("only support aiInstructions updates");
+    expect(mockPrisma.rule.update).not.toHaveBeenCalled();
+  });
+
+  it("ignores static updates for conversation status rules when aiInstructions is provided", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    mockPrisma.rule.findUnique.mockResolvedValue({
+      id: "rule-to-reply",
+      name: "To Reply",
+      instructions: "Emails I need to respond to",
+      from: null,
+      to: null,
+      subject: null,
+      conditionalOperator: "AND",
+      systemType: "TO_REPLY",
+    });
+    mockPrisma.rule.update.mockResolvedValue({});
+
+    const result = await tools.updateRuleConditions.execute({
+      ruleName: "To Reply",
+      condition: {
+        aiInstructions:
+          "Never mark as To Reply when support@company.com is included.",
+        static: { to: "support@company.com" },
+        conditionalOperator: "OR",
+      },
+    });
+
+    expect(mockPrisma.rule.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "rule-to-reply" },
+        data: {
+          instructions:
+            "Never mark as To Reply when support@company.com is included.",
+        },
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        ruleId: "rule-to-reply",
+        note: "Ignored static and conditionalOperator updates for conversation status rule.",
       }),
     );
   });
