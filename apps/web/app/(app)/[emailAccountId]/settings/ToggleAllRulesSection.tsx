@@ -68,7 +68,7 @@ export function ToggleAllRulesSection({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => execute({ enabled: false })}>
+              <AlertDialogAction type="button" onClick={() => execute({ enabled: false })}>
                 Disable All
               </AlertDialogAction>
             </AlertDialogFooter>
