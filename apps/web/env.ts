@@ -150,7 +150,8 @@ export const env = createEnv({
           .map((s) => s.trim())
           .filter(Boolean),
       ),
-    ENABLE_MOBILE_AUTH: booleanString.optional().default(false),
+    // Mobile auth trusted origin, e.g. inboxzero://
+    MOBILE_AUTH_ORIGIN: z.string().trim().min(1).optional(),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
