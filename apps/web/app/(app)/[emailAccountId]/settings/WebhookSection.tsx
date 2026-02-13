@@ -17,7 +17,9 @@ export function WebhookSection() {
       <LoadingContent loading={isLoading} error={error}>
         {data && (
           <div className="space-y-4">
-            {!!data.webhookSecret && <CopyInput value={data.webhookSecret} />}
+            {!!data.webhookSecret && (
+              <CopyInput value={data.webhookSecret} masked />
+            )}
 
             <RegenerateSecretButton
               hasSecret={!!data.webhookSecret}
