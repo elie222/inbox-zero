@@ -17,3 +17,4 @@ export {
 export { verifySlackSignature } from "./verify";
 export { markdownToSlackMrkdwn } from "./format";
 export { addReaction, removeReaction } from "./reactions";
+export { lookupSlackUserByEmail } from "./users";

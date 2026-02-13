@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
 import { withEmailAccount } from "@/utils/middleware";
+import prisma from "@/utils/prisma";
+import { MessagingProvider } from "@/generated/prisma/enums";
 import {
   SLACK_STATE_COOKIE_NAME,
   SLACK_OAUTH_STATE_TYPE,
@@ -11,7 +13,10 @@ import {
   oauthStateCookieOptions,
 } from "@/utils/oauth/state";
 
-export type GetSlackAuthUrlResponse = { url: string };
+export type GetSlackAuthUrlResponse = {
+  url: string;
+  existingWorkspace?: { teamId: string; teamName: string };
+};
 
 export const GET = withEmailAccount("slack/auth-url", async (request) => {
   const { emailAccountId } = request.auth;
@@ -25,14 +30,19 @@ export const GET = withEmailAccount("slack/auth-url", async (request) => {
 
   const { url, state, redirectUri } = getAuthUrl({ emailAccountId });
 
+  const existingWorkspace = await findOrgMateWorkspace(emailAccountId);
+
   request.logger.info("Slack auth URL generated", {
     redirectUri,
     clientId: env.SLACK_CLIENT_ID,
     baseUrl: env.NEXT_PUBLIC_BASE_URL,
     webhookUrl: env.WEBHOOK_URL ?? null,
+    hasExistingWorkspace: !!existingWorkspace,
   });
 
-  const res: GetSlackAuthUrlResponse = { url };
+  const res: GetSlackAuthUrlResponse = existingWorkspace
+    ? { url, existingWorkspace }
+    : { url };
   const response = NextResponse.json(res);
 
   response.cookies.set(SLACK_STATE_COOKIE_NAME, state, oauthStateCookieOptions);
@@ -58,4 +68,30 @@ function getAuthUrl({ emailAccountId }: { emailAccountId: string }) {
   const url = `https://slack.com/oauth/v2/authorize?${params.toString()}`;
 
   return { url, state, redirectUri };
+}
+
+async function findOrgMateWorkspace(
+  emailAccountId: string,
+): Promise<{ teamId: string; teamName: string } | null> {
+  const channel = await prisma.messagingChannel.findFirst({
+    where: {
+      provider: MessagingProvider.SLACK,
+      isConnected: true,
+      accessToken: { not: null },
+      NOT: { emailAccountId },
+      emailAccount: {
+        members: {
+          some: {
+            organization: {
+              members: { some: { emailAccountId } },
+            },
+          },
+        },
+      },
+    },
+    select: { teamId: true, teamName: true },
+  });
+
+  if (!channel?.teamName) return null;
+  return { teamId: channel.teamId, teamName: channel.teamName };
 }

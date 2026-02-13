@@ -42,6 +42,7 @@ https://<your-domain>/api/slack/callback
 | `im:write` | Send DM responses |
 | `im:history` | Read DM conversation history |
 | `reactions:write` | Add processing indicator reactions |
+| `users:read.email` | Look up teammates by email for multi-user workspaces |
 
 ### Enable Event Subscriptions
 
@@ -57,15 +58,6 @@ Under **Event Subscriptions**:
    - `app_mention` — @mentions in channels
 
 Slack will send a verification challenge to the URL; the app handles this automatically.
-
-### Enable App Home
-
-Under **App Home**:
-
-1. Check **Allow users to send Slash commands and messages from the messages tab**
-2. Uncheck **Make the messages tab read-only** (if shown)
-
-This lets users DM the bot directly to chat with the AI assistant.
 
 </details>
 
