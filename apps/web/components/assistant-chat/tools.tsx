@@ -168,7 +168,7 @@ export function ManageInboxResult({
 
   const resolvedThreads = threadIds
     ?.map((id) => threadLookup.get(id))
-    .filter(Boolean);
+    .filter((t): t is NonNullable<typeof t> => Boolean(t));
 
   return (
     <CollapsibleToolCard summary={summaryText}>
