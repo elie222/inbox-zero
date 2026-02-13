@@ -15,6 +15,23 @@ export const delayInMinutesSchema = z
   .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
   .nullish();
 
+export const updateRuleConditionSchema = z.object({
+  ruleName: z.string().describe("The name of the rule to update"),
+  condition: z.object({
+    aiInstructions: z.string().optional(),
+    static: z
+      .object({
+        from: z.string().nullish(),
+        to: z.string().nullish(),
+        subject: z.string().nullish(),
+      })
+      .nullish(),
+    conditionalOperator: z
+      .enum([LogicalOperator.AND, LogicalOperator.OR])
+      .nullish(),
+  }),
+});
+
 const zodActionType = z.enum([
   ActionType.ARCHIVE,
   ActionType.DRAFT_EMAIL,
