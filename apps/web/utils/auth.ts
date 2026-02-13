@@ -1,6 +1,5 @@
-// based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
-
 import { sso } from "@better-auth/sso";
+import { expo } from "@better-auth/expo";
 import { oAuthProxy } from "better-auth/plugins";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
@@ -31,6 +30,10 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
 
+const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
+  ? [env.MOBILE_AUTH_ORIGIN]
+  : [];
+
 export const betterAuthConfig = betterAuth({
   advanced: {
     database: {
@@ -54,9 +57,8 @@ export const betterAuthConfig = betterAuth({
   trustedOrigins: [
     env.NEXT_PUBLIC_BASE_URL,
     ...(env.OAUTH_PROXY_URL ? [env.OAUTH_PROXY_URL] : []),
-    // Additional trusted origins for cross-origin requests (e.g., from preview deployments)
-    // Supports wildcards like https://*.vercel.app
     ...(env.ADDITIONAL_TRUSTED_ORIGINS ?? []),
+    ...mobileAuthOrigins,
   ],
   secret: env.AUTH_SECRET || env.NEXTAUTH_SECRET,
   emailAndPassword: {
@@ -70,6 +72,7 @@ export const betterAuthConfig = betterAuth({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
+    ...(mobileAuthOrigins.length > 0 ? [expo()] : []),
     // OAuth proxy for preview deployments (Google doesn't allow wildcard redirect URIs)
     ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER
       ? [
