@@ -6,13 +6,16 @@ import {
   updateChannelFeaturesBody,
   updateEmailDeliveryBody,
   disconnectChannelBody,
+  linkSlackWorkspaceBody,
 } from "@/utils/actions/messaging-channels.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
+import { MessagingProvider } from "@/generated/prisma/enums";
 import {
   createSlackClient,
   getChannelInfo,
   sendChannelConfirmation,
+  lookupSlackUserByEmail,
 } from "@inboxzero/slack";
 
 export const updateSlackChannelAction = actionClient
@@ -142,3 +145,98 @@ export const disconnectChannelAction = actionClient
       },
     });
   });
+
+export const linkSlackWorkspaceAction = actionClient
+  .metadata({ name: "linkSlackWorkspace" })
+  .inputSchema(linkSlackWorkspaceBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, emailAccount, logger },
+      parsedInput: { teamId },
+    }) => {
+      const existing = await prisma.messagingChannel.findUnique({
+        where: {
+          emailAccountId_provider_teamId: {
+            emailAccountId,
+            provider: MessagingProvider.SLACK,
+            teamId,
+          },
+        },
+      });
+      if (existing?.isConnected) {
+        throw new SafeError("Workspace already connected");
+      }
+
+      // Find an org-mate's connected channel for the same Slack workspace
+      const orgMateChannel = await prisma.messagingChannel.findFirst({
+        where: {
+          provider: MessagingProvider.SLACK,
+          teamId,
+          isConnected: true,
+          accessToken: { not: null },
+          NOT: { emailAccountId },
+          emailAccount: {
+            members: {
+              some: {
+                organization: {
+                  members: { some: { emailAccountId } },
+                },
+              },
+            },
+          },
+        },
+        select: {
+          accessToken: true,
+          botUserId: true,
+          teamName: true,
+        },
+      });
+
+      if (!orgMateChannel?.accessToken) {
+        throw new SafeError(
+          "No connected workspace found in your organization",
+        );
+      }
+
+      const client = createSlackClient(orgMateChannel.accessToken);
+      const slackUser = await lookupSlackUserByEmail(
+        client,
+        emailAccount.email,
+      );
+
+      if (!slackUser) {
+        throw new SafeError(
+          "Could not find your Slack account. Your Inbox Zero email may not match your Slack profile email.",
+        );
+      }
+
+      await prisma.messagingChannel.upsert({
+        where: {
+          emailAccountId_provider_teamId: {
+            emailAccountId,
+            provider: MessagingProvider.SLACK,
+            teamId,
+          },
+        },
+        update: {
+          teamName: orgMateChannel.teamName,
+          accessToken: orgMateChannel.accessToken,
+          providerUserId: slackUser.id,
+          botUserId: orgMateChannel.botUserId,
+          isConnected: true,
+        },
+        create: {
+          provider: MessagingProvider.SLACK,
+          teamId,
+          teamName: orgMateChannel.teamName,
+          accessToken: orgMateChannel.accessToken,
+          providerUserId: slackUser.id,
+          botUserId: orgMateChannel.botUserId,
+          emailAccountId,
+          isConnected: true,
+        },
+      });
+
+      logger.info("Slack workspace linked via org-mate token", { teamId });
+    },
+  );

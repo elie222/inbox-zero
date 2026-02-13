@@ -19,3 +19,7 @@ export const updateEmailDeliveryBody = z.object({
 export const disconnectChannelBody = z.object({
   channelId: z.string().min(1),
 });
+
+export const linkSlackWorkspaceBody = z.object({
+  teamId: z.string().min(1),
+});

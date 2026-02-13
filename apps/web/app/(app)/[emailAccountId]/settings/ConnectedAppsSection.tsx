@@ -27,6 +27,7 @@ import {
 } from "@/hooks/useMessagingChannels";
 import {
   disconnectChannelAction,
+  linkSlackWorkspaceAction,
   updateSlackChannelAction,
 } from "@/utils/actions/messaging-channels";
 import { fetchWithAccount } from "@/utils/fetch";
@@ -58,6 +59,11 @@ export function ConnectedAppsSection({
     mutate: mutateChannels,
   } = useMessagingChannels(emailAccountId);
   const [connectingSlack, setConnectingSlack] = useState(false);
+  const [existingWorkspace, setExistingWorkspace] = useState<{
+    teamId: string;
+    teamName: string;
+  } | null>(null);
+  const [authUrl, setAuthUrl] = useState<string | null>(null);
 
   const connectedChannels =
     channelsData?.channels.filter((channel) => channel.isConnected) ?? [];
@@ -66,6 +72,30 @@ export function ConnectedAppsSection({
   );
   const slackAvailable =
     channelsData?.availableProviders?.includes("SLACK") ?? false;
+
+  const { execute: executeLinkSlack, status: linkStatus } = useAction(
+    linkSlackWorkspaceAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Slack connected" });
+        setExistingWorkspace(null);
+        setAuthUrl(null);
+        mutateChannels();
+      },
+      onError: (error) => {
+        const msg = getActionErrorMessage(error.error);
+        if (msg?.includes("Could not find your Slack account") && authUrl) {
+          toastInfo({
+            title: "Email not found in Slack",
+            description: "Redirecting to Slack authorization...",
+          });
+          window.location.href = authUrl;
+        } else {
+          toastError({ description: msg ?? "Failed to link Slack" });
+        }
+      },
+    },
+  );
 
   if (!isLoading && !slackAvailable && connectedChannels.length === 0)
     return null;
@@ -81,6 +111,14 @@ export function ConnectedAppsSection({
         throw new Error("Failed to get Slack auth URL");
       }
       const data: GetSlackAuthUrlResponse = await res.json();
+
+      if (data.existingWorkspace) {
+        setExistingWorkspace(data.existingWorkspace);
+        setAuthUrl(data.url);
+        setConnectingSlack(false);
+        return;
+      }
+
       if (data.url) {
         window.location.href = data.url;
       } else {
@@ -95,6 +133,11 @@ export function ConnectedAppsSection({
     }
   };
 
+  const handleLinkSlack = () => {
+    if (!existingWorkspace) return;
+    executeLinkSlack({ teamId: existingWorkspace.teamId });
+  };
+
   return (
     <SettingsSection
       title="Connected Apps"
@@ -103,15 +146,40 @@ export function ConnectedAppsSection({
       descriptionClassName="text-xs sm:text-sm"
       actions={
         !hasSlack && slackAvailable ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={connectingSlack || isLoading}
-            onClick={handleConnectSlack}
-          >
-            <SlackIcon className="mr-2 h-4 w-4" />
-            {connectingSlack ? "Connecting..." : "Connect Slack"}
-          </Button>
+          existingWorkspace ? (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={linkStatus === "executing"}
+                onClick={handleLinkSlack}
+              >
+                <SlackIcon className="mr-2 h-4 w-4" />
+                {linkStatus === "executing"
+                  ? "Linking..."
+                  : `Link to ${existingWorkspace.teamName}`}
+              </Button>
+              <button
+                type="button"
+                className="text-xs text-muted-foreground underline underline-offset-4"
+                onClick={() => {
+                  if (authUrl) window.location.href = authUrl;
+                }}
+              >
+                Install manually
+              </button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={connectingSlack || isLoading}
+              onClick={handleConnectSlack}
+            >
+              <SlackIcon className="mr-2 h-4 w-4" />
+              {connectingSlack ? "Connecting..." : "Connect Slack"}
+            </Button>
+          )
         ) : null
       }
     >
