@@ -17,7 +17,10 @@ import {
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { filterNullProperties } from "@/utils";
-import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
+import {
+  delayInMinutesSchema,
+  updateRuleConditionSchema,
+} from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
@@ -45,7 +48,7 @@ type GetUserRulesAndSettingsOutput = {
             cc: string | null;
             bcc: string | null;
             subject: string | null;
-            url: string | null;
+            webhookUrl: string | null;
             folderName: string | null;
           }>;
         }>;
@@ -160,7 +163,7 @@ export const getUserRulesAndSettingsTool = ({
                 cc: action.cc,
                 bcc: action.bcc,
                 subject: action.subject,
-                url: action.url,
+                webhookUrl: action.url,
                 folderName: action.folderName,
               }),
             })),
@@ -288,23 +291,6 @@ export const createRuleTool = ({
   });
 
 export type CreateRuleTool = InferUITool<ReturnType<typeof createRuleTool>>;
-
-const updateRuleConditionSchema = z.object({
-  ruleName: z.string().describe("The name of the rule to update"),
-  condition: z.object({
-    aiInstructions: z.string().optional(),
-    static: z
-      .object({
-        from: z.string().nullish(),
-        to: z.string().nullish(),
-        subject: z.string().nullish(),
-      })
-      .nullish(),
-    conditionalOperator: z
-      .enum([LogicalOperator.AND, LogicalOperator.OR])
-      .nullish(),
-  }),
-});
 export type UpdateRuleConditionSchema = z.infer<
   typeof updateRuleConditionSchema
 >;
@@ -460,6 +446,7 @@ export const updateRuleActionsTool = ({
           type: z.enum([
             ActionType.ARCHIVE,
             ActionType.LABEL,
+            ActionType.MOVE_FOLDER,
             ActionType.DRAFT_EMAIL,
             ActionType.FORWARD,
             ActionType.REPLY,
