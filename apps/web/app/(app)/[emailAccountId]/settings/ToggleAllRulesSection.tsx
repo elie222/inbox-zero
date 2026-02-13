@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { SettingsSection } from "@/components/SettingsSection";
 import { toggleAllRulesAction } from "@/utils/actions/rule";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 import { useRules } from "@/hooks/useRules";
 
 export function ToggleAllRulesSection({
@@ -24,8 +25,8 @@ export function ToggleAllRulesSection({
         toastSuccess({ description: "Rules updated successfully" });
         mutate();
       },
-      onError: () => {
-        toastError({ description: "Failed to update rules" });
+      onError: (error) => {
+        toastError({ description: getActionErrorMessage(error.error) });
       },
     },
   );
