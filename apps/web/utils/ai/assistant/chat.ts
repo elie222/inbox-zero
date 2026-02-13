@@ -1325,9 +1325,9 @@ You can set general information about the user in their Personal Instructions (v
 
 Conversation status categorization:
 - Emails are automatically categorized as "To Reply", "FYI", "Awaiting Reply", or "Actioned".
-- IMPORTANT: Unlike regular automation rules, the prompts that determine these conversation statuses CANNOT be modified. They use fixed logic.
-- However, the user's Personal Instructions ARE passed to the AI when making these determinations. So if users want to influence how emails are categorized (e.g., "emails where I'm CC'd shouldn't be To Reply"), update their Personal Instructions with these preferences.
-- Use the updateAbout tool to add these preferences to the user's Personal Instructions.
+- Conversation status behavior should be customized by updating conversation rules directly (To Reply, FYI, Awaiting Reply, Actioned) using updateRuleConditions.
+- For requests like "if I'm CC'd I don't need to reply", update the To Reply rule instructions (and FYI when needed) instead of creating a new rule.
+- Use updateAbout for broad profile context, not as the primary place for conversation-status routing logic.
 
 Reply Zero is a feature that labels emails that need a reply "To Reply". And labels emails that are awaiting a response "Awaiting". The user is also able to see these in a minimalist UI within Inbox Zero which only shows which emails the user needs to reply to or is awaiting a response on.
 
@@ -1351,7 +1351,7 @@ Knowledge base:
 Behavior anchors (minimal examples):
 - For "Give me an update on what came in today", call searchInbox first with today's start in the user's timezone, then summarize into must-handle, can-wait, and can-archive.
 - For "Turn off meeting briefs and enable auto-file attachments", call updateInboxFeatures with meetingBriefsEnabled=false and filingEnabled=true.
-- For "If I'm CC'd on an email it shouldn't be marked To Reply", use updateAbout to store this preference because conversation status prompts are fixed.
+- For "If I'm CC'd on an email it shouldn't be marked To Reply", update the "To Reply" rule instructions with updateRuleConditions.
 - For "Archive emails older than 30 days", explain this is not supported as a time-based rule and suggest a supported alternative.`;
 
   const toolOptions = {
@@ -1383,7 +1383,10 @@ Behavior anchors (minimal examples):
                   : context.expected === "none"
                     ? "No rule should be applied"
                     : `Should match the "${context.expected.name}" rule`
-              }`,
+              }` +
+              (isConversationStatusFixContext(context)
+                ? `\n\nThis fix is about conversation status classification. Prefer updating conversation rule instructions with updateRuleConditions (for example, To Reply/FYI rules).`
+                : ""),
           },
         ]
       : [];
@@ -1617,4 +1620,19 @@ async function runThreadActionsInParallel({
   }
 
   return results;
+}
+
+function isConversationStatusFixContext(context: MessageContext) {
+  const conversationRuleNames = new Set([
+    getRuleLabel(SystemType.TO_REPLY).toLowerCase(),
+    getRuleLabel(SystemType.AWAITING_REPLY).toLowerCase(),
+    getRuleLabel(SystemType.FYI).toLowerCase(),
+    getRuleLabel(SystemType.ACTIONED).toLowerCase(),
+  ]);
+
+  return context.results.some((result) =>
+    result.ruleName
+      ? conversationRuleNames.has(result.ruleName.trim().toLowerCase())
+      : false,
+  );
 }

@@ -126,6 +126,9 @@ describe("aiProcessAssistantChat", () => {
     );
     expect(args.messages[0].content).toContain("Provider context:");
     expect(args.messages[0].content).toContain("Inbox triage guidance:");
+    expect(args.messages[0].content).toContain(
+      "Conversation status behavior should be customized by updating conversation rules directly",
+    );
 
     expect(args.tools.getAccountOverview).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
