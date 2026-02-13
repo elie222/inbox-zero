@@ -25,6 +25,10 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
+vi.mock("@/utils/error", () => ({
+  captureException: vi.fn(),
+}));
+
 vi.mock("@/utils/referral/referral-code", () => ({
   getOrCreateReferralCode: vi.fn().mockResolvedValue({ code: "TEST123" }),
 }));
@@ -282,6 +286,49 @@ describe("generateFollowUpDraft", () => {
     expect(mockLogger.warn).toHaveBeenCalledWith(
       "Thread has no messages",
       expect.any(Object),
+    );
+  });
+
+  it("succeeds even when tracker update fails after draft creation", async () => {
+    vi.mocked(prisma.threadTracker.update).mockRejectedValue(
+      new Error("Record to update not found"),
+    );
+
+    const externalMessage = createMockMessage({
+      id: "external-msg",
+      headers: {
+        from: "bob@external.com",
+        to: "user@example.com",
+        subject: "Original Question",
+        date: "2024-01-01T00:00:00Z",
+      },
+    });
+
+    const mockProvider = createMockProvider({
+      getThread: vi.fn().mockResolvedValue({
+        id: "thread-1",
+        messages: [externalMessage],
+        snippet: "Test",
+      }),
+    });
+
+    // Should NOT throw even though tracker update fails
+    await generateFollowUpDraft({
+      emailAccount: createMockEmailAccount(),
+      threadId: "thread-1",
+      trackerId: "tracker-1",
+      provider: mockProvider,
+      logger: mockLogger,
+    });
+
+    expect(mockProvider.draftEmail).toHaveBeenCalled();
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      "Failed to update tracker with draftId",
+      expect.objectContaining({ trackerId: "tracker-1" }),
+    );
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      "Follow-up draft created",
+      expect.objectContaining({ draftId: "draft-123" }),
     );
   });
 

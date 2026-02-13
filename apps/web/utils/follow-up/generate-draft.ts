@@ -8,6 +8,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { extractEmailAddress } from "@/utils/email";
 import { escapeHtml } from "@/utils/string";
 import prisma from "@/utils/prisma";
+import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
@@ -135,10 +136,23 @@ export async function generateFollowUpDraft({
       undefined,
     );
 
-    await prisma.threadTracker.update({
-      where: { id: trackerId },
-      data: { followUpDraftId: draftId },
-    });
+    // Store draftId in tracker so dedup can detect existing drafts.
+    // Wrapped in its own try-catch so a tracker update failure doesn't
+    // prevent the function from returning successfully (draft was already created).
+    try {
+      await prisma.threadTracker.update({
+        where: { id: trackerId },
+        data: { followUpDraftId: draftId },
+      });
+    } catch (updateError) {
+      logger.error("Failed to update tracker with draftId", {
+        threadId,
+        draftId,
+        trackerId,
+        error: updateError,
+      });
+      captureException(updateError);
+    }
 
     logger.info("Follow-up draft created", { threadId, draftId });
   } catch (error) {
