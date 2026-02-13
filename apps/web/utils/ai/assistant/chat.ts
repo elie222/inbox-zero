@@ -959,17 +959,29 @@ const senderEmailsSchema = z
 const manageInboxInputSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("archive_threads"),
-    threadIds: threadIdsSchema,
-    labelId: z.string().optional(),
+    threadIds: threadIdsSchema.describe(
+      "Thread IDs to archive. Provide IDs from searchInbox results.",
+    ),
+    labelId: z
+      .string()
+      .optional()
+      .describe("Optional provider label/category ID to apply while archiving."),
   }),
   z.object({
     action: z.literal("mark_read_threads"),
-    threadIds: threadIdsSchema,
-    read: z.boolean().default(true),
+    threadIds: threadIdsSchema.describe(
+      "Thread IDs to mark read or unread. Provide IDs from searchInbox results.",
+    ),
+    read: z
+      .boolean()
+      .default(true)
+      .describe("True to mark as read; false to mark as unread."),
   }),
   z.object({
     action: z.literal("bulk_archive_senders"),
-    fromEmails: senderEmailsSchema,
+    fromEmails: senderEmailsSchema.describe(
+      "Sender email addresses to bulk archive by sender.",
+    ),
   }),
 ]);
 
@@ -1053,11 +1065,35 @@ export type ManageInboxTool = InferUITool<ReturnType<typeof manageInboxTool>>;
 
 const updateInboxFeaturesInputSchema = z
   .object({
-    meetingBriefsEnabled: z.boolean().optional(),
-    meetingBriefsMinutesBefore: z.number().int().min(1).max(2880).optional(),
-    meetingBriefsSendEmail: z.boolean().optional(),
-    filingEnabled: z.boolean().optional(),
-    filingPrompt: z.string().max(6000).optional().nullable(),
+    meetingBriefsEnabled: z
+      .boolean()
+      .optional()
+      .describe("Enable or disable meeting briefs."),
+    meetingBriefsMinutesBefore: z
+      .number()
+      .int()
+      .min(1)
+      .max(2880)
+      .optional()
+      .describe(
+        "Minutes before a meeting to send a brief (1-2880). Applies when meeting briefs are enabled.",
+      ),
+    meetingBriefsSendEmail: z
+      .boolean()
+      .optional()
+      .describe("Enable or disable email delivery for meeting briefs."),
+    filingEnabled: z
+      .boolean()
+      .optional()
+      .describe("Enable or disable auto-file attachments."),
+    filingPrompt: z
+      .string()
+      .max(6000)
+      .optional()
+      .nullable()
+      .describe(
+        "Custom filing instructions. Set null to clear existing instructions.",
+      ),
   })
   .refine(
     (value) =>
@@ -1223,6 +1259,13 @@ Tool usage strategy (progressive disclosure):
 - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
 - Only send emails when the user clearly asks to send now.
 
+Tool call policy:
+- When a request can be completed with available tools, call the tool instead of only describing what you would do.
+- If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
+- Never invent thread IDs, label IDs, sender addresses, or existing rule names.
+- For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
+- For ambiguous destructive requests (for example archive vs mark read), ask a brief clarification question before writing.
+
 Provider context:
 - Current provider: ${user.account.provider}.
 - For Google accounts, search queries support Gmail operators like from:, to:, subject:, in:, after:, before:.
@@ -1305,240 +1348,11 @@ Knowledge base:
 - The knowledge base is used to draft reply content.
 - It is only used when an action of type DRAFT_REPLY is used AND the rule has no preset draft content.
 
-Examples:
-
-<examples>
-  <example>
-    <input>
-      When I get a newsletter, archive it and label it as "Newsletter"
-    </input>
-    <output>
-      <create_rule>
-        {
-          "name": "Newsletters",
-          "condition": { "aiInstructions": "Newsletters" },
-          "actions": [
-            {
-              "type": "archive",
-              "fields": {}
-            },
-            {
-              "type": "label",
-              "fields": {
-                "label": "Newsletter"
-              }
-            }
-          ]
-        }
-      </create_rule>
-      <explanation>
-        I created a rule to label newsletters.
-      </explanation>
-    </output>
-  </example>
-
-  <example>
-    <input>
-      I run a marketing agency and use this email address for cold outreach.
-      If someone shows interest, label it "Interested".
-      If someone says they're interested in learning more, send them my Cal link (cal.com/alice).
-      If they ask for more info, send them my deck (https://drive.google.com/alice-deck.pdf).
-      If they're not interested, label it as "Not interested" and archive it.
-      If you don't know how to respond, label it as "Needs review".
-    </input>
-    <output>
-      <update_about>
-        I run a marketing agency and use this email address for cold outreach.
-        My cal link is https://cal.com/alice
-        My deck is https://drive.google.com/alice-deck.pdf
-        Write concise and friendly replies.
-      </update_about>
-      <create_rule>
-        {
-          "name": "Interested",
-          "condition": { "aiInstructions": "When someone shows interest in setting up a call or learning more." },
-          "actions": [
-            {
-              "type": "label",
-              "fields": {
-                "label": "Interested"
-              }
-            },
-            {
-              "type": "draft",
-              "fields": {
-                "content": "{{draft a reply}}"
-              }
-            }
-          ]
-        }
-      </create_rule>
-      <create_rule>
-        {
-          "name": "Not Interested",
-          "condition": { "aiInstructions": "When someone says they're not interested." },
-          "actions": [
-            {
-              "type": "label",
-              "fields": {
-                "label": "Not Interested"
-              }
-            },
-            {
-              "type": "archive",
-              "fields": {}
-            }
-          ]
-        }
-      </create_rule>
-      <create_rule>
-        {
-          "name": "Needs Review",
-          "condition": { "aiInstructions": "When you don't know how to respond." },
-          "actions": [
-            {
-              "type": "label",
-              "fields": {
-                "label": "Needs Review"
-              }
-            }
-          ]
-        }
-      </create_rule>
-      <explanation>
-        I created three rules to handle different types of responses.
-      </explanation>
-    </output>
-  </example>
-
-  <example>
-    <input>
-      Set a rule to archive emails older than 30 days.
-    </input>
-    <output>
-      Inbox Zero doesn't support time-based actions yet. We only process emails as they arrive in your inbox.
-    </output>
-  </example>
-
-  <example>
-    <input>
-      Create some good default rules for me.
-    </input>
-    <output>
-      <create_rule>
-        {
-          "name": "Urgent",
-          "condition": { "aiInstructions": "Urgent emails" },
-          "actions": [
-            { "type": "label", "fields": { "label": "Urgent" } }
-          ]
-        }
-      </create_rule>
-      <create_rule>
-        {
-          "name": "Newsletters",
-          "condition": { "aiInstructions": "Newsletters" },
-          "actions": [
-            { "type": "archive", "fields": {} },
-            { "type": "label", "fields": { "label": "Newsletter" } }
-          ]
-        }
-      </create_rule>
-      <create_rule>
-        {
-          "name": "Promotions",
-          "condition": { "aiInstructions": "Marketing and promotional emails" },
-          "actions": [
-            { "type": "archive", "fields": {} },
-            { "type": "label", "fields": { "label": "Promotions" } }
-          ]
-        }
-      </create_rule>
-      <create_rule>
-        {
-          "name": "Team",
-          "condition": { "static": { "from": "@company.com" } },
-          "actions": [
-            { "type": "label", "fields": { "label": "Team" } }
-          ]
-        }
-      </create_rule>
-      <explanation>
-        I created 4 rules to handle different types of emails.
-      </explanation>
-    </output>
-  </example>
-
-  <example>
-    <input>
-      I don't need to reply to emails from GitHub, stop labelling them as "To reply".
-    </input>
-    <output>
-      <update_rule>
-        {
-          "name": "To reply",
-          "learnedPatterns": [
-            { "exclude": { "from": "@github.com" } }
-          ]
-        }
-      </update_rule>
-      <explanation>
-        I updated the rule to stop labelling emails from GitHub as "To reply".
-      </explanation>
-    </output>
-  </example>
-
-  <example>
-    <input>
-      If I'm CC'd on an email it shouldn't be marked as "To Reply"
-    </input>
-    <output>
-      <update_about>
-        [existing about content...]
-        
-        - Emails where I am CC'd (not in the TO field) should not be marked as "To Reply" - they are FYI only.
-      </update_about>
-      <explanation>
-        I can't directly modify the conversation status prompts, but I've added this preference to your Personal Instructions. The AI will now take this into account when categorizing your emails.
-      </explanation>
-    </output>
-  </example>
-
-  <example>
-    <input>
-      Give me an update on what came into the inbox today. What do I have to handle? What can we put to the side?
-    </input>
-    <output>
-      <search_inbox>
-        {
-          "after": "[today at start of day in user's timezone]",
-          "inboxOnly": true,
-          "limit": 50
-        }
-      </search_inbox>
-      <explanation>
-        I reviewed today's inbox, highlighted the must-handle items first, and separated lower-priority messages that can wait or be archived.
-      </explanation>
-    </output>
-  </example>
-
-  <example>
-    <input>
-      Turn off meeting briefs and enable auto-file attachments.
-    </input>
-    <output>
-      <update_inbox_features>
-        {
-          "meetingBriefsEnabled": false,
-          "filingEnabled": true
-        }
-      </update_inbox_features>
-      <explanation>
-        I turned off meeting briefs and enabled auto-file attachments.
-      </explanation>
-    </output>
-  </example>
-</examples>`;
+Behavior anchors (minimal examples):
+- For "Give me an update on what came in today", call searchInbox first with today's start in the user's timezone, then summarize into must-handle, can-wait, and can-archive.
+- For "Turn off meeting briefs and enable auto-file attachments", call updateInboxFeatures with meetingBriefsEnabled=false and filingEnabled=true.
+- For "If I'm CC'd on an email it shouldn't be marked To Reply", use updateAbout to store this preference because conversation status prompts are fixed.
+- For "Archive emails older than 30 days", explain this is not supported as a time-based rule and suggest a supported alternative.`;
 
   const toolOptions = {
     email: user.email,
