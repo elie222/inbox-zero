@@ -146,47 +146,48 @@ export async function processSlackEvent(
   const replyThreadTs = type === "app_mention" ? (thread_ts ?? ts) : undefined;
 
   // Acknowledge receipt with a reaction
-  await addReaction(client, channel, ts, "eyes");
+  const slackLogger = logger.with({ teamId, channel, emailAccountId });
+  await addReaction(client, channel, ts, "eyes", slackLogger);
 
   // Process with AI
-  const slackLogger = logger.with({ teamId, channel, emailAccountId });
-  let fullText: string;
   try {
-    const result = await aiProcessAssistantChat({
-      messages: await convertToModelMessages(allMessages),
-      emailAccountId,
-      user: emailAccountUser,
-      logger: slackLogger,
+    let fullText: string;
+    try {
+      const result = await aiProcessAssistantChat({
+        messages: await convertToModelMessages(allMessages),
+        emailAccountId,
+        user: emailAccountUser,
+        logger: slackLogger,
+      });
+      fullText = await result.text;
+    } catch (error) {
+      slackLogger.error("AI processing failed for Slack message", { error });
+      await client.chat.postMessage({
+        channel,
+        text: "Sorry, I ran into an error processing your message. Please try again.",
+        ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
+      });
+      return;
+    }
+
+    // Save assistant message
+    const assistantParts = [{ type: "text" as const, text: fullText }];
+    await prisma.chatMessage.create({
+      data: {
+        chat: { connect: { id: chat.id } },
+        role: "assistant",
+        parts: assistantParts as unknown as Prisma.InputJsonValue,
+      },
     });
-    fullText = await result.text;
-  } catch (error) {
-    slackLogger.error("AI processing failed for Slack message", { error });
-    await removeReaction(client, channel, ts, "eyes");
+
     await client.chat.postMessage({
       channel,
-      text: "Sorry, I ran into an error processing your message. Please try again.",
+      text: markdownToSlackMrkdwn(fullText),
       ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
     });
-    return;
+  } finally {
+    await removeReaction(client, channel, ts, "eyes", slackLogger);
   }
-
-  // Save assistant message
-  const assistantParts = [{ type: "text" as const, text: fullText }];
-  await prisma.chatMessage.create({
-    data: {
-      chat: { connect: { id: chat.id } },
-      role: "assistant",
-      parts: assistantParts as unknown as Prisma.InputJsonValue,
-    },
-  });
-
-  await client.chat.postMessage({
-    channel,
-    text: markdownToSlackMrkdwn(fullText),
-    ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
-  });
-
-  await removeReaction(client, channel, ts, "eyes");
 }
 
 type Candidate = {

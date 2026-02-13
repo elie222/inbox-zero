@@ -8,6 +8,12 @@ vi.mock("@/utils/prisma");
 const mockPostMessage = vi.fn().mockResolvedValue({});
 const mockReactionsAdd = vi.fn().mockResolvedValue({});
 const mockReactionsRemove = vi.fn().mockResolvedValue({});
+type MockClient = {
+  reactions: {
+    add: typeof mockReactionsAdd;
+    remove: typeof mockReactionsRemove;
+  };
+};
 vi.mock("@inboxzero/slack", () => ({
   createSlackClient: vi.fn(() => ({
     chat: { postMessage: mockPostMessage },
@@ -15,12 +21,22 @@ vi.mock("@inboxzero/slack", () => ({
   })),
   markdownToSlackMrkdwn: vi.fn((text: string) => text),
   addReaction: vi.fn(
-    async (client: any, channel: string, timestamp: string, name: string) => {
+    async (
+      client: MockClient,
+      channel: string,
+      timestamp: string,
+      name: string,
+    ) => {
       await client.reactions.add({ channel, timestamp, name });
     },
   ),
   removeReaction: vi.fn(
-    async (client: any, channel: string, timestamp: string, name: string) => {
+    async (
+      client: MockClient,
+      channel: string,
+      timestamp: string,
+      name: string,
+    ) => {
       await client.reactions.remove({ channel, timestamp, name });
     },
   ),
