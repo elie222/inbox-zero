@@ -460,6 +460,7 @@ const updateRuleActionsTool = ({
           type: z.enum([
             ActionType.ARCHIVE,
             ActionType.LABEL,
+            ActionType.MOVE_FOLDER,
             ActionType.DRAFT_EMAIL,
             ActionType.FORWARD,
             ActionType.REPLY,
@@ -485,6 +486,19 @@ const updateRuleActionsTool = ({
     }),
     execute: async ({ ruleName, actions }) => {
       trackToolCall({ tool: "update_rule_actions", email, logger });
+
+      if (
+        !isMicrosoftProvider(provider) &&
+        actions.some((action) => action.type === ActionType.MOVE_FOLDER)
+      ) {
+        return {
+          success: false,
+          ruleId: "",
+          error:
+            "MOVE_FOLDER actions are only supported for Microsoft accounts.",
+        };
+      }
+
       const rule = await prisma.rule.findUnique({
         where: { name_emailAccountId: { name: ruleName, emailAccountId } },
         select: {
@@ -1263,6 +1277,8 @@ Provider context:
 - Current provider: ${user.account.provider}.
 - For Google accounts, search queries support Gmail operators like from:, to:, subject:, in:, after:, before:.
 - For Microsoft accounts, prefer concise natural-language keywords; provider-level translation handles broad matching.
+- Google action mapping: LABEL actions apply Gmail labels.
+- Microsoft action mapping: LABEL actions apply Outlook categories, and MOVE_FOLDER actions move emails to Outlook folders.
 
 A rule is comprised of:
 1. A condition
@@ -1530,7 +1546,7 @@ Examples:
     <output>
       <updateAbout>
         {
-          "about": "[existing about content...]\n\n- Emails where I am CC'd (not in the TO field) should not be marked as \"To Reply\" - they are FYI only."
+          "about": "[existing about content...]\n\n- Emails where I am CC'd (not in the TO field) should not be marked as "To Reply" - they are FYI only."
         }
       </updateAbout>
       <explanation>

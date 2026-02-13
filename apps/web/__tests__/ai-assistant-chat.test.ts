@@ -126,6 +126,12 @@ describe("aiProcessAssistantChat", () => {
       "Tool usage strategy (progressive disclosure):",
     );
     expect(args.messages[0].content).toContain("Provider context:");
+    expect(args.messages[0].content).toContain(
+      "Google action mapping: LABEL actions apply Gmail labels.",
+    );
+    expect(args.messages[0].content).toContain(
+      "Microsoft action mapping: LABEL actions apply Outlook categories, and MOVE_FOLDER actions move emails to Outlook folders.",
+    );
     expect(args.messages[0].content).toContain("Inbox triage guidance:");
     expect(args.messages[0].content).toContain(
       "For conversation status rules, static conditions (from/to/subject) and learned patterns are ignored by the status engine.",
@@ -465,5 +471,74 @@ describe("aiProcessAssistantChat", () => {
         note: "Ignored static and conditionalOperator updates for conversation status rule.",
       }),
     );
+  });
+
+  it("rejects MOVE_FOLDER action updates for non-Microsoft providers", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    const result = await tools.updateRuleActions.execute({
+      ruleName: "Any Rule",
+      actions: [
+        {
+          type: "MOVE_FOLDER",
+          fields: {
+            folderName: "Important",
+          },
+          delayInMinutes: null,
+        },
+      ],
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: false,
+        ruleId: "",
+      }),
+    );
+    expect(result.error).toContain("only supported for Microsoft accounts");
+    expect(mockPrisma.rule.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.rule.update).not.toHaveBeenCalled();
+  });
+
+  it("accepts MOVE_FOLDER action updates for Microsoft providers", async () => {
+    const tools = await captureToolSet(true, "microsoft");
+
+    const getOrCreateFolderIdByName = vi.fn().mockResolvedValue("folder-id");
+    mockCreateEmailProvider.mockResolvedValue({
+      getOrCreateFolderIdByName,
+    });
+
+    mockPrisma.rule.findUnique.mockResolvedValue({
+      id: "rule-folders",
+      name: "Folder Rule",
+      actions: [],
+    });
+    mockPrisma.rule.update.mockResolvedValue({});
+
+    const result = await tools.updateRuleActions.execute({
+      ruleName: "Folder Rule",
+      actions: [
+        {
+          type: "MOVE_FOLDER",
+          fields: {
+            folderName: "Important",
+          },
+          delayInMinutes: null,
+        },
+      ],
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        ruleId: "rule-folders",
+      }),
+    );
+    expect(mockPrisma.rule.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "rule-folders" },
+      }),
+    );
+    expect(getOrCreateFolderIdByName).toHaveBeenCalledWith("Important");
   });
 });
