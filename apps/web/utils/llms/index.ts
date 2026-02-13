@@ -403,7 +403,17 @@ export async function toolCallAgentStream({
     return await agent.stream({
       messages,
       experimental_transform: smoothStream({ chunking: "word" }),
-      onStepFinish,
+      onStepFinish: onStepFinish
+        ? async (stepResult) => {
+            await onStepFinish(
+              stepResult as Parameters<
+                NonNullable<
+                  StreamTextOnStepFinishCallback<Record<string, Tool>>
+                >
+              >[0],
+            );
+          }
+        : undefined,
     });
   } catch (error) {
     logger.error("Error in chat completion stream", {
