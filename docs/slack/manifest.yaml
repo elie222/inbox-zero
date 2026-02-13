@@ -24,6 +24,7 @@ oauth_config:
       - im:read
       - im:write
       - im:history
+      - reactions:write
   redirect_urls:
     - https://YOUR_DOMAIN/api/slack/callback
 

@@ -1,7 +1,12 @@
 import { convertToModelMessages, type UIMessage } from "ai";
 import prisma from "@/utils/prisma";
 import { MessagingProvider } from "@/generated/prisma/enums";
-import { createSlackClient, markdownToSlackMrkdwn } from "@inboxzero/slack";
+import {
+  createSlackClient,
+  markdownToSlackMrkdwn,
+  addReaction,
+  removeReaction,
+} from "@inboxzero/slack";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
@@ -140,6 +145,9 @@ export async function processSlackEvent(
   const client = createSlackClient(accessToken);
   const replyThreadTs = type === "app_mention" ? (thread_ts ?? ts) : undefined;
 
+  // Acknowledge receipt with a reaction
+  await addReaction(client, channel, ts, "eyes");
+
   // Process with AI
   const slackLogger = logger.with({ teamId, channel, emailAccountId });
   let fullText: string;
@@ -153,6 +161,7 @@ export async function processSlackEvent(
     fullText = await result.text;
   } catch (error) {
     slackLogger.error("AI processing failed for Slack message", { error });
+    await removeReaction(client, channel, ts, "eyes");
     await client.chat.postMessage({
       channel,
       text: "Sorry, I ran into an error processing your message. Please try again.",
@@ -176,6 +185,8 @@ export async function processSlackEvent(
     text: markdownToSlackMrkdwn(fullText),
     ...(replyThreadTs ? { thread_ts: replyThreadTs } : {}),
   });
+
+  await removeReaction(client, channel, ts, "eyes");
 }
 
 type Candidate = {
