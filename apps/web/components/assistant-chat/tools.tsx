@@ -34,6 +34,11 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+export type ThreadLookup = Map<
+  string,
+  { subject: string; from: string; snippet: string }
+>;
+
 function getOutputField<T>(output: unknown, field: string): T | undefined {
   if (typeof output === "object" && output !== null && field in output) {
     return (output as Record<string, unknown>)[field] as T;
@@ -146,8 +151,12 @@ export function SearchInboxResult({ output }: { output: unknown }) {
 
 export function ManageInboxResult({
   output,
+  threadIds,
+  threadLookup,
 }: {
   output: unknown;
+  threadIds?: string[];
+  threadLookup: ThreadLookup;
 }) {
   const action = getOutputField<string>(output, "action");
   const successCount = getOutputField<number>(output, "successCount");
@@ -160,23 +169,31 @@ export function ManageInboxResult({
       ? `Bulk archived ${sendersCount || 0} sender${sendersCount === 1 ? "" : "s"}`
       : `Completed inbox action${typeof successCount === "number" ? ` (${successCount} items)` : ""}`;
 
+  const resolvedThreads = threadIds
+    ?.map((id) => threadLookup.get(id))
+    .filter(Boolean);
+
   return (
     <CollapsibleToolCard summary={summaryText}>
       <div className="space-y-1 text-sm">
-        {action && (
-          <div className="text-xs text-muted-foreground">
-            Action: {action.replace(/_/g, " ")}
-          </div>
-        )}
-
-        {typeof successCount === "number" && (
-          <div className="text-xs text-muted-foreground">
-            Succeeded: {successCount}
-          </div>
-        )}
-
         {typeof failedCount === "number" && failedCount > 0 && (
           <div className="text-xs text-red-500">Failed: {failedCount}</div>
+        )}
+
+        {resolvedThreads && resolvedThreads.length > 0 && (
+          <div className="space-y-1">
+            {resolvedThreads.map((thread, i) => (
+              <div
+                key={i}
+                className="rounded-md bg-muted px-3 py-2 text-sm"
+              >
+                <div className="truncate">{thread.from}</div>
+                <div className="truncate text-muted-foreground">
+                  {thread.subject}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
         {senders && senders.length > 0 && (
