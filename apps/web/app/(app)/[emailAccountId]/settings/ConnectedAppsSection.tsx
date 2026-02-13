@@ -2,14 +2,33 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { HashIcon, MessageSquareIcon, SlackIcon, XIcon } from "lucide-react";
+import {
+  HashIcon,
+  LockIcon,
+  MessageSquareIcon,
+  SlackIcon,
+  XIcon,
+} from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SettingsSection } from "@/components/SettingsSection";
 import { toastSuccess, toastError, toastInfo } from "@/components/Toast";
-import { useMessagingChannels } from "@/hooks/useMessagingChannels";
-import { disconnectChannelAction } from "@/utils/actions/messaging-channels";
+import {
+  useChannelTargets,
+  useMessagingChannels,
+} from "@/hooks/useMessagingChannels";
+import {
+  disconnectChannelAction,
+  updateSlackChannelAction,
+} from "@/utils/actions/messaging-channels";
 import { fetchWithAccount } from "@/utils/fetch";
 import { captureException } from "@/utils/error";
 import { getActionErrorMessage } from "@/utils/error";
@@ -123,12 +142,22 @@ function ConnectedChannelRow({
     id: string;
     provider: MessagingProvider;
     teamName: string | null;
+    channelId: string | null;
+    channelName: string | null;
   };
   emailAccountId: string;
   onUpdate: () => void;
 }) {
   const config = PROVIDER_CONFIG[channel.provider];
   const Icon = config?.icon ?? MessageSquareIcon;
+  const [selectingTarget, setSelectingTarget] = useState(!channel.channelId);
+  const selectingSlackTarget = channel.provider === "SLACK" && selectingTarget;
+  const {
+    data: targetsData,
+    isLoading: isLoadingTargets,
+    error: targetsError,
+  } = useChannelTargets(selectingSlackTarget ? channel.id : null);
+  const privateTargets = targetsData?.targets.filter((target) => target.isPrivate);
 
   const { execute: executeDisconnect, status: disconnectStatus } = useAction(
     disconnectChannelAction.bind(null, emailAccountId),
@@ -146,19 +175,105 @@ function ConnectedChannelRow({
     },
   );
 
+  const { execute: executeSetTarget, status: setTargetStatus } = useAction(
+    updateSlackChannelAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Slack channel updated" });
+        setSelectingTarget(false);
+        onUpdate();
+      },
+      onError: (error) => {
+        toastError({
+          description:
+            getActionErrorMessage(error.error) ?? "Failed to update channel",
+        });
+      },
+    },
+  );
+
   return (
-    <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
-      <div className="flex items-center gap-2 text-sm">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <span>
-          {config?.name ?? channel.provider}
-          {channel.teamName && (
-            <span className="text-muted-foreground">
-              {" "}
-              &middot; {channel.teamName}
-            </span>
+    <div className="flex items-start justify-between rounded-md border bg-muted/30 px-3 py-2">
+      <div className="flex items-start gap-2 text-sm">
+        <Icon className="mt-0.5 h-4 w-4 text-muted-foreground" />
+        <div className="space-y-1">
+          <div>
+            {config?.name ?? channel.provider}
+            {channel.teamName && (
+              <span className="text-muted-foreground">
+                {" "}
+                &middot; {channel.teamName}
+              </span>
+            )}
+          </div>
+
+          {channel.provider === "SLACK" && (
+            <div className="space-y-1">
+              {channel.channelId && !selectingTarget ? (
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground underline underline-offset-4"
+                  onClick={() => setSelectingTarget(true)}
+                >
+                  #{channel.channelName || channel.channelId}
+                </button>
+              ) : (
+                <Select
+                  onValueChange={(value) => {
+                    const target = privateTargets?.find((t) => t.id === value);
+                    if (!target) return;
+
+                    executeSetTarget({
+                      channelId: channel.id,
+                      targetId: target.id,
+                      targetName: target.name,
+                    });
+                  }}
+                  disabled={
+                    isLoadingTargets ||
+                    !!targetsError ||
+                    setTargetStatus === "executing"
+                  }
+                >
+                  <SelectTrigger className="h-8 w-52 text-xs">
+                    <SelectValue
+                      placeholder={
+                        targetsError
+                          ? "Failed to load channels"
+                          : isLoadingTargets
+                            ? "Loading channels..."
+                            : "Select private channel"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {privateTargets?.map((target) => (
+                      <SelectItem key={target.id} value={target.id}>
+                        <LockIcon className="mr-1 inline h-3 w-3" />
+                        {target.name}
+                      </SelectItem>
+                    ))}
+                    {!isLoadingTargets &&
+                      privateTargets &&
+                      privateTargets.length === 0 && (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          No private channels found
+                        </div>
+                      )}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {selectingTarget && !isLoadingTargets && (
+                <div className="text-xs text-muted-foreground">
+                  Invite the bot with{" "}
+                  <code className="rounded bg-muted px-1">/invite @InboxZero</code>{" "}
+                  in a private channel.
+                </div>
+              )}
+            </div>
           )}
-        </span>
+        </div>
       </div>
 
       <Button
