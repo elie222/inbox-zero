@@ -160,7 +160,6 @@ export async function handleSlackCallback(
     }
 
     const errorRedirectUrl = new URL(errorPath, env.NEXT_PUBLIC_BASE_URL);
-    errorRedirectUrl.searchParams.set("tab", "email");
     errorRedirectUrl.searchParams.set("error", "connection_failed");
     errorRedirectUrl.searchParams.set("error_reason", reason);
     errorRedirectUrl.searchParams.set("error_detail", errorDetail);
@@ -187,7 +186,6 @@ function validateOAuthCallback(
   const storedState = request.cookies.get(SLACK_STATE_COOKIE_NAME)?.value;
 
   const redirectUrl = new URL("/settings", env.NEXT_PUBLIC_BASE_URL);
-  redirectUrl.searchParams.set("tab", "email");
   const response = NextResponse.redirect(redirectUrl);
 
   response.cookies.delete(SLACK_STATE_COOKIE_NAME);
@@ -281,7 +279,6 @@ function buildSettingsRedirectUrl(emailAccountId: string): URL {
     prefixPath(emailAccountId, "/settings"),
     env.NEXT_PUBLIC_BASE_URL,
   );
-  url.searchParams.set("tab", "email");
   return url;
 }
 
