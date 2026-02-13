@@ -9,12 +9,11 @@ export async function lookupSlackUserByEmail(
     if (!response.user?.id) return null;
     return { id: response.user.id, name: response.user.name ?? "" };
   } catch (error: unknown) {
-    if (
-      error instanceof Error &&
-      "data" in error &&
-      (error as Error & { data?: { error?: string } }).data?.error ===
-        "users_not_found"
-    ) {
+    const slackError =
+      error instanceof Error && "data" in error
+        ? (error as Error & { data?: { error?: string } }).data?.error
+        : undefined;
+    if (slackError === "users_not_found" || slackError === "missing_scope") {
       return null;
     }
     throw error;

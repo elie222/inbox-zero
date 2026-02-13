@@ -92,6 +92,9 @@ async function findOrgMateWorkspace(
     select: { teamId: true, teamName: true },
   });
 
-  if (!channel?.teamName) return null;
-  return { teamId: channel.teamId, teamName: channel.teamName };
+  if (!channel) return null;
+  return {
+    teamId: channel.teamId,
+    teamName: channel.teamName ?? "Slack workspace",
+  };
 }
