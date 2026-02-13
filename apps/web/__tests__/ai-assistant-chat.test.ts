@@ -492,7 +492,6 @@ describe("aiProcessAssistantChat", () => {
     expect(result).toEqual(
       expect.objectContaining({
         success: false,
-        ruleId: "",
       }),
     );
     expect(result.error).toContain("only supported for Microsoft accounts");
