@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { generateFollowUpDraft } from "./generate-draft";
+import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
@@ -23,6 +24,14 @@ vi.mock("@/utils/prisma", () => ({
       update: vi.fn(),
     },
   },
+}));
+
+vi.mock("@/utils/prisma-retry", () => ({
+  withPrismaRetry: vi.fn((fn: () => Promise<unknown>) => fn()),
+}));
+
+vi.mock("@/utils/error", () => ({
+  captureException: vi.fn(),
 }));
 
 vi.mock("@/utils/referral/referral-code", () => ({
@@ -283,6 +292,44 @@ describe("generateFollowUpDraft", () => {
       "Thread has no messages",
       expect.any(Object),
     );
+  });
+
+  it("succeeds even when tracker update fails after draft creation", async () => {
+    vi.mocked(prisma.threadTracker.update).mockRejectedValue(
+      new Error("Record to update not found"),
+    );
+
+    const externalMessage = createMockMessage({
+      id: "external-msg",
+      headers: {
+        from: "bob@external.com",
+        to: "user@example.com",
+        subject: "Original Question",
+        date: "2024-01-01T00:00:00Z",
+      },
+    });
+
+    const mockProvider = createMockProvider({
+      getThread: vi.fn().mockResolvedValue({
+        id: "thread-1",
+        messages: [externalMessage],
+        snippet: "Test",
+      }),
+    });
+
+    const logger = createScopedLogger("test");
+
+    // Should NOT throw even though tracker update fails
+    await generateFollowUpDraft({
+      emailAccount: createMockEmailAccount(),
+      threadId: "thread-1",
+      trackerId: "tracker-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    // Draft was still created despite tracker update failure
+    expect(mockProvider.draftEmail).toHaveBeenCalled();
   });
 
   it("does not generate draft when thread messages is undefined", async () => {
