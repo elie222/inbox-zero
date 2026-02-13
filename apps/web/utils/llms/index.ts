@@ -2,6 +2,7 @@ import {
   APICallError,
   type ModelMessage,
   type Tool,
+  ToolLoopAgent,
   type JSONValue,
   generateObject,
   generateText,
@@ -271,6 +272,10 @@ export async function chatCompletionStream({
     userAi,
     modelType,
   );
+  const mergedProviderOptions = {
+    ...commonOptions.providerOptions,
+    ...providerOptions,
+  };
 
   const result = streamText({
     model,
@@ -279,8 +284,7 @@ export async function chatCompletionStream({
     stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
     ...commonOptions,
     providerOptions: {
-      ...commonOptions.providerOptions,
-      ...providerOptions,
+      ...mergedProviderOptions,
     },
     experimental_transform: smoothStream({ chunking: "word" }),
     onStepFinish,
@@ -324,6 +328,105 @@ export async function chatCompletionStream({
   });
 
   return result;
+}
+
+export async function toolCallAgentStream({
+  userAi,
+  modelType,
+  messages,
+  tools,
+  maxSteps,
+  userEmail,
+  usageLabel: label,
+  onFinish,
+  onStepFinish,
+}: {
+  userAi: UserAIFields;
+  modelType?: ModelType;
+  messages: ModelMessage[];
+  tools?: Record<string, Tool>;
+  maxSteps?: number;
+  userEmail: string;
+  usageLabel: string;
+  onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
+  onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
+}) {
+  const { provider, model, modelName, providerOptions } = getModel(
+    userAi,
+    modelType,
+  );
+
+  const mergedProviderOptions = {
+    ...commonOptions.providerOptions,
+    ...providerOptions,
+  };
+
+  const agent = new ToolLoopAgent({
+    model,
+    tools,
+    stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+    ...commonOptions,
+    providerOptions: mergedProviderOptions,
+    onFinish: async (result) => {
+      const usagePromise = saveAiUsage({
+        email: userEmail,
+        provider,
+        model: modelName,
+        usage: result.totalUsage,
+        label,
+      });
+
+      const finishPromise = onFinish?.(
+        result as Parameters<
+          NonNullable<StreamTextOnFinishCallback<Record<string, Tool>>>
+        >[0],
+      );
+
+      try {
+        await Promise.all([usagePromise, finishPromise]);
+      } catch (error) {
+        logger.error("Error in onFinish callback", {
+          label,
+          userEmail,
+          error,
+        });
+        logger.trace("Result", { result });
+        captureException(error, {
+          userEmail,
+          extra: { label },
+        });
+      }
+    },
+  });
+
+  try {
+    return await agent.stream({
+      messages,
+      experimental_transform: smoothStream({ chunking: "word" }),
+      onStepFinish: onStepFinish
+        ? async (stepResult) => {
+            await onStepFinish(
+              stepResult as Parameters<
+                NonNullable<
+                  StreamTextOnStepFinishCallback<Record<string, Tool>>
+                >
+              >[0],
+            );
+          }
+        : undefined,
+    });
+  } catch (error) {
+    logger.error("Error in chat completion stream", {
+      label,
+      userEmail,
+      error,
+    });
+    captureException(error, {
+      userEmail,
+      extra: { label },
+    });
+    throw error;
+  }
 }
 
 async function handleError(
