@@ -10,6 +10,7 @@ import type {
   AddToKnowledgeBaseTool,
   CreateRuleTool,
 } from "@/utils/ai/assistant/chat";
+import { isDefined } from "@/utils/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -168,7 +169,7 @@ export function ManageInboxResult({
 
   const resolvedThreads = threadIds
     ?.map((id) => threadLookup.get(id))
-    .filter(Boolean);
+    .filter(isDefined);
 
   return (
     <CollapsibleToolCard summary={summaryText}>
