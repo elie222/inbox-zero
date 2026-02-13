@@ -14,6 +14,8 @@ describe("getSlackChannelSelectionState", () => {
       showChannelSelector: true,
       showCurrentChannel: false,
       showInviteHint: true,
+      showErrorHint: false,
+      showCancelSelection: false,
     });
   });
 
@@ -29,6 +31,8 @@ describe("getSlackChannelSelectionState", () => {
       showChannelSelector: false,
       showCurrentChannel: true,
       showInviteHint: false,
+      showErrorHint: false,
+      showCancelSelection: false,
     });
   });
 
@@ -44,6 +48,8 @@ describe("getSlackChannelSelectionState", () => {
       showChannelSelector: true,
       showCurrentChannel: false,
       showInviteHint: true,
+      showErrorHint: false,
+      showCancelSelection: true,
     });
   });
 
@@ -56,6 +62,8 @@ describe("getSlackChannelSelectionState", () => {
     });
 
     expect(result.showInviteHint).toBe(false);
+    expect(result.showErrorHint).toBe(false);
+    expect(result.showCancelSelection).toBe(false);
   });
 
   it("hides invite hint when target loading fails", () => {
@@ -67,5 +75,19 @@ describe("getSlackChannelSelectionState", () => {
     });
 
     expect(result.showInviteHint).toBe(false);
+    expect(result.showErrorHint).toBe(true);
+    expect(result.showCancelSelection).toBe(false);
+  });
+
+  it("allows cancel action when editing existing channel and loading fails", () => {
+    const result = getSlackChannelSelectionState({
+      channelId: "C123",
+      selectingTarget: true,
+      isLoadingTargets: false,
+      hasTargetLoadError: true,
+    });
+
+    expect(result.showErrorHint).toBe(true);
+    expect(result.showCancelSelection).toBe(true);
   });
 });

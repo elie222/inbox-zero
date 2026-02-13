@@ -156,6 +156,7 @@ function ConnectedChannelRow({
     data: targetsData,
     isLoading: isLoadingTargets,
     error: targetsError,
+    mutate: mutateTargets,
   } = useChannelTargets(selectingSlackTarget ? channel.id : null);
   const privateTargets =
     targetsData?.targets.filter((target) => target.isPrivate) ?? [];
@@ -275,6 +276,33 @@ function ConnectedChannelRow({
                   Invite the bot with{" "}
                   <code className="rounded bg-muted px-1">/invite @InboxZero</code>{" "}
                   in a private channel.
+                </div>
+              )}
+
+              {(selectionState.showErrorHint ||
+                selectionState.showCancelSelection) && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {selectionState.showErrorHint && (
+                    <>
+                      <span>Unable to load Slack channels.</span>
+                      <button
+                        type="button"
+                        className="underline underline-offset-4"
+                        onClick={() => mutateTargets()}
+                      >
+                        Retry
+                      </button>
+                    </>
+                  )}
+                  {selectionState.showCancelSelection && (
+                    <button
+                      type="button"
+                      className="underline underline-offset-4"
+                      onClick={() => setSelectingTarget(false)}
+                    >
+                      Cancel
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -414,5 +442,7 @@ export function getSlackChannelSelectionState({
     showCurrentChannel: !showChannelSelector,
     showInviteHint:
       showChannelSelector && !isLoadingTargets && !hasTargetLoadError,
+    showErrorHint: showChannelSelector && hasTargetLoadError,
+    showCancelSelection: Boolean(channelId && selectingTarget),
   };
 }
