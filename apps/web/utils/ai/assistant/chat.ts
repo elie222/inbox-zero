@@ -191,11 +191,19 @@ Behavior anchors (minimal examples):
     getRuleReadState: () => ruleReadState,
   };
 
+  const hasConversationStatusInResults =
+    context?.type === "fix-rule"
+      ? context.results.some((result) =>
+          isConversationStatusType(result.systemType),
+        )
+      : false;
+
   const expectedFixSystemType =
-    context && context.type === "fix-rule"
-      ? await getExpectedFixContextSystemType({
+    context && context.type === "fix-rule" && !hasConversationStatusInResults
+      ? await getExpectedFixContextSystemTypeSafe({
           context,
           emailAccountId,
+          logger,
         })
       : null;
 
@@ -277,6 +285,28 @@ function isConversationStatusFixContext(
       isConversationStatusType(result.systemType),
     ) || isConversationStatusType(expectedSystemType)
   );
+}
+
+async function getExpectedFixContextSystemTypeSafe({
+  context,
+  emailAccountId,
+  logger,
+}: {
+  context: MessageContext;
+  emailAccountId: string;
+  logger: Logger;
+}): Promise<SystemType | null> {
+  try {
+    return await getExpectedFixContextSystemType({
+      context,
+      emailAccountId,
+    });
+  } catch (error) {
+    logger.warn("Failed to resolve expected fix context system type", {
+      error,
+    });
+    return null;
+  }
 }
 
 async function getExpectedFixContextSystemType({
