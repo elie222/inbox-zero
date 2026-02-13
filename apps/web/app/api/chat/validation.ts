@@ -31,7 +31,10 @@ export const messageContextSchema = z.object({
   expected: z.union([
     z.literal("new"),
     z.literal("none"),
-    z.object({ name: z.string() }),
+    z.object({
+      name: z.string(),
+      systemType: z.nativeEnum(SystemType).nullable().optional(),
+    }),
   ]),
 });
 export type MessageContext = z.infer<typeof messageContextSchema>;

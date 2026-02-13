@@ -54,6 +54,13 @@ export function FixWithChat({
     return data.find((r) => r.id === selectedRuleId)?.name ?? null;
   }, [data, selectedRuleId]);
 
+  const selectedRuleSystemType = useMemo(() => {
+    if (!data || !selectedRuleId) return null;
+    if (selectedRuleId === NEW_RULE_ID || selectedRuleId === NONE_RULE_ID)
+      return null;
+    return data.find((r) => r.id === selectedRuleId)?.systemType ?? null;
+  }, [data, selectedRuleId]);
+
   const handleRuleSelect = (ruleId: string | null) => {
     setSelectedRuleId(ruleId);
     setShowExplanation(true);
@@ -109,7 +116,10 @@ export function FixWithChat({
           ? "new"
           : selectedRuleId === CONST_NONE_RULE_ID
             ? "none"
-            : { name: selectedRuleName || "Unknown" },
+            : {
+                name: selectedRuleName || "Unknown",
+                systemType: selectedRuleSystemType,
+              },
     };
     setContext(context);
 
