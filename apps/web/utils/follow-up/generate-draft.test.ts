@@ -25,6 +25,10 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
+vi.mock("@/utils/prisma-retry", () => ({
+  withPrismaRetry: vi.fn((fn: () => Promise<unknown>) => fn()),
+}));
+
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
 }));

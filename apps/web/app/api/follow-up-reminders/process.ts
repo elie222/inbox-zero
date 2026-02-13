@@ -230,16 +230,16 @@ async function processFollowUpsForType({
 
   // Batch-check which threads already have follow-up applied or a draft created.
   // This avoids N individual DB queries and N Gmail API calls for already-processed threads.
-  // We check two conditions:
-  // 1. Unresolved trackers with followUpAppliedAt set (original dedup)
-  // 2. Any tracker (including resolved) with a followUpDraftId set (draft already exists)
+  // Both conditions require resolved=false so that resolved threads (e.g. after a reply)
+  // can re-enter the follow-up flow.
   const threadIds = threads.map((t) => t.id);
   const existingTrackers = await prisma.threadTracker.findMany({
     where: {
       emailAccountId: emailAccount.id,
       threadId: { in: threadIds },
+      resolved: false,
       OR: [
-        { resolved: false, followUpAppliedAt: { not: null } },
+        { followUpAppliedAt: { not: null } },
         { followUpDraftId: { not: null } },
       ],
     },
