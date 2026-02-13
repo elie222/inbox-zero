@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SystemType } from "@/generated/prisma/enums";
 
 const parsedMessageSchema = z.object({
   id: z.string(),
@@ -21,7 +22,11 @@ export const messageContextSchema = z.object({
   type: z.literal("fix-rule"),
   message: parsedMessageSchema,
   results: z.array(
-    z.object({ ruleName: z.string().nullable(), reason: z.string() }),
+    z.object({
+      ruleName: z.string().nullable(),
+      systemType: z.nativeEnum(SystemType).nullable().optional(),
+      reason: z.string(),
+    }),
   ),
   expected: z.union([
     z.literal("new"),

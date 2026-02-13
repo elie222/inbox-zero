@@ -30,6 +30,7 @@ import { env } from "@/env";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sendEmailBody } from "@/utils/gmail/mail";
 import { getRuleLabel } from "@/utils/rule/consts";
+import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 
@@ -1623,16 +1624,7 @@ async function runThreadActionsInParallel({
 }
 
 function isConversationStatusFixContext(context: MessageContext) {
-  const conversationRuleNames = new Set([
-    getRuleLabel(SystemType.TO_REPLY).toLowerCase(),
-    getRuleLabel(SystemType.AWAITING_REPLY).toLowerCase(),
-    getRuleLabel(SystemType.FYI).toLowerCase(),
-    getRuleLabel(SystemType.ACTIONED).toLowerCase(),
-  ]);
-
   return context.results.some((result) =>
-    result.ruleName
-      ? conversationRuleNames.has(result.ruleName.trim().toLowerCase())
-      : false,
+    isConversationStatusType(result.systemType),
   );
 }

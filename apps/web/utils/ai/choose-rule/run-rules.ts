@@ -48,6 +48,7 @@ export type RunRulesResult = {
     Rule,
     | "id"
     | "name"
+    | "systemType"
     | "instructions"
     | "groupId"
     | "from"

@@ -101,6 +101,7 @@ export function FixWithChat({
       },
       results: results.map((r) => ({
         ruleName: r.rule?.name ?? null,
+        systemType: r.rule?.systemType ?? null,
         reason: r.reason ?? "",
       })),
       expected:
