@@ -327,10 +327,11 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
-  it("requires reading rules immediately before updating rule conditions", async () => {
+  it("requires a valid readToken before updating rule conditions", async () => {
     const tools = await captureToolSet(true, "google");
 
     const result = await tools.updateRuleConditions.execute({
+      readToken: "invalid-read-token",
       ruleName: "To Reply",
       condition: {
         aiInstructions: "Updated instructions",
@@ -338,7 +339,7 @@ describe("aiProcessAssistantChat", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("call getUserRulesAndSettings");
+    expect(result.error).toContain("Invalid or missing readToken");
     expect(mockPrisma.rule.findUnique).not.toHaveBeenCalled();
   });
 
@@ -363,7 +364,10 @@ describe("aiProcessAssistantChat", () => {
       ],
     });
 
-    await tools.getUserRulesAndSettings.execute({});
+    const rulesResult = await tools.getUserRulesAndSettings.execute({});
+
+    expect(rulesResult.readToken).toBeTypeOf("string");
+    if (!rulesResult.readToken) throw new Error("Expected read token");
 
     mockPrisma.rule.findUnique.mockResolvedValue({
       id: "rule-1",
@@ -377,6 +381,7 @@ describe("aiProcessAssistantChat", () => {
     });
 
     const result = await tools.updateRuleConditions.execute({
+      readToken: rulesResult.readToken,
       ruleName: "To Reply",
       condition: {
         aiInstructions: "Updated instructions",
