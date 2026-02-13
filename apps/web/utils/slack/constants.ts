@@ -10,4 +10,5 @@ export const SLACK_SCOPES = [
   "im:read",
   "im:write",
   "im:history",
+  "reactions:write",
 ].join(",");

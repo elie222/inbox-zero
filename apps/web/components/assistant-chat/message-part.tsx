@@ -18,12 +18,14 @@ import {
   UpdatedRuleConditions,
 } from "@/components/assistant-chat/tools";
 import type { ChatMessage } from "@/components/assistant-chat/types";
+import type { ThreadLookup } from "@/components/assistant-chat/tools";
 
 interface MessagePartProps {
   part: ChatMessage["parts"][0];
   isStreaming: boolean;
   messageId: string;
   partIndex: number;
+  threadLookup: ThreadLookup;
 }
 
 function ErrorToolCard({ error }: { error: string }) {
@@ -46,6 +48,7 @@ export function MessagePart({
   isStreaming,
   messageId,
   partIndex,
+  threadLookup,
 }: MessagePartProps) {
   const key = `${messageId}-${partIndex}`;
 
@@ -106,7 +109,18 @@ export function MessagePart({
       if (isOutputWithError(output)) {
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
-      return <ManageInboxResult key={toolCallId} output={output} />;
+      return (
+        <ManageInboxResult
+          key={toolCallId}
+          output={output}
+          threadIds={
+            part.input.action !== "bulk_archive_senders"
+              ? part.input.threadIds
+              : undefined
+          }
+          threadLookup={threadLookup}
+        />
+      );
     }
   }
 

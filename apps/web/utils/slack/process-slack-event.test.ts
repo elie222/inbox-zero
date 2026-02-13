@@ -6,11 +6,40 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 const mockPostMessage = vi.fn().mockResolvedValue({});
+const mockReactionsAdd = vi.fn().mockResolvedValue({});
+const mockReactionsRemove = vi.fn().mockResolvedValue({});
+type MockClient = {
+  reactions: {
+    add: typeof mockReactionsAdd;
+    remove: typeof mockReactionsRemove;
+  };
+};
 vi.mock("@inboxzero/slack", () => ({
   createSlackClient: vi.fn(() => ({
     chat: { postMessage: mockPostMessage },
+    reactions: { add: mockReactionsAdd, remove: mockReactionsRemove },
   })),
   markdownToSlackMrkdwn: vi.fn((text: string) => text),
+  addReaction: vi.fn(
+    async (
+      client: MockClient,
+      channel: string,
+      timestamp: string,
+      name: string,
+    ) => {
+      await client.reactions.add({ channel, timestamp, name });
+    },
+  ),
+  removeReaction: vi.fn(
+    async (
+      client: MockClient,
+      channel: string,
+      timestamp: string,
+      name: string,
+    ) => {
+      await client.reactions.remove({ channel, timestamp, name });
+    },
+  ),
 }));
 
 vi.mock("@/utils/user/get", () => ({
@@ -357,6 +386,57 @@ describe("processSlackEvent", () => {
       );
 
       expect(aiProcessAssistantChat).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("processing reaction indicator", () => {
+    it("adds eyes reaction before processing and removes after response", async () => {
+      prisma.messagingChannel.findMany.mockResolvedValue([CANDIDATE_1]);
+      prisma.chat.upsert.mockResolvedValue({
+        id: "slack-D-DM-CHANNEL",
+        messages: [],
+        emailAccountId: "email-1",
+      } as any);
+      prisma.chatMessage.upsert.mockResolvedValue({} as any);
+      prisma.chatMessage.create.mockResolvedValue({} as any);
+
+      await processSlackEvent(makePayload({}), logger);
+
+      expect(mockReactionsAdd).toHaveBeenCalledWith({
+        channel: "D-DM-CHANNEL",
+        timestamp: "1234567890.000001",
+        name: "eyes",
+      });
+      expect(mockReactionsRemove).toHaveBeenCalledWith({
+        channel: "D-DM-CHANNEL",
+        timestamp: "1234567890.000001",
+        name: "eyes",
+      });
+    });
+
+    it("removes eyes reaction on AI processing error", async () => {
+      const { aiProcessAssistantChat } = await import(
+        "@/utils/ai/assistant/chat"
+      );
+      vi.mocked(aiProcessAssistantChat).mockRejectedValueOnce(
+        new Error("AI failed"),
+      );
+      prisma.messagingChannel.findMany.mockResolvedValue([CANDIDATE_1]);
+      prisma.chat.upsert.mockResolvedValue({
+        id: "slack-D-DM-CHANNEL",
+        messages: [],
+        emailAccountId: "email-1",
+      } as any);
+      prisma.chatMessage.upsert.mockResolvedValue({} as any);
+
+      await processSlackEvent(makePayload({}), logger);
+
+      expect(mockReactionsAdd).toHaveBeenCalled();
+      expect(mockReactionsRemove).toHaveBeenCalledWith({
+        channel: "D-DM-CHANNEL",
+        timestamp: "1234567890.000001",
+        name: "eyes",
+      });
     });
   });
 });
