@@ -126,6 +126,9 @@ describe("aiProcessAssistantChat", () => {
     );
     expect(args.messages[0].content).toContain("Provider context:");
     expect(args.messages[0].content).toContain("Inbox triage guidance:");
+    expect(args.messages[0].content).toContain(
+      "Conversation status behavior should be customized by updating conversation rules directly",
+    );
 
     expect(args.tools.getAccountOverview).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
@@ -152,6 +155,236 @@ describe("aiProcessAssistantChat", () => {
 
     const args = mockChatCompletionStream.mock.calls[0][0];
     expect(args.tools.sendEmail).toBeUndefined();
+  });
+
+  it("uses systemType (not rule name) to detect conversation status fix context", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockChatCompletionStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: [
+        {
+          role: "user",
+          content: "Fix this classification",
+        },
+      ],
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+      context: {
+        type: "fix-rule",
+        message: {
+          id: "message-1",
+          threadId: "thread-1",
+          snippet: "test snippet",
+          headers: {
+            from: "sender@example.com",
+            to: "user@example.com",
+            subject: "Subject",
+            date: new Date().toISOString(),
+          },
+        },
+        results: [
+          {
+            // Intentionally non-conversation name; detection should key off systemType
+            ruleName: "Custom Renamed Rule",
+            systemType: "TO_REPLY",
+            reason: "matched",
+          },
+        ],
+        expected: "none",
+      },
+    });
+
+    const args = mockChatCompletionStream.mock.calls[0][0];
+    const hiddenContext = args.messages.find(
+      (message: { role: string; content: string }) =>
+        message.role === "system" &&
+        message.content.includes("Hidden context for the user's request"),
+    );
+
+    expect(hiddenContext?.content).toContain(
+      "This fix is about conversation status classification",
+    );
+  });
+
+  it("does not treat non-conversation systemType as conversation fix context", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockChatCompletionStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: [
+        {
+          role: "user",
+          content: "Fix this classification",
+        },
+      ],
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+      context: {
+        type: "fix-rule",
+        message: {
+          id: "message-1",
+          threadId: "thread-1",
+          snippet: "test snippet",
+          headers: {
+            from: "sender@example.com",
+            to: "user@example.com",
+            subject: "Subject",
+            date: new Date().toISOString(),
+          },
+        },
+        results: [
+          {
+            // Intentionally conversation-like name; detection should ignore names
+            ruleName: "To Reply",
+            systemType: "COLD_EMAIL",
+            reason: "matched",
+          },
+        ],
+        expected: "none",
+      },
+    });
+
+    const args = mockChatCompletionStream.mock.calls[0][0];
+    const hiddenContext = args.messages.find(
+      (message: { role: string; content: string }) =>
+        message.role === "system" &&
+        message.content.includes("Hidden context for the user's request"),
+    );
+
+    expect(hiddenContext?.content).not.toContain(
+      "This fix is about conversation status classification",
+    );
+  });
+
+  it("uses expected systemType to detect conversation status fix context", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockChatCompletionStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: [
+        {
+          role: "user",
+          content: "Fix this classification",
+        },
+      ],
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+      context: {
+        type: "fix-rule",
+        message: {
+          id: "message-1",
+          threadId: "thread-1",
+          snippet: "test snippet",
+          headers: {
+            from: "sender@example.com",
+            to: "user@example.com",
+            subject: "Subject",
+            date: new Date().toISOString(),
+          },
+        },
+        results: [
+          {
+            ruleName: "Custom Rule",
+            systemType: "COLD_EMAIL",
+            reason: "matched",
+          },
+        ],
+        expected: {
+          name: "To Reply (renamed)",
+          systemType: "TO_REPLY",
+        },
+      },
+    });
+
+    const args = mockChatCompletionStream.mock.calls[0][0];
+    const hiddenContext = args.messages.find(
+      (message: { role: string; content: string }) =>
+        message.role === "system" &&
+        message.content.includes("Hidden context for the user's request"),
+    );
+
+    expect(hiddenContext?.content).toContain(
+      "This fix is about conversation status classification",
+    );
+  });
+
+  it("requires reading rules immediately before updating rule conditions", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    const result = await tools.updateRuleConditions.execute({
+      ruleName: "To Reply",
+      condition: {
+        aiInstructions: "Updated instructions",
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("call getUserRulesAndSettings");
+    expect(mockPrisma.rule.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("rejects stale rule reads before updating rule conditions", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    mockPrisma.emailAccount.findUnique.mockResolvedValue({
+      about: "About",
+      rules: [
+        {
+          name: "To Reply",
+          instructions: "Emails I need to respond to",
+          updatedAt: new Date("2026-02-13T10:00:00.000Z"),
+          from: null,
+          to: null,
+          subject: null,
+          conditionalOperator: null,
+          enabled: true,
+          runOnThreads: true,
+          actions: [],
+        },
+      ],
+    });
+
+    await tools.getUserRulesAndSettings.execute({});
+
+    mockPrisma.rule.findUnique.mockResolvedValue({
+      id: "rule-1",
+      name: "To Reply",
+      updatedAt: new Date("2026-02-13T12:00:00.000Z"),
+      instructions: "Emails I need to respond to",
+      from: null,
+      to: null,
+      subject: null,
+      conditionalOperator: "AND",
+    });
+
+    const result = await tools.updateRuleConditions.execute({
+      ruleName: "To Reply",
+      condition: {
+        aiInstructions: "Updated instructions",
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Rule changed since the last read");
   });
 
   it("returns cleared filing prompt in updateInboxFeatures response", async () => {

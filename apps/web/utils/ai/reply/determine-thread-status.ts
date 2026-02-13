@@ -115,6 +115,7 @@ ${conversationPreferences}
 </conversation_preferences>
 
 Apply these preferences when determining the thread status.
+If these preferences conflict with default status criteria, the user's preferences take priority.
 `
     : ""
 }

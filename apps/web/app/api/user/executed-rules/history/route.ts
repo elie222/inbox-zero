@@ -79,6 +79,7 @@ async function getExecutedRules({
           select: {
             id: true,
             name: true,
+            systemType: true,
             instructions: true,
             groupId: true,
             from: true,

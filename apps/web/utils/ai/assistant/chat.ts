@@ -30,6 +30,7 @@ import { env } from "@/env";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sendEmailBody } from "@/utils/gmail/mail";
 import { getRuleLabel } from "@/utils/rule/consts";
+import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 
@@ -67,20 +68,28 @@ type GetUserRulesAndSettingsOutput = {
 };
 
 export const maxDuration = 120;
+const RULE_READ_FRESHNESS_WINDOW_MS = 2 * 60 * 1000;
+
+type RuleReadState = {
+  readAt: number;
+  ruleUpdatedAtByName: Map<string, string>;
+};
 
 // tools
 const getUserRulesAndSettingsTool = ({
   email,
   emailAccountId,
   logger,
+  setRuleReadState,
 }: {
   email: string;
   emailAccountId: string;
   logger: Logger;
+  setRuleReadState?: (state: RuleReadState) => void;
 }) =>
   tool<z.infer<typeof emptyInputSchema>, GetUserRulesAndSettingsOutput>({
     description:
-      "Retrieve all existing rules for the user, their about information",
+      "Retrieve all existing rules for the user, and their about information. Always call this immediately before updating any existing rule.",
     inputSchema: emptyInputSchema,
     execute: async (_input: z.infer<typeof emptyInputSchema>) => {
       trackToolCall({
@@ -97,6 +106,7 @@ const getUserRulesAndSettingsTool = ({
             select: {
               name: true,
               instructions: true,
+              updatedAt: true,
               from: true,
               to: true,
               subject: true,
@@ -119,6 +129,16 @@ const getUserRulesAndSettingsTool = ({
             },
           },
         },
+      });
+
+      setRuleReadState?.({
+        readAt: Date.now(),
+        ruleUpdatedAtByName: new Map(
+          (emailAccount?.rules || []).map((rule) => [
+            rule.name,
+            rule.updatedAt.toISOString(),
+          ]),
+        ),
       });
 
       return {
@@ -306,22 +326,39 @@ const updateRuleConditionsTool = ({
   email,
   emailAccountId,
   logger,
+  getRuleReadState,
 }: {
   email: string;
   emailAccountId: string;
   logger: Logger;
+  getRuleReadState?: () => RuleReadState | null;
 }) =>
   tool({
-    description: "Update the conditions of an existing rule",
+    description:
+      "Update the conditions of an existing rule. Requires a fresh getUserRulesAndSettings call in the current request before writing.",
     inputSchema: updateRuleConditionSchema,
     execute: async ({ ruleName, condition }) => {
       trackToolCall({ tool: "update_rule_conditions", email, logger });
+
+      const readValidationError = validateRuleWasReadRecently({
+        ruleName,
+        getRuleReadState,
+      });
+
+      if (readValidationError) {
+        return {
+          success: false,
+          ruleId: "",
+          error: readValidationError,
+        };
+      }
 
       const rule = await prisma.rule.findUnique({
         where: { name_emailAccountId: { name: ruleName, emailAccountId } },
         select: {
           id: true,
           name: true,
+          updatedAt: true,
           instructions: true,
           from: true,
           to: true,
@@ -336,6 +373,19 @@ const updateRuleConditionsTool = ({
           ruleId: "",
           error:
             "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+        };
+      }
+
+      const staleReadError = validateRuleWasReadRecently({
+        ruleName,
+        getRuleReadState,
+        currentRuleUpdatedAt: rule.updatedAt,
+      });
+      if (staleReadError) {
+        return {
+          success: false,
+          ruleId: "",
+          error: staleReadError,
         };
       }
 
@@ -408,11 +458,13 @@ const updateRuleActionsTool = ({
   emailAccountId,
   provider,
   logger,
+  getRuleReadState,
 }: {
   email: string;
   emailAccountId: string;
   provider: string;
   logger: Logger;
+  getRuleReadState?: () => RuleReadState | null;
 }) =>
   tool({
     description:
@@ -449,11 +501,26 @@ const updateRuleActionsTool = ({
     }),
     execute: async ({ ruleName, actions }) => {
       trackToolCall({ tool: "update_rule_actions", email, logger });
+
+      const readValidationError = validateRuleWasReadRecently({
+        ruleName,
+        getRuleReadState,
+      });
+
+      if (readValidationError) {
+        return {
+          success: false,
+          ruleId: "",
+          error: readValidationError,
+        };
+      }
+
       const rule = await prisma.rule.findUnique({
         where: { name_emailAccountId: { name: ruleName, emailAccountId } },
         select: {
           id: true,
           name: true,
+          updatedAt: true,
           actions: {
             select: {
               type: true,
@@ -476,6 +543,19 @@ const updateRuleActionsTool = ({
           ruleId: "",
           error:
             "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+        };
+      }
+
+      const staleReadError = validateRuleWasReadRecently({
+        ruleName,
+        getRuleReadState,
+        currentRuleUpdatedAt: rule.updatedAt,
+      });
+      if (staleReadError) {
+        return {
+          success: false,
+          ruleId: "",
+          error: staleReadError,
         };
       }
 
@@ -551,10 +631,12 @@ const updateLearnedPatternsTool = ({
   email,
   emailAccountId,
   logger,
+  getRuleReadState,
 }: {
   email: string;
   emailAccountId: string;
   logger: Logger;
+  getRuleReadState?: () => RuleReadState | null;
 }) =>
   tool({
     description: "Update the learned patterns of an existing rule",
@@ -582,8 +664,22 @@ const updateLearnedPatternsTool = ({
     execute: async ({ ruleName, learnedPatterns }) => {
       trackToolCall({ tool: "update_learned_patterns", email, logger });
 
+      const readValidationError = validateRuleWasReadRecently({
+        ruleName,
+        getRuleReadState,
+      });
+
+      if (readValidationError) {
+        return {
+          success: false,
+          ruleId: "",
+          error: readValidationError,
+        };
+      }
+
       const rule = await prisma.rule.findUnique({
         where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+        select: { id: true, name: true, updatedAt: true },
       });
 
       if (!rule) {
@@ -592,6 +688,19 @@ const updateLearnedPatternsTool = ({
           ruleId: "",
           error:
             "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+        };
+      }
+
+      const staleReadError = validateRuleWasReadRecently({
+        ruleName,
+        getRuleReadState,
+        currentRuleUpdatedAt: rule.updatedAt,
+      });
+      if (staleReadError) {
+        return {
+          success: false,
+          ruleId: "",
+          error: staleReadError,
         };
       }
 
@@ -1244,6 +1353,8 @@ export async function aiProcessAssistantChat({
   context?: MessageContext;
   logger: Logger;
 }) {
+  let ruleReadState: RuleReadState | null = null;
+
   const system = `You are the Inbox Zero assistant. You help users understand their inbox, take inbox actions, update account features, and manage automation rules.
 
 Core responsibilities:
@@ -1265,6 +1376,7 @@ Tool call policy:
 - Never invent thread IDs, label IDs, sender addresses, or existing rule names.
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - For ambiguous destructive requests (for example archive vs mark read), ask a brief clarification question before writing.
+- Before changing an existing rule, call getUserRulesAndSettings immediately before the write. If rule details changed, re-read and then apply the update.
 
 Provider context:
 - Current provider: ${user.account.provider}.
@@ -1325,9 +1437,10 @@ You can set general information about the user in their Personal Instructions (v
 
 Conversation status categorization:
 - Emails are automatically categorized as "To Reply", "FYI", "Awaiting Reply", or "Actioned".
-- IMPORTANT: Unlike regular automation rules, the prompts that determine these conversation statuses CANNOT be modified. They use fixed logic.
-- However, the user's Personal Instructions ARE passed to the AI when making these determinations. So if users want to influence how emails are categorized (e.g., "emails where I'm CC'd shouldn't be To Reply"), update their Personal Instructions with these preferences.
-- Use the updateAbout tool to add these preferences to the user's Personal Instructions.
+- Conversation status behavior should be customized by updating conversation rules directly (To Reply, FYI, Awaiting Reply, Actioned) using updateRuleConditions.
+- For requests like "if I'm CC'd I don't need to reply", update the To Reply rule instructions (and FYI when needed) instead of creating a new rule.
+- Keep conversation rule instructions self-contained: preserve the core intent and append new exclusions/inclusions instead of replacing them with a narrow one-off condition.
+- Use updateAbout for broad profile context, not as the primary place for conversation-status routing logic.
 
 Reply Zero is a feature that labels emails that need a reply "To Reply". And labels emails that are awaiting a response "Awaiting". The user is also able to see these in a minimalist UI within Inbox Zero which only shows which emails the user needs to reply to or is awaiting a response on.
 
@@ -1351,7 +1464,7 @@ Knowledge base:
 Behavior anchors (minimal examples):
 - For "Give me an update on what came in today", call searchInbox first with today's start in the user's timezone, then summarize into must-handle, can-wait, and can-archive.
 - For "Turn off meeting briefs and enable auto-file attachments", call updateInboxFeatures with meetingBriefsEnabled=false and filingEnabled=true.
-- For "If I'm CC'd on an email it shouldn't be marked To Reply", use updateAbout to store this preference because conversation status prompts are fixed.
+- For "If I'm CC'd on an email it shouldn't be marked To Reply", update the "To Reply" rule instructions with updateRuleConditions.
 - For "Archive emails older than 30 days", explain this is not supported as a time-based rule and suggest a supported alternative.`;
 
   const toolOptions = {
@@ -1359,6 +1472,10 @@ Behavior anchors (minimal examples):
     emailAccountId,
     provider: user.account.provider,
     logger,
+    setRuleReadState: (state: RuleReadState) => {
+      ruleReadState = state;
+    },
+    getRuleReadState: () => ruleReadState,
   };
 
   const hiddenContextMessage =
@@ -1383,7 +1500,10 @@ Behavior anchors (minimal examples):
                   : context.expected === "none"
                     ? "No rule should be applied"
                     : `Should match the "${context.expected.name}" rule`
-              }`,
+              }` +
+              (isConversationStatusFixContext(context)
+                ? `\n\nThis fix is about conversation status classification. Prefer updating conversation rule instructions with updateRuleConditions (for example, To Reply/FYI rules).`
+                : ""),
           },
         ]
       : [];
@@ -1588,6 +1708,41 @@ function createLabelLookupMap(labels: Array<{ id: string; name: string }>) {
   ] as const);
 }
 
+function validateRuleWasReadRecently({
+  ruleName,
+  getRuleReadState,
+  currentRuleUpdatedAt,
+}: {
+  ruleName: string;
+  getRuleReadState?: () => RuleReadState | null;
+  currentRuleUpdatedAt?: Date;
+}) {
+  const ruleReadState = getRuleReadState?.() || null;
+
+  if (!ruleReadState) {
+    return "Before updating an existing rule, call getUserRulesAndSettings immediately beforehand.";
+  }
+
+  if (Date.now() - ruleReadState.readAt > RULE_READ_FRESHNESS_WINDOW_MS) {
+    return "Rules may be stale. Call getUserRulesAndSettings again immediately before updating the rule.";
+  }
+
+  if (!currentRuleUpdatedAt) return null;
+
+  const lastReadRuleUpdatedAt =
+    ruleReadState.ruleUpdatedAtByName.get(ruleName) || null;
+
+  if (!lastReadRuleUpdatedAt) {
+    return "Rule details are stale or missing. Call getUserRulesAndSettings again before updating this rule.";
+  }
+
+  if (lastReadRuleUpdatedAt !== currentRuleUpdatedAt.toISOString()) {
+    return "Rule changed since the last read. Call getUserRulesAndSettings again, then apply the update.";
+  }
+
+  return null;
+}
+
 async function runThreadActionsInParallel({
   threadIds,
   runAction,
@@ -1617,4 +1772,17 @@ async function runThreadActionsInParallel({
   }
 
   return results;
+}
+
+function isConversationStatusFixContext(context: MessageContext) {
+  const expectedSystemType =
+    context.expected !== "new" && context.expected !== "none"
+      ? context.expected.systemType
+      : null;
+
+  return (
+    context.results.some((result) =>
+      isConversationStatusType(result.systemType),
+    ) || isConversationStatusType(expectedSystemType)
+  );
 }
