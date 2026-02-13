@@ -1546,7 +1546,7 @@ Examples:
     <output>
       <updateAbout>
         {
-          "about": "[existing about content...]\n\n- Emails where I am CC'd (not in the TO field) should not be marked as "To Reply" - they are FYI only."
+          "about": "[existing about content...]\n\n- Emails where I am CC'd (not in the TO field) should not be marked as \\"To Reply\\" - they are FYI only."
         }
       </updateAbout>
       <explanation>
