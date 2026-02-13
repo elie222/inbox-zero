@@ -262,10 +262,10 @@ function ConnectedChannelRow({
                       </SelectItem>
                     ))}
                     {!isLoadingTargets && privateTargets.length === 0 && (
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                          No private channels found
-                        </div>
-                      )}
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                        No private channels found
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               )}
