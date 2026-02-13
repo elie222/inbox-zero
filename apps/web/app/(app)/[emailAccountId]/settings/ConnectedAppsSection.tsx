@@ -151,6 +151,11 @@ function ConnectedChannelRow({
   const config = PROVIDER_CONFIG[channel.provider];
   const Icon = config?.icon ?? MessageSquareIcon;
   const [selectingTarget, setSelectingTarget] = useState(!channel.channelId);
+
+  useEffect(() => {
+    setSelectingTarget(!channel.channelId);
+  }, [channel.channelId]);
+
   const selectingSlackTarget = channel.provider === "SLACK" && selectingTarget;
   const {
     data: targetsData,
