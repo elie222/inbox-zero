@@ -130,12 +130,9 @@ UNRESOLVED=$(gh api graphql -f query='
   --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
 ```
 
-Also check conversation comments:
-```bash
-gh pr view --json comments --jq '.comments | length'
-```
+**If 0 unresolved threads → exit loop. Done.**
 
-**If 0 unresolved threads AND no new conversation comments → exit loop. Done.**
+Note: Conversation comments (from bots like Vercel, or general discussion) do NOT block exit. Only unresolved review threads matter.
 
 ### 5c. Fetch and address comments
 
@@ -169,12 +166,12 @@ For each comment:
        repository(owner:$owner, name:$repo) {
          pullRequest(number:$pr) {
            reviewThreads(first:100) {
-             nodes { id isResolved comments(first:1) { nodes { databaseId } } }
+             nodes { id isResolved comments(first:100) { nodes { databaseId } } }
            }
          }
        }
      }' -f owner=$OWNER -f repo=$REPO_NAME -F pr=$PR_NUM \
-     --jq ".data.repository.pullRequest.reviewThreads.nodes[] | select(.comments.nodes[0].databaseId == $COMMENT_ID) | .id")
+     --jq ".data.repository.pullRequest.reviewThreads.nodes[] | select(.comments.nodes | any(.databaseId == $COMMENT_ID)) | .id")
 
    gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { isResolved } } }' -f id=$THREAD_ID
    ```
