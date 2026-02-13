@@ -81,8 +81,7 @@ function CollapsibleToolCard({
 }
 
 export function SearchInboxResult({ output }: { output: unknown }) {
-  const totalReturned =
-    getOutputField<number>(output, "totalReturned") || 0;
+  const totalReturned = getOutputField<number>(output, "totalReturned") || 0;
   const queryUsed = getOutputField<string | null>(output, "queryUsed");
   const summary = getOutputField<{
     total: number;
@@ -101,9 +100,7 @@ export function SearchInboxResult({ output }: { output: unknown }) {
   >(output, "messages");
 
   return (
-    <CollapsibleToolCard
-      summary={`Searched inbox (${totalReturned} messages)`}
-    >
+    <CollapsibleToolCard summary={`Searched inbox (${totalReturned} messages)`}>
       {queryUsed && (
         <div className="text-xs text-muted-foreground">
           Query: <span className="font-mono">{queryUsed}</span>
@@ -183,10 +180,7 @@ export function ManageInboxResult({
         {resolvedThreads && resolvedThreads.length > 0 && (
           <div className="space-y-1">
             {resolvedThreads.map((thread, i) => (
-              <div
-                key={i}
-                className="rounded-md bg-muted px-3 py-2 text-sm"
-              >
+              <div key={i} className="rounded-md bg-muted px-3 py-2 text-sm">
                 <div className="truncate">{thread.from}</div>
                 <div className="truncate text-muted-foreground">
                   {thread.subject}

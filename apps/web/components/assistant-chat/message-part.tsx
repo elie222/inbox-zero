@@ -113,7 +113,11 @@ export function MessagePart({
         <ManageInboxResult
           key={toolCallId}
           output={output}
-          threadIds={part.input.action !== "bulk_archive_senders" ? part.input.threadIds : undefined}
+          threadIds={
+            part.input.action !== "bulk_archive_senders"
+              ? part.input.threadIds
+              : undefined
+          }
           threadLookup={threadLookup}
         />
       );

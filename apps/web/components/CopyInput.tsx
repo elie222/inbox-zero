@@ -25,7 +25,11 @@ export function CopyInput({
         disabled
       />
       {masked && (
-        <Button type="button" variant="outline" onClick={() => setVisible((v) => !v)}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setVisible((v) => !v)}
+        >
           {visible ? (
             <EyeOffIcon className="size-4" />
           ) : (
