@@ -7,7 +7,7 @@ vi.mock("server-only", () => ({}));
 
 const {
   envState,
-  mockChatCompletionStream,
+  mockToolCallAgentStream,
   mockCreateEmailProvider,
   mockPosthogCaptureEvent,
   mockPrisma,
@@ -15,7 +15,7 @@ const {
   envState: {
     sendEmailEnabled: true,
   },
-  mockChatCompletionStream: vi.fn(),
+  mockToolCallAgentStream: vi.fn(),
   mockCreateEmailProvider: vi.fn(),
   mockPosthogCaptureEvent: vi.fn(),
   mockPrisma: {
@@ -33,7 +33,7 @@ const {
 }));
 
 vi.mock("@/utils/llms", () => ({
-  chatCompletionStream: mockChatCompletionStream,
+  toolCallAgentStream: mockToolCallAgentStream,
 }));
 
 vi.mock("@/utils/email/provider", () => ({
@@ -81,7 +81,7 @@ async function captureToolSet(
   const user = getEmailAccount();
   user.account.provider = provider;
 
-  mockChatCompletionStream.mockResolvedValue({
+  mockToolCallAgentStream.mockResolvedValue({
     toUIMessageStreamResponse: vi.fn(),
   });
 
@@ -92,7 +92,7 @@ async function captureToolSet(
     logger,
   });
 
-  return mockChatCompletionStream.mock.calls[0][0].tools;
+  return mockToolCallAgentStream.mock.calls[0][0].tools;
 }
 
 describe("aiProcessAssistantChat", () => {
@@ -106,7 +106,7 @@ describe("aiProcessAssistantChat", () => {
       emailSend: true,
     });
 
-    mockChatCompletionStream.mockResolvedValue({
+    mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
     });
 
@@ -117,7 +117,7 @@ describe("aiProcessAssistantChat", () => {
       logger,
     });
 
-    const args = mockChatCompletionStream.mock.calls[0][0];
+    const args = mockToolCallAgentStream.mock.calls[0][0];
 
     expect(args.messages[0].role).toBe("system");
     expect(args.messages[0].content).toContain("Core responsibilities:");
@@ -142,7 +142,7 @@ describe("aiProcessAssistantChat", () => {
       emailSend: false,
     });
 
-    mockChatCompletionStream.mockResolvedValue({
+    mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
     });
 
@@ -153,7 +153,7 @@ describe("aiProcessAssistantChat", () => {
       logger,
     });
 
-    const args = mockChatCompletionStream.mock.calls[0][0];
+    const args = mockToolCallAgentStream.mock.calls[0][0];
     expect(args.tools.sendEmail).toBeUndefined();
   });
 
@@ -162,7 +162,7 @@ describe("aiProcessAssistantChat", () => {
       emailSend: true,
     });
 
-    mockChatCompletionStream.mockResolvedValue({
+    mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
     });
 
@@ -201,7 +201,7 @@ describe("aiProcessAssistantChat", () => {
       },
     });
 
-    const args = mockChatCompletionStream.mock.calls[0][0];
+    const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
         message.role === "system" &&
@@ -218,7 +218,7 @@ describe("aiProcessAssistantChat", () => {
       emailSend: true,
     });
 
-    mockChatCompletionStream.mockResolvedValue({
+    mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
     });
 
@@ -259,7 +259,7 @@ describe("aiProcessAssistantChat", () => {
       },
     });
 
-    const args = mockChatCompletionStream.mock.calls[0][0];
+    const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
         message.role === "system" &&
@@ -277,7 +277,7 @@ describe("aiProcessAssistantChat", () => {
       emailSend: true,
     });
 
-    mockChatCompletionStream.mockResolvedValue({
+    mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
     });
 
@@ -316,7 +316,7 @@ describe("aiProcessAssistantChat", () => {
       },
     });
 
-    const args = mockChatCompletionStream.mock.calls[0][0];
+    const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
         message.role === "system" &&
@@ -333,7 +333,7 @@ describe("aiProcessAssistantChat", () => {
       emailSend: true,
     });
 
-    mockChatCompletionStream.mockResolvedValue({
+    mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
     });
     mockPrisma.rule.findUnique.mockResolvedValue({
@@ -378,7 +378,7 @@ describe("aiProcessAssistantChat", () => {
       },
     });
 
-    const args = mockChatCompletionStream.mock.calls[0][0];
+    const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
         message.role === "system" &&
@@ -399,7 +399,7 @@ describe("aiProcessAssistantChat", () => {
       emailSend: true,
     });
 
-    mockChatCompletionStream.mockResolvedValue({
+    mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
     });
     mockPrisma.rule.findUnique.mockRejectedValue(new Error("DB unavailable"));
@@ -441,7 +441,7 @@ describe("aiProcessAssistantChat", () => {
       },
     });
 
-    const args = mockChatCompletionStream.mock.calls[0][0];
+    const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
         message.role === "system" &&
@@ -458,7 +458,7 @@ describe("aiProcessAssistantChat", () => {
       emailSend: true,
     });
 
-    mockChatCompletionStream.mockResolvedValue({
+    mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
     });
     mockPrisma.rule.findUnique.mockResolvedValue({
@@ -501,7 +501,7 @@ describe("aiProcessAssistantChat", () => {
       },
     });
 
-    const args = mockChatCompletionStream.mock.calls[0][0];
+    const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
         message.role === "system" &&
@@ -527,7 +527,7 @@ describe("aiProcessAssistantChat", () => {
       emailSend: true,
     });
 
-    mockChatCompletionStream.mockResolvedValue({
+    mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
     });
     mockPrisma.rule.findUnique.mockResolvedValue({
@@ -572,7 +572,7 @@ describe("aiProcessAssistantChat", () => {
       },
     });
 
-    const args = mockChatCompletionStream.mock.calls[0][0];
+    const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
         message.role === "system" &&

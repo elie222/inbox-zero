@@ -6,7 +6,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
 import { env } from "@/env";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { chatCompletionStream } from "@/utils/llms";
+import { toolCallAgentStream } from "@/utils/llms";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import prisma from "@/utils/prisma";
 import type { SystemType } from "@/generated/prisma/enums";
@@ -237,7 +237,7 @@ Behavior anchors (minimal examples):
         ]
       : [];
 
-  const result = chatCompletionStream({
+  const result = toolCallAgentStream({
     userAi: user.user,
     userEmail: user.email,
     modelType: "chat",
