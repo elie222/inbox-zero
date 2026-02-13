@@ -24,7 +24,6 @@ const emptyInputSchema = z.object({}).describe("No parameters required");
 
 type GetUserRulesAndSettingsOutput = {
   about: string;
-  readToken: string | null;
   rules:
     | Array<{
         name: string;
@@ -68,12 +67,12 @@ export const getUserRulesAndSettingsTool = ({
   email,
   emailAccountId,
   logger,
-  registerRuleReadState,
+  setRuleReadState,
 }: {
   email: string;
   emailAccountId: string;
   logger: Logger;
-  registerRuleReadState?: (state: RuleReadState) => string;
+  setRuleReadState?: (state: RuleReadState) => void;
 }) =>
   tool<z.infer<typeof emptyInputSchema>, GetUserRulesAndSettingsOutput>({
     description:
@@ -119,20 +118,18 @@ export const getUserRulesAndSettingsTool = ({
         },
       });
 
-      const readToken =
-        registerRuleReadState?.({
-          readAt: Date.now(),
-          ruleUpdatedAtByName: new Map(
-            (emailAccount?.rules || []).map((rule) => [
-              rule.name,
-              rule.updatedAt.toISOString(),
-            ]),
-          ),
-        }) || null;
+      setRuleReadState?.({
+        readAt: Date.now(),
+        ruleUpdatedAtByName: new Map(
+          (emailAccount?.rules || []).map((rule) => [
+            rule.name,
+            rule.updatedAt.toISOString(),
+          ]),
+        ),
+      });
 
       return {
         about: emailAccount?.about || "Not set",
-        readToken,
         rules: emailAccount?.rules.map((rule) => {
           const staticFilter = filterNullProperties({
             from: rule.from,
@@ -293,11 +290,6 @@ export const createRuleTool = ({
 export type CreateRuleTool = InferUITool<ReturnType<typeof createRuleTool>>;
 
 const updateRuleConditionSchema = z.object({
-  readToken: z
-    .string()
-    .describe(
-      "Read token from the latest getUserRulesAndSettings call immediately before this update",
-    ),
   ruleName: z.string().describe("The name of the rule to update"),
   condition: z.object({
     aiInstructions: z.string().optional(),
@@ -321,24 +313,23 @@ export const updateRuleConditionsTool = ({
   email,
   emailAccountId,
   logger,
-  getRuleReadStateByToken,
+  getRuleReadState,
 }: {
   email: string;
   emailAccountId: string;
   logger: Logger;
-  getRuleReadStateByToken?: (readToken: string) => RuleReadState | null;
+  getRuleReadState?: () => RuleReadState | null;
 }) =>
   tool({
     description:
-      "Update the conditions of an existing rule. Requires a readToken from a fresh getUserRulesAndSettings call in the current request before writing.",
+      "Update the conditions of an existing rule. Requires a fresh getUserRulesAndSettings call in the current request before writing.",
     inputSchema: updateRuleConditionSchema,
-    execute: async ({ readToken, ruleName, condition }) => {
+    execute: async ({ ruleName, condition }) => {
       trackToolCall({ tool: "update_rule_conditions", email, logger });
 
-      const readValidationError = validateRuleReadToken({
+      const readValidationError = validateRuleWasReadRecently({
         ruleName,
-        readToken,
-        getRuleReadStateByToken,
+        getRuleReadState,
       });
 
       if (readValidationError) {
@@ -372,10 +363,9 @@ export const updateRuleConditionsTool = ({
         };
       }
 
-      const staleReadError = validateRuleReadToken({
+      const staleReadError = validateRuleWasReadRecently({
         ruleName,
-        readToken,
-        getRuleReadStateByToken,
+        getRuleReadState,
         currentRuleUpdatedAt: rule.updatedAt,
       });
       if (staleReadError) {
@@ -455,23 +445,18 @@ export const updateRuleActionsTool = ({
   emailAccountId,
   provider,
   logger,
-  getRuleReadStateByToken,
+  getRuleReadState,
 }: {
   email: string;
   emailAccountId: string;
   provider: string;
   logger: Logger;
-  getRuleReadStateByToken?: (readToken: string) => RuleReadState | null;
+  getRuleReadState?: () => RuleReadState | null;
 }) =>
   tool({
     description:
       "Update the actions of an existing rule. This replaces the existing actions.",
     inputSchema: z.object({
-      readToken: z
-        .string()
-        .describe(
-          "Read token from the latest getUserRulesAndSettings call immediately before this update",
-        ),
       ruleName: z.string().describe("The name of the rule to update"),
       actions: z.array(
         z.object({
@@ -501,13 +486,12 @@ export const updateRuleActionsTool = ({
         }),
       ),
     }),
-    execute: async ({ readToken, ruleName, actions }) => {
+    execute: async ({ ruleName, actions }) => {
       trackToolCall({ tool: "update_rule_actions", email, logger });
 
-      const readValidationError = validateRuleReadToken({
+      const readValidationError = validateRuleWasReadRecently({
         ruleName,
-        readToken,
-        getRuleReadStateByToken,
+        getRuleReadState,
       });
 
       if (readValidationError) {
@@ -549,10 +533,9 @@ export const updateRuleActionsTool = ({
         };
       }
 
-      const staleReadError = validateRuleReadToken({
+      const staleReadError = validateRuleWasReadRecently({
         ruleName,
-        readToken,
-        getRuleReadStateByToken,
+        getRuleReadState,
         currentRuleUpdatedAt: rule.updatedAt,
       });
       if (staleReadError) {
@@ -635,21 +618,16 @@ export const updateLearnedPatternsTool = ({
   email,
   emailAccountId,
   logger,
-  getRuleReadStateByToken,
+  getRuleReadState,
 }: {
   email: string;
   emailAccountId: string;
   logger: Logger;
-  getRuleReadStateByToken?: (readToken: string) => RuleReadState | null;
+  getRuleReadState?: () => RuleReadState | null;
 }) =>
   tool({
     description: "Update the learned patterns of an existing rule",
     inputSchema: z.object({
-      readToken: z
-        .string()
-        .describe(
-          "Read token from the latest getUserRulesAndSettings call immediately before this update",
-        ),
       ruleName: z.string().describe("The name of the rule to update"),
       learnedPatterns: z
         .array(
@@ -670,13 +648,12 @@ export const updateLearnedPatternsTool = ({
         )
         .min(1, "At least one learned pattern is required"),
     }),
-    execute: async ({ readToken, ruleName, learnedPatterns }) => {
+    execute: async ({ ruleName, learnedPatterns }) => {
       trackToolCall({ tool: "update_learned_patterns", email, logger });
 
-      const readValidationError = validateRuleReadToken({
+      const readValidationError = validateRuleWasReadRecently({
         ruleName,
-        readToken,
-        getRuleReadStateByToken,
+        getRuleReadState,
       });
 
       if (readValidationError) {
@@ -701,10 +678,9 @@ export const updateLearnedPatternsTool = ({
         };
       }
 
-      const staleReadError = validateRuleReadToken({
+      const staleReadError = validateRuleWasReadRecently({
         ruleName,
-        readToken,
-        getRuleReadStateByToken,
+        getRuleReadState,
         currentRuleUpdatedAt: rule.updatedAt,
       });
       if (staleReadError) {
@@ -868,21 +844,19 @@ async function trackToolCall({
   return posthogCaptureEvent(email, "AI Assistant Chat Tool Call", { tool });
 }
 
-function validateRuleReadToken({
+function validateRuleWasReadRecently({
   ruleName,
-  readToken,
-  getRuleReadStateByToken,
+  getRuleReadState,
   currentRuleUpdatedAt,
 }: {
   ruleName: string;
-  readToken: string;
-  getRuleReadStateByToken?: (readToken: string) => RuleReadState | null;
+  getRuleReadState?: () => RuleReadState | null;
   currentRuleUpdatedAt?: Date;
 }) {
-  const ruleReadState = getRuleReadStateByToken?.(readToken) || null;
+  const ruleReadState = getRuleReadState?.() || null;
 
   if (!ruleReadState) {
-    return "Invalid or missing readToken. Call getUserRulesAndSettings immediately before updating an existing rule.";
+    return "Before updating an existing rule, call getUserRulesAndSettings immediately beforehand.";
   }
 
   if (Date.now() - ruleReadState.readAt > RULE_READ_FRESHNESS_WINDOW_MS) {

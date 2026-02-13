@@ -1,5 +1,4 @@
 import type { ModelMessage } from "ai";
-import { randomUUID } from "crypto";
 import type { Logger } from "@/utils/logger";
 import type { MessageContext } from "@/app/api/chat/validation";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -9,6 +8,8 @@ import { env } from "@/env";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { chatCompletionStream } from "@/utils/llms";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
+import prisma from "@/utils/prisma";
+import type { SystemType } from "@/generated/prisma/enums";
 import {
   addToKnowledgeBaseTool,
   createRuleTool,
@@ -64,7 +65,7 @@ export async function aiProcessAssistantChat({
   context?: MessageContext;
   logger: Logger;
 }) {
-  const ruleReadStateByToken = new Map<string, RuleReadState>();
+  let ruleReadState: RuleReadState | null = null;
 
   const system = `You are the Inbox Zero assistant. You help users understand their inbox, take inbox actions, update account features, and manage automation rules.
 
@@ -87,8 +88,8 @@ Tool call policy:
 - Never invent thread IDs, label IDs, sender addresses, or existing rule names.
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - For ambiguous destructive requests (for example archive vs mark read), ask a brief clarification question before writing.
-- Before changing an existing rule, call getUserRulesAndSettings immediately before the write and pass the returned readToken to the update tool.
-- If a rule has changed since that read, call getUserRulesAndSettings again and use the newest readToken.
+- Before changing an existing rule, call getUserRulesAndSettings immediately before the write.
+- If a rule has changed since that read, call getUserRulesAndSettings again and then apply the update.
 
 Provider context:
 - Current provider: ${user.account.provider}.
@@ -184,14 +185,19 @@ Behavior anchors (minimal examples):
     emailAccountId,
     provider: user.account.provider,
     logger,
-    registerRuleReadState: (state: RuleReadState) => {
-      const readToken = randomUUID();
-      ruleReadStateByToken.set(readToken, state);
-      return readToken;
+    setRuleReadState: (state: RuleReadState) => {
+      ruleReadState = state;
     },
-    getRuleReadStateByToken: (readToken: string) =>
-      ruleReadStateByToken.get(readToken) || null,
+    getRuleReadState: () => ruleReadState,
   };
+
+  const expectedFixSystemType =
+    context && context.type === "fix-rule"
+      ? await getExpectedFixContextSystemType({
+          context,
+          emailAccountId,
+        })
+      : null;
 
   const hiddenContextMessage =
     context && context.type === "fix-rule"
@@ -216,7 +222,7 @@ Behavior anchors (minimal examples):
                     ? "No rule should be applied"
                     : `Should match the "${context.expected.name}" rule`
               }` +
-              (isConversationStatusFixContext(context)
+              (isConversationStatusFixContext(context, expectedFixSystemType)
                 ? `\n\nThis fix is about conversation status classification. Prefer updating conversation rule instructions with updateRuleConditions (for example, To Reply/FYI rules).`
                 : ""),
           },
@@ -262,15 +268,48 @@ Behavior anchors (minimal examples):
   return result;
 }
 
-function isConversationStatusFixContext(context: MessageContext) {
-  const expectedSystemType =
-    context.expected !== "new" && context.expected !== "none"
-      ? context.expected.systemType
-      : null;
-
+function isConversationStatusFixContext(
+  context: MessageContext,
+  expectedSystemType: SystemType | null,
+) {
   return (
     context.results.some((result) =>
       isConversationStatusType(result.systemType),
     ) || isConversationStatusType(expectedSystemType)
   );
+}
+
+async function getExpectedFixContextSystemType({
+  context,
+  emailAccountId,
+}: {
+  context: MessageContext;
+  emailAccountId: string;
+}): Promise<SystemType | null> {
+  if (context.expected === "new" || context.expected === "none") return null;
+
+  if ("id" in context.expected) {
+    const expectedRule = await prisma.rule.findUnique({
+      where: { id: context.expected.id },
+      select: { systemType: true, emailAccountId: true },
+    });
+
+    if (!expectedRule || expectedRule.emailAccountId !== emailAccountId) {
+      return null;
+    }
+
+    return expectedRule.systemType ?? null;
+  }
+
+  const expectedRule = await prisma.rule.findUnique({
+    where: {
+      name_emailAccountId: {
+        name: context.expected.name,
+        emailAccountId,
+      },
+    },
+    select: { systemType: true },
+  });
+
+  return expectedRule?.systemType ?? null;
 }
