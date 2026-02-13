@@ -1,7 +1,18 @@
 "use client";
 
 import { useAction } from "next-safe-action/hooks";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { SettingsSection } from "@/components/SettingsSection";
 import { toggleAllRulesAction } from "@/utils/actions/rule";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -15,14 +26,14 @@ export function ToggleAllRulesSection({
 }) {
   const { data: rules, mutate } = useRules(emailAccountId);
 
-  const allRulesEnabled = rules?.every((rule) => rule.enabled) ?? false;
+  const hasEnabledRules = rules?.some((rule) => rule.enabled) ?? false;
   const hasRules = (rules?.length ?? 0) > 0;
 
   const { execute, isExecuting } = useAction(
     toggleAllRulesAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Rules updated successfully" });
+        toastSuccess({ description: "All rules disabled" });
         mutate();
       },
       onError: (error) => {
@@ -31,21 +42,38 @@ export function ToggleAllRulesSection({
     },
   );
 
-  if (!hasRules) return null;
+  if (!hasRules || !hasEnabledRules) return null;
 
   return (
     <SettingsSection
-      title="Enable Rules"
-      description="Toggle all AI rules on or off for this account."
+      title="Disable All Rules"
+      description="Disable all AI rules for this account. You can re-enable rules individually."
       titleClassName="text-sm"
       descriptionClassName="text-xs sm:text-sm"
       align="center"
       actions={
-        <Switch
-          checked={allRulesEnabled}
-          onCheckedChange={(enabled) => execute({ enabled })}
-          disabled={isExecuting}
-        />
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button size="sm" variant="outline" disabled={isExecuting}>
+              Disable All
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Disable all rules?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will disable all AI rules for this account. You can
+                re-enable individual rules from the Rules page.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => execute({ enabled: false })}>
+                Disable All
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       }
     />
   );
