@@ -20,6 +20,7 @@ import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/setting
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
 import { RuleImportExportSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting";
+import { ToggleAllRulesSection } from "@/app/(app)/[emailAccountId]/settings/ToggleAllRulesSection";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
@@ -189,6 +190,8 @@ function EmailAccountSettingsCard({
           <>
             <Separator />
             <div className="space-y-4 pt-1">
+              <ToggleAllRulesSection emailAccountId={emailAccount.id} />
+              <Separator />
               <RuleImportExportSetting emailAccountId={emailAccount.id} />
               <Separator />
               <CleanupDraftsSection emailAccountId={emailAccount.id} />
