@@ -12,7 +12,13 @@ import type {
 } from "@/utils/ai/assistant/chat";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EyeIcon, SparklesIcon, TrashIcon, FileDiffIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  EyeIcon,
+  SparklesIcon,
+  TrashIcon,
+  FileDiffIcon,
+} from "lucide-react";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { deleteRuleAction } from "@/utils/actions/rule";
@@ -21,12 +27,172 @@ import { ExpandableText } from "@/components/ExpandableText";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { getEmailTerminology } from "@/utils/terminology";
+import { formatShortDate } from "@/utils/date";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+
+function getOutputField<T>(output: unknown, field: string): T | undefined {
+  if (typeof output === "object" && output !== null && field in output) {
+    return (output as Record<string, unknown>)[field] as T;
+  }
+  return undefined;
+}
 
 export function BasicToolInfo({ text }: { text: string }) {
   return (
     <ToolCard>
       <div className="text-sm">{text}</div>
     </ToolCard>
+  );
+}
+
+function CollapsibleToolCard({
+  summary,
+  children,
+}: {
+  summary: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Card className="mb-4 p-4">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger className="flex w-full items-center gap-2 text-sm">
+          <ChevronRightIcon
+            className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+          />
+          {summary}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-3 space-y-2">
+          {children}
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
+
+export function SearchInboxResult({ output }: { output: unknown }) {
+  const totalReturned =
+    getOutputField<number>(output, "totalReturned") || 0;
+  const queryUsed = getOutputField<string | null>(output, "queryUsed");
+  const summary = getOutputField<{
+    total: number;
+    unread: number;
+    byCategory: Record<string, number>;
+  }>(output, "summary");
+  const messages = getOutputField<
+    Array<{
+      messageId: string;
+      subject: string;
+      from: string;
+      snippet: string;
+      date: string;
+      isUnread: boolean;
+    }>
+  >(output, "messages");
+
+  return (
+    <CollapsibleToolCard
+      summary={`Searched inbox (${totalReturned} messages)`}
+    >
+      {queryUsed && (
+        <div className="text-xs text-muted-foreground">
+          Query: <span className="font-mono">{queryUsed}</span>
+        </div>
+      )}
+
+      {summary && summary.unread > 0 && (
+        <div className="text-xs text-muted-foreground">
+          {summary.unread} unread
+        </div>
+      )}
+
+      {messages && messages.length > 0 && (
+        <div className="max-h-96 space-y-1 overflow-y-auto">
+          {messages.map((msg) => (
+            <div
+              key={msg.messageId}
+              className="rounded-md bg-muted px-3 py-2 text-sm"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span
+                  className={`truncate ${msg.isUnread ? "font-semibold" : ""}`}
+                >
+                  {msg.from}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {formatShortDate(new Date(msg.date), { lowercase: true })}
+                </span>
+              </div>
+              <div className="truncate text-muted-foreground">
+                {msg.subject}
+              </div>
+              {msg.snippet && (
+                <div className="mt-0.5 truncate text-xs text-muted-foreground/70">
+                  {msg.snippet}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </CollapsibleToolCard>
+  );
+}
+
+export function ManageInboxResult({
+  output,
+}: {
+  output: unknown;
+}) {
+  const action = getOutputField<string>(output, "action");
+  const successCount = getOutputField<number>(output, "successCount");
+  const sendersCount = getOutputField<number>(output, "sendersCount");
+  const failedCount = getOutputField<number>(output, "failedCount");
+  const senders = getOutputField<string[]>(output, "senders");
+
+  const summaryText =
+    action === "bulk_archive_senders"
+      ? `Bulk archived ${sendersCount || 0} sender${sendersCount === 1 ? "" : "s"}`
+      : `Completed inbox action${typeof successCount === "number" ? ` (${successCount} items)` : ""}`;
+
+  return (
+    <CollapsibleToolCard summary={summaryText}>
+      <div className="space-y-1 text-sm">
+        {action && (
+          <div className="text-xs text-muted-foreground">
+            Action: {action.replace(/_/g, " ")}
+          </div>
+        )}
+
+        {typeof successCount === "number" && (
+          <div className="text-xs text-muted-foreground">
+            Succeeded: {successCount}
+          </div>
+        )}
+
+        {typeof failedCount === "number" && failedCount > 0 && (
+          <div className="text-xs text-red-500">Failed: {failedCount}</div>
+        )}
+
+        {senders && senders.length > 0 && (
+          <div className="space-y-1">
+            {senders.map((sender) => (
+              <div
+                key={sender}
+                className="rounded-md bg-muted px-3 py-1.5 text-xs"
+              >
+                {sender}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </CollapsibleToolCard>
   );
 }
 

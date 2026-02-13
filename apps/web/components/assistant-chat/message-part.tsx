@@ -10,6 +10,8 @@ import {
   AddToKnowledgeBase,
   BasicToolInfo,
   CreatedRuleToolCard,
+  ManageInboxResult,
+  SearchInboxResult,
   UpdateAbout,
   UpdatedLearnedPatterns,
   UpdatedRuleActions,
@@ -90,14 +92,7 @@ export function MessagePart({
       if (isOutputWithError(output)) {
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
-      const totalReturned =
-        getOutputField<number>(output, "totalReturned") || 0;
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text={`Searched inbox (${totalReturned} messages)`}
-        />
-      );
+      return <SearchInboxResult key={toolCallId} output={output} />;
     }
   }
 
@@ -111,16 +106,7 @@ export function MessagePart({
       if (isOutputWithError(output)) {
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
-      const action = getOutputField<string>(output, "action");
-      const successCount = getOutputField<number>(output, "successCount");
-      const sendersCount = getOutputField<number>(output, "sendersCount");
-
-      const text =
-        action === "bulk_archive_senders"
-          ? `Bulk archived ${sendersCount || 0} sender${sendersCount === 1 ? "" : "s"}`
-          : `Completed inbox action${typeof successCount === "number" ? ` (${successCount} items)` : ""}`;
-
-      return <BasicToolInfo key={toolCallId} text={text} />;
+      return <ManageInboxResult key={toolCallId} output={output} />;
     }
   }
 
