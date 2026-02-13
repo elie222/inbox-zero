@@ -157,7 +157,15 @@ function ConnectedChannelRow({
     isLoading: isLoadingTargets,
     error: targetsError,
   } = useChannelTargets(selectingSlackTarget ? channel.id : null);
-  const privateTargets = targetsData?.targets.filter((target) => target.isPrivate);
+  const privateTargets =
+    targetsData?.targets.filter((target) => target.isPrivate) ?? [];
+  const hasTargetLoadError = Boolean(targetsError || targetsData?.error);
+  const selectionState = getSlackChannelSelectionState({
+    channelId: channel.channelId,
+    selectingTarget,
+    isLoadingTargets,
+    hasTargetLoadError,
+  });
 
   const { execute: executeDisconnect, status: disconnectStatus } = useAction(
     disconnectChannelAction.bind(null, emailAccountId),
@@ -209,7 +217,7 @@ function ConnectedChannelRow({
 
           {channel.provider === "SLACK" && (
             <div className="space-y-1">
-              {channel.channelId && !selectingTarget ? (
+              {selectionState.showCurrentChannel ? (
                 <button
                   type="button"
                   className="text-xs text-muted-foreground underline underline-offset-4"
@@ -231,14 +239,14 @@ function ConnectedChannelRow({
                   }}
                   disabled={
                     isLoadingTargets ||
-                    !!targetsError ||
+                    hasTargetLoadError ||
                     setTargetStatus === "executing"
                   }
                 >
                   <SelectTrigger className="h-8 w-52 text-xs">
                     <SelectValue
                       placeholder={
-                        targetsError
+                        hasTargetLoadError
                           ? "Failed to load channels"
                           : isLoadingTargets
                             ? "Loading channels..."
@@ -253,9 +261,7 @@ function ConnectedChannelRow({
                         {target.name}
                       </SelectItem>
                     ))}
-                    {!isLoadingTargets &&
-                      privateTargets &&
-                      privateTargets.length === 0 && (
+                    {!isLoadingTargets && privateTargets.length === 0 && (
                         <div className="px-2 py-1.5 text-xs text-muted-foreground">
                           No private channels found
                         </div>
@@ -264,7 +270,7 @@ function ConnectedChannelRow({
                 </Select>
               )}
 
-              {selectingTarget && !isLoadingTargets && (
+              {selectionState.showInviteHint && (
                 <div className="text-xs text-muted-foreground">
                   Invite the bot with{" "}
                   <code className="rounded bg-muted px-1">/invite @InboxZero</code>{" "}
@@ -388,4 +394,25 @@ function resolveSlackErrorReason(
   }
 
   return null;
+}
+
+export function getSlackChannelSelectionState({
+  channelId,
+  selectingTarget,
+  isLoadingTargets,
+  hasTargetLoadError,
+}: {
+  channelId: string | null;
+  selectingTarget: boolean;
+  isLoadingTargets: boolean;
+  hasTargetLoadError: boolean;
+}) {
+  const showChannelSelector = !channelId || selectingTarget;
+
+  return {
+    showChannelSelector,
+    showCurrentChannel: !showChannelSelector,
+    showInviteHint:
+      showChannelSelector && !isLoadingTargets && !hasTargetLoadError,
+  };
 }
