@@ -6,7 +6,7 @@ import {
   ChevronRightIcon,
   CreditCardIcon,
   MailIcon,
-  SettingsIcon,
+  SparklesIcon,
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
@@ -103,7 +103,7 @@ export default function SettingsPage() {
         )}
 
         <SettingsGroup
-          icon={<SettingsIcon className="size-5" />}
+          icon={<SparklesIcon className="size-5" />}
           title="AI Model"
         >
           <ItemCard className="p-4">

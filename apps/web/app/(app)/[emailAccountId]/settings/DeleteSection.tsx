@@ -72,7 +72,7 @@ export function DeleteSection() {
       <ItemContent>
         <ItemTitle>Delete account</ItemTitle>
         <ItemDescription>
-          Permanently delete your account and all associated data.
+          Permanently delete your account and all data.
         </ItemDescription>
       </ItemContent>
       <ItemActions>
