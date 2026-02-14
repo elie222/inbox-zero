@@ -10,6 +10,12 @@ import type { Prisma } from "@/generated/prisma/client";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
 import { captureException } from "@/utils/error";
 import { messageContextSchema } from "@/app/api/chat/validation";
+import {
+  shouldCompact,
+  compactMessages,
+  extractMemories,
+} from "@/utils/ai/assistant/compact";
+import { getModel } from "@/utils/llms/model";
 
 export const maxDuration = 120;
 
@@ -41,7 +47,7 @@ export const POST = withEmailAccount("chat", async (request) => {
   if (error) return NextResponse.json({ error: error.errors }, { status: 400 });
 
   const chat =
-    (await getChatById(data.id)) ||
+    (await getChatWithCompactions(data.id)) ||
     (await createNewChat({
       emailAccountId,
       chatId: data.id,
@@ -63,7 +69,6 @@ export const POST = withEmailAccount("chat", async (request) => {
   }
 
   const { message, context } = data;
-  const uiMessages = [...convertToUIMessages(chat), message];
 
   await saveChatMessage({
     chat: { connect: { id: chat.id } },
@@ -72,9 +77,85 @@ export const POST = withEmailAccount("chat", async (request) => {
     parts: message.parts,
   });
 
+  const latestCompaction = chat.compactions[0];
+
+  const messagesForModel = latestCompaction
+    ? chat.messages.filter((m) => m.createdAt > latestCompaction.createdAt)
+    : chat.messages;
+
+  const uiMessages = [
+    ...convertToUIMessages({ ...chat, messages: messagesForModel }),
+    message,
+  ];
+
+  let modelMessages = await convertToModelMessages(uiMessages);
+
+  if (latestCompaction) {
+    modelMessages = [
+      {
+        role: "system" as const,
+        content: `Summary of earlier conversation:\n${latestCompaction.summary}`,
+      },
+      ...modelMessages,
+    ];
+  }
+
+  const { provider } = getModel(user.user, "chat");
+
+  if (shouldCompact(modelMessages, provider)) {
+    try {
+      const { compactedMessages, summary, compactedCount } =
+        await compactMessages({
+          messages: modelMessages,
+          user,
+          logger: request.logger,
+        });
+
+      modelMessages = compactedMessages;
+
+      const [, memories] = await Promise.all([
+        prisma.$transaction([
+          prisma.chatCompaction.create({
+            data: {
+              chatId: chat.id,
+              summary,
+              messageCount: compactedCount,
+            },
+          }),
+          prisma.chat.update({
+            where: { id: chat.id },
+            data: { compactionCount: { increment: 1 } },
+          }),
+        ]),
+        extractMemories({ messages: modelMessages, user }).catch((err) => {
+          request.logger.error("Failed to extract memories", { error: err });
+          return [];
+        }),
+      ]);
+
+      if (memories.length > 0) {
+        await prisma.chatMemory.createMany({
+          data: memories.map((m) => ({
+            content: m.content,
+            category: m.category,
+            chatId: chat.id,
+            emailAccountId,
+          })),
+        });
+      }
+    } catch (compactionError) {
+      request.logger.error(
+        "Chat compaction failed, continuing with full history",
+        {
+          error: compactionError,
+        },
+      );
+    }
+  }
+
   try {
     const result = await aiProcessAssistantChat({
-      messages: await convertToModelMessages(uiMessages),
+      messages: modelMessages,
       emailAccountId,
       user,
       context,
@@ -107,7 +188,10 @@ async function createNewChat({
   try {
     const newChat = await prisma.chat.create({
       data: { emailAccountId, id: chatId },
-      include: { messages: true },
+      include: {
+        messages: { orderBy: { createdAt: "asc" } },
+        compactions: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
     });
     logger.info("New chat created", { chatId: newChat.id, emailAccountId });
     return newChat;
@@ -117,12 +201,14 @@ async function createNewChat({
   }
 }
 
-async function getChatById(chatId: string) {
-  const chat = await prisma.chat.findUnique({
+async function getChatWithCompactions(chatId: string) {
+  return prisma.chat.findUnique({
     where: { id: chatId },
-    include: { messages: true },
+    include: {
+      messages: { orderBy: { createdAt: "asc" } },
+      compactions: { orderBy: { createdAt: "desc" }, take: 1 },
+    },
   });
-  return chat;
 }
 
 async function saveChatMessage(message: Prisma.ChatMessageCreateInput) {
