@@ -13,8 +13,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { SettingsSection } from "@/components/SettingsSection";
-import { Separator } from "@/components/ui/separator";
+import {
+  Item,
+  ItemContent,
+  ItemTitle,
+  ItemActions,
+  ItemSeparator,
+} from "@/components/ui/item";
 import { toggleAllRulesAction } from "@/utils/actions/rule";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
@@ -47,13 +52,12 @@ export function ToggleAllRulesSection({
 
   return (
     <>
-      <SettingsSection
-        title="Disable All Rules"
-        description="Disable all AI rules for this account. You can re-enable rules individually."
-        titleClassName="text-sm"
-        descriptionClassName="text-xs sm:text-sm"
-        align="center"
-        actions={
+      <ItemSeparator />
+      <Item size="sm">
+        <ItemContent>
+          <ItemTitle>Disable All Rules</ItemTitle>
+        </ItemContent>
+        <ItemActions>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button size="sm" variant="outline" disabled={isExecuting}>
@@ -70,15 +74,17 @@ export function ToggleAllRulesSection({
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction type="button" onClick={() => execute({ enabled: false })}>
+                <AlertDialogAction
+                  type="button"
+                  onClick={() => execute({ enabled: false })}
+                >
                   Disable All
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-        }
-      />
-      <Separator />
+        </ItemActions>
+      </Item>
     </>
   );
 }

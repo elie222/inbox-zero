@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
-import { SettingsSection } from "@/components/SettingsSection";
+import {
+  Item,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+  ItemActions,
+  ItemSeparator,
+} from "@/components/ui/item";
 import { cleanupAIDraftsAction } from "@/utils/actions/user";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
@@ -47,31 +54,36 @@ export function CleanupDraftsSection({
   );
 
   return (
-    <SettingsSection
-      title="Clean Up AI Drafts"
-      description="Remove stale AI-generated drafts that are older than 3 days and haven't been edited."
-      titleClassName="text-sm"
-      descriptionClassName="text-xs sm:text-sm"
-      align="start"
-      actions={
-        <div className="flex flex-col items-start gap-2 sm:items-end">
+    <>
+      <ItemSeparator />
+      <Item size="sm">
+        <ItemContent>
+          <ItemTitle>Clean Up AI Drafts</ItemTitle>
+          <ItemDescription>
+            Delete drafts created by Inbox Zero that are older than 3 days and
+            haven&apos;t been edited by you
+          </ItemDescription>
+        </ItemContent>
+        <ItemActions>
           <Button
             size="sm"
             variant="outline"
             loading={isExecuting}
             onClick={() => execute()}
           >
-            Clean Up Drafts
+            Delete drafts
           </Button>
-          {result && result.deleted > 0 && result.skippedModified > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {result.skippedModified} draft
-              {result.skippedModified === 1 ? " was" : "s were"} kept because
-              you edited {result.skippedModified === 1 ? "it" : "them"}
-            </p>
-          )}
+        </ItemActions>
+      </Item>
+      {result && result.deleted > 0 && result.skippedModified > 0 && (
+        <div className="px-4 pb-2">
+          <p className="text-xs text-muted-foreground">
+            {result.skippedModified} draft
+            {result.skippedModified === 1 ? " was" : "s were"} kept because you
+            edited {result.skippedModified === 1 ? "it" : "them"}
+          </p>
         </div>
-      }
-    />
+      )}
+    </>
   );
 }
