@@ -177,8 +177,8 @@ export function ManageInboxResult({
   const actionLabel = getManageInboxActionLabel({ action, read, labelApplied });
   const completedCount =
     action === "bulk_archive_senders"
-      ? sendersCount ?? senders?.length
-      : successCount ?? requestedCount;
+      ? (sendersCount ?? senders?.length)
+      : (successCount ?? requestedCount);
   const countLabel = action === "bulk_archive_senders" ? "sender" : "item";
 
   const summaryText =
@@ -193,8 +193,6 @@ export function ManageInboxResult({
   return (
     <CollapsibleToolCard summary={summaryText}>
       <div className="space-y-1 text-sm">
-        <div className="text-xs text-muted-foreground">Action: {actionLabel}</div>
-
         {typeof failedCount === "number" && failedCount > 0 && (
           <div className="text-xs text-red-500">Failed: {failedCount}</div>
         )}
