@@ -22,6 +22,7 @@ import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection
 import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
+import { CopyRulesSection } from "@/app/(app)/[emailAccountId]/settings/CopyRulesSection";
 import { RuleImportExportSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting";
 import { ToggleAllRulesSection } from "@/app/(app)/[emailAccountId]/settings/ToggleAllRulesSection";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
@@ -71,6 +72,7 @@ export default function SettingsPage() {
                   <EmailAccountSettingsCard
                     key={emailAccount.id}
                     emailAccount={emailAccount}
+                    allAccounts={emailAccounts}
                     expanded={expandedAccountId === emailAccount.id}
                     onToggle={() =>
                       setExpandedAccountId((current) =>
@@ -132,10 +134,12 @@ export default function SettingsPage() {
 
 function EmailAccountSettingsCard({
   emailAccount,
+  allAccounts,
   expanded,
   onToggle,
 }: {
   emailAccount: GetEmailAccountsResponse["emailAccounts"][number];
+  allAccounts: GetEmailAccountsResponse["emailAccounts"];
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -184,6 +188,11 @@ function EmailAccountSettingsCard({
           <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
           <ToggleAllRulesSection emailAccountId={emailAccount.id} />
           <RuleImportExportSetting emailAccountId={emailAccount.id} />
+          <CopyRulesSection
+            emailAccountId={emailAccount.id}
+            emailAccountEmail={emailAccount.email}
+            allAccounts={allAccounts}
+          />
           <CleanupDraftsSection emailAccountId={emailAccount.id} />
           <ResetAnalyticsSection emailAccountId={emailAccount.id} />
         </>
