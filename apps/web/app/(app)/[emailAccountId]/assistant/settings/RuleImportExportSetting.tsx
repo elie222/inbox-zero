@@ -4,7 +4,13 @@ import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { DownloadIcon, UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SettingsSection } from "@/components/SettingsSection";
+import {
+  Item,
+  ItemContent,
+  ItemTitle,
+  ItemActions,
+  ItemSeparator,
+} from "@/components/ui/item";
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
 import { importRulesAction } from "@/utils/actions/rule";
@@ -109,13 +115,13 @@ export function RuleImportExportSetting({
   );
 
   return (
-    <SettingsSection
-      title="Import / Export Rules"
-      description="Backup your rules to a JSON file or restore from a previous export."
-      titleClassName="text-sm"
-      descriptionClassName="text-xs sm:text-sm"
-      actions={
-        <div className="flex gap-2">
+    <>
+      <ItemSeparator />
+      <Item size="sm">
+        <ItemContent>
+          <ItemTitle>Import / Export Rules</ItemTitle>
+        </ItemContent>
+        <ItemActions>
           <input
             type="file"
             ref={fileInputRef}
@@ -141,8 +147,8 @@ export function RuleImportExportSetting({
             <DownloadIcon className="mr-2 size-4" />
             Export
           </Button>
-        </div>
-      }
-    />
+        </ItemActions>
+      </Item>
+    </>
   );
 }

@@ -3,17 +3,20 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  AlertTriangleIcon,
   ChevronRightIcon,
   CreditCardIcon,
   MailIcon,
-  SettingsIcon,
+  SlackIcon,
+  SparklesIcon,
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
-import { ConnectedAppsSection } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
+import {
+  ConnectedAppsSection,
+  useSlackNotifications,
+} from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
@@ -24,17 +27,12 @@ import { ToggleAllRulesSection } from "@/app/(app)/[emailAccountId]/settings/Tog
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
+import { ItemCard, ItemSeparator } from "@/components/ui/item";
 import { useAccounts } from "@/hooks/useAccounts";
+import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
 import { env } from "@/env";
@@ -42,9 +40,11 @@ import { env } from "@/env";
 export default function SettingsPage() {
   const { emailAccountId: activeEmailAccountId } = useAccount();
   const { data, isLoading, error } = useAccounts();
-  const [showAdvancedByAccount, setShowAdvancedByAccount] = useState<
-    Record<string, boolean>
-  >({});
+  const [expandedAccountId, setExpandedAccountId] = useState<string | null>(
+    null,
+  );
+
+  useSlackNotifications(true);
 
   const emailAccounts = useMemo(() => {
     const accounts = data?.emailAccounts ?? [];
@@ -57,34 +57,28 @@ export default function SettingsPage() {
 
   return (
     <div className="content-container pb-12">
-      <div className="mx-auto max-w-5xl space-y-6 pt-4">
+      <div className="mx-auto max-w-5xl space-y-10 pt-4">
         <PageHeader title="Settings" />
 
-        <SettingsCard
+        <SettingsGroup
           icon={<MailIcon className="size-5" />}
           title="Email Accounts"
         >
           <LoadingContent loading={isLoading} error={error}>
             {emailAccounts.length > 0 && (
               <div className="space-y-4">
-                {emailAccounts.map((emailAccount, index) => {
-                  const showAdvanced = !!showAdvancedByAccount[emailAccount.id];
-
-                  return (
-                    <EmailAccountSettingsCard
-                      key={emailAccount.id}
-                      emailAccount={emailAccount}
-                      showAdvanced={showAdvanced}
-                      onToggleAdvanced={() =>
-                        setShowAdvancedByAccount((current) => ({
-                          ...current,
-                          [emailAccount.id]: !current[emailAccount.id],
-                        }))
-                      }
-                      showNotifications={index === 0}
-                    />
-                  );
-                })}
+                {emailAccounts.map((emailAccount) => (
+                  <EmailAccountSettingsCard
+                    key={emailAccount.id}
+                    emailAccount={emailAccount}
+                    expanded={expandedAccountId === emailAccount.id}
+                    onToggle={() =>
+                      setExpandedAccountId((current) =>
+                        current === emailAccount.id ? null : emailAccount.id,
+                      )
+                    }
+                  />
+                ))}
 
                 <Button asChild variant="outline">
                   <Link href="/accounts">
@@ -95,42 +89,42 @@ export default function SettingsPage() {
               </div>
             )}
           </LoadingContent>
-        </SettingsCard>
+        </SettingsGroup>
 
         {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
-          <SettingsCard
+          <SettingsGroup
             icon={<CreditCardIcon className="size-5" />}
             title="Billing"
           >
-            <BillingSection />
-          </SettingsCard>
+            <ItemCard>
+              <BillingSection />
+            </ItemCard>
+          </SettingsGroup>
         )}
 
-        <SettingsCard
-          icon={<SettingsIcon className="size-5" />}
+        <SettingsGroup
+          icon={<SparklesIcon className="size-5" />}
           title="AI Model"
         >
-          <ModelSection />
-        </SettingsCard>
+          <ItemCard className="p-4">
+            <ModelSection />
+          </ItemCard>
+        </SettingsGroup>
 
-        <SettingsCard
+        <SettingsGroup
           icon={<WebhookIcon className="size-5" />}
-          title="Developer Settings"
+          title="Developer"
         >
-          <div className="space-y-6">
+          <ItemCard>
             <WebhookSection />
-            <Separator />
+            <ItemSeparator />
             <ApiKeysSection />
-          </div>
-        </SettingsCard>
+          </ItemCard>
+        </SettingsGroup>
 
-        <SettingsCard
-          variant="danger"
-          icon={<AlertTriangleIcon className="size-5 text-red-600" />}
-          title="Danger Zone"
-        >
+        <ItemCard>
           <DeleteSection />
-        </SettingsCard>
+        </ItemCard>
       </div>
     </div>
   );
@@ -138,100 +132,86 @@ export default function SettingsPage() {
 
 function EmailAccountSettingsCard({
   emailAccount,
-  showAdvanced,
-  onToggleAdvanced,
-  showNotifications,
+  expanded,
+  onToggle,
 }: {
   emailAccount: GetEmailAccountsResponse["emailAccounts"][number];
-  showAdvanced: boolean;
-  onToggleAdvanced: () => void;
-  showNotifications: boolean;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
+  const { data: channelsData } = useMessagingChannels(emailAccount.id);
+  const hasSlack =
+    channelsData?.channels.some(
+      (ch) => ch.isConnected && ch.provider === "SLACK",
+    ) ?? false;
+
   return (
-    <Card className="border bg-background">
-      <CardContent className="space-y-4 p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10 rounded-full">
-              <AvatarImage
-                src={emailAccount.image || ""}
-                alt={emailAccount.name || emailAccount.email}
-              />
-              <AvatarFallback className="rounded-full">
-                {emailAccount.name?.charAt(0) || emailAccount.email?.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <p className="font-medium">{emailAccount.email}</p>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="self-start"
-            onClick={onToggleAdvanced}
-          >
-            {showAdvanced ? "Hide Advanced" : "Show Advanced"}
-            <ChevronRightIcon
-              className={cn(
-                "ml-1 size-4 transition-transform",
-                showAdvanced && "rotate-90",
-              )}
-            />
-          </Button>
-        </div>
-
-        <ConnectedAppsSection
-          emailAccountId={emailAccount.id}
-          showNotifications={showNotifications}
-        />
-        <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
-
-        {showAdvanced && (
-          <>
-            <Separator />
-            <div className="space-y-4 pt-1">
-              <ToggleAllRulesSection emailAccountId={emailAccount.id} />
-              <Separator />
-              <RuleImportExportSetting emailAccountId={emailAccount.id} />
-              <Separator />
-              <CleanupDraftsSection emailAccountId={emailAccount.id} />
-              <Separator />
-              <ResetAnalyticsSection emailAccountId={emailAccount.id} />
-            </div>
-          </>
+    <ItemCard>
+      <button
+        type="button"
+        className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left"
+        onClick={onToggle}
+      >
+        <Avatar className="size-8 rounded-full">
+          <AvatarImage
+            src={emailAccount.image || ""}
+            alt={emailAccount.name || emailAccount.email}
+          />
+          <AvatarFallback className="rounded-full text-xs">
+            {emailAccount.name?.charAt(0) || emailAccount.email?.charAt(0)}
+          </AvatarFallback>
+        </Avatar>
+        <span className="flex-1 text-sm font-medium">
+          {emailAccount.email}
+        </span>
+        {hasSlack && (
+          <Badge variant="secondary" className="gap-1 text-xs font-normal">
+            <SlackIcon className="size-3" />
+            Slack
+          </Badge>
         )}
-      </CardContent>
-    </Card>
+        <ChevronRightIcon
+          className={cn(
+            "size-4 text-muted-foreground transition-transform",
+            expanded && "rotate-90",
+          )}
+        />
+      </button>
+
+      {expanded && (
+        <>
+          <ConnectedAppsSection emailAccountId={emailAccount.id} />
+          <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
+          <ToggleAllRulesSection emailAccountId={emailAccount.id} />
+          <RuleImportExportSetting emailAccountId={emailAccount.id} />
+          <CleanupDraftsSection emailAccountId={emailAccount.id} />
+          <ResetAnalyticsSection emailAccountId={emailAccount.id} />
+        </>
+      )}
+    </ItemCard>
   );
 }
 
-function SettingsCard({
+function SettingsGroup({
   icon,
   title,
-  description,
-  variant = "default",
   children,
 }: {
-  icon: React.ReactNode;
-  title: string;
-  description?: string;
-  variant?: "default" | "danger";
+  icon?: React.ReactNode;
+  title?: string;
   children: React.ReactNode;
 }) {
   return (
-    <Card className={cn(variant === "danger" && "border-red-200")}>
-      <CardHeader>
-        <div className="flex items-center gap-2">
+    <section className="space-y-4">
+      {title && (
+        <div className="flex items-center gap-2 text-muted-foreground">
           {icon}
-          <CardTitle
-            className={cn("text-lg", variant === "danger" && "text-red-600")}
-          >
+          <h2 className="text-sm font-medium uppercase tracking-wide">
             {title}
-          </CardTitle>
+          </h2>
         </div>
-        {description ? <CardDescription>{description}</CardDescription> : null}
-      </CardHeader>
-      <CardContent className="space-y-4">{children}</CardContent>
-    </Card>
+      )}
+      {children}
+    </section>
   );
 }

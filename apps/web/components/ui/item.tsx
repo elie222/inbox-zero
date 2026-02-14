@@ -16,6 +16,12 @@ function ItemGroup({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+function ItemCard({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <ItemGroup className={cn("rounded-lg border", className)} {...props} />
+  );
+}
+
 function ItemSeparator({
   className,
   ...props
@@ -185,6 +191,7 @@ export {
   ItemContent,
   ItemActions,
   ItemGroup,
+  ItemCard,
   ItemSeparator,
   ItemTitle,
   ItemDescription,

@@ -114,7 +114,7 @@ function ModelSectionForm(props: {
       : [];
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="max-w-sm space-y-4">
       <Select
         label="Provider"
         options={providerOptions}
@@ -171,10 +171,10 @@ function ModelSectionForm(props: {
         ))}
 
       <div className="flex items-center gap-2">
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" size="sm" loading={isSubmitting}>
           Save
         </Button>
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" size="sm">
           <Link href={prefixPath(emailAccountId, "/usage")}>
             <BarChartIcon className="mr-2 size-4" />
             View usage

@@ -12,52 +12,76 @@ import {
   ApiKeysCreateButtonModal,
   ApiKeysDeactivateButton,
 } from "@/app/(app)/[emailAccountId]/settings/ApiKeysCreateForm";
-import { Card } from "@/components/ui/card";
-import { SettingsSection } from "@/components/SettingsSection";
+import { Item, ItemContent, ItemTitle, ItemActions } from "@/components/ui/item";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useApiKeys } from "@/hooks/useApiKeys";
 import { LoadingContent } from "@/components/LoadingContent";
 
 export function ApiKeysSection() {
   const { data, isLoading, error, mutate } = useApiKeys();
 
-  return (
-    <SettingsSection
-      title="API keys"
-      description="Create an API key to access the Inbox Zero API. Do not share your API key with others, or expose it in the browser or other client-side code."
-    >
-      <LoadingContent loading={isLoading} error={error}>
-        <div className="space-y-4">
-          {data && data.apiKeys.length > 0 ? (
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.apiKeys.map((apiKey) => (
-                    <TableRow key={apiKey.id}>
-                      <TableCell>{apiKey.name}</TableCell>
-                      <TableCell>{apiKey.createdAt.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <ApiKeysDeactivateButton
-                          id={apiKey.id}
-                          mutate={mutate}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          ) : null}
+  const keyCount = data?.apiKeys.length ?? 0;
 
-          <ApiKeysCreateButtonModal mutate={mutate} />
-        </div>
-      </LoadingContent>
-    </SettingsSection>
+  return (
+    <Item size="sm">
+      <ItemContent>
+        <ItemTitle>API Keys</ItemTitle>
+      </ItemContent>
+      <ItemActions>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              View keys{keyCount > 0 ? ` (${keyCount})` : ""}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>API Keys</DialogTitle>
+            </DialogHeader>
+            <LoadingContent loading={isLoading} error={error}>
+              {keyCount > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data?.apiKeys.map((apiKey) => (
+                      <TableRow key={apiKey.id}>
+                        <TableCell>{apiKey.name}</TableCell>
+                        <TableCell>
+                          {apiKey.createdAt.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <ApiKeysDeactivateButton
+                            id={apiKey.id}
+                            mutate={mutate}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No API keys yet.
+                </p>
+              )}
+            </LoadingContent>
+          </DialogContent>
+        </Dialog>
+        <ApiKeysCreateButtonModal mutate={mutate} />
+      </ItemActions>
+    </Item>
   );
 }

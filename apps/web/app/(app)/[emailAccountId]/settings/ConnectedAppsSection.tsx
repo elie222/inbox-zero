@@ -19,7 +19,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LoadingContent } from "@/components/LoadingContent";
-import { SettingsSection } from "@/components/SettingsSection";
+import {
+  Item,
+  ItemContent,
+  ItemTitle,
+  ItemActions,
+  ItemSeparator,
+} from "@/components/ui/item";
 import { toastSuccess, toastError, toastInfo } from "@/components/Toast";
 import {
   useChannelTargets,
@@ -45,12 +51,9 @@ const PROVIDER_CONFIG: Record<
 
 export function ConnectedAppsSection({
   emailAccountId,
-  showNotifications = true,
 }: {
   emailAccountId: string;
-  showNotifications?: boolean;
 }) {
-  useSlackNotifications(showNotifications);
 
   const {
     data: channelsData,
@@ -139,53 +142,58 @@ export function ConnectedAppsSection({
   };
 
   return (
-    <SettingsSection
-      title="Connected Apps"
-      description="Integrate with external services for notifications and actions."
-      titleClassName="text-sm"
-      descriptionClassName="text-xs sm:text-sm"
-      actions={
-        !hasSlack && slackAvailable ? (
-          existingWorkspace ? (
-            <div className="flex items-center gap-2">
+    <>
+      <ItemSeparator />
+      <Item size="sm">
+        <ItemContent>
+          <ItemTitle>Connected Apps</ItemTitle>
+        </ItemContent>
+        <ItemActions>
+          {!hasSlack && slackAvailable ? (
+            existingWorkspace ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={linkStatus === "executing"}
+                  onClick={handleLinkSlack}
+                >
+                  <SlackIcon className="mr-2 h-4 w-4" />
+                  {linkStatus === "executing"
+                    ? "Linking..."
+                    : `Link to ${existingWorkspace.teamName}`}
+                </Button>
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground underline underline-offset-4"
+                  onClick={() => {
+                    if (authUrl) window.location.href = authUrl;
+                  }}
+                >
+                  Install manually
+                </button>
+              </div>
+            ) : (
               <Button
                 variant="outline"
                 size="sm"
-                disabled={linkStatus === "executing"}
-                onClick={handleLinkSlack}
+                disabled={connectingSlack || isLoading}
+                onClick={handleConnectSlack}
               >
                 <SlackIcon className="mr-2 h-4 w-4" />
-                {linkStatus === "executing"
-                  ? "Linking..."
-                  : `Link to ${existingWorkspace.teamName}`}
+                {connectingSlack ? "Connecting..." : "Connect Slack"}
               </Button>
-              <button
-                type="button"
-                className="text-xs text-muted-foreground underline underline-offset-4"
-                onClick={() => {
-                  if (authUrl) window.location.href = authUrl;
-                }}
-              >
-                Install manually
-              </button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={connectingSlack || isLoading}
-              onClick={handleConnectSlack}
-            >
-              <SlackIcon className="mr-2 h-4 w-4" />
-              {connectingSlack ? "Connecting..." : "Connect Slack"}
-            </Button>
-          )
-        ) : null
-      }
-    >
-      <LoadingContent loading={isLoading} error={error}>
+            )
+          ) : null}
+        </ItemActions>
+      </Item>
+      <LoadingContent
+        loading={isLoading}
+        error={error}
+        loadingComponent={null}
+      >
         {connectedChannels.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-2 px-4 pb-3">
             {connectedChannels.map((channel) => (
               <ConnectedChannelRow
                 key={channel.id}
@@ -197,7 +205,7 @@ export function ConnectedAppsSection({
           </div>
         )}
       </LoadingContent>
-    </SettingsSection>
+    </>
   );
 }
 
@@ -396,7 +404,7 @@ function ConnectedChannelRow({
   );
 }
 
-function useSlackNotifications(enabled: boolean) {
+export function useSlackNotifications(enabled: boolean) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();

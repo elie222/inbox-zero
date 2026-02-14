@@ -5,7 +5,13 @@ import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { SettingsSection } from "@/components/SettingsSection";
+import {
+  Item,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+  ItemActions,
+} from "@/components/ui/item";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,15 +68,18 @@ export function DeleteSection() {
   const shouldBlockDeletion = hasSubscription && !hasConfirmedCancellation;
 
   return (
-    <SettingsSection
-      title="Delete account"
-      description="Permanently delete your account and all associated data. This cannot be undone."
-      align="start"
-      actions={
+    <Item size="sm">
+      <ItemContent>
+        <ItemTitle>Delete account</ItemTitle>
+        <ItemDescription>
+          Permanently delete your account and all data.
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
         <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <AlertDialogTrigger asChild>
             <Button variant="destructiveSoft" size="sm">
-              Delete user
+              Delete
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -128,7 +137,7 @@ export function DeleteSection() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      }
-    />
+      </ItemActions>
+    </Item>
   );
 }

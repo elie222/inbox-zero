@@ -1,6 +1,5 @@
 "use client";
 
-import { KeyIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -33,8 +32,7 @@ export function ApiKeysCreateButtonModal({ mutate }: { mutate: () => void }) {
     <Dialog>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
-          <KeyIcon className="mr-2 size-4" />
-          Create new secret key
+          Create key
         </Button>
       </DialogTrigger>
       <DialogContent>
