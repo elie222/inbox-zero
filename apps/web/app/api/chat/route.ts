@@ -14,6 +14,7 @@ import {
   shouldCompact,
   compactMessages,
   extractMemories,
+  RECENT_MESSAGES_TO_KEEP,
 } from "@/utils/ai/assistant/compact";
 import { getModel } from "@/utils/llms/model";
 
@@ -80,7 +81,9 @@ export const POST = withEmailAccount("chat", async (request) => {
   const latestCompaction = chat.compactions[0];
 
   const messagesForModel = latestCompaction
-    ? chat.messages.filter((m) => m.createdAt > latestCompaction.createdAt)
+    ? chat.messages.filter(
+        (m) => m.createdAt >= latestCompaction.compactedBeforeCreatedAt,
+      )
     : chat.messages;
 
   const uiMessages = [
@@ -116,6 +119,16 @@ export const POST = withEmailAccount("chat", async (request) => {
       if (compactedCount > 0 && summary.trim().length > 0) {
         modelMessages = compactedMessages;
 
+        // Compute boundary: keep at least RECENT_MESSAGES_TO_KEEP DB messages.
+        // messagesForModel doesn't include the new user message (saved after query),
+        // so we keep RECENT_MESSAGES_TO_KEEP from the existing set.
+        const keepFromIndex = Math.max(
+          0,
+          messagesForModel.length - RECENT_MESSAGES_TO_KEEP,
+        );
+        const compactedBeforeCreatedAt =
+          messagesForModel[keepFromIndex]?.createdAt ?? new Date();
+
         const [, memories] = await Promise.all([
           prisma.$transaction([
             prisma.chatCompaction.create({
@@ -123,6 +136,7 @@ export const POST = withEmailAccount("chat", async (request) => {
                 chatId: chat.id,
                 summary,
                 messageCount: compactedCount,
+                compactedBeforeCreatedAt,
               },
             }),
             prisma.chat.update({

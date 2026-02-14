@@ -18,6 +18,9 @@ export const searchMemoriesTool = ({
     inputSchema: z.object({
       query: z
         .string()
+        .trim()
+        .min(1)
+        .max(300)
         .describe(
           "Search query to find relevant memories (e.g., 'newsletter rules', 'meeting preferences')",
         ),

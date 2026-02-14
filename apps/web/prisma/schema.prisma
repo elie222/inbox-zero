@@ -932,8 +932,9 @@ model ChatCompaction {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  summary      String @db.Text
-  messageCount Int
+  summary                String   @db.Text
+  messageCount           Int
+  compactedBeforeCreatedAt DateTime // boundary: messages with createdAt >= this were NOT compacted
 
   chatId String
   chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)

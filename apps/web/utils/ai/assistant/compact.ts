@@ -6,7 +6,7 @@ import { createGenerateText, createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 
-const RECENT_MESSAGES_TO_KEEP = 6;
+export const RECENT_MESSAGES_TO_KEEP = 6;
 
 const COMPACTION_THRESHOLDS: Record<string, number> = {
   [Provider.OPENROUTER]: 200_000,

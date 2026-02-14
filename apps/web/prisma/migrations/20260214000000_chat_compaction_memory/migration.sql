@@ -7,6 +7,7 @@ CREATE TABLE "ChatCompaction" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "summary" TEXT NOT NULL,
     "messageCount" INTEGER NOT NULL,
+    "compactedBeforeCreatedAt" TIMESTAMP(3) NOT NULL,
     "chatId" TEXT NOT NULL,
 
     CONSTRAINT "ChatCompaction_pkey" PRIMARY KEY ("id")
