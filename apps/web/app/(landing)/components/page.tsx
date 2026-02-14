@@ -58,6 +58,14 @@ import {
   ActivityLog,
   type ActivityLogEntry,
 } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
+import {
+  AddToKnowledgeBase,
+  BasicToolInfo,
+  ManageInboxResult,
+  SearchInboxResult,
+  type ThreadLookup,
+  UpdateAbout,
+} from "@/components/assistant-chat/tools";
 
 export const maxDuration = 3;
 
@@ -70,6 +78,7 @@ export default function Components() {
     "alice@example.com",
     "bob@example.com",
   ]);
+  const assistantToolThreadLookup = getAssistantToolThreadLookup();
 
   return (
     <Container>
@@ -714,6 +723,131 @@ export default function Components() {
         </div>
 
         <div>
+          <div className="underline">Assistant Tools</div>
+          <div className="mt-4 space-y-4">
+            <MutedText>Input states:</MutedText>
+            <div className="grid gap-2 md:grid-cols-2">
+              <BasicToolInfo text="Loading account overview..." />
+              <BasicToolInfo text="Searching inbox..." />
+              <BasicToolInfo text="Archiving emails..." />
+              <BasicToolInfo text="Archiving and labeling emails..." />
+              <BasicToolInfo text="Marking emails as read..." />
+              <BasicToolInfo text="Marking emails as unread..." />
+              <BasicToolInfo text="Bulk archiving by sender..." />
+              <BasicToolInfo text="Updating inbox features..." />
+              <BasicToolInfo text="Sending email..." />
+              <BasicToolInfo text="Reading rules and settings..." />
+              <BasicToolInfo text="Reading learned patterns..." />
+              <BasicToolInfo text='Creating rule "Newsletters"...' />
+              <BasicToolInfo
+                text='Updating rule "Newsletters" conditions...'
+              />
+              <BasicToolInfo text='Updating rule "Newsletters" actions...' />
+              <BasicToolInfo
+                text='Updating learned patterns for rule "Newsletters"...'
+              />
+              <BasicToolInfo text="Updating about..." />
+              <BasicToolInfo text="Adding to knowledge base..." />
+            </div>
+
+            <MutedText>Output states:</MutedText>
+            <div className="space-y-2">
+              <BasicToolInfo text="Loaded account overview" />
+              <SearchInboxResult output={getAssistantSearchInboxOutput()} />
+              <ManageInboxResult
+                input={{
+                  action: "archive_threads",
+                  threadIds: ["thread-1", "thread-2"],
+                }}
+                output={{
+                  action: "archive_threads",
+                  requestedCount: 2,
+                  successCount: 2,
+                  failedCount: 0,
+                }}
+                threadIds={["thread-1", "thread-2"]}
+                threadLookup={assistantToolThreadLookup}
+              />
+              <ManageInboxResult
+                input={{
+                  action: "archive_threads",
+                  threadIds: ["thread-1", "thread-2", "thread-3"],
+                  labelId: "label-newsletter",
+                }}
+                output={{
+                  action: "archive_threads",
+                  requestedCount: 3,
+                  successCount: 2,
+                  failedCount: 1,
+                  failedThreadIds: ["thread-3"],
+                }}
+                threadIds={["thread-1", "thread-2", "thread-3"]}
+                threadLookup={assistantToolThreadLookup}
+              />
+              <ManageInboxResult
+                input={{
+                  action: "mark_read_threads",
+                  threadIds: ["thread-1", "thread-3"],
+                  read: true,
+                }}
+                output={{
+                  action: "mark_read_threads",
+                  requestedCount: 2,
+                  successCount: 2,
+                  failedCount: 0,
+                }}
+                threadIds={["thread-1", "thread-3"]}
+                threadLookup={assistantToolThreadLookup}
+              />
+              <ManageInboxResult
+                input={{
+                  action: "mark_read_threads",
+                  threadIds: ["thread-2"],
+                  read: false,
+                }}
+                output={{
+                  action: "mark_read_threads",
+                  requestedCount: 1,
+                  successCount: 1,
+                  failedCount: 0,
+                }}
+                threadIds={["thread-2"]}
+                threadLookup={assistantToolThreadLookup}
+              />
+              <ManageInboxResult
+                input={{
+                  action: "bulk_archive_senders",
+                  fromEmails: ["updates@example.com", "news@example.com"],
+                }}
+                output={{
+                  action: "bulk_archive_senders",
+                  sendersCount: 2,
+                  senders: ["updates@example.com", "news@example.com"],
+                }}
+                threadLookup={assistantToolThreadLookup}
+              />
+              <BasicToolInfo text="Updated inbox features" />
+              <BasicToolInfo text="Sent email to user@example.com" />
+              <BasicToolInfo text="Read rules and settings" />
+              <BasicToolInfo text="Read learned patterns" />
+              <UpdateAbout
+                args={{
+                  about:
+                    "I prefer concise responses and want newsletters archived by default.",
+                }}
+              />
+              <AddToKnowledgeBase
+                args={{
+                  title: "Escalation preference",
+                  content:
+                    "Escalate billing emails quickly and keep status updates short.",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div>
           <div className="underline">MultiSelectFilter</div>
           <div className="mt-4">
             <MultiSelectFilter
@@ -956,6 +1090,77 @@ function getActivityLogEntries(): ActivityLogEntry[] {
       ruleName: "To Review",
     },
   ];
+}
+
+function getAssistantToolThreadLookup(): ThreadLookup {
+  return new Map([
+    [
+      "thread-1",
+      {
+        from: "Daily Updates <updates@example.com>",
+        subject: "Daily summary",
+        snippet: "Your summary is ready",
+      },
+    ],
+    [
+      "thread-2",
+      {
+        from: "Product Team <product@example.com>",
+        subject: "Release notes",
+        snippet: "New changes shipped today",
+      },
+    ],
+    [
+      "thread-3",
+      {
+        from: "Support <support@example.com>",
+        subject: "Ticket follow-up",
+        snippet: "Checking in on your request",
+      },
+    ],
+  ]);
+}
+
+function getAssistantSearchInboxOutput() {
+  return {
+    queryUsed: "newer_than:7d in:inbox",
+    totalReturned: 3,
+    nextPageToken: null,
+    summary: {
+      total: 3,
+      unread: 2,
+      byCategory: {
+        update: 2,
+        support: 1,
+      },
+    },
+    messages: [
+      {
+        messageId: "message-1",
+        subject: "Daily summary",
+        from: "Daily Updates <updates@example.com>",
+        snippet: "Your summary is ready",
+        date: "2026-01-12T09:00:00.000Z",
+        isUnread: true,
+      },
+      {
+        messageId: "message-2",
+        subject: "Release notes",
+        from: "Product Team <product@example.com>",
+        snippet: "New changes shipped today",
+        date: "2026-01-11T18:30:00.000Z",
+        isUnread: false,
+      },
+      {
+        messageId: "message-3",
+        subject: "Ticket follow-up",
+        from: "Support <support@example.com>",
+        snippet: "Checking in on your request",
+        date: "2026-01-10T15:20:00.000Z",
+        isUnread: true,
+      },
+    ],
+  };
 }
 
 function EmailRowExample() {
