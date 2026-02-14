@@ -172,6 +172,7 @@ model EmailAccount {
   emailTokens      EmailToken[]
   knowledge        Knowledge[]
   chats            Chat[]
+  chatMemories     ChatMemory[]
   digests          Digest[]
   scheduledActions ScheduledAction[]
   responseTimes    ResponseTime[]
@@ -901,7 +902,11 @@ model Chat {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  compactionCount Int @default(0)
+
   messages       ChatMessage[]
+  compactions    ChatCompaction[]
+  memories       ChatMemory[]
   emailAccountId String
   emailAccount   EmailAccount  @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
@@ -921,6 +926,35 @@ model ChatMessage {
   chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@index([chatId])
+}
+
+model ChatCompaction {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  summary                String   @db.Text
+  messageCount           Int
+  compactedBeforeCreatedAt DateTime // boundary: messages with createdAt >= this were NOT compacted
+
+  chatId String
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId])
+}
+
+model ChatMemory {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  content String
+
+  chatId         String?
+  chat           Chat?        @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId])
 }
 
 model CalendarConnection {

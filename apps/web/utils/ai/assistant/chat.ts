@@ -28,6 +28,7 @@ import {
   sendEmailTool,
   updateInboxFeaturesTool,
 } from "./chat-inbox-tools";
+import { searchMemoriesTool } from "./chat-memory-tools";
 
 export const maxDuration = 120;
 
@@ -51,6 +52,7 @@ export type {
   SendEmailTool,
   UpdateInboxFeaturesTool,
 } from "./chat-inbox-tools";
+export type { SearchMemoriesTool } from "./chat-memory-tools";
 
 export async function aiProcessAssistantChat({
   messages,
@@ -174,6 +176,10 @@ Knowledge base:
 - The knowledge base is used to draft reply content.
 - It is only used when an action of type DRAFT_REPLY is used AND the rule has no preset draft content.
 
+Conversation memory:
+- You can search memories from previous conversations using the searchMemories tool when you need context from past interactions.
+- Use this when the user references something discussed before or when past context would help.
+
 Behavior anchors (minimal examples):
 - For "Give me an update on what came in today", call searchInbox first with today's start in the user's timezone, then summarize into must-handle, can-wait, and can-archive.
 - For "Turn off meeting briefs and enable auto-file attachments", call updateInboxFeatures with meetingBriefsEnabled=false and filingEnabled=true.
@@ -231,11 +237,17 @@ Behavior anchors (minimal examples):
                     : `Should match the "${context.expected.name}" rule`
               }` +
               (isConversationStatusFixContext(context, expectedFixSystemType)
-                ? `\n\nThis fix is about conversation status classification. Prefer updating conversation rule instructions with updateRuleConditions (for example, To Reply/FYI rules).`
+                ? "\n\nThis fix is about conversation status classification. Prefer updating conversation rule instructions with updateRuleConditions (for example, To Reply/FYI rules)."
                 : ""),
           },
         ]
       : [];
+
+  const cacheControl = {
+    providerOptions: {
+      anthropic: { cacheControl: { type: "ephemeral" as const } },
+    },
+  };
 
   const result = toolCallAgentStream({
     userAi: user.user,
@@ -246,6 +258,7 @@ Behavior anchors (minimal examples):
       {
         role: "system",
         content: system,
+        ...cacheControl,
       },
       ...hiddenContextMessage,
       ...messages,
@@ -267,6 +280,7 @@ Behavior anchors (minimal examples):
       updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
       updateAbout: updateAboutTool(toolOptions),
       addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
+      searchMemories: searchMemoriesTool(toolOptions),
       ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
         ? { sendEmail: sendEmailTool(toolOptions) }
         : {}),
