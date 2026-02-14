@@ -64,6 +64,102 @@ describe.runIf(isAiTest)("aiDraftFollowUp", () => {
     },
     TEST_TIMEOUT,
   );
+
+  test(
+    "drafts follow-up in Spanish when thread is in Spanish",
+    async () => {
+      const emailAccount = getEmailAccount();
+      const messages: TestMessage[] = [
+        {
+          id: "msg-1",
+          from: "cliente@example.com",
+          to: "user@example.com",
+          subject: "Pregunta sobre el proyecto",
+          date: new Date(Date.now() - TIMEOUT * 2),
+          content:
+            "Hola, ¿podrían enviarme la propuesta actualizada? Necesito revisarla antes de la reunión del viernes.",
+        },
+        {
+          id: "msg-2",
+          from: "user@example.com",
+          to: "cliente@example.com",
+          subject: "Re: Pregunta sobre el proyecto",
+          date: new Date(Date.now() - TIMEOUT),
+          content:
+            "Hola, por supuesto. Te enviaré la propuesta mañana por la mañana. ¿Hay algo específico que debería incluir?",
+        },
+      ];
+
+      const result = await aiDraftFollowUp({
+        messages,
+        emailAccount,
+        writingStyle: null,
+      });
+
+      expect(result).toBeTypeOf("string");
+      if (typeof result === "string") {
+        expect(result.length).toBeGreaterThan(0);
+        const hasSpanishIndicators =
+          result.includes("Hola") ||
+          result.includes("seguimiento") ||
+          result.includes("recordar") ||
+          result.includes("anterior") ||
+          result.includes("respuesta") ||
+          /[áéíóúñ¿¡]/i.test(result);
+        expect(hasSpanishIndicators).toBe(true);
+      }
+      console.debug("Generated Spanish follow-up:\n", result);
+    },
+    TEST_TIMEOUT,
+  );
+
+  test(
+    "drafts follow-up in French when thread is in French",
+    async () => {
+      const emailAccount = getEmailAccount();
+      const messages: TestMessage[] = [
+        {
+          id: "msg-1",
+          from: "client@example.com",
+          to: "user@example.com",
+          subject: "Question sur le projet",
+          date: new Date(Date.now() - TIMEOUT * 2),
+          content:
+            "Bonjour, pourriez-vous m'envoyer la proposition mise à jour? J'ai besoin de la revoir avant la réunion de vendredi.",
+        },
+        {
+          id: "msg-2",
+          from: "user@example.com",
+          to: "client@example.com",
+          subject: "Re: Question sur le projet",
+          date: new Date(Date.now() - TIMEOUT),
+          content:
+            "Bonjour, bien sûr. Je vous enverrai la proposition demain matin. Y a-t-il quelque chose de spécifique que je devrais inclure?",
+        },
+      ];
+
+      const result = await aiDraftFollowUp({
+        messages,
+        emailAccount,
+        writingStyle: null,
+      });
+
+      expect(result).toBeTypeOf("string");
+      if (typeof result === "string") {
+        expect(result.length).toBeGreaterThan(0);
+        const hasFrenchIndicators =
+          result.includes("Bonjour") ||
+          result.includes("suivi") ||
+          result.includes("rappeler") ||
+          result.includes("précédent") ||
+          result.includes("réponse") ||
+          /[àâçéèêëïîôùûü]/i.test(result);
+        expect(hasFrenchIndicators).toBe(true);
+      }
+      console.debug("Generated French follow-up:\n", result);
+    },
+    TEST_TIMEOUT,
+  );
 });
 
 type TestMessage = EmailForLLM & { to: string };

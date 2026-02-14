@@ -70,6 +70,96 @@ describe.runIf(isAiTest)("aiDraftReply", () => {
     },
     TEST_TIMEOUT,
   );
+
+  test(
+    "drafts reply in Spanish when thread is in Spanish",
+    async () => {
+      const emailAccount = getEmailAccount();
+      const messages: TestMessage[] = [
+        {
+          id: "msg-1",
+          from: "cliente@example.com",
+          to: "user@example.com",
+          subject: "Consulta sobre servicios",
+          date: new Date(Date.now() - TIMEOUT),
+          content:
+            "Buenos días, estoy interesado en sus servicios de consultoría. ¿Podrían proporcionarme más información sobre sus tarifas y disponibilidad?",
+        },
+      ];
+
+      const result = await aiDraftReply({
+        messages,
+        emailAccount,
+        knowledgeBaseContent: null,
+        emailHistorySummary: null,
+        writingStyle: null,
+        emailHistoryContext: null,
+        calendarAvailability: null,
+        mcpContext: null,
+        meetingContext: null,
+      });
+
+      expect(result).toBeTypeOf("string");
+      if (typeof result === "string") {
+        expect(result.length).toBeGreaterThan(0);
+        const hasSpanishIndicators =
+          result.includes("Hola") ||
+          result.includes("Buenos") ||
+          result.includes("gracias") ||
+          result.includes("información") ||
+          result.includes("servicios") ||
+          /[áéíóúñ¿¡]/i.test(result);
+        expect(hasSpanishIndicators).toBe(true);
+      }
+      console.debug("Generated Spanish reply:\n", result);
+    },
+    TEST_TIMEOUT,
+  );
+
+  test(
+    "drafts reply in German when thread is in German",
+    async () => {
+      const emailAccount = getEmailAccount();
+      const messages: TestMessage[] = [
+        {
+          id: "msg-1",
+          from: "kunde@example.com",
+          to: "user@example.com",
+          subject: "Anfrage zu Ihren Dienstleistungen",
+          date: new Date(Date.now() - TIMEOUT),
+          content:
+            "Guten Tag, ich interessiere mich für Ihre Beratungsdienstleistungen. Könnten Sie mir weitere Informationen zu Ihren Preisen und Ihrer Verfügbarkeit geben?",
+        },
+      ];
+
+      const result = await aiDraftReply({
+        messages,
+        emailAccount,
+        knowledgeBaseContent: null,
+        emailHistorySummary: null,
+        writingStyle: null,
+        emailHistoryContext: null,
+        calendarAvailability: null,
+        mcpContext: null,
+        meetingContext: null,
+      });
+
+      expect(result).toBeTypeOf("string");
+      if (typeof result === "string") {
+        expect(result.length).toBeGreaterThan(0);
+        const hasGermanIndicators =
+          result.includes("Guten") ||
+          result.includes("Hallo") ||
+          result.includes("danke") ||
+          result.includes("Informationen") ||
+          result.includes("freuen") ||
+          /[äöüß]/i.test(result);
+        expect(hasGermanIndicators).toBe(true);
+      }
+      console.debug("Generated German reply:\n", result);
+    },
+    TEST_TIMEOUT,
+  );
 });
 
 type TestMessage = EmailForLLM & { to: string };
