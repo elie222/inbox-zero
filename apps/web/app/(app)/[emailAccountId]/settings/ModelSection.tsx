@@ -114,7 +114,7 @@ function ModelSectionForm(props: {
       : [];
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="max-w-sm space-y-4">
       <Select
         label="Provider"
         options={providerOptions}
