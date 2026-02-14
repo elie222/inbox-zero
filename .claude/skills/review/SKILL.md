@@ -1,3 +1,7 @@
+---
+disable-model-invocation: true
+---
+
 # review
 
 Code review with craftsman's eye. Auto-fix obvious issues, surface real bugs.

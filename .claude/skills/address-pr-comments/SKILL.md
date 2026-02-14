@@ -1,3 +1,7 @@
+---
+disable-model-invocation: true
+---
+
 Resolve all active PR comments (conversation + code review).
 Use GitHub MCP. If not available, use `gh` CLI.
 

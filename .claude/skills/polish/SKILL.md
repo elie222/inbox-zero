@@ -1,3 +1,7 @@
+---
+disable-model-invocation: true
+---
+
 # polish
 
 Remove AI slop and lint errors from branch. Autonomous, no confirmation.

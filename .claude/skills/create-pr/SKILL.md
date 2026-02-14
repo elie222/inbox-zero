@@ -1,3 +1,7 @@
+---
+disable-model-invocation: true
+---
+
 # Open a PR
 
 Important: Steps 2 and 3 require `required_permissions: ['all']` because:
