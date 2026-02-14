@@ -12,54 +12,72 @@ import {
   ApiKeysCreateButtonModal,
   ApiKeysDeactivateButton,
 } from "@/app/(app)/[emailAccountId]/settings/ApiKeysCreateForm";
-import { Card } from "@/components/ui/card";
 import { Item, ItemContent, ItemTitle, ItemActions } from "@/components/ui/item";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useApiKeys } from "@/hooks/useApiKeys";
 import { LoadingContent } from "@/components/LoadingContent";
 
 export function ApiKeysSection() {
   const { data, isLoading, error, mutate } = useApiKeys();
 
-  return (
-    <div className="space-y-3">
-      <Item size="sm">
-        <ItemContent>
-          <ItemTitle>API Keys</ItemTitle>
-        </ItemContent>
-        <ItemActions>
-          <ApiKeysCreateButtonModal mutate={mutate} />
-        </ItemActions>
-      </Item>
+  const keyCount = data?.apiKeys.length ?? 0;
 
-      <LoadingContent loading={isLoading} error={error}>
-        {data && data.apiKeys.length > 0 ? (
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.apiKeys.map((apiKey) => (
-                  <TableRow key={apiKey.id}>
-                    <TableCell>{apiKey.name}</TableCell>
-                    <TableCell>{apiKey.createdAt.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <ApiKeysDeactivateButton
-                        id={apiKey.id}
-                        mutate={mutate}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        ) : null}
-      </LoadingContent>
-    </div>
+  return (
+    <Item size="sm">
+      <ItemContent>
+        <ItemTitle>API Keys</ItemTitle>
+      </ItemContent>
+      <ItemActions>
+        {keyCount > 0 && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                View keys ({keyCount})
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>API Keys</DialogTitle>
+              </DialogHeader>
+              <LoadingContent loading={isLoading} error={error}>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data?.apiKeys.map((apiKey) => (
+                      <TableRow key={apiKey.id}>
+                        <TableCell>{apiKey.name}</TableCell>
+                        <TableCell>
+                          {apiKey.createdAt.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <ApiKeysDeactivateButton
+                            id={apiKey.id}
+                            mutate={mutate}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </LoadingContent>
+            </DialogContent>
+          </Dialog>
+        )}
+        <ApiKeysCreateButtonModal mutate={mutate} />
+      </ItemActions>
+    </Item>
   );
 }

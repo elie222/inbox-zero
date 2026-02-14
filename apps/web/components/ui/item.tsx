@@ -5,12 +5,22 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/utils/index";
 import { Separator } from "@/components/ui/separator";
 
-function ItemGroup({ className, ...props }: React.ComponentProps<"div">) {
+function ItemGroup({
+  className,
+  variant = "default",
+  ...props
+}: React.ComponentProps<"div"> & {
+  variant?: "default" | "card";
+}) {
   return (
     <div
       role="list"
       data-slot="item-group"
-      className={cn("group/item-group flex flex-col", className)}
+      className={cn(
+        "group/item-group flex flex-col",
+        variant === "card" && "rounded-lg border",
+        className,
+      )}
       {...props}
     />
   );

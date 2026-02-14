@@ -118,7 +118,7 @@ export default function SettingsPage() {
           icon={<WebhookIcon className="size-5" />}
           title="Developer"
         >
-          <ItemGroup>
+          <ItemGroup variant="card">
             <WebhookSection />
             <ItemSeparator />
             <ApiKeysSection />
