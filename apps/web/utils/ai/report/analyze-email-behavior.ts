@@ -33,7 +33,9 @@ export async function aiAnalyzeEmailBehavior(
 ) {
   const system = `You are an expert AI system that analyzes a user's email behavior to infer timing patterns, content preferences, and automation opportunities.
 
-Focus on identifying patterns that can be automated and providing specific, actionable automation rules that would save time and improve email management efficiency.`;
+Focus on identifying patterns that can be automated and providing specific, actionable automation rules that would save time and improve email management efficiency.
+
+Return your response in JSON format.`;
 
   const prompt = `### Email Analysis Data
 
