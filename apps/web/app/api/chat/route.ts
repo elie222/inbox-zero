@@ -104,6 +104,8 @@ export const POST = withEmailAccount("chat", async (request) => {
 
   if (shouldCompact(modelMessages, provider)) {
     try {
+      const preCompactionMessages = modelMessages;
+
       const { compactedMessages, summary, compactedCount } =
         await compactMessages({
           messages: modelMessages,
@@ -111,37 +113,44 @@ export const POST = withEmailAccount("chat", async (request) => {
           logger: request.logger,
         });
 
-      modelMessages = compactedMessages;
+      if (compactedCount > 0 && summary.trim().length > 0) {
+        modelMessages = compactedMessages;
 
-      const [, memories] = await Promise.all([
-        prisma.$transaction([
-          prisma.chatCompaction.create({
-            data: {
+        const [, memories] = await Promise.all([
+          prisma.$transaction([
+            prisma.chatCompaction.create({
+              data: {
+                chatId: chat.id,
+                summary,
+                messageCount: compactedCount,
+              },
+            }),
+            prisma.chat.update({
+              where: { id: chat.id },
+              data: { compactionCount: { increment: 1 } },
+            }),
+          ]),
+          extractMemories({
+            messages: preCompactionMessages,
+            user,
+          }).catch((err) => {
+            request.logger.error("Failed to extract memories", {
+              error: err,
+            });
+            return [];
+          }),
+        ]);
+
+        if (memories.length > 0) {
+          await prisma.chatMemory.createMany({
+            data: memories.map((m) => ({
+              content: m.content,
+              category: m.category,
               chatId: chat.id,
-              summary,
-              messageCount: compactedCount,
-            },
-          }),
-          prisma.chat.update({
-            where: { id: chat.id },
-            data: { compactionCount: { increment: 1 } },
-          }),
-        ]),
-        extractMemories({ messages: modelMessages, user }).catch((err) => {
-          request.logger.error("Failed to extract memories", { error: err });
-          return [];
-        }),
-      ]);
-
-      if (memories.length > 0) {
-        await prisma.chatMemory.createMany({
-          data: memories.map((m) => ({
-            content: m.content,
-            category: m.category,
-            chatId: chat.id,
-            emailAccountId,
-          })),
-        });
+              emailAccountId,
+            })),
+          });
+        }
       }
     } catch (compactionError) {
       request.logger.error(
