@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 description: Create a new browser QA flow file from the template
 ---
 

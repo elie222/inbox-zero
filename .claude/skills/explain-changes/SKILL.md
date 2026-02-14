@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 description: Explain recent changes and provide a structured summary with security checks
 ---
 

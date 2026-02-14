@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 description: Interview me about the plan
 argument-hint: [plan]
 model: opus

@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 description: Run browser QA flows and write a JSON report
 ---
 
