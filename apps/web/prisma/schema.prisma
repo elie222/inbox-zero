@@ -947,8 +947,7 @@ model ChatMemory {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  content  String
-  category String?
+  content String
 
   chatId         String?
   chat           Chat?        @relation(fields: [chatId], references: [id], onDelete: SetNull)

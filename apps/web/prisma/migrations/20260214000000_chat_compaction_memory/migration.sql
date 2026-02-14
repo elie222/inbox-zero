@@ -19,7 +19,6 @@ CREATE TABLE "ChatMemory" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "content" TEXT NOT NULL,
-    "category" TEXT,
     "chatId" TEXT,
     "emailAccountId" TEXT NOT NULL,
 

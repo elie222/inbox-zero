@@ -37,7 +37,6 @@ export const searchMemoriesTool = ({
         take: 10,
         select: {
           content: true,
-          category: true,
           createdAt: true,
         },
       });
@@ -49,7 +48,6 @@ export const searchMemoriesTool = ({
       return {
         memories: memories.map((m) => ({
           content: m.content,
-          category: m.category,
           date: m.createdAt.toISOString().split("T")[0],
         })),
       };

@@ -159,7 +159,6 @@ export const POST = withEmailAccount("chat", async (request) => {
           await prisma.chatMemory.createMany({
             data: memories.map((m) => ({
               content: m.content,
-              category: m.category,
               chatId: chat.id,
               emailAccountId,
             })),

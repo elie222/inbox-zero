@@ -139,7 +139,6 @@ const memoriesSchema = z.object({
   memories: z.array(
     z.object({
       content: z.string(),
-      category: z.enum(["preference", "workflow", "rule_change", "context"]),
     }),
   ),
 });
