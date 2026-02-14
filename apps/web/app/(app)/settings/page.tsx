@@ -115,7 +115,7 @@ export default function SettingsPage() {
 
         <SettingsCard
           icon={<WebhookIcon className="size-5" />}
-          title="Developer Settings"
+          title="Developer"
         >
           <div className="space-y-6">
             <WebhookSection />
@@ -127,7 +127,6 @@ export default function SettingsPage() {
         <SettingsCard
           variant="danger"
           icon={<AlertTriangleIcon className="size-5 text-red-600" />}
-          title="Danger Zone"
         >
           <DeleteSection />
         </SettingsCard>
@@ -212,24 +211,33 @@ function SettingsCard({
   children,
 }: {
   icon: React.ReactNode;
-  title: string;
+  title?: string;
   description?: string;
   variant?: "default" | "danger";
   children: React.ReactNode;
 }) {
   return (
     <Card className={cn(variant === "danger" && "border-red-200")}>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          {icon}
-          <CardTitle
-            className={cn("text-lg", variant === "danger" && "text-red-600")}
-          >
-            {title}
-          </CardTitle>
-        </div>
-        {description ? <CardDescription>{description}</CardDescription> : null}
-      </CardHeader>
+      {(title || description) && (
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            {icon}
+            {title && (
+              <CardTitle
+                className={cn(
+                  "text-lg",
+                  variant === "danger" && "text-red-600",
+                )}
+              >
+                {title}
+              </CardTitle>
+            )}
+          </div>
+          {description ? (
+            <CardDescription>{description}</CardDescription>
+          ) : null}
+        </CardHeader>
+      )}
       <CardContent className="space-y-4">{children}</CardContent>
     </Card>
   );

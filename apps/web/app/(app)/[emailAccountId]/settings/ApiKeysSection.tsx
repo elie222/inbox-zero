@@ -22,8 +22,7 @@ export function ApiKeysSection() {
 
   return (
     <SettingsSection
-      title="API keys"
-      description="Create an API key to access the Inbox Zero API. Do not share your API key with others, or expose it in the browser or other client-side code."
+      title="API Keys"
     >
       <LoadingContent loading={isLoading} error={error}>
         <div className="space-y-4">
