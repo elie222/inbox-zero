@@ -33,6 +33,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -117,11 +118,11 @@ export default function SettingsPage() {
           icon={<WebhookIcon className="size-5" />}
           title="Developer"
         >
-          <div className="space-y-6">
+          <ItemGroup>
             <WebhookSection />
-            <Separator />
+            <ItemSeparator />
             <ApiKeysSection />
-          </div>
+          </ItemGroup>
         </SettingsCard>
 
         <SettingsCard

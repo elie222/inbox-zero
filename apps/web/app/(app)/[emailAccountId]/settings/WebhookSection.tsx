@@ -4,7 +4,7 @@ import { CopyInput } from "@/components/CopyInput";
 import { RegenerateSecretButton } from "@/app/(app)/[emailAccountId]/settings/WebhookGenerate";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
-import { SettingsSection } from "@/components/SettingsSection";
+import { Item, ItemContent, ItemTitle, ItemActions } from "@/components/ui/item";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,10 +19,11 @@ export function WebhookSection() {
   const { data, isLoading, error, mutate } = useUser();
 
   return (
-    <SettingsSection
-      title="Webhook Secret"
-      align="center"
-      actions={
+    <Item size="sm">
+      <ItemContent>
+        <ItemTitle>Webhook Secret</ItemTitle>
+      </ItemContent>
+      <ItemActions>
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
@@ -53,7 +54,7 @@ export function WebhookSection() {
             </LoadingContent>
           </DialogContent>
         </Dialog>
-      }
-    />
+      </ItemActions>
+    </Item>
   );
 }
