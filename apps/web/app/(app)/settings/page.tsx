@@ -216,9 +216,11 @@ function SettingsCard({
   variant?: "default" | "danger";
   children: React.ReactNode;
 }) {
+  const hasHeader = title || description;
+
   return (
     <Card className={cn(variant === "danger" && "border-red-200")}>
-      {(title || description) && (
+      {hasHeader && (
         <CardHeader>
           <div className="flex items-center gap-2">
             {icon}
@@ -238,7 +240,9 @@ function SettingsCard({
           ) : null}
         </CardHeader>
       )}
-      <CardContent className="space-y-4">{children}</CardContent>
+      <CardContent className={cn("space-y-4", !hasHeader && "pt-6")}>
+        {children}
+      </CardContent>
     </Card>
   );
 }
