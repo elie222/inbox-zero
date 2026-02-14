@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  AlertTriangleIcon,
   ChevronRightIcon,
   CreditCardIcon,
   MailIcon,
@@ -25,13 +24,7 @@ import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/rou
 import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ItemCard, ItemSeparator } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
@@ -61,7 +54,7 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-5xl space-y-6 pt-4">
         <PageHeader title="Settings" />
 
-        <SettingsCard
+        <SettingsGroup
           icon={<MailIcon className="size-5" />}
           title="Email Accounts"
         >
@@ -96,25 +89,25 @@ export default function SettingsPage() {
               </div>
             )}
           </LoadingContent>
-        </SettingsCard>
+        </SettingsGroup>
 
         {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
-          <SettingsCard
+          <SettingsGroup
             icon={<CreditCardIcon className="size-5" />}
             title="Billing"
           >
             <BillingSection />
-          </SettingsCard>
+          </SettingsGroup>
         )}
 
-        <SettingsCard
+        <SettingsGroup
           icon={<SettingsIcon className="size-5" />}
           title="AI Model"
         >
           <ModelSection />
-        </SettingsCard>
+        </SettingsGroup>
 
-        <SettingsCard
+        <SettingsGroup
           icon={<WebhookIcon className="size-5" />}
           title="Developer"
         >
@@ -123,14 +116,11 @@ export default function SettingsPage() {
             <ItemSeparator />
             <ApiKeysSection />
           </ItemCard>
-        </SettingsCard>
+        </SettingsGroup>
 
-        <SettingsCard
-          variant="danger"
-          icon={<AlertTriangleIcon className="size-5 text-red-600" />}
-        >
+        <SettingsGroup>
           <DeleteSection />
-        </SettingsCard>
+        </SettingsGroup>
       </div>
     </div>
   );
@@ -204,46 +194,26 @@ function EmailAccountSettingsCard({
   );
 }
 
-function SettingsCard({
+function SettingsGroup({
   icon,
   title,
-  description,
-  variant = "default",
   children,
 }: {
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   title?: string;
-  description?: string;
-  variant?: "default" | "danger";
   children: React.ReactNode;
 }) {
-  const hasHeader = title || description;
-
   return (
-    <Card className={cn(variant === "danger" && "border-red-200")}>
-      {hasHeader && (
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            {icon}
-            {title && (
-              <CardTitle
-                className={cn(
-                  "text-lg",
-                  variant === "danger" && "text-red-600",
-                )}
-              >
-                {title}
-              </CardTitle>
-            )}
-          </div>
-          {description ? (
-            <CardDescription>{description}</CardDescription>
-          ) : null}
-        </CardHeader>
+    <section className="space-y-3">
+      {title && (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          {icon}
+          <h2 className="text-sm font-medium uppercase tracking-wide">
+            {title}
+          </h2>
+        </div>
       )}
-      <CardContent className={cn("space-y-4", !hasHeader && "pt-6")}>
-        {children}
-      </CardContent>
-    </Card>
+      {children}
+    </section>
   );
 }
