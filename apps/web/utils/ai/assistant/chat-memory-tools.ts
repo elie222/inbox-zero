@@ -26,7 +26,7 @@ export const searchMemoriesTool = ({
         ),
     }),
     execute: async ({ query }) => {
-      logger.info("Tool call: search_memories", { email });
+      logger.trace("Tool call: search_memories", { email });
 
       const memories = await prisma.chatMemory.findMany({
         where: {

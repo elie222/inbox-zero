@@ -163,6 +163,7 @@ export const POST = withEmailAccount("chat", async (request) => {
               chatId: chat.id,
               emailAccountId,
             })),
+            skipDuplicates: true,
           });
         }
       }
