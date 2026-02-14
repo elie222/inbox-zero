@@ -96,7 +96,9 @@ export default function SettingsPage() {
             icon={<CreditCardIcon className="size-5" />}
             title="Billing"
           >
-            <BillingSection />
+            <ItemCard className="p-4">
+              <BillingSection />
+            </ItemCard>
           </SettingsGroup>
         )}
 
@@ -104,7 +106,9 @@ export default function SettingsPage() {
           icon={<SettingsIcon className="size-5" />}
           title="AI Model"
         >
-          <ModelSection />
+          <ItemCard className="p-4">
+            <ModelSection />
+          </ItemCard>
         </SettingsGroup>
 
         <SettingsGroup
