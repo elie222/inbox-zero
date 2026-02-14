@@ -35,18 +35,18 @@ export function ApiKeysSection() {
         <ItemTitle>API Keys</ItemTitle>
       </ItemContent>
       <ItemActions>
-        {keyCount > 0 && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                View keys ({keyCount})
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>API Keys</DialogTitle>
-              </DialogHeader>
-              <LoadingContent loading={isLoading} error={error}>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              View keys{keyCount > 0 ? ` (${keyCount})` : ""}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>API Keys</DialogTitle>
+            </DialogHeader>
+            <LoadingContent loading={isLoading} error={error}>
+              {keyCount > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -72,10 +72,14 @@ export function ApiKeysSection() {
                     ))}
                   </TableBody>
                 </Table>
-              </LoadingContent>
-            </DialogContent>
-          </Dialog>
-        )}
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No API keys yet.
+                </p>
+              )}
+            </LoadingContent>
+          </DialogContent>
+        </Dialog>
         <ApiKeysCreateButtonModal mutate={mutate} />
       </ItemActions>
     </Item>

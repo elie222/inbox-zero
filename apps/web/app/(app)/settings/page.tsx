@@ -13,7 +13,10 @@ import {
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
-import { ConnectedAppsSection } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
+import {
+  ConnectedAppsSection,
+  useSlackNotifications,
+} from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
@@ -41,6 +44,8 @@ export default function SettingsPage() {
     null,
   );
 
+  useSlackNotifications(true);
+
   const emailAccounts = useMemo(() => {
     const accounts = data?.emailAccounts ?? [];
     return [...accounts].sort((a, b) => {
@@ -62,7 +67,7 @@ export default function SettingsPage() {
           <LoadingContent loading={isLoading} error={error}>
             {emailAccounts.length > 0 && (
               <div className="space-y-4">
-                {emailAccounts.map((emailAccount, index) => (
+                {emailAccounts.map((emailAccount) => (
                   <EmailAccountSettingsCard
                     key={emailAccount.id}
                     emailAccount={emailAccount}
@@ -72,7 +77,6 @@ export default function SettingsPage() {
                         current === emailAccount.id ? null : emailAccount.id,
                       )
                     }
-                    showNotifications={index === 0}
                   />
                 ))}
 
@@ -130,12 +134,10 @@ function EmailAccountSettingsCard({
   emailAccount,
   expanded,
   onToggle,
-  showNotifications,
 }: {
   emailAccount: GetEmailAccountsResponse["emailAccounts"][number];
   expanded: boolean;
   onToggle: () => void;
-  showNotifications: boolean;
 }) {
   const { data: channelsData } = useMessagingChannels(emailAccount.id);
   const hasSlack =
@@ -178,10 +180,7 @@ function EmailAccountSettingsCard({
 
       {expanded && (
         <>
-          <ConnectedAppsSection
-            emailAccountId={emailAccount.id}
-            showNotifications={showNotifications}
-          />
+          <ConnectedAppsSection emailAccountId={emailAccount.id} />
           <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
           <ToggleAllRulesSection emailAccountId={emailAccount.id} />
           <RuleImportExportSetting emailAccountId={emailAccount.id} />

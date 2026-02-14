@@ -51,12 +51,9 @@ const PROVIDER_CONFIG: Record<
 
 export function ConnectedAppsSection({
   emailAccountId,
-  showNotifications = true,
 }: {
   emailAccountId: string;
-  showNotifications?: boolean;
 }) {
-  useSlackNotifications(showNotifications);
 
   const {
     data: channelsData,
@@ -403,7 +400,7 @@ function ConnectedChannelRow({
   );
 }
 
-function useSlackNotifications(enabled: boolean) {
+export function useSlackNotifications(enabled: boolean) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
