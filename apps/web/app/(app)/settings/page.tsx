@@ -208,7 +208,7 @@ function SettingsGroup({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       {title && (
         <div className="flex items-center gap-2 text-muted-foreground">
           {icon}
