@@ -1,9 +1,8 @@
-import { useMemo, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Overview } from "./overview";
 import { MessagePart } from "./message-part";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
-import type { ThreadLookup } from "@/components/assistant-chat/tools";
 import {
   Conversation,
   ConversationContent,
@@ -28,8 +27,6 @@ export function Messages({
   setInput,
   footer,
 }: MessagesProps) {
-  const threadLookup = useMemo(() => buildThreadLookup(messages), [messages]);
-
   return (
     <Conversation className="flex min-w-0 flex-1">
       <ConversationContent
@@ -49,7 +46,6 @@ export function Messages({
                     isStreaming={status === "streaming"}
                     messageId={message.id}
                     partIndex={index}
-                    threadLookup={threadLookup}
                   />
                 ))}
               </MessageContent>
@@ -79,37 +75,4 @@ export function Messages({
       </ConversationContent>
     </Conversation>
   );
-}
-
-function buildThreadLookup(messages: Array<ChatMessage>): ThreadLookup {
-  const lookup: ThreadLookup = new Map();
-  for (const message of messages) {
-    for (const part of message.parts ?? []) {
-      if (
-        part.type === "tool-searchInbox" &&
-        part.state === "output-available"
-      ) {
-        const output = part.output as Record<string, unknown> | undefined;
-        const items = output?.messages as
-          | Array<{
-              threadId: string;
-              subject: string;
-              from: string;
-              snippet: string;
-            }>
-          | undefined;
-        if (!items) continue;
-        for (const item of items) {
-          if (!lookup.has(item.threadId)) {
-            lookup.set(item.threadId, {
-              subject: item.subject,
-              from: item.from,
-              snippet: item.snippet,
-            });
-          }
-        }
-      }
-    }
-  }
-  return lookup;
 }

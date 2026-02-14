@@ -10,7 +10,6 @@ import type {
   AddToKnowledgeBaseTool,
   CreateRuleTool,
 } from "@/utils/ai/assistant/chat";
-import { isDefined } from "@/utils/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,11 +33,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-
-export type ThreadLookup = Map<
-  string,
-  { subject: string; from: string; snippet: string }
->;
 
 function getOutputField<T>(output: unknown, field: string): T | undefined {
   if (typeof output === "object" && output !== null && field in output) {
@@ -147,48 +141,29 @@ export function SearchInboxResult({ output }: { output: unknown }) {
   );
 }
 
-export function ManageInboxResult({
-  output,
-  threadIds,
-  threadLookup,
-}: {
-  output: unknown;
-  threadIds?: string[];
-  threadLookup: ThreadLookup;
-}) {
+export function ManageInboxResult({ output }: { output: unknown }) {
   const action = getOutputField<string>(output, "action");
   const successCount = getOutputField<number>(output, "successCount");
   const sendersCount = getOutputField<number>(output, "sendersCount");
   const failedCount = getOutputField<number>(output, "failedCount");
   const senders = getOutputField<string[]>(output, "senders");
 
+  const itemCount = successCount ?? 0;
+  const itemLabel = itemCount === 1 ? "item" : "items";
   const summaryText =
     action === "bulk_archive_senders"
       ? `Bulk archived ${sendersCount || 0} sender${sendersCount === 1 ? "" : "s"}`
-      : `Completed inbox action${typeof successCount === "number" ? ` (${successCount} items)` : ""}`;
-
-  const resolvedThreads = threadIds
-    ?.map((id) => threadLookup.get(id))
-    .filter(isDefined);
+      : action === "archive_threads"
+        ? `Archived ${itemCount} ${itemLabel}`
+        : action === "mark_read_threads"
+          ? `Marked ${itemCount} ${itemLabel} as read`
+          : `Completed inbox action (${itemCount} ${itemLabel})`;
 
   return (
     <CollapsibleToolCard summary={summaryText}>
       <div className="space-y-1 text-sm">
         {typeof failedCount === "number" && failedCount > 0 && (
           <div className="text-xs text-red-500">Failed: {failedCount}</div>
-        )}
-
-        {resolvedThreads && resolvedThreads.length > 0 && (
-          <div className="space-y-1">
-            {resolvedThreads.map((thread, i) => (
-              <div key={i} className="rounded-md bg-muted px-3 py-2 text-sm">
-                <div className="truncate">{thread.from}</div>
-                <div className="truncate text-muted-foreground">
-                  {thread.subject}
-                </div>
-              </div>
-            ))}
-          </div>
         )}
 
         {senders && senders.length > 0 && (
