@@ -187,7 +187,11 @@ export function ConnectedAppsSection({
           ) : null}
         </ItemActions>
       </Item>
-      <LoadingContent loading={isLoading} error={error}>
+      <LoadingContent
+        loading={isLoading}
+        error={error}
+        loadingComponent={null}
+      >
         {connectedChannels.length > 0 && (
           <div className="space-y-2 px-4 pb-3">
             {connectedChannels.map((channel) => (
