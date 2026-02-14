@@ -9,6 +9,7 @@ import type {
   UpdateLearnedPatternsTool,
   AddToKnowledgeBaseTool,
   CreateRuleTool,
+  ManageInboxTool,
 } from "@/utils/ai/assistant/chat";
 import { isDefined } from "@/utils/types";
 import { Card } from "@/components/ui/card";
@@ -148,24 +149,42 @@ export function SearchInboxResult({ output }: { output: unknown }) {
 }
 
 export function ManageInboxResult({
+  input,
   output,
   threadIds,
   threadLookup,
 }: {
+  input?: ManageInboxTool["input"];
   output: unknown;
   threadIds?: string[];
   threadLookup: ThreadLookup;
 }) {
-  const action = getOutputField<string>(output, "action");
+  const outputAction = getOutputField<string>(output, "action");
+  const action = parseManageInboxAction(input?.action || outputAction);
   const successCount = getOutputField<number>(output, "successCount");
+  const requestedCount = getOutputField<number>(output, "requestedCount");
   const sendersCount = getOutputField<number>(output, "sendersCount");
   const failedCount = getOutputField<number>(output, "failedCount");
   const senders = getOutputField<string[]>(output, "senders");
+  const read =
+    input?.action === "mark_read_threads"
+      ? input.read !== false
+      : getOutputField<boolean>(output, "read");
+  const labelApplied =
+    input?.action === "archive_threads"
+      ? Boolean(input.labelId)
+      : Boolean(getOutputField<string>(output, "labelId"));
+  const actionLabel = getManageInboxActionLabel({ action, read, labelApplied });
+  const completedCount =
+    action === "bulk_archive_senders"
+      ? (sendersCount ?? senders?.length)
+      : (successCount ?? requestedCount);
+  const countLabel = action === "bulk_archive_senders" ? "sender" : "item";
 
   const summaryText =
-    action === "bulk_archive_senders"
-      ? `Bulk archived ${sendersCount || 0} sender${sendersCount === 1 ? "" : "s"}`
-      : `Completed inbox action${typeof successCount === "number" ? ` (${successCount} items)` : ""}`;
+    typeof completedCount === "number"
+      ? `${actionLabel} (${completedCount} ${countLabel}${completedCount === 1 ? "" : "s"})`
+      : actionLabel;
 
   const resolvedThreads = threadIds
     ?.map((id) => threadLookup.get(id))
@@ -722,4 +741,42 @@ function renderActionFields(fields: {
       </ul>
     </div>
   );
+}
+
+type ManageInboxAction =
+  | "archive_threads"
+  | "mark_read_threads"
+  | "bulk_archive_senders";
+
+function parseManageInboxAction(
+  action: string | undefined,
+): ManageInboxAction | undefined {
+  if (
+    action === "archive_threads" ||
+    action === "mark_read_threads" ||
+    action === "bulk_archive_senders"
+  ) {
+    return action;
+  }
+
+  return undefined;
+}
+
+function getManageInboxActionLabel({
+  action,
+  read,
+  labelApplied,
+}: {
+  action: ManageInboxAction | undefined;
+  read?: boolean;
+  labelApplied: boolean;
+}) {
+  if (action === "bulk_archive_senders") return "Bulk archived senders";
+  if (action === "archive_threads") {
+    return labelApplied ? "Archived and labeled emails" : "Archived emails";
+  }
+  if (action === "mark_read_threads") {
+    return read === false ? "Marked emails as unread" : "Marked emails as read";
+  }
+  return "Updated emails";
 }
