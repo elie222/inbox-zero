@@ -332,7 +332,7 @@ export const manageInboxTool = ({
         };
       } catch (error) {
         logger.error("Failed to run inbox action", { error });
-        return { error: "Failed to run inbox action" };
+        return { error: "Failed to update emails" };
       }
     },
   });
