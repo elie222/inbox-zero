@@ -1,3 +1,7 @@
+---
+disable-model-invocation: true
+---
+
 # roast-my-code
 
 Brutally honest code review with comedic flair. Mock the sins, then redeem the sinner.

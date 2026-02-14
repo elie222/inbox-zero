@@ -1,3 +1,7 @@
+---
+disable-model-invocation: true
+---
+
 # UX Writing
 
 ## The Button Label Problem

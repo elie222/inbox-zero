@@ -1,3 +1,7 @@
+---
+disable-model-invocation: true
+---
+
 # write-tests
 
 Write unit tests for utility functions and backend logic. Mock all external dependencies.
