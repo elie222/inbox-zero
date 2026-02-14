@@ -2,8 +2,8 @@
 
 import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
-import { Trash2, MoreVertical, Settings, ArrowLeftRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Trash2, MoreVertical, Settings } from "lucide-react";
+import { useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -30,7 +30,6 @@ import { PageHeader } from "@/components/PageHeader";
 import { PageWrapper } from "@/components/PageWrapper";
 import { logOut } from "@/utils/user";
 import { getAndClearAuthErrorCookie } from "@/utils/auth-cookies";
-import { CopyRulesDialog } from "@/app/(app)/accounts/CopyRulesDialog";
 import { getActionErrorMessage } from "@/utils/error";
 
 export default function AccountsPage() {
@@ -47,7 +46,6 @@ export default function AccountsPage() {
             <AccountItem
               key={emailAccount.id}
               emailAccount={emailAccount}
-              allAccounts={data.emailAccounts}
               onAccountDeleted={mutate}
             />
           ))}
@@ -60,7 +58,6 @@ export default function AccountsPage() {
 
 function AccountItem({
   emailAccount,
-  allAccounts,
   onAccountDeleted,
 }: {
   emailAccount: {
@@ -70,13 +67,6 @@ function AccountItem({
     image: string | null;
     isPrimary: boolean;
   };
-  allAccounts: Array<{
-    id: string;
-    name: string | null;
-    email: string;
-    image: string | null;
-    isPrimary: boolean;
-  }>;
   onAccountDeleted: () => void;
 }) {
   return (
@@ -84,7 +74,6 @@ function AccountItem({
       <Card className="cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-900">
         <AccountHeader
           emailAccount={emailAccount}
-          allAccounts={allAccounts}
           onAccountDeleted={onAccountDeleted}
         />
       </Card>
@@ -94,7 +83,6 @@ function AccountItem({
 
 function AccountHeader({
   emailAccount,
-  allAccounts,
   onAccountDeleted,
 }: {
   emailAccount: {
@@ -104,13 +92,6 @@ function AccountHeader({
     image: string | null;
     isPrimary: boolean;
   };
-  allAccounts: Array<{
-    id: string;
-    name: string | null;
-    email: string;
-    image: string | null;
-    isPrimary: boolean;
-  }>;
   onAccountDeleted: () => void;
 }) {
   return (
@@ -136,7 +117,6 @@ function AccountHeader({
       >
         <AccountOptionsDropdown
           emailAccount={emailAccount}
-          allAccounts={allAccounts}
           onAccountDeleted={onAccountDeleted}
         />
       </div>
@@ -146,7 +126,6 @@ function AccountHeader({
 
 function AccountOptionsDropdown({
   emailAccount,
-  allAccounts,
   onAccountDeleted,
 }: {
   emailAccount: {
@@ -154,17 +133,8 @@ function AccountOptionsDropdown({
     email: string;
     isPrimary: boolean;
   };
-  allAccounts: Array<{
-    id: string;
-    name: string | null;
-    email: string;
-    image: string | null;
-    isPrimary: boolean;
-  }>;
   onAccountDeleted: () => void;
 }) {
-  const [copyRulesDialogOpen, setCopyRulesDialogOpen] = useState(false);
-
   const { execute, isExecuting } = useAction(deleteEmailAccountAction, {
     onSuccess: async () => {
       toastSuccess({
@@ -185,42 +155,25 @@ function AccountOptionsDropdown({
     },
   });
 
-  const sourceAccounts = allAccounts.filter(
-    (account) => account.id !== emailAccount.id,
-  );
-
   return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-          <DropdownMenuItem asChild>
-            <Link
-              href={prefixPath(emailAccount.id, "/setup")}
-              className="flex items-center gap-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Settings className="size-4" />
-              Setup
-            </Link>
-          </DropdownMenuItem>
-          {sourceAccounts.length > 0 && (
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e?.stopPropagation?.();
-                setCopyRulesDialogOpen(true);
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ArrowLeftRight className="size-4" />
-              Copy rules to...
-            </DropdownMenuItem>
-          )}
-          <ConfirmDialog
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuItem asChild>
+          <Link
+            href={prefixPath(emailAccount.id, "/setup")}
+            className="flex items-center gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Settings className="size-4" />
+            Setup
+          </Link>
+        </DropdownMenuItem>
+        <ConfirmDialog
             trigger={
               <DropdownMenuItem
                 onSelect={(e) => {
@@ -246,17 +199,8 @@ function AccountOptionsDropdown({
               execute({ emailAccountId: emailAccount.id });
             }}
           />
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <CopyRulesDialog
-        open={copyRulesDialogOpen}
-        onOpenChange={setCopyRulesDialogOpen}
-        targetAccountId={emailAccount.id}
-        targetAccountEmail={emailAccount.email}
-        sourceAccounts={sourceAccounts}
-      />
-    </>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
