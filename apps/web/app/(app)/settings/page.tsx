@@ -191,7 +191,6 @@ function EmailAccountSettingsCard({
             <Separator />
             <div className="space-y-4 pt-1">
               <ToggleAllRulesSection emailAccountId={emailAccount.id} />
-              <Separator />
               <RuleImportExportSetting emailAccountId={emailAccount.id} />
               <Separator />
               <CleanupDraftsSection emailAccountId={emailAccount.id} />
