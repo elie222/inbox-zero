@@ -10,7 +10,7 @@
 - Run specific AI test: `pnpm test-ai ai-categorize-senders`
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
 - Do not run `dev` or `build` unless explicitly asked
-- Before writing or updating tests, review `.cursor/skills/testing/SKILL.md`.
+- Before writing or updating tests, review `.claude/skills/testing/SKILL.md`.
 - When adding a new workspace package, add its `package.json` COPY line to `docker/Dockerfile.prod` and `docker/Dockerfile.local`.
 
 ## Code Style
@@ -38,7 +38,7 @@
 - Use `LoadingContent` component for async data: `<LoadingContent loading={isLoading} error={error}>{data && <YourComponent data={data} />}</LoadingContent>`
 
 ## Fullstack Workflow
-See `.cursor/skills/fullstack-workflow/SKILL.md` for full examples and templates.
+See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates.
 
 - API route middleware: `withError` (public, no auth), `withAuth` (user-level), `withEmailAccount` (email-account-level). Export response type via `Awaited<ReturnType<typeof getData>>`.
 - Mutations: use server actions with `next-safe-action`, NOT POST API routes.

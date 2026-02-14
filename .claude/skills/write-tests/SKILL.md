@@ -8,7 +8,7 @@ Write unit tests for utility functions and backend logic. Mock all external depe
 2. **NEVER test UI** — No component rendering, no "renders correctly" tests
 3. **MOCK everything external** — Prisma, APIs, server-only, third-party services
 4. **CO-LOCATE tests** — Place `foo.test.ts` next to `foo.ts`
-5. **Follow `.cursor/skills/testing/SKILL.md`** — Use existing patterns and helpers
+5. **Follow `.claude/skills/testing/SKILL.md`** — Use existing patterns and helpers
 
 ## What to Test (High Priority)
 
