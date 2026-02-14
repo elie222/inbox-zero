@@ -51,7 +51,7 @@ export default function SettingsPage() {
 
   return (
     <div className="content-container pb-12">
-      <div className="mx-auto max-w-5xl space-y-6 pt-4">
+      <div className="mx-auto max-w-5xl space-y-10 pt-4">
         <PageHeader title="Settings" />
 
         <SettingsGroup
