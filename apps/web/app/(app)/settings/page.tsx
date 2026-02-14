@@ -118,9 +118,9 @@ export default function SettingsPage() {
           </ItemCard>
         </SettingsGroup>
 
-        <SettingsGroup>
+        <ItemCard>
           <DeleteSection />
-        </SettingsGroup>
+        </ItemCard>
       </div>
     </div>
   );
