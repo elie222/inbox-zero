@@ -3,7 +3,6 @@
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { NavBottom } from "@/components/NavBottom";
 import {
   SidebarInset,
   SidebarProvider,
@@ -37,12 +36,6 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
         )}
       >
         {children}
-        <div
-          className="md:hidden md:pt-0"
-          style={{ paddingTop: "calc(env(safe-area-inset-bottom) + 1rem)" }}
-        >
-          <NavBottom />
-        </div>
       </SidebarInset>
       <Suspense>
         <CrispWithNoSSR />
