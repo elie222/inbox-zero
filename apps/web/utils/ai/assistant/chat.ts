@@ -24,6 +24,7 @@ import {
 import {
   getAccountOverviewTool,
   manageInboxTool,
+  readEmailTool,
   searchInboxTool,
   sendEmailTool,
   updateInboxFeaturesTool,
@@ -49,6 +50,7 @@ export type {
 export type {
   GetAccountOverviewTool,
   ManageInboxTool,
+  ReadEmailTool,
   SearchInboxTool,
   SendEmailTool,
   UpdateInboxFeaturesTool,
@@ -84,6 +86,7 @@ Tool usage strategy (progressive disclosure):
 - For write operations that affect many emails, first summarize what will change, then execute after clear user confirmation.
 - For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then identify senders for bulk cleanup using bulk_archive_senders. Never archive thread-by-thread for bulk cleanup.
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
+- When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
 - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
 - Only send emails when the user clearly asks to send now.
 
@@ -189,6 +192,7 @@ Behavior anchors (minimal examples):
 - For "Turn off meeting briefs and enable auto-file attachments", call updateInboxFeatures with meetingBriefsEnabled=false and filingEnabled=true.
 - For "If I'm CC'd on an email it shouldn't be marked To Reply", update the "To Reply" rule instructions with updateRuleConditions.
 - For "Archive emails older than 30 days", this is not possible as an automated rule, but you can do it as a one-time action: use searchInbox with a before: date filter, then archive the results with archive_threads.
+- For "what does that email say?" or "tell me about this email", use readEmail with the messageId from a prior searchInbox result to get the full body.
 - For "clean up my inbox" or retroactive bulk cleanup:
   1. Check the inbox stats in your context to understand the scale and read/unread ratio.
   2. Search inbox with limit 50 to sample messages. For Google accounts, use category filters (category:promotions, category:updates, category:social). For Microsoft accounts, use keyword queries (e.g. "newsletter", "promotion", "unsubscribe").
@@ -231,12 +235,10 @@ Behavior anchors (minimal examples):
       provider: user.account.provider,
       logger,
     });
-    const statsPromise = emailProvider
-      .getInboxStats()
-      .catch((err) => {
-        logger.warn("getInboxStats failed", { error: err });
-        return null;
-      });
+    const statsPromise = emailProvider.getInboxStats().catch((err) => {
+      logger.warn("getInboxStats failed", { error: err });
+      return null;
+    });
     inboxStats = await Promise.race([
       statsPromise,
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
@@ -312,6 +314,7 @@ Behavior anchors (minimal examples):
     tools: {
       getAccountOverview: getAccountOverviewTool(toolOptions),
       searchInbox: searchInboxTool(toolOptions),
+      readEmail: readEmailTool(toolOptions),
       manageInbox: manageInboxTool(toolOptions),
       updateInboxFeatures: updateInboxFeaturesTool(toolOptions),
       getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),

@@ -99,6 +99,26 @@ export function MessagePart({
     }
   }
 
+  if (part.type === "tool-readEmail") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Reading email..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      const subject = getOutputField<string>(output, "subject");
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`Read email${subject ? `: ${subject}` : ""}`}
+        />
+      );
+    }
+  }
+
   if (part.type === "tool-manageInbox") {
     const { toolCallId, state } = part;
     if (state === "input-available") {
@@ -110,9 +130,10 @@ export function MessagePart({
           ? "Archiving and labeling emails..."
           : "Archiving emails...";
       } else if (part.input.action === "mark_read_threads") {
-        actionText = part.input.read === false
-          ? "Marking emails as unread..."
-          : "Marking emails as read...";
+        actionText =
+          part.input.read === false
+            ? "Marking emails as unread..."
+            : "Marking emails as read...";
       }
 
       return <BasicToolInfo key={toolCallId} text={actionText} />;
