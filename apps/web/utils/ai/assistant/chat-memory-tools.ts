@@ -85,6 +85,15 @@ export const saveMemoryTool = ({
     execute: async ({ content }) => {
       logger.trace("Tool call: save_memory", { email });
 
+      const existing = await prisma.chatMemory.findFirst({
+        where: { emailAccountId, content },
+        select: { id: true },
+      });
+
+      if (existing) {
+        return { success: true, content, deduplicated: true };
+      }
+
       await prisma.chatMemory.create({
         data: {
           content,
