@@ -428,17 +428,45 @@ async function runSetupQuick(options: { name?: string }) {
 
   // ── Generate config ──
 
+  // Determine file paths first so we can read existing config
+  const configDir = REPO_ROOT ?? STANDALONE_CONFIG_DIR;
+  const envFileName = configName ? `.env.${configName}` : ".env";
+  const envFile = REPO_ROOT
+    ? resolve(REPO_ROOT, "apps/web", envFileName)
+    : resolve(STANDALONE_CONFIG_DIR, envFileName);
+  const composeFile = REPO_ROOT
+    ? resolve(REPO_ROOT, "docker-compose.yml")
+    : STANDALONE_COMPOSE_FILE;
+
+  ensureConfigDir(configDir);
+
+  // Check if already configured
+  if (existsSync(envFile)) {
+    const overwrite = await p.confirm({
+      message: "Existing configuration found. Overwrite it?",
+      initialValue: false,
+    });
+    if (p.isCancel(overwrite) || !overwrite) {
+      p.cancel("Setup cancelled. Existing configuration preserved.");
+      process.exit(0);
+    }
+  }
+
   const spinner = p.spinner();
   spinner.start("Generating configuration...");
 
+  // Reuse existing database password to avoid mismatch with Docker volume
+  const existingDbPassword = readExistingDbPassword(envFile);
+
   const redisToken = generateSecret(32);
+  const dbPassword = existingDbPassword || generateSecret(16);
   const env: EnvConfig = {
     NODE_ENV: "production",
     // Database (Docker internal networking)
     POSTGRES_USER: "postgres",
-    POSTGRES_PASSWORD: generateSecret(16),
+    POSTGRES_PASSWORD: dbPassword,
     POSTGRES_DB: "inboxzero",
-    DATABASE_URL: `postgresql://postgres:${generateSecret(16)}@db:5432/inboxzero`,
+    DATABASE_URL: `postgresql://postgres:${dbPassword}@db:5432/inboxzero`,
     UPSTASH_REDIS_TOKEN: redisToken,
     UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
     INTERNAL_API_URL: "http://web:3000",
@@ -462,35 +490,7 @@ async function runSetupQuick(options: { name?: string }) {
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
   };
 
-  // Fix DATABASE_URL to use the actual password
-  env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@db:5432/${env.POSTGRES_DB}`;
   env.DIRECT_URL = env.DATABASE_URL;
-
-  // Determine file paths
-  const configDir = REPO_ROOT ?? STANDALONE_CONFIG_DIR;
-  const envFileName = configName ? `.env.${configName}` : ".env";
-  const envFile = REPO_ROOT
-    ? resolve(REPO_ROOT, "apps/web", envFileName)
-    : resolve(STANDALONE_CONFIG_DIR, envFileName);
-  const composeFile = REPO_ROOT
-    ? resolve(REPO_ROOT, "docker-compose.yml")
-    : STANDALONE_COMPOSE_FILE;
-
-  ensureConfigDir(configDir);
-
-  // Check if already configured
-  if (existsSync(envFile)) {
-    spinner.stop("Paused");
-    const overwrite = await p.confirm({
-      message: "Existing configuration found. Overwrite it?",
-      initialValue: false,
-    });
-    if (p.isCancel(overwrite) || !overwrite) {
-      p.cancel("Setup cancelled. Existing configuration preserved.");
-      process.exit(0);
-    }
-    spinner.start("Generating configuration...");
-  }
 
   // Fetch docker-compose.yml if not in the repo
   if (!REPO_ROOT) {
@@ -941,7 +941,9 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   if (useDockerInfra) {
     // Using Docker Compose for Postgres/Redis
     env.POSTGRES_USER = "postgres";
-    env.POSTGRES_PASSWORD = isDevMode ? "password" : generateSecret(16);
+    env.POSTGRES_PASSWORD =
+      readExistingDbPassword(envFile) ||
+      (isDevMode ? "password" : generateSecret(16));
     env.POSTGRES_DB = "inboxzero";
     env.UPSTASH_REDIS_TOKEN = redisToken;
 
@@ -1803,6 +1805,12 @@ function runDockerCommand(
       resolve({ status: 1, stdout: "", stderr: err.message });
     });
   });
+}
+
+function readExistingDbPassword(envFile: string): string | undefined {
+  if (!existsSync(envFile)) return undefined;
+  const existing = parseEnvFile(readFileSync(envFile, "utf-8"));
+  return existing.POSTGRES_PASSWORD || undefined;
 }
 
 function checkContainersRunning(composeArgs: string[]): boolean {
