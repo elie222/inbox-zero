@@ -8,6 +8,7 @@ import { sendEmailBody } from "@/utils/gmail/mail";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 
@@ -220,6 +221,65 @@ export const searchInboxTool = ({
 
 export type SearchInboxTool = InferUITool<ReturnType<typeof searchInboxTool>>;
 
+const readEmailInputSchema = z.object({
+  messageId: z
+    .string()
+    .trim()
+    .min(1)
+    .describe(
+      "The message ID to read. Use a messageId returned by searchInbox.",
+    ),
+});
+
+export const readEmailTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Read the full content of an email by message ID. Use after searchInbox when you need the complete email body, not just the snippet.",
+    inputSchema: readEmailInputSchema,
+    execute: async ({ messageId }) => {
+      trackToolCall({ tool: "read_email", email, logger });
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+
+        const message = await emailProvider.getMessage(messageId);
+        const emailForLLM = getEmailForLLM(message, { maxLength: 4000 });
+
+        return {
+          messageId: message.id,
+          threadId: message.threadId,
+          from: emailForLLM.from,
+          to: emailForLLM.to,
+          cc: emailForLLM.cc,
+          replyTo: emailForLLM.replyTo,
+          subject: emailForLLM.subject,
+          content: emailForLLM.content,
+          date: emailForLLM.date?.toISOString() ?? message.date,
+          attachments: emailForLLM.attachments,
+        };
+      } catch (error) {
+        logger.error("Failed to read email", { error });
+        return { error: "Failed to read email" };
+      }
+    },
+  });
+
+export type ReadEmailTool = InferUITool<ReturnType<typeof readEmailTool>>;
+
 const threadIdsSchema = z
   .array(z.string())
   .min(1)
@@ -241,7 +301,9 @@ const manageInboxInputSchema = z.discriminatedUnion("action", [
     labelId: z
       .string()
       .optional()
-      .describe("Optional provider label/category ID to apply while archiving."),
+      .describe(
+        "Optional provider label/category ID to apply while archiving.",
+      ),
   }),
   z.object({
     action: z.literal("mark_read_threads"),

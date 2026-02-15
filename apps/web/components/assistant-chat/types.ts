@@ -6,6 +6,7 @@ import type {
   GetLearnedPatternsTool,
   GetUserRulesAndSettingsTool,
   ManageInboxTool,
+  ReadEmailTool,
   SearchInboxTool,
   SearchMemoriesTool,
   SendEmailTool,
@@ -25,6 +26,7 @@ import type {
 export type ChatTools = {
   getAccountOverview: GetAccountOverviewTool;
   searchInbox: SearchInboxTool;
+  readEmail: ReadEmailTool;
   manageInbox: ManageInboxTool;
   updateInboxFeatures: UpdateInboxFeaturesTool;
   getUserRulesAndSettings: GetUserRulesAndSettingsTool;
