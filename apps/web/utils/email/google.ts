@@ -1470,4 +1470,12 @@ export class GmailProvider implements EmailProvider {
       displayName: sig.displayName,
     }));
   }
+
+  async getInboxStats(): Promise<{ total: number; unread: number }> {
+    const label = await getLabelById({ gmail: this.client, id: "INBOX" });
+    return {
+      total: label.messagesTotal ?? 0,
+      unread: label.messagesUnread ?? 0,
+    };
+  }
 }

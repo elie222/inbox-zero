@@ -29,6 +29,7 @@ import {
   updateInboxFeaturesTool,
 } from "./chat-inbox-tools";
 import { searchMemoriesTool } from "./chat-memory-tools";
+import { createEmailProvider } from "@/utils/email/provider";
 
 export const maxDuration = 120;
 
@@ -81,6 +82,8 @@ Tool usage strategy (progressive disclosure):
 - Use the minimum number of tools needed.
 - Start with read-only context tools before write tools.
 - For write operations that affect many emails, first summarize what will change, then execute after clear user confirmation.
+- For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then identify senders for bulk cleanup using bulk_archive_senders. Never archive thread-by-thread for bulk cleanup.
+- Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
 - Only send emails when the user clearly asks to send now.
 
@@ -88,6 +91,7 @@ Tool call policy:
 - When a request can be completed with available tools, call the tool instead of only describing what you would do.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
 - Never invent thread IDs, label IDs, sender addresses, or existing rule names.
+- For bulk cleanup, prefer manageInbox with "bulk_archive_senders" over "archive_threads". Extract sender email addresses from searchInbox results and pass them to bulk_archive_senders — this archives ALL emails from those senders server-side, not just the ones visible in search results. Use "archive_threads" only for targeted actions on specific threads.
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - For ambiguous destructive requests (for example archive vs mark read), ask a brief clarification question before writing.
 - Before changing an existing rule, call getUserRulesAndSettings immediately before the write.
@@ -184,7 +188,14 @@ Behavior anchors (minimal examples):
 - For "Give me an update on what came in today", call searchInbox first with today's start in the user's timezone, then summarize into must-handle, can-wait, and can-archive.
 - For "Turn off meeting briefs and enable auto-file attachments", call updateInboxFeatures with meetingBriefsEnabled=false and filingEnabled=true.
 - For "If I'm CC'd on an email it shouldn't be marked To Reply", update the "To Reply" rule instructions with updateRuleConditions.
-- For "Archive emails older than 30 days", explain this is not supported as a time-based rule and suggest a supported alternative.`;
+- For "Archive emails older than 30 days", this is not possible as an automated rule, but you can do it as a one-time action: use searchInbox with a before: date filter, then archive the results with bulk_archive_senders or archive_threads.
+- For "clean up my inbox" or retroactive bulk cleanup:
+  1. Check the inbox stats in your context to understand the scale and read/unread ratio.
+  2. Search inbox with limit 50 to sample messages. For Google accounts, use category filters (category:promotions, category:updates, category:social). For Microsoft accounts, use keyword queries (e.g. "newsletter", "promotion", "unsubscribe").
+  3. Extract unique sender email addresses from the results. Group them for the user (e.g. "I found 25 promotional senders").
+  4. After user confirms, call manageInbox with "bulk_archive_senders" passing all confirmed sender emails. This archives ALL emails from those senders, not just the ones in search results.
+  5. Search again to find the next batch of senders (previous senders' emails are now archived). Continue until the requested scope is covered.
+  6. Once the user has confirmed a category (e.g. "archive all promotions"), continue processing subsequent batches without re-asking for each one.`;
 
   const toolOptions = {
     email: user.email,
@@ -212,6 +223,30 @@ Behavior anchors (minimal examples):
           logger,
         })
       : null;
+
+  let inboxStats: { total: number; unread: number } | null = null;
+  try {
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider: user.account.provider,
+      logger,
+    });
+    inboxStats = await Promise.race([
+      emailProvider.getInboxStats(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+    ]);
+  } catch (error) {
+    logger.warn("Failed to fetch inbox stats for chat context", { error });
+  }
+
+  const inboxContextMessage = inboxStats
+    ? [
+        {
+          role: "system" as const,
+          content: `Current inbox: ${inboxStats.total} emails total, ${inboxStats.unread} unread.`,
+        },
+      ]
+    : [];
 
   const hiddenContextMessage =
     context && context.type === "fix-rule"
@@ -260,6 +295,7 @@ Behavior anchors (minimal examples):
         content: system,
         ...cacheControl,
       },
+      ...inboxContextMessage,
       ...hiddenContextMessage,
       ...messages,
     ],
