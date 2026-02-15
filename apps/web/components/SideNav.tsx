@@ -20,6 +20,7 @@ import {
   InboxIcon,
   type LucideIcon,
   MailsIcon,
+  MessageSquareIcon,
   MessagesSquareIcon,
   PenIcon,
   PersonStandingIcon,
@@ -88,6 +89,11 @@ export const useNavigation = () => {
 
   const manageItems: NavItem[] = useMemo(
     () => [
+      {
+        name: "Chat",
+        href: prefixPath(currentEmailAccountId, "/assistant"),
+        icon: MessageSquareIcon,
+      },
       {
         name: "Assistant",
         href: prefixPath(currentEmailAccountId, "/automation"),
