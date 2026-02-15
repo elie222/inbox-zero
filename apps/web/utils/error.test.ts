@@ -1,5 +1,29 @@
 import { describe, it, expect } from "vitest";
-import { getActionErrorMessage } from "./error";
+import { APICallError } from "ai";
+import {
+  getActionErrorMessage,
+  isInsufficientCreditsError,
+  isHandledUserKeyError,
+  isKnownApiError,
+  markAsHandledUserKeyError,
+} from "./error";
+
+function createAPICallError({
+  message,
+  statusCode,
+}: {
+  message: string;
+  statusCode: number;
+}): APICallError {
+  return new APICallError({
+    message,
+    url: "https://example.com",
+    requestBodyValues: {},
+    statusCode,
+    responseHeaders: {},
+    responseBody: "",
+  });
+}
 
 describe("getActionErrorMessage", () => {
   it("returns serverError when present", () => {
@@ -164,5 +188,63 @@ describe("getActionErrorMessage", () => {
 
       expect(result).toBe("Custom fallback message");
     });
+  });
+});
+
+describe("isInsufficientCreditsError", () => {
+  it("returns true for HTTP 402 status code", () => {
+    const error = createAPICallError({
+      message: "Insufficient credits",
+      statusCode: 402,
+    });
+    expect(isInsufficientCreditsError(error)).toBe(true);
+  });
+
+  it("returns false for other status codes", () => {
+    const error = createAPICallError({
+      message: "Rate limit exceeded",
+      statusCode: 429,
+    });
+    expect(isInsufficientCreditsError(error)).toBe(false);
+  });
+});
+
+describe("markAsHandledUserKeyError / isHandledUserKeyError", () => {
+  it("marks and detects handled user key errors", () => {
+    const error = createAPICallError({
+      message: "Insufficient credits",
+      statusCode: 402,
+    });
+    expect(isHandledUserKeyError(error)).toBe(false);
+    markAsHandledUserKeyError(error);
+    expect(isHandledUserKeyError(error)).toBe(true);
+  });
+
+  it("returns false for unmarked errors", () => {
+    const error = new Error("some error");
+    expect(isHandledUserKeyError(error)).toBe(false);
+  });
+
+  it("returns false for non-error values", () => {
+    expect(isHandledUserKeyError(null)).toBe(false);
+    expect(isHandledUserKeyError(undefined)).toBe(false);
+  });
+});
+
+describe("isKnownApiError", () => {
+  it("does not treat 402 as a known API error", () => {
+    const error = createAPICallError({
+      message: "Insufficient credits",
+      statusCode: 402,
+    });
+    expect(isKnownApiError(error)).toBe(false);
+  });
+
+  it("treats incorrect OpenAI API key as a known error", () => {
+    const error = createAPICallError({
+      message: "Incorrect API key provided",
+      statusCode: 401,
+    });
+    expect(isKnownApiError(error)).toBe(true);
   });
 });

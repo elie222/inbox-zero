@@ -28,10 +28,12 @@ import {
   isAnthropicInsufficientBalanceError,
   isAWSThrottlingError,
   isIncorrectOpenAIAPIKeyError,
+  isInsufficientCreditsError,
   isInvalidAIModelError,
   isOpenAIAPIKeyDeactivatedError,
   isAiQuotaExceededError,
   isServiceUnavailableError,
+  markAsHandledUserKeyError,
   SafeError,
 } from "@/utils/error";
 import { getModel, type ModelType } from "@/utils/llms/model";
@@ -137,6 +139,7 @@ export function createGenerateText({
             emailAccount.id,
             label,
             modelOptions.modelName,
+            modelOptions.hasUserApiKey,
           );
           throw backupError;
         }
@@ -149,6 +152,7 @@ export function createGenerateText({
         emailAccount.id,
         label,
         modelOptions.modelName,
+        modelOptions.hasUserApiKey,
       );
       throw error;
     }
@@ -241,6 +245,7 @@ export function createGenerateObject({
         emailAccount.id,
         label,
         modelOptions.modelName,
+        modelOptions.hasUserApiKey,
       );
       throw error;
     }
@@ -436,15 +441,30 @@ async function handleError(
   emailAccountId: string,
   label: string,
   modelName: string,
+  hasUserApiKey: boolean,
 ) {
-  logger.error("Error in LLM call", {
-    error,
-    userId,
-    userEmail,
-    emailAccountId,
-    label,
-    modelName,
-  });
+  const isUserKeyInsufficientCredits =
+    hasUserApiKey &&
+    APICallError.isInstance(error) &&
+    isInsufficientCreditsError(error);
+
+  if (isUserKeyInsufficientCredits) {
+    logger.warn("User API key has insufficient credits", {
+      userId,
+      emailAccountId,
+      label,
+      modelName,
+    });
+  } else {
+    logger.error("Error in LLM call", {
+      error,
+      userId,
+      userEmail,
+      emailAccountId,
+      label,
+      modelName,
+    });
+  }
 
   if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
     return await addUserErrorMessageWithNotification({
@@ -506,6 +526,19 @@ async function handleError(
         errorType: ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
         errorMessage:
           "Your Anthropic account has insufficient credits. Please add credits or update your settings.",
+        logger,
+      });
+    }
+
+    if (isInsufficientCreditsError(error) && hasUserApiKey) {
+      markAsHandledUserKeyError(error);
+      return await addUserErrorMessageWithNotification({
+        userId,
+        userEmail,
+        emailAccountId,
+        errorType: ErrorType.INSUFFICIENT_CREDITS,
+        errorMessage:
+          "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",
         logger,
       });
     }

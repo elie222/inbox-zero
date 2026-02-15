@@ -48,7 +48,7 @@ export function captureException(
   error: unknown,
   context: CaptureExceptionContext = {},
 ) {
-  if (isKnownApiError(error)) {
+  if (isKnownApiError(error) || isHandledUserKeyError(error)) {
     const logger = createScopedLogger("captureException");
     logger.warn("Known API error", { error, context });
     return;
@@ -143,6 +143,20 @@ export function isAnthropicInsufficientBalanceError(
   return error.message.includes(
     "Your credit balance is too low to access the Anthropic API",
   );
+}
+
+export function isInsufficientCreditsError(error: APICallError): boolean {
+  return error.statusCode === 402;
+}
+
+const HANDLED_USER_KEY_ERROR = "__handledUserKeyError";
+
+export function markAsHandledUserKeyError(error: unknown): void {
+  (error as Record<string, unknown>)[HANDLED_USER_KEY_ERROR] = true;
+}
+
+export function isHandledUserKeyError(error: unknown): boolean {
+  return (error as Record<string, unknown>)?.[HANDLED_USER_KEY_ERROR] === true;
 }
 
 // Handling AI quota/retry errors. This can be related to the user's own API quota or the system's quota.
