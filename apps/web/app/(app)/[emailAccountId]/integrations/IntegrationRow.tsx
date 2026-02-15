@@ -217,7 +217,7 @@ export function IntegrationRow({
             </TypographyP>
           )}
         </TableCell>
-        <TableCell>
+        <TableCell className="hidden sm:table-cell">
           {integration.comingSoon ? (
             <span className="text-gray-400 text-sm">Coming Soon</span>
           ) : connected && tools.length > 0 ? (

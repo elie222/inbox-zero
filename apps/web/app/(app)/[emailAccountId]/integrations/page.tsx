@@ -26,15 +26,19 @@ export default function IntegrationsPage() {
 
   return (
     <PageWrapper>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <PageHeader
           title="Integrations"
           description="Connect to external services to help the AI assistant draft better replies by accessing relevant data from your tools."
         />
         {hasAccess && (
-          <RequestAccessDialog
-            trigger={<Button variant="outline">Request an Integration</Button>}
-          />
+          <div className="shrink-0">
+            <RequestAccessDialog
+              trigger={
+                <Button variant="outline">Request an Integration</Button>
+              }
+            />
+          </div>
         )}
       </div>
 

@@ -134,7 +134,7 @@ export function CalendarConnectionCard({
     <Card>
       <CardHeader className="p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <Image
               src={providerInfo.icon}
               alt={providerInfo.alt}
@@ -142,12 +142,12 @@ export function CalendarConnectionCard({
               height={32}
               unoptimized
             />
-            <div>
+            <div className="min-w-0">
               <CardTitle className="text-lg">{providerInfo.name}</CardTitle>
               <CardDescription className="flex items-center gap-2">
-                {connection.email}
+                <span className="truncate">{connection.email}</span>
                 {!connection.isConnected && (
-                  <div className="flex items-center gap-1 text-red-600">
+                  <div className="flex shrink-0 items-center gap-1 text-red-600">
                     <XCircle className="h-3 w-3" />
                     <span className="text-xs">Disconnected</span>
                   </div>
@@ -155,7 +155,7 @@ export function CalendarConnectionCard({
               </CardDescription>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Button
               variant="destructiveSoft"
               size="sm"
