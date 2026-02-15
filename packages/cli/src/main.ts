@@ -343,8 +343,8 @@ async function runSetupQuick(options: { name?: string }) {
       `    ${callbackUrl}\n` +
       `    ${linkingCallbackUrl}\n` +
       "11. Copy the Client ID and Client Secret\n\n" +
-      "Note: You will see a warning screen when signing in because the\n" +
-      "app is unverified. This is normal for self-hosted apps.\n\n" +
+      "Note: External apps will show a warning screen when signing in.\n" +
+      'Click "Advanced" then "Go to [app name]" to proceed.\n\n' +
       "Full guide: https://docs.getinboxzero.com/hosting/setup-guides",
     "Step 1 of 4: Google OAuth",
   );
@@ -396,15 +396,11 @@ async function runSetupQuick(options: { name?: string }) {
       '   - Click "Add Principal"\n' +
       "   - Principal: gmail-api-push@system.gserviceaccount.com\n" +
       '   - Role: "Pub/Sub Publisher"\n' +
-      '   - Click "Save"\n' +
-      "4. Create a push subscription pointing to your webhook URL:\n" +
-      "   - In your topic, go to the Subscriptions tab\n" +
-      '   - Click "Create Subscription"\n' +
-      '   - Delivery type: "Push"\n' +
-      "   - Endpoint URL: https://yourdomain.com/api/google/webhook?token=YOUR_TOKEN\n" +
-      "     (use the GOOGLE_PUBSUB_VERIFICATION_TOKEN value from your .env)\n\n" +
-      "Your webhook must be publicly accessible.\n" +
-      "For local development, use ngrok or a similar tunnel.\n\n" +
+      '   - Click "Save"\n\n' +
+      "Enter your topic name below if ready, or press Enter to skip.\n" +
+      "After setup completes, you'll also need to create a push\n" +
+      "subscription — the verification token will be in your .env file.\n" +
+      "See: https://docs.getinboxzero.com/hosting/setup-guides#google-pubsub-setup\n\n" +
       "Press Enter to skip — configure later with: inbox-zero config",
     "Step 3 of 4: Google Pub/Sub (optional)",
   );

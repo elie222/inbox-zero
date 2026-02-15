@@ -29,7 +29,7 @@ Check logs for errors using the commands above.
 - **Insufficient memory**: Container is being killed by OOM
   - Solution: Increase VPS RAM or add swap space
 - **Missing environment variables**: Check `.env` file exists and has required values
-  - Solution: Run `npm run setup` again
+  - Solution: Run `inbox-zero setup` again
 
 ## Database Connection Errors
 
@@ -38,9 +38,9 @@ Check logs for errors using the commands above.
 - Check database container is running: `docker ps | grep postgres`
 - Verify `DATABASE_URL` in `.env` matches your setup
 
-**Error: P1000 / "authentication failed" after re-running setup**
-- This happens when you re-run `inbox-zero setup` which generates a new database password, but the old Postgres volume still has the previous password.
-- Fix: stop containers and remove volumes so Postgres is recreated with the new password:
+**Error: P1000 / "authentication failed"**
+- This happens when the database password in `.env` doesn't match the password stored in the Postgres Docker volume (e.g., you deleted `.env` without removing the volume first, then re-ran setup).
+- Fix: stop containers and remove volumes so Postgres is recreated with the current password:
   ```bash
   docker compose --profile all down -v
   inbox-zero start
