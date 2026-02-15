@@ -261,6 +261,14 @@ export function IntegrationRow({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {tools.length > 0 && (
+                  <DropdownMenuItem
+                    onClick={() => setExpandedTools(!expandedTools)}
+                    className="sm:hidden"
+                  >
+                    {expandedTools ? "Hide tools" : "Manage tools"}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={handleDisconnect}
                   disabled={disconnecting}
