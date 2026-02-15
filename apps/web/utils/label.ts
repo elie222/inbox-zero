@@ -7,12 +7,13 @@ export const PARENT_LABEL = "Inbox Zero";
 const blue = "#b6cff5";
 const cyan = "#98d7e4";
 const purple = "#e3d7ff";
-const pink = "#fbd3e0";
+const pink = "#fcdee8";
 const red = "#f2b2a8";
 const coral = "#ffc8af";
 const orange = "#ffdeb5";
 const yellow = "#fdedc1";
 const green = "#b3efd3";
+const rose = "#fbc8d9";
 const gray = "#c2c2c2";
 
 const LABEL_COLORS = [
@@ -25,6 +26,7 @@ const LABEL_COLORS = [
   orange,
   yellow,
   green,
+  rose,
 ] as const;
 
 export const inboxZeroLabels = {
@@ -83,7 +85,7 @@ export function getLabelColor(name: string) {
     case getRuleLabel(SystemType.NOTIFICATION):
       return purple;
     case getRuleLabel(SystemType.RECEIPT):
-      return pink;
+      return rose;
     case getRuleLabel(SystemType.TO_REPLY):
       return pink;
     case FOLLOW_UP_LABEL:
