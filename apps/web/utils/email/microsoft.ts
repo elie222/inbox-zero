@@ -167,18 +167,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getMessage(messageId: string): Promise<ParsedMessage> {
-    try {
-      const message = await getMessage(messageId, this.client, this.logger);
-      return message;
-    } catch (error) {
-      const err = error as any;
-      this.logger.error("getMessage failed", {
-        messageId,
-        error,
-        errorCode: err?.code,
-      });
-      throw error;
-    }
+    return getMessage(messageId, this.client, this.logger);
   }
 
   async getMessageByRfc822MessageId(
@@ -1319,7 +1308,7 @@ export class OutlookProvider implements EmailProvider {
       this.logger.info("Checked for sent reply", { senderEmail, sent });
       return sent;
     } catch (error) {
-      this.logger.error("Error checking if reply was sent", {
+      this.logger.warn("Error checking if reply was sent", {
         error,
         senderEmail,
       });
@@ -1355,7 +1344,7 @@ export class OutlookProvider implements EmailProvider {
       });
       return count;
     } catch (error) {
-      this.logger.error("Error counting received messages", {
+      this.logger.warn("Error counting received messages", {
         error,
         senderEmail,
       });
@@ -1616,7 +1605,7 @@ export class OutlookProvider implements EmailProvider {
             .select("id,sentDateTime")
             .get()
             .catch((error) => {
-              this.logger.error("Error checking sent messages (domain)", {
+              this.logger.warn("Error checking sent messages (domain)", {
                 error,
               });
               return { value: [] };
@@ -1630,7 +1619,7 @@ export class OutlookProvider implements EmailProvider {
             .select("id,receivedDateTime")
             .get()
             .catch((error) => {
-              this.logger.error("Error checking received messages (domain)", {
+              this.logger.warn("Error checking received messages (domain)", {
                 error,
               });
               return { value: [] };
@@ -1675,7 +1664,7 @@ export class OutlookProvider implements EmailProvider {
           .select("id,sentDateTime")
           .get()
           .catch((error) => {
-            this.logger.error("Error checking sent messages", {
+            this.logger.warn("Error checking sent messages", {
               error,
               search: sentSearch,
             });
@@ -1690,7 +1679,7 @@ export class OutlookProvider implements EmailProvider {
           .select("id")
           .get()
           .catch((error) => {
-            this.logger.error("Error checking received messages", {
+            this.logger.warn("Error checking received messages", {
               error,
               filter: receivedFilter,
             });
@@ -1713,9 +1702,8 @@ export class OutlookProvider implements EmailProvider {
 
       return messages.some((message) => message.id !== options.messageId);
     } catch (error) {
-      this.logger.error("Error checking previous communications", {
+      this.logger.warn("Error checking previous communications", {
         error,
-        options,
       });
       return false;
     }
