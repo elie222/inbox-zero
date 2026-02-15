@@ -328,14 +328,27 @@ async function runSetupQuick(options: { name?: string }) {
 
   p.note(
     "You need a Google OAuth app to connect your Gmail.\n\n" +
-      "1. Open: https://console.cloud.google.com/apis/credentials\n" +
-      `2. Click "Create Credentials" → "OAuth client ID"\n` +
-      `3. Select "Web application"\n` +
-      `4. Under "Authorized redirect URIs" add:\n` +
-      `   ${callbackUrl}\n` +
-      `   ${linkingCallbackUrl}\n` +
-      "5. Copy the Client ID and Client Secret\n\n" +
-      "Full guide: https://docs.getinboxzero.com/self-hosting/google-oauth",
+      "First, set up the OAuth consent screen:\n" +
+      "1. Open: https://console.cloud.google.com/apis/credentials/consent\n" +
+      "2. User type:\n" +
+      '   - "Internal" — Google Workspace only, all org members can sign in\n' +
+      '   - "External" — works with any Google account (including personal Gmail)\n' +
+      "     You'll need to add yourself as a test user (step 5)\n" +
+      "3. Fill in the app name and your email\n" +
+      '4. Click "Save and Continue" through the scopes section\n' +
+      "5. If External: add your email as a test user\n" +
+      "6. Complete the wizard\n\n" +
+      "Then, create OAuth credentials:\n" +
+      "7. Open: https://console.cloud.google.com/apis/credentials\n" +
+      `8. Click "Create Credentials" → "OAuth client ID"\n` +
+      `9. Select "Web application"\n` +
+      `10. Under "Authorized redirect URIs" add:\n` +
+      `    ${callbackUrl}\n` +
+      `    ${linkingCallbackUrl}\n` +
+      "11. Copy the Client ID and Client Secret\n\n" +
+      "If External: you'll see a \"This app isn't verified\" warning when\n" +
+      'signing in. Click "Advanced" then "Go to [app name]" to proceed.\n\n' +
+      "Full guide: https://docs.getinboxzero.com/hosting/setup-guides",
     "Step 1 of 4: Google OAuth",
   );
 
@@ -376,15 +389,26 @@ async function runSetupQuick(options: { name?: string }) {
 
   // ── Step 3: Google Pub/Sub ──
 
+  // Generate token early so we can show it in the instructions
+  const pubsubVerificationToken = generateSecret(32);
+
   p.note(
     "Google Pub/Sub enables real-time email notifications.\n\n" +
       "1. Go to: https://console.cloud.google.com/cloudpubsub/topic/list\n" +
       '2. Create a topic (e.g., "inbox-zero-emails")\n' +
-      "3. Add gmail-api-push@system.gserviceaccount.com as a Publisher\n" +
-      "4. Create a push subscription pointing to your webhook URL:\n" +
-      "   https://yourdomain.com/api/google/webhook\n\n" +
-      "Your webhook must be publicly accessible.\n" +
-      "For local development, use ngrok or a similar tunnel.\n\n" +
+      "3. Grant Gmail publish access to your topic:\n" +
+      "   - Click your topic name to open it\n" +
+      '   - Go to the "Permissions" tab\n' +
+      '   - Click "Add Principal"\n' +
+      "   - Principal: gmail-api-push@system.gserviceaccount.com\n" +
+      '   - Role: "Pub/Sub Publisher"\n' +
+      '   - Click "Save"\n' +
+      "4. Create a push subscription:\n" +
+      '   - Click "Create Subscription"\n' +
+      '   - Delivery type: "Push"\n' +
+      "   - Endpoint URL:\n" +
+      `     https://yourdomain.com/api/google/webhook?token=${pubsubVerificationToken}\n` +
+      "     (replace yourdomain.com with your actual domain)\n\n" +
       "Press Enter to skip — configure later with: inbox-zero config",
     "Step 3 of 4: Google Pub/Sub (optional)",
   );
@@ -408,45 +432,7 @@ async function runSetupQuick(options: { name?: string }) {
 
   // ── Generate config ──
 
-  const spinner = p.spinner();
-  spinner.start("Generating configuration...");
-
-  const redisToken = generateSecret(32);
-  const env: EnvConfig = {
-    NODE_ENV: "production",
-    // Database (Docker internal networking)
-    POSTGRES_USER: "postgres",
-    POSTGRES_PASSWORD: generateSecret(16),
-    POSTGRES_DB: "inboxzero",
-    DATABASE_URL: `postgresql://postgres:${generateSecret(16)}@db:5432/inboxzero`,
-    UPSTASH_REDIS_TOKEN: redisToken,
-    UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
-    INTERNAL_API_URL: "http://web:3000",
-    // Secrets
-    AUTH_SECRET: generateSecret(32),
-    EMAIL_ENCRYPT_SECRET: generateSecret(32),
-    EMAIL_ENCRYPT_SALT: generateSecret(16),
-    INTERNAL_API_KEY: generateSecret(32),
-    API_KEY_SALT: generateSecret(32),
-    CRON_SECRET: generateSecret(32),
-    GOOGLE_PUBSUB_VERIFICATION_TOKEN: generateSecret(32),
-    // Google OAuth
-    GOOGLE_CLIENT_ID: googleClientId || "your-google-client-id",
-    GOOGLE_CLIENT_SECRET: googleClientSecret || "your-google-client-secret",
-    GOOGLE_PUBSUB_TOPIC_NAME:
-      pubsubTopic || "projects/your-project-id/topics/inbox-zero-emails",
-    // LLM
-    ...llmEnv,
-    // App
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
-    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
-  };
-
-  // Fix DATABASE_URL to use the actual password
-  env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@db:5432/${env.POSTGRES_DB}`;
-  env.DIRECT_URL = env.DATABASE_URL;
-
-  // Determine file paths
+  // Determine file paths first so we can read existing config
   const configDir = REPO_ROOT ?? STANDALONE_CONFIG_DIR;
   const envFileName = configName ? `.env.${configName}` : ".env";
   const envFile = REPO_ROOT
@@ -460,7 +446,6 @@ async function runSetupQuick(options: { name?: string }) {
 
   // Check if already configured
   if (existsSync(envFile)) {
-    spinner.stop("Paused");
     const overwrite = await p.confirm({
       message: "Existing configuration found. Overwrite it?",
       initialValue: false,
@@ -469,8 +454,47 @@ async function runSetupQuick(options: { name?: string }) {
       p.cancel("Setup cancelled. Existing configuration preserved.");
       process.exit(0);
     }
-    spinner.start("Generating configuration...");
   }
+
+  const spinner = p.spinner();
+  spinner.start("Generating configuration...");
+
+  // Reuse existing database password to avoid mismatch with Docker volume
+  const existingDbPassword = readExistingDbPassword(envFile);
+
+  const redisToken = generateSecret(32);
+  const dbPassword = existingDbPassword || generateSecret(16);
+  const env: EnvConfig = {
+    NODE_ENV: "production",
+    // Database (Docker internal networking)
+    POSTGRES_USER: "postgres",
+    POSTGRES_PASSWORD: dbPassword,
+    POSTGRES_DB: "inboxzero",
+    DATABASE_URL: `postgresql://postgres:${dbPassword}@db:5432/inboxzero`,
+    UPSTASH_REDIS_TOKEN: redisToken,
+    UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
+    INTERNAL_API_URL: "http://web:3000",
+    // Secrets
+    AUTH_SECRET: generateSecret(32),
+    EMAIL_ENCRYPT_SECRET: generateSecret(32),
+    EMAIL_ENCRYPT_SALT: generateSecret(16),
+    INTERNAL_API_KEY: generateSecret(32),
+    API_KEY_SALT: generateSecret(32),
+    CRON_SECRET: generateSecret(32),
+    GOOGLE_PUBSUB_VERIFICATION_TOKEN: pubsubVerificationToken,
+    // Google OAuth
+    GOOGLE_CLIENT_ID: googleClientId || "your-google-client-id",
+    GOOGLE_CLIENT_SECRET: googleClientSecret || "your-google-client-secret",
+    GOOGLE_PUBSUB_TOPIC_NAME:
+      pubsubTopic || "projects/your-project-id/topics/inbox-zero-emails",
+    // LLM
+    ...llmEnv,
+    // App
+    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
+  };
+
+  env.DIRECT_URL = env.DATABASE_URL;
 
   // Fetch docker-compose.yml if not in the repo
   if (!REPO_ROOT) {
@@ -921,7 +945,9 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   if (useDockerInfra) {
     // Using Docker Compose for Postgres/Redis
     env.POSTGRES_USER = "postgres";
-    env.POSTGRES_PASSWORD = isDevMode ? "password" : generateSecret(16);
+    env.POSTGRES_PASSWORD =
+      readExistingDbPassword(envFile) ||
+      (isDevMode ? "password" : generateSecret(16));
     env.POSTGRES_DB = "inboxzero";
     env.UPSTASH_REDIS_TOKEN = redisToken;
 
@@ -1783,6 +1809,12 @@ function runDockerCommand(
       resolve({ status: 1, stdout: "", stderr: err.message });
     });
   });
+}
+
+function readExistingDbPassword(envFile: string): string | undefined {
+  if (!existsSync(envFile)) return undefined;
+  const existing = parseEnvFile(readFileSync(envFile, "utf-8"));
+  return existing.POSTGRES_PASSWORD || undefined;
 }
 
 function checkContainersRunning(composeArgs: string[]): boolean {
