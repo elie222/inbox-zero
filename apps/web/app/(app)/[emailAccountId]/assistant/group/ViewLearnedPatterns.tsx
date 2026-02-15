@@ -302,14 +302,14 @@ function GroupItemList({
                       </Badge>
                     ))}
 
-                  <div className="text-wrap break-words">
+                  <div className="break-all">
                     <GroupItemDisplay item={item} />
                   </div>
                 </div>
               </TableCell>
               <TableCell className="flex items-center justify-end gap-4 py-2 text-right">
                 <Tooltip content="Date added">
-                  <MutedText>
+                  <MutedText className="hidden sm:block">
                     {formatShortDate(new Date(item.createdAt))}
                   </MutedText>
                 </Tooltip>

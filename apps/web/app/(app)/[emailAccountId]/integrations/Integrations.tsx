@@ -27,7 +27,7 @@ export function Integrations() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Connection</TableHead>
-              <TableHead>Tools</TableHead>
+              <TableHead className="hidden sm:table-cell">Tools</TableHead>
               <TableHead>Enable</TableHead>
               <TableHead />
             </TableRow>

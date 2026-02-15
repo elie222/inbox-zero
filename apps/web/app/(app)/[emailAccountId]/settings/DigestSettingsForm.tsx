@@ -273,7 +273,7 @@ export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
             <div>
               <Label>Send the digest email</Label>
 
-              <div className="grid lg:grid-cols-3 gap-3 mt-3">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
                 <FormItem>
                   <Label htmlFor="frequency-select">Every</Label>
                   <Select
