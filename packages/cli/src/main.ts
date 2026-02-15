@@ -330,11 +330,13 @@ async function runSetupQuick(options: { name?: string }) {
     "You need a Google OAuth app to connect your Gmail.\n\n" +
       "First, set up the OAuth consent screen:\n" +
       "1. Open: https://console.cloud.google.com/apis/credentials/consent\n" +
-      '2. User type: choose "External" (use "Internal" only if you have\n' +
-      "   Google Workspace AND only need access for your org's accounts)\n" +
+      "2. User type:\n" +
+      '   - "Internal" — Google Workspace only, all org members can sign in\n' +
+      '   - "External" — works with any Google account (including personal Gmail)\n' +
+      "     You'll need to add yourself as a test user (step 5)\n" +
       "3. Fill in the app name and your email\n" +
       '4. Click "Save and Continue" through the scopes section\n' +
-      "5. Add your email as a test user\n" +
+      "5. If External: add your email as a test user\n" +
       "6. Complete the wizard\n\n" +
       "Then, create OAuth credentials:\n" +
       "7. Open: https://console.cloud.google.com/apis/credentials\n" +
@@ -344,8 +346,8 @@ async function runSetupQuick(options: { name?: string }) {
       `    ${callbackUrl}\n` +
       `    ${linkingCallbackUrl}\n` +
       "11. Copy the Client ID and Client Secret\n\n" +
-      "Note: You'll see a \"This app isn't verified\" warning when signing in.\n" +
-      'Click "Advanced" then "Go to [app name]" to proceed.\n\n' +
+      "If External: you'll see a \"This app isn't verified\" warning when\n" +
+      'signing in. Click "Advanced" then "Go to [app name]" to proceed.\n\n' +
       "Full guide: https://docs.getinboxzero.com/hosting/setup-guides",
     "Step 1 of 4: Google OAuth",
   );

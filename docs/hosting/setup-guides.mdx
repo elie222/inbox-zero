@@ -18,12 +18,14 @@ Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new
 1. **Configure consent screen:**
    1. Go to [Credentials](https://console.cloud.google.com/apis/credentials). If the banner shows up, click it and then click `Get Started`.
    2. Choose a name for your app and enter your email.
-   3. In Audience, choose `External`. (Only choose `Internal` if you have Google Workspace and only need access for accounts in your organization — personal Gmail accounts cannot use Internal apps.)
+   3. In Audience, choose a user type:
+      - **Internal** — Google Workspace only. All members of your organization can sign in without additional setup. Personal Gmail accounts cannot use Internal apps.
+      - **External** — any Google account, including personal Gmail. You'll need to add yourself as a test user (see step 5 below).
    4. Enter your contact information.
    5. Agree to the User Data policy and click `Create`.
 
    <Warning>
-     Since your app is unverified (normal for self-hosted), you must add yourself as a test user (see step 5 below) before you can sign in. You'll also see a "This app isn't verified" warning screen when signing in — click "Advanced" then "Go to [app name]" to proceed.
+     If you chose **External**: since your app is unverified (normal for self-hosted), you must add yourself as a test user (see step 5 below) before you can sign in. You'll also see a "This app isn't verified" warning screen when signing in — click "Advanced" then "Go to [app name]" to proceed.
    </Warning>
 
 2. **Create OAuth credentials:**
@@ -55,9 +57,11 @@ Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new
       ```
    4. Click `Update`, then `Save`.
 
-5. **Add yourself as a test user:**
+5. **Add yourself as a test user (External only):**
    1. Go to [Audience](https://console.cloud.google.com/auth/audience).
    2. In `Test users`, click `+Add users` and enter your email.
+
+   Skip this step if you chose Internal — all org members can sign in automatically.
 
 6. **Enable required APIs:**
    - [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) (required)
