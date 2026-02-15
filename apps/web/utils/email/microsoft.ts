@@ -1915,4 +1915,20 @@ export class OutlookProvider implements EmailProvider {
       return [];
     }
   }
+
+  async getInboxStats(): Promise<{ total: number; unread: number }> {
+    const folder = await withOutlookRetry(
+      () =>
+        this.client
+          .getClient()
+          .api("/me/mailFolders('inbox')")
+          .select("totalItemCount,unreadItemCount")
+          .get(),
+      this.logger,
+    );
+    return {
+      total: folder.totalItemCount ?? 0,
+      unread: folder.unreadItemCount ?? 0,
+    };
+  }
 }

@@ -282,4 +282,5 @@ export interface EmailProvider {
   ): Promise<void>;
   getOrCreateFolderIdByName(folderName: string): Promise<string>;
   getSignatures(): Promise<EmailSignature[]>;
+  getInboxStats(): Promise<{ total: number; unread: number }>;
 }

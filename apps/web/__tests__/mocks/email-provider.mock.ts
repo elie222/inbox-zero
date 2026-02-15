@@ -149,6 +149,7 @@ export function createMockEmailProvider(
     isSentMessage: vi.fn().mockReturnValue(false),
     getOrCreateFolderIdByName: vi.fn().mockResolvedValue("folder-123"),
     getSignatures: vi.fn().mockResolvedValue([]),
+    getInboxStats: vi.fn().mockResolvedValue({ total: 0, unread: 0 }),
 
     // Watch/webhooks
     processHistory: vi.fn().mockResolvedValue(undefined),
