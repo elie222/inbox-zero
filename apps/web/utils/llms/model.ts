@@ -26,6 +26,7 @@ export type SelectModel = {
   model: LanguageModelV3;
   providerOptions?: Record<string, any>;
   backupModel: LanguageModelV3 | null;
+  hasUserApiKey: boolean;
 };
 
 export function getModel(
@@ -42,14 +43,14 @@ export function getModel(
     providerOptions: data.providerOptions,
   });
 
-  return data;
+  return { ...data, hasUserApiKey: !!userAi.aiApiKey };
 }
 
 function selectModelByType(
   userAi: UserAIFields,
   modelType: ModelType,
   online = false,
-) {
+): Omit<SelectModel, "hasUserApiKey"> {
   if (userAi.aiApiKey) return selectDefaultModel(userAi, online);
 
   switch (modelType) {
@@ -74,7 +75,7 @@ function selectModel(
   },
   providerOptions?: Record<string, any>,
   online = false,
-): SelectModel {
+): Omit<SelectModel, "hasUserApiKey"> {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
       const modelName = aiModel || "gpt-5.1";
@@ -245,7 +246,10 @@ function createOpenRouterProviderOptions(
  * - Bulk processing emails
  * - Any task with large context windows where cost efficiency matters
  */
-function selectEconomyModel(userAi: UserAIFields, online = false): SelectModel {
+function selectEconomyModel(
+  userAi: UserAIFields,
+  online = false,
+): Omit<SelectModel, "hasUserApiKey"> {
   if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
     if (!apiKey) {
@@ -283,7 +287,10 @@ function selectEconomyModel(userAi: UserAIFields, online = false): SelectModel {
 /**
  * Selects the appropriate chat model for fast conversational tasks
  */
-function selectChatModel(userAi: UserAIFields, online = false): SelectModel {
+function selectChatModel(
+  userAi: UserAIFields,
+  online = false,
+): Omit<SelectModel, "hasUserApiKey"> {
   if (env.CHAT_LLM_PROVIDER && env.CHAT_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.CHAT_LLM_PROVIDER);
     if (!apiKey) {
@@ -318,7 +325,10 @@ function selectChatModel(userAi: UserAIFields, online = false): SelectModel {
   return selectDefaultModel(userAi);
 }
 
-function selectDefaultModel(userAi: UserAIFields, online = false): SelectModel {
+function selectDefaultModel(
+  userAi: UserAIFields,
+  online = false,
+): Omit<SelectModel, "hasUserApiKey"> {
   let aiProvider: string;
   let aiModel: string | null = null;
   const aiApiKey = userAi.aiApiKey;

@@ -28,6 +28,7 @@ import {
   isAnthropicInsufficientBalanceError,
   isAWSThrottlingError,
   isIncorrectOpenAIAPIKeyError,
+  isInsufficientCreditsError,
   isInvalidAIModelError,
   isOpenAIAPIKeyDeactivatedError,
   isAiQuotaExceededError,
@@ -137,6 +138,7 @@ export function createGenerateText({
             emailAccount.id,
             label,
             modelOptions.modelName,
+            modelOptions.hasUserApiKey,
           );
           throw backupError;
         }
@@ -149,6 +151,7 @@ export function createGenerateText({
         emailAccount.id,
         label,
         modelOptions.modelName,
+        modelOptions.hasUserApiKey,
       );
       throw error;
     }
@@ -241,6 +244,7 @@ export function createGenerateObject({
         emailAccount.id,
         label,
         modelOptions.modelName,
+        modelOptions.hasUserApiKey,
       );
       throw error;
     }
@@ -436,6 +440,7 @@ async function handleError(
   emailAccountId: string,
   label: string,
   modelName: string,
+  hasUserApiKey: boolean,
 ) {
   logger.error("Error in LLM call", {
     error,
@@ -506,6 +511,18 @@ async function handleError(
         errorType: ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
         errorMessage:
           "Your Anthropic account has insufficient credits. Please add credits or update your settings.",
+        logger,
+      });
+    }
+
+    if (isInsufficientCreditsError(error) && hasUserApiKey) {
+      return await addUserErrorMessageWithNotification({
+        userId,
+        userEmail,
+        emailAccountId,
+        errorType: ErrorType.INSUFFICIENT_CREDITS,
+        errorMessage:
+          "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",
         logger,
       });
     }

@@ -63,6 +63,7 @@ export const updateAiSettingsAction = actionClientUser
           ErrorType.OPENAI_API_KEY_DEACTIVATED,
           ErrorType.AI_QUOTA_ERROR,
           ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
+          ErrorType.INSUFFICIENT_CREDITS,
         ],
         logger,
       });

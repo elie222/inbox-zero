@@ -145,6 +145,10 @@ export function isAnthropicInsufficientBalanceError(
   );
 }
 
+export function isInsufficientCreditsError(error: APICallError): boolean {
+  return error.statusCode === 402;
+}
+
 // Handling AI quota/retry errors. This can be related to the user's own API quota or the system's quota.
 export function isAiQuotaExceededError(error: RetryError): boolean {
   const message = error.message.toLowerCase();
@@ -200,7 +204,8 @@ export function isKnownApiError(error: unknown): boolean {
       (isIncorrectOpenAIAPIKeyError(error) ||
         isInvalidAIModelError(error) ||
         isOpenAIAPIKeyDeactivatedError(error) ||
-        isAnthropicInsufficientBalanceError(error))) ||
+        isAnthropicInsufficientBalanceError(error) ||
+        isInsufficientCreditsError(error))) ||
     (RetryError.isInstance(error) && isAiQuotaExceededError(error))
   );
 }
