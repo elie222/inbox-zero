@@ -386,6 +386,9 @@ async function runSetupQuick(options: { name?: string }) {
 
   // ── Step 3: Google Pub/Sub ──
 
+  // Generate token early so we can show it in the instructions
+  const pubsubVerificationToken = generateSecret(32);
+
   p.note(
     "Google Pub/Sub enables real-time email notifications.\n\n" +
       "1. Go to: https://console.cloud.google.com/cloudpubsub/topic/list\n" +
@@ -396,11 +399,13 @@ async function runSetupQuick(options: { name?: string }) {
       '   - Click "Add Principal"\n' +
       "   - Principal: gmail-api-push@system.gserviceaccount.com\n" +
       '   - Role: "Pub/Sub Publisher"\n' +
-      '   - Click "Save"\n\n' +
-      "Enter your topic name below if ready, or press Enter to skip.\n" +
-      "After setup completes, you'll also need to create a push\n" +
-      "subscription — the verification token will be in your .env file.\n" +
-      "See: https://docs.getinboxzero.com/hosting/setup-guides#google-pubsub-setup\n\n" +
+      '   - Click "Save"\n' +
+      "4. Create a push subscription:\n" +
+      '   - Click "Create Subscription"\n' +
+      '   - Delivery type: "Push"\n' +
+      "   - Endpoint URL:\n" +
+      `     https://yourdomain.com/api/google/webhook?token=${pubsubVerificationToken}\n` +
+      "     (replace yourdomain.com with your actual domain)\n\n" +
       "Press Enter to skip — configure later with: inbox-zero config",
     "Step 3 of 4: Google Pub/Sub (optional)",
   );
@@ -473,7 +478,7 @@ async function runSetupQuick(options: { name?: string }) {
     INTERNAL_API_KEY: generateSecret(32),
     API_KEY_SALT: generateSecret(32),
     CRON_SECRET: generateSecret(32),
-    GOOGLE_PUBSUB_VERIFICATION_TOKEN: generateSecret(32),
+    GOOGLE_PUBSUB_VERIFICATION_TOKEN: pubsubVerificationToken,
     // Google OAuth
     GOOGLE_CLIENT_ID: googleClientId || "your-google-client-id",
     GOOGLE_CLIENT_SECRET: googleClientSecret || "your-google-client-secret",
