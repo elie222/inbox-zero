@@ -38,6 +38,14 @@ Check logs for errors using the commands above.
 - Check database container is running: `docker ps | grep postgres`
 - Verify `DATABASE_URL` in `.env` matches your setup
 
+**Error: P1000 / "authentication failed" after re-running setup**
+- This happens when you re-run `inbox-zero setup` which generates a new database password, but the old Postgres volume still has the previous password.
+- Fix: stop containers and remove volumes so Postgres is recreated with the new password:
+  ```bash
+  docker compose --profile all down -v
+  inbox-zero start
+  ```
+
 **Error: "relation does not exist"**
 - Migrations haven't run yet
 - Wait for web container to complete startup (check logs)
