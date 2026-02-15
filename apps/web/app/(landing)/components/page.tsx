@@ -836,13 +836,15 @@ export default function Components() {
                     "I prefer concise responses and want newsletters archived by default.",
                 }}
               />
-              <AddToKnowledgeBase
-                args={{
-                  title: "Escalation preference",
-                  content:
-                    "Escalate billing emails quickly and keep status updates short.",
-                }}
-              />
+              <Suspense>
+                <AddToKnowledgeBase
+                  args={{
+                    title: "Escalation preference",
+                    content:
+                      "Escalate billing emails quickly and keep status updates short.",
+                  }}
+                />
+              </Suspense>
             </div>
           </div>
         </div>

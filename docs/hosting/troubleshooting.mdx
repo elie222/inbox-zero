@@ -29,7 +29,7 @@ Check logs for errors using the commands above.
 - **Insufficient memory**: Container is being killed by OOM
   - Solution: Increase VPS RAM or add swap space
 - **Missing environment variables**: Check `.env` file exists and has required values
-  - Solution: Run `npm run setup` again
+  - Solution: Run `inbox-zero setup` again
 
 ## Database Connection Errors
 
@@ -37,6 +37,14 @@ Check logs for errors using the commands above.
 - Wait 30-60 seconds for Postgres to fully initialize
 - Check database container is running: `docker ps | grep postgres`
 - Verify `DATABASE_URL` in `.env` matches your setup
+
+**Error: P1000 / "authentication failed"**
+- This happens when the database password in `.env` doesn't match the password stored in the Postgres Docker volume (e.g., you deleted `.env` without removing the volume first, then re-ran setup).
+- Fix: stop containers and remove volumes so Postgres is recreated with the current password:
+  ```bash
+  docker compose --profile all down -v
+  inbox-zero start
+  ```
 
 **Error: "relation does not exist"**
 - Migrations haven't run yet
@@ -79,6 +87,24 @@ Check logs for errors using the commands above.
 - If exceeding 1.5GB, check for memory leaks in logs
 - Restart containers: `docker compose restart web`
 
+## AI Rules and Email Processing Errors
+
+**AI-powered rules fail but manually created rules work:**
+- This means your AI provider API key is missing, invalid, or out of credits.
+- Verify your API key is set in `.env` (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
+- Check that your API key has billing credits. A ChatGPT Plus or Claude Pro subscription does **not** include API access — you need a separate API key with credits from the provider's developer platform.
+- You can change your AI provider on the Settings page in the app.
+
+**Can't create rules using AI prompt:**
+- Same cause — the AI provider must be correctly configured with a valid, funded API key.
+- Check logs (`inbox-zero logs -f`) for specific error messages from the AI provider.
+
+**Emails not processing automatically (Pub/Sub):**
+- Verify your Pub/Sub topic and subscription are configured correctly — see the [Pub/Sub setup guide](/hosting/setup-guides#google-pubsub-setup).
+- The push subscription endpoint must be publicly accessible. For local development, use ngrok.
+- Check that `GOOGLE_PUBSUB_TOPIC_NAME` and `GOOGLE_PUBSUB_VERIFICATION_TOKEN` are set in your `.env`.
+- Verify the Gmail service account (`gmail-api-push@system.gserviceaccount.com`) has the **Pub/Sub Publisher** role on your topic.
+
 ## Rate Limiting
 
 **Rate limited by email provider (Gmail/Outlook):**
@@ -94,6 +120,63 @@ Check logs for errors using the commands above.
 ## AWS-Specific Issues
 
 For troubleshooting AWS Copilot deployments (service won't start, migration issues, EarlyValidation errors, domain problems), see the [Copilot Deployment troubleshooting section](/hosting/aws-copilot#troubleshooting).
+
+## Uninstalling / Starting Over
+
+### Quick reset
+
+To re-run setup without removing Google Cloud resources:
+
+**If you used the CLI (standalone mode):**
+```bash
+inbox-zero stop
+docker compose -f ~/.inbox-zero/docker-compose.yml --profile all down -v
+rm ~/.inbox-zero/.env
+inbox-zero setup
+```
+
+**If you're running from the cloned repo:**
+```bash
+docker compose --profile all down -v
+rm apps/web/.env
+inbox-zero setup
+```
+
+### Full removal
+
+<Accordion title="Remove everything including Google Cloud resources">
+
+**1. Stop and remove containers and volumes:**
+
+If you used the CLI (standalone mode):
+```bash
+inbox-zero stop
+docker compose -f ~/.inbox-zero/docker-compose.yml --profile all down -v
+```
+
+If you're running from the cloned repo:
+```bash
+docker compose --profile all down -v
+```
+
+**2. Remove local configuration:**
+
+```bash
+# Standalone mode
+rm -rf ~/.inbox-zero
+
+# If running from the cloned repo
+rm apps/web/.env
+```
+
+**3. Clean up Google Cloud resources:**
+
+1. **Pub/Sub:** Go to [Subscriptions](https://console.cloud.google.com/cloudpubsub/subscription/list) and delete your subscription, then go to [Topics](https://console.cloud.google.com/cloudpubsub/topic/list) and delete your topic.
+2. **OAuth credentials:** Go to [API Credentials](https://console.cloud.google.com/apis/credentials) and delete the OAuth client.
+3. **Consent screen** (optional): Go to [OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent) and reset or delete it.
+4. **APIs** (optional): Go to [Enabled APIs](https://console.cloud.google.com/apis/dashboard) and disable Gmail, People, Calendar, and Drive APIs if no longer needed.
+
+</Accordion>
 
 ## Getting Help
 

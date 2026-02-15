@@ -217,7 +217,7 @@ export function IntegrationRow({
             </TypographyP>
           )}
         </TableCell>
-        <TableCell>
+        <TableCell className="hidden sm:table-cell">
           {integration.comingSoon ? (
             <span className="text-gray-400 text-sm">Coming Soon</span>
           ) : connected && tools.length > 0 ? (
@@ -261,6 +261,14 @@ export function IntegrationRow({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {tools.length > 0 && (
+                  <DropdownMenuItem
+                    onClick={() => setExpandedTools(!expandedTools)}
+                    className="sm:hidden"
+                  >
+                    {expandedTools ? "Hide tools" : "Manage tools"}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={handleDisconnect}
                   disabled={disconnecting}
