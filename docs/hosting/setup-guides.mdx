@@ -18,14 +18,12 @@ Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new
 1. **Configure consent screen:**
    1. Go to [Credentials](https://console.cloud.google.com/apis/credentials). If the banner shows up, click it and then click `Get Started`.
    2. Choose a name for your app and enter your email.
-   3. In Audience, choose `Internal` if you have Google Workspace (simplest option), otherwise choose `External`.
+   3. In Audience, choose `External`. (Only choose `Internal` if you have Google Workspace and only need access for accounts in your organization — personal Gmail accounts cannot use Internal apps.)
    4. Enter your contact information.
    5. Agree to the User Data policy and click `Create`.
 
    <Warning>
-     **External apps require test users.** Since your app is unverified (normal for self-hosted), you must add yourself as a test user (see step 5 below) before you can sign in. You'll also see a "This app isn't verified" warning screen when signing in — click "Advanced" then "Go to [app name]" to proceed.
-
-     If you created an **Internal** app (Google Workspace only), you don't need to add test users — all users in your organization can sign in directly.
+     Since your app is unverified (normal for self-hosted), you must add yourself as a test user (see step 5 below) before you can sign in. You'll also see a "This app isn't verified" warning screen when signing in — click "Advanced" then "Go to [app name]" to proceed.
    </Warning>
 
 2. **Create OAuth credentials:**
@@ -57,10 +55,9 @@ Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new
       ```
    4. Click `Update`, then `Save`.
 
-5. **Add yourself as a test user** (External apps only):
+5. **Add yourself as a test user:**
    1. Go to [Audience](https://console.cloud.google.com/auth/audience).
    2. In `Test users`, click `+Add users` and enter your email.
-   3. Skip this step if you chose Internal.
 
 6. **Enable required APIs:**
    - [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) (required)
