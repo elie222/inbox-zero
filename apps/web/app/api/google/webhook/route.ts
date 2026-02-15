@@ -4,6 +4,7 @@ import { env } from "@/env";
 import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
 import type { Logger } from "@/utils/logger";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
+import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
 
 export const maxDuration = 300;
@@ -37,7 +38,13 @@ export const POST = withError("google/webhook", async (request) => {
 
   // Process history asynchronously using after() to avoid Pub/Sub acknowledgment timeout
   // This ensures we acknowledge the message quickly while still processing it fully
-  after(() => processWebhookAsync(decodedData, logger));
+  after(() =>
+    runWithBackgroundLoggerFlush({
+      logger,
+      task: () => processWebhookAsync(decodedData, logger),
+      extra: { url: "/api/google/webhook" },
+    }),
+  );
 
   return NextResponse.json({ ok: true });
 });

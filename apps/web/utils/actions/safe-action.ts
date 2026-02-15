@@ -6,6 +6,7 @@ import { z } from "zod";
 import { after } from "next/server";
 import { auth } from "@/utils/auth";
 import { createScopedLogger } from "@/utils/logger";
+import { flushLoggerSafely } from "@/utils/logger-flush";
 import prisma from "@/utils/prisma";
 import { isAdmin } from "@/utils/admin";
 import { captureException, SafeError } from "@/utils/error";
@@ -59,13 +60,9 @@ const baseClient = createSafeActionClient({
   const logger = createScopedLogger(metadata.name).with({ requestId });
 
   after(async () => {
-    await logger.flush().catch((error) => {
-      captureException(error, {
-        extra: {
-          action: metadata.name,
-          requestId,
-        },
-      });
+    await flushLoggerSafely(logger, {
+      action: metadata.name,
+      requestId,
     });
   });
 

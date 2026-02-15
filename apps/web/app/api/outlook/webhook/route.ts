@@ -6,6 +6,7 @@ import type { Logger } from "@/utils/logger";
 import { env } from "@/env";
 import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
+import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
 
 export const maxDuration = 300;
@@ -75,7 +76,13 @@ export const POST = withError("outlook/webhook", async (request) => {
 
   // Process notifications asynchronously using after() to avoid Microsoft webhook timeout
   // Microsoft expects a response within 3 seconds
-  after(() => processNotificationsAsync(notifications, logger));
+  after(() =>
+    runWithBackgroundLoggerFlush({
+      logger,
+      task: () => processNotificationsAsync(notifications, logger),
+      extra: { url: "/api/outlook/webhook" },
+    }),
+  );
 
   return NextResponse.json({ ok: true });
 });
