@@ -21,6 +21,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
+import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { captureException } from "@/utils/error";
 
 export type SharedProcessHistoryOptions = {
@@ -219,36 +220,43 @@ export async function processHistoryItem(
       emailAccount.filingPrompt &&
       hasAiAccess
     ) {
-      after(async () => {
-        const extractableAttachments = getExtractableAttachments(parsedMessage);
+      after(() =>
+        runWithBackgroundLoggerFlush({
+          logger,
+          task: async () => {
+            const extractableAttachments =
+              getExtractableAttachments(parsedMessage);
 
-        if (extractableAttachments.length > 0) {
-          logger.info("Processing attachments for filing", {
-            count: extractableAttachments.length,
-          });
-
-          // Process each attachment (don't await all - let them run in background)
-          for (const attachment of extractableAttachments) {
-            await processAttachment({
-              emailAccount: {
-                ...emailAccount,
-                filingEnabled: emailAccount.filingEnabled,
-                filingPrompt: emailAccount.filingPrompt,
-                email: emailAccount.email,
-              },
-              message: parsedMessage,
-              attachment,
-              emailProvider: provider,
-              logger,
-            }).catch((error) => {
-              logger.error("Failed to process attachment", {
-                filename: attachment.filename,
-                error,
+            if (extractableAttachments.length > 0) {
+              logger.info("Processing attachments for filing", {
+                count: extractableAttachments.length,
               });
-            });
-          }
-        }
-      });
+
+              // Process each attachment (don't await all - let them run in background)
+              for (const attachment of extractableAttachments) {
+                await processAttachment({
+                  emailAccount: {
+                    ...emailAccount,
+                    filingEnabled: emailAccount.filingEnabled,
+                    filingPrompt: emailAccount.filingPrompt,
+                    email: emailAccount.email,
+                  },
+                  message: parsedMessage,
+                  attachment,
+                  emailProvider: provider,
+                  logger,
+                }).catch((error) => {
+                  logger.error("Failed to process attachment", {
+                    filename: attachment.filename,
+                    error,
+                  });
+                });
+              }
+            }
+          },
+          extra: { operation: "process-attachments" },
+        }),
+      );
     }
 
     // Remove follow-up label if present (they replied, so follow-up no longer needed)
@@ -268,20 +276,28 @@ export async function processHistoryItem(
     // Clean up old AI drafts (runs after response to avoid slowing down processing)
     // Excludes drafts for the current message since rules may have just created one
     if (actualThreadId) {
-      after(async () => {
-        try {
-          await cleanupThreadAIDrafts({
-            threadId: actualThreadId,
-            emailAccountId,
-            provider,
-            logger,
-            excludeMessageId: messageId,
-          });
-        } catch (error) {
-          logger.error("Error during inbound thread draft cleanup", { error });
-          captureException(error, { emailAccountId });
-        }
-      });
+      after(() =>
+        runWithBackgroundLoggerFlush({
+          logger,
+          task: async () => {
+            try {
+              await cleanupThreadAIDrafts({
+                threadId: actualThreadId,
+                emailAccountId,
+                provider,
+                logger,
+                excludeMessageId: messageId,
+              });
+            } catch (error) {
+              logger.error("Error during inbound thread draft cleanup", {
+                error,
+              });
+              captureException(error, { emailAccountId });
+            }
+          },
+          extra: { operation: "cleanup-thread-ai-drafts" },
+        }),
+      );
     }
   } catch (error: unknown) {
     // Handle provider-specific "not found" errors

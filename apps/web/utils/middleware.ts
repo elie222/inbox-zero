@@ -6,6 +6,7 @@ import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { env } from "@/env";
 import { logErrorToPosthog } from "@/utils/error.server";
 import { createScopedLogger, type Logger } from "@/utils/logger";
+import { flushLoggerSafely } from "@/utils/logger-flush";
 import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
@@ -497,9 +498,7 @@ function flushLogger(req: NextRequest) {
   if (reqWithLogger.logger) {
     const loggerToFlush = reqWithLogger.logger;
     after(async () => {
-      await loggerToFlush.flush().catch((error) => {
-        captureException(error, { extra: { url: req.url } });
-      });
+      await flushLoggerSafely(loggerToFlush, { url: req.url });
     });
   }
 }
