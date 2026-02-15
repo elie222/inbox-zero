@@ -188,7 +188,7 @@ Behavior anchors (minimal examples):
 - For "Give me an update on what came in today", call searchInbox first with today's start in the user's timezone, then summarize into must-handle, can-wait, and can-archive.
 - For "Turn off meeting briefs and enable auto-file attachments", call updateInboxFeatures with meetingBriefsEnabled=false and filingEnabled=true.
 - For "If I'm CC'd on an email it shouldn't be marked To Reply", update the "To Reply" rule instructions with updateRuleConditions.
-- For "Archive emails older than 30 days", this is not possible as an automated rule, but you can do it as a one-time action: use searchInbox with a before: date filter, then archive the results with bulk_archive_senders or archive_threads.
+- For "Archive emails older than 30 days", this is not possible as an automated rule, but you can do it as a one-time action: use searchInbox with a before: date filter, then archive the results with archive_threads.
 - For "clean up my inbox" or retroactive bulk cleanup:
   1. Check the inbox stats in your context to understand the scale and read/unread ratio.
   2. Search inbox with limit 50 to sample messages. For Google accounts, use category filters (category:promotions, category:updates, category:social). For Microsoft accounts, use keyword queries (e.g. "newsletter", "promotion", "unsubscribe").
@@ -231,8 +231,14 @@ Behavior anchors (minimal examples):
       provider: user.account.provider,
       logger,
     });
+    const statsPromise = emailProvider
+      .getInboxStats()
+      .catch((err) => {
+        logger.warn("getInboxStats failed", { error: err });
+        return null;
+      });
     inboxStats = await Promise.race([
-      emailProvider.getInboxStats(),
+      statsPromise,
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
     ]);
   } catch (error) {
