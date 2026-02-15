@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import {
   ArrowUpIcon,
   HistoryIcon,
-  LightbulbIcon,
   Loader2,
   PlusIcon,
   SquareIcon,
@@ -149,7 +148,13 @@ export function Chat({ open }: { open: boolean }) {
         <NewChatView
           firstName={firstName}
           inputArea={inputArea}
-          setInput={setInput}
+          onSuggestionClick={(text) => {
+            chat.sendMessage({
+              role: "user",
+              parts: [{ type: "text", text }],
+            });
+            setLocalStorageInput("");
+          }}
         />
       )}
     </div>
@@ -212,14 +217,20 @@ function ChatMessagesView({
   );
 }
 
+const CHAT_EXAMPLES = [
+  "Help me handle my inbox today",
+  "Clean up my inbox",
+  "Auto-archive newsletters for me",
+];
+
 function NewChatView({
   firstName,
   inputArea,
-  setInput,
+  onSuggestionClick,
 }: {
   firstName: string | undefined;
   inputArea: React.ReactNode;
-  setInput: (input: string) => void;
+  onSuggestionClick: (text: string) => void;
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-[var(--chat-px)]">
@@ -228,13 +239,18 @@ function NewChatView({
           {getGreeting(firstName)}
         </h1>
         {inputArea}
-        <div className="mt-4 flex justify-center">
-          <ExamplesDialog setInput={setInput}>
-            <Button variant="outline" className="gap-2 rounded-full">
-              <LightbulbIcon className="size-4" />
-              Choose from examples
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          {CHAT_EXAMPLES.map((example) => (
+            <Button
+              key={example}
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              onClick={() => onSuggestionClick(example)}
+            >
+              {example}
             </Button>
-          </ExamplesDialog>
+          ))}
         </div>
       </div>
     </div>
