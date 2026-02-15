@@ -7,6 +7,7 @@ import {
 import { createEmailProvider } from "@/utils/email/provider";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
+import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
 
@@ -32,9 +33,14 @@ vi.mock("@/utils/webhook/process-history-item", () => ({
   processHistoryItem: vi.fn(),
 }));
 
-vi.mock("@/utils/error", () => ({
-  captureException: vi.fn(),
-}));
+vi.mock("@/utils/error", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/utils/error")>();
+  return {
+    ...actual,
+    captureException: vi.fn(),
+  };
+});
 
 describe("Outlook processHistoryForUser - Folder Filtering", () => {
   const mockEmailAccount = {
@@ -220,5 +226,78 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
         provider: mockProvider,
       }),
     );
+  });
+
+  describe("error handling", () => {
+    it("handles Outlook throttling errors gracefully without Sentry", async () => {
+      const error = Object.assign(new Error("Throttled"), {
+        code: "ApplicationThrottled",
+        statusCode: 429,
+      });
+      const mockProvider = { getMessage: vi.fn().mockRejectedValue(error) };
+      vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
+
+      const result = await processHistoryForUser({
+        subscriptionId: "sub-123",
+        resourceData: mockResourceData as any,
+        logger,
+      });
+
+      const jsonResponse = await result.json();
+      expect(jsonResponse).toEqual({ ok: true });
+      expect(captureException).not.toHaveBeenCalled();
+    });
+
+    it("handles Outlook access denied errors gracefully without Sentry", async () => {
+      const error = Object.assign(new Error("Access is denied. Check credentials and try again."), {
+        code: "ErrorAccessDenied",
+      });
+      const mockProvider = { getMessage: vi.fn().mockRejectedValue(error) };
+      vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
+
+      const result = await processHistoryForUser({
+        subscriptionId: "sub-123",
+        resourceData: mockResourceData as any,
+        logger,
+      });
+
+      const jsonResponse = await result.json();
+      expect(jsonResponse).toEqual({ ok: true });
+      expect(captureException).not.toHaveBeenCalled();
+    });
+
+    it("handles Outlook item not found errors gracefully without Sentry", async () => {
+      const error = Object.assign(new Error("The store ID provided isn't an ID of an item."), {
+        code: "ErrorItemNotFound",
+      });
+      const mockProvider = { getMessage: vi.fn().mockRejectedValue(error) };
+      vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
+
+      const result = await processHistoryForUser({
+        subscriptionId: "sub-123",
+        resourceData: mockResourceData as any,
+        logger,
+      });
+
+      const jsonResponse = await result.json();
+      expect(jsonResponse).toEqual({ ok: true });
+      expect(captureException).not.toHaveBeenCalled();
+    });
+
+    it("captures unknown errors in Sentry", async () => {
+      const error = new Error("Something unexpected");
+      const mockProvider = { getMessage: vi.fn().mockRejectedValue(error) };
+      vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
+
+      const result = await processHistoryForUser({
+        subscriptionId: "sub-123",
+        resourceData: mockResourceData as any,
+        logger,
+      });
+
+      const jsonResponse = await result.json();
+      expect(jsonResponse).toEqual({ error: true });
+      expect(captureException).toHaveBeenCalled();
+    });
   });
 });

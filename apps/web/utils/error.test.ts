@@ -5,6 +5,10 @@ import {
   isInsufficientCreditsError,
   isHandledUserKeyError,
   isKnownApiError,
+  isKnownOutlookError,
+  isOutlookAccessDeniedError,
+  isOutlookItemNotFoundError,
+  isOutlookThrottlingError,
   markAsHandledUserKeyError,
 } from "./error";
 
@@ -228,6 +232,140 @@ describe("markAsHandledUserKeyError / isHandledUserKeyError", () => {
   it("returns false for non-error values", () => {
     expect(isHandledUserKeyError(null)).toBe(false);
     expect(isHandledUserKeyError(undefined)).toBe(false);
+  });
+});
+
+describe("isOutlookThrottlingError", () => {
+  it("detects ApplicationThrottled code", () => {
+    expect(isOutlookThrottlingError({ code: "ApplicationThrottled" })).toBe(
+      true,
+    );
+  });
+
+  it("detects TooManyRequests code", () => {
+    expect(isOutlookThrottlingError({ code: "TooManyRequests" })).toBe(true);
+  });
+
+  it("detects 429 status code", () => {
+    expect(isOutlookThrottlingError({ statusCode: 429 })).toBe(true);
+  });
+
+  it("detects MailboxConcurrency message", () => {
+    expect(
+      isOutlookThrottlingError({
+        message: "MailboxConcurrency limit exceeded",
+      }),
+    ).toBe(true);
+  });
+
+  it("detects Request limit message", () => {
+    expect(
+      isOutlookThrottlingError({
+        message: "Application is over its Request limit.",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false for unrelated errors", () => {
+    expect(isOutlookThrottlingError({ code: "NotFound" })).toBe(false);
+  });
+});
+
+describe("isOutlookAccessDeniedError", () => {
+  it("detects Access is denied message", () => {
+    expect(
+      isOutlookAccessDeniedError({
+        message: "Access is denied. Check credentials and try again.",
+      }),
+    ).toBe(true);
+  });
+
+  it("detects ErrorAccessDenied code", () => {
+    expect(isOutlookAccessDeniedError({ code: "ErrorAccessDenied" })).toBe(
+      true,
+    );
+  });
+
+  it("does not match bare 403 status code (could be app misconfiguration)", () => {
+    expect(isOutlookAccessDeniedError({ statusCode: 403 })).toBe(false);
+  });
+
+  it("detects string error with Access is denied", () => {
+    expect(
+      isOutlookAccessDeniedError(
+        "Access is denied. Check credentials and try again.",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not match generic access denied from other providers", () => {
+    expect(
+      isOutlookAccessDeniedError({ message: "Access is denied" }),
+    ).toBe(false);
+  });
+
+  it("returns false for unrelated errors", () => {
+    expect(isOutlookAccessDeniedError({ message: "Not found" })).toBe(false);
+  });
+});
+
+describe("isOutlookItemNotFoundError", () => {
+  it("detects ErrorItemNotFound code", () => {
+    expect(isOutlookItemNotFoundError({ code: "ErrorItemNotFound" })).toBe(
+      true,
+    );
+  });
+
+  it("detects store ID message", () => {
+    expect(
+      isOutlookItemNotFoundError({
+        message: "The store ID provided isn't an ID of an item.",
+      }),
+    ).toBe(true);
+  });
+
+  it("detects ResourceNotFound message", () => {
+    expect(
+      isOutlookItemNotFoundError({ message: "ResourceNotFound" }),
+    ).toBe(true);
+  });
+
+  it("detects string error with store ID", () => {
+    expect(
+      isOutlookItemNotFoundError(
+        "The store ID provided isn't an ID of an item.",
+      ),
+    ).toBe(true);
+  });
+
+  it("returns false for unrelated errors", () => {
+    expect(isOutlookItemNotFoundError({ message: "Access denied" })).toBe(
+      false,
+    );
+  });
+});
+
+describe("isKnownOutlookError", () => {
+  it("detects throttling errors", () => {
+    expect(isKnownOutlookError({ code: "ApplicationThrottled" })).toBe(true);
+  });
+
+  it("detects access denied errors", () => {
+    expect(
+      isKnownOutlookError({
+        message: "Access is denied. Check credentials and try again.",
+      }),
+    ).toBe(true);
+  });
+
+  it("detects item not found errors", () => {
+    expect(isKnownOutlookError({ code: "ErrorItemNotFound" })).toBe(true);
+  });
+
+  it("returns false for unknown errors", () => {
+    expect(isKnownOutlookError({ message: "Something unexpected" })).toBe(
+      false,
+    );
   });
 });
 

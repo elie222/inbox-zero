@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
-import { captureException } from "@/utils/error";
+import { captureException, checkCommonErrors } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
@@ -108,7 +108,12 @@ export async function processHistoryForUser({
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
-      logger.warn("Invalid grant", { email: validatedEmailAccount.email });
+      logger.warn("Invalid grant");
+      return NextResponse.json({ ok: true });
+    }
+
+    const apiError = checkCommonErrors(error, "/api/outlook/webhook", logger);
+    if (apiError) {
       return NextResponse.json({ ok: true });
     }
 
