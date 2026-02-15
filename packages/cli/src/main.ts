@@ -328,14 +328,24 @@ async function runSetupQuick(options: { name?: string }) {
 
   p.note(
     "You need a Google OAuth app to connect your Gmail.\n\n" +
-      "1. Open: https://console.cloud.google.com/apis/credentials\n" +
-      `2. Click "Create Credentials" → "OAuth client ID"\n` +
-      `3. Select "Web application"\n` +
-      `4. Under "Authorized redirect URIs" add:\n` +
-      `   ${callbackUrl}\n` +
-      `   ${linkingCallbackUrl}\n` +
-      "5. Copy the Client ID and Client Secret\n\n" +
-      "Full guide: https://docs.getinboxzero.com/self-hosting/google-oauth",
+      "First, set up the OAuth consent screen:\n" +
+      "1. Open: https://console.cloud.google.com/apis/credentials/consent\n" +
+      '2. Select "Internal" if you have Google Workspace, otherwise "External"\n' +
+      "3. Fill in the app name and your email\n" +
+      '4. Click "Save and Continue" through the scopes section\n' +
+      "5. If you chose External: add your email as a test user\n" +
+      "6. Complete the wizard\n\n" +
+      "Then, create OAuth credentials:\n" +
+      "7. Open: https://console.cloud.google.com/apis/credentials\n" +
+      `8. Click "Create Credentials" → "OAuth client ID"\n` +
+      `9. Select "Web application"\n` +
+      `10. Under "Authorized redirect URIs" add:\n` +
+      `    ${callbackUrl}\n` +
+      `    ${linkingCallbackUrl}\n` +
+      "11. Copy the Client ID and Client Secret\n\n" +
+      "Note: You will see a warning screen when signing in because the\n" +
+      "app is unverified. This is normal for self-hosted apps.\n\n" +
+      "Full guide: https://docs.getinboxzero.com/hosting/setup-guides",
     "Step 1 of 4: Google OAuth",
   );
 
@@ -380,9 +390,19 @@ async function runSetupQuick(options: { name?: string }) {
     "Google Pub/Sub enables real-time email notifications.\n\n" +
       "1. Go to: https://console.cloud.google.com/cloudpubsub/topic/list\n" +
       '2. Create a topic (e.g., "inbox-zero-emails")\n' +
-      "3. Add gmail-api-push@system.gserviceaccount.com as a Publisher\n" +
+      "3. Grant Gmail publish access to your topic:\n" +
+      "   - Click your topic name to open it\n" +
+      '   - Go to the "Permissions" tab\n' +
+      '   - Click "Add Principal"\n' +
+      "   - Principal: gmail-api-push@system.gserviceaccount.com\n" +
+      '   - Role: "Pub/Sub Publisher"\n' +
+      '   - Click "Save"\n' +
       "4. Create a push subscription pointing to your webhook URL:\n" +
-      "   https://yourdomain.com/api/google/webhook\n\n" +
+      "   - In your topic, go to the Subscriptions tab\n" +
+      '   - Click "Create Subscription"\n' +
+      '   - Delivery type: "Push"\n' +
+      "   - Endpoint URL: https://yourdomain.com/api/google/webhook?token=YOUR_TOKEN\n" +
+      "     (use the GOOGLE_PUBSUB_VERIFICATION_TOKEN value from your .env)\n\n" +
       "Your webhook must be publicly accessible.\n" +
       "For local development, use ngrok or a similar tunnel.\n\n" +
       "Press Enter to skip — configure later with: inbox-zero config",
