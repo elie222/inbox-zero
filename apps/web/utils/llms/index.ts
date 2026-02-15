@@ -33,6 +33,7 @@ import {
   isOpenAIAPIKeyDeactivatedError,
   isAiQuotaExceededError,
   isServiceUnavailableError,
+  markAsHandledUserKeyError,
   SafeError,
 } from "@/utils/error";
 import { getModel, type ModelType } from "@/utils/llms/model";
@@ -442,14 +443,28 @@ async function handleError(
   modelName: string,
   hasUserApiKey: boolean,
 ) {
-  logger.error("Error in LLM call", {
-    error,
-    userId,
-    userEmail,
-    emailAccountId,
-    label,
-    modelName,
-  });
+  const isUserKeyInsufficientCredits =
+    hasUserApiKey &&
+    APICallError.isInstance(error) &&
+    isInsufficientCreditsError(error);
+
+  if (isUserKeyInsufficientCredits) {
+    logger.warn("User API key has insufficient credits", {
+      userId,
+      emailAccountId,
+      label,
+      modelName,
+    });
+  } else {
+    logger.error("Error in LLM call", {
+      error,
+      userId,
+      userEmail,
+      emailAccountId,
+      label,
+      modelName,
+    });
+  }
 
   if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
     return await addUserErrorMessageWithNotification({
@@ -516,6 +531,7 @@ async function handleError(
     }
 
     if (isInsufficientCreditsError(error) && hasUserApiKey) {
+      markAsHandledUserKeyError(error);
       return await addUserErrorMessageWithNotification({
         userId,
         userEmail,
