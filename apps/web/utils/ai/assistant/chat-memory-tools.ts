@@ -57,3 +57,44 @@ export const searchMemoriesTool = ({
 export type SearchMemoriesTool = InferUITool<
   ReturnType<typeof searchMemoriesTool>
 >;
+
+export const saveMemoryTool = ({
+  email,
+  emailAccountId,
+  chatId,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  chatId?: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Save a memory for future conversations. Use when the user asks you to remember something or when you identify a durable preference worth saving (e.g., workflow preferences, important contacts, inbox management style).",
+    inputSchema: z.object({
+      content: z
+        .string()
+        .trim()
+        .min(1)
+        .max(1000)
+        .describe(
+          "The memory content to save. Should be a clear, self-contained statement of the preference or fact.",
+        ),
+    }),
+    execute: async ({ content }) => {
+      logger.trace("Tool call: save_memory", { email });
+
+      await prisma.chatMemory.create({
+        data: {
+          content,
+          chatId: chatId ?? null,
+          emailAccountId,
+        },
+      });
+
+      return { success: true, content };
+    },
+  });
+
+export type SaveMemoryTool = InferUITool<ReturnType<typeof saveMemoryTool>>;

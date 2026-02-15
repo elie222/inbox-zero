@@ -8,6 +8,7 @@ import type {
   ManageInboxTool,
   ReadEmailTool,
   SearchInboxTool,
+  SaveMemoryTool,
   SearchMemoriesTool,
   SendEmailTool,
   UpdateInboxFeaturesTool,
@@ -37,6 +38,7 @@ export type ChatTools = {
   updateLearnedPatterns: UpdateLearnedPatternsTool;
   updateAbout: UpdateAboutTool;
   addToKnowledgeBase: AddToKnowledgeBaseTool;
+  saveMemory: SaveMemoryTool;
   searchMemories: SearchMemoriesTool;
   sendEmail: SendEmailTool;
 };

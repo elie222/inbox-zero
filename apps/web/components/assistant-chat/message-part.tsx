@@ -377,5 +377,19 @@ export function MessagePart({
     }
   }
 
+  if (part.type === "tool-saveMemory") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Saving memory..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      return <BasicToolInfo key={toolCallId} text="Memory saved" />;
+    }
+  }
+
   return null;
 }

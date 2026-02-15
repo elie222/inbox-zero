@@ -29,6 +29,10 @@ const {
     knowledge: {
       create: vi.fn(),
     },
+    chatMemory: {
+      create: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
