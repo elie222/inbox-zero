@@ -738,9 +738,17 @@ export const updateAboutTool = ({
 }) =>
   tool({
     description:
-      "Update the user's about information. Read the user's about information first as this replaces the existing information.",
-    inputSchema: z.object({ about: z.string() }),
-    execute: async ({ about }) => {
+      "Update the user's personal instructions (about). Use mode 'append' to add a new preference without losing existing content. Use mode 'replace' to overwrite entirely (read existing content first).",
+    inputSchema: z.object({
+      about: z.string(),
+      mode: z
+        .enum(["replace", "append"])
+        .default("replace")
+        .describe(
+          "Use 'append' to add to existing instructions, 'replace' to overwrite entirely.",
+        ),
+    }),
+    execute: async ({ about, mode }) => {
       trackToolCall({ tool: "update_about", email, logger });
       const existing = await prisma.emailAccount.findUnique({
         where: { id: emailAccountId },
@@ -749,15 +757,20 @@ export const updateAboutTool = ({
 
       if (!existing) return { error: "Account not found" };
 
+      const updatedAbout =
+        mode === "append" && existing.about
+          ? `${existing.about}\n${about}`
+          : about;
+
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
-        data: { about },
+        data: { about: updatedAbout },
       });
 
       return {
         success: true,
         previousAbout: existing.about,
-        updatedAbout: about,
+        updatedAbout,
       };
     },
   });

@@ -834,6 +834,7 @@ export default function Components() {
                 args={{
                   about:
                     "I prefer concise responses and want newsletters archived by default.",
+                  mode: "replace",
                 }}
               />
               <Suspense>

@@ -176,12 +176,30 @@ export const POST = withEmailAccount("chat", async (request) => {
     }
   }
 
+  let memories: { content: string; date: string }[] = [];
+  try {
+    const recentMemories = await prisma.chatMemory.findMany({
+      where: { emailAccountId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: { content: true, createdAt: true },
+    });
+    memories = recentMemories.map((m) => ({
+      content: m.content,
+      date: m.createdAt.toISOString().split("T")[0],
+    }));
+  } catch (error) {
+    request.logger.warn("Failed to load memories for chat", { error });
+  }
+
   try {
     const result = await aiProcessAssistantChat({
       messages: modelMessages,
       emailAccountId,
       user,
       context,
+      chatId: chat.id,
+      memories,
       logger: request.logger,
     });
 

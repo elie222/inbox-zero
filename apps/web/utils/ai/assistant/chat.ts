@@ -29,7 +29,7 @@ import {
   sendEmailTool,
   updateInboxFeaturesTool,
 } from "./chat-inbox-tools";
-import { searchMemoriesTool } from "./chat-memory-tools";
+import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import { createEmailProvider } from "@/utils/email/provider";
 
 export const maxDuration = 120;
@@ -55,19 +55,23 @@ export type {
   SendEmailTool,
   UpdateInboxFeaturesTool,
 } from "./chat-inbox-tools";
-export type { SearchMemoriesTool } from "./chat-memory-tools";
+export type { SaveMemoryTool, SearchMemoriesTool } from "./chat-memory-tools";
 
 export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
   user,
   context,
+  chatId,
+  memories,
   logger,
 }: {
   messages: ModelMessage[];
   emailAccountId: string;
   user: EmailAccountWithAI;
   context?: MessageContext;
+  chatId?: string;
+  memories?: { content: string; date: string }[];
   logger: Logger;
 }) {
   let ruleReadState: RuleReadState | null = null;
@@ -84,7 +88,7 @@ Tool usage strategy (progressive disclosure):
 - Use the minimum number of tools needed.
 - Start with read-only context tools before write tools.
 - For write operations that affect many emails, first summarize what will change, then execute after clear user confirmation.
-- For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then identify senders for bulk cleanup using bulk_archive_senders. Never archive thread-by-thread for bulk cleanup.
+- For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then suggest cleanup options grouped by sender.
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
 - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
@@ -94,7 +98,9 @@ Tool call policy:
 - When a request can be completed with available tools, call the tool instead of only describing what you would do.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
 - Never invent thread IDs, label IDs, sender addresses, or existing rule names.
-- For bulk cleanup, prefer manageInbox with "bulk_archive_senders" over "archive_threads". Extract sender email addresses from searchInbox results and pass them to bulk_archive_senders — this archives ALL emails from those senders server-side, not just the ones visible in search results. Use "archive_threads" only for targeted actions on specific threads.
+- "archive_threads" archives specific threads by ID. Use it when the user refers to specific emails shown in results.
+- "bulk_archive_senders" archives ALL emails from given senders server-side, not just the visible ones. Use it when the user asks to clean up by sender. Since it affects emails beyond what's shown, confirm the scope with the user before executing.
+- Choose the tool that matches what the user actually asked for. Do not default to bulk archive when the user is referring to specific emails.
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - For ambiguous destructive requests (for example archive vs mark read), ask a brief clarification question before writing.
 - Before changing an existing rule, call getUserRulesAndSettings immediately before the write.
@@ -136,7 +142,7 @@ Inbox triage guidance:
 - Group results into: must handle now, can wait, and can archive/mark read.
 - Prioritize messages labelled "To Reply" as must handle.
 - If labels are missing (new user), infer urgency from sender, subject, and snippet.
-- Suggest bulk archive by sender for low-priority repeated senders.
+- For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
 
 Rule matching logic:
 - All static conditions (from, to, subject) use AND logic - meaning all static conditions must match
@@ -186,6 +192,10 @@ Knowledge base:
 Conversation memory:
 - You can search memories from previous conversations using the searchMemories tool when you need context from past interactions.
 - Use this when the user references something discussed before or when past context would help.
+- You can save memories using the saveMemory tool when the user asks you to remember something or when you identify a durable preference worth retaining across conversations.
+- Do not claim you will "remember" something without actually calling saveMemory.
+- Keep memories concise and self-contained.
+- IMPORTANT: Memories are only used in chat conversations. They do NOT affect how incoming emails are processed. If the user wants to influence how future emails are handled (e.g., "emails from X are urgent", "never archive emails from my boss"), use updateAbout with mode "append" to add to their personal instructions, or create/update a rule. Use saveMemory only for chat preferences (e.g., "don't use bulk archive", "always show me emails before archiving").
 
 Behavior anchors (minimal examples):
 - For "Give me an update on what came in today", call searchInbox first with today's start in the user's timezone, then summarize into must-handle, can-wait, and can-archive.
@@ -196,10 +206,10 @@ Behavior anchors (minimal examples):
 - For "clean up my inbox" or retroactive bulk cleanup:
   1. Check the inbox stats in your context to understand the scale and read/unread ratio.
   2. Search inbox with limit 50 to sample messages. For Google accounts, use category filters (category:promotions, category:updates, category:social). For Microsoft accounts, use keyword queries (e.g. "newsletter", "promotion", "unsubscribe").
-  3. Extract unique sender email addresses from the results. Group them for the user (e.g. "I found 25 promotional senders").
-  4. After user confirms, call manageInbox with "bulk_archive_senders" passing all confirmed sender emails. This archives ALL emails from those senders, not just the ones in search results.
-  5. Search again to find the next batch of senders (previous senders' emails are now archived). Continue until the requested scope is covered.
-  6. Once the user has confirmed a category (e.g. "archive all promotions"), continue processing subsequent batches without re-asking for each one.`;
+  3. Group the results for the user and present clear options.
+  4. If the user confirms archiving the specific listed emails (e.g., "archive those", "archive the ones you listed"), use "archive_threads" with the thread IDs from the search results.
+  5. If the user explicitly asks for sender-level cleanup (e.g., "archive everything from those senders"), use "bulk_archive_senders". Warn the user that this will archive ALL emails from those senders, not just the ones shown.
+  6. For ongoing batch cleanup with bulk_archive_senders, search again to find the next batch. Once the user has confirmed a category, continue processing subsequent batches without re-asking.`;
 
   const toolOptions = {
     email: user.email,
@@ -304,6 +314,14 @@ Behavior anchors (minimal examples):
         ...cacheControl,
       },
       ...inboxContextMessage,
+      ...(memories && memories.length > 0
+        ? [
+            {
+              role: "system" as const,
+              content: `Memories from previous conversations:\n${memories.map((m) => `- [${m.date}] ${m.content}`).join("\n")}`,
+            },
+          ]
+        : []),
       ...hiddenContextMessage,
       ...messages,
     ],
@@ -326,6 +344,7 @@ Behavior anchors (minimal examples):
       updateAbout: updateAboutTool(toolOptions),
       addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
       searchMemories: searchMemoriesTool(toolOptions),
+      saveMemory: saveMemoryTool({ ...toolOptions, chatId }),
       ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
         ? { sendEmail: sendEmailTool(toolOptions) }
         : {}),
