@@ -309,7 +309,7 @@ const manageInboxInputSchema = z.object({
     ),
   read: z
     .boolean()
-    .default(true)
+    .optional()
     .describe("For mark_read_threads: true for read, false for unread."),
   fromEmails: senderEmailsSchema
     .optional()
@@ -398,7 +398,10 @@ export const manageInboxTool = ({
                 parsedInput.labelId,
               );
             } else {
-              await emailProvider.markReadThread(threadId, parsedInput.read);
+              await emailProvider.markReadThread(
+                threadId,
+                parsedInput.read ?? true,
+              );
             }
           },
         });
