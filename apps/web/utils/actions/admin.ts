@@ -410,7 +410,7 @@ export const adminDisableAllRulesAction = adminActionClient
           { user: { email: email.toLowerCase() } },
         ],
       },
-      select: { id: true, email: true },
+      select: { id: true },
     });
 
     if (emailAccounts.length === 0) {
@@ -456,7 +456,6 @@ export const adminCleanupDraftsAction = adminActionClient
       },
       select: {
         id: true,
-        email: true,
         account: { select: { provider: true } },
       },
     });
