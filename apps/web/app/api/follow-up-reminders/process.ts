@@ -293,14 +293,36 @@ async function processFollowUpsForType({
 
       let tracker;
       if (existingTracker) {
-        tracker = await prisma.threadTracker.update({
-          where: { id: existingTracker.id },
-          data: {
-            messageId: lastMessage.id,
-            sentAt: messageDate,
-            followUpAppliedAt: now,
-          },
-        });
+        try {
+          tracker = await prisma.threadTracker.update({
+            where: { id: existingTracker.id },
+            data: {
+              messageId: lastMessage.id,
+              sentAt: messageDate,
+              followUpAppliedAt: now,
+            },
+          });
+        } catch (error) {
+          if (isDuplicateError(error)) {
+            tracker = await prisma.threadTracker.update({
+              where: {
+                emailAccountId_threadId_messageId: {
+                  emailAccountId: emailAccount.id,
+                  threadId: thread.id,
+                  messageId: lastMessage.id,
+                },
+              },
+              data: {
+                resolved: false,
+                type: trackerType,
+                sentAt: messageDate,
+                followUpAppliedAt: now,
+              },
+            });
+          } else {
+            throw error;
+          }
+        }
       } else {
         try {
           tracker = await prisma.threadTracker.create({
@@ -323,7 +345,12 @@ async function processFollowUpsForType({
                   messageId: lastMessage.id,
                 },
               },
-              data: { sentAt: messageDate, followUpAppliedAt: now },
+              data: {
+                resolved: false,
+                type: trackerType,
+                sentAt: messageDate,
+                followUpAppliedAt: now,
+              },
             });
           } else {
             throw error;

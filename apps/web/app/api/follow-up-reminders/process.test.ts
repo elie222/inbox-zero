@@ -326,6 +326,64 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(generateFollowUpDraft).toHaveBeenCalled();
   });
 
+  it("falls back when updating existing tracker hits duplicate key conflict", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([{ id: "thread-7", messages: [], snippet: "" }]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockMessage("msg-7-new", OLD_DATE)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue({
+      id: "existing-tracker",
+      threadId: "thread-7",
+      messageId: "msg-7-old",
+    } as any);
+
+    const { Prisma } = await import("@/generated/prisma/client");
+    const duplicateError = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed",
+      { code: "P2002", clientVersion: "5.0.0" },
+    );
+    vi.mocked(prisma.threadTracker.update)
+      .mockRejectedValueOnce(duplicateError)
+      .mockResolvedValueOnce({
+        id: "tracker-7-conflict-row",
+      } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(prisma.threadTracker.update).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: { id: "existing-tracker" },
+      }),
+    );
+    expect(prisma.threadTracker.update).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: {
+          emailAccountId_threadId_messageId: expect.objectContaining({
+            emailAccountId: "account-1",
+            threadId: "thread-7",
+            messageId: "msg-7-new",
+          }),
+        },
+        data: expect.objectContaining({ resolved: false }),
+      }),
+    );
+    expect(generateFollowUpDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ trackerId: "tracker-7-conflict-row" }),
+    );
+  });
+
   it("falls back to update on duplicate key conflict during create", async () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
@@ -366,6 +424,7 @@ describe("processAccountFollowUps - dedup logic", () => {
             messageId: "msg-7",
           }),
         },
+        data: expect.objectContaining({ resolved: false }),
       }),
     );
     expect(generateFollowUpDraft).toHaveBeenCalled();
