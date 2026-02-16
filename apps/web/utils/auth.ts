@@ -19,6 +19,10 @@ import { captureException } from "@/utils/error";
 import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import { createScopedLogger } from "@/utils/logger";
+import {
+  hasGoogleOauthConfig,
+  hasMicrosoftOauthConfig,
+} from "@/utils/oauth/provider-config";
 import { createOutlookClient } from "@/utils/outlook/client";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import {
@@ -33,6 +37,40 @@ const logger = createScopedLogger("auth");
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
   : [];
+
+const socialProviders = {
+  ...(hasGoogleOauthConfig()
+    ? {
+        google: {
+          clientId: env.GOOGLE_CLIENT_ID,
+          clientSecret: env.GOOGLE_CLIENT_SECRET,
+          scope: [...GMAIL_SCOPES],
+          accessType: "offline" as const,
+          prompt: "select_account consent" as const,
+          disableIdTokenSignIn: true,
+          // For preview deployments, redirect through staging (which proxies back to preview URL)
+          ...(env.OAUTH_PROXY_URL && {
+            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
+          }),
+        },
+      }
+    : {}),
+  ...(hasMicrosoftOauthConfig()
+    ? {
+        microsoft: {
+          clientId: env.MICROSOFT_CLIENT_ID!,
+          clientSecret: env.MICROSOFT_CLIENT_SECRET!,
+          scope: [...OUTLOOK_SCOPES],
+          tenantId: env.MICROSOFT_TENANT_ID,
+          disableIdTokenSignIn: true,
+          // For preview deployments, redirect through staging (which proxies back to preview URL)
+          ...(env.OAUTH_PROXY_URL && {
+            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
+          }),
+        },
+      }
+    : {}),
+};
 
 export const betterAuthConfig = betterAuth({
   advanced: {
@@ -116,31 +154,7 @@ export const betterAuthConfig = betterAuth({
       expiresAt: "expires",
     },
   },
-  socialProviders: {
-    google: {
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
-      scope: [...GMAIL_SCOPES],
-      accessType: "offline",
-      prompt: "select_account consent",
-      disableIdTokenSignIn: true,
-      // For preview deployments, redirect through staging (which proxies back to preview URL)
-      ...(env.OAUTH_PROXY_URL && {
-        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
-      }),
-    },
-    microsoft: {
-      clientId: env.MICROSOFT_CLIENT_ID || "",
-      clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
-      scope: [...OUTLOOK_SCOPES],
-      tenantId: env.MICROSOFT_TENANT_ID,
-      disableIdTokenSignIn: true,
-      // For preview deployments, redirect through staging (which proxies back to preview URL)
-      ...(env.OAUTH_PROXY_URL && {
-        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
-      }),
-    },
-  },
+  socialProviders,
   databaseHooks: {
     user: {
       create: {

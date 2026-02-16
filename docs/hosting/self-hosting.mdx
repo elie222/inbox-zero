@@ -37,6 +37,9 @@ npx @inbox-zero/cli setup
 ```
 
 This downloads the Docker Compose file and `.env` template automatically.
+Recommended choices for first-time self-hosting:
+- PostgreSQL/Redis: **Docker Compose**
+- Full stack: **Yes, everything in Docker** (especially when running via standalone `npx`)
 
 **Option B: From the cloned repo**
 
@@ -47,7 +50,7 @@ npm install
 npm run setup
 ```
 
-The setup wizard will walk you through configuring Google OAuth, choosing an AI provider, and generating secrets.
+The setup wizard will walk you through configuring Google and/or Microsoft OAuth, choosing an AI provider, and generating secrets.
 
 **Optional: Automated Google Cloud Setup**
 
@@ -68,7 +71,7 @@ If doing this manually edit then you'll need to configure:
 
 For detailed configuration instructions, see the [Environment Variables Reference](/hosting/environment-variables).
 
-**Note**: If you only want to use Microsoft and not Google OAuth then add skipped for the the Google client id and secret.
+**Note**: If you only use Microsoft OAuth, set `GOOGLE_CLIENT_ID=skipped` and `GOOGLE_CLIENT_SECRET=skipped`.
 
 **Note**: The first section of `.env.example` variables that are commented out. If you're using Docker Compose leave them commented - Docker Compose sets these automatically with the correct internal hostnames.
 
