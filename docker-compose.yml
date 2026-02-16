@@ -44,7 +44,8 @@ services:
       - "${REDIS_HTTP_PORT:-8079}:80"
     image: hiett/serverless-redis-http:latest
     env_file:
-      - ./apps/web/.env
+      - path: ./apps/web/.env
+        required: false
     environment:
       SRH_MODE: env
       SRH_TOKEN: ${UPSTASH_REDIS_TOKEN}
@@ -60,7 +61,8 @@ services:
     image: ghcr.io/elie222/inbox-zero:latest
     pull_policy: always
     env_file:
-      - ./apps/web/.env
+      - path: ./apps/web/.env
+        required: false
     depends_on:
       db:
         condition: service_healthy
@@ -125,7 +127,8 @@ services:
         wait
       "
     env_file:
-      - ./apps/web/.env
+      - path: ./apps/web/.env
+        required: false
     depends_on:
       - web
     networks:
