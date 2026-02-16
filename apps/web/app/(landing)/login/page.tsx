@@ -10,10 +10,6 @@ import { Button } from "@/components/ui/button";
 import { WELCOME_PATH } from "@/utils/config";
 import { CrispChatLoggedOutVisible } from "@/components/CrispChat";
 import { MutedText } from "@/components/Typography";
-import {
-  hasGoogleOauthConfig,
-  hasMicrosoftOauthConfig,
-} from "@/utils/oauth/provider-config";
 import { isInternalPath } from "@/utils/path";
 
 export const metadata: Metadata = {
@@ -35,9 +31,6 @@ export default async function AuthenticationPage(props: {
     }
   }
 
-  const googleOauthConfigured = hasGoogleOauthConfig();
-  const microsoftOauthConfigured = hasMicrosoftOauthConfig();
-
   return (
     <div className="flex h-screen flex-col justify-center text-foreground">
       <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
@@ -49,10 +42,7 @@ export default async function AuthenticationPage(props: {
         </div>
         <div className="mt-4">
           <Suspense>
-            <LoginForm
-              googleOauthConfigured={googleOauthConfigured}
-              microsoftOauthConfigured={microsoftOauthConfigured}
-            />
+            <LoginForm />
           </Suspense>
         </div>
 
@@ -76,19 +66,17 @@ export default async function AuthenticationPage(props: {
           .
         </MutedText>
 
-        {googleOauthConfigured && (
-          <MutedText className="px-4 pt-4 text-center">
-            Inbox Zero{"'"}s use and transfer of information received from
-            Google APIs to any other app will adhere to{" "}
-            <a
-              href="https://developers.google.com/terms/api-services-user-data-policy"
-              className="underline underline-offset-4 hover:text-foreground"
-            >
-              Google API Services User Data
-            </a>{" "}
-            Policy, including the Limited Use requirements.
-          </MutedText>
-        )}
+        <MutedText className="px-4 pt-4 text-center">
+          Inbox Zero{"'"}s use and transfer of information received from Google
+          APIs to any other app will adhere to{" "}
+          <a
+            href="https://developers.google.com/terms/api-services-user-data-policy"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Google API Services User Data
+          </a>{" "}
+          Policy, including the Limited Use requirements.
+        </MutedText>
       </div>
     </div>
   );
