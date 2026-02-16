@@ -150,13 +150,20 @@ export async function generateFollowUpDraft({
         { logger },
       );
     } catch (updateError) {
-      logger.error("Failed to update tracker with draftId", {
-        threadId,
-        draftId,
-        trackerId,
-        error: updateError,
-      });
+      logger.error(
+        "Failed to update tracker with draftId, deleting orphaned draft",
+        { threadId, draftId, trackerId, error: updateError },
+      );
       captureException(updateError);
+      try {
+        await provider.deleteDraft(draftId);
+      } catch (deleteError) {
+        logger.error("Failed to delete orphaned draft", {
+          threadId,
+          draftId,
+          error: deleteError,
+        });
+      }
     }
 
     logger.info("Follow-up draft created", { threadId, draftId });
