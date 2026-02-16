@@ -10,7 +10,9 @@ vi.mock("@/utils/prisma", () => ({
   default: {
     threadTracker: {
       findMany: vi.fn().mockResolvedValue([]),
-      upsert: vi.fn().mockResolvedValue({ id: "tracker-1" }),
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({ id: "tracker-1" }),
+      update: vi.fn().mockResolvedValue({ id: "tracker-1" }),
     },
   },
 }));
@@ -187,7 +189,8 @@ describe("processAccountFollowUps - dedup logic", () => {
 
     // No existing trackers
     vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.threadTracker.upsert).mockResolvedValue({
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
       id: "tracker-new",
     } as any);
 
@@ -197,7 +200,7 @@ describe("processAccountFollowUps - dedup logic", () => {
     });
 
     expect(applyFollowUpLabel).toHaveBeenCalled();
-    expect(prisma.threadTracker.upsert).toHaveBeenCalled();
+    expect(prisma.threadTracker.create).toHaveBeenCalled();
     expect(generateFollowUpDraft).toHaveBeenCalled();
   });
 
@@ -234,7 +237,8 @@ describe("processAccountFollowUps - dedup logic", () => {
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
     vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.threadTracker.upsert).mockResolvedValue({
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
       id: "tracker-5",
     } as any);
 
@@ -244,7 +248,7 @@ describe("processAccountFollowUps - dedup logic", () => {
     });
 
     expect(applyFollowUpLabel).toHaveBeenCalled();
-    expect(prisma.threadTracker.upsert).toHaveBeenCalled();
+    expect(prisma.threadTracker.create).toHaveBeenCalled();
     expect(generateFollowUpDraft).not.toHaveBeenCalled();
   });
 
@@ -265,7 +269,8 @@ describe("processAccountFollowUps - dedup logic", () => {
     vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([
       { threadId: "thread-old" } as any,
     ]);
-    vi.mocked(prisma.threadTracker.upsert).mockResolvedValue({
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
       id: "tracker-new",
     } as any);
 
@@ -277,5 +282,151 @@ describe("processAccountFollowUps - dedup logic", () => {
     // Only thread-new should be processed
     expect(applyFollowUpLabel).toHaveBeenCalledTimes(1);
     expect(generateFollowUpDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates existing tracker instead of creating a new one", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([{ id: "thread-6", messages: [], snippet: "" }]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockMessage("msg-6-new", OLD_DATE)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    // No batch dedup hit (simulates cleared followUpAppliedAt)
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    // But findFirst finds an existing unresolved tracker for this thread
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue({
+      id: "existing-tracker",
+      threadId: "thread-6",
+      messageId: "msg-6-old",
+    } as any);
+    vi.mocked(prisma.threadTracker.update).mockResolvedValue({
+      id: "existing-tracker",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    // Should update the existing tracker, not create a new one
+    expect(prisma.threadTracker.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "existing-tracker" },
+        data: expect.objectContaining({
+          messageId: "msg-6-new",
+          sentAt: expect.any(Date),
+        }),
+      }),
+    );
+    expect(prisma.threadTracker.create).not.toHaveBeenCalled();
+    expect(generateFollowUpDraft).toHaveBeenCalled();
+  });
+
+  it("falls back when updating existing tracker hits duplicate key conflict", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([{ id: "thread-7", messages: [], snippet: "" }]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockMessage("msg-7-new", OLD_DATE)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue({
+      id: "existing-tracker",
+      threadId: "thread-7",
+      messageId: "msg-7-old",
+    } as any);
+
+    const { Prisma } = await import("@/generated/prisma/client");
+    const duplicateError = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed",
+      { code: "P2002", clientVersion: "5.0.0" },
+    );
+    vi.mocked(prisma.threadTracker.update)
+      .mockRejectedValueOnce(duplicateError)
+      .mockResolvedValueOnce({
+        id: "tracker-7-conflict-row",
+      } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(prisma.threadTracker.update).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: { id: "existing-tracker" },
+      }),
+    );
+    expect(prisma.threadTracker.update).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: {
+          emailAccountId_threadId_messageId: expect.objectContaining({
+            emailAccountId: "account-1",
+            threadId: "thread-7",
+            messageId: "msg-7-new",
+          }),
+        },
+        data: expect.objectContaining({ resolved: false }),
+      }),
+    );
+    expect(generateFollowUpDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ trackerId: "tracker-7-conflict-row" }),
+    );
+  });
+
+  it("falls back to update on duplicate key conflict during create", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([{ id: "thread-7", messages: [], snippet: "" }]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockMessage("msg-7", OLD_DATE)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+
+    // Simulate concurrent create hitting unique constraint
+    const { Prisma } = await import("@/generated/prisma/client");
+    const duplicateError = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed",
+      { code: "P2002", clientVersion: "5.0.0" },
+    );
+    vi.mocked(prisma.threadTracker.create).mockRejectedValue(duplicateError);
+    vi.mocked(prisma.threadTracker.update).mockResolvedValue({
+      id: "tracker-7",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    // Should fall back to update after duplicate error
+    expect(prisma.threadTracker.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          emailAccountId_threadId_messageId: expect.objectContaining({
+            emailAccountId: "account-1",
+            threadId: "thread-7",
+            messageId: "msg-7",
+          }),
+        },
+        data: expect.objectContaining({ resolved: false }),
+      }),
+    );
+    expect(generateFollowUpDraft).toHaveBeenCalled();
   });
 });

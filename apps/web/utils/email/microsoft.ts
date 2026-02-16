@@ -1220,6 +1220,7 @@ export class OutlookProvider implements EmailProvider {
 
     for (const message of response.value || []) {
       if (!message.conversationId) continue;
+      if (message.isDraft) continue;
 
       const parsed = convertMessage(message);
       const existing = messagesByThread.get(message.conversationId) || [];
@@ -1249,7 +1250,9 @@ export class OutlookProvider implements EmailProvider {
       .select(MESSAGE_SELECT_FIELDS)
       .get();
 
-    const messages = response.value || [];
+    const messages = (response.value || []).filter(
+      (m: Message) => !m.isDraft,
+    );
     if (messages.length === 0) return null;
 
     const parsed: ParsedMessage[] = messages.map((m: Message) =>
