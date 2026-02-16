@@ -467,6 +467,7 @@ export const adminCleanupDraftsAction = adminActionClient
 
     let totalDeleted = 0;
     let totalSkipped = 0;
+    let totalAlreadyGone = 0;
     let totalErrors = 0;
 
     const STALE_DAYS = 3;
@@ -510,6 +511,7 @@ export const adminCleanupDraftsAction = adminActionClient
               where: { id: action.id },
               data: { wasDraftSent: false },
             });
+            totalAlreadyGone++;
             continue;
           }
 
@@ -542,12 +544,14 @@ export const adminCleanupDraftsAction = adminActionClient
     logger.info("Admin draft cleanup completed", {
       totalDeleted,
       totalSkipped,
+      totalAlreadyGone,
       totalErrors,
     });
 
     return {
       deleted: totalDeleted,
       skippedModified: totalSkipped,
+      alreadyGone: totalAlreadyGone,
       errors: totalErrors,
     };
   });
