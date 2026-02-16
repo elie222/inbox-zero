@@ -30,7 +30,6 @@ export default async function AdminConfigPage() {
       google: hasGoogleOauthConfig(),
       microsoft: hasMicrosoftOauthConfig(),
       microsoftTenantConfigured:
-        hasMicrosoftOauthConfig() &&
         !!env.MICROSOFT_TENANT_ID &&
         env.MICROSOFT_TENANT_ID !== "common",
     },

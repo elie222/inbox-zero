@@ -1,16 +1,5 @@
 import { env } from "@/env";
 
-function isConfiguredValue(value: string | undefined) {
-  if (!value) return false;
-
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  if (trimmed === "skipped") return false;
-  if (trimmed.startsWith("your-")) return false;
-
-  return true;
-}
-
 export function hasGoogleOauthConfig() {
   return (
     isConfiguredValue(env.GOOGLE_CLIENT_ID) &&
@@ -27,4 +16,15 @@ export function hasMicrosoftOauthConfig() {
 
 export function isConfiguredOauthValue(value: string | undefined) {
   return isConfiguredValue(value);
+}
+
+function isConfiguredValue(value: string | undefined) {
+  if (!value) return false;
+
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (trimmed === "skipped") return false;
+  if (trimmed.startsWith("your-")) return false;
+
+  return true;
 }
