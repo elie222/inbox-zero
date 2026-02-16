@@ -334,29 +334,39 @@ export const manageInboxTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
 
+      const parsedInputResult = manageInboxInputSchema.safeParse(input);
+      if (!parsedInputResult.success) {
+        const errorMessage = getManageInboxValidationError(
+          parsedInputResult.error,
+        );
+        logger.warn("Invalid manageInbox input", {
+          issues: parsedInputResult.error.issues,
+        });
+        return { error: errorMessage };
+      }
+
+      const parsedInput = parsedInputResult.data;
+
+      if (
+        parsedInput.action === "bulk_archive_senders" &&
+        !parsedInput.fromEmails?.length
+      ) {
+        return {
+          error: "fromEmails is required when action is bulk_archive_senders",
+        };
+      }
+
+      if (
+        parsedInput.action !== "bulk_archive_senders" &&
+        !parsedInput.threadIds?.length
+      ) {
+        return {
+          error:
+            "threadIds is required when action is archive_threads or mark_read_threads",
+        };
+      }
+
       try {
-        const parsedInput = manageInboxInputSchema.parse(input);
-
-        if (
-          parsedInput.action === "bulk_archive_senders" &&
-          !parsedInput.fromEmails?.length
-        ) {
-          return {
-            error:
-              "fromEmails is required when action is bulk_archive_senders",
-          };
-        }
-
-        if (
-          parsedInput.action !== "bulk_archive_senders" &&
-          !parsedInput.threadIds?.length
-        ) {
-          return {
-            error:
-              "threadIds is required when action is archive_threads or mark_read_threads",
-          };
-        }
-
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
@@ -388,10 +398,7 @@ export const manageInboxTool = ({
                 parsedInput.labelId,
               );
             } else {
-              await emailProvider.markReadThread(
-                threadId,
-                parsedInput.read ?? true,
-              );
+              await emailProvider.markReadThread(threadId, parsedInput.read);
             }
           },
         });
@@ -777,4 +784,22 @@ async function runThreadActionsInParallel({
   }
 
   return results;
+}
+
+function getManageInboxValidationError(error: z.ZodError) {
+  const firstIssue = error.issues[0];
+  if (!firstIssue) return "Invalid manageInbox input";
+
+  if (firstIssue.code === "too_small" && firstIssue.path[0] === "threadIds") {
+    return "Invalid manageInbox input: threadIds must include at least one thread ID";
+  }
+
+  if (firstIssue.code === "too_small" && firstIssue.path[0] === "fromEmails") {
+    return "Invalid manageInbox input: fromEmails must include at least one sender email";
+  }
+
+  const field = firstIssue.path.map(String).join(".");
+  if (!field) return `Invalid manageInbox input: ${firstIssue.message}`;
+
+  return `Invalid manageInbox input: ${field} ${firstIssue.message}`;
 }

@@ -959,6 +959,27 @@ describe("aiProcessAssistantChat", () => {
       error: "fromEmails is required when action is bulk_archive_senders",
     });
 
+    const archiveEmptyThreadIds = await tools.manageInbox.execute({
+      action: "archive_threads",
+      threadIds: [],
+      labelId: undefined,
+      read: true,
+    });
+    expect(archiveEmptyThreadIds).toEqual({
+      error:
+        "Invalid manageInbox input: threadIds must include at least one thread ID",
+    });
+
+    const bulkEmptySenders = await tools.manageInbox.execute({
+      action: "bulk_archive_senders",
+      fromEmails: [],
+      read: true,
+    });
+    expect(bulkEmptySenders).toEqual({
+      error:
+        "Invalid manageInbox input: fromEmails must include at least one sender email",
+    });
+
     expect(mockCreateEmailProvider).not.toHaveBeenCalled();
   });
 
