@@ -3,6 +3,10 @@ import path from "node:path";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { isAdmin } from "@/utils/admin";
+import {
+  hasGoogleOauthConfig,
+  hasMicrosoftOauthConfig,
+} from "@/utils/oauth/provider-config";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -23,10 +27,12 @@ export default async function AdminConfigPage() {
       bypassPremiumChecks: env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS ?? false,
     },
     providers: {
-      google: !!env.GOOGLE_CLIENT_ID,
-      microsoft: !!env.MICROSOFT_CLIENT_ID,
+      google: hasGoogleOauthConfig(),
+      microsoft: hasMicrosoftOauthConfig(),
       microsoftTenantConfigured:
-        !!env.MICROSOFT_TENANT_ID && env.MICROSOFT_TENANT_ID !== "common",
+        hasMicrosoftOauthConfig() &&
+        !!env.MICROSOFT_TENANT_ID &&
+        env.MICROSOFT_TENANT_ID !== "common",
     },
     llm: {
       defaultProvider: env.DEFAULT_LLM_PROVIDER,
