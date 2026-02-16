@@ -20,8 +20,7 @@ import {
   cleanupDraftsBody,
 } from "@/utils/actions/admin.validation";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
-import { ActionType } from "@/generated/prisma/enums";
-import { calculateSimilarity } from "@/utils/similarity-score";
+import { cleanupAIDraftsForAccount } from "@/utils/ai/draft-cleanup";
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })
@@ -469,83 +468,18 @@ export const adminCleanupDraftsAction = adminActionClient
     let totalAlreadyGone = 0;
     let totalErrors = 0;
 
-    const STALE_DAYS = 3;
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - STALE_DAYS);
-
     for (const emailAccount of emailAccounts) {
-
-      const staleDrafts = await prisma.executedAction.findMany({
-        where: {
-          executedRule: { emailAccountId: emailAccount.id },
-          type: ActionType.DRAFT_EMAIL,
-          draftId: { not: null },
-          OR: [{ draftSendLog: null }, { wasDraftSent: false }],
-          createdAt: { lt: cutoffDate },
-        },
-        select: {
-          id: true,
-          draftId: true,
-          content: true,
-        },
-        orderBy: { createdAt: "asc" },
-      });
-
-      if (staleDrafts.length === 0) continue;
-
-      const provider = await createEmailProvider({
+      const result = await cleanupAIDraftsForAccount({
         emailAccountId: emailAccount.id,
         provider: emailAccount.account.provider,
         logger,
       });
 
-      for (const action of staleDrafts) {
-        if (!action.draftId) continue;
-
-        try {
-          const draftDetails = await provider.getDraft(action.draftId);
-
-          if (!draftDetails?.textPlain && !draftDetails?.textHtml) {
-            await prisma.executedAction.update({
-              where: { id: action.id },
-              data: { wasDraftSent: false },
-            });
-            totalAlreadyGone++;
-            continue;
-          }
-
-          const similarityScore = calculateSimilarity(
-            action.content,
-            draftDetails,
-          );
-
-          if (similarityScore !== 1.0) {
-            totalSkipped++;
-            continue;
-          }
-
-          await provider.deleteDraft(action.draftId);
-          await prisma.executedAction.update({
-            where: { id: action.id },
-            data: { wasDraftSent: false },
-          });
-          totalDeleted++;
-        } catch (error) {
-          logger.error("Error cleaning up draft", {
-            executedActionId: action.id,
-            error,
-          });
-          totalErrors++;
-        }
-      }
+      totalDeleted += result.deleted;
+      totalSkipped += result.skippedModified;
+      totalAlreadyGone += result.alreadyGone;
+      totalErrors += result.errors;
     }
-
-    logger.info("Admin draft cleanup completed", {
-      totalDeleted,
-      totalSkipped,
-      totalAlreadyGone,
-      totalErrors,
-    });
 
     return {
       deleted: totalDeleted,
