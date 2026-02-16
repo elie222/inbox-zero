@@ -940,6 +940,7 @@ describe("aiProcessAssistantChat", () => {
 
   it("validates action-specific manageInbox requirements before provider calls", async () => {
     const tools = await captureToolSet();
+    mockCreateEmailProvider.mockClear();
 
     const archiveMissingThreads = await tools.manageInbox.execute({
       action: "archive_threads",
