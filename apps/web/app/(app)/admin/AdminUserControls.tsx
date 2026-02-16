@@ -13,6 +13,8 @@ import {
   adminDeleteAccountAction,
   adminProcessHistoryAction,
   adminWatchEmailsAction,
+  adminDisableAllRulesAction,
+  adminCleanupDraftsAction,
 } from "@/utils/actions/admin";
 import { adminCheckPermissionsAction } from "@/utils/actions/permissions";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -84,6 +86,40 @@ export const AdminUserControls = () => {
       },
     },
   );
+  const { execute: disableRules, isExecuting: isDisablingRules } = useAction(
+    adminDisableAllRulesAction,
+    {
+      onSuccess: (result) => {
+        toastSuccess({
+          title: "Rules disabled",
+          description: `Disabled rules and follow-up for ${result.data?.emailAccountCount} account(s)`,
+        });
+      },
+      onError: (error) => {
+        toastError({
+          title: "Error disabling rules",
+          description: getActionErrorMessage(error.error),
+        });
+      },
+    },
+  );
+  const { execute: cleanupDrafts, isExecuting: isCleaningDrafts } = useAction(
+    adminCleanupDraftsAction,
+    {
+      onSuccess: (result) => {
+        toastSuccess({
+          title: "Drafts cleaned up",
+          description: `Deleted ${result.data?.deleted ?? 0} draft(s), skipped ${result.data?.skippedModified ?? 0} modified`,
+        });
+      },
+      onError: (error) => {
+        toastError({
+          title: "Error cleaning up drafts",
+          description: getActionErrorMessage(error.error),
+        });
+      },
+    },
+  );
   const { execute: deleteAccount, isExecuting: isDeleting } = useAction(
     adminDeleteAccountAction,
     {
@@ -146,6 +182,24 @@ export const AdminUserControls = () => {
           }}
         >
           Watch
+        </Button>
+        <Button
+          variant="outline"
+          loading={isDisablingRules}
+          onClick={() => {
+            disableRules({ email: getValues("email") });
+          }}
+        >
+          Disable Rules
+        </Button>
+        <Button
+          variant="outline"
+          loading={isCleaningDrafts}
+          onClick={() => {
+            cleanupDrafts({ email: getValues("email") });
+          }}
+        >
+          Cleanup Drafts
         </Button>
         <Button
           variant="destructive"

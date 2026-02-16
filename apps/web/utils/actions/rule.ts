@@ -460,10 +460,26 @@ export const toggleAllRulesAction = actionClient
   .metadata({ name: "toggleAllRules" })
   .inputSchema(toggleAllRulesBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
-    await prisma.rule.updateMany({
-      where: { emailAccountId },
-      data: { enabled },
-    });
+    if (enabled) {
+      await prisma.rule.updateMany({
+        where: { emailAccountId },
+        data: { enabled },
+      });
+    } else {
+      await prisma.$transaction([
+        prisma.rule.updateMany({
+          where: { emailAccountId },
+          data: { enabled },
+        }),
+        prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data: {
+            followUpAwaitingReplyDays: null,
+            followUpNeedsReplyDays: null,
+          },
+        }),
+      ]);
+    }
 
     return { success: true };
   });

@@ -16,8 +16,12 @@ import {
   getLabelsBody,
   watchEmailsBody,
   getUserInfoBody,
+  disableAllRulesBody,
+  cleanupDraftsBody,
 } from "@/utils/actions/admin.validation";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
+import { ActionType } from "@/generated/prisma/enums";
+import { calculateSimilarity } from "@/utils/similarity-score";
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })
@@ -392,6 +396,159 @@ export const adminGetUserInfoAction = adminActionClient
         ruleCount: ea._count.rules,
         lastExecutedRuleAt: lastExecutedMap.get(ea.id) || null,
       })),
+    };
+  });
+
+export const adminDisableAllRulesAction = adminActionClient
+  .metadata({ name: "adminDisableAllRules" })
+  .inputSchema(disableAllRulesBody)
+  .action(async ({ parsedInput: { email }, ctx: { logger } }) => {
+    const emailAccounts = await prisma.emailAccount.findMany({
+      where: {
+        OR: [
+          { email: email.toLowerCase() },
+          { user: { email: email.toLowerCase() } },
+        ],
+      },
+      select: { id: true, email: true },
+    });
+
+    if (emailAccounts.length === 0) {
+      throw new SafeError("No email accounts found");
+    }
+
+    const emailAccountIds = emailAccounts.map((ea) => ea.id);
+
+    await prisma.$transaction([
+      prisma.rule.updateMany({
+        where: { emailAccountId: { in: emailAccountIds } },
+        data: { enabled: false },
+      }),
+      prisma.emailAccount.updateMany({
+        where: { id: { in: emailAccountIds } },
+        data: {
+          followUpAwaitingReplyDays: null,
+          followUpNeedsReplyDays: null,
+        },
+      }),
+    ]);
+
+    logger.info("Disabled all rules and follow-up for email accounts", {
+      emailAccountCount: emailAccounts.length,
+    });
+
+    return {
+      success: true,
+      emailAccountCount: emailAccounts.length,
+    };
+  });
+
+export const adminCleanupDraftsAction = adminActionClient
+  .metadata({ name: "adminCleanupDrafts" })
+  .inputSchema(cleanupDraftsBody)
+  .action(async ({ parsedInput: { email }, ctx: { logger } }) => {
+    const emailAccounts = await prisma.emailAccount.findMany({
+      where: {
+        OR: [
+          { email: email.toLowerCase() },
+          { user: { email: email.toLowerCase() } },
+        ],
+      },
+      select: {
+        id: true,
+        email: true,
+        account: { select: { provider: true } },
+      },
+    });
+
+    if (emailAccounts.length === 0) {
+      throw new SafeError("No email accounts found");
+    }
+
+    let totalDeleted = 0;
+    let totalSkipped = 0;
+    let totalErrors = 0;
+
+    const STALE_DAYS = 3;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - STALE_DAYS);
+
+    for (const emailAccount of emailAccounts) {
+
+      const staleDrafts = await prisma.executedAction.findMany({
+        where: {
+          executedRule: { emailAccountId: emailAccount.id },
+          type: ActionType.DRAFT_EMAIL,
+          draftId: { not: null },
+          OR: [{ draftSendLog: null }, { wasDraftSent: false }],
+          createdAt: { lt: cutoffDate },
+        },
+        select: {
+          id: true,
+          draftId: true,
+          content: true,
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (staleDrafts.length === 0) continue;
+
+      const provider = await createEmailProvider({
+        emailAccountId: emailAccount.id,
+        provider: emailAccount.account.provider,
+        logger,
+      });
+
+      for (const action of staleDrafts) {
+        if (!action.draftId) continue;
+
+        try {
+          const draftDetails = await provider.getDraft(action.draftId);
+
+          if (!draftDetails?.textPlain && !draftDetails?.textHtml) {
+            await prisma.executedAction.update({
+              where: { id: action.id },
+              data: { wasDraftSent: false },
+            });
+            continue;
+          }
+
+          const similarityScore = calculateSimilarity(
+            action.content,
+            draftDetails,
+          );
+
+          if (similarityScore !== 1.0) {
+            totalSkipped++;
+            continue;
+          }
+
+          await provider.deleteDraft(action.draftId);
+          await prisma.executedAction.update({
+            where: { id: action.id },
+            data: { wasDraftSent: false },
+          });
+          totalDeleted++;
+        } catch (error) {
+          logger.error("Error cleaning up draft", {
+            executedActionId: action.id,
+            error,
+          });
+          totalErrors++;
+        }
+      }
+    }
+
+    logger.info("Admin draft cleanup completed", {
+      totalDeleted,
+      totalSkipped,
+      totalErrors,
+    });
+
+    return {
+      deleted: totalDeleted,
+      skippedModified: totalSkipped,
+      errors: totalErrors,
     };
   });
 
