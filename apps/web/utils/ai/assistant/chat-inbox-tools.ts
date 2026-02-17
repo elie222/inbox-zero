@@ -292,36 +292,29 @@ const senderEmailsSchema = z
   .max(100)
   .transform((emails) => [...new Set(emails)]);
 
-const manageInboxInputSchema = z.discriminatedUnion("action", [
-  z.object({
-    action: z.literal("archive_threads"),
-    threadIds: threadIdsSchema.describe(
-      "Thread IDs to archive. Provide IDs from searchInbox results.",
+const manageInboxInputSchema = z.object({
+  action: z
+    .enum(["archive_threads", "mark_read_threads", "bulk_archive_senders"])
+    .describe("Inbox action to run."),
+  threadIds: threadIdsSchema
+    .optional()
+    .describe(
+      "Thread IDs to archive or mark read/unread. Provide IDs from searchInbox results.",
     ),
-    labelId: z
-      .string()
-      .optional()
-      .describe(
-        "Optional provider label/category ID to apply while archiving.",
-      ),
-  }),
-  z.object({
-    action: z.literal("mark_read_threads"),
-    threadIds: threadIdsSchema.describe(
-      "Thread IDs to mark read or unread. Provide IDs from searchInbox results.",
+  labelId: z
+    .string()
+    .optional()
+    .describe(
+      "Optional provider label/category ID to apply while archiving threads.",
     ),
-    read: z
-      .boolean()
-      .default(true)
-      .describe("True to mark as read; false to mark as unread."),
-  }),
-  z.object({
-    action: z.literal("bulk_archive_senders"),
-    fromEmails: senderEmailsSchema.describe(
-      "Sender email addresses to bulk archive by sender.",
-    ),
-  }),
-]);
+  read: z
+    .boolean()
+    .optional()
+    .describe("For mark_read_threads: true for read, false for unread."),
+  fromEmails: senderEmailsSchema
+    .optional()
+    .describe("Sender email addresses to bulk archive by sender."),
+});
 
 export const manageInboxTool = ({
   email,
@@ -341,6 +334,38 @@ export const manageInboxTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
 
+      const parsedInputResult = manageInboxInputSchema.safeParse(input);
+      if (!parsedInputResult.success) {
+        const errorMessage = getManageInboxValidationError(
+          parsedInputResult.error,
+        );
+        logger.warn("Invalid manageInbox input", {
+          issues: parsedInputResult.error.issues,
+        });
+        return { error: errorMessage };
+      }
+
+      const parsedInput = parsedInputResult.data;
+
+      if (
+        parsedInput.action === "bulk_archive_senders" &&
+        !parsedInput.fromEmails?.length
+      ) {
+        return {
+          error: "fromEmails is required when action is bulk_archive_senders",
+        };
+      }
+
+      if (
+        parsedInput.action !== "bulk_archive_senders" &&
+        !parsedInput.threadIds?.length
+      ) {
+        return {
+          error:
+            "threadIds is required when action is archive_threads or mark_read_threads",
+        };
+      }
+
       try {
         const emailProvider = await createEmailProvider({
           emailAccountId,
@@ -348,32 +373,51 @@ export const manageInboxTool = ({
           logger,
         });
 
-        if (input.action === "bulk_archive_senders") {
+        if (parsedInput.action === "bulk_archive_senders") {
+          const fromEmails = parsedInput.fromEmails;
+          if (!fromEmails) {
+            return {
+              error:
+                "fromEmails is required when action is bulk_archive_senders",
+            };
+          }
+
           await emailProvider.bulkArchiveFromSenders(
-            input.fromEmails,
+            fromEmails,
             email,
             emailAccountId,
           );
 
           return {
             success: true,
-            action: input.action,
-            sendersCount: input.fromEmails.length,
-            senders: input.fromEmails,
+            action: parsedInput.action,
+            sendersCount: fromEmails.length,
+            senders: fromEmails,
+          };
+        }
+
+        const threadIds = parsedInput.threadIds;
+        if (!threadIds) {
+          return {
+            error:
+              "threadIds is required when action is archive_threads or mark_read_threads",
           };
         }
 
         const threadActionResults = await runThreadActionsInParallel({
-          threadIds: input.threadIds,
+          threadIds,
           runAction: async (threadId) => {
-            if (input.action === "archive_threads") {
+            if (parsedInput.action === "archive_threads") {
               await emailProvider.archiveThreadWithLabel(
                 threadId,
                 email,
-                input.labelId,
+                parsedInput.labelId,
               );
             } else {
-              await emailProvider.markReadThread(threadId, input.read);
+              await emailProvider.markReadThread(
+                threadId,
+                parsedInput.read ?? true,
+              );
             }
           },
         });
@@ -386,8 +430,8 @@ export const manageInboxTool = ({
 
         return {
           success: failedThreadIds.length === 0,
-          action: input.action,
-          requestedCount: input.threadIds.length,
+          action: parsedInput.action,
+          requestedCount: threadIds.length,
           successCount,
           failedCount: failedThreadIds.length,
           failedThreadIds,
@@ -759,4 +803,22 @@ async function runThreadActionsInParallel({
   }
 
   return results;
+}
+
+function getManageInboxValidationError(error: z.ZodError) {
+  const firstIssue = error.issues[0];
+  if (!firstIssue) return "Invalid manageInbox input";
+
+  if (firstIssue.code === "too_small" && firstIssue.path[0] === "threadIds") {
+    return "Invalid manageInbox input: threadIds must include at least one thread ID";
+  }
+
+  if (firstIssue.code === "too_small" && firstIssue.path[0] === "fromEmails") {
+    return "Invalid manageInbox input: fromEmails must include at least one sender email";
+  }
+
+  const field = firstIssue.path.map(String).join(".");
+  if (!field) return `Invalid manageInbox input: ${firstIssue.message}`;
+
+  return `Invalid manageInbox input: ${field} ${firstIssue.message}`;
 }

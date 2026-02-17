@@ -938,6 +938,52 @@ describe("aiProcessAssistantChat", () => {
     expect(result.updatedAbout).toBe("First instructions");
   });
 
+  it("validates action-specific manageInbox requirements before provider calls", async () => {
+    const tools = await captureToolSet();
+    mockCreateEmailProvider.mockClear();
+
+    const archiveMissingThreads = await tools.manageInbox.execute({
+      action: "archive_threads",
+      labelId: undefined,
+      read: true,
+    });
+    expect(archiveMissingThreads).toEqual({
+      error:
+        "threadIds is required when action is archive_threads or mark_read_threads",
+    });
+
+    const bulkMissingSenders = await tools.manageInbox.execute({
+      action: "bulk_archive_senders",
+      read: true,
+    });
+    expect(bulkMissingSenders).toEqual({
+      error: "fromEmails is required when action is bulk_archive_senders",
+    });
+
+    const archiveEmptyThreadIds = await tools.manageInbox.execute({
+      action: "archive_threads",
+      threadIds: [],
+      labelId: undefined,
+      read: true,
+    });
+    expect(archiveEmptyThreadIds).toEqual({
+      error:
+        "Invalid manageInbox input: threadIds must include at least one thread ID",
+    });
+
+    const bulkEmptySenders = await tools.manageInbox.execute({
+      action: "bulk_archive_senders",
+      fromEmails: [],
+      read: true,
+    });
+    expect(bulkEmptySenders).toEqual({
+      error:
+        "Invalid manageInbox input: fromEmails must include at least one sender email",
+    });
+
+    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+  });
+
   it("executes searchInbox and manageInbox tools with resilient behavior", async () => {
     const tools = await captureToolSet(true, "microsoft");
 
