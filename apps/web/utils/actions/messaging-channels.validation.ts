@@ -32,3 +32,10 @@ export const connectWhatsAppBody = z.object({
   displayName: z.string().trim().optional(),
 });
 export type ConnectWhatsAppBody = z.infer<typeof connectWhatsAppBody>;
+
+export const connectTelegramBody = z.object({
+  botToken: z.string().min(1),
+  authorizedSender: z.string().min(1),
+  displayName: z.string().trim().optional(),
+});
+export type ConnectTelegramBody = z.infer<typeof connectTelegramBody>;

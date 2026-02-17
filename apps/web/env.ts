@@ -170,6 +170,9 @@ export const env = createEnv({
     // WhatsApp
     WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
     WHATSAPP_APP_SECRET: z.string().optional(),
+
+    // Telegram
+    TELEGRAM_WEBHOOK_SECRET: z.string().optional(),
   },
   client: {
     // stripe

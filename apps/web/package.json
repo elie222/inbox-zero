@@ -45,6 +45,7 @@
     "@inboxzero/loops": "workspace:*",
     "@inboxzero/resend": "workspace:*",
     "@inboxzero/slack": "workspace:*",
+    "@inboxzero/telegram": "workspace:*",
     "@inboxzero/whatsapp": "workspace:*",
     "@inboxzero/tinybird": "workspace:*",
     "@inboxzero/tinybird-ai-analytics": "workspace:*",

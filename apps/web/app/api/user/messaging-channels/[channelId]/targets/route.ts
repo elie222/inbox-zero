@@ -63,6 +63,7 @@ async function getData({
         };
       }
       case MessagingProvider.WHATSAPP:
+      case MessagingProvider.TELEGRAM:
         return { targets: [] };
       default:
         return { targets: [], error: "Unsupported provider" };

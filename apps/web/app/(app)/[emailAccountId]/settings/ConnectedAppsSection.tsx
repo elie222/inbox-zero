@@ -7,6 +7,7 @@ import {
   LockIcon,
   MessageCircleIcon,
   MessageSquareIcon,
+  SendIcon,
   SlackIcon,
   XIcon,
 } from "lucide-react";
@@ -45,12 +46,15 @@ import {
   useMessagingChannels,
 } from "@/hooks/useMessagingChannels";
 import {
+  connectTelegramAction,
   connectWhatsAppAction,
   disconnectChannelAction,
   linkSlackWorkspaceAction,
   updateSlackChannelAction,
 } from "@/utils/actions/messaging-channels";
 import {
+  connectTelegramBody,
+  type ConnectTelegramBody,
   connectWhatsAppBody,
   type ConnectWhatsAppBody,
 } from "@/utils/actions/messaging-channels.validation";
@@ -66,6 +70,7 @@ const PROVIDER_CONFIG: Record<
 > = {
   SLACK: { name: "Slack", icon: HashIcon },
   WHATSAPP: { name: "WhatsApp", icon: MessageCircleIcon },
+  TELEGRAM: { name: "Telegram", icon: SendIcon },
 };
 
 export function ConnectedAppsSection({
@@ -98,8 +103,19 @@ export function ConnectedAppsSection({
   const hasWhatsApp = connectedChannels.some(
     (channel) => channel.provider === "WHATSAPP",
   );
+  const hasTelegram = connectedChannels.some(
+    (channel) => channel.provider === "TELEGRAM",
+  );
   const slackAvailable =
     channelsData?.availableProviders?.includes("SLACK") ?? false;
+  const whatsAppAvailable =
+    channelsData?.availableProviders?.includes("WHATSAPP") ?? false;
+  const telegramAvailable =
+    channelsData?.availableProviders?.includes("TELEGRAM") ?? false;
+  const showConnectActions =
+    (!hasSlack && slackAvailable) ||
+    (!hasWhatsApp && whatsAppAvailable) ||
+    (!hasTelegram && telegramAvailable);
 
   const { execute: executeLinkSlack, status: linkStatus } = useAction(
     linkSlackWorkspaceAction.bind(null, emailAccountId),
@@ -171,7 +187,7 @@ export function ConnectedAppsSection({
           <ItemTitle>Connected Apps</ItemTitle>
         </ItemContent>
         <ItemActions>
-          {(!hasSlack && slackAvailable) || !hasWhatsApp ? (
+          {showConnectActions ? (
             <div className="flex flex-wrap items-center gap-2">
               {!hasSlack && slackAvailable ? (
                 existingWorkspace ? (
@@ -210,8 +226,15 @@ export function ConnectedAppsSection({
                 )
               ) : null}
 
-              {!hasWhatsApp && (
+              {!hasWhatsApp && whatsAppAvailable && (
                 <ConnectWhatsAppDialog
+                  emailAccountId={emailAccountId}
+                  onDone={mutateChannels}
+                />
+              )}
+
+              {!hasTelegram && telegramAvailable && (
+                <ConnectTelegramDialog
                   emailAccountId={emailAccountId}
                   onDone={mutateChannels}
                 />
@@ -220,11 +243,7 @@ export function ConnectedAppsSection({
           ) : null}
         </ItemActions>
       </Item>
-      <LoadingContent
-        loading={isLoading}
-        error={error}
-        loadingComponent={null}
-      >
+      <LoadingContent loading={isLoading} error={error} loadingComponent={null}>
         {connectedChannels.length > 0 && (
           <div className="space-y-2 px-4 pb-3">
             {connectedChannels.map((channel) => (
@@ -387,6 +406,129 @@ function ConnectWhatsAppDialog({
   );
 }
 
+function ConnectTelegramDialog({
+  emailAccountId,
+  onDone,
+}: {
+  emailAccountId: string;
+  onDone: () => void;
+}) {
+  const defaultValues: ConnectTelegramBody = {
+    botToken: "",
+    authorizedSender: "",
+    displayName: "",
+  };
+  const [open, setOpen] = useState(false);
+  const {
+    register,
+    reset,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ConnectTelegramBody>({
+    resolver: zodResolver(connectTelegramBody),
+    defaultValues,
+  });
+
+  const { execute: executeConnectTelegram, isExecuting } = useAction(
+    connectTelegramAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Telegram connected" });
+        setOpen(false);
+        reset(defaultValues);
+        onDone();
+      },
+      onError: (error) => {
+        toastError({
+          description:
+            getActionErrorMessage(error.error) ?? "Failed to connect Telegram",
+        });
+      },
+    },
+  );
+
+  const onSubmit: SubmitHandler<ConnectTelegramBody> = (values) => {
+    executeConnectTelegram({
+      ...values,
+      displayName: values.displayName?.trim() || undefined,
+    });
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) return;
+        reset(defaultValues);
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <SendIcon className="mr-2 h-4 w-4" />
+          Connect Telegram
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Connect Telegram</DialogTitle>
+          <DialogDescription>
+            Enter your Telegram bot credentials to connect this email account.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+          <div className="space-y-1">
+            <Label htmlFor="botToken">Bot Token</Label>
+            <Input
+              id="botToken"
+              type="password"
+              {...register("botToken")}
+              required
+            />
+            {errors.botToken && (
+              <p className="text-destructive text-xs">
+                {errors.botToken.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="authorizedSender">
+              Authorized Sender Telegram User ID
+            </Label>
+            <Input
+              id="authorizedSender"
+              {...register("authorizedSender")}
+              placeholder="123456789"
+              required
+            />
+            {errors.authorizedSender && (
+              <p className="text-destructive text-xs">
+                {errors.authorizedSender.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="displayName">Display Name (optional)</Label>
+            <Input id="displayName" {...register("displayName")} />
+            {errors.displayName && (
+              <p className="text-destructive text-xs">
+                {errors.displayName.message}
+              </p>
+            )}
+          </div>
+
+          <Button type="submit" className="w-full" disabled={isExecuting}>
+            {isExecuting ? "Connecting..." : "Connect Telegram"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ConnectedChannelRow({
   channel,
   emailAccountId,
@@ -534,7 +676,9 @@ function ConnectedChannelRow({
               {selectionState.showInviteHint && (
                 <div className="text-xs text-muted-foreground">
                   Invite the bot with{" "}
-                  <code className="rounded bg-muted px-1">/invite @InboxZero</code>{" "}
+                  <code className="rounded bg-muted px-1">
+                    /invite @InboxZero
+                  </code>{" "}
                   in a private channel.
                 </div>
               )}

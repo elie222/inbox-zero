@@ -74,6 +74,7 @@ export async function sendFilingSlackNotifications({
         }
         break;
       case MessagingProvider.WHATSAPP:
+      case MessagingProvider.TELEGRAM:
         break;
     }
   }

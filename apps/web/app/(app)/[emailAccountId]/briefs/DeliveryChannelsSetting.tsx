@@ -8,6 +8,7 @@ import {
   LockIcon,
   MessageCircleIcon,
   MessageSquareIcon,
+  SendIcon,
 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,6 +48,7 @@ const PROVIDER_CONFIG: Record<
 > = {
   SLACK: { name: "Slack", icon: HashIcon, targetPrefix: "#" },
   WHATSAPP: { name: "WhatsApp", icon: MessageCircleIcon, targetPrefix: "" },
+  TELEGRAM: { name: "Telegram", icon: SendIcon, targetPrefix: "" },
 };
 
 export function DeliveryChannelsSetting() {
@@ -194,14 +196,14 @@ function ChannelRow({
     },
   );
 
-  if (channel.provider === "WHATSAPP") {
+  if (channel.provider === "WHATSAPP" || channel.provider === "TELEGRAM") {
     return (
       <div className="flex items-center gap-3">
         <Icon className="h-5 w-5 text-muted-foreground" />
         <div className="flex-1">
           <div className="font-medium text-sm">{config.name}</div>
           <MutedText className="text-xs">
-            Meeting brief delivery via WhatsApp is not supported yet.
+            Meeting brief delivery via {config.name} is not supported yet.
           </MutedText>
         </div>
       </div>

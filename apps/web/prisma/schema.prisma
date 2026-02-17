@@ -1025,7 +1025,7 @@ model MessagingChannel {
   teamName       String? // Display name
   providerUserId String? // Slack user ID of the person who authorized the connection
   botUserId      String? // Slack bot user ID (for mention stripping)
-  authorizedSenderId String? // Authorized external sender ID for inbound providers (WhatsApp)
+  authorizedSenderId String? // Authorized external sender ID for inbound providers (WhatsApp, Telegram)
 
   // OAuth credentials (encrypted via prisma-extensions)
   accessToken  String?
@@ -1397,4 +1397,5 @@ enum GroupItemSource {
 enum MessagingProvider {
   SLACK
   WHATSAPP
+  TELEGRAM
 }
