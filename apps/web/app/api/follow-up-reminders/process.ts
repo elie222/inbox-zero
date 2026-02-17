@@ -239,7 +239,6 @@ async function processFollowUpsForType({
   const threadIds = threads.map((t) => t.id);
   const processedLedger = await getProcessedFollowUpLedger({
     emailAccountId: emailAccount.id,
-    trackerType,
     threadIds,
   });
 
@@ -429,11 +428,9 @@ function getThresholdWithWindow(threshold: Date, windowMinutes: number): Date {
 
 async function getProcessedFollowUpLedger({
   emailAccountId,
-  trackerType,
   threadIds,
 }: {
   emailAccountId: string;
-  trackerType: ThreadTrackerType;
   threadIds: string[];
 }): Promise<Map<string, Set<string>>> {
   if (threadIds.length === 0) return new Map();
@@ -442,7 +439,6 @@ async function getProcessedFollowUpLedger({
     where: {
       emailAccountId,
       threadId: { in: threadIds },
-      type: trackerType,
       OR: [
         { followUpAppliedAt: { not: null } },
         { followUpDraftId: { not: null } },

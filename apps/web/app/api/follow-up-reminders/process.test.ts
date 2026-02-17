@@ -51,6 +51,7 @@ import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import { generateFollowUpDraft } from "@/utils/follow-up/generate-draft";
 import { applyFollowUpLabel } from "@/utils/follow-up/labels";
+import { getLabelsFromDb } from "@/utils/reply-tracker/label-helpers";
 
 const logger = createScopedLogger("test-follow-up");
 
@@ -382,6 +383,129 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(applyFollowUpLabel).toHaveBeenCalled();
     expect(prisma.threadTracker.create).toHaveBeenCalled();
     expect(generateFollowUpDraft).not.toHaveBeenCalled();
+  });
+
+  it("processes TO_REPLY threads when needs-reply follow-up is enabled", async () => {
+    const provider = createMockProvider({
+      getLabels: vi.fn().mockResolvedValue([
+        { id: "awaiting-label", name: "Awaiting Reply" },
+        { id: "to-reply-label", name: "To Reply" },
+      ] as EmailLabel[]),
+      getThreadsWithLabel: vi.fn().mockImplementation(({ labelId }) => {
+        if (labelId === "to-reply-label") {
+          return Promise.resolve([
+            { id: "thread-to-reply", messages: [], snippet: "" },
+          ]);
+        }
+        return Promise.resolve([]);
+      }),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockMessage("msg-to-reply", OLD_DATE)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(getLabelsFromDb).mockResolvedValueOnce({
+      AWAITING_REPLY: { labelId: "awaiting-label" },
+      TO_REPLY: { labelId: "to-reply-label" },
+    } as any);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-to-reply",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount({
+        followUpAwaitingReplyDays: null,
+        followUpNeedsReplyDays: 3,
+      }),
+      logger,
+    });
+
+    expect(applyFollowUpLabel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: "thread-to-reply",
+        messageId: "msg-to-reply",
+      }),
+    );
+    expect(generateFollowUpDraft).not.toHaveBeenCalled();
+  });
+
+  it("does not re-draft when the same message moves between follow-up types", async () => {
+    const provider = createMockProvider({
+      getLabels: vi.fn().mockResolvedValue([
+        { id: "awaiting-label", name: "Awaiting Reply" },
+        { id: "to-reply-label", name: "To Reply" },
+      ] as EmailLabel[]),
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([{ id: "thread-shared", messages: [], snippet: "" }]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockMessage("msg-shared", OLD_DATE)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(getLabelsFromDb)
+      .mockResolvedValueOnce({
+        AWAITING_REPLY: { labelId: "awaiting-label" },
+        TO_REPLY: { labelId: "to-reply-label" },
+      } as any)
+      .mockResolvedValueOnce({
+        AWAITING_REPLY: { labelId: "awaiting-label" },
+        TO_REPLY: { labelId: "to-reply-label" },
+      } as any);
+
+    const { Prisma } = await import("@/generated/prisma/client");
+    const duplicateError = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed",
+      { code: "P2002", clientVersion: "5.0.0" },
+    );
+
+    let rowType: string | null = null;
+    vi.mocked(prisma.threadTracker.findMany).mockImplementation((args: any) => {
+      const requestedType = args?.where?.type;
+      if (!rowType) return Promise.resolve([]);
+      if (requestedType && rowType === requestedType) {
+        return Promise.resolve([
+          { threadId: "thread-shared", messageId: "msg-shared" } as any,
+        ]);
+      }
+      if (!requestedType) {
+        return Promise.resolve([
+          { threadId: "thread-shared", messageId: "msg-shared" } as any,
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockImplementation((args: any) => {
+      const createType = args?.data?.type;
+      if (rowType === null) {
+        rowType = createType;
+        return Promise.resolve({ id: "tracker-shared" } as any);
+      }
+      return Promise.reject(duplicateError);
+    });
+    vi.mocked(prisma.threadTracker.update).mockImplementation((args: any) => {
+      rowType = args?.data?.type ?? rowType;
+      return Promise.resolve({ id: "tracker-shared" } as any);
+    });
+
+    const emailAccount = createMockAccount({
+      followUpAwaitingReplyDays: 3,
+      followUpNeedsReplyDays: 3,
+    });
+
+    await processAccountFollowUps({
+      emailAccount,
+      logger,
+    });
+    await processAccountFollowUps({
+      emailAccount,
+      logger,
+    });
+
+    expect(generateFollowUpDraft).toHaveBeenCalledTimes(1);
   });
 
   it("processes multiple threads but skips already-processed ones", async () => {
