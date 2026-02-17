@@ -236,48 +236,21 @@ async function processFollowUpsForType({
       ? ThreadTrackerType.AWAITING
       : ThreadTrackerType.NEEDS_REPLY;
 
-  // Batch-check which threads already have follow-up applied or a draft created.
-  // This avoids N individual DB queries and N Gmail API calls for already-processed threads.
-  // Both conditions require resolved=false so that resolved threads (e.g. after a reply)
-  // can re-enter the follow-up flow.
   const threadIds = threads.map((t) => t.id);
-  const existingTrackers = await prisma.threadTracker.findMany({
-    where: {
-      emailAccountId: emailAccount.id,
-      threadId: { in: threadIds },
-      resolved: false,
-      OR: [
-        { followUpAppliedAt: { not: null } },
-        { followUpDraftId: { not: null } },
-      ],
-    },
-    select: { threadId: true },
+  const processedLedger = await getProcessedFollowUpLedger({
+    emailAccountId: emailAccount.id,
+    trackerType,
+    threadIds,
   });
-  const alreadyProcessedIds = new Set(existingTrackers.map((t) => t.threadId));
 
   let processedCount = 0;
   let skippedAlreadyProcessedCount = 0;
   let skippedNoLatestMessageCount = 0;
   let skippedTooRecentCount = 0;
   let errorCount = 0;
-
-  if (alreadyProcessedIds.size > 0) {
-    logger.info("Skipping already-processed threads", {
-      systemType,
-      skipped: alreadyProcessedIds.size,
-    });
-    logger.trace("Skipped thread IDs for already-processed threads", {
-      systemType,
-      skippedThreadIds: [...alreadyProcessedIds],
-    });
-  }
+  const skippedAlreadyProcessedThreadIds = new Set<string>();
 
   for (const thread of threads) {
-    if (alreadyProcessedIds.has(thread.id)) {
-      skippedAlreadyProcessedCount++;
-      continue;
-    }
-
     const threadLogger = logger.with({ threadId: thread.id });
 
     try {
@@ -290,6 +263,18 @@ async function processFollowUpsForType({
       const messageDate = internalDateToDate(lastMessage.internalDate);
       if (messageDate >= thresholdWithWindow) {
         skippedTooRecentCount++;
+        continue;
+      }
+
+      if (
+        hasFollowUpBeenProcessed({
+          processedLedger,
+          threadId: thread.id,
+          messageId: lastMessage.id,
+        })
+      ) {
+        skippedAlreadyProcessedCount++;
+        skippedAlreadyProcessedThreadIds.add(thread.id);
         continue;
       }
 
@@ -413,6 +398,17 @@ async function processFollowUpsForType({
     skippedNoLatestMessageCount +
     skippedTooRecentCount;
 
+  if (skippedAlreadyProcessedThreadIds.size > 0) {
+    logger.info("Skipping already-processed threads", {
+      systemType,
+      skipped: skippedAlreadyProcessedThreadIds.size,
+    });
+    logger.trace("Skipped thread IDs for already-processed threads", {
+      systemType,
+      skippedThreadIds: [...skippedAlreadyProcessedThreadIds],
+    });
+  }
+
   logger.info("Finished processing follow-ups", {
     systemType,
     processed: processedCount,
@@ -429,4 +425,51 @@ async function processFollowUpsForType({
 
 function getThresholdWithWindow(threshold: Date, windowMinutes: number): Date {
   return addMinutes(threshold, windowMinutes);
+}
+
+async function getProcessedFollowUpLedger({
+  emailAccountId,
+  trackerType,
+  threadIds,
+}: {
+  emailAccountId: string;
+  trackerType: ThreadTrackerType;
+  threadIds: string[];
+}): Promise<Map<string, Set<string>>> {
+  if (threadIds.length === 0) return new Map();
+
+  const existingTrackers = await prisma.threadTracker.findMany({
+    where: {
+      emailAccountId,
+      threadId: { in: threadIds },
+      type: trackerType,
+      OR: [
+        { followUpAppliedAt: { not: null } },
+        { followUpDraftId: { not: null } },
+      ],
+    },
+    select: { threadId: true, messageId: true },
+  });
+
+  const processedLedger = new Map<string, Set<string>>();
+
+  for (const tracker of existingTrackers) {
+    const messageIds = processedLedger.get(tracker.threadId) ?? new Set<string>();
+    messageIds.add(tracker.messageId);
+    processedLedger.set(tracker.threadId, messageIds);
+  }
+
+  return processedLedger;
+}
+
+function hasFollowUpBeenProcessed({
+  processedLedger,
+  threadId,
+  messageId,
+}: {
+  processedLedger: Map<string, Set<string>>;
+  threadId: string;
+  messageId: string;
+}): boolean {
+  return processedLedger.get(threadId)?.has(messageId) ?? false;
 }

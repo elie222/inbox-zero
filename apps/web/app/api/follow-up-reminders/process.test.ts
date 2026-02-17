@@ -140,7 +140,7 @@ describe("processAccountFollowUps - dedup logic", () => {
 
     // Existing tracker with followUpAppliedAt set
     vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([
-      { threadId: "thread-1" } as any,
+      { threadId: "thread-1", messageId: "msg-1" } as any,
     ]);
 
     await processAccountFollowUps({
@@ -165,7 +165,7 @@ describe("processAccountFollowUps - dedup logic", () => {
 
     // Existing tracker with followUpDraftId set (dedup via draft existence)
     vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([
-      { threadId: "thread-2" } as any,
+      { threadId: "thread-2", messageId: "msg-2" } as any,
     ]);
 
     await processAccountFollowUps({
@@ -173,6 +173,29 @@ describe("processAccountFollowUps - dedup logic", () => {
       logger,
     });
 
+    expect(applyFollowUpLabel).not.toHaveBeenCalled();
+    expect(generateFollowUpDraft).not.toHaveBeenCalled();
+  });
+
+  it("does not process stale trackers when thread is no longer labeled", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi.fn().mockResolvedValue([]),
+      getLatestMessageInThread: vi.fn(),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    // Stale tracker rows exist, but should not matter because thread labels drive eligibility.
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([
+      { threadId: "thread-stale", messageId: "msg-stale" } as any,
+    ]);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(prisma.threadTracker.findMany).not.toHaveBeenCalled();
+    expect(provider.getLatestMessageInThread).not.toHaveBeenCalled();
     expect(applyFollowUpLabel).not.toHaveBeenCalled();
     expect(generateFollowUpDraft).not.toHaveBeenCalled();
   });
@@ -203,6 +226,85 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(applyFollowUpLabel).toHaveBeenCalled();
     expect(prisma.threadTracker.create).toHaveBeenCalled();
     expect(generateFollowUpDraft).toHaveBeenCalled();
+  });
+
+  it("processes the same labeled message only once across repeated runs", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([{ id: "thread-repeat", messages: [], snippet: "" }]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockMessage("msg-repeat", OLD_DATE)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    vi.mocked(prisma.threadTracker.findMany)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { threadId: "thread-repeat", messageId: "msg-repeat" } as any,
+      ]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-repeat",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(applyFollowUpLabel).toHaveBeenCalledTimes(1);
+    expect(generateFollowUpDraft).toHaveBeenCalledTimes(1);
+    expect(prisma.threadTracker.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not create a second draft when duplicate outbound processing resolved the tracker", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([{ id: "thread-replay", messages: [], snippet: "" }]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockMessage("msg-replay", OLD_DATE)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    let findManyCallCount = 0;
+    vi.mocked(prisma.threadTracker.findMany).mockImplementation((args: any) => {
+      findManyCallCount += 1;
+      if (findManyCallCount === 1) return Promise.resolve([]);
+
+      // Simulate outbound replay side effect:
+      // the prior tracker exists but is resolved=true.
+      // If dedup query filters resolved=false, it will miss this row.
+      if (args?.where?.resolved === false) return Promise.resolve([]);
+      return Promise.resolve([
+        { threadId: "thread-replay", messageId: "msg-replay" } as any,
+      ]);
+    });
+
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-replay",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(applyFollowUpLabel).toHaveBeenCalledTimes(1);
+    expect(generateFollowUpDraft).toHaveBeenCalledTimes(1);
+    expect(prisma.threadTracker.create).toHaveBeenCalledTimes(1);
   });
 
   it("skips threads where latest message is newer than threshold", async () => {
@@ -297,7 +399,7 @@ describe("processAccountFollowUps - dedup logic", () => {
 
     // Only thread-old has existing tracker
     vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([
-      { threadId: "thread-old" } as any,
+      { threadId: "thread-old", messageId: "msg-old" } as any,
     ]);
     vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.threadTracker.create).mockResolvedValue({
@@ -325,8 +427,11 @@ describe("processAccountFollowUps - dedup logic", () => {
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
 
-    // No batch dedup hit (simulates cleared followUpAppliedAt)
-    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    // A different message on this thread was already processed.
+    // The new latest message should still be processed once.
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([
+      { threadId: "thread-6", messageId: "msg-6-old" } as any,
+    ]);
     // But findFirst finds an existing unresolved tracker for this thread
     vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue({
       id: "existing-tracker",
