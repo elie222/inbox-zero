@@ -12,7 +12,6 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 
 export default function DebugFollowUpPage() {
   const { emailAccountId } = useAccount();
-  // Keep this account-scoped: useOrgSWR is for endpoints that support org-admin access.
   const { data, isLoading, error } = useSWR<DebugFollowUpResponse>(
     emailAccountId ? ["/api/user/debug/follow-up", emailAccountId] : null,
   );
