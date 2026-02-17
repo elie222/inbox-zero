@@ -374,8 +374,16 @@ export const manageInboxTool = ({
         });
 
         if (parsedInput.action === "bulk_archive_senders") {
+          const fromEmails = parsedInput.fromEmails;
+          if (!fromEmails) {
+            return {
+              error:
+                "fromEmails is required when action is bulk_archive_senders",
+            };
+          }
+
           await emailProvider.bulkArchiveFromSenders(
-            parsedInput.fromEmails,
+            fromEmails,
             email,
             emailAccountId,
           );
@@ -383,13 +391,21 @@ export const manageInboxTool = ({
           return {
             success: true,
             action: parsedInput.action,
-            sendersCount: parsedInput.fromEmails.length,
-            senders: parsedInput.fromEmails,
+            sendersCount: fromEmails.length,
+            senders: fromEmails,
+          };
+        }
+
+        const threadIds = parsedInput.threadIds;
+        if (!threadIds) {
+          return {
+            error:
+              "threadIds is required when action is archive_threads or mark_read_threads",
           };
         }
 
         const threadActionResults = await runThreadActionsInParallel({
-          threadIds: parsedInput.threadIds,
+          threadIds,
           runAction: async (threadId) => {
             if (parsedInput.action === "archive_threads") {
               await emailProvider.archiveThreadWithLabel(
@@ -415,7 +431,7 @@ export const manageInboxTool = ({
         return {
           success: failedThreadIds.length === 0,
           action: parsedInput.action,
-          requestedCount: parsedInput.threadIds.length,
+          requestedCount: threadIds.length,
           successCount,
           failedCount: failedThreadIds.length,
           failedThreadIds,
