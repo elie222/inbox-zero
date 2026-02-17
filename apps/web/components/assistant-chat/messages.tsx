@@ -1,6 +1,7 @@
-import { useMemo, type ReactNode } from "react";
+import { Fragment, useMemo, type ReactNode } from "react";
 import { Overview } from "./overview";
 import { MessagePart } from "./message-part";
+import { MessagingChannelHint } from "./messaging-channel-hint";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
@@ -29,6 +30,10 @@ export function Messages({
   footer,
 }: MessagesProps) {
   const threadLookup = useMemo(() => buildThreadLookup(messages), [messages]);
+  const firstAssistantIndex = useMemo(
+    () => messages.findIndex((m) => m.role === "assistant"),
+    [messages],
+  );
 
   return (
     <Conversation className="flex min-w-0 flex-1">
@@ -39,21 +44,24 @@ export function Messages({
         <div className="flex flex-1 flex-col gap-6">
           {messages.length === 0 && <Overview setInput={setInput} />}
 
-          {messages.map((message) => (
-            <Message from={message.role} key={message.id}>
-              <MessageContent variant="flat">
-                {message.parts?.map((part, index) => (
-                  <MessagePart
-                    key={`${message.id}-${index}`}
-                    part={part}
-                    isStreaming={status === "streaming"}
-                    messageId={message.id}
-                    partIndex={index}
-                    threadLookup={threadLookup}
-                  />
-                ))}
-              </MessageContent>
-            </Message>
+          {messages.map((message, index) => (
+            <Fragment key={message.id}>
+              <Message from={message.role}>
+                <MessageContent variant="flat">
+                  {message.parts?.map((part, partIndex) => (
+                    <MessagePart
+                      key={`${message.id}-${partIndex}`}
+                      part={part}
+                      isStreaming={status === "streaming"}
+                      messageId={message.id}
+                      partIndex={partIndex}
+                      threadLookup={threadLookup}
+                    />
+                  ))}
+                </MessageContent>
+              </Message>
+              {index === firstAssistantIndex && <MessagingChannelHint />}
+            </Fragment>
           ))}
 
           {status === "submitted" &&

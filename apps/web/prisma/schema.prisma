@@ -72,6 +72,7 @@ model User {
   utms                     Json?
   errorMessages            Json? // eg. user set incorrect AI API key
   announcementDismissedAt  DateTime?
+  dismissedHints           String[]  @default([])
 
   // survey answers (extracted from onboardingAnswers for easier querying)
   surveyFeatures     String[] // multiple choice: features user is interested in
