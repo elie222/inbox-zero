@@ -1,4 +1,5 @@
 import { subHours } from "date-fns/subHours";
+import { addMinutes } from "date-fns/addMinutes";
 import prisma from "@/utils/prisma";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -19,6 +20,8 @@ import {
 import { getRuleLabel } from "@/utils/rule/consts";
 import { internalDateToDate } from "@/utils/date";
 import { isDuplicateError } from "@/utils/prisma-helpers";
+
+const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
 
 export async function processAllFollowUpReminders(logger: Logger) {
   logger.info("Processing follow-up reminders for all users");
@@ -224,6 +227,10 @@ async function processFollowUpsForType({
   });
 
   const threshold = subHours(now, thresholdDays * 24);
+  const thresholdWithWindow = getThresholdWithWindow(
+    threshold,
+    FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES,
+  );
   const trackerType =
     systemType === SystemType.AWAITING_REPLY
       ? ThreadTrackerType.AWAITING
@@ -249,10 +256,17 @@ async function processFollowUpsForType({
   const alreadyProcessedIds = new Set(existingTrackers.map((t) => t.threadId));
 
   let processedCount = 0;
-  let skippedCount = 0;
+  let skippedAlreadyProcessedCount = 0;
+  let skippedNoLatestMessageCount = 0;
+  let skippedTooRecentCount = 0;
+  let errorCount = 0;
 
   if (alreadyProcessedIds.size > 0) {
     logger.info("Skipping already-processed threads", {
+      systemType,
+      skipped: alreadyProcessedIds.size,
+    });
+    logger.trace("Skipped thread IDs for already-processed threads", {
       systemType,
       skippedThreadIds: [...alreadyProcessedIds],
     });
@@ -260,7 +274,7 @@ async function processFollowUpsForType({
 
   for (const thread of threads) {
     if (alreadyProcessedIds.has(thread.id)) {
-      skippedCount++;
+      skippedAlreadyProcessedCount++;
       continue;
     }
 
@@ -268,10 +282,16 @@ async function processFollowUpsForType({
 
     try {
       const lastMessage = await provider.getLatestMessageInThread(thread.id);
-      if (!lastMessage) continue;
+      if (!lastMessage) {
+        skippedNoLatestMessageCount++;
+        continue;
+      }
 
       const messageDate = internalDateToDate(lastMessage.internalDate);
-      if (messageDate >= threshold) continue;
+      if (messageDate >= thresholdWithWindow) {
+        skippedTooRecentCount++;
+        continue;
+      }
 
       await applyFollowUpLabel({
         provider,
@@ -382,15 +402,31 @@ async function processFollowUpsForType({
       });
       processedCount++;
     } catch (error) {
+      errorCount++;
       threadLogger.error("Failed to process thread", { error });
       captureException(error);
     }
   }
+
+  const skippedCount =
+    skippedAlreadyProcessedCount +
+    skippedNoLatestMessageCount +
+    skippedTooRecentCount;
 
   logger.info("Finished processing follow-ups", {
     systemType,
     processed: processedCount,
     skipped: skippedCount,
     total: threads.length,
+    skippedAlreadyProcessed: skippedAlreadyProcessedCount,
+    skippedNoLatestMessage: skippedNoLatestMessageCount,
+    skippedTooRecent: skippedTooRecentCount,
+    errors: errorCount,
+    eligibilityWindowMinutes: FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES,
+    thresholdDays,
   });
+}
+
+function getThresholdWithWindow(threshold: Date, windowMinutes: number): Date {
+  return addMinutes(threshold, windowMinutes);
 }

@@ -56,6 +56,7 @@ const logger = createScopedLogger("test-follow-up");
 
 const OLD_DATE = "1700000000000"; // Nov 2023 - well past any threshold
 const RECENT_DATE = String(Date.now()); // Now - within threshold
+const MINUTE_MS = 60_000;
 
 function createMockAccount(
   overrides?: Partial<
@@ -224,6 +225,35 @@ describe("processAccountFollowUps - dedup logic", () => {
     // Thread found but skipped because message is too recent
     expect(applyFollowUpLabel).not.toHaveBeenCalled();
     expect(generateFollowUpDraft).not.toHaveBeenCalled();
+  });
+
+  it("processes threads that fall within the 15-minute eligibility window", async () => {
+    const twentyMinutesAgo = String(Date.now() - 20 * MINUTE_MS);
+
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([{ id: "thread-window", messages: [], snippet: "" }]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockMessage("msg-window", twentyMinutesAgo)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-window",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount({
+        followUpAwaitingReplyDays: 30 / (24 * 60),
+      }),
+      logger,
+    });
+
+    expect(applyFollowUpLabel).toHaveBeenCalled();
+    expect(generateFollowUpDraft).toHaveBeenCalled();
   });
 
   it("does not generate drafts when followUpAutoDraftEnabled is false", async () => {
