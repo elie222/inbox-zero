@@ -96,6 +96,13 @@ services:
         ) &
         (
           while true; do
+            echo \"[cron] Processing automation jobs...\"
+            curl -s -X GET 'http://web:3000/api/cron/automation-jobs' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: automation-jobs request failed\"
+            sleep 60
+          done
+        ) &
+        (
+          while true; do
             echo \"[cron] Processing follow-up reminders...\"
             curl -s -X GET 'http://web:3000/api/follow-up-reminders' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: follow-up-reminders request failed\"
             sleep 1800
