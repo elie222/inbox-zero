@@ -814,6 +814,7 @@ describe("aiProcessAssistantChat", () => {
     mockCreateEmailProvider.mockResolvedValue({
       sendEmailWithHtml: vi.fn(),
     });
+    const providerCallsBefore = mockCreateEmailProvider.mock.calls.length;
 
     const result = await tools.sendEmail.execute({
       to: "recipient@example.test",
@@ -825,7 +826,7 @@ describe("aiProcessAssistantChat", () => {
     expect(result).toEqual({
       error: 'Invalid sendEmail input: unsupported field "from"',
     });
-    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+    expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
   });
 
   it("rejects unsupported bcc field in chat send params", async () => {
@@ -833,6 +834,7 @@ describe("aiProcessAssistantChat", () => {
     mockCreateEmailProvider.mockResolvedValue({
       sendEmailWithHtml: vi.fn(),
     });
+    const providerCallsBefore = mockCreateEmailProvider.mock.calls.length;
 
     const result = await tools.sendEmail.execute({
       to: "recipient@example.test",
@@ -844,7 +846,7 @@ describe("aiProcessAssistantChat", () => {
     expect(result).toEqual({
       error: 'Invalid sendEmail input: unsupported field "bcc"',
     });
-    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+    expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
   });
 
   it("registers saveMemory tool", async () => {
