@@ -2,16 +2,18 @@
 
 import { useCallback, useState } from "react";
 import { CopyIcon, CheckIcon } from "lucide-react";
-import useSWR from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeading } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import type { DebugFollowUpResponse } from "@/app/api/user/debug/follow-up/route";
+import { useOrgSWR } from "@/hooks/useOrgSWR";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export default function DebugFollowUpPage() {
-  const { data, isLoading, error } = useSWR<DebugFollowUpResponse>(
-    "/api/user/debug/follow-up",
+  const { emailAccountId } = useAccount();
+  const { data, isLoading, error } = useOrgSWR<DebugFollowUpResponse>(
+    emailAccountId ? "/api/user/debug/follow-up" : null,
   );
   const [copied, setCopied] = useState(false);
 
