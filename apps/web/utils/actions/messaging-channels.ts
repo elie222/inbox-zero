@@ -26,7 +26,7 @@ export const updateSlackChannelAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, logger },
-      parsedInput: { channelId, targetId, targetName },
+      parsedInput: { channelId, targetId },
     }) => {
       const channel = await prisma.messagingChannel.findUnique({
         where: { id: channelId },
