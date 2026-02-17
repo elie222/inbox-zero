@@ -4,13 +4,20 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createEmailProvider } from "@/utils/email/provider";
-import { sendEmailBody } from "@/utils/gmail/mail";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
+const sendEmailToolInputSchema = z
+  .object({
+    to: z.string().trim().min(1),
+    cc: z.string().trim().min(1).optional(),
+    subject: z.string().trim().min(1).max(300),
+    messageHtml: z.string().trim().min(1),
+  })
+  .strict();
 
 export const getAccountOverviewTool = ({
   email,
@@ -586,9 +593,14 @@ export const sendEmailTool = ({
   tool({
     description:
       "Send an email immediately from the connected mailbox. Use only when the user clearly asks to send now.",
-    inputSchema: sendEmailBody,
+    inputSchema: sendEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "send_email", email, logger });
+
+      const parsedInput = sendEmailToolInputSchema.safeParse(input);
+      if (!parsedInput.success) {
+        return { error: getSendEmailValidationError(parsedInput.error) };
+      }
 
       try {
         const emailProvider = await createEmailProvider({
@@ -596,13 +608,13 @@ export const sendEmailTool = ({
           provider,
           logger,
         });
-        const result = await emailProvider.sendEmailWithHtml(input);
+        const result = await emailProvider.sendEmailWithHtml(parsedInput.data);
         return {
           success: true,
           messageId: result.messageId,
           threadId: result.threadId,
-          to: input.to,
-          subject: input.subject,
+          to: parsedInput.data.to,
+          subject: parsedInput.data.subject,
         };
       } catch (error) {
         logger.error("Failed to send email from chat", { error });
@@ -821,4 +833,22 @@ function getManageInboxValidationError(error: z.ZodError) {
   if (!field) return `Invalid manageInbox input: ${firstIssue.message}`;
 
   return `Invalid manageInbox input: ${field} ${firstIssue.message}`;
+}
+
+function getSendEmailValidationError(error: z.ZodError) {
+  const firstIssue = error.issues[0];
+  if (!firstIssue) return "Invalid sendEmail input";
+
+  if (firstIssue.code === "unrecognized_keys") {
+    const firstKey = firstIssue.keys[0];
+    if (firstKey) {
+      return `Invalid sendEmail input: unsupported field "${firstKey}"`;
+    }
+    return "Invalid sendEmail input: unsupported fields";
+  }
+
+  const field = firstIssue.path.map(String).join(".");
+  if (!field) return `Invalid sendEmail input: ${firstIssue.message}`;
+
+  return `Invalid sendEmail input: ${field} ${firstIssue.message}`;
 }
