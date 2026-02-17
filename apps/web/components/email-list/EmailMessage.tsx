@@ -330,8 +330,9 @@ const prepareReplyingToEmail = (
     subject: sentFromUser
       ? message.headers.subject
       : formatReplySubject(message.headers.subject),
-    headerMessageId: message.headers["message-id"]!,
-    threadId: message.threadId!,
+    headerMessageId: message.headers["message-id"] || "",
+    messageId: message.id || undefined,
+    threadId: message.threadId || "",
     // Keep original CC
     cc: message.headers.cc,
     // Keep original BCC if available
@@ -346,7 +347,7 @@ const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
   to: "",
   subject: forwardEmailSubject(message.headers.subject),
   headerMessageId: "",
-  threadId: message.threadId!,
+  threadId: message.threadId || "",
   cc: "",
   references: "",
   draftHtml: forwardEmailHtml({ content: "", message }),
@@ -359,8 +360,9 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
   return {
     to: draft.headers.to,
     subject: draft.headers.subject,
-    headerMessageId: draft.headers["message-id"]!,
-    threadId: draft.threadId!,
+    headerMessageId: draft.headers["message-id"] || "",
+    messageId: draft.id || undefined,
+    threadId: draft.threadId || "",
     cc: draft.headers.cc,
     bcc: draft.headers.bcc,
     references: draft.headers.references,

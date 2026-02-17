@@ -31,6 +31,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 export type ReplyingToEmail = {
   threadId: string;
   headerMessageId: string;
+  messageId?: string;
   references?: string;
   subject: string;
   to: string;
