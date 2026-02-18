@@ -18,6 +18,15 @@ const sendEmailToolInputSchema = z
     messageHtml: z.string().trim().min(1),
   })
   .strict();
+const forwardEmailToolInputSchema = z
+  .object({
+    messageId: z.string().trim().min(1),
+    to: z.string().trim().min(1),
+    cc: z.string().trim().min(1).optional(),
+    bcc: z.string().trim().min(1).optional(),
+    content: z.string().trim().max(5_000).optional(),
+  })
+  .strict();
 
 export const getAccountOverviewTool = ({
   email,
@@ -625,6 +634,56 @@ export const sendEmailTool = ({
 
 export type SendEmailTool = InferUITool<ReturnType<typeof sendEmailTool>>;
 
+export const forwardEmailTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Forward an existing email by message ID. Use messageId values from searchInbox results.",
+    inputSchema: forwardEmailToolInputSchema,
+    execute: async (input) => {
+      trackToolCall({ tool: "forward_email", email, logger });
+
+      const parsedInput = forwardEmailToolInputSchema.safeParse(input);
+      if (!parsedInput.success) {
+        return { error: getForwardEmailValidationError(parsedInput.error) };
+      }
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+        const message = await emailProvider.getMessage(parsedInput.data.messageId);
+        await emailProvider.forwardEmail(message, {
+          to: parsedInput.data.to,
+          cc: parsedInput.data.cc,
+          bcc: parsedInput.data.bcc,
+          content: parsedInput.data.content || undefined,
+        });
+        return {
+          success: true,
+          messageId: parsedInput.data.messageId,
+          to: parsedInput.data.to,
+        };
+      } catch (error) {
+        logger.error("Failed to forward email from chat", { error });
+        return { error: "Failed to forward email" };
+      }
+    },
+  });
+
+export type ForwardEmailTool = InferUITool<ReturnType<typeof forwardEmailTool>>;
+
 async function trackToolCall({
   tool,
   email,
@@ -851,4 +910,22 @@ function getSendEmailValidationError(error: z.ZodError) {
   if (!field) return `Invalid sendEmail input: ${firstIssue.message}`;
 
   return `Invalid sendEmail input: ${field} ${firstIssue.message}`;
+}
+
+function getForwardEmailValidationError(error: z.ZodError) {
+  const firstIssue = error.issues[0];
+  if (!firstIssue) return "Invalid forwardEmail input";
+
+  if (firstIssue.code === "unrecognized_keys") {
+    const firstKey = firstIssue.keys[0];
+    if (firstKey) {
+      return `Invalid forwardEmail input: unsupported field "${firstKey}"`;
+    }
+    return "Invalid forwardEmail input: unsupported fields";
+  }
+
+  const field = firstIssue.path.map(String).join(".");
+  if (!field) return `Invalid forwardEmail input: ${firstIssue.message}`;
+
+  return `Invalid forwardEmail input: ${field} ${firstIssue.message}`;
 }
