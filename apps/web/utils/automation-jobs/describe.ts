@@ -29,8 +29,17 @@ export function describeCronSchedule(cronExpression: string): string {
       timeZone: tz,
     });
 
+    const now = new Date();
     const localTimes = utcHours.map((h) => {
-      const utcDate = new Date(Date.UTC(2025, 0, 6, h, minute));
+      const utcDate = new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate(),
+          h,
+          minute,
+        ),
+      );
       return timeFormatter.format(utcDate);
     });
 

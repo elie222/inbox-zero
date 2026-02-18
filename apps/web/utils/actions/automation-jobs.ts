@@ -183,11 +183,32 @@ export const triggerTestCheckInAction = actionClient
     const job = await prisma.automationJob.findFirst({
       where: { emailAccountId, enabled: true },
       orderBy: { createdAt: "asc" },
-      select: { id: true },
+      select: {
+        id: true,
+        messagingChannel: {
+          select: {
+            provider: true,
+            isConnected: true,
+            accessToken: true,
+            providerUserId: true,
+            channelId: true,
+          },
+        },
+      },
     });
 
     if (!job) {
       throw new SafeError("No active check-in configured");
+    }
+
+    const channel = job.messagingChannel;
+    if (
+      channel.provider !== MessagingProvider.SLACK ||
+      !channel.isConnected ||
+      !channel.accessToken ||
+      (!channel.providerUserId && !channel.channelId)
+    ) {
+      throw new SafeError("Slack channel is not connected");
     }
 
     const run = await prisma.automationJobRun.create({
