@@ -156,7 +156,7 @@ export const POST = withError(
           status: AutomationJobRunStatus.SENT,
           processedAt: new Date(),
           outboundMessage,
-          slackMessageTs: slackResult.messageTs,
+          providerMessageId: slackResult.messageId,
           error: null,
         },
       });

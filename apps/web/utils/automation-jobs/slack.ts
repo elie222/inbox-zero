@@ -67,7 +67,7 @@ export async function sendAutomationMessageToSlack({
 
     return {
       channelId: destinationChannelId,
-      messageTs: response.ts ?? null,
+      messageId: response.ts ?? null,
     };
   } catch (error) {
     if (isSlackError(error) && error.data?.error === "not_in_channel") {
@@ -89,7 +89,7 @@ export async function sendAutomationMessageToSlack({
 
       return {
         channelId: channel.channelId,
-        messageTs: response.ts ?? null,
+        messageId: response.ts ?? null,
       };
     }
 

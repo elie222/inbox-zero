@@ -1084,8 +1084,8 @@ model AutomationJobRun {
   processedAt  DateTime?
 
   outboundMessage String? @db.Text
-  slackMessageTs  String?
-  error           String? @db.Text
+  providerMessageId String? // Provider message ID (e.g. Slack `ts`)
+  error             String? @db.Text
 
   automationJobId String
   automationJob   AutomationJob @relation(fields: [automationJobId], references: [id], onDelete: Cascade)
