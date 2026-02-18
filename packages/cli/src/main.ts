@@ -1555,12 +1555,6 @@ const CONFIG_CATEGORIES: Record<
       "DIRECT_URL",
       "UPSTASH_REDIS_URL",
       "UPSTASH_REDIS_TOKEN",
-      "POSTGRES_PORT",
-      "REDIS_PORT",
-      "REDIS_HTTP_PORT",
-      "POSTGRES_BIND_HOST",
-      "REDIS_BIND_HOST",
-      "REDIS_HTTP_BIND_HOST",
     ],
   },
   "App Settings": {
