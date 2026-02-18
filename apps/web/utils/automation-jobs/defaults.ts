@@ -1,23 +1,29 @@
 import { AutomationJobType } from "@/generated/prisma/enums";
 
-export const DEFAULT_AUTOMATION_JOB_CRON = "0 9,15 * * 1-5";
+export const DEFAULT_AUTOMATION_JOB_CRON = "0 9,14 * * 1-5";
 
 export const AUTOMATION_CRON_PRESETS = [
   {
+    id: "MORNING",
+    label: "Morning",
+    cronExpression: "0 9 * * 1-5",
+    scheduleText: "Weekdays at 9:00 AM",
+  },
+  {
+    id: "TWICE_DAILY",
+    label: "Twice daily",
     cronExpression: DEFAULT_AUTOMATION_JOB_CRON,
-    label: "Twice daily (weekdays)",
+    scheduleText: "Weekdays at 9:00 AM and 2:00 PM",
   },
   {
-    cronExpression: "0 9 * * *",
-    label: "Daily (morning)",
-  },
-  {
-    cronExpression: "0 */3 * * *",
-    label: "Every 3 hours",
+    id: "EVENING",
+    label: "Evening",
+    cronExpression: "0 17 * * 1-5",
+    scheduleText: "Weekdays at 5:00 PM",
   },
 ] as const;
 
 export function getDefaultAutomationJobName(jobType: AutomationJobType) {
   if (jobType === AutomationJobType.INBOX_SUMMARY) return "Inbox summary";
-  return "Inbox check-in";
+  return "Scheduled check-ins";
 }

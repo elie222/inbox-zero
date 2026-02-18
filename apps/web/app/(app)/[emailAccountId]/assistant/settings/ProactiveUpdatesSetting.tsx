@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -41,14 +42,13 @@ import {
 
 export function ProactiveUpdatesSetting() {
   const [open, setOpen] = useState(false);
-  const [jobType, setJobType] = useState<AutomationJobType>(
-    AutomationJobType.INBOX_NUDGE,
-  );
   const [cronExpression, setCronExpression] = useState(
     DEFAULT_AUTOMATION_JOB_CRON,
   );
   const [messagingChannelId, setMessagingChannelId] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [showCronEditor, setShowCronEditor] = useState(false);
+  const [showCustomPrompt, setShowCustomPrompt] = useState(false);
 
   const { emailAccountId } = useAccount();
   const { data, isLoading, mutate } = useAutomationJob(emailAccountId);
@@ -72,13 +72,15 @@ export function ProactiveUpdatesSetting() {
   const hasConnectedSlack = connectedSlackChannels.length > 0;
   const job = data?.job ?? null;
   const enabled = Boolean(job?.enabled);
+  const resolvedJobType = job?.jobType ?? AutomationJobType.INBOX_NUDGE;
 
   useEffect(() => {
     if (!open) return;
 
-    setJobType(job?.jobType ?? AutomationJobType.INBOX_NUDGE);
     setCronExpression(job?.cronExpression ?? DEFAULT_AUTOMATION_JOB_CRON);
     setPrompt(job?.prompt ?? "");
+    setShowCustomPrompt(Boolean(job?.prompt?.trim()));
+    setShowCronEditor(false);
     setMessagingChannelId(
       job?.messagingChannelId ?? connectedSlackChannels[0]?.id ?? "",
     );
@@ -89,7 +91,7 @@ export function ProactiveUpdatesSetting() {
     {
       onSuccess: () => {
         mutate();
-        toastSuccess({ description: "Proactive updates updated" });
+        toastSuccess({ description: "Scheduled check-ins updated" });
       },
       onError: (error) => {
         mutate();
@@ -108,7 +110,7 @@ export function ProactiveUpdatesSetting() {
         mutate();
         mutateChannels();
         setOpen(false);
-        toastSuccess({ description: "Proactive update settings saved" });
+        toastSuccess({ description: "Scheduled check-in settings saved" });
       },
       onError: (error) => {
         toastError({
@@ -127,42 +129,41 @@ export function ProactiveUpdatesSetting() {
     [emailAccountId, hasConnectedSlack, executeToggle],
   );
 
-  const scheduleOptions = useMemo(() => {
-    if (
-      AUTOMATION_CRON_PRESETS.some(
+  const selectedPreset = useMemo(() => {
+    return (
+      AUTOMATION_CRON_PRESETS.find(
         (preset) => preset.cronExpression === cronExpression,
-      )
-    ) {
-      return AUTOMATION_CRON_PRESETS;
-    }
-
-    return [
-      ...AUTOMATION_CRON_PRESETS,
-      { cronExpression, label: `Custom (${cronExpression})` },
-    ];
+      ) ?? null
+    );
   }, [cronExpression]);
+
+  const scheduleText = selectedPreset
+    ? selectedPreset.scheduleText
+    : `Custom cron: ${cronExpression}`;
 
   const handleSave = useCallback(() => {
     if (!messagingChannelId) return;
 
     executeSave({
       cronExpression,
-      jobType,
+      jobType: resolvedJobType,
       messagingChannelId,
       prompt,
     });
-  }, [cronExpression, jobType, messagingChannelId, prompt, executeSave]);
+  }, [
+    cronExpression,
+    resolvedJobType,
+    messagingChannelId,
+    prompt,
+    executeSave,
+  ]);
 
   const showLoading = isLoading || isLoadingChannels;
 
   return (
     <SettingCard
-      title="Proactive updates"
-      description={
-        hasConnectedSlack
-          ? "Send inbox nudges or summaries to Slack on a schedule."
-          : "Connect Slack in Settings to enable proactive updates."
-      }
+      title="Scheduled check-ins"
+      description="Get inbox briefings on a schedule. Reply to take action."
       right={
         showLoading ? (
           <Skeleton className="h-5 w-24" />
@@ -181,109 +182,139 @@ export function ProactiveUpdatesSetting() {
                     Configure
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Proactive updates</DialogTitle>
-                    <DialogDescription>
-                      Choose what to send, when to send it, and where to send it
-                      in Slack.
-                    </DialogDescription>
-                  </DialogHeader>
+                <DialogContent className="max-w-5xl p-0">
+                  <div className="grid divide-y md:grid-cols-2 md:divide-x md:divide-y-0">
+                    <div className="p-6">
+                      <DialogHeader className="space-y-2">
+                        <DialogTitle>Scheduled check-ins</DialogTitle>
+                        <DialogDescription>
+                          Your assistant messages you with inbox updates. Reply
+                          to take action.
+                        </DialogDescription>
+                      </DialogHeader>
 
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="proactive-job-type">Message type</Label>
-                      <Select
-                        value={jobType}
-                        onValueChange={(value) =>
-                          setJobType(value as AutomationJobType)
-                        }
-                      >
-                        <SelectTrigger id="proactive-job-type">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={AutomationJobType.INBOX_NUDGE}>
-                            Quick nudge
-                          </SelectItem>
-                          <SelectItem value={AutomationJobType.INBOX_SUMMARY}>
-                            Inbox summary
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                      <div className="mt-6 space-y-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="scheduled-checkins-channel">
+                            Slack channel
+                          </Label>
+                          <Select
+                            value={messagingChannelId}
+                            onValueChange={setMessagingChannelId}
+                          >
+                            <SelectTrigger id="scheduled-checkins-channel">
+                              <SelectValue placeholder="Select a Slack channel" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {connectedSlackChannels.map((channel) => (
+                                <SelectItem key={channel.id} value={channel.id}>
+                                  {formatSlackChannelLabel(channel)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Telegram & WhatsApp coming soon
+                          </p>
+                        </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="proactive-cron">Schedule</Label>
-                      <Select
-                        value={cronExpression}
-                        onValueChange={setCronExpression}
-                      >
-                        <SelectTrigger id="proactive-cron">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {scheduleOptions.map((preset) => (
-                            <SelectItem
-                              key={preset.cronExpression}
-                              value={preset.cronExpression}
+                        <div className="space-y-3">
+                          <Label>Schedule</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {AUTOMATION_CRON_PRESETS.map((preset) => (
+                              <Button
+                                key={preset.id}
+                                type="button"
+                                variant={
+                                  selectedPreset?.id === preset.id
+                                    ? "default"
+                                    : "outline"
+                                }
+                                className="w-full"
+                                onClick={() => {
+                                  setCronExpression(preset.cronExpression);
+                                  setShowCronEditor(false);
+                                }}
+                              >
+                                {preset.label}
+                              </Button>
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{scheduleText}</span>
+                            <button
+                              type="button"
+                              className="underline underline-offset-2"
+                              onClick={() =>
+                                setShowCronEditor((value) => !value)
+                              }
                             >
-                              {preset.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                              {showCronEditor ? "done" : "edit"}
+                            </button>
+                          </div>
+                          {showCronEditor && (
+                            <Input
+                              value={cronExpression}
+                              onChange={(event) =>
+                                setCronExpression(event.target.value)
+                              }
+                              placeholder="Cron expression in UTC"
+                            />
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            className="text-sm text-muted-foreground"
+                            onClick={() =>
+                              setShowCustomPrompt((value) => !value)
+                            }
+                          >
+                            + Customize what's included
+                          </button>
+                          {showCustomPrompt && (
+                            <Textarea
+                              id="scheduled-checkins-prompt"
+                              placeholder="Add custom instructions for what should be included."
+                              value={prompt}
+                              onChange={(event) =>
+                                setPrompt(event.target.value)
+                              }
+                            />
+                          )}
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                            disabled={saveStatus === "executing"}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleSave}
+                            disabled={
+                              !messagingChannelId || saveStatus === "executing"
+                            }
+                          >
+                            {saveStatus === "executing" ? "Saving..." : "Save"}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="proactive-channel">
-                        Slack destination
-                      </Label>
-                      <Select
-                        value={messagingChannelId}
-                        onValueChange={setMessagingChannelId}
-                      >
-                        <SelectTrigger id="proactive-channel">
-                          <SelectValue placeholder="Select a Slack connection" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {connectedSlackChannels.map((channel) => (
-                            <SelectItem key={channel.id} value={channel.id}>
-                              {formatSlackChannelLabel(channel)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="proactive-prompt">
-                        Custom prompt (optional)
-                      </Label>
-                      <Textarea
-                        id="proactive-prompt"
-                        placeholder="Add instructions for what to include."
-                        value={prompt}
-                        onChange={(event) => setPrompt(event.target.value)}
-                      />
-                    </div>
-
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setOpen(false)}
-                        disabled={saveStatus === "executing"}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={handleSave}
-                        disabled={
-                          !messagingChannelId || saveStatus === "executing"
-                        }
-                      >
-                        {saveStatus === "executing" ? "Saving..." : "Save"}
-                      </Button>
+                    <div className="bg-muted/20 p-6">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        How it works
+                      </p>
+                      <HowItWorksPreview />
+                      <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+                        <p>- AI sends check-ins at your scheduled times</p>
+                        <p>- Reply in Slack to take action</p>
+                        <p>- Handle replies, archive, or snooze from chat</p>
+                      </div>
                     </div>
                   </div>
                 </DialogContent>
@@ -316,4 +347,29 @@ function formatSlackChannelLabel(channel: {
   if (channel.channelId) return `Channel ${channel.channelId}`;
   if (channel.teamName) return channel.teamName;
   return "Slack workspace";
+}
+
+function HowItWorksPreview() {
+  return (
+    <div className="mt-3 rounded-md border bg-background p-3 text-sm">
+      <p className="text-xs text-muted-foreground">#inbox-updates</p>
+      <div className="mt-3 space-y-3">
+        <div className="rounded-md bg-muted/50 p-2">
+          <p className="font-medium">Inbox Zero</p>
+          <p className="text-muted-foreground">You have 7 new emails.</p>
+          <p className="text-muted-foreground">2 urgent, 5 low priority.</p>
+        </div>
+        <div className="rounded-md border border-blue-100 bg-blue-50 p-2">
+          <p className="font-medium text-blue-900">You</p>
+          <p className="text-blue-900">Reply to Sara: Let's do Thursday 2pm.</p>
+        </div>
+        <div className="rounded-md bg-muted/50 p-2">
+          <p className="font-medium">Inbox Zero</p>
+          <p className="text-muted-foreground">
+            Draft ready to send. Archive the rest?
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
