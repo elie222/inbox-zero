@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import { getInternalApiUrl } from "@/utils/internal-api";
 import {
   getCronSecretHeader,
   hasCronSecret,
@@ -61,14 +60,12 @@ async function sendSummaryAllUpdate(logger: Logger) {
 
   logger.info("Sending summary to users", { count: emailAccounts.length });
 
-  const url = `${getInternalApiUrl()}/api/resend/summary`;
-
   for (const emailAccount of emailAccounts) {
     try {
       await publishToQstashQueue<SendSummaryEmailBody>({
         queueName: "email-summary-all",
         parallelism: 3, // Allow up to 3 concurrent jobs from this queue
-        url,
+        path: "/api/resend/summary",
         body: { emailAccountId: emailAccount.id },
         headers: getCronSecretHeader(),
       });

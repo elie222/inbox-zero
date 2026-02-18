@@ -54,67 +54,131 @@ async function loadUpstashModule({ qstashToken }: { qstashToken?: string }) {
   return import("./index");
 }
 
+describe("publishToQstash", () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("uses public base URL for QStash when configured", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({ qstashToken: "token" });
+
+    await upstash.publishToQstash("/api/process", { id: 1 });
+
+    expect(mockPublishJSON).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://public.example.com/api/process",
+      }),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to internal URL when QStash client is unavailable", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({ qstashToken: undefined });
+
+    await upstash.publishToQstash("/api/process", { id: 1 });
+
+    expect(mockPublishJSON).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://web:3000/api/process",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("handles trailing slash on NEXT_PUBLIC_BASE_URL", async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+
+    const MockClient = vi.fn(function MockClient() {
+      return {
+        publishJSON: mockPublishJSON,
+        batchJSON: mockBatchJSON,
+        queue: vi.fn(() => ({
+          upsert: mockQueueUpsert,
+          enqueueJSON: mockQueueEnqueueJSON,
+        })),
+      };
+    });
+
+    vi.doMock("@upstash/qstash", () => ({ Client: MockClient }));
+    vi.doMock("next/server", () => ({
+      after: (callback: () => Promise<void>) => {
+        callback();
+      },
+    }));
+    vi.doMock("@/env", () => ({
+      env: {
+        QSTASH_TOKEN: "token",
+        NEXT_PUBLIC_BASE_URL: "https://public.example.com/",
+        INTERNAL_API_KEY: "internal-api-key",
+      },
+    }));
+    vi.doMock("@/utils/internal-api", () => ({
+      INTERNAL_API_KEY_HEADER: "x-api-key",
+      getInternalApiUrl: () => "http://web:3000",
+    }));
+
+    const upstash = await import("./index");
+    setupFetchMock();
+
+    await upstash.publishToQstash("/api/process", { id: 1 });
+
+    expect(mockPublishJSON).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://public.example.com/api/process",
+      }),
+    );
+  });
+});
+
 describe("bulkPublishToQstash", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("uses QStash when configured and all URLs are reachable", async () => {
+  it("uses public base URL for QStash when configured", async () => {
     const fetchMock = setupFetchMock();
     const upstash = await loadUpstashModule({ qstashToken: "token" });
 
     await upstash.bulkPublishToQstash({
       items: [
-        {
-          url: "http://web:3000/api/internal",
-          body: { id: 1 },
-        },
-        {
-          url: "https://api.example.com/task",
-          body: { id: 2 },
-        },
+        { path: "/api/task-one", body: { id: 1 } },
+        { path: "/api/task-two", body: { id: 2 } },
       ],
     });
 
     expect(mockBatchJSON).toHaveBeenCalledTimes(1);
     const [batchItems] = mockBatchJSON.mock.calls[0];
     expect(batchItems).toHaveLength(2);
-    expect(batchItems[0].url).toBe("https://public.example.com/api/internal");
-    expect(batchItems[1].url).toBe("https://api.example.com/task");
+    expect(batchItems[0].url).toBe("https://public.example.com/api/task-one");
+    expect(batchItems[1].url).toBe("https://public.example.com/api/task-two");
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("throws when QStash is configured and any URL is unreachable", async () => {
-    const fetchMock = setupFetchMock();
-    const upstash = await loadUpstashModule({ qstashToken: "token" });
-
-    await expect(
-      upstash.bulkPublishToQstash({
-        items: [
-          { url: "https://api.example.com/task", body: { id: 1 } },
-          { url: "http://10.0.0.1/private", body: { id: 2 } },
-        ],
-      }),
-    ).rejects.toThrow("QStash callback URL is unreachable");
-
-    expect(mockBatchJSON).not.toHaveBeenCalled();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("falls back for all items when QStash client is unavailable", async () => {
+  it("falls back to internal URL for all items when QStash client is unavailable", async () => {
     const fetchMock = setupFetchMock();
     const upstash = await loadUpstashModule({ qstashToken: undefined });
 
     await upstash.bulkPublishToQstash({
       items: [
-        { url: "https://api.example.com/one", body: { id: 1 } },
-        { url: "https://api.example.com/two", body: { id: 2 } },
+        { path: "/api/task-one", body: { id: 1 } },
+        { path: "/api/task-two", body: { id: 2 } },
       ],
     });
 
     expect(mockBatchJSON).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://web:3000/api/task-one",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://web:3000/api/task-two",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 });
 
@@ -123,41 +187,31 @@ describe("publishToQstashQueue", () => {
     vi.unstubAllGlobals();
   });
 
-  it("throws for link-local and cgnat URLs when QStash is configured", async () => {
+  it("uses public base URL for QStash when configured", async () => {
     const fetchMock = setupFetchMock();
     const upstash = await loadUpstashModule({ qstashToken: "token" });
 
-    await expect(
-      upstash.publishToQstashQueue({
-        queueName: "test",
-        parallelism: 1,
-        url: "http://169.254.1.10/task",
-        body: { id: "a" },
-      }),
-    ).rejects.toThrow("QStash callback URL is unreachable");
+    await upstash.publishToQstashQueue({
+      queueName: "test",
+      parallelism: 1,
+      path: "/api/task",
+      body: { id: "a" },
+    });
 
-    await expect(
-      upstash.publishToQstashQueue({
-        queueName: "test",
-        parallelism: 1,
-        url: "http://100.64.1.10/task",
-        body: { id: "b" },
-      }),
-    ).rejects.toThrow("QStash callback URL is unreachable");
-
-    expect(mockQueueUpsert).not.toHaveBeenCalled();
-    expect(mockQueueEnqueueJSON).not.toHaveBeenCalled();
+    expect(mockQueueEnqueueJSON).toHaveBeenCalledWith(
+      expect.objectContaining({ url: "https://public.example.com/api/task" }),
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("falls back when QStash client is unavailable", async () => {
+  it("falls back to internal URL when QStash client is unavailable", async () => {
     const fetchMock = setupFetchMock();
     const upstash = await loadUpstashModule({ qstashToken: undefined });
 
     await upstash.publishToQstashQueue({
       queueName: "test",
       parallelism: 1,
-      url: "http://169.254.1.10/task",
+      path: "/api/task",
       body: { id: "a" },
     });
 
@@ -165,7 +219,7 @@ describe("publishToQstashQueue", () => {
     expect(mockQueueEnqueueJSON).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://169.254.1.10/task",
+      "http://web:3000/api/task",
       expect.objectContaining({ method: "POST" }),
     );
   });

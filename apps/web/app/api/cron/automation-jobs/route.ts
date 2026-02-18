@@ -5,7 +5,6 @@ import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
-import { getInternalApiUrl } from "@/utils/internal-api";
 import { getNextAutomationJobRunAt } from "@/utils/automation-jobs/cron";
 import {
   AutomationJobRunStatus,
@@ -74,8 +73,6 @@ async function enqueueDueAutomationJobs(logger: Logger) {
   let skipped = 0;
   let failed = 0;
 
-  const executeUrl = `${getInternalApiUrl()}/api/automation-jobs/execute`;
-
   for (const job of dueJobs) {
     const jobLogger = logger.with({
       automationJobId: job.id,
@@ -102,7 +99,7 @@ async function enqueueDueAutomationJobs(logger: Logger) {
       await publishToQstashQueue({
         queueName: "automation-jobs",
         parallelism: 3,
-        url: executeUrl,
+        path: "/api/automation-jobs/execute",
         body: { automationJobRunId: runId },
       });
 

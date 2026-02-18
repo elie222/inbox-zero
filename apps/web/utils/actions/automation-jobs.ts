@@ -24,7 +24,6 @@ import {
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
 import { publishToQstashQueue } from "@/utils/upstash";
-import { getInternalApiUrl } from "@/utils/internal-api";
 
 export const toggleAutomationJobAction = actionClient
   .metadata({ name: "toggleAutomationJob" })
@@ -200,12 +199,10 @@ export const triggerTestCheckInAction = actionClient
       select: { id: true },
     });
 
-    const executeUrl = `${getInternalApiUrl()}/api/automation-jobs/execute`;
-
     await publishToQstashQueue({
       queueName: "automation-jobs",
       parallelism: 3,
-      url: executeUrl,
+      path: "/api/automation-jobs/execute",
       body: { automationJobRunId: run.id },
     });
   });

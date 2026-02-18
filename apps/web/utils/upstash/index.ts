@@ -20,13 +20,8 @@ export async function publishToQstash<T>(
   flowControl?: FlowControl,
 ) {
   const client = getQstashClient();
-  const url = `${getInternalApiUrl()}${path}`;
   if (client) {
-    const qstashUrl = resolveQstashTargetUrl(url);
-    if (!qstashUrl) {
-      throw new Error("QStash callback URL is unreachable");
-    }
-
+    const qstashUrl = `${normalizeBaseUrl(getPublicApiUrl())}${path}`;
     return client.publishJSON({
       url: qstashUrl,
       body,
@@ -38,60 +33,58 @@ export async function publishToQstash<T>(
     });
   }
 
-  return fallbackPublishToQstash(url, body, undefined);
+  const fallbackUrl = `${getInternalApiUrl()}${path}`;
+  return fallbackPublishToQstash(fallbackUrl, body, undefined);
 }
 
 export async function bulkPublishToQstash<T>({
   items,
 }: {
   items: {
-    url: string;
+    path: string;
     body: T;
     flowControl?: FlowControl;
   }[];
 }) {
   const client = getQstashClient();
   if (client) {
-    const qstashItems = items.map((item) => {
-      const qstashUrl = resolveQstashTargetUrl(item.url);
-      if (!qstashUrl) {
-        throw new Error("QStash callback URL is unreachable");
-      }
-
-      return {
-        ...item,
-        url: qstashUrl,
-      };
-    });
+    const publicBase = normalizeBaseUrl(getPublicApiUrl());
+    const qstashItems = items.map((item) => ({
+      ...item,
+      url: `${publicBase}${item.path}`,
+      path: undefined,
+    }));
 
     await client.batchJSON(qstashItems);
     return;
   }
 
+  const internalBase = getInternalApiUrl();
   for (const item of items) {
-    await fallbackPublishToQstash(item.url, item.body, undefined);
+    await fallbackPublishToQstash(
+      `${internalBase}${item.path}`,
+      item.body,
+      undefined,
+    );
   }
 }
 
 export async function publishToQstashQueue<T>({
   queueName,
   parallelism,
-  url,
+  path,
   body,
   headers,
 }: {
   queueName: string;
   parallelism: number;
-  url: string;
+  path: string;
   body: T;
   headers?: HeadersInit;
 }) {
   const client = getQstashClient();
   if (client) {
-    const qstashUrl = resolveQstashTargetUrl(url);
-    if (!qstashUrl) {
-      throw new Error("QStash callback URL is unreachable");
-    }
+    const qstashUrl = `${normalizeBaseUrl(getPublicApiUrl())}${path}`;
 
     try {
       const queue = client.queue({ queueName });
@@ -107,7 +100,8 @@ export async function publishToQstashQueue<T>({
     }
   }
 
-  return fallbackPublishToQstash<T>(url, body, headers);
+  const fallbackUrl = `${getInternalApiUrl()}${path}`;
+  return fallbackPublishToQstash<T>(fallbackUrl, body, headers);
 }
 
 async function fallbackPublishToQstash<T>(
@@ -169,63 +163,4 @@ function getPublicApiUrl() {
 
 function normalizeBaseUrl(url: string) {
   return url.endsWith("/") ? url.slice(0, -1) : url;
-}
-
-function resolveQstashTargetUrl(url: string): string | null {
-  const internalBaseUrl = normalizeBaseUrl(getInternalApiUrl());
-  const publicBaseUrl = normalizeBaseUrl(getPublicApiUrl());
-
-  const qstashUrl =
-    url === internalBaseUrl
-      ? publicBaseUrl
-      : url.startsWith(`${internalBaseUrl}/`)
-        ? `${publicBaseUrl}${url.slice(internalBaseUrl.length)}`
-        : url;
-
-  return isReachableByQstash(qstashUrl) ? qstashUrl : null;
-}
-
-function isReachableByQstash(url: string): boolean {
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(url);
-  } catch {
-    return false;
-  }
-
-  if (!["http:", "https:"].includes(parsedUrl.protocol)) return false;
-
-  const hostname = parsedUrl.hostname.toLowerCase();
-  if (!hostname) return false;
-  if (
-    hostname === "localhost" ||
-    hostname.endsWith(".localhost") ||
-    hostname.endsWith(".local") ||
-    hostname.endsWith(".internal") ||
-    hostname === "::1"
-  ) {
-    return false;
-  }
-  if (!hostname.includes(".")) return false;
-
-  return !isPrivateIpv4(hostname);
-}
-
-function isPrivateIpv4(hostname: string): boolean {
-  const octets = hostname.split(".");
-  if (octets.length !== 4) return false;
-
-  const [a, b, c, d] = octets.map((part) => Number(part));
-  if ([a, b, c, d].some((part) => Number.isNaN(part))) return false;
-  if ([a, b, c, d].some((part) => part < 0 || part > 255)) return false;
-
-  if (a === 10) return true;
-  if (a === 127) return true;
-  if (a === 0) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 100 && b >= 64 && b <= 127) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-
-  return false;
 }

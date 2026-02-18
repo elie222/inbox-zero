@@ -7,7 +7,6 @@ import {
   changeKeepToDoneSchema,
 } from "@/utils/actions/clean.validation";
 import { bulkPublishToQstash } from "@/utils/upstash";
-import { getInternalApiUrl } from "@/utils/internal-api";
 import {
   getLabel,
   getOrCreateInboxZeroLabel,
@@ -139,8 +138,6 @@ export const cleanInboxAction = actionClient
 
           if (threads.length === 0) break;
 
-          const url = `${getInternalApiUrl()}/api/clean`;
-
           logger.info("Pushing to Qstash", {
             threadCount: threads.length,
             nextPageToken,
@@ -150,7 +147,7 @@ export const cleanInboxAction = actionClient
             .map((thread) => {
               if (!thread.id) return;
               return {
-                url,
+                path: "/api/clean",
                 body: {
                   emailAccountId,
                   threadId: thread.id,
