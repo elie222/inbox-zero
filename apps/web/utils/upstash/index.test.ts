@@ -13,7 +13,15 @@ function setupFetchMock() {
   return fetchMock;
 }
 
-async function loadUpstashModule({ qstashToken }: { qstashToken?: string }) {
+async function loadUpstashModule({
+  qstashToken,
+  nextPublicBaseUrl = "https://public.example.com",
+  internalApiUrl = "http://web:3000",
+}: {
+  qstashToken?: string;
+  nextPublicBaseUrl?: string;
+  internalApiUrl?: string;
+}) {
   vi.resetModules();
   vi.clearAllMocks();
 
@@ -41,14 +49,14 @@ async function loadUpstashModule({ qstashToken }: { qstashToken?: string }) {
   vi.doMock("@/env", () => ({
     env: {
       QSTASH_TOKEN: qstashToken,
-      NEXT_PUBLIC_BASE_URL: "http://web:3000",
+      NEXT_PUBLIC_BASE_URL: nextPublicBaseUrl,
       INTERNAL_API_KEY: "internal-api-key",
     },
   }));
 
   vi.doMock("@/utils/internal-api", () => ({
     INTERNAL_API_KEY_HEADER: "x-api-key",
-    getInternalApiUrl: () => "http://web:3000",
+    getInternalApiUrl: () => internalApiUrl,
   }));
 
   return import("./index");
@@ -88,39 +96,10 @@ describe("publishToQstash", () => {
   });
 
   it("handles trailing slash on INTERNAL_API_URL", async () => {
-    vi.resetModules();
-    vi.clearAllMocks();
-
-    const MockClient = vi.fn(function MockClient() {
-      return {
-        publishJSON: mockPublishJSON,
-        batchJSON: mockBatchJSON,
-        queue: vi.fn(() => ({
-          upsert: mockQueueUpsert,
-          enqueueJSON: mockQueueEnqueueJSON,
-        })),
-      };
+    const upstash = await loadUpstashModule({
+      qstashToken: "token",
+      internalApiUrl: "http://web:3000/",
     });
-
-    vi.doMock("@upstash/qstash", () => ({ Client: MockClient }));
-    vi.doMock("next/server", () => ({
-      after: (callback: () => Promise<void>) => {
-        callback();
-      },
-    }));
-    vi.doMock("@/env", () => ({
-      env: {
-        QSTASH_TOKEN: "token",
-        NEXT_PUBLIC_BASE_URL: "https://public.example.com",
-        INTERNAL_API_KEY: "internal-api-key",
-      },
-    }));
-    vi.doMock("@/utils/internal-api", () => ({
-      INTERNAL_API_KEY_HEADER: "x-api-key",
-      getInternalApiUrl: () => "http://web:3000/",
-    }));
-
-    const upstash = await import("./index");
     setupFetchMock();
 
     await upstash.publishToQstash("/api/process", { id: 1 });

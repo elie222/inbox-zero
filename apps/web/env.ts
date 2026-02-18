@@ -308,3 +308,51 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_IS_RESEND_CONFIGURED,
   },
 });
+
+warnIfLikelyInvalidQstashCallbackBaseUrl();
+
+function warnIfLikelyInvalidQstashCallbackBaseUrl() {
+  if (!process.env.QSTASH_TOKEN || process.env.NODE_ENV === "test") return;
+
+  const callbackBaseUrl = process.env.INTERNAL_API_URL || getBaseUrl();
+  if (!callbackBaseUrl) {
+    console.warn(
+      "[env] QSTASH_TOKEN is set but neither INTERNAL_API_URL nor NEXT_PUBLIC_BASE_URL is set. QStash callbacks require a reachable URL.",
+    );
+    return;
+  }
+
+  const absoluteUrl =
+    callbackBaseUrl.startsWith("http://") ||
+    callbackBaseUrl.startsWith("https://")
+      ? callbackBaseUrl
+      : `https://${callbackBaseUrl}`;
+
+  let hostname = "";
+  try {
+    hostname = new URL(absoluteUrl).hostname.toLowerCase();
+  } catch {
+    console.warn(
+      `[env] QSTASH_TOKEN is set but callback URL is invalid (${callbackBaseUrl}). QStash callbacks require a reachable URL.`,
+    );
+    return;
+  }
+
+  if (
+    hostname === "localhost" ||
+    hostname === "::1" ||
+    hostname === "web" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal") ||
+    !hostname.includes(".") ||
+    hostname.startsWith("127.") ||
+    hostname.startsWith("10.") ||
+    hostname.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)
+  ) {
+    console.warn(
+      `[env] QSTASH_TOKEN is set but callback URL appears non-public (${callbackBaseUrl}). Set INTERNAL_API_URL (or NEXT_PUBLIC_BASE_URL) to a public URL reachable by QStash.`,
+    );
+  }
+}

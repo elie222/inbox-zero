@@ -21,7 +21,7 @@ export async function publishToQstash<T>(
 ) {
   const client = getQstashClient();
   if (client) {
-    const qstashUrl = `${normalizeBaseUrl(getInternalApiUrl())}${path}`;
+    const qstashUrl = `${getQstashCallbackBaseUrl()}${path}`;
     return client.publishJSON({
       url: qstashUrl,
       body,
@@ -48,10 +48,10 @@ export async function bulkPublishToQstash<T>({
 }) {
   const client = getQstashClient();
   if (client) {
-    const publicBase = normalizeBaseUrl(getInternalApiUrl());
+    const callbackBase = getQstashCallbackBaseUrl();
     const qstashItems = items.map((item) => ({
       ...item,
-      url: `${publicBase}${item.path}`,
+      url: `${callbackBase}${item.path}`,
       path: undefined,
     }));
 
@@ -84,7 +84,7 @@ export async function publishToQstashQueue<T>({
 }) {
   const client = getQstashClient();
   if (client) {
-    const qstashUrl = `${normalizeBaseUrl(getInternalApiUrl())}${path}`;
+    const qstashUrl = `${getQstashCallbackBaseUrl()}${path}`;
 
     try {
       const queue = client.queue({ queueName });
@@ -154,4 +154,8 @@ export async function deleteQueue(queueName: string) {
 
 function normalizeBaseUrl(url: string) {
   return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+function getQstashCallbackBaseUrl() {
+  return normalizeBaseUrl(getInternalApiUrl());
 }
