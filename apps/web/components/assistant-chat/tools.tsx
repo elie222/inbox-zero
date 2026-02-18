@@ -20,6 +20,7 @@ import {
   SparklesIcon,
   TrashIcon,
   FileDiffIcon,
+  ExternalLinkIcon,
 } from "lucide-react";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
@@ -30,6 +31,7 @@ import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { getEmailTerminology } from "@/utils/terminology";
 import { formatShortDate } from "@/utils/date";
+import { getEmailSearchUrl } from "@/utils/url";
 import {
   Collapsible,
   CollapsibleContent,
@@ -59,11 +61,13 @@ export function BasicToolInfo({ text }: { text: string }) {
 function CollapsibleToolCard({
   summary,
   children,
+  defaultOpen = false,
 }: {
   summary: string;
   children: React.ReactNode;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
     <Card className="mb-4 p-4">
@@ -153,12 +157,15 @@ export function ManageInboxResult({
   output,
   threadIds,
   threadLookup,
+  isInProgress = false,
 }: {
   input?: ManageInboxTool["input"];
   output: unknown;
   threadIds?: string[];
   threadLookup: ThreadLookup;
+  isInProgress?: boolean;
 }) {
+  const { provider, userEmail } = useAccount();
   const outputAction = getOutputField<string>(output, "action");
   const action = parseManageInboxAction(input?.action || outputAction);
   const successCount = getOutputField<number>(output, "successCount");
@@ -174,7 +181,12 @@ export function ManageInboxResult({
     input?.action === "archive_threads"
       ? Boolean(input.labelId)
       : Boolean(getOutputField<string>(output, "labelId"));
-  const actionLabel = getManageInboxActionLabel({ action, read, labelApplied });
+  const actionLabel = getManageInboxActionLabel({
+    action,
+    read,
+    labelApplied,
+    inProgress: isInProgress,
+  });
   const completedCount =
     action === "bulk_archive_senders"
       ? (sendersCount ?? senders?.length)
@@ -191,8 +203,14 @@ export function ManageInboxResult({
     .filter(isDefined);
 
   return (
-    <CollapsibleToolCard summary={summaryText}>
+    <CollapsibleToolCard summary={summaryText} defaultOpen={isInProgress}>
       <div className="space-y-1 text-sm">
+        {isInProgress && (
+          <div className="text-xs text-muted-foreground">
+            Processing senders now...
+          </div>
+        )}
+
         {typeof failedCount === "number" && failedCount > 0 && (
           <div className="text-xs text-red-500">Failed: {failedCount}</div>
         )}
@@ -215,9 +233,20 @@ export function ManageInboxResult({
             {senders.map((sender) => (
               <div
                 key={sender}
-                className="rounded-md bg-muted px-3 py-1.5 text-xs"
+                className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-1.5 text-xs"
               >
-                {sender}
+                <span className="truncate">{sender}</span>
+                <a
+                  href={getEmailSearchUrl(sender, userEmail, provider)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label={`View ${sender} in ${
+                    provider === "microsoft" ? "Outlook" : "Gmail"
+                  }`}
+                >
+                  <ExternalLinkIcon className="size-3.5" />
+                </a>
               </div>
             ))}
           </div>
@@ -766,16 +795,30 @@ function getManageInboxActionLabel({
   action,
   read,
   labelApplied,
+  inProgress,
 }: {
   action: ManageInboxAction | undefined;
   read?: boolean;
   labelApplied: boolean;
+  inProgress?: boolean;
 }) {
-  if (action === "bulk_archive_senders") return "Bulk archived senders";
+  if (action === "bulk_archive_senders") {
+    return inProgress ? "Bulk archiving senders" : "Bulk archived senders";
+  }
   if (action === "archive_threads") {
+    if (inProgress) {
+      return labelApplied
+        ? "Archiving and labeling emails"
+        : "Archiving emails";
+    }
     return labelApplied ? "Archived and labeled emails" : "Archived emails";
   }
   if (action === "mark_read_threads") {
+    if (inProgress) {
+      return read === false
+        ? "Marking emails as unread"
+        : "Marking emails as read";
+    }
     return read === false ? "Marked emails as unread" : "Marked emails as read";
   }
   return "Updated emails";

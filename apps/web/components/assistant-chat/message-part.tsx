@@ -122,10 +122,27 @@ export function MessagePart({
   if (part.type === "tool-manageInbox") {
     const { toolCallId, state } = part;
     if (state === "input-available") {
+      if (
+        part.input.action === "bulk_archive_senders" &&
+        part.input.fromEmails?.length
+      ) {
+        return (
+          <ManageInboxResult
+            key={toolCallId}
+            input={part.input}
+            output={{
+              action: part.input.action,
+              senders: part.input.fromEmails ?? [],
+              sendersCount: part.input.fromEmails?.length ?? 0,
+            }}
+            threadLookup={threadLookup}
+            isInProgress
+          />
+        );
+      }
+
       let actionText = "Updating emails...";
-      if (part.input.action === "bulk_archive_senders") {
-        actionText = "Bulk archiving by sender...";
-      } else if (part.input.action === "archive_threads") {
+      if (part.input.action === "archive_threads") {
         actionText = part.input.labelId
           ? "Archiving and labeling emails..."
           : "Archiving emails...";

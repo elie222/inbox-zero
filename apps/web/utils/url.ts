@@ -83,6 +83,19 @@ export function getGmailSearchUrl(from: string, emailAddress?: string | null) {
   )}/#advanced-search/from=${encodeURIComponent(from)}`;
 }
 
+export function getEmailSearchUrl(
+  from: string,
+  emailAddress?: string | null,
+  provider?: string,
+) {
+  if (provider === "microsoft") {
+    const query = encodeURIComponent(`from:${from}`);
+    return `${getOutlookBaseUrl()}/search/q/${query}`;
+  }
+
+  return getGmailSearchUrl(from, emailAddress);
+}
+
 export function getGmailBasicSearchUrl(emailAddress: string, query: string) {
   return `${getGmailBaseUrl(emailAddress)}/#search/${encodeURIComponent(
     query,
