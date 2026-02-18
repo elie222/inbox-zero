@@ -35,12 +35,9 @@ import { ItemCard, ItemSeparator } from "@/components/ui/item";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useSlackConnect } from "@/hooks/useSlackConnect";
 import { cn } from "@/utils";
 import { env } from "@/env";
-import { fetchWithAccount } from "@/utils/fetch";
-import { captureException } from "@/utils/error";
-import { toastError } from "@/components/Toast";
-import type { GetSlackAuthUrlResponse } from "@/app/api/slack/auth-url/route";
 
 export default function SettingsPage() {
   const { emailAccountId: activeEmailAccountId } = useAccount();
@@ -147,38 +144,22 @@ function EmailAccountSettingsCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const { data: channelsData } = useMessagingChannels(emailAccount.id);
+  const { data: channelsData, mutate: mutateChannels } =
+    useMessagingChannels(emailAccount.id);
   const hasSlack =
     channelsData?.channels.some(
       (ch) => ch.isConnected && ch.provider === "SLACK",
     ) ?? false;
   const slackAvailable =
     channelsData?.availableProviders?.includes("SLACK") ?? false;
-  const [connectingSlack, setConnectingSlack] = useState(false);
+  const { connect, connecting: connectingSlack } = useSlackConnect({
+    emailAccountId: emailAccount.id,
+    onConnected: () => mutateChannels(),
+  });
 
-  const handleConnectSlack = async (e: React.MouseEvent) => {
+  const handleConnectSlack = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setConnectingSlack(true);
-    try {
-      const res = await fetchWithAccount({
-        url: "/api/slack/auth-url",
-        emailAccountId: emailAccount.id,
-      });
-      if (!res.ok) throw new Error("Failed to get Slack auth URL");
-      const data: GetSlackAuthUrlResponse = await res.json();
-      if (data.url) {
-        window.open(data.url, "_blank");
-      } else {
-        throw new Error("No auth URL returned");
-      }
-    } catch (error) {
-      captureException(error, {
-        extra: { context: "Slack OAuth from settings card" },
-      });
-      toastError({ description: "Failed to connect Slack" });
-    } finally {
-      setConnectingSlack(false);
-    }
+    connect();
   };
 
   return (

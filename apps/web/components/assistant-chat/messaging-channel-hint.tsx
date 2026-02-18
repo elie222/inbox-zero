@@ -1,26 +1,25 @@
 "use client";
 
-import { useState } from "react";
 import { SlackIcon, XIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/useUser";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
+import { useSlackConnect } from "@/hooks/useSlackConnect";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { dismissHintAction } from "@/utils/actions/hints";
-import { fetchWithAccount } from "@/utils/fetch";
-import { captureException } from "@/utils/error";
-import { toastError } from "@/components/Toast";
-import type { GetSlackAuthUrlResponse } from "@/app/api/slack/auth-url/route";
 
 const HINT_ID = "messaging-channel";
 
 export function MessagingChannelHint() {
   const { emailAccountId } = useAccount();
   const { data: user, mutate: mutateUser } = useUser();
-  const { data: channelsData, isLoading: channelsLoading } =
+  const { data: channelsData, isLoading: channelsLoading, mutate } =
     useMessagingChannels();
-  const [connecting, setConnecting] = useState(false);
+  const { connect, connecting } = useSlackConnect({
+    emailAccountId,
+    onConnected: () => mutate(),
+  });
 
   const { execute: dismiss } = useAction(dismissHintAction, {
     onSuccess: () => mutateUser(),
@@ -39,31 +38,6 @@ export function MessagingChannelHint() {
 
   if (hasSlack || !slackAvailable) return null;
 
-  const handleConnect = async () => {
-    setConnecting(true);
-    try {
-      const res = await fetchWithAccount({
-        url: "/api/slack/auth-url",
-        emailAccountId,
-      });
-      if (!res.ok) throw new Error("Failed to get Slack auth URL");
-
-      const data: GetSlackAuthUrlResponse = await res.json();
-      if (data.url) {
-        window.open(data.url, "_blank");
-      } else {
-        throw new Error("No auth URL returned");
-      }
-    } catch (error) {
-      captureException(error, {
-        extra: { context: "Slack OAuth from chat hint" },
-      });
-      toastError({ description: "Failed to connect Slack" });
-    } finally {
-      setConnecting(false);
-    }
-  };
-
   return (
     <div className="mb-2 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3 text-sm">
       <SlackIcon className="size-4 flex-shrink-0" />
@@ -75,7 +49,7 @@ export function MessagingChannelHint() {
         size="sm"
         className="h-7 text-xs"
         disabled={connecting}
-        onClick={handleConnect}
+        onClick={connect}
       >
         {connecting ? "Connecting..." : "Connect"}
       </Button>
