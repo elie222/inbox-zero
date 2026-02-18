@@ -10,6 +10,7 @@
     "start:standalone": "node .next/standalone/server.js",
     "lint": "biome check .",
     "check-enums": "node scripts/check-enum-imports.js",
+    "generate-llm-pricing": "tsx scripts/generate-llm-pricing.ts",
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
     "test-e2e": "cross-env RUN_E2E_TESTS=true vitest --run",
