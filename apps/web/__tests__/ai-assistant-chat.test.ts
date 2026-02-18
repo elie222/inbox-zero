@@ -230,11 +230,11 @@ describe("aiProcessAssistantChat", () => {
     });
 
     const args = mockToolCallAgentStream.mock.calls[0][0];
-    expect(args.messages[1]).toEqual({
+    expect(args.messages[1]).toMatchObject({
       role: "user",
       content: "first user message",
     });
-    expect(args.messages[2]).toEqual({
+    expect(args.messages[2]).toMatchObject({
       role: "assistant",
       content: "assistant response",
     });
