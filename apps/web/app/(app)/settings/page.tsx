@@ -159,6 +159,7 @@ function EmailAccountSettingsCard({
 
   const handleConnectSlack = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (connectingSlack) return;
     connect();
   };
 
@@ -190,7 +191,13 @@ function EmailAccountSettingsCard({
         {!hasSlack && slackAvailable && (
           <Badge
             variant="outline"
-            className="cursor-pointer gap-1 text-xs font-normal hover:bg-muted"
+            className={cn(
+              "gap-1 text-xs font-normal",
+              connectingSlack
+                ? "cursor-not-allowed opacity-60"
+                : "cursor-pointer hover:bg-muted",
+            )}
+            aria-disabled={connectingSlack}
             onClick={handleConnectSlack}
           >
             <SlackIcon className="size-3" />

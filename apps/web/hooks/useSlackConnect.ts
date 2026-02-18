@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { fetchWithAccount } from "@/utils/fetch";
-import { captureException } from "@/utils/error";
+import { captureException, getActionErrorMessage } from "@/utils/error";
 import { toastError, toastSuccess, toastInfo } from "@/components/Toast";
 import { linkSlackWorkspaceAction } from "@/utils/actions/messaging-channels";
 import type { GetSlackAuthUrlResponse } from "@/app/api/slack/auth-url/route";
@@ -16,12 +16,16 @@ export function useSlackConnect({
   onConnected?: () => void;
 }) {
   const [connecting, setConnecting] = useState(false);
+  const connectingRef = useRef(false);
 
   const { executeAsync: linkSlack } = useAction(
     linkSlackWorkspaceAction.bind(null, emailAccountId),
   );
 
   const connect = async () => {
+    if (connecting || connectingRef.current) return;
+
+    connectingRef.current = true;
     setConnecting(true);
     try {
       const res = await fetchWithAccount({
@@ -36,17 +40,35 @@ export function useSlackConnect({
           teamId: data.existingWorkspace.teamId,
         });
 
-        if (result?.data) {
+        if (
+          !result?.serverError &&
+          !result?.validationErrors &&
+          !result?.bindArgsValidationErrors
+        ) {
           toastSuccess({ description: "Slack connected" });
           onConnected?.();
           return;
         }
 
-        // Link failed (e.g. email not found in Slack) — fall through to OAuth
-        toastInfo({
-          title: "Email not found in Slack",
-          description: "Redirecting to Slack authorization...",
-        });
+        const linkError = getActionErrorMessage(
+          {
+            serverError: result?.serverError,
+            validationErrors: result?.validationErrors,
+            bindArgsValidationErrors: result?.bindArgsValidationErrors,
+          },
+          "Failed to link Slack workspace",
+        );
+
+        if (linkError.includes("Could not find your Slack account")) {
+          // Email mismatch in Slack profile — fall through to OAuth install.
+          toastInfo({
+            title: "Email not found in Slack",
+            description: "Redirecting to Slack authorization...",
+          });
+        } else {
+          toastError({ description: linkError });
+          return;
+        }
       }
 
       if (data.url) {
@@ -58,6 +80,7 @@ export function useSlackConnect({
       captureException(error, { extra: { context: "Slack connect" } });
       toastError({ description: "Failed to connect Slack" });
     } finally {
+      connectingRef.current = false;
       setConnecting(false);
     }
   };
