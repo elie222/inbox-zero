@@ -3,6 +3,7 @@ import { getModel } from "./model";
 import { Provider } from "./config";
 import { env } from "@/env";
 import type { UserAIFields } from "./types";
+import { createAzure } from "@ai-sdk/azure";
 
 // Mock AI provider imports
 vi.mock("@ai-sdk/openai", () => ({
@@ -316,6 +317,27 @@ describe("Models", () => {
       const result = getModel(userAi, "economy");
       expect(result.provider).toBe(Provider.OPENROUTER);
       expect(result.modelName).toBe("google/gemini-2.5-flash-preview-05-20");
+    });
+
+    it("should pass the configured Azure API key for economy model", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).ECONOMY_LLM_PROVIDER = "azure";
+      vi.mocked(env).ECONOMY_LLM_MODEL = "gpt-5-mini";
+      vi.mocked(env).AZURE_API_KEY = "test-azure-key";
+      vi.mocked(env).AZURE_RESOURCE_NAME = "test-azure-resource";
+      vi.mocked(env).AZURE_API_VERSION = "2024-10-21";
+
+      const result = getModel(userAi, "economy");
+      expect(result.provider).toBe(Provider.AZURE);
+      expect(result.modelName).toBe("gpt-5-mini");
+      expect(createAzure).toHaveBeenCalledWith(
+        expect.objectContaining({ apiKey: "test-azure-key" }),
+      );
     });
 
     it("should use OpenRouter with provider options for economy", () => {

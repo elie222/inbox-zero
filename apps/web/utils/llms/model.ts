@@ -402,7 +402,7 @@ function getProviderApiKey(provider: string) {
     [Provider.ANTHROPIC]: env.ANTHROPIC_API_KEY,
     [Provider.AZURE]:
       env.AZURE_API_KEY && env.AZURE_RESOURCE_NAME
-        ? "azure-credentials"
+        ? env.AZURE_API_KEY
         : undefined,
     [Provider.BEDROCK]:
       env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY
