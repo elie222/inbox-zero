@@ -130,11 +130,7 @@ export function MessagePart({
           <ManageInboxResult
             key={toolCallId}
             input={part.input}
-            output={{
-              action: part.input.action,
-              senders: part.input.fromEmails ?? [],
-              sendersCount: part.input.fromEmails?.length ?? 0,
-            }}
+            output={getInProgressManageInboxOutput(part.input)}
             threadLookup={threadLookup}
             isInProgress
           />
@@ -429,4 +425,15 @@ export function MessagePart({
   }
 
   return null;
+}
+
+function getInProgressManageInboxOutput(input: {
+  action: string;
+  fromEmails?: string[];
+}) {
+  return {
+    action: input.action,
+    senders: input.fromEmails ?? [],
+    sendersCount: input.fromEmails?.length ?? 0,
+  };
 }

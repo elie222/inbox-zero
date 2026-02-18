@@ -61,13 +61,13 @@ export function BasicToolInfo({ text }: { text: string }) {
 function CollapsibleToolCard({
   summary,
   children,
-  defaultOpen = false,
+  initialOpen = false,
 }: {
   summary: string;
   children: React.ReactNode;
-  defaultOpen?: boolean;
+  initialOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(initialOpen);
 
   return (
     <Card className="mb-4 p-4">
@@ -203,7 +203,7 @@ export function ManageInboxResult({
     .filter(isDefined);
 
   return (
-    <CollapsibleToolCard summary={summaryText} defaultOpen={isInProgress}>
+    <CollapsibleToolCard summary={summaryText} initialOpen={isInProgress}>
       <div className="space-y-1 text-sm">
         {isInProgress && (
           <div className="text-xs text-muted-foreground">
