@@ -40,11 +40,7 @@ export function useSlackConnect({
           teamId: data.existingWorkspace.teamId,
         });
 
-        if (
-          !result?.serverError &&
-          !result?.validationErrors &&
-          !result?.bindArgsValidationErrors
-        ) {
+        if (!result?.serverError && !result?.validationErrors) {
           toastSuccess({ description: "Slack connected" });
           onConnected?.();
           return;
@@ -54,7 +50,6 @@ export function useSlackConnect({
           {
             serverError: result?.serverError,
             validationErrors: result?.validationErrors,
-            bindArgsValidationErrors: result?.bindArgsValidationErrors,
           },
           "Failed to link Slack workspace",
         );
