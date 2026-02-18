@@ -166,6 +166,28 @@ describe("getEmailSearchUrl", () => {
       "https://outlook.live.com/mail/0/search/q/from%3Asender%40example.com",
     );
   });
+
+  it("falls back to default provider when provider is empty", () => {
+    const result = getEmailSearchUrl(
+      "sender@example.com",
+      "user@gmail.com",
+      "",
+    );
+    expect(result).toBe(
+      "https://mail.google.com/mail/u/user@gmail.com/#advanced-search/from=sender%40example.com",
+    );
+  });
+
+  it("falls back to default provider when provider is unknown", () => {
+    const result = getEmailSearchUrl(
+      "sender@example.com",
+      "user@gmail.com",
+      "unknown-provider",
+    );
+    expect(result).toBe(
+      "https://mail.google.com/mail/u/user@gmail.com/#advanced-search/from=sender%40example.com",
+    );
+  });
 });
 
 describe("getGmailBasicSearchUrl", () => {

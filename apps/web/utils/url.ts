@@ -100,7 +100,9 @@ export function getEmailSearchUrl(
   emailAddress?: string | null,
   provider?: string,
 ) {
-  const config = getProviderConfig(provider);
+  const config = provider ? PROVIDER_CONFIG[provider] : undefined;
+  if (!config)
+    return PROVIDER_CONFIG.default.buildSearchUrl(from, emailAddress);
   return config.buildSearchUrl(from, emailAddress);
 }
 
