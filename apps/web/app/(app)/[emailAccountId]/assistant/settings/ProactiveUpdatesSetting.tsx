@@ -362,14 +362,17 @@ const SLACK_MESSAGES = [
     avatar: "IZ",
     avatarColor:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
-    lines: ["You have 7 new emails.", "2 urgent, 5 low priority."],
+    lines: [
+      "You have 4 new emails since your last check-in.",
+      "Jane asked if you want to grab lunch tomorrow. Mike sent the Q4 report you requested.",
+    ],
     isUser: false,
   },
   {
     sender: "You",
     avatar: null,
     avatarColor: "",
-    lines: ["Reply to Sara: Let's do Thursday 2pm."],
+    lines: ["Tell Jane I'm in. Archive Mike's report."],
     isUser: true,
   },
   {
@@ -377,7 +380,7 @@ const SLACK_MESSAGES = [
     avatar: "IZ",
     avatarColor:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
-    lines: ["Draft ready to send. Archive the rest?"],
+    lines: ["Done! Reply sent to Jane and Mike's email archived."],
     isUser: false,
   },
 ];
@@ -388,24 +391,20 @@ function HowItWorksPreview() {
   useEffect(() => {
     const timings = [
       800, // Stage 1: first message
-      1000, // Stage 2: user reply
-      1000, // Stage 3: bot response
-      3000, // Pause before reset
+      1200, // Stage 2: user reply
+      1200, // Stage 3: bot response
     ];
 
     let timeout: NodeJS.Timeout;
     let currentStage = 0;
 
     const advanceStage = () => {
+      if (currentStage >= timings.length - 1) return;
+
       timeout = setTimeout(
         () => {
           currentStage++;
-          if (currentStage >= timings.length) {
-            currentStage = 0;
-            setStage(0);
-          } else {
-            setStage(currentStage);
-          }
+          setStage(currentStage);
           advanceStage();
         },
         timings[currentStage] ?? 1000,
