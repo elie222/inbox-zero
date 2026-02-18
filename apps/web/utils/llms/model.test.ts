@@ -9,6 +9,10 @@ vi.mock("@ai-sdk/openai", () => ({
   createOpenAI: vi.fn(() => (model: string) => ({ model })),
 }));
 
+vi.mock("@ai-sdk/azure", () => ({
+  createAzure: vi.fn(() => (model: string) => ({ model })),
+}));
+
 vi.mock("@ai-sdk/anthropic", () => ({
   createAnthropic: vi.fn(() => (model: string) => ({ model })),
 }));
@@ -46,6 +50,9 @@ vi.mock("@/env", () => ({
     CHAT_LLM_MODEL: "moonshotai/kimi-k2",
     CHAT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
     OPENAI_API_KEY: "test-openai-key",
+    AZURE_API_KEY: "test-azure-key",
+    AZURE_RESOURCE_NAME: "test-azure-resource",
+    AZURE_API_VERSION: "2024-10-21",
     GOOGLE_API_KEY: "test-google-key",
     ANTHROPIC_API_KEY: "test-anthropic-key",
     GROQ_API_KEY: "test-groq-key",
@@ -73,6 +80,9 @@ describe("Models", () => {
     vi.resetAllMocks();
     vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
     vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
+    vi.mocked(env).AZURE_API_KEY = "test-azure-key";
+    vi.mocked(env).AZURE_RESOURCE_NAME = "test-azure-resource";
+    vi.mocked(env).AZURE_API_VERSION = "2024-10-21";
     vi.mocked(env).BEDROCK_ACCESS_KEY = "";
     vi.mocked(env).BEDROCK_SECRET_KEY = "";
   });
@@ -206,6 +216,42 @@ describe("Models", () => {
         "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
       );
       expect(result.model).toBeDefined();
+    });
+
+    it("should configure Azure model with low reasoning effort", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "azure";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-5-mini";
+      vi.mocked(env).AZURE_API_KEY = "test-azure-key";
+      vi.mocked(env).AZURE_RESOURCE_NAME = "test-azure-resource";
+      vi.mocked(env).AZURE_API_VERSION = "2024-10-21";
+
+      const result = getModel(userAi);
+      expect(result.provider).toBe(Provider.AZURE);
+      expect(result.modelName).toBe("gpt-5-mini");
+      expect(result.providerOptions?.openai?.reasoningEffort).toBe("low");
+      expect(result.model).toBeDefined();
+    });
+
+    it("should throw when Azure is selected without resource name", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "azure";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-5-mini";
+      vi.mocked(env).AZURE_RESOURCE_NAME = undefined;
+
+      expect(() => getModel(userAi)).toThrow(
+        "AZURE_RESOURCE_NAME environment variable is not set",
+      );
     });
 
     it("should throw error for unsupported provider", () => {

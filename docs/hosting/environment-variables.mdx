@@ -33,7 +33,7 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `UPSTASH_REDIS_TOKEN` | No* | Upstash Redis token or serverless-redis-http token (*required if not using Docker Compose) | — |
 | `REDIS_URL` | No | Alternative Redis URL (for subscriptions) | — |
 | **LLM Provider Selection** ||||
-| `DEFAULT_LLM_PROVIDER` | Yes | Primary LLM provider (`anthropic`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`) | — |
+| `DEFAULT_LLM_PROVIDER` | Yes | Primary LLM provider (`anthropic`, `azure`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`) | — |
 | `DEFAULT_LLM_MODEL` | No | Model to use with default provider | Provider default |
 | `DEFAULT_OPENROUTER_PROVIDERS` | No | Comma-separated list of OpenRouter providers | — |
 | `ECONOMY_LLM_PROVIDER` | No | Provider for cheaper operations | — |
@@ -47,6 +47,9 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | **LLM API Keys** ||||
 | `ANTHROPIC_API_KEY` | No | Anthropic API key | — |
 | `OPENAI_API_KEY` | No | OpenAI API key | — |
+| `AZURE_API_KEY` | No | Azure OpenAI API key | — |
+| `AZURE_RESOURCE_NAME` | No | Azure OpenAI resource name | — |
+| `AZURE_API_VERSION` | No | Azure OpenAI API version override | — |
 | `GOOGLE_API_KEY` | No | Google Gemini API key | — |
 | `GROQ_API_KEY` | No | Groq API key | — |
 | `OPENROUTER_API_KEY` | No | OpenRouter API key | — |

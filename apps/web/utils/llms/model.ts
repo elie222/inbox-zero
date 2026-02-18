@@ -1,6 +1,7 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createAzure } from "@ai-sdk/azure";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -96,6 +97,29 @@ function selectModel(
           modelName,
         ),
         providerOptions: openAiProviderOptions,
+        backupModel: getBackupModel(aiApiKey),
+      };
+    }
+    case Provider.AZURE: {
+      const modelName = aiModel || "gpt-5-mini";
+      const baseOptions = providerOptions ?? {};
+      const resourceName = env.AZURE_RESOURCE_NAME;
+      if (!resourceName) {
+        throw new Error("AZURE_RESOURCE_NAME environment variable is not set");
+      }
+
+      return {
+        provider: Provider.AZURE,
+        modelName,
+        model: createAzure({
+          apiKey: aiApiKey || env.AZURE_API_KEY,
+          resourceName,
+          apiVersion: env.AZURE_API_VERSION,
+        })(modelName),
+        providerOptions: {
+          ...baseOptions,
+          openai: { ...(baseOptions.openai ?? {}), reasoningEffort: "low" },
+        },
         backupModel: getBackupModel(aiApiKey),
       };
     }
@@ -376,6 +400,10 @@ function selectDefaultModel(
 function getProviderApiKey(provider: string) {
   const providerApiKeys: Record<string, string | undefined> = {
     [Provider.ANTHROPIC]: env.ANTHROPIC_API_KEY,
+    [Provider.AZURE]:
+      env.AZURE_API_KEY && env.AZURE_RESOURCE_NAME
+        ? "azure-credentials"
+        : undefined,
     [Provider.BEDROCK]:
       env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY
         ? "bedrock-credentials"
