@@ -438,7 +438,12 @@ describe("Models", () => {
         aiModel: null,
       };
 
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
+      vi.mocked(env).DEFAULT_LLM_MODEL =
+        "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
       vi.mocked(env).DEFAULT_LLM_FALLBACKS = "openrouter,openai:gpt-5.1";
+      vi.mocked(env).BEDROCK_ACCESS_KEY = "test-bedrock-key";
+      vi.mocked(env).BEDROCK_SECRET_KEY = "test-bedrock-secret";
       vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
       vi.mocked(env).OPENAI_API_KEY = "test-openai-key";
 
