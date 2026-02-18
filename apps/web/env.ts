@@ -5,6 +5,7 @@ import { booleanString } from "@/utils/zod";
 
 const llmProviderEnum = z.enum([
   "anthropic",
+  "azure",
   "google",
   "openai",
   "bedrock",
@@ -65,6 +66,9 @@ export const env = createEnv({
       .default("google/gemini-2.5-flash"),
 
     OPENAI_API_KEY: z.string().optional(),
+    AZURE_API_KEY: z.string().optional(),
+    AZURE_RESOURCE_NAME: z.string().optional(),
+    AZURE_API_VERSION: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),
     BEDROCK_SECRET_KEY: z.string().optional(),
