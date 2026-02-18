@@ -51,10 +51,12 @@ const logger = createScopedLogger("llms");
 
 const MAX_LOG_LENGTH = 200;
 
+type LLMProviderOptions = Record<string, Record<string, JSONValue>>;
+
 const commonOptions: {
   experimental_telemetry: { isEnabled: boolean };
   headers?: Record<string, string>;
-  providerOptions?: Record<string, Record<string, JSONValue>>;
+  providerOptions?: LLMProviderOptions;
 } = { experimental_telemetry: { isEnabled: true } };
 
 export function createGenerateText({
@@ -275,6 +277,7 @@ export async function chatCompletionStream({
   maxSteps,
   userEmail,
   usageLabel: label,
+  providerOptions: requestProviderOptions,
   onFinish,
   onStepFinish,
 }: {
@@ -285,6 +288,7 @@ export async function chatCompletionStream({
   maxSteps?: number;
   userEmail: string;
   usageLabel: string;
+  providerOptions?: LLMProviderOptions;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
@@ -294,10 +298,11 @@ export async function chatCompletionStream({
   for (let index = 0; index < modelCandidates.length; index++) {
     const candidate = modelCandidates[index];
     const nextCandidate = modelCandidates[index + 1];
-    const mergedProviderOptions = {
-      ...commonOptions.providerOptions,
-      ...candidate.providerOptions,
-    };
+    const mergedProviderOptions = mergeProviderOptions(
+      commonOptions.providerOptions,
+      candidate.providerOptions as LLMProviderOptions | undefined,
+      requestProviderOptions,
+    );
 
     try {
       return streamText({
@@ -386,6 +391,7 @@ export async function toolCallAgentStream({
   maxSteps,
   userEmail,
   usageLabel: label,
+  providerOptions: requestProviderOptions,
   onFinish,
   onStepFinish,
 }: {
@@ -396,6 +402,7 @@ export async function toolCallAgentStream({
   maxSteps?: number;
   userEmail: string;
   usageLabel: string;
+  providerOptions?: LLMProviderOptions;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
@@ -405,10 +412,11 @@ export async function toolCallAgentStream({
   for (let index = 0; index < modelCandidates.length; index++) {
     const candidate = modelCandidates[index];
     const nextCandidate = modelCandidates[index + 1];
-    const mergedProviderOptions = {
-      ...commonOptions.providerOptions,
-      ...candidate.providerOptions,
-    };
+    const mergedProviderOptions = mergeProviderOptions(
+      commonOptions.providerOptions,
+      candidate.providerOptions as LLMProviderOptions | undefined,
+      requestProviderOptions,
+    );
 
     const agent = new ToolLoopAgent({
       model: candidate.model,
@@ -624,4 +632,23 @@ function shouldFallbackToNextModel(error: unknown): boolean {
   if (llmErrorInfo.retryable) return true;
 
   return isTransientNetworkError(error);
+}
+
+function mergeProviderOptions(
+  ...providerOptionsList: (LLMProviderOptions | undefined)[]
+) {
+  const merged: LLMProviderOptions = {};
+
+  for (const options of providerOptionsList) {
+    if (!options) continue;
+
+    for (const [providerKey, value] of Object.entries(options)) {
+      merged[providerKey] = {
+        ...(merged[providerKey] || {}),
+        ...value,
+      };
+    }
+  }
+
+  return merged;
 }

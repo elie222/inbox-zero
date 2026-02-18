@@ -1,4 +1,4 @@
-import type { ModelMessage } from "ai";
+import type { JSONValue, ModelMessage } from "ai";
 import type { Logger } from "@/utils/logger";
 import type { MessageContext } from "@/app/api/chat/validation";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -296,35 +296,38 @@ Behavior anchors (minimal examples):
         ]
       : [];
 
-  const cacheControl = {
-    providerOptions: {
-      anthropic: { cacheControl: { type: "ephemeral" as const } },
-    },
-  };
+  const contextMessages = [
+    ...inboxContextMessage,
+    ...(memories && memories.length > 0
+      ? [
+          {
+            role: "system" as const,
+            content: `Memories from previous conversations:\n${memories.map((m) => `- [${m.date}] ${m.content}`).join("\n")}`,
+          },
+        ]
+      : []),
+    ...hiddenContextMessage,
+  ];
+
+  const { messages: cacheOptimizedMessages, stablePrefixEndIndex } =
+    buildCacheOptimizedMessages({
+      system,
+      conversationMessages: messages,
+      contextMessages,
+    });
+
+  const messagesWithCacheControl = addAnthropicCacheControl(
+    cacheOptimizedMessages,
+    stablePrefixEndIndex,
+  );
 
   const result = toolCallAgentStream({
     userAi: user.user,
     userEmail: user.email,
     modelType: "chat",
     usageLabel: "assistant-chat",
-    messages: [
-      {
-        role: "system",
-        content: system,
-        ...cacheControl,
-      },
-      ...inboxContextMessage,
-      ...(memories && memories.length > 0
-        ? [
-            {
-              role: "system" as const,
-              content: `Memories from previous conversations:\n${memories.map((m) => `- [${m.date}] ${m.content}`).join("\n")}`,
-            },
-          ]
-        : []),
-      ...hiddenContextMessage,
-      ...messages,
-    ],
+    providerOptions: getChatProviderOptionsForCaching({ chatId }),
+    messages: messagesWithCacheControl,
     onStepFinish: async ({ text, toolCalls }) => {
       logger.trace("Step finished", { text, toolCalls });
     },
@@ -352,6 +355,91 @@ Behavior anchors (minimal examples):
   });
 
   return result;
+}
+
+function buildCacheOptimizedMessages({
+  system,
+  conversationMessages,
+  contextMessages,
+}: {
+  system: string;
+  conversationMessages: ModelMessage[];
+  contextMessages: ModelMessage[];
+}) {
+  const systemMessage: ModelMessage = {
+    role: "system",
+    content: system,
+  };
+
+  if (!conversationMessages.length) {
+    return {
+      messages: [systemMessage, ...contextMessages],
+      stablePrefixEndIndex: 0,
+    };
+  }
+
+  const historyMessages = conversationMessages.slice(0, -1);
+  const latestMessage = conversationMessages.at(-1)!;
+
+  return {
+    messages: [
+      systemMessage,
+      ...historyMessages,
+      ...contextMessages,
+      latestMessage,
+    ],
+    stablePrefixEndIndex: historyMessages.length,
+  };
+}
+
+function addAnthropicCacheControl(
+  messages: ModelMessage[],
+  stablePrefixEndIndex: number,
+) {
+  const cacheControl: Record<string, JSONValue> = {
+    cacheControl: { type: "ephemeral" },
+  };
+
+  const cacheBreakpointIndexes = new Set([
+    0,
+    Math.max(0, Math.min(stablePrefixEndIndex, messages.length - 1)),
+  ]);
+
+  return messages.map((message, index) => {
+    if (!cacheBreakpointIndexes.has(index)) return message;
+
+    const messageWithOptions = message as ModelMessage & {
+      providerOptions?: Record<string, Record<string, JSONValue>>;
+    };
+
+    return {
+      ...messageWithOptions,
+      providerOptions: {
+        ...messageWithOptions.providerOptions,
+        anthropic: {
+          ...(messageWithOptions.providerOptions?.anthropic as Record<
+            string,
+            JSONValue
+          >),
+          ...cacheControl,
+        },
+      },
+    };
+  });
+}
+
+function getChatProviderOptionsForCaching({
+  chatId,
+}: {
+  chatId?: string;
+}) {
+  if (!chatId) return undefined;
+
+  return {
+    openai: {
+      promptCacheKey: `assistant-chat:${chatId}`,
+    },
+  } satisfies Record<string, Record<string, JSONValue>>;
 }
 
 function isConversationStatusFixContext(
