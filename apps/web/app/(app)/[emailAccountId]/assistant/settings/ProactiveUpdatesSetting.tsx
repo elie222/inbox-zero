@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { SettingCard } from "@/components/SettingCard";
 import { Toggle } from "@/components/Toggle";
 import { Button } from "@/components/ui/button";
@@ -202,8 +203,8 @@ export function ProactiveUpdatesSetting() {
                       <DialogHeader className="space-y-2">
                         <DialogTitle>Scheduled check-ins</DialogTitle>
                         <DialogDescription>
-                          Your assistant messages you with inbox updates. Reply
-                          to take action.
+                          Get notified about important emails and take action
+                          directly from Slack.
                         </DialogDescription>
                       </DialogHeader>
 
@@ -227,9 +228,6 @@ export function ProactiveUpdatesSetting() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">
-                            Telegram & WhatsApp coming soon
-                          </p>
                         </div>
 
                         <div className="space-y-3">
@@ -319,16 +317,11 @@ export function ProactiveUpdatesSetting() {
                       </div>
                     </div>
 
-                    <div className="bg-muted/20 p-6">
+                    <div className="flex flex-col justify-center bg-muted/20 p-6">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        How it works
+                        Preview
                       </p>
                       <HowItWorksPreview />
-                      <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                        <p>- AI sends check-ins at your scheduled times</p>
-                        <p>- Reply in Slack to take action</p>
-                        <p>- Handle replies, archive, or snooze from chat</p>
-                      </div>
                     </div>
                   </div>
                 </DialogContent>
@@ -363,26 +356,153 @@ function formatSlackChannelLabel(channel: {
   return "Slack workspace";
 }
 
+const SLACK_MESSAGES = [
+  {
+    sender: "Inbox Zero",
+    avatar: "IZ",
+    avatarColor:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
+    lines: ["You have 7 new emails.", "2 urgent, 5 low priority."],
+    isUser: false,
+  },
+  {
+    sender: "You",
+    avatar: null,
+    avatarColor: "",
+    lines: ["Reply to Sara: Let's do Thursday 2pm."],
+    isUser: true,
+  },
+  {
+    sender: "Inbox Zero",
+    avatar: "IZ",
+    avatarColor:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
+    lines: ["Draft ready to send. Archive the rest?"],
+    isUser: false,
+  },
+];
+
 function HowItWorksPreview() {
+  const [stage, setStage] = useState(0);
+
+  useEffect(() => {
+    const timings = [
+      800, // Stage 1: first message
+      1000, // Stage 2: user reply
+      1000, // Stage 3: bot response
+      3000, // Pause before reset
+    ];
+
+    let timeout: NodeJS.Timeout;
+    let currentStage = 0;
+
+    const advanceStage = () => {
+      timeout = setTimeout(
+        () => {
+          currentStage++;
+          if (currentStage >= timings.length) {
+            currentStage = 0;
+            setStage(0);
+          } else {
+            setStage(currentStage);
+          }
+          advanceStage();
+        },
+        timings[currentStage] ?? 1000,
+      );
+    };
+
+    advanceStage();
+
+    return () => clearTimeout(timeout);
+  }, []);
+
   return (
-    <div className="mt-3 rounded-md border bg-background p-3 text-sm">
-      <p className="text-xs text-muted-foreground">#inbox-updates</p>
-      <div className="mt-3 space-y-3">
-        <div className="rounded-md bg-muted/50 p-2">
-          <p className="font-medium">Inbox Zero</p>
-          <p className="text-muted-foreground">You have 7 new emails.</p>
-          <p className="text-muted-foreground">2 urgent, 5 low priority.</p>
-        </div>
-        <div className="rounded-md border border-blue-100 bg-blue-50 p-2">
-          <p className="font-medium text-blue-900">You</p>
-          <p className="text-blue-900">Reply to Sara: Let's do Thursday 2pm.</p>
-        </div>
-        <div className="rounded-md bg-muted/50 p-2">
-          <p className="font-medium">Inbox Zero</p>
-          <p className="text-muted-foreground">
-            Draft ready to send. Archive the rest?
-          </p>
-        </div>
+    <div className="mt-3 overflow-hidden rounded-md border bg-background shadow-sm">
+      {/* Slack-like header */}
+      <div className="flex items-center gap-1.5 border-b px-3 py-2">
+        <span className="text-xs font-bold text-foreground">
+          # inbox-updates
+        </span>
+      </div>
+
+      {/* Messages area */}
+      <div className="space-y-0.5 px-3 py-2">
+        <AnimatePresence>
+          {SLACK_MESSAGES.map(
+            (msg, i) =>
+              stage >= i + 1 && (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="group flex gap-2 rounded px-1 py-1.5 hover:bg-muted/30"
+                >
+                  {/* Avatar */}
+                  <div className="mt-0.5 shrink-0">
+                    {msg.isUser ? (
+                      <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-blue-100 text-[10px] font-bold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                        You
+                      </div>
+                    ) : (
+                      <div
+                        className={`flex h-7 w-7 items-center justify-center rounded-sm text-[10px] font-bold ${msg.avatarColor}`}
+                      >
+                        {msg.avatar}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[13px] font-bold text-foreground">
+                      {msg.sender}
+                    </span>
+                    {msg.lines.map((line, j) => (
+                      <p
+                        key={j}
+                        className="text-[13px] leading-snug text-muted-foreground"
+                      >
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                </motion.div>
+              ),
+          )}
+        </AnimatePresence>
+
+        {/* Typing indicator */}
+        <AnimatePresence>
+          {stage >= 1 && stage < 3 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center gap-2 px-1 py-1"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-emerald-100 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
+                IZ
+              </div>
+              <div className="flex items-center gap-0.5">
+                {[0, 1, 2].map((dot) => (
+                  <motion.div
+                    key={dot}
+                    className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40"
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      delay: dot * 0.2,
+                    }}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
