@@ -37,6 +37,10 @@ import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
 import { env } from "@/env";
+import { fetchWithAccount } from "@/utils/fetch";
+import { captureException } from "@/utils/error";
+import { toastError } from "@/components/Toast";
+import type { GetSlackAuthUrlResponse } from "@/app/api/slack/auth-url/route";
 
 export default function SettingsPage() {
   const { emailAccountId: activeEmailAccountId } = useAccount();
@@ -148,6 +152,34 @@ function EmailAccountSettingsCard({
     channelsData?.channels.some(
       (ch) => ch.isConnected && ch.provider === "SLACK",
     ) ?? false;
+  const slackAvailable =
+    channelsData?.availableProviders?.includes("SLACK") ?? false;
+  const [connectingSlack, setConnectingSlack] = useState(false);
+
+  const handleConnectSlack = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConnectingSlack(true);
+    try {
+      const res = await fetchWithAccount({
+        url: "/api/slack/auth-url",
+        emailAccountId: emailAccount.id,
+      });
+      if (!res.ok) throw new Error("Failed to get Slack auth URL");
+      const data: GetSlackAuthUrlResponse = await res.json();
+      if (data.url) {
+        window.open(data.url, "_blank");
+      } else {
+        throw new Error("No auth URL returned");
+      }
+    } catch (error) {
+      captureException(error, {
+        extra: { context: "Slack OAuth from settings card" },
+      });
+      toastError({ description: "Failed to connect Slack" });
+    } finally {
+      setConnectingSlack(false);
+    }
+  };
 
   return (
     <ItemCard>
@@ -172,6 +204,16 @@ function EmailAccountSettingsCard({
           <Badge variant="secondary" className="gap-1 text-xs font-normal">
             <SlackIcon className="size-3" />
             Slack
+          </Badge>
+        )}
+        {!hasSlack && slackAvailable && (
+          <Badge
+            variant="outline"
+            className="cursor-pointer gap-1 text-xs font-normal hover:bg-muted"
+            onClick={handleConnectSlack}
+          >
+            <SlackIcon className="size-3" />
+            {connectingSlack ? "Connecting..." : "Connect Slack"}
           </Badge>
         )}
         <ChevronRightIcon
