@@ -16,7 +16,7 @@ vi.mock("@/utils/llms/model", () => ({
     modelName: "test-model",
     model: {},
     providerOptions: undefined,
-    backupModel: null,
+    fallbackModels: [],
   })),
 }));
 

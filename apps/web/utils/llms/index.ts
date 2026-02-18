@@ -16,7 +16,6 @@ import {
   TypeValidationError,
 } from "ai";
 import { jsonrepair } from "jsonrepair";
-import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { saveAiUsage } from "@/utils/usage";
 import type { EmailAccountWithAI, UserAIFields } from "@/utils/llms/types";
 import {
@@ -26,19 +25,27 @@ import {
 import {
   captureException,
   isAnthropicInsufficientBalanceError,
-  isAWSThrottlingError,
   isIncorrectOpenAIAPIKeyError,
   isInsufficientCreditsError,
   isInvalidAIModelError,
   isOpenAIAPIKeyDeactivatedError,
   isAiQuotaExceededError,
-  isServiceUnavailableError,
   markAsHandledUserKeyError,
   SafeError,
 } from "@/utils/error";
-import { getModel, type ModelType } from "@/utils/llms/model";
+import {
+  getModel,
+  type ModelType,
+  type ResolvedModel,
+  type SelectModel,
+} from "@/utils/llms/model";
 import { createScopedLogger } from "@/utils/logger";
-import { withNetworkRetry, withLLMRetry } from "./retry";
+import {
+  extractLLMErrorInfo,
+  isTransientNetworkError,
+  withNetworkRetry,
+  withLLMRetry,
+} from "./retry";
 
 const logger = createScopedLogger("llms");
 
@@ -61,8 +68,9 @@ export function createGenerateText({
 }): typeof generateText {
   return async (...args) => {
     const [options, ...restArgs] = args;
+    const modelCandidates = getModelCandidates(modelOptions);
 
-    const generate = async (model: LanguageModelV3) => {
+    const generate = async (candidate: ResolvedModel) => {
       const systemText =
         typeof options.system === "string" ? options.system : undefined;
 
@@ -78,10 +86,10 @@ export function createGenerateText({
           ...commonOptions,
           providerOptions: {
             ...commonOptions.providerOptions,
-            ...modelOptions.providerOptions,
+            ...candidate.providerOptions,
             ...options.providerOptions,
           },
-          model,
+          model: candidate.model,
         },
         ...restArgs,
       );
@@ -90,8 +98,8 @@ export function createGenerateText({
         await saveAiUsage({
           email: emailAccount.email,
           usage: result.usage,
-          provider: modelOptions.provider,
-          model: modelOptions.modelName,
+          provider: candidate.provider,
+          model: candidate.modelName,
           label,
         });
       }
@@ -107,55 +115,42 @@ export function createGenerateText({
       return result;
     };
 
-    try {
-      return await withLLMRetry(
-        () => withNetworkRetry(() => generate(modelOptions.model), { label }),
-        { label },
-      );
-    } catch (error) {
-      // Try backup model for service unavailable or throttling errors
-      if (
-        modelOptions.backupModel &&
-        (isServiceUnavailableError(error) || isAWSThrottlingError(error))
-      ) {
-        logger.warn("Using backup model", {
-          error,
-          model: modelOptions.backupModel,
-        });
+    for (let index = 0; index < modelCandidates.length; index++) {
+      const candidate = modelCandidates[index];
+      const nextCandidate = modelCandidates[index + 1];
 
-        try {
-          return await withLLMRetry(
-            () =>
-              withNetworkRetry(() => generate(modelOptions.backupModel!), {
-                label,
-              }),
-            { label },
-          );
-        } catch (backupError) {
-          await handleError(
-            backupError,
-            emailAccount.userId,
-            emailAccount.email,
-            emailAccount.id,
+      try {
+        return await withLLMRetry(
+          () => withNetworkRetry(() => generate(candidate), { label }),
+          { label },
+        );
+      } catch (error) {
+        if (nextCandidate && shouldFallbackToNextModel(error)) {
+          logger.warn("LLM call failed, trying fallback model", {
             label,
-            modelOptions.modelName,
-            modelOptions.hasUserApiKey,
-          );
-          throw backupError;
+            provider: candidate.provider,
+            model: candidate.modelName,
+            fallbackProvider: nextCandidate.provider,
+            fallbackModel: nextCandidate.modelName,
+            error,
+          });
+          continue;
         }
-      }
 
-      await handleError(
-        error,
-        emailAccount.userId,
-        emailAccount.email,
-        emailAccount.id,
-        label,
-        modelOptions.modelName,
-        modelOptions.hasUserApiKey,
-      );
-      throw error;
+        await handleError(
+          error,
+          emailAccount.userId,
+          emailAccount.email,
+          emailAccount.id,
+          label,
+          candidate.modelName,
+          modelOptions.hasUserApiKey,
+        );
+        throw error;
+      }
     }
+
+    throw new Error("No models available for generation");
   };
 }
 
@@ -170,8 +165,9 @@ export function createGenerateObject({
 }): typeof generateObject {
   return async (...args) => {
     const [options, ...restArgs] = args;
+    const modelCandidates = getModelCandidates(modelOptions);
 
-    const generate = async () => {
+    const generate = async (candidate: ResolvedModel) => {
       const systemText =
         typeof options.system === "string" ? options.system : undefined;
 
@@ -200,10 +196,10 @@ export function createGenerateObject({
           ...commonOptions,
           providerOptions: {
             ...commonOptions.providerOptions,
-            ...modelOptions.providerOptions,
+            ...candidate.providerOptions,
             ...options.providerOptions,
           },
-          model: modelOptions.model,
+          model: candidate.model,
         },
         ...restArgs,
       );
@@ -212,8 +208,8 @@ export function createGenerateObject({
         await saveAiUsage({
           email: emailAccount.email,
           usage: result.usage,
-          provider: modelOptions.provider,
-          model: modelOptions.modelName,
+          provider: candidate.provider,
+          model: candidate.modelName,
           label,
         });
       }
@@ -226,29 +222,48 @@ export function createGenerateObject({
       return result;
     };
 
-    try {
-      return await withLLMRetry(
-        () =>
-          withNetworkRetry(generate, {
+    for (let index = 0; index < modelCandidates.length; index++) {
+      const candidate = modelCandidates[index];
+      const nextCandidate = modelCandidates[index + 1];
+
+      try {
+        return await withLLMRetry(
+          () =>
+            withNetworkRetry(() => generate(candidate), {
+              label,
+              shouldRetry: (error) =>
+                NoObjectGeneratedError.isInstance(error) ||
+                TypeValidationError.isInstance(error),
+            }),
+          { label },
+        );
+      } catch (error) {
+        if (nextCandidate && shouldFallbackToNextModel(error)) {
+          logger.warn("LLM object generation failed, trying fallback model", {
             label,
-            shouldRetry: (error) =>
-              NoObjectGeneratedError.isInstance(error) ||
-              TypeValidationError.isInstance(error),
-          }),
-        { label },
-      );
-    } catch (error) {
-      await handleError(
-        error,
-        emailAccount.userId,
-        emailAccount.email,
-        emailAccount.id,
-        label,
-        modelOptions.modelName,
-        modelOptions.hasUserApiKey,
-      );
-      throw error;
+            provider: candidate.provider,
+            model: candidate.modelName,
+            fallbackProvider: nextCandidate.provider,
+            fallbackModel: nextCandidate.modelName,
+            error,
+          });
+          continue;
+        }
+
+        await handleError(
+          error,
+          emailAccount.userId,
+          emailAccount.email,
+          emailAccount.id,
+          label,
+          candidate.modelName,
+          modelOptions.hasUserApiKey,
+        );
+        throw error;
+      }
     }
+
+    throw new Error("No models available for generation");
   };
 }
 
@@ -273,53 +288,80 @@ export async function chatCompletionStream({
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
-  const { provider, model, modelName, providerOptions } = getModel(
-    userAi,
-    modelType,
-  );
-  const mergedProviderOptions = {
-    ...commonOptions.providerOptions,
-    ...providerOptions,
-  };
+  const modelOptions = getModel(userAi, modelType);
+  const modelCandidates = getModelCandidates(modelOptions);
 
-  const result = streamText({
-    model,
-    messages,
-    tools,
-    stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
-    ...commonOptions,
-    providerOptions: {
-      ...mergedProviderOptions,
-    },
-    experimental_transform: smoothStream({ chunking: "word" }),
-    onStepFinish,
-    onFinish: async (result) => {
-      const usagePromise = saveAiUsage({
-        email: userEmail,
-        provider,
-        model: modelName,
-        usage: result.usage,
-        label,
+  for (let index = 0; index < modelCandidates.length; index++) {
+    const candidate = modelCandidates[index];
+    const nextCandidate = modelCandidates[index + 1];
+    const mergedProviderOptions = {
+      ...commonOptions.providerOptions,
+      ...candidate.providerOptions,
+    };
+
+    try {
+      return streamText({
+        model: candidate.model,
+        messages,
+        tools,
+        stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+        ...commonOptions,
+        providerOptions: {
+          ...mergedProviderOptions,
+        },
+        experimental_transform: smoothStream({ chunking: "word" }),
+        onStepFinish,
+        onFinish: async (result) => {
+          const usagePromise = saveAiUsage({
+            email: userEmail,
+            provider: candidate.provider,
+            model: candidate.modelName,
+            usage: result.usage,
+            label,
+          });
+
+          const finishPromise = onFinish?.(result);
+
+          try {
+            await Promise.all([usagePromise, finishPromise]);
+          } catch (error) {
+            logger.error("Error in onFinish callback", {
+              label,
+              userEmail,
+              error,
+            });
+            logger.trace("Result", { result });
+            captureException(error, {
+              userEmail,
+              extra: { label },
+            });
+          }
+        },
+        onError: (error) => {
+          logger.error("Error in chat completion stream", {
+            label,
+            userEmail,
+            error,
+          });
+          captureException(error, {
+            userEmail,
+            extra: { label },
+          });
+        },
       });
-
-      const finishPromise = onFinish?.(result);
-
-      try {
-        await Promise.all([usagePromise, finishPromise]);
-      } catch (error) {
-        logger.error("Error in onFinish callback", {
+    } catch (error) {
+      if (nextCandidate && shouldFallbackToNextModel(error)) {
+        logger.warn("Chat completion failed, trying fallback model", {
           label,
-          userEmail,
+          provider: candidate.provider,
+          model: candidate.modelName,
+          fallbackProvider: nextCandidate.provider,
+          fallbackModel: nextCandidate.modelName,
           error,
         });
-        logger.trace("Result", { result });
-        captureException(error, {
-          userEmail,
-          extra: { label },
-        });
+        continue;
       }
-    },
-    onError: (error) => {
+
       logger.error("Error in chat completion stream", {
         label,
         userEmail,
@@ -329,10 +371,11 @@ export async function chatCompletionStream({
         userEmail,
         extra: { label },
       });
-    },
-  });
+      throw error;
+    }
+  }
 
-  return result;
+  throw new Error("No models available for chat completion stream");
 }
 
 export async function toolCallAgentStream({
@@ -356,82 +399,98 @@ export async function toolCallAgentStream({
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
-  const { provider, model, modelName, providerOptions } = getModel(
-    userAi,
-    modelType,
-  );
+  const modelOptions = getModel(userAi, modelType);
+  const modelCandidates = getModelCandidates(modelOptions);
 
-  const mergedProviderOptions = {
-    ...commonOptions.providerOptions,
-    ...providerOptions,
-  };
+  for (let index = 0; index < modelCandidates.length; index++) {
+    const candidate = modelCandidates[index];
+    const nextCandidate = modelCandidates[index + 1];
+    const mergedProviderOptions = {
+      ...commonOptions.providerOptions,
+      ...candidate.providerOptions,
+    };
 
-  const agent = new ToolLoopAgent({
-    model,
-    tools,
-    stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
-    ...commonOptions,
-    providerOptions: mergedProviderOptions,
-    onFinish: async (result) => {
-      const usagePromise = saveAiUsage({
-        email: userEmail,
-        provider,
-        model: modelName,
-        usage: result.totalUsage,
-        label,
-      });
-
-      const finishPromise = onFinish?.(
-        result as Parameters<
-          NonNullable<StreamTextOnFinishCallback<Record<string, Tool>>>
-        >[0],
-      );
-
-      try {
-        await Promise.all([usagePromise, finishPromise]);
-      } catch (error) {
-        logger.error("Error in onFinish callback", {
+    const agent = new ToolLoopAgent({
+      model: candidate.model,
+      tools,
+      stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+      ...commonOptions,
+      providerOptions: mergedProviderOptions,
+      onFinish: async (result) => {
+        const usagePromise = saveAiUsage({
+          email: userEmail,
+          provider: candidate.provider,
+          model: candidate.modelName,
+          usage: result.totalUsage,
           label,
-          userEmail,
+        });
+
+        const finishPromise = onFinish?.(
+          result as Parameters<
+            NonNullable<StreamTextOnFinishCallback<Record<string, Tool>>>
+          >[0],
+        );
+
+        try {
+          await Promise.all([usagePromise, finishPromise]);
+        } catch (error) {
+          logger.error("Error in onFinish callback", {
+            label,
+            userEmail,
+            error,
+          });
+          logger.trace("Result", { result });
+          captureException(error, {
+            userEmail,
+            extra: { label },
+          });
+        }
+      },
+    });
+
+    try {
+      return await agent.stream({
+        messages,
+        experimental_transform: smoothStream({ chunking: "word" }),
+        onStepFinish: onStepFinish
+          ? async (stepResult) => {
+              await onStepFinish(
+                stepResult as Parameters<
+                  NonNullable<
+                    StreamTextOnStepFinishCallback<Record<string, Tool>>
+                  >
+                >[0],
+              );
+            }
+          : undefined,
+      });
+    } catch (error) {
+      if (nextCandidate && shouldFallbackToNextModel(error)) {
+        logger.warn("Tool-call stream failed, trying fallback model", {
+          label,
+          provider: candidate.provider,
+          model: candidate.modelName,
+          fallbackProvider: nextCandidate.provider,
+          fallbackModel: nextCandidate.modelName,
           error,
         });
-        logger.trace("Result", { result });
-        captureException(error, {
-          userEmail,
-          extra: { label },
-        });
+        continue;
       }
-    },
-  });
 
-  try {
-    return await agent.stream({
-      messages,
-      experimental_transform: smoothStream({ chunking: "word" }),
-      onStepFinish: onStepFinish
-        ? async (stepResult) => {
-            await onStepFinish(
-              stepResult as Parameters<
-                NonNullable<
-                  StreamTextOnStepFinishCallback<Record<string, Tool>>
-                >
-              >[0],
-            );
-          }
-        : undefined,
-    });
-  } catch (error) {
-    logger.error("Error in chat completion stream", {
-      label,
-      userEmail,
-      error,
-    });
-    captureException(error, {
-      userEmail,
-      extra: { label },
-    });
-    throw error;
+      logger.error("Error in chat completion stream", {
+        label,
+        userEmail,
+        error,
+      });
+      captureException(error, {
+        userEmail,
+        extra: { label },
+      });
+      throw error;
+    }
   }
+
+  throw new Error("No models available for tool-call stream");
 }
 
 async function handleError(
@@ -543,4 +602,26 @@ async function handleError(
       });
     }
   }
+}
+
+function getModelCandidates(modelOptions: SelectModel): ResolvedModel[] {
+  const primaryModel: ResolvedModel = {
+    provider: modelOptions.provider,
+    modelName: modelOptions.modelName,
+    model: modelOptions.model,
+    providerOptions: modelOptions.providerOptions,
+  };
+
+  return [primaryModel, ...modelOptions.fallbackModels];
+}
+
+function shouldFallbackToNextModel(error: unknown): boolean {
+  if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
+    return true;
+  }
+
+  const llmErrorInfo = extractLLMErrorInfo(error);
+  if (llmErrorInfo.retryable) return true;
+
+  return isTransientNetworkError(error);
 }

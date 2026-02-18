@@ -38,12 +38,15 @@ vi.mock("ollama-ai-provider-v2", () => ({
 vi.mock("@/env", () => ({
   env: {
     DEFAULT_LLM_PROVIDER: "openai",
+    DEFAULT_LLM_FALLBACKS: undefined,
     DEFAULT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
     ECONOMY_LLM_PROVIDER: "openrouter",
     ECONOMY_LLM_MODEL: "google/gemini-2.5-flash-preview-05-20",
+    ECONOMY_LLM_FALLBACKS: undefined,
     ECONOMY_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
     CHAT_LLM_PROVIDER: "openrouter",
     CHAT_LLM_MODEL: "moonshotai/kimi-k2",
+    CHAT_LLM_FALLBACKS: undefined,
     CHAT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
     OPENAI_API_KEY: "test-openai-key",
     GOOGLE_API_KEY: "test-google-key",
@@ -73,6 +76,9 @@ describe("Models", () => {
     vi.resetAllMocks();
     vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
     vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
+    vi.mocked(env).DEFAULT_LLM_FALLBACKS = undefined;
+    vi.mocked(env).ECONOMY_LLM_FALLBACKS = undefined;
+    vi.mocked(env).CHAT_LLM_FALLBACKS = undefined;
     vi.mocked(env).BEDROCK_ACCESS_KEY = "";
     vi.mocked(env).BEDROCK_SECRET_KEY = "";
   });
@@ -168,7 +174,6 @@ describe("Models", () => {
       expect(result.provider).toBe(Provider.OLLAMA);
       expect(result.modelName).toBe("llama3");
       expect(result.model).toBeDefined();
-      expect(result.backupModel).toBeNull(); // No backup for local Ollama
     });
 
     it("should configure Anthropic model correctly without Bedrock credentials", () => {
@@ -329,6 +334,77 @@ describe("Models", () => {
         "Google Vertex",
         "Anthropic",
       ]);
+    });
+
+    it("should resolve ordered fallback models for default model type", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
+      vi.mocked(env).DEFAULT_LLM_MODEL =
+        "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
+      vi.mocked(env).DEFAULT_LLM_FALLBACKS =
+        "openrouter:anthropic/claude-sonnet-4.5,openai:gpt-5.1";
+      vi.mocked(env).BEDROCK_ACCESS_KEY = "test-bedrock-key";
+      vi.mocked(env).BEDROCK_SECRET_KEY = "test-bedrock-secret";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+      vi.mocked(env).OPENAI_API_KEY = "test-openai-key";
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.BEDROCK);
+      expect(result.fallbackModels).toHaveLength(2);
+      expect(result.fallbackModels[0]).toMatchObject({
+        provider: Provider.OPENROUTER,
+        modelName: "anthropic/claude-sonnet-4.5",
+      });
+      expect(result.fallbackModels[1]).toMatchObject({
+        provider: Provider.OPEN_AI,
+        modelName: "gpt-5.1",
+      });
+    });
+
+    it("should skip fallback models for users with their own API key", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: "user-api-key",
+        aiProvider: Provider.BEDROCK,
+        aiModel: "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      };
+
+      vi.mocked(env).DEFAULT_LLM_FALLBACKS =
+        "openrouter:anthropic/claude-sonnet-4.5,openai:gpt-5.1";
+
+      const result = getModel(userAi);
+
+      expect(result.fallbackModels).toEqual([]);
+    });
+
+    it("should skip fallback providers without configured credentials", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
+      vi.mocked(env).DEFAULT_LLM_MODEL =
+        "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
+      vi.mocked(env).DEFAULT_LLM_FALLBACKS = "openrouter,openai:gpt-5.1";
+      vi.mocked(env).BEDROCK_ACCESS_KEY = "test-bedrock-key";
+      vi.mocked(env).BEDROCK_SECRET_KEY = "test-bedrock-secret";
+      vi.mocked(env).OPENROUTER_API_KEY = undefined;
+      vi.mocked(env).OPENAI_API_KEY = "test-openai-key";
+
+      const result = getModel(userAi);
+
+      expect(result.fallbackModels).toHaveLength(1);
+      expect(result.fallbackModels[0]).toMatchObject({
+        provider: Provider.OPEN_AI,
+        modelName: "gpt-5.1",
+      });
     });
   });
 });
