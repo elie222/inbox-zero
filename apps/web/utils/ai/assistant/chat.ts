@@ -435,11 +435,7 @@ function addAnthropicCacheControl(
   });
 }
 
-function getChatProviderOptionsForCaching({
-  chatId,
-}: {
-  chatId?: string;
-}) {
+function getChatProviderOptionsForCaching({ chatId }: { chatId?: string }) {
   if (!chatId) return undefined;
 
   return {

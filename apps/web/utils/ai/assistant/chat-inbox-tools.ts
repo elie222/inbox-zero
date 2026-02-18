@@ -24,7 +24,7 @@ const forwardEmailToolInputSchema = z
     to: z.string().trim().min(1),
     cc: z.string().trim().min(1).optional(),
     bcc: z.string().trim().min(1).optional(),
-    content: z.string().trim().max(5_000).optional(),
+    content: z.string().trim().max(5000).optional(),
   })
   .strict();
 
@@ -663,7 +663,9 @@ export const forwardEmailTool = ({
           provider,
           logger,
         });
-        const message = await emailProvider.getMessage(parsedInput.data.messageId);
+        const message = await emailProvider.getMessage(
+          parsedInput.data.messageId,
+        );
         await emailProvider.forwardEmail(message, {
           to: parsedInput.data.to,
           cc: parsedInput.data.cc,

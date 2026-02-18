@@ -16,17 +16,21 @@ import { createScopedLogger } from "@/utils/logger";
 
 // Thinking budget for Google models (set low to minimize cost)
 const GOOGLE_THINKING_BUDGET = 0;
+const LEGACY_OPENROUTER_BACKUP_DEFAULT_MODEL = "google/gemini-2.5-flash";
 
 const logger = createScopedLogger("llms/model");
 
 export type ModelType = "default" | "economy" | "chat";
 
-export type SelectModel = {
+export type ResolvedModel = {
   provider: string;
   modelName: string;
   model: LanguageModelV3;
   providerOptions?: Record<string, any>;
-  backupModel: LanguageModelV3 | null;
+};
+
+export type SelectModel = ResolvedModel & {
+  fallbackModels: ResolvedModel[];
   hasUserApiKey: boolean;
 };
 
@@ -35,23 +39,32 @@ export function getModel(
   modelType: ModelType = "default",
   online = false,
 ): SelectModel {
-  const data = selectModelByType(userAi, modelType, online);
+  const primaryModel = selectModelByType(userAi, modelType, online);
+  const fallbackModels = getFallbackModels({
+    userAi,
+    modelType,
+    primaryModel,
+    online,
+  });
 
   logger.info("Using model", {
     modelType,
-    provider: data.provider,
-    model: data.modelName,
-    providerOptions: data.providerOptions,
+    provider: primaryModel.provider,
+    model: primaryModel.modelName,
+    providerOptions: primaryModel.providerOptions,
+    fallbackModels: fallbackModels.map(
+      (fallback) => `${fallback.provider}:${fallback.modelName}`,
+    ),
   });
 
-  return { ...data, hasUserApiKey: !!userAi.aiApiKey };
+  return { ...primaryModel, fallbackModels, hasUserApiKey: !!userAi.aiApiKey };
 }
 
 function selectModelByType(
   userAi: UserAIFields,
   modelType: ModelType,
   online = false,
-): Omit<SelectModel, "hasUserApiKey"> {
+): ResolvedModel {
   if (userAi.aiApiKey) return selectDefaultModel(userAi, online);
 
   switch (modelType) {
@@ -76,7 +89,7 @@ function selectModel(
   },
   providerOptions?: Record<string, any>,
   online = false,
-): Omit<SelectModel, "hasUserApiKey"> {
+): ResolvedModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
       const modelName = aiModel || "gpt-5.1";
@@ -97,7 +110,6 @@ function selectModel(
           modelName,
         ),
         providerOptions: openAiProviderOptions,
-        backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.AZURE: {
@@ -120,7 +132,6 @@ function selectModel(
           ...baseOptions,
           openai: { ...(baseOptions.openai ?? {}), reasoningEffort: "low" },
         },
-        backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.GOOGLE: {
@@ -138,7 +149,6 @@ function selectModel(
             },
           } satisfies GoogleGenerativeAIProviderOptions,
         },
-        backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.GROQ: {
@@ -147,7 +157,6 @@ function selectModel(
         provider: Provider.GROQ,
         modelName,
         model: createGroq({ apiKey: aiApiKey || env.GROQ_API_KEY })(modelName),
-        backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.OPENROUTER: {
@@ -168,7 +177,6 @@ function selectModel(
         modelName,
         model: chatModel,
         providerOptions,
-        backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.AI_GATEWAY: {
@@ -188,7 +196,6 @@ function selectModel(
           } satisfies GoogleGenerativeAIProviderOptions,
           // Note: Anthropic thinking is disabled by default (not including the config)
         },
-        backupModel: getBackupModel(aiApiKey),
       };
     }
     case "ollama": {
@@ -199,7 +206,6 @@ function selectModel(
         provider: Provider.OLLAMA,
         modelName,
         model: createOllama({ baseURL: env.OLLAMA_BASE_URL })(modelName),
-        backupModel: null,
       };
     }
 
@@ -219,7 +225,6 @@ function selectModel(
           }),
         })(modelName),
         // Note: Anthropic thinking is disabled by default (not including the config)
-        backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.ANTHROPIC: {
@@ -231,7 +236,6 @@ function selectModel(
           apiKey: aiApiKey || env.ANTHROPIC_API_KEY,
         })(modelName),
         // Note: Anthropic thinking is disabled by default (not including the config)
-        backupModel: getBackupModel(aiApiKey),
       };
     }
     default: {
@@ -273,14 +277,14 @@ function createOpenRouterProviderOptions(
 function selectEconomyModel(
   userAi: UserAIFields,
   online = false,
-): Omit<SelectModel, "hasUserApiKey"> {
+): ResolvedModel {
   if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
     if (!apiKey) {
       logger.warn("Economy LLM provider configured but API key not found", {
         provider: env.ECONOMY_LLM_PROVIDER,
       });
-      return selectDefaultModel(userAi);
+      return selectDefaultModel(userAi, online);
     }
 
     // Configure OpenRouter provider options if using OpenRouter for economy
@@ -305,23 +309,20 @@ function selectEconomyModel(
     );
   }
 
-  return selectDefaultModel(userAi);
+  return selectDefaultModel(userAi, online);
 }
 
 /**
  * Selects the appropriate chat model for fast conversational tasks
  */
-function selectChatModel(
-  userAi: UserAIFields,
-  online = false,
-): Omit<SelectModel, "hasUserApiKey"> {
+function selectChatModel(userAi: UserAIFields, online = false): ResolvedModel {
   if (env.CHAT_LLM_PROVIDER && env.CHAT_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.CHAT_LLM_PROVIDER);
     if (!apiKey) {
       logger.warn("Chat LLM provider configured but API key not found", {
         provider: env.CHAT_LLM_PROVIDER,
       });
-      return selectDefaultModel(userAi);
+      return selectDefaultModel(userAi, online);
     }
 
     // Configure OpenRouter provider options if using OpenRouter for chat
@@ -346,13 +347,13 @@ function selectChatModel(
     );
   }
 
-  return selectDefaultModel(userAi);
+  return selectDefaultModel(userAi, online);
 }
 
 function selectDefaultModel(
   userAi: UserAIFields,
   online = false,
-): Omit<SelectModel, "hasUserApiKey"> {
+): ResolvedModel {
   let aiProvider: string;
   let aiModel: string | null = null;
   const aiApiKey = userAi.aiApiKey;
@@ -419,12 +420,159 @@ function getProviderApiKey(provider: string) {
   return providerApiKeys[provider];
 }
 
-function getBackupModel(userApiKey: string | null): LanguageModelV3 | null {
-  // disable backup model if user is using their own api key
-  if (userApiKey) return null;
-  if (!env.OPENROUTER_BACKUP_MODEL) return null;
+function getFallbackModels({
+  userAi,
+  modelType,
+  primaryModel,
+  online,
+}: {
+  userAi: UserAIFields;
+  modelType: ModelType;
+  primaryModel: ResolvedModel;
+  online: boolean;
+}): ResolvedModel[] {
+  // Keep user-selected API key behavior strict and predictable.
+  if (userAi.aiApiKey) return [];
 
-  return createOpenRouter({
-    apiKey: env.OPENROUTER_API_KEY,
-  }).chat(env.OPENROUTER_BACKUP_MODEL);
+  const fallbackConfig = getFallbackConfig(modelType);
+  if (!fallbackConfig) return [];
+
+  const fallbackDefinitions = parseFallbackConfig(fallbackConfig);
+  if (!fallbackDefinitions.length) return [];
+
+  const fallbacks: ResolvedModel[] = [];
+
+  for (const fallback of fallbackDefinitions) {
+    if (!isSupportedProvider(fallback.provider)) {
+      logger.warn("Skipping unsupported fallback provider", {
+        provider: fallback.provider,
+      });
+      continue;
+    }
+
+    const apiKey = getProviderApiKey(fallback.provider);
+    if (!apiKey) {
+      logger.warn("Skipping fallback provider without configured credentials", {
+        provider: fallback.provider,
+      });
+      continue;
+    }
+
+    if (!fallback.modelName) {
+      logger.warn("Skipping fallback provider without explicit model", {
+        provider: fallback.provider,
+        modelType,
+      });
+      continue;
+    }
+
+    if (fallback.provider === Provider.OLLAMA && !env.OLLAMA_MODEL) {
+      logger.warn("Skipping Ollama fallback without OLLAMA_MODEL", {
+        provider: fallback.provider,
+      });
+      continue;
+    }
+
+    const providerOptions =
+      fallback.provider === Provider.OPENROUTER
+        ? getOpenRouterProviderOptionsByType(modelType)
+        : undefined;
+
+    const resolvedFallback = selectModel(
+      {
+        aiProvider: fallback.provider,
+        aiModel: fallback.modelName,
+        aiApiKey: apiKey,
+      },
+      providerOptions,
+      online,
+    );
+
+    const isDuplicateOfPrimary =
+      resolvedFallback.provider === primaryModel.provider &&
+      resolvedFallback.modelName === primaryModel.modelName;
+    const isDuplicateFallback = fallbacks.some(
+      (existing) =>
+        existing.provider === resolvedFallback.provider &&
+        existing.modelName === resolvedFallback.modelName,
+    );
+
+    if (isDuplicateOfPrimary || isDuplicateFallback) continue;
+
+    fallbacks.push(resolvedFallback);
+  }
+
+  return fallbacks;
+}
+
+function getFallbackConfig(modelType: ModelType): string | undefined {
+  const configuredFallbacks = getConfiguredFallbacksByType(modelType);
+
+  if (configuredFallbacks) return configuredFallbacks;
+
+  return getLegacyFallbackConfig();
+}
+
+function getLegacyFallbackConfig(): string | undefined {
+  if (!env.USE_BACKUP_MODEL) return;
+
+  const legacyBackupModel = env.OPENROUTER_BACKUP_MODEL?.trim();
+  if (legacyBackupModel) return `openrouter:${legacyBackupModel}`;
+
+  return `openrouter:${LEGACY_OPENROUTER_BACKUP_DEFAULT_MODEL}`;
+}
+
+function getConfiguredFallbacksByType(
+  modelType: ModelType,
+): string | undefined {
+  switch (modelType) {
+    case "economy":
+      return env.ECONOMY_LLM_FALLBACKS || env.DEFAULT_LLM_FALLBACKS;
+    case "chat":
+      return env.CHAT_LLM_FALLBACKS || env.DEFAULT_LLM_FALLBACKS;
+    default:
+      return env.DEFAULT_LLM_FALLBACKS;
+  }
+}
+
+function getOpenRouterProviderOptionsByType(
+  modelType: ModelType,
+): Record<string, any> | undefined {
+  const providersByType: Record<ModelType, string | undefined> = {
+    default: env.DEFAULT_OPENROUTER_PROVIDERS,
+    economy: env.ECONOMY_OPENROUTER_PROVIDERS,
+    chat: env.CHAT_OPENROUTER_PROVIDERS,
+  };
+
+  const providers = providersByType[modelType];
+  if (!providers) return;
+  return createOpenRouterProviderOptions(providers);
+}
+
+function parseFallbackConfig(
+  fallbackConfig: string,
+): Array<{ provider: string; modelName: string | null }> {
+  return fallbackConfig
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const separatorIndex = entry.indexOf(":");
+      if (separatorIndex === -1) {
+        return {
+          provider: entry.toLowerCase(),
+          modelName: null,
+        };
+      }
+
+      return {
+        provider: entry.slice(0, separatorIndex).trim().toLowerCase(),
+        modelName: entry.slice(separatorIndex + 1).trim() || null,
+      };
+    })
+    .filter((entry) => !!entry.provider);
+}
+
+function isSupportedProvider(provider: string): boolean {
+  return Object.values(Provider).includes(provider);
 }

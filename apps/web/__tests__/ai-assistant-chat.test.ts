@@ -241,7 +241,9 @@ describe("aiProcessAssistantChat", () => {
       content: "assistant response",
     });
     expect(args.messages[3].role).toBe("system");
-    expect(args.messages[3].content).toContain("Memories from previous conversations:");
+    expect(args.messages[3].content).toContain(
+      "Memories from previous conversations:",
+    );
     expect(args.messages.at(-1)).toEqual({
       role: "user",
       content: "latest user message",
