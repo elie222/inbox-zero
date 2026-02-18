@@ -435,7 +435,7 @@ function HowItWorksPreview() {
     let currentStage = 0;
 
     const advanceStage = () => {
-      if (currentStage >= timings.length - 1) return;
+      if (currentStage >= timings.length) return;
 
       timeout = setTimeout(
         () => {
