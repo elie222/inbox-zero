@@ -163,6 +163,119 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.sendEmail).toBeUndefined();
   });
 
+  it("adds OpenAI prompt cache key when chatId is provided", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+      chatId: "chat-123",
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    expect(args.providerOptions).toEqual({
+      openai: {
+        promptCacheKey: "assistant-chat:chat-123",
+      },
+    });
+  });
+
+  it("does not add chat provider options when chatId is missing", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    expect(args.providerOptions).toBeUndefined();
+  });
+
+  it("places context between history and latest message for cache-friendly ordering", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: [
+        { role: "user", content: "first user message" },
+        { role: "assistant", content: "assistant response" },
+        { role: "user", content: "latest user message" },
+      ],
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+      memories: [{ content: "Remember this", date: "2026-02-18" }],
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    expect(args.messages[1]).toEqual({
+      role: "user",
+      content: "first user message",
+    });
+    expect(args.messages[2]).toEqual({
+      role: "assistant",
+      content: "assistant response",
+    });
+    expect(args.messages[3].role).toBe("system");
+    expect(args.messages[3].content).toContain("Memories from previous conversations:");
+    expect(args.messages.at(-1)).toEqual({
+      role: "user",
+      content: "latest user message",
+    });
+  });
+
+  it("adds anthropic cache breakpoints to stable-prefix messages", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: [
+        { role: "user", content: "history user" },
+        { role: "assistant", content: "history assistant" },
+        { role: "user", content: "latest user" },
+      ],
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    expect(args.messages[0].providerOptions?.anthropic?.cacheControl).toEqual({
+      type: "ephemeral",
+    });
+    expect(args.messages[2].providerOptions?.anthropic?.cacheControl).toEqual({
+      type: "ephemeral",
+    });
+    expect(args.messages.at(-1).providerOptions).toBeUndefined();
+  });
+
   it("uses systemType (not rule name) to detect conversation status fix context", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,
