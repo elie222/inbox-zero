@@ -774,6 +774,81 @@ describe("aiProcessAssistantChat", () => {
     expect(result.totalReturned).toBe(0);
   });
 
+  it("sends email with allowlisted chat params only", async () => {
+    const tools = await captureToolSet(true, "google");
+    const sendEmailWithHtml = vi.fn().mockResolvedValue({
+      messageId: "message-1",
+      threadId: "thread-1",
+    });
+
+    mockCreateEmailProvider.mockResolvedValue({
+      sendEmailWithHtml,
+    });
+
+    const result = await tools.sendEmail.execute({
+      to: "recipient@example.test",
+      cc: "observer@example.test",
+      subject: "Subject line",
+      messageHtml: "<p>Hello</p>",
+    });
+
+    expect(result).toEqual({
+      success: true,
+      messageId: "message-1",
+      threadId: "thread-1",
+      to: "recipient@example.test",
+      subject: "Subject line",
+    });
+
+    expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
+    expect(sendEmailWithHtml.mock.calls[0][0]).toEqual({
+      to: "recipient@example.test",
+      cc: "observer@example.test",
+      subject: "Subject line",
+      messageHtml: "<p>Hello</p>",
+    });
+  });
+
+  it("rejects unsupported from field in chat send params", async () => {
+    const tools = await captureToolSet(true, "google");
+    mockCreateEmailProvider.mockResolvedValue({
+      sendEmailWithHtml: vi.fn(),
+    });
+    const providerCallsBefore = mockCreateEmailProvider.mock.calls.length;
+
+    const result = await tools.sendEmail.execute({
+      to: "recipient@example.test",
+      from: "sender.alias@example.test",
+      subject: "Subject line",
+      messageHtml: "<p>Hello</p>",
+    } as any);
+
+    expect(result).toEqual({
+      error: 'Invalid sendEmail input: unsupported field "from"',
+    });
+    expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
+  });
+
+  it("rejects unsupported bcc field in chat send params", async () => {
+    const tools = await captureToolSet(true, "google");
+    mockCreateEmailProvider.mockResolvedValue({
+      sendEmailWithHtml: vi.fn(),
+    });
+    const providerCallsBefore = mockCreateEmailProvider.mock.calls.length;
+
+    const result = await tools.sendEmail.execute({
+      to: "recipient@example.test",
+      bcc: "hidden@example.test",
+      subject: "Subject line",
+      messageHtml: "<p>Done</p>",
+    } as any);
+
+    expect(result).toEqual({
+      error: 'Invalid sendEmail input: unsupported field "bcc"',
+    });
+    expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
+  });
+
   it("registers saveMemory tool", async () => {
     const tools = await captureToolSet();
     expect(tools.saveMemory).toBeDefined();
