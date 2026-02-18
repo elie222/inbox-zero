@@ -1,6 +1,9 @@
-import { AutomationJobType } from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
+import {
+  AUTOMATION_JOB_TYPES,
+  type AutomationJobTypeValue,
+} from "@/utils/automation-jobs/defaults";
 
 export async function getAutomationJobMessage({
   jobType,
@@ -8,7 +11,7 @@ export async function getAutomationJobMessage({
   emailProvider,
   logger,
 }: {
-  jobType: AutomationJobType;
+  jobType: AutomationJobTypeValue;
   prompt: string | null;
   emailProvider: EmailProvider;
   logger: Logger;
@@ -17,7 +20,7 @@ export async function getAutomationJobMessage({
   if (trimmedPrompt) return trimmedPrompt;
 
   switch (jobType) {
-    case AutomationJobType.INBOX_SUMMARY:
+    case AUTOMATION_JOB_TYPES.INBOX_SUMMARY:
       return "I can prepare a quick summary of what changed in your inbox. Want to review it now?";
 
     default:

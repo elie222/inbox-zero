@@ -26,7 +26,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { AutomationJobType } from "@/generated/prisma/enums";
 import { useAutomationJob } from "@/hooks/useAutomationJob";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -36,6 +35,7 @@ import {
 } from "@/utils/actions/automation-jobs";
 import { getActionErrorMessage } from "@/utils/error";
 import {
+  AUTOMATION_JOB_TYPES,
   AUTOMATION_CRON_PRESETS,
   DEFAULT_AUTOMATION_JOB_CRON,
 } from "@/utils/automation-jobs/defaults";
@@ -72,7 +72,7 @@ export function ProactiveUpdatesSetting() {
   const hasConnectedSlack = connectedSlackChannels.length > 0;
   const job = data?.job ?? null;
   const enabled = Boolean(job?.enabled);
-  const resolvedJobType = job?.jobType ?? AutomationJobType.INBOX_NUDGE;
+  const resolvedJobType = job?.jobType ?? AUTOMATION_JOB_TYPES.INBOX_NUDGE;
 
   useEffect(() => {
     if (!open) return;

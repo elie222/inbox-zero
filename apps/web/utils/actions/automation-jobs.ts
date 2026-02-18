@@ -6,13 +6,14 @@ import {
   toggleAutomationJobBody,
 } from "@/utils/actions/automation-jobs.validation";
 import { SafeError } from "@/utils/error";
-import { AutomationJobType, MessagingProvider } from "@/generated/prisma/enums";
+import { MessagingProvider } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import {
   getNextAutomationJobRunAt,
   validateAutomationCronExpression,
 } from "@/utils/automation-jobs/cron";
 import {
+  AUTOMATION_JOB_TYPES,
   DEFAULT_AUTOMATION_JOB_CRON,
   getDefaultAutomationJobName,
 } from "@/utils/automation-jobs/defaults";
@@ -59,9 +60,9 @@ export const toggleAutomationJobAction = actionClient
 
     await prisma.automationJob.create({
       data: {
-        name: getDefaultAutomationJobName(AutomationJobType.INBOX_NUDGE),
+        name: getDefaultAutomationJobName(AUTOMATION_JOB_TYPES.INBOX_NUDGE),
         enabled: true,
-        jobType: AutomationJobType.INBOX_NUDGE,
+        jobType: AUTOMATION_JOB_TYPES.INBOX_NUDGE,
         cronExpression: DEFAULT_AUTOMATION_JOB_CRON,
         nextRunAt,
         messagingChannelId: defaultChannel.id,
