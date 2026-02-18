@@ -895,37 +895,27 @@ function getManageInboxValidationError(error: z.ZodError) {
 }
 
 function getSendEmailValidationError(error: z.ZodError) {
-  const firstIssue = error.issues[0];
-  if (!firstIssue) return "Invalid sendEmail input";
-
-  if (firstIssue.code === "unrecognized_keys") {
-    const firstKey = firstIssue.keys[0];
-    if (firstKey) {
-      return `Invalid sendEmail input: unsupported field "${firstKey}"`;
-    }
-    return "Invalid sendEmail input: unsupported fields";
-  }
-
-  const field = firstIssue.path.map(String).join(".");
-  if (!field) return `Invalid sendEmail input: ${firstIssue.message}`;
-
-  return `Invalid sendEmail input: ${field} ${firstIssue.message}`;
+  return getValidationErrorMessage("sendEmail", error);
 }
 
 function getForwardEmailValidationError(error: z.ZodError) {
+  return getValidationErrorMessage("forwardEmail", error);
+}
+
+function getValidationErrorMessage(toolName: string, error: z.ZodError) {
   const firstIssue = error.issues[0];
-  if (!firstIssue) return "Invalid forwardEmail input";
+  if (!firstIssue) return `Invalid ${toolName} input`;
 
   if (firstIssue.code === "unrecognized_keys") {
     const firstKey = firstIssue.keys[0];
     if (firstKey) {
-      return `Invalid forwardEmail input: unsupported field "${firstKey}"`;
+      return `Invalid ${toolName} input: unsupported field "${firstKey}"`;
     }
-    return "Invalid forwardEmail input: unsupported fields";
+    return `Invalid ${toolName} input: unsupported fields`;
   }
 
   const field = firstIssue.path.map(String).join(".");
-  if (!field) return `Invalid forwardEmail input: ${firstIssue.message}`;
+  if (!field) return `Invalid ${toolName} input: ${firstIssue.message}`;
 
-  return `Invalid forwardEmail input: ${field} ${firstIssue.message}`;
+  return `Invalid ${toolName} input: ${field} ${firstIssue.message}`;
 }
