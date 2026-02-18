@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import type {
   AddToKnowledgeBaseTool,
   CreateRuleTool,
+  ForwardEmailTool,
   GetAccountOverviewTool,
   GetLearnedPatternsTool,
   GetUserRulesAndSettingsTool,
@@ -41,6 +42,7 @@ export type ChatTools = {
   saveMemory: SaveMemoryTool;
   searchMemories: SearchMemoriesTool;
   sendEmail: SendEmailTool;
+  forwardEmail: ForwardEmailTool;
 };
 
 // biome-ignore lint/complexity/noBannedTypes: ignore

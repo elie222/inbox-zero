@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelMessage } from "ai";
-import { getEmailAccount } from "@/__tests__/helpers";
+import { getEmailAccount, getMockMessage } from "@/__tests__/helpers";
 import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
@@ -141,6 +141,7 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.manageInbox).toBeDefined();
     expect(args.tools.updateInboxFeatures).toBeDefined();
     expect(args.tools.sendEmail).toBeDefined();
+    expect(args.tools.forwardEmail).toBeDefined();
   });
 
   it("omits sendEmail tool when email sending is disabled", async () => {
@@ -161,6 +162,7 @@ describe("aiProcessAssistantChat", () => {
 
     const args = mockToolCallAgentStream.mock.calls[0][0];
     expect(args.tools.sendEmail).toBeUndefined();
+    expect(args.tools.forwardEmail).toBeUndefined();
   });
 
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
@@ -960,6 +962,66 @@ describe("aiProcessAssistantChat", () => {
       error: 'Invalid sendEmail input: unsupported field "bcc"',
     });
     expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
+  });
+
+  it("forwards email with allowlisted chat params only", async () => {
+    const tools = await captureToolSet(true, "google");
+    const message = getMockMessage({ id: "message-1", threadId: "thread-1" });
+    const getMessage = vi.fn().mockResolvedValue(message);
+    const forwardEmail = vi.fn().mockResolvedValue(undefined);
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessage,
+      forwardEmail,
+    });
+
+    const result = await tools.forwardEmail.execute({
+      messageId: "message-1",
+      to: "recipient@example.test",
+      cc: "observer@example.test",
+      content: "FYI",
+    });
+
+    expect(result).toEqual({
+      success: true,
+      messageId: "message-1",
+      to: "recipient@example.test",
+    });
+
+    expect(getMessage).toHaveBeenCalledTimes(1);
+    expect(getMessage).toHaveBeenCalledWith("message-1");
+    expect(forwardEmail).toHaveBeenCalledTimes(1);
+    expect(forwardEmail).toHaveBeenCalledWith(message, {
+      to: "recipient@example.test",
+      cc: "observer@example.test",
+      bcc: undefined,
+      content: "FYI",
+    });
+  });
+
+  it("rejects unsupported from field in chat forward params", async () => {
+    const tools = await captureToolSet(true, "google");
+    const getMessage = vi.fn();
+    const forwardEmail = vi.fn();
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessage,
+      forwardEmail,
+    });
+    const providerCallsBefore = mockCreateEmailProvider.mock.calls.length;
+
+    const result = await tools.forwardEmail.execute({
+      messageId: "message-1",
+      to: "recipient@example.test",
+      from: "sender.alias@example.test",
+    } as any);
+
+    expect(result).toEqual({
+      error: 'Invalid forwardEmail input: unsupported field "from"',
+    });
+    expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
+    expect(getMessage).not.toHaveBeenCalled();
+    expect(forwardEmail).not.toHaveBeenCalled();
   });
 
   it("registers saveMemory tool", async () => {
