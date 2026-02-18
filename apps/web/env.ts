@@ -49,17 +49,17 @@ export const env = createEnv({
       // custom is deprecated
       .enum([...llmProviderEnum.options, "custom"]),
     DEFAULT_LLM_MODEL: z.string().optional(),
-    DEFAULT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider[:model] chain (e.g., "openrouter:anthropic/claude-sonnet-4.5,openai:gpt-5.1")
+    DEFAULT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain; explicit model required (e.g., "openrouter:anthropic/claude-sonnet-4.5,openai:gpt-5.1")
     DEFAULT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for default model (e.g., "Google Vertex,Anthropic")
     // Set this to a cheaper model like Gemini Flash
     ECONOMY_LLM_PROVIDER: llmProviderEnum.optional(),
     ECONOMY_LLM_MODEL: z.string().optional(),
-    ECONOMY_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider[:model] chain for economy model
+    ECONOMY_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain for economy model; explicit model required
     ECONOMY_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for economy model (e.g., "Google Vertex,Anthropic")
     // Set this to a fast but strong model like Groq Kimi K2. Leaving blank will fallback to default which is also fine.
     CHAT_LLM_PROVIDER: llmProviderEnum.optional(),
     CHAT_LLM_MODEL: z.string().optional(),
-    CHAT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider[:model] chain for chat model
+    CHAT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain for chat model; explicit model required
     CHAT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
     // Deprecated: legacy fallback configuration, kept for backwards compatibility.
     OPENROUTER_BACKUP_MODEL: z.string().optional(),
