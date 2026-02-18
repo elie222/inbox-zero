@@ -4,9 +4,14 @@ import { actionClient } from "@/utils/actions/safe-action";
 import {
   saveAutomationJobBody,
   toggleAutomationJobBody,
+  triggerTestCheckInBody,
 } from "@/utils/actions/automation-jobs.validation";
 import { SafeError } from "@/utils/error";
-import { AutomationJobType, MessagingProvider } from "@/generated/prisma/enums";
+import {
+  AutomationJobRunStatus,
+  AutomationJobType,
+  MessagingProvider,
+} from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import {
   getNextAutomationJobRunAt,
@@ -18,6 +23,8 @@ import {
 } from "@/utils/automation-jobs/defaults";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
+import { publishToQstashQueue } from "@/utils/upstash";
+import { getInternalApiUrl } from "@/utils/internal-api";
 
 export const toggleAutomationJobAction = actionClient
   .metadata({ name: "toggleAutomationJob" })
@@ -167,6 +174,41 @@ export const saveAutomationJobAction = actionClient
       });
     },
   );
+
+export const triggerTestCheckInAction = actionClient
+  .metadata({ name: "triggerTestCheckIn" })
+  .inputSchema(triggerTestCheckInBody)
+  .action(async ({ ctx: { emailAccountId, userId } }) => {
+    await assertCanEnableAutomationJobs(userId);
+
+    const job = await prisma.automationJob.findFirst({
+      where: { emailAccountId, enabled: true },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+
+    if (!job) {
+      throw new SafeError("No active check-in configured");
+    }
+
+    const run = await prisma.automationJobRun.create({
+      data: {
+        automationJobId: job.id,
+        status: AutomationJobRunStatus.PENDING,
+        scheduledFor: new Date(),
+      },
+      select: { id: true },
+    });
+
+    const executeUrl = `${getInternalApiUrl()}/api/automation-jobs/execute`;
+
+    await publishToQstashQueue({
+      queueName: "automation-jobs",
+      parallelism: 3,
+      url: executeUrl,
+      body: { automationJobRunId: run.id },
+    });
+  });
 
 async function getDefaultMessagingChannel(emailAccountId: string) {
   const channel = await prisma.messagingChannel.findFirst({

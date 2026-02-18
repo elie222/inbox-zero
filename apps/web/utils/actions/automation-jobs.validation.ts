@@ -13,3 +13,6 @@ export const saveAutomationJobBody = z.object({
   prompt: z.string().max(4000).nullish(),
 });
 export type SaveAutomationJobBody = z.infer<typeof saveAutomationJobBody>;
+
+export const triggerTestCheckInBody = z.object({});
+export type TriggerTestCheckInBody = z.infer<typeof triggerTestCheckInBody>;

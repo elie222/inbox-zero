@@ -34,6 +34,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   saveAutomationJobAction,
   toggleAutomationJobAction,
+  triggerTestCheckInAction,
 } from "@/utils/actions/automation-jobs";
 import { getActionErrorMessage } from "@/utils/error";
 import {
@@ -137,6 +138,22 @@ export function ProactiveUpdatesSetting() {
         toastError({
           description:
             getActionErrorMessage(error.error) ?? "Failed to save settings",
+        });
+      },
+    },
+  );
+
+  const { execute: executeTestCheckIn, status: testCheckInStatus } = useAction(
+    triggerTestCheckInAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Test check-in sent to Slack" });
+      },
+      onError: (error) => {
+        toastError({
+          description:
+            getActionErrorMessage(error.error) ??
+            "Failed to send test check-in",
         });
       },
     },
@@ -297,22 +314,41 @@ export function ProactiveUpdatesSetting() {
                           )}
                         </div>
 
-                        <div className="flex justify-end gap-2 pt-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => setOpen(false)}
-                            disabled={saveStatus === "executing"}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={handleSave}
-                            disabled={
-                              !messagingChannelId || saveStatus === "executing"
-                            }
-                          >
-                            {saveStatus === "executing" ? "Saving..." : "Save"}
-                          </Button>
+                        <div className="flex items-center justify-between pt-2">
+                          {job ? (
+                            <button
+                              type="button"
+                              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+                              disabled={testCheckInStatus === "executing"}
+                              onClick={() => executeTestCheckIn({})}
+                            >
+                              {testCheckInStatus === "executing"
+                                ? "Sending..."
+                                : "Send test check-in"}
+                            </button>
+                          ) : (
+                            <div />
+                          )}
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => setOpen(false)}
+                              disabled={saveStatus === "executing"}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={handleSave}
+                              disabled={
+                                !messagingChannelId ||
+                                saveStatus === "executing"
+                              }
+                            >
+                              {saveStatus === "executing"
+                                ? "Saving..."
+                                : "Save"}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
