@@ -1,6 +1,7 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createAzure } from "@ai-sdk/azure";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -109,6 +110,28 @@ function selectModel(
           modelName,
         ),
         providerOptions: openAiProviderOptions,
+      };
+    }
+    case Provider.AZURE: {
+      const modelName = aiModel || "gpt-5-mini";
+      const baseOptions = providerOptions ?? {};
+      const resourceName = env.AZURE_RESOURCE_NAME;
+      if (!resourceName) {
+        throw new Error("AZURE_RESOURCE_NAME environment variable is not set");
+      }
+
+      return {
+        provider: Provider.AZURE,
+        modelName,
+        model: createAzure({
+          apiKey: aiApiKey || env.AZURE_API_KEY,
+          resourceName,
+          apiVersion: env.AZURE_API_VERSION,
+        })(modelName),
+        providerOptions: {
+          ...baseOptions,
+          openai: { ...(baseOptions.openai ?? {}), reasoningEffort: "low" },
+        },
       };
     }
     case Provider.GOOGLE: {
@@ -292,10 +315,7 @@ function selectEconomyModel(
 /**
  * Selects the appropriate chat model for fast conversational tasks
  */
-function selectChatModel(
-  userAi: UserAIFields,
-  online = false,
-): ResolvedModel {
+function selectChatModel(userAi: UserAIFields, online = false): ResolvedModel {
   if (env.CHAT_LLM_PROVIDER && env.CHAT_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.CHAT_LLM_PROVIDER);
     if (!apiKey) {
@@ -381,6 +401,10 @@ function selectDefaultModel(
 function getProviderApiKey(provider: string) {
   const providerApiKeys: Record<string, string | undefined> = {
     [Provider.ANTHROPIC]: env.ANTHROPIC_API_KEY,
+    [Provider.AZURE]:
+      env.AZURE_API_KEY && env.AZURE_RESOURCE_NAME
+        ? env.AZURE_API_KEY
+        : undefined,
     [Provider.BEDROCK]:
       env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY
         ? "bedrock-credentials"
@@ -498,7 +522,9 @@ function getLegacyFallbackConfig(): string | undefined {
   return `openrouter:${LEGACY_OPENROUTER_BACKUP_DEFAULT_MODEL}`;
 }
 
-function getConfiguredFallbacksByType(modelType: ModelType): string | undefined {
+function getConfiguredFallbacksByType(
+  modelType: ModelType,
+): string | undefined {
   switch (modelType) {
     case "economy":
       return env.ECONOMY_LLM_FALLBACKS || env.DEFAULT_LLM_FALLBACKS;

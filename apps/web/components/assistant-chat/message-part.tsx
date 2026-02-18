@@ -195,6 +195,26 @@ export function MessagePart({
     }
   }
 
+  if (part.type === "tool-forwardEmail") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Forwarding email..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      const to = getOutputField<string>(output, "to");
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`Forwarded email${to ? ` to ${to}` : ""}`}
+        />
+      );
+    }
+  }
+
   if (part.type === "tool-getUserRulesAndSettings") {
     const { toolCallId, state } = part;
     if (state === "input-available") {

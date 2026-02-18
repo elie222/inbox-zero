@@ -42,6 +42,9 @@
 
         "OPENAI_API_KEY",
         "OPENAI_ZERO_DATA_RETENTION",
+        "AZURE_API_KEY",
+        "AZURE_RESOURCE_NAME",
+        "AZURE_API_VERSION",
         "ANTHROPIC_API_KEY",
         "BEDROCK_ACCESS_KEY",
         "BEDROCK_SECRET_KEY",
