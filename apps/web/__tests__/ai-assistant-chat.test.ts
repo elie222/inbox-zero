@@ -241,7 +241,9 @@ describe("aiProcessAssistantChat", () => {
       content: "assistant response",
     });
     expect(args.messages[3].role).toBe("system");
-    expect(args.messages[3].content).toContain("Memories from previous conversations:");
+    expect(args.messages[3].content).toContain(
+      "Memories from previous conversations:",
+    );
     expect(args.messages.at(-1)).toEqual({
       role: "user",
       content: "latest user message",
@@ -921,6 +923,7 @@ describe("aiProcessAssistantChat", () => {
       cc: "observer@example.test",
       subject: "Subject line",
       messageHtml: "<p>Hello</p>",
+      from: "user@test.com",
     });
   });
 
@@ -944,24 +947,39 @@ describe("aiProcessAssistantChat", () => {
     expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
   });
 
-  it("rejects unsupported bcc field in chat send params", async () => {
+  it("allows bcc field in chat send params", async () => {
     const tools = await captureToolSet(true, "google");
-    mockCreateEmailProvider.mockResolvedValue({
-      sendEmailWithHtml: vi.fn(),
+    const sendEmailWithHtml = vi.fn().mockResolvedValue({
+      messageId: "message-2",
+      threadId: "thread-2",
     });
-    const providerCallsBefore = mockCreateEmailProvider.mock.calls.length;
+    mockCreateEmailProvider.mockResolvedValue({
+      sendEmailWithHtml,
+    });
 
     const result = await tools.sendEmail.execute({
       to: "recipient@example.test",
       bcc: "hidden@example.test",
       subject: "Subject line",
       messageHtml: "<p>Done</p>",
-    } as any);
+    });
 
     expect(result).toEqual({
-      error: 'Invalid sendEmail input: unsupported field "bcc"',
+      success: true,
+      messageId: "message-2",
+      threadId: "thread-2",
+      to: "recipient@example.test",
+      subject: "Subject line",
     });
-    expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
+
+    expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
+    expect(sendEmailWithHtml).toHaveBeenCalledWith({
+      to: "recipient@example.test",
+      bcc: "hidden@example.test",
+      subject: "Subject line",
+      messageHtml: "<p>Done</p>",
+      from: "user@test.com",
+    });
   });
 
   it("forwards email with allowlisted chat params only", async () => {
