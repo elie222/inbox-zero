@@ -60,7 +60,10 @@ export function useSlackConnect({
             description: "Redirecting to Slack authorization...",
           });
         } else {
-          toastInfo({ description: "Redirecting to Slack authorization..." });
+          toastInfo({
+            title: "Continue in Slack",
+            description: "Redirecting to Slack authorization...",
+          });
         }
         // Always fall through to OAuth so the user isn't stuck.
       }
