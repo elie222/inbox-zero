@@ -41,7 +41,7 @@ async function loadUpstashModule({ qstashToken }: { qstashToken?: string }) {
   vi.doMock("@/env", () => ({
     env: {
       QSTASH_TOKEN: qstashToken,
-      NEXT_PUBLIC_BASE_URL: "https://public.example.com",
+      NEXT_PUBLIC_BASE_URL: "http://web:3000",
       INTERNAL_API_KEY: "internal-api-key",
     },
   }));
@@ -59,7 +59,7 @@ describe("publishToQstash", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses public base URL for QStash when configured", async () => {
+  it("uses internal base URL for QStash when configured", async () => {
     const fetchMock = setupFetchMock();
     const upstash = await loadUpstashModule({ qstashToken: "token" });
 
@@ -67,7 +67,7 @@ describe("publishToQstash", () => {
 
     expect(mockPublishJSON).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "https://public.example.com/api/process",
+        url: "http://web:3000/api/process",
       }),
     );
     expect(fetchMock).not.toHaveBeenCalled();
@@ -87,7 +87,7 @@ describe("publishToQstash", () => {
     );
   });
 
-  it("handles trailing slash on NEXT_PUBLIC_BASE_URL", async () => {
+  it("handles trailing slash on INTERNAL_API_URL", async () => {
     vi.resetModules();
     vi.clearAllMocks();
 
@@ -111,13 +111,13 @@ describe("publishToQstash", () => {
     vi.doMock("@/env", () => ({
       env: {
         QSTASH_TOKEN: "token",
-        NEXT_PUBLIC_BASE_URL: "https://public.example.com/",
+        NEXT_PUBLIC_BASE_URL: "https://public.example.com",
         INTERNAL_API_KEY: "internal-api-key",
       },
     }));
     vi.doMock("@/utils/internal-api", () => ({
       INTERNAL_API_KEY_HEADER: "x-api-key",
-      getInternalApiUrl: () => "http://web:3000",
+      getInternalApiUrl: () => "http://web:3000/",
     }));
 
     const upstash = await import("./index");
@@ -127,7 +127,7 @@ describe("publishToQstash", () => {
 
     expect(mockPublishJSON).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "https://public.example.com/api/process",
+        url: "http://web:3000/api/process",
       }),
     );
   });
@@ -138,7 +138,7 @@ describe("bulkPublishToQstash", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses public base URL for QStash when configured", async () => {
+  it("uses internal base URL for QStash when configured", async () => {
     const fetchMock = setupFetchMock();
     const upstash = await loadUpstashModule({ qstashToken: "token" });
 
@@ -152,8 +152,8 @@ describe("bulkPublishToQstash", () => {
     expect(mockBatchJSON).toHaveBeenCalledTimes(1);
     const [batchItems] = mockBatchJSON.mock.calls[0];
     expect(batchItems).toHaveLength(2);
-    expect(batchItems[0].url).toBe("https://public.example.com/api/task-one");
-    expect(batchItems[1].url).toBe("https://public.example.com/api/task-two");
+    expect(batchItems[0].url).toBe("http://web:3000/api/task-one");
+    expect(batchItems[1].url).toBe("http://web:3000/api/task-two");
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -187,7 +187,7 @@ describe("publishToQstashQueue", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses public base URL for QStash when configured", async () => {
+  it("uses internal base URL for QStash when configured", async () => {
     const fetchMock = setupFetchMock();
     const upstash = await loadUpstashModule({ qstashToken: "token" });
 
@@ -199,7 +199,7 @@ describe("publishToQstashQueue", () => {
     });
 
     expect(mockQueueEnqueueJSON).toHaveBeenCalledWith(
-      expect.objectContaining({ url: "https://public.example.com/api/task" }),
+      expect.objectContaining({ url: "http://web:3000/api/task" }),
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });

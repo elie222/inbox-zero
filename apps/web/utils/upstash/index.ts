@@ -21,7 +21,7 @@ export async function publishToQstash<T>(
 ) {
   const client = getQstashClient();
   if (client) {
-    const qstashUrl = `${normalizeBaseUrl(getPublicApiUrl())}${path}`;
+    const qstashUrl = `${normalizeBaseUrl(getInternalApiUrl())}${path}`;
     return client.publishJSON({
       url: qstashUrl,
       body,
@@ -48,7 +48,7 @@ export async function bulkPublishToQstash<T>({
 }) {
   const client = getQstashClient();
   if (client) {
-    const publicBase = normalizeBaseUrl(getPublicApiUrl());
+    const publicBase = normalizeBaseUrl(getInternalApiUrl());
     const qstashItems = items.map((item) => ({
       ...item,
       url: `${publicBase}${item.path}`,
@@ -84,7 +84,7 @@ export async function publishToQstashQueue<T>({
 }) {
   const client = getQstashClient();
   if (client) {
-    const qstashUrl = `${normalizeBaseUrl(getPublicApiUrl())}${path}`;
+    const qstashUrl = `${normalizeBaseUrl(getInternalApiUrl())}${path}`;
 
     try {
       const queue = client.queue({ queueName });
@@ -150,15 +150,6 @@ export async function deleteQueue(queueName: string) {
     logger.info("Deleting queue", { queueName });
     await client.queue({ queueName }).delete();
   }
-}
-
-function getPublicApiUrl() {
-  const url = env.NEXT_PUBLIC_BASE_URL;
-  if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    return `https://${url}`;
-  }
-
-  return url;
 }
 
 function normalizeBaseUrl(url: string) {
