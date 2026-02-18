@@ -48,6 +48,8 @@ vi.mock("@/env", () => ({
     CHAT_LLM_MODEL: "moonshotai/kimi-k2",
     CHAT_LLM_FALLBACKS: undefined,
     CHAT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
+    OPENROUTER_BACKUP_MODEL: undefined,
+    USE_BACKUP_MODEL: false,
     OPENAI_API_KEY: "test-openai-key",
     GOOGLE_API_KEY: "test-google-key",
     ANTHROPIC_API_KEY: "test-anthropic-key",
@@ -79,6 +81,8 @@ describe("Models", () => {
     vi.mocked(env).DEFAULT_LLM_FALLBACKS = undefined;
     vi.mocked(env).ECONOMY_LLM_FALLBACKS = undefined;
     vi.mocked(env).CHAT_LLM_FALLBACKS = undefined;
+    vi.mocked(env).OPENROUTER_BACKUP_MODEL = undefined;
+    vi.mocked(env).USE_BACKUP_MODEL = false;
     vi.mocked(env).BEDROCK_ACCESS_KEY = "";
     vi.mocked(env).BEDROCK_SECRET_KEY = "";
   });
@@ -405,6 +409,61 @@ describe("Models", () => {
         provider: Provider.OPEN_AI,
         modelName: "gpt-5.1",
       });
+    });
+
+    it("should support deprecated backup env vars as fallback config", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).USE_BACKUP_MODEL = true;
+      vi.mocked(env).OPENROUTER_BACKUP_MODEL = "google/gemini-2.5-flash";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi);
+
+      expect(result.fallbackModels).toHaveLength(1);
+      expect(result.fallbackModels[0]).toMatchObject({
+        provider: Provider.OPENROUTER,
+        modelName: "google/gemini-2.5-flash",
+      });
+    });
+
+    it("should skip fallback entries without explicit model names", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_FALLBACKS = "openrouter,openai:gpt-5.1";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+      vi.mocked(env).OPENAI_API_KEY = "test-openai-key";
+
+      const result = getModel(userAi);
+
+      expect(result.fallbackModels).toHaveLength(1);
+      expect(result.fallbackModels[0]).toMatchObject({
+        provider: Provider.OPEN_AI,
+        modelName: "gpt-5.1",
+      });
+    });
+
+    it("should skip Ollama fallback when OLLAMA_MODEL is not configured", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_FALLBACKS = "ollama:llama3";
+      vi.mocked(env).OLLAMA_MODEL = undefined;
+
+      const result = getModel(userAi);
+
+      expect(result.fallbackModels).toEqual([]);
     });
   });
 });

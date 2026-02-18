@@ -15,6 +15,7 @@ import { createScopedLogger } from "@/utils/logger";
 
 // Thinking budget for Google models (set low to minimize cost)
 const GOOGLE_THINKING_BUDGET = 0;
+const LEGACY_OPENROUTER_BACKUP_DEFAULT_MODEL = "google/gemini-2.5-flash";
 
 const logger = createScopedLogger("llms/model");
 
@@ -433,6 +434,21 @@ function getFallbackModels({
       continue;
     }
 
+    if (!fallback.modelName) {
+      logger.warn("Skipping fallback provider without explicit model", {
+        provider: fallback.provider,
+        modelType,
+      });
+      continue;
+    }
+
+    if (fallback.provider === Provider.OLLAMA && !env.OLLAMA_MODEL) {
+      logger.warn("Skipping Ollama fallback without OLLAMA_MODEL", {
+        provider: fallback.provider,
+      });
+      continue;
+    }
+
     const providerOptions =
       fallback.provider === Provider.OPENROUTER
         ? getOpenRouterProviderOptionsByType(modelType)
@@ -466,6 +482,23 @@ function getFallbackModels({
 }
 
 function getFallbackConfig(modelType: ModelType): string | undefined {
+  const configuredFallbacks = getConfiguredFallbacksByType(modelType);
+
+  if (configuredFallbacks) return configuredFallbacks;
+
+  return getLegacyFallbackConfig();
+}
+
+function getLegacyFallbackConfig(): string | undefined {
+  if (!env.USE_BACKUP_MODEL) return;
+
+  const legacyBackupModel = env.OPENROUTER_BACKUP_MODEL?.trim();
+  if (legacyBackupModel) return `openrouter:${legacyBackupModel}`;
+
+  return `openrouter:${LEGACY_OPENROUTER_BACKUP_DEFAULT_MODEL}`;
+}
+
+function getConfiguredFallbacksByType(modelType: ModelType): string | undefined {
   switch (modelType) {
     case "economy":
       return env.ECONOMY_LLM_FALLBACKS || env.DEFAULT_LLM_FALLBACKS;

@@ -61,6 +61,8 @@ export const env = createEnv({
     CHAT_LLM_MODEL: z.string().optional(),
     CHAT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider[:model] chain for chat model
     CHAT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
+    // Deprecated: legacy fallback configuration, kept for backwards compatibility.
+    OPENROUTER_BACKUP_MODEL: z.string().optional(),
 
     OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
@@ -133,6 +135,8 @@ export const env = createEnv({
     INTERNAL_API_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),
     WHITELIST_FROM: z.string().optional(),
+    // Deprecated: legacy fallback flag, kept for backwards compatibility.
+    USE_BACKUP_MODEL: booleanString.optional().default(false),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
