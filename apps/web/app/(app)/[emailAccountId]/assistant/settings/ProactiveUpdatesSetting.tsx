@@ -55,12 +55,12 @@ export function ProactiveUpdatesSetting() {
   const isDialogFormInitializedRef = useRef(false);
 
   const { emailAccountId } = useAccount();
-  const { data, isLoading, mutate } = useAutomationJob(emailAccountId);
+  const { data, isLoading, mutate } = useAutomationJob();
   const {
     data: channelsData,
     isLoading: isLoadingChannels,
     mutate: mutateChannels,
-  } = useMessagingChannels(emailAccountId);
+  } = useMessagingChannels();
 
   const connectedSlackChannels = useMemo(
     () =>
@@ -531,7 +531,7 @@ function HowItWorksPreview() {
                     animate={{ opacity: [0.3, 1, 0.3] }}
                     transition={{
                       duration: 1,
-                      repeat: Infinity,
+                      repeat: Number.POSITIVE_INFINITY,
                       delay: dot * 0.2,
                     }}
                   />
