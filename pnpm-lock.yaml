@@ -367,6 +367,9 @@ importers:
       crisp-sdk-web:
         specifier: 1.0.27
         version: 1.0.27
+      cronstrue:
+        specifier: 3.12.0
+        version: 3.12.0
       date-fns:
         specifier: 4.1.0
         version: 4.1.0
@@ -7309,6 +7312,10 @@ packages:
 
   crisp-sdk-web@1.0.27:
     resolution: {integrity: sha512-aNWR3te65YiaVFu/iwdqOo3cyUBZHUheE4d6EtgQu/T18jh/9SpoYXjXF/OzUD3Cqy0pGryoqtuy5gxD8tqX9Q==}
+
+  cronstrue@3.12.0:
+    resolution: {integrity: sha512-k9oiM4G7U1GEEktOGfZabldP0gtFWTsaRVqq9X06ifytr73mpSYYdt+zGZBeS5lRCsqMfq0y7oSHycWGIJSo6g==}
+    hasBin: true
 
   cross-env@10.1.0:
     resolution: {integrity: sha512-GsYosgnACZTADcmEyJctkJIoqAhHjttw7RsFrVoJNXbsWWqaq6Ym+7kZjq6mS45O0jij6vtiReppKQEtqWy6Dw==}
@@ -20041,6 +20048,8 @@ snapshots:
   crelt@1.0.6: {}
 
   crisp-sdk-web@1.0.27: {}
+
+  cronstrue@3.12.0: {}
 
   cross-env@10.1.0:
     dependencies:

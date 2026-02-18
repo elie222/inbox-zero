@@ -41,6 +41,7 @@ import {
   AUTOMATION_CRON_PRESETS,
   DEFAULT_AUTOMATION_JOB_CRON,
 } from "@/utils/automation-jobs/defaults";
+import { describeCronSchedule } from "@/utils/automation-jobs/describe";
 
 export function ProactiveUpdatesSetting() {
   const [open, setOpen] = useState(false);
@@ -175,9 +176,10 @@ export function ProactiveUpdatesSetting() {
     );
   }, [cronExpression]);
 
-  const scheduleText = selectedPreset
-    ? selectedPreset.scheduleText
-    : `Custom cron: ${cronExpression}`;
+  const scheduleText = useMemo(
+    () => describeCronSchedule(cronExpression),
+    [cronExpression],
+  );
 
   const handleSave = useCallback(() => {
     if (!messagingChannelId) return;
