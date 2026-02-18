@@ -55,15 +55,14 @@ export function useSlackConnect({
         );
 
         if (linkError.includes("Could not find your Slack account")) {
-          // Email mismatch in Slack profile — fall through to OAuth install.
           toastInfo({
             title: "Email not found in Slack",
             description: "Redirecting to Slack authorization...",
           });
         } else {
-          toastError({ description: linkError });
-          return;
+          toastInfo({ description: "Redirecting to Slack authorization..." });
         }
+        // Always fall through to OAuth so the user isn't stuck.
       }
 
       if (data.url) {
