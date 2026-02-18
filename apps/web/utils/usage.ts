@@ -57,25 +57,16 @@ export function calculateUsageCost(options: {
   const pricing = getModelPricing({ provider, model });
   if (!pricing) return 0;
 
-  const inputTokens = Math.max(0, usage.inputTokens ?? 0);
   const rawCachedInputTokens = usage.cachedInputTokens ?? 0;
-  const cachedInputTokens = Math.min(
-    inputTokens,
-    Math.max(0, rawCachedInputTokens),
+  const normalizedCachedInputTokens = Math.max(0, rawCachedInputTokens);
+  const inputTokens = Math.max(
+    0,
+    usage.inputTokens ?? normalizedCachedInputTokens,
   );
-  const uncachedInputTokens = inputTokens - cachedInputTokens;
+  const cachedInputTokens = Math.min(inputTokens, normalizedCachedInputTokens);
+  const uncachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
   const outputTokens = Math.max(0, usage.outputTokens ?? 0);
   const cachedInputTokenPrice = pricing.cachedInput ?? pricing.input;
-
-  if (rawCachedInputTokens !== cachedInputTokens) {
-    logger.warn("Normalized cached input tokens for usage cost", {
-      provider,
-      model,
-      inputTokens,
-      rawCachedInputTokens,
-      cachedInputTokens,
-    });
-  }
 
   return (
     uncachedInputTokens * pricing.input +

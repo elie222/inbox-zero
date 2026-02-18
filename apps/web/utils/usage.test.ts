@@ -23,10 +23,10 @@ describe("calculateUsageCost", () => {
     if (!pricing) throw new Error("Expected pricing for gpt-5.1");
 
     const usage: LanguageModelUsage = {
-      inputTokens: 1_000,
+      inputTokens: 1000,
       cachedInputTokens: 400,
       outputTokens: 200,
-      totalTokens: 1_200,
+      totalTokens: 1200,
     };
 
     const expected =
@@ -90,6 +90,25 @@ describe("calculateUsageCost", () => {
     };
 
     const expected = 100 * pricing.cachedInput + 20 * pricing.output;
+
+    expect(calculateUsageCost({ provider, model, usage })).toBe(expected);
+  });
+
+  it("uses cached token count when input tokens are missing", () => {
+    const provider = "openrouter";
+    const model = "openai/gpt-5.1";
+    const pricing = OPENROUTER_MODEL_PRICING["gpt-5.1"];
+    if (!pricing) throw new Error("Expected pricing for gpt-5.1");
+
+    const usage: LanguageModelUsage = {
+      cachedInputTokens: 120,
+      outputTokens: 30,
+      totalTokens: 150,
+    };
+
+    const expected =
+      usage.cachedInputTokens! * pricing.cachedInput +
+      usage.outputTokens! * pricing.output;
 
     expect(calculateUsageCost({ provider, model, usage })).toBe(expected);
   });

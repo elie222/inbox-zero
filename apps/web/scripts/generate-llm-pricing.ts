@@ -2,6 +2,7 @@
 // Run with: `pnpm --filter inbox-zero-ai exec tsx scripts/generate-llm-pricing.ts`
 import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 import {
   OPENROUTER_MODEL_ID_BY_SUPPORTED_MODEL,
   STATIC_MODEL_PRICING,
@@ -11,20 +12,27 @@ const OPENROUTER_MODELS_URLS = [
   "https://openrouter.ai/api/v1/models/list-models-user",
   "https://openrouter.ai/api/v1/models",
 ];
-const OUTPUT_FILE = new URL("../utils/llms/pricing.generated.ts", import.meta.url);
+const OUTPUT_FILE = new URL(
+  "../utils/llms/pricing.generated.ts",
+  import.meta.url,
+);
 
-type OpenRouterModel = {
-  id: string;
-  pricing?: {
-    prompt?: string | number | null;
-    completion?: string | number | null;
-    input_cache_read?: string | number | null;
-  };
-};
+const openRouterModelSchema = z.object({
+  id: z.string(),
+  pricing: z
+    .object({
+      prompt: z.union([z.string(), z.number(), z.null()]).optional(),
+      completion: z.union([z.string(), z.number(), z.null()]).optional(),
+      input_cache_read: z.union([z.string(), z.number(), z.null()]).optional(),
+    })
+    .optional(),
+});
+const openRouterModelsResponseSchema = z.object({
+  data: z.array(openRouterModelSchema),
+});
 
-type OpenRouterModelsResponse = {
-  data: OpenRouterModel[];
-};
+type OpenRouterModel = z.infer<typeof openRouterModelSchema>;
+type OpenRouterModelsResponse = z.infer<typeof openRouterModelsResponseSchema>;
 
 type ModelPricing = {
   input: number;
@@ -58,7 +66,21 @@ async function fetchOpenRouterModels(headers: Record<string, string>) {
   for (const url of OPENROUTER_MODELS_URLS) {
     const response = await fetch(url, { headers });
     if (response.ok) {
-      return (await response.json()) as OpenRouterModelsResponse;
+      const json = (await response.json()) as unknown;
+      const parsed = openRouterModelsResponseSchema.safeParse(json);
+
+      if (parsed.success) return parsed.data;
+
+      const issues = parsed.error.issues
+        .map((issue) => {
+          const path = issue.path.length ? issue.path.join(".") : "root";
+          return `${path}: ${issue.message}`;
+        })
+        .join("; ");
+      lastError = new Error(
+        `Invalid OpenRouter models response from ${url}: ${issues}`,
+      );
+      continue;
     }
 
     if (response.status === 404) continue;
@@ -91,7 +113,8 @@ function buildPricingMap(payload: OpenRouterModelsResponse) {
   );
 
   for (const supportedModelId of supportedModelIds) {
-    const candidateModelIds = buildOpenRouterModelIdCandidates(supportedModelId);
+    const candidateModelIds =
+      buildOpenRouterModelIdCandidates(supportedModelId);
     const matchedPricing = candidateModelIds
       .map((candidateModelId) => openRouterPricingByModelId[candidateModelId])
       .find(Boolean);
