@@ -16,68 +16,78 @@ import {
   DEFAULT_AUTOMATION_JOB_CRON,
   getDefaultAutomationJobName,
 } from "@/utils/automation-jobs/defaults";
+import { isActivePremium } from "@/utils/premium";
+import { getUserPremium } from "@/utils/user/get";
 
 export const toggleAutomationJobAction = actionClient
   .metadata({ name: "toggleAutomationJob" })
   .inputSchema(toggleAutomationJobBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
-    const existingJob = await prisma.automationJob.findFirst({
-      where: { emailAccountId },
-      orderBy: { createdAt: "asc" },
-    });
+  .action(
+    async ({ ctx: { emailAccountId, userId }, parsedInput: { enabled } }) => {
+      if (enabled) {
+        await assertCanEnableAutomationJobs(userId);
+      }
 
-    if (!enabled) {
+      const existingJob = await prisma.automationJob.findFirst({
+        where: { emailAccountId },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (!enabled) {
+        if (existingJob) {
+          await prisma.automationJob.update({
+            where: { id: existingJob.id },
+            data: { enabled: false },
+          });
+        }
+
+        return;
+      }
+
       if (existingJob) {
         await prisma.automationJob.update({
           where: { id: existingJob.id },
-          data: { enabled: false },
+          data: {
+            enabled: true,
+            nextRunAt: getNextAutomationJobRunAt({
+              cronExpression: existingJob.cronExpression,
+              fromDate: new Date(),
+            }),
+          },
         });
+        return;
       }
 
-      return;
-    }
+      const defaultChannel = await getDefaultMessagingChannel(emailAccountId);
+      const nextRunAt = getNextAutomationJobRunAt({
+        cronExpression: DEFAULT_AUTOMATION_JOB_CRON,
+        fromDate: new Date(),
+      });
 
-    if (existingJob) {
-      await prisma.automationJob.update({
-        where: { id: existingJob.id },
+      await prisma.automationJob.create({
         data: {
+          name: getDefaultAutomationJobName(AutomationJobType.INBOX_NUDGE),
           enabled: true,
-          nextRunAt: getNextAutomationJobRunAt({
-            cronExpression: existingJob.cronExpression,
-            fromDate: new Date(),
-          }),
+          jobType: AutomationJobType.INBOX_NUDGE,
+          cronExpression: DEFAULT_AUTOMATION_JOB_CRON,
+          nextRunAt,
+          messagingChannelId: defaultChannel.id,
+          emailAccountId,
         },
       });
-      return;
-    }
-
-    const defaultChannel = await getDefaultMessagingChannel(emailAccountId);
-    const nextRunAt = getNextAutomationJobRunAt({
-      cronExpression: DEFAULT_AUTOMATION_JOB_CRON,
-      fromDate: new Date(),
-    });
-
-    await prisma.automationJob.create({
-      data: {
-        name: getDefaultAutomationJobName(AutomationJobType.INBOX_NUDGE),
-        enabled: true,
-        jobType: AutomationJobType.INBOX_NUDGE,
-        cronExpression: DEFAULT_AUTOMATION_JOB_CRON,
-        nextRunAt,
-        messagingChannelId: defaultChannel.id,
-        emailAccountId,
-      },
-    });
-  });
+    },
+  );
 
 export const saveAutomationJobAction = actionClient
   .metadata({ name: "saveAutomationJob" })
   .inputSchema(saveAutomationJobBody)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, userId },
       parsedInput: { cronExpression, jobType, messagingChannelId, prompt },
     }) => {
+      await assertCanEnableAutomationJobs(userId);
+
       try {
         validateAutomationCronExpression(cronExpression);
       } catch {
@@ -176,4 +186,12 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
   }
 
   return channel;
+}
+
+async function assertCanEnableAutomationJobs(userId: string) {
+  const premium = await getUserPremium({ userId });
+
+  if (!isActivePremium(premium)) {
+    throw new SafeError("Premium is required for scheduled check-ins");
+  }
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingCard } from "@/components/SettingCard";
 import { Toggle } from "@/components/Toggle";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,7 @@ export function ProactiveUpdatesSetting() {
   const [prompt, setPrompt] = useState("");
   const [showCronEditor, setShowCronEditor] = useState(false);
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
+  const isDialogFormInitializedRef = useRef(false);
 
   const { emailAccountId } = useAccount();
   const { data, isLoading, mutate } = useAutomationJob(emailAccountId);
@@ -72,19 +73,38 @@ export function ProactiveUpdatesSetting() {
   const hasConnectedSlack = connectedSlackChannels.length > 0;
   const job = data?.job ?? null;
   const enabled = Boolean(job?.enabled);
-  const resolvedJobType = job?.jobType ?? AutomationJobType.INBOX_NUDGE;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      isDialogFormInitializedRef.current = false;
+      return;
+    }
+
+    if (isDialogFormInitializedRef.current) return;
 
     setCronExpression(job?.cronExpression ?? DEFAULT_AUTOMATION_JOB_CRON);
     setPrompt(job?.prompt ?? "");
     setShowCustomPrompt(Boolean(job?.prompt?.trim()));
     setShowCronEditor(false);
-    setMessagingChannelId(
-      job?.messagingChannelId ?? connectedSlackChannels[0]?.id ?? "",
+    setMessagingChannelId(job?.messagingChannelId ?? "");
+
+    isDialogFormInitializedRef.current = true;
+  }, [open, job]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const hasSelectedConnectedChannel = connectedSlackChannels.some(
+      (channel) => channel.id === messagingChannelId,
     );
-  }, [open, job, connectedSlackChannels]);
+
+    if (hasSelectedConnectedChannel) return;
+
+    const fallbackChannelId = connectedSlackChannels[0]?.id ?? "";
+    if (messagingChannelId === fallbackChannelId) return;
+
+    setMessagingChannelId(fallbackChannelId);
+  }, [open, connectedSlackChannels, messagingChannelId]);
 
   const { execute: executeToggle, status: toggleStatus } = useAction(
     toggleAutomationJobAction.bind(null, emailAccountId),
@@ -146,17 +166,11 @@ export function ProactiveUpdatesSetting() {
 
     executeSave({
       cronExpression,
-      jobType: resolvedJobType,
+      jobType: AutomationJobType.INBOX_NUDGE,
       messagingChannelId,
       prompt,
     });
-  }, [
-    cronExpression,
-    resolvedJobType,
-    messagingChannelId,
-    prompt,
-    executeSave,
-  ]);
+  }, [cronExpression, messagingChannelId, prompt, executeSave]);
 
   const showLoading = isLoading || isLoadingChannels;
 

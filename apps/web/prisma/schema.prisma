@@ -1072,7 +1072,6 @@ model AutomationJob {
 
   @@index([emailAccountId, enabled, nextRunAt])
   @@index([enabled, nextRunAt])
-  @@index([messagingChannelId])
   @@index([messagingChannelId, emailAccountId])
 }
 

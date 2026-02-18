@@ -147,6 +147,7 @@ export const POST = withError(
       const slackResult = await sendAutomationMessageToSlack({
         channel: run.automationJob.messagingChannel,
         text: outboundMessage,
+        logger: runLogger,
       });
 
       await prisma.automationJobRun.update({

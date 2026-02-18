@@ -43,9 +43,6 @@ CREATE INDEX "AutomationJob_emailAccountId_enabled_nextRunAt_idx" ON "Automation
 CREATE INDEX "AutomationJob_enabled_nextRunAt_idx" ON "AutomationJob"("enabled", "nextRunAt");
 
 -- CreateIndex
-CREATE INDEX "AutomationJob_messagingChannelId_idx" ON "AutomationJob"("messagingChannelId");
-
--- CreateIndex
 CREATE INDEX "AutomationJob_messagingChannelId_emailAccountId_idx" ON "AutomationJob"("messagingChannelId", "emailAccountId");
 
 -- CreateIndex

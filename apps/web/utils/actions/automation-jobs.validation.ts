@@ -8,10 +8,7 @@ export type ToggleAutomationJobBody = z.infer<typeof toggleAutomationJobBody>;
 
 export const saveAutomationJobBody = z.object({
   cronExpression: z.string().trim().min(1),
-  jobType: z.enum([
-    AutomationJobType.INBOX_NUDGE,
-    AutomationJobType.INBOX_SUMMARY,
-  ]),
+  jobType: z.literal(AutomationJobType.INBOX_NUDGE),
   messagingChannelId: z.string().cuid(),
   prompt: z.string().max(4000).nullish(),
 });
