@@ -44,10 +44,12 @@ const logger = createScopedLogger("llms");
 
 const MAX_LOG_LENGTH = 200;
 
+type LLMProviderOptions = Record<string, Record<string, JSONValue>>;
+
 const commonOptions: {
   experimental_telemetry: { isEnabled: boolean };
   headers?: Record<string, string>;
-  providerOptions?: Record<string, Record<string, JSONValue>>;
+  providerOptions?: LLMProviderOptions;
 } = { experimental_telemetry: { isEnabled: true } };
 
 export function createGenerateText({
@@ -260,6 +262,7 @@ export async function chatCompletionStream({
   maxSteps,
   userEmail,
   usageLabel: label,
+  providerOptions: requestProviderOptions,
   onFinish,
   onStepFinish,
 }: {
@@ -270,6 +273,7 @@ export async function chatCompletionStream({
   maxSteps?: number;
   userEmail: string;
   usageLabel: string;
+  providerOptions?: LLMProviderOptions;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
@@ -278,8 +282,11 @@ export async function chatCompletionStream({
     modelType,
   );
   const mergedProviderOptions = {
-    ...commonOptions.providerOptions,
-    ...providerOptions,
+    ...mergeProviderOptions(
+      commonOptions.providerOptions,
+      providerOptions,
+      requestProviderOptions,
+    ),
   };
 
   const result = streamText({
@@ -343,6 +350,7 @@ export async function toolCallAgentStream({
   maxSteps,
   userEmail,
   usageLabel: label,
+  providerOptions: requestProviderOptions,
   onFinish,
   onStepFinish,
 }: {
@@ -353,6 +361,7 @@ export async function toolCallAgentStream({
   maxSteps?: number;
   userEmail: string;
   usageLabel: string;
+  providerOptions?: LLMProviderOptions;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
@@ -362,8 +371,11 @@ export async function toolCallAgentStream({
   );
 
   const mergedProviderOptions = {
-    ...commonOptions.providerOptions,
-    ...providerOptions,
+    ...mergeProviderOptions(
+      commonOptions.providerOptions,
+      providerOptions,
+      requestProviderOptions,
+    ),
   };
 
   const agent = new ToolLoopAgent({
@@ -543,4 +555,23 @@ async function handleError(
       });
     }
   }
+}
+
+function mergeProviderOptions(
+  ...providerOptionsList: (LLMProviderOptions | undefined)[]
+) {
+  const merged: LLMProviderOptions = {};
+
+  for (const options of providerOptionsList) {
+    if (!options) continue;
+
+    for (const [providerKey, value] of Object.entries(options)) {
+      merged[providerKey] = {
+        ...(merged[providerKey] || {}),
+        ...value,
+      };
+    }
+  }
+
+  return merged;
 }
