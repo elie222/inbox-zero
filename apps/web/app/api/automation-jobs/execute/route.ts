@@ -41,10 +41,22 @@ export const POST = withError(
             messagingChannel: {
               include: {
                 emailAccount: {
-                  include: {
+                  select: {
+                    id: true,
+                    userId: true,
+                    email: true,
+                    name: true,
+                    about: true,
                     account: {
                       select: {
                         provider: true,
+                      },
+                    },
+                    user: {
+                      select: {
+                        aiProvider: true,
+                        aiModel: true,
+                        aiApiKey: true,
                       },
                     },
                   },
@@ -141,6 +153,7 @@ export const POST = withError(
         jobType: run.automationJob.jobType,
         prompt: run.automationJob.prompt,
         emailProvider,
+        emailAccount: run.automationJob.messagingChannel.emailAccount,
         logger: runLogger,
       });
 
@@ -156,7 +169,7 @@ export const POST = withError(
           status: AutomationJobRunStatus.SENT,
           processedAt: new Date(),
           outboundMessage,
-          providerMessageId: slackResult.messageId,
+          slackMessageTs: slackResult.messageId,
           error: null,
         },
       });

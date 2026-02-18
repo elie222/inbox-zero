@@ -1,20 +1,38 @@
 import { AutomationJobType } from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
+import {
+  aiGenerateAutomationCheckInMessage,
+  type AutomationCheckInEmailAccount,
+} from "@/utils/ai/automation-jobs/generate-check-in-message";
 
 export async function getAutomationJobMessage({
   jobType,
   prompt,
   emailProvider,
+  emailAccount,
   logger,
 }: {
   jobType: AutomationJobType;
   prompt: string | null;
   emailProvider: EmailProvider;
+  emailAccount: AutomationCheckInEmailAccount;
   logger: Logger;
 }) {
   const trimmedPrompt = prompt?.trim();
-  if (trimmedPrompt) return trimmedPrompt;
+  if (trimmedPrompt) {
+    try {
+      return await aiGenerateAutomationCheckInMessage({
+        prompt: trimmedPrompt,
+        emailProvider,
+        emailAccount,
+      });
+    } catch (error) {
+      logger.warn("Failed to generate automation message from prompt", {
+        error,
+      });
+    }
+  }
 
   switch (jobType) {
     case AutomationJobType.INBOX_SUMMARY:
