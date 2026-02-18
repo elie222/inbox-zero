@@ -26,6 +26,8 @@ Check logs for errors using the commands above.
 **Common issues:**
 - **Port conflicts**: Another service is using port 3000, 5432, or 6379
   - Solution: Set custom ports via environment variables before starting: `WEB_PORT=3001 POSTGRES_PORT=5433 REDIS_PORT=6381 inbox-zero start`
+- **Need remote DB/Redis access from another machine**: Postgres/Redis ports bind to localhost by default for security
+  - Solution: set shell environment variables before start, for example: `POSTGRES_BIND_HOST=0.0.0.0 REDIS_BIND_HOST=0.0.0.0 REDIS_HTTP_BIND_HOST=0.0.0.0 docker compose --profile all up -d`
 - **Insufficient memory**: Container is being killed by OOM
   - Solution: Increase VPS RAM or add swap space
 - **Missing environment variables**: Check `.env` file exists and has required values
