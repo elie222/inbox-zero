@@ -26,6 +26,7 @@ import {
   getAccountOverviewTool,
   manageInboxTool,
   readEmailTool,
+  replyEmailTool,
   searchInboxTool,
   sendEmailTool,
   updateInboxFeaturesTool,
@@ -53,6 +54,7 @@ export type {
   GetAccountOverviewTool,
   ManageInboxTool,
   ReadEmailTool,
+  ReplyEmailTool,
   SearchInboxTool,
   SendEmailTool,
   UpdateInboxFeaturesTool,
@@ -94,6 +96,7 @@ Tool usage strategy (progressive disclosure):
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
 - When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
+- When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.
 - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
 - Only send emails when the user clearly asks to send now.
 
@@ -355,6 +358,7 @@ Behavior anchors (minimal examples):
       ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
         ? {
             sendEmail: sendEmailTool(toolOptions),
+            replyEmail: replyEmailTool(toolOptions),
             forwardEmail: forwardEmailTool(toolOptions),
           }
         : {}),

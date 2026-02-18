@@ -28,11 +28,14 @@ import { ToggleAllRulesSection } from "@/app/(app)/[emailAccountId]/settings/Tog
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ItemCard, ItemSeparator } from "@/components/ui/item";
 import { useAccounts } from "@/hooks/useAccounts";
+import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useSlackConnect } from "@/hooks/useSlackConnect";
 import { cn } from "@/utils";
 import { env } from "@/env";
 
@@ -91,25 +94,6 @@ export default function SettingsPage() {
           </LoadingContent>
         </SettingsGroup>
 
-        <SettingsGroup
-          icon={<SlackIcon className="size-5" />}
-          title="Messaging"
-        >
-          <LoadingContent loading={isLoading} error={error}>
-            {emailAccounts.length > 0 && (
-              <div className="space-y-4">
-                {emailAccounts.map((emailAccount) => (
-                  <MessagingSettingsCard
-                    key={emailAccount.id}
-                    emailAccount={emailAccount}
-                    activeEmailAccountId={activeEmailAccountId}
-                  />
-                ))}
-              </div>
-            )}
-          </LoadingContent>
-        </SettingsGroup>
-
         {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
           <SettingsGroup
             icon={<CreditCardIcon className="size-5" />}
@@ -160,6 +144,25 @@ function EmailAccountSettingsCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { data: channelsData, mutate: mutateChannels } =
+    useMessagingChannels(emailAccount.id);
+  const hasSlack =
+    channelsData?.channels.some(
+      (ch) => ch.isConnected && ch.provider === "SLACK",
+    ) ?? false;
+  const slackAvailable =
+    channelsData?.availableProviders?.includes("SLACK") ?? false;
+  const { connect, connecting: connectingSlack } = useSlackConnect({
+    emailAccountId: emailAccount.id,
+    onConnected: () => mutateChannels(),
+  });
+
+  const handleConnectSlack = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (connectingSlack) return;
+    connect();
+  };
+
   return (
     <ItemCard>
       <button
@@ -176,7 +179,31 @@ function EmailAccountSettingsCard({
             {emailAccount.name?.charAt(0) || emailAccount.email?.charAt(0)}
           </AvatarFallback>
         </Avatar>
-        <span className="flex-1 text-sm font-medium">{emailAccount.email}</span>
+        <span className="flex-1 text-sm font-medium">
+          {emailAccount.email}
+        </span>
+        {hasSlack && (
+          <Badge variant="secondary" className="gap-1 text-xs font-normal">
+            <SlackIcon className="size-3" />
+            Slack
+          </Badge>
+        )}
+        {!hasSlack && slackAvailable && (
+          <Badge
+            variant="outline"
+            className={cn(
+              "gap-1 text-xs font-normal",
+              connectingSlack
+                ? "cursor-not-allowed opacity-60"
+                : "cursor-pointer hover:bg-muted",
+            )}
+            aria-disabled={connectingSlack}
+            onClick={handleConnectSlack}
+          >
+            <SlackIcon className="size-3" />
+            {connectingSlack ? "Connecting..." : "Connect Slack"}
+          </Badge>
+        )}
         <ChevronRightIcon
           className={cn(
             "size-4 text-muted-foreground transition-transform",
@@ -187,6 +214,7 @@ function EmailAccountSettingsCard({
 
       {expanded && (
         <>
+          <ConnectedAppsSection emailAccountId={emailAccount.id} />
           <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
           <ToggleAllRulesSection emailAccountId={emailAccount.id} />
           <RuleImportExportSetting emailAccountId={emailAccount.id} />
@@ -199,41 +227,6 @@ function EmailAccountSettingsCard({
           <ResetAnalyticsSection emailAccountId={emailAccount.id} />
         </>
       )}
-    </ItemCard>
-  );
-}
-
-function MessagingSettingsCard({
-  emailAccount,
-  activeEmailAccountId,
-}: {
-  emailAccount: GetEmailAccountsResponse["emailAccounts"][number];
-  activeEmailAccountId: string;
-}) {
-  const isActive = emailAccount.id === activeEmailAccountId;
-
-  return (
-    <ItemCard>
-      <div className="flex items-center gap-3 px-4 py-3">
-        <Avatar className="size-8 rounded-full">
-          <AvatarImage
-            src={emailAccount.image || ""}
-            alt={emailAccount.name || emailAccount.email}
-          />
-          <AvatarFallback className="rounded-full text-xs">
-            {emailAccount.name?.charAt(0) || emailAccount.email?.charAt(0)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex flex-1 flex-col">
-          <span className="text-sm font-medium">{emailAccount.email}</span>
-          {isActive && (
-            <span className="text-xs text-muted-foreground">
-              Active account
-            </span>
-          )}
-        </div>
-      </div>
-      <ConnectedAppsSection emailAccountId={emailAccount.id} />
     </ItemCard>
   );
 }
