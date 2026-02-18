@@ -35,6 +35,7 @@ import { ItemCard, ItemSeparator } from "@/components/ui/item";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useSlackConnect } from "@/hooks/useSlackConnect";
 import { cn } from "@/utils";
 import { env } from "@/env";
 
@@ -143,11 +144,24 @@ function EmailAccountSettingsCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const { data: channelsData } = useMessagingChannels(emailAccount.id);
+  const { data: channelsData, mutate: mutateChannels } =
+    useMessagingChannels(emailAccount.id);
   const hasSlack =
     channelsData?.channels.some(
       (ch) => ch.isConnected && ch.provider === "SLACK",
     ) ?? false;
+  const slackAvailable =
+    channelsData?.availableProviders?.includes("SLACK") ?? false;
+  const { connect, connecting: connectingSlack } = useSlackConnect({
+    emailAccountId: emailAccount.id,
+    onConnected: () => mutateChannels(),
+  });
+
+  const handleConnectSlack = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (connectingSlack) return;
+    connect();
+  };
 
   return (
     <ItemCard>
@@ -172,6 +186,22 @@ function EmailAccountSettingsCard({
           <Badge variant="secondary" className="gap-1 text-xs font-normal">
             <SlackIcon className="size-3" />
             Slack
+          </Badge>
+        )}
+        {!hasSlack && slackAvailable && (
+          <Badge
+            variant="outline"
+            className={cn(
+              "gap-1 text-xs font-normal",
+              connectingSlack
+                ? "cursor-not-allowed opacity-60"
+                : "cursor-pointer hover:bg-muted",
+            )}
+            aria-disabled={connectingSlack}
+            onClick={handleConnectSlack}
+          >
+            <SlackIcon className="size-3" />
+            {connectingSlack ? "Connecting..." : "Connect Slack"}
           </Badge>
         )}
         <ChevronRightIcon
