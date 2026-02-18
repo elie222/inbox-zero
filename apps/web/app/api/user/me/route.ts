@@ -18,6 +18,7 @@ async function getUser({ userId }: { userId: string }) {
       webhookSecret: true,
       referralCode: true,
       announcementDismissedAt: true,
+      dismissedHints: true,
       premium: {
         select: {
           lemonSqueezyCustomerId: true,

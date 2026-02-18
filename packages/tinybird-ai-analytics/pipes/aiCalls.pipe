@@ -67,4 +67,32 @@ SQL >
     GROUP BY hour
     ORDER BY hour
 
+
+
+NODE cached_tokens_per_day
+SQL >
+
+    SELECT
+      toStartOfDay(fromUnixTimestamp64Milli(timestamp)) AS "day",
+      sum(cachedInputTokens) AS cachedInputTokens,
+      sum(promptTokens) AS promptTokens,
+      if(sum(promptTokens) = 0, 0, sum(cachedInputTokens) / sum(promptTokens)) AS cacheHitRate
+    FROM aiCall
+    GROUP BY day
+    ORDER BY day
+
+
+
+NODE cached_tokens_per_label
+SQL >
+
+    SELECT
+      label,
+      sum(cachedInputTokens) AS cachedInputTokens,
+      sum(promptTokens) AS promptTokens,
+      if(sum(promptTokens) = 0, 0, sum(cachedInputTokens) / sum(promptTokens)) AS cacheHitRate
+    FROM aiCall
+    GROUP BY label
+    ORDER BY cachedInputTokens DESC
+
 TYPE endpoint

@@ -35,7 +35,7 @@ export default function NewLanding() {
             ]}
           />
         }
-        subtitle=" Inbox Zero organizes your inbox, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again."
+        subtitle="Inbox Zero organizes your inbox and calendar, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again."
       >
         <HeroVideoPlayer />
         <BrandScroller />

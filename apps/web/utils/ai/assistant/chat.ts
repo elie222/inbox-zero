@@ -1,4 +1,4 @@
-import type { ModelMessage } from "ai";
+import type { JSONValue, ModelMessage } from "ai";
 import type { Logger } from "@/utils/logger";
 import type { MessageContext } from "@/app/api/chat/validation";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -22,6 +22,7 @@ import {
   updateRuleConditionsTool,
 } from "./chat-rule-tools";
 import {
+  forwardEmailTool,
   getAccountOverviewTool,
   manageInboxTool,
   readEmailTool,
@@ -48,6 +49,7 @@ export type {
   UpdateRuleConditionsTool,
 } from "./chat-rule-tools";
 export type {
+  ForwardEmailTool,
   GetAccountOverviewTool,
   ManageInboxTool,
   ReadEmailTool,
@@ -91,6 +93,7 @@ Tool usage strategy (progressive disclosure):
 - For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then suggest cleanup options grouped by sender.
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
+- When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
 - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
 - Only send emails when the user clearly asks to send now.
 
@@ -98,6 +101,7 @@ Tool call policy:
 - When a request can be completed with available tools, call the tool instead of only describing what you would do.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
 - Never invent thread IDs, label IDs, sender addresses, or existing rule names.
+- For forwarding, always use a real messageId from searchInbox or user-provided context.
 - "archive_threads" archives specific threads by ID. Use it when the user refers to specific emails shown in results.
 - "bulk_archive_senders" archives ALL emails from given senders server-side, not just the visible ones. Use it when the user asks to clean up by sender. Since it affects emails beyond what's shown, confirm the scope with the user before executing.
 - Choose the tool that matches what the user actually asked for. Do not default to bulk archive when the user is referring to specific emails.
@@ -296,35 +300,38 @@ Behavior anchors (minimal examples):
         ]
       : [];
 
-  const cacheControl = {
-    providerOptions: {
-      anthropic: { cacheControl: { type: "ephemeral" as const } },
-    },
-  };
+  const contextMessages = [
+    ...inboxContextMessage,
+    ...(memories && memories.length > 0
+      ? [
+          {
+            role: "system" as const,
+            content: `Memories from previous conversations:\n${memories.map((m) => `- [${m.date}] ${m.content}`).join("\n")}`,
+          },
+        ]
+      : []),
+    ...hiddenContextMessage,
+  ];
+
+  const { messages: cacheOptimizedMessages, stablePrefixEndIndex } =
+    buildCacheOptimizedMessages({
+      system,
+      conversationMessages: messages,
+      contextMessages,
+    });
+
+  const messagesWithCacheControl = addAnthropicCacheControl(
+    cacheOptimizedMessages,
+    stablePrefixEndIndex,
+  );
 
   const result = toolCallAgentStream({
     userAi: user.user,
     userEmail: user.email,
     modelType: "chat",
     usageLabel: "assistant-chat",
-    messages: [
-      {
-        role: "system",
-        content: system,
-        ...cacheControl,
-      },
-      ...inboxContextMessage,
-      ...(memories && memories.length > 0
-        ? [
-            {
-              role: "system" as const,
-              content: `Memories from previous conversations:\n${memories.map((m) => `- [${m.date}] ${m.content}`).join("\n")}`,
-            },
-          ]
-        : []),
-      ...hiddenContextMessage,
-      ...messages,
-    ],
+    providerOptions: getChatProviderOptionsForCaching({ chatId }),
+    messages: messagesWithCacheControl,
     onStepFinish: async ({ text, toolCalls }) => {
       logger.trace("Step finished", { text, toolCalls });
     },
@@ -346,12 +353,96 @@ Behavior anchors (minimal examples):
       searchMemories: searchMemoriesTool(toolOptions),
       saveMemory: saveMemoryTool({ ...toolOptions, chatId }),
       ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
-        ? { sendEmail: sendEmailTool(toolOptions) }
+        ? {
+            sendEmail: sendEmailTool(toolOptions),
+            forwardEmail: forwardEmailTool(toolOptions),
+          }
         : {}),
     },
   });
 
   return result;
+}
+
+function buildCacheOptimizedMessages({
+  system,
+  conversationMessages,
+  contextMessages,
+}: {
+  system: string;
+  conversationMessages: ModelMessage[];
+  contextMessages: ModelMessage[];
+}) {
+  const systemMessage: ModelMessage = {
+    role: "system",
+    content: system,
+  };
+
+  if (!conversationMessages.length) {
+    return {
+      messages: [systemMessage, ...contextMessages],
+      stablePrefixEndIndex: 0,
+    };
+  }
+
+  const historyMessages = conversationMessages.slice(0, -1);
+  const latestMessage = conversationMessages.at(-1)!;
+
+  return {
+    messages: [
+      systemMessage,
+      ...historyMessages,
+      ...contextMessages,
+      latestMessage,
+    ],
+    stablePrefixEndIndex: historyMessages.length,
+  };
+}
+
+function addAnthropicCacheControl(
+  messages: ModelMessage[],
+  stablePrefixEndIndex: number,
+) {
+  const cacheControl: Record<string, JSONValue> = {
+    cacheControl: { type: "ephemeral" },
+  };
+
+  const cacheBreakpointIndexes = new Set([
+    0,
+    Math.max(0, Math.min(stablePrefixEndIndex, messages.length - 1)),
+  ]);
+
+  return messages.map((message, index) => {
+    if (!cacheBreakpointIndexes.has(index)) return message;
+
+    const messageWithOptions = message as ModelMessage & {
+      providerOptions?: Record<string, Record<string, JSONValue>>;
+    };
+
+    return {
+      ...messageWithOptions,
+      providerOptions: {
+        ...messageWithOptions.providerOptions,
+        anthropic: {
+          ...(messageWithOptions.providerOptions?.anthropic as Record<
+            string,
+            JSONValue
+          >),
+          ...cacheControl,
+        },
+      },
+    };
+  });
+}
+
+function getChatProviderOptionsForCaching({ chatId }: { chatId?: string }) {
+  if (!chatId) return undefined;
+
+  return {
+    openai: {
+      promptCacheKey: `assistant-chat:${chatId}`,
+    },
+  } satisfies Record<string, Record<string, JSONValue>>;
 }
 
 function isConversationStatusFixContext(

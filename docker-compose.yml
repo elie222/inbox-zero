@@ -19,7 +19,7 @@ services:
     volumes:
       - database-data:/var/lib/postgresql/data/
     ports:
-      - ${POSTGRES_PORT:-5432}:5432
+      - "${POSTGRES_BIND_HOST:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     networks:
       - inbox-zero-network
     profiles:
@@ -29,7 +29,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - ${REDIS_PORT:-6380}:6379
+      - "${REDIS_BIND_HOST:-127.0.0.1}:${REDIS_PORT:-6380}:6379"
     volumes:
       - database-data:/data
     networks:
@@ -41,7 +41,7 @@ services:
 
   serverless-redis-http:
     ports:
-      - "${REDIS_HTTP_PORT:-8079}:80"
+      - "${REDIS_HTTP_BIND_HOST:-127.0.0.1}:${REDIS_HTTP_PORT:-8079}:80"
     image: hiett/serverless-redis-http:latest
     env_file:
       - ./apps/web/.env

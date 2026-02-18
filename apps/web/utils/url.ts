@@ -14,6 +14,7 @@ const PROVIDER_CONFIG: Record<
       emailAddress?: string | null,
     ) => string;
     selectId: (messageId: string, threadId: string) => string;
+    buildSearchUrl: (from: string, emailAddress?: string | null) => string;
   }
 > = {
   microsoft: {
@@ -24,16 +25,28 @@ const PROVIDER_CONFIG: Record<
       return `${getOutlookBaseUrl()}/inbox/id/${encodedMessageId}`;
     },
     selectId: (_messageId: string, threadId: string) => threadId,
+    buildSearchUrl: (from: string, _emailAddress?: string | null) => {
+      const query = encodeURIComponent(`from:${from}`);
+      return `${getOutlookBaseUrl()}/search/q/${query}`;
+    },
   },
   google: {
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
       `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`,
     selectId: (messageId: string, _threadId: string) => messageId,
+    buildSearchUrl: (from: string, emailAddress?: string | null) =>
+      `${getGmailBaseUrl(
+        emailAddress,
+      )}/#advanced-search/from=${encodeURIComponent(from)}`,
   },
   default: {
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
       `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`,
     selectId: (_messageId: string, threadId: string) => threadId,
+    buildSearchUrl: (from: string, emailAddress?: string | null) =>
+      `${getGmailBaseUrl(
+        emailAddress,
+      )}/#advanced-search/from=${encodeURIComponent(from)}`,
   },
 } as const;
 
@@ -78,9 +91,19 @@ export function getGmailUrl(
 }
 
 export function getGmailSearchUrl(from: string, emailAddress?: string | null) {
-  return `${getGmailBaseUrl(
-    emailAddress,
-  )}/#advanced-search/from=${encodeURIComponent(from)}`;
+  const config = getProviderConfig("google");
+  return config.buildSearchUrl(from, emailAddress);
+}
+
+export function getEmailSearchUrl(
+  from: string,
+  emailAddress?: string | null,
+  provider?: string,
+) {
+  const config = provider ? PROVIDER_CONFIG[provider] : undefined;
+  if (!config)
+    return PROVIDER_CONFIG.default.buildSearchUrl(from, emailAddress);
+  return config.buildSearchUrl(from, emailAddress);
 }
 
 export function getGmailBasicSearchUrl(emailAddress: string, query: string) {
