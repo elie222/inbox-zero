@@ -11,9 +11,8 @@ export const GET = withEmailAccount("user/automation-jobs", async (request) => {
 });
 
 async function getData({ emailAccountId }: { emailAccountId: string }) {
-  const job = await prisma.automationJob.findFirst({
+  const job = await prisma.automationJob.findUnique({
     where: { emailAccountId },
-    orderBy: { createdAt: "asc" },
     select: {
       id: true,
       enabled: true,

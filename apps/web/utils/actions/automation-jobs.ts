@@ -33,9 +33,8 @@ export const toggleAutomationJobAction = actionClient
         await assertCanEnableAutomationJobs(userId);
       }
 
-      const existingJob = await prisma.automationJob.findFirst({
+      const existingJob = await prisma.automationJob.findUnique({
         where: { emailAccountId },
-        orderBy: { createdAt: "asc" },
       });
 
       if (!enabled) {
@@ -127,9 +126,8 @@ export const saveAutomationJobAction = actionClient
         throw new SafeError("Select a Slack destination first");
       }
 
-      const existingJob = await prisma.automationJob.findFirst({
+      const existingJob = await prisma.automationJob.findUnique({
         where: { emailAccountId },
-        orderBy: { createdAt: "asc" },
         select: { id: true },
       });
 
@@ -176,11 +174,11 @@ export const triggerTestCheckInAction = actionClient
   .action(async ({ ctx: { emailAccountId, userId } }) => {
     await assertCanEnableAutomationJobs(userId);
 
-    const job = await prisma.automationJob.findFirst({
-      where: { emailAccountId, enabled: true },
-      orderBy: { createdAt: "asc" },
+    const job = await prisma.automationJob.findUnique({
+      where: { emailAccountId },
       select: {
         id: true,
+        enabled: true,
         messagingChannel: {
           select: {
             provider: true,
@@ -194,6 +192,9 @@ export const triggerTestCheckInAction = actionClient
     });
 
     if (!job) {
+      throw new SafeError("No active check-in configured");
+    }
+    if (!job.enabled) {
       throw new SafeError("No active check-in configured");
     }
 
