@@ -195,7 +195,7 @@ export function ProactiveUpdatesSetting() {
   return (
     <SettingCard
       title="Scheduled check-ins"
-      description="Get inbox briefings on a schedule. Reply to take action."
+      description="Your AI checks in on Slack with updates you can act on."
       right={
         showLoading ? (
           <Skeleton className="h-5 w-24" />
