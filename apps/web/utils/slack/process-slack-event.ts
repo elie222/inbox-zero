@@ -9,6 +9,7 @@ import {
 } from "@inboxzero/slack";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
+import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import type { Logger } from "@/utils/logger";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -145,18 +146,26 @@ export async function processSlackEvent(
   const client = createSlackClient(accessToken);
   const replyThreadTs = type === "app_mention" ? (thread_ts ?? ts) : undefined;
 
-  // Acknowledge receipt with a reaction
   const slackLogger = logger.with({ teamId, channel, emailAccountId });
+  const inboxStatsPromise = getInboxStatsForChatContext({
+    emailAccountId,
+    provider: emailAccountUser.account.provider,
+    logger: slackLogger,
+  });
+
+  // Acknowledge receipt with a reaction
   await addReaction(client, channel, ts, "eyes", slackLogger);
 
   // Process with AI
   try {
     let fullText: string;
     try {
+      const inboxStats = await inboxStatsPromise;
       const result = await aiProcessAssistantChat({
         messages: await convertToModelMessages(allMessages),
         emailAccountId,
         user: emailAccountUser,
+        inboxStats,
         logger: slackLogger,
       });
       fullText = await result.text;

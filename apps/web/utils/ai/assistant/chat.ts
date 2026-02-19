@@ -32,7 +32,6 @@ import {
   updateInboxFeaturesTool,
 } from "./chat-inbox-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
-import { createEmailProvider } from "@/utils/email/provider";
 
 export const maxDuration = 120;
 
@@ -68,6 +67,7 @@ export async function aiProcessAssistantChat({
   context,
   chatId,
   memories,
+  inboxStats,
   logger,
 }: {
   messages: ModelMessage[];
@@ -76,6 +76,7 @@ export async function aiProcessAssistantChat({
   context?: MessageContext;
   chatId?: string;
   memories?: { content: string; date: string }[];
+  inboxStats?: { total: number; unread: number } | null;
   logger: Logger;
 }) {
   let ruleReadState: RuleReadState | null = null;
@@ -244,25 +245,6 @@ Behavior anchors (minimal examples):
           logger,
         })
       : null;
-
-  let inboxStats: { total: number; unread: number } | null = null;
-  try {
-    const emailProvider = await createEmailProvider({
-      emailAccountId,
-      provider: user.account.provider,
-      logger,
-    });
-    const statsPromise = emailProvider.getInboxStats().catch((err) => {
-      logger.warn("getInboxStats failed", { error: err });
-      return null;
-    });
-    inboxStats = await Promise.race([
-      statsPromise,
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
-    ]);
-  } catch (error) {
-    logger.warn("Failed to fetch inbox stats for chat context", { error });
-  }
 
   const inboxContextMessage = inboxStats
     ? [

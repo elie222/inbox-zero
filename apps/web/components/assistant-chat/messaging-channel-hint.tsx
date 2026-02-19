@@ -14,8 +14,11 @@ const HINT_ID = "messaging-channel";
 export function MessagingChannelHint() {
   const { emailAccountId } = useAccount();
   const { data: user, mutate: mutateUser } = useUser();
-  const { data: channelsData, isLoading: channelsLoading, mutate } =
-    useMessagingChannels();
+  const {
+    data: channelsData,
+    isLoading: channelsLoading,
+    mutate,
+  } = useMessagingChannels();
   const { connect, connecting } = useSlackConnect({
     emailAccountId,
     onConnected: () => mutate(),

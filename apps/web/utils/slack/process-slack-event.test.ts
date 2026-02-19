@@ -46,12 +46,24 @@ vi.mock("@/utils/user/get", () => ({
   getEmailAccountWithAi: vi.fn().mockResolvedValue({
     id: "email-1",
     email: "user@test.com",
+    account: {
+      provider: "google",
+    },
   }),
 }));
 
 vi.mock("@/utils/ai/assistant/chat", () => ({
   aiProcessAssistantChat: vi.fn().mockResolvedValue({
     text: Promise.resolve("AI response"),
+  }),
+}));
+
+vi.mock("@/utils/email/provider", () => ({
+  createEmailProvider: vi.fn().mockResolvedValue({
+    getInboxStats: vi.fn().mockResolvedValue({
+      total: 100,
+      unread: 25,
+    }),
   }),
 }));
 

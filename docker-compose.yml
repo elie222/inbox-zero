@@ -93,7 +93,14 @@ services:
           while true; do
             echo \"[cron] Processing scheduled actions...\"
             curl -s -X GET 'http://web:3000/api/cron/scheduled-actions' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: scheduled-actions request failed\"
-            sleep 60
+            sleep 900
+          done
+        ) &
+        (
+          while true; do
+            echo \"[cron] Processing automation jobs...\"
+            curl -s -X GET 'http://web:3000/api/cron/automation-jobs' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: automation-jobs request failed\"
+            sleep 900
           done
         ) &
         (
