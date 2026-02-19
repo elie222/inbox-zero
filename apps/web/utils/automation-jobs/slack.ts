@@ -9,6 +9,13 @@ type SlackMessagingChannel = {
   channelId: string | null;
 };
 
+export class AutomationJobConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AutomationJobConfigurationError";
+  }
+}
+
 export async function sendAutomationMessageToSlack({
   channel,
   text,
@@ -24,7 +31,9 @@ export async function sendAutomationMessageToSlack({
   });
 
   if (channel.provider !== MessagingProvider.SLACK) {
-    const error = new Error("Only Slack messaging channels are supported");
+    const error = new AutomationJobConfigurationError(
+      "Only Slack messaging channels are supported",
+    );
     slackLogger.error("Unsupported messaging provider for automation job", {
       provider: channel.provider,
       error,
@@ -33,7 +42,9 @@ export async function sendAutomationMessageToSlack({
   }
 
   if (!channel.accessToken) {
-    const error = new Error("Messaging channel is missing Slack access token");
+    const error = new AutomationJobConfigurationError(
+      "Messaging channel is missing Slack access token",
+    );
     slackLogger.error("Slack channel is missing access token", { error });
     throw error;
   }
@@ -42,12 +53,14 @@ export async function sendAutomationMessageToSlack({
 
   slackLogger.info("Sending Slack automation message");
 
-  const destinationChannelId = channel.providerUserId
-    ? await resolveDirectMessageChannelId(client, channel.providerUserId)
-    : channel.channelId;
+  const destinationChannelId =
+    channel.channelId ??
+    (channel.providerUserId
+      ? await resolveDirectMessageChannelId(client, channel.providerUserId)
+      : null);
 
   if (!destinationChannelId) {
-    const error = new Error(
+    const error = new AutomationJobConfigurationError(
       "No Slack destination available for automation job",
     );
     slackLogger.error("No Slack destination available for automation job", {
