@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { EmailProvider } from "@/utils/email/types";
+import { getEmailAccount, getMockEmailProvider } from "@/__tests__/helpers";
+import type { AutomationCheckInEmailAccount } from "@/utils/ai/automation-jobs/generate-check-in-message";
 import { createScopedLogger } from "@/utils/logger";
 
 const { mockAiGenerateAutomationCheckInMessage } = vi.hoisted(() => {
@@ -15,6 +16,18 @@ vi.mock("@/utils/ai/automation-jobs/generate-check-in-message", () => ({
 import { getAutomationJobMessage } from "./message";
 
 const logger = createScopedLogger("automation-jobs-message-test");
+const emailAccount: AutomationCheckInEmailAccount = {
+  ...getEmailAccount({
+    email: "user@example.com",
+    about: "Founder managing a high-volume inbox",
+    user: {
+      aiProvider: "openai",
+      aiModel: "gpt-5.1",
+      aiApiKey: null,
+    },
+  }),
+  name: "Test User",
+};
 
 describe("getAutomationJobMessage", () => {
   beforeEach(() => {
@@ -26,7 +39,7 @@ describe("getAutomationJobMessage", () => {
       "Three urgent client emails need your review. Want to triage them now?",
     );
 
-    const emailProvider = createEmailProviderMock({
+    const emailProvider = getMockEmailProvider({
       unread: 3,
       total: 12,
     });
@@ -34,7 +47,7 @@ describe("getAutomationJobMessage", () => {
     const message = await getAutomationJobMessage({
       prompt: "Only include urgent client messages.",
       emailProvider,
-      emailAccount: getEmailAccountForMessage(),
+      emailAccount,
       logger,
     });
 
@@ -42,14 +55,19 @@ describe("getAutomationJobMessage", () => {
       "Three urgent client emails need your review. Want to triage them now?",
     );
     expect(mockAiGenerateAutomationCheckInMessage).toHaveBeenCalledTimes(1);
+    expect(mockAiGenerateAutomationCheckInMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        logger,
+      }),
+    );
   });
 
-  it("falls back to the default check-in if custom prompt generation fails", async () => {
+  it("falls back to the custom prompt if custom prompt generation fails", async () => {
     mockAiGenerateAutomationCheckInMessage.mockRejectedValueOnce(
       new Error("LLM unavailable"),
     );
 
-    const emailProvider = createEmailProviderMock({
+    const emailProvider = getMockEmailProvider({
       unread: 5,
       total: 20,
     });
@@ -57,18 +75,16 @@ describe("getAutomationJobMessage", () => {
     const message = await getAutomationJobMessage({
       prompt: "Focus on priorities.",
       emailProvider,
-      emailAccount: getEmailAccountForMessage(),
+      emailAccount,
       logger,
     });
 
-    expect(message).toBe(
-      "You currently have 5 unread emails. Want to go through them now?",
-    );
+    expect(message).toBe("Focus on priorities.");
     expect(mockAiGenerateAutomationCheckInMessage).toHaveBeenCalledTimes(1);
   });
 
   it("uses the non-LLM fallback flow when no custom prompt is provided", async () => {
-    const emailProvider = createEmailProviderMock({
+    const emailProvider = getMockEmailProvider({
       unread: 0,
       total: 4,
     });
@@ -76,7 +92,7 @@ describe("getAutomationJobMessage", () => {
     const message = await getAutomationJobMessage({
       prompt: null,
       emailProvider,
-      emailAccount: getEmailAccountForMessage(),
+      emailAccount,
       logger,
     });
 
@@ -86,34 +102,3 @@ describe("getAutomationJobMessage", () => {
     expect(mockAiGenerateAutomationCheckInMessage).not.toHaveBeenCalled();
   });
 });
-
-function createEmailProviderMock({
-  unread,
-  total,
-}: {
-  unread: number;
-  total: number;
-}) {
-  return {
-    getInboxStats: vi.fn().mockResolvedValue({ unread, total }),
-    getInboxMessages: vi.fn().mockResolvedValue([]),
-  } as Pick<
-    EmailProvider,
-    "getInboxStats" | "getInboxMessages"
-  > as EmailProvider;
-}
-
-function getEmailAccountForMessage() {
-  return {
-    id: "email-account-id",
-    userId: "user-id",
-    email: "user@example.com",
-    name: "Test User",
-    about: "Founder managing a high-volume inbox",
-    user: {
-      aiProvider: "openai",
-      aiModel: "gpt-5.1",
-      aiApiKey: null,
-    },
-  };
-}
