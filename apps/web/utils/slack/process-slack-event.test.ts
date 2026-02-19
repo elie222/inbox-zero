@@ -120,6 +120,7 @@ const CANDIDATE_2 = {
 describe("processSlackEvent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.chatMemory.findMany.mockResolvedValue([]);
   });
 
   describe("event filtering", () => {
@@ -267,6 +268,100 @@ describe("processSlackEvent", () => {
         expect.objectContaining({ emailAccountId: "email-1" }),
       );
     });
+
+    it("loads a bounded Slack message history window for AI context", async () => {
+      prisma.messagingChannel.findMany.mockResolvedValue([CANDIDATE_1]);
+      prisma.chat.upsert.mockResolvedValue({
+        id: "slack-D-DM-CHANNEL",
+        messages: [],
+      } as any);
+      prisma.chatMessage.upsert.mockResolvedValue({} as any);
+      prisma.chatMessage.create.mockResolvedValue({} as any);
+
+      await processSlackEvent(makePayload({}), logger);
+
+      expect(prisma.chat.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({
+            messages: expect.objectContaining({
+              orderBy: { createdAt: "desc" },
+              take: 12,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("passes multiple previous Slack messages to AI in chronological order", async () => {
+      const { aiProcessAssistantChat } = await import(
+        "@/utils/ai/assistant/chat"
+      );
+
+      prisma.messagingChannel.findMany.mockResolvedValue([CANDIDATE_1]);
+      prisma.chat.upsert.mockResolvedValue({
+        id: "slack-D-DM-CHANNEL",
+        messages: [
+          {
+            id: "assistant-2",
+            role: "assistant",
+            parts: [{ type: "text", text: "latest assistant message" }],
+          },
+          {
+            id: "user-1",
+            role: "user",
+            parts: [{ type: "text", text: "middle user message" }],
+          },
+          {
+            id: "assistant-1",
+            role: "assistant",
+            parts: [{ type: "text", text: "oldest assistant message" }],
+          },
+        ],
+      } as any);
+      prisma.chatMessage.upsert.mockResolvedValue({} as any);
+      prisma.chatMessage.create.mockResolvedValue({} as any);
+
+      await processSlackEvent(
+        makePayload({ text: "new user message" }),
+        logger,
+      );
+
+      const callArgs = vi.mocked(aiProcessAssistantChat).mock.calls[0]?.[0];
+      expect(callArgs?.messages.map((message) => message.id)).toEqual([
+        "assistant-1",
+        "user-1",
+        "assistant-2",
+        "slack-1234567890.000001",
+      ]);
+    });
+
+    it("passes recent memories and chat id to AI processing", async () => {
+      const { aiProcessAssistantChat } = await import(
+        "@/utils/ai/assistant/chat"
+      );
+
+      prisma.messagingChannel.findMany.mockResolvedValue([CANDIDATE_1]);
+      prisma.chat.upsert.mockResolvedValue({
+        id: "slack-D-DM-CHANNEL",
+        messages: [],
+      } as any);
+      prisma.chatMemory.findMany.mockResolvedValue([
+        {
+          content: "Prefer concise summaries",
+          createdAt: new Date("2026-02-01"),
+        },
+      ] as any);
+      prisma.chatMessage.upsert.mockResolvedValue({} as any);
+      prisma.chatMessage.create.mockResolvedValue({} as any);
+
+      await processSlackEvent(makePayload({}), logger);
+
+      const callArgs = vi.mocked(aiProcessAssistantChat).mock.calls[0]?.[0];
+      expect(callArgs?.chatId).toBe("slack-D-DM-CHANNEL");
+      expect(callArgs?.memories).toEqual([
+        { content: "Prefer concise summaries", date: "2026-02-01" },
+      ]);
+    });
   });
 
   describe("app_mention routing", () => {
@@ -345,6 +440,67 @@ describe("processSlackEvent", () => {
       );
 
       expect(aiProcessAssistantChat).not.toHaveBeenCalled();
+    });
+
+    it("uses root mention timestamp as chat thread id for channel mentions", async () => {
+      prisma.messagingChannel.findMany.mockResolvedValue([CANDIDATE_1]);
+      prisma.chat.upsert.mockResolvedValue({
+        id: "slack-C-PRIVATE-1-1234567890.100000",
+        messages: [],
+      } as any);
+      prisma.chatMessage.upsert.mockResolvedValue({} as any);
+      prisma.chatMessage.create.mockResolvedValue({} as any);
+
+      await processSlackEvent(
+        makePayload({
+          type: "app_mention",
+          channel: "C-PRIVATE-1",
+          channel_type: "channel",
+          ts: "1234567890.100000",
+          text: "<@U-BOT> first message",
+        }),
+        logger,
+      );
+
+      expect(prisma.chat.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "slack-C-PRIVATE-1-1234567890.100000" },
+          create: expect.objectContaining({
+            id: "slack-C-PRIVATE-1-1234567890.100000",
+          }),
+        }),
+      );
+    });
+
+    it("uses thread_ts for channel mention replies", async () => {
+      prisma.messagingChannel.findMany.mockResolvedValue([CANDIDATE_1]);
+      prisma.chat.upsert.mockResolvedValue({
+        id: "slack-C-PRIVATE-1-1234567890.100000",
+        messages: [],
+      } as any);
+      prisma.chatMessage.upsert.mockResolvedValue({} as any);
+      prisma.chatMessage.create.mockResolvedValue({} as any);
+
+      await processSlackEvent(
+        makePayload({
+          type: "app_mention",
+          channel: "C-PRIVATE-1",
+          channel_type: "channel",
+          ts: "1234567890.200000",
+          thread_ts: "1234567890.100000",
+          text: "<@U-BOT> follow up",
+        }),
+        logger,
+      );
+
+      expect(prisma.chat.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "slack-C-PRIVATE-1-1234567890.100000" },
+          create: expect.objectContaining({
+            id: "slack-C-PRIVATE-1-1234567890.100000",
+          }),
+        }),
+      );
     });
   });
 

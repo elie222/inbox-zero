@@ -27,6 +27,10 @@ type SlackEventPayload = {
   };
 };
 
+// Keep model input bounded per turn; full history is still persisted in Chat/ChatMessage.
+const MAX_SLACK_CONTEXT_MESSAGES = 12;
+const MAX_CHAT_MEMORIES = 20;
+
 export async function processSlackEvent(
   body: SlackEventPayload,
   logger: Logger,
@@ -104,23 +108,32 @@ export async function processSlackEvent(
   }
 
   // Deterministic chat ID from Slack context
-  const chatId = thread_ts
-    ? `slack-${channel}-${thread_ts}`
+  const chatThreadTs = type === "app_mention" ? (thread_ts ?? ts) : thread_ts;
+  const chatId = chatThreadTs
+    ? `slack-${channel}-${chatThreadTs}`
     : `slack-${channel}`;
 
   const chat = await prisma.chat.upsert({
     where: { id: chatId },
     create: { id: chatId, emailAccountId },
     update: {},
-    include: { messages: true },
+    select: {
+      id: true,
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: MAX_SLACK_CONTEXT_MESSAGES,
+      },
+    },
   });
 
   // Build message history
-  const existingMessages: UIMessage[] = chat.messages.map((m) => ({
-    id: m.id,
-    role: m.role as UIMessage["role"],
-    parts: m.parts as UIMessage["parts"],
-  }));
+  const existingMessages: UIMessage[] = [...chat.messages]
+    .reverse()
+    .map((m) => ({
+      id: m.id,
+      role: m.role as UIMessage["role"],
+      parts: m.parts as UIMessage["parts"],
+    }));
 
   const userMessageId = `slack-${ts}`;
   const newUserMessage: UIMessage = {
@@ -152,6 +165,10 @@ export async function processSlackEvent(
     provider: emailAccountUser.account.provider,
     logger: slackLogger,
   });
+  const memoriesPromise = getRecentChatMemories({
+    emailAccountId,
+    logger: slackLogger,
+  });
 
   // Acknowledge receipt with a reaction
   await addReaction(client, channel, ts, "eyes", slackLogger);
@@ -165,6 +182,8 @@ export async function processSlackEvent(
         messages: await convertToModelMessages(allMessages),
         emailAccountId,
         user: emailAccountUser,
+        chatId: chat.id,
+        memories: await memoriesPromise,
         inboxStats,
         logger: slackLogger,
       });
@@ -197,6 +216,31 @@ export async function processSlackEvent(
     });
   } finally {
     await removeReaction(client, channel, ts, "eyes", slackLogger);
+  }
+}
+
+async function getRecentChatMemories({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}): Promise<{ content: string; date: string }[]> {
+  try {
+    const memories = await prisma.chatMemory.findMany({
+      where: { emailAccountId },
+      orderBy: { createdAt: "desc" },
+      take: MAX_CHAT_MEMORIES,
+      select: { content: true, createdAt: true },
+    });
+
+    return memories.map((memory) => ({
+      content: memory.content,
+      date: memory.createdAt.toISOString().split("T")[0],
+    }));
+  } catch (error) {
+    logger.warn("Failed to load memories for Slack chat", { error });
+    return [];
   }
 }
 
