@@ -1056,9 +1056,8 @@ model AutomationJob {
   updatedAt DateTime @updatedAt
 
   name           String
-  enabled        Boolean           @default(true)
-  jobType        AutomationJobType @default(INBOX_NUDGE)
-  prompt         String?           @db.Text
+  enabled        Boolean @default(true)
+  prompt         String? @db.Text
   cronExpression String // UTC cron expression
 
   nextRunAt DateTime
@@ -1083,7 +1082,7 @@ model AutomationJobRun {
   scheduledFor DateTime
   processedAt  DateTime?
 
-  outboundMessage String? @db.Text
+  outboundMessage   String? @db.Text
   providerMessageId String? // Provider message ID (e.g. Slack `ts`)
   error             String? @db.Text
 
@@ -1434,11 +1433,6 @@ enum GroupItemSource {
 
 enum MessagingProvider {
   SLACK
-}
-
-enum AutomationJobType {
-  INBOX_NUDGE
-  INBOX_SUMMARY
 }
 
 enum AutomationJobRunStatus {

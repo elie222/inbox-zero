@@ -1,4 +1,3 @@
-import { AutomationJobType } from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import {
@@ -7,13 +6,11 @@ import {
 } from "@/utils/ai/automation-jobs/generate-check-in-message";
 
 export async function getAutomationJobMessage({
-  jobType,
   prompt,
   emailProvider,
   emailAccount,
   logger,
 }: {
-  jobType: AutomationJobType;
   prompt: string | null;
   emailProvider: EmailProvider;
   emailAccount: AutomationCheckInEmailAccount;
@@ -34,25 +31,19 @@ export async function getAutomationJobMessage({
     }
   }
 
-  switch (jobType) {
-    case AutomationJobType.INBOX_SUMMARY:
-      return "I can prepare a quick summary of what changed in your inbox. Want to review it now?";
+  try {
+    const stats = await emailProvider.getInboxStats();
 
-    default:
-      try {
-        const stats = await emailProvider.getInboxStats();
+    if (stats.unread === 0) {
+      return "Your inbox looks clear right now. Want me to keep monitoring and ping again later?";
+    }
 
-        if (stats.unread === 0) {
-          return "Your inbox looks clear right now. Want me to keep monitoring and ping again later?";
-        }
+    return `You currently have ${stats.unread} unread emails. Want to go through them now?`;
+  } catch (error) {
+    logger.warn("Failed to read inbox stats for automation message", {
+      error,
+    });
 
-        return `You currently have ${stats.unread} unread emails. Want to go through them now?`;
-      } catch (error) {
-        logger.warn("Failed to read inbox stats for automation message", {
-          error,
-        });
-
-        return "I checked in on your inbox. Want to triage emails now?";
-      }
+    return "I checked in on your inbox. Want to triage emails now?";
   }
 }

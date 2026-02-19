@@ -9,7 +9,6 @@ import {
 import { SafeError } from "@/utils/error";
 import {
   AutomationJobRunStatus,
-  AutomationJobType,
   MessagingProvider,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
@@ -72,9 +71,8 @@ export const toggleAutomationJobAction = actionClient
 
       await prisma.automationJob.create({
         data: {
-          name: getDefaultAutomationJobName(AutomationJobType.INBOX_NUDGE),
+          name: getDefaultAutomationJobName(),
           enabled: true,
-          jobType: AutomationJobType.INBOX_NUDGE,
           cronExpression: DEFAULT_AUTOMATION_JOB_CRON,
           nextRunAt,
           messagingChannelId: defaultChannel.id,
@@ -90,7 +88,7 @@ export const saveAutomationJobAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, userId },
-      parsedInput: { cronExpression, jobType, messagingChannelId, prompt },
+      parsedInput: { cronExpression, messagingChannelId, prompt },
     }) => {
       await assertCanEnableAutomationJobs(userId);
 
@@ -141,7 +139,7 @@ export const saveAutomationJobAction = actionClient
       });
 
       const normalizedPrompt = prompt?.trim() || null;
-      const name = getDefaultAutomationJobName(jobType);
+      const name = getDefaultAutomationJobName();
 
       if (existingJob) {
         await prisma.automationJob.update({
@@ -150,7 +148,6 @@ export const saveAutomationJobAction = actionClient
             enabled: true,
             name,
             cronExpression,
-            jobType,
             prompt: normalizedPrompt,
             nextRunAt,
             messagingChannelId,
@@ -164,7 +161,6 @@ export const saveAutomationJobAction = actionClient
           enabled: true,
           name,
           cronExpression,
-          jobType,
           prompt: normalizedPrompt,
           nextRunAt,
           messagingChannelId,

@@ -27,7 +27,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { AutomationJobType } from "@/generated/prisma/enums";
 import { useAutomationJob } from "@/hooks/useAutomationJob";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -186,7 +185,6 @@ export function ProactiveUpdatesSetting() {
 
     executeSave({
       cronExpression,
-      jobType: AutomationJobType.INBOX_NUDGE,
       messagingChannelId,
       prompt,
     });

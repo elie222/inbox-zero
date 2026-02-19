@@ -1,5 +1,3 @@
-import { AutomationJobType } from "@/generated/prisma/enums";
-
 export const DEFAULT_AUTOMATION_JOB_CRON = "0 9,14 * * 1-5";
 
 export const AUTOMATION_CRON_PRESETS = [
@@ -20,7 +18,6 @@ export const AUTOMATION_CRON_PRESETS = [
   },
 ] as const;
 
-export function getDefaultAutomationJobName(jobType: AutomationJobType) {
-  if (jobType === AutomationJobType.INBOX_SUMMARY) return "Inbox summary";
+export function getDefaultAutomationJobName() {
   return "Scheduled check-ins";
 }

@@ -150,7 +150,6 @@ export const POST = withError(
       });
 
       const outboundMessage = await getAutomationJobMessage({
-        jobType: run.automationJob.jobType,
         prompt: run.automationJob.prompt,
         emailProvider,
         emailAccount: run.automationJob.messagingChannel.emailAccount,

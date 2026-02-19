@@ -17,7 +17,6 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     select: {
       id: true,
       enabled: true,
-      jobType: true,
       prompt: true,
       cronExpression: true,
       messagingChannelId: true,

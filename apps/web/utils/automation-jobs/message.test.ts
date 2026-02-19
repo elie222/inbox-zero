@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmailProvider } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
-import { AutomationJobType } from "@/generated/prisma/enums";
 
 const { mockAiGenerateAutomationCheckInMessage } = vi.hoisted(() => {
   const mockAiGenerateAutomationCheckInMessage = vi.fn();
@@ -33,7 +32,6 @@ describe("getAutomationJobMessage", () => {
     });
 
     const message = await getAutomationJobMessage({
-      jobType: AutomationJobType.INBOX_NUDGE,
       prompt: "Only include urgent client messages.",
       emailProvider,
       emailAccount: getEmailAccountForMessage(),
@@ -57,7 +55,6 @@ describe("getAutomationJobMessage", () => {
     });
 
     const message = await getAutomationJobMessage({
-      jobType: AutomationJobType.INBOX_NUDGE,
       prompt: "Focus on priorities.",
       emailProvider,
       emailAccount: getEmailAccountForMessage(),
@@ -77,7 +74,6 @@ describe("getAutomationJobMessage", () => {
     });
 
     const message = await getAutomationJobMessage({
-      jobType: AutomationJobType.INBOX_NUDGE,
       prompt: null,
       emailProvider,
       emailAccount: getEmailAccountForMessage(),
