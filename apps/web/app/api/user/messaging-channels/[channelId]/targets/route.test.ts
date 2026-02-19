@@ -60,6 +60,23 @@ describe("messaging channel targets route", () => {
     expect(listChannels).not.toHaveBeenCalled();
   });
 
+  it("returns empty targets for Telegram", async () => {
+    findFirst.mockResolvedValue({
+      provider: "TELEGRAM",
+      accessToken: "token",
+    });
+
+    const response = await GET(
+      { auth: { emailAccountId: "email-1" }, logger } as any,
+      { params: Promise.resolve({ channelId: "channel-1" }) } as any,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ targets: [] });
+    expect(listChannels).not.toHaveBeenCalled();
+  });
+
   it("returns Slack targets when provider is Slack", async () => {
     findFirst.mockResolvedValue({
       provider: "SLACK",

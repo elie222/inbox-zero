@@ -102,6 +102,7 @@ export async function sendBriefing({
         );
         break;
       case MessagingProvider.WHATSAPP:
+      case MessagingProvider.TELEGRAM:
         break;
     }
   }

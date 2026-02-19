@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { actionClient } from "@/utils/actions/safe-action";
+import { env } from "@/env";
 import {
   updateSlackChannelBody,
   updateChannelFeaturesBody,
@@ -9,6 +10,7 @@ import {
   disconnectChannelBody,
   linkSlackWorkspaceBody,
   connectWhatsAppBody,
+  connectTelegramBody,
 } from "@/utils/actions/messaging-channels.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
@@ -19,6 +21,7 @@ import {
   sendChannelConfirmation,
   lookupSlackUserByEmail,
 } from "@inboxzero/slack";
+import { getTelegramBot, setTelegramWebhook } from "@inboxzero/telegram";
 
 export const updateSlackChannelAction = actionClient
   .metadata({ name: "updateSlackChannel" })
@@ -96,8 +99,13 @@ export const updateChannelFeaturesAction = actionClient
         throw new SafeError("Messaging channel is not connected");
       }
 
-      if (channel.provider === MessagingProvider.WHATSAPP) {
-        throw new SafeError("WhatsApp delivery settings are not supported yet");
+      if (
+        channel.provider === MessagingProvider.WHATSAPP ||
+        channel.provider === MessagingProvider.TELEGRAM
+      ) {
+        throw new SafeError(
+          `${channel.provider === MessagingProvider.WHATSAPP ? "WhatsApp" : "Telegram"} delivery settings are not supported yet`,
+        );
       }
 
       const enablingFeature =
@@ -132,6 +140,10 @@ export const connectWhatsAppAction = actionClient
         displayName,
       },
     }) => {
+      if (!env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || !env.WHATSAPP_APP_SECRET) {
+        throw new SafeError("WhatsApp is not configured on this server");
+      }
+
       const phoneNumberData = await getWhatsAppPhoneNumber({
         phoneNumberId,
         accessToken,
@@ -215,6 +227,122 @@ export const connectWhatsAppAction = actionClient
       logger.info("Connected WhatsApp channel", {
         emailAccountId,
         provider: MessagingProvider.WHATSAPP,
+      });
+    },
+  );
+
+export const connectTelegramAction = actionClient
+  .metadata({ name: "connectTelegram" })
+  .inputSchema(connectTelegramBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { botToken, authorizedSender, displayName },
+    }) => {
+      if (!env.TELEGRAM_WEBHOOK_SECRET) {
+        throw new SafeError("Telegram is not configured on this server");
+      }
+
+      let bot: Awaited<ReturnType<typeof getTelegramBot>>;
+      try {
+        bot = await getTelegramBot({ botToken });
+      } catch {
+        throw new SafeError("Unable to validate Telegram bot token");
+      }
+
+      if (!bot.is_bot) {
+        throw new SafeError("Telegram token does not belong to a bot");
+      }
+
+      const botId = String(bot.id);
+      const conflictingChannel = await prisma.messagingChannel.findFirst({
+        where: {
+          provider: MessagingProvider.TELEGRAM,
+          teamId: botId,
+          isConnected: true,
+          emailAccountId: { not: emailAccountId },
+        },
+        select: { id: true },
+      });
+
+      if (conflictingChannel) {
+        throw new SafeError(
+          "This Telegram bot is already connected to another email account",
+        );
+      }
+
+      const authorizedSenderId = normalizeTelegramSenderId(authorizedSender);
+      if (!authorizedSenderId) {
+        throw new SafeError(
+          "Enter a valid Telegram user ID for the authorized sender",
+        );
+      }
+
+      const webhookUrl = new URL(
+        "/api/telegram/webhook",
+        env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL,
+      );
+      webhookUrl.searchParams.set("bot_id", botId);
+
+      try {
+        await setTelegramWebhook({
+          botToken,
+          webhookUrl: webhookUrl.toString(),
+          secretToken: env.TELEGRAM_WEBHOOK_SECRET,
+        });
+      } catch (error) {
+        logger.error("Failed to configure Telegram webhook", { error });
+        throw new SafeError("Unable to configure Telegram webhook");
+      }
+
+      const fallbackName = bot.username ? `@${bot.username}` : bot.first_name;
+      const teamName = displayName?.trim() || fallbackName || "Telegram";
+
+      try {
+        await prisma.messagingChannel.upsert({
+          where: {
+            emailAccountId_provider_teamId: {
+              emailAccountId,
+              provider: MessagingProvider.TELEGRAM,
+              teamId: botId,
+            },
+          },
+          update: {
+            teamName,
+            accessToken: botToken,
+            providerUserId: botId,
+            botUserId: bot.username || null,
+            authorizedSenderId,
+            isConnected: true,
+            channelId: null,
+            channelName: null,
+            sendMeetingBriefs: false,
+            sendDocumentFilings: false,
+          },
+          create: {
+            provider: MessagingProvider.TELEGRAM,
+            teamId: botId,
+            teamName,
+            accessToken: botToken,
+            providerUserId: botId,
+            botUserId: bot.username || null,
+            authorizedSenderId,
+            emailAccountId,
+            isConnected: true,
+          },
+        });
+      } catch (error) {
+        if (isUniqueConstraintError(error)) {
+          throw new SafeError(
+            "This Telegram bot is already connected to another email account",
+          );
+        }
+        throw error;
+      }
+
+      logger.info("Connected Telegram channel", {
+        emailAccountId,
+        provider: MessagingProvider.TELEGRAM,
       });
     },
   );
@@ -404,6 +532,12 @@ async function getWhatsAppPhoneNumber({
 function normalizeWhatsAppSenderId(value: string): string | null {
   const normalized = value.replaceAll(/\D/g, "");
   if (normalized.length < 8 || normalized.length > 20) return null;
+  return normalized;
+}
+
+function normalizeTelegramSenderId(value: string): string | null {
+  const normalized = value.trim();
+  if (!/^\d{5,20}$/.test(normalized)) return null;
   return normalized;
 }
 

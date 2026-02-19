@@ -175,6 +175,9 @@ importers:
       '@inboxzero/slack':
         specifier: workspace:*
         version: link:../../packages/slack
+      '@inboxzero/telegram':
+        specifier: workspace:*
+        version: link:../../packages/telegram
       '@inboxzero/tinybird':
         specifier: workspace:*
         version: link:../../packages/tinybird
@@ -789,6 +792,18 @@ importers:
       '@slack/web-api':
         specifier: 7.13.0
         version: 7.13.0
+    devDependencies:
+      '@types/node':
+        specifier: 24.10.1
+        version: 24.10.1
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/telegram:
     devDependencies:
       '@types/node':
         specifier: 24.10.1

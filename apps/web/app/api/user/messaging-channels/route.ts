@@ -44,5 +44,9 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
 function getAvailableProviders(): MessagingProvider[] {
   const providers: MessagingProvider[] = [];
   if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) providers.push("SLACK");
+  if (env.WHATSAPP_WEBHOOK_VERIFY_TOKEN && env.WHATSAPP_APP_SECRET) {
+    providers.push("WHATSAPP");
+  }
+  if (env.TELEGRAM_WEBHOOK_SECRET) providers.push("TELEGRAM");
   return providers;
 }
