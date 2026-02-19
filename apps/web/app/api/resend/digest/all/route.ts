@@ -3,7 +3,6 @@ import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
-import { getInternalApiUrl } from "@/utils/internal-api";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
@@ -62,14 +61,12 @@ async function sendDigestAllUpdate(logger: Logger) {
     eligibleAccounts: emailAccounts.length,
   });
 
-  const url = `${getInternalApiUrl()}/api/resend/digest`;
-
   for (const emailAccount of emailAccounts) {
     try {
       await publishToQstashQueue({
         queueName: "email-digest-all",
         parallelism: 3, // Allow up to 3 concurrent jobs from this queue
-        url,
+        path: "/api/resend/digest",
         body: { emailAccountId: emailAccount.id },
       });
     } catch (error) {

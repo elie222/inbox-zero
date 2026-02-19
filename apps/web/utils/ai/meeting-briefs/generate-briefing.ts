@@ -214,7 +214,7 @@ async function buildSearchTools({
               modelName: "sonar-pro",
               model: perplexity("sonar-pro"),
               provider: "perplexity",
-              backupModel: null,
+              fallbackModels: [],
               hasUserApiKey: false,
             },
           });

@@ -4,13 +4,43 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createEmailProvider } from "@/utils/email/provider";
-import { sendEmailBody } from "@/utils/gmail/mail";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { formatEmailWithName } from "@/utils/email";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
+const sendEmailToolInputSchema = z
+  .object({
+    to: z.string().trim().min(1),
+    cc: z.string().trim().min(1).optional(),
+    bcc: z.string().trim().min(1).optional(),
+    subject: z.string().trim().min(1).max(300),
+    messageHtml: z.string().trim().min(1),
+  })
+  .strict();
+const replyEmailToolInputSchema = z
+  .object({
+    messageId: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        "Message ID to reply to. Use a messageId returned by searchInbox.",
+      ),
+    content: z.string().trim().min(1).max(10_000),
+  })
+  .strict();
+const forwardEmailToolInputSchema = z
+  .object({
+    messageId: z.string().trim().min(1),
+    to: z.string().trim().min(1),
+    cc: z.string().trim().min(1).optional(),
+    bcc: z.string().trim().min(1).optional(),
+    content: z.string().trim().max(5000).optional(),
+  })
+  .strict();
 
 export const getAccountOverviewTool = ({
   email,
@@ -292,36 +322,29 @@ const senderEmailsSchema = z
   .max(100)
   .transform((emails) => [...new Set(emails)]);
 
-const manageInboxInputSchema = z.discriminatedUnion("action", [
-  z.object({
-    action: z.literal("archive_threads"),
-    threadIds: threadIdsSchema.describe(
-      "Thread IDs to archive. Provide IDs from searchInbox results.",
+const manageInboxInputSchema = z.object({
+  action: z
+    .enum(["archive_threads", "mark_read_threads", "bulk_archive_senders"])
+    .describe("Inbox action to run."),
+  threadIds: threadIdsSchema
+    .optional()
+    .describe(
+      "Thread IDs to archive or mark read/unread. Provide IDs from searchInbox results.",
     ),
-    labelId: z
-      .string()
-      .optional()
-      .describe(
-        "Optional provider label/category ID to apply while archiving.",
-      ),
-  }),
-  z.object({
-    action: z.literal("mark_read_threads"),
-    threadIds: threadIdsSchema.describe(
-      "Thread IDs to mark read or unread. Provide IDs from searchInbox results.",
+  labelId: z
+    .string()
+    .optional()
+    .describe(
+      "Optional provider label/category ID to apply while archiving threads.",
     ),
-    read: z
-      .boolean()
-      .default(true)
-      .describe("True to mark as read; false to mark as unread."),
-  }),
-  z.object({
-    action: z.literal("bulk_archive_senders"),
-    fromEmails: senderEmailsSchema.describe(
-      "Sender email addresses to bulk archive by sender.",
-    ),
-  }),
-]);
+  read: z
+    .boolean()
+    .optional()
+    .describe("For mark_read_threads: true for read, false for unread."),
+  fromEmails: senderEmailsSchema
+    .optional()
+    .describe("Sender email addresses to bulk archive by sender."),
+});
 
 export const manageInboxTool = ({
   email,
@@ -341,6 +364,38 @@ export const manageInboxTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
 
+      const parsedInputResult = manageInboxInputSchema.safeParse(input);
+      if (!parsedInputResult.success) {
+        const errorMessage = getManageInboxValidationError(
+          parsedInputResult.error,
+        );
+        logger.warn("Invalid manageInbox input", {
+          issues: parsedInputResult.error.issues,
+        });
+        return { error: errorMessage };
+      }
+
+      const parsedInput = parsedInputResult.data;
+
+      if (
+        parsedInput.action === "bulk_archive_senders" &&
+        !parsedInput.fromEmails?.length
+      ) {
+        return {
+          error: "fromEmails is required when action is bulk_archive_senders",
+        };
+      }
+
+      if (
+        parsedInput.action !== "bulk_archive_senders" &&
+        !parsedInput.threadIds?.length
+      ) {
+        return {
+          error:
+            "threadIds is required when action is archive_threads or mark_read_threads",
+        };
+      }
+
       try {
         const emailProvider = await createEmailProvider({
           emailAccountId,
@@ -348,32 +403,51 @@ export const manageInboxTool = ({
           logger,
         });
 
-        if (input.action === "bulk_archive_senders") {
+        if (parsedInput.action === "bulk_archive_senders") {
+          const fromEmails = parsedInput.fromEmails;
+          if (!fromEmails) {
+            return {
+              error:
+                "fromEmails is required when action is bulk_archive_senders",
+            };
+          }
+
           await emailProvider.bulkArchiveFromSenders(
-            input.fromEmails,
+            fromEmails,
             email,
             emailAccountId,
           );
 
           return {
             success: true,
-            action: input.action,
-            sendersCount: input.fromEmails.length,
-            senders: input.fromEmails,
+            action: parsedInput.action,
+            sendersCount: fromEmails.length,
+            senders: fromEmails,
+          };
+        }
+
+        const threadIds = parsedInput.threadIds;
+        if (!threadIds) {
+          return {
+            error:
+              "threadIds is required when action is archive_threads or mark_read_threads",
           };
         }
 
         const threadActionResults = await runThreadActionsInParallel({
-          threadIds: input.threadIds,
+          threadIds,
           runAction: async (threadId) => {
-            if (input.action === "archive_threads") {
+            if (parsedInput.action === "archive_threads") {
               await emailProvider.archiveThreadWithLabel(
                 threadId,
                 email,
-                input.labelId,
+                parsedInput.labelId,
               );
             } else {
-              await emailProvider.markReadThread(threadId, input.read);
+              await emailProvider.markReadThread(
+                threadId,
+                parsedInput.read ?? true,
+              );
             }
           },
         });
@@ -386,8 +460,8 @@ export const manageInboxTool = ({
 
         return {
           success: failedThreadIds.length === 0,
-          action: input.action,
-          requestedCount: input.threadIds.length,
+          action: parsedInput.action,
+          requestedCount: threadIds.length,
           successCount,
           failedCount: failedThreadIds.length,
           failedThreadIds,
@@ -541,10 +615,15 @@ export const sendEmailTool = ({
 }) =>
   tool({
     description:
-      "Send an email immediately from the connected mailbox. Use only when the user clearly asks to send now.",
-    inputSchema: sendEmailBody,
+      "Send a new email immediately from the connected mailbox. Use only when the user clearly asks to send now.",
+    inputSchema: sendEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "send_email", email, logger });
+
+      const parsedInput = sendEmailToolInputSchema.safeParse(input);
+      if (!parsedInput.success) {
+        return { error: getSendEmailValidationError(parsedInput.error) };
+      }
 
       try {
         const emailProvider = await createEmailProvider({
@@ -552,13 +631,20 @@ export const sendEmailTool = ({
           provider,
           logger,
         });
-        const result = await emailProvider.sendEmailWithHtml(input);
+        const from = await getDefaultSenderAddress({
+          emailAccountId,
+          fallbackEmail: email,
+        });
+        const result = await emailProvider.sendEmailWithHtml({
+          ...parsedInput.data,
+          ...(from ? { from } : {}),
+        });
         return {
           success: true,
           messageId: result.messageId,
           threadId: result.threadId,
-          to: input.to,
-          subject: input.subject,
+          to: parsedInput.data.to,
+          subject: parsedInput.data.subject,
         };
       } catch (error) {
         logger.error("Failed to send email from chat", { error });
@@ -568,6 +654,106 @@ export const sendEmailTool = ({
   });
 
 export type SendEmailTool = InferUITool<ReturnType<typeof sendEmailTool>>;
+
+export const replyEmailTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Reply to an existing email by message ID. Use messageId values from searchInbox results.",
+    inputSchema: replyEmailToolInputSchema,
+    execute: async (input) => {
+      trackToolCall({ tool: "reply_email", email, logger });
+
+      const parsedInput = replyEmailToolInputSchema.safeParse(input);
+      if (!parsedInput.success) {
+        return { error: getReplyEmailValidationError(parsedInput.error) };
+      }
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+        const message = await emailProvider.getMessage(
+          parsedInput.data.messageId,
+        );
+        await emailProvider.replyToEmail(message, parsedInput.data.content);
+
+        return {
+          success: true,
+          messageId: parsedInput.data.messageId,
+          threadId: message.threadId,
+        };
+      } catch (error) {
+        logger.error("Failed to reply from chat", { error });
+        return { error: "Failed to send reply" };
+      }
+    },
+  });
+
+export type ReplyEmailTool = InferUITool<ReturnType<typeof replyEmailTool>>;
+
+export const forwardEmailTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Forward an existing email by message ID. Use messageId values from searchInbox results.",
+    inputSchema: forwardEmailToolInputSchema,
+    execute: async (input) => {
+      trackToolCall({ tool: "forward_email", email, logger });
+
+      const parsedInput = forwardEmailToolInputSchema.safeParse(input);
+      if (!parsedInput.success) {
+        return { error: getForwardEmailValidationError(parsedInput.error) };
+      }
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+        const message = await emailProvider.getMessage(
+          parsedInput.data.messageId,
+        );
+        await emailProvider.forwardEmail(message, {
+          to: parsedInput.data.to,
+          cc: parsedInput.data.cc,
+          bcc: parsedInput.data.bcc,
+          content: parsedInput.data.content || undefined,
+        });
+        return {
+          success: true,
+          messageId: parsedInput.data.messageId,
+          to: parsedInput.data.to,
+        };
+      } catch (error) {
+        logger.error("Failed to forward email from chat", { error });
+        return { error: "Failed to forward email" };
+      }
+    },
+  });
+
+export type ForwardEmailTool = InferUITool<ReturnType<typeof forwardEmailTool>>;
 
 async function trackToolCall({
   tool,
@@ -603,6 +789,29 @@ async function listLabelNames({
     logger.warn("Failed to load label names", { error });
     return [];
   }
+}
+
+async function getDefaultSenderAddress({
+  emailAccountId,
+  fallbackEmail,
+}: {
+  emailAccountId: string;
+  fallbackEmail: string;
+}) {
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      name: true,
+      email: true,
+    },
+  });
+
+  if (!emailAccount) return fallbackEmail;
+
+  return formatEmailWithName(
+    emailAccount.name,
+    emailAccount.email || fallbackEmail,
+  );
 }
 
 function shouldIncludeMessage({
@@ -759,4 +968,52 @@ async function runThreadActionsInParallel({
   }
 
   return results;
+}
+
+function getManageInboxValidationError(error: z.ZodError) {
+  const firstIssue = error.issues[0];
+  if (!firstIssue) return "Invalid manageInbox input";
+
+  if (firstIssue.code === "too_small" && firstIssue.path[0] === "threadIds") {
+    return "Invalid manageInbox input: threadIds must include at least one thread ID";
+  }
+
+  if (firstIssue.code === "too_small" && firstIssue.path[0] === "fromEmails") {
+    return "Invalid manageInbox input: fromEmails must include at least one sender email";
+  }
+
+  const field = firstIssue.path.map(String).join(".");
+  if (!field) return `Invalid manageInbox input: ${firstIssue.message}`;
+
+  return `Invalid manageInbox input: ${field} ${firstIssue.message}`;
+}
+
+function getSendEmailValidationError(error: z.ZodError) {
+  return getValidationErrorMessage("sendEmail", error);
+}
+
+function getForwardEmailValidationError(error: z.ZodError) {
+  return getValidationErrorMessage("forwardEmail", error);
+}
+
+function getReplyEmailValidationError(error: z.ZodError) {
+  return getValidationErrorMessage("replyEmail", error);
+}
+
+function getValidationErrorMessage(toolName: string, error: z.ZodError) {
+  const firstIssue = error.issues[0];
+  if (!firstIssue) return `Invalid ${toolName} input`;
+
+  if (firstIssue.code === "unrecognized_keys") {
+    const firstKey = firstIssue.keys[0];
+    if (firstKey) {
+      return `Invalid ${toolName} input: unsupported field "${firstKey}"`;
+    }
+    return `Invalid ${toolName} input: unsupported fields`;
+  }
+
+  const field = firstIssue.path.map(String).join(".");
+  if (!field) return `Invalid ${toolName} input: ${firstIssue.message}`;
+
+  return `Invalid ${toolName} input: ${field} ${firstIssue.message}`;
 }

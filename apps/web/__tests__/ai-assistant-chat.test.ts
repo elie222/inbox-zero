@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelMessage } from "ai";
-import { getEmailAccount } from "@/__tests__/helpers";
+import { getEmailAccount, getMockMessage } from "@/__tests__/helpers";
 import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
@@ -141,6 +141,7 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.manageInbox).toBeDefined();
     expect(args.tools.updateInboxFeatures).toBeDefined();
     expect(args.tools.sendEmail).toBeDefined();
+    expect(args.tools.forwardEmail).toBeDefined();
   });
 
   it("omits sendEmail tool when email sending is disabled", async () => {
@@ -161,6 +162,122 @@ describe("aiProcessAssistantChat", () => {
 
     const args = mockToolCallAgentStream.mock.calls[0][0];
     expect(args.tools.sendEmail).toBeUndefined();
+    expect(args.tools.forwardEmail).toBeUndefined();
+  });
+
+  it("adds OpenAI prompt cache key when chatId is provided", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+      chatId: "chat-123",
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    expect(args.providerOptions).toEqual({
+      openai: {
+        promptCacheKey: "assistant-chat:chat-123",
+      },
+    });
+  });
+
+  it("does not add chat provider options when chatId is missing", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    expect(args.providerOptions).toBeUndefined();
+  });
+
+  it("places context between history and latest message for cache-friendly ordering", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: [
+        { role: "user", content: "first user message" },
+        { role: "assistant", content: "assistant response" },
+        { role: "user", content: "latest user message" },
+      ],
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+      memories: [{ content: "Remember this", date: "2026-02-18" }],
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    expect(args.messages[1]).toMatchObject({
+      role: "user",
+      content: "first user message",
+    });
+    expect(args.messages[2]).toMatchObject({
+      role: "assistant",
+      content: "assistant response",
+    });
+    expect(args.messages[3].role).toBe("system");
+    expect(args.messages[3].content).toContain(
+      "Memories from previous conversations:",
+    );
+    expect(args.messages.at(-1)).toEqual({
+      role: "user",
+      content: "latest user message",
+    });
+  });
+
+  it("adds anthropic cache breakpoints to stable-prefix messages", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: [
+        { role: "user", content: "history user" },
+        { role: "assistant", content: "history assistant" },
+        { role: "user", content: "latest user" },
+      ],
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    expect(args.messages[0].providerOptions?.anthropic?.cacheControl).toEqual({
+      type: "ephemeral",
+    });
+    expect(args.messages[2].providerOptions?.anthropic?.cacheControl).toEqual({
+      type: "ephemeral",
+    });
+    expect(args.messages.at(-1).providerOptions).toBeUndefined();
   });
 
   it("uses systemType (not rule name) to detect conversation status fix context", async () => {
@@ -774,6 +891,157 @@ describe("aiProcessAssistantChat", () => {
     expect(result.totalReturned).toBe(0);
   });
 
+  it("sends email with allowlisted chat params only", async () => {
+    const tools = await captureToolSet(true, "google");
+    const sendEmailWithHtml = vi.fn().mockResolvedValue({
+      messageId: "message-1",
+      threadId: "thread-1",
+    });
+
+    mockCreateEmailProvider.mockResolvedValue({
+      sendEmailWithHtml,
+    });
+
+    const result = await tools.sendEmail.execute({
+      to: "recipient@example.test",
+      cc: "observer@example.test",
+      subject: "Subject line",
+      messageHtml: "<p>Hello</p>",
+    });
+
+    expect(result).toEqual({
+      success: true,
+      messageId: "message-1",
+      threadId: "thread-1",
+      to: "recipient@example.test",
+      subject: "Subject line",
+    });
+
+    expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
+    expect(sendEmailWithHtml.mock.calls[0][0]).toEqual({
+      to: "recipient@example.test",
+      cc: "observer@example.test",
+      subject: "Subject line",
+      messageHtml: "<p>Hello</p>",
+      from: "user@test.com",
+    });
+  });
+
+  it("rejects unsupported from field in chat send params", async () => {
+    const tools = await captureToolSet(true, "google");
+    mockCreateEmailProvider.mockResolvedValue({
+      sendEmailWithHtml: vi.fn(),
+    });
+    const providerCallsBefore = mockCreateEmailProvider.mock.calls.length;
+
+    const result = await tools.sendEmail.execute({
+      to: "recipient@example.test",
+      from: "sender.alias@example.test",
+      subject: "Subject line",
+      messageHtml: "<p>Hello</p>",
+    } as any);
+
+    expect(result).toEqual({
+      error: 'Invalid sendEmail input: unsupported field "from"',
+    });
+    expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
+  });
+
+  it("allows bcc field in chat send params", async () => {
+    const tools = await captureToolSet(true, "google");
+    const sendEmailWithHtml = vi.fn().mockResolvedValue({
+      messageId: "message-2",
+      threadId: "thread-2",
+    });
+    mockCreateEmailProvider.mockResolvedValue({
+      sendEmailWithHtml,
+    });
+
+    const result = await tools.sendEmail.execute({
+      to: "recipient@example.test",
+      bcc: "hidden@example.test",
+      subject: "Subject line",
+      messageHtml: "<p>Done</p>",
+    });
+
+    expect(result).toEqual({
+      success: true,
+      messageId: "message-2",
+      threadId: "thread-2",
+      to: "recipient@example.test",
+      subject: "Subject line",
+    });
+
+    expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
+    expect(sendEmailWithHtml).toHaveBeenCalledWith({
+      to: "recipient@example.test",
+      bcc: "hidden@example.test",
+      subject: "Subject line",
+      messageHtml: "<p>Done</p>",
+      from: "user@test.com",
+    });
+  });
+
+  it("forwards email with allowlisted chat params only", async () => {
+    const tools = await captureToolSet(true, "google");
+    const message = getMockMessage({ id: "message-1", threadId: "thread-1" });
+    const getMessage = vi.fn().mockResolvedValue(message);
+    const forwardEmail = vi.fn().mockResolvedValue(undefined);
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessage,
+      forwardEmail,
+    });
+
+    const result = await tools.forwardEmail.execute({
+      messageId: "message-1",
+      to: "recipient@example.test",
+      cc: "observer@example.test",
+      content: "FYI",
+    });
+
+    expect(result).toEqual({
+      success: true,
+      messageId: "message-1",
+      to: "recipient@example.test",
+    });
+
+    expect(getMessage).toHaveBeenCalledTimes(1);
+    expect(getMessage).toHaveBeenCalledWith("message-1");
+    expect(forwardEmail).toHaveBeenCalledTimes(1);
+    expect(forwardEmail).toHaveBeenCalledWith(message, {
+      to: "recipient@example.test",
+      cc: "observer@example.test",
+      bcc: undefined,
+      content: "FYI",
+    });
+  });
+
+  it("rejects unsupported from field in chat forward params", async () => {
+    const tools = await captureToolSet(true, "google");
+    const getMessage = vi.fn();
+    const forwardEmail = vi.fn();
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessage,
+      forwardEmail,
+    });
+    const providerCallsBefore = mockCreateEmailProvider.mock.calls.length;
+
+    const result = await tools.forwardEmail.execute({
+      messageId: "message-1",
+      to: "recipient@example.test",
+      from: "sender.alias@example.test",
+    } as any);
+
+    expect(result).toEqual({
+      error: 'Invalid forwardEmail input: unsupported field "from"',
+    });
+    expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
+    expect(getMessage).not.toHaveBeenCalled();
+    expect(forwardEmail).not.toHaveBeenCalled();
+  });
+
   it("registers saveMemory tool", async () => {
     const tools = await captureToolSet();
     expect(tools.saveMemory).toBeDefined();
@@ -936,6 +1204,52 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result.success).toBe(true);
     expect(result.updatedAbout).toBe("First instructions");
+  });
+
+  it("validates action-specific manageInbox requirements before provider calls", async () => {
+    const tools = await captureToolSet();
+    mockCreateEmailProvider.mockClear();
+
+    const archiveMissingThreads = await tools.manageInbox.execute({
+      action: "archive_threads",
+      labelId: undefined,
+      read: true,
+    });
+    expect(archiveMissingThreads).toEqual({
+      error:
+        "threadIds is required when action is archive_threads or mark_read_threads",
+    });
+
+    const bulkMissingSenders = await tools.manageInbox.execute({
+      action: "bulk_archive_senders",
+      read: true,
+    });
+    expect(bulkMissingSenders).toEqual({
+      error: "fromEmails is required when action is bulk_archive_senders",
+    });
+
+    const archiveEmptyThreadIds = await tools.manageInbox.execute({
+      action: "archive_threads",
+      threadIds: [],
+      labelId: undefined,
+      read: true,
+    });
+    expect(archiveEmptyThreadIds).toEqual({
+      error:
+        "Invalid manageInbox input: threadIds must include at least one thread ID",
+    });
+
+    const bulkEmptySenders = await tools.manageInbox.execute({
+      action: "bulk_archive_senders",
+      fromEmails: [],
+      read: true,
+    });
+    expect(bulkEmptySenders).toEqual({
+      error:
+        "Invalid manageInbox input: fromEmails must include at least one sender email",
+    });
+
+    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
   });
 
   it("executes searchInbox and manageInbox tools with resilient behavior", async () => {

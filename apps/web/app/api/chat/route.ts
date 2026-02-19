@@ -17,6 +17,7 @@ import {
   RECENT_MESSAGES_TO_KEEP,
 } from "@/utils/ai/assistant/compact";
 import { getModel } from "@/utils/llms/model";
+import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 
 export const maxDuration = 120;
 
@@ -41,6 +42,12 @@ export const POST = withEmailAccount("chat", async (request) => {
   const user = await getEmailAccountWithAi({ emailAccountId });
 
   if (!user) return NextResponse.json({ error: "Not authenticated" });
+
+  const inboxStatsPromise = getInboxStatsForChatContext({
+    emailAccountId,
+    provider: user.account.provider,
+    logger: request.logger,
+  });
 
   const json = await request.json();
   const { data, error } = assistantInputSchema.safeParse(json);
@@ -193,6 +200,8 @@ export const POST = withEmailAccount("chat", async (request) => {
   }
 
   try {
+    const inboxStats = await inboxStatsPromise;
+
     const result = await aiProcessAssistantChat({
       messages: modelMessages,
       emailAccountId,
@@ -200,6 +209,7 @@ export const POST = withEmailAccount("chat", async (request) => {
       context,
       chatId: chat.id,
       memories,
+      inboxStats,
       logger: request.logger,
     });
 

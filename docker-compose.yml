@@ -19,7 +19,7 @@ services:
     volumes:
       - database-data:/var/lib/postgresql/data/
     ports:
-      - ${POSTGRES_PORT:-5432}:5432
+      - "${POSTGRES_BIND_HOST:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     networks:
       - inbox-zero-network
     profiles:
@@ -29,7 +29,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - ${REDIS_PORT:-6380}:6379
+      - "${REDIS_BIND_HOST:-127.0.0.1}:${REDIS_PORT:-6380}:6379"
     volumes:
       - database-data:/data
     networks:
@@ -41,10 +41,11 @@ services:
 
   serverless-redis-http:
     ports:
-      - "${REDIS_HTTP_PORT:-8079}:80"
+      - "${REDIS_HTTP_BIND_HOST:-127.0.0.1}:${REDIS_HTTP_PORT:-8079}:80"
     image: hiett/serverless-redis-http:latest
     env_file:
-      - ./apps/web/.env
+      - path: ./apps/web/.env
+        required: false
     environment:
       SRH_MODE: env
       SRH_TOKEN: ${UPSTASH_REDIS_TOKEN}
@@ -60,7 +61,8 @@ services:
     image: ghcr.io/elie222/inbox-zero:latest
     pull_policy: always
     env_file:
-      - ./apps/web/.env
+      - path: ./apps/web/.env
+        required: false
     depends_on:
       db:
         condition: service_healthy
@@ -91,7 +93,14 @@ services:
           while true; do
             echo \"[cron] Processing scheduled actions...\"
             curl -s -X GET 'http://web:3000/api/cron/scheduled-actions' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: scheduled-actions request failed\"
-            sleep 60
+            sleep 900
+          done
+        ) &
+        (
+          while true; do
+            echo \"[cron] Processing automation jobs...\"
+            curl -s -X GET 'http://web:3000/api/cron/automation-jobs' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: automation-jobs request failed\"
+            sleep 900
           done
         ) &
         (
@@ -125,7 +134,8 @@ services:
         wait
       "
     env_file:
-      - ./apps/web/.env
+      - path: ./apps/web/.env
+        required: false
     depends_on:
       - web
     networks:

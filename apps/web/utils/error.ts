@@ -173,15 +173,6 @@ export function isAiQuotaExceededError(error: RetryError): boolean {
   return quotaErrorMessages.some((substr) => message.includes(substr));
 }
 
-export function isAWSThrottlingError(error: unknown): error is Error {
-  return (
-    error instanceof Error &&
-    error.name === "ThrottlingException" &&
-    (error.message?.includes("Too many requests") ||
-      error.message?.includes("please wait before trying again"))
-  );
-}
-
 export function isOutlookThrottlingError(error: unknown): boolean {
   const err = error as Record<string, unknown>;
   const code = err?.code as string | undefined;
@@ -233,10 +224,6 @@ export function isKnownOutlookError(error: unknown): boolean {
 
 export function isAICallError(error: unknown): error is APICallError {
   return APICallError.isInstance(error);
-}
-
-export function isServiceUnavailableError(error: unknown): error is Error {
-  return error instanceof Error && error.name === "ServiceUnavailableException";
 }
 
 // we don't want to capture these errors in Sentry

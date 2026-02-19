@@ -22,6 +22,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       id: true,
       provider: true,
       teamName: true,
+      providerUserId: true,
       channelId: true,
       channelName: true,
       isConnected: true,
@@ -31,7 +32,13 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     orderBy: { createdAt: "desc" },
   });
 
-  return { channels, availableProviders: getAvailableProviders() };
+  return {
+    channels: channels.map(({ providerUserId, ...channel }) => ({
+      ...channel,
+      hasSendDestination: Boolean(providerUserId || channel.channelId),
+    })),
+    availableProviders: getAvailableProviders(),
+  };
 }
 
 function getAvailableProviders(): MessagingProvider[] {

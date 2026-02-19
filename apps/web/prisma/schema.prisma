@@ -72,6 +72,7 @@ model User {
   utms                     Json?
   errorMessages            Json? // eg. user set incorrect AI API key
   announcementDismissedAt  DateTime?
+  dismissedHints           String[]  @default([])
 
   // survey answers (extracted from onboardingAnswers for easier querying)
   surveyFeatures     String[] // multiple choice: features user is interested in
@@ -908,7 +909,7 @@ model Chat {
   compactions    ChatCompaction[]
   memories       ChatMemory[]
   emailAccountId String
-  emailAccount   EmailAccount  @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccount   EmailAccount     @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@index([emailAccountId])
 }
@@ -932,8 +933,8 @@ model ChatCompaction {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  summary                String   @db.Text
-  messageCount           Int
+  summary                  String   @db.Text
+  messageCount             Int
   compactedBeforeCreatedAt DateTime // boundary: messages with createdAt >= this were NOT compacted
 
   chatId String
@@ -1018,10 +1019,10 @@ model MessagingChannel {
   updatedAt DateTime @updatedAt
 
   provider    MessagingProvider
-  isConnected Boolean @default(true)
+  isConnected Boolean           @default(true)
 
   // Provider workspace/account
-  teamId         String  // Slack workspace ID, Discord server ID, etc.
+  teamId         String // Slack workspace ID, Discord server ID, etc.
   teamName       String? // Display name
   providerUserId String? // Slack user ID of the person who authorized the connection
   botUserId      String? // Slack bot user ID (for mention stripping)
@@ -1041,9 +1042,11 @@ model MessagingChannel {
   sendDocumentFilings Boolean @default(false)
 
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  automationJobs AutomationJob[]
 
   @@unique([emailAccountId, provider, teamId])
+  @@unique([id, emailAccountId])
   @@index([emailAccountId])
   @@index([provider, teamId])
 }
@@ -1055,6 +1058,53 @@ model MessagingInboundEvent {
   provider MessagingProvider
 
   @@index([provider, createdAt])
+}
+
+model AutomationJob {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name           String
+  enabled        Boolean @default(true)
+  prompt         String? @db.Text
+  cronExpression String // UTC cron expression
+
+  nextRunAt DateTime
+
+  messagingChannelId String
+  messagingChannel   MessagingChannel @relation(fields: [messagingChannelId, emailAccountId], references: [id, emailAccountId], onDelete: Cascade)
+
+  emailAccountId String
+
+  runs AutomationJobRun[]
+
+  // Current product behavior is one automation job per account.
+  // Remove this when we support managing multiple jobs per account.
+  @@unique([emailAccountId])
+  @@index([emailAccountId, enabled, nextRunAt])
+  @@index([enabled, nextRunAt])
+  @@index([messagingChannelId, emailAccountId])
+}
+
+model AutomationJobRun {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  status       AutomationJobRunStatus @default(PENDING)
+  scheduledFor DateTime
+  processedAt  DateTime?
+
+  outboundMessage   String? @db.Text
+  providerMessageId String? // Provider message ID (e.g. Slack `ts`)
+  error             String? @db.Text
+
+  automationJobId String
+  automationJob   AutomationJob @relation(fields: [automationJobId], references: [id], onDelete: Cascade)
+
+  @@unique([automationJobId, scheduledFor])
+  @@index([automationJobId, createdAt])
+  @@index([status, createdAt])
 }
 
 // Drive connection for document auto-organization (Google Drive or OneDrive/SharePoint)
@@ -1288,11 +1338,11 @@ enum PremiumTier {
   BASIC_ANNUALLY
   PRO_MONTHLY
   PRO_ANNUALLY
-  STARTER_MONTHLY @map("BUSINESS_MONTHLY")
-  STARTER_ANNUALLY @map("BUSINESS_ANNUALLY")
+  STARTER_MONTHLY       @map("BUSINESS_MONTHLY")
+  STARTER_ANNUALLY      @map("BUSINESS_ANNUALLY")
   PLUS_MONTHLY
   PLUS_ANNUALLY
-  PROFESSIONAL_MONTHLY @map("BUSINESS_PLUS_MONTHLY")
+  PROFESSIONAL_MONTHLY  @map("BUSINESS_PLUS_MONTHLY")
   PROFESSIONAL_ANNUALLY @map("BUSINESS_PLUS_ANNUALLY")
   COPILOT_MONTHLY
   LIFETIME
@@ -1397,4 +1447,12 @@ enum GroupItemSource {
 enum MessagingProvider {
   SLACK
   WHATSAPP
+}
+
+enum AutomationJobRunStatus {
+  PENDING
+  RUNNING
+  SENT
+  SKIPPED
+  FAILED
 }

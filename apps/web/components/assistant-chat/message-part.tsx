@@ -122,10 +122,23 @@ export function MessagePart({
   if (part.type === "tool-manageInbox") {
     const { toolCallId, state } = part;
     if (state === "input-available") {
+      if (
+        part.input.action === "bulk_archive_senders" &&
+        part.input.fromEmails?.length
+      ) {
+        return (
+          <ManageInboxResult
+            key={toolCallId}
+            input={part.input}
+            output={getInProgressManageInboxOutput(part.input)}
+            threadLookup={threadLookup}
+            isInProgress
+          />
+        );
+      }
+
       let actionText = "Updating emails...";
-      if (part.input.action === "bulk_archive_senders") {
-        actionText = "Bulk archiving by sender...";
-      } else if (part.input.action === "archive_threads") {
+      if (part.input.action === "archive_threads") {
         actionText = part.input.labelId
           ? "Archiving and labeling emails..."
           : "Archiving emails...";
@@ -190,6 +203,26 @@ export function MessagePart({
         <BasicToolInfo
           key={toolCallId}
           text={`Sent email${to ? ` to ${to}` : ""}`}
+        />
+      );
+    }
+  }
+
+  if (part.type === "tool-forwardEmail") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Forwarding email..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      const to = getOutputField<string>(output, "to");
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`Forwarded email${to ? ` to ${to}` : ""}`}
         />
       );
     }
@@ -392,4 +425,15 @@ export function MessagePart({
   }
 
   return null;
+}
+
+function getInProgressManageInboxOutput(input: {
+  action: string;
+  fromEmails?: string[];
+}) {
+  return {
+    action: input.action,
+    senders: input.fromEmails ?? [],
+    sendersCount: input.fromEmails?.length ?? 0,
+  };
 }

@@ -76,13 +76,12 @@ export function ConnectedAppsSection({
   showNotifications?: boolean;
 }) {
   useSlackNotifications(showNotifications);
-
   const {
     data: channelsData,
     isLoading,
     error,
     mutate: mutateChannels,
-  } = useMessagingChannels(emailAccountId);
+  } = useMessagingChannels();
   const [connectingSlack, setConnectingSlack] = useState(false);
   const [existingWorkspace, setExistingWorkspace] = useState<{
     teamId: string;
@@ -220,11 +219,7 @@ export function ConnectedAppsSection({
           ) : null}
         </ItemActions>
       </Item>
-      <LoadingContent
-        loading={isLoading}
-        error={error}
-        loadingComponent={null}
-      >
+      <LoadingContent loading={isLoading} error={error} loadingComponent={null}>
         {connectedChannels.length > 0 && (
           <div className="space-y-2 px-4 pb-3">
             {connectedChannels.map((channel) => (
@@ -534,7 +529,9 @@ function ConnectedChannelRow({
               {selectionState.showInviteHint && (
                 <div className="text-xs text-muted-foreground">
                   Invite the bot with{" "}
-                  <code className="rounded bg-muted px-1">/invite @InboxZero</code>{" "}
+                  <code className="rounded bg-muted px-1">
+                    /invite @InboxZero
+                  </code>{" "}
                   in a private channel.
                 </div>
               )}

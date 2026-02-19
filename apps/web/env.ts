@@ -5,6 +5,7 @@ import { booleanString } from "@/utils/zod";
 
 const llmProviderEnum = z.enum([
   "anthropic",
+  "azure",
   "google",
   "openai",
   "bedrock",
@@ -49,22 +50,25 @@ export const env = createEnv({
       // custom is deprecated
       .enum([...llmProviderEnum.options, "custom"]),
     DEFAULT_LLM_MODEL: z.string().optional(),
+    DEFAULT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain; explicit model required (e.g., "openrouter:anthropic/claude-sonnet-4.5,openai:gpt-5.1")
     DEFAULT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for default model (e.g., "Google Vertex,Anthropic")
     // Set this to a cheaper model like Gemini Flash
     ECONOMY_LLM_PROVIDER: llmProviderEnum.optional(),
     ECONOMY_LLM_MODEL: z.string().optional(),
+    ECONOMY_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain for economy model; explicit model required
     ECONOMY_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for economy model (e.g., "Google Vertex,Anthropic")
     // Set this to a fast but strong model like Groq Kimi K2. Leaving blank will fallback to default which is also fine.
     CHAT_LLM_PROVIDER: llmProviderEnum.optional(),
     CHAT_LLM_MODEL: z.string().optional(),
+    CHAT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain for chat model; explicit model required
     CHAT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
-
-    OPENROUTER_BACKUP_MODEL: z
-      .string()
-      .optional()
-      .default("google/gemini-2.5-flash"),
+    // Deprecated: legacy fallback configuration, kept for backwards compatibility.
+    OPENROUTER_BACKUP_MODEL: z.string().optional(),
 
     OPENAI_API_KEY: z.string().optional(),
+    AZURE_API_KEY: z.string().optional(),
+    AZURE_RESOURCE_NAME: z.string().optional(),
+    AZURE_API_VERSION: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),
     BEDROCK_SECRET_KEY: z.string().optional(),
@@ -135,6 +139,7 @@ export const env = createEnv({
     INTERNAL_API_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),
     WHITELIST_FROM: z.string().optional(),
+    // Deprecated: legacy fallback flag, kept for backwards compatibility.
     USE_BACKUP_MODEL: booleanString.optional().default(false),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
