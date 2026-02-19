@@ -77,6 +77,10 @@ export function formatDateForLLM(date: Date) {
   return format(date, "EEEE, yyyy-MM-dd HH:mm:ss 'UTC'");
 }
 
+export function formatUtcDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
 export function formatRelativeTimeForLLM(date: Date) {
   return formatDistanceToNow(date, { addSuffix: true });
 }

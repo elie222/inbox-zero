@@ -1,6 +1,7 @@
 import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import prisma from "@/utils/prisma";
+import { formatUtcDate } from "@/utils/date";
 import type { Logger } from "@/utils/logger";
 
 export const searchMemoriesTool = ({
@@ -48,7 +49,7 @@ export const searchMemoriesTool = ({
       return {
         memories: memories.map((m) => ({
           content: m.content,
-          date: m.createdAt.toISOString().split("T")[0],
+          date: formatUtcDate(m.createdAt),
         })),
       };
     },

@@ -18,6 +18,7 @@ import {
 } from "@/utils/ai/assistant/compact";
 import { getModel } from "@/utils/llms/model";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
+import { formatUtcDate } from "@/utils/date";
 
 export const maxDuration = 120;
 
@@ -193,7 +194,7 @@ export const POST = withEmailAccount("chat", async (request) => {
     });
     memories = recentMemories.map((m) => ({
       content: m.content,
-      date: m.createdAt.toISOString().split("T")[0],
+      date: formatUtcDate(m.createdAt),
     }));
   } catch (error) {
     request.logger.warn("Failed to load memories for chat", { error });
