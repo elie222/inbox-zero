@@ -8,7 +8,12 @@ import {
 } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
 import { getAutomationJobMessage } from "@/utils/automation-jobs/message";
-import { sendAutomationMessageToSlack } from "@/utils/automation-jobs/slack";
+import {
+  AutomationJobConfigurationError,
+  sendAutomationMessageToSlack,
+} from "@/utils/automation-jobs/slack";
+import { isActivePremium } from "@/utils/premium";
+import { getUserPremium } from "@/utils/user/get";
 
 export const maxDuration = 300;
 
@@ -112,26 +117,39 @@ export const POST = withError(
 
     try {
       if (!run.automationJob.enabled) {
-        await prisma.automationJobRun.update({
-          where: { id: automationJobRunId },
-          data: {
-            status: AutomationJobRunStatus.SKIPPED,
-            processedAt: new Date(),
-            error: "Automation job is disabled",
-          },
+        runLogger.info("Skipping automation job run because job is disabled");
+        await markAutomationJobRunSkipped({
+          automationJobRunId,
+          error: "Automation job is disabled",
         });
 
         return new Response("Automation job disabled", { status: 200 });
       }
 
+      const premium = await getUserPremium({
+        userId: run.automationJob.messagingChannel.emailAccount.userId,
+      });
+      if (!isActivePremium(premium)) {
+        runLogger.info(
+          "Skipping automation job run because owner is not premium",
+        );
+        await markAutomationJobRunSkipped({
+          automationJobRunId,
+          error: "Owner no longer has active premium",
+        });
+
+        return new Response("Owner no longer has active premium", {
+          status: 200,
+        });
+      }
+
       if (!run.automationJob.messagingChannel.isConnected) {
-        await prisma.automationJobRun.update({
-          where: { id: automationJobRunId },
-          data: {
-            status: AutomationJobRunStatus.SKIPPED,
-            processedAt: new Date(),
-            error: "Messaging channel is disconnected",
-          },
+        runLogger.info(
+          "Skipping automation job run because messaging channel is disconnected",
+        );
+        await markAutomationJobRunSkipped({
+          automationJobRunId,
+          error: "Messaging channel is disconnected",
         });
 
         return new Response("Messaging channel disconnected", { status: 200 });
@@ -140,13 +158,17 @@ export const POST = withError(
       if (
         run.automationJob.messagingChannel.provider !== MessagingProvider.SLACK
       ) {
-        throw new Error("Unsupported messaging provider for automation job");
+        throw new AutomationJobConfigurationError(
+          "Unsupported messaging provider for automation job",
+        );
       }
 
       const provider =
         run.automationJob.messagingChannel.emailAccount.account.provider;
       if (!provider) {
-        throw new Error("Email provider is not connected");
+        throw new AutomationJobConfigurationError(
+          "Email provider is not connected",
+        );
       }
 
       const emailProvider = await createEmailProvider({
@@ -174,7 +196,7 @@ export const POST = withError(
           status: AutomationJobRunStatus.SENT,
           processedAt: new Date(),
           outboundMessage,
-          slackMessageTs: slackResult.messageId,
+          providerMessageId: slackResult.messageId,
           error: null,
         },
       });
@@ -185,19 +207,45 @@ export const POST = withError(
         error instanceof Error
           ? error.message
           : "Failed to execute automation job";
+      const isConfigurationError =
+        error instanceof AutomationJobConfigurationError;
 
       runLogger.error("Automation job execution failed", { error });
 
       await prisma.automationJobRun.update({
         where: { id: automationJobRunId },
         data: {
-          status: AutomationJobRunStatus.FAILED,
+          status: isConfigurationError
+            ? AutomationJobRunStatus.SKIPPED
+            : AutomationJobRunStatus.FAILED,
           processedAt: new Date(),
           error: errorMessage,
         },
       });
 
-      return new Response("Automation job execution failed", { status: 500 });
+      return new Response(
+        isConfigurationError
+          ? "Automation job skipped due to configuration"
+          : "Automation job execution failed",
+        { status: isConfigurationError ? 200 : 500 },
+      );
     }
   }),
 );
+
+async function markAutomationJobRunSkipped({
+  automationJobRunId,
+  error,
+}: {
+  automationJobRunId: string;
+  error: string;
+}) {
+  await prisma.automationJobRun.update({
+    where: { id: automationJobRunId },
+    data: {
+      status: AutomationJobRunStatus.SKIPPED,
+      processedAt: new Date(),
+      error,
+    },
+  });
+}

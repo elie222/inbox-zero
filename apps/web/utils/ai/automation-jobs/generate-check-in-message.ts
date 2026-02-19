@@ -1,11 +1,14 @@
+import { InvalidArgumentError } from "ai";
 import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
+import { isTransientNetworkError, withRetry } from "@/utils/llms/retry";
 import { getModel } from "@/utils/llms/model";
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
+import type { Logger } from "@/utils/logger";
 
 const MAX_INBOX_MESSAGES_FOR_PROMPT = 8;
 
@@ -24,11 +27,30 @@ export async function aiGenerateAutomationCheckInMessage({
   prompt,
   emailProvider,
   emailAccount,
+  logger,
 }: {
   prompt: string;
   emailProvider: EmailProvider;
   emailAccount: AutomationCheckInEmailAccount;
+  logger: Logger;
 }) {
+  const aiLogger = logger.with({
+    component: "aiGenerateAutomationCheckInMessage",
+  });
+  const trimmedPrompt = prompt.trim();
+
+  if (!trimmedPrompt) {
+    aiLogger.warn("Prompt is empty for automation check-in message generation");
+    throw new Error("Automation check-in prompt is required");
+  }
+
+  if (!emailAccount.id || !emailAccount.userId || !emailAccount.email) {
+    aiLogger.warn(
+      "Email account is missing required fields for automation check-in message generation",
+    );
+    throw new Error("Email account is missing required fields");
+  }
+
   const [stats, inboxMessages] = await Promise.all([
     emailProvider.getInboxStats(),
     emailProvider.getInboxMessages(MAX_INBOX_MESSAGES_FOR_PROMPT),
@@ -41,24 +63,35 @@ export async function aiGenerateAutomationCheckInMessage({
     modelOptions,
   });
 
-  const aiResponse = await generateObject({
-    ...modelOptions,
-    system: `You generate concise Slack check-in messages about the user's inbox.
+  const aiResponse = await withRetry(
+    () =>
+      generateObject({
+        ...modelOptions,
+        system: `You generate concise Slack check-in messages about the user's inbox.
 
 ${PROMPT_SECURITY_INSTRUCTIONS}
 
 Follow the user's custom instructions while prioritizing the most actionable and important emails.
 Return plain text only and keep the message short.`,
-    prompt: buildAutomationPrompt({
-      prompt,
-      unreadCount: stats.unread,
-      totalInboxCount: stats.total,
-      inboxMessages: inboxMessages.slice(0, MAX_INBOX_MESSAGES_FOR_PROMPT),
-      emailAccount,
-    }),
-    schema: automationMessageSchema,
-  });
+        prompt: buildAutomationPrompt({
+          prompt: trimmedPrompt,
+          unreadCount: stats.unread,
+          totalInboxCount: stats.total,
+          inboxMessages: inboxMessages.slice(0, MAX_INBOX_MESSAGES_FOR_PROMPT),
+          emailAccount,
+        }),
+        schema: automationMessageSchema,
+      }),
+    {
+      retryIf: (error: unknown) =>
+        isTransientNetworkError(error) ||
+        InvalidArgumentError.isInstance(error),
+      maxRetries: 2,
+      delayMs: 1000,
+    },
+  );
 
+  aiLogger.info("Generated automation check-in message");
   return aiResponse.object.message;
 }
 

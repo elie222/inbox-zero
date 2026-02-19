@@ -23,11 +23,13 @@ export async function getAutomationJobMessage({
         prompt: trimmedPrompt,
         emailProvider,
         emailAccount,
+        logger,
       });
     } catch (error) {
       logger.warn("Failed to generate automation message from prompt", {
         error,
       });
+      return trimmedPrompt;
     }
   }
 

@@ -1,5 +1,6 @@
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
+import type { EmailProvider } from "@/utils/email/types";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import type { Action, Prisma } from "@/generated/prisma/client";
 import { isGoogleProvider } from "@/utils/email/provider-types";
@@ -84,6 +85,24 @@ export function getEmail({
     ...(cc && { cc }),
     ...(date && { date }),
   };
+}
+
+export function getMockEmailProvider({
+  unread = 0,
+  total = 0,
+  inboxMessages = [],
+}: {
+  unread?: number;
+  total?: number;
+  inboxMessages?: Awaited<ReturnType<EmailProvider["getInboxMessages"]>>;
+} = {}): EmailProvider {
+  return {
+    getInboxStats: async () => ({ unread, total }),
+    getInboxMessages: async () => inboxMessages,
+  } as Pick<
+    EmailProvider,
+    "getInboxStats" | "getInboxMessages"
+  > as EmailProvider;
 }
 
 export function getRule(
