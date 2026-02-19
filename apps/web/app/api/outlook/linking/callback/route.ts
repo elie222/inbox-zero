@@ -96,7 +96,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
           tokens.error_description || "Failed to exchange code for tokens",
         ),
       );
-      throw new Error(
+      throw new SafeError(
         tokens.error_description || "Failed to exchange code for tokens",
       );
     }
@@ -109,7 +109,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     });
 
     if (!profileResponse.ok) {
-      throw new Error("Failed to fetch user profile");
+      throw new SafeError("Failed to fetch user profile");
     }
 
     const profile = await profileResponse.json();
@@ -117,7 +117,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     const providerEmail = profile.mail || profile.userPrincipalName;
 
     if (!providerAccountId || !providerEmail) {
-      throw new Error("Profile missing required id or email");
+      throw new SafeError("Profile missing required id or email");
     }
 
     const existingAccount = await prisma.account.findUnique({
