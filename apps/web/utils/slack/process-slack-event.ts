@@ -9,9 +9,9 @@ import {
 } from "@inboxzero/slack";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
+import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import type { Logger } from "@/utils/logger";
 import type { Prisma } from "@/generated/prisma/client";
-import { createEmailProvider } from "@/utils/email/provider";
 
 type SlackEventPayload = {
   team_id: string;
@@ -310,34 +310,4 @@ async function resolveMessagingChannel({
     candidateCount: candidates.length,
   });
   return candidates[0];
-}
-
-async function getInboxStatsForChatContext({
-  emailAccountId,
-  provider,
-  logger,
-}: {
-  emailAccountId: string;
-  provider: string;
-  logger: Logger;
-}) {
-  try {
-    const emailProvider = await createEmailProvider({
-      emailAccountId,
-      provider,
-      logger,
-    });
-    const statsPromise = emailProvider.getInboxStats().catch((err) => {
-      logger.warn("getInboxStats failed", { error: err });
-      return null;
-    });
-
-    return await Promise.race([
-      statsPromise,
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
-    ]);
-  } catch (error) {
-    logger.warn("Failed to fetch inbox stats for chat context", { error });
-    return null;
-  }
 }
