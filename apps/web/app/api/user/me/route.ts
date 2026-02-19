@@ -6,7 +6,13 @@ import { auth } from "@/utils/auth";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
-async function getUser({ userId }: { userId: string }) {
+async function getUser({
+  userId,
+  includeImage,
+}: {
+  userId: string;
+  includeImage: boolean;
+}) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -37,7 +43,7 @@ async function getUser({ userId }: { userId: string }) {
           id: true,
           email: true,
           name: true,
-          image: true,
+          ...(includeImage && { image: true }),
           members: {
             select: {
               organizationId: true,
@@ -70,12 +76,15 @@ async function getUser({ userId }: { userId: string }) {
 }
 
 // Intentionally not using withAuth because we want to return null if the user is not authenticated
-export const GET = withError("user/me", async () => {
+export const GET = withError("user/me", async (request) => {
   const session = await auth();
   const userId = session?.user.id;
   if (!userId) return NextResponse.json(null);
 
-  const user = await getUser({ userId });
+  const includeImage =
+    request.nextUrl.searchParams.get("includeImage") === "true";
+
+  const user = await getUser({ userId, includeImage });
 
   return NextResponse.json(user);
 });
