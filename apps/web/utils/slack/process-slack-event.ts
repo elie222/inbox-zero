@@ -11,6 +11,7 @@ import { getEmailAccountWithAi } from "@/utils/user/get";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
 import type { Prisma } from "@/generated/prisma/client";
+import { createEmailProvider } from "@/utils/email/provider";
 
 type SlackEventPayload = {
   team_id: string;
@@ -145,18 +146,26 @@ export async function processSlackEvent(
   const client = createSlackClient(accessToken);
   const replyThreadTs = type === "app_mention" ? (thread_ts ?? ts) : undefined;
 
-  // Acknowledge receipt with a reaction
   const slackLogger = logger.with({ teamId, channel, emailAccountId });
+  const inboxStatsPromise = getInboxStatsForChatContext({
+    emailAccountId,
+    provider: emailAccountUser.account.provider,
+    logger: slackLogger,
+  });
+
+  // Acknowledge receipt with a reaction
   await addReaction(client, channel, ts, "eyes", slackLogger);
 
   // Process with AI
   try {
     let fullText: string;
     try {
+      const inboxStats = await inboxStatsPromise;
       const result = await aiProcessAssistantChat({
         messages: await convertToModelMessages(allMessages),
         emailAccountId,
         user: emailAccountUser,
+        inboxStats,
         logger: slackLogger,
       });
       fullText = await result.text;
@@ -301,4 +310,34 @@ async function resolveMessagingChannel({
     candidateCount: candidates.length,
   });
   return candidates[0];
+}
+
+async function getInboxStatsForChatContext({
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) {
+  try {
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+      logger,
+    });
+    const statsPromise = emailProvider.getInboxStats().catch((err) => {
+      logger.warn("getInboxStats failed", { error: err });
+      return null;
+    });
+
+    return await Promise.race([
+      statsPromise,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+    ]);
+  } catch (error) {
+    logger.warn("Failed to fetch inbox stats for chat context", { error });
+    return null;
+  }
 }

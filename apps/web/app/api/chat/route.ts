@@ -17,6 +17,7 @@ import {
   RECENT_MESSAGES_TO_KEEP,
 } from "@/utils/ai/assistant/compact";
 import { getModel } from "@/utils/llms/model";
+import { createEmailProvider } from "@/utils/email/provider";
 
 export const maxDuration = 120;
 
@@ -41,6 +42,12 @@ export const POST = withEmailAccount("chat", async (request) => {
   const user = await getEmailAccountWithAi({ emailAccountId });
 
   if (!user) return NextResponse.json({ error: "Not authenticated" });
+
+  const inboxStatsPromise = getInboxStatsForChatContext({
+    emailAccountId,
+    provider: user.account.provider,
+    logger: request.logger,
+  });
 
   const json = await request.json();
   const { data, error } = assistantInputSchema.safeParse(json);
@@ -193,6 +200,8 @@ export const POST = withEmailAccount("chat", async (request) => {
   }
 
   try {
+    const inboxStats = await inboxStatsPromise;
+
     const result = await aiProcessAssistantChat({
       messages: modelMessages,
       emailAccountId,
@@ -200,6 +209,7 @@ export const POST = withEmailAccount("chat", async (request) => {
       context,
       chatId: chat.id,
       memories,
+      inboxStats,
       logger: request.logger,
     });
 
@@ -273,5 +283,35 @@ async function saveChatMessages(
     logger.error("Failed to save chat messages", { error, chatId });
     captureException(error, { extra: { chatId } });
     throw error;
+  }
+}
+
+async function getInboxStatsForChatContext({
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) {
+  try {
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+      logger,
+    });
+    const statsPromise = emailProvider.getInboxStats().catch((err) => {
+      logger.warn("getInboxStats failed", { error: err });
+      return null;
+    });
+
+    return await Promise.race([
+      statsPromise,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+    ]);
+  } catch (error) {
+    logger.warn("Failed to fetch inbox stats for chat context", { error });
+    return null;
   }
 }
