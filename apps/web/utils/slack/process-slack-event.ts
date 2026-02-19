@@ -10,6 +10,7 @@ import {
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
+import { formatUtcDate } from "@/utils/date";
 import type { Logger } from "@/utils/logger";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -236,7 +237,7 @@ async function getRecentChatMemories({
 
     return memories.map((memory) => ({
       content: memory.content,
-      date: memory.createdAt.toISOString().split("T")[0],
+      date: formatUtcDate(memory.createdAt),
     }));
   } catch (error) {
     logger.warn("Failed to load memories for Slack chat", { error });

@@ -6,6 +6,7 @@ import { getRuleName, getRuleConfig } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import { getEmailAccount } from "@/__tests__/helpers";
 import { createScopedLogger } from "@/utils/logger";
+import { formatUtcDate } from "@/utils/date";
 
 // Run with: pnpm test-ai ai-detect-recurring-pattern
 
@@ -75,10 +76,10 @@ describe.runIf(isAiTest)(
         
         Order Details:
         Order #A${100_000 + i}
-        Date: ${new Date(Date.now() - i * 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
+        Date: ${formatUtcDate(new Date(Date.now() - i * 14 * 24 * 60 * 60 * 1000))}
         Total: $${(Math.random() * 100).toFixed(2)}
         
-        Your order will be delivered on ${new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}.
+        Your order will be delivered on ${formatUtcDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000))}.
         
         Thank you for shopping with us!`,
         date: new Date(Date.now() - i * 14 * 24 * 60 * 60 * 1000),
@@ -94,7 +95,7 @@ describe.runIf(isAiTest)(
         content: `You have a new calendar invitation:
         
         Event: Weekly Team Sync ${i + 1}
-        Date: ${new Date(Date.now() + (i + 1) * 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
+        Date: ${formatUtcDate(new Date(Date.now() + (i + 1) * 7 * 24 * 60 * 60 * 1000))}
         Time: 10:00 AM - 11:00 AM
         Location: Conference Room A / Zoom
         
