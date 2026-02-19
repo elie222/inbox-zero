@@ -73,7 +73,13 @@ export const POST = withError(
       return new Response("Automation job run not found", { status: 404 });
     }
 
-    if (run.status !== AutomationJobRunStatus.PENDING) {
+    if (run.status === AutomationJobRunStatus.RUNNING) {
+      logger.info("Automation job run is already RUNNING", {
+        automationJobRunId,
+        createdAt: run.createdAt,
+      });
+      return new Response("Run currently running", { status: 409 });
+    } else if (run.status !== AutomationJobRunStatus.PENDING) {
       logger.info("Automation job run already processed", {
         automationJobRunId,
         status: run.status,
@@ -95,7 +101,7 @@ export const POST = withError(
       logger.info("Automation job run was claimed by another worker", {
         automationJobRunId,
       });
-      return new Response("Run already claimed", { status: 200 });
+      return new Response("Run already claimed", { status: 409 });
     }
 
     const runLogger = logger.with({
