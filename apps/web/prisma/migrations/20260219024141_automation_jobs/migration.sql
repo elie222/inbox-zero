@@ -1,7 +1,4 @@
 -- CreateEnum
-CREATE TYPE "AutomationJobType" AS ENUM ('INBOX_NUDGE', 'INBOX_SUMMARY');
-
--- CreateEnum
 CREATE TYPE "AutomationJobRunStatus" AS ENUM ('PENDING', 'RUNNING', 'SENT', 'SKIPPED', 'FAILED');
 
 -- CreateTable
@@ -11,7 +8,6 @@ CREATE TABLE "AutomationJob" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "name" TEXT NOT NULL,
     "enabled" BOOLEAN NOT NULL DEFAULT true,
-    "jobType" "AutomationJobType" NOT NULL DEFAULT 'INBOX_NUDGE',
     "prompt" TEXT,
     "cronExpression" TEXT NOT NULL,
     "nextRunAt" TIMESTAMP(3) NOT NULL,
@@ -29,7 +25,7 @@ CREATE TABLE "AutomationJobRun" (
     "scheduledFor" TIMESTAMP(3) NOT NULL,
     "processedAt" TIMESTAMP(3),
     "outboundMessage" TEXT,
-    "slackMessageTs" TEXT,
+    "providerMessageId" TEXT,
     "error" TEXT,
     "automationJobId" TEXT NOT NULL,
 
@@ -46,13 +42,16 @@ CREATE INDEX "AutomationJob_enabled_nextRunAt_idx" ON "AutomationJob"("enabled",
 CREATE INDEX "AutomationJob_messagingChannelId_emailAccountId_idx" ON "AutomationJob"("messagingChannelId", "emailAccountId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AutomationJobRun_automationJobId_scheduledFor_key" ON "AutomationJobRun"("automationJobId", "scheduledFor");
+CREATE UNIQUE INDEX "AutomationJob_emailAccountId_key" ON "AutomationJob"("emailAccountId");
 
 -- CreateIndex
 CREATE INDEX "AutomationJobRun_automationJobId_createdAt_idx" ON "AutomationJobRun"("automationJobId", "createdAt");
 
 -- CreateIndex
 CREATE INDEX "AutomationJobRun_status_createdAt_idx" ON "AutomationJobRun"("status", "createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AutomationJobRun_automationJobId_scheduledFor_key" ON "AutomationJobRun"("automationJobId", "scheduledFor");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "MessagingChannel_id_emailAccountId_key" ON "MessagingChannel"("id", "emailAccountId");
