@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
+import { SafeError } from "@/utils/error";
 import { withEmailAccount } from "@/utils/middleware";
 
 export type GetSetupProgressResponse = Awaited<
@@ -48,7 +49,7 @@ async function getSetupProgress({
   });
 
   if (!emailAccount) {
-    throw new Error("Email account not found");
+    throw new SafeError("Email account not found");
   }
 
   const membership = emailAccount.members[0];
