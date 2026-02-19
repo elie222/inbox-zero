@@ -58,6 +58,7 @@ const LLM_PROVIDER_OPTIONS = [
   { value: "aigateway", label: "AI Gateway" },
   { value: "bedrock", label: "AWS Bedrock" },
   { value: "ollama", label: "Ollama (self-hosted)" },
+  { value: "openai-compatible", label: "OpenAI-Compatible (self-hosted)" },
 ];
 
 interface TerraformSetupOptions {
@@ -87,6 +88,9 @@ interface TerraformSetupOptions {
   bedrockRegion?: string;
   ollamaBaseUrl?: string;
   ollamaModel?: string;
+  openaiCompatibleBaseUrl?: string;
+  openaiCompatibleModel?: string;
+  openaiCompatibleApiKey?: string;
   microsoftClientId?: string;
   microsoftClientSecret?: string;
   yes?: boolean;
@@ -119,6 +123,9 @@ interface TerraformVarsConfig {
   bedrockRegion?: string;
   ollamaBaseUrl?: string;
   ollamaModel?: string;
+  openaiCompatibleBaseUrl?: string;
+  openaiCompatibleModel?: string;
+  openaiCompatibleApiKey?: string;
   microsoftClientId?: string;
   microsoftClientSecret?: string;
 }
@@ -586,6 +593,44 @@ async function getLlmSecrets(config: {
       }
       return { ollamaBaseUrl, ollamaModel };
     }
+    case "openai-compatible": {
+      const openaiCompatibleBaseUrl =
+        config.options.openaiCompatibleBaseUrl ||
+        process.env.OPENAI_COMPATIBLE_BASE_URL ||
+        (config.nonInteractive
+          ? ""
+          : await promptRequiredText({
+              message: "OpenAI-compatible base URL:",
+              placeholder: "http://localhost:1234/v1",
+            }));
+      const openaiCompatibleModel =
+        config.options.openaiCompatibleModel ||
+        process.env.OPENAI_COMPATIBLE_MODEL ||
+        (config.nonInteractive
+          ? ""
+          : await promptRequiredText({
+              message: "Model name:",
+              placeholder: "llama-3.2-3b-instruct",
+            }));
+      const openaiCompatibleApiKey =
+        config.options.openaiCompatibleApiKey ||
+        process.env.OPENAI_COMPATIBLE_API_KEY ||
+        (config.nonInteractive
+          ? ""
+          : await promptOptionalText({
+              message: "API key (optional — press Enter to skip):",
+              placeholder: "leave blank if not required",
+            }));
+      if (config.nonInteractive) {
+        assertNonEmpty("OPENAI_COMPATIBLE_BASE_URL", openaiCompatibleBaseUrl);
+        assertNonEmpty("OPENAI_COMPATIBLE_MODEL", openaiCompatibleModel);
+      }
+      return {
+        openaiCompatibleBaseUrl,
+        openaiCompatibleModel,
+        openaiCompatibleApiKey: openaiCompatibleApiKey || undefined,
+      };
+    }
     default:
       return {};
   }
@@ -798,6 +843,21 @@ function renderTerraformTfvars(config: TerraformVarsConfig) {
   addOptionalTfVar(lines, "bedrock_region", config.bedrockRegion);
   addOptionalTfVar(lines, "ollama_base_url", config.ollamaBaseUrl);
   addOptionalTfVar(lines, "ollama_model", config.ollamaModel);
+  addOptionalTfVar(
+    lines,
+    "openai_compatible_base_url",
+    config.openaiCompatibleBaseUrl,
+  );
+  addOptionalTfVar(
+    lines,
+    "openai_compatible_model",
+    config.openaiCompatibleModel,
+  );
+  addOptionalTfVar(
+    lines,
+    "openai_compatible_api_key",
+    config.openaiCompatibleApiKey,
+  );
   addOptionalTfVar(lines, "microsoft_client_id", config.microsoftClientId);
   addOptionalTfVar(
     lines,
@@ -1183,7 +1243,8 @@ locals {
     var.groq_api_key != "" ? { GROQ_API_KEY = var.groq_api_key } : {},
     var.ai_gateway_api_key != "" ? { AI_GATEWAY_API_KEY = var.ai_gateway_api_key } : {},
     var.bedrock_access_key != "" ? { BEDROCK_ACCESS_KEY = var.bedrock_access_key } : {},
-    var.bedrock_secret_key != "" ? { BEDROCK_SECRET_KEY = var.bedrock_secret_key } : {}
+    var.bedrock_secret_key != "" ? { BEDROCK_SECRET_KEY = var.bedrock_secret_key } : {},
+    var.openai_compatible_api_key != "" ? { OPENAI_COMPATIBLE_API_KEY = var.openai_compatible_api_key } : {}
   )
   secret_values = merge(local.generated_secrets, local.required_secrets, local.optional_secrets)
 
@@ -1196,7 +1257,9 @@ locals {
       var.default_llm_model != "" ? { name = "DEFAULT_LLM_MODEL", value = var.default_llm_model } : null,
       var.bedrock_region != "" ? { name = "BEDROCK_REGION", value = var.bedrock_region } : null,
       var.ollama_base_url != "" ? { name = "OLLAMA_BASE_URL", value = var.ollama_base_url } : null,
-      var.ollama_model != "" ? { name = "OLLAMA_MODEL", value = var.ollama_model } : null
+      var.ollama_model != "" ? { name = "OLLAMA_MODEL", value = var.ollama_model } : null,
+      var.openai_compatible_base_url != "" ? { name = "OPENAI_COMPATIBLE_BASE_URL", value = var.openai_compatible_base_url } : null,
+      var.openai_compatible_model != "" ? { name = "OPENAI_COMPATIBLE_MODEL", value = var.openai_compatible_model } : null
     ] : item if item != null
   ]
 }
@@ -1565,6 +1628,22 @@ variable "ollama_base_url" {
 variable "ollama_model" {
   type    = string
   default = ""
+}
+
+variable "openai_compatible_base_url" {
+  type    = string
+  default = ""
+}
+
+variable "openai_compatible_model" {
+  type    = string
+  default = ""
+}
+
+variable "openai_compatible_api_key" {
+  type      = string
+  default   = ""
+  sensitive = true
 }
 
 variable "microsoft_client_id" {
