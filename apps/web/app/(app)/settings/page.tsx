@@ -144,8 +144,7 @@ function EmailAccountSettingsCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const { data: channelsData, mutate: mutateChannels } =
-    useMessagingChannels(emailAccount.id);
+  const { data: channelsData, mutate: mutateChannels } = useMessagingChannels();
   const hasSlack =
     channelsData?.channels.some(
       (ch) => ch.isConnected && ch.provider === "SLACK",
@@ -179,9 +178,7 @@ function EmailAccountSettingsCard({
             {emailAccount.name?.charAt(0) || emailAccount.email?.charAt(0)}
           </AvatarFallback>
         </Avatar>
-        <span className="flex-1 text-sm font-medium">
-          {emailAccount.email}
-        </span>
+        <span className="flex-1 text-sm font-medium">{emailAccount.email}</span>
         {hasSlack && (
           <Badge variant="secondary" className="gap-1 text-xs font-normal">
             <SlackIcon className="size-3" />
