@@ -70,12 +70,9 @@ const PROVIDER_CONFIG: Record<
 
 export function ConnectedAppsSection({
   emailAccountId,
-  showNotifications = true,
 }: {
   emailAccountId: string;
-  showNotifications?: boolean;
 }) {
-  useSlackNotifications(showNotifications);
   const {
     data: channelsData,
     isLoading,
