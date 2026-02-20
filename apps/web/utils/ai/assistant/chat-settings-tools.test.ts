@@ -163,6 +163,7 @@ describe("chat settings tools", () => {
         cronExpression: "0 9 * * 1-5",
         messagingChannelId: "channel-1",
       },
+      writePaths: ["assistant.scheduledCheckIns.config"],
     });
 
     const draftKnowledgeCapability = result.capabilities.find(
@@ -186,6 +187,34 @@ describe("chat settings tools", () => {
         "assistant.draftKnowledgeBase.delete",
       ],
     });
+  });
+
+  it("ensures writable capabilities map to valid writable paths", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      baseAccountSnapshot as any,
+    );
+
+    const toolInstance = getAssistantCapabilitiesTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await toolInstance.execute({});
+
+    const invalidWritableCapability = result.capabilities.find((capability) => {
+      if (!capability.canWrite) return false;
+
+      const writePaths =
+        "writePaths" in capability && Array.isArray(capability.writePaths)
+          ? capability.writePaths
+          : [capability.path];
+
+      return writePaths.some((path) => !result.writablePaths.includes(path));
+    });
+
+    expect(invalidWritableCapability).toBeUndefined();
   });
 
   it("applies deduped settings updates with last-write-wins semantics", async () => {
@@ -373,6 +402,63 @@ describe("chat settings tools", () => {
     });
   });
 
+  it("allows disabling scheduled check-ins even when current channel is stale", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ...baseAccountSnapshot,
+      automationJob: {
+        ...baseAccountSnapshot.automationJob,
+        messagingChannelId: "channel-stale",
+        messagingChannel: {
+          channelName: "legacy-channel",
+          teamName: "Acme",
+        },
+      },
+      messagingChannels: [
+        {
+          ...baseAccountSnapshot.messagingChannels[0],
+          id: "channel-stale",
+          isConnected: false,
+          accessToken: null,
+          providerUserId: null,
+          channelId: null,
+        },
+      ],
+    } as any);
+    prisma.automationJob.update.mockResolvedValue({} as any);
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      dryRun: false,
+      changes: [
+        {
+          path: "assistant.scheduledCheckIns.config",
+          value: {
+            enabled: false,
+          },
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      dryRun: false,
+    });
+    expect(prisma.automationJob.update).toHaveBeenCalledWith({
+      where: { id: "automation-job-1" },
+      data: {
+        enabled: false,
+        cronExpression: "0 9 * * 1-5",
+        prompt: "Highlight urgent items.",
+        messagingChannelId: "channel-stale",
+      },
+    });
+  });
+
   it("upserts and deletes draft knowledge base entries", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(
       baseAccountSnapshot as any,
@@ -426,6 +512,124 @@ describe("chat settings tools", () => {
       where: {
         emailAccountId: "email-account-1",
         title: "Reply style",
+      },
+    });
+  });
+
+  it("preserves operation order for delete then upsert on knowledge entries", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      baseAccountSnapshot as any,
+    );
+    prisma.knowledge.upsert.mockResolvedValue({} as any);
+    prisma.knowledge.deleteMany.mockResolvedValue({ count: 1 } as any);
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    await toolInstance.execute({
+      dryRun: false,
+      changes: [
+        {
+          path: "assistant.draftKnowledgeBase.delete",
+          value: {
+            title: "Reply style",
+          },
+        },
+        {
+          path: "assistant.draftKnowledgeBase.upsert",
+          value: {
+            title: "Reply style",
+            content: "Recreated entry.",
+          },
+          mode: "replace",
+        },
+      ],
+    });
+
+    expect(prisma.knowledge.deleteMany).toHaveBeenCalledTimes(1);
+    expect(prisma.knowledge.upsert).toHaveBeenCalledTimes(1);
+    expect(
+      prisma.knowledge.deleteMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(prisma.knowledge.upsert.mock.invocationCallOrder[0]);
+    expect(prisma.knowledge.upsert).toHaveBeenCalledWith({
+      where: {
+        emailAccountId_title: {
+          emailAccountId: "email-account-1",
+          title: "Reply style",
+        },
+      },
+      create: {
+        emailAccountId: "email-account-1",
+        title: "Reply style",
+        content: "Recreated entry.",
+      },
+      update: {
+        content: "Recreated entry.",
+      },
+    });
+  });
+
+  it("preserves operation order for upsert-delete-upsert sequences", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      baseAccountSnapshot as any,
+    );
+    prisma.knowledge.upsert.mockResolvedValue({} as any);
+    prisma.knowledge.deleteMany.mockResolvedValue({ count: 1 } as any);
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    await toolInstance.execute({
+      dryRun: false,
+      changes: [
+        {
+          path: "assistant.draftKnowledgeBase.upsert",
+          value: {
+            title: "Reply style",
+            content: "First update.",
+          },
+          mode: "replace",
+        },
+        {
+          path: "assistant.draftKnowledgeBase.delete",
+          value: {
+            title: "Reply style",
+          },
+        },
+        {
+          path: "assistant.draftKnowledgeBase.upsert",
+          value: {
+            title: "Reply style",
+            content: "Final update.",
+          },
+          mode: "replace",
+        },
+      ],
+    });
+
+    expect(prisma.knowledge.upsert).toHaveBeenCalledTimes(2);
+    expect(prisma.knowledge.deleteMany).toHaveBeenCalledTimes(1);
+
+    const [firstUpsertOrder, secondUpsertOrder] =
+      prisma.knowledge.upsert.mock.invocationCallOrder;
+    const [deleteOrder] = prisma.knowledge.deleteMany.mock.invocationCallOrder;
+
+    expect(firstUpsertOrder).toBeLessThan(deleteOrder);
+    expect(deleteOrder).toBeLessThan(secondUpsertOrder);
+
+    expect(prisma.knowledge.upsert.mock.calls[1][0]).toMatchObject({
+      create: {
+        title: "Reply style",
+        content: "Final update.",
+      },
+      update: {
+        content: "Final update.",
       },
     });
   });

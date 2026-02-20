@@ -295,11 +295,17 @@ export const updateAssistantSettingsTool = ({
         messagingChannelId: string | null;
         prompt: string | null;
       } | null = null;
-      const knowledgeUpserts: Array<{
-        title: string;
-        content: string;
-      }> = [];
-      const knowledgeDeletes: Array<{ title: string }> = [];
+      const knowledgeOperations: Array<
+        | {
+            type: "upsert";
+            title: string;
+            content: string;
+          }
+        | {
+            type: "delete";
+            title: string;
+          }
+      > = [];
       const appliedChanges: Array<{
         path: z.infer<typeof settingsPathSchema>;
         previous: unknown;
@@ -341,7 +347,8 @@ export const updateAssistantSettingsTool = ({
             updatedAt: new Date().toISOString(),
           });
 
-          knowledgeUpserts.push({
+          knowledgeOperations.push({
+            type: "upsert",
             title: change.value.title,
             content: nextContent,
           });
@@ -362,7 +369,10 @@ export const updateAssistantSettingsTool = ({
           });
 
           draftKnowledgeByTitle.delete(change.value.title);
-          knowledgeDeletes.push({ title: change.value.title });
+          knowledgeOperations.push({
+            type: "delete",
+            title: change.value.title,
+          });
           continue;
         }
 
@@ -449,30 +459,31 @@ export const updateAssistantSettingsTool = ({
           });
         }
 
-        for (const knowledge of knowledgeUpserts) {
-          await prisma.knowledge.upsert({
-            where: {
-              emailAccountId_title: {
-                emailAccountId,
-                title: knowledge.title,
+        for (const operation of knowledgeOperations) {
+          if (operation.type === "upsert") {
+            await prisma.knowledge.upsert({
+              where: {
+                emailAccountId_title: {
+                  emailAccountId,
+                  title: operation.title,
+                },
               },
-            },
-            create: {
-              emailAccountId,
-              title: knowledge.title,
-              content: knowledge.content,
-            },
-            update: {
-              content: knowledge.content,
-            },
-          });
-        }
+              create: {
+                emailAccountId,
+                title: operation.title,
+                content: operation.content,
+              },
+              update: {
+                content: operation.content,
+              },
+            });
+            continue;
+          }
 
-        for (const knowledge of knowledgeDeletes) {
           await prisma.knowledge.deleteMany({
             where: {
               emailAccountId,
-              title: knowledge.title,
+              title: operation.title,
             },
           });
         }
@@ -650,6 +661,7 @@ function getWritableCapabilities(snapshot: AccountSettingsSnapshot) {
       canRead: true,
       canWrite: true,
       value: snapshot.scheduledCheckIns,
+      writePaths: ["assistant.scheduledCheckIns.config"],
     },
     {
       path: "assistant.draftKnowledgeBase",
@@ -761,6 +773,7 @@ function resolveScheduledCheckInsConfig({
   }
 
   if (
+    enabled &&
     messagingChannelId &&
     !snapshot.availableChannels.some(
       (channel) => channel.id === messagingChannelId,
