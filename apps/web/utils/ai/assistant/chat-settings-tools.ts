@@ -4,6 +4,7 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
+import { isActivePremium } from "@/utils/premium";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
 import {
   DEFAULT_AUTOMATION_JOB_CRON,
@@ -13,6 +14,7 @@ import {
   getNextAutomationJobRunAt,
   validateAutomationCronExpression,
 } from "@/utils/automation-jobs/cron";
+import { getUserPremium } from "@/utils/user/get";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 
@@ -174,6 +176,13 @@ type AccountSettingsSnapshot = {
   };
 };
 
+type ScheduledCheckInsConfig = {
+  enabled: boolean;
+  cronExpression: string | null;
+  messagingChannelId: string | null;
+  prompt: string | null;
+};
+
 const readOnlyCapabilities = [
   {
     path: "assistant.writingStyle",
@@ -263,10 +272,12 @@ export type GetAssistantCapabilitiesTool = InferUITool<
 export const updateAssistantSettingsTool = ({
   email,
   emailAccountId,
+  userId,
   logger,
 }: {
   email: string;
   emailAccountId: string;
+  userId: string;
   logger: Logger;
 }) =>
   tool({
@@ -289,12 +300,8 @@ export const updateAssistantSettingsTool = ({
         filingEnabled?: boolean;
         filingPrompt?: string | null;
       } = {};
-      let scheduledCheckInsConfig: {
-        enabled: boolean;
-        cronExpression: string | null;
-        messagingChannelId: string | null;
-        prompt: string | null;
-      } | null = null;
+      let scheduledCheckInsConfig: ScheduledCheckInsConfig | null = null;
+      let hasScheduledCheckInsPremium: boolean | null = null;
       const knowledgeOperations: Array<
         | {
             type: "upsert";
@@ -395,6 +402,23 @@ export const updateAssistantSettingsTool = ({
 
         if (areValuesEqual(previousValue, resolvedNextValue)) continue;
 
+        if (
+          change.path === "assistant.scheduledCheckIns.config" &&
+          requiresScheduledCheckInsPremium({
+            current: previousValue as ScheduledCheckInsConfig,
+            next: resolvedNextValue as ScheduledCheckInsConfig,
+          })
+        ) {
+          if (hasScheduledCheckInsPremium === null) {
+            hasScheduledCheckInsPremium =
+              await canConfigureScheduledCheckIns(userId);
+          }
+
+          if (!hasScheduledCheckInsPremium) {
+            return { error: "Premium is required for scheduled check-ins." };
+          }
+        }
+
         appliedChanges.push({
           path: change.path,
           previous: previousValue,
@@ -424,12 +448,8 @@ export const updateAssistantSettingsTool = ({
             data.filingPrompt = resolvedNextValue as string | null;
             break;
           case "assistant.scheduledCheckIns.config":
-            scheduledCheckInsConfig = resolvedNextValue as {
-              enabled: boolean;
-              cronExpression: string | null;
-              messagingChannelId: string | null;
-              prompt: string | null;
-            };
+            scheduledCheckInsConfig =
+              resolvedNextValue as ScheduledCheckInsConfig;
             break;
         }
       }
@@ -814,12 +834,7 @@ async function applyScheduledCheckInsConfig({
 }: {
   emailAccountId: string;
   current: AccountSettingsSnapshot["scheduledCheckIns"];
-  config: {
-    enabled: boolean;
-    cronExpression: string | null;
-    messagingChannelId: string | null;
-    prompt: string | null;
-  };
+  config: ScheduledCheckInsConfig;
 }) {
   const cronExpression = config.cronExpression ?? DEFAULT_AUTOMATION_JOB_CRON;
 
@@ -914,6 +929,37 @@ function formatSlackChannelLabel({
   if (channelName && teamName) return `#${channelName} (${teamName})`;
   if (channelName) return `#${channelName}`;
   return teamName || "Slack destination";
+}
+
+async function canConfigureScheduledCheckIns(userId: string) {
+  const premium = await getUserPremium({ userId });
+  return isActivePremium(premium);
+}
+
+function requiresScheduledCheckInsPremium({
+  current,
+  next,
+}: {
+  current: ScheduledCheckInsConfig;
+  next: ScheduledCheckInsConfig;
+}) {
+  return !isDisableOnlyScheduledCheckInsChange({ current, next });
+}
+
+function isDisableOnlyScheduledCheckInsChange({
+  current,
+  next,
+}: {
+  current: ScheduledCheckInsConfig;
+  next: ScheduledCheckInsConfig;
+}) {
+  return (
+    current.enabled &&
+    !next.enabled &&
+    current.cronExpression === next.cronExpression &&
+    current.messagingChannelId === next.messagingChannelId &&
+    current.prompt === next.prompt
+  );
 }
 
 async function loadAccountSettingsSnapshot(emailAccountId: string) {

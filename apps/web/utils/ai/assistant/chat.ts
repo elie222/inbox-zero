@@ -234,6 +234,7 @@ Behavior anchors (minimal examples):
   const toolOptions = {
     email: user.email,
     emailAccountId,
+    userId: user.userId,
     provider: user.account.provider,
     logger,
     setRuleReadState: (state: RuleReadState) => {

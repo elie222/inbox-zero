@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { isActivePremium } from "@/utils/premium";
+import { getUserPremium } from "@/utils/user/get";
 import {
   getAssistantCapabilitiesTool,
   updateAssistantSettingsTool,
@@ -11,8 +13,16 @@ vi.mock("@/utils/prisma");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("@/utils/premium", () => ({
+  isActivePremium: vi.fn(),
+}));
+vi.mock("@/utils/user/get", () => ({
+  getUserPremium: vi.fn(),
+}));
 
 const logger = createScopedLogger("chat-settings-tools-test");
+const mockGetUserPremium = vi.mocked(getUserPremium);
+const mockIsActivePremium = vi.mocked(isActivePremium);
 
 const baseAccountSnapshot = {
   id: "email-account-1",
@@ -89,6 +99,8 @@ const baseAccountSnapshot = {
 describe("chat settings tools", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetUserPremium.mockResolvedValue({} as any);
+    mockIsActivePremium.mockReturnValue(true);
   });
 
   it("returns writable and read-only capability metadata", async () => {
@@ -226,6 +238,7 @@ describe("chat settings tools", () => {
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
       emailAccountId: "email-account-1",
+      userId: "user-1",
       logger,
     });
 
@@ -269,6 +282,7 @@ describe("chat settings tools", () => {
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
       emailAccountId: "email-account-1",
+      userId: "user-1",
       logger,
     });
 
@@ -305,6 +319,7 @@ describe("chat settings tools", () => {
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
       emailAccountId: "email-account-1",
+      userId: "user-1",
       logger,
     });
 
@@ -342,6 +357,7 @@ describe("chat settings tools", () => {
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
       emailAccountId: "email-account-1",
+      userId: "user-1",
       logger,
     });
 
@@ -367,11 +383,14 @@ describe("chat settings tools", () => {
     prisma.emailAccount.findUnique.mockResolvedValue(
       baseAccountSnapshot as any,
     );
+    mockGetUserPremium.mockResolvedValue(null);
+    mockIsActivePremium.mockReturnValue(false);
     prisma.automationJob.update.mockResolvedValue({} as any);
 
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
       emailAccountId: "email-account-1",
+      userId: "user-1",
       logger,
     });
 
@@ -400,6 +419,41 @@ describe("chat settings tools", () => {
       success: true,
       dryRun: false,
     });
+    expect(mockGetUserPremium).not.toHaveBeenCalled();
+  });
+
+  it("blocks scheduled check-ins configuration changes without premium", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      baseAccountSnapshot as any,
+    );
+    mockGetUserPremium.mockResolvedValue(null);
+    mockIsActivePremium.mockReturnValue(false);
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      userId: "user-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      dryRun: false,
+      changes: [
+        {
+          path: "assistant.scheduledCheckIns.config",
+          value: {
+            prompt: "Summarize only unread items.",
+          },
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      error: "Premium is required for scheduled check-ins.",
+    });
+    expect(mockGetUserPremium).toHaveBeenCalledWith({ userId: "user-1" });
+    expect(prisma.automationJob.update).not.toHaveBeenCalled();
+    expect(prisma.automationJob.create).not.toHaveBeenCalled();
   });
 
   it("allows disabling scheduled check-ins even when current channel is stale", async () => {
@@ -429,6 +483,7 @@ describe("chat settings tools", () => {
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
       emailAccountId: "email-account-1",
+      userId: "user-1",
       logger,
     });
 
@@ -469,6 +524,7 @@ describe("chat settings tools", () => {
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
       emailAccountId: "email-account-1",
+      userId: "user-1",
       logger,
     });
 
@@ -526,6 +582,7 @@ describe("chat settings tools", () => {
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
       emailAccountId: "email-account-1",
+      userId: "user-1",
       logger,
     });
 
@@ -582,6 +639,7 @@ describe("chat settings tools", () => {
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
       emailAccountId: "email-account-1",
+      userId: "user-1",
       logger,
     });
 
