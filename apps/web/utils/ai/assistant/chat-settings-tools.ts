@@ -672,16 +672,11 @@ function resolveNextValue({
   }
 
   if (change.path === "assistant.personalInstructions.about") {
-    if (change.mode === "replace") {
-      return change.value;
-    }
-
-    const existing = snapshot.about?.trim();
-    const incoming = change.value.trim();
-    if (!incoming) return snapshot.about ?? "";
-    if (!existing) return incoming;
-    if (existing === incoming) return snapshot.about ?? "";
-    return `${snapshot.about}\n${incoming}`;
+    return mergeAppendableText({
+      existingContent: snapshot.about,
+      incomingContent: change.value,
+      mode: change.mode,
+    });
   }
 
   return change.value;
@@ -849,6 +844,18 @@ function resolveKnowledgeContent({
   mode,
 }: {
   existingContent: string | null;
+  incomingContent: string;
+  mode: "replace" | "append";
+}) {
+  return mergeAppendableText({ existingContent, incomingContent, mode });
+}
+
+function mergeAppendableText({
+  existingContent,
+  incomingContent,
+  mode,
+}: {
+  existingContent: string | null | undefined;
   incomingContent: string;
   mode: "replace" | "append";
 }) {
