@@ -136,9 +136,11 @@ describe("aiProcessAssistantChat", () => {
     );
 
     expect(args.tools.getAccountOverview).toBeDefined();
+    expect(args.tools.getAssistantCapabilities).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
     expect(args.tools.readEmail).toBeDefined();
     expect(args.tools.manageInbox).toBeDefined();
+    expect(args.tools.updateAssistantSettings).toBeDefined();
     expect(args.tools.updateInboxFeatures).toBeDefined();
     expect(args.tools.sendEmail).toBeDefined();
     expect(args.tools.forwardEmail).toBeDefined();
