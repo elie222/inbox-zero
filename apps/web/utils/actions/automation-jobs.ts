@@ -20,8 +20,10 @@ import {
   DEFAULT_AUTOMATION_JOB_CRON,
   getDefaultAutomationJobName,
 } from "@/utils/automation-jobs/defaults";
-import { isActivePremium } from "@/utils/premium";
-import { getUserPremium } from "@/utils/user/get";
+import {
+  assertCanEnableAutomationJobs,
+  createAutomationJob,
+} from "@/utils/automation-jobs/helpers";
 import { publishToQstashQueue } from "@/utils/upstash";
 
 export const toggleAutomationJobAction = actionClient
@@ -63,20 +65,10 @@ export const toggleAutomationJobAction = actionClient
       }
 
       const defaultChannel = await getDefaultMessagingChannel(emailAccountId);
-      const nextRunAt = getNextAutomationJobRunAt({
+      await createAutomationJob({
+        emailAccountId,
         cronExpression: DEFAULT_AUTOMATION_JOB_CRON,
-        fromDate: new Date(),
-      });
-
-      await prisma.automationJob.create({
-        data: {
-          name: getDefaultAutomationJobName(),
-          enabled: true,
-          cronExpression: DEFAULT_AUTOMATION_JOB_CRON,
-          nextRunAt,
-          messagingChannelId: defaultChannel.id,
-          emailAccountId,
-        },
+        messagingChannelId: defaultChannel.id,
       });
     },
   );
@@ -154,16 +146,11 @@ export const saveAutomationJobAction = actionClient
         return;
       }
 
-      await prisma.automationJob.create({
-        data: {
-          enabled: true,
-          name,
-          cronExpression,
-          prompt: normalizedPrompt,
-          nextRunAt,
-          messagingChannelId,
-          emailAccountId,
-        },
+      await createAutomationJob({
+        emailAccountId,
+        cronExpression,
+        prompt: normalizedPrompt,
+        messagingChannelId,
       });
     },
   );
@@ -243,12 +230,4 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
   }
 
   return channel;
-}
-
-async function assertCanEnableAutomationJobs(userId: string) {
-  const premium = await getUserPremium({ userId });
-
-  if (!isActivePremium(premium)) {
-    throw new SafeError("Premium is required for scheduled check-ins");
-  }
 }

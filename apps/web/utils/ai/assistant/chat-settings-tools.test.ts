@@ -99,17 +99,15 @@ const baseAccountSnapshot = {
 describe("chat settings tools", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetUserPremium.mockResolvedValue({} as any);
+    mockGetUserPremium.mockResolvedValue({});
     mockIsActivePremium.mockReturnValue(true);
     prisma.automationJob.findUnique.mockResolvedValue(
-      baseAccountSnapshot.automationJob as any,
+      baseAccountSnapshot.automationJob,
     );
   });
 
   it("returns writable and read-only capability metadata", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      baseAccountSnapshot as any,
-    );
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
 
     const toolInstance = getAssistantCapabilitiesTool({
       email: "user@example.com",
@@ -205,9 +203,7 @@ describe("chat settings tools", () => {
   });
 
   it("ensures writable capabilities map to valid writable paths", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      baseAccountSnapshot as any,
-    );
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
 
     const toolInstance = getAssistantCapabilitiesTool({
       email: "user@example.com",
@@ -233,10 +229,8 @@ describe("chat settings tools", () => {
   });
 
   it("applies deduped settings updates with last-write-wins semantics", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      baseAccountSnapshot as any,
-    );
-    prisma.emailAccount.update.mockResolvedValue({} as any);
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
+    prisma.emailAccount.update.mockResolvedValue({});
 
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
@@ -278,9 +272,7 @@ describe("chat settings tools", () => {
   });
 
   it("returns a dry-run preview without writing and appends about by default", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      baseAccountSnapshot as any,
-    );
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
 
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
@@ -314,10 +306,8 @@ describe("chat settings tools", () => {
   });
 
   it("replaces about when mode is replace", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      baseAccountSnapshot as any,
-    );
-    prisma.emailAccount.update.mockResolvedValue({} as any);
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
+    prisma.emailAccount.update.mockResolvedValue({});
 
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
@@ -353,9 +343,7 @@ describe("chat settings tools", () => {
   });
 
   it("returns no-op when all values already match", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      baseAccountSnapshot as any,
-    );
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
 
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
@@ -383,12 +371,10 @@ describe("chat settings tools", () => {
   });
 
   it("updates scheduled check-ins configuration", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      baseAccountSnapshot as any,
-    );
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
     mockGetUserPremium.mockResolvedValue(null);
     mockIsActivePremium.mockReturnValue(false);
-    prisma.automationJob.update.mockResolvedValue({} as any);
+    prisma.automationJob.update.mockResolvedValue({});
 
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
@@ -426,9 +412,7 @@ describe("chat settings tools", () => {
   });
 
   it("blocks scheduled check-ins configuration changes without premium", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      baseAccountSnapshot as any,
-    );
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
     mockGetUserPremium.mockResolvedValue(null);
     mockIsActivePremium.mockReturnValue(false);
 
@@ -459,6 +443,44 @@ describe("chat settings tools", () => {
     expect(prisma.automationJob.create).not.toHaveBeenCalled();
   });
 
+  it("requires explicit messagingChannelId when enabling scheduled check-ins", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ...baseAccountSnapshot,
+      messagingChannels: [
+        {
+          ...baseAccountSnapshot.messagingChannels[0],
+          id: "channel-2",
+        },
+      ],
+    });
+    prisma.automationJob.findUnique.mockResolvedValue(null);
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      userId: "user-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      dryRun: false,
+      changes: [
+        {
+          path: "assistant.scheduledCheckIns.config",
+          value: {
+            enabled: true,
+          },
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      error:
+        "Provide a messagingChannelId when enabling scheduled check-ins. Ask the user to choose a Slack destination from availableChannels.",
+    });
+    expect(prisma.automationJob.create).not.toHaveBeenCalled();
+  });
+
   it("allows disabling scheduled check-ins even when current channel is stale", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       ...baseAccountSnapshot,
@@ -472,7 +494,7 @@ describe("chat settings tools", () => {
           channelId: null,
         },
       ],
-    } as any);
+    });
     prisma.automationJob.findUnique.mockResolvedValue({
       ...baseAccountSnapshot.automationJob,
       messagingChannelId: "channel-stale",
@@ -480,8 +502,8 @@ describe("chat settings tools", () => {
         channelName: "legacy-channel",
         teamName: "Acme",
       },
-    } as any);
-    prisma.automationJob.update.mockResolvedValue({} as any);
+    });
+    prisma.automationJob.update.mockResolvedValue({});
 
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
@@ -518,11 +540,9 @@ describe("chat settings tools", () => {
   });
 
   it("upserts and deletes draft knowledge base entries", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      baseAccountSnapshot as any,
-    );
-    prisma.knowledge.upsert.mockResolvedValue({} as any);
-    prisma.knowledge.deleteMany.mockResolvedValue({ count: 1 } as any);
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
+    prisma.knowledge.upsert.mockResolvedValue({});
+    prisma.knowledge.deleteMany.mockResolvedValue({ count: 1 });
 
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
@@ -576,11 +596,9 @@ describe("chat settings tools", () => {
   });
 
   it("preserves operation order for delete then upsert on knowledge entries", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      baseAccountSnapshot as any,
-    );
-    prisma.knowledge.upsert.mockResolvedValue({} as any);
-    prisma.knowledge.deleteMany.mockResolvedValue({ count: 1 } as any);
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
+    prisma.knowledge.upsert.mockResolvedValue({});
+    prisma.knowledge.deleteMany.mockResolvedValue({ count: 1 });
 
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
@@ -633,11 +651,9 @@ describe("chat settings tools", () => {
   });
 
   it("preserves operation order for upsert-delete-upsert sequences", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(
-      baseAccountSnapshot as any,
-    );
-    prisma.knowledge.upsert.mockResolvedValue({} as any);
-    prisma.knowledge.deleteMany.mockResolvedValue({ count: 1 } as any);
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
+    prisma.knowledge.upsert.mockResolvedValue({});
+    prisma.knowledge.deleteMany.mockResolvedValue({ count: 1 });
 
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",

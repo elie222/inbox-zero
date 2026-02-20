@@ -1,20 +1,20 @@
 import { type InferUITool, tool } from "ai";
 import { z } from "zod";
+import type { Prisma } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
-import { isActivePremium } from "@/utils/premium";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
-import {
-  DEFAULT_AUTOMATION_JOB_CRON,
-  getDefaultAutomationJobName,
-} from "@/utils/automation-jobs/defaults";
+import { DEFAULT_AUTOMATION_JOB_CRON } from "@/utils/automation-jobs/defaults";
 import {
   getNextAutomationJobRunAt,
   validateAutomationCronExpression,
 } from "@/utils/automation-jobs/cron";
-import { getUserPremium } from "@/utils/user/get";
+import {
+  canEnableAutomationJobs,
+  createAutomationJob,
+} from "@/utils/automation-jobs/helpers";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 
@@ -139,10 +139,10 @@ type AccountSettingsSnapshot = {
   digest: {
     enabled: boolean;
     schedule: {
-      intervalDays: number;
-      occurrences: number;
-      daysOfWeek: number;
-      timeOfDay: string;
+      intervalDays: number | null;
+      occurrences: number | null;
+      daysOfWeek: number | null;
+      timeOfDay: string | null;
       nextOccurrenceAt: string | null;
     } | null;
     includedRules: Array<{
@@ -186,67 +186,96 @@ type ScheduledCheckInsConfig = {
 type DraftKnowledgeItem =
   AccountSettingsSnapshot["draftKnowledgeBase"]["items"][number];
 
-type AccountSettingsSnapshotRaw = {
-  id: string;
-  email: string;
-  timezone: string | null;
-  about: string | null;
-  multiRuleSelectionEnabled: boolean;
-  meetingBriefingsEnabled: boolean;
-  meetingBriefingsMinutesBefore: number;
-  meetingBriefsSendEmail: boolean;
-  filingEnabled: boolean;
-  filingPrompt: string | null;
-  writingStyle: string | null;
-  signature: string | null;
-  includeReferralSignature: boolean;
-  followUpAwaitingReplyDays: number | null;
-  followUpNeedsReplyDays: number | null;
-  followUpAutoDraftEnabled: boolean;
+const accountSettingsSnapshotRawSelect = {
+  id: true,
+  email: true,
+  timezone: true,
+  about: true,
+  multiRuleSelectionEnabled: true,
+  meetingBriefingsEnabled: true,
+  meetingBriefingsMinutesBefore: true,
+  meetingBriefsSendEmail: true,
+  filingEnabled: true,
+  filingPrompt: true,
+  writingStyle: true,
+  signature: true,
+  includeReferralSignature: true,
+  followUpAwaitingReplyDays: true,
+  followUpNeedsReplyDays: true,
+  followUpAutoDraftEnabled: true,
   digestSchedule: {
-    id: string;
-    intervalDays: number;
-    occurrences: number;
-    daysOfWeek: number;
-    timeOfDay: Date;
-    nextOccurrenceAt: Date | null;
-  } | null;
-  rules: Array<{
-    name: string;
-    systemType: string | null;
-    enabled: boolean;
-    actions: Array<{ id: string }>;
-  }>;
-  messagingChannels: Array<{
-    id: string;
-    channelName: string | null;
-    teamName: string | null;
-    isConnected: boolean;
-    accessToken: string | null;
-    providerUserId: string | null;
-    channelId: string | null;
-  }>;
-  knowledge: Array<{
-    id: string;
-    title: string;
-    content: string;
-    updatedAt: Date;
-  }>;
-};
+    select: {
+      id: true,
+      intervalDays: true,
+      occurrences: true,
+      daysOfWeek: true,
+      timeOfDay: true,
+      nextOccurrenceAt: true,
+    },
+  },
+  rules: {
+    select: {
+      name: true,
+      systemType: true,
+      enabled: true,
+      actions: {
+        where: { type: ActionType.DIGEST },
+        select: { id: true },
+      },
+    },
+  },
+  messagingChannels: {
+    where: {
+      provider: MessagingProvider.SLACK,
+      isConnected: true,
+      accessToken: { not: null },
+      OR: [{ providerUserId: { not: null } }, { channelId: { not: null } }],
+    },
+    select: {
+      id: true,
+      channelName: true,
+      teamName: true,
+      isConnected: true,
+      providerUserId: true,
+      channelId: true,
+    },
+  },
+  knowledge: {
+    select: {
+      id: true,
+      title: true,
+      content: true,
+      updatedAt: true,
+    },
+    orderBy: { updatedAt: "desc" },
+  },
+} satisfies Prisma.EmailAccountSelect;
+
+type AccountSettingsSnapshotRaw = Prisma.EmailAccountGetPayload<{
+  select: typeof accountSettingsSnapshotRawSelect;
+}>;
+
+const scheduledCheckInsAutomationJobSelect = {
+  id: true,
+  enabled: true,
+  cronExpression: true,
+  prompt: true,
+  nextRunAt: true,
+  messagingChannelId: true,
+  messagingChannel: {
+    select: {
+      channelName: true,
+      teamName: true,
+    },
+  },
+} satisfies Prisma.AutomationJobSelect;
+
+type ScheduledCheckInsAutomationJob = Prisma.AutomationJobGetPayload<{
+  select: typeof scheduledCheckInsAutomationJobSelect;
+}>;
 
 type ScheduledCheckInsSnapshotSource = {
-  automationJob: {
-    id: string;
-    enabled: boolean;
-    cronExpression: string;
-    prompt: string | null;
-    nextRunAt: Date;
-    messagingChannelId: string | null;
-    messagingChannel: {
-      channelName: string | null;
-      teamName: string | null;
-    } | null;
-  } | null;
+  automationJob: ScheduledCheckInsAutomationJob | null;
   messagingChannels: AccountSettingsSnapshotRaw["messagingChannels"];
 };
 
@@ -480,8 +509,7 @@ export const updateAssistantSettingsTool = ({
           })
         ) {
           if (hasScheduledCheckInsPremium === null) {
-            hasScheduledCheckInsPremium =
-              await canConfigureScheduledCheckIns(userId);
+            hasScheduledCheckInsPremium = await canEnableAutomationJobs(userId);
           }
 
           if (!hasScheduledCheckInsPremium) {
@@ -600,7 +628,7 @@ async function trackToolCall({
   email: string;
   logger: Logger;
 }) {
-  logger.info("Tracking tool call", { tool, email });
+  logger.trace("Tracking tool call", { tool, email });
   return posthogCaptureEvent(email, "AI Assistant Chat Tool Call", { tool });
 }
 
@@ -851,15 +879,13 @@ function resolveScheduledCheckInsConfig({
       ? snapshot.prompt
       : normalizePrompt(change.prompt);
 
-  let messagingChannelId =
+  const messagingChannelId =
     change.messagingChannelId ?? snapshot.messagingChannelId ?? null;
 
   if (enabled && !messagingChannelId) {
-    messagingChannelId = snapshot.availableChannels[0]?.id ?? null;
-  }
-
-  if (enabled && !messagingChannelId) {
-    throw new Error("Connect Slack before enabling scheduled check-ins.");
+    throw new Error(
+      "Provide a messagingChannelId when enabling scheduled check-ins. Ask the user to choose a Slack destination from availableChannels.",
+    );
   }
 
   if (
@@ -911,19 +937,11 @@ async function applyScheduledCheckInsConfig({
   if (!current.jobId) {
     if (!config.enabled || !config.messagingChannelId) return;
 
-    await prisma.automationJob.create({
-      data: {
-        name: getDefaultAutomationJobName(),
-        emailAccountId,
-        enabled: true,
-        cronExpression,
-        prompt: config.prompt,
-        messagingChannelId: config.messagingChannelId,
-        nextRunAt: getNextAutomationJobRunAt({
-          cronExpression,
-          fromDate: new Date(),
-        }),
-      },
+    await createAutomationJob({
+      emailAccountId,
+      cronExpression,
+      prompt: config.prompt,
+      messagingChannelId: config.messagingChannelId,
     });
     return;
   }
@@ -956,7 +974,6 @@ function buildScheduledCheckInsSnapshot(
     .filter(
       (channel) =>
         channel.isConnected &&
-        Boolean(channel.accessToken) &&
         Boolean(channel.providerUserId || channel.channelId),
     )
     .map((channel) => ({
@@ -997,11 +1014,6 @@ function formatSlackChannelLabel({
   if (channelName && teamName) return `#${channelName} (${teamName})`;
   if (channelName) return `#${channelName}`;
   return teamName || "Slack destination";
-}
-
-async function canConfigureScheduledCheckIns(userId: string) {
-  const premium = await getUserPremium({ userId });
-  return isActivePremium(premium);
 }
 
 function requiresScheduledCheckInsPremium({
@@ -1062,7 +1074,8 @@ async function loadAccountSettingsSnapshot(emailAccountId: string) {
             intervalDays: emailAccount.digestSchedule.intervalDays,
             occurrences: emailAccount.digestSchedule.occurrences,
             daysOfWeek: emailAccount.digestSchedule.daysOfWeek,
-            timeOfDay: emailAccount.digestSchedule.timeOfDay.toISOString(),
+            timeOfDay:
+              emailAccount.digestSchedule.timeOfDay?.toISOString() ?? null,
             nextOccurrenceAt:
               emailAccount.digestSchedule.nextOccurrenceAt?.toISOString() ??
               null,
@@ -1097,85 +1110,13 @@ async function loadAccountSettingsSnapshotRaw(
 ): Promise<AccountSettingsSnapshotRaw | null> {
   return prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
-    select: {
-      id: true,
-      email: true,
-      timezone: true,
-      about: true,
-      multiRuleSelectionEnabled: true,
-      meetingBriefingsEnabled: true,
-      meetingBriefingsMinutesBefore: true,
-      meetingBriefsSendEmail: true,
-      filingEnabled: true,
-      filingPrompt: true,
-      writingStyle: true,
-      signature: true,
-      includeReferralSignature: true,
-      followUpAwaitingReplyDays: true,
-      followUpNeedsReplyDays: true,
-      followUpAutoDraftEnabled: true,
-      digestSchedule: {
-        select: {
-          id: true,
-          intervalDays: true,
-          occurrences: true,
-          daysOfWeek: true,
-          timeOfDay: true,
-          nextOccurrenceAt: true,
-        },
-      },
-      rules: {
-        select: {
-          name: true,
-          systemType: true,
-          enabled: true,
-          actions: {
-            where: { type: ActionType.DIGEST },
-            select: { id: true },
-          },
-        },
-      },
-      messagingChannels: {
-        where: { provider: MessagingProvider.SLACK },
-        select: {
-          id: true,
-          channelName: true,
-          teamName: true,
-          isConnected: true,
-          accessToken: true,
-          providerUserId: true,
-          channelId: true,
-        },
-      },
-      knowledge: {
-        select: {
-          id: true,
-          title: true,
-          content: true,
-          updatedAt: true,
-        },
-        orderBy: { updatedAt: "desc" },
-      },
-    },
-  }) as Promise<AccountSettingsSnapshotRaw | null>;
+    select: accountSettingsSnapshotRawSelect,
+  });
 }
 
 async function loadScheduledCheckInsAutomationJob(emailAccountId: string) {
   return prisma.automationJob.findUnique({
     where: { emailAccountId },
-    select: {
-      id: true,
-      enabled: true,
-      cronExpression: true,
-      prompt: true,
-      nextRunAt: true,
-      messagingChannelId: true,
-      messagingChannel: {
-        select: {
-          channelName: true,
-          teamName: true,
-        },
-      },
-    },
+    select: scheduledCheckInsAutomationJobSelect,
   });
 }
