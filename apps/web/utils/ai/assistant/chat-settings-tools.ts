@@ -14,7 +14,7 @@ import {
 import {
   canEnableAutomationJobs,
   createAutomationJob,
-} from "@/utils/automation-jobs/helpers";
+} from "@/utils/actions/automation-jobs.helpers";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 

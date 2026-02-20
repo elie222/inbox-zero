@@ -23,7 +23,7 @@ import {
 import {
   assertCanEnableAutomationJobs,
   createAutomationJob,
-} from "@/utils/automation-jobs/helpers";
+} from "@/utils/actions/automation-jobs.helpers";
 import { publishToQstashQueue } from "@/utils/upstash";
 
 export const toggleAutomationJobAction = actionClient
