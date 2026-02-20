@@ -22,6 +22,10 @@ import {
   updateRuleConditionsTool,
 } from "./chat-rule-tools";
 import {
+  getAssistantCapabilitiesTool,
+  updateAssistantSettingsTool,
+} from "./chat-settings-tools";
+import {
   forwardEmailTool,
   getAccountOverviewTool,
   manageInboxTool,
@@ -48,6 +52,10 @@ export type {
   UpdateRuleConditionsOutput,
   UpdateRuleConditionsTool,
 } from "./chat-rule-tools";
+export type {
+  GetAssistantCapabilitiesTool,
+  UpdateAssistantSettingsTool,
+} from "./chat-settings-tools";
 export type {
   ForwardEmailTool,
   GetAccountOverviewTool,
@@ -93,6 +101,8 @@ Tool usage strategy (progressive disclosure):
 - Use the minimum number of tools needed.
 - Start with read-only context tools before write tools.
 - For write operations that affect many emails, first summarize what will change, then execute after clear user confirmation.
+- When the user asks what settings can or cannot be changed, call getAssistantCapabilities.
+- For supported account-setting updates, prefer updateAssistantSettings.
 - For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then suggest cleanup options grouped by sender.
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
@@ -322,6 +332,8 @@ Behavior anchors (minimal examples):
     },
     maxSteps: 10,
     tools: {
+      getAssistantCapabilities: getAssistantCapabilitiesTool(toolOptions),
+      updateAssistantSettings: updateAssistantSettingsTool(toolOptions),
       getAccountOverview: getAccountOverviewTool(toolOptions),
       searchInbox: searchInboxTool(toolOptions),
       readEmail: readEmailTool(toolOptions),
