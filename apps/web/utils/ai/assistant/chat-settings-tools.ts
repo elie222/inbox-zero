@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
+import { ActionType } from "@/generated/prisma/enums";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 
@@ -20,6 +21,12 @@ const settingsChangeSchema = z.discriminatedUnion("path", [
   z.object({
     path: z.literal("assistant.personalInstructions.about"),
     value: z.string().max(20_000),
+    mode: z
+      .enum(["append", "replace"])
+      .default("append")
+      .describe(
+        "How to update about. append adds to existing content, replace overwrites.",
+      ),
   }),
   z.object({
     path: z.literal("assistant.multiRuleSelection.enabled"),
@@ -76,9 +83,21 @@ type AccountSettingsSnapshot = {
   followUpAwaitingReplyDays: number | null;
   followUpNeedsReplyDays: number | null;
   followUpAutoDraftEnabled: boolean;
-  digestEnabled: boolean;
-  aiProvider: string | null;
-  aiModel: string | null;
+  digest: {
+    enabled: boolean;
+    schedule: {
+      intervalDays: number;
+      occurrences: number;
+      daysOfWeek: number;
+      timeOfDay: string;
+      nextOccurrenceAt: string | null;
+    } | null;
+    includedRules: Array<{
+      name: string;
+      systemType: string | null;
+      enabled: boolean;
+    }>;
+  };
 };
 
 const readOnlyCapabilities = [
@@ -119,22 +138,10 @@ const readOnlyCapabilities = [
       "Readable in chat, but writes are not yet exposed through updateAssistantSettings.",
   },
   {
-    path: "assistant.digest.enabled",
-    title: "Digest",
+    path: "assistant.digest",
+    title: "Digest configuration",
     reason:
       "Readable in chat, but writes are not yet exposed through updateAssistantSettings.",
-  },
-  {
-    path: "assistant.ai.provider",
-    title: "AI provider",
-    reason:
-      "Configured at user scope and currently read-only from assistant chat.",
-  },
-  {
-    path: "assistant.ai.model",
-    title: "AI model",
-    reason:
-      "Configured at user scope and currently read-only from assistant chat.",
   },
 ] as const;
 
@@ -219,36 +226,40 @@ export const updateAssistantSettingsTool = ({
           snapshot: existing,
           path: change.path,
         });
+        const resolvedNextValue = resolveNextValue({
+          snapshot: existing,
+          change,
+        });
 
-        if (Object.is(previousValue, change.value)) continue;
+        if (Object.is(previousValue, resolvedNextValue)) continue;
 
         appliedChanges.push({
           path: change.path,
           previous: previousValue,
-          next: change.value,
+          next: resolvedNextValue,
         });
 
         switch (change.path) {
           case "assistant.personalInstructions.about":
-            data.about = change.value;
+            data.about = resolvedNextValue as string;
             break;
           case "assistant.multiRuleSelection.enabled":
-            data.multiRuleSelectionEnabled = change.value;
+            data.multiRuleSelectionEnabled = resolvedNextValue as boolean;
             break;
           case "assistant.meetingBriefs.enabled":
-            data.meetingBriefingsEnabled = change.value;
+            data.meetingBriefingsEnabled = resolvedNextValue as boolean;
             break;
           case "assistant.meetingBriefs.minutesBefore":
-            data.meetingBriefingsMinutesBefore = change.value;
+            data.meetingBriefingsMinutesBefore = resolvedNextValue as number;
             break;
           case "assistant.meetingBriefs.sendEmail":
-            data.meetingBriefsSendEmail = change.value;
+            data.meetingBriefsSendEmail = resolvedNextValue as boolean;
             break;
           case "assistant.attachmentFiling.enabled":
-            data.filingEnabled = change.value;
+            data.filingEnabled = resolvedNextValue as boolean;
             break;
           case "assistant.attachmentFiling.prompt":
-            data.filingPrompt = change.value;
+            data.filingPrompt = resolvedNextValue as string | null;
             break;
         }
       }
@@ -307,6 +318,29 @@ function dedupeSettingsChanges(
   }
 
   return Array.from(deduped.values());
+}
+
+function resolveNextValue({
+  snapshot,
+  change,
+}: {
+  snapshot: AccountSettingsSnapshot;
+  change: z.infer<typeof settingsChangeSchema>;
+}) {
+  if (change.path !== "assistant.personalInstructions.about") {
+    return change.value;
+  }
+
+  if (change.mode === "replace") {
+    return change.value;
+  }
+
+  const existing = snapshot.about?.trim();
+  const incoming = change.value.trim();
+  if (!incoming) return snapshot.about ?? "";
+  if (!existing) return incoming;
+  if (existing === incoming) return snapshot.about ?? "";
+  return `${snapshot.about}\n${incoming}`;
 }
 
 function getCurrentValue({
@@ -420,12 +454,8 @@ function getReadOnlyValue({
       return snapshot.followUpNeedsReplyDays;
     case "assistant.followUp.autoDraftEnabled":
       return snapshot.followUpAutoDraftEnabled;
-    case "assistant.digest.enabled":
-      return snapshot.digestEnabled;
-    case "assistant.ai.provider":
-      return snapshot.aiProvider;
-    case "assistant.ai.model":
-      return snapshot.aiModel;
+    case "assistant.digest":
+      return snapshot.digest;
   }
 }
 
@@ -452,12 +482,22 @@ async function loadAccountSettingsSnapshot(emailAccountId: string) {
       digestSchedule: {
         select: {
           id: true,
+          intervalDays: true,
+          occurrences: true,
+          daysOfWeek: true,
+          timeOfDay: true,
+          nextOccurrenceAt: true,
         },
       },
-      user: {
+      rules: {
         select: {
-          aiProvider: true,
-          aiModel: true,
+          name: true,
+          systemType: true,
+          enabled: true,
+          actions: {
+            where: { type: ActionType.DIGEST },
+            select: { id: true },
+          },
         },
       },
     },
@@ -482,8 +522,26 @@ async function loadAccountSettingsSnapshot(emailAccountId: string) {
     followUpAwaitingReplyDays: emailAccount.followUpAwaitingReplyDays,
     followUpNeedsReplyDays: emailAccount.followUpNeedsReplyDays,
     followUpAutoDraftEnabled: emailAccount.followUpAutoDraftEnabled,
-    digestEnabled: Boolean(emailAccount.digestSchedule),
-    aiProvider: emailAccount.user.aiProvider,
-    aiModel: emailAccount.user.aiModel,
+    digest: {
+      enabled: Boolean(emailAccount.digestSchedule),
+      schedule: emailAccount.digestSchedule
+        ? {
+            intervalDays: emailAccount.digestSchedule.intervalDays,
+            occurrences: emailAccount.digestSchedule.occurrences,
+            daysOfWeek: emailAccount.digestSchedule.daysOfWeek,
+            timeOfDay: emailAccount.digestSchedule.timeOfDay.toISOString(),
+            nextOccurrenceAt:
+              emailAccount.digestSchedule.nextOccurrenceAt?.toISOString() ??
+              null,
+          }
+        : null,
+      includedRules: emailAccount.rules
+        .filter((rule) => rule.actions.length > 0)
+        .map((rule) => ({
+          name: rule.name,
+          systemType: rule.systemType,
+          enabled: rule.enabled,
+        })),
+    },
   } satisfies AccountSettingsSnapshot;
 }

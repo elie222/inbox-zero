@@ -31,11 +31,28 @@ const baseAccountSnapshot = {
   followUpAwaitingReplyDays: 3,
   followUpNeedsReplyDays: 2,
   followUpAutoDraftEnabled: true,
-  digestSchedule: { id: "digest-1" },
-  user: {
-    aiProvider: "openai",
-    aiModel: "gpt-5",
+  digestSchedule: {
+    id: "digest-1",
+    intervalDays: 1,
+    occurrences: 1,
+    daysOfWeek: 127,
+    timeOfDay: new Date("1970-01-01T09:00:00.000Z"),
+    nextOccurrenceAt: new Date("2026-02-21T09:00:00.000Z"),
   },
+  rules: [
+    {
+      name: "Newsletter",
+      systemType: "NEWSLETTER",
+      enabled: true,
+      actions: [{ id: "action-digest-1" }],
+    },
+    {
+      name: "Marketing",
+      systemType: "MARKETING",
+      enabled: true,
+      actions: [],
+    },
+  ],
 };
 
 describe("chat settings tools", () => {
@@ -77,16 +94,32 @@ describe("chat settings tools", () => {
       value: false,
     });
 
-    const aiProviderCapability = result.capabilities.find(
-      (capability) => capability.path === "assistant.ai.provider",
+    const digestCapability = result.capabilities.find(
+      (capability) => capability.path === "assistant.digest",
     );
 
-    expect(aiProviderCapability).toMatchObject({
+    expect(digestCapability).toMatchObject({
       canRead: true,
       canWrite: false,
-      value: "openai",
+      value: {
+        enabled: true,
+        schedule: {
+          intervalDays: 1,
+          occurrences: 1,
+          daysOfWeek: 127,
+          timeOfDay: "1970-01-01T09:00:00.000Z",
+          nextOccurrenceAt: "2026-02-21T09:00:00.000Z",
+        },
+        includedRules: [
+          {
+            name: "Newsletter",
+            systemType: "NEWSLETTER",
+            enabled: true,
+          },
+        ],
+      },
     });
-    expect(aiProviderCapability?.reason).toContain("read-only");
+    expect(digestCapability?.reason).toContain("not yet exposed");
   });
 
   it("applies deduped settings updates with last-write-wins semantics", async () => {
@@ -133,7 +166,7 @@ describe("chat settings tools", () => {
     expect(result.appliedChanges).toHaveLength(2);
   });
 
-  it("returns a dry-run preview without writing", async () => {
+  it("returns a dry-run preview without writing and appends about by default", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(
       baseAccountSnapshot as any,
     );
@@ -163,7 +196,45 @@ describe("chat settings tools", () => {
       {
         path: "assistant.personalInstructions.about",
         previous: "Keep replies concise.",
-        next: "Use short bullet points.",
+        next: "Keep replies concise.\nUse short bullet points.",
+      },
+    ]);
+  });
+
+  it("replaces about when mode is replace", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      baseAccountSnapshot as any,
+    );
+    prisma.emailAccount.update.mockResolvedValue({} as any);
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      dryRun: false,
+      changes: [
+        {
+          path: "assistant.personalInstructions.about",
+          value: "Replace existing instructions.",
+          mode: "replace",
+        },
+      ],
+    });
+
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: "email-account-1" },
+      data: {
+        about: "Replace existing instructions.",
+      },
+    });
+    expect(result.appliedChanges).toEqual([
+      {
+        path: "assistant.personalInstructions.about",
+        previous: "Keep replies concise.",
+        next: "Replace existing instructions.",
       },
     ]);
   });
