@@ -53,6 +53,37 @@ const baseAccountSnapshot = {
       actions: [],
     },
   ],
+  automationJob: {
+    id: "automation-job-1",
+    enabled: true,
+    cronExpression: "0 9 * * 1-5",
+    prompt: "Highlight urgent items.",
+    nextRunAt: new Date("2026-02-21T09:00:00.000Z"),
+    messagingChannelId: "channel-1",
+    messagingChannel: {
+      channelName: "inbox-updates",
+      teamName: "Acme",
+    },
+  },
+  messagingChannels: [
+    {
+      id: "channel-1",
+      channelName: "inbox-updates",
+      teamName: "Acme",
+      isConnected: true,
+      accessToken: "token-1",
+      providerUserId: "U123",
+      channelId: null,
+    },
+  ],
+  knowledge: [
+    {
+      id: "knowledge-1",
+      title: "Reply style",
+      content: "Use concise bullet points.",
+      updatedAt: new Date("2026-02-20T08:00:00.000Z"),
+    },
+  ],
 };
 
 describe("chat settings tools", () => {
@@ -120,6 +151,41 @@ describe("chat settings tools", () => {
       },
     });
     expect(digestCapability?.reason).toContain("not yet exposed");
+
+    const scheduledCheckInsCapability = result.capabilities.find(
+      (capability) => capability.path === "assistant.scheduledCheckIns",
+    );
+    expect(scheduledCheckInsCapability).toMatchObject({
+      canRead: true,
+      canWrite: true,
+      value: {
+        enabled: true,
+        cronExpression: "0 9 * * 1-5",
+        messagingChannelId: "channel-1",
+      },
+    });
+
+    const draftKnowledgeCapability = result.capabilities.find(
+      (capability) => capability.path === "assistant.draftKnowledgeBase",
+    );
+    expect(draftKnowledgeCapability).toMatchObject({
+      canRead: true,
+      canWrite: true,
+      value: {
+        totalItems: 1,
+        items: [
+          {
+            id: "knowledge-1",
+            title: "Reply style",
+            updatedAt: "2026-02-20T08:00:00.000Z",
+          },
+        ],
+      },
+      writePaths: [
+        "assistant.draftKnowledgeBase.upsert",
+        "assistant.draftKnowledgeBase.delete",
+      ],
+    });
   });
 
   it("applies deduped settings updates with last-write-wins semantics", async () => {
@@ -265,6 +331,102 @@ describe("chat settings tools", () => {
       success: true,
       message: "No setting changes were needed.",
       appliedChanges: [],
+    });
+  });
+
+  it("updates scheduled check-ins configuration", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      baseAccountSnapshot as any,
+    );
+    prisma.automationJob.update.mockResolvedValue({} as any);
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      dryRun: false,
+      changes: [
+        {
+          path: "assistant.scheduledCheckIns.config",
+          value: {
+            enabled: false,
+          },
+        },
+      ],
+    });
+
+    expect(prisma.automationJob.update).toHaveBeenCalledWith({
+      where: { id: "automation-job-1" },
+      data: {
+        enabled: false,
+        cronExpression: "0 9 * * 1-5",
+        prompt: "Highlight urgent items.",
+        messagingChannelId: "channel-1",
+      },
+    });
+    expect(result).toMatchObject({
+      success: true,
+      dryRun: false,
+    });
+  });
+
+  it("upserts and deletes draft knowledge base entries", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      baseAccountSnapshot as any,
+    );
+    prisma.knowledge.upsert.mockResolvedValue({} as any);
+    prisma.knowledge.deleteMany.mockResolvedValue({ count: 1 } as any);
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    await toolInstance.execute({
+      dryRun: false,
+      changes: [
+        {
+          path: "assistant.draftKnowledgeBase.upsert",
+          value: {
+            title: "Reply style",
+            content: "Keep responses concise.",
+          },
+          mode: "append",
+        },
+        {
+          path: "assistant.draftKnowledgeBase.delete",
+          value: {
+            title: "Reply style",
+          },
+        },
+      ],
+    });
+
+    expect(prisma.knowledge.upsert).toHaveBeenCalledWith({
+      where: {
+        emailAccountId_title: {
+          emailAccountId: "email-account-1",
+          title: "Reply style",
+        },
+      },
+      create: {
+        emailAccountId: "email-account-1",
+        title: "Reply style",
+        content: "Use concise bullet points.\nKeep responses concise.",
+      },
+      update: {
+        content: "Use concise bullet points.\nKeep responses concise.",
+      },
+    });
+    expect(prisma.knowledge.deleteMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "email-account-1",
+        title: "Reply style",
+      },
     });
   });
 });
