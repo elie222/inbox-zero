@@ -183,6 +183,73 @@ type ScheduledCheckInsConfig = {
   prompt: string | null;
 };
 
+type DraftKnowledgeItem =
+  AccountSettingsSnapshot["draftKnowledgeBase"]["items"][number];
+
+type AccountSettingsSnapshotRaw = {
+  id: string;
+  email: string;
+  timezone: string | null;
+  about: string | null;
+  multiRuleSelectionEnabled: boolean;
+  meetingBriefingsEnabled: boolean;
+  meetingBriefingsMinutesBefore: number;
+  meetingBriefsSendEmail: boolean;
+  filingEnabled: boolean;
+  filingPrompt: string | null;
+  writingStyle: string | null;
+  signature: string | null;
+  includeReferralSignature: boolean;
+  followUpAwaitingReplyDays: number | null;
+  followUpNeedsReplyDays: number | null;
+  followUpAutoDraftEnabled: boolean;
+  digestSchedule: {
+    id: string;
+    intervalDays: number;
+    occurrences: number;
+    daysOfWeek: number;
+    timeOfDay: Date;
+    nextOccurrenceAt: Date | null;
+  } | null;
+  rules: Array<{
+    name: string;
+    systemType: string | null;
+    enabled: boolean;
+    actions: Array<{ id: string }>;
+  }>;
+  messagingChannels: Array<{
+    id: string;
+    channelName: string | null;
+    teamName: string | null;
+    isConnected: boolean;
+    accessToken: string | null;
+    providerUserId: string | null;
+    channelId: string | null;
+  }>;
+  knowledge: Array<{
+    id: string;
+    title: string;
+    content: string;
+    updatedAt: Date;
+  }>;
+};
+
+type ScheduledCheckInsSnapshotSource = {
+  automationJob: {
+    id: string;
+    enabled: boolean;
+    cronExpression: string;
+    prompt: string | null;
+    nextRunAt: Date;
+    messagingChannelId: string | null;
+    messagingChannel: {
+      channelName: string | null;
+      teamName: string | null;
+    } | null;
+  } | null;
+  messagingChannels: AccountSettingsSnapshotRaw["messagingChannels"];
+};
+
 const readOnlyCapabilities = [
   {
     path: "assistant.writingStyle",
@@ -318,8 +385,11 @@ export const updateAssistantSettingsTool = ({
         previous: unknown;
         next: unknown;
       }> = [];
-      const draftKnowledgeByTitle = new Map(
-        existing.draftKnowledgeBase.items.map((item) => [item.title, item]),
+      const draftKnowledgeByTitle = new Map<string, DraftKnowledgeItem>(
+        existing.draftKnowledgeBase.items.map((item: DraftKnowledgeItem) => [
+          item.title,
+          item,
+        ]),
       );
 
       for (const change of normalizedChanges) {
@@ -880,9 +950,7 @@ async function applyScheduledCheckInsConfig({
 }
 
 function buildScheduledCheckInsSnapshot(
-  emailAccount: NonNullable<
-    Awaited<ReturnType<typeof loadAccountSettingsSnapshotRaw>>
-  >,
+  emailAccount: ScheduledCheckInsSnapshotSource,
 ) {
   const availableChannels = emailAccount.messagingChannels
     .filter(
@@ -963,7 +1031,10 @@ function isDisableOnlyScheduledCheckInsChange({
 }
 
 async function loadAccountSettingsSnapshot(emailAccountId: string) {
-  const emailAccount = await loadAccountSettingsSnapshotRaw(emailAccountId);
+  const [emailAccount, automationJob] = await Promise.all([
+    loadAccountSettingsSnapshotRaw(emailAccountId),
+    loadScheduledCheckInsAutomationJob(emailAccountId),
+  ]);
 
   if (!emailAccount) return null;
 
@@ -1005,7 +1076,10 @@ async function loadAccountSettingsSnapshot(emailAccountId: string) {
           enabled: rule.enabled,
         })),
     },
-    scheduledCheckIns: buildScheduledCheckInsSnapshot(emailAccount),
+    scheduledCheckIns: buildScheduledCheckInsSnapshot({
+      automationJob,
+      messagingChannels: emailAccount.messagingChannels,
+    }),
     draftKnowledgeBase: {
       totalItems: emailAccount.knowledge.length,
       items: emailAccount.knowledge.map((item) => ({
@@ -1018,7 +1092,9 @@ async function loadAccountSettingsSnapshot(emailAccountId: string) {
   } satisfies AccountSettingsSnapshot;
 }
 
-async function loadAccountSettingsSnapshotRaw(emailAccountId: string) {
+async function loadAccountSettingsSnapshotRaw(
+  emailAccountId: string,
+): Promise<AccountSettingsSnapshotRaw | null> {
   return prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
@@ -1059,22 +1135,6 @@ async function loadAccountSettingsSnapshotRaw(emailAccountId: string) {
           },
         },
       },
-      automationJob: {
-        select: {
-          id: true,
-          enabled: true,
-          cronExpression: true,
-          prompt: true,
-          nextRunAt: true,
-          messagingChannelId: true,
-          messagingChannel: {
-            select: {
-              channelName: true,
-              teamName: true,
-            },
-          },
-        },
-      },
       messagingChannels: {
         where: { provider: MessagingProvider.SLACK },
         select: {
@@ -1095,6 +1155,26 @@ async function loadAccountSettingsSnapshotRaw(emailAccountId: string) {
           updatedAt: true,
         },
         orderBy: { updatedAt: "desc" },
+      },
+    },
+  }) as Promise<AccountSettingsSnapshotRaw | null>;
+}
+
+async function loadScheduledCheckInsAutomationJob(emailAccountId: string) {
+  return prisma.automationJob.findUnique({
+    where: { emailAccountId },
+    select: {
+      id: true,
+      enabled: true,
+      cronExpression: true,
+      prompt: true,
+      nextRunAt: true,
+      messagingChannelId: true,
+      messagingChannel: {
+        select: {
+          channelName: true,
+          teamName: true,
+        },
       },
     },
   });

@@ -101,6 +101,9 @@ describe("chat settings tools", () => {
     vi.clearAllMocks();
     mockGetUserPremium.mockResolvedValue({} as any);
     mockIsActivePremium.mockReturnValue(true);
+    prisma.automationJob.findUnique.mockResolvedValue(
+      baseAccountSnapshot.automationJob as any,
+    );
   });
 
   it("returns writable and read-only capability metadata", async () => {
@@ -459,14 +462,6 @@ describe("chat settings tools", () => {
   it("allows disabling scheduled check-ins even when current channel is stale", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       ...baseAccountSnapshot,
-      automationJob: {
-        ...baseAccountSnapshot.automationJob,
-        messagingChannelId: "channel-stale",
-        messagingChannel: {
-          channelName: "legacy-channel",
-          teamName: "Acme",
-        },
-      },
       messagingChannels: [
         {
           ...baseAccountSnapshot.messagingChannels[0],
@@ -477,6 +472,14 @@ describe("chat settings tools", () => {
           channelId: null,
         },
       ],
+    } as any);
+    prisma.automationJob.findUnique.mockResolvedValue({
+      ...baseAccountSnapshot.automationJob,
+      messagingChannelId: "channel-stale",
+      messagingChannel: {
+        channelName: "legacy-channel",
+        teamName: "Acme",
+      },
     } as any);
     prisma.automationJob.update.mockResolvedValue({} as any);
 
