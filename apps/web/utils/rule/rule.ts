@@ -306,6 +306,14 @@ async function mapActionFields(
 ) {
   const actionPromises = actions.map(
     async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
+      const to = a.fields?.to?.trim() || null;
+
+      if (a.type === ActionType.SEND_EMAIL && !to) {
+        throw new Error(
+          "SEND_EMAIL action requires a recipient in the to field. Use REPLY for automatic responses.",
+        );
+      }
+
       let label = a.fields?.label;
       let labelId: string | null = null;
       const folderName =
@@ -347,7 +355,7 @@ async function mapActionFields(
         type: a.type,
         label,
         labelId,
-        to: a.fields?.to,
+        to,
         cc: a.fields?.cc,
         bcc: a.fields?.bcc,
         subject: a.fields?.subject,

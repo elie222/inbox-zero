@@ -253,6 +253,40 @@ describe("createRuleBody", () => {
       });
     });
 
+    describe("SEND_EMAIL action", () => {
+      it("requires to.value for SEND_EMAIL action", () => {
+        const result = createRuleBody.safeParse({
+          ...validRule,
+          actions: [
+            {
+              type: ActionType.SEND_EMAIL,
+              subject: { value: "Hello" },
+              content: { value: "World" },
+            },
+          ],
+        });
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.issues[0].message).toContain("send to");
+        }
+      });
+
+      it("accepts valid to.value for SEND_EMAIL action", () => {
+        const result = createRuleBody.safeParse({
+          ...validRule,
+          actions: [
+            {
+              type: ActionType.SEND_EMAIL,
+              to: { value: "recipient@example.com" },
+              subject: { value: "Hello" },
+              content: { value: "World" },
+            },
+          ],
+        });
+        expect(result.success).toBe(true);
+      });
+    });
+
     describe("CALL_WEBHOOK action", () => {
       it("requires url.value for CALL_WEBHOOK action", () => {
         const result = createRuleBody.safeParse({

@@ -137,6 +137,16 @@ const zodAction = z
         path: ["to"],
       });
     }
+
+    if (data.type === ActionType.SEND_EMAIL && !data.to?.value?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Please enter an email address to send to. Use Reply for auto-responses.",
+        path: ["to"],
+      });
+    }
+
     if (data.type === ActionType.CALL_WEBHOOK && !data.url?.value?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -338,6 +348,15 @@ const importedAction = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Forward action requires a recipient email address",
+        path: ["to"],
+      });
+    }
+
+    if (data.type === ActionType.SEND_EMAIL && !data.to?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Send email action requires a recipient email address. Use Reply for auto-responses.",
         path: ["to"],
       });
     }
