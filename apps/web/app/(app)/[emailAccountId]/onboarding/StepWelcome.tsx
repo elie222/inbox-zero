@@ -5,6 +5,7 @@ import { ArrowRightIcon, MailIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
+import { BRAND_NAME } from "@/utils/branding";
 
 export function StepWelcome({ onNext }: { onNext: () => void }) {
   return (
@@ -22,10 +23,10 @@ export function StepWelcome({ onNext }: { onNext: () => void }) {
           </motion.div>
         </div>
 
-        <PageHeading className="mb-3">Welcome to Inbox Zero</PageHeading>
+        <PageHeading className="mb-3">{`Welcome to ${BRAND_NAME}`}</PageHeading>
 
         <TypographyP className="text-muted-foreground mb-8">
-          Here's a quick look at what Inbox Zero can do for you.
+          {`Here's a quick look at what ${BRAND_NAME} can do for you.`}
         </TypographyP>
 
         <div className="flex flex-col gap-2 w-full max-w-xs">

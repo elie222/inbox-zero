@@ -31,6 +31,7 @@ import {
   getStepNumber,
 } from "@/app/(app)/[emailAccountId]/onboarding/steps";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
+import { BRAND_NAME } from "@/utils/branding";
 
 function FeatureCard({
   emailAccountId,
@@ -369,7 +370,7 @@ function Checklist({
           icon={<ChromeIcon size={20} />}
           iconBg="bg-orange-100 dark:bg-orange-900/50"
           iconColor="text-orange-500 dark:text-orange-400"
-          title="Optional: Install the Inbox Zero Tabs extension"
+          title={`Optional: Install the ${BRAND_NAME} Tabs extension`}
           timeEstimate="1 minute"
           completed={isExtensionInstalled}
           actionText="Install"
@@ -441,11 +442,11 @@ function SetupPageContent({
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
       <div className="mb-4 sm:mb-8">
-        <PageHeading className="text-center">Welcome to Inbox Zero</PageHeading>
+        <PageHeading className="text-center">{`Welcome to ${BRAND_NAME}`}</PageHeading>
         <SectionDescription className="mt-2 text-center text-base">
           {isSetupComplete
             ? "What would you like to do?"
-            : "Complete these steps to get the most out of Inbox Zero"}
+            : `Complete these steps to get the most out of ${BRAND_NAME}`}
         </SectionDescription>
       </div>
 

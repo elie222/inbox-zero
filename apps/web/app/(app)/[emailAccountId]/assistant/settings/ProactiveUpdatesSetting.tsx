@@ -41,6 +41,7 @@ import {
   DEFAULT_AUTOMATION_JOB_CRON,
 } from "@/utils/automation-jobs/defaults";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
+import { BRAND_NAME } from "@/utils/branding";
 
 export function ProactiveUpdatesSetting() {
   const [open, setOpen] = useState(false);
@@ -394,7 +395,7 @@ function formatSlackChannelLabel(channel: {
 
 const SLACK_MESSAGES = [
   {
-    sender: "Inbox Zero",
+    sender: BRAND_NAME,
     avatar: "IZ",
     avatarColor:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
@@ -412,7 +413,7 @@ const SLACK_MESSAGES = [
     isUser: true,
   },
   {
-    sender: "Inbox Zero",
+    sender: BRAND_NAME,
     avatar: "IZ",
     avatarColor:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
@@ -437,14 +438,11 @@ function HowItWorksPreview() {
     const advanceStage = () => {
       if (currentStage >= timings.length) return;
 
-      timeout = setTimeout(
-        () => {
-          currentStage++;
-          setStage(currentStage);
-          advanceStage();
-        },
-        timings[currentStage] ?? 1000,
-      );
+      timeout = setTimeout(() => {
+        currentStage++;
+        setStage(currentStage);
+        advanceStage();
+      }, timings[currentStage] ?? 1000);
     };
 
     advanceStage();

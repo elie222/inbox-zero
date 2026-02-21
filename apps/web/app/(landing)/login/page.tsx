@@ -5,16 +5,21 @@ import Link from "next/link";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
 import { auth } from "@/utils/auth";
 import { AlertBasic } from "@/components/Alert";
-import { env } from "@/env";
 import { Button } from "@/components/ui/button";
 import { WELCOME_PATH } from "@/utils/config";
 import { CrispChatLoggedOutVisible } from "@/components/CrispChat";
 import { MutedText } from "@/components/Typography";
 import { isInternalPath } from "@/utils/path";
+import {
+  BRAND_NAME,
+  SUPPORT_EMAIL,
+  getBrandTitle,
+  getPossessiveBrandName,
+} from "@/utils/branding";
 
 export const metadata: Metadata = {
-  title: "Log in | Inbox Zero",
-  description: "Log in to Inbox Zero.",
+  title: getBrandTitle("Log in"),
+  description: `Log in to ${BRAND_NAME}.`,
   alternates: { canonical: "/login" },
 };
 
@@ -67,8 +72,8 @@ export default async function AuthenticationPage(props: {
         </MutedText>
 
         <MutedText className="px-4 pt-4 text-center">
-          Inbox Zero{"'"}s use and transfer of information received from Google
-          APIs to any other app will adhere to{" "}
+          {getPossessiveBrandName()} use and transfer of information received
+          from Google APIs to any other app will adhere to{" "}
           <a
             href="https://developers.google.com/terms/api-services-user-data-policy"
             className="underline underline-offset-4 hover:text-foreground"
@@ -107,7 +112,7 @@ function ErrorAlert({ error }: { error: string }) {
       <AlertBasic
         variant="destructive"
         title="Email Already Linked"
-        description={`This email address is already linked to another Inbox Zero account. Please sign in with the original account, or use a different email address. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+        description={`This email address is already linked to another ${BRAND_NAME} account. Please sign in with the original account, or use a different email address. If this error persists please contact support at ${SUPPORT_EMAIL}`}
       />
     );
   }
@@ -117,7 +122,7 @@ function ErrorAlert({ error }: { error: string }) {
       <AlertBasic
         variant="destructive"
         title="Error logging in"
-        description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+        description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${SUPPORT_EMAIL}`}
       />
       <Suspense>
         <CrispChatLoggedOutVisible />

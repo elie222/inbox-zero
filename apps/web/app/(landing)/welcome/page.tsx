@@ -11,10 +11,11 @@ import {
   fetchUserAndStoreUtms,
 } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
+import { BRAND_NAME } from "@/utils/branding";
 
 export const metadata: Metadata = {
   title: "Welcome",
-  description: "Get started with Inbox Zero",
+  description: `Get started with ${BRAND_NAME}`,
   alternates: { canonical: "/welcome" },
 };
 
@@ -44,7 +45,7 @@ export default async function WelcomePage(props: {
 
       <CardBasic className="mx-auto flex max-w-2xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
         <div className="flex flex-col text-center">
-          <PageHeading>Welcome to Inbox Zero</PageHeading>
+          <PageHeading>{`Welcome to ${BRAND_NAME}`}</PageHeading>
           <TypographyP className="mt-2">Let{"'"}s get you set up!</TypographyP>
           <div className="mt-4">
             <Suspense>

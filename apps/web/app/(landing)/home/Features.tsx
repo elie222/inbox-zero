@@ -14,6 +14,7 @@ import {
   ReplyIcon,
 } from "lucide-react";
 import Image from "next/image";
+import { BRAND_NAME } from "@/utils/branding";
 
 type Side = "left" | "right";
 
@@ -154,8 +155,7 @@ const featuresColdEmailBlocker = [
   },
   {
     name: "Adjust cold email prompt",
-    description:
-      "Tell Inbox Zero what constitutes a cold email for you. It will block them based on your instructions.",
+    description: `Tell ${BRAND_NAME} what constitutes a cold email for you. It will block them based on your instructions.`,
     icon: SparklesIcon,
   },
   {

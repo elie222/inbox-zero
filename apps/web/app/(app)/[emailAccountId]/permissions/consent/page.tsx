@@ -8,6 +8,7 @@ import { PageHeading, TypographyP } from "@/components/Typography";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
+import { BRAND_NAME } from "@/utils/branding";
 
 export default function PermissionsConsentPage() {
   const { provider, isLoading: accountLoading } = useAccount();
@@ -38,8 +39,7 @@ export default function PermissionsConsentPage() {
       </PageHeading>
 
       <TypographyP className="mx-auto mt-4 max-w-prose text-center">
-        You must sign in and give access to all permissions for Inbox Zero to
-        work.
+        {`You must sign in and give access to all permissions for ${BRAND_NAME} to work.`}
       </TypographyP>
 
       <Button

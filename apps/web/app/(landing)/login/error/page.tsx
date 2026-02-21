@@ -6,13 +6,13 @@ import { Suspense, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { ErrorPage } from "@/components/ErrorPage";
-import { env } from "@/env";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Loading } from "@/components/Loading";
 import { WELCOME_PATH } from "@/utils/config";
 import { CrispChatLoggedOutVisible } from "@/components/CrispChat";
 import { getAndClearAuthErrorCookie } from "@/utils/auth-cookies";
+import { BRAND_NAME, SUPPORT_EMAIL } from "@/utils/branding";
 
 const errorMessages: Record<string, { title: string; description: string }> = {
   email_not_found: {
@@ -22,8 +22,7 @@ const errorMessages: Record<string, { title: string; description: string }> = {
   },
   email_already_linked: {
     title: "Email Already Linked",
-    description:
-      "This email address is already linked to another Inbox Zero account. Please sign in with the original account, or use a different email address.",
+    description: `This email address is already linked to another ${BRAND_NAME} account. Please sign in with the original account, or use a different email address.`,
   },
 };
 
@@ -53,7 +52,7 @@ function LoginErrorContent() {
 
   const errorInfo = errorCode ? errorMessages[errorCode] : null;
   const title = errorInfo?.title || "Error Logging In";
-  const supportText = `If this error persists, please use the support chat or email us at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}.`;
+  const supportText = `If this error persists, please use the support chat or email us at ${SUPPORT_EMAIL}.`;
   const description = errorInfo?.description
     ? `${errorInfo.description} ${supportText}`
     : `Please try again. ${supportText}`;

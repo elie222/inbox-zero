@@ -8,6 +8,7 @@ import type { EmailActionStatsResponse } from "@/app/api/user/stats/email-action
 import { BarChart } from "./BarChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { COLORS } from "@/utils/colors";
+import { BRAND_NAME } from "@/utils/branding";
 
 const chartConfig = {
   Archived: { label: "Archived", color: COLORS.analytics.green },
@@ -22,7 +23,7 @@ export function EmailActionsAnalytics() {
   if (data?.disabled) {
     return (
       <CardBasic>
-        <p>How many emails you've archived and deleted with Inbox Zero</p>
+        <p>{`How many emails you've archived and deleted with ${BRAND_NAME}`}</p>
         <div className="mt-4 h-72 flex items-center justify-center text-muted-foreground">
           <p>This feature is disabled. Contact your admin to enable it.</p>
         </div>
@@ -38,7 +39,7 @@ export function EmailActionsAnalytics() {
     >
       {data && (
         <CardBasic>
-          <p>How many emails you've archived and deleted with Inbox Zero</p>
+          <p>{`How many emails you've archived and deleted with ${BRAND_NAME}`}</p>
           <div className="mt-4">
             <BarChart
               data={data.result}

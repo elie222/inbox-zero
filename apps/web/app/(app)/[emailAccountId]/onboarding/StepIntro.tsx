@@ -7,6 +7,7 @@ import { MutedText, PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
+import { BRAND_NAME } from "@/utils/branding";
 
 export function StepIntro({ onNext }: { onNext: () => void }) {
   return (
@@ -16,7 +17,7 @@ export function StepIntro({ onNext }: { onNext: () => void }) {
       </IconCircle>
 
       <div className="text-center mt-4">
-        <PageHeading>Get to know Inbox Zero</PageHeading>
+        <PageHeading>{`Get to know ${BRAND_NAME}`}</PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
           We'll take you through the steps to get you started and set you up for
           success.

@@ -14,6 +14,8 @@ import {
   responseTimeResponseSchema,
 } from "@/app/api/v1/stats/response-time/validation";
 import { API_KEY_HEADER } from "@/utils/api-auth";
+import { env } from "@/env";
+import { BRAND_NAME } from "@/utils/branding";
 
 extendZodWithOpenApi(z);
 
@@ -75,7 +77,7 @@ export async function GET(request: NextRequest) {
   const docs = generator.generateDocument({
     openapi: "3.1.0",
     info: {
-      title: "Inbox Zero API",
+      title: `${BRAND_NAME} API`,
       version: "1.0.0",
     },
     servers: [
@@ -83,8 +85,8 @@ export async function GET(request: NextRequest) {
         ? [{ url: `${customHost}/api/v1`, description: "Custom host" }]
         : []),
       {
-        url: "https://www.getinboxzero.com/api/v1",
-        description: "Production server",
+        url: `${env.NEXT_PUBLIC_BASE_URL}/api/v1`,
+        description: "Primary server",
       },
       { url: "http://localhost:3000/api/v1", description: "Local development" },
     ],

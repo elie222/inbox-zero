@@ -8,6 +8,7 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { Button } from "@/components/ui/button";
 import { OnboardingImagePreview } from "@/app/(app)/[emailAccountId]/onboarding/ImagePreview";
 import { EXTENSION_URL } from "@/utils/config";
+import { BRAND_NAME } from "@/utils/branding";
 
 export function StepExtension({ onNext }: { onNext: () => Promise<void> }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -20,7 +21,7 @@ export function StepExtension({ onNext }: { onNext: () => Promise<void> }) {
         </IconCircle>
 
         <div className="text-center mt-4">
-          <PageHeading>Install the Inbox Zero Tabs extension</PageHeading>
+          <PageHeading>{`Install the ${BRAND_NAME} Tabs extension`}</PageHeading>
           <TypographyP className="mt-2 max-w-lg mx-auto">
             Add tabs to Gmail that show only <strong>unhandled emails</strong>{" "}
             by label.
@@ -59,7 +60,7 @@ export function StepExtension({ onNext }: { onNext: () => Promise<void> }) {
       <div className="fixed top-0 right-0 w-1/2 bg-white h-screen items-center justify-center hidden xl:flex">
         <OnboardingImagePreview
           src="/images/onboarding/extension.png"
-          alt="Inbox Zero Tabs Extension"
+          alt={`${BRAND_NAME} Tabs Extension`}
           width={672}
           height={1200}
         />

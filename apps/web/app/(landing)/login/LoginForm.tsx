@@ -18,6 +18,7 @@ import { signIn } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 import { toastError } from "@/components/Toast";
 import { isInternalPath } from "@/utils/path";
+import { getPossessiveBrandName } from "@/utils/branding";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -88,8 +89,8 @@ export function LoginForm() {
             <DialogTitle>Sign in</DialogTitle>
           </DialogHeader>
           <SectionDescription>
-            Inbox Zero{"'"}s use and transfer of information received from
-            Google APIs to any other app will adhere to{" "}
+            {getPossessiveBrandName()} use and transfer of information received
+            from Google APIs to any other app will adhere to{" "}
             <a
               href="https://developers.google.com/terms/api-services-user-data-policy"
               className="underline underline-offset-4 hover:text-gray-900"
