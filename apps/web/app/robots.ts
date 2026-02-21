@@ -7,6 +7,9 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: [`${env.NEXT_PUBLIC_BASE_URL}/sitemap.xml`],
+    sitemap: [
+      `${env.NEXT_PUBLIC_BASE_URL}/sitemap.xml`,
+      "https://docs.getinboxzero.com/sitemap.xml",
+    ],
   };
 }

@@ -6,7 +6,7 @@ import { FooterLineLogo } from "@/components/new-landing/FooterLineLogo";
 import { Paragraph } from "@/components/new-landing/common/Typography";
 import { UnicornScene } from "@/components/new-landing/UnicornScene";
 import { footerNavigation } from "@/app/(landing)/home/Footer";
-import { BRAND_LOGO_URL, BRAND_NAME } from "@/utils/branding";
+import { BRAND_LOGO_URL } from "@/utils/branding";
 
 interface FooterProps {
   className: string;
@@ -62,8 +62,13 @@ export function Footer({ className, variant = "default" }: FooterProps) {
           </div>
           <p className="mt-6 text-center text-xs leading-5 text-gray-500">
             Powered by{" "}
-            <Link href="/" className="hover:text-gray-900">
-              {BRAND_NAME}
+            <Link
+              href="https://getinboxzero.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-gray-900"
+            >
+              Inbox Zero
             </Link>
           </p>
         </div>

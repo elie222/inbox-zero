@@ -179,8 +179,13 @@ export function Footer() {
           </div>
           <p className="mt-6 text-center text-xs leading-5 text-gray-500">
             Powered by{" "}
-            <Link href="/" className="hover:text-gray-900">
-              {BRAND_NAME}
+            <Link
+              href="https://getinboxzero.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-gray-900"
+            >
+              Inbox Zero
             </Link>
           </p>
         </div>
