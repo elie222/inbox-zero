@@ -16,15 +16,15 @@ const defaultIcons: MetadataRoute.Manifest["icons"] = [
 ];
 
 export default function manifest(): MetadataRoute.Manifest {
-  const icons =
+  const customIcon =
     BRAND_ICON_URL === "/icon.png"
-      ? defaultIcons
-      : [{ src: BRAND_ICON_URL, sizes: "any" }];
+      ? []
+      : [{ src: BRAND_ICON_URL, sizes: "any" as const }];
 
   return {
     name: BRAND_NAME,
     short_name: BRAND_NAME,
-    icons,
+    icons: [...customIcon, ...defaultIcons],
     theme_color: "#FFFFFF",
     background_color: "#FFFFFF",
     start_url: "/",

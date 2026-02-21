@@ -148,6 +148,9 @@ const selfHostedFooter = {
 };
 
 export function Footer() {
+  const copyrightName =
+    BRAND_NAME === "Inbox Zero" ? "Inbox Zero Inc." : BRAND_NAME;
+
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
     return (
       <footer className="relative">
@@ -235,7 +238,8 @@ export function Footer() {
           ))}
         </div>
         <p className="mt-10 text-center text-xs leading-5 text-gray-500">
-          &copy; {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
+          &copy; {new Date().getFullYear()} {copyrightName}. All rights
+          reserved.
         </p>
       </div>
     </footer>
