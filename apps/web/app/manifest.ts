@@ -1,7 +1,9 @@
 import type { MetadataRoute } from "next";
 import { BRAND_ICON_URL, BRAND_NAME } from "@/utils/branding";
 
-const defaultIcons: MetadataRoute.Manifest["icons"] = [
+type ManifestIcon = NonNullable<MetadataRoute.Manifest["icons"]>[number];
+
+const defaultIcons: ManifestIcon[] = [
   {
     src: "/icons/icon-192x192.png",
     sizes: "192x192",
@@ -16,7 +18,7 @@ const defaultIcons: MetadataRoute.Manifest["icons"] = [
 ];
 
 export default function manifest(): MetadataRoute.Manifest {
-  const customIcon =
+  const customIcon: ManifestIcon[] =
     BRAND_ICON_URL === "/icon.png"
       ? []
       : [{ src: BRAND_ICON_URL, sizes: "any" as const }];
