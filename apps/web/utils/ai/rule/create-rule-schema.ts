@@ -4,7 +4,7 @@ import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
 import { env } from "@/env";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
-import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
+import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 
 const conditionSchema = z
   .object({
@@ -120,21 +120,15 @@ const actionSchema = (provider: string) =>
         .nullable(),
     })
     .superRefine((action, ctx) => {
-      const recipientMessage = getMissingRecipientMessage({
+      addMissingRecipientIssue({
         actionType: action.type,
         recipient: action.fields?.to,
+        ctx,
+        path: ["fields", "to"],
         sendEmailMessage:
           "SEND_EMAIL requires a recipient in fields.to. Use REPLY for auto-responses.",
         forwardMessage: "FORWARD requires a recipient in fields.to.",
       });
-
-      if (recipientMessage) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: recipientMessage,
-          path: ["fields", "to"],
-        });
-      }
     });
 
 export const createRuleSchema = (provider: string) =>
