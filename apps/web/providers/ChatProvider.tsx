@@ -29,6 +29,7 @@ type ChatContextType = {
   setInput: (input: string) => void;
   setChatId: (chatId: string | null) => void;
   setNewChat: () => void;
+  loadOrCreateChat: () => void;
   handleSubmit: () => void;
   context: MessageContext | null;
   setContext: (context: MessageContext | null) => void;
@@ -49,6 +50,26 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const setNewChat = useCallback(() => {
     setChatId(generateUUID());
   }, [setChatId]);
+
+  // On first open (no chatId in URL), resume the most recent chat rather than
+  // always starting blank. Falls back to creating a new chat if none exist.
+  const loadOrCreateChat = useCallback(async () => {
+    try {
+      const response = await fetch("/api/chats", {
+        headers: { [EMAIL_ACCOUNT_HEADER]: emailAccountId },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.chats && data.chats.length > 0) {
+          setChatId(data.chats[0].id);
+          return;
+        }
+      }
+    } catch {
+      // Fall through to create a new chat
+    }
+    setChatId(generateUUID());
+  }, [emailAccountId, setChatId]);
 
   const chat = useAiChat<ChatMessage>({
     id: chatId ?? undefined,
@@ -111,6 +132,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setInput,
         setChatId,
         setNewChat,
+        loadOrCreateChat,
         handleSubmit,
         context,
         setContext,

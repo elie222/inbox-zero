@@ -40,6 +40,7 @@ export function Chat({ open }: { open: boolean }) {
     setInput,
     handleSubmit,
     setNewChat,
+    loadOrCreateChat,
     context,
     setContext,
   } = useChat();
@@ -51,9 +52,9 @@ export function Chat({ open }: { open: boolean }) {
 
   useEffect(() => {
     if (open && !chatId) {
-      setNewChat();
+      loadOrCreateChat();
     }
-  }, [open, chatId, setNewChat]);
+  }, [open, chatId, loadOrCreateChat]);
 
   // Sync input with localStorage
   useEffect(() => {
