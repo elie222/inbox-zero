@@ -42,7 +42,9 @@ export async function aiGenerateActionableRecommendations(
 ): Promise<z.infer<typeof actionableRecommendationsSchema>> {
   const system = `You are an email productivity consultant. Based on the comprehensive email analysis, create specific, actionable recommendations that the user can implement to improve their email workflow.
 
-Organize recommendations by timeline (immediate, short-term, long-term) and include specific implementation details and expected benefits.`;
+Organize recommendations by timeline (immediate, short-term, long-term) and include specific implementation details and expected benefits.
+
+Return your response in JSON format.`;
 
   const prompt = `### Analysis Summary
 
