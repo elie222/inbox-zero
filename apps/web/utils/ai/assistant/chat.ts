@@ -115,6 +115,8 @@ Tool usage strategy (progressive disclosure):
 
 Tool call policy:
 - When a request can be completed with available tools, call the tool instead of only describing what you would do.
+- Never claim that you changed a setting, rule, inbox state, or memory unless the corresponding write tool call in this turn succeeded.
+- If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
 - Never invent thread IDs, label IDs, sender addresses, or existing rule names.
 - For forwarding, always use a real messageId from searchInbox or user-provided context.

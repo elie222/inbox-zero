@@ -19,6 +19,7 @@ import {
 } from "@/components/assistant-chat/tools";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
+import { formatToolLabel } from "@/components/assistant-chat/tool-label";
 
 interface MessagePartProps {
   part: ChatMessage["parts"][0];
@@ -82,6 +83,71 @@ export function MessagePart({
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
       return <BasicToolInfo key={toolCallId} text="Loaded account overview" />;
+    }
+  }
+
+  if (part.type === "tool-getAssistantCapabilities") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text="Loading assistant capabilities..."
+        />
+      );
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      const capabilities = getOutputField<Array<unknown>>(
+        output,
+        "capabilities",
+      );
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`Loaded assistant capabilities${
+            Array.isArray(capabilities)
+              ? ` (${capabilities.length} available)`
+              : ""
+          }`}
+        />
+      );
+    }
+  }
+
+  if (part.type === "tool-updateAssistantSettings") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Updating settings..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      const dryRun = getOutputField<boolean>(output, "dryRun");
+      const appliedChanges = getOutputField<Array<unknown>>(
+        output,
+        "appliedChanges",
+      );
+      const appliedChangesCount = Array.isArray(appliedChanges)
+        ? appliedChanges.length
+        : null;
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`${dryRun ? "Prepared settings changes" : "Updated settings"}${
+            appliedChangesCount !== null
+              ? ` (${appliedChangesCount} change${
+                  appliedChangesCount === 1 ? "" : "s"
+                })`
+              : ""
+          }`}
+        />
+      );
     }
   }
 
@@ -205,6 +271,20 @@ export function MessagePart({
           text={`Sent email${to ? ` to ${to}` : ""}`}
         />
       );
+    }
+  }
+
+  if (part.type === "tool-replyEmail") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Sending reply..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      return <BasicToolInfo key={toolCallId} text="Sent reply" />;
     }
   }
 
@@ -424,6 +504,48 @@ export function MessagePart({
     }
   }
 
+  if (part.type === "tool-searchMemories") {
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Searching memories..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      if (isOutputWithError(output)) {
+        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      const memories = getOutputField<Array<unknown>>(output, "memories");
+      const memoriesCount = Array.isArray(memories) ? memories.length : null;
+      if (memoriesCount === 0) {
+        return <BasicToolInfo key={toolCallId} text="No memories found" />;
+      }
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={`Found ${memoriesCount ?? "matching"} memories`}
+        />
+      );
+    }
+  }
+
+  if (isToolPart(part)) {
+    const { toolCallId, state } = part;
+    const toolLabel = formatToolLabel(part.type);
+    if (state === "input-available") {
+      return (
+        <BasicToolInfo key={toolCallId} text={`Running ${toolLabel}...`} />
+      );
+    }
+    if (state === "output-available") {
+      if (isOutputWithError(part.output)) {
+        return (
+          <ErrorToolCard key={toolCallId} error={String(part.output.error)} />
+        );
+      }
+      return <BasicToolInfo key={toolCallId} text={`Completed ${toolLabel}`} />;
+    }
+  }
+
   return null;
 }
 
@@ -436,4 +558,19 @@ function getInProgressManageInboxOutput(input: {
     senders: input.fromEmails ?? [],
     sendersCount: input.fromEmails?.length ?? 0,
   };
+}
+
+function isToolPart(part: ChatMessage["parts"][0]): part is {
+  type: `tool-${string}`;
+  toolCallId: string;
+  state: "input-available" | "output-available";
+  output?: unknown;
+} {
+  if (typeof part !== "object" || !part) return false;
+  if (!("type" in part) || typeof part.type !== "string") return false;
+  if (!part.type.startsWith("tool-")) return false;
+  if (!("toolCallId" in part) || typeof part.toolCallId !== "string")
+    return false;
+  if (!("state" in part) || typeof part.state !== "string") return false;
+  return part.state === "input-available" || part.state === "output-available";
 }

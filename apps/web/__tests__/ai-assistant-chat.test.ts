@@ -134,6 +134,12 @@ describe("aiProcessAssistantChat", () => {
     expect(args.messages[0].content).toContain(
       "Conversation status behavior should be customized by updating conversation rules directly",
     );
+    expect(args.messages[0].content).toContain(
+      "Never claim that you changed a setting, rule, inbox state, or memory unless the corresponding write tool call in this turn succeeded.",
+    );
+    expect(args.messages[0].content).toContain(
+      "If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.",
+    );
 
     expect(args.tools.getAccountOverview).toBeDefined();
     expect(args.tools.getAssistantCapabilities).toBeDefined();
