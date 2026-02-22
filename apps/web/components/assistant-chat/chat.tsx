@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatDistanceToNow } from "date-fns";
 import {
   ArrowUpIcon,
   HistoryIcon,
@@ -340,8 +341,20 @@ function ChatHistoryDropdown() {
                 onSelect={() => {
                   setChatId(chatItem.id);
                 }}
+                className="flex flex-col items-start gap-0.5 max-w-64"
               >
-                {`Chat from ${new Date(chatItem.createdAt).toLocaleString()}`}
+                <span className="truncate w-full text-sm">
+                  {chatItem.preview
+                    ? chatItem.preview.length > 50
+                      ? `${chatItem.preview.slice(0, 50)}…`
+                      : chatItem.preview
+                    : "New conversation"}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(chatItem.updatedAt), {
+                    addSuffix: true,
+                  })}
+                </span>
               </DropdownMenuItem>
             ))
           ) : (
