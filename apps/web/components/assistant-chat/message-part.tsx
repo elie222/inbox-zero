@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Response } from "@/components/ai-elements/response";
 import {
   Reasoning,
@@ -71,84 +72,65 @@ export function MessagePart({
 
   // Tool handling
   if (part.type === "tool-getAccountOverview") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <BasicToolInfo key={toolCallId} text="Loading account overview..." />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return <BasicToolInfo key={toolCallId} text="Loaded account overview" />;
-    }
+    return renderToolStatus({
+      part,
+      loadingText: "Loading account overview...",
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo key={toolCallId} text="Loaded account overview" />
+      ),
+    });
   }
 
   if (part.type === "tool-getAssistantCapabilities") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text="Loading assistant capabilities..."
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      const capabilities = getOutputField<Array<unknown>>(
-        output,
-        "capabilities",
-      );
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text={`Loaded assistant capabilities${
-            Array.isArray(capabilities)
-              ? ` (${capabilities.length} available)`
-              : ""
-          }`}
-        />
-      );
-    }
+    return renderToolStatus({
+      part,
+      loadingText: "Loading assistant capabilities...",
+      renderSuccess: ({ toolCallId, output }) => {
+        const capabilities = getOutputField<Array<unknown>>(
+          output,
+          "capabilities",
+        );
+        return (
+          <BasicToolInfo
+            key={toolCallId}
+            text={`Loaded assistant capabilities${
+              Array.isArray(capabilities)
+                ? ` (${capabilities.length} available)`
+                : ""
+            }`}
+          />
+        );
+      },
+    });
   }
 
   if (part.type === "tool-updateAssistantSettings") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Updating settings..." />;
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      const dryRun = getOutputField<boolean>(output, "dryRun");
-      const appliedChanges = getOutputField<Array<unknown>>(
-        output,
-        "appliedChanges",
-      );
-      const appliedChangesCount = Array.isArray(appliedChanges)
-        ? appliedChanges.length
-        : null;
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text={`${dryRun ? "Prepared settings changes" : "Updated settings"}${
-            appliedChangesCount !== null
-              ? ` (${appliedChangesCount} change${
-                  appliedChangesCount === 1 ? "" : "s"
-                })`
-              : ""
-          }`}
-        />
-      );
-    }
+    return renderToolStatus({
+      part,
+      loadingText: "Updating settings...",
+      renderSuccess: ({ toolCallId, output }) => {
+        const dryRun = getOutputField<boolean>(output, "dryRun");
+        const appliedChanges = getOutputField<Array<unknown>>(
+          output,
+          "appliedChanges",
+        );
+        const appliedChangesCount = Array.isArray(appliedChanges)
+          ? appliedChanges.length
+          : null;
+        return (
+          <BasicToolInfo
+            key={toolCallId}
+            text={`${dryRun ? "Prepared settings changes" : "Updated settings"}${
+              appliedChangesCount !== null
+                ? ` (${appliedChangesCount} change${
+                    appliedChangesCount === 1 ? "" : "s"
+                  })`
+                : ""
+            }`}
+          />
+        );
+      },
+    });
   }
 
   if (part.type === "tool-searchInbox") {
@@ -239,105 +221,75 @@ export function MessagePart({
   }
 
   if (part.type === "tool-updateInboxFeatures") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <BasicToolInfo key={toolCallId} text="Updating inbox features..." />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return <BasicToolInfo key={toolCallId} text="Updated inbox features" />;
-    }
+    return renderToolStatus({
+      part,
+      loadingText: "Updating inbox features...",
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo key={toolCallId} text="Updated inbox features" />
+      ),
+    });
   }
 
   if (part.type === "tool-sendEmail") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Sending email..." />;
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      const to = getOutputField<string>(output, "to");
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text={`Sent email${to ? ` to ${to}` : ""}`}
-        />
-      );
-    }
+    return renderToolStatus({
+      part,
+      loadingText: "Sending email...",
+      renderSuccess: ({ toolCallId, output }) => {
+        const to = getOutputField<string>(output, "to");
+        return (
+          <BasicToolInfo
+            key={toolCallId}
+            text={`Sent email${to ? ` to ${to}` : ""}`}
+          />
+        );
+      },
+    });
   }
 
   if (part.type === "tool-replyEmail") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Sending reply..." />;
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return <BasicToolInfo key={toolCallId} text="Sent reply" />;
-    }
+    return renderToolStatus({
+      part,
+      loadingText: "Sending reply...",
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo key={toolCallId} text="Sent reply" />
+      ),
+    });
   }
 
   if (part.type === "tool-forwardEmail") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Forwarding email..." />;
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      const to = getOutputField<string>(output, "to");
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text={`Forwarded email${to ? ` to ${to}` : ""}`}
-        />
-      );
-    }
+    return renderToolStatus({
+      part,
+      loadingText: "Forwarding email...",
+      renderSuccess: ({ toolCallId, output }) => {
+        const to = getOutputField<string>(output, "to");
+        return (
+          <BasicToolInfo
+            key={toolCallId}
+            text={`Forwarded email${to ? ` to ${to}` : ""}`}
+          />
+        );
+      },
+    });
   }
 
   if (part.type === "tool-getUserRulesAndSettings") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <BasicToolInfo key={toolCallId} text="Reading rules and settings..." />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return <BasicToolInfo key={toolCallId} text="Read rules and settings" />;
-    }
+    return renderToolStatus({
+      part,
+      loadingText: "Reading rules and settings...",
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo key={toolCallId} text="Read rules and settings" />
+      ),
+    });
   }
 
   if (part.type === "tool-getLearnedPatterns") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <BasicToolInfo key={toolCallId} text="Reading learned patterns..." />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return <BasicToolInfo key={toolCallId} text="Read learned patterns" />;
-    }
+    return renderToolStatus({
+      part,
+      loadingText: "Reading learned patterns...",
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo key={toolCallId} text="Read learned patterns" />
+      ),
+    });
   }
 
   if (part.type === "tool-createRule") {
@@ -491,41 +443,33 @@ export function MessagePart({
   }
 
   if (part.type === "tool-saveMemory") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Saving memory..." />;
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return <BasicToolInfo key={toolCallId} text="Memory saved" />;
-    }
+    return renderToolStatus({
+      part,
+      loadingText: "Saving memory...",
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo key={toolCallId} text="Memory saved" />
+      ),
+    });
   }
 
   if (part.type === "tool-searchMemories") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Searching memories..." />;
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      const memories = getOutputField<Array<unknown>>(output, "memories");
-      const memoriesCount = Array.isArray(memories) ? memories.length : null;
-      if (memoriesCount === 0) {
-        return <BasicToolInfo key={toolCallId} text="No memories found" />;
-      }
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text={`Found ${memoriesCount ?? "matching"} memories`}
-        />
-      );
-    }
+    return renderToolStatus({
+      part,
+      loadingText: "Searching memories...",
+      renderSuccess: ({ toolCallId, output }) => {
+        const memories = getOutputField<Array<unknown>>(output, "memories");
+        const memoriesCount = Array.isArray(memories) ? memories.length : null;
+        if (memoriesCount === 0) {
+          return <BasicToolInfo key={toolCallId} text="No memories found" />;
+        }
+        return (
+          <BasicToolInfo
+            key={toolCallId}
+            text={`Found ${memoriesCount ?? "matching"} memories`}
+          />
+        );
+      },
+    });
   }
 
   if (part.type.startsWith("tool-")) {
@@ -536,30 +480,13 @@ export function MessagePart({
       output?: unknown;
     };
     const toolLabel = formatToolLabel(toolPart.type);
-    if (toolPart.state === "input-available") {
-      return (
-        <BasicToolInfo
-          key={toolPart.toolCallId}
-          text={`Running ${toolLabel}...`}
-        />
-      );
-    }
-    if (toolPart.state === "output-available") {
-      if (isOutputWithError(toolPart.output)) {
-        return (
-          <ErrorToolCard
-            key={toolPart.toolCallId}
-            error={String(toolPart.output.error)}
-          />
-        );
-      }
-      return (
-        <BasicToolInfo
-          key={toolPart.toolCallId}
-          text={`Completed ${toolLabel}`}
-        />
-      );
-    }
+    return renderToolStatus({
+      part: toolPart,
+      loadingText: `Running ${toolLabel}...`,
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo key={toolCallId} text={`Completed ${toolLabel}`} />
+      ),
+    });
   }
 
   return null;
@@ -574,4 +501,37 @@ function getInProgressManageInboxOutput(input: {
     senders: input.fromEmails ?? [],
     sendersCount: input.fromEmails?.length ?? 0,
   };
+}
+
+function renderToolStatus({
+  part,
+  loadingText,
+  renderSuccess,
+}: {
+  part: {
+    toolCallId: string;
+    state: string;
+    output?: unknown;
+  };
+  loadingText: string;
+  renderSuccess: (args: { toolCallId: string; output: unknown }) => ReactNode;
+}) {
+  if (part.state === "input-available") {
+    return <BasicToolInfo key={part.toolCallId} text={loadingText} />;
+  }
+
+  if (part.state === "output-available") {
+    if (isOutputWithError(part.output)) {
+      return (
+        <ErrorToolCard
+          key={part.toolCallId}
+          error={String(part.output.error)}
+        />
+      );
+    }
+
+    return renderSuccess({ toolCallId: part.toolCallId, output: part.output });
+  }
+
+  return null;
 }
