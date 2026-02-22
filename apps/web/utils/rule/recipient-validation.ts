@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { ActionType } from "@/generated/prisma/enums";
 
 export function getMissingRecipientMessage({
@@ -18,4 +19,34 @@ export function getMissingRecipientMessage({
   return actionType === ActionType.SEND_EMAIL
     ? sendEmailMessage
     : forwardMessage;
+}
+
+export function addMissingRecipientIssue({
+  actionType,
+  recipient,
+  ctx,
+  path,
+  forwardMessage,
+  sendEmailMessage,
+}: {
+  actionType: ActionType;
+  recipient: string | null | undefined;
+  ctx: z.RefinementCtx;
+  path: (string | number)[];
+  forwardMessage: string;
+  sendEmailMessage: string;
+}) {
+  const message = getMissingRecipientMessage({
+    actionType,
+    recipient,
+    forwardMessage,
+    sendEmailMessage,
+  });
+  if (!message) return;
+
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message,
+    path,
+  });
 }
