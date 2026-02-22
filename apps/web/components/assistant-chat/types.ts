@@ -4,14 +4,17 @@ import type {
   CreateRuleTool,
   ForwardEmailTool,
   GetAccountOverviewTool,
+  GetAssistantCapabilitiesTool,
   GetLearnedPatternsTool,
   GetUserRulesAndSettingsTool,
   ManageInboxTool,
   ReadEmailTool,
+  ReplyEmailTool,
   SearchInboxTool,
   SaveMemoryTool,
   SearchMemoriesTool,
   SendEmailTool,
+  UpdateAssistantSettingsTool,
   UpdateInboxFeaturesTool,
   UpdateAboutTool,
   UpdateLearnedPatternsTool,
@@ -26,6 +29,8 @@ import type {
 // export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 
 export type ChatTools = {
+  getAssistantCapabilities: GetAssistantCapabilitiesTool;
+  updateAssistantSettings: UpdateAssistantSettingsTool;
   getAccountOverview: GetAccountOverviewTool;
   searchInbox: SearchInboxTool;
   readEmail: ReadEmailTool;
@@ -42,6 +47,7 @@ export type ChatTools = {
   saveMemory: SaveMemoryTool;
   searchMemories: SearchMemoriesTool;
   sendEmail: SendEmailTool;
+  replyEmail: ReplyEmailTool;
   forwardEmail: ForwardEmailTool;
 };
 
