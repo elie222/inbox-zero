@@ -242,7 +242,7 @@ describe("aiProcessAssistantChat", () => {
       role: "assistant",
       content: "assistant response",
     });
-    expect(args.messages[3].role).toBe("system");
+    expect(args.messages[3].role).toBe("user");
     expect(args.messages[3].content).toContain(
       "Memories from previous conversations:",
     );
@@ -329,7 +329,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "system" &&
+        message.role === "user" &&
         message.content.includes("Hidden context for the user's request"),
     );
 
@@ -387,7 +387,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "system" &&
+        message.role === "user" &&
         message.content.includes("Hidden context for the user's request"),
     );
 
@@ -444,7 +444,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "system" &&
+        message.role === "user" &&
         message.content.includes("Hidden context for the user's request"),
     );
 
@@ -506,7 +506,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "system" &&
+        message.role === "user" &&
         message.content.includes("Hidden context for the user's request"),
     );
 
@@ -569,7 +569,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "system" &&
+        message.role === "user" &&
         message.content.includes("Hidden context for the user's request"),
     );
 
@@ -629,7 +629,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "system" &&
+        message.role === "user" &&
         message.content.includes("Hidden context for the user's request"),
     );
 
@@ -700,7 +700,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const hiddenContext = args.messages.find(
       (message: { role: string; content: string }) =>
-        message.role === "system" &&
+        message.role === "user" &&
         message.content.includes("Hidden context for the user's request"),
     );
 
@@ -1104,7 +1104,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const memoriesMessage = args.messages.find(
       (m: { role: string; content: string }) =>
-        m.role === "system" &&
+        m.role === "user" &&
         m.content.includes("Memories from previous conversations"),
     );
 
@@ -1137,7 +1137,7 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     const memoriesMessage = args.messages.find(
       (m: { role: string; content: string }) =>
-        m.role === "system" &&
+        m.role === "user" &&
         m.content.includes("Memories from previous conversations"),
     );
 

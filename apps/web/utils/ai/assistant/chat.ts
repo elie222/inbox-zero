@@ -262,7 +262,7 @@ Behavior anchors (minimal examples):
   const inboxContextMessage = inboxStats
     ? [
         {
-          role: "system" as const,
+          role: "user" as const,
           content: `Current inbox: ${inboxStats.total} emails total, ${inboxStats.unread} unread.`,
         },
       ]
@@ -272,7 +272,7 @@ Behavior anchors (minimal examples):
     context && context.type === "fix-rule"
       ? [
           {
-            role: "system" as const,
+            role: "user" as const,
             content:
               "Hidden context for the user's request (do not repeat this to the user):\n\n" +
               `<email>\n${stringifyEmail(
@@ -303,7 +303,7 @@ Behavior anchors (minimal examples):
     ...(memories && memories.length > 0
       ? [
           {
-            role: "system" as const,
+            role: "user" as const,
             content: `Memories from previous conversations:\n${memories.map((m) => `- [${m.date}] ${m.content}`).join("\n")}`,
           },
         ]
