@@ -123,4 +123,92 @@ describe("createGenerateText fallback chain", () => {
       }),
     );
   });
+
+  it("sets openrouter user from internal user id", async () => {
+    const model = { id: "openrouter-model" };
+    const modelOptions: SelectModel = {
+      provider: "openrouter",
+      modelName: "openrouter-primary",
+      model: model as SelectModel["model"],
+      providerOptions: {
+        openrouter: {
+          provider: {
+            order: ["Anthropic"],
+          },
+        },
+      },
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+      toolCalls: [],
+    });
+
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "user-123",
+      },
+      label: "OpenRouter user metadata",
+      modelOptions,
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: model as SelectModel["model"],
+    });
+
+    expect(mockGenerateText).toHaveBeenCalledTimes(1);
+    const providerOptions = mockGenerateText.mock.calls[0][0].providerOptions;
+    expect(providerOptions.openrouter.user).toBe("user-123");
+    expect(providerOptions.openrouter.provider).toEqual({
+      order: ["Anthropic"],
+    });
+  });
+
+  it("keeps explicit openrouter user when request provides one", async () => {
+    const model = { id: "openrouter-model" };
+    const modelOptions: SelectModel = {
+      provider: "openrouter",
+      modelName: "openrouter-primary",
+      model: model as SelectModel["model"],
+      providerOptions: undefined,
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+      toolCalls: [],
+    });
+
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "internal-user-id",
+      },
+      label: "OpenRouter user override",
+      modelOptions,
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: model as SelectModel["model"],
+      providerOptions: {
+        openrouter: {
+          user: "explicit-user-id",
+        },
+      },
+    });
+
+    expect(mockGenerateText).toHaveBeenCalledTimes(1);
+    const providerOptions = mockGenerateText.mock.calls[0][0].providerOptions;
+    expect(providerOptions.openrouter.user).toBe("explicit-user-id");
+  });
 });

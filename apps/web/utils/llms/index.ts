@@ -39,6 +39,7 @@ import {
   type ResolvedModel,
   type SelectModel,
 } from "@/utils/llms/model";
+import { Provider } from "@/utils/llms/config";
 import { createScopedLogger } from "@/utils/logger";
 import {
   extractLLMErrorInfo,
@@ -82,15 +83,22 @@ export function createGenerateText({
         prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
 
+      const mergedProviderOptions = {
+        ...commonOptions.providerOptions,
+        ...candidate.providerOptions,
+        ...options.providerOptions,
+      } as LLMProviderOptions;
+      const providerOptions = withOpenRouterUserId({
+        provider: candidate.provider,
+        providerOptions: mergedProviderOptions,
+        userId: emailAccount.userId,
+      });
+
       const result = await generateText(
         {
           ...options,
           ...commonOptions,
-          providerOptions: {
-            ...commonOptions.providerOptions,
-            ...candidate.providerOptions,
-            ...options.providerOptions,
-          },
+          providerOptions,
           model: candidate.model,
         },
         ...restArgs,
@@ -187,6 +195,17 @@ export function createGenerateObject({
         logger.warn("Missing JSON in prompt", { label });
       }
 
+      const mergedProviderOptions = {
+        ...commonOptions.providerOptions,
+        ...candidate.providerOptions,
+        ...options.providerOptions,
+      } as LLMProviderOptions;
+      const providerOptions = withOpenRouterUserId({
+        provider: candidate.provider,
+        providerOptions: mergedProviderOptions,
+        userId: emailAccount.userId,
+      });
+
       const result = await generateObject(
         {
           experimental_repairText: async ({ text }) => {
@@ -196,11 +215,7 @@ export function createGenerateObject({
           },
           ...options,
           ...commonOptions,
-          providerOptions: {
-            ...commonOptions.providerOptions,
-            ...candidate.providerOptions,
-            ...options.providerOptions,
-          },
+          providerOptions,
           model: candidate.model,
         },
         ...restArgs,
@@ -275,6 +290,7 @@ export async function chatCompletionStream({
   messages,
   tools,
   maxSteps,
+  userId,
   userEmail,
   usageLabel: label,
   providerOptions: requestProviderOptions,
@@ -286,6 +302,7 @@ export async function chatCompletionStream({
   messages: ModelMessage[];
   tools?: Record<string, Tool>;
   maxSteps?: number;
+  userId?: string;
   userEmail: string;
   usageLabel: string;
   providerOptions?: LLMProviderOptions;
@@ -303,6 +320,11 @@ export async function chatCompletionStream({
       candidate.providerOptions as LLMProviderOptions | undefined,
       requestProviderOptions,
     );
+    const providerOptions = withOpenRouterUserId({
+      provider: candidate.provider,
+      providerOptions: mergedProviderOptions,
+      userId,
+    });
 
     try {
       return streamText({
@@ -311,9 +333,7 @@ export async function chatCompletionStream({
         tools,
         stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
         ...commonOptions,
-        providerOptions: {
-          ...mergedProviderOptions,
-        },
+        providerOptions: providerOptions,
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish,
         onFinish: async (result) => {
@@ -389,6 +409,7 @@ export async function toolCallAgentStream({
   messages,
   tools,
   maxSteps,
+  userId,
   userEmail,
   usageLabel: label,
   providerOptions: requestProviderOptions,
@@ -400,6 +421,7 @@ export async function toolCallAgentStream({
   messages: ModelMessage[];
   tools?: Record<string, Tool>;
   maxSteps?: number;
+  userId?: string;
   userEmail: string;
   usageLabel: string;
   providerOptions?: LLMProviderOptions;
@@ -417,13 +439,18 @@ export async function toolCallAgentStream({
       candidate.providerOptions as LLMProviderOptions | undefined,
       requestProviderOptions,
     );
+    const providerOptions = withOpenRouterUserId({
+      provider: candidate.provider,
+      providerOptions: mergedProviderOptions,
+      userId,
+    });
 
     const agent = new ToolLoopAgent({
       model: candidate.model,
       tools,
       stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
       ...commonOptions,
-      providerOptions: mergedProviderOptions,
+      providerOptions,
       onFinish: async (result) => {
         const usagePromise = saveAiUsage({
           email: userEmail,
@@ -651,4 +678,29 @@ function mergeProviderOptions(
   }
 
   return merged;
+}
+
+function withOpenRouterUserId({
+  provider,
+  providerOptions,
+  userId,
+}: {
+  provider: string;
+  providerOptions: LLMProviderOptions;
+  userId?: string;
+}) {
+  if (provider !== Provider.OPENROUTER || !userId) return providerOptions;
+
+  const openRouterOptions = providerOptions.openrouter || {};
+  if (typeof openRouterOptions.user === "string" && openRouterOptions.user) {
+    return providerOptions;
+  }
+
+  return {
+    ...providerOptions,
+    openrouter: {
+      ...openRouterOptions,
+      user: userId,
+    },
+  };
 }
