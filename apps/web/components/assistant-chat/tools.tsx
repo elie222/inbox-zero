@@ -70,7 +70,7 @@ function CollapsibleToolCard({
   const [open, setOpen] = useState(initialOpen);
 
   return (
-    <Card className="mb-4 p-4">
+    <Card className="p-4">
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger className="flex w-full items-center gap-2 text-sm">
           <ChevronRightIcon
@@ -654,7 +654,7 @@ function RuleActions({ ruleId }: { ruleId: string }) {
 }
 
 function ToolCard({ children }: { children: React.ReactNode }) {
-  return <Card className="mb-4 space-y-3 p-4">{children}</Card>;
+  return <Card className="space-y-3 p-4">{children}</Card>;
 }
 
 function ToolCardHeader({
