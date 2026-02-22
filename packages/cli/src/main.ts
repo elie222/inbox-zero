@@ -252,6 +252,18 @@ async function main() {
     .option("--bedrock-region <region>", "AWS region for Bedrock")
     .option("--ollama-base-url <url>", "Ollama base URL")
     .option("--ollama-model <model>", "Ollama model name")
+    .option(
+      "--openai-compatible-base-url <url>",
+      "OpenAI-compatible server base URL",
+    )
+    .option(
+      "--openai-compatible-model <model>",
+      "OpenAI-compatible server model name",
+    )
+    .option(
+      "--openai-compatible-api-key <key>",
+      "OpenAI-compatible server API key (optional)",
+    )
     .option("--microsoft-client-id <id>", "Microsoft OAuth client ID")
     .option(
       "--microsoft-client-secret <secret>",
@@ -461,10 +473,7 @@ async function runSetupQuick(options: { name?: string }) {
 
   // ── AI Provider ──
 
-  p.note(
-    "Choose which AI service will process your emails.",
-    "AI Provider",
-  );
+  p.note("Choose which AI service will process your emails.", "AI Provider");
 
   const llmProvider = await p.select({
     message: "AI Provider",
@@ -1726,6 +1735,11 @@ const LLM_PROVIDER_OPTIONS = [
   { value: "bedrock", label: "AWS Bedrock" },
   { value: "groq", label: "Groq" },
   { value: "ollama", label: "Ollama", hint: "self-hosted" },
+  {
+    value: "openai-compatible",
+    label: "OpenAI-Compatible",
+    hint: "self-hosted (LM Studio, vLLM, etc.)",
+  },
 ];
 
 const LLM_LINKS: Record<string, string> = {
@@ -1803,6 +1817,40 @@ async function promptOllamaCreds(): Promise<{
   };
 }
 
+async function promptOpenAICompatibleCreds(): Promise<{
+  baseUrl: string;
+  model: string;
+  apiKey?: string;
+}> {
+  const creds = await p.group(
+    {
+      baseUrl: () =>
+        p.text({
+          message: "OpenAI-Compatible Base URL",
+          placeholder: "http://localhost:1234/v1",
+          initialValue: "http://localhost:1234/v1",
+        }),
+      model: () =>
+        p.text({
+          message: "Model Name",
+          placeholder: "llama-3.2-3b-instruct",
+          validate: (v) => (!v ? "Model name is required" : undefined),
+        }),
+      apiKey: () =>
+        p.text({
+          message: "API Key (optional — press Enter to skip)",
+          placeholder: "leave blank if not required",
+        }),
+    },
+    { onCancel: cancelSetup },
+  );
+  return {
+    baseUrl: creds.baseUrl || "http://localhost:1234/v1",
+    model: creds.model,
+    apiKey: creds.apiKey || undefined,
+  };
+}
+
 async function promptBedrockCreds(): Promise<{
   accessKey: string;
   secretKey: string;
@@ -1856,7 +1904,15 @@ async function promptLlmCredentials(
   provider: string,
   env: EnvConfig,
 ): Promise<void> {
-  if (provider === "ollama") {
+  if (provider === "openai-compatible") {
+    const creds = await promptOpenAICompatibleCreds();
+    env.OPENAI_COMPATIBLE_BASE_URL = creds.baseUrl;
+    env.OPENAI_COMPATIBLE_MODEL = creds.model;
+    if (creds.apiKey) env.OPENAI_COMPATIBLE_API_KEY = creds.apiKey;
+    env.DEFAULT_LLM_MODEL = creds.model;
+    env.ECONOMY_LLM_PROVIDER = provider;
+    env.ECONOMY_LLM_MODEL = creds.model;
+  } else if (provider === "ollama") {
     const ollama = await promptOllamaCreds();
     env.OLLAMA_BASE_URL = ollama.baseUrl;
     env.OLLAMA_MODEL = ollama.model;

@@ -166,6 +166,37 @@ BEDROCK_REGION=
     expect(result).toContain("BEDROCK_REGION=us-west-2");
   });
 
+  it("should handle OpenAI-compatible provider settings", () => {
+    const openaiCompatibleEnv: EnvConfig = {
+      ...baseEnv,
+      DEFAULT_LLM_PROVIDER: "openai-compatible",
+      DEFAULT_LLM_MODEL: "llama-3.2-3b-instruct",
+      OPENAI_COMPATIBLE_BASE_URL: "http://localhost:1234/v1",
+      OPENAI_COMPATIBLE_MODEL: "llama-3.2-3b-instruct",
+      OPENAI_COMPATIBLE_API_KEY: "lm-studio-key",
+    };
+
+    const templateWithOpenAICompatible = `${baseTemplate}
+OPENAI_COMPATIBLE_BASE_URL=
+OPENAI_COMPATIBLE_MODEL=
+OPENAI_COMPATIBLE_API_KEY=
+`;
+
+    const result = generateEnvFile({
+      env: openaiCompatibleEnv,
+      useDockerInfra: false,
+      llmProvider: "openai-compatible",
+      template: templateWithOpenAICompatible,
+    });
+
+    expect(result).toContain(
+      "OPENAI_COMPATIBLE_BASE_URL=http://localhost:1234/v1",
+    );
+    expect(result).toContain("OPENAI_COMPATIBLE_MODEL=llama-3.2-3b-instruct");
+    expect(result).toContain("OPENAI_COMPATIBLE_API_KEY=lm-studio-key");
+    expect(result).toContain("DEFAULT_LLM_PROVIDER=openai-compatible");
+  });
+
   it("should handle commented lines in template", () => {
     const templateWithComments = `# Config
 # DATABASE_URL=commented-placeholder

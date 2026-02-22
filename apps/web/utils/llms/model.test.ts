@@ -40,6 +40,10 @@ vi.mock("ollama-ai-provider-v2", () => ({
   createOllama: vi.fn(() => (model: string) => ({ model })),
 }));
 
+vi.mock("@ai-sdk/openai-compatible", () => ({
+  createOpenAICompatible: vi.fn(() => (model: string) => ({ model })),
+}));
+
 vi.mock("@/env", () => ({
   env: {
     DEFAULT_LLM_PROVIDER: "openai",
@@ -65,6 +69,9 @@ vi.mock("@/env", () => ({
     OPENROUTER_API_KEY: "test-openrouter-key",
     OLLAMA_BASE_URL: "http://localhost:11434/api",
     OLLAMA_MODEL: "llama3",
+    OPENAI_COMPATIBLE_BASE_URL: "http://localhost:1234/v1",
+    OPENAI_COMPATIBLE_MODEL: "llama-3.2-3b-instruct",
+    OPENAI_COMPATIBLE_API_KEY: undefined,
     BEDROCK_REGION: "us-west-2",
     BEDROCK_ACCESS_KEY: "",
     BEDROCK_SECRET_KEY: "",
@@ -533,6 +540,56 @@ describe("Models", () => {
 
       vi.mocked(env).DEFAULT_LLM_FALLBACKS = "ollama:llama3";
       vi.mocked(env).OLLAMA_MODEL = undefined;
+
+      const result = getModel(userAi);
+
+      expect(result.fallbackModels).toEqual([]);
+    });
+
+    it("should configure OpenAI-compatible provider via env vars", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai-compatible";
+      vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
+      vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
+      vi.mocked(env).OPENAI_COMPATIBLE_API_KEY = undefined;
+
+      const result = getModel(userAi);
+      expect(result.provider).toBe(Provider.OPENAI_COMPATIBLE);
+      expect(result.modelName).toBe("llama-3.2-3b-instruct");
+      expect(result.model).toBeDefined();
+    });
+
+    it("should configure OpenAI-compatible provider without an API key", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai-compatible";
+      vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
+      vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
+      vi.mocked(env).OPENAI_COMPATIBLE_API_KEY = undefined;
+
+      const result = getModel(userAi);
+      expect(result.provider).toBe(Provider.OPENAI_COMPATIBLE);
+      expect(result.modelName).toBe("llama-3.2-3b-instruct");
+    });
+
+    it("should skip OpenAI-compatible fallback when OPENAI_COMPATIBLE_MODEL is not set", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_FALLBACKS = "openai-compatible:llama3";
+      vi.mocked(env).OPENAI_COMPATIBLE_MODEL = undefined;
 
       const result = getModel(userAi);
 

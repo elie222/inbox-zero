@@ -10,6 +10,7 @@ export const Provider = {
   OPENROUTER: "openrouter",
   AI_GATEWAY: "aigateway",
   OLLAMA: "ollama",
+  OPENAI_COMPATIBLE: "openai-compatible",
 };
 
 export const providerOptions: { label: string; value: string }[] = [

@@ -9,6 +9,7 @@ import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
 import { createOllama } from "ollama-ai-provider-v2";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { env } from "@/env";
 import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -206,6 +207,27 @@ function selectModel(
         provider: Provider.OLLAMA,
         modelName,
         model: createOllama({ baseURL: env.OLLAMA_BASE_URL })(modelName),
+      };
+    }
+    case Provider.OPENAI_COMPATIBLE: {
+      const modelName = aiModel || env.OPENAI_COMPATIBLE_MODEL;
+      if (!modelName)
+        throw new Error(
+          "OPENAI_COMPATIBLE_MODEL environment variable is not set",
+        );
+      const baseURL =
+        env.OPENAI_COMPATIBLE_BASE_URL || "http://localhost:1234/v1";
+      const openaiCompatible = createOpenAICompatible({
+        name: "openai-compatible",
+        baseURL,
+        ...(aiApiKey || env.OPENAI_COMPATIBLE_API_KEY
+          ? { apiKey: aiApiKey || env.OPENAI_COMPATIBLE_API_KEY }
+          : {}),
+      });
+      return {
+        provider: Provider.OPENAI_COMPATIBLE,
+        modelName,
+        model: openaiCompatible(modelName),
       };
     }
 
@@ -415,6 +437,10 @@ function getProviderApiKey(provider: string) {
     [Provider.OPENROUTER]: env.OPENROUTER_API_KEY,
     [Provider.AI_GATEWAY]: env.AI_GATEWAY_API_KEY,
     [Provider.OLLAMA]: "ollama-local",
+    // Returns a placeholder so the fallback chain doesn't skip this provider
+    // when no API key is configured (many OpenAI-compatible servers don't require one)
+    [Provider.OPENAI_COMPATIBLE]:
+      env.OPENAI_COMPATIBLE_API_KEY || "not-required",
   };
 
   return providerApiKeys[provider];
@@ -470,6 +496,17 @@ function getFallbackModels({
       logger.warn("Skipping Ollama fallback without OLLAMA_MODEL", {
         provider: fallback.provider,
       });
+      continue;
+    }
+
+    if (
+      fallback.provider === Provider.OPENAI_COMPATIBLE &&
+      !env.OPENAI_COMPATIBLE_MODEL
+    ) {
+      logger.warn(
+        "Skipping OpenAI-compatible fallback without OPENAI_COMPATIBLE_MODEL",
+        { provider: fallback.provider },
+      );
       continue;
     }
 

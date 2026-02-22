@@ -13,6 +13,7 @@ const llmProviderEnum = z.enum([
   "groq",
   "aigateway",
   "ollama",
+  "openai-compatible",
 ]);
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
@@ -80,6 +81,9 @@ export const env = createEnv({
     PERPLEXITY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
     OLLAMA_MODEL: z.string().optional(),
+    OPENAI_COMPATIBLE_BASE_URL: z.string().optional(),
+    OPENAI_COMPATIBLE_MODEL: z.string().optional(),
+    OPENAI_COMPATIBLE_API_KEY: z.string().optional(), // optional — not all servers require auth
 
     OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
 

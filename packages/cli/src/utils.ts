@@ -121,6 +121,13 @@ export function generateEnvFile(config: {
     setValue("BEDROCK_ACCESS_KEY", env.BEDROCK_ACCESS_KEY);
     setValue("BEDROCK_SECRET_KEY", env.BEDROCK_SECRET_KEY);
     setValue("BEDROCK_REGION", env.BEDROCK_REGION);
+  } else if (llmProvider === "ollama") {
+    setValue("OLLAMA_BASE_URL", env.OLLAMA_BASE_URL);
+    setValue("OLLAMA_MODEL", env.OLLAMA_MODEL);
+  } else if (llmProvider === "openai-compatible") {
+    setValue("OPENAI_COMPATIBLE_BASE_URL", env.OPENAI_COMPATIBLE_BASE_URL);
+    setValue("OPENAI_COMPATIBLE_MODEL", env.OPENAI_COMPATIBLE_MODEL);
+    setValue("OPENAI_COMPATIBLE_API_KEY", env.OPENAI_COMPATIBLE_API_KEY);
   } else {
     const apiKeyMap: Record<string, string> = {
       anthropic: "ANTHROPIC_API_KEY",
