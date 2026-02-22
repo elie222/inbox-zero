@@ -6,6 +6,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 
@@ -28,6 +29,8 @@ export function SideNavMenu({
   items: NavItem[];
   activeHref: string;
 }) {
+  const { isMobile, setOpenMobile } = useSidebar();
+
   return (
     <SidebarMenu>
       {items.map((item) => (
@@ -39,7 +42,12 @@ export function SideNavMenu({
             tooltip={item.name}
             sidebarName="left-sidebar"
           >
-            <Link href={item.href}>
+            <Link
+              href={item.href}
+              onClick={() => {
+                if (isMobile) setOpenMobile([]);
+              }}
+            >
               <item.icon />
               <span>{item.name}</span>
               {item.new && (

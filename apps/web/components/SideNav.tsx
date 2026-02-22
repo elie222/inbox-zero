@@ -247,7 +247,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
     [showMailNav],
   );
 
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -305,14 +305,25 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         )}
 
         <SidebarMenuButton asChild>
-          <Link href="https://docs.getinboxzero.com" target="_blank">
+          <Link
+            href="https://docs.getinboxzero.com"
+            target="_blank"
+            onClick={() => {
+              if (isMobile) setOpenMobile([]);
+            }}
+          >
             <BookIcon className="size-4" />
             <span className="font-semibold">Help Center</span>
           </Link>
         </SidebarMenuButton>
 
         <SidebarMenuButton asChild>
-          <Link href="/settings">
+          <Link
+            href="/settings"
+            onClick={() => {
+              if (isMobile) setOpenMobile([]);
+            }}
+          >
             <SettingsIcon className="size-4" />
             <span className="font-semibold">Settings</span>
           </Link>
