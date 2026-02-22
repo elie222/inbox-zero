@@ -325,6 +325,8 @@ Behavior anchors (minimal examples):
 
   const result = toolCallAgentStream({
     userAi: user.user,
+    userId: user.userId,
+    emailAccountId,
     userEmail: user.email,
     modelType: "chat",
     usageLabel: "assistant-chat",

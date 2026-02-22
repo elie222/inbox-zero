@@ -123,4 +123,108 @@ describe("createGenerateText fallback chain", () => {
       }),
     );
   });
+
+  it("sets openrouter user from internal user id", async () => {
+    const model = { id: "openrouter-model" };
+    const modelOptions: SelectModel = {
+      provider: "openrouter",
+      modelName: "openrouter-primary",
+      model: model as SelectModel["model"],
+      providerOptions: {
+        openrouter: {
+          provider: {
+            order: ["Anthropic"],
+          },
+        },
+      },
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+      toolCalls: [],
+    });
+
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "user-123",
+      },
+      label: "OpenRouter user metadata",
+      modelOptions,
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: model as SelectModel["model"],
+    });
+
+    expect(mockGenerateText).toHaveBeenCalledTimes(1);
+    const providerOptions = mockGenerateText.mock.calls[0][0].providerOptions;
+    expect(providerOptions.openrouter.user).toBe("user-123");
+    expect(providerOptions.openrouter.provider).toEqual({
+      order: ["Anthropic"],
+    });
+    expect(providerOptions.openrouter.extraBody.trace.generation_name).toBe(
+      "OpenRouter user metadata",
+    );
+    expect(providerOptions.openrouter.extraBody.trace.email_account_id).toBe(
+      "email-account-1",
+    );
+  });
+
+  it("keeps explicit openrouter user and trace when request provides them", async () => {
+    const model = { id: "openrouter-model" };
+    const modelOptions: SelectModel = {
+      provider: "openrouter",
+      modelName: "openrouter-primary",
+      model: model as SelectModel["model"],
+      providerOptions: undefined,
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+      toolCalls: [],
+    });
+
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "internal-user-id",
+      },
+      label: "OpenRouter user override",
+      modelOptions,
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: model as SelectModel["model"],
+      providerOptions: {
+        openrouter: {
+          user: "explicit-user-id",
+          extraBody: {
+            trace: {
+              generation_name: "explicit-generation",
+              email_account_id: "explicit-email-account-id",
+            },
+          },
+        },
+      },
+    });
+
+    expect(mockGenerateText).toHaveBeenCalledTimes(1);
+    const providerOptions = mockGenerateText.mock.calls[0][0].providerOptions;
+    expect(providerOptions.openrouter.user).toBe("explicit-user-id");
+    expect(providerOptions.openrouter.extraBody.trace).toEqual({
+      generation_name: "explicit-generation",
+      email_account_id: "explicit-email-account-id",
+    });
+  });
 });
