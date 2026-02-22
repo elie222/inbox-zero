@@ -13,10 +13,23 @@ import { FAQs } from "@/app/(landing)/home/FAQs";
 import { FinalCTA } from "@/app/(landing)/home/FinalCTA";
 import { WordReveal } from "@/components/new-landing/common/WordReveal";
 import { BrandScroller } from "@/components/new-landing/BrandScroller";
+import { env } from "@/env";
+import { BRAND_NAME } from "@/utils/branding";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default function NewLanding() {
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
+    return (
+      <BasicLayout>
+        <Hero
+          title={`${BRAND_NAME} for self-hosted teams`}
+          subtitle={`Deploy ${BRAND_NAME} on your own infrastructure and automate your inbox with full data control.`}
+        />
+      </BasicLayout>
+    );
+  }
+
   return (
     <BasicLayout>
       <Hero
@@ -35,7 +48,7 @@ export default function NewLanding() {
             ]}
           />
         }
-        subtitle="Inbox Zero organizes your inbox and calendar, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again."
+        subtitle={`${BRAND_NAME} organizes your inbox and calendar, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again.`}
       >
         <HeroVideoPlayer />
         <BrandScroller />

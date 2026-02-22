@@ -9,6 +9,7 @@ import {
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { getEmailTerminology } from "@/utils/terminology";
 import type { EmailLabel } from "@/providers/EmailProvider";
+import { BRAND_NAME } from "@/utils/branding";
 
 export function ActionSummaryCard({
   action,
@@ -205,8 +206,7 @@ export function ActionSummaryCard({
 
     case ActionType.NOTIFY_SENDER:
       summaryContent = "Notify sender";
-      tooltipText =
-        "Sends an automated notification from Inbox Zero (not from your email) informing the sender their email was filtered as cold outreach.";
+      tooltipText = `Sends an automated notification from ${BRAND_NAME} (not from your email) informing the sender their email was filtered as cold outreach.`;
       break;
 
     default:

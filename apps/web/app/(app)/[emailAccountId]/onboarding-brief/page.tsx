@@ -4,9 +4,10 @@ import { cookies } from "next/headers";
 import { MeetingBriefsOnboardingContent } from "./MeetingBriefsOnboardingContent";
 import { registerUtmTracking } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
+import { getBrandTitle } from "@/utils/branding";
 
 export const metadata: Metadata = {
-  title: "Meeting Briefs Setup | Inbox Zero",
+  title: getBrandTitle("Meeting Briefs Setup"),
   description:
     "Set up meeting briefs to receive personalized briefings before your meetings.",
   alternates: { canonical: "/onboarding-brief" },

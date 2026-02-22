@@ -1,5 +1,6 @@
 // copy pasted from PostHog
 import { USER_ROLES } from "@/utils/constants/user-roles";
+import { BRAND_NAME } from "@/utils/branding";
 
 export const survey = {
   questions: [
@@ -25,7 +26,7 @@ export const survey = {
     {
       key: "goal",
       type: "single_choice",
-      question: "What are you looking to achieve with Inbox Zero?",
+      question: `What are you looking to achieve with ${BRAND_NAME}?`,
       choices: [
         "Clean up my existing emails",
         "Manage my inbox better going forward",
@@ -48,7 +49,7 @@ export const survey = {
     {
       key: "source",
       type: "single_choice",
-      question: "How did you hear about Inbox Zero?",
+      question: `How did you hear about ${BRAND_NAME}?`,
       choices: [
         "Search",
         "Friend",

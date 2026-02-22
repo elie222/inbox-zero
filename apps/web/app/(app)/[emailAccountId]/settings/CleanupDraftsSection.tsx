@@ -14,6 +14,7 @@ import {
 import { cleanupAIDraftsAction } from "@/utils/actions/user";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
+import { BRAND_NAME } from "@/utils/branding";
 
 export function CleanupDraftsSection({
   emailAccountId,
@@ -60,8 +61,7 @@ export function CleanupDraftsSection({
         <ItemContent>
           <ItemTitle>Clean Up AI Drafts</ItemTitle>
           <ItemDescription>
-            Delete drafts created by Inbox Zero that are older than 3 days and
-            haven&apos;t been edited by you
+            {`Delete drafts created by ${BRAND_NAME} that are older than 3 days and haven't been edited by you`}
           </ItemDescription>
         </ItemContent>
         <ItemActions>

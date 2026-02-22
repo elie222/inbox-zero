@@ -16,6 +16,7 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { cn } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { saveOnboardingFeaturesAction } from "@/utils/actions/onboarding";
+import { BRAND_NAME } from "@/utils/branding";
 
 // `value` is the value that will be saved to the database
 const choices = [
@@ -64,7 +65,7 @@ export function StepFeatures({ onNext }: { onNext: () => void }) {
       </IconCircle>
 
       <div className="text-center mt-4">
-        <PageHeading>How would you like to use Inbox Zero?</PageHeading>
+        <PageHeading>{`How would you like to use ${BRAND_NAME}?`}</PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
           Select as many as you want.
         </TypographyP>

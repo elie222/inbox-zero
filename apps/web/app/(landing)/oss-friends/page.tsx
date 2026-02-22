@@ -10,9 +10,10 @@ import {
 } from "@/components/new-landing/common/Typography";
 import { Button } from "@/components/new-landing/common/Button";
 import { BlogHeader } from "@/components/layouts/BlogLayout";
+import { getBrandTitle } from "@/utils/branding";
 
 export const metadata: Metadata = {
-  title: "Open Source Friends | Inbox Zero",
+  title: getBrandTitle("Open Source Friends"),
   description: "Some other great Open Source projects to follow",
   alternates: { canonical: "/oss-friends" },
 };

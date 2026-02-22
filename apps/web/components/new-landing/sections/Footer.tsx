@@ -6,6 +6,7 @@ import { FooterLineLogo } from "@/components/new-landing/FooterLineLogo";
 import { Paragraph } from "@/components/new-landing/common/Typography";
 import { UnicornScene } from "@/components/new-landing/UnicornScene";
 import { footerNavigation } from "@/app/(landing)/home/Footer";
+import { BRAND_LOGO_URL } from "@/utils/branding";
 
 interface FooterProps {
   className: string;
@@ -120,7 +121,7 @@ export function Footer({ className, variant = "default" }: FooterProps) {
           </div>
         </div>
       </div>
-      {variant === "default" ? (
+      {variant === "default" && !BRAND_LOGO_URL ? (
         <FooterLineLogo className="hidden xl:block absolute bottom-0 left-1/2 -translate-x-1/2 mx-auto px-6 lg:px-8 -z-10" />
       ) : null}
     </footer>

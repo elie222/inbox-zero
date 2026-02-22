@@ -13,6 +13,7 @@ import {
   SectionSubtitle,
 } from "@/components/new-landing/common/Typography";
 import { userCount } from "@/utils/config";
+import { BRAND_NAME } from "@/utils/branding";
 
 type Testimonial = {
   body: string;
@@ -164,7 +165,7 @@ export function Testimonials() {
         Join {userCount} others who spend less time on emails
       </SectionHeading>
       <SectionSubtitle>
-        Our customers love saving time with Inbox Zero.
+        {`Our customers love saving time with ${BRAND_NAME}.`}
       </SectionSubtitle>
       <SectionContent>
         {/* Mobile */}
