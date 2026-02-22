@@ -8,6 +8,7 @@ const blue = "#b6cff5";
 const cyan = "#98d7e4";
 const purple = "#e3d7ff";
 const pink = "#fcdee8";
+const sage = "#89d3b2";
 const red = "#f2b2a8";
 const coral = "#ffc8af";
 const orange = "#ffdeb5";
@@ -87,7 +88,7 @@ export function getLabelColor(name: string) {
     case getRuleLabel(SystemType.RECEIPT):
       return rose;
     case getRuleLabel(SystemType.TO_REPLY):
-      return pink;
+      return sage;
     case FOLLOW_UP_LABEL:
       return yellow;
     default:
