@@ -528,21 +528,37 @@ export function MessagePart({
     }
   }
 
-  if (isToolPart(part)) {
-    const { toolCallId, state } = part;
-    const toolLabel = formatToolLabel(part.type);
-    if (state === "input-available") {
+  if (part.type.startsWith("tool-")) {
+    const toolPart = part as {
+      type: `tool-${string}`;
+      toolCallId: string;
+      state: string;
+      output?: unknown;
+    };
+    const toolLabel = formatToolLabel(toolPart.type);
+    if (toolPart.state === "input-available") {
       return (
-        <BasicToolInfo key={toolCallId} text={`Running ${toolLabel}...`} />
+        <BasicToolInfo
+          key={toolPart.toolCallId}
+          text={`Running ${toolLabel}...`}
+        />
       );
     }
-    if (state === "output-available") {
-      if (isOutputWithError(part.output)) {
+    if (toolPart.state === "output-available") {
+      if (isOutputWithError(toolPart.output)) {
         return (
-          <ErrorToolCard key={toolCallId} error={String(part.output.error)} />
+          <ErrorToolCard
+            key={toolPart.toolCallId}
+            error={String(toolPart.output.error)}
+          />
         );
       }
-      return <BasicToolInfo key={toolCallId} text={`Completed ${toolLabel}`} />;
+      return (
+        <BasicToolInfo
+          key={toolPart.toolCallId}
+          text={`Completed ${toolLabel}`}
+        />
+      );
     }
   }
 
@@ -558,19 +574,4 @@ function getInProgressManageInboxOutput(input: {
     senders: input.fromEmails ?? [],
     sendersCount: input.fromEmails?.length ?? 0,
   };
-}
-
-function isToolPart(part: ChatMessage["parts"][0]): part is {
-  type: `tool-${string}`;
-  toolCallId: string;
-  state: "input-available" | "output-available";
-  output?: unknown;
-} {
-  if (typeof part !== "object" || !part) return false;
-  if (!("type" in part) || typeof part.type !== "string") return false;
-  if (!part.type.startsWith("tool-")) return false;
-  if (!("toolCallId" in part) || typeof part.toolCallId !== "string")
-    return false;
-  if (!("state" in part) || typeof part.state !== "string") return false;
-  return part.state === "input-available" || part.state === "output-available";
 }
