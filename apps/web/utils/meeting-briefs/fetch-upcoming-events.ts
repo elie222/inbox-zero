@@ -33,13 +33,26 @@ export async function fetchUpcomingEvents({
     ),
   );
 
-  return results
+  const events = results
     .filter(
       (result): result is PromiseFulfilledResult<CalendarEvent[]> =>
         result.status === "fulfilled",
     )
     .flatMap((result) => result.value)
     .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+  const filteredEvents = events.filter(
+    (event) => !isCancelledEventTitle(event.title),
+  );
+  const skippedCancelledEvents = events.length - filteredEvents.length;
+
+  if (skippedCancelledEvents > 0) {
+    logger.info("Skipping cancelled calendar events", {
+      count: skippedCancelledEvents,
+    });
+  }
+
+  return filteredEvents;
 }
 
 export function filterEventsWithExternalGuests(
@@ -61,4 +74,8 @@ export function filterEventsWithExternalGuests(
       return attendeeDomain !== userDomain;
     }),
   );
+}
+
+function isCancelledEventTitle(title: string): boolean {
+  return /^\s*(?:cancelled|canceled)(?:\s+event)?\s*:/i.test(title);
 }
