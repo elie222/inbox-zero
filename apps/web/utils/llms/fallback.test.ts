@@ -168,9 +168,15 @@ describe("createGenerateText fallback chain", () => {
     expect(providerOptions.openrouter.provider).toEqual({
       order: ["Anthropic"],
     });
+    expect(providerOptions.openrouter.extraBody.trace.generation_name).toBe(
+      "OpenRouter user metadata",
+    );
+    expect(providerOptions.openrouter.extraBody.trace.email_account_id).toBe(
+      "email-account-1",
+    );
   });
 
-  it("keeps explicit openrouter user when request provides one", async () => {
+  it("keeps explicit openrouter user and trace when request provides them", async () => {
     const model = { id: "openrouter-model" };
     const modelOptions: SelectModel = {
       provider: "openrouter",
@@ -203,6 +209,12 @@ describe("createGenerateText fallback chain", () => {
       providerOptions: {
         openrouter: {
           user: "explicit-user-id",
+          extraBody: {
+            trace: {
+              generation_name: "explicit-generation",
+              email_account_id: "explicit-email-account-id",
+            },
+          },
         },
       },
     });
@@ -210,5 +222,9 @@ describe("createGenerateText fallback chain", () => {
     expect(mockGenerateText).toHaveBeenCalledTimes(1);
     const providerOptions = mockGenerateText.mock.calls[0][0].providerOptions;
     expect(providerOptions.openrouter.user).toBe("explicit-user-id");
+    expect(providerOptions.openrouter.extraBody.trace).toEqual({
+      generation_name: "explicit-generation",
+      email_account_id: "explicit-email-account-id",
+    });
   });
 });

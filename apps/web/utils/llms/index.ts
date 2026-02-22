@@ -88,10 +88,12 @@ export function createGenerateText({
         ...candidate.providerOptions,
         ...options.providerOptions,
       } as LLMProviderOptions;
-      const providerOptions = withOpenRouterUserId({
+      const providerOptions = withOpenRouterMetadata({
         provider: candidate.provider,
         providerOptions: mergedProviderOptions,
         userId: emailAccount.userId,
+        label,
+        emailAccountId: emailAccount.id,
       });
 
       const result = await generateText(
@@ -200,10 +202,12 @@ export function createGenerateObject({
         ...candidate.providerOptions,
         ...options.providerOptions,
       } as LLMProviderOptions;
-      const providerOptions = withOpenRouterUserId({
+      const providerOptions = withOpenRouterMetadata({
         provider: candidate.provider,
         providerOptions: mergedProviderOptions,
         userId: emailAccount.userId,
+        label,
+        emailAccountId: emailAccount.id,
       });
 
       const result = await generateObject(
@@ -291,6 +295,7 @@ export async function chatCompletionStream({
   tools,
   maxSteps,
   userId,
+  emailAccountId,
   userEmail,
   usageLabel: label,
   providerOptions: requestProviderOptions,
@@ -303,6 +308,7 @@ export async function chatCompletionStream({
   tools?: Record<string, Tool>;
   maxSteps?: number;
   userId?: string;
+  emailAccountId?: string;
   userEmail: string;
   usageLabel: string;
   providerOptions?: LLMProviderOptions;
@@ -320,10 +326,12 @@ export async function chatCompletionStream({
       candidate.providerOptions as LLMProviderOptions | undefined,
       requestProviderOptions,
     );
-    const providerOptions = withOpenRouterUserId({
+    const providerOptions = withOpenRouterMetadata({
       provider: candidate.provider,
       providerOptions: mergedProviderOptions,
       userId,
+      label,
+      emailAccountId,
     });
 
     try {
@@ -410,6 +418,7 @@ export async function toolCallAgentStream({
   tools,
   maxSteps,
   userId,
+  emailAccountId,
   userEmail,
   usageLabel: label,
   providerOptions: requestProviderOptions,
@@ -422,6 +431,7 @@ export async function toolCallAgentStream({
   tools?: Record<string, Tool>;
   maxSteps?: number;
   userId?: string;
+  emailAccountId?: string;
   userEmail: string;
   usageLabel: string;
   providerOptions?: LLMProviderOptions;
@@ -439,10 +449,12 @@ export async function toolCallAgentStream({
       candidate.providerOptions as LLMProviderOptions | undefined,
       requestProviderOptions,
     );
-    const providerOptions = withOpenRouterUserId({
+    const providerOptions = withOpenRouterMetadata({
       provider: candidate.provider,
       providerOptions: mergedProviderOptions,
       userId,
+      label,
+      emailAccountId,
     });
 
     const agent = new ToolLoopAgent({
@@ -680,27 +692,76 @@ function mergeProviderOptions(
   return merged;
 }
 
-function withOpenRouterUserId({
+function withOpenRouterMetadata({
   provider,
   providerOptions,
   userId,
+  label,
+  emailAccountId,
 }: {
   provider: string;
   providerOptions: LLMProviderOptions;
   userId?: string;
+  label?: string;
+  emailAccountId?: string;
 }) {
-  if (provider !== Provider.OPENROUTER || !userId) return providerOptions;
+  if (provider !== Provider.OPENROUTER) return providerOptions;
 
   const openRouterOptions = providerOptions.openrouter || {};
-  if (typeof openRouterOptions.user === "string" && openRouterOptions.user) {
-    return providerOptions;
+  const nextOpenRouterOptions: Record<string, JSONValue> = {
+    ...openRouterOptions,
+  };
+
+  let changed = false;
+
+  if (
+    userId &&
+    !(typeof openRouterOptions.user === "string" && openRouterOptions.user)
+  ) {
+    nextOpenRouterOptions.user = userId;
+    changed = true;
   }
+
+  const openRouterExtraBody = isJsonObject(openRouterOptions.extraBody)
+    ? openRouterOptions.extraBody
+    : undefined;
+  const openRouterTrace = isJsonObject(openRouterExtraBody?.trace)
+    ? openRouterExtraBody.trace
+    : undefined;
+
+  const nextTrace: Record<string, JSONValue> = {
+    ...(openRouterTrace || {}),
+  };
+  let traceChanged = false;
+
+  if (label && typeof nextTrace.generation_name !== "string") {
+    nextTrace.generation_name = label;
+    traceChanged = true;
+  }
+
+  if (emailAccountId && typeof nextTrace.email_account_id !== "string") {
+    nextTrace.email_account_id = emailAccountId;
+    traceChanged = true;
+  }
+
+  if (traceChanged) {
+    nextOpenRouterOptions.extraBody = {
+      ...(openRouterExtraBody || {}),
+      trace: nextTrace,
+    };
+    changed = true;
+  }
+
+  if (!changed) return providerOptions;
 
   return {
     ...providerOptions,
-    openrouter: {
-      ...openRouterOptions,
-      user: userId,
-    },
+    openrouter: nextOpenRouterOptions,
   };
+}
+
+function isJsonObject(
+  value: JSONValue | undefined,
+): value is Record<string, JSONValue> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
