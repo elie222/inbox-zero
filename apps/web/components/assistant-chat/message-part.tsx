@@ -521,17 +521,47 @@ function renderToolStatus({
   }
 
   if (part.state === "output-available") {
-    if (isOutputWithError(part.output)) {
-      return (
-        <ErrorToolCard
-          key={part.toolCallId}
-          error={String(part.output.error)}
-        />
-      );
+    const failureMessage = getToolFailureMessage(part.output);
+    if (failureMessage) {
+      return <ErrorToolCard key={part.toolCallId} error={failureMessage} />;
     }
 
     return renderSuccess({ toolCallId: part.toolCallId, output: part.output });
   }
 
+  return null;
+}
+
+function getToolFailureMessage(output: unknown): string | null {
+  if (typeof output !== "object" || output === null) return null;
+
+  const record = output as Record<string, unknown>;
+  if (isOutputWithError(output)) {
+    return toFailureMessage(record.error);
+  }
+
+  if (record.success === false) {
+    return (
+      toFailureMessage(record.message) ??
+      toFailureMessage(record.reason) ??
+      toFailureMessage(record.error) ??
+      "Operation failed"
+    );
+  }
+
+  return null;
+}
+
+function toFailureMessage(value: unknown): string | null {
+  if (typeof value === "string" && value.trim().length > 0) return value;
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "message" in value &&
+    typeof value.message === "string" &&
+    value.message.trim().length > 0
+  ) {
+    return value.message;
+  }
   return null;
 }
