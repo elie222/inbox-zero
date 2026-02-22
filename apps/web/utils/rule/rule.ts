@@ -10,6 +10,7 @@ import { createRuleHistory } from "@/utils/rule/rule-history";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
+import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 
 export function partialUpdateRule({
   ruleId,
@@ -307,17 +308,14 @@ async function mapActionFields(
   const actionPromises = actions.map(
     async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
       const to = a.fields?.to?.trim() || null;
-
-      if (
-        (a.type === ActionType.SEND_EMAIL || a.type === ActionType.FORWARD) &&
-        !to
-      ) {
-        throw new Error(
-          a.type === ActionType.SEND_EMAIL
-            ? "SEND_EMAIL action requires a recipient in the to field. Use REPLY for automatic responses."
-            : "FORWARD action requires a recipient in the to field.",
-        );
-      }
+      const recipientMessage = getMissingRecipientMessage({
+        actionType: a.type,
+        recipient: to,
+        sendEmailMessage:
+          "SEND_EMAIL action requires a recipient in the to field. Use REPLY for automatic responses.",
+        forwardMessage: "FORWARD action requires a recipient in the to field.",
+      });
+      if (recipientMessage) throw new Error(recipientMessage);
 
       let label = a.fields?.label;
       let labelId: string | null = null;

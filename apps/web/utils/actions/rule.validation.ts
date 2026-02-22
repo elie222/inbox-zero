@@ -8,6 +8,7 @@ import {
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
+import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 
 export const delayInMinutesSchema = z
   .number()
@@ -421,17 +422,17 @@ function addRecipientRequirementIssue({
   forwardMessage: string;
   sendEmailMessage: string;
 }) {
-  if (
-    (actionType === ActionType.FORWARD ||
-      actionType === ActionType.SEND_EMAIL) &&
-    !recipient?.trim()
-  ) {
+  const message = getMissingRecipientMessage({
+    actionType,
+    recipient,
+    forwardMessage,
+    sendEmailMessage,
+  });
+
+  if (message) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message:
-        actionType === ActionType.SEND_EMAIL
-          ? sendEmailMessage
-          : forwardMessage,
+      message,
       path,
     });
   }

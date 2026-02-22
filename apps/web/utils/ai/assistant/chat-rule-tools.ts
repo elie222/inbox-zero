@@ -22,6 +22,7 @@ import {
   updateRuleConditionSchema,
 } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 
@@ -470,17 +471,18 @@ export const updateRuleActionsTool = ({
             delayInMinutes: delayInMinutesSchema,
           })
           .superRefine((action, ctx) => {
-            if (
-              (action.type === ActionType.SEND_EMAIL ||
-                action.type === ActionType.FORWARD) &&
-              !action.fields.to?.trim()
-            ) {
+            const recipientMessage = getMissingRecipientMessage({
+              actionType: action.type,
+              recipient: action.fields.to,
+              sendEmailMessage:
+                "SEND_EMAIL requires fields.to. Use REPLY for automatic responses.",
+              forwardMessage: "FORWARD requires fields.to.",
+            });
+
+            if (recipientMessage) {
               ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message:
-                  action.type === ActionType.SEND_EMAIL
-                    ? "SEND_EMAIL requires fields.to. Use REPLY for automatic responses."
-                    : "FORWARD requires fields.to.",
+                message: recipientMessage,
                 path: ["fields", "to"],
               });
             }
