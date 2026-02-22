@@ -41,7 +41,7 @@ export function Messages({
         className="mx-auto flex min-h-full flex-col max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-0 pb-0"
         scrollClassName="![scrollbar-gutter:auto] scrollbar-thin"
       >
-        <div className="flex flex-1 flex-col gap-6">
+        <div className="flex flex-1 flex-col gap-4">
           {messages.length === 0 && <Overview setInput={setInput} />}
 
           {messages.map((message, index) => (
