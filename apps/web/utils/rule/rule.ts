@@ -308,9 +308,14 @@ async function mapActionFields(
     async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
       const to = a.fields?.to?.trim() || null;
 
-      if (a.type === ActionType.SEND_EMAIL && !to) {
+      if (
+        (a.type === ActionType.SEND_EMAIL || a.type === ActionType.FORWARD) &&
+        !to
+      ) {
         throw new Error(
-          "SEND_EMAIL action requires a recipient in the to field. Use REPLY for automatic responses.",
+          a.type === ActionType.SEND_EMAIL
+            ? "SEND_EMAIL action requires a recipient in the to field. Use REPLY for automatic responses."
+            : "FORWARD action requires a recipient in the to field.",
         );
       }
 

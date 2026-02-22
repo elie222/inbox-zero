@@ -438,7 +438,7 @@ export const updateRuleActionsTool = ({
 }) =>
   tool({
     description:
-      "Update the actions of an existing rule. This replaces the existing actions. SEND_EMAIL requires an explicit recipient in fields.to; use REPLY for inbound auto-responses.",
+      "Update the actions of an existing rule. This replaces the existing actions. SEND_EMAIL and FORWARD require an explicit recipient in fields.to; use REPLY for inbound auto-responses.",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
       actions: z.array(
@@ -471,13 +471,16 @@ export const updateRuleActionsTool = ({
           })
           .superRefine((action, ctx) => {
             if (
-              action.type === ActionType.SEND_EMAIL &&
+              (action.type === ActionType.SEND_EMAIL ||
+                action.type === ActionType.FORWARD) &&
               !action.fields.to?.trim()
             ) {
               ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message:
-                  "SEND_EMAIL requires fields.to. Use REPLY for automatic responses.",
+                  action.type === ActionType.SEND_EMAIL
+                    ? "SEND_EMAIL requires fields.to. Use REPLY for automatic responses."
+                    : "FORWARD requires fields.to.",
                 path: ["fields", "to"],
               });
             }
