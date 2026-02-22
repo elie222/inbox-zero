@@ -8,6 +8,7 @@ import {
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
+import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 
 export const delayInMinutesSchema = z
   .number()
@@ -130,13 +131,16 @@ const zodAction = z
       }
     }
 
-    if (data.type === ActionType.FORWARD && !data.to?.value?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Please enter an email address to forward to",
-        path: ["to"],
-      });
-    }
+    addRecipientRequirementIssue({
+      actionType: data.type,
+      recipient: data.to?.value,
+      ctx,
+      path: ["to"],
+      forwardMessage: "Please enter an email address to forward to",
+      sendEmailMessage:
+        "Please enter an email address to send to. Use Reply for auto-responses.",
+    });
+
     if (data.type === ActionType.CALL_WEBHOOK && !data.url?.value?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -334,13 +338,15 @@ const importedAction = z
       }
     }
 
-    if (data.type === ActionType.FORWARD && !data.to?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Forward action requires a recipient email address",
-        path: ["to"],
-      });
-    }
+    addRecipientRequirementIssue({
+      actionType: data.type,
+      recipient: data.to,
+      ctx,
+      path: ["to"],
+      forwardMessage: "Forward action requires a recipient email address",
+      sendEmailMessage:
+        "Send email action requires a recipient email address. Use Reply for auto-responses.",
+    });
 
     if (data.type === ActionType.CALL_WEBHOOK && !data.url?.trim()) {
       ctx.addIssue({
@@ -400,3 +406,34 @@ export const importRulesBody = z.object({
 });
 export type ImportRulesBody = z.infer<typeof importRulesBody>;
 export type ImportedRule = z.infer<typeof importedRule>;
+
+function addRecipientRequirementIssue({
+  actionType,
+  recipient,
+  ctx,
+  path,
+  forwardMessage,
+  sendEmailMessage,
+}: {
+  actionType: ActionType;
+  recipient: string | null | undefined;
+  ctx: z.RefinementCtx;
+  path: (string | number)[];
+  forwardMessage: string;
+  sendEmailMessage: string;
+}) {
+  const message = getMissingRecipientMessage({
+    actionType,
+    recipient,
+    forwardMessage,
+    sendEmailMessage,
+  });
+
+  if (message) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message,
+      path,
+    });
+  }
+}

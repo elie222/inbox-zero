@@ -4,6 +4,7 @@ import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
 import { env } from "@/env";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
+import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 
 const conditionSchema = z
   .object({
@@ -54,67 +55,87 @@ export const getExtraActions = () => [
 ];
 
 const actionSchema = (provider: string) =>
-  z.object({
-    type: z
-      .enum([...getAvailableActions(provider), ...getExtraActions()])
-      .describe(
-        `The type of the action. '${ActionType.DIGEST}' means emails will be added to the digest email the user receives. ${isMicrosoftProvider(provider) ? `'${ActionType.LABEL}' means emails will be categorized in Outlook.` : ""}`,
-      ),
-    fields: z
-      .object({
-        label: z
-          .string()
-          .nullable()
-          .transform((v) => v ?? null)
-          .describe("The label to apply to the email"),
-        to: z
-          .string()
-          .nullable()
-          .transform((v) => v ?? null)
-          .describe("The to email address to send the email to"),
-        cc: z
-          .string()
-          .nullable()
-          .transform((v) => v ?? null)
-          .describe("The cc email address to send the email to"),
-        bcc: z
-          .string()
-          .nullable()
-          .transform((v) => v ?? null)
-          .describe("The bcc email address to send the email to"),
-        subject: z
-          .string()
-          .nullable()
-          .transform((v) => v ?? null)
-          .describe("The subject of the email"),
-        content: z
-          .string()
-          .nullable()
-          .transform((v) => v ?? null)
-          .describe("The content of the email"),
-        webhookUrl: z
-          .string()
-          .nullable()
-          .transform((v) => v ?? null)
-          .describe("The webhook URL to call"),
-        ...(isMicrosoftProvider(provider) && {
-          folderName: z
+  z
+    .object({
+      type: z
+        .enum([...getAvailableActions(provider), ...getExtraActions()])
+        .describe(
+          `The type of the action. '${ActionType.DIGEST}' means emails will be added to the digest email the user receives. ${isMicrosoftProvider(provider) ? `'${ActionType.LABEL}' means emails will be categorized in Outlook.` : ""}`,
+        ),
+      fields: z
+        .object({
+          label: z
             .string()
             .nullable()
             .transform((v) => v ?? null)
-            .describe("The folder to move the email to"),
-        }),
-      })
-      .nullable()
-      .describe(
-        "The fields to use for the action. Static text can be combined with dynamic values using double braces {{}}. For example: 'Hi {{sender's name}}' or 'Re: {{subject}}' or '{{when I'm available for a meeting}}'. Dynamic values will be replaced with actual email data when the rule is executed. Dynamic values are generated in real time by the AI. Only use dynamic values where absolutely necessary. Otherwise, use plain static text. A field can be also be fully static or fully dynamic.",
-      ),
-    delayInMinutes: z
-      .number()
-      .min(1, "Minimum supported delay is 1 minute")
-      .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
-      .nullable(),
-  });
+            .describe("The label to apply to the email"),
+          to: z
+            .string()
+            .nullable()
+            .transform((v) => v ?? null)
+            .describe(
+              "The recipient email address. Required for SEND_EMAIL and FORWARD. Use REPLY when responding to the triggering inbound email.",
+            ),
+          cc: z
+            .string()
+            .nullable()
+            .transform((v) => v ?? null)
+            .describe("The cc email address to send the email to"),
+          bcc: z
+            .string()
+            .nullable()
+            .transform((v) => v ?? null)
+            .describe("The bcc email address to send the email to"),
+          subject: z
+            .string()
+            .nullable()
+            .transform((v) => v ?? null)
+            .describe("The subject of the email"),
+          content: z
+            .string()
+            .nullable()
+            .transform((v) => v ?? null)
+            .describe("The content of the email"),
+          webhookUrl: z
+            .string()
+            .nullable()
+            .transform((v) => v ?? null)
+            .describe("The webhook URL to call"),
+          ...(isMicrosoftProvider(provider) && {
+            folderName: z
+              .string()
+              .nullable()
+              .transform((v) => v ?? null)
+              .describe("The folder to move the email to"),
+          }),
+        })
+        .nullable()
+        .describe(
+          "The fields to use for the action. Static text can be combined with dynamic values using double braces {{}}. For example: 'Hi {{sender's name}}' or 'Re: {{subject}}' or '{{when I'm available for a meeting}}'. Dynamic values will be replaced with actual email data when the rule is executed. Dynamic values are generated in real time by the AI. Only use dynamic values where absolutely necessary. Otherwise, use plain static text. A field can be also be fully static or fully dynamic.",
+        ),
+      delayInMinutes: z
+        .number()
+        .min(1, "Minimum supported delay is 1 minute")
+        .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
+        .nullable(),
+    })
+    .superRefine((action, ctx) => {
+      const recipientMessage = getMissingRecipientMessage({
+        actionType: action.type,
+        recipient: action.fields?.to,
+        sendEmailMessage:
+          "SEND_EMAIL requires a recipient in fields.to. Use REPLY for auto-responses.",
+        forwardMessage: "FORWARD requires a recipient in fields.to.",
+      });
+
+      if (recipientMessage) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: recipientMessage,
+          path: ["fields", "to"],
+        });
+      }
+    });
 
 export const createRuleSchema = (provider: string) =>
   z.object({

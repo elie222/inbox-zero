@@ -12,7 +12,7 @@ import {
 import {
   ActionType,
   GroupItemType,
-  LogicalOperator,
+  type LogicalOperator,
 } from "@/generated/prisma/enums";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";
@@ -22,6 +22,7 @@ import {
   updateRuleConditionSchema,
 } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 
@@ -438,36 +439,54 @@ export const updateRuleActionsTool = ({
 }) =>
   tool({
     description:
-      "Update the actions of an existing rule. This replaces the existing actions.",
+      "Update the actions of an existing rule. This replaces the existing actions. SEND_EMAIL and FORWARD require an explicit recipient in fields.to; use REPLY for inbound auto-responses.",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
       actions: z.array(
-        z.object({
-          type: z.enum([
-            ActionType.ARCHIVE,
-            ActionType.LABEL,
-            ActionType.MOVE_FOLDER,
-            ActionType.DRAFT_EMAIL,
-            ActionType.FORWARD,
-            ActionType.REPLY,
-            ActionType.SEND_EMAIL,
-            ActionType.MARK_READ,
-            ActionType.MARK_SPAM,
-            ActionType.CALL_WEBHOOK,
-            ActionType.DIGEST,
-          ]),
-          fields: z.object({
-            label: z.string().nullish(),
-            content: z.string().nullish(),
-            webhookUrl: z.string().nullish(),
-            to: z.string().nullish(),
-            cc: z.string().nullish(),
-            bcc: z.string().nullish(),
-            subject: z.string().nullish(),
-            folderName: z.string().nullish(),
+        z
+          .object({
+            type: z.enum([
+              ActionType.ARCHIVE,
+              ActionType.LABEL,
+              ActionType.MOVE_FOLDER,
+              ActionType.DRAFT_EMAIL,
+              ActionType.FORWARD,
+              ActionType.REPLY,
+              ActionType.SEND_EMAIL,
+              ActionType.MARK_READ,
+              ActionType.MARK_SPAM,
+              ActionType.CALL_WEBHOOK,
+              ActionType.DIGEST,
+            ]),
+            fields: z.object({
+              label: z.string().nullish(),
+              content: z.string().nullish(),
+              webhookUrl: z.string().nullish(),
+              to: z.string().nullish(),
+              cc: z.string().nullish(),
+              bcc: z.string().nullish(),
+              subject: z.string().nullish(),
+              folderName: z.string().nullish(),
+            }),
+            delayInMinutes: delayInMinutesSchema,
+          })
+          .superRefine((action, ctx) => {
+            const recipientMessage = getMissingRecipientMessage({
+              actionType: action.type,
+              recipient: action.fields.to,
+              sendEmailMessage:
+                "SEND_EMAIL requires fields.to. Use REPLY for automatic responses.",
+              forwardMessage: "FORWARD requires fields.to.",
+            });
+
+            if (recipientMessage) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: recipientMessage,
+                path: ["fields", "to"],
+              });
+            }
           }),
-          delayInMinutes: delayInMinutesSchema,
-        }),
       ),
     }),
     execute: async ({ ruleName, actions }) => {
