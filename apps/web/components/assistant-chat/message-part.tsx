@@ -85,22 +85,9 @@ export function MessagePart({
     return renderToolStatus({
       part,
       loadingText: "Loading assistant capabilities...",
-      renderSuccess: ({ toolCallId, output }) => {
-        const capabilities = getOutputField<Array<unknown>>(
-          output,
-          "capabilities",
-        );
-        return (
-          <BasicToolInfo
-            key={toolCallId}
-            text={`Loaded assistant capabilities${
-              Array.isArray(capabilities)
-                ? ` (${capabilities.length} available)`
-                : ""
-            }`}
-          />
-        );
-      },
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo key={toolCallId} text="Loaded assistant capabilities" />
+      ),
     });
   }
 
