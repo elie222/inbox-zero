@@ -83,14 +83,14 @@ export function createGenerateText({
         prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
 
-      const mergedProviderOptions = {
-        ...commonOptions.providerOptions,
-        ...candidate.providerOptions,
-        ...options.providerOptions,
-      } as LLMProviderOptions;
-      const providerOptions = withOpenRouterMetadata({
+      const providerOptions = buildProviderOptions({
         provider: candidate.provider,
-        providerOptions: mergedProviderOptions,
+        modelProviderOptions: candidate.providerOptions as
+          | LLMProviderOptions
+          | undefined,
+        requestProviderOptions: options.providerOptions as
+          | LLMProviderOptions
+          | undefined,
         userId: emailAccount.userId,
         label,
         emailAccountId: emailAccount.id,
@@ -197,14 +197,14 @@ export function createGenerateObject({
         logger.warn("Missing JSON in prompt", { label });
       }
 
-      const mergedProviderOptions = {
-        ...commonOptions.providerOptions,
-        ...candidate.providerOptions,
-        ...options.providerOptions,
-      } as LLMProviderOptions;
-      const providerOptions = withOpenRouterMetadata({
+      const providerOptions = buildProviderOptions({
         provider: candidate.provider,
-        providerOptions: mergedProviderOptions,
+        modelProviderOptions: candidate.providerOptions as
+          | LLMProviderOptions
+          | undefined,
+        requestProviderOptions: options.providerOptions as
+          | LLMProviderOptions
+          | undefined,
         userId: emailAccount.userId,
         label,
         emailAccountId: emailAccount.id,
@@ -321,14 +321,12 @@ export async function chatCompletionStream({
   for (let index = 0; index < modelCandidates.length; index++) {
     const candidate = modelCandidates[index];
     const nextCandidate = modelCandidates[index + 1];
-    const mergedProviderOptions = mergeProviderOptions(
-      commonOptions.providerOptions,
-      candidate.providerOptions as LLMProviderOptions | undefined,
-      requestProviderOptions,
-    );
-    const providerOptions = withOpenRouterMetadata({
+    const providerOptions = buildProviderOptions({
       provider: candidate.provider,
-      providerOptions: mergedProviderOptions,
+      modelProviderOptions: candidate.providerOptions as
+        | LLMProviderOptions
+        | undefined,
+      requestProviderOptions,
       userId,
       label,
       emailAccountId,
@@ -444,14 +442,12 @@ export async function toolCallAgentStream({
   for (let index = 0; index < modelCandidates.length; index++) {
     const candidate = modelCandidates[index];
     const nextCandidate = modelCandidates[index + 1];
-    const mergedProviderOptions = mergeProviderOptions(
-      commonOptions.providerOptions,
-      candidate.providerOptions as LLMProviderOptions | undefined,
-      requestProviderOptions,
-    );
-    const providerOptions = withOpenRouterMetadata({
+    const providerOptions = buildProviderOptions({
       provider: candidate.provider,
-      providerOptions: mergedProviderOptions,
+      modelProviderOptions: candidate.providerOptions as
+        | LLMProviderOptions
+        | undefined,
+      requestProviderOptions,
       userId,
       label,
       emailAccountId,
@@ -690,6 +686,36 @@ function mergeProviderOptions(
   }
 
   return merged;
+}
+
+function buildProviderOptions({
+  provider,
+  modelProviderOptions,
+  requestProviderOptions,
+  userId,
+  label,
+  emailAccountId,
+}: {
+  provider: string;
+  modelProviderOptions?: LLMProviderOptions;
+  requestProviderOptions?: LLMProviderOptions;
+  userId?: string;
+  label?: string;
+  emailAccountId?: string;
+}) {
+  const mergedProviderOptions = mergeProviderOptions(
+    commonOptions.providerOptions,
+    modelProviderOptions,
+    requestProviderOptions,
+  );
+
+  return withOpenRouterMetadata({
+    provider,
+    providerOptions: mergedProviderOptions,
+    userId,
+    label,
+    emailAccountId,
+  });
 }
 
 function withOpenRouterMetadata({
