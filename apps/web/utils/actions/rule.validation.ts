@@ -130,22 +130,15 @@ const zodAction = z
       }
     }
 
-    if (data.type === ActionType.FORWARD && !data.to?.value?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Please enter an email address to forward to",
-        path: ["to"],
-      });
-    }
-
-    if (data.type === ActionType.SEND_EMAIL && !data.to?.value?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "Please enter an email address to send to. Use Reply for auto-responses.",
-        path: ["to"],
-      });
-    }
+    addRecipientRequirementIssue({
+      actionType: data.type,
+      recipient: data.to?.value,
+      ctx,
+      path: ["to"],
+      forwardMessage: "Please enter an email address to forward to",
+      sendEmailMessage:
+        "Please enter an email address to send to. Use Reply for auto-responses.",
+    });
 
     if (data.type === ActionType.CALL_WEBHOOK && !data.url?.value?.trim()) {
       ctx.addIssue({
@@ -344,22 +337,15 @@ const importedAction = z
       }
     }
 
-    if (data.type === ActionType.FORWARD && !data.to?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Forward action requires a recipient email address",
-        path: ["to"],
-      });
-    }
-
-    if (data.type === ActionType.SEND_EMAIL && !data.to?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "Send email action requires a recipient email address. Use Reply for auto-responses.",
-        path: ["to"],
-      });
-    }
+    addRecipientRequirementIssue({
+      actionType: data.type,
+      recipient: data.to,
+      ctx,
+      path: ["to"],
+      forwardMessage: "Forward action requires a recipient email address",
+      sendEmailMessage:
+        "Send email action requires a recipient email address. Use Reply for auto-responses.",
+    });
 
     if (data.type === ActionType.CALL_WEBHOOK && !data.url?.trim()) {
       ctx.addIssue({
@@ -419,3 +405,34 @@ export const importRulesBody = z.object({
 });
 export type ImportRulesBody = z.infer<typeof importRulesBody>;
 export type ImportedRule = z.infer<typeof importedRule>;
+
+function addRecipientRequirementIssue({
+  actionType,
+  recipient,
+  ctx,
+  path,
+  forwardMessage,
+  sendEmailMessage,
+}: {
+  actionType: ActionType;
+  recipient: string | null | undefined;
+  ctx: z.RefinementCtx;
+  path: (string | number)[];
+  forwardMessage: string;
+  sendEmailMessage: string;
+}) {
+  if (
+    (actionType === ActionType.FORWARD ||
+      actionType === ActionType.SEND_EMAIL) &&
+    !recipient?.trim()
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        actionType === ActionType.SEND_EMAIL
+          ? sendEmailMessage
+          : forwardMessage,
+      path,
+    });
+  }
+}
