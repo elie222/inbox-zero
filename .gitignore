@@ -94,3 +94,7 @@ copilot/environments/**/manifest.yml
 # browser QA flow results
 qa/browser-flows/results/*
 !qa/browser-flows/results/README.md
+
+# local skills
+.claude/skills/local/
+.agents/skills/local/
