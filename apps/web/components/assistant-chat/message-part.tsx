@@ -11,8 +11,12 @@ import {
   AddToKnowledgeBase,
   BasicToolInfo,
   CreatedRuleToolCard,
+  ForwardEmailResult,
   ManageInboxResult,
+  ReadEmailResult,
+  ReplyEmailResult,
   SearchInboxResult,
+  SendEmailResult,
   UpdateAbout,
   UpdatedLearnedPatterns,
   UpdatedRuleActions,
@@ -144,13 +148,7 @@ export function MessagePart({
       if (isOutputWithError(output)) {
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
-      const subject = getOutputField<string>(output, "subject");
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text={`Read email${subject ? `: ${subject}` : ""}`}
-        />
-      );
+      return <ReadEmailResult key={toolCallId} output={output} />;
     }
   }
 
@@ -218,45 +216,69 @@ export function MessagePart({
   }
 
   if (part.type === "tool-sendEmail") {
-    return renderToolStatus({
-      part,
-      loadingText: "Sending email...",
-      renderSuccess: ({ toolCallId, output }) => {
-        const to = getOutputField<string>(output, "to");
-        return (
-          <BasicToolInfo
-            key={toolCallId}
-            text={`Sent email${to ? ` to ${to}` : ""}`}
-          />
-        );
-      },
-    });
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Preparing email..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      const failureMessage = getToolFailureMessage(output);
+      if (failureMessage) {
+        return <ErrorToolCard key={toolCallId} error={failureMessage} />;
+      }
+      return (
+        <SendEmailResult
+          key={toolCallId}
+          output={output}
+          chatMessageId={messageId}
+          toolCallId={toolCallId}
+        />
+      );
+    }
   }
 
   if (part.type === "tool-replyEmail") {
-    return renderToolStatus({
-      part,
-      loadingText: "Sending reply...",
-      renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text="Sent reply" />
-      ),
-    });
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Preparing reply..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      const failureMessage = getToolFailureMessage(output);
+      if (failureMessage) {
+        return <ErrorToolCard key={toolCallId} error={failureMessage} />;
+      }
+      return (
+        <ReplyEmailResult
+          key={toolCallId}
+          output={output}
+          chatMessageId={messageId}
+          toolCallId={toolCallId}
+        />
+      );
+    }
   }
 
   if (part.type === "tool-forwardEmail") {
-    return renderToolStatus({
-      part,
-      loadingText: "Forwarding email...",
-      renderSuccess: ({ toolCallId, output }) => {
-        const to = getOutputField<string>(output, "to");
-        return (
-          <BasicToolInfo
-            key={toolCallId}
-            text={`Forwarded email${to ? ` to ${to}` : ""}`}
-          />
-        );
-      },
-    });
+    const { toolCallId, state } = part;
+    if (state === "input-available") {
+      return <BasicToolInfo key={toolCallId} text="Preparing forward..." />;
+    }
+    if (state === "output-available") {
+      const { output } = part;
+      const failureMessage = getToolFailureMessage(output);
+      if (failureMessage) {
+        return <ErrorToolCard key={toolCallId} error={failureMessage} />;
+      }
+      return (
+        <ForwardEmailResult
+          key={toolCallId}
+          output={output}
+          chatMessageId={messageId}
+          toolCallId={toolCallId}
+        />
+      );
+    }
   }
 
   if (part.type === "tool-getUserRulesAndSettings") {
@@ -447,7 +469,7 @@ export function MessagePart({
         const memories = getOutputField<Array<unknown>>(output, "memories");
         const memoriesCount = Array.isArray(memories) ? memories.length : null;
         if (memoriesCount === 0) {
-          return <BasicToolInfo key={toolCallId} text="No memories found" />;
+          return null;
         }
         return (
           <BasicToolInfo

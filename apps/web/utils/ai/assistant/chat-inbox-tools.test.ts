@@ -25,15 +25,6 @@ describe("chat inbox tools", () => {
       email: "sender@example.com",
     } as any);
 
-    const sendEmailWithHtml = vi.fn().mockResolvedValue({
-      messageId: "message-1",
-      threadId: "thread-1",
-    });
-
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      sendEmailWithHtml,
-    } as any);
-
     const toolInstance = sendEmailTool({
       email: "sender@example.com",
       emailAccountId: "email-account-1",
@@ -41,26 +32,28 @@ describe("chat inbox tools", () => {
       logger,
     });
 
-    const result = await toolInstance.execute({
+    const result = await (toolInstance.execute as any)({
       to: "recipient@example.com",
       subject: "Hello",
       messageHtml: "<p>Hi there</p>",
     });
 
-    expect(sendEmailWithHtml).toHaveBeenCalledWith({
-      to: "recipient@example.com",
-      subject: "Hello",
-      messageHtml: "<p>Hi there</p>",
-      from: "Test User <sender@example.com>",
-    });
+    expect(createEmailProvider).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       success: true,
-      messageId: "message-1",
-      threadId: "thread-1",
+      actionType: "send_email",
+      requiresConfirmation: true,
+      confirmationState: "pending",
+      pendingAction: {
+        to: "recipient@example.com",
+        subject: "Hello",
+        messageHtml: "<p>Hi there</p>",
+        from: "Test User <sender@example.com>",
+      },
     });
   });
 
-  it("uses threaded reply flow when replying", async () => {
+  it("prepares threaded reply flow without sending immediately", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       name: "Test User",
       email: "sender@example.com",
@@ -97,20 +90,26 @@ describe("chat inbox tools", () => {
       logger,
     });
 
-    const result = await toolInstance.execute({
+    const result = await (toolInstance.execute as any)({
       messageId: "message-1",
       content: "Thanks for the update.",
     });
 
     expect(getMessage).toHaveBeenCalledWith("message-1");
-    expect(replyToEmail).toHaveBeenCalledWith(
-      message,
-      "Thanks for the update.",
-    );
+    expect(replyToEmail).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       success: true,
-      messageId: "message-1",
-      threadId: "thread-1",
+      actionType: "reply_email",
+      requiresConfirmation: true,
+      confirmationState: "pending",
+      pendingAction: {
+        messageId: "message-1",
+        content: "Thanks for the update.",
+      },
+      reference: {
+        messageId: "message-1",
+        threadId: "thread-1",
+      },
     });
   });
 });
