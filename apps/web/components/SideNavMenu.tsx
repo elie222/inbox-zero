@@ -45,7 +45,11 @@ export function SideNavMenu({
             <Link
               href={item.href}
               onClick={() => {
-                if (isMobile) setOpenMobile([]);
+                if (isMobile) {
+                  setOpenMobile((prev) =>
+                    prev.filter((name) => name !== "left-sidebar"),
+                  );
+                }
               }}
             >
               <item.icon />

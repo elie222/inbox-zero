@@ -308,8 +308,13 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <Link
             href="https://docs.getinboxzero.com"
             target="_blank"
+            rel="noopener noreferrer"
             onClick={() => {
-              if (isMobile) setOpenMobile([]);
+              if (isMobile) {
+                setOpenMobile((prev) =>
+                  prev.filter((name) => name !== "left-sidebar"),
+                );
+              }
             }}
           >
             <BookIcon className="size-4" />
@@ -321,7 +326,11 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <Link
             href="/settings"
             onClick={() => {
-              if (isMobile) setOpenMobile([]);
+              if (isMobile) {
+                setOpenMobile((prev) =>
+                  prev.filter((name) => name !== "left-sidebar"),
+                );
+              }
             }}
           >
             <SettingsIcon className="size-4" />
