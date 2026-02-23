@@ -388,12 +388,14 @@ async function reservePendingAssistantEmailAction({
   });
 
   if (!chatMessage) {
-    logger.warn("Assistant email confirmation failed: chat message not found", {
+    warnAndThrowAssistantEmailConfirmationError({
+      logger,
+      logMessage: "Assistant email confirmation failed: chat message not found",
+      safeMessage: "Chat message not found",
       chatMessageId,
       toolCallId,
       actionType,
     });
-    throw new SafeError("Chat message not found");
   }
 
   const lookup = findPendingAssistantEmailPart({
@@ -402,15 +404,15 @@ async function reservePendingAssistantEmailAction({
     actionType,
   });
   if (!lookup) {
-    logger.warn(
-      "Assistant email confirmation failed: pending assistant action not found",
-      {
-        chatMessageId,
-        toolCallId,
-        actionType,
-      },
-    );
-    throw new SafeError("Pending assistant action not found");
+    warnAndThrowAssistantEmailConfirmationError({
+      logger,
+      logMessage:
+        "Assistant email confirmation failed: pending assistant action not found",
+      safeMessage: "Pending assistant action not found",
+      chatMessageId,
+      toolCallId,
+      actionType,
+    });
   }
 
   if (
@@ -469,15 +471,15 @@ async function reservePendingAssistantEmailAction({
   });
 
   if (!latestMessage) {
-    logger.warn(
-      "Assistant email confirmation failed after reservation race: chat message not found",
-      {
-        chatMessageId,
-        toolCallId,
-        actionType,
-      },
-    );
-    throw new SafeError("Chat message not found");
+    warnAndThrowAssistantEmailConfirmationError({
+      logger,
+      logMessage:
+        "Assistant email confirmation failed after reservation race: chat message not found",
+      safeMessage: "Chat message not found",
+      chatMessageId,
+      toolCallId,
+      actionType,
+    });
   }
 
   const latestLookup = findPendingAssistantEmailPart({
@@ -633,6 +635,30 @@ function hasProcessingLeaseExpired(processingAt?: string | null) {
   if (Number.isNaN(processingTime)) return false;
 
   return Date.now() - processingTime >= CONFIRMATION_PROCESSING_LEASE_MS;
+}
+
+function warnAndThrowAssistantEmailConfirmationError({
+  logger,
+  logMessage,
+  safeMessage,
+  chatMessageId,
+  toolCallId,
+  actionType,
+}: {
+  logger: Logger;
+  logMessage: string;
+  safeMessage: string;
+  chatMessageId: string;
+  toolCallId: string;
+  actionType: AssistantPendingEmailActionType;
+}): never {
+  logger.warn(logMessage, {
+    chatMessageId,
+    toolCallId,
+    actionType,
+  });
+
+  throw new SafeError(safeMessage);
 }
 
 function parsePendingSendEmailOutput(output: unknown) {
