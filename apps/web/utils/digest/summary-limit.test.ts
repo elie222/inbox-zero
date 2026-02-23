@@ -3,9 +3,16 @@ import prisma from "@/utils/__mocks__/prisma";
 import {
   getDigestSummaryWindowStart,
   hasReachedDigestSummaryLimit,
+  reserveDigestSummarySlot,
 } from "@/utils/digest/summary-limit";
+import { redis } from "@/utils/redis";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/redis", () => ({
+  redis: {
+    eval: vi.fn(),
+  },
+}));
 
 describe("getDigestSummaryWindowStart", () => {
   it("returns a date exactly 24 hours before now", () => {
@@ -66,5 +73,79 @@ describe("hasReachedDigestSummaryLimit", () => {
     });
 
     expect(reached).toBe(false);
+  });
+});
+
+describe("reserveDigestSummarySlot", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns true without querying redis when limit is disabled", async () => {
+    const reserved = await reserveDigestSummarySlot({
+      emailAccountId: "account-1",
+      maxSummariesPer24h: 0,
+      now: new Date("2026-02-23T12:00:00.000Z"),
+    });
+
+    expect(reserved).toBe(true);
+    expect(redis.eval).not.toHaveBeenCalled();
+    expect(prisma.digestItem.count).not.toHaveBeenCalled();
+  });
+
+  it("returns true when redis reserves a slot", async () => {
+    vi.mocked(redis.eval).mockResolvedValue(1);
+
+    const reserved = await reserveDigestSummarySlot({
+      emailAccountId: "account-1",
+      maxSummariesPer24h: 50,
+      now: new Date("2026-02-23T12:00:00.000Z"),
+    });
+
+    expect(reserved).toBe(true);
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining("ZREMRANGEBYSCORE"),
+      ["digest:summary-limit:account-1"],
+      expect.arrayContaining(["50"]),
+    );
+  });
+
+  it("returns false when redis rejects the reservation", async () => {
+    vi.mocked(redis.eval).mockResolvedValue(0);
+
+    const reserved = await reserveDigestSummarySlot({
+      emailAccountId: "account-1",
+      maxSummariesPer24h: 50,
+      now: new Date("2026-02-23T12:00:00.000Z"),
+    });
+
+    expect(reserved).toBe(false);
+  });
+
+  it("falls back to prisma when redis fails and count is below limit", async () => {
+    vi.mocked(redis.eval).mockRejectedValue(new Error("redis down"));
+    vi.mocked(prisma.digestItem.count).mockResolvedValue(49);
+
+    const reserved = await reserveDigestSummarySlot({
+      emailAccountId: "account-1",
+      maxSummariesPer24h: 50,
+      now: new Date("2026-02-23T12:00:00.000Z"),
+    });
+
+    expect(reserved).toBe(true);
+    expect(prisma.digestItem.count).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to prisma when redis fails and count meets limit", async () => {
+    vi.mocked(redis.eval).mockRejectedValue(new Error("redis down"));
+    vi.mocked(prisma.digestItem.count).mockResolvedValue(50);
+
+    const reserved = await reserveDigestSummarySlot({
+      emailAccountId: "account-1",
+      maxSummariesPer24h: 50,
+      now: new Date("2026-02-23T12:00:00.000Z"),
+    });
+
+    expect(reserved).toBe(false);
   });
 });

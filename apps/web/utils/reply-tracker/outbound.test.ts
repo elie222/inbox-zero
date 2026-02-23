@@ -33,9 +33,11 @@ describe("handleOutboundReply", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(acquireOutboundThreadStatusLock).mockResolvedValue(true);
-    vi.mocked(markOutboundThreadStatusProcessed).mockResolvedValue();
-    vi.mocked(clearOutboundThreadStatusLock).mockResolvedValue();
+    vi.mocked(acquireOutboundThreadStatusLock).mockResolvedValue(
+      "lock-token-1",
+    );
+    vi.mocked(markOutboundThreadStatusProcessed).mockResolvedValue(true);
+    vi.mocked(clearOutboundThreadStatusLock).mockResolvedValue(true);
   });
 
   it("should proceed with processing even if the message is not the latest in the thread", async () => {
@@ -77,6 +79,7 @@ describe("handleOutboundReply", () => {
       emailAccountId: emailAccount.id,
       threadId: message.threadId,
       messageId: message.id,
+      lockToken: "lock-token-1",
     });
     expect(clearOutboundThreadStatusLock).not.toHaveBeenCalled();
   });
@@ -103,7 +106,7 @@ describe("handleOutboundReply", () => {
     const message = getMockMessage({ id: "sent-msg-1", threadId: "thread1" });
 
     prisma.rule.findFirst.mockResolvedValue({ id: "rule1" } as any);
-    vi.mocked(acquireOutboundThreadStatusLock).mockResolvedValue(false);
+    vi.mocked(acquireOutboundThreadStatusLock).mockResolvedValue(null);
 
     await handleOutboundReply({
       emailAccount,
@@ -137,6 +140,7 @@ describe("handleOutboundReply", () => {
       emailAccountId: emailAccount.id,
       threadId: message.threadId,
       messageId: message.id,
+      lockToken: "lock-token-1",
     });
   });
 });

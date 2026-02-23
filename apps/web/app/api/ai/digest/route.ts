@@ -10,7 +10,7 @@ import { withError } from "@/utils/middleware";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { env } from "@/env";
 import { withQstashOrInternal } from "@/utils/qstash";
-import { hasReachedDigestSummaryLimit } from "@/utils/digest/summary-limit";
+import { reserveDigestSummarySlot } from "@/utils/digest/summary-limit";
 
 export const POST = withError(
   "digest",
@@ -53,11 +53,11 @@ export const POST = withError(
         return new NextResponse("OK", { status: 200 });
       }
 
-      const limitReached = await hasReachedDigestSummaryLimit({
+      const summarySlotReserved = await reserveDigestSummarySlot({
         emailAccountId,
         maxSummariesPer24h: env.DIGEST_MAX_SUMMARIES_PER_24H,
       });
-      if (limitReached) {
+      if (!summarySlotReserved) {
         logger.info("Skipping digest item because summary limit was reached", {
           maxSummariesPer24h: env.DIGEST_MAX_SUMMARIES_PER_24H,
         });

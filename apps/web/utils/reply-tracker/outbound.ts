@@ -46,8 +46,8 @@ export async function handleOutboundReply({
     messageId: message.id,
   };
 
-  const lockAcquired = await acquireOutboundThreadStatusLock(idempotencyKey);
-  if (!lockAcquired) {
+  const lockToken = await acquireOutboundThreadStatusLock(idempotencyKey);
+  if (!lockToken) {
     logger.info(
       "Outbound thread status already processed or currently processing, skipping.",
     );
@@ -122,15 +122,33 @@ export async function handleOutboundReply({
     processedSuccessfully = true;
   } finally {
     if (processedSuccessfully) {
-      await markOutboundThreadStatusProcessed(idempotencyKey).catch((error) => {
+      const markedAsProcessed = await markOutboundThreadStatusProcessed({
+        ...idempotencyKey,
+        lockToken,
+      }).catch((error) => {
         logger.error("Failed to mark outbound thread status as processed", {
           error,
         });
+        return false;
       });
+      if (!markedAsProcessed) {
+        logger.warn(
+          "Skipped marking outbound thread status as processed because lock was no longer owned.",
+        );
+      }
     } else {
-      await clearOutboundThreadStatusLock(idempotencyKey).catch((error) => {
+      const lockCleared = await clearOutboundThreadStatusLock({
+        ...idempotencyKey,
+        lockToken,
+      }).catch((error) => {
         logger.error("Failed to clear outbound thread status lock", { error });
+        return false;
       });
+      if (!lockCleared) {
+        logger.warn(
+          "Skipped clearing outbound thread status lock because lock was no longer owned.",
+        );
+      }
     }
   }
 }
