@@ -1139,7 +1139,12 @@ export class GmailProvider implements EmailProvider {
     const thread = await this.getThread(threadId);
     if (!thread.messages.length) return null;
 
-    const sorted = [...thread.messages].sort((a, b) => {
+    const nonDraftMessages = thread.messages.filter(
+      (message) => !message.labelIds?.includes(GmailLabel.DRAFT),
+    );
+    if (!nonDraftMessages.length) return null;
+
+    const sorted = [...nonDraftMessages].sort((a, b) => {
       const aDate = Number(a.internalDate) || 0;
       const bDate = Number(b.internalDate) || 0;
       return bDate - aDate;
