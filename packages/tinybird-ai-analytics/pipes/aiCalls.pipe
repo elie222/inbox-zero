@@ -76,7 +76,7 @@ SQL >
       toStartOfDay(fromUnixTimestamp64Milli(timestamp)) AS "day",
       sum(cachedInputTokens) AS cachedInputTokens,
       sum(promptTokens) AS promptTokens,
-      if(sum(promptTokens) = 0, 0, sum(cachedInputTokens) / sum(promptTokens)) AS cacheHitRate
+      if(promptTokens = 0, 0, cachedInputTokens / promptTokens) AS cacheHitRate
     FROM aiCall
     GROUP BY day
     ORDER BY day
@@ -90,7 +90,7 @@ SQL >
       label,
       sum(cachedInputTokens) AS cachedInputTokens,
       sum(promptTokens) AS promptTokens,
-      if(sum(promptTokens) = 0, 0, sum(cachedInputTokens) / sum(promptTokens)) AS cacheHitRate
+      if(promptTokens = 0, 0, cachedInputTokens / promptTokens) AS cacheHitRate
     FROM aiCall
     GROUP BY label
     ORDER BY cachedInputTokens DESC
