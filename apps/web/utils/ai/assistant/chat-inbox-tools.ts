@@ -8,7 +8,7 @@ import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { formatEmailWithName } from "@/utils/email";
+import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 const sendEmailToolInputSchema = z
@@ -626,10 +626,11 @@ export const sendEmailTool = ({
       }
 
       try {
-        const from = await getDefaultSenderAddress({
-          emailAccountId,
-          fallbackEmail: email,
-        });
+        const from =
+          (await getFormattedSenderAddress({
+            emailAccountId,
+            fallbackEmail: email,
+          })) || email;
         return createPendingSendEmailOutput(
           parsedInput.data,
           from || null,
@@ -763,29 +764,6 @@ async function listLabelNames({
     logger.warn("Failed to load label names", { error });
     return [];
   }
-}
-
-async function getDefaultSenderAddress({
-  emailAccountId,
-  fallbackEmail,
-}: {
-  emailAccountId: string;
-  fallbackEmail: string;
-}) {
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      name: true,
-      email: true,
-    },
-  });
-
-  if (!emailAccount) return fallbackEmail;
-
-  return formatEmailWithName(
-    emailAccount.name,
-    emailAccount.email || fallbackEmail,
-  );
 }
 
 type PendingEmailActionType = "send_email" | "reply_email" | "forward_email";

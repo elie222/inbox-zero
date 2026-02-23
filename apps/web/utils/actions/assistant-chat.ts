@@ -4,7 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
-import { formatEmailWithName } from "@/utils/email";
+import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import prisma from "@/utils/prisma";
 import {
   assistantPendingEmailToolOutputSchema,
@@ -115,7 +115,7 @@ async function executeAssistantEmailAction({
   if (output.actionType === "send_email") {
     const from =
       output.pendingAction.from ||
-      (await getDefaultSenderAddress({ emailAccountId }));
+      (await getFormattedSenderAddress({ emailAccountId }));
 
     const result = await emailProvider.sendEmailWithHtml({
       to: output.pendingAction.to,
@@ -242,23 +242,6 @@ function updateAssistantEmailPartWithConfirmation({
       },
     };
   });
-}
-
-async function getDefaultSenderAddress({
-  emailAccountId,
-}: {
-  emailAccountId: string;
-}) {
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      name: true,
-      email: true,
-    },
-  });
-
-  if (!emailAccount?.email) return null;
-  return formatEmailWithName(emailAccount.name, emailAccount.email);
 }
 
 async function getLatestMessageInThreadSafe(

@@ -216,69 +216,30 @@ export function MessagePart({
   }
 
   if (part.type === "tool-sendEmail") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Preparing email..." />;
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      const failureMessage = getToolFailureMessage(output);
-      if (failureMessage) {
-        return <ErrorToolCard key={toolCallId} error={failureMessage} />;
-      }
-      return (
-        <SendEmailResult
-          key={toolCallId}
-          output={output}
-          chatMessageId={messageId}
-          toolCallId={toolCallId}
-        />
-      );
-    }
+    return renderPendingEmailAction({
+      part,
+      messageId,
+      preparingText: "Preparing email...",
+      ResultComponent: SendEmailResult,
+    });
   }
 
   if (part.type === "tool-replyEmail") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Preparing reply..." />;
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      const failureMessage = getToolFailureMessage(output);
-      if (failureMessage) {
-        return <ErrorToolCard key={toolCallId} error={failureMessage} />;
-      }
-      return (
-        <ReplyEmailResult
-          key={toolCallId}
-          output={output}
-          chatMessageId={messageId}
-          toolCallId={toolCallId}
-        />
-      );
-    }
+    return renderPendingEmailAction({
+      part,
+      messageId,
+      preparingText: "Preparing reply...",
+      ResultComponent: ReplyEmailResult,
+    });
   }
 
   if (part.type === "tool-forwardEmail") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Preparing forward..." />;
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      const failureMessage = getToolFailureMessage(output);
-      if (failureMessage) {
-        return <ErrorToolCard key={toolCallId} error={failureMessage} />;
-      }
-      return (
-        <ForwardEmailResult
-          key={toolCallId}
-          output={output}
-          chatMessageId={messageId}
-          toolCallId={toolCallId}
-        />
-      );
-    }
+    return renderPendingEmailAction({
+      part,
+      messageId,
+      preparingText: "Preparing forward...",
+      ResultComponent: ForwardEmailResult,
+    });
   }
 
   if (part.type === "tool-getUserRulesAndSettings") {
@@ -536,6 +497,49 @@ function renderToolStatus({
     }
 
     return renderSuccess({ toolCallId: part.toolCallId, output: part.output });
+  }
+
+  return null;
+}
+
+function renderPendingEmailAction({
+  part,
+  messageId,
+  preparingText,
+  ResultComponent,
+}: {
+  part: {
+    toolCallId: string;
+    state: string;
+    output?: unknown;
+  };
+  messageId: string;
+  preparingText: string;
+  ResultComponent: (props: {
+    output: unknown;
+    chatMessageId: string;
+    toolCallId: string;
+  }) => ReactNode;
+}) {
+  const { toolCallId, state } = part;
+  if (state === "input-available") {
+    return <BasicToolInfo key={toolCallId} text={preparingText} />;
+  }
+
+  if (state === "output-available") {
+    const failureMessage = getToolFailureMessage(part.output);
+    if (failureMessage) {
+      return <ErrorToolCard key={toolCallId} error={failureMessage} />;
+    }
+
+    return (
+      <ResultComponent
+        key={toolCallId}
+        output={part.output}
+        chatMessageId={messageId}
+        toolCallId={toolCallId}
+      />
+    );
   }
 
   return null;

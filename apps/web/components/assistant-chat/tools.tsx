@@ -1030,6 +1030,101 @@ function CollapsibleDiff({
   );
 }
 
+// Helper function to render action fields
+function renderActionFields(fields: {
+  label?: string | null;
+  content?: string | null;
+  to?: string | null;
+  cc?: string | null;
+  bcc?: string | null;
+  subject?: string | null;
+  url?: string | null;
+  webhookUrl?: string | null;
+}) {
+  const fieldEntries = [];
+
+  // Only add fields that have actual values
+  if (fields.label) fieldEntries.push(["Label", fields.label]);
+  if (fields.subject) fieldEntries.push(["Subject", fields.subject]);
+  if (fields.to) fieldEntries.push(["To", fields.to]);
+  if (fields.cc) fieldEntries.push(["CC", fields.cc]);
+  if (fields.bcc) fieldEntries.push(["BCC", fields.bcc]);
+  if (fields.content) fieldEntries.push(["Content", fields.content]);
+  if (fields.url || fields.webhookUrl)
+    fieldEntries.push(["URL", fields.url || fields.webhookUrl]);
+
+  if (fieldEntries.length === 0) return null;
+
+  return (
+    <div className="mt-1">
+      <ul className="list-inside list-disc">
+        {fieldEntries.map(([key, value]) => (
+          <li key={key}>
+            {key}:{" "}
+            {key === "Content" ? (
+              <span className="font-mono text-xs">{value}</span>
+            ) : (
+              value
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+type ManageInboxAction =
+  | "archive_threads"
+  | "mark_read_threads"
+  | "bulk_archive_senders";
+
+function parseManageInboxAction(
+  action: string | undefined,
+): ManageInboxAction | undefined {
+  if (
+    action === "archive_threads" ||
+    action === "mark_read_threads" ||
+    action === "bulk_archive_senders"
+  ) {
+    return action;
+  }
+
+  return undefined;
+}
+
+function getManageInboxActionLabel({
+  action,
+  read,
+  labelApplied,
+  inProgress,
+}: {
+  action: ManageInboxAction | undefined;
+  read?: boolean;
+  labelApplied: boolean;
+  inProgress?: boolean;
+}) {
+  if (action === "bulk_archive_senders") {
+    return inProgress ? "Bulk archiving senders" : "Bulk archived senders";
+  }
+  if (action === "archive_threads") {
+    if (inProgress) {
+      return labelApplied
+        ? "Archiving and labeling emails"
+        : "Archiving emails";
+    }
+    return labelApplied ? "Archived and labeled emails" : "Archived emails";
+  }
+  if (action === "mark_read_threads") {
+    if (inProgress) {
+      return read === false
+        ? "Marking emails as unread"
+        : "Marking emails as read";
+    }
+    return read === false ? "Marked emails as unread" : "Marked emails as read";
+  }
+  return "Updated emails";
+}
+
 function ToolDetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-xs text-muted-foreground">
@@ -1202,99 +1297,4 @@ function asString(value: unknown): string | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-// Helper function to render action fields
-function renderActionFields(fields: {
-  label?: string | null;
-  content?: string | null;
-  to?: string | null;
-  cc?: string | null;
-  bcc?: string | null;
-  subject?: string | null;
-  url?: string | null;
-  webhookUrl?: string | null;
-}) {
-  const fieldEntries = [];
-
-  // Only add fields that have actual values
-  if (fields.label) fieldEntries.push(["Label", fields.label]);
-  if (fields.subject) fieldEntries.push(["Subject", fields.subject]);
-  if (fields.to) fieldEntries.push(["To", fields.to]);
-  if (fields.cc) fieldEntries.push(["CC", fields.cc]);
-  if (fields.bcc) fieldEntries.push(["BCC", fields.bcc]);
-  if (fields.content) fieldEntries.push(["Content", fields.content]);
-  if (fields.url || fields.webhookUrl)
-    fieldEntries.push(["URL", fields.url || fields.webhookUrl]);
-
-  if (fieldEntries.length === 0) return null;
-
-  return (
-    <div className="mt-1">
-      <ul className="list-inside list-disc">
-        {fieldEntries.map(([key, value]) => (
-          <li key={key}>
-            {key}:{" "}
-            {key === "Content" ? (
-              <span className="font-mono text-xs">{value}</span>
-            ) : (
-              value
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-type ManageInboxAction =
-  | "archive_threads"
-  | "mark_read_threads"
-  | "bulk_archive_senders";
-
-function parseManageInboxAction(
-  action: string | undefined,
-): ManageInboxAction | undefined {
-  if (
-    action === "archive_threads" ||
-    action === "mark_read_threads" ||
-    action === "bulk_archive_senders"
-  ) {
-    return action;
-  }
-
-  return undefined;
-}
-
-function getManageInboxActionLabel({
-  action,
-  read,
-  labelApplied,
-  inProgress,
-}: {
-  action: ManageInboxAction | undefined;
-  read?: boolean;
-  labelApplied: boolean;
-  inProgress?: boolean;
-}) {
-  if (action === "bulk_archive_senders") {
-    return inProgress ? "Bulk archiving senders" : "Bulk archived senders";
-  }
-  if (action === "archive_threads") {
-    if (inProgress) {
-      return labelApplied
-        ? "Archiving and labeling emails"
-        : "Archiving emails";
-    }
-    return labelApplied ? "Archived and labeled emails" : "Archived emails";
-  }
-  if (action === "mark_read_threads") {
-    if (inProgress) {
-      return read === false
-        ? "Marking emails as unread"
-        : "Marking emails as read";
-    }
-    return read === false ? "Marked emails as unread" : "Marked emails as read";
-  }
-  return "Updated emails";
 }
