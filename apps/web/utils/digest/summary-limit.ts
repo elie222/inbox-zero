@@ -7,14 +7,14 @@ const DIGEST_SUMMARY_WINDOW_TTL_SECONDS = 24 * 60 * 60;
 const DIGEST_SUMMARY_LIMIT_KEY_PREFIX = "digest:summary-limit";
 const RESERVE_DIGEST_SUMMARY_SLOT_SCRIPT = `
 redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", "(" .. ARGV[2])
-local count = redis.call("ZCARD", KEYS[1])
-if count >= tonumber(ARGV[3]) then
+local activeCount = redis.call("ZCARD", KEYS[1])
+if activeCount >= tonumber(ARGV[3]) then
   return 0
 end
 redis.call("ZADD", KEYS[1], ARGV[1], ARGV[4])
 redis.call("EXPIRE", KEYS[1], ARGV[5])
 return 1
-`;
+`.trim();
 
 export function getDigestSummaryWindowStart(now = new Date()): Date {
   return new Date(now.getTime() - DIGEST_SUMMARY_WINDOW_MS);
@@ -43,21 +43,18 @@ export async function reserveDigestSummarySlot({
   const reservationId = `${nowMs}:${randomUUID()}`;
 
   try {
-    const reserved = await redis.eval<string[], number>(
-      RESERVE_DIGEST_SUMMARY_SLOT_SCRIPT,
-      [getDigestSummaryLimitKey(emailAccountId)],
-      [
-        nowMs.toString(),
-        windowStart.toString(),
-        maxSummariesPer24h.toString(),
-        reservationId,
-        DIGEST_SUMMARY_WINDOW_TTL_SECONDS.toString(),
-      ],
-    );
+    const reserved = await runReserveDigestSummarySlotScript({
+      key: getDigestSummaryLimitKey(emailAccountId),
+      nowMs,
+      windowStartMs: windowStart,
+      maxSummariesPer24h,
+      reservationId,
+      ttlSeconds: DIGEST_SUMMARY_WINDOW_TTL_SECONDS,
+    });
 
     return {
-      reserved: reserved === 1,
-      reservationId: reserved === 1 ? reservationId : null,
+      reserved,
+      reservationId: reserved ? reservationId : null,
     };
   } catch {
     const limitReached = await hasReachedDigestSummaryLimit({
@@ -127,4 +124,34 @@ async function countDigestSummariesInWindow({
 
 function getDigestSummaryLimitKey(emailAccountId: string) {
   return `${DIGEST_SUMMARY_LIMIT_KEY_PREFIX}:${emailAccountId}`;
+}
+
+async function runReserveDigestSummarySlotScript({
+  key,
+  nowMs,
+  windowStartMs,
+  maxSummariesPer24h,
+  reservationId,
+  ttlSeconds,
+}: {
+  key: string;
+  nowMs: number;
+  windowStartMs: number;
+  maxSummariesPer24h: number;
+  reservationId: string;
+  ttlSeconds: number;
+}) {
+  const result = await redis.eval<string[], number>(
+    RESERVE_DIGEST_SUMMARY_SLOT_SCRIPT,
+    [key],
+    [
+      nowMs.toString(),
+      windowStartMs.toString(),
+      maxSummariesPer24h.toString(),
+      reservationId,
+      ttlSeconds.toString(),
+    ],
+  );
+
+  return result === 1;
 }
