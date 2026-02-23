@@ -7,6 +7,7 @@ import type { Logger } from "@/utils/logger";
 import { isAlreadyExistsError } from "./errors";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { getLabelById } from "@/utils/outlook/label";
+import { sanitizeOutlookCategoryName } from "@/utils/outlook/label-validation";
 
 // Microsoft Graph API doesn't have a direct equivalent to Gmail filters
 // Instead, we can work with mail rules which are more complex but provide similar functionality
@@ -162,6 +163,9 @@ export async function createCategoryFilter({
   categoryName: string;
   logger: Logger;
 }) {
+  const sanitizedCategoryName = sanitizeOutlookCategoryName(categoryName);
+  if (!sanitizedCategoryName) throw new Error("Category name cannot be empty");
+
   try {
     // First, ensure the category exists
     const categories: { value: OutlookCategory[] } = await client
@@ -170,7 +174,7 @@ export async function createCategoryFilter({
       .get();
 
     let category = categories.value.find(
-      (cat) => cat.displayName === categoryName,
+      (cat) => cat.displayName === sanitizedCategoryName,
     );
 
     if (!category) {
@@ -178,7 +182,7 @@ export async function createCategoryFilter({
       category = await withOutlookRetry(
         () =>
           client.getClient().api("/me/outlook/masterCategories").post({
-            displayName: categoryName,
+            displayName: sanitizedCategoryName,
             color: "preset0", // Default color
           }),
         logger,
@@ -193,7 +197,7 @@ export async function createCategoryFilter({
 
     logger.info("Category created for filter", {
       from,
-      categoryName,
+      categoryName: sanitizedCategoryName,
       categoryId: category?.id,
     });
 
@@ -205,7 +209,10 @@ export async function createCategoryFilter({
     };
   } catch (error) {
     if (isAlreadyExistsError(error)) {
-      logger.warn("Category filter already exists", { from, categoryName });
+      logger.warn("Category filter already exists", {
+        from,
+        categoryName: sanitizedCategoryName,
+      });
       return { status: 200 };
     }
     throw error;
