@@ -3,7 +3,11 @@ import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
-import { replyEmailTool, sendEmailTool } from "./chat-inbox-tools";
+import {
+  forwardEmailTool,
+  replyEmailTool,
+  sendEmailTool,
+} from "./chat-inbox-tools";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -25,15 +29,6 @@ describe("chat inbox tools", () => {
       email: "sender@example.com",
     } as any);
 
-    const sendEmailWithHtml = vi.fn().mockResolvedValue({
-      messageId: "message-1",
-      threadId: "thread-1",
-    });
-
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      sendEmailWithHtml,
-    } as any);
-
     const toolInstance = sendEmailTool({
       email: "sender@example.com",
       emailAccountId: "email-account-1",
@@ -41,26 +36,28 @@ describe("chat inbox tools", () => {
       logger,
     });
 
-    const result = await toolInstance.execute({
+    const result = await (toolInstance.execute as any)({
       to: "recipient@example.com",
       subject: "Hello",
       messageHtml: "<p>Hi there</p>",
     });
 
-    expect(sendEmailWithHtml).toHaveBeenCalledWith({
-      to: "recipient@example.com",
-      subject: "Hello",
-      messageHtml: "<p>Hi there</p>",
-      from: "Test User <sender@example.com>",
-    });
+    expect(createEmailProvider).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       success: true,
-      messageId: "message-1",
-      threadId: "thread-1",
+      actionType: "send_email",
+      requiresConfirmation: true,
+      confirmationState: "pending",
+      pendingAction: {
+        to: "recipient@example.com",
+        subject: "Hello",
+        messageHtml: "<p>Hi there</p>",
+        from: "Test User <sender@example.com>",
+      },
     });
   });
 
-  it("uses threaded reply flow when replying", async () => {
+  it("prepares threaded reply flow without sending immediately", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       name: "Test User",
       email: "sender@example.com",
@@ -97,20 +94,88 @@ describe("chat inbox tools", () => {
       logger,
     });
 
-    const result = await toolInstance.execute({
+    const result = await (toolInstance.execute as any)({
       messageId: "message-1",
       content: "Thanks for the update.",
     });
 
     expect(getMessage).toHaveBeenCalledWith("message-1");
-    expect(replyToEmail).toHaveBeenCalledWith(
-      message,
-      "Thanks for the update.",
-    );
+    expect(replyToEmail).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       success: true,
-      messageId: "message-1",
+      actionType: "reply_email",
+      requiresConfirmation: true,
+      confirmationState: "pending",
+      pendingAction: {
+        messageId: "message-1",
+        content: "Thanks for the update.",
+      },
+      reference: {
+        messageId: "message-1",
+        threadId: "thread-1",
+      },
+    });
+  });
+
+  it("prepares forward flow without sending immediately", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      name: "Test User",
+      email: "sender@example.com",
+    } as any);
+
+    const message: ParsedMessage = {
+      id: "message-1",
       threadId: "thread-1",
+      snippet: "",
+      historyId: "",
+      inline: [],
+      headers: {
+        from: "contact@example.com",
+        to: "sender@example.com",
+        subject: "Question",
+        date: "2026-02-18T00:00:00.000Z",
+      },
+      subject: "Question",
+      date: "2026-02-18T00:00:00.000Z",
+    };
+
+    const getMessage = vi.fn().mockResolvedValue(message);
+    const forwardEmail = vi.fn().mockResolvedValue(undefined);
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getMessage,
+      forwardEmail,
+    } as any);
+
+    const toolInstance = forwardEmailTool({
+      email: "sender@example.com",
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      messageId: "message-1",
+      to: "recipient@example.com",
+      content: "Forwarding this along.",
+    });
+
+    expect(getMessage).toHaveBeenCalledWith("message-1");
+    expect(forwardEmail).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      success: true,
+      actionType: "forward_email",
+      requiresConfirmation: true,
+      confirmationState: "pending",
+      pendingAction: {
+        messageId: "message-1",
+        to: "recipient@example.com",
+        content: "Forwarding this along.",
+      },
+      reference: {
+        messageId: "message-1",
+        threadId: "thread-1",
+      },
     });
   });
 });

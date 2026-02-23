@@ -8,7 +8,7 @@ import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { formatEmailWithName } from "@/utils/email";
+import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 const sendEmailToolInputSchema = z
@@ -615,7 +615,7 @@ export const sendEmailTool = ({
 }) =>
   tool({
     description:
-      "Send a new email immediately from the connected mailbox. Use only when the user clearly asks to send now.",
+      "Prepare a new email to send. This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
     inputSchema: sendEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "send_email", email, logger });
@@ -626,29 +626,19 @@ export const sendEmailTool = ({
       }
 
       try {
-        const emailProvider = await createEmailProvider({
-          emailAccountId,
+        const from =
+          (await getFormattedSenderAddress({
+            emailAccountId,
+            fallbackEmail: email,
+          })) || email;
+        return createPendingSendEmailOutput(
+          parsedInput.data,
+          from || null,
           provider,
-          logger,
-        });
-        const from = await getDefaultSenderAddress({
-          emailAccountId,
-          fallbackEmail: email,
-        });
-        const result = await emailProvider.sendEmailWithHtml({
-          ...parsedInput.data,
-          ...(from ? { from } : {}),
-        });
-        return {
-          success: true,
-          messageId: result.messageId,
-          threadId: result.threadId,
-          to: parsedInput.data.to,
-          subject: parsedInput.data.subject,
-        };
+        );
       } catch (error) {
-        logger.error("Failed to send email from chat", { error });
-        return { error: "Failed to send email" };
+        logger.error("Failed to prepare email from chat", { error });
+        return { error: "Failed to prepare email" };
       }
     },
   });
@@ -668,7 +658,7 @@ export const replyEmailTool = ({
 }) =>
   tool({
     description:
-      "Reply to an existing email by message ID. Use messageId values from searchInbox results.",
+      "Prepare a reply to an existing email by message ID. This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
     inputSchema: replyEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "reply_email", email, logger });
@@ -687,16 +677,11 @@ export const replyEmailTool = ({
         const message = await emailProvider.getMessage(
           parsedInput.data.messageId,
         );
-        await emailProvider.replyToEmail(message, parsedInput.data.content);
 
-        return {
-          success: true,
-          messageId: parsedInput.data.messageId,
-          threadId: message.threadId,
-        };
+        return createPendingReplyEmailOutput(parsedInput.data, message);
       } catch (error) {
-        logger.error("Failed to reply from chat", { error });
-        return { error: "Failed to send reply" };
+        logger.error("Failed to prepare reply from chat", { error });
+        return { error: "Failed to prepare reply" };
       }
     },
   });
@@ -716,7 +701,7 @@ export const forwardEmailTool = ({
 }) =>
   tool({
     description:
-      "Forward an existing email by message ID. Use messageId values from searchInbox results.",
+      "Prepare a forward for an existing email by message ID. This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
     inputSchema: forwardEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "forward_email", email, logger });
@@ -735,20 +720,10 @@ export const forwardEmailTool = ({
         const message = await emailProvider.getMessage(
           parsedInput.data.messageId,
         );
-        await emailProvider.forwardEmail(message, {
-          to: parsedInput.data.to,
-          cc: parsedInput.data.cc,
-          bcc: parsedInput.data.bcc,
-          content: parsedInput.data.content || undefined,
-        });
-        return {
-          success: true,
-          messageId: parsedInput.data.messageId,
-          to: parsedInput.data.to,
-        };
+        return createPendingForwardEmailOutput(parsedInput.data, message);
       } catch (error) {
-        logger.error("Failed to forward email from chat", { error });
-        return { error: "Failed to forward email" };
+        logger.error("Failed to prepare email forward from chat", { error });
+        return { error: "Failed to prepare email forward" };
       }
     },
   });
@@ -791,27 +766,75 @@ async function listLabelNames({
   }
 }
 
-async function getDefaultSenderAddress({
-  emailAccountId,
-  fallbackEmail,
-}: {
-  emailAccountId: string;
-  fallbackEmail: string;
-}) {
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      name: true,
-      email: true,
+type PendingEmailActionType = "send_email" | "reply_email" | "forward_email";
+
+function createPendingSendEmailOutput(
+  input: z.infer<typeof sendEmailToolInputSchema>,
+  from: string | null,
+  provider: string,
+) {
+  return {
+    success: true,
+    actionType: "send_email" as PendingEmailActionType,
+    requiresConfirmation: true,
+    confirmationState: "pending" as const,
+    provider,
+    pendingAction: {
+      to: input.to,
+      cc: input.cc || null,
+      bcc: input.bcc || null,
+      subject: input.subject,
+      messageHtml: input.messageHtml,
+      from,
     },
-  });
+  };
+}
 
-  if (!emailAccount) return fallbackEmail;
+function createPendingReplyEmailOutput(
+  input: z.infer<typeof replyEmailToolInputSchema>,
+  message: ParsedMessage,
+) {
+  return {
+    success: true,
+    actionType: "reply_email" as PendingEmailActionType,
+    requiresConfirmation: true,
+    confirmationState: "pending" as const,
+    pendingAction: {
+      messageId: input.messageId,
+      content: input.content,
+    },
+    reference: {
+      messageId: message.id,
+      threadId: message.threadId,
+      from: message.headers.from,
+      subject: message.subject || message.headers.subject,
+    },
+  };
+}
 
-  return formatEmailWithName(
-    emailAccount.name,
-    emailAccount.email || fallbackEmail,
-  );
+function createPendingForwardEmailOutput(
+  input: z.infer<typeof forwardEmailToolInputSchema>,
+  message: ParsedMessage,
+) {
+  return {
+    success: true,
+    actionType: "forward_email" as PendingEmailActionType,
+    requiresConfirmation: true,
+    confirmationState: "pending" as const,
+    pendingAction: {
+      messageId: input.messageId,
+      to: input.to,
+      cc: input.cc || null,
+      bcc: input.bcc || null,
+      content: input.content || null,
+    },
+    reference: {
+      messageId: message.id,
+      threadId: message.threadId,
+      from: message.headers.from,
+      subject: message.subject || message.headers.subject,
+    },
+  };
 }
 
 function shouldIncludeMessage({

@@ -19,6 +19,7 @@ import {
 import { getModel } from "@/utils/llms/model";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import { formatUtcDate } from "@/utils/date";
+import { mapUiMessagesToChatMessageRows } from "@/app/api/chat/chat-message-persistence";
 
 export const maxDuration = 120;
 
@@ -274,11 +275,8 @@ async function saveChatMessages(
 ) {
   try {
     return prisma.chatMessage.createMany({
-      data: messages.map((message) => ({
-        chatId,
-        role: message.role,
-        parts: message.parts as Prisma.InputJsonValue,
-      })),
+      data: mapUiMessagesToChatMessageRows(messages, chatId),
+      skipDuplicates: true,
     });
   } catch (error) {
     logger.error("Failed to save chat messages", { error, chatId });
