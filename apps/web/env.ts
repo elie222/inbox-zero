@@ -110,7 +110,7 @@ export const env = createEnv({
       .number()
       .int()
       .nonnegative()
-      .default(200),
+      .default(50),
 
     // Lemon Squeezy
     LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),
