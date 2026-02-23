@@ -52,7 +52,7 @@ export async function markOutboundThreadStatusProcessed({
 }: OutboundThreadStatusKey): Promise<boolean> {
   if (!lockToken) return false;
 
-  const result = await redis.eval<number>(
+  const result = await redis.eval<string[], number>(
     MARK_PROCESSED_IF_OWNED_SCRIPT,
     [getOutboundThreadStatusKey({ emailAccountId, threadId, messageId })],
     [lockToken, PROCESSED_TTL_SECONDS.toString()],
@@ -69,7 +69,7 @@ export async function clearOutboundThreadStatusLock({
 }: OutboundThreadStatusKey): Promise<boolean> {
   if (!lockToken) return false;
 
-  const result = await redis.eval<number>(
+  const result = await redis.eval<string[], number>(
     CLEAR_LOCK_IF_OWNED_SCRIPT,
     [getOutboundThreadStatusKey({ emailAccountId, threadId, messageId })],
     [lockToken],

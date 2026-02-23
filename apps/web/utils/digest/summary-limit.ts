@@ -43,7 +43,7 @@ export async function reserveDigestSummarySlot({
   const reservationId = `${nowMs}:${randomUUID()}`;
 
   try {
-    const reserved = await redis.eval<number>(
+    const reserved = await redis.eval<string[], number>(
       RESERVE_DIGEST_SUMMARY_SLOT_SCRIPT,
       [getDigestSummaryLimitKey(emailAccountId)],
       [
