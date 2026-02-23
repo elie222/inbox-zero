@@ -20,6 +20,9 @@ const TOOL_TYPE_BY_ACTION: Record<AssistantPendingEmailActionType, string> = {
   forward_email: "tool-forwardEmail",
 };
 
+const CONFIRMATION_IN_PROGRESS_ERROR =
+  "Email action confirmation already in progress";
+
 export const confirmAssistantEmailAction = actionClient
   .metadata({ name: "confirmAssistantEmail" })
   .inputSchema(confirmAssistantEmailActionBody)
@@ -28,35 +31,19 @@ export const confirmAssistantEmailAction = actionClient
       ctx: { emailAccountId, provider, logger },
       parsedInput: { chatMessageId, toolCallId, actionType },
     }) => {
-      const chatMessage = await prisma.chatMessage.findFirst({
-        where: {
-          id: chatMessageId,
-          chat: { emailAccountId },
-        },
-        select: {
-          id: true,
-          parts: true,
-        },
-      });
-
-      if (!chatMessage) throw new SafeError("Chat message not found");
-
-      const lookup = findPendingAssistantEmailPart({
-        parts: chatMessage.parts,
+      const reservation = await reservePendingAssistantEmailAction({
+        chatMessageId,
         toolCallId,
         actionType,
+        emailAccountId,
       });
-      if (!lookup) throw new SafeError("Pending assistant action not found");
 
-      if (
-        lookup.output.confirmationState === "confirmed" &&
-        lookup.output.confirmationResult
-      ) {
+      if (reservation.status === "confirmed") {
         return {
           success: true,
           confirmationState: "confirmed" as const,
           actionType,
-          confirmationResult: lookup.output.confirmationResult,
+          confirmationResult: reservation.confirmationResult,
         };
       }
 
@@ -69,11 +56,23 @@ export const confirmAssistantEmailAction = actionClient
       let confirmationResult: AssistantEmailConfirmationResult;
       try {
         confirmationResult = await executeAssistantEmailAction({
-          output: lookup.output,
+          output: reservation.output,
           emailProvider,
           emailAccountId,
         });
       } catch (error) {
+        await clearAssistantEmailPartProcessing({
+          chatMessageId: reservation.chatMessageId,
+          toolCallId,
+          actionType,
+          emailAccountId,
+        }).catch((processingError) => {
+          logger.error("Failed to clear processing state for email action", {
+            error: processingError,
+            actionType,
+          });
+        });
+
         logger.error("Failed to confirm assistant email action", {
           error,
           actionType,
@@ -82,15 +81,25 @@ export const confirmAssistantEmailAction = actionClient
       }
 
       const updatedParts = updateAssistantEmailPartWithConfirmation({
-        parts: lookup.parts,
-        partIndex: lookup.index,
+        parts: reservation.parts,
+        partIndex: reservation.partIndex,
         confirmationResult,
       });
 
-      await prisma.chatMessage.update({
-        where: { id: chatMessage.id },
-        data: { parts: updatedParts as Prisma.InputJsonValue },
-      });
+      try {
+        await prisma.chatMessage.update({
+          where: { id: reservation.chatMessageId },
+          data: { parts: updatedParts as Prisma.InputJsonValue },
+        });
+      } catch (error) {
+        logger.error("Failed to persist confirmed assistant email action", {
+          error,
+          actionType,
+        });
+        throw new SafeError(
+          "Email was sent but confirmation state could not be saved. Please refresh and try again.",
+        );
+      }
 
       return {
         success: true,
@@ -232,15 +241,213 @@ function updateAssistantEmailPartWithConfirmation({
     if (index !== partIndex || !isRecord(part)) return part;
 
     const existingOutput = isRecord(part.output) ? part.output : {};
+    const outputWithoutProcessing =
+      getOutputWithoutProcessingMetadata(existingOutput);
     return {
       ...part,
       output: {
-        ...existingOutput,
+        ...outputWithoutProcessing,
         success: true,
         confirmationState: "confirmed",
         confirmationResult,
       },
     };
+  });
+}
+
+function updateAssistantEmailPartWithProcessing({
+  parts,
+  partIndex,
+  processingAt,
+}: {
+  parts: unknown[];
+  partIndex: number;
+  processingAt: string;
+}) {
+  return parts.map((part, index) => {
+    if (index !== partIndex || !isRecord(part)) return part;
+
+    const existingOutput = isRecord(part.output) ? part.output : {};
+    const outputWithoutProcessing =
+      getOutputWithoutProcessingMetadata(existingOutput);
+    return {
+      ...part,
+      output: {
+        ...outputWithoutProcessing,
+        confirmationState: "processing",
+        confirmationProcessingAt: processingAt,
+      },
+    };
+  });
+}
+
+function updateAssistantEmailPartWithPending({
+  parts,
+  partIndex,
+}: {
+  parts: unknown[];
+  partIndex: number;
+}) {
+  return parts.map((part, index) => {
+    if (index !== partIndex || !isRecord(part)) return part;
+
+    const existingOutput = isRecord(part.output) ? part.output : {};
+    const outputWithoutProcessing =
+      getOutputWithoutProcessingMetadata(existingOutput);
+    return {
+      ...part,
+      output: {
+        ...outputWithoutProcessing,
+        confirmationState: "pending",
+      },
+    };
+  });
+}
+
+async function reservePendingAssistantEmailAction({
+  chatMessageId,
+  toolCallId,
+  actionType,
+  emailAccountId,
+}: {
+  chatMessageId: string;
+  toolCallId: string;
+  actionType: AssistantPendingEmailActionType;
+  emailAccountId: string;
+}) {
+  const chatMessage = await prisma.chatMessage.findFirst({
+    where: {
+      id: chatMessageId,
+      chat: { emailAccountId },
+    },
+    select: {
+      id: true,
+      chatId: true,
+      updatedAt: true,
+      parts: true,
+    },
+  });
+
+  if (!chatMessage) throw new SafeError("Chat message not found");
+
+  const lookup = findPendingAssistantEmailPart({
+    parts: chatMessage.parts,
+    toolCallId,
+    actionType,
+  });
+  if (!lookup) throw new SafeError("Pending assistant action not found");
+
+  if (
+    lookup.output.confirmationState === "confirmed" &&
+    lookup.output.confirmationResult
+  ) {
+    return {
+      status: "confirmed" as const,
+      confirmationResult: lookup.output.confirmationResult,
+    };
+  }
+
+  if (lookup.output.confirmationState === "processing") {
+    throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
+  }
+
+  const processingAt = new Date().toISOString();
+  const processingParts = updateAssistantEmailPartWithProcessing({
+    parts: lookup.parts,
+    partIndex: lookup.index,
+    processingAt,
+  });
+
+  const claim = await prisma.chatMessage.updateMany({
+    where: {
+      id: chatMessage.id,
+      chatId: chatMessage.chatId,
+      updatedAt: chatMessage.updatedAt,
+    },
+    data: {
+      parts: processingParts as Prisma.InputJsonValue,
+    },
+  });
+
+  if (claim.count === 1) {
+    return {
+      status: "reserved" as const,
+      chatMessageId: chatMessage.id,
+      output: lookup.output,
+      parts: processingParts,
+      partIndex: lookup.index,
+    };
+  }
+
+  const latestMessage = await prisma.chatMessage.findFirst({
+    where: {
+      id: chatMessageId,
+      chat: { emailAccountId },
+    },
+    select: {
+      parts: true,
+    },
+  });
+
+  if (!latestMessage) throw new SafeError("Chat message not found");
+
+  const latestLookup = findPendingAssistantEmailPart({
+    parts: latestMessage.parts,
+    toolCallId,
+    actionType,
+  });
+
+  if (
+    latestLookup?.output.confirmationState === "confirmed" &&
+    latestLookup.output.confirmationResult
+  ) {
+    return {
+      status: "confirmed" as const,
+      confirmationResult: latestLookup.output.confirmationResult,
+    };
+  }
+
+  throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
+}
+
+async function clearAssistantEmailPartProcessing({
+  chatMessageId,
+  toolCallId,
+  actionType,
+  emailAccountId,
+}: {
+  chatMessageId: string;
+  toolCallId: string;
+  actionType: AssistantPendingEmailActionType;
+  emailAccountId: string;
+}) {
+  const chatMessage = await prisma.chatMessage.findFirst({
+    where: {
+      id: chatMessageId,
+      chat: { emailAccountId },
+    },
+    select: {
+      id: true,
+      parts: true,
+    },
+  });
+
+  if (!chatMessage) return;
+
+  const lookup = findPendingAssistantEmailPart({
+    parts: chatMessage.parts,
+    toolCallId,
+    actionType,
+  });
+  if (!lookup || lookup.output.confirmationState !== "processing") return;
+
+  const pendingParts = updateAssistantEmailPartWithPending({
+    parts: lookup.parts,
+    partIndex: lookup.index,
+  });
+  await prisma.chatMessage.update({
+    where: { id: chatMessage.id },
+    data: { parts: pendingParts as Prisma.InputJsonValue },
   });
 }
 
@@ -261,6 +468,11 @@ function getAssistantEmailActionErrorMessage(
   if (actionType === "send_email") return "Failed to send email";
   if (actionType === "reply_email") return "Failed to send reply";
   return "Failed to forward email";
+}
+
+function getOutputWithoutProcessingMetadata(output: Record<string, unknown>) {
+  const { confirmationProcessingAt: _, ...rest } = output;
+  return rest;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -416,6 +416,7 @@ function EmailActionResult({
   );
   const confirmationResult =
     confirmationResultOverride || parsedConfirmationResult;
+  const isProcessing = confirmationState === "processing";
   const isConfirmed =
     confirmationState === "confirmed" ||
     Boolean(confirmationResult) ||
@@ -457,6 +458,7 @@ function EmailActionResult({
   const summary = getEmailActionSummary({
     actionType,
     isConfirmed,
+    isProcessing,
     to: confirmationResult?.to || to,
   });
 
@@ -501,7 +503,7 @@ function EmailActionResult({
           <Button
             size="sm"
             className="w-fit"
-            disabled={isConfirming}
+            disabled={isConfirming || isProcessing}
             onClick={async () => {
               setIsConfirming(true);
               try {
@@ -542,7 +544,9 @@ function EmailActionResult({
               }
             }}
           >
-            {isConfirming ? (
+            {isProcessing ? (
+              "Sending..."
+            ) : isConfirming ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
                 Sending...
@@ -1218,12 +1222,20 @@ function getActionBodyText({
 function getEmailActionSummary({
   actionType,
   isConfirmed,
+  isProcessing,
   to,
 }: {
   actionType: PendingEmailActionType;
   isConfirmed: boolean;
+  isProcessing: boolean;
   to?: string | null;
 }) {
+  if (isProcessing) {
+    if (actionType === "send_email") return "Sending email...";
+    if (actionType === "reply_email") return "Sending reply...";
+    return "Forwarding email...";
+  }
+
   if (!isConfirmed) {
     if (actionType === "send_email") return "Email ready to send";
     if (actionType === "reply_email") return "Reply ready to send";

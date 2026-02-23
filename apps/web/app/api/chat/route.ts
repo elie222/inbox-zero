@@ -275,10 +275,12 @@ async function saveChatMessages(
   try {
     return prisma.chatMessage.createMany({
       data: messages.map((message) => ({
+        id: message.id,
         chatId,
         role: message.role,
         parts: message.parts as Prisma.InputJsonValue,
       })),
+      skipDuplicates: true,
     });
   } catch (error) {
     logger.error("Failed to save chat messages", { error, chatId });
