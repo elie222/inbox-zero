@@ -168,6 +168,9 @@ describe("createGenerateText fallback chain", () => {
     expect(providerOptions.openrouter.provider).toEqual({
       order: ["Anthropic"],
     });
+    expect(providerOptions.openrouter.extraBody.trace.trace_name).toBe(
+      "OpenRouter user metadata",
+    );
     expect(providerOptions.openrouter.extraBody.trace.generation_name).toBe(
       "OpenRouter user metadata",
     );
@@ -211,6 +214,7 @@ describe("createGenerateText fallback chain", () => {
           user: "explicit-user-id",
           extraBody: {
             trace: {
+              trace_name: "explicit-trace",
               generation_name: "explicit-generation",
               email_account_id: "explicit-email-account-id",
             },
@@ -223,6 +227,7 @@ describe("createGenerateText fallback chain", () => {
     const providerOptions = mockGenerateText.mock.calls[0][0].providerOptions;
     expect(providerOptions.openrouter.user).toBe("explicit-user-id");
     expect(providerOptions.openrouter.extraBody.trace).toEqual({
+      trace_name: "explicit-trace",
       generation_name: "explicit-generation",
       email_account_id: "explicit-email-account-id",
     });
