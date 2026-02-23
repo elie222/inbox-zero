@@ -330,10 +330,12 @@ export function SendEmailResult({
   output,
   chatMessageId,
   toolCallId,
+  disableConfirm,
 }: {
   output: unknown;
   chatMessageId: string;
   toolCallId: string;
+  disableConfirm: boolean;
 }) {
   return (
     <EmailActionResult
@@ -341,6 +343,7 @@ export function SendEmailResult({
       output={output}
       chatMessageId={chatMessageId}
       toolCallId={toolCallId}
+      disableConfirm={disableConfirm}
     />
   );
 }
@@ -349,10 +352,12 @@ export function ReplyEmailResult({
   output,
   chatMessageId,
   toolCallId,
+  disableConfirm,
 }: {
   output: unknown;
   chatMessageId: string;
   toolCallId: string;
+  disableConfirm: boolean;
 }) {
   return (
     <EmailActionResult
@@ -360,6 +365,7 @@ export function ReplyEmailResult({
       output={output}
       chatMessageId={chatMessageId}
       toolCallId={toolCallId}
+      disableConfirm={disableConfirm}
     />
   );
 }
@@ -368,10 +374,12 @@ export function ForwardEmailResult({
   output,
   chatMessageId,
   toolCallId,
+  disableConfirm,
 }: {
   output: unknown;
   chatMessageId: string;
   toolCallId: string;
+  disableConfirm: boolean;
 }) {
   return (
     <EmailActionResult
@@ -379,6 +387,7 @@ export function ForwardEmailResult({
       output={output}
       chatMessageId={chatMessageId}
       toolCallId={toolCallId}
+      disableConfirm={disableConfirm}
     />
   );
 }
@@ -388,11 +397,13 @@ function EmailActionResult({
   output,
   chatMessageId,
   toolCallId,
+  disableConfirm,
 }: {
   actionType: PendingEmailActionType;
   output: unknown;
   chatMessageId: string;
   toolCallId: string;
+  disableConfirm: boolean;
 }) {
   const { emailAccountId, provider, userEmail } = useAccount();
   const [isConfirming, setIsConfirming] = useState(false);
@@ -417,6 +428,7 @@ function EmailActionResult({
   const confirmationResult =
     confirmationResultOverride || parsedConfirmationResult;
   const isProcessing = confirmationState === "processing";
+  const isChatBusy = disableConfirm;
   const isConfirmed =
     confirmationState === "confirmed" ||
     Boolean(confirmationResult) ||
@@ -503,7 +515,7 @@ function EmailActionResult({
           <Button
             size="sm"
             className="w-fit"
-            disabled={isConfirming || isProcessing}
+            disabled={isConfirming || isProcessing || isChatBusy}
             onClick={async () => {
               setIsConfirming(true);
               try {
@@ -551,6 +563,8 @@ function EmailActionResult({
                 <Loader2 className="mr-2 size-4 animate-spin" />
                 Sending...
               </>
+            ) : isChatBusy ? (
+              "Wait for response..."
             ) : (
               "Confirm and send"
             )}

@@ -5,6 +5,7 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
+import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import {
   type AssistantEmailConfirmationResult,
@@ -62,6 +63,7 @@ export const confirmAssistantEmailAction = actionClient
         toolCallId,
         actionType,
         emailAccountId,
+        logger,
       });
 
       if (reservation.status === "confirmed") {
@@ -364,11 +366,13 @@ async function reservePendingAssistantEmailAction({
   toolCallId,
   actionType,
   emailAccountId,
+  logger,
 }: {
   chatMessageId: string;
   toolCallId: string;
   actionType: AssistantPendingEmailActionType;
   emailAccountId: string;
+  logger: Logger;
 }) {
   const chatMessage = await prisma.chatMessage.findFirst({
     where: {
@@ -383,14 +387,31 @@ async function reservePendingAssistantEmailAction({
     },
   });
 
-  if (!chatMessage) throw new SafeError("Chat message not found");
+  if (!chatMessage) {
+    logger.warn("Assistant email confirmation failed: chat message not found", {
+      chatMessageId,
+      toolCallId,
+      actionType,
+    });
+    throw new SafeError("Chat message not found");
+  }
 
   const lookup = findPendingAssistantEmailPart({
     parts: chatMessage.parts,
     toolCallId,
     actionType,
   });
-  if (!lookup) throw new SafeError("Pending assistant action not found");
+  if (!lookup) {
+    logger.warn(
+      "Assistant email confirmation failed: pending assistant action not found",
+      {
+        chatMessageId,
+        toolCallId,
+        actionType,
+      },
+    );
+    throw new SafeError("Pending assistant action not found");
+  }
 
   if (
     lookup.output.confirmationState === "confirmed" &&
@@ -447,7 +468,17 @@ async function reservePendingAssistantEmailAction({
     },
   });
 
-  if (!latestMessage) throw new SafeError("Chat message not found");
+  if (!latestMessage) {
+    logger.warn(
+      "Assistant email confirmation failed after reservation race: chat message not found",
+      {
+        chatMessageId,
+        toolCallId,
+        actionType,
+      },
+    );
+    throw new SafeError("Chat message not found");
+  }
 
   const latestLookup = findPendingAssistantEmailPart({
     parts: latestMessage.parts,
