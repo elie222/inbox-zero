@@ -10,6 +10,10 @@ import { withError } from "@/utils/middleware";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { env } from "@/env";
 import { withQstashOrInternal } from "@/utils/qstash";
+import {
+  releaseDigestSummarySlot,
+  reserveDigestSummarySlot,
+} from "@/utils/digest/summary-limit";
 
 export const POST = withError(
   "digest",
@@ -52,30 +56,67 @@ export const POST = withError(
         return new NextResponse("OK", { status: 200 });
       }
 
-      const summary = await aiSummarizeEmailForDigest({
-        ruleName,
-        emailAccount,
-        messageToSummarize: {
-          ...message,
-          to: message.to || "",
-        },
+      const summaryReservation = await reserveDigestSummarySlot({
+        emailAccountId,
+        maxSummariesPer24h: env.DIGEST_MAX_SUMMARIES_PER_24H,
       });
-
-      if (!summary?.content) {
-        logger.info("Skipping digest item because it is not worth summarizing");
+      if (!summaryReservation.reserved) {
+        logger.info("Skipping digest item because summary limit was reached", {
+          maxSummariesPer24h: env.DIGEST_MAX_SUMMARIES_PER_24H,
+        });
         return new NextResponse("OK", { status: 200 });
       }
 
-      await upsertDigest({
-        messageId: message.id || "",
-        threadId: message.threadId || "",
-        emailAccountId,
-        actionId,
-        content: summary,
-        logger,
-      });
+      let shouldReleaseSummaryReservation = !!summaryReservation.reservationId;
 
-      return new NextResponse("OK", { status: 200 });
+      try {
+        const summary = await aiSummarizeEmailForDigest({
+          ruleName,
+          emailAccount,
+          messageToSummarize: {
+            ...message,
+            to: message.to || "",
+          },
+        });
+
+        if (!summary?.content) {
+          logger.info(
+            "Skipping digest item because it is not worth summarizing",
+          );
+          return new NextResponse("OK", { status: 200 });
+        }
+
+        await upsertDigest({
+          messageId: message.id || "",
+          threadId: message.threadId || "",
+          emailAccountId,
+          actionId,
+          content: summary,
+          logger,
+        });
+
+        // Keep Prisma fallback reservations releasable on success to avoid
+        // counting a placeholder row in addition to the persisted digest item.
+        shouldReleaseSummaryReservation =
+          summaryReservation.reservationSource === "prisma";
+
+        return new NextResponse("OK", { status: 200 });
+      } finally {
+        if (
+          summaryReservation.reservationId &&
+          shouldReleaseSummaryReservation
+        ) {
+          await releaseDigestSummarySlot({
+            emailAccountId,
+            reservationId: summaryReservation.reservationId,
+            reservationSource: summaryReservation.reservationSource,
+          }).catch((error) => {
+            logger.error("Failed to release digest summary reservation", {
+              error,
+            });
+          });
+        }
+      }
     } catch (error) {
       logger.error("Failed to process digest", { error });
       return new NextResponse("Internal Server Error", { status: 500 });

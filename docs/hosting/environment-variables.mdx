@@ -87,6 +87,8 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `CRON_SECRET` | No | Secret for cron job authentication | — |
 | `HEALTH_API_KEY` | No | API key for health checks | — |
 | `WEBHOOK_URL` | No | External webhook URL | — |
+| **Digest Controls** ||||
+| `DIGEST_MAX_SUMMARIES_PER_24H` | No | Maximum digest summaries per email account in a rolling 24-hour window. Set to `0` to disable the cap. | `50` |
 | **Admin & Access Control** ||||
 | `ADMINS` | No | Comma-separated list of admin emails | — |
 | **Feature Flags** ||||

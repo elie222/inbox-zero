@@ -106,6 +106,11 @@ export const env = createEnv({
 
     DISABLE_LOG_ZOD_ERRORS: booleanString.optional(),
     ENABLE_DEBUG_LOGS: booleanString.default(false),
+    DIGEST_MAX_SUMMARIES_PER_24H: z.coerce
+      .number()
+      .int()
+      .nonnegative()
+      .default(50),
 
     // Lemon Squeezy
     LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),
