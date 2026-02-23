@@ -3,7 +3,11 @@ import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
-import { replyEmailTool, sendEmailTool } from "./chat-inbox-tools";
+import {
+  forwardEmailTool,
+  replyEmailTool,
+  sendEmailTool,
+} from "./chat-inbox-tools";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -105,6 +109,68 @@ describe("chat inbox tools", () => {
       pendingAction: {
         messageId: "message-1",
         content: "Thanks for the update.",
+      },
+      reference: {
+        messageId: "message-1",
+        threadId: "thread-1",
+      },
+    });
+  });
+
+  it("prepares forward flow without sending immediately", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      name: "Test User",
+      email: "sender@example.com",
+    } as any);
+
+    const message: ParsedMessage = {
+      id: "message-1",
+      threadId: "thread-1",
+      snippet: "",
+      historyId: "",
+      inline: [],
+      headers: {
+        from: "contact@example.com",
+        to: "sender@example.com",
+        subject: "Question",
+        date: "2026-02-18T00:00:00.000Z",
+      },
+      subject: "Question",
+      date: "2026-02-18T00:00:00.000Z",
+    };
+
+    const getMessage = vi.fn().mockResolvedValue(message);
+    const forwardEmail = vi.fn().mockResolvedValue(undefined);
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getMessage,
+      forwardEmail,
+    } as any);
+
+    const toolInstance = forwardEmailTool({
+      email: "sender@example.com",
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      messageId: "message-1",
+      to: "recipient@example.com",
+      content: "Forwarding this along.",
+    });
+
+    expect(getMessage).toHaveBeenCalledWith("message-1");
+    expect(forwardEmail).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      success: true,
+      actionType: "forward_email",
+      requiresConfirmation: true,
+      confirmationState: "pending",
+      pendingAction: {
+        messageId: "message-1",
+        to: "recipient@example.com",
+        content: "Forwarding this along.",
       },
       reference: {
         messageId: "message-1",

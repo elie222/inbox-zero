@@ -21,6 +21,8 @@ import {
 
 const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
+const CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
+const CONFIRMATION_PERSIST_MAX_ATTEMPTS = 3;
 
 export const confirmAssistantEmailAction = actionClient
   .metadata({ name: "confirmAssistantEmail" })
@@ -86,9 +88,9 @@ export const confirmAssistantEmailAction = actionClient
       });
 
       try {
-        await prisma.chatMessage.update({
-          where: { id: reservation.chatMessageId },
-          data: { parts: updatedParts as Prisma.InputJsonValue },
+        await persistConfirmedAssistantEmailPart({
+          chatMessageId: reservation.chatMessageId,
+          parts: updatedParts,
         });
       } catch (error) {
         logger.error("Failed to persist confirmed assistant email action", {
@@ -286,21 +288,14 @@ function updateAssistantEmailPartWithConfirmation({
   partIndex: number;
   confirmationResult: AssistantEmailConfirmationResult;
 }) {
-  return parts.map((part, index) => {
-    if (index !== partIndex || !isRecord(part)) return part;
-
-    const existingOutput = isRecord(part.output) ? part.output : {};
-    const outputWithoutProcessing =
-      getOutputWithoutProcessingMetadata(existingOutput);
-    return {
-      ...part,
-      output: {
-        ...outputWithoutProcessing,
-        success: true,
-        confirmationState: "confirmed",
-        confirmationResult,
-      },
-    };
+  return updateAssistantEmailPartOutput({
+    parts,
+    partIndex,
+    outputPatch: {
+      success: true,
+      confirmationState: "confirmed",
+      confirmationResult,
+    },
   });
 }
 
@@ -313,20 +308,13 @@ function updateAssistantEmailPartWithProcessing({
   partIndex: number;
   processingAt: string;
 }) {
-  return parts.map((part, index) => {
-    if (index !== partIndex || !isRecord(part)) return part;
-
-    const existingOutput = isRecord(part.output) ? part.output : {};
-    const outputWithoutProcessing =
-      getOutputWithoutProcessingMetadata(existingOutput);
-    return {
-      ...part,
-      output: {
-        ...outputWithoutProcessing,
-        confirmationState: "processing",
-        confirmationProcessingAt: processingAt,
-      },
-    };
+  return updateAssistantEmailPartOutput({
+    parts,
+    partIndex,
+    outputPatch: {
+      confirmationState: "processing",
+      confirmationProcessingAt: processingAt,
+    },
   });
 }
 
@@ -337,19 +325,12 @@ function updateAssistantEmailPartWithPending({
   parts: unknown[];
   partIndex: number;
 }) {
-  return parts.map((part, index) => {
-    if (index !== partIndex || !isRecord(part)) return part;
-
-    const existingOutput = isRecord(part.output) ? part.output : {};
-    const outputWithoutProcessing =
-      getOutputWithoutProcessingMetadata(existingOutput);
-    return {
-      ...part,
-      output: {
-        ...outputWithoutProcessing,
-        confirmationState: "pending",
-      },
-    };
+  return updateAssistantEmailPartOutput({
+    parts,
+    partIndex,
+    outputPatch: {
+      confirmationState: "pending",
+    },
   });
 }
 
@@ -396,7 +377,10 @@ async function reservePendingAssistantEmailAction({
     };
   }
 
-  if (lookup.output.confirmationState === "processing") {
+  if (
+    lookup.output.confirmationState === "processing" &&
+    !hasProcessingLeaseExpired(lookup.output.confirmationProcessingAt)
+  ) {
     throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
   }
 
@@ -546,6 +530,68 @@ function parsePendingAssistantEmailOutput({
 
   const parsed = pendingForwardEmailToolOutputSchema.safeParse(output);
   return parsed.success ? parsed.data : null;
+}
+
+function updateAssistantEmailPartOutput({
+  parts,
+  partIndex,
+  outputPatch,
+}: {
+  parts: unknown[];
+  partIndex: number;
+  outputPatch: Record<string, unknown>;
+}) {
+  return parts.map((part, index) => {
+    if (index !== partIndex || !isRecord(part)) return part;
+
+    const existingOutput = isRecord(part.output) ? part.output : {};
+    const outputWithoutProcessing =
+      getOutputWithoutProcessingMetadata(existingOutput);
+    return {
+      ...part,
+      output: {
+        ...outputWithoutProcessing,
+        ...outputPatch,
+      },
+    };
+  });
+}
+
+async function persistConfirmedAssistantEmailPart({
+  chatMessageId,
+  parts,
+}: {
+  chatMessageId: string;
+  parts: unknown[];
+}) {
+  let lastError: unknown;
+
+  for (
+    let attempt = 1;
+    attempt <= CONFIRMATION_PERSIST_MAX_ATTEMPTS;
+    attempt++
+  ) {
+    try {
+      await prisma.chatMessage.update({
+        where: { id: chatMessageId },
+        data: { parts: parts as Prisma.InputJsonValue },
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
+
+function hasProcessingLeaseExpired(processingAt?: string | null) {
+  if (!processingAt) return false;
+
+  const processingTime = Date.parse(processingAt);
+  if (Number.isNaN(processingTime)) return false;
+
+  return Date.now() - processingTime >= CONFIRMATION_PROCESSING_LEASE_MS;
 }
 
 function getOutputWithoutProcessingMetadata(output: Record<string, unknown>) {

@@ -272,7 +272,9 @@ describe("confirmAssistantEmailAction", () => {
       id: "chat-message-1",
       chatId: "chat-1",
       updatedAt: new Date("2026-02-23T00:00:00.000Z"),
-      parts: [buildProcessingSendPart()],
+      parts: [
+        buildProcessingSendPart({ processingAt: new Date().toISOString() }),
+      ],
     } as any);
 
     const result = await confirmAssistantEmailAction(
@@ -289,6 +291,55 @@ describe("confirmAssistantEmailAction", () => {
     );
     expect(createEmailProvider).not.toHaveBeenCalled();
     expect(prisma.chatMessage.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("reclaims stale processing state and sends once", async () => {
+    (prisma.emailAccount.findUnique as any)
+      .mockResolvedValueOnce({
+        email: "owner@example.com",
+        account: { userId: "u1", provider: "google" },
+      })
+      .mockResolvedValueOnce({
+        name: "Owner",
+        email: "owner@example.com",
+      });
+
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [
+        buildProcessingSendPart({
+          processingAt: "2025-01-01T00:00:00.000Z",
+        }),
+      ],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+    prisma.chatMessage.update.mockResolvedValue({
+      id: "chat-message-1",
+    } as any);
+
+    const sendEmailWithHtml = vi.fn().mockResolvedValue({
+      messageId: "msg-1",
+      threadId: "thr-1",
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      sendEmailWithHtml,
+    } as any);
+
+    const result = await confirmAssistantEmailAction(
+      "ea_1" as any,
+      {
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+        actionType: "send_email",
+      } as any,
+    );
+
+    expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(1);
+    expect(result?.data?.confirmationState).toBe("confirmed");
   });
 
   it("blocks duplicate send when reservation race is lost", async () => {
@@ -372,6 +423,51 @@ describe("confirmAssistantEmailAction", () => {
       .data.parts as any[];
     expect(revertedParts[0].output.confirmationState).toBe("pending");
   });
+
+  it("retries persisting confirmed state before succeeding", async () => {
+    (prisma.emailAccount.findUnique as any)
+      .mockResolvedValueOnce({
+        email: "owner@example.com",
+        account: { userId: "u1", provider: "google" },
+      })
+      .mockResolvedValueOnce({
+        name: "Owner",
+        email: "owner@example.com",
+      });
+
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildPendingSendPart()],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+    prisma.chatMessage.update
+      .mockRejectedValueOnce(new Error("transient-1"))
+      .mockRejectedValueOnce(new Error("transient-2"))
+      .mockResolvedValueOnce({ id: "chat-message-1" } as any);
+
+    const sendEmailWithHtml = vi.fn().mockResolvedValue({
+      messageId: "msg-1",
+      threadId: "thr-1",
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      sendEmailWithHtml,
+    } as any);
+
+    const result = await confirmAssistantEmailAction(
+      "ea_1" as any,
+      {
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+        actionType: "send_email",
+      } as any,
+    );
+
+    expect(result?.data?.confirmationState).toBe("confirmed");
+    expect(prisma.chatMessage.update).toHaveBeenCalledTimes(3);
+  });
 });
 
 function buildPendingSendPart() {
@@ -396,13 +492,17 @@ function buildPendingSendPart() {
   };
 }
 
-function buildProcessingSendPart() {
+function buildProcessingSendPart({
+  processingAt = new Date().toISOString(),
+}: {
+  processingAt?: string;
+} = {}) {
   return {
     ...buildPendingSendPart(),
     output: {
       ...buildPendingSendPart().output,
       confirmationState: "processing",
-      confirmationProcessingAt: "2026-02-23T00:00:00.000Z",
+      confirmationProcessingAt: processingAt,
     },
   };
 }
