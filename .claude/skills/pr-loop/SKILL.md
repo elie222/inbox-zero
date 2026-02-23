@@ -138,7 +138,7 @@ Note: Conversation comments (from bots like Vercel, or general discussion) do NO
 
 Fetch code review comments:
 ```bash
-.claude/scripts/get-pr-review-comments.sh
+.claude/skills/scripts/get-pr-review-comments.sh
 ```
 
 Fetch conversation comments:

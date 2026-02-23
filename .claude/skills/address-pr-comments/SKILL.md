@@ -27,7 +27,7 @@ gh pr view --json comments --jq '.comments[] | {id, body, author: .author.login}
 
 # Code review comments (inline on specific lines) - usually the main ones
 # Script runs: gh api repos/$REPO/pulls/$PR_NUM/comments --jq '.[] | {id, body, author, path, line, in_reply_to_id}'
-.claude/scripts/get-pr-review-comments.sh
+.claude/skills/scripts/get-pr-review-comments.sh
 ```
 
 ──────────
