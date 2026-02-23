@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
+import { DigestStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { redis } from "@/utils/redis";
 
 const DIGEST_SUMMARY_WINDOW_MS = 24 * 60 * 60 * 1000;
 const DIGEST_SUMMARY_WINDOW_TTL_SECONDS = 24 * 60 * 60;
 const DIGEST_SUMMARY_LIMIT_KEY_PREFIX = "digest:summary-limit";
+const DIGEST_SUMMARY_RESERVATION_CONTENT = "__digest_summary_reservation__";
+const DIGEST_SUMMARY_RESERVATION_PREFIX = "digest-summary-reservation";
 const RESERVE_DIGEST_SUMMARY_SLOT_SCRIPT = `
 redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", "(" .. ARGV[2])
 local activeCount = redis.call("ZCARD", KEYS[1])
@@ -23,6 +26,7 @@ export function getDigestSummaryWindowStart(now = new Date()): Date {
 export type DigestSummarySlotReservation = {
   reserved: boolean;
   reservationId: string | null;
+  reservationSource: "redis" | "prisma" | null;
 };
 
 export async function reserveDigestSummarySlot({
@@ -35,7 +39,7 @@ export async function reserveDigestSummarySlot({
   now?: Date;
 }): Promise<DigestSummarySlotReservation> {
   if (maxSummariesPer24h <= 0) {
-    return { reserved: true, reservationId: null };
+    return { reserved: true, reservationId: null, reservationSource: null };
   }
 
   const windowStart = getDigestSummaryWindowStart(now).getTime();
@@ -55,17 +59,19 @@ export async function reserveDigestSummarySlot({
     return {
       reserved,
       reservationId: reserved ? reservationId : null,
+      reservationSource: reserved ? "redis" : null,
     };
   } catch {
-    const limitReached = await hasReachedDigestSummaryLimit({
+    const fallbackReservationId = await reserveDigestSummarySlotWithPrisma({
       emailAccountId,
       maxSummariesPer24h,
       now,
-    });
+    }).catch(() => null);
 
     return {
-      reserved: !limitReached,
-      reservationId: null,
+      reserved: !!fallbackReservationId,
+      reservationId: fallbackReservationId,
+      reservationSource: fallbackReservationId ? "prisma" : null,
     };
   }
 }
@@ -73,15 +79,34 @@ export async function reserveDigestSummarySlot({
 export async function releaseDigestSummarySlot({
   emailAccountId,
   reservationId,
+  reservationSource,
 }: {
   emailAccountId: string;
   reservationId: string;
+  reservationSource: "redis" | "prisma" | null;
 }): Promise<boolean> {
-  const removedCount = await redis.zrem(
-    getDigestSummaryLimitKey(emailAccountId),
-    reservationId,
-  );
-  return removedCount === 1;
+  if (reservationSource === "redis") {
+    const removedCount = await redis.zrem(
+      getDigestSummaryLimitKey(emailAccountId),
+      reservationId,
+    );
+    return removedCount === 1;
+  }
+
+  if (reservationSource === "prisma") {
+    const removedCount = await prisma.digestItem.deleteMany({
+      where: {
+        id: reservationId,
+        content: DIGEST_SUMMARY_RESERVATION_CONTENT,
+        digest: {
+          emailAccountId,
+        },
+      },
+    });
+    return removedCount.count === 1;
+  }
+
+  return false;
 }
 
 export async function hasReachedDigestSummaryLimit({
@@ -154,4 +179,83 @@ async function runReserveDigestSummarySlotScript({
   );
 
   return result === 1;
+}
+
+async function reserveDigestSummarySlotWithPrisma({
+  emailAccountId,
+  maxSummariesPer24h,
+  now,
+}: {
+  emailAccountId: string;
+  maxSummariesPer24h: number;
+  now: Date;
+}) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`
+      SELECT pg_advisory_xact_lock(hashtext(${emailAccountId}))
+    `;
+
+    const summariesInWindow = await tx.digestItem.count({
+      where: {
+        digest: {
+          emailAccountId,
+        },
+        createdAt: {
+          gte: getDigestSummaryWindowStart(now),
+        },
+      },
+    });
+
+    if (summariesInWindow >= maxSummariesPer24h) return null;
+
+    const pendingDigest = await tx.digest.findFirst({
+      where: {
+        emailAccountId,
+        status: DigestStatus.PENDING,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const digestId =
+      pendingDigest?.id ||
+      (
+        await tx.digest.create({
+          data: {
+            emailAccountId,
+            status: DigestStatus.PENDING,
+          },
+          select: {
+            id: true,
+          },
+        })
+      ).id;
+
+    const reservationToken = randomUUID();
+    const reservation = await tx.digestItem.create({
+      data: {
+        digestId,
+        messageId: getPrismaReservationMessageId(reservationToken),
+        threadId: getPrismaReservationThreadId(reservationToken),
+        content: DIGEST_SUMMARY_RESERVATION_CONTENT,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return reservation.id;
+  });
+}
+
+function getPrismaReservationMessageId(reservationToken: string) {
+  return `${DIGEST_SUMMARY_RESERVATION_PREFIX}:message:${reservationToken}`;
+}
+
+function getPrismaReservationThreadId(reservationToken: string) {
+  return `${DIGEST_SUMMARY_RESERVATION_PREFIX}:thread:${reservationToken}`;
 }

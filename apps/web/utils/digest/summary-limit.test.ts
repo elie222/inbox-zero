@@ -90,7 +90,11 @@ describe("reserveDigestSummarySlot", () => {
       now: new Date("2026-02-23T12:00:00.000Z"),
     });
 
-    expect(reserved).toEqual({ reserved: true, reservationId: null });
+    expect(reserved).toEqual({
+      reserved: true,
+      reservationId: null,
+      reservationSource: null,
+    });
     expect(redis.eval).not.toHaveBeenCalled();
     expect(prisma.digestItem.count).not.toHaveBeenCalled();
   });
@@ -107,6 +111,7 @@ describe("reserveDigestSummarySlot", () => {
 
     expect(result.reserved).toBe(true);
     expect(result.reservationId).toMatch(new RegExp(`^${now.getTime()}:`));
+    expect(result.reservationSource).toBe("redis");
     expect(redis.eval).toHaveBeenCalledWith(
       expect.stringContaining("ZREMRANGEBYSCORE"),
       ["digest:summary-limit:account-1"],
@@ -123,12 +128,16 @@ describe("reserveDigestSummarySlot", () => {
       now: new Date("2026-02-23T12:00:00.000Z"),
     });
 
-    expect(reserved).toEqual({ reserved: false, reservationId: null });
+    expect(reserved).toEqual({
+      reserved: false,
+      reservationId: null,
+      reservationSource: null,
+    });
   });
 
-  it("falls back to prisma when redis fails and count is below limit", async () => {
+  it("falls back to a prisma-backed reservation when redis fails", async () => {
     vi.mocked(redis.eval).mockRejectedValue(new Error("redis down"));
-    vi.mocked(prisma.digestItem.count).mockResolvedValue(49);
+    vi.mocked(prisma.$transaction).mockResolvedValue("reservation-1" as never);
 
     const reserved = await reserveDigestSummarySlot({
       emailAccountId: "account-1",
@@ -136,13 +145,17 @@ describe("reserveDigestSummarySlot", () => {
       now: new Date("2026-02-23T12:00:00.000Z"),
     });
 
-    expect(reserved).toEqual({ reserved: true, reservationId: null });
-    expect(prisma.digestItem.count).toHaveBeenCalledTimes(1);
+    expect(reserved).toEqual({
+      reserved: true,
+      reservationId: "reservation-1",
+      reservationSource: "prisma",
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to prisma when redis fails and count meets limit", async () => {
+  it("returns not reserved when redis fails and prisma fallback cannot reserve", async () => {
     vi.mocked(redis.eval).mockRejectedValue(new Error("redis down"));
-    vi.mocked(prisma.digestItem.count).mockResolvedValue(50);
+    vi.mocked(prisma.$transaction).mockResolvedValue(null);
 
     const reserved = await reserveDigestSummarySlot({
       emailAccountId: "account-1",
@@ -150,7 +163,11 @@ describe("reserveDigestSummarySlot", () => {
       now: new Date("2026-02-23T12:00:00.000Z"),
     });
 
-    expect(reserved).toEqual({ reserved: false, reservationId: null });
+    expect(reserved).toEqual({
+      reserved: false,
+      reservationId: null,
+      reservationSource: null,
+    });
   });
 });
 
@@ -159,12 +176,13 @@ describe("releaseDigestSummarySlot", () => {
     vi.clearAllMocks();
   });
 
-  it("removes the reservation from the account limit set", async () => {
+  it("removes a redis reservation from the account limit set", async () => {
     vi.mocked(redis.zrem).mockResolvedValue(1);
 
     const released = await releaseDigestSummarySlot({
       emailAccountId: "account-1",
       reservationId: "reservation-1",
+      reservationSource: "redis",
     });
 
     expect(released).toBe(true);
@@ -174,12 +192,44 @@ describe("releaseDigestSummarySlot", () => {
     );
   });
 
-  it("returns false when reservation does not exist", async () => {
+  it("removes a prisma fallback reservation placeholder", async () => {
+    prisma.digestItem.deleteMany.mockResolvedValue({ count: 1 });
+
+    const released = await releaseDigestSummarySlot({
+      emailAccountId: "account-1",
+      reservationId: "reservation-1",
+      reservationSource: "prisma",
+    });
+
+    expect(released).toBe(true);
+    expect(prisma.digestItem.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: "reservation-1",
+        content: "__digest_summary_reservation__",
+        digest: {
+          emailAccountId: "account-1",
+        },
+      },
+    });
+  });
+
+  it("returns false when redis reservation does not exist", async () => {
     vi.mocked(redis.zrem).mockResolvedValue(0);
 
     const released = await releaseDigestSummarySlot({
       emailAccountId: "account-1",
       reservationId: "reservation-1",
+      reservationSource: "redis",
+    });
+
+    expect(released).toBe(false);
+  });
+
+  it("returns false when reservation source is missing", async () => {
+    const released = await releaseDigestSummarySlot({
+      emailAccountId: "account-1",
+      reservationId: "reservation-1",
+      reservationSource: null,
     });
 
     expect(released).toBe(false);

@@ -95,7 +95,10 @@ export const POST = withError(
           logger,
         });
 
-        shouldReleaseSummaryReservation = false;
+        // Keep Prisma fallback reservations releasable on success to avoid
+        // counting a placeholder row in addition to the persisted digest item.
+        shouldReleaseSummaryReservation =
+          summaryReservation.reservationSource === "prisma";
 
         return new NextResponse("OK", { status: 200 });
       } finally {
@@ -106,6 +109,7 @@ export const POST = withError(
           await releaseDigestSummarySlot({
             emailAccountId,
             reservationId: summaryReservation.reservationId,
+            reservationSource: summaryReservation.reservationSource,
           }).catch((error) => {
             logger.error("Failed to release digest summary reservation", {
               error,
