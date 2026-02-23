@@ -7,31 +7,17 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import prisma from "@/utils/prisma";
 import {
-  assistantPendingEmailToolOutputSchema,
   type AssistantEmailConfirmationResult,
   type AssistantPendingEmailActionType,
   type AssistantPendingEmailToolOutput,
+  pendingForwardEmailToolOutputSchema,
+  pendingReplyEmailToolOutputSchema,
+  pendingSendEmailToolOutputSchema,
+  type PendingForwardEmailToolOutput,
+  type PendingReplyEmailToolOutput,
+  type PendingSendEmailToolOutput,
   confirmAssistantEmailActionBody,
 } from "./assistant-chat.validation";
-
-const TOOL_TYPE_BY_ACTION: Record<AssistantPendingEmailActionType, string> = {
-  send_email: "tool-sendEmail",
-  reply_email: "tool-replyEmail",
-  forward_email: "tool-forwardEmail",
-};
-
-type PendingSendEmailToolOutput = Extract<
-  AssistantPendingEmailToolOutput,
-  { actionType: "send_email" }
->;
-type PendingReplyEmailToolOutput = Extract<
-  AssistantPendingEmailToolOutput,
-  { actionType: "reply_email" }
->;
-type PendingForwardEmailToolOutput = Extract<
-  AssistantPendingEmailToolOutput,
-  { actionType: "forward_email" }
->;
 
 const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
@@ -265,7 +251,7 @@ function findPendingAssistantEmailPart({
 }) {
   if (!Array.isArray(parts)) return null;
 
-  const expectedToolType = TOOL_TYPE_BY_ACTION[actionType];
+  const expectedToolType = getAssistantToolTypeForAction(actionType);
   for (const [index, part] of parts.entries()) {
     if (
       !isRecord(part) ||
@@ -275,15 +261,15 @@ function findPendingAssistantEmailPart({
       continue;
     }
 
-    const parsedOutput = assistantPendingEmailToolOutputSchema.safeParse(
-      part.output,
-    );
-    if (!parsedOutput.success) return null;
-    if (parsedOutput.data.actionType !== actionType) return null;
+    const parsedOutput = parsePendingAssistantEmailOutput({
+      actionType,
+      output: part.output,
+    });
+    if (!parsedOutput) return null;
 
     return {
       index,
-      output: parsedOutput.data,
+      output: parsedOutput,
       parts,
     };
   }
@@ -531,6 +517,35 @@ function getAssistantEmailActionErrorMessage(
   if (actionType === "send_email") return "Failed to send email";
   if (actionType === "reply_email") return "Failed to send reply";
   return "Failed to forward email";
+}
+
+function getAssistantToolTypeForAction(
+  actionType: AssistantPendingEmailActionType,
+) {
+  if (actionType === "send_email") return "tool-sendEmail";
+  if (actionType === "reply_email") return "tool-replyEmail";
+  return "tool-forwardEmail";
+}
+
+function parsePendingAssistantEmailOutput({
+  actionType,
+  output,
+}: {
+  actionType: AssistantPendingEmailActionType;
+  output: unknown;
+}) {
+  if (actionType === "send_email") {
+    const parsed = pendingSendEmailToolOutputSchema.safeParse(output);
+    return parsed.success ? parsed.data : null;
+  }
+
+  if (actionType === "reply_email") {
+    const parsed = pendingReplyEmailToolOutputSchema.safeParse(output);
+    return parsed.success ? parsed.data : null;
+  }
+
+  const parsed = pendingForwardEmailToolOutputSchema.safeParse(output);
+  return parsed.success ? parsed.data : null;
 }
 
 function getOutputWithoutProcessingMetadata(output: Record<string, unknown>) {

@@ -112,7 +112,7 @@ Tool usage strategy (progressive disclosure):
 - When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.
 - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
 - Only send emails when the user clearly asks to send now.
-- sendEmail, replyEmail, and forwardEmail now prepare a pending action only. The user must click a confirmation button in the UI before any email is actually sent.
+  - sendEmail, replyEmail, and forwardEmail prepare a pending action only. The user must click a confirmation button in the UI before any email is actually sent.
 - After these tools run, explicitly tell the user the email is pending confirmation. Do not say it was sent unless the confirmation result says it was sent.
 
 Tool call policy:

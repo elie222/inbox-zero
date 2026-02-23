@@ -21,7 +21,7 @@ export type AssistantEmailConfirmationResult = z.infer<
   typeof confirmationResultSchema
 >;
 
-const pendingSendEmailToolOutputSchema = z.object({
+export const pendingSendEmailToolOutputSchema = z.object({
   success: z.boolean().optional(),
   actionType: z.literal("send_email"),
   requiresConfirmation: z.literal(true),
@@ -38,8 +38,11 @@ const pendingSendEmailToolOutputSchema = z.object({
   }),
   confirmationResult: confirmationResultSchema.optional(),
 });
+export type PendingSendEmailToolOutput = z.infer<
+  typeof pendingSendEmailToolOutputSchema
+>;
 
-const pendingReplyEmailToolOutputSchema = z.object({
+export const pendingReplyEmailToolOutputSchema = z.object({
   success: z.boolean().optional(),
   actionType: z.literal("reply_email"),
   requiresConfirmation: z.literal(true),
@@ -59,8 +62,11 @@ const pendingReplyEmailToolOutputSchema = z.object({
     .optional(),
   confirmationResult: confirmationResultSchema.optional(),
 });
+export type PendingReplyEmailToolOutput = z.infer<
+  typeof pendingReplyEmailToolOutputSchema
+>;
 
-const pendingForwardEmailToolOutputSchema = z.object({
+export const pendingForwardEmailToolOutputSchema = z.object({
   success: z.boolean().optional(),
   actionType: z.literal("forward_email"),
   requiresConfirmation: z.literal(true),
@@ -83,18 +89,14 @@ const pendingForwardEmailToolOutputSchema = z.object({
     .optional(),
   confirmationResult: confirmationResultSchema.optional(),
 });
-
-export const assistantPendingEmailToolOutputSchema = z.discriminatedUnion(
-  "actionType",
-  [
-    pendingSendEmailToolOutputSchema,
-    pendingReplyEmailToolOutputSchema,
-    pendingForwardEmailToolOutputSchema,
-  ],
-);
-export type AssistantPendingEmailToolOutput = z.infer<
-  typeof assistantPendingEmailToolOutputSchema
+export type PendingForwardEmailToolOutput = z.infer<
+  typeof pendingForwardEmailToolOutputSchema
 >;
+
+export type AssistantPendingEmailToolOutput =
+  | PendingSendEmailToolOutput
+  | PendingReplyEmailToolOutput
+  | PendingForwardEmailToolOutput;
 
 export const confirmAssistantEmailActionBody = z.object({
   chatMessageId: z.string().trim().min(1),
