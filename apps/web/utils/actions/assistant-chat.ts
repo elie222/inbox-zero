@@ -24,6 +24,31 @@ const CONFIRMATION_IN_PROGRESS_ERROR =
 const CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
 const CONFIRMATION_PERSIST_MAX_ATTEMPTS = 3;
 
+const ASSISTANT_EMAIL_ACTION_METADATA: Record<
+  AssistantPendingEmailActionType,
+  {
+    toolType: string;
+    errorMessage: string;
+    parseOutput: (output: unknown) => AssistantPendingEmailToolOutput | null;
+  }
+> = {
+  send_email: {
+    toolType: "tool-sendEmail",
+    errorMessage: "Failed to send email",
+    parseOutput: parsePendingSendEmailOutput,
+  },
+  reply_email: {
+    toolType: "tool-replyEmail",
+    errorMessage: "Failed to send reply",
+    parseOutput: parsePendingReplyEmailOutput,
+  },
+  forward_email: {
+    toolType: "tool-forwardEmail",
+    errorMessage: "Failed to forward email",
+    parseOutput: parsePendingForwardEmailOutput,
+  },
+};
+
 export const confirmAssistantEmailAction = actionClient
   .metadata({ name: "confirmAssistantEmail" })
   .inputSchema(confirmAssistantEmailActionBody)
@@ -498,17 +523,13 @@ async function getLatestMessageInThreadSafe(
 function getAssistantEmailActionErrorMessage(
   actionType: AssistantPendingEmailActionType,
 ) {
-  if (actionType === "send_email") return "Failed to send email";
-  if (actionType === "reply_email") return "Failed to send reply";
-  return "Failed to forward email";
+  return ASSISTANT_EMAIL_ACTION_METADATA[actionType].errorMessage;
 }
 
 function getAssistantToolTypeForAction(
   actionType: AssistantPendingEmailActionType,
 ) {
-  if (actionType === "send_email") return "tool-sendEmail";
-  if (actionType === "reply_email") return "tool-replyEmail";
-  return "tool-forwardEmail";
+  return ASSISTANT_EMAIL_ACTION_METADATA[actionType].toolType;
 }
 
 function parsePendingAssistantEmailOutput({
@@ -518,18 +539,7 @@ function parsePendingAssistantEmailOutput({
   actionType: AssistantPendingEmailActionType;
   output: unknown;
 }) {
-  if (actionType === "send_email") {
-    const parsed = pendingSendEmailToolOutputSchema.safeParse(output);
-    return parsed.success ? parsed.data : null;
-  }
-
-  if (actionType === "reply_email") {
-    const parsed = pendingReplyEmailToolOutputSchema.safeParse(output);
-    return parsed.success ? parsed.data : null;
-  }
-
-  const parsed = pendingForwardEmailToolOutputSchema.safeParse(output);
-  return parsed.success ? parsed.data : null;
+  return ASSISTANT_EMAIL_ACTION_METADATA[actionType].parseOutput(output);
 }
 
 function updateAssistantEmailPartOutput({
@@ -592,6 +602,21 @@ function hasProcessingLeaseExpired(processingAt?: string | null) {
   if (Number.isNaN(processingTime)) return false;
 
   return Date.now() - processingTime >= CONFIRMATION_PROCESSING_LEASE_MS;
+}
+
+function parsePendingSendEmailOutput(output: unknown) {
+  const parsed = pendingSendEmailToolOutputSchema.safeParse(output);
+  return parsed.success ? parsed.data : null;
+}
+
+function parsePendingReplyEmailOutput(output: unknown) {
+  const parsed = pendingReplyEmailToolOutputSchema.safeParse(output);
+  return parsed.success ? parsed.data : null;
+}
+
+function parsePendingForwardEmailOutput(output: unknown) {
+  const parsed = pendingForwardEmailToolOutputSchema.safeParse(output);
+  return parsed.success ? parsed.data : null;
 }
 
 function getOutputWithoutProcessingMetadata(output: Record<string, unknown>) {
