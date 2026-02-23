@@ -1,12 +1,12 @@
 #!/bin/bash
 # Fetch PR code review comments (review comments made on specific lines of code)
-# Usage: .claude/scripts/get-pr-review-comments.sh [pr_number] [limit]
+# Usage: .claude/skills/scripts/get-pr-review-comments.sh [pr_number] [limit]
 #
 # If pr_number is omitted, auto-detects from current branch's PR
 #
-# Example: .claude/scripts/get-pr-review-comments.sh
-# Example: .claude/scripts/get-pr-review-comments.sh 1239
-# Example: .claude/scripts/get-pr-review-comments.sh 1239 50
+# Example: .claude/skills/scripts/get-pr-review-comments.sh
+# Example: .claude/skills/scripts/get-pr-review-comments.sh 1239
+# Example: .claude/skills/scripts/get-pr-review-comments.sh 1239 50
 
 set -e
 
