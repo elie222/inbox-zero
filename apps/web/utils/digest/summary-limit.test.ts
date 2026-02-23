@@ -3,6 +3,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import {
   getDigestSummaryWindowStart,
   hasReachedDigestSummaryLimit,
+  releaseDigestSummarySlot,
   reserveDigestSummarySlot,
 } from "@/utils/digest/summary-limit";
 import { redis } from "@/utils/redis";
@@ -11,6 +12,7 @@ vi.mock("@/utils/prisma");
 vi.mock("@/utils/redis", () => ({
   redis: {
     eval: vi.fn(),
+    zrem: vi.fn(),
   },
 }));
 
@@ -88,21 +90,23 @@ describe("reserveDigestSummarySlot", () => {
       now: new Date("2026-02-23T12:00:00.000Z"),
     });
 
-    expect(reserved).toBe(true);
+    expect(reserved).toEqual({ reserved: true, reservationId: null });
     expect(redis.eval).not.toHaveBeenCalled();
     expect(prisma.digestItem.count).not.toHaveBeenCalled();
   });
 
-  it("returns true when redis reserves a slot", async () => {
+  it("returns reservation id when redis reserves a slot", async () => {
     vi.mocked(redis.eval).mockResolvedValue(1);
+    const now = new Date("2026-02-23T12:00:00.000Z");
 
-    const reserved = await reserveDigestSummarySlot({
+    const result = await reserveDigestSummarySlot({
       emailAccountId: "account-1",
       maxSummariesPer24h: 50,
-      now: new Date("2026-02-23T12:00:00.000Z"),
+      now,
     });
 
-    expect(reserved).toBe(true);
+    expect(result.reserved).toBe(true);
+    expect(result.reservationId).toMatch(new RegExp(`^${now.getTime()}:`));
     expect(redis.eval).toHaveBeenCalledWith(
       expect.stringContaining("ZREMRANGEBYSCORE"),
       ["digest:summary-limit:account-1"],
@@ -110,7 +114,7 @@ describe("reserveDigestSummarySlot", () => {
     );
   });
 
-  it("returns false when redis rejects the reservation", async () => {
+  it("returns not reserved when redis rejects the reservation", async () => {
     vi.mocked(redis.eval).mockResolvedValue(0);
 
     const reserved = await reserveDigestSummarySlot({
@@ -119,7 +123,7 @@ describe("reserveDigestSummarySlot", () => {
       now: new Date("2026-02-23T12:00:00.000Z"),
     });
 
-    expect(reserved).toBe(false);
+    expect(reserved).toEqual({ reserved: false, reservationId: null });
   });
 
   it("falls back to prisma when redis fails and count is below limit", async () => {
@@ -132,7 +136,7 @@ describe("reserveDigestSummarySlot", () => {
       now: new Date("2026-02-23T12:00:00.000Z"),
     });
 
-    expect(reserved).toBe(true);
+    expect(reserved).toEqual({ reserved: true, reservationId: null });
     expect(prisma.digestItem.count).toHaveBeenCalledTimes(1);
   });
 
@@ -146,6 +150,38 @@ describe("reserveDigestSummarySlot", () => {
       now: new Date("2026-02-23T12:00:00.000Z"),
     });
 
-    expect(reserved).toBe(false);
+    expect(reserved).toEqual({ reserved: false, reservationId: null });
+  });
+});
+
+describe("releaseDigestSummarySlot", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("removes the reservation from the account limit set", async () => {
+    vi.mocked(redis.zrem).mockResolvedValue(1);
+
+    const released = await releaseDigestSummarySlot({
+      emailAccountId: "account-1",
+      reservationId: "reservation-1",
+    });
+
+    expect(released).toBe(true);
+    expect(redis.zrem).toHaveBeenCalledWith(
+      "digest:summary-limit:account-1",
+      "reservation-1",
+    );
+  });
+
+  it("returns false when reservation does not exist", async () => {
+    vi.mocked(redis.zrem).mockResolvedValue(0);
+
+    const released = await releaseDigestSummarySlot({
+      emailAccountId: "account-1",
+      reservationId: "reservation-1",
+    });
+
+    expect(released).toBe(false);
   });
 });

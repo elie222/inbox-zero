@@ -20,6 +20,11 @@ export function getDigestSummaryWindowStart(now = new Date()): Date {
   return new Date(now.getTime() - DIGEST_SUMMARY_WINDOW_MS);
 }
 
+export type DigestSummarySlotReservation = {
+  reserved: boolean;
+  reservationId: string | null;
+};
+
 export async function reserveDigestSummarySlot({
   emailAccountId,
   maxSummariesPer24h,
@@ -28,8 +33,10 @@ export async function reserveDigestSummarySlot({
   emailAccountId: string;
   maxSummariesPer24h: number;
   now?: Date;
-}): Promise<boolean> {
-  if (maxSummariesPer24h <= 0) return true;
+}): Promise<DigestSummarySlotReservation> {
+  if (maxSummariesPer24h <= 0) {
+    return { reserved: true, reservationId: null };
+  }
 
   const windowStart = getDigestSummaryWindowStart(now).getTime();
   const nowMs = now.getTime();
@@ -48,14 +55,36 @@ export async function reserveDigestSummarySlot({
       ],
     );
 
-    return reserved === 1;
+    return {
+      reserved: reserved === 1,
+      reservationId: reserved === 1 ? reservationId : null,
+    };
   } catch {
-    return !(await hasReachedDigestSummaryLimit({
+    const limitReached = await hasReachedDigestSummaryLimit({
       emailAccountId,
       maxSummariesPer24h,
       now,
-    }));
+    });
+
+    return {
+      reserved: !limitReached,
+      reservationId: null,
+    };
   }
+}
+
+export async function releaseDigestSummarySlot({
+  emailAccountId,
+  reservationId,
+}: {
+  emailAccountId: string;
+  reservationId: string;
+}): Promise<boolean> {
+  const removedCount = await redis.zrem(
+    getDigestSummaryLimitKey(emailAccountId),
+    reservationId,
+  );
+  return removedCount === 1;
 }
 
 export async function hasReachedDigestSummaryLimit({

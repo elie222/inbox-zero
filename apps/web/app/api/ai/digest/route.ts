@@ -10,7 +10,10 @@ import { withError } from "@/utils/middleware";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { env } from "@/env";
 import { withQstashOrInternal } from "@/utils/qstash";
-import { reserveDigestSummarySlot } from "@/utils/digest/summary-limit";
+import {
+  releaseDigestSummarySlot,
+  reserveDigestSummarySlot,
+} from "@/utils/digest/summary-limit";
 
 export const POST = withError(
   "digest",
@@ -53,41 +56,63 @@ export const POST = withError(
         return new NextResponse("OK", { status: 200 });
       }
 
-      const summarySlotReserved = await reserveDigestSummarySlot({
+      const summaryReservation = await reserveDigestSummarySlot({
         emailAccountId,
         maxSummariesPer24h: env.DIGEST_MAX_SUMMARIES_PER_24H,
       });
-      if (!summarySlotReserved) {
+      if (!summaryReservation.reserved) {
         logger.info("Skipping digest item because summary limit was reached", {
           maxSummariesPer24h: env.DIGEST_MAX_SUMMARIES_PER_24H,
         });
         return new NextResponse("OK", { status: 200 });
       }
 
-      const summary = await aiSummarizeEmailForDigest({
-        ruleName,
-        emailAccount,
-        messageToSummarize: {
-          ...message,
-          to: message.to || "",
-        },
-      });
+      let shouldReleaseSummaryReservation = !!summaryReservation.reservationId;
 
-      if (!summary?.content) {
-        logger.info("Skipping digest item because it is not worth summarizing");
+      try {
+        const summary = await aiSummarizeEmailForDigest({
+          ruleName,
+          emailAccount,
+          messageToSummarize: {
+            ...message,
+            to: message.to || "",
+          },
+        });
+
+        if (!summary?.content) {
+          logger.info(
+            "Skipping digest item because it is not worth summarizing",
+          );
+          return new NextResponse("OK", { status: 200 });
+        }
+
+        await upsertDigest({
+          messageId: message.id || "",
+          threadId: message.threadId || "",
+          emailAccountId,
+          actionId,
+          content: summary,
+          logger,
+        });
+
+        shouldReleaseSummaryReservation = false;
+
         return new NextResponse("OK", { status: 200 });
+      } finally {
+        if (
+          summaryReservation.reservationId &&
+          shouldReleaseSummaryReservation
+        ) {
+          await releaseDigestSummarySlot({
+            emailAccountId,
+            reservationId: summaryReservation.reservationId,
+          }).catch((error) => {
+            logger.error("Failed to release digest summary reservation", {
+              error,
+            });
+          });
+        }
       }
-
-      await upsertDigest({
-        messageId: message.id || "",
-        threadId: message.threadId || "",
-        emailAccountId,
-        actionId,
-        content: summary,
-        logger,
-      });
-
-      return new NextResponse("OK", { status: 200 });
     } catch (error) {
       logger.error("Failed to process digest", { error });
       return new NextResponse("Internal Server Error", { status: 500 });
