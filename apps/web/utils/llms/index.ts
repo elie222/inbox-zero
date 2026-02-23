@@ -760,6 +760,11 @@ function withOpenRouterMetadata({
   };
   let traceChanged = false;
 
+  if (label && typeof nextTrace.trace_name !== "string") {
+    nextTrace.trace_name = label;
+    traceChanged = true;
+  }
+
   if (label && typeof nextTrace.generation_name !== "string") {
     nextTrace.generation_name = label;
     traceChanged = true;
