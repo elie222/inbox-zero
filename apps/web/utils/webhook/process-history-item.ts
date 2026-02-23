@@ -4,7 +4,10 @@ import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
-import { isFilebotEmail } from "@/utils/filebot/is-filebot-email";
+import {
+  isFilebotEmail,
+  isFilebotNotificationMessage,
+} from "@/utils/filebot/is-filebot-email";
 import { processFilingReply } from "@/utils/drive/handle-filing-reply";
 import {
   processAttachment,
@@ -146,6 +149,18 @@ export async function processHistoryItem(
     });
 
     if (isOutbound) {
+      if (
+        isFilebotNotificationMessage({
+          userEmail,
+          from: parsedMessage.headers.from,
+          to: parsedMessage.headers.to,
+          replyTo: parsedMessage.headers["reply-to"],
+        })
+      ) {
+        logger.info("Skipping. Filebot notification message.");
+        return;
+      }
+
       await handleOutboundMessage({
         emailAccount,
         message: parsedMessage,

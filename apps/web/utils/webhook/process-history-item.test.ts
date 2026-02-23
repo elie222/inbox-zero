@@ -196,6 +196,31 @@ describe("Provider Edge Cases", () => {
 
       expect(handleOutboundMessage).toHaveBeenCalled();
     });
+
+    it("skips outbound handling for filebot notification messages", async () => {
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(
+          getMockParsedMessage({
+            labelIds: ["SENT"],
+            headers: {
+              from: "Inbox Zero Assistant <user@test.com>",
+              to: "user@test.com",
+              "reply-to": "Inbox Zero Assistant <user+ai@test.com>",
+              subject: "Filed your document",
+              date: "2024-01-01",
+            },
+          }),
+        ),
+        isSentMessage: vi.fn().mockReturnValue(true),
+      });
+
+      await processHistoryItem(
+        { messageId: "msg-123", threadId: "thread-123" },
+        { ...baseOptions, provider },
+      );
+
+      expect(handleOutboundMessage).not.toHaveBeenCalled();
+    });
   });
 
   describe("Error message detection", () => {
