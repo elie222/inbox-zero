@@ -20,6 +20,19 @@ const TOOL_TYPE_BY_ACTION: Record<AssistantPendingEmailActionType, string> = {
   forward_email: "tool-forwardEmail",
 };
 
+type PendingSendEmailToolOutput = Extract<
+  AssistantPendingEmailToolOutput,
+  { actionType: "send_email" }
+>;
+type PendingReplyEmailToolOutput = Extract<
+  AssistantPendingEmailToolOutput,
+  { actionType: "reply_email" }
+>;
+type PendingForwardEmailToolOutput = Extract<
+  AssistantPendingEmailToolOutput,
+  { actionType: "forward_email" }
+>;
+
 const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
 
@@ -121,51 +134,101 @@ async function executeAssistantEmailAction({
 }): Promise<AssistantEmailConfirmationResult> {
   const confirmedAt = new Date().toISOString();
 
-  if (output.actionType === "send_email") {
-    const from =
-      output.pendingAction.from ||
-      (await getFormattedSenderAddress({ emailAccountId }));
-
-    const result = await emailProvider.sendEmailWithHtml({
-      to: output.pendingAction.to,
-      cc: output.pendingAction.cc || undefined,
-      bcc: output.pendingAction.bcc || undefined,
-      subject: output.pendingAction.subject,
-      messageHtml: output.pendingAction.messageHtml,
-      ...(from ? { from } : {}),
-    });
-
-    return {
-      actionType: output.actionType,
-      messageId: result.messageId || null,
-      threadId: result.threadId || null,
-      to: output.pendingAction.to,
-      subject: output.pendingAction.subject,
-      confirmedAt,
-    };
+  switch (output.actionType) {
+    case "send_email":
+      return confirmPendingSendEmailAction({
+        output,
+        emailProvider,
+        emailAccountId,
+        confirmedAt,
+      });
+    case "reply_email":
+      return confirmPendingReplyEmailAction({
+        output,
+        emailProvider,
+        confirmedAt,
+      });
+    case "forward_email":
+      return confirmPendingForwardEmailAction({
+        output,
+        emailProvider,
+        confirmedAt,
+      });
   }
+}
 
-  if (output.actionType === "reply_email") {
-    const message = await emailProvider.getMessage(
-      output.pendingAction.messageId,
-    );
-    await emailProvider.replyToEmail(message, output.pendingAction.content);
+async function confirmPendingSendEmailAction({
+  output,
+  emailProvider,
+  emailAccountId,
+  confirmedAt,
+}: {
+  output: PendingSendEmailToolOutput;
+  emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
+  emailAccountId: string;
+  confirmedAt: string;
+}) {
+  const from =
+    output.pendingAction.from ||
+    (await getFormattedSenderAddress({ emailAccountId }));
 
-    const latestMessage = await getLatestMessageInThreadSafe(
-      emailProvider,
-      message.threadId,
-    );
+  const result = await emailProvider.sendEmailWithHtml({
+    to: output.pendingAction.to,
+    cc: output.pendingAction.cc || undefined,
+    bcc: output.pendingAction.bcc || undefined,
+    subject: output.pendingAction.subject,
+    messageHtml: output.pendingAction.messageHtml,
+    ...(from ? { from } : {}),
+  });
 
-    return {
-      actionType: output.actionType,
-      messageId: latestMessage?.id || message.id || null,
-      threadId: message.threadId || null,
-      to: message.headers["reply-to"] || message.headers.from || null,
-      subject: message.subject || message.headers.subject || null,
-      confirmedAt,
-    };
-  }
+  return {
+    actionType: output.actionType,
+    messageId: result.messageId || null,
+    threadId: result.threadId || null,
+    to: output.pendingAction.to,
+    subject: output.pendingAction.subject,
+    confirmedAt,
+  };
+}
 
+async function confirmPendingReplyEmailAction({
+  output,
+  emailProvider,
+  confirmedAt,
+}: {
+  output: PendingReplyEmailToolOutput;
+  emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
+  confirmedAt: string;
+}) {
+  const message = await emailProvider.getMessage(
+    output.pendingAction.messageId,
+  );
+  await emailProvider.replyToEmail(message, output.pendingAction.content);
+
+  const latestMessage = await getLatestMessageInThreadSafe(
+    emailProvider,
+    message.threadId,
+  );
+
+  return {
+    actionType: output.actionType,
+    messageId: latestMessage?.id || message.id || null,
+    threadId: message.threadId || null,
+    to: message.headers["reply-to"] || message.headers.from || null,
+    subject: message.subject || message.headers.subject || null,
+    confirmedAt,
+  };
+}
+
+async function confirmPendingForwardEmailAction({
+  output,
+  emailProvider,
+  confirmedAt,
+}: {
+  output: PendingForwardEmailToolOutput;
+  emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
+  confirmedAt: string;
+}) {
   const message = await emailProvider.getMessage(
     output.pendingAction.messageId,
   );
