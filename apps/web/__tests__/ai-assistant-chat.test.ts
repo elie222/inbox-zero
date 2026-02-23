@@ -918,21 +918,22 @@ describe("aiProcessAssistantChat", () => {
     });
 
     expect(result).toEqual({
+      actionType: "send_email",
+      confirmationState: "pending",
+      pendingAction: {
+        to: "recipient@example.test",
+        cc: "observer@example.test",
+        bcc: null,
+        subject: "Subject line",
+        messageHtml: "<p>Hello</p>",
+        from: "user@test.com",
+      },
+      provider: "google",
+      requiresConfirmation: true,
       success: true,
-      messageId: "message-1",
-      threadId: "thread-1",
-      to: "recipient@example.test",
-      subject: "Subject line",
     });
 
-    expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
-    expect(sendEmailWithHtml.mock.calls[0][0]).toEqual({
-      to: "recipient@example.test",
-      cc: "observer@example.test",
-      subject: "Subject line",
-      messageHtml: "<p>Hello</p>",
-      from: "user@test.com",
-    });
+    expect(sendEmailWithHtml).not.toHaveBeenCalled();
   });
 
   it("rejects unsupported from field in chat send params", async () => {
@@ -973,21 +974,22 @@ describe("aiProcessAssistantChat", () => {
     });
 
     expect(result).toEqual({
+      actionType: "send_email",
+      confirmationState: "pending",
+      pendingAction: {
+        to: "recipient@example.test",
+        cc: null,
+        bcc: "hidden@example.test",
+        subject: "Subject line",
+        messageHtml: "<p>Done</p>",
+        from: "user@test.com",
+      },
+      provider: "google",
+      requiresConfirmation: true,
       success: true,
-      messageId: "message-2",
-      threadId: "thread-2",
-      to: "recipient@example.test",
-      subject: "Subject line",
     });
 
-    expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
-    expect(sendEmailWithHtml).toHaveBeenCalledWith({
-      to: "recipient@example.test",
-      bcc: "hidden@example.test",
-      subject: "Subject line",
-      messageHtml: "<p>Done</p>",
-      from: "user@test.com",
-    });
+    expect(sendEmailWithHtml).not.toHaveBeenCalled();
   });
 
   it("forwards email with allowlisted chat params only", async () => {
@@ -1009,20 +1011,28 @@ describe("aiProcessAssistantChat", () => {
     });
 
     expect(result).toEqual({
+      actionType: "forward_email",
+      confirmationState: "pending",
+      pendingAction: {
+        messageId: "message-1",
+        to: "recipient@example.test",
+        cc: "observer@example.test",
+        bcc: null,
+        content: "FYI",
+      },
+      reference: {
+        messageId: "message-1",
+        threadId: "thread-1",
+        from: "test@example.com",
+        subject: "Test",
+      },
+      requiresConfirmation: true,
       success: true,
-      messageId: "message-1",
-      to: "recipient@example.test",
     });
 
     expect(getMessage).toHaveBeenCalledTimes(1);
     expect(getMessage).toHaveBeenCalledWith("message-1");
-    expect(forwardEmail).toHaveBeenCalledTimes(1);
-    expect(forwardEmail).toHaveBeenCalledWith(message, {
-      to: "recipient@example.test",
-      cc: "observer@example.test",
-      bcc: undefined,
-      content: "FYI",
-    });
+    expect(forwardEmail).not.toHaveBeenCalled();
   });
 
   it("rejects unsupported from field in chat forward params", async () => {
