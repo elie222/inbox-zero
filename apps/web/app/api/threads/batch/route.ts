@@ -49,6 +49,7 @@ export const GET = withEmailProvider("threads/batch", async (request) => {
           if (!message.headers?.from) return true;
           return !isIgnoredSender(message.headers.from);
         });
+        if (!filteredMessages.length) continue;
 
         validThreads.push({
           id: thread.id,
