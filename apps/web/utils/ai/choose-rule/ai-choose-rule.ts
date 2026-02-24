@@ -6,6 +6,7 @@ import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
 import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
+import { sortRulesForAutomation } from "@/utils/rule/sort";
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
@@ -32,9 +33,11 @@ export async function aiChooseRule<
 }> {
   if (!rules.length) return { rules: [], reason: "No rules to evaluate" };
 
+  const orderedRules = sortRulesForAutomation(rules);
+
   const { result: aiResponse } = await getAiResponse({
     email,
-    rules,
+    rules: orderedRules,
     emailAccount,
     modelType,
   });
@@ -49,7 +52,7 @@ export async function aiChooseRule<
   const rulesWithMetadata = aiResponse.matchedRules
     .map((match) => {
       if (!match.ruleName) return undefined;
-      const rule = rules.find(
+      const rule = orderedRules.find(
         (r) => r.name.toLowerCase() === match.ruleName.toLowerCase(),
       );
       return rule ? { rule, isPrimary: match.isPrimary } : undefined;
