@@ -6,6 +6,7 @@ import { captureException } from "@/utils/error";
 import { handleOutboundReply } from "./outbound";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
+import { logReplyTrackerError } from "./error-logging";
 
 export async function handleOutboundMessage({
   emailAccount,
@@ -33,6 +34,10 @@ export async function handleOutboundMessage({
     messageTo: message.headers.to,
     messageSubject: message.headers.subject,
   });
+  const logHandleOutboundError = createHandleOutboundErrorLogger({
+    logger,
+    emailAccountId: emailAccount.id,
+  });
 
   await Promise.allSettled([
     trackSentDraftStatus({
@@ -40,19 +45,25 @@ export async function handleOutboundMessage({
       message,
       provider,
       logger,
-    }).catch((error) => {
-      logger.error("Error tracking sent draft status", { error });
-      captureException(error, { emailAccountId: emailAccount.id });
-    }),
+    }).catch((error) =>
+      logHandleOutboundError({
+        message: "Error tracking sent draft status",
+        operation: "track-sent-draft-status",
+        error,
+      }),
+    ),
     handleOutboundReply({
       emailAccount,
       message,
       provider,
       logger,
-    }).catch((error) => {
-      logger.error("Error handling outbound reply", { error });
-      captureException(error, { emailAccountId: emailAccount.id });
-    }),
+    }).catch((error) =>
+      logHandleOutboundError({
+        message: "Error handling outbound reply",
+        operation: "handle-outbound-reply",
+        error,
+      }),
+    ),
   ]);
 
   try {
@@ -80,4 +91,34 @@ export async function handleOutboundMessage({
     logger.error("Error removing follow-up label", { error });
     captureException(error, { emailAccountId: emailAccount.id });
   }
+}
+
+function createHandleOutboundErrorLogger({
+  logger,
+  emailAccountId,
+}: {
+  logger: Logger;
+  emailAccountId: string;
+}) {
+  return ({
+    message,
+    operation,
+    error,
+    context,
+  }: {
+    message: string;
+    operation: string;
+    error: unknown;
+    context?: Record<string, unknown>;
+  }) =>
+    logReplyTrackerError({
+      logger,
+      emailAccountId,
+      scope: "handle-outbound",
+      message,
+      operation,
+      error,
+      context,
+      capture: true,
+    });
 }

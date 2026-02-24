@@ -6,6 +6,7 @@ import type { Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";
 import type { EmailProvider } from "@/utils/email/types";
+import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 
 const MODULE = "ai-execute-act";
 
@@ -71,7 +72,16 @@ export async function executeAct({
         });
       }
     } catch (error) {
-      log.error("Error executing action", { error });
+      await logErrorWithDedupe({
+        logger: log,
+        message: "Error executing action",
+        error,
+        dedupeKeyParts: {
+          scope: "ai/choose-rule/execute",
+          emailAccountId,
+          actionType: action.type,
+        },
+      });
       await prisma.executedRule.update({
         where: { id: executedRule.id },
         data: { status: ExecutedRuleStatus.ERROR },

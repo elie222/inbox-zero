@@ -7,6 +7,7 @@ import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import type { EmailProvider } from "@/utils/email/types";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 
 export type WatchEmailAccountResult =
   | {
@@ -179,7 +180,18 @@ async function watchEmailAccount(
   });
 
   if (!result.success) {
-    logger.error("Failed to watch emails for account", { error: result.error });
+    await logErrorWithDedupe({
+      logger,
+      message: "Failed to watch emails for account",
+      error: result.error,
+      dedupeKeyParts: {
+        scope: "watch/all",
+        emailAccountId: emailAccount.id,
+        operation: "watch-email-account",
+      },
+      ttlSeconds: 15 * 60,
+      summaryIntervalSeconds: 5 * 60,
+    });
 
     return {
       emailAccountId: emailAccount.id,
@@ -233,7 +245,6 @@ async function watchEmails({
     }
 
     const error = new Error("Provider returned no result for watch setup");
-    logger.error("Error watching inbox", { error });
     return { success: false, error };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -253,7 +264,6 @@ async function watchEmails({
         logger,
       });
     } else {
-      logger.error("Error watching inbox", { error });
       captureException(error, { emailAccountId });
     }
 
