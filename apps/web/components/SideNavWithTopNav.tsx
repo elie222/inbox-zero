@@ -79,9 +79,12 @@ export function SideNavWithTopNav({
 
 function MobileHeader() {
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-9 md:hidden">
+    <header className="pointer-events-none fixed top-0 left-0 right-0 z-50 h-9 md:hidden">
       <div className="flex h-full items-center px-4">
-        <SidebarTrigger name="left-sidebar" className="size-6" />
+        <SidebarTrigger
+          name="left-sidebar"
+          className="pointer-events-auto size-6"
+        />
       </div>
     </header>
   );
