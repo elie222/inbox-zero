@@ -5,6 +5,7 @@ import {
   generalizeSubject,
   convertNewlinesToBr,
   escapeHtml,
+  trimToNonEmptyString,
 } from "./string";
 
 // Run with:
@@ -18,6 +19,23 @@ describe("string utils", () => {
 
     it("should not truncate strings shorter than specified length", () => {
       expect(truncate("hello", 10)).toBe("hello");
+    });
+  });
+
+  describe("trimToNonEmptyString", () => {
+    it("returns trimmed text when non-empty", () => {
+      expect(trimToNonEmptyString("  hello  ")).toBe("hello");
+    });
+
+    it("returns undefined for empty or whitespace-only strings", () => {
+      expect(trimToNonEmptyString("")).toBeUndefined();
+      expect(trimToNonEmptyString("   ")).toBeUndefined();
+    });
+
+    it("returns undefined for non-string values", () => {
+      expect(trimToNonEmptyString(null)).toBeUndefined();
+      expect(trimToNonEmptyString(123)).toBeUndefined();
+      expect(trimToNonEmptyString({})).toBeUndefined();
     });
   });
 
