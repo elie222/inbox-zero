@@ -890,11 +890,8 @@ function withOpenRouterMetadata({
     changed = true;
   }
 
-  const openRouterExtraBody = isJsonObject(openRouterOptions.extraBody)
-    ? openRouterOptions.extraBody
-    : undefined;
-  const openRouterTrace = isJsonObject(openRouterExtraBody?.trace)
-    ? openRouterExtraBody.trace
+  const openRouterTrace = isJsonObject(openRouterOptions.trace)
+    ? openRouterOptions.trace
     : undefined;
 
   const nextTrace: Record<string, JSONValue> = {
@@ -918,10 +915,7 @@ function withOpenRouterMetadata({
   }
 
   if (traceChanged) {
-    nextOpenRouterOptions.extraBody = {
-      ...(openRouterExtraBody || {}),
-      trace: nextTrace,
-    };
+    nextOpenRouterOptions.trace = nextTrace;
     changed = true;
   }
 
