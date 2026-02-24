@@ -29,41 +29,23 @@ export function LoginForm() {
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
 
   const handleGoogleSignIn = async () => {
-    setLoadingGoogle(true);
-    try {
-      await signIn.social({
-        provider: "google",
-        errorCallbackURL,
-        callbackURL,
-      });
-    } catch (error) {
-      console.error("Error signing in with Google:", error);
-      toastError({
-        title: "Error signing in with Google",
-        description: "Please try again or contact support",
-      });
-    } finally {
-      setLoadingGoogle(false);
-    }
+    await handleSocialSignIn({
+      provider: "google",
+      providerName: "Google",
+      callbackURL,
+      errorCallbackURL,
+      setLoading: setLoadingGoogle,
+    });
   };
 
   const handleMicrosoftSignIn = async () => {
-    setLoadingMicrosoft(true);
-    try {
-      await signIn.social({
-        provider: "microsoft",
-        errorCallbackURL,
-        callbackURL,
-      });
-    } catch (error) {
-      console.error("Error signing in with Microsoft:", error);
-      toastError({
-        title: "Error signing in with Microsoft",
-        description: "Please try again or contact support",
-      });
-    } finally {
-      setLoadingMicrosoft(false);
-    }
+    await handleSocialSignIn({
+      provider: "microsoft",
+      providerName: "Microsoft",
+      callbackURL,
+      errorCallbackURL,
+      setLoading: setLoadingMicrosoft,
+    });
   };
 
   return (
@@ -147,4 +129,35 @@ function getAuthCallbackUrls(next: string | null) {
 function isOrganizationInvitationPath(path: string) {
   const pathname = path.split("?")[0];
   return /^\/organizations\/invitations\/[^/]+\/accept\/?$/.test(pathname);
+}
+
+async function handleSocialSignIn({
+  provider,
+  providerName,
+  callbackURL,
+  errorCallbackURL,
+  setLoading,
+}: {
+  provider: "google" | "microsoft";
+  providerName: "Google" | "Microsoft";
+  callbackURL: string;
+  errorCallbackURL: string;
+  setLoading: (loading: boolean) => void;
+}) {
+  setLoading(true);
+  try {
+    await signIn.social({
+      provider,
+      errorCallbackURL,
+      callbackURL,
+    });
+  } catch (error) {
+    console.error(`Error signing in with ${providerName}:`, error);
+    toastError({
+      title: `Error signing in with ${providerName}`,
+      description: "Please try again or contact support",
+    });
+  } finally {
+    setLoading(false);
+  }
 }
