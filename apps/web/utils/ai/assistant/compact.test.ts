@@ -55,14 +55,14 @@ describe("chat compaction thresholds", () => {
     const exactlyThreshold: ModelMessage[] = [
       {
         role: "user",
-        content: "a".repeat(200_000),
+        content: "a".repeat(320_000),
       },
     ];
 
     const overThreshold: ModelMessage[] = [
       {
         role: "user",
-        content: "a".repeat(200_004),
+        content: "a".repeat(320_004),
       },
     ];
 

@@ -6,7 +6,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 
 export const RECENT_MESSAGES_TO_KEEP = 6;
-const COMPACTION_TOKEN_THRESHOLD = 50_000;
+const COMPACTION_TOKEN_THRESHOLD = 80_000;
 
 export function estimateTokens(messages: ModelMessage[]): number {
   let totalChars = 0;
