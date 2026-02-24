@@ -4,7 +4,9 @@ import { sleep } from "@/utils/sleep";
 import { isFetchError } from "@/utils/retry/is-fetch-error";
 
 const logger = createScopedLogger("gmail-retry");
-// Keep retries inside a single request budget so webhook/API handlers don't hang for minutes.
+// Keep retry sleeps bounded so request-scoped handlers don't exceed their runtime budget.
+// Example: /api/labels has maxDuration=30s and this helper defaults to 5 retries.
+// A 5s cap keeps worst-case retry sleep at ~25s, leaving headroom for API calls and response.
 const MAX_DELAY_PER_RETRY_MS = 5000;
 
 interface ErrorInfo {
