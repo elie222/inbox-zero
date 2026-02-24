@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
-import { startRequestTimer } from "@/utils/request-timing";
 
 export type UnifiedLabel = {
   id: string;
@@ -21,33 +20,29 @@ export type LabelsResponse = {
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-export const GET = withEmailProvider("labels", async (request) => {
-  const { emailProvider } = request;
-  const requestTimer = startRequestTimer({
-    logger: request.logger,
-    requestName: "Labels request",
-  });
+export const GET = withEmailProvider(
+  "labels",
+  async (request) => {
+    const { emailProvider } = request;
 
-  try {
-    const labels = await emailProvider.getLabels();
-    // Map to unified format
-    const unifiedLabels: UnifiedLabel[] = (labels || []).map((label) => ({
-      id: label.id,
-      name: label.name,
-      type: label.type,
-      color: label.color,
-      labelListVisibility: label.labelListVisibility,
-      messageListVisibility: label.messageListVisibility,
-    }));
-    requestTimer.logSlowCompletion({ labelCount: unifiedLabels.length });
-    return NextResponse.json({ labels: unifiedLabels });
-  } catch (error) {
-    request.logger.error("Error fetching labels", {
-      error,
-      durationMs: requestTimer.durationMs(),
-    });
-    return NextResponse.json({ labels: [] }, { status: 500 });
-  } finally {
-    requestTimer.stop();
-  }
-});
+    try {
+      const labels = await emailProvider.getLabels();
+      // Map to unified format
+      const unifiedLabels: UnifiedLabel[] = (labels || []).map((label) => ({
+        id: label.id,
+        name: label.name,
+        type: label.type,
+        color: label.color,
+        labelListVisibility: label.labelListVisibility,
+        messageListVisibility: label.messageListVisibility,
+      }));
+      return NextResponse.json({ labels: unifiedLabels });
+    } catch (error) {
+      request.logger.error("Error fetching labels", {
+        error,
+      });
+      return NextResponse.json({ labels: [] }, { status: 500 });
+    }
+  },
+  { requestTiming: {} },
+);

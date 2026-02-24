@@ -18,6 +18,7 @@ import {
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
+import { startRequestTimer } from "@/utils/request-timing";
 
 const logger = createScopedLogger("middleware");
 const SLOW_MIDDLEWARE_STEP_MS = 2000;
@@ -50,6 +51,10 @@ export interface RequestWithEmailProvider extends RequestWithEmailAccount {
 
 export interface MiddlewareOptions {
   allowOrgAdmins?: boolean;
+  requestTiming?: {
+    runningWarnAfterMs?: number;
+    slowWarnAfterMs?: number;
+  };
 }
 
 // Higher-order middleware factory that handles common error logic
@@ -68,6 +73,15 @@ function withMiddleware<T extends NextRequest>(
       requestId,
       url: req.url,
     });
+    const requestTimer =
+      options?.requestTiming !== undefined
+        ? startRequestTimer({
+            logger: baseLogger,
+            requestName: `${scope || "api"} request`,
+            runningWarnAfterMs: options.requestTiming.runningWarnAfterMs,
+            slowWarnAfterMs: options.requestTiming.slowWarnAfterMs,
+          })
+        : undefined;
 
     const reqWithLogger = req as NextRequest & { logger?: Logger };
     reqWithLogger.logger = baseLogger;
@@ -187,6 +201,9 @@ function withMiddleware<T extends NextRequest>(
         { error: "An unexpected error occurred" },
         { status: 500 },
       );
+    } finally {
+      requestTimer?.logSlowCompletion();
+      requestTimer?.stop();
     }
   };
 }
@@ -503,23 +520,30 @@ export function withEmailAccount(
 export function withEmailProvider(
   scope: string,
   handler: NextHandler<RequestWithEmailProvider>,
+  options?: MiddlewareOptions,
 ): NextHandler;
 export function withEmailProvider(
   handler: NextHandler<RequestWithEmailProvider>,
+  options?: MiddlewareOptions,
 ): NextHandler;
 export function withEmailProvider(
   scopeOrHandler: string | NextHandler<RequestWithEmailProvider>,
-  handler?: NextHandler<RequestWithEmailProvider>,
+  handlerOrOptions?: NextHandler<RequestWithEmailProvider> | MiddlewareOptions,
+  options?: MiddlewareOptions,
 ): NextHandler {
   if (typeof scopeOrHandler === "string") {
     return withMiddleware(
-      handler!,
+      handlerOrOptions as NextHandler<RequestWithEmailProvider>,
       emailProviderMiddleware,
-      undefined,
+      options,
       scopeOrHandler,
     );
   }
-  return withMiddleware(scopeOrHandler, emailProviderMiddleware);
+  return withMiddleware(
+    scopeOrHandler,
+    emailProviderMiddleware,
+    handlerOrOptions as MiddlewareOptions,
+  );
 }
 
 function isErrorWithConfigAndHeaders(
