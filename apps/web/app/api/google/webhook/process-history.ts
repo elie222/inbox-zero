@@ -339,11 +339,15 @@ async function fetchGmailHistoryResilient({
   });
 
   try {
-    const data = await getHistory(gmail, {
-      startHistoryId,
-      historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
-      maxResults: 500,
-    });
+    const data = await getHistory(
+      gmail,
+      {
+        startHistoryId,
+        historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
+        maxResults: 500,
+      },
+      logger,
+    );
 
     if (data.nextPageToken) {
       logger.warn("Gmail history has more pages that were not fetched", {
