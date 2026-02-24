@@ -16,6 +16,7 @@ import {
   TypeValidationError,
 } from "ai";
 import { jsonrepair } from "jsonrepair";
+import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
 import type { EmailAccountWithAI, UserAIFields } from "@/utils/llms/types";
 import {
@@ -39,6 +40,7 @@ import {
   type ResolvedModel,
   type SelectModel,
 } from "@/utils/llms/model";
+import { shouldForceNanoModel } from "@/utils/llms/model-usage-guard";
 import { Provider } from "@/utils/llms/config";
 import { createScopedLogger } from "@/utils/logger";
 import {
@@ -51,6 +53,11 @@ import {
 const logger = createScopedLogger("llms");
 
 const MAX_LOG_LENGTH = 200;
+const NO_USER_AI_FIELDS: UserAIFields = {
+  aiProvider: null,
+  aiModel: null,
+  aiApiKey: null,
+};
 
 type LLMProviderOptions = Record<string, Record<string, JSONValue>>;
 
@@ -71,7 +78,14 @@ export function createGenerateText({
 }): typeof generateText {
   return async (...args) => {
     const [options, ...restArgs] = args;
-    const modelCandidates = getModelCandidates(modelOptions);
+    const { modelOptions: effectiveModelOptions, modelCandidates } =
+      await resolveModelCandidates({
+        modelOptions,
+        userEmail: emailAccount.email,
+        userId: emailAccount.userId,
+        emailAccountId: emailAccount.id,
+        label,
+      });
 
     const generate = async (candidate: ResolvedModel) => {
       const systemText =
@@ -113,7 +127,7 @@ export function createGenerateText({
           provider: candidate.provider,
           model: candidate.modelName,
           label,
-          hasUserApiKey: modelOptions.hasUserApiKey,
+          hasUserApiKey: effectiveModelOptions.hasUserApiKey,
         });
       }
 
@@ -157,7 +171,7 @@ export function createGenerateText({
           emailAccount.id,
           label,
           candidate.modelName,
-          modelOptions.hasUserApiKey,
+          effectiveModelOptions.hasUserApiKey,
         );
         throw error;
       }
@@ -178,7 +192,14 @@ export function createGenerateObject({
 }): typeof generateObject {
   return async (...args) => {
     const [options, ...restArgs] = args;
-    const modelCandidates = getModelCandidates(modelOptions);
+    const { modelOptions: effectiveModelOptions, modelCandidates } =
+      await resolveModelCandidates({
+        modelOptions,
+        userEmail: emailAccount.email,
+        userId: emailAccount.userId,
+        emailAccountId: emailAccount.id,
+        label,
+      });
 
     const generate = async (candidate: ResolvedModel) => {
       const systemText =
@@ -233,7 +254,7 @@ export function createGenerateObject({
           provider: candidate.provider,
           model: candidate.modelName,
           label,
-          hasUserApiKey: modelOptions.hasUserApiKey,
+          hasUserApiKey: effectiveModelOptions.hasUserApiKey,
         });
       }
 
@@ -280,7 +301,7 @@ export function createGenerateObject({
           emailAccount.id,
           label,
           candidate.modelName,
-          modelOptions.hasUserApiKey,
+          effectiveModelOptions.hasUserApiKey,
         );
         throw error;
       }
@@ -317,8 +338,13 @@ export async function chatCompletionStream({
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
-  const modelOptions = getModel(userAi, modelType);
-  const modelCandidates = getModelCandidates(modelOptions);
+  const { modelOptions, modelCandidates } = await resolveModelCandidates({
+    modelOptions: getModel(userAi, modelType),
+    userEmail,
+    userId,
+    emailAccountId,
+    label,
+  });
 
   for (let index = 0; index < modelCandidates.length; index++) {
     const candidate = modelCandidates[index];
@@ -439,8 +465,13 @@ export async function toolCallAgentStream({
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
-  const modelOptions = getModel(userAi, modelType);
-  const modelCandidates = getModelCandidates(modelOptions);
+  const { modelOptions, modelCandidates } = await resolveModelCandidates({
+    modelOptions: getModel(userAi, modelType),
+    userEmail,
+    userId,
+    emailAccountId,
+    label,
+  });
 
   for (let index = 0; index < modelCandidates.length; index++) {
     const candidate = modelCandidates[index];
@@ -649,6 +680,113 @@ async function handleError(
       });
     }
   }
+}
+
+async function getCostControlledModelOptions({
+  modelOptions,
+  userEmail,
+  userId,
+  emailAccountId,
+  label,
+}: {
+  modelOptions: SelectModel;
+  userEmail: string;
+  userId?: string;
+  emailAccountId?: string;
+  label: string;
+}): Promise<SelectModel> {
+  const guard = await shouldForceNanoModel({
+    userEmail,
+    hasUserApiKey: modelOptions.hasUserApiKey,
+    label,
+    userId,
+    emailAccountId,
+  });
+
+  if (!guard.shouldForce) return modelOptions;
+
+  try {
+    const nanoModelOptions = getModel(NO_USER_AI_FIELDS, "nano");
+    const isResolvedConfiguredNanoModel =
+      !!env.NANO_LLM_PROVIDER &&
+      !!env.NANO_LLM_MODEL &&
+      nanoModelOptions.provider === env.NANO_LLM_PROVIDER &&
+      nanoModelOptions.modelName === env.NANO_LLM_MODEL;
+
+    if (!isResolvedConfiguredNanoModel) {
+      logger.warn(
+        "Nano usage guard triggered but nano model is not available",
+        {
+          label,
+          userId,
+          emailAccountId,
+          weeklySpendUsd: guard.weeklySpendUsd,
+          weeklyLimitUsd: guard.weeklyLimitUsd,
+          configuredProvider: env.NANO_LLM_PROVIDER,
+          configuredModel: env.NANO_LLM_MODEL,
+          resolvedProvider: nanoModelOptions.provider,
+          resolvedModel: nanoModelOptions.modelName,
+        },
+      );
+      return modelOptions;
+    }
+
+    if (
+      nanoModelOptions.provider === modelOptions.provider &&
+      nanoModelOptions.modelName === modelOptions.modelName
+    ) {
+      return modelOptions;
+    }
+
+    logger.info("Switching to nano model due to weekly AI spend", {
+      label,
+      userId,
+      emailAccountId,
+      weeklySpendUsd: guard.weeklySpendUsd,
+      weeklyLimitUsd: guard.weeklyLimitUsd,
+      previousProvider: modelOptions.provider,
+      previousModel: modelOptions.modelName,
+      nextProvider: nanoModelOptions.provider,
+      nextModel: nanoModelOptions.modelName,
+    });
+
+    return nanoModelOptions;
+  } catch (error) {
+    logger.error("Failed to resolve nano model during usage guard", {
+      label,
+      userId,
+      emailAccountId,
+      error,
+    });
+    return modelOptions;
+  }
+}
+
+async function resolveModelCandidates({
+  modelOptions,
+  userEmail,
+  userId,
+  emailAccountId,
+  label,
+}: {
+  modelOptions: SelectModel;
+  userEmail: string;
+  userId?: string;
+  emailAccountId?: string;
+  label: string;
+}): Promise<{ modelOptions: SelectModel; modelCandidates: ResolvedModel[] }> {
+  const effectiveModelOptions = await getCostControlledModelOptions({
+    modelOptions,
+    userEmail,
+    userId,
+    emailAccountId,
+    label,
+  });
+
+  return {
+    modelOptions: effectiveModelOptions,
+    modelCandidates: getModelCandidates(effectiveModelOptions),
+  };
 }
 
 function getModelCandidates(modelOptions: SelectModel): ResolvedModel[] {

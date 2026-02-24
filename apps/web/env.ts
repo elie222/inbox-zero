@@ -63,6 +63,9 @@ export const env = createEnv({
     CHAT_LLM_MODEL: z.string().optional(),
     CHAT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain for chat model; explicit model required
     CHAT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
+    NANO_LLM_PROVIDER: llmProviderEnum.optional(),
+    NANO_LLM_MODEL: z.string().optional(),
+    AI_NANO_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),
     // Deprecated: legacy fallback configuration, kept for backwards compatibility.
     OPENROUTER_BACKUP_MODEL: z.string().optional(),
 
