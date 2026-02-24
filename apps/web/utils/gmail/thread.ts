@@ -8,13 +8,16 @@ import {
 import { parseMessage } from "@/utils/gmail/message";
 import { GmailLabel } from "@/utils/gmail/label";
 import { withGmailRetry } from "@/utils/gmail/retry";
+import type { Logger } from "@/utils/logger";
 
 export async function getThread(
   threadId: string,
   gmail: gmail_v1.Gmail,
 ): Promise<ThreadWithPayloadMessages> {
-  const thread = await withGmailRetry(() =>
-    gmail.users.threads.get({ userId: "me", id: threadId }),
+  const thread = await withGmailRetry(
+    () => gmail.users.threads.get({ userId: "me", id: threadId }),
+    5,
+    { operation: "gmail.threads.get" },
   );
   return thread.data as ThreadWithPayloadMessages;
 }
@@ -35,13 +38,16 @@ export async function getThreads(
   resultSizeEstimate?: number | null;
   threads: MinimalThread[];
 }> {
-  const threads = await withGmailRetry(() =>
-    gmail.users.threads.list({
-      userId: "me",
-      q,
-      labelIds,
-      maxResults,
-    }),
+  const threads = await withGmailRetry(
+    () =>
+      gmail.users.threads.list({
+        userId: "me",
+        q,
+        labelIds,
+        maxResults,
+      }),
+    5,
+    { operation: "gmail.threads.list" },
   );
   return {
     nextPageToken: threads.data.nextPageToken,
@@ -56,21 +62,26 @@ export async function getThreadsWithNextPageToken({
   labelIds,
   maxResults = 100,
   pageToken,
+  logger,
 }: {
   gmail: gmail_v1.Gmail;
   q?: string;
   labelIds?: string[];
   maxResults?: number;
   pageToken?: string;
+  logger?: Logger;
 }) {
-  const threads = await withGmailRetry(() =>
-    gmail.users.threads.list({
-      userId: "me",
-      q,
-      labelIds,
-      maxResults,
-      pageToken,
-    }),
+  const threads = await withGmailRetry(
+    () =>
+      gmail.users.threads.list({
+        userId: "me",
+        q,
+        labelIds,
+        maxResults,
+        pageToken,
+      }),
+    5,
+    { logger, operation: "gmail.threads.list" },
   );
 
   return {
@@ -104,12 +115,15 @@ async function getThreadsFromSender(
   }>
 > {
   const query = `from:${sender} -label:sent -label:draft`;
-  const response = await withGmailRetry(() =>
-    gmail.users.threads.list({
-      userId: "me",
-      q: query,
-      maxResults: limit,
-    }),
+  const response = await withGmailRetry(
+    () =>
+      gmail.users.threads.list({
+        userId: "me",
+        q: query,
+        maxResults: limit,
+      }),
+    5,
+    { operation: "gmail.threads.list" },
   );
 
   return response.data.threads || [];
