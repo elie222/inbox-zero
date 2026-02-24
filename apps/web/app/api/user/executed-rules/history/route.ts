@@ -88,20 +88,13 @@ async function getExecutedRules({
 
   const executedRulesByMessageId = groupBy(executedRules, (er) => er.messageId);
 
-  const results = Object.entries(executedRulesByMessageId).flatMap(
-    ([messageId, groupedExecutedRules]) => {
-      const firstExecutedRule = groupedExecutedRules[0];
-      if (!firstExecutedRule) return [];
-
-      return [
-        {
-          messageId,
-          threadId: firstExecutedRule.threadId,
-          executedRules: groupedExecutedRules,
-        },
-      ];
-    },
-  );
+  const results = Object.entries(executedRulesByMessageId)
+    .filter(([, groupedExecutedRules]) => groupedExecutedRules.length > 0)
+    .map(([messageId, groupedExecutedRules]) => ({
+      messageId,
+      threadId: groupedExecutedRules[0].threadId,
+      executedRules: groupedExecutedRules,
+    }));
 
   return {
     results,

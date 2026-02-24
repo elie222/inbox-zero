@@ -39,28 +39,27 @@ export function History() {
   const [ruleId] = useQueryState("ruleId", parseAsString.withDefault("all"));
 
   const { data, isLoading, error } = useExecutedRules({ page, ruleId });
+  const results = data?.results ?? [];
   const messageIds = useMemo(
-    () => data?.results.map((result) => result.messageId) || [],
-    [data?.results],
+    () => results.map((result) => result.messageId),
+    [results],
   );
   const { data: messagesData, isLoading: isMessagesLoading } = useMessagesBatch(
     {
       ids: messageIds,
     },
   );
-  const messagesById = useMemo(
-    () => mapMessagesById(messagesData?.messages || []),
-    [messagesData?.messages],
-  );
+  const messages = messagesData?.messages ?? [];
+  const messagesById = useMemo(() => mapMessagesById(messages), [messages]);
 
   return (
     <>
       <RulesSelect />
       <Card className="mt-2">
         <LoadingContent loading={isLoading} error={error}>
-          {data?.results.length ? (
+          {results.length ? (
             <HistoryTable
-              data={data.results}
+              data={results}
               totalPages={data.totalPages}
               messagesById={messagesById}
               messagesLoading={isMessagesLoading}
