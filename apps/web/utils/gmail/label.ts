@@ -7,6 +7,7 @@ import {
   type InboxZeroLabel,
 } from "@/utils/label";
 import { findLabelByName } from "@/utils/label/find-label-by-name";
+import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import {
   labelVisibility,
   messageVisibility,
@@ -249,7 +250,7 @@ export async function createLabel({
         labels,
         name,
         getLabelName: (label) => label.name,
-        normalize: normalizeLabel,
+        normalize: normalizeLabelName,
       });
       if (exactLabel) return exactLabel;
 
@@ -297,15 +298,6 @@ export async function getLabels(gmail: gmail_v1.Gmail) {
   return response.data.labels;
 }
 
-function normalizeLabel(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/[-_.]/g, " ") // replace hyphens, underscores, dots with spaces
-    .replace(/\s+/g, " ") // multiple spaces to single space
-    .replace(/^\/+|\/+$/g, "") // trim slashes
-    .trim();
-}
-
 export async function getLabel(options: {
   gmail: gmail_v1.Gmail;
   name: string;
@@ -316,7 +308,7 @@ export async function getLabel(options: {
     labels,
     name,
     getLabelName: (label) => label.name,
-    normalize: normalizeLabel,
+    normalize: normalizeLabelName,
   });
 }
 
@@ -382,7 +374,7 @@ export async function getOrCreateInboxZeroLabel({
 function normalizeLabelForConflictLookup(name: string) {
   const normalizedUnicode = name.normalize("NFKC");
   const normalizedPath = normalizeSlashPath(normalizedUnicode);
-  return normalizeLabel(stripInvisibleCharacters(normalizedPath));
+  return normalizeLabelName(stripInvisibleCharacters(normalizedPath));
 }
 
 function normalizeSlashPath(name: string) {

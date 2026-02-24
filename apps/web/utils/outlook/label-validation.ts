@@ -1,3 +1,5 @@
+import { normalizeLabelName } from "@/utils/label/normalize-label-name";
+
 const OUTLOOK_CATEGORY_MAX_LENGTH = 255;
 
 export function sanitizeOutlookCategoryName(name: string): string {
@@ -16,10 +18,5 @@ export function sanitizeOutlookCategoryName(name: string): string {
 }
 
 export function normalizeOutlookCategoryName(name: string): string {
-  return sanitizeOutlookCategoryName(name)
-    .toLowerCase()
-    .replace(/[-_.]/g, " ")
-    .replace(/^\/+|\/+$/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return normalizeLabelName(sanitizeOutlookCategoryName(name));
 }
