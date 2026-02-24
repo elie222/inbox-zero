@@ -43,7 +43,13 @@ export const GET = withEmailProvider("threads/batch", async (request) => {
 
     for (const { item: threadId, result } of results) {
       if (result.status === "fulfilled") {
-        validThreads.push(result.value);
+        const thread = result.value;
+        validThreads.push({
+          id: thread.id,
+          messages: thread.messages,
+          snippet: thread.snippet,
+          plan: undefined,
+        });
       } else {
         request.logger.error("Error fetching thread", {
           error: result.reason,
