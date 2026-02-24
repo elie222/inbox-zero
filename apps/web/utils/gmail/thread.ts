@@ -17,7 +17,6 @@ export async function getThread(
   const thread = await withGmailRetry(
     () => gmail.users.threads.get({ userId: "me", id: threadId }),
     5,
-    { operation: "gmail.threads.get" },
   );
   return thread.data as ThreadWithPayloadMessages;
 }
@@ -47,7 +46,6 @@ export async function getThreads(
         maxResults,
       }),
     5,
-    { operation: "gmail.threads.list" },
   );
   return {
     nextPageToken: threads.data.nextPageToken,
@@ -81,7 +79,7 @@ export async function getThreadsWithNextPageToken({
         pageToken,
       }),
     5,
-    { logger, operation: "gmail.threads.list" },
+    { logger },
   );
 
   return {
@@ -123,7 +121,6 @@ async function getThreadsFromSender(
         maxResults: limit,
       }),
     5,
-    { operation: "gmail.threads.list" },
   );
 
   return response.data.threads || [];
