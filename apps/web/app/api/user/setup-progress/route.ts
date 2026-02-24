@@ -9,9 +9,34 @@ export type GetSetupProgressResponse = Awaited<
 
 export const GET = withEmailAccount("user/setup-progress", async (request) => {
   const { emailAccountId } = request.auth;
+  const requestStartTime = Date.now();
+  const slowRequestLogTimeout = setTimeout(() => {
+    request.logger.warn("Setup progress request still running", {
+      elapsedMs: Date.now() - requestStartTime,
+    });
+  }, 8000);
 
-  const result = await getSetupProgress({ emailAccountId });
-  return NextResponse.json(result);
+  try {
+    const result = await getSetupProgress({ emailAccountId });
+    const durationMs = Date.now() - requestStartTime;
+    if (durationMs > 2000) {
+      request.logger.warn("Setup progress request completed slowly", {
+        durationMs,
+      });
+    }
+    return NextResponse.json(result);
+  } catch (error) {
+    request.logger.error("Error fetching setup progress", {
+      error,
+      durationMs: Date.now() - requestStartTime,
+    });
+    return NextResponse.json(
+      { error: "Failed to fetch setup progress" },
+      { status: 500 },
+    );
+  } finally {
+    clearTimeout(slowRequestLogTimeout);
+  }
 });
 
 async function getSetupProgress({

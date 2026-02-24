@@ -20,6 +20,8 @@ import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("middleware");
+const SLOW_MIDDLEWARE_STEP_MS = 2000;
+const SLOW_MIDDLEWARE_TOTAL_MS = 4000;
 
 export type NextHandler<T extends NextRequest = NextRequest> = (
   req: T,
@@ -227,91 +229,117 @@ async function emailAccountMiddleware(
     );
   }
 
-  // If account ID is provided, validate and get the email account ID
-  const email = await getEmailAccount({ userId, emailAccountId });
+  const middlewareLogger = authReq.logger.with({ emailAccountId });
+  const middlewareStartTime = Date.now();
 
-  const emailAccountLogger = authReq.logger.with({ emailAccountId, email });
-
-  if (!email && options?.allowOrgAdmins) {
-    // Check if user is admin or owner and is in the same org as the target email account
-    const callerEmailAccount = await getCallerEmailAccount(
-      userId,
-      emailAccountId,
-    );
-
-    if (!callerEmailAccount) {
-      emailAccountLogger.error("Org admin access denied");
-      return NextResponse.json(
-        { error: "Insufficient permissions", isKnownError: true },
-        { status: 403 },
-      );
-    }
-
-    // Check if target member has consented to org admin analytics access
-    const targetMember = await prisma.member.findFirst({
-      where: {
-        emailAccountId,
-        organization: {
-          members: {
-            some: {
-              emailAccountId: callerEmailAccount.id,
-            },
-          },
-        },
-      },
-      select: { allowOrgAdminAnalytics: true },
+  try {
+    // If account ID is provided, validate and get the email account ID
+    const email = await runTimedMiddlewareStep({
+      logger: middlewareLogger,
+      step: "validate-email-account",
+      operation: () => getEmailAccount({ userId, emailAccountId }),
     });
 
-    if (!targetMember?.allowOrgAdminAnalytics) {
-      emailAccountLogger.error(
-        "Member has not enabled org admin analytics access",
-      );
-      return NextResponse.json(
-        {
-          error: "Analytics access not permitted by this member",
-          isKnownError: true,
-        },
-        { status: 403 },
-      );
-    }
+    const emailAccountLogger = middlewareLogger.with({ email });
 
-    const targetEmailAccount = await prisma.emailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: { email: true },
-    });
-
-    if (targetEmailAccount) {
-      const emailAccountReq = req.clone() as RequestWithEmailAccount;
-      emailAccountReq.auth = {
-        userId,
-        emailAccountId,
-        email: targetEmailAccount.email,
-      };
-      emailAccountReq.logger = emailAccountLogger.with({
-        isOrgAdmin: true,
-        email: targetEmailAccount.email,
+    if (!email && options?.allowOrgAdmins) {
+      // Check if user is admin or owner and is in the same org as the target email account
+      const callerEmailAccount = await runTimedMiddlewareStep({
+        logger: emailAccountLogger,
+        step: "resolve-org-admin-caller-account",
+        operation: () => getCallerEmailAccount(userId, emailAccountId),
       });
-      return emailAccountReq;
+
+      if (!callerEmailAccount) {
+        emailAccountLogger.error("Org admin access denied");
+        return NextResponse.json(
+          { error: "Insufficient permissions", isKnownError: true },
+          { status: 403 },
+        );
+      }
+
+      // Check if target member has consented to org admin analytics access
+      const targetMember = await runTimedMiddlewareStep({
+        logger: emailAccountLogger,
+        step: "check-org-admin-consent",
+        operation: () =>
+          prisma.member.findFirst({
+            where: {
+              emailAccountId,
+              organization: {
+                members: {
+                  some: {
+                    emailAccountId: callerEmailAccount.id,
+                  },
+                },
+              },
+            },
+            select: { allowOrgAdminAnalytics: true },
+          }),
+      });
+
+      if (!targetMember?.allowOrgAdminAnalytics) {
+        emailAccountLogger.error(
+          "Member has not enabled org admin analytics access",
+        );
+        return NextResponse.json(
+          {
+            error: "Analytics access not permitted by this member",
+            isKnownError: true,
+          },
+          { status: 403 },
+        );
+      }
+
+      const targetEmailAccount = await runTimedMiddlewareStep({
+        logger: emailAccountLogger,
+        step: "resolve-org-admin-target-account",
+        operation: () =>
+          prisma.emailAccount.findUnique({
+            where: { id: emailAccountId },
+            select: { email: true },
+          }),
+      });
+
+      if (targetEmailAccount) {
+        const emailAccountReq = req.clone() as RequestWithEmailAccount;
+        emailAccountReq.auth = {
+          userId,
+          emailAccountId,
+          email: targetEmailAccount.email,
+        };
+        emailAccountReq.logger = emailAccountLogger.with({
+          isOrgAdmin: true,
+          email: targetEmailAccount.email,
+        });
+        return emailAccountReq;
+      }
     }
+
+    if (!email) {
+      emailAccountLogger.error("Invalid email account ID");
+      return NextResponse.json(
+        { error: "Invalid account ID", isKnownError: true },
+        { status: 403 },
+      );
+    }
+
+    Sentry.setTag("emailAccountId", emailAccountId);
+    Sentry.setUser({ id: userId, email });
+
+    // Create a new request with email account info
+    const emailAccountReq = req.clone() as RequestWithEmailAccount;
+    emailAccountReq.auth = { userId, emailAccountId, email };
+    emailAccountReq.logger = emailAccountLogger;
+
+    return emailAccountReq;
+  } finally {
+    logSlowMiddlewareTotal({
+      logger: middlewareLogger,
+      middleware: "email-account",
+      startedAt: middlewareStartTime,
+    });
   }
-
-  if (!email) {
-    emailAccountLogger.error("Invalid email account ID");
-    return NextResponse.json(
-      { error: "Invalid account ID", isKnownError: true },
-      { status: 403 },
-    );
-  }
-
-  Sentry.setTag("emailAccountId", emailAccountId);
-  Sentry.setUser({ id: userId, email });
-
-  // Create a new request with email account info
-  const emailAccountReq = req.clone() as RequestWithEmailAccount;
-  emailAccountReq.auth = { userId, emailAccountId, email };
-  emailAccountReq.logger = emailAccountLogger;
-
-  return emailAccountReq;
 }
 
 async function emailProviderMiddleware(
@@ -322,20 +350,26 @@ async function emailProviderMiddleware(
   if (emailAccountReq instanceof Response) return emailAccountReq;
 
   const { userId, emailAccountId } = emailAccountReq.auth;
+  const middlewareStartTime = Date.now();
 
   try {
-    const emailAccount = await prisma.emailAccount.findUnique({
-      where: {
-        id: emailAccountId,
-        userId, // ensure it belongs to the user
-      },
-      include: {
-        account: {
-          select: {
-            provider: true,
+    const emailAccount = await runTimedMiddlewareStep({
+      logger: emailAccountReq.logger,
+      step: "load-email-account-provider",
+      operation: () =>
+        prisma.emailAccount.findUnique({
+          where: {
+            id: emailAccountId,
+            userId, // ensure it belongs to the user
           },
-        },
-      },
+          include: {
+            account: {
+              select: {
+                provider: true,
+              },
+            },
+          },
+        }),
     });
 
     if (!emailAccount) {
@@ -345,10 +379,15 @@ async function emailProviderMiddleware(
       );
     }
 
-    const provider = await createEmailProvider({
-      emailAccountId: emailAccount.id,
-      provider: emailAccount.account.provider,
+    const provider = await runTimedMiddlewareStep({
       logger: emailAccountReq.logger,
+      step: "create-email-provider",
+      operation: () =>
+        createEmailProvider({
+          emailAccountId: emailAccount.id,
+          provider: emailAccount.account.provider,
+          logger: emailAccountReq.logger,
+        }),
     });
 
     const providerReq = emailAccountReq.clone() as RequestWithEmailProvider;
@@ -373,6 +412,12 @@ async function emailProviderMiddleware(
       { error: "Failed to initialize email provider" },
       { status: 500 },
     );
+  } finally {
+    logSlowMiddlewareTotal({
+      logger: emailAccountReq.logger,
+      middleware: "email-provider",
+      startedAt: middlewareStartTime,
+    });
   }
 }
 
@@ -499,6 +544,55 @@ function flushLogger(req: NextRequest) {
     const loggerToFlush = reqWithLogger.logger;
     after(async () => {
       await flushLoggerSafely(loggerToFlush, { url: req.url });
+    });
+  }
+}
+
+async function runTimedMiddlewareStep<T>({
+  logger,
+  step,
+  operation,
+}: {
+  logger: Logger;
+  step: string;
+  operation: () => Promise<T>;
+}): Promise<T> {
+  const startedAt = Date.now();
+  const slowStepLogTimeout = setTimeout(() => {
+    logger.warn("Middleware step still running", {
+      step,
+      elapsedMs: Date.now() - startedAt,
+    });
+  }, SLOW_MIDDLEWARE_STEP_MS);
+
+  try {
+    return await operation();
+  } finally {
+    clearTimeout(slowStepLogTimeout);
+    const durationMs = Date.now() - startedAt;
+    if (durationMs > SLOW_MIDDLEWARE_STEP_MS) {
+      logger.warn("Middleware step completed slowly", {
+        step,
+        durationMs,
+      });
+    }
+  }
+}
+
+function logSlowMiddlewareTotal({
+  logger,
+  middleware,
+  startedAt,
+}: {
+  logger: Logger;
+  middleware: string;
+  startedAt: number;
+}) {
+  const durationMs = Date.now() - startedAt;
+  if (durationMs > SLOW_MIDDLEWARE_TOTAL_MS) {
+    logger.warn("Middleware completed slowly", {
+      middleware,
+      durationMs,
     });
   }
 }

@@ -22,6 +22,12 @@ export const maxDuration = 30;
 
 export const GET = withEmailProvider("labels", async (request) => {
   const { emailProvider } = request;
+  const requestStartTime = Date.now();
+  const slowRequestLogTimeout = setTimeout(() => {
+    request.logger.warn("Labels request still running", {
+      elapsedMs: Date.now() - requestStartTime,
+    });
+  }, 10_000);
 
   try {
     const labels = await emailProvider.getLabels();
@@ -34,9 +40,21 @@ export const GET = withEmailProvider("labels", async (request) => {
       labelListVisibility: label.labelListVisibility,
       messageListVisibility: label.messageListVisibility,
     }));
+    const durationMs = Date.now() - requestStartTime;
+    if (durationMs > 3000) {
+      request.logger.warn("Labels request completed slowly", {
+        durationMs,
+        labelCount: unifiedLabels.length,
+      });
+    }
     return NextResponse.json({ labels: unifiedLabels });
   } catch (error) {
-    request.logger.error("Error fetching labels", { error });
+    request.logger.error("Error fetching labels", {
+      error,
+      durationMs: Date.now() - requestStartTime,
+    });
     return NextResponse.json({ labels: [] }, { status: 500 });
+  } finally {
+    clearTimeout(slowRequestLogTimeout);
   }
 });

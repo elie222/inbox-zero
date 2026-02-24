@@ -13,6 +13,12 @@ export const maxDuration = 30;
 export const GET = withEmailProvider("threads", async (request) => {
   const { emailProvider } = request;
   const { emailAccountId } = request.auth;
+  const requestStartTime = Date.now();
+  const slowRequestLogTimeout = setTimeout(() => {
+    request.logger.warn("Threads request still running", {
+      elapsedMs: Date.now() - requestStartTime,
+    });
+  }, 10_000);
 
   const { searchParams } = new URL(request.url);
   const limit = searchParams.get("limit");
@@ -43,13 +49,27 @@ export const GET = withEmailProvider("threads", async (request) => {
       emailAccountId,
       emailProvider,
     });
+    const durationMs = Date.now() - requestStartTime;
+    if (durationMs > 3000) {
+      request.logger.warn("Threads request completed slowly", {
+        durationMs,
+        threadCount: threads.threads.length,
+        hasNextPageToken: Boolean(threads.nextPageToken),
+      });
+    }
     return NextResponse.json(threads);
   } catch (error) {
-    request.logger.error("Error fetching threads", { error, emailAccountId });
+    request.logger.error("Error fetching threads", {
+      error,
+      emailAccountId,
+      durationMs: Date.now() - requestStartTime,
+    });
     return NextResponse.json(
       { error: "Failed to fetch threads" },
       { status: 500 },
     );
+  } finally {
+    clearTimeout(slowRequestLogTimeout);
   }
 });
 
