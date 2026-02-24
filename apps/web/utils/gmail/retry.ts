@@ -7,12 +7,13 @@ const logger = createScopedLogger("gmail-retry");
 
 interface RetryLogContext {
   logger?: Logger;
-  operation?: string;
 }
 
 interface ErrorInfo {
   status?: number;
+  code?: string;
   reason?: string;
+  googleErrorStatus?: string;
   errorMessage: string;
 }
 
@@ -27,9 +28,6 @@ export async function withGmailRetry<T>(
   context?: RetryLogContext,
 ): Promise<T> {
   const retryLogger = context?.logger || logger;
-  const logContext = context?.operation
-    ? { operation: context.operation }
-    : undefined;
 
   return pRetry(operation, {
     retries: maxRetries,
@@ -37,25 +35,17 @@ export async function withGmailRetry<T>(
       const errorInfo = extractErrorInfo(error);
       const { retryable, isRateLimit, isServerError, isFailedPrecondition } =
         isRetryableError(errorInfo);
+      const retryLogFields = buildRetryLogFields(errorInfo);
 
       if (!retryable) {
-        retryLogger.warn("Non-retryable error encountered", {
-          error,
-          status: errorInfo.status,
-          reason: errorInfo.reason,
-          ...logContext,
-        });
+        retryLogger.warn("Non-retryable error encountered", retryLogFields);
         throw error;
       }
 
-      const err = error as Record<string, unknown>;
-      const cause = (err?.cause ?? err) as Record<string, unknown>;
-      const retryAfterHeader = (
-        (cause?.response as Record<string, unknown>)?.headers as Record<
-          string,
-          string
-        >
-      )?.["retry-after"];
+      const retryAfterHeader = getRetryAfterHeader(error);
+      const retryAfterFromMessage = parseRetryTime(
+        errorInfo.errorMessage,
+      )?.toISOString();
 
       const delayMs = calculateRetryDelay(
         isRateLimit,
@@ -70,12 +60,12 @@ export async function withGmailRetry<T>(
         delaySeconds: Math.ceil(delayMs / 1000),
         attemptNumber: error.attemptNumber,
         maxRetries,
-        status: errorInfo.status,
+        ...retryLogFields,
+        retryAfterHeader,
+        retryAfterFromMessage,
         isRateLimit,
         isServerError,
         isFailedPrecondition,
-        isFetchError: isFetchError(errorInfo),
-        ...logContext,
       });
 
       // Apply the custom delay
@@ -89,63 +79,46 @@ export async function withGmailRetry<T>(
 /**
  * Extracts error information from various error shapes
  */
-export function extractErrorInfo(
-  error: unknown,
-): ErrorInfo & { code?: string } {
-  const err = error as Record<string, unknown>;
-  const cause = (err?.cause ?? err) as Record<string, unknown>;
+export function extractErrorInfo(error: unknown): ErrorInfo {
+  const err = toRecord(error);
+  const cause = toRecord(err.cause ?? err);
+  const response = toRecord(cause.response);
+  const responseData = toRecord(response.data);
+  const responseError = toRecord(responseData.error);
   const status =
     (cause?.status as number) ??
     (cause?.code as number) ??
-    ((cause?.response as Record<string, unknown>)?.status as number) ??
+    (response.status as number) ??
     undefined;
-  const code = (err?.code as string) ?? (cause?.code as string) ?? undefined;
+  const code =
+    (err?.code as string) ??
+    (cause?.code as string) ??
+    (responseError.code as string) ??
+    undefined;
   const reason =
-    ((cause?.errors as Array<Record<string, unknown>>)?.[0]
-      ?.reason as string) ??
-    ((
-      (
-        (
-          (cause?.response as Record<string, unknown>)?.data as Record<
-            string,
-            unknown
-          >
-        )?.error as Record<string, unknown>
-      )?.errors as Array<Record<string, unknown>>
-    )?.[0]?.reason as string) ??
+    getFirstErrorValue(cause.errors, "reason") ??
+    getFirstErrorValue(responseError.errors, "reason") ??
     undefined;
+  const googleErrorStatus = (responseError.status as string) ?? undefined;
   const primaryMessage =
     (cause?.message as string) ??
     (err?.message as string) ??
     (cause?.error as string) ??
     (err?.error as string) ??
-    ((cause?.errors as Array<Record<string, unknown>>)?.[0]
-      ?.message as string) ??
-    ((
-      (
-        (cause?.response as Record<string, unknown>)?.data as Record<
-          string,
-          unknown
-        >
-      )?.error as Record<string, unknown>
-    )?.message as string) ??
-    ((
-      (cause?.response as Record<string, unknown>)?.data as Record<
-        string,
-        unknown
-      >
-    )?.error as string as string) ??
+    getFirstErrorValue(cause.errors, "message") ??
+    (responseError.message as string) ??
+    (responseError.error as string as string) ??
     "";
 
   const errorMessage = String(primaryMessage);
 
-  return { status, code, reason, errorMessage };
+  return { status, code, reason, googleErrorStatus, errorMessage };
 }
 
 /**
  * Determines if an error is retryable (rate limit, server error, or network error)
  */
-export function isRetryableError(errorInfo: ErrorInfo & { code?: string }): {
+export function isRetryableError(errorInfo: ErrorInfo): {
   retryable: boolean;
   isRateLimit: boolean;
   isServerError: boolean;
@@ -267,4 +240,46 @@ function parseRetryTime(errorMessage: string): Date | null {
     }
   }
   return null;
+}
+
+function trimErrorMessage(errorMessage: string): string | undefined {
+  const trimmed = errorMessage.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length <= 500) return trimmed;
+  return `${trimmed.slice(0, 497)}...`;
+}
+
+function buildRetryLogFields(errorInfo: ErrorInfo) {
+  return {
+    status: errorInfo.status,
+    code: errorInfo.code,
+    reason: errorInfo.reason,
+    googleErrorStatus: errorInfo.googleErrorStatus,
+    errorMessage: trimErrorMessage(errorInfo.errorMessage),
+    isFetchError: isFetchError(errorInfo),
+  };
+}
+
+function getRetryAfterHeader(error: unknown): string | undefined {
+  const err = toRecord(error);
+  const cause = toRecord(err.cause ?? err);
+  const response = toRecord(cause.response);
+  const headers = toRecord(response.headers);
+  return headers["retry-after"] as string | undefined;
+}
+
+function getFirstErrorValue(
+  errors: unknown,
+  key: "reason" | "message",
+): string | undefined {
+  if (!Array.isArray(errors)) return undefined;
+  const firstError = errors[0];
+  if (!firstError || typeof firstError !== "object") return undefined;
+  const value = (firstError as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object") return {};
+  return value as Record<string, unknown>;
 }

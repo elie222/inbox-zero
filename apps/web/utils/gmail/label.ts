@@ -298,7 +298,7 @@ export async function getLabels(
   const response = await withGmailRetry(
     () => gmail.users.labels.list({ userId: "me" }),
     5,
-    { logger: options?.logger, operation: "gmail.labels.list" },
+    { logger: options?.logger },
   );
   return response.data.labels;
 }
