@@ -90,7 +90,7 @@ describe("processHistoryForUser - 404 Handling", () => {
     expect(prisma.$executeRaw).toHaveBeenCalled();
   });
 
-  it("should log a warning when history items are skipped due to large gap", async () => {
+  it("should advance cursor when large-gap history query returns an empty window", async () => {
     const email = "user@test.com";
     const historyId = 2000; // Gap of 1000 (2000 - 1000)
     const emailAccount = {
@@ -131,5 +131,9 @@ describe("processHistoryForUser - 404 Handling", () => {
         skippedHistoryItems: 500, // (2000 - 500) - 1000 = 500
       }),
     );
+
+    // Even if Gmail returns an empty array, advance the cursor to avoid
+    // repeatedly reprocessing the same large gap window.
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
   });
 });

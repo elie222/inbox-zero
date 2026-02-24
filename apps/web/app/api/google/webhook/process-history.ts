@@ -80,7 +80,7 @@ export async function processHistoryForUser(
 
     const historyResult = await fetchGmailHistoryResilient({
       gmail,
-      emailAccount,
+      emailAccount: validatedEmailAccount,
       webhookHistoryId: historyId,
       options,
       logger,
@@ -95,15 +95,16 @@ export async function processHistoryForUser(
     }
 
     const history = historyResult.data;
+    const historyEntries = history.history ?? [];
 
-    if (history.history) {
+    if (historyEntries.length > 0) {
       logger.info("Processing history", {
         startHistoryId: historyResult.startHistoryId,
       });
 
       await processHistory(
         {
-          history: history.history,
+          history: historyEntries,
           gmail,
           accessToken: accountAccessToken,
           hasAutomationRules,
@@ -119,6 +120,9 @@ export async function processHistoryForUser(
         logger,
       );
     } else {
+      // When we truncate a large gap (webhookHistoryId - 500), Gmail can return
+      // an empty recent window. We still need to advance to the webhook historyId
+      // so we don't stay permanently behind and keep skipping.
       logger.info("No history", {
         startHistoryId: historyResult.startHistoryId,
       });
