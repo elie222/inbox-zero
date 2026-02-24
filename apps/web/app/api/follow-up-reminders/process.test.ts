@@ -229,11 +229,46 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(generateFollowUpDraft).toHaveBeenCalled();
   });
 
+  it("uses messages already loaded with threads before refetching the thread", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi.fn().mockResolvedValue([
+        {
+          id: "thread-inline",
+          messages: [mockMessage("msg-inline", OLD_DATE)],
+          snippet: "",
+        },
+      ]),
+      getLatestMessageInThread: vi.fn(),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-inline",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(provider.getLatestMessageInThread).not.toHaveBeenCalled();
+    expect(applyFollowUpLabel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: "thread-inline",
+        messageId: "msg-inline",
+      }),
+    );
+  });
+
   it("processes the same labeled message only once across repeated runs", async () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-repeat", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-repeat", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi
         .fn()
         .mockResolvedValue(mockMessage("msg-repeat", OLD_DATE)),
@@ -268,7 +303,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-replay", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-replay", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi
         .fn()
         .mockResolvedValue(mockMessage("msg-replay", OLD_DATE)),
@@ -336,7 +373,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-window", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-window", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi
         .fn()
         .mockResolvedValue(mockMessage("msg-window", twentyMinutesAgo)),
@@ -439,7 +478,9 @@ describe("processAccountFollowUps - dedup logic", () => {
       ] as EmailLabel[]),
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-shared", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-shared", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi
         .fn()
         .mockResolvedValue(mockMessage("msg-shared", OLD_DATE)),

@@ -3,6 +3,7 @@ import { addMinutes } from "date-fns/addMinutes";
 import prisma from "@/utils/prisma";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
+import type { ParsedMessage } from "@/utils/types";
 import {
   applyFollowUpLabel,
   getOrCreateFollowUpLabel,
@@ -13,6 +14,7 @@ import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
 import {
   getLabelsFromDb,
   type LabelIds,
@@ -125,11 +127,14 @@ export async function processAccountFollowUps({
     logger,
   });
 
-  const [followUpLabel, dbLabels, providerLabels] = await Promise.all([
-    getOrCreateFollowUpLabel(provider),
+  const [dbLabels, providerLabels] = await Promise.all([
     getLabelsFromDb(emailAccountId),
     provider.getLabels(),
   ]);
+  const followUpLabel = await getOrCreateFollowUpLabel(
+    provider,
+    providerLabels,
+  );
 
   await processFollowUpsForType({
     systemType: SystemType.AWAITING_REPLY,
@@ -253,7 +258,9 @@ async function processFollowUpsForType({
     const threadLogger = logger.with({ threadId: thread.id });
 
     try {
-      const lastMessage = await provider.getLatestMessageInThread(thread.id);
+      const lastMessage =
+        getLatestMessageFromThread(thread) ||
+        (await provider.getLatestMessageInThread(thread.id));
       if (!lastMessage) {
         skippedNoLatestMessageCount++;
         continue;
@@ -295,7 +302,7 @@ async function processFollowUpsForType({
         orderBy: { createdAt: "desc" },
       });
 
-      let tracker;
+      let tracker: { id: string };
       if (existingTracker) {
         try {
           tracker = await prisma.threadTracker.update({
@@ -450,7 +457,8 @@ async function getProcessedFollowUpLedger({
   const processedLedger = new Map<string, Set<string>>();
 
   for (const tracker of existingTrackers) {
-    const messageIds = processedLedger.get(tracker.threadId) ?? new Set<string>();
+    const messageIds =
+      processedLedger.get(tracker.threadId) ?? new Set<string>();
     messageIds.add(tracker.messageId);
     processedLedger.set(tracker.threadId, messageIds);
   }
@@ -468,4 +476,23 @@ function hasFollowUpBeenProcessed({
   messageId: string;
 }): boolean {
   return processedLedger.get(threadId)?.has(messageId) ?? false;
+}
+
+function getLatestMessageFromThread(thread: { messages: ParsedMessage[] }) {
+  return getLatestNonDraftMessage({
+    messages: thread.messages || [],
+    isDraft: (message) => message.labelIds?.includes("DRAFT") ?? false,
+    getTimestamp: getMessageTimestamp,
+  });
+}
+
+function getMessageTimestamp(message: ParsedMessage) {
+  const internalDateMs = Number.parseInt(message.internalDate, 10);
+  if (!Number.isNaN(internalDateMs) && internalDateMs > 0)
+    return internalDateMs;
+
+  const dateMs = new Date(message.date).getTime();
+  if (!Number.isNaN(dateMs)) return dateMs;
+
+  return 0;
 }
