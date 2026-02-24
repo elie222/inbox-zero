@@ -6,6 +6,7 @@ import {
   PARENT_LABEL,
   type InboxZeroLabel,
 } from "@/utils/label";
+import { findLabelByName } from "@/utils/label/find-label-by-name";
 import {
   labelVisibility,
   messageVisibility,
@@ -244,14 +245,20 @@ export async function createLabel({
     if (errorMessage?.includes("Label name exists or conflicts")) {
       logger.warn("Label already exists", { name });
       const labels = await getLabels(gmail);
-      const exactLabel = findLabelByName(labels, name, normalizeLabel);
-      if (exactLabel) return exactLabel;
-
-      const conflictLabel = findLabelByName(
+      const exactLabel = findLabelByName({
         labels,
         name,
-        normalizeLabelForConflictLookup,
-      );
+        getLabelName: (label) => label.name,
+        normalize: normalizeLabel,
+      });
+      if (exactLabel) return exactLabel;
+
+      const conflictLabel = findLabelByName({
+        labels,
+        name,
+        getLabelName: (label) => label.name,
+        normalize: normalizeLabelForConflictLookup,
+      });
       if (conflictLabel) return conflictLabel;
 
       throw new Error(`Label conflict but not found: ${name}`);
@@ -305,7 +312,12 @@ export async function getLabel(options: {
 }) {
   const { gmail, name } = options;
   const labels = await getLabels(gmail);
-  return findLabelByName(labels, name, normalizeLabel);
+  return findLabelByName({
+    labels,
+    name,
+    getLabelName: (label) => label.name,
+    normalize: normalizeLabel,
+  });
 }
 
 export async function getLabelById(options: {
@@ -365,17 +377,6 @@ export async function getOrCreateInboxZeroLabel({
     color,
   });
   return createdLabel;
-}
-
-function findLabelByName(
-  labels: gmail_v1.Schema$Label[] | null | undefined,
-  name: string,
-  normalize: (value: string) => string,
-) {
-  const normalizedSearch = normalize(name);
-  return labels?.find(
-    (label) => label.name && normalize(label.name) === normalizedSearch,
-  );
 }
 
 function normalizeLabelForConflictLookup(name: string) {

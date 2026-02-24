@@ -4,6 +4,7 @@ import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { WELL_KNOWN_FOLDERS } from "./message";
 import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
+import { findLabelByName } from "@/utils/label/find-label-by-name";
 import type {
   OutlookCategory,
   Message,
@@ -138,13 +139,12 @@ export async function getLabel(options: {
 }) {
   const { client, name } = options;
   const labels = await getLabels(client);
-  const normalizedSearch = normalizeLabel(name);
-
-  return labels?.find(
-    (label) =>
-      label.displayName &&
-      normalizeLabel(label.displayName) === normalizedSearch,
-  );
+  return findLabelByName({
+    labels,
+    name,
+    getLabelName: (label) => label.displayName,
+    normalize: normalizeLabel,
+  });
 }
 
 export async function getOrCreateLabel({
