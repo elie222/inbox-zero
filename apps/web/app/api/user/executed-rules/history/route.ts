@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import groupBy from "lodash/groupBy";
-import { withEmailProvider } from "@/utils/middleware";
-import { isDefined } from "@/utils/types";
+import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
-import type { EmailProvider } from "@/utils/email/types";
-import type { Logger } from "@/utils/logger";
 
 const LIMIT = 50;
 
@@ -16,7 +13,7 @@ export type GetExecutedRulesResponse = Awaited<
   ReturnType<typeof getExecutedRules>
 >;
 
-export const GET = withEmailProvider(
+export const GET = withEmailAccount(
   "user/executed-rules/history",
   async (request) => {
     const emailAccountId = request.auth.emailAccountId;
@@ -29,8 +26,6 @@ export const GET = withEmailProvider(
       page,
       ruleId,
       emailAccountId,
-      emailProvider: request.emailProvider,
-      logger: request.logger,
     });
 
     return NextResponse.json(result);
@@ -41,14 +36,10 @@ async function getExecutedRules({
   page,
   ruleId,
   emailAccountId,
-  emailProvider,
-  logger,
 }: {
   page: number;
   ruleId?: string;
   emailAccountId: string;
-  emailProvider: EmailProvider;
-  logger: Logger;
 }) {
   const where: Prisma.ExecutedRuleWhereInput = {
     emailAccountId,
@@ -97,26 +88,16 @@ async function getExecutedRules({
 
   const executedRulesByMessageId = groupBy(executedRules, (er) => er.messageId);
 
-  const results = await Promise.all(
-    Object.entries(executedRulesByMessageId).map(
-      async ([messageId, executedRules]) => {
-        try {
-          return {
-            message: await emailProvider.getMessage(messageId),
-            executedRules,
-          };
-        } catch (error) {
-          logger.error("Error getting message", {
-            error,
-            messageId,
-          });
-        }
-      },
-    ),
-  );
+  const results = Object.entries(executedRulesByMessageId)
+    .filter(([, groupedExecutedRules]) => groupedExecutedRules.length > 0)
+    .map(([messageId, groupedExecutedRules]) => ({
+      messageId,
+      threadId: groupedExecutedRules[0].threadId,
+      executedRules: groupedExecutedRules,
+    }));
 
   return {
-    results: results.filter(isDefined),
+    results,
     totalPages: Math.ceil(total / LIMIT),
   };
 }
