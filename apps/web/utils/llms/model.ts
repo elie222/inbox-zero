@@ -390,7 +390,9 @@ function selectNanoModel(userAi: UserAIFields, online = false): ResolvedModel {
         aiModel: env.NANO_LLM_MODEL,
         aiApiKey: apiKey,
       },
-      undefined,
+      env.NANO_LLM_PROVIDER === Provider.OPENROUTER
+        ? getOpenRouterProviderOptionsByType("nano")
+        : undefined,
       online,
     );
   }

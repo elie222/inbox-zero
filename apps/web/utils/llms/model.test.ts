@@ -355,6 +355,30 @@ describe("Models", () => {
       expect(result.modelName).toBe("gpt-5-nano");
     });
 
+    it("should use OpenRouter provider options for nano when nano provider is OpenRouter", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).NANO_LLM_PROVIDER = Provider.OPENROUTER;
+      vi.mocked(env).NANO_LLM_MODEL = "openai/gpt-5-nano";
+      vi.mocked(env).ECONOMY_OPENROUTER_PROVIDERS = "Google Vertex,Anthropic";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi, "nano");
+
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.modelName).toBe("openai/gpt-5-nano");
+      expect(result.providerOptions).toEqual({
+        openrouter: {
+          provider: { order: ["Google Vertex", "Anthropic"] },
+          reasoning: { max_tokens: 20 },
+        },
+      });
+    });
+
     it("should fall back to economy model when nano model is not configured", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
