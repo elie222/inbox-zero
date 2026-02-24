@@ -384,23 +384,13 @@ function selectNanoModel(userAi: UserAIFields, online = false): ResolvedModel {
       return selectEconomyModel(userAi, online);
     }
 
-    let providerOptions: Record<string, any> | undefined;
-    if (
-      env.NANO_LLM_PROVIDER === Provider.OPENROUTER &&
-      env.NANO_OPENROUTER_PROVIDERS
-    ) {
-      providerOptions = createOpenRouterProviderOptions(
-        env.NANO_OPENROUTER_PROVIDERS,
-      );
-    }
-
     return selectModel(
       {
         aiProvider: env.NANO_LLM_PROVIDER,
         aiModel: env.NANO_LLM_MODEL,
         aiApiKey: apiKey,
       },
-      providerOptions,
+      undefined,
       online,
     );
   }
@@ -617,7 +607,7 @@ function getOpenRouterProviderOptionsByType(
     default: env.DEFAULT_OPENROUTER_PROVIDERS,
     economy: env.ECONOMY_OPENROUTER_PROVIDERS,
     chat: env.CHAT_OPENROUTER_PROVIDERS,
-    nano: env.NANO_OPENROUTER_PROVIDERS,
+    nano: env.ECONOMY_OPENROUTER_PROVIDERS,
   };
 
   const providers = providersByType[modelType];

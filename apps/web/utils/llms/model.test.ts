@@ -59,7 +59,6 @@ vi.mock("@/env", () => ({
     CHAT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
     NANO_LLM_PROVIDER: undefined,
     NANO_LLM_MODEL: undefined,
-    NANO_OPENROUTER_PROVIDERS: undefined,
     OPENROUTER_BACKUP_MODEL: undefined,
     USE_BACKUP_MODEL: false,
     OPENAI_API_KEY: "test-openai-key",
@@ -103,7 +102,6 @@ describe("Models", () => {
     vi.mocked(env).USE_BACKUP_MODEL = false;
     vi.mocked(env).NANO_LLM_PROVIDER = undefined;
     vi.mocked(env).NANO_LLM_MODEL = undefined;
-    vi.mocked(env).NANO_OPENROUTER_PROVIDERS = undefined;
     vi.mocked(env).AZURE_API_KEY = "test-azure-key";
     vi.mocked(env).AZURE_RESOURCE_NAME = "test-azure-resource";
     vi.mocked(env).AZURE_API_VERSION = "2024-10-21";
