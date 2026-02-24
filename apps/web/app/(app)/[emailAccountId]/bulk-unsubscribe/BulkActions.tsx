@@ -163,11 +163,10 @@ export function BulkActions({
     );
   }, [selectedNewsletters]);
 
-  const allSelectedCanUnsubscribe = selectedNewsletters.some(
+  const allSelectedCanUnsubscribe = selectedNewsletters.every(
     (n) => n.status !== NewsletterStatus.UNSUBSCRIBED,
   );
 
-  // Determine the label: "Unsubscribe", "Block", or "Unsubscribe/Block"
   const hasUnsubscribeLinks = selectedNewsletters.some(
     (n) => n.unsubscribeLink,
   );
