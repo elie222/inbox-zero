@@ -170,9 +170,9 @@ export function BulkActions({
   const hasUnsubscribeLinks = selectedNewsletters.some(
     (n) => n.unsubscribeLink,
   );
-  const hasBlockableLinks = selectedNewsletters.some(
-    (n) => !n.unsubscribeLink,
-  );
+
+  const hasBlockableLinks = selectedNewsletters.some((n) => !n.unsubscribeLink);
+
   const unsubscribeLabel =
     hasUnsubscribeLinks && hasBlockableLinks
       ? "Unsubscribe/Block"
