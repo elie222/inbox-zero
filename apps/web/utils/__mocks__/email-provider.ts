@@ -36,6 +36,7 @@ export const createMockEmailProvider = (
   overrides?: Partial<EmailProvider>,
 ): EmailProvider => ({
   name: "google",
+  capabilities: { threadsWithLabelReturnsCompleteThreadPayload: true },
   toJSON: () => ({ name: "google", type: "MockEmailProvider" }),
   getThreads: vi.fn().mockResolvedValue([]),
   getThread: vi.fn().mockResolvedValue({

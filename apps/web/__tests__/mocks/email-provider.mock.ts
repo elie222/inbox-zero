@@ -44,6 +44,7 @@ export function createMockEmailProvider(
 
   const baseMock: EmailProvider = {
     name: "google",
+    capabilities: { threadsWithLabelReturnsCompleteThreadPayload: true },
     toJSON: vi.fn(() => ({ name: "google", type: "mock" })),
 
     // Message operations

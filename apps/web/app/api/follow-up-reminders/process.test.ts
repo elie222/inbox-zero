@@ -89,6 +89,9 @@ function createMockProvider(
   overrides?: Partial<Record<string, unknown>>,
 ): EmailProvider {
   return {
+    capabilities: {
+      threadsWithLabelReturnsCompleteThreadPayload: false,
+    },
     getLabels: vi
       .fn()
       .mockResolvedValue([
@@ -234,8 +237,11 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(generateFollowUpDraft).toHaveBeenCalled();
   });
 
-  it("uses inline messages for google threads before refetching the thread", async () => {
+  it("uses inline messages when provider reports complete thread payloads", async () => {
     const provider = createMockProvider({
+      capabilities: {
+        threadsWithLabelReturnsCompleteThreadPayload: true,
+      },
       getThreadsWithLabel: vi.fn().mockResolvedValue([
         {
           id: "thread-inline",
@@ -254,9 +260,7 @@ describe("processAccountFollowUps - dedup logic", () => {
     } as any);
 
     await processAccountFollowUps({
-      emailAccount: createMockAccount({
-        account: { provider: "google" } as any,
-      }),
+      emailAccount: createMockAccount(),
       logger,
     });
 
@@ -269,7 +273,7 @@ describe("processAccountFollowUps - dedup logic", () => {
     );
   });
 
-  it("refetches latest thread message for non-google providers when inline thread data exists", async () => {
+  it("refetches latest thread message when provider reports partial thread payloads", async () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi.fn().mockResolvedValue([
         {

@@ -89,6 +89,9 @@ function buildRawMessageBase64(headers: string[], body: string): string {
 
 export class GmailProvider implements EmailProvider {
   readonly name = "google";
+  readonly capabilities = {
+    threadsWithLabelReturnsCompleteThreadPayload: true,
+  } as const;
   private readonly client: gmail_v1.Gmail;
   private readonly logger: Logger;
 

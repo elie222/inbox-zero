@@ -73,6 +73,9 @@ import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
+  readonly capabilities = {
+    threadsWithLabelReturnsCompleteThreadPayload: false,
+  } as const;
   private readonly client: OutlookClient;
   private readonly logger: Logger;
 

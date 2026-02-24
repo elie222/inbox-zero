@@ -136,7 +136,8 @@ export async function processAccountFollowUps({
     provider,
     providerLabels,
   );
-  const canUseInlineThreadMessages = emailAccount.account.provider === "google";
+  const canUseInlineThreadMessages =
+    provider.capabilities.threadsWithLabelReturnsCompleteThreadPayload;
 
   await processFollowUpsForType({
     systemType: SystemType.AWAITING_REPLY,

@@ -42,8 +42,13 @@ export interface EmailSignature {
   displayName?: string;
 }
 
+export interface EmailProviderCapabilities {
+  readonly threadsWithLabelReturnsCompleteThreadPayload: boolean;
+}
+
 export interface EmailProvider {
   readonly name: "google" | "microsoft";
+  readonly capabilities: EmailProviderCapabilities;
   toJSON(): { name: string; type: string };
   getThreads(folderId?: string): Promise<EmailThread[]>;
   getThread(threadId: string): Promise<EmailThread>;
