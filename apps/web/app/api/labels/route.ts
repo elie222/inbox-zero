@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
+import { startRequestTimer } from "@/utils/request-timing";
 
 export type UnifiedLabel = {
   id: string;
@@ -22,12 +23,12 @@ export const maxDuration = 30;
 
 export const GET = withEmailProvider("labels", async (request) => {
   const { emailProvider } = request;
-  const requestStartTime = Date.now();
-  const slowRequestLogTimeout = setTimeout(() => {
-    request.logger.warn("Labels request still running", {
-      elapsedMs: Date.now() - requestStartTime,
-    });
-  }, 10_000);
+  const requestTimer = startRequestTimer({
+    logger: request.logger,
+    requestName: "Labels request",
+    runningWarnAfterMs: 10_000,
+    slowWarnAfterMs: 3000,
+  });
 
   try {
     const labels = await emailProvider.getLabels();
@@ -40,21 +41,15 @@ export const GET = withEmailProvider("labels", async (request) => {
       labelListVisibility: label.labelListVisibility,
       messageListVisibility: label.messageListVisibility,
     }));
-    const durationMs = Date.now() - requestStartTime;
-    if (durationMs > 3000) {
-      request.logger.warn("Labels request completed slowly", {
-        durationMs,
-        labelCount: unifiedLabels.length,
-      });
-    }
+    requestTimer.logSlowCompletion({ labelCount: unifiedLabels.length });
     return NextResponse.json({ labels: unifiedLabels });
   } catch (error) {
     request.logger.error("Error fetching labels", {
       error,
-      durationMs: Date.now() - requestStartTime,
+      durationMs: requestTimer.durationMs(),
     });
     return NextResponse.json({ labels: [] }, { status: 500 });
   } finally {
-    clearTimeout(slowRequestLogTimeout);
+    requestTimer.stop();
   }
 });
