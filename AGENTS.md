@@ -33,6 +33,12 @@
 - One resource per API route file
 - Env vars: add to `.env.example`, `env.ts`, and `turbo.json`. Prefix client-side with `NEXT_PUBLIC_`.
 
+## Change Philosophy
+- Prefer the simplest readable change over preserving old interfaces.
+- Do not maintain backwards compatibility unless explicitly requested.
+- We do not optimize for migration paths; refactor call sites directly when it improves clarity.
+- Prioritize code readability, even when it requires larger coordinated changes.
+
 ## Component Guidelines
 - Use shadcn/ui components when available
 - Use `LoadingContent` component for async data: `<LoadingContent loading={isLoading} error={error}>{data && <YourComponent data={data} />}</LoadingContent>`
