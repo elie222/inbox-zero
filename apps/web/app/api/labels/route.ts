@@ -19,16 +19,18 @@ export type LabelsResponse = {
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
-const LABELS_TIMEOUT_MS = 10_000;
 
 export const GET = withEmailProvider("labels", async (request) => {
   const { emailProvider } = request;
+  const requestStartTime = Date.now();
+  const slowRequestLogTimeout = setTimeout(() => {
+    request.logger.warn("Labels request still running", {
+      elapsedMs: Date.now() - requestStartTime,
+    });
+  }, 10_000);
 
   try {
-    const labels = await withTimeout(
-      emailProvider.getLabels(),
-      LABELS_TIMEOUT_MS,
-    );
+    const labels = await emailProvider.getLabels();
     // Map to unified format
     const unifiedLabels: UnifiedLabel[] = (labels || []).map((label) => ({
       id: label.id,
@@ -38,29 +40,21 @@ export const GET = withEmailProvider("labels", async (request) => {
       labelListVisibility: label.labelListVisibility,
       messageListVisibility: label.messageListVisibility,
     }));
+    const durationMs = Date.now() - requestStartTime;
+    if (durationMs > 3000) {
+      request.logger.warn("Labels request completed slowly", {
+        durationMs,
+        labelCount: unifiedLabels.length,
+      });
+    }
     return NextResponse.json({ labels: unifiedLabels });
   } catch (error) {
-    request.logger.error("Error fetching labels", { error });
+    request.logger.error("Error fetching labels", {
+      error,
+      durationMs: Date.now() - requestStartTime,
+    });
     return NextResponse.json({ labels: [] }, { status: 500 });
+  } finally {
+    clearTimeout(slowRequestLogTimeout);
   }
 });
-
-async function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error(`Timed out after ${timeoutMs}ms`));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
-}
