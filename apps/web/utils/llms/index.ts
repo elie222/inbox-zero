@@ -876,7 +876,7 @@ function withOpenRouterMetadata({
   if (provider !== Provider.OPENROUTER) return providerOptions;
 
   const openRouterOptions = providerOptions.openrouter || {};
-  const nextOpenRouterOptions: Record<string, JSONValue> = {
+  let nextOpenRouterOptions: Record<string, JSONValue> = {
     ...openRouterOptions,
   };
 
@@ -893,9 +893,29 @@ function withOpenRouterMetadata({
   const openRouterExtraBody = isJsonObject(openRouterOptions.extraBody)
     ? openRouterOptions.extraBody
     : undefined;
-  const openRouterTrace = isJsonObject(openRouterExtraBody?.trace)
+  const openRouterTopLevelTrace = isJsonObject(openRouterOptions.trace)
+    ? openRouterOptions.trace
+    : undefined;
+  const openRouterLegacyTrace = isJsonObject(openRouterExtraBody?.trace)
     ? openRouterExtraBody.trace
     : undefined;
+  const openRouterTrace = openRouterTopLevelTrace || openRouterLegacyTrace;
+
+  if (openRouterLegacyTrace && !openRouterTopLevelTrace) {
+    nextOpenRouterOptions.trace = openRouterLegacyTrace;
+
+    const { trace: _legacyTrace, ...nextExtraBody } = openRouterExtraBody;
+
+    if (Object.keys(nextExtraBody).length > 0) {
+      nextOpenRouterOptions.extraBody = nextExtraBody;
+    } else {
+      const { extraBody: _legacyExtraBody, ...openRouterOptionsWithoutExtra } =
+        nextOpenRouterOptions;
+      nextOpenRouterOptions = openRouterOptionsWithoutExtra;
+    }
+
+    changed = true;
+  }
 
   const nextTrace: Record<string, JSONValue> = {
     ...(openRouterTrace || {}),
@@ -918,10 +938,7 @@ function withOpenRouterMetadata({
   }
 
   if (traceChanged) {
-    nextOpenRouterOptions.extraBody = {
-      ...(openRouterExtraBody || {}),
-      trace: nextTrace,
-    };
+    nextOpenRouterOptions.trace = nextTrace;
     changed = true;
   }
 

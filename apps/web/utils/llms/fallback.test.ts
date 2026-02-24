@@ -168,13 +168,13 @@ describe("createGenerateText fallback chain", () => {
     expect(providerOptions.openrouter.provider).toEqual({
       order: ["Anthropic"],
     });
-    expect(providerOptions.openrouter.extraBody.trace.trace_name).toBe(
+    expect(providerOptions.openrouter.trace.trace_name).toBe(
       "OpenRouter user metadata",
     );
-    expect(providerOptions.openrouter.extraBody.trace.generation_name).toBe(
+    expect(providerOptions.openrouter.trace.generation_name).toBe(
       "OpenRouter user metadata",
     );
-    expect(providerOptions.openrouter.extraBody.trace.email_account_id).toBe(
+    expect(providerOptions.openrouter.trace.email_account_id).toBe(
       "email-account-1",
     );
   });
@@ -212,12 +212,10 @@ describe("createGenerateText fallback chain", () => {
       providerOptions: {
         openrouter: {
           user: "explicit-user-id",
-          extraBody: {
-            trace: {
-              trace_name: "explicit-trace",
-              generation_name: "explicit-generation",
-              email_account_id: "explicit-email-account-id",
-            },
+          trace: {
+            trace_name: "explicit-trace",
+            generation_name: "explicit-generation",
+            email_account_id: "explicit-email-account-id",
           },
         },
       },
@@ -226,10 +224,63 @@ describe("createGenerateText fallback chain", () => {
     expect(mockGenerateText).toHaveBeenCalledTimes(1);
     const providerOptions = mockGenerateText.mock.calls[0][0].providerOptions;
     expect(providerOptions.openrouter.user).toBe("explicit-user-id");
-    expect(providerOptions.openrouter.extraBody.trace).toEqual({
+    expect(providerOptions.openrouter.trace).toEqual({
       trace_name: "explicit-trace",
       generation_name: "explicit-generation",
       email_account_id: "explicit-email-account-id",
     });
+  });
+
+  it("promotes legacy openrouter extraBody trace into top-level trace", async () => {
+    const model = { id: "openrouter-model" };
+    const modelOptions: SelectModel = {
+      provider: "openrouter",
+      modelName: "openrouter-primary",
+      model: model as SelectModel["model"],
+      providerOptions: undefined,
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+      toolCalls: [],
+    });
+
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "internal-user-id",
+      },
+      label: "OpenRouter legacy trace",
+      modelOptions,
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: model as SelectModel["model"],
+      providerOptions: {
+        openrouter: {
+          extraBody: {
+            trace: {
+              trace_name: "legacy-trace",
+              generation_name: "legacy-generation",
+              email_account_id: "legacy-email-account-id",
+            },
+          },
+        },
+      },
+    });
+
+    expect(mockGenerateText).toHaveBeenCalledTimes(1);
+    const providerOptions = mockGenerateText.mock.calls[0][0].providerOptions;
+    expect(providerOptions.openrouter.trace).toEqual({
+      trace_name: "legacy-trace",
+      generation_name: "legacy-generation",
+      email_account_id: "legacy-email-account-id",
+    });
+    expect(providerOptions.openrouter.extraBody).toBeUndefined();
   });
 });
