@@ -68,6 +68,7 @@ import {
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 import { moveMessagesForSenders } from "@/utils/outlook/batch";
 import { withOutlookRetry } from "@/utils/outlook/retry";
+import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -446,7 +447,19 @@ export class OutlookProvider implements EmailProvider {
         );
         return {};
       }
-      this.logger.error("Category not found", { labelId });
+      await logErrorWithDedupe({
+        logger: this.logger,
+        message: "Category not found",
+        error: new Error("Category not found while labeling message"),
+        context: { labelId },
+        dedupeKeyParts: {
+          scope: "email/microsoft",
+          operation: "label-message-category-lookup",
+          labelId,
+        },
+        ttlSeconds: 15 * 60,
+        summaryIntervalSeconds: 5 * 60,
+      });
       throw new Error(
         `Category with ID ${labelId}${labelName ? ` or name ${labelName}` : ""} not found`,
       );
@@ -1250,9 +1263,7 @@ export class OutlookProvider implements EmailProvider {
       .select(MESSAGE_SELECT_FIELDS)
       .get();
 
-    const messages = (response.value || []).filter(
-      (m: Message) => !m.isDraft,
-    );
+    const messages = (response.value || []).filter((m: Message) => !m.isDraft);
     if (messages.length === 0) return null;
 
     const parsed: ParsedMessage[] = messages.map((m: Message) =>

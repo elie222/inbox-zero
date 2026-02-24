@@ -5,6 +5,7 @@ import { withPrismaRetry } from "@/utils/prisma-retry";
 import { calculateSimilarity } from "@/utils/similarity-score";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
+import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 
 /**
  * Checks if a sent message originated from an AI draft and logs its similarity.
@@ -278,9 +279,16 @@ export async function cleanupThreadAIDrafts({
           );
         }
       } catch (error) {
-        logger.error("Error checking draft for cleanup", {
-          ...actionLoggerOptions,
+        await logErrorWithDedupe({
+          logger,
+          message: "Error checking draft for cleanup",
           error,
+          context: actionLoggerOptions,
+          dedupeKeyParts: {
+            scope: "reply-tracker/draft-tracking",
+            emailAccountId,
+            operation: "check-draft-for-cleanup",
+          },
         });
       }
     }

@@ -8,6 +8,7 @@ import {
 } from "./conversation-status-config";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { labelMessageAndSync } from "@/utils/label.server";
+import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 
 export type LabelIds = Record<
   ConversationStatus,
@@ -78,12 +79,23 @@ export async function removeConflictingThreadStatusLabels({
     return;
   }
 
-  await provider.removeThreadLabels(threadId, removeLabelIds).catch((error) =>
-    logger.error("Failed to remove conflicting thread labels", {
-      removeLabelIds,
-      error,
-    }),
-  );
+  await provider
+    .removeThreadLabels(threadId, removeLabelIds)
+    .catch(async (error) => {
+      await logErrorWithDedupe({
+        logger,
+        message: "Failed to remove conflicting thread labels",
+        error,
+        context: {
+          removeLabelCount: removeLabelIds.length,
+        },
+        dedupeKeyParts: {
+          scope: "reply-tracker/label-helpers",
+          emailAccountId,
+          operation: "remove-conflicting-thread-status-labels",
+        },
+      });
+    });
 
   logger.info("Removed conflicting thread status labels", {
     removedCount: removeLabelIds.length,
@@ -149,11 +161,20 @@ export async function applyThreadStatusLabel({
       labelName: targetLabel.label,
       emailAccountId,
       logger,
-    }).catch((error) =>
-      logger.error("Failed to apply thread status label", {
-        labelId: targetLabel.labelId,
-        labelName: targetLabel.label,
+    }).catch(async (error) =>
+      logErrorWithDedupe({
+        logger,
+        message: "Failed to apply thread status label",
         error,
+        context: {
+          labelId: targetLabel.labelId,
+          labelName: targetLabel.label,
+        },
+        dedupeKeyParts: {
+          scope: "reply-tracker/label-helpers",
+          emailAccountId,
+          operation: "apply-thread-status-label",
+        },
       }),
     );
   };

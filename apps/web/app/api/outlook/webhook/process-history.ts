@@ -10,6 +10,7 @@ import {
   getWebhookEmailAccount,
 } from "@/utils/webhook/validate-webhook-account";
 import type { Logger } from "@/utils/logger";
+import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 
 export async function processHistoryForUser({
   subscriptionId,
@@ -122,17 +123,18 @@ export async function processHistoryForUser({
       userEmail: validatedEmailAccount.email,
       extra: { subscriptionId, resourceData },
     });
-    logger.error("Error processing webhook", {
-      resourceData,
-      email: validatedEmailAccount.email,
-      error:
-        error instanceof Error
-          ? {
-              message: error.message,
-              stack: error.stack,
-              name: error.name,
-            }
-          : error,
+    await logErrorWithDedupe({
+      logger,
+      message: "Error processing webhook",
+      error,
+      context: {
+        resourceData,
+      },
+      dedupeKeyParts: {
+        scope: "outlook/webhook",
+        emailAccountId: validatedEmailAccount.id,
+        operation: "process-history-for-user",
+      },
     });
     // returning 200 here, as otherwise Microsoft will keep retrying
     return NextResponse.json({ error: true });

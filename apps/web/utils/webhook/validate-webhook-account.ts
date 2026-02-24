@@ -5,6 +5,7 @@ import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
+import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 
 export async function getWebhookEmailAccount(
   where: { email: string } | { watchEmailsSubscriptionId: string },
@@ -97,7 +98,24 @@ export async function getWebhookEmailAccount(
   }
 
   if (!emailAccount) {
-    logger.error("Account not found", where);
+    await logErrorWithDedupe({
+      logger,
+      message: "Account not found",
+      context: {
+        hasSubscriptionIdLookup: "watchEmailsSubscriptionId" in where,
+      },
+      dedupeKeyParts: {
+        scope: "webhook/account-validation",
+        watchEmailsSubscriptionId:
+          "watchEmailsSubscriptionId" in where
+            ? where.watchEmailsSubscriptionId
+            : null,
+        lookupType:
+          "watchEmailsSubscriptionId" in where ? "subscription" : "email",
+      },
+      ttlSeconds: 10 * 60,
+      summaryIntervalSeconds: 2 * 60,
+    });
   }
 
   return emailAccount;
@@ -122,7 +140,6 @@ export async function validateWebhookAccount(
   logger: Logger,
 ): Promise<ValidationResult> {
   if (!emailAccount) {
-    logger.error("Account not found");
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
 

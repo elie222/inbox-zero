@@ -3,6 +3,7 @@ import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
+import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import { handleOutboundReply } from "./outbound";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
@@ -40,8 +41,17 @@ export async function handleOutboundMessage({
       message,
       provider,
       logger,
-    }).catch((error) => {
-      logger.error("Error tracking sent draft status", { error });
+    }).catch(async (error) => {
+      await logErrorWithDedupe({
+        logger,
+        message: "Error tracking sent draft status",
+        error,
+        dedupeKeyParts: {
+          scope: "reply-tracker/handle-outbound",
+          emailAccountId: emailAccount.id,
+          operation: "track-sent-draft-status",
+        },
+      });
       captureException(error, { emailAccountId: emailAccount.id });
     }),
     handleOutboundReply({
@@ -49,8 +59,17 @@ export async function handleOutboundMessage({
       message,
       provider,
       logger,
-    }).catch((error) => {
-      logger.error("Error handling outbound reply", { error });
+    }).catch(async (error) => {
+      await logErrorWithDedupe({
+        logger,
+        message: "Error handling outbound reply",
+        error,
+        dedupeKeyParts: {
+          scope: "reply-tracker/handle-outbound",
+          emailAccountId: emailAccount.id,
+          operation: "handle-outbound-reply",
+        },
+      });
       captureException(error, { emailAccountId: emailAccount.id });
     }),
   ]);

@@ -26,6 +26,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { captureException } from "@/utils/error";
+import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -335,7 +336,15 @@ export async function processHistoryItem(
       }
     }
 
-    logger.error("Error processing message", { error });
+    await logErrorWithDedupe({
+      logger,
+      message: "Error processing message",
+      error,
+      dedupeKeyParts: {
+        scope: "webhook/process-history-item",
+        emailAccountId,
+      },
+    });
     throw error;
   }
 }
