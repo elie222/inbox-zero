@@ -163,23 +163,21 @@ export function BulkActions({
     );
   }, [selectedNewsletters]);
 
-  // Check if all selected newsletters can be unsubscribed (none are already unsubscribed)
-  const unsubscribableNewsletters = selectedNewsletters.filter(
+  const allSelectedCanUnsubscribe = selectedNewsletters.some(
     (n) => n.status !== NewsletterStatus.UNSUBSCRIBED,
   );
-  const allSelectedCanUnsubscribe = unsubscribableNewsletters.length > 0;
 
   // Determine the label: "Unsubscribe", "Block", or "Unsubscribe/Block"
-  const hasUnsubscribeLinks = unsubscribableNewsletters.some(
+  const hasUnsubscribeLinks = selectedNewsletters.some(
     (n) => n.unsubscribeLink,
   );
-  const hasNoUnsubscribeLinks = unsubscribableNewsletters.some(
+  const hasBlockableLinks = selectedNewsletters.some(
     (n) => !n.unsubscribeLink,
   );
   const unsubscribeLabel =
-    hasUnsubscribeLinks && hasNoUnsubscribeLinks
+    hasUnsubscribeLinks && hasBlockableLinks
       ? "Unsubscribe/Block"
-      : hasNoUnsubscribeLinks
+      : hasBlockableLinks
         ? "Block"
         : "Unsubscribe";
 
