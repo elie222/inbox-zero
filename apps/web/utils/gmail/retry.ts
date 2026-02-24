@@ -1,9 +1,14 @@
 import pRetry from "p-retry";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
 import { isFetchError } from "@/utils/retry/is-fetch-error";
 
 const logger = createScopedLogger("gmail-retry");
+
+interface RetryLogContext {
+  logger?: Logger;
+  operation?: string;
+}
 
 interface ErrorInfo {
   status?: number;
@@ -19,7 +24,13 @@ interface ErrorInfo {
 export async function withGmailRetry<T>(
   operation: () => Promise<T>,
   maxRetries = 5,
+  context?: RetryLogContext,
 ): Promise<T> {
+  const retryLogger = context?.logger || logger;
+  const logContext = context?.operation
+    ? { operation: context.operation }
+    : undefined;
+
   return pRetry(operation, {
     retries: maxRetries,
     onFailedAttempt: async (error) => {
@@ -28,10 +39,11 @@ export async function withGmailRetry<T>(
         isRetryableError(errorInfo);
 
       if (!retryable) {
-        logger.warn("Non-retryable error encountered", {
+        retryLogger.warn("Non-retryable error encountered", {
           error,
           status: errorInfo.status,
           reason: errorInfo.reason,
+          ...logContext,
         });
         throw error;
       }
@@ -54,7 +66,7 @@ export async function withGmailRetry<T>(
         errorInfo.errorMessage,
       );
 
-      logger.warn("Gmail error. Will retry", {
+      retryLogger.warn("Gmail error. Will retry", {
         delaySeconds: Math.ceil(delayMs / 1000),
         attemptNumber: error.attemptNumber,
         maxRetries,
@@ -63,6 +75,7 @@ export async function withGmailRetry<T>(
         isServerError,
         isFailedPrecondition,
         isFetchError: isFetchError(errorInfo),
+        ...logContext,
       });
 
       // Apply the custom delay

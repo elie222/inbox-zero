@@ -90,7 +90,7 @@ describe("processHistoryForUser - 404 Handling", () => {
     expect(prisma.$executeRaw).toHaveBeenCalled();
   });
 
-  it("should advance cursor when large-gap history query returns an empty window", async () => {
+  it("should log a warning and advance cursor when large-gap history is truncated", async () => {
     const email = "user@test.com";
     const historyId = 2000; // Gap of 1000 (2000 - 1000)
     const emailAccount = {

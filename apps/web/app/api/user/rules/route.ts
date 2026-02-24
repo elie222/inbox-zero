@@ -15,35 +15,23 @@ async function getRules({ emailAccountId }: { emailAccountId: string }) {
   });
 }
 
-export const GET = withEmailAccount("user/rules", async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
-  const requestStartTime = Date.now();
-  const slowRequestLogTimeout = setTimeout(() => {
-    request.logger.warn("Rules request still running", {
-      elapsedMs: Date.now() - requestStartTime,
-    });
-  }, 8000);
+export const GET = withEmailAccount(
+  "user/rules",
+  async (request) => {
+    const emailAccountId = request.auth.emailAccountId;
 
-  try {
-    const result = await getRules({ emailAccountId });
-    const durationMs = Date.now() - requestStartTime;
-    if (durationMs > 2000) {
-      request.logger.warn("Rules request completed slowly", {
-        durationMs,
-        ruleCount: result.length,
+    try {
+      const result = await getRules({ emailAccountId });
+      return NextResponse.json(result);
+    } catch (error) {
+      request.logger.error("Error fetching rules", {
+        error,
       });
+      return NextResponse.json(
+        { error: "Failed to fetch rules" },
+        { status: 500 },
+      );
     }
-    return NextResponse.json(result);
-  } catch (error) {
-    request.logger.error("Error fetching rules", {
-      error,
-      durationMs: Date.now() - requestStartTime,
-    });
-    return NextResponse.json(
-      { error: "Failed to fetch rules" },
-      { status: 500 },
-    );
-  } finally {
-    clearTimeout(slowRequestLogTimeout);
-  }
-});
+  },
+  { requestTiming: {} },
+);

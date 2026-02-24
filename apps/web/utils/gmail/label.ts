@@ -14,7 +14,7 @@ import {
   type LabelVisibility,
   type MessageVisibility,
 } from "@/utils/gmail/constants";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail/label");
@@ -291,9 +291,14 @@ async function ensureParentLabelsExist(gmail: gmail_v1.Gmail, name: string) {
   }
 }
 
-export async function getLabels(gmail: gmail_v1.Gmail) {
-  const response = await withGmailRetry(() =>
-    gmail.users.labels.list({ userId: "me" }),
+export async function getLabels(
+  gmail: gmail_v1.Gmail,
+  options?: { logger?: Logger },
+) {
+  const response = await withGmailRetry(
+    () => gmail.users.labels.list({ userId: "me" }),
+    5,
+    { logger: options?.logger, operation: "gmail.labels.list" },
   );
   return response.data.labels;
 }

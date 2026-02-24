@@ -134,7 +134,7 @@ export class GmailProvider implements EmailProvider {
   }
 
   async getLabels(): Promise<EmailLabel[]> {
-    const labels = await getLabels(this.client);
+    const labels = await getLabels(this.client, { logger: this.logger });
     return (labels || [])
       .filter(
         (label) =>
@@ -255,6 +255,7 @@ export class GmailProvider implements EmailProvider {
       q: query,
       labelIds: [GmailLabel.SENT],
       maxResults,
+      logger: this.logger,
     });
 
     // Convert minimal threads to EmailThread format (just with id and snippet, no messages)
@@ -1096,6 +1097,7 @@ export class GmailProvider implements EmailProvider {
       gmail: this.client,
       q: query,
       maxResults: maxThreads,
+      logger: this.logger,
     });
 
     const threadIds = gmailThreads
@@ -1339,6 +1341,7 @@ export class GmailProvider implements EmailProvider {
         labelIds: labelId ? [labelId] : getLabelIds(type) || [],
         maxResults: options.maxResults || 50,
         pageToken: options.pageToken || undefined,
+        logger: this.logger,
       });
 
     const threadIds =

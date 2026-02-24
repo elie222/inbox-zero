@@ -20,41 +20,29 @@ export type LabelsResponse = {
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-export const GET = withEmailProvider("labels", async (request) => {
-  const { emailProvider } = request;
-  const requestStartTime = Date.now();
-  const slowRequestLogTimeout = setTimeout(() => {
-    request.logger.warn("Labels request still running", {
-      elapsedMs: Date.now() - requestStartTime,
-    });
-  }, 10_000);
+export const GET = withEmailProvider(
+  "labels",
+  async (request) => {
+    const { emailProvider } = request;
 
-  try {
-    const labels = await emailProvider.getLabels();
-    // Map to unified format
-    const unifiedLabels: UnifiedLabel[] = (labels || []).map((label) => ({
-      id: label.id,
-      name: label.name,
-      type: label.type,
-      color: label.color,
-      labelListVisibility: label.labelListVisibility,
-      messageListVisibility: label.messageListVisibility,
-    }));
-    const durationMs = Date.now() - requestStartTime;
-    if (durationMs > 3000) {
-      request.logger.warn("Labels request completed slowly", {
-        durationMs,
-        labelCount: unifiedLabels.length,
+    try {
+      const labels = await emailProvider.getLabels();
+      // Map to unified format
+      const unifiedLabels: UnifiedLabel[] = (labels || []).map((label) => ({
+        id: label.id,
+        name: label.name,
+        type: label.type,
+        color: label.color,
+        labelListVisibility: label.labelListVisibility,
+        messageListVisibility: label.messageListVisibility,
+      }));
+      return NextResponse.json({ labels: unifiedLabels });
+    } catch (error) {
+      request.logger.error("Error fetching labels", {
+        error,
       });
+      return NextResponse.json({ labels: [] }, { status: 500 });
     }
-    return NextResponse.json({ labels: unifiedLabels });
-  } catch (error) {
-    request.logger.error("Error fetching labels", {
-      error,
-      durationMs: Date.now() - requestStartTime,
-    });
-    return NextResponse.json({ labels: [] }, { status: 500 });
-  } finally {
-    clearTimeout(slowRequestLogTimeout);
-  }
-});
+  },
+  { requestTiming: {} },
+);
