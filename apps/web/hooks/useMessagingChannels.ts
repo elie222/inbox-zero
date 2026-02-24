@@ -23,5 +23,7 @@ export function useChannelTargets(
 }
 
 function getAccountScopedKey(path: string, emailAccountId?: string | null) {
-  return emailAccountId ? ([path, emailAccountId] as const) : path;
+  if (emailAccountId === undefined) return path;
+
+  return emailAccountId ? ([path, emailAccountId] as const) : null;
 }

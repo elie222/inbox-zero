@@ -29,6 +29,12 @@ describe("useMessagingChannels", () => {
       "account-123",
     ]);
   });
+
+  it("pauses fetch when account override is explicitly unavailable", () => {
+    useMessagingChannels(null);
+
+    expect(useSWR).toHaveBeenCalledWith(null);
+  });
 });
 
 describe("useChannelTargets", () => {
@@ -58,5 +64,11 @@ describe("useChannelTargets", () => {
       "/api/user/messaging-channels/channel-123/targets",
       "account-123",
     ]);
+  });
+
+  it("pauses targets fetch when account override is explicitly unavailable", () => {
+    useChannelTargets("channel-123", null);
+
+    expect(useSWR).toHaveBeenCalledWith(null);
   });
 });
