@@ -4,9 +4,19 @@ type MessageTimestampInput = {
 };
 
 export function getMessageTimestamp(message: MessageTimestampInput): number {
-  const internalDateMs = Number.parseInt(message.internalDate || "", 10);
-  if (!Number.isNaN(internalDateMs) && internalDateMs > 0) {
-    return internalDateMs;
+  const internalDate = message.internalDate?.trim();
+  if (internalDate) {
+    if (/^\d+$/.test(internalDate)) {
+      const internalDateMs = Number.parseInt(internalDate, 10);
+      if (internalDateMs > 0) {
+        return internalDateMs;
+      }
+    }
+
+    const internalDateMs = new Date(internalDate).getTime();
+    if (!Number.isNaN(internalDateMs)) {
+      return internalDateMs;
+    }
   }
 
   const dateMs = new Date(message.date).getTime();

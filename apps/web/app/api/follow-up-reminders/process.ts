@@ -136,6 +136,7 @@ export async function processAccountFollowUps({
     provider,
     providerLabels,
   );
+  const canUseInlineThreadMessages = emailAccount.account.provider === "google";
 
   await processFollowUpsForType({
     systemType: SystemType.AWAITING_REPLY,
@@ -148,6 +149,7 @@ export async function processAccountFollowUps({
     providerLabels,
     now,
     logger,
+    canUseInlineThreadMessages,
   });
 
   await processFollowUpsForType({
@@ -161,6 +163,7 @@ export async function processAccountFollowUps({
     providerLabels,
     now,
     logger,
+    canUseInlineThreadMessages,
   });
 
   // Draft cleanup temporarily disabled to avoid deleting old drafts.
@@ -190,6 +193,7 @@ async function processFollowUpsForType({
   providerLabels,
   now,
   logger,
+  canUseInlineThreadMessages,
 }: {
   systemType: SystemType;
   thresholdDays: number | null;
@@ -201,6 +205,7 @@ async function processFollowUpsForType({
   providerLabels: EmailLabel[];
   now: Date;
   logger: Logger;
+  canUseInlineThreadMessages: boolean;
 }) {
   if (thresholdDays === null) return;
 
@@ -259,8 +264,11 @@ async function processFollowUpsForType({
     const threadLogger = logger.with({ threadId: thread.id });
 
     try {
+      const inlineLatestMessage = canUseInlineThreadMessages
+        ? getLatestMessageFromThread(thread)
+        : null;
       const lastMessage =
-        getLatestMessageFromThread(thread) ||
+        inlineLatestMessage ||
         (await provider.getLatestMessageInThread(thread.id));
       if (!lastMessage) {
         skippedNoLatestMessageCount++;

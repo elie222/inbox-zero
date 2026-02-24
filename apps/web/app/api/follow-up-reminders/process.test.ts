@@ -102,6 +102,11 @@ function createMockProvider(
 }
 
 function mockMessage(id: string, internalDate: string) {
+  const numericInternalDate = Number(internalDate);
+  const messageDate = /^\d+$/.test(internalDate)
+    ? new Date(numericInternalDate).toISOString()
+    : new Date(internalDate).toISOString();
+
   return {
     id,
     threadId: `thread-${id}`,
@@ -110,12 +115,12 @@ function mockMessage(id: string, internalDate: string) {
     historyId: "1",
     internalDate,
     subject: "Test",
-    date: new Date(Number(internalDate)).toISOString(),
+    date: messageDate,
     headers: {
       from: "sender@example.com",
       to: "user@example.com",
       subject: "Test",
-      date: new Date(Number(internalDate)).toISOString(),
+      date: messageDate,
     },
     textPlain: "",
     textHtml: "",
@@ -229,7 +234,7 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(generateFollowUpDraft).toHaveBeenCalled();
   });
 
-  it("uses messages already loaded with threads before refetching the thread", async () => {
+  it("uses inline messages for google threads before refetching the thread", async () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi.fn().mockResolvedValue([
         {
@@ -249,7 +254,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     } as any);
 
     await processAccountFollowUps({
-      emailAccount: createMockAccount(),
+      emailAccount: createMockAccount({
+        account: { provider: "google" } as any,
+      }),
       logger,
     });
 
@@ -258,6 +265,45 @@ describe("processAccountFollowUps - dedup logic", () => {
       expect.objectContaining({
         threadId: "thread-inline",
         messageId: "msg-inline",
+      }),
+    );
+  });
+
+  it("refetches latest thread message for non-google providers when inline thread data exists", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi.fn().mockResolvedValue([
+        {
+          id: "thread-partial",
+          messages: [mockMessage("msg-inline-old", "2026-02-20T10:00:00.000Z")],
+          snippet: "",
+        },
+      ]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(
+          mockMessage("msg-refetched", "2026-02-20T12:00:00.000Z"),
+        ),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-refetched",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(provider.getLatestMessageInThread).toHaveBeenCalledWith(
+      "thread-partial",
+    );
+    expect(applyFollowUpLabel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: "thread-partial",
+        messageId: "msg-refetched",
       }),
     );
   });
