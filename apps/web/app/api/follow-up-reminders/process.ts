@@ -15,6 +15,7 @@ import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
+import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import {
   getLabelsFromDb,
   type LabelIds,
@@ -484,15 +485,4 @@ function getLatestMessageFromThread(thread: { messages: ParsedMessage[] }) {
     isDraft: (message) => message.labelIds?.includes("DRAFT") ?? false,
     getTimestamp: getMessageTimestamp,
   });
-}
-
-function getMessageTimestamp(message: ParsedMessage) {
-  const internalDateMs = Number.parseInt(message.internalDate, 10);
-  if (!Number.isNaN(internalDateMs) && internalDateMs > 0)
-    return internalDateMs;
-
-  const dateMs = new Date(message.date).getTime();
-  if (!Number.isNaN(dateMs)) return dateMs;
-
-  return 0;
 }
