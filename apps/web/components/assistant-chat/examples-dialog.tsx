@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  LightbulbIcon,
   ArrowLeftIcon,
   PlusIcon,
   CheckCircle2Icon,
@@ -21,7 +20,6 @@ import {
   convertLabelsToDisplay,
   convertMentionsToLabels,
 } from "@/utils/mention";
-import { Tooltip } from "@/components/Tooltip";
 import { ButtonList } from "@/components/ButtonList";
 import { parseAsStringEnum, useQueryState } from "nuqs";
 import { cn } from "@/utils";
@@ -29,7 +27,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 
 interface ExamplesDialogProps {
   setInput: (input: string) => void;
-  children?: React.ReactNode;
+  children: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
@@ -92,18 +90,7 @@ export function ExamplesDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {children ? (
-        <DialogTrigger asChild>{children}</DialogTrigger>
-      ) : (
-        <Tooltip content="Choose from examples">
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <LightbulbIcon className="size-5" />
-              <span className="sr-only">Show Examples</span>
-            </Button>
-          </DialogTrigger>
-        </Tooltip>
-      )}
+      <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-h-[80vh] max-w-2xl">
         <DialogHeader>
           <div className="flex items-center gap-2">
