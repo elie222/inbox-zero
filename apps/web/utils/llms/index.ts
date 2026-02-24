@@ -113,6 +113,7 @@ export function createGenerateText({
           provider: candidate.provider,
           model: candidate.modelName,
           label,
+          hasUserApiKey: modelOptions.hasUserApiKey,
         });
       }
 
@@ -232,6 +233,7 @@ export function createGenerateObject({
           provider: candidate.provider,
           model: candidate.modelName,
           label,
+          hasUserApiKey: modelOptions.hasUserApiKey,
         });
       }
 
@@ -349,6 +351,7 @@ export async function chatCompletionStream({
             model: candidate.modelName,
             usage: result.usage,
             label,
+            hasUserApiKey: modelOptions.hasUserApiKey,
           });
 
           const finishPromise = onFinish?.(result);
@@ -466,6 +469,7 @@ export async function toolCallAgentStream({
           model: candidate.modelName,
           usage: result.totalUsage,
           label,
+          hasUserApiKey: modelOptions.hasUserApiKey,
         });
 
         const finishPromise = onFinish?.(

@@ -128,6 +128,29 @@ describe("calculateUsageCost", () => {
       }),
     ).toBe(0);
   });
+
+  it("resolves prefixed OpenRouter pricing for non-prefixed model names", () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 100,
+      outputTokens: 50,
+      totalTokens: 150,
+    };
+
+    const pricing = OPENROUTER_MODEL_PRICING["anthropic/claude-sonnet-4.5"];
+    if (!pricing)
+      throw new Error("Expected pricing for anthropic/claude-sonnet-4.5");
+
+    const expected =
+      usage.inputTokens! * pricing.input + usage.outputTokens! * pricing.output;
+
+    expect(
+      calculateUsageCost({
+        provider: "anthropic",
+        model: "claude-sonnet-4.5",
+        usage,
+      }),
+    ).toBe(expected);
+  });
 });
 
 describe("saveAiUsage", () => {
@@ -158,6 +181,12 @@ describe("saveAiUsage", () => {
         userId: "user@example.com",
         cachedInputTokens: 300,
         reasoningTokens: 25,
+        estimatedCost: calculateUsageCost({
+          provider: "openai",
+          model: "openai/gpt-5.1",
+          usage,
+        }),
+        isUserApiKey: 0,
       }),
     );
 
@@ -171,6 +200,46 @@ describe("saveAiUsage", () => {
           model: "openai/gpt-5.1",
           usage,
         }),
+      }),
+    );
+  });
+
+  it("sets platform cost to zero for user API key traffic", async () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    };
+
+    const estimatedCost = calculateUsageCost({
+      provider: "openrouter",
+      model: "openai/gpt-5.1",
+      usage,
+    });
+
+    await saveAiUsage({
+      email: "user@example.com",
+      provider: "openrouter",
+      model: "openai/gpt-5.1",
+      usage,
+      label: "assistant-chat",
+      hasUserApiKey: true,
+    });
+
+    expect(publishAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user@example.com",
+        cost: 0,
+        estimatedCost,
+        isUserApiKey: 1,
+      }),
+    );
+
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "user@example.com",
+        usage,
+        cost: 0,
       }),
     );
   });

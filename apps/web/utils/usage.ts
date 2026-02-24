@@ -10,6 +10,19 @@ import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("usage");
+const COMMON_OPENROUTER_MODEL_PREFIXES = [
+  "openai",
+  "anthropic",
+  "google",
+  "meta-llama",
+  "moonshotai",
+  "x-ai",
+  "deepseek",
+  "qwen",
+  "mistralai",
+  "cohere",
+  "perplexity",
+];
 
 export async function saveAiUsage({
   email,
@@ -17,14 +30,18 @@ export async function saveAiUsage({
   model,
   usage,
   label,
+  hasUserApiKey,
 }: {
   email: string;
   provider: string;
   model: string;
   usage: LanguageModelUsage;
   label: string;
+  hasUserApiKey?: boolean;
 }) {
-  const cost = calculateUsageCost({ provider, model, usage });
+  const estimatedCost = calculateUsageCost({ provider, model, usage });
+  const isUserApiKey = !!hasUserApiKey;
+  const platformCost = isUserApiKey ? 0 : estimatedCost;
 
   try {
     return Promise.all([
@@ -37,11 +54,13 @@ export async function saveAiUsage({
         promptTokens: usage.inputTokens ?? 0,
         cachedInputTokens: usage.cachedInputTokens ?? 0,
         reasoningTokens: usage.reasoningTokens ?? 0,
-        cost,
+        cost: platformCost,
+        estimatedCost,
+        isUserApiKey: toTinybirdBoolean(isUserApiKey),
         timestamp: Date.now(),
         label,
       }),
-      saveUsage({ email, cost, usage }),
+      saveUsage({ email, cost: platformCost, usage }),
     ]);
   } catch (error) {
     logger.error("Failed to save usage", { error });
@@ -80,9 +99,13 @@ function getModelPricing(options: {
   model: string;
 }): ModelPricing | undefined {
   const { provider, model } = options;
+  const providerId = provider.toLowerCase();
 
-  for (const candidate of buildModelLookupCandidates(model)) {
-    if (provider === "openrouter") {
+  for (const candidate of buildModelLookupCandidates({
+    model,
+    provider: providerId,
+  })) {
+    if (providerId === "openrouter") {
       const openRouterPricing = OPENROUTER_MODEL_PRICING[candidate];
       if (openRouterPricing) return openRouterPricing;
     }
@@ -90,7 +113,7 @@ function getModelPricing(options: {
     const fallbackPricing = STATIC_MODEL_PRICING[candidate];
     if (fallbackPricing) return fallbackPricing;
 
-    if (provider !== "openrouter") {
+    if (providerId !== "openrouter") {
       const openRouterPricing = OPENROUTER_MODEL_PRICING[candidate];
       if (openRouterPricing) return openRouterPricing;
     }
@@ -99,7 +122,13 @@ function getModelPricing(options: {
   return undefined;
 }
 
-function buildModelLookupCandidates(model: string): string[] {
+function buildModelLookupCandidates({
+  provider,
+  model,
+}: {
+  provider: string;
+  model: string;
+}): string[] {
   const noOnlineSuffix = model.endsWith(":online")
     ? model.slice(0, -":online".length)
     : model;
@@ -109,7 +138,40 @@ function buildModelLookupCandidates(model: string): string[] {
     ? noOnlineSuffix.split("/").at(-1)
     : null;
 
-  if (unprefixed) candidates.push(unprefixed);
+  if (unprefixed) {
+    candidates.push(unprefixed);
+  } else {
+    const providerPrefix = getOpenRouterProviderPrefix(provider);
+    if (providerPrefix) {
+      candidates.push(`${providerPrefix}/${noOnlineSuffix}`);
+    }
+
+    for (const prefix of COMMON_OPENROUTER_MODEL_PREFIXES) {
+      candidates.push(`${prefix}/${noOnlineSuffix}`);
+    }
+  }
 
   return [...new Set(candidates)];
+}
+
+function getOpenRouterProviderPrefix(provider: string): string | null {
+  switch (provider) {
+    case "openai":
+    case "azure":
+    case "openai-compatible":
+      return "openai";
+    case "anthropic":
+    case "bedrock":
+      return "anthropic";
+    case "google":
+      return "google";
+    case "groq":
+      return "groq";
+    default:
+      return null;
+  }
+}
+
+function toTinybirdBoolean(value: boolean): 0 | 1 {
+  return value ? 1 : 0;
 }
