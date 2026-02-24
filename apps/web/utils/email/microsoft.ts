@@ -1251,15 +1251,20 @@ export class OutlookProvider implements EmailProvider {
       .select(MESSAGE_SELECT_FIELDS)
       .get();
 
+    const parsedMessages = (response.value || [])
+      .filter((message: Message) => !message.isDraft)
+      .map((message: Message) => convertMessage(message));
+
     const latestMessage = getLatestNonDraftMessage({
-      messages: response.value || [],
-      isDraft: (message: Message) => !!message.isDraft,
-      getTimestamp: (message: Message) =>
-        new Date(message.receivedDateTime || 0).getTime(),
+      messages: parsedMessages,
+      getTimestamp: (message: ParsedMessage) => {
+        const timestamp = new Date(message.date).getTime();
+        return Number.isNaN(timestamp) ? Date.now() : timestamp;
+      },
     });
     if (!latestMessage) return null;
 
-    return convertMessage(latestMessage);
+    return latestMessage;
   }
 
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
