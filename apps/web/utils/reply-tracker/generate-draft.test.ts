@@ -233,3 +233,56 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     expect(result).toBe(normalAiOutput);
   });
 });
+
+describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("normalizes newest-first provider thread messages to chronological order before drafting", async () => {
+    vi.mocked(aiDraftReply).mockResolvedValue("Draft reply");
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+      includeReferralSignature: false,
+      signature: null,
+    } as any);
+
+    const olderMessage: ParsedMessage = {
+      ...createMockMessage(),
+      id: "msg-old",
+      internalDate: "2024-01-01T09:00:00Z",
+      headers: {
+        ...createMockMessage().headers,
+        subject: "Bonjour",
+      },
+    };
+    const newerMessage: ParsedMessage = {
+      ...createMockMessage(),
+      id: "msg-new",
+      internalDate: "2024-01-01T10:00:00Z",
+      headers: {
+        ...createMockMessage().headers,
+        subject: "Hi there",
+      },
+    };
+
+    const client = createMockClient();
+    vi.mocked(client.getThreadMessages).mockResolvedValue([
+      newerMessage,
+      olderMessage,
+    ]);
+
+    await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      client,
+      undefined,
+      mockLogger,
+    );
+
+    const [draftArgs] = vi.mocked(aiDraftReply).mock.calls[0]!;
+    expect(draftArgs.messages.map((message) => message.id)).toEqual([
+      "msg-old",
+      "msg-new",
+    ]);
+  });
+});
