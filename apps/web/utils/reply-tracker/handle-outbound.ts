@@ -41,37 +41,29 @@ export async function handleOutboundMessage({
       message,
       provider,
       logger,
-    }).catch(async (error) => {
-      await logErrorWithDedupe({
+    }).catch((error) =>
+      reportReplyTrackerError({
         logger,
+        emailAccountId: emailAccount.id,
         message: "Error tracking sent draft status",
+        operation: "track-sent-draft-status",
         error,
-        dedupeKeyParts: {
-          scope: "reply-tracker/handle-outbound",
-          emailAccountId: emailAccount.id,
-          operation: "track-sent-draft-status",
-        },
-      });
-      captureException(error, { emailAccountId: emailAccount.id });
-    }),
+      }),
+    ),
     handleOutboundReply({
       emailAccount,
       message,
       provider,
       logger,
-    }).catch(async (error) => {
-      await logErrorWithDedupe({
+    }).catch((error) =>
+      reportReplyTrackerError({
         logger,
+        emailAccountId: emailAccount.id,
         message: "Error handling outbound reply",
+        operation: "handle-outbound-reply",
         error,
-        dedupeKeyParts: {
-          scope: "reply-tracker/handle-outbound",
-          emailAccountId: emailAccount.id,
-          operation: "handle-outbound-reply",
-        },
-      });
-      captureException(error, { emailAccountId: emailAccount.id });
-    }),
+      }),
+    ),
   ]);
 
   try {
@@ -99,4 +91,30 @@ export async function handleOutboundMessage({
     logger.error("Error removing follow-up label", { error });
     captureException(error, { emailAccountId: emailAccount.id });
   }
+}
+
+async function reportReplyTrackerError({
+  logger,
+  emailAccountId,
+  message,
+  operation,
+  error,
+}: {
+  logger: Logger;
+  emailAccountId: string;
+  message: string;
+  operation: string;
+  error: unknown;
+}) {
+  await logErrorWithDedupe({
+    logger,
+    message,
+    error,
+    dedupeKeyParts: {
+      scope: "reply-tracker/handle-outbound",
+      emailAccountId,
+      operation,
+    },
+  });
+  captureException(error, { emailAccountId });
 }

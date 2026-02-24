@@ -82,17 +82,14 @@ export async function removeConflictingThreadStatusLabels({
   await provider
     .removeThreadLabels(threadId, removeLabelIds)
     .catch(async (error) => {
-      await logErrorWithDedupe({
+      await logThreadStatusLabelError({
         logger,
+        emailAccountId,
         message: "Failed to remove conflicting thread labels",
+        operation: "remove-conflicting-thread-status-labels",
         error,
         context: {
           removeLabelCount: removeLabelIds.length,
-        },
-        dedupeKeyParts: {
-          scope: "reply-tracker/label-helpers",
-          emailAccountId,
-          operation: "remove-conflicting-thread-status-labels",
         },
       });
     });
@@ -162,18 +159,15 @@ export async function applyThreadStatusLabel({
       emailAccountId,
       logger,
     }).catch(async (error) =>
-      logErrorWithDedupe({
+      logThreadStatusLabelError({
         logger,
+        emailAccountId,
         message: "Failed to apply thread status label",
+        operation: "apply-thread-status-label",
         error,
         context: {
           labelId: targetLabel.labelId,
           labelName: targetLabel.label,
-        },
-        dedupeKeyParts: {
-          scope: "reply-tracker/label-helpers",
-          emailAccountId,
-          operation: "apply-thread-status-label",
         },
       }),
     );
@@ -231,4 +225,32 @@ export async function getLabelsFromDb(
   }
 
   return dbLabels;
+}
+
+async function logThreadStatusLabelError({
+  logger,
+  emailAccountId,
+  message,
+  operation,
+  error,
+  context,
+}: {
+  logger: Logger;
+  emailAccountId: string;
+  message: string;
+  operation: string;
+  error: unknown;
+  context?: Record<string, unknown>;
+}) {
+  await logErrorWithDedupe({
+    logger,
+    message,
+    error,
+    context,
+    dedupeKeyParts: {
+      scope: "reply-tracker/label-helpers",
+      emailAccountId,
+      operation,
+    },
+  });
 }

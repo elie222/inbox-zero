@@ -56,43 +56,46 @@ export async function getWebhookEmailAccount(
     },
   };
 
+  let emailAccount: Awaited<ReturnType<typeof prisma.emailAccount.findUnique>> =
+    null;
+
   if ("email" in where) {
-    return await prisma.emailAccount.findUnique({
+    emailAccount = await prisma.emailAccount.findUnique({
       where: { email: where.email },
       ...query,
     });
-  }
-
-  let emailAccount = await prisma.emailAccount.findFirst({
-    where: { watchEmailsSubscriptionId: where.watchEmailsSubscriptionId },
-    ...query,
-  });
-
-  if (!emailAccount) {
-    logger.info("Subscription not found in current field, checking history", {
-      subscriptionId: where.watchEmailsSubscriptionId,
+  } else {
+    emailAccount = await prisma.emailAccount.findFirst({
+      where: { watchEmailsSubscriptionId: where.watchEmailsSubscriptionId },
+      ...query,
     });
 
-    const [foundAccount] = await prisma.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM "EmailAccount"
-      WHERE "watchEmailsSubscriptionHistory" @> ${JSON.stringify([
-        { subscriptionId: where.watchEmailsSubscriptionId },
-      ])}::jsonb
-      LIMIT 1
-    `;
-
-    if (foundAccount) {
-      emailAccount = await prisma.emailAccount.findUnique({
-        where: { id: foundAccount.id },
-        ...query,
+    if (!emailAccount) {
+      logger.info("Subscription not found in current field, checking history", {
+        subscriptionId: where.watchEmailsSubscriptionId,
       });
 
-      if (emailAccount) {
-        logger.info("Found account by historical subscription ID", {
-          subscriptionId: where.watchEmailsSubscriptionId,
-          email: emailAccount.email,
-          currentSubscriptionId: emailAccount.watchEmailsSubscriptionId,
+      const [foundAccount] = await prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM "EmailAccount"
+        WHERE "watchEmailsSubscriptionHistory" @> ${JSON.stringify([
+          { subscriptionId: where.watchEmailsSubscriptionId },
+        ])}::jsonb
+        LIMIT 1
+      `;
+
+      if (foundAccount) {
+        emailAccount = await prisma.emailAccount.findUnique({
+          where: { id: foundAccount.id },
+          ...query,
         });
+
+        if (emailAccount) {
+          logger.info("Found account by historical subscription ID", {
+            subscriptionId: where.watchEmailsSubscriptionId,
+            email: emailAccount.email,
+            currentSubscriptionId: emailAccount.watchEmailsSubscriptionId,
+          });
+        }
       }
     }
   }
@@ -106,6 +109,7 @@ export async function getWebhookEmailAccount(
       },
       dedupeKeyParts: {
         scope: "webhook/account-validation",
+        email: "email" in where ? where.email : null,
         watchEmailsSubscriptionId:
           "watchEmailsSubscriptionId" in where
             ? where.watchEmailsSubscriptionId

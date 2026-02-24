@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { validateWebhookAccount } from "./validate-webhook-account";
+import {
+  getWebhookEmailAccount,
+  validateWebhookAccount,
+} from "./validate-webhook-account";
 import type { ValidatedWebhookAccountData } from "./validate-webhook-account";
 import { PremiumTier } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("test");
 
@@ -11,11 +15,15 @@ vi.mock("@/app/api/watch/controller");
 vi.mock("@/utils/email/provider");
 vi.mock("@/utils/email/watch-manager");
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/log-error-with-dedupe", () => ({
+  logErrorWithDedupe: vi.fn(),
+}));
 vi.mock("server-only", () => ({}));
 
 import { isPremium, hasAiAccess } from "@/utils/premium";
 import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
+import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 
 describe("validateWebhookAccount", () => {
   const mockEmailProvider = { type: "google" as const };
@@ -280,5 +288,47 @@ describe("validateWebhookAccount", () => {
         });
       }
     });
+  });
+});
+
+describe("getWebhookEmailAccount", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("logs a deduped account-not-found error for email lookup misses", async () => {
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(null);
+
+    await getWebhookEmailAccount({ email: "user@example.com" }, logger);
+
+    expect(logErrorWithDedupe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Account not found",
+        dedupeKeyParts: expect.objectContaining({
+          lookupType: "email",
+          email: "user@example.com",
+        }),
+      }),
+    );
+  });
+
+  it("logs a deduped account-not-found error for subscription lookup misses", async () => {
+    vi.mocked(prisma.emailAccount.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([]);
+
+    await getWebhookEmailAccount(
+      { watchEmailsSubscriptionId: "sub-123" },
+      logger,
+    );
+
+    expect(logErrorWithDedupe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Account not found",
+        dedupeKeyParts: expect.objectContaining({
+          lookupType: "subscription",
+          watchEmailsSubscriptionId: "sub-123",
+        }),
+      }),
+    );
   });
 });
