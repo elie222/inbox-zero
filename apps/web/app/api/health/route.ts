@@ -4,7 +4,6 @@ import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 
-export const dynamic = "force-dynamic";
 
 const HEALTH_CHECK_WINDOW_MINUTES = 5;
 

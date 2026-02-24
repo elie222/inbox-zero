@@ -8,7 +8,6 @@ import type { Logger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
 import { getPremiumUserFilter } from "@/utils/premium";
 
-export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export const GET = withError("cron/resend/digest/all", async (request) => {
