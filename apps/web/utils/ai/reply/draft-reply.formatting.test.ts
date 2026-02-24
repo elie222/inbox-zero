@@ -191,6 +191,26 @@ describe("aiDraftReply formatting", () => {
 
     expect(result).toBe("Hmmm, let me think about that. Sounds good!!!");
   });
+
+  it("includes thread-language instructions in generation prompts", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Merci pour votre message.",
+      },
+    });
+
+    await aiDraftReply(getDraftParams());
+
+    expect(mockGenerateObject).toHaveBeenCalledTimes(1);
+    const [callArgs] = mockGenerateObject.mock.calls[0]!;
+
+    expect(callArgs.system).toContain(
+      "IMPORTANT: Write the reply in the same language as the latest message in the thread.",
+    );
+    expect(callArgs.prompt).toContain(
+      "IMPORTANT: You are writing an email as user@example.com. Write the reply from their perspective.",
+    );
+  });
 });
 
 function getDraftParams() {

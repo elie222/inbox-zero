@@ -23,6 +23,7 @@ Write a friendly follow-up that:
 
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
+Write the follow-up in the same language as the latest message in the thread.
 
 Examples of good follow-up phrases: "Just checking in on this", "Wanted to follow up on my previous email", "Circling back on this"
 
