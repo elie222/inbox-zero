@@ -243,8 +243,17 @@ export async function createLabel({
 
     if (errorMessage?.includes("Label name exists or conflicts")) {
       logger.warn("Label already exists", { name });
-      const label = await getLabel({ gmail, name });
-      if (label) return label;
+      const labels = await getLabels(gmail);
+      const exactLabel = findLabelByName(labels, name, normalizeLabel);
+      if (exactLabel) return exactLabel;
+
+      const conflictLabel = findLabelByName(
+        labels,
+        name,
+        normalizeLabelForConflictLookup,
+      );
+      if (conflictLabel) return conflictLabel;
+
       throw new Error(`Label conflict but not found: ${name}`);
     }
 
@@ -296,12 +305,7 @@ export async function getLabel(options: {
 }) {
   const { gmail, name } = options;
   const labels = await getLabels(gmail);
-
-  const normalizedSearch = normalizeLabel(name);
-
-  return labels?.find(
-    (label) => label.name && normalizeLabel(label.name) === normalizedSearch,
-  );
+  return findLabelByName(labels, name, normalizeLabel);
 }
 
 export async function getLabelById(options: {
@@ -361,4 +365,34 @@ export async function getOrCreateInboxZeroLabel({
     color,
   });
   return createdLabel;
+}
+
+function findLabelByName(
+  labels: gmail_v1.Schema$Label[] | null | undefined,
+  name: string,
+  normalize: (value: string) => string,
+) {
+  const normalizedSearch = normalize(name);
+  return labels?.find(
+    (label) => label.name && normalize(label.name) === normalizedSearch,
+  );
+}
+
+function normalizeLabelForConflictLookup(name: string) {
+  const normalizedUnicode = name.normalize("NFKC");
+  const normalizedPath = normalizeSlashPath(normalizedUnicode);
+  return normalizeLabel(stripInvisibleCharacters(normalizedPath));
+}
+
+function normalizeSlashPath(name: string) {
+  return name
+    .replace(/[\u2044\u2215\uFF0F]/g, "/")
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .join("/");
+}
+
+function stripInvisibleCharacters(name: string) {
+  return name.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "");
 }
