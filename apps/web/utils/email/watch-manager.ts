@@ -3,6 +3,7 @@ import { hasAiAccess, getPremiumUserFilter } from "@/utils/premium";
 import type { Logger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 import { captureException } from "@/utils/error";
+import { extractErrorInfo } from "@/utils/gmail/retry";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import type { EmailProvider } from "@/utils/email/types";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
@@ -247,16 +248,29 @@ async function watchEmails({
     const error = new Error("Provider returned no result for watch setup");
     return { success: false, error };
   } catch (error) {
+    const errorInfo = extractErrorInfo(error);
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const normalizedReason = (errorInfo.reason || "").toLowerCase();
+    const normalizedMessage = errorInfo.errorMessage.toLowerCase();
 
-    // Minimal centralized handling of permanent auth failures (exact checks only)
     const isInsufficientPermissions =
-      errorMessage === "Request had insufficient authentication scopes.";
-    const isInvalidGrant = errorMessage === "invalid_grant";
+      normalizedMessage === "request had insufficient authentication scopes." ||
+      (errorInfo.status === 403 &&
+        [
+          "access_token_scope_insufficient",
+          "insufficientpermissions",
+          "insufficient_scope",
+        ].includes(normalizedReason));
+
+    const isInvalidGrant =
+      errorMessage === "invalid_grant" || /invalid_grant/i.test(errorMessage);
 
     if (isInsufficientPermissions || isInvalidGrant) {
       logger.warn("Auth failure while watching inbox - cleaning up tokens", {
         error,
+        errorMessage: errorInfo.errorMessage,
+        reason: errorInfo.reason,
+        status: errorInfo.status,
       });
       await cleanupInvalidTokens({
         emailAccountId,

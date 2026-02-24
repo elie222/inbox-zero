@@ -27,14 +27,32 @@ export async function createFilter(options: {
       }),
     );
   } catch (error) {
+    const errorInfo = extractErrorInfo(error);
     if (isFilterExistsError(error)) return { status: 200 };
 
-    const errorInfo = extractErrorInfo(error);
+    if (
+      isInsufficientScopeError({
+        status: errorInfo.status,
+        reason: errorInfo.reason,
+        errorMessage: errorInfo.errorMessage,
+      })
+    ) {
+      logger.warn("Insufficient Gmail scopes while creating filter", {
+        from,
+        addLabelIds,
+        removeLabelIds,
+        status: errorInfo.status,
+        reason: errorInfo.reason,
+        error,
+      });
+    }
 
     logger.error("Failed to create Gmail filter", {
       from,
       addLabelIds,
       removeLabelIds,
+      status: errorInfo.status,
+      reason: errorInfo.reason,
       error,
     });
 
@@ -109,4 +127,26 @@ export async function getFiltersList(options: { gmail: gmail_v1.Gmail }) {
 function isFilterExistsError(error: unknown): boolean {
   const { errorMessage } = extractErrorInfo(error);
   return errorMessage.includes("Filter already exists");
+}
+
+function isInsufficientScopeError({
+  status,
+  reason,
+  errorMessage,
+}: {
+  status?: number;
+  reason?: string;
+  errorMessage: string;
+}): boolean {
+  const normalizedReason = (reason || "").toLowerCase();
+  const normalizedMessage = errorMessage.toLowerCase();
+
+  return (
+    status === 403 &&
+    (normalizedMessage === "request had insufficient authentication scopes." ||
+      normalizedMessage.includes("insufficient authentication scopes") ||
+      normalizedMessage.includes("insufficient permissions") ||
+      normalizedReason === "access_token_scope_insufficient" ||
+      normalizedReason === "insufficientpermissions")
+  );
 }
