@@ -24,4 +24,25 @@ describe("mapUiMessagesToChatMessageRows", () => {
       { type: "text", text: "Prepared a reply." },
     ]);
   });
+
+  it("omits empty message IDs so the database can generate one", () => {
+    const rows = mapUiMessagesToChatMessageRows(
+      [
+        {
+          id: "   ",
+          role: "assistant",
+          parts: [{ type: "text", text: "Done." }],
+        } as any,
+      ],
+      "chat-1",
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      chatId: "chat-1",
+      role: "assistant",
+      parts: [{ type: "text", text: "Done." }],
+    });
+    expect(rows[0]).not.toHaveProperty("id");
+  });
 });

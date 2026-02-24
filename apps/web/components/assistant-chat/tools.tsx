@@ -33,6 +33,7 @@ import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { getEmailTerminology } from "@/utils/terminology";
 import { formatShortDate } from "@/utils/date";
+import { trimToNonEmptyString } from "@/utils/string";
 import { getEmailSearchUrl, getEmailUrlForMessage } from "@/utils/url";
 import {
   Collapsible,
@@ -1195,10 +1196,7 @@ function getPendingString(
   key: string,
 ) {
   if (!source) return undefined;
-  const value = source[key];
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
+  return trimToNonEmptyString(source[key]);
 }
 
 function getPendingOrOutputString({
@@ -1316,9 +1314,7 @@ function asPendingEmailActionType(
 }
 
 function asString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  return trimToNonEmptyString(value) ?? null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
