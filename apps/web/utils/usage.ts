@@ -10,19 +10,6 @@ import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("usage");
-const COMMON_OPENROUTER_MODEL_PREFIXES = [
-  "openai",
-  "anthropic",
-  "google",
-  "meta-llama",
-  "moonshotai",
-  "x-ai",
-  "deepseek",
-  "qwen",
-  "mistralai",
-  "cohere",
-  "perplexity",
-];
 
 export async function saveAiUsage({
   email,
@@ -144,10 +131,6 @@ function buildModelLookupCandidates({
     const providerPrefix = getOpenRouterProviderPrefix(provider);
     if (providerPrefix) {
       candidates.push(`${providerPrefix}/${noOnlineSuffix}`);
-    }
-
-    for (const prefix of COMMON_OPENROUTER_MODEL_PREFIXES) {
-      candidates.push(`${prefix}/${noOnlineSuffix}`);
     }
   }
 
