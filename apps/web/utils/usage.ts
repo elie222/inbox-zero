@@ -6,6 +6,10 @@ import {
   STATIC_MODEL_PRICING,
   type ModelPricing,
 } from "@/utils/llms/supported-model-pricing";
+import {
+  getOpenRouterProviderPrefix,
+  stripOnlineModelSuffix,
+} from "@/utils/llms/model-id";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -116,9 +120,7 @@ function buildModelLookupCandidates({
   provider: string;
   model: string;
 }): string[] {
-  const noOnlineSuffix = model.endsWith(":online")
-    ? model.slice(0, -":online".length)
-    : model;
+  const noOnlineSuffix = stripOnlineModelSuffix(model);
 
   const candidates = [model, noOnlineSuffix];
   const unprefixed = noOnlineSuffix.includes("/")
@@ -135,24 +137,6 @@ function buildModelLookupCandidates({
   }
 
   return [...new Set(candidates)];
-}
-
-function getOpenRouterProviderPrefix(provider: string): string | null {
-  switch (provider) {
-    case "openai":
-    case "azure":
-    case "openai-compatible":
-      return "openai";
-    case "anthropic":
-    case "bedrock":
-      return "anthropic";
-    case "google":
-      return "google";
-    case "groq":
-      return "groq";
-    default:
-      return null;
-  }
 }
 
 function toTinybirdBoolean(value: boolean): 0 | 1 {
