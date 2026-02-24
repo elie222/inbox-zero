@@ -183,12 +183,22 @@ function validateOAuthCallback(
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
   const receivedState = searchParams.get("state");
+  const oauthError = searchParams.get("error");
   const storedState = request.cookies.get(SLACK_STATE_COOKIE_NAME)?.value;
 
   const redirectUrl = new URL("/settings", env.NEXT_PUBLIC_BASE_URL);
   const response = NextResponse.redirect(redirectUrl);
 
   response.cookies.delete(SLACK_STATE_COOKIE_NAME);
+
+  if (oauthError) {
+    logger.warn("Slack callback returned OAuth error", { oauthError });
+    redirectUrl.searchParams.set(
+      "error",
+      `oauth_${sanitizeReason(oauthError)}`,
+    );
+    throw new RedirectError(redirectUrl, response.headers);
+  }
 
   if (!code || code.length < 10) {
     logger.warn("Missing or invalid code in Slack callback");
