@@ -34,6 +34,10 @@ export async function handleOutboundMessage({
     messageTo: message.headers.to,
     messageSubject: message.headers.subject,
   });
+  const logHandleOutboundError = createHandleOutboundErrorLogger({
+    logger,
+    emailAccountId: emailAccount.id,
+  });
 
   await Promise.allSettled([
     trackSentDraftStatus({
@@ -42,14 +46,10 @@ export async function handleOutboundMessage({
       provider,
       logger,
     }).catch((error) =>
-      logReplyTrackerError({
-        logger,
-        emailAccountId: emailAccount.id,
-        scope: "handle-outbound",
+      logHandleOutboundError({
         message: "Error tracking sent draft status",
         operation: "track-sent-draft-status",
         error,
-        capture: true,
       }),
     ),
     handleOutboundReply({
@@ -58,14 +58,10 @@ export async function handleOutboundMessage({
       provider,
       logger,
     }).catch((error) =>
-      logReplyTrackerError({
-        logger,
-        emailAccountId: emailAccount.id,
-        scope: "handle-outbound",
+      logHandleOutboundError({
         message: "Error handling outbound reply",
         operation: "handle-outbound-reply",
         error,
-        capture: true,
       }),
     ),
   ]);
@@ -95,4 +91,34 @@ export async function handleOutboundMessage({
     logger.error("Error removing follow-up label", { error });
     captureException(error, { emailAccountId: emailAccount.id });
   }
+}
+
+function createHandleOutboundErrorLogger({
+  logger,
+  emailAccountId,
+}: {
+  logger: Logger;
+  emailAccountId: string;
+}) {
+  return ({
+    message,
+    operation,
+    error,
+    context,
+  }: {
+    message: string;
+    operation: string;
+    error: unknown;
+    context?: Record<string, unknown>;
+  }) =>
+    logReplyTrackerError({
+      logger,
+      emailAccountId,
+      scope: "handle-outbound",
+      message,
+      operation,
+      error,
+      context,
+      capture: true,
+    });
 }
