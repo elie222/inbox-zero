@@ -17,8 +17,6 @@ export const GET = withEmailProvider("threads", async (request) => {
   const requestTimer = startRequestTimer({
     logger: request.logger,
     requestName: "Threads request",
-    runningWarnAfterMs: 10_000,
-    slowWarnAfterMs: 3000,
   });
 
   const { searchParams } = new URL(request.url);

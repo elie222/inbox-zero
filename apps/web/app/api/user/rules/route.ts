@@ -21,8 +21,6 @@ export const GET = withEmailAccount("user/rules", async (request) => {
   const requestTimer = startRequestTimer({
     logger: request.logger,
     requestName: "Rules request",
-    runningWarnAfterMs: 8000,
-    slowWarnAfterMs: 2000,
   });
 
   try {

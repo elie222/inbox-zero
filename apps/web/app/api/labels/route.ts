@@ -26,8 +26,6 @@ export const GET = withEmailProvider("labels", async (request) => {
   const requestTimer = startRequestTimer({
     logger: request.logger,
     requestName: "Labels request",
-    runningWarnAfterMs: 10_000,
-    slowWarnAfterMs: 3000,
   });
 
   try {

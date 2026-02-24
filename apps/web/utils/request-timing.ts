@@ -1,15 +1,18 @@
 import type { Logger } from "@/utils/logger";
 
+const DEFAULT_RUNNING_WARN_AFTER_MS = 10_000;
+const DEFAULT_SLOW_WARN_AFTER_MS = 3000;
+
 export function startRequestTimer({
   logger,
   requestName,
-  runningWarnAfterMs,
-  slowWarnAfterMs,
+  runningWarnAfterMs = DEFAULT_RUNNING_WARN_AFTER_MS,
+  slowWarnAfterMs = DEFAULT_SLOW_WARN_AFTER_MS,
 }: {
   logger: Logger;
   requestName: string;
-  runningWarnAfterMs: number;
-  slowWarnAfterMs: number;
+  runningWarnAfterMs?: number;
+  slowWarnAfterMs?: number;
 }) {
   const startedAt = Date.now();
   const runningTimeout = setTimeout(() => {
