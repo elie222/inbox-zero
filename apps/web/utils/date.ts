@@ -59,8 +59,12 @@ export function dateToSeconds(date: Date) {
   return Math.floor(date.getTime() / 1000);
 }
 
-export function internalDateToDate(internalDate?: string | null): Date {
-  if (!internalDate) return new Date();
+export function internalDateToDate(
+  internalDate?: string | null,
+  options?: { fallbackToNow?: boolean },
+): Date {
+  const fallbackToNow = options?.fallbackToNow ?? true;
+  if (!internalDate) return fallbackToNow ? new Date() : new Date(Number.NaN);
 
   // First try to parse as a regular date string (for ISO strings like "2025-06-19T21:46:31Z")
   let date = new Date(internalDate);
@@ -68,7 +72,9 @@ export function internalDateToDate(internalDate?: string | null): Date {
 
   // Fallback to the old behavior for numeric timestamps
   date = new Date(+internalDate);
-  if (Number.isNaN(date.getTime())) return new Date();
+  if (Number.isNaN(date.getTime())) {
+    return fallbackToNow ? new Date() : new Date(Number.NaN);
+  }
 
   return date;
 }

@@ -1,3 +1,5 @@
+import { internalDateToDate } from "@/utils/date";
+
 type MessageTimestampInput = {
   internalDate?: string | null;
   date: string;
@@ -6,14 +8,9 @@ type MessageTimestampInput = {
 export function getMessageTimestamp(message: MessageTimestampInput): number {
   const internalDate = message.internalDate?.trim();
   if (internalDate) {
-    if (/^\d+$/.test(internalDate)) {
-      const internalDateMs = Number.parseInt(internalDate, 10);
-      if (internalDateMs > 0) {
-        return internalDateMs;
-      }
-    }
-
-    const internalDateMs = new Date(internalDate).getTime();
+    const internalDateMs = internalDateToDate(internalDate, {
+      fallbackToNow: false,
+    }).getTime();
     if (!Number.isNaN(internalDateMs)) {
       return internalDateMs;
     }
