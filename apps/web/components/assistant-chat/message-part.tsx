@@ -29,6 +29,7 @@ import { formatToolLabel } from "@/components/assistant-chat/tool-label";
 interface MessagePartProps {
   part: ChatMessage["parts"][0];
   isStreaming: boolean;
+  disableConfirm: boolean;
   messageId: string;
   partIndex: number;
   threadLookup: ThreadLookup;
@@ -52,6 +53,7 @@ function getOutputField<T>(output: unknown, field: string): T | undefined {
 export function MessagePart({
   part,
   isStreaming,
+  disableConfirm,
   messageId,
   partIndex,
   threadLookup,
@@ -218,6 +220,7 @@ export function MessagePart({
   if (part.type === "tool-sendEmail") {
     return renderPendingEmailAction({
       part,
+      disableConfirm,
       messageId,
       preparingText: "Preparing email...",
       ResultComponent: SendEmailResult,
@@ -227,6 +230,7 @@ export function MessagePart({
   if (part.type === "tool-replyEmail") {
     return renderPendingEmailAction({
       part,
+      disableConfirm,
       messageId,
       preparingText: "Preparing reply...",
       ResultComponent: ReplyEmailResult,
@@ -236,6 +240,7 @@ export function MessagePart({
   if (part.type === "tool-forwardEmail") {
     return renderPendingEmailAction({
       part,
+      disableConfirm,
       messageId,
       preparingText: "Preparing forward...",
       ResultComponent: ForwardEmailResult,
@@ -504,6 +509,7 @@ function renderToolStatus({
 
 function renderPendingEmailAction({
   part,
+  disableConfirm,
   messageId,
   preparingText,
   ResultComponent,
@@ -513,12 +519,14 @@ function renderPendingEmailAction({
     state: string;
     output?: unknown;
   };
+  disableConfirm: boolean;
   messageId: string;
   preparingText: string;
   ResultComponent: (props: {
     output: unknown;
     chatMessageId: string;
     toolCallId: string;
+    disableConfirm: boolean;
   }) => ReactNode;
 }) {
   const { toolCallId, state } = part;
@@ -538,6 +546,7 @@ function renderPendingEmailAction({
         output={part.output}
         chatMessageId={messageId}
         toolCallId={toolCallId}
+        disableConfirm={disableConfirm}
       />
     );
   }

@@ -29,6 +29,7 @@ export function Messages({
   setInput,
   footer,
 }: MessagesProps) {
+  const disableConfirm = status === "streaming" || status === "submitted";
   const threadLookup = useMemo(() => buildThreadLookup(messages), [messages]);
   const firstAssistantIndex = useMemo(
     () => messages.findIndex((m) => m.role === "assistant"),
@@ -53,6 +54,7 @@ export function Messages({
                       key={`${message.id}-${partIndex}`}
                       part={part}
                       isStreaming={status === "streaming"}
+                      disableConfirm={disableConfirm}
                       messageId={message.id}
                       partIndex={partIndex}
                       threadLookup={threadLookup}

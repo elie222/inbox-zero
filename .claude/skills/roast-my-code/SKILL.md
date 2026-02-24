@@ -1,4 +1,6 @@
 ---
+name: roast-my-code
+description: Perform a blunt, humorous code review before proposing fixes
 disable-model-invocation: true
 ---
 

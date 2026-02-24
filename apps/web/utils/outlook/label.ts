@@ -8,6 +8,7 @@ import {
   normalizeOutlookCategoryName,
   sanitizeOutlookCategoryName,
 } from "@/utils/outlook/label-validation";
+import { findLabelByName } from "@/utils/label/find-label-by-name";
 import type {
   OutlookCategory,
   Message,
@@ -140,11 +141,12 @@ export async function getLabel(options: {
   const normalizedSearch = normalizeOutlookCategoryName(name);
   if (!normalizedSearch) return null;
 
-  return labels?.find(
-    (label) =>
-      label.displayName &&
-      normalizeOutlookCategoryName(label.displayName) === normalizedSearch,
-  );
+  return findLabelByName({
+    labels,
+    name,
+    getLabelName: (label) => label.displayName,
+    normalize: normalizeOutlookCategoryName,
+  });
 }
 
 export async function getOrCreateLabel({

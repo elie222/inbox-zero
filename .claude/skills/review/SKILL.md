@@ -1,4 +1,6 @@
 ---
+name: review
+description: Review code changes, auto-fix safe issues, and report bugs
 disable-model-invocation: true
 ---
 

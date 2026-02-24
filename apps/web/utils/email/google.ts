@@ -56,6 +56,7 @@ import {
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { getDraft, deleteDraft, sendDraft } from "@/utils/gmail/draft";
 import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
+import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
 import {
   getFiltersList,
   createFilter,
@@ -1137,15 +1138,12 @@ export class GmailProvider implements EmailProvider {
     threadId: string,
   ): Promise<ParsedMessage | null> {
     const thread = await this.getThread(threadId);
-    if (!thread.messages.length) return null;
-
-    const sorted = [...thread.messages].sort((a, b) => {
-      const aDate = Number(a.internalDate) || 0;
-      const bDate = Number(b.internalDate) || 0;
-      return bDate - aDate;
+    return getLatestNonDraftMessage({
+      messages: thread.messages,
+      isDraft: (message) =>
+        message.labelIds?.includes(GmailLabel.DRAFT) ?? false,
+      getTimestamp: (message) => Number(message.internalDate) || 0,
     });
-
-    return sorted[0];
   }
 
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
