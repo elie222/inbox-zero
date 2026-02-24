@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import { runWithBoundedConcurrency } from "@/utils/async";
+import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 
 export type ThreadsBatchResponse = {
   threads: ThreadsResponse["threads"];
@@ -44,9 +45,14 @@ export const GET = withEmailProvider("threads/batch", async (request) => {
     for (const { item: threadId, result } of results) {
       if (result.status === "fulfilled") {
         const thread = result.value;
+        const filteredMessages = thread.messages.filter((message) => {
+          if (!message.headers?.from) return true;
+          return !isIgnoredSender(message.headers.from);
+        });
+
         validThreads.push({
           id: thread.id,
-          messages: thread.messages,
+          messages: filteredMessages,
           snippet: thread.snippet,
           plan: undefined,
         });
