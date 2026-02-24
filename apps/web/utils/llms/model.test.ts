@@ -59,7 +59,6 @@ vi.mock("@/env", () => ({
     CHAT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
     NANO_LLM_PROVIDER: undefined,
     NANO_LLM_MODEL: undefined,
-    NANO_LLM_FALLBACKS: undefined,
     NANO_OPENROUTER_PROVIDERS: undefined,
     OPENROUTER_BACKUP_MODEL: undefined,
     USE_BACKUP_MODEL: false,
@@ -100,7 +99,6 @@ describe("Models", () => {
     vi.mocked(env).DEFAULT_LLM_FALLBACKS = undefined;
     vi.mocked(env).ECONOMY_LLM_FALLBACKS = undefined;
     vi.mocked(env).CHAT_LLM_FALLBACKS = undefined;
-    vi.mocked(env).NANO_LLM_FALLBACKS = undefined;
     vi.mocked(env).OPENROUTER_BACKUP_MODEL = undefined;
     vi.mocked(env).USE_BACKUP_MODEL = false;
     vi.mocked(env).NANO_LLM_PROVIDER = undefined;

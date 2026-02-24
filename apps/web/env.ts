@@ -63,13 +63,9 @@ export const env = createEnv({
     CHAT_LLM_MODEL: z.string().optional(),
     CHAT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain for chat model; explicit model required
     CHAT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
-    // Set this to the cheapest model you want to force for high-usage users.
     NANO_LLM_PROVIDER: llmProviderEnum.optional(),
     NANO_LLM_MODEL: z.string().optional(),
-    NANO_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain for nano model; explicit model required
-    NANO_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for nano model (e.g., "Google Vertex,Anthropic")
-    // Auto-switch to nano when weekly platform spend for a user crosses this limit (USD).
-    // Leave unset to disable spend-based auto-switching.
+    NANO_OPENROUTER_PROVIDERS: z.string().optional(),
     AI_NANO_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),
     // Deprecated: legacy fallback configuration, kept for backwards compatibility.
     OPENROUTER_BACKUP_MODEL: z.string().optional(),

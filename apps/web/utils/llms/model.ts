@@ -374,10 +374,6 @@ function selectChatModel(userAi: UserAIFields, online = false): ResolvedModel {
   return selectDefaultModel(userAi, online);
 }
 
-/**
- * Selects the nano model for aggressive cost control.
- * Falls back to the economy model when nano is not configured or credentials are missing.
- */
 function selectNanoModel(userAi: UserAIFields, online = false): ResolvedModel {
   if (env.NANO_LLM_PROVIDER && env.NANO_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.NANO_LLM_PROVIDER);
@@ -608,11 +604,7 @@ function getConfiguredFallbacksByType(
     case "chat":
       return env.CHAT_LLM_FALLBACKS || env.DEFAULT_LLM_FALLBACKS;
     case "nano":
-      return (
-        env.NANO_LLM_FALLBACKS ||
-        env.ECONOMY_LLM_FALLBACKS ||
-        env.DEFAULT_LLM_FALLBACKS
-      );
+      return env.ECONOMY_LLM_FALLBACKS || env.DEFAULT_LLM_FALLBACKS;
     default:
       return env.DEFAULT_LLM_FALLBACKS;
   }
