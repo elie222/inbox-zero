@@ -90,7 +90,7 @@ describe("processHistoryForUser - 404 Handling", () => {
     expect(prisma.$executeRaw).toHaveBeenCalled();
   });
 
-  it("should advance cursor when large-gap history query returns an empty window", async () => {
+  it("should keep using lastSyncedHistoryId and advance cursor when history is empty", async () => {
     const email = "user@test.com";
     const historyId = 2000; // Gap of 1000 (2000 - 1000)
     const emailAccount = {
@@ -119,16 +119,12 @@ describe("processHistoryForUser - 404 Handling", () => {
 
     vi.mocked(getHistory).mockResolvedValue({ history: [] });
 
-    const warnSpy = vi.spyOn(logger, "warn");
-
     await processHistoryForUser({ emailAddress: email, historyId }, {}, logger);
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      "Skipping history items due to large gap",
+    expect(getHistory).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({
-        lastSyncedHistoryId: 1000,
-        webhookHistoryId: 2000,
-        skippedHistoryItems: 500, // (2000 - 500) - 1000 = 500
+        startHistoryId: "1000",
       }),
     );
 
