@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { withEmailAccount } from "@/utils/middleware";
+import { startRequestTimer } from "@/utils/request-timing";
 
 export type GetSetupProgressResponse = Awaited<
   ReturnType<typeof getSetupProgress>
@@ -9,33 +10,28 @@ export type GetSetupProgressResponse = Awaited<
 
 export const GET = withEmailAccount("user/setup-progress", async (request) => {
   const { emailAccountId } = request.auth;
-  const requestStartTime = Date.now();
-  const slowRequestLogTimeout = setTimeout(() => {
-    request.logger.warn("Setup progress request still running", {
-      elapsedMs: Date.now() - requestStartTime,
-    });
-  }, 8000);
+  const requestTimer = startRequestTimer({
+    logger: request.logger,
+    requestName: "Setup progress request",
+    runningWarnAfterMs: 8000,
+    slowWarnAfterMs: 2000,
+  });
 
   try {
     const result = await getSetupProgress({ emailAccountId });
-    const durationMs = Date.now() - requestStartTime;
-    if (durationMs > 2000) {
-      request.logger.warn("Setup progress request completed slowly", {
-        durationMs,
-      });
-    }
+    requestTimer.logSlowCompletion();
     return NextResponse.json(result);
   } catch (error) {
     request.logger.error("Error fetching setup progress", {
       error,
-      durationMs: Date.now() - requestStartTime,
+      durationMs: requestTimer.durationMs(),
     });
     return NextResponse.json(
       { error: "Failed to fetch setup progress" },
       { status: 500 },
     );
   } finally {
-    clearTimeout(slowRequestLogTimeout);
+    requestTimer.stop();
   }
 });
 
