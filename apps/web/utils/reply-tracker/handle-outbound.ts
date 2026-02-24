@@ -1,12 +1,11 @@
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
-import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import { handleOutboundReply } from "./outbound";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
-import { logReplyTrackerError } from "./error-logging";
+import { createReplyTrackerScopeLogger } from "./error-logging";
 
 export async function handleOutboundMessage({
   emailAccount,
@@ -34,9 +33,11 @@ export async function handleOutboundMessage({
     messageTo: message.headers.to,
     messageSubject: message.headers.subject,
   });
-  const logHandleOutboundError = createHandleOutboundErrorLogger({
+  const logHandleOutboundError = createReplyTrackerScopeLogger({
     logger,
     emailAccountId: emailAccount.id,
+    scope: "handle-outbound",
+    capture: true,
   });
 
   await Promise.allSettled([
@@ -91,34 +92,4 @@ export async function handleOutboundMessage({
     logger.error("Error removing follow-up label", { error });
     captureException(error, { emailAccountId: emailAccount.id });
   }
-}
-
-function createHandleOutboundErrorLogger({
-  logger,
-  emailAccountId,
-}: {
-  logger: Logger;
-  emailAccountId: string;
-}) {
-  return ({
-    message,
-    operation,
-    error,
-    context,
-  }: {
-    message: string;
-    operation: string;
-    error: unknown;
-    context?: Record<string, unknown>;
-  }) =>
-    logReplyTrackerError({
-      logger,
-      emailAccountId,
-      scope: "handle-outbound",
-      message,
-      operation,
-      error,
-      context,
-      capture: true,
-    });
 }
