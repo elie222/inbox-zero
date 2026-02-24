@@ -4,10 +4,6 @@ import { sleep } from "@/utils/sleep";
 import { isFetchError } from "@/utils/retry/is-fetch-error";
 
 const logger = createScopedLogger("gmail-retry");
-// Keep retry sleeps bounded so request-scoped handlers don't exceed their runtime budget.
-// Example: /api/labels has maxDuration=30s and this helper defaults to 5 retries.
-// A 5s cap keeps worst-case retry sleep at ~25s, leaving headroom for API calls and response.
-const MAX_DELAY_PER_RETRY_MS = 5000;
 
 interface ErrorInfo {
   status?: number;
@@ -57,12 +53,9 @@ export async function withGmailRetry<T>(
         retryAfterHeader,
         errorInfo.errorMessage,
       );
-      const effectiveDelayMs = Math.min(delayMs, MAX_DELAY_PER_RETRY_MS);
 
       logger.warn("Gmail error. Will retry", {
-        delaySeconds: Math.ceil(effectiveDelayMs / 1000),
-        requestedDelaySeconds: Math.ceil(delayMs / 1000),
-        delayWasCapped: delayMs > effectiveDelayMs,
+        delaySeconds: Math.ceil(delayMs / 1000),
         attemptNumber: error.attemptNumber,
         maxRetries,
         status: errorInfo.status,
@@ -73,8 +66,8 @@ export async function withGmailRetry<T>(
       });
 
       // Apply the custom delay
-      if (effectiveDelayMs > 0) {
-        await sleep(effectiveDelayMs);
+      if (delayMs > 0) {
+        await sleep(delayMs);
       }
     },
   });
