@@ -21,7 +21,7 @@ const LEGACY_OPENROUTER_BACKUP_DEFAULT_MODEL = "google/gemini-2.5-flash";
 
 const logger = createScopedLogger("llms/model");
 
-export type ModelType = "default" | "economy" | "chat";
+export type ModelType = "default" | "economy" | "chat" | "nano";
 
 export type ResolvedModel = {
   provider: string;
@@ -73,6 +73,8 @@ function selectModelByType(
       return selectEconomyModel(userAi, online);
     case "chat":
       return selectChatModel(userAi, online);
+    case "nano":
+      return selectNanoModel(userAi, online);
     default:
       return selectDefaultModel(userAi, online);
   }
@@ -372,6 +374,44 @@ function selectChatModel(userAi: UserAIFields, online = false): ResolvedModel {
   return selectDefaultModel(userAi, online);
 }
 
+/**
+ * Selects the nano model for aggressive cost control.
+ * Falls back to the economy model when nano is not configured or credentials are missing.
+ */
+function selectNanoModel(userAi: UserAIFields, online = false): ResolvedModel {
+  if (env.NANO_LLM_PROVIDER && env.NANO_LLM_MODEL) {
+    const apiKey = getProviderApiKey(env.NANO_LLM_PROVIDER);
+    if (!apiKey) {
+      logger.warn("Nano LLM provider configured but API key not found", {
+        provider: env.NANO_LLM_PROVIDER,
+      });
+      return selectEconomyModel(userAi, online);
+    }
+
+    let providerOptions: Record<string, any> | undefined;
+    if (
+      env.NANO_LLM_PROVIDER === Provider.OPENROUTER &&
+      env.NANO_OPENROUTER_PROVIDERS
+    ) {
+      providerOptions = createOpenRouterProviderOptions(
+        env.NANO_OPENROUTER_PROVIDERS,
+      );
+    }
+
+    return selectModel(
+      {
+        aiProvider: env.NANO_LLM_PROVIDER,
+        aiModel: env.NANO_LLM_MODEL,
+        aiApiKey: apiKey,
+      },
+      providerOptions,
+      online,
+    );
+  }
+
+  return selectEconomyModel(userAi, online);
+}
+
 function selectDefaultModel(
   userAi: UserAIFields,
   online = false,
@@ -567,6 +607,12 @@ function getConfiguredFallbacksByType(
       return env.ECONOMY_LLM_FALLBACKS || env.DEFAULT_LLM_FALLBACKS;
     case "chat":
       return env.CHAT_LLM_FALLBACKS || env.DEFAULT_LLM_FALLBACKS;
+    case "nano":
+      return (
+        env.NANO_LLM_FALLBACKS ||
+        env.ECONOMY_LLM_FALLBACKS ||
+        env.DEFAULT_LLM_FALLBACKS
+      );
     default:
       return env.DEFAULT_LLM_FALLBACKS;
   }
@@ -579,6 +625,7 @@ function getOpenRouterProviderOptionsByType(
     default: env.DEFAULT_OPENROUTER_PROVIDERS,
     economy: env.ECONOMY_OPENROUTER_PROVIDERS,
     chat: env.CHAT_OPENROUTER_PROVIDERS,
+    nano: env.NANO_OPENROUTER_PROVIDERS,
   };
 
   const providers = providersByType[modelType];

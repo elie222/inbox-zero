@@ -57,6 +57,10 @@ vi.mock("@/env", () => ({
     CHAT_LLM_MODEL: "moonshotai/kimi-k2",
     CHAT_LLM_FALLBACKS: undefined,
     CHAT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
+    NANO_LLM_PROVIDER: undefined,
+    NANO_LLM_MODEL: undefined,
+    NANO_LLM_FALLBACKS: undefined,
+    NANO_OPENROUTER_PROVIDERS: undefined,
     OPENROUTER_BACKUP_MODEL: undefined,
     USE_BACKUP_MODEL: false,
     OPENAI_API_KEY: "test-openai-key",
@@ -96,8 +100,12 @@ describe("Models", () => {
     vi.mocked(env).DEFAULT_LLM_FALLBACKS = undefined;
     vi.mocked(env).ECONOMY_LLM_FALLBACKS = undefined;
     vi.mocked(env).CHAT_LLM_FALLBACKS = undefined;
+    vi.mocked(env).NANO_LLM_FALLBACKS = undefined;
     vi.mocked(env).OPENROUTER_BACKUP_MODEL = undefined;
     vi.mocked(env).USE_BACKUP_MODEL = false;
+    vi.mocked(env).NANO_LLM_PROVIDER = undefined;
+    vi.mocked(env).NANO_LLM_MODEL = undefined;
+    vi.mocked(env).NANO_OPENROUTER_PROVIDERS = undefined;
     vi.mocked(env).AZURE_API_KEY = "test-azure-key";
     vi.mocked(env).AZURE_RESOURCE_NAME = "test-azure-resource";
     vi.mocked(env).AZURE_API_VERSION = "2024-10-21";
@@ -331,6 +339,38 @@ describe("Models", () => {
       vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
 
       const result = getModel(userAi, "economy");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.modelName).toBe("google/gemini-2.5-flash-preview-05-20");
+    });
+
+    it("should use nano model when modelType is 'nano' and nano model is configured", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).NANO_LLM_PROVIDER = Provider.OPEN_AI;
+      vi.mocked(env).NANO_LLM_MODEL = "gpt-5-nano";
+
+      const result = getModel(userAi, "nano");
+
+      expect(result.provider).toBe(Provider.OPEN_AI);
+      expect(result.modelName).toBe("gpt-5-nano");
+    });
+
+    it("should fall back to economy model when nano model is not configured", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).NANO_LLM_PROVIDER = undefined;
+      vi.mocked(env).NANO_LLM_MODEL = undefined;
+
+      const result = getModel(userAi, "nano");
+
       expect(result.provider).toBe(Provider.OPENROUTER);
       expect(result.modelName).toBe("google/gemini-2.5-flash-preview-05-20");
     });
