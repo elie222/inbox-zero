@@ -144,7 +144,9 @@ function EmailAccountSettingsCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const { data: channelsData, mutate: mutateChannels } = useMessagingChannels();
+  const { data: channelsData, mutate: mutateChannels } = useMessagingChannels(
+    emailAccount.id,
+  );
   const hasSlack =
     channelsData?.channels.some(
       (ch) => ch.isConnected && ch.provider === "SLACK",

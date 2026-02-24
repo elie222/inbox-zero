@@ -59,7 +59,7 @@ export function ConnectedAppsSection({
     isLoading,
     error,
     mutate: mutateChannels,
-  } = useMessagingChannels();
+  } = useMessagingChannels(emailAccountId);
   const [connectingSlack, setConnectingSlack] = useState(false);
   const [existingWorkspace, setExistingWorkspace] = useState<{
     teamId: string;
@@ -233,7 +233,10 @@ function ConnectedChannelRow({
     isLoading: isLoadingTargets,
     error: targetsError,
     mutate: mutateTargets,
-  } = useChannelTargets(selectingSlackTarget ? channel.id : null);
+  } = useChannelTargets(
+    selectingSlackTarget ? channel.id : null,
+    emailAccountId,
+  );
   const privateTargets =
     targetsData?.targets.filter((target) => target.isPrivate) ?? [];
   const hasTargetLoadError = Boolean(targetsError || targetsData?.error);
@@ -458,6 +461,10 @@ export function useSlackNotifications(enabled: boolean) {
 function getSlackConnectionFailedDescription(
   errorReason: string | null,
 ): string {
+  if (errorReason === "oauth_invalid_team_for_non_distributed_app") {
+    return "This Slack app is not distributed to every workspace yet. Use the currently supported workspace or contact support.";
+  }
+
   if (errorReason === "oauth_invalid_code") {
     return "Slack returned an invalid or expired code. Please try connecting again.";
   }
@@ -485,6 +492,9 @@ function resolveSlackErrorReason(
 
   if (normalized.includes("invalid_code")) {
     return "oauth_invalid_code";
+  }
+  if (normalized.includes("invalid_team_for_non_distributed_app")) {
+    return "oauth_invalid_team_for_non_distributed_app";
   }
   if (normalized.includes("invalid_state_format")) {
     return "invalid_state_format";
