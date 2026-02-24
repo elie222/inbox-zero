@@ -23,17 +23,17 @@ import { getPossessiveBrandName } from "@/utils/branding";
 export function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
+  const { callbackURL, errorCallbackURL } = getAuthCallbackUrls(next);
 
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
-    const callbackURL = next && isInternalPath(next) ? next : WELCOME_PATH;
     try {
       await signIn.social({
         provider: "google",
-        errorCallbackURL: "/login/error",
+        errorCallbackURL,
         callbackURL,
       });
     } catch (error) {
@@ -49,11 +49,10 @@ export function LoginForm() {
 
   const handleMicrosoftSignIn = async () => {
     setLoadingMicrosoft(true);
-    const callbackURL = next && isInternalPath(next) ? next : WELCOME_PATH;
     try {
       await signIn.social({
         provider: "microsoft",
-        errorCallbackURL: "/login/error",
+        errorCallbackURL,
         callbackURL,
       });
     } catch (error) {
@@ -134,4 +133,18 @@ export function LoginForm() {
       </UIButton>
     </div>
   );
+}
+
+function getAuthCallbackUrls(next: string | null) {
+  const callbackURL = next && isInternalPath(next) ? next : WELCOME_PATH;
+  const errorCallbackURL = isOrganizationInvitationPath(callbackURL)
+    ? "/login/error?reason=org_invite"
+    : "/login/error";
+
+  return { callbackURL, errorCallbackURL };
+}
+
+function isOrganizationInvitationPath(path: string) {
+  const pathname = path.split("?")[0];
+  return /^\/organizations\/invitations\/[^/]+\/accept\/?$/.test(pathname);
 }

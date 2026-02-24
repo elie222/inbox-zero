@@ -24,13 +24,25 @@ const errorMessages: Record<string, { title: string; description: string }> = {
     title: "Email Already Linked",
     description: `This email address is already linked to another ${BRAND_NAME} account. Please sign in with the original account, or use a different email address.`,
   },
+  org_invite_invalid_code: {
+    title: "Organization Invite Sign-in Failed",
+    description:
+      "We couldn't complete sign-in while joining this organization. Please start from the invitation link again. If it still fails, sign in with the original account for this mailbox, then accept the invite again.",
+  },
+  invalid_code: {
+    title: "Sign-in Session Expired",
+    description:
+      "Your sign-in link is no longer valid. This can happen if the login flow was opened twice, timed out, or already used. Please start sign-in again from the login page.",
+  },
 };
 
 function LoginErrorContent() {
   const { data, isLoading, error } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const errorCode = searchParams.get("error");
+  const errorCode = searchParams.get("error")?.toLowerCase();
+  const reason = searchParams.get("reason")?.toLowerCase();
+  const resolvedErrorCode = resolveErrorCode({ errorCode, reason });
 
   // For some reason users are being sent to this page when logged in
   // This will redirect them out of this page to the app
@@ -50,12 +62,15 @@ function LoginErrorContent() {
   // will redirect to welcome if user is logged in
   if (data?.id) return <Loading />;
 
-  const errorInfo = errorCode ? errorMessages[errorCode] : null;
+  const errorInfo = resolvedErrorCode ? errorMessages[resolvedErrorCode] : null;
   const title = errorInfo?.title || "Error Logging In";
   const supportText = `If this error persists, please use the support chat or email us at ${SUPPORT_EMAIL}.`;
+  const fallbackDescription = resolvedErrorCode
+    ? `Please try signing in again. (Error code: ${resolvedErrorCode}) ${supportText}`
+    : `Please try signing in again. ${supportText}`;
   const description = errorInfo?.description
     ? `${errorInfo.description} ${supportText}`
-    : `Please try again. ${supportText}`;
+    : fallbackDescription;
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -85,4 +100,18 @@ export default function LogInErrorPage() {
       </Suspense>
     </BasicLayout>
   );
+}
+
+function resolveErrorCode({
+  errorCode,
+  reason,
+}: {
+  errorCode?: string;
+  reason?: string;
+}) {
+  if (reason === "org_invite" && errorCode === "invalid_code") {
+    return "org_invite_invalid_code";
+  }
+
+  return errorCode;
 }
