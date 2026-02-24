@@ -184,6 +184,35 @@ describe("applyThreadStatusLabel", () => {
     ).resolves.not.toThrow();
   });
 
+  test("does not log success when operations fail", async () => {
+    const infoSpy = vi.spyOn(logger, "info");
+    const warnSpy = vi.spyOn(logger, "warn");
+
+    vi.mocked(mockProvider.removeThreadLabels).mockRejectedValueOnce(
+      new Error("Failed to remove labels"),
+    );
+
+    await applyThreadStatusLabel({
+      emailAccountId,
+      threadId,
+      messageId,
+      systemType: "TO_REPLY",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(infoSpy).not.toHaveBeenCalledWith(
+      "Thread status label applied successfully",
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Thread status label apply completed with errors",
+      expect.objectContaining({
+        removedConflictingLabels: false,
+        systemType: "TO_REPLY",
+      }),
+    );
+  });
+
   test("uses provider label when label ID not in database", async () => {
     // Mock prisma to return rules without one label
     vi.mocked(prisma.rule.findMany).mockResolvedValue([

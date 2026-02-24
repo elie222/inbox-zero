@@ -4,6 +4,7 @@ import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { WELL_KNOWN_FOLDERS } from "./message";
 import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
+import { isAlreadyExistsError } from "./errors";
 import {
   normalizeOutlookCategoryName,
   sanitizeOutlookCategoryName,
@@ -117,9 +118,10 @@ export async function createLabel({
     if (!errorMessage) {
       errorMessage = error instanceof Error ? error.message : "Unknown error";
     }
+
     if (
-      errorMessage.includes("already exists") ||
-      errorMessage.includes("conflict with the current state")
+      isAlreadyExistsError(error) ||
+      isAlreadyExistsError({ message: errorMessage })
     ) {
       logger.warn("Label already exists", { name: sanitizedName });
       const label = await getLabel({ client, name: sanitizedName });

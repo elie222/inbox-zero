@@ -28,6 +28,36 @@ describe("createLabel", () => {
     expect(created.displayName).toBe("Notification property update");
     expect(client.invalidateCategoryMapCache).toHaveBeenCalledTimes(1);
   });
+
+  it("returns existing category when create conflicts with duplicate", async () => {
+    const post = vi.fn().mockRejectedValue(new Error("duplicate category"));
+    const get = vi.fn().mockResolvedValue({
+      value: [
+        {
+          id: "cat-existing",
+          displayName: "Finance Updates",
+          color: "preset2",
+        },
+      ] satisfies OutlookCategory[],
+    });
+    const api = vi.fn().mockImplementation((path: string) => {
+      if (path === "/me/outlook/masterCategories") {
+        return { post, get };
+      }
+      throw new Error(`Unexpected api path: ${path}`);
+    });
+    const client = createMockOutlookClient(api);
+
+    const label = await createLabel({
+      client,
+      name: "Finance Updates",
+      logger: createScopedLogger("outlook-label-test"),
+    });
+
+    expect(label.id).toBe("cat-existing");
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("getLabel", () => {
