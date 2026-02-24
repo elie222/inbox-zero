@@ -16,7 +16,6 @@ import {
   extractMemories,
   RECENT_MESSAGES_TO_KEEP,
 } from "@/utils/ai/assistant/compact";
-import { getModel } from "@/utils/llms/model";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import { formatUtcDate } from "@/utils/date";
 import { mapUiMessagesToChatMessageRows } from "@/app/api/chat/chat-message-persistence";
@@ -112,9 +111,7 @@ export const POST = withEmailAccount("chat", async (request) => {
     ];
   }
 
-  const { provider } = getModel(user.user, "chat");
-
-  if (shouldCompact(modelMessages, provider)) {
+  if (shouldCompact(modelMessages)) {
     try {
       const preCompactionMessages = modelMessages;
 
