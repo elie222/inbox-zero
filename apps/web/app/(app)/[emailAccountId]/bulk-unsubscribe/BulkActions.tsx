@@ -163,6 +163,23 @@ export function BulkActions({
     );
   }, [selectedNewsletters]);
 
+  const allSelectedCanUnsubscribe = selectedNewsletters.every(
+    (n) => n.status !== NewsletterStatus.UNSUBSCRIBED,
+  );
+
+  const hasUnsubscribeLinks = selectedNewsletters.some(
+    (n) => n.unsubscribeLink,
+  );
+
+  const hasBlockableLinks = selectedNewsletters.some((n) => !n.unsubscribeLink);
+
+  const unsubscribeLabel =
+    hasUnsubscribeLinks && hasBlockableLinks
+      ? "Unsubscribe/Block"
+      : hasBlockableLinks
+        ? "Block"
+        : "Unsubscribe";
+
   return (
     <>
       <AnimatePresence>
@@ -195,11 +212,13 @@ export function BulkActions({
 
                 {/* Right side: Action Buttons */}
                 <div className="flex items-center gap-1 flex-nowrap">
-                  <ActionButton
-                    icon={MailXIcon}
-                    label="Unsubscribe"
-                    onClick={() => onBulkUnsubscribe(getSelectedValues())}
-                  />
+                  {allSelectedCanUnsubscribe && (
+                    <ActionButton
+                      icon={MailXIcon}
+                      label={unsubscribeLabel}
+                      onClick={() => onBulkUnsubscribe(getSelectedValues())}
+                    />
+                  )}
                   <ActionButton
                     icon={ArchiveIcon}
                     label="Auto Archive"
