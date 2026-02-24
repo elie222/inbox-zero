@@ -1267,6 +1267,7 @@ export class OutlookProvider implements EmailProvider {
     const parsedMessages = (response.value || [])
       .filter((message: Message) => !message.isDraft)
       .map((message: Message) => convertMessage(message));
+    if (parsedMessages.length === 0) return null;
 
     const latestMessage = getLatestNonDraftMessage({
       messages: parsedMessages,
