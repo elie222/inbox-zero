@@ -40,6 +40,7 @@ export function History() {
 
   const { data, isLoading, error } = useExecutedRules({ page, ruleId });
   const results = data?.results ?? [];
+  const totalPages = data?.totalPages ?? 1;
   const messageIds = useMemo(
     () => results.map((result) => result.messageId),
     [results],
@@ -60,7 +61,7 @@ export function History() {
           {results.length ? (
             <HistoryTable
               data={results}
-              totalPages={data.totalPages}
+              totalPages={totalPages}
               messagesById={messagesById}
               messagesLoading={isMessagesLoading}
             />
