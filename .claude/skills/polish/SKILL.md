@@ -1,4 +1,6 @@
 ---
+name: polish
+description: Remove lint and low-risk code quality issues from current branch changes
 disable-model-invocation: true
 ---
 

@@ -1,6 +1,7 @@
 ---
+name: interview
 description: Interview me about the plan
-argument-hint: [plan]
+argument-hint: "[plan]"
 model: opus
 ---
 

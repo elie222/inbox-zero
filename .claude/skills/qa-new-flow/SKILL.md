@@ -1,4 +1,5 @@
 ---
+name: qa-new-flow
 description: Create a new browser QA flow file from the template
 ---
 

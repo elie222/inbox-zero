@@ -1,7 +1,7 @@
 ---
 name: pr-loop
 description: Review, commit, create PR, then auto-address review comments in a loop.
-argument-hint: [--wait 300] [--max 5]
+argument-hint: "[--wait 300] [--max 5]"
 disable-model-invocation: true
 ---
 

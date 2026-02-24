@@ -1,4 +1,6 @@
 ---
+name: wait
+description: Pause execution for a user-specified duration
 disable-model-invocation: true
 ---
 
