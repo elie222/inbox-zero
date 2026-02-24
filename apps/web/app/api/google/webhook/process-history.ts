@@ -282,7 +282,7 @@ function isHistoryIdExpiredError(error: unknown): boolean {
 
 /**
  * Fetches history from Gmail with resilience:
- * 1. Limits how far back we go to avoid processing massive gaps (e.g. if a user is disconnected for months).
+ * 1. Starts from last known sync point to avoid skipping recoverable history.
  * 2. Handles expired history IDs (404s) by resetting the sync point.
  */
 async function fetchGmailHistoryResilient({
@@ -309,24 +309,14 @@ async function fetchGmailHistoryResilient({
     emailAccount?.lastSyncedHistoryId || "0",
   );
 
-  // If the gap is too large (e.g. > 500 items), we start from currentHistoryId - 500.
-  // This prevents timeouts and runaway processing costs if the system falls way behind.
-  const startHistoryIdNum = Math.max(
-    lastSyncedHistoryId,
-    webhookHistoryId - 500,
-  );
+  // For existing accounts, always resume from the last synced history pointer.
+  // Only use a bounded fallback for accounts with no sync pointer yet.
+  const startHistoryIdNum =
+    lastSyncedHistoryId > 0
+      ? lastSyncedHistoryId
+      : Math.max(webhookHistoryId - 500, 1);
   const startHistoryId =
     options?.startHistoryId || startHistoryIdNum.toString();
-
-  // Log if we are intentionally skipping emails to keep the system stable
-  if (startHistoryIdNum > lastSyncedHistoryId && !options?.startHistoryId) {
-    logger.warn("Skipping history items due to large gap", {
-      lastSyncedHistoryId,
-      webhookHistoryId,
-      effectiveStartHistoryId: startHistoryIdNum,
-      skippedHistoryItems: startHistoryIdNum - lastSyncedHistoryId,
-    });
-  }
 
   logger.info("Listing history", {
     startHistoryId,
