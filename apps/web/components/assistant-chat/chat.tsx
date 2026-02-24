@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
-import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
 import { useChat } from "@/providers/ChatProvider";
 import {
@@ -129,9 +128,7 @@ export function Chat({ open }: { open: boolean }) {
       }
     >
       <ChatTopBar
-        messages={messages}
         hasMessages={hasMessages}
-        setInput={setInput}
       />
       {hasMessages ? (
         <ChatMessagesView
@@ -258,13 +255,9 @@ function NewChatView({
 }
 
 function ChatTopBar({
-  messages,
   hasMessages,
-  setInput,
 }: {
-  messages: ChatMessage[];
   hasMessages: boolean;
-  setInput: (input: string) => void;
 }) {
   return (
     <div className="relative mx-auto w-full max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-2">
@@ -272,7 +265,6 @@ function ChatTopBar({
         {hasMessages ? (
           <>
             <NewChatButton />
-            <ExamplesDialog setInput={setInput} />
             <ChatHistoryDropdown />
           </>
         ) : (
