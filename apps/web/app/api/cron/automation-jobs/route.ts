@@ -13,7 +13,6 @@ import {
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { getPremiumUserFilter } from "@/utils/premium";
 
-export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const BATCH_SIZE = 100;

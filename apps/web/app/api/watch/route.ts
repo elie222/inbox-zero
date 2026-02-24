@@ -3,7 +3,6 @@ import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 
-export const dynamic = "force-dynamic";
 
 export const GET = withAuth("watch", async (request) => {
   const userId = request.auth.userId;

@@ -6,7 +6,6 @@ export type GetThreadsResponse = {
   threads: ThreadsResponse["threads"];
 };
 
-export const dynamic = "force-dynamic";
 
 export const maxDuration = 30;
 

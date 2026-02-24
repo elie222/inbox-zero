@@ -3,7 +3,6 @@ import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
 
-export const dynamic = "force-dynamic";
 
 export const GET = withAuth("outlook/watch", async (request) => {
   const userId = request.auth.userId;
