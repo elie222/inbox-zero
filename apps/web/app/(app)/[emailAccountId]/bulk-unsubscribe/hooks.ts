@@ -286,6 +286,7 @@ export function useBulkUnsubscribe<T extends Row>({
         successMessage: "unsubscribed",
         errorMessage: "Failed to unsubscribe from",
         processItem: async (item) => {
+          if (item.status === NewsletterStatus.UNSUBSCRIBED) return;
           await setNewsletterStatusAction(emailAccountId, {
             newsletterEmail: item.name,
             status: NewsletterStatus.UNSUBSCRIBED,

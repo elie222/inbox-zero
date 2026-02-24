@@ -163,6 +163,26 @@ export function BulkActions({
     );
   }, [selectedNewsletters]);
 
+  // Check if all selected newsletters can be unsubscribed (none are already unsubscribed)
+  const unsubscribableNewsletters = selectedNewsletters.filter(
+    (n) => n.status !== NewsletterStatus.UNSUBSCRIBED,
+  );
+  const allSelectedCanUnsubscribe = unsubscribableNewsletters.length > 0;
+
+  // Determine the label: "Unsubscribe", "Block", or "Unsubscribe/Block"
+  const hasUnsubscribeLinks = unsubscribableNewsletters.some(
+    (n) => n.unsubscribeLink,
+  );
+  const hasNoUnsubscribeLinks = unsubscribableNewsletters.some(
+    (n) => !n.unsubscribeLink,
+  );
+  const unsubscribeLabel =
+    hasUnsubscribeLinks && hasNoUnsubscribeLinks
+      ? "Unsubscribe/Block"
+      : hasNoUnsubscribeLinks
+        ? "Block"
+        : "Unsubscribe";
+
   return (
     <>
       <AnimatePresence>
@@ -195,11 +215,13 @@ export function BulkActions({
 
                 {/* Right side: Action Buttons */}
                 <div className="flex items-center gap-1 flex-nowrap">
-                  <ActionButton
-                    icon={MailXIcon}
-                    label="Unsubscribe"
-                    onClick={() => onBulkUnsubscribe(getSelectedValues())}
-                  />
+                  {allSelectedCanUnsubscribe && (
+                    <ActionButton
+                      icon={MailXIcon}
+                      label={unsubscribeLabel}
+                      onClick={() => onBulkUnsubscribe(getSelectedValues())}
+                    />
+                  )}
                   <ActionButton
                     icon={ArchiveIcon}
                     label="Auto Archive"
