@@ -20,6 +20,7 @@ import {
 } from "@/utils/outlook/label";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
+import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
 import {
   draftEmail,
   forwardEmail,
@@ -1250,19 +1251,20 @@ export class OutlookProvider implements EmailProvider {
       .select(MESSAGE_SELECT_FIELDS)
       .get();
 
-    const messages = (response.value || []).filter(
-      (m: Message) => !m.isDraft,
-    );
-    if (messages.length === 0) return null;
+    const parsedMessages = (response.value || [])
+      .filter((message: Message) => !message.isDraft)
+      .map((message: Message) => convertMessage(message));
 
-    const parsed: ParsedMessage[] = messages.map((m: Message) =>
-      convertMessage(m),
-    );
-    parsed.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    );
+    const latestMessage = getLatestNonDraftMessage({
+      messages: parsedMessages,
+      getTimestamp: (message: ParsedMessage) => {
+        const timestamp = new Date(message.date).getTime();
+        return Number.isNaN(timestamp) ? Date.now() : timestamp;
+      },
+    });
+    if (!latestMessage) return null;
 
-    return parsed[0];
+    return latestMessage;
   }
 
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
