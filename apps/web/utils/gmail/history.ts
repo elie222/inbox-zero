@@ -7,6 +7,7 @@ export async function getHistory(
     startHistoryId: string;
     historyTypes?: string[];
     maxResults?: number;
+    pageToken?: string;
   },
 ) {
   const history = await withGmailRetry(() =>
@@ -15,6 +16,7 @@ export async function getHistory(
       startHistoryId: options.startHistoryId,
       historyTypes: options.historyTypes,
       maxResults: options.maxResults,
+      pageToken: options.pageToken,
     }),
   );
 

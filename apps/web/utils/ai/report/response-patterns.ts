@@ -58,7 +58,9 @@ IMPORTANT: When creating email categories, avoid meaningless or generic categori
 - "Unclear Content/HTML Code", "HTML Content", "Raw Content"
 - "General", "Random", "Various"
 
-Only suggest categories that are meaningful and provide clear organizational value. If an email doesn't fit into a meaningful category, don't create a category for it.`;
+Only suggest categories that are meaningful and provide clear organizational value. If an email doesn't fit into a meaningful category, don't create a category for it.
+
+Return your response in JSON format.`;
 
   const prompt = `### Input Data
 
