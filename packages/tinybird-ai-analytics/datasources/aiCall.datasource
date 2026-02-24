@@ -7,6 +7,8 @@ SCHEMA >
     `cachedInputTokens` UInt64 `json:$.cachedInputTokens`,
     `reasoningTokens` UInt64 `json:$.reasoningTokens`,
     `cost` Float32 `json:$.cost`,
+    `estimatedCost` Nullable(Float32) `json:$.estimatedCost`,
+    `isUserApiKey` Nullable(UInt8) `json:$.isUserApiKey`,
     `model` String `json:$.model`,
     `provider` String `json:$.provider`,
     `label` Nullable(String) `json:$.label`,

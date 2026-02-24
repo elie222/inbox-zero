@@ -5,6 +5,20 @@ SQL >
 
 
 
+NODE cost_breakdown
+SQL >
+
+    SELECT
+      sum(cost) AS recordedCost,
+      sumIf(cost, isUserApiKey = 0) AS platformCost,
+      sum(estimatedCost) AS estimatedTotalCost,
+      sumIf(estimatedCost, isUserApiKey = 1) AS userApiKeyEstimatedCost,
+      sumIf(estimatedCost, isUserApiKey = 0) AS platformEstimatedCost,
+      sumIf(cost, isNull(isUserApiKey)) AS legacyUnclassifiedCost
+    FROM aiCall
+
+
+
 NODE cost_per_label
 SQL >
 

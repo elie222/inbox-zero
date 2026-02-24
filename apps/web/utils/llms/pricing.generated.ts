@@ -10,143 +10,208 @@ export type ModelPricing = {
 
 export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
   "anthropic/claude-3.5-sonnet": {
-    "input": 0.000006,
-    "output": 0.00003,
-    "cachedInput": 0.000006
+    input: 0.000_006,
+    output: 0.000_03,
+    cachedInput: 6e-7,
   },
   "anthropic/claude-3.7-sonnet": {
-    "input": 0.000003,
-    "output": 0.000015,
-    "cachedInput": 3e-7
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
   },
   "anthropic/claude-haiku-4.5": {
-    "input": 0.000001,
-    "output": 0.000005,
-    "cachedInput": 1e-7
+    input: 0.000_001,
+    output: 0.000_005,
+    cachedInput: 1e-7,
   },
   "anthropic/claude-sonnet-4": {
-    "input": 0.000003,
-    "output": 0.000015,
-    "cachedInput": 3e-7
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "anthropic/claude-sonnet-4-20250514": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "anthropic/claude-sonnet-4-5": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "anthropic/claude-sonnet-4-6": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
   },
   "anthropic/claude-sonnet-4.5": {
-    "input": 0.000003,
-    "output": 0.000015,
-    "cachedInput": 3e-7
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "anthropic/claude-sonnet-4.6": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
   },
   "claude-3-5-sonnet-20240620": {
-    "input": 0.000006,
-    "output": 0.00003,
-    "cachedInput": 0.000006
+    input: 0.000_006,
+    output: 0.000_03,
+    cachedInput: 6e-7,
   },
   "claude-3-5-sonnet-20241022": {
-    "input": 0.000006,
-    "output": 0.00003,
-    "cachedInput": 0.000006
+    input: 0.000_006,
+    output: 0.000_03,
+    cachedInput: 6e-7,
   },
   "claude-3-7-sonnet-20250219": {
-    "input": 0.000003,
-    "output": 0.000015,
-    "cachedInput": 3e-7
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "claude-sonnet-4-20250514": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "claude-sonnet-4-5": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
   },
   "claude-sonnet-4-5-20250929": {
-    "input": 0.000003,
-    "output": 0.000015,
-    "cachedInput": 3e-7
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
+  },
+  "claude-sonnet-4-6": {
+    input: 0.000_003,
+    output: 0.000_015,
+    cachedInput: 3e-7,
   },
   "gemini-2.0-flash": {
-    "input": 1e-7,
-    "output": 4e-7,
-    "cachedInput": 2.5e-8
+    input: 1e-7,
+    output: 4e-7,
+    cachedInput: 2.5e-8,
   },
   "gemini-2.5-flash": {
-    "input": 3e-7,
-    "output": 0.0000025,
-    "cachedInput": 3e-8
+    input: 3e-7,
+    output: 0.000_002_5,
+    cachedInput: 3e-8,
   },
   "gemini-3-flash": {
-    "input": 5e-7,
-    "output": 0.000003,
-    "cachedInput": 5e-8
+    input: 5e-7,
+    output: 0.000_003,
+    cachedInput: 5e-8,
   },
   "gemini-3-flash-preview": {
-    "input": 5e-7,
-    "output": 0.000003,
-    "cachedInput": 5e-8
+    input: 5e-7,
+    output: 0.000_003,
+    cachedInput: 5e-8,
   },
   "gemini-3-pro": {
-    "input": 0.000002,
-    "output": 0.000012,
-    "cachedInput": 2e-7
+    input: 0.000_002,
+    output: 0.000_012,
+    cachedInput: 2e-7,
   },
   "gemini-3-pro-preview": {
-    "input": 0.000002,
-    "output": 0.000012,
-    "cachedInput": 2e-7
+    input: 0.000_002,
+    output: 0.000_012,
+    cachedInput: 2e-7,
   },
   "google/gemini-2.0-flash-001": {
-    "input": 1e-7,
-    "output": 4e-7,
-    "cachedInput": 2.5e-8
+    input: 1e-7,
+    output: 4e-7,
+    cachedInput: 2.5e-8,
   },
   "google/gemini-2.5-pro": {
-    "input": 0.00000125,
-    "output": 0.00001,
-    "cachedInput": 1.25e-7
+    input: 0.000_001_25,
+    output: 0.000_01,
+    cachedInput: 1.25e-7,
   },
   "google/gemini-2.5-pro-preview": {
-    "input": 0.00000125,
-    "output": 0.00001,
-    "cachedInput": 1.25e-7
+    input: 0.000_001_25,
+    output: 0.000_01,
+    cachedInput: 1.25e-7,
   },
   "google/gemini-3-flash-preview": {
-    "input": 5e-7,
-    "output": 0.000003,
-    "cachedInput": 5e-8
+    input: 5e-7,
+    output: 0.000_003,
+    cachedInput: 5e-8,
   },
   "google/gemini-3-pro-preview": {
-    "input": 0.000002,
-    "output": 0.000012,
-    "cachedInput": 2e-7
+    input: 0.000_002,
+    output: 0.000_012,
+    cachedInput: 2e-7,
   },
   "gpt-3.5-turbo-0125": {
-    "input": 5e-7,
-    "output": 0.0000015,
-    "cachedInput": 5e-7
+    input: 5e-7,
+    output: 0.000_001_5,
+    cachedInput: 5e-7,
   },
   "gpt-4-turbo": {
-    "input": 0.00001,
-    "output": 0.00003,
-    "cachedInput": 0.00001
+    input: 0.000_01,
+    output: 0.000_03,
+    cachedInput: 0.000_01,
   },
   "gpt-4o": {
-    "input": 0.0000025,
-    "output": 0.00001,
-    "cachedInput": 0.00000125
+    input: 0.000_002_5,
+    output: 0.000_01,
+    cachedInput: 0.000_001_25,
   },
   "gpt-4o-mini": {
-    "input": 1.5e-7,
-    "output": 6e-7,
-    "cachedInput": 7.5e-8
+    input: 1.5e-7,
+    output: 6e-7,
+    cachedInput: 7.5e-8,
   },
   "gpt-5-mini": {
-    "input": 2.5e-7,
-    "output": 0.000002,
-    "cachedInput": 2.5e-8
+    input: 2.5e-7,
+    output: 0.000_002,
+    cachedInput: 2.5e-8,
+  },
+  "gpt-5-nano": {
+    input: 5e-8,
+    output: 4e-7,
+    cachedInput: 5e-9,
   },
   "gpt-5.1": {
-    "input": 0.00000125,
-    "output": 0.00001,
-    "cachedInput": 1.25e-7
+    input: 0.000_001_25,
+    output: 0.000_01,
+    cachedInput: 1.25e-7,
+  },
+  "grok-4-fast": {
+    input: 2e-7,
+    output: 5e-7,
+    cachedInput: 5e-8,
   },
   "meta-llama/llama-4-maverick": {
-    "input": 1.5e-7,
-    "output": 6e-7,
-    "cachedInput": 1.5e-7
+    input: 1.5e-7,
+    output: 6e-7,
+    cachedInput: 1.5e-7,
   },
   "moonshotai/kimi-k2": {
-    "input": 5e-7,
-    "output": 0.0000024,
-    "cachedInput": 5e-7
-  }
+    input: 5e-7,
+    output: 0.000_002_4,
+    cachedInput: 5e-7,
+  },
+  "openai/gpt-5-nano": {
+    input: 5e-8,
+    output: 4e-7,
+    cachedInput: 5e-9,
+  },
+  "openai/gpt-5-nano-2025-08-07": {
+    input: 5e-8,
+    output: 4e-7,
+    cachedInput: 5e-9,
+  },
+  "x-ai/grok-4-fast": {
+    input: 2e-7,
+    output: 5e-7,
+    cachedInput: 5e-8,
+  },
+  "x-ai/grok-4-fast-2025-08-28": {
+    input: 2e-7,
+    output: 5e-7,
+    cachedInput: 5e-8,
+  },
 };

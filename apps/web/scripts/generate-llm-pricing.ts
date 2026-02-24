@@ -7,6 +7,7 @@ import {
   OPENROUTER_MODEL_ID_BY_SUPPORTED_MODEL,
   STATIC_MODEL_PRICING,
 } from "../utils/llms/supported-model-pricing";
+import { stripOnlineModelSuffix } from "../utils/llms/model-id";
 
 const OPENROUTER_MODELS_URLS = [
   "https://openrouter.ai/api/v1/models/list-models-user",
@@ -16,6 +17,23 @@ const OUTPUT_FILE = new URL(
   "../utils/llms/pricing.generated.ts",
   import.meta.url,
 );
+const COMMON_OPENROUTER_MODEL_IDS = [
+  "anthropic/claude-sonnet-4.6",
+  "openai/gpt-5-nano",
+  "x-ai/grok-4-fast",
+] as const;
+const COMMON_MODEL_ALIASES: Record<string, string> = {
+  "anthropic/claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
+  "claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
+  "anthropic/claude-sonnet-4-5": "anthropic/claude-sonnet-4.5",
+  "claude-sonnet-4-5": "anthropic/claude-sonnet-4.5",
+  "anthropic/claude-sonnet-4-20250514": "anthropic/claude-sonnet-4",
+  "claude-sonnet-4-20250514": "anthropic/claude-sonnet-4",
+  "openai/gpt-5-nano-2025-08-07": "openai/gpt-5-nano",
+  "gpt-5-nano": "openai/gpt-5-nano",
+  "x-ai/grok-4-fast-2025-08-28": "x-ai/grok-4-fast",
+  "grok-4-fast": "x-ai/grok-4-fast",
+};
 
 const openRouterModelSchema = z.object({
   id: z.string(),
@@ -106,34 +124,51 @@ function buildPricingMap(payload: OpenRouterModelsResponse) {
     openRouterPricingByModelId[model.id] = pricing;
   }
 
-  const supportedModelPricing: Record<string, ModelPricing> = {};
+  const pricingByModelId: Record<string, ModelPricing> = {};
   const unresolvedModels: string[] = [];
-  const supportedModelIds = Object.keys(STATIC_MODEL_PRICING).sort((a, b) =>
-    a.localeCompare(b),
-  );
+  const targetModelIds = [
+    ...Object.keys(STATIC_MODEL_PRICING),
+    ...COMMON_OPENROUTER_MODEL_IDS,
+  ].sort((a, b) => a.localeCompare(b));
 
-  for (const supportedModelId of supportedModelIds) {
-    const candidateModelIds =
-      buildOpenRouterModelIdCandidates(supportedModelId);
+  for (const targetModelId of targetModelIds) {
+    if (pricingByModelId[targetModelId]) continue;
+
+    const candidateModelIds = buildOpenRouterModelIdCandidates(targetModelId);
     const matchedPricing = candidateModelIds
       .map((candidateModelId) => openRouterPricingByModelId[candidateModelId])
       .find(Boolean);
 
     if (!matchedPricing) {
-      unresolvedModels.push(supportedModelId);
+      unresolvedModels.push(targetModelId);
       continue;
     }
 
-    supportedModelPricing[supportedModelId] = matchedPricing;
+    pricingByModelId[targetModelId] = matchedPricing;
   }
 
-  if (unresolvedModels.length) {
+  for (const [alias, canonicalModelId] of Object.entries(
+    COMMON_MODEL_ALIASES,
+  )) {
+    const canonicalPricing = pricingByModelId[canonicalModelId];
+    if (canonicalPricing) {
+      pricingByModelId[alias] = canonicalPricing;
+    }
+  }
+
+  const unresolvedSupportedModels = unresolvedModels.filter((modelId) =>
+    Object.hasOwn(STATIC_MODEL_PRICING, modelId),
+  );
+
+  if (unresolvedSupportedModels.length) {
     console.log(
-      `No OpenRouter pricing match for ${unresolvedModels.length} supported models`,
+      `No OpenRouter pricing match for ${unresolvedSupportedModels.length} supported models`,
     );
   }
 
-  return supportedModelPricing;
+  return Object.fromEntries(
+    Object.entries(pricingByModelId).sort(([a], [b]) => a.localeCompare(b)),
+  );
 }
 
 function parsePricing(pricing: OpenRouterModel["pricing"]) {
@@ -161,9 +196,7 @@ function parsePrice(value: string | number | null | undefined) {
 }
 
 function buildOpenRouterModelIdCandidates(supportedModelId: string): string[] {
-  const noOnlineSuffix = supportedModelId.endsWith(":online")
-    ? supportedModelId.slice(0, -":online".length)
-    : supportedModelId;
+  const noOnlineSuffix = stripOnlineModelSuffix(supportedModelId);
 
   const candidates = [
     OPENROUTER_MODEL_ID_BY_SUPPORTED_MODEL[supportedModelId],
