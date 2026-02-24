@@ -1,4 +1,6 @@
 ---
+name: address-pr-comments
+description: Resolve active pull request comments and prepare replies
 disable-model-invocation: true
 ---
 
