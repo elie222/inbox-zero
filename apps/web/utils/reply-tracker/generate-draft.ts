@@ -1,6 +1,6 @@
 import type { ParsedMessage } from "@/utils/types";
 import { escapeHtml } from "@/utils/string";
-import { internalDateToDate } from "@/utils/date";
+import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { extractEmailAddress, extractEmailAddresses } from "@/utils/email";
 import { aiDraftReply } from "@/utils/ai/reply/draft-reply";
@@ -92,7 +92,11 @@ async function fetchThreadAndConversationMessages(
   threadMessages: ParsedMessage[];
   previousConversationMessages: ParsedMessage[] | null;
 }> {
-  const threadMessages = await client.getThreadMessages(threadId);
+  // Normalize provider-specific ordering (Outlook returns newest-first).
+  // Downstream drafting logic expects chronological order (oldest -> newest).
+  const threadMessages = (await client.getThreadMessages(threadId)).sort(
+    sortByInternalDate("asc"),
+  );
   const previousConversationMessages =
     await client.getPreviousConversationMessages(
       threadMessages.map((msg) => msg.id),
