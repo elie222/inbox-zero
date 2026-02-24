@@ -4,6 +4,10 @@ import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { WELL_KNOWN_FOLDERS } from "./message";
 import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
+import {
+  normalizeOutlookCategoryName,
+  sanitizeOutlookCategoryName,
+} from "@/utils/outlook/label-validation";
 import { findLabelByName } from "@/utils/label/find-label-by-name";
 import type {
   OutlookCategory,
@@ -86,6 +90,9 @@ export async function createLabel({
   color?: string;
   logger: Logger;
 }) {
+  const sanitizedName = sanitizeOutlookCategoryName(name);
+  if (!sanitizedName) throw new Error("Label name cannot be empty");
+
   try {
     // Use a random preset color if none provided or if the provided color is not supported
     const outlookColor =
@@ -96,7 +103,7 @@ export async function createLabel({
     const response: OutlookCategory = await withOutlookRetry(
       () =>
         client.getClient().api("/me/outlook/masterCategories").post({
-          displayName: name,
+          displayName: sanitizedName,
           color: outlookColor,
         }),
       logger,
@@ -107,30 +114,22 @@ export async function createLabel({
     return response;
   } catch (error) {
     let { errorMessage } = extractErrorInfo(error);
-    if (!errorMessage)
-      errorMessage = (error as any)?.message || "Unknown error";
+    if (!errorMessage) {
+      errorMessage = error instanceof Error ? error.message : "Unknown error";
+    }
     if (
       errorMessage.includes("already exists") ||
       errorMessage.includes("conflict with the current state")
     ) {
-      logger.warn("Label already exists", { name });
-      const label = await getLabel({ client, name });
+      logger.warn("Label already exists", { name: sanitizedName });
+      const label = await getLabel({ client, name: sanitizedName });
       if (label) return label;
-      throw new Error(`Label conflict but not found: ${name}`);
+      throw new Error(`Label conflict but not found: ${sanitizedName}`);
     }
     throw new Error(
-      `Failed to create Outlook category "${name}": ${errorMessage}`,
+      `Failed to create Outlook category "${sanitizedName}": ${errorMessage}`,
     );
   }
-}
-
-function normalizeLabel(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/[-_.]/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/^\/+|\/+$/g, "")
-    .trim();
 }
 
 export async function getLabel(options: {
@@ -139,11 +138,14 @@ export async function getLabel(options: {
 }) {
   const { client, name } = options;
   const labels = await getLabels(client);
+  const normalizedSearch = normalizeOutlookCategoryName(name);
+  if (!normalizedSearch) return null;
+
   return findLabelByName({
     labels,
     name,
     getLabelName: (label) => label.displayName,
-    normalize: normalizeLabel,
+    normalize: normalizeOutlookCategoryName,
   });
 }
 
@@ -156,10 +158,16 @@ export async function getOrCreateLabel({
   name: string;
   logger: Logger;
 }) {
-  if (!name?.trim()) throw new Error("Label name cannot be empty");
-  const label = await getLabel({ client, name });
+  const sanitizedName = sanitizeOutlookCategoryName(name);
+  if (!sanitizedName) throw new Error("Label name cannot be empty");
+
+  const label = await getLabel({ client, name: sanitizedName });
   if (label) return label;
-  const createdLabel = await createLabel({ client, name, logger });
+  const createdLabel = await createLabel({
+    client,
+    name: sanitizedName,
+    logger,
+  });
   return createdLabel;
 }
 
@@ -174,25 +182,51 @@ export async function getOrCreateLabels({
 }): Promise<OutlookCategory[]> {
   if (!names.length) return [];
 
-  const emptyNames = names.filter((name) => !name?.trim());
+  const entries = names.map((name) => ({
+    rawName: name,
+    sanitizedName: sanitizeOutlookCategoryName(name),
+    normalizedName: normalizeOutlookCategoryName(name),
+  }));
+
+  const emptyNames = entries.filter((entry) => !entry.sanitizedName);
   if (emptyNames.length) throw new Error("Label names cannot be empty");
 
-  const existingLabels = await getLabels(client);
-  const normalizedNames = names.map(normalizeLabel);
+  assertNoNormalizedInputCollisions(entries);
 
-  const labelMap = new Map<string, OutlookCategory>();
+  const existingLabels = await getLabels(client);
+  const labelMap = new Map<string, OutlookCategory[]>();
   existingLabels.forEach((label) => {
     if (label.displayName) {
-      labelMap.set(normalizeLabel(label.displayName), label);
+      const normalizedLabelName = normalizeOutlookCategoryName(
+        label.displayName,
+      );
+      const labelsForName = labelMap.get(normalizedLabelName) ?? [];
+      labelsForName.push(label);
+      labelMap.set(normalizedLabelName, labelsForName);
     }
   });
 
-  const results = await Promise.all(
-    normalizedNames.map(async (normalizedName, index) => {
-      const existingLabel = labelMap.get(normalizedName);
-      if (existingLabel) return existingLabel;
+  const createLabelMap = new Map<string, Promise<OutlookCategory>>();
 
-      return createLabel({ client, name: names[index], logger });
+  const results = await Promise.all(
+    entries.map(async ({ rawName, sanitizedName, normalizedName }) => {
+      const existingLabelsForName = labelMap.get(normalizedName);
+      if (existingLabelsForName?.length === 1) return existingLabelsForName[0];
+      if (existingLabelsForName?.length)
+        throw new Error(
+          `Ambiguous Outlook category match for "${rawName}". Please use a unique category name.`,
+        );
+
+      const pendingCreate = createLabelMap.get(normalizedName);
+      if (pendingCreate) return pendingCreate;
+
+      const createPromise = createLabel({
+        client,
+        name: sanitizedName,
+        logger,
+      });
+      createLabelMap.set(normalizedName, createPromise);
+      return createPromise;
     }),
   );
 
@@ -639,4 +673,24 @@ export async function getOrCreateInboxZeroLabel({
   // Create label if it doesn't exist
   const createdLabel = await createLabel({ client, name, logger });
   return createdLabel;
+}
+
+function assertNoNormalizedInputCollisions(
+  entries: {
+    rawName: string;
+    normalizedName: string;
+  }[],
+) {
+  const normalizedMap = new Map<string, string>();
+
+  entries.forEach(({ rawName, normalizedName }) => {
+    const existingRawName = normalizedMap.get(normalizedName);
+    if (existingRawName && existingRawName !== rawName) {
+      throw new Error(
+        `Ambiguous Outlook category names "${existingRawName}" and "${rawName}" normalize to the same value. Please keep category names unique.`,
+      );
+    }
+
+    if (!existingRawName) normalizedMap.set(normalizedName, rawName);
+  });
 }
