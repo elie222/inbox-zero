@@ -35,27 +35,14 @@ export async function withGmailRetry<T>(
       const errorInfo = extractErrorInfo(error);
       const { retryable, isRateLimit, isServerError, isFailedPrecondition } =
         isRetryableError(errorInfo);
+      const retryLogFields = buildRetryLogFields(errorInfo);
 
       if (!retryable) {
-        retryLogger.warn("Non-retryable error encountered", {
-          status: errorInfo.status,
-          code: errorInfo.code,
-          reason: errorInfo.reason,
-          googleErrorStatus: errorInfo.googleErrorStatus,
-          errorMessage: trimErrorMessage(errorInfo.errorMessage),
-          isFetchError: isFetchError(errorInfo),
-        });
+        retryLogger.warn("Non-retryable error encountered", retryLogFields);
         throw error;
       }
 
-      const err = error as Record<string, unknown>;
-      const cause = (err?.cause ?? err) as Record<string, unknown>;
-      const retryAfterHeader = (
-        (cause?.response as Record<string, unknown>)?.headers as Record<
-          string,
-          string
-        >
-      )?.["retry-after"];
+      const retryAfterHeader = getRetryAfterHeader(error);
       const retryAfterFromMessage = parseRetryTime(
         errorInfo.errorMessage,
       )?.toISOString();
@@ -73,17 +60,12 @@ export async function withGmailRetry<T>(
         delaySeconds: Math.ceil(delayMs / 1000),
         attemptNumber: error.attemptNumber,
         maxRetries,
-        status: errorInfo.status,
-        code: errorInfo.code,
-        reason: errorInfo.reason,
-        googleErrorStatus: errorInfo.googleErrorStatus,
-        errorMessage: trimErrorMessage(errorInfo.errorMessage),
+        ...retryLogFields,
         retryAfterHeader,
         retryAfterFromMessage,
         isRateLimit,
         isServerError,
         isFailedPrecondition,
-        isFetchError: isFetchError(errorInfo),
       });
 
       // Apply the custom delay
@@ -98,19 +80,15 @@ export async function withGmailRetry<T>(
  * Extracts error information from various error shapes
  */
 export function extractErrorInfo(error: unknown): ErrorInfo {
-  const err = error as Record<string, unknown>;
-  const cause = (err?.cause ?? err) as Record<string, unknown>;
-  const responseError =
-    ((
-      (cause?.response as Record<string, unknown>)?.data as Record<
-        string,
-        unknown
-      >
-    )?.error as Record<string, unknown>) ?? {};
+  const err = toRecord(error);
+  const cause = toRecord(err.cause ?? err);
+  const response = toRecord(cause.response);
+  const responseData = toRecord(response.data);
+  const responseError = toRecord(responseData.error);
   const status =
     (cause?.status as number) ??
     (cause?.code as number) ??
-    ((cause?.response as Record<string, unknown>)?.status as number) ??
+    (response.status as number) ??
     undefined;
   const code =
     (err?.code as string) ??
@@ -118,10 +96,8 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
     (responseError.code as string) ??
     undefined;
   const reason =
-    ((cause?.errors as Array<Record<string, unknown>>)?.[0]
-      ?.reason as string) ??
-    ((responseError.errors as Array<Record<string, unknown>>)?.[0]
-      ?.reason as string) ??
+    getFirstErrorValue(cause.errors, "reason") ??
+    getFirstErrorValue(responseError.errors, "reason") ??
     undefined;
   const googleErrorStatus = (responseError.status as string) ?? undefined;
   const primaryMessage =
@@ -129,8 +105,7 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
     (err?.message as string) ??
     (cause?.error as string) ??
     (err?.error as string) ??
-    ((cause?.errors as Array<Record<string, unknown>>)?.[0]
-      ?.message as string) ??
+    getFirstErrorValue(cause.errors, "message") ??
     (responseError.message as string) ??
     (responseError.error as string as string) ??
     "";
@@ -272,4 +247,39 @@ function trimErrorMessage(errorMessage: string): string | undefined {
   if (!trimmed) return undefined;
   if (trimmed.length <= 500) return trimmed;
   return `${trimmed.slice(0, 497)}...`;
+}
+
+function buildRetryLogFields(errorInfo: ErrorInfo) {
+  return {
+    status: errorInfo.status,
+    code: errorInfo.code,
+    reason: errorInfo.reason,
+    googleErrorStatus: errorInfo.googleErrorStatus,
+    errorMessage: trimErrorMessage(errorInfo.errorMessage),
+    isFetchError: isFetchError(errorInfo),
+  };
+}
+
+function getRetryAfterHeader(error: unknown): string | undefined {
+  const err = toRecord(error);
+  const cause = toRecord(err.cause ?? err);
+  const response = toRecord(cause.response);
+  const headers = toRecord(response.headers);
+  return headers["retry-after"] as string | undefined;
+}
+
+function getFirstErrorValue(
+  errors: unknown,
+  key: "reason" | "message",
+): string | undefined {
+  if (!Array.isArray(errors)) return undefined;
+  const firstError = errors[0];
+  if (!firstError || typeof firstError !== "object") return undefined;
+  const value = (firstError as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object") return {};
+  return value as Record<string, unknown>;
 }
