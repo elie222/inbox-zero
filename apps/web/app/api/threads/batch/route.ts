@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import type { ThreadsResponse } from "@/app/api/threads/route";
+import { runWithBoundedConcurrency } from "@/utils/async";
 
 export type ThreadsBatchResponse = {
   threads: ThreadsResponse["threads"];
@@ -32,29 +33,23 @@ export const GET = withEmailProvider("threads/batch", async (request) => {
   }
 
   try {
+    const results = await runWithBoundedConcurrency({
+      items: threadIds,
+      concurrency: THREAD_FETCH_CONCURRENCY,
+      run: (threadId) => emailProvider.getThread(threadId),
+    });
+
     const validThreads: ThreadsResponse["threads"] = [];
 
-    // Bound parallel Gmail calls to reduce user-level rate limit bursts.
-    for (let i = 0; i < threadIds.length; i += THREAD_FETCH_CONCURRENCY) {
-      const batch = threadIds.slice(i, i + THREAD_FETCH_CONCURRENCY);
-
-      const threads = await Promise.all(
-        batch.map(async (threadId) => {
-          try {
-            return await emailProvider.getThread(threadId);
-          } catch (error) {
-            request.logger.error("Error fetching thread", { error, threadId });
-            return null;
-          }
-        }),
-      );
-
-      validThreads.push(
-        ...threads.filter(
-          (thread): thread is ThreadsResponse["threads"][number] =>
-            thread !== null,
-        ),
-      );
+    for (const { item: threadId, result } of results) {
+      if (result.status === "fulfilled") {
+        validThreads.push(result.value);
+      } else {
+        request.logger.error("Error fetching thread", {
+          error: result.reason,
+          threadId,
+        });
+      }
     }
 
     return NextResponse.json({ threads: validThreads });

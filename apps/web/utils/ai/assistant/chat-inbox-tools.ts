@@ -9,6 +9,7 @@ import { SystemType } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
+import { runWithBoundedConcurrency } from "@/utils/async";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 const sendEmailToolInputSchema = z
@@ -970,27 +971,18 @@ async function runThreadActionsInParallel({
   runAction: (threadId: string) => Promise<void>;
 }) {
   const BATCH_SIZE = 10;
-  const results: Array<{ threadId: string; success: boolean }> = [];
+  const results = await runWithBoundedConcurrency({
+    items: threadIds,
+    concurrency: BATCH_SIZE,
+    run: async (threadId) => {
+      await runAction(threadId);
+    },
+  });
 
-  for (let i = 0; i < threadIds.length; i += BATCH_SIZE) {
-    const batch = threadIds.slice(i, i + BATCH_SIZE);
-
-    const batchResults = await Promise.allSettled(
-      batch.map(async (threadId) => {
-        await runAction(threadId);
-        return threadId;
-      }),
-    );
-
-    for (const [index, result] of batchResults.entries()) {
-      results.push({
-        threadId: batch[index],
-        success: result.status === "fulfilled",
-      });
-    }
-  }
-
-  return results;
+  return results.map(({ item: threadId, result }) => ({
+    threadId,
+    success: result.status === "fulfilled",
+  }));
 }
 
 function getManageInboxValidationError(error: z.ZodError) {
