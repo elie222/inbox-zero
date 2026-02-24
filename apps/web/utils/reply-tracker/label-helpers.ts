@@ -8,7 +8,7 @@ import {
 } from "./conversation-status-config";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { labelMessageAndSync } from "@/utils/label.server";
-import { createReplyTrackerScopeLogger } from "./error-logging";
+import { logReplyTrackerError } from "./error-logging";
 
 export type LabelIds = Record<
   ConversationStatus,
@@ -79,16 +79,13 @@ export async function removeConflictingThreadStatusLabels({
     return;
   }
 
-  const logLabelHelpersError = createReplyTrackerScopeLogger({
-    logger,
-    emailAccountId,
-    scope: "label-helpers",
-  });
-
   await provider
     .removeThreadLabels(threadId, removeLabelIds)
     .catch(async (error) => {
-      await logLabelHelpersError({
+      await logReplyTrackerError({
+        logger,
+        emailAccountId,
+        scope: "label-helpers",
         message: "Failed to remove conflicting thread labels",
         operation: "remove-conflicting-thread-status-labels",
         error,
@@ -129,11 +126,6 @@ export async function applyThreadStatusLabel({
     getLabelsFromDb(emailAccountId),
     provider.getLabels(),
   ]);
-  const logLabelHelpersError = createReplyTrackerScopeLogger({
-    logger,
-    emailAccountId,
-    scope: "label-helpers",
-  });
 
   const addLabel = async () => {
     let targetLabel = dbLabels[systemType];
@@ -168,7 +160,10 @@ export async function applyThreadStatusLabel({
       emailAccountId,
       logger,
     }).catch(async (error) =>
-      logLabelHelpersError({
+      logReplyTrackerError({
+        logger,
+        emailAccountId,
+        scope: "label-helpers",
         message: "Failed to apply thread status label",
         operation: "apply-thread-status-label",
         error,

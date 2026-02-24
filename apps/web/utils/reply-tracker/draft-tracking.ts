@@ -5,7 +5,7 @@ import { withPrismaRetry } from "@/utils/prisma-retry";
 import { calculateSimilarity } from "@/utils/similarity-score";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
-import { createReplyTrackerScopeLogger } from "./error-logging";
+import { logReplyTrackerError } from "./error-logging";
 
 /**
  * Checks if a sent message originated from an AI draft and logs its similarity.
@@ -157,11 +157,6 @@ export async function cleanupThreadAIDrafts({
   excludeMessageId: string;
 }) {
   logger.info("Starting cleanup of old AI drafts for thread");
-  const logDraftTrackingError = createReplyTrackerScopeLogger({
-    logger,
-    emailAccountId,
-    scope: "draft-tracking",
-  });
 
   try {
     // Find all draft actions for this thread that:
@@ -284,7 +279,10 @@ export async function cleanupThreadAIDrafts({
           );
         }
       } catch (error) {
-        await logDraftTrackingError({
+        await logReplyTrackerError({
+          logger,
+          emailAccountId,
+          scope: "draft-tracking",
           message: "Error checking draft for cleanup",
           operation: "check-draft-for-cleanup",
           context: actionLoggerOptions,

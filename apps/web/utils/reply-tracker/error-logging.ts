@@ -13,11 +13,6 @@ type LogReplyTrackerErrorArgs = {
   capture?: boolean;
 };
 
-type ReplyTrackerScopeLoggerArgs = Omit<
-  LogReplyTrackerErrorArgs,
-  "logger" | "emailAccountId" | "scope" | "capture"
->;
-
 export async function logReplyTrackerError({
   logger,
   emailAccountId,
@@ -43,33 +38,4 @@ export async function logReplyTrackerError({
   if (capture) {
     captureException(error, { emailAccountId });
   }
-}
-
-export function createReplyTrackerScopeLogger({
-  logger,
-  emailAccountId,
-  scope,
-  capture = false,
-}: {
-  logger: Logger;
-  emailAccountId: string;
-  scope: string;
-  capture?: boolean;
-}) {
-  return ({
-    message,
-    operation,
-    error,
-    context,
-  }: ReplyTrackerScopeLoggerArgs) =>
-    logReplyTrackerError({
-      logger,
-      emailAccountId,
-      scope,
-      message,
-      operation,
-      error,
-      context,
-      capture,
-    });
 }
