@@ -34,10 +34,8 @@
 - Env vars: add to `.env.example`, `env.ts`, and `turbo.json`. Prefix client-side with `NEXT_PUBLIC_`.
 
 ## Change Philosophy
-- Prefer the simplest readable change over preserving old interfaces.
-- Do not maintain backwards compatibility unless explicitly requested.
-- We do not optimize for migration paths; refactor call sites directly when it improves clarity.
-- Prioritize code readability, even when it requires larger coordinated changes.
+- Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.
+- Do not optimize for migration paths: refactor call sites directly, including larger coordinated changes when clarity improves.
 
 ## Component Guidelines
 - Use shadcn/ui components when available
