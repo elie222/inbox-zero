@@ -3,10 +3,10 @@ import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
-import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import { handleOutboundReply } from "./outbound";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
+import { logReplyTrackerError } from "./error-logging";
 
 export async function handleOutboundMessage({
   emailAccount,
@@ -42,12 +42,14 @@ export async function handleOutboundMessage({
       provider,
       logger,
     }).catch((error) =>
-      reportReplyTrackerError({
+      logReplyTrackerError({
         logger,
         emailAccountId: emailAccount.id,
+        scope: "handle-outbound",
         message: "Error tracking sent draft status",
         operation: "track-sent-draft-status",
         error,
+        capture: true,
       }),
     ),
     handleOutboundReply({
@@ -56,12 +58,14 @@ export async function handleOutboundMessage({
       provider,
       logger,
     }).catch((error) =>
-      reportReplyTrackerError({
+      logReplyTrackerError({
         logger,
         emailAccountId: emailAccount.id,
+        scope: "handle-outbound",
         message: "Error handling outbound reply",
         operation: "handle-outbound-reply",
         error,
+        capture: true,
       }),
     ),
   ]);
@@ -91,30 +95,4 @@ export async function handleOutboundMessage({
     logger.error("Error removing follow-up label", { error });
     captureException(error, { emailAccountId: emailAccount.id });
   }
-}
-
-async function reportReplyTrackerError({
-  logger,
-  emailAccountId,
-  message,
-  operation,
-  error,
-}: {
-  logger: Logger;
-  emailAccountId: string;
-  message: string;
-  operation: string;
-  error: unknown;
-}) {
-  await logErrorWithDedupe({
-    logger,
-    message,
-    error,
-    dedupeKeyParts: {
-      scope: "reply-tracker/handle-outbound",
-      emailAccountId,
-      operation,
-    },
-  });
-  captureException(error, { emailAccountId });
 }

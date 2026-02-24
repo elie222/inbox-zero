@@ -8,7 +8,7 @@ import {
 } from "./conversation-status-config";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { labelMessageAndSync } from "@/utils/label.server";
-import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { logReplyTrackerError } from "./error-logging";
 
 export type LabelIds = Record<
   ConversationStatus,
@@ -82,9 +82,10 @@ export async function removeConflictingThreadStatusLabels({
   await provider
     .removeThreadLabels(threadId, removeLabelIds)
     .catch(async (error) => {
-      await logThreadStatusLabelError({
+      await logReplyTrackerError({
         logger,
         emailAccountId,
+        scope: "label-helpers",
         message: "Failed to remove conflicting thread labels",
         operation: "remove-conflicting-thread-status-labels",
         error,
@@ -159,9 +160,10 @@ export async function applyThreadStatusLabel({
       emailAccountId,
       logger,
     }).catch(async (error) =>
-      logThreadStatusLabelError({
+      logReplyTrackerError({
         logger,
         emailAccountId,
+        scope: "label-helpers",
         message: "Failed to apply thread status label",
         operation: "apply-thread-status-label",
         error,
@@ -225,32 +227,4 @@ export async function getLabelsFromDb(
   }
 
   return dbLabels;
-}
-
-async function logThreadStatusLabelError({
-  logger,
-  emailAccountId,
-  message,
-  operation,
-  error,
-  context,
-}: {
-  logger: Logger;
-  emailAccountId: string;
-  message: string;
-  operation: string;
-  error: unknown;
-  context?: Record<string, unknown>;
-}) {
-  await logErrorWithDedupe({
-    logger,
-    message,
-    error,
-    context,
-    dedupeKeyParts: {
-      scope: "reply-tracker/label-helpers",
-      emailAccountId,
-      operation,
-    },
-  });
 }
