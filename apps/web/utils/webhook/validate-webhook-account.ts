@@ -6,68 +6,70 @@ import { createEmailProvider } from "@/utils/email/provider";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import type { Prisma } from "@/generated/prisma/client";
+
+const webhookEmailAccountSelect = {
+  id: true,
+  email: true,
+  userId: true,
+  about: true,
+  multiRuleSelectionEnabled: true,
+  timezone: true,
+  calendarBookingLink: true,
+  lastSyncedHistoryId: true,
+  autoCategorizeSenders: true,
+  filingEnabled: true,
+  filingPrompt: true,
+  watchEmailsSubscriptionId: true,
+  watchEmailsSubscriptionHistory: true,
+  account: {
+    select: {
+      provider: true,
+      access_token: true,
+      refresh_token: true,
+      expires_at: true,
+      disconnectedAt: true,
+    },
+  },
+  rules: {
+    where: { enabled: true },
+    include: { actions: true },
+  },
+  user: {
+    select: {
+      aiProvider: true,
+      aiModel: true,
+      aiApiKey: true,
+      premium: {
+        select: {
+          lemonSqueezyRenewsAt: true,
+          stripeSubscriptionStatus: true,
+          tier: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.EmailAccountSelect;
+
+type WebhookEmailAccount = Prisma.EmailAccountGetPayload<{
+  select: typeof webhookEmailAccountSelect;
+}>;
 
 export async function getWebhookEmailAccount(
   where: { email: string } | { watchEmailsSubscriptionId: string },
   logger: Logger,
 ) {
-  const query = {
-    select: {
-      id: true,
-      email: true,
-      userId: true,
-      about: true,
-      multiRuleSelectionEnabled: true,
-      timezone: true,
-      calendarBookingLink: true,
-      lastSyncedHistoryId: true,
-      autoCategorizeSenders: true,
-      filingEnabled: true,
-      filingPrompt: true,
-      watchEmailsSubscriptionId: true,
-      watchEmailsSubscriptionHistory: true,
-      account: {
-        select: {
-          provider: true,
-          access_token: true,
-          refresh_token: true,
-          expires_at: true,
-          disconnectedAt: true,
-        },
-      },
-      rules: {
-        where: { enabled: true },
-        include: { actions: true },
-      },
-      user: {
-        select: {
-          aiProvider: true,
-          aiModel: true,
-          aiApiKey: true,
-          premium: {
-            select: {
-              lemonSqueezyRenewsAt: true,
-              stripeSubscriptionStatus: true,
-              tier: true,
-            },
-          },
-        },
-      },
-    },
-  };
-
-  let emailAccount: Awaited<ReturnType<typeof prisma.emailAccount.findUnique>> =
-    null;
+  let emailAccount: WebhookEmailAccount | null = null;
 
   if ("email" in where) {
     emailAccount = await prisma.emailAccount.findUnique({
       where: { email: where.email },
-      ...query,
+      select: webhookEmailAccountSelect,
     });
   } else {
     emailAccount = await prisma.emailAccount.findFirst({
       where: { watchEmailsSubscriptionId: where.watchEmailsSubscriptionId },
-      ...query,
+      select: webhookEmailAccountSelect,
     });
 
     if (!emailAccount) {
@@ -86,7 +88,7 @@ export async function getWebhookEmailAccount(
       if (foundAccount) {
         emailAccount = await prisma.emailAccount.findUnique({
           where: { id: foundAccount.id },
-          ...query,
+          select: webhookEmailAccountSelect,
         });
 
         if (emailAccount) {
