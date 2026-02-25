@@ -1,13 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { redis } from "@/utils/redis";
 import {
-  assertGmailNotRateLimited,
-  getGmailRateLimitState,
-  GmailRateLimitModeError,
+  assertProviderNotRateLimited,
+  getEmailProviderRateLimitState,
+  ProviderRateLimitModeError,
   recordRateLimitFromApiError,
   recordProviderRateLimitFromError,
-  recordGmailRateLimitFromError,
-  setGmailRateLimitState,
+  setEmailProviderRateLimitState,
   withRateLimitRecording,
 } from "./rate-limit";
 
@@ -21,7 +20,7 @@ vi.mock("@/utils/redis", () => ({
   },
 }));
 
-describe("gmail rate-limit state", () => {
+describe("email provider rate-limit state", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -30,14 +29,15 @@ describe("gmail rate-limit state", () => {
     const retryAt = new Date(Date.now() + 60_000);
     vi.mocked(redis.get).mockResolvedValueOnce(null);
 
-    await setGmailRateLimitState({
+    await setEmailProviderRateLimitState({
       emailAccountId: "account-1",
+      provider: "google",
       retryAt,
       source: "test",
     });
 
     expect(redis.set).toHaveBeenCalledWith(
-      "gmail-rate-limit:account-1",
+      "email-provider-rate-limit:account-1",
       expect.any(String),
       expect.objectContaining({
         ex: expect.any(Number),
@@ -46,13 +46,14 @@ describe("gmail rate-limit state", () => {
 
     vi.mocked(redis.get).mockResolvedValueOnce(
       JSON.stringify({
+        provider: "google",
         retryAt: retryAt.toISOString(),
         source: "test",
         detectedAt: new Date().toISOString(),
       }),
     );
 
-    const state = await getGmailRateLimitState({
+    const state = await getEmailProviderRateLimitState({
       emailAccountId: "account-1",
     });
 
@@ -63,22 +64,26 @@ describe("gmail rate-limit state", () => {
   it("clears stale rate-limit entries", async () => {
     vi.mocked(redis.get).mockResolvedValueOnce(
       JSON.stringify({
+        provider: "google",
         retryAt: new Date(Date.now() - 5000).toISOString(),
         detectedAt: new Date().toISOString(),
       }),
     );
 
-    const state = await getGmailRateLimitState({
+    const state = await getEmailProviderRateLimitState({
       emailAccountId: "account-1",
     });
 
     expect(state).toBeNull();
-    expect(redis.del).toHaveBeenCalledWith("gmail-rate-limit:account-1");
+    expect(redis.del).toHaveBeenCalledWith(
+      "email-provider-rate-limit:account-1",
+    );
   });
 
   it("throws a typed error when account is currently rate-limited", async () => {
     vi.mocked(redis.get).mockResolvedValueOnce(
       JSON.stringify({
+        provider: "google",
         retryAt: new Date(Date.now() + 60_000).toISOString(),
         source: "test",
         detectedAt: new Date().toISOString(),
@@ -86,16 +91,20 @@ describe("gmail rate-limit state", () => {
     );
 
     await expect(
-      assertGmailNotRateLimited({ emailAccountId: "account-1" }),
-    ).rejects.toBeInstanceOf(GmailRateLimitModeError);
+      assertProviderNotRateLimited({
+        emailAccountId: "account-1",
+        provider: "google",
+      }),
+    ).rejects.toBeInstanceOf(ProviderRateLimitModeError);
   });
 
   it("records rate-limit mode from gmail retry errors", async () => {
     const retryAt = new Date(Date.now() + 120_000).toISOString();
     vi.mocked(redis.get).mockResolvedValueOnce(null);
 
-    const state = await recordGmailRateLimitFromError({
+    const state = await recordProviderRateLimitFromError({
       emailAccountId: "account-1",
+      provider: "google",
       error: {
         cause: {
           status: 429,
@@ -107,7 +116,7 @@ describe("gmail rate-limit state", () => {
 
     expect(state).not.toBeNull();
     expect(redis.set).toHaveBeenCalledWith(
-      "gmail-rate-limit:account-1",
+      "email-provider-rate-limit:account-1",
       expect.any(String),
       expect.objectContaining({
         ex: expect.any(Number),
@@ -129,6 +138,7 @@ describe("gmail rate-limit state", () => {
       withRateLimitRecording(
         {
           emailAccountId: "account-1",
+          provider: "google",
           source: "test-wrapper",
         },
         async () => {
@@ -138,7 +148,7 @@ describe("gmail rate-limit state", () => {
     ).rejects.toBe(rateLimitError);
 
     expect(redis.set).toHaveBeenCalledWith(
-      "gmail-rate-limit:account-1",
+      "email-provider-rate-limit:account-1",
       expect.any(String),
       expect.objectContaining({
         ex: expect.any(Number),
@@ -160,6 +170,7 @@ describe("gmail rate-limit state", () => {
       withRateLimitRecording(
         {
           emailAccountId: "account-1",
+          provider: "google",
           source: "test-wrapper",
         },
         async () => {
@@ -180,8 +191,9 @@ describe("gmail rate-limit state", () => {
       }),
     );
 
-    const state = await setGmailRateLimitState({
+    const state = await setEmailProviderRateLimitState({
       emailAccountId: "account-1",
+      provider: "google",
       retryAt: new Date(Date.now() + 30_000),
       source: "short-window",
     });
@@ -212,7 +224,7 @@ describe("gmail rate-limit state", () => {
     expect(state).not.toBeNull();
     expect(state?.provider).toBe("microsoft");
     expect(redis.set).toHaveBeenCalledWith(
-      "gmail-rate-limit:account-1",
+      "email-provider-rate-limit:account-1",
       expect.any(String),
       expect.objectContaining({
         ex: expect.any(Number),
@@ -235,7 +247,7 @@ describe("gmail rate-limit state", () => {
 
     expect(provider).toBe("microsoft");
     expect(redis.set).toHaveBeenCalledWith(
-      "gmail-rate-limit:account-1",
+      "email-provider-rate-limit:account-1",
       expect.any(String),
       expect.objectContaining({
         ex: expect.any(Number),

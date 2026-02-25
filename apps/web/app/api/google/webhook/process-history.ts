@@ -16,7 +16,7 @@ import {
   type ValidatedWebhookAccountData,
 } from "@/utils/webhook/validate-webhook-account";
 import {
-  getGmailRateLimitState,
+  getEmailProviderRateLimitState,
   withRateLimitRecording,
 } from "@/utils/email/rate-limit";
 import prisma from "@/utils/prisma";
@@ -71,11 +71,11 @@ export async function processHistoryForUser(
   const accountAccessToken = validatedEmailAccount.account.access_token;
   const accountRefreshToken = validatedEmailAccount.account.refresh_token;
   const accountProvider = validatedEmailAccount.account.provider || "google";
-  const activeRateLimit = await getGmailRateLimitState({
+  const activeRateLimit = await getEmailProviderRateLimitState({
     emailAccountId: validatedEmailAccount.id,
   });
 
-  if (activeRateLimit) {
+  if (activeRateLimit?.provider === "google") {
     logger.warn("Skipping webhook processing due to active Gmail rate limit", {
       retryAt: activeRateLimit.retryAt.toISOString(),
       rateLimitSource: activeRateLimit.source,

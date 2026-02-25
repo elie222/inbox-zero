@@ -7,7 +7,7 @@ import {
 } from "@/utils/webhook/validate-webhook-account";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { getGmailRateLimitState } from "@/utils/email/rate-limit";
+import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 
 const logger = createScopedLogger("test");
 // Mock logger.with to return the same logger instance so spies work
@@ -42,15 +42,14 @@ vi.mock("@/utils/error", () => ({
 }));
 
 vi.mock("@/utils/email/rate-limit", () => ({
-  getGmailRateLimitState: vi.fn().mockResolvedValue(null),
-  recordGmailRateLimitFromError: vi.fn(),
+  getEmailProviderRateLimitState: vi.fn().mockResolvedValue(null),
   withRateLimitRecording: vi.fn(async (_context, operation) => operation()),
 }));
 
 describe("processHistoryForUser - 404 Handling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getGmailRateLimitState).mockResolvedValue(null);
+    vi.mocked(getEmailProviderRateLimitState).mockResolvedValue(null);
   });
 
   it("should reset lastSyncedHistoryId when Gmail returns 404 (expired historyId)", async () => {
@@ -124,7 +123,7 @@ describe("processHistoryForUser - 404 Handling", () => {
         hasAiAccess: false,
       },
     } as any);
-    vi.mocked(getGmailRateLimitState).mockResolvedValue({
+    vi.mocked(getEmailProviderRateLimitState).mockResolvedValue({
       provider: "google",
       retryAt: new Date(Date.now() + 60_000),
       source: "test",

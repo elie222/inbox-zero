@@ -9,7 +9,7 @@ import {
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
 import type { EmailProvider } from "@/utils/email/types";
-import { assertGmailNotRateLimited } from "@/utils/email/rate-limit";
+import { assertProviderNotRateLimited } from "@/utils/email/rate-limit";
 import type { Logger } from "@/utils/logger";
 
 export async function createEmailProvider({
@@ -22,8 +22,9 @@ export async function createEmailProvider({
   logger: Logger;
 }): Promise<EmailProvider> {
   if (isGoogleProvider(provider)) {
-    await assertGmailNotRateLimited({
+    await assertProviderNotRateLimited({
       emailAccountId,
+      provider: "google",
       logger,
       source: "create-email-provider",
     });

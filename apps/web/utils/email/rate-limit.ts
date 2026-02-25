@@ -2,6 +2,7 @@ import "server-only";
 import { env } from "@/env";
 import { redis } from "@/utils/redis";
 import { createScopedLogger, type Logger } from "@/utils/logger";
+import type { EmailProvider } from "@/utils/email/types";
 import {
   calculateRetryDelay,
   extractErrorInfo,
@@ -16,7 +17,7 @@ import {
 
 const logger = createScopedLogger("email-rate-limit");
 
-const RATE_LIMIT_KEY_PREFIX = "gmail-rate-limit";
+const RATE_LIMIT_KEY_PREFIX = "email-provider-rate-limit";
 const DEFAULT_RATE_LIMIT_DELAY_MS = 30_000;
 const MAX_RATE_LIMIT_TTL_SECONDS = 60 * 60;
 const RETRY_AT_BUFFER_SECONDS = 5;
@@ -31,15 +32,13 @@ type StoredProviderRateLimitState = {
   detectedAt: string;
 };
 
-export type EmailProviderRateLimitProvider = "google" | "microsoft";
+export type EmailProviderRateLimitProvider = EmailProvider["name"];
 
 export type EmailProviderRateLimitState = {
   provider: EmailProviderRateLimitProvider;
   retryAt: Date;
   source?: string;
 };
-
-export type GmailRateLimitState = EmailProviderRateLimitState;
 
 export function getProviderFromRateLimitApiErrorType(
   apiErrorType: string,
@@ -85,7 +84,7 @@ export async function recordRateLimitFromApiError({
 
 type RateLimitRecordingContext = {
   emailAccountId?: string;
-  provider?: EmailProviderRateLimitProvider;
+  provider?: string | null;
   source?: string;
   logger?: Logger;
   attemptNumber?: number;
@@ -95,36 +94,42 @@ type RateLimitRecordingContext = {
   ) => void | Promise<void>;
 };
 
-export class GmailRateLimitModeError extends Error {
-  errors: Array<{ reason: "rateLimitExceeded"; message: string }>;
+export class ProviderRateLimitModeError extends Error {
+  provider: EmailProviderRateLimitProvider;
+  errors?: Array<{ reason: "rateLimitExceeded"; message: string }>;
+  statusCode?: number;
+  code?: string;
   retryAt?: string;
 
   constructor({
-    message,
+    provider,
     retryAt,
   }: {
-    message: string;
+    provider: EmailProviderRateLimitProvider;
     retryAt?: Date;
   }) {
+    const message =
+      provider === "google"
+        ? `Gmail is temporarily rate limiting this account. Retry after ${retryAt?.toISOString()}.`
+        : `Microsoft is temporarily rate limiting this account. Retry after ${retryAt?.toISOString()}.`;
+
     super(message);
-    this.name = "GmailRateLimitModeError";
-    this.errors = [{ reason: "rateLimitExceeded", message }];
+    this.name = "ProviderRateLimitModeError";
+    this.provider = provider;
+    if (provider === "google") {
+      this.errors = [{ reason: "rateLimitExceeded", message }];
+    } else {
+      this.statusCode = 429;
+      this.code = "TooManyRequests";
+    }
     this.retryAt = retryAt?.toISOString();
   }
 }
 
 export function isProviderRateLimitModeError(
   error: unknown,
-): error is GmailRateLimitModeError {
-  return error instanceof GmailRateLimitModeError;
-}
-
-export async function getGmailRateLimitState({
-  emailAccountId,
-}: {
-  emailAccountId: string;
-}): Promise<GmailRateLimitState | null> {
-  return getEmailProviderRateLimitState({ emailAccountId });
+): error is ProviderRateLimitModeError {
+  return error instanceof ProviderRateLimitModeError;
 }
 
 export async function getEmailProviderRateLimitState({
@@ -155,26 +160,6 @@ export async function getEmailProviderRateLimitState({
     retryAt,
     source: parsed.source,
   };
-}
-
-export async function setGmailRateLimitState({
-  emailAccountId,
-  retryAt,
-  source,
-  logger: customLogger,
-}: {
-  emailAccountId: string;
-  retryAt: Date;
-  source?: string;
-  logger?: Logger;
-}): Promise<GmailRateLimitState> {
-  return setEmailProviderRateLimitState({
-    emailAccountId,
-    provider: "google",
-    retryAt,
-    source,
-    logger: customLogger,
-  });
 }
 
 export async function setEmailProviderRateLimitState({
@@ -244,51 +229,31 @@ export async function setEmailProviderRateLimitState({
   };
 }
 
-export async function assertGmailNotRateLimited({
+export async function assertProviderNotRateLimited({
   emailAccountId,
+  provider,
   logger,
   source,
 }: {
   emailAccountId: string;
+  provider: EmailProviderRateLimitProvider;
   logger?: Logger;
   source?: string;
 }) {
-  const state = await getGmailRateLimitState({ emailAccountId });
-  if (!state) return;
+  const state = await getEmailProviderRateLimitState({ emailAccountId });
+  if (!state || state.provider !== provider) return;
 
-  logger?.warn("Skipping Gmail call while rate-limit mode is active", {
+  logger?.warn("Skipping provider call while rate-limit mode is active", {
     emailAccountId,
+    provider,
     retryAt: state.retryAt.toISOString(),
     source,
     rateLimitSource: state.source,
   });
 
-  throw new GmailRateLimitModeError({
-    message: `Gmail is temporarily rate limiting this account. Retry after ${state.retryAt.toISOString()}.`,
+  throw new ProviderRateLimitModeError({
+    provider,
     retryAt: state.retryAt,
-  });
-}
-
-export async function recordGmailRateLimitFromError({
-  error,
-  emailAccountId,
-  logger,
-  source,
-  attemptNumber = 1,
-}: {
-  error: unknown;
-  emailAccountId: string;
-  logger?: Logger;
-  source?: string;
-  attemptNumber?: number;
-}): Promise<GmailRateLimitState | null> {
-  return recordProviderRateLimitFromError({
-    error,
-    emailAccountId,
-    provider: "google",
-    logger,
-    source,
-    attemptNumber,
   });
 }
 
@@ -329,7 +294,7 @@ export async function recordProviderRateLimitFromError({
 export async function withRateLimitRecording<T>(
   {
     emailAccountId,
-    provider = "google",
+    provider,
     source,
     logger,
     attemptNumber = 1,
@@ -341,19 +306,20 @@ export async function withRateLimitRecording<T>(
     return await operation();
   } catch (error) {
     let rateLimitState: EmailProviderRateLimitState | null = null;
-    if (emailAccountId) {
+    const rateLimitProvider = toRateLimitProvider(provider);
+    if (emailAccountId && rateLimitProvider) {
       try {
         rateLimitState = await recordProviderRateLimitFromError({
           error,
           emailAccountId,
-          provider,
+          provider: rateLimitProvider,
           logger,
           source,
           attemptNumber,
         });
       } catch (recordError) {
         logger?.warn("Failed to record provider rate-limit state", {
-          provider,
+          provider: rateLimitProvider,
           source,
           error:
             recordError instanceof Error ? recordError.message : recordError,
@@ -376,21 +342,14 @@ export function getProviderRateLimitDelayMs({
   provider: EmailProviderRateLimitProvider;
   attemptNumber: number;
 }) {
-  if (provider === "microsoft") {
-    const errorInfo = extractOutlookErrorInfo(error);
-    const { isRateLimit } = isOutlookRetryableError(errorInfo);
-    if (!isRateLimit) return null;
-
-    const delayMs = calculateOutlookRetryDelay(
-      true,
-      false,
-      false,
-      attemptNumber,
-      getOutlookRetryAfterHeader(error),
-    );
-    return delayMs > 0 ? delayMs : DEFAULT_RATE_LIMIT_DELAY_MS;
+  if (provider === "google") {
+    return getGoogleRateLimitDelayMs(error, attemptNumber);
   }
 
+  return getMicrosoftRateLimitDelayMs(error, attemptNumber);
+}
+
+function getGoogleRateLimitDelayMs(error: unknown, attemptNumber: number) {
   const errorInfo = extractErrorInfo(error);
   const { isRateLimit } = isRetryableError(errorInfo);
   if (!isRateLimit) return null;
@@ -407,15 +366,28 @@ export function getProviderRateLimitDelayMs({
   return delayMs > 0 ? delayMs : DEFAULT_RATE_LIMIT_DELAY_MS;
 }
 
+function getMicrosoftRateLimitDelayMs(error: unknown, attemptNumber: number) {
+  const errorInfo = extractOutlookErrorInfo(error);
+  const { isRateLimit } = isOutlookRetryableError(errorInfo);
+  if (!isRateLimit) return null;
+
+  const delayMs = calculateOutlookRetryDelay(
+    true,
+    false,
+    false,
+    attemptNumber,
+    getOutlookRetryAfterHeader(error),
+  );
+  return delayMs > 0 ? delayMs : DEFAULT_RATE_LIMIT_DELAY_MS;
+}
+
 function parseStoredState(value: string): StoredProviderRateLimitState | null {
   try {
     const parsed = JSON.parse(value) as Partial<StoredProviderRateLimitState>;
     if (!parsed.retryAt || typeof parsed.retryAt !== "string") return null;
     if (Number.isNaN(new Date(parsed.retryAt).getTime())) return null;
-    const provider =
-      parsed.provider === "microsoft" || parsed.provider === "google"
-        ? parsed.provider
-        : "google";
+    const provider = toRateLimitProvider(parsed.provider);
+    if (!provider) return null;
     return {
       provider,
       retryAt: parsed.retryAt,
@@ -436,4 +408,11 @@ function getOutlookRetryAfterHeader(error: unknown): string | undefined {
   const response = err?.response as Record<string, unknown> | undefined;
   const headers = response?.headers as Record<string, string> | undefined;
   return headers?.["retry-after"] ?? headers?.["Retry-After"];
+}
+
+export function toRateLimitProvider(
+  provider: string | null | undefined,
+): EmailProviderRateLimitProvider | null {
+  if (provider === "google" || provider === "microsoft") return provider;
+  return null;
 }

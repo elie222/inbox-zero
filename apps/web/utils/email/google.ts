@@ -1519,6 +1519,7 @@ export class GmailProvider implements EmailProvider {
     return withRateLimitRecording(
       {
         emailAccountId: this.emailAccountId,
+        provider: "google",
         logger: this.logger,
         source: `gmail-provider/${source}`,
       },

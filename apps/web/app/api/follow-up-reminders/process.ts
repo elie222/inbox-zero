@@ -13,9 +13,9 @@ import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import {
-  type EmailProviderRateLimitProvider,
   getProviderRateLimitDelayMs,
   isProviderRateLimitModeError,
+  toRateLimitProvider,
   withRateLimitRecording,
 } from "@/utils/email/rate-limit";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -215,16 +215,19 @@ export async function processAccountFollowUps({
 
 function getRetryAtFromRateLimitError(
   error: unknown,
-  provider?: EmailProviderRateLimitProvider,
+  provider?: string | null,
 ): Date | undefined {
   if (isProviderRateLimitModeError(error) && error.retryAt) {
     const retryAt = new Date(error.retryAt);
     if (!Number.isNaN(retryAt.getTime())) return retryAt;
   }
 
+  const rateLimitProvider = toRateLimitProvider(provider);
+  if (!rateLimitProvider) return undefined;
+
   const delayMs = getProviderRateLimitDelayMs({
     error,
-    provider: provider ?? "google",
+    provider: rateLimitProvider,
     attemptNumber: 1,
   });
   if (!delayMs) return undefined;
