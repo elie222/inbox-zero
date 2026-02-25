@@ -1314,13 +1314,7 @@ async function runStart(options: { detach: boolean }) {
       spinner.stop("Failed to start");
       if (portError) {
         p.log.error(portError);
-        p.log.info(
-          "Stop the conflicting process or change the port:\n" +
-            "  inbox-zero config set WEB_PORT <port>\n" +
-            "  inbox-zero config set POSTGRES_PORT <port>\n" +
-            "  inbox-zero config set REDIS_PORT <port>\n" +
-            "  inbox-zero config set REDIS_HTTP_PORT <port>",
-        );
+        logPortConflictGuidance();
       } else {
         p.log.error(upResult.stderr || "Unknown error");
       }
@@ -1512,13 +1506,7 @@ async function runUpdate() {
       spinner.stop("Failed to restart");
       if (portError) {
         p.log.error(portError);
-        p.log.info(
-          "Stop the conflicting process or change the port:\n" +
-            "  inbox-zero config set WEB_PORT <port>\n" +
-            "  inbox-zero config set POSTGRES_PORT <port>\n" +
-            "  inbox-zero config set REDIS_PORT <port>\n" +
-            "  inbox-zero config set REDIS_HTTP_PORT <port>",
-        );
+        logPortConflictGuidance();
       } else {
         p.log.error(upResult.stderr || "Unknown error");
       }
@@ -1998,6 +1986,16 @@ function runDockerCommand(
       resolve({ status: 1, stdout: "", stderr: err.message });
     });
   });
+}
+
+function logPortConflictGuidance() {
+  p.log.info(
+    "Stop the conflicting process or change the port:\n" +
+      "  inbox-zero config set WEB_PORT <port>\n" +
+      "  inbox-zero config set POSTGRES_PORT <port>\n" +
+      "  inbox-zero config set REDIS_PORT <port>\n" +
+      "  inbox-zero config set REDIS_HTTP_PORT <port>",
+  );
 }
 
 function readExistingDbPassword(envFile: string): string | undefined {
