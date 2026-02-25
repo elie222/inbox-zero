@@ -3,6 +3,7 @@ import {
   formatInUserTimezone,
   formatTimeInUserTimezone,
   formatDateTimeInUserTimezone,
+  internalDateToDate,
 } from "./date";
 
 describe("timezone formatting", () => {
@@ -158,5 +159,27 @@ describe("timezone formatting", () => {
       );
       expect(result).toBe("Dec 30, 2024 at 7:00 PM");
     });
+  });
+});
+
+describe("internalDateToDate", () => {
+  it("returns invalid date when fallbackToNow is false and internalDate is missing", () => {
+    const parsed = internalDateToDate(undefined, { fallbackToNow: false });
+
+    expect(Number.isNaN(parsed.getTime())).toBe(true);
+  });
+
+  it("returns invalid date when fallbackToNow is false and internalDate is invalid", () => {
+    const parsed = internalDateToDate("not-a-date", { fallbackToNow: false });
+
+    expect(Number.isNaN(parsed.getTime())).toBe(true);
+  });
+
+  it("parses ISO internalDate values", () => {
+    const parsed = internalDateToDate("2026-02-20T12:00:00.000Z");
+
+    expect(parsed.getTime()).toBe(
+      new Date("2026-02-20T12:00:00.000Z").getTime(),
+    );
   });
 });

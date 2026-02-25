@@ -88,7 +88,7 @@ function createMockAccount(
 function createMockProvider(
   overrides?: Partial<Record<string, unknown>>,
 ): EmailProvider {
-  return {
+  const provider = {
     getLabels: vi
       .fn()
       .mockResolvedValue([
@@ -99,9 +99,24 @@ function createMockProvider(
     labelMessage: vi.fn(),
     ...overrides,
   } as any;
+
+  if (!provider.getLatestMessageFromThreadSnapshot) {
+    provider.getLatestMessageFromThreadSnapshot = vi.fn(
+      async (thread: { id: string }) => {
+        return provider.getLatestMessageInThread(thread.id);
+      },
+    );
+  }
+
+  return provider as EmailProvider;
 }
 
 function mockMessage(id: string, internalDate: string) {
+  const numericInternalDate = Number(internalDate);
+  const messageDate = /^\d+$/.test(internalDate)
+    ? new Date(numericInternalDate).toISOString()
+    : new Date(internalDate).toISOString();
+
   return {
     id,
     threadId: `thread-${id}`,
@@ -110,12 +125,12 @@ function mockMessage(id: string, internalDate: string) {
     historyId: "1",
     internalDate,
     subject: "Test",
-    date: new Date(Number(internalDate)).toISOString(),
+    date: messageDate,
     headers: {
       from: "sender@example.com",
       to: "user@example.com",
       subject: "Test",
-      date: new Date(Number(internalDate)).toISOString(),
+      date: messageDate,
     },
     textPlain: "",
     textHtml: "",
@@ -229,11 +244,93 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(generateFollowUpDraft).toHaveBeenCalled();
   });
 
+  it("uses provider snapshot resolver when available", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi.fn().mockResolvedValue([
+        {
+          id: "thread-inline",
+          messages: [mockMessage("msg-inline", OLD_DATE)],
+          snippet: "",
+        },
+      ]),
+      getLatestMessageFromThreadSnapshot: vi
+        .fn()
+        .mockResolvedValue(mockMessage("msg-inline", OLD_DATE)),
+      getLatestMessageInThread: vi.fn(),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-inline",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(provider.getLatestMessageFromThreadSnapshot).toHaveBeenCalledWith({
+      id: "thread-inline",
+      messages: [expect.objectContaining({ id: "msg-inline" })],
+    });
+    expect(provider.getLatestMessageInThread).not.toHaveBeenCalled();
+    expect(applyFollowUpLabel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: "thread-inline",
+        messageId: "msg-inline",
+      }),
+    );
+  });
+
+  it("uses provider snapshot resolver result for partial payload providers", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi.fn().mockResolvedValue([
+        {
+          id: "thread-partial",
+          messages: [mockMessage("msg-inline-old", "2026-02-20T10:00:00.000Z")],
+          snippet: "",
+        },
+      ]),
+      getLatestMessageFromThreadSnapshot: vi
+        .fn()
+        .mockResolvedValue(
+          mockMessage("msg-refetched", "2026-02-20T12:00:00.000Z"),
+        ),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-refetched",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(provider.getLatestMessageFromThreadSnapshot).toHaveBeenCalledWith({
+      id: "thread-partial",
+      messages: [expect.objectContaining({ id: "msg-inline-old" })],
+    });
+    expect(applyFollowUpLabel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: "thread-partial",
+        messageId: "msg-refetched",
+      }),
+    );
+  });
+
   it("processes the same labeled message only once across repeated runs", async () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-repeat", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-repeat", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi
         .fn()
         .mockResolvedValue(mockMessage("msg-repeat", OLD_DATE)),
@@ -268,7 +365,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-replay", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-replay", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi
         .fn()
         .mockResolvedValue(mockMessage("msg-replay", OLD_DATE)),
@@ -336,7 +435,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-window", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-window", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi
         .fn()
         .mockResolvedValue(mockMessage("msg-window", twentyMinutesAgo)),
@@ -439,7 +540,9 @@ describe("processAccountFollowUps - dedup logic", () => {
       ] as EmailLabel[]),
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-shared", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-shared", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi
         .fn()
         .mockResolvedValue(mockMessage("msg-shared", OLD_DATE)),

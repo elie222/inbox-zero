@@ -14,6 +14,7 @@ import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
 import { formatDateTimeInUserTimezone } from "@/utils/date";
+import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import {
   getCachedResearch,
   setCachedResearch,
@@ -509,7 +510,7 @@ function selectRecentEmailsForGuest(
 
   return messages
     .filter((m) => messageIncludesEmail(m, email))
-    .sort((a, b) => getMessageTimestampMs(b) - getMessageTimestampMs(a))
+    .sort((a, b) => getMessageTimestamp(b) - getMessageTimestamp(a))
     .slice(0, MAX_EMAILS_PER_GUEST);
 }
 
@@ -524,17 +525,6 @@ function messageIncludesEmail(
     (headers.cc?.toLowerCase().includes(emailLower) ?? false) ||
     (headers.bcc?.toLowerCase().includes(emailLower) ?? false)
   );
-}
-
-function getMessageTimestampMs(message: ParsedMessage): number {
-  const internal = message.internalDate;
-  if (internal && /^\d+$/.test(internal)) {
-    const ms = Number(internal);
-    return Number.isFinite(ms) ? ms : 0;
-  }
-
-  const parsed = Date.parse(message.date);
-  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 // Exported for testing
