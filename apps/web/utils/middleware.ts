@@ -508,20 +508,11 @@ export function withAuth(
   return withMiddleware(scopeOrHandler, authMiddleware);
 }
 
-// withAdmin overloads
 export function withAdmin(
   scope: string,
   handler: NextHandler<RequestWithAuth>,
-): NextHandler;
-export function withAdmin(handler: NextHandler<RequestWithAuth>): NextHandler;
-export function withAdmin(
-  scopeOrHandler: string | NextHandler<RequestWithAuth>,
-  handler?: NextHandler<RequestWithAuth>,
 ): NextHandler {
-  if (typeof scopeOrHandler === "string") {
-    return withMiddleware(handler!, adminMiddleware, undefined, scopeOrHandler);
-  }
-  return withMiddleware(scopeOrHandler, adminMiddleware);
+  return withMiddleware(handler, adminMiddleware, undefined, scope);
 }
 
 // withEmailAccount overloads
