@@ -84,7 +84,7 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `RESEND_FROM_EMAIL` | No | From email address | `Inbox Zero <updates@transactional.getinboxzero.com>` |
 | `NEXT_PUBLIC_IS_RESEND_CONFIGURED` | No | Client-side flag indicating if Resend is configured | — |
 | **Other** ||||
-| `CRON_SECRET` | No | Secret for cron job authentication | — |
+| `CRON_SECRET` | No | Secret for cron job authentication. Required for Vercel cron auth (`Authorization: Bearer <CRON_SECRET>`). | — |
 | `HEALTH_API_KEY` | No | API key for health checks | — |
 | `WEBHOOK_URL` | No | External webhook URL | — |
 | **Digest Controls** ||||
