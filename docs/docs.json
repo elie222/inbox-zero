@@ -47,7 +47,8 @@
           {
             "group": "Quick Start",
             "pages": [
-              "hosting/quick-start"
+              "hosting/quick-start",
+              "hosting/vercel"
             ]
           },
           {

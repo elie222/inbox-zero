@@ -1,0 +1,158 @@
+---
+title: "Vercel Deployment"
+description: "Deploy Inbox Zero on Vercel using Neon and Upstash integrations"
+---
+
+This guide covers a managed setup on Vercel using the Neon and Upstash integrations.
+
+<Info>
+  For Docker/VPS deployment, use the [Self-Hosting Guide](/hosting/self-hosting).
+</Info>
+
+## Architecture
+
+- **App hosting:** Vercel (Next.js)
+- **Database:** Neon Postgres
+- **Cache/queue state:** Upstash Redis
+
+## Prerequisites
+
+- Vercel account
+- GitHub repo or fork of Inbox Zero
+- OAuth provider credentials (Google and/or Microsoft)
+- One LLM provider API key
+- Custom domain for production (recommended for OAuth stability)
+
+## 1. Create a Vercel project
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Felie222%2Finbox-zero&env=AUTH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,MICROSOFT_CLIENT_ID,MICROSOFT_CLIENT_SECRET,EMAIL_ENCRYPT_SECRET,EMAIL_ENCRYPT_SALT,UPSTASH_REDIS_URL,UPSTASH_REDIS_TOKEN,GOOGLE_PUBSUB_TOPIC_NAME,DATABASE_URL,NEXT_PUBLIC_BASE_URL)
+
+1. Import the repository in Vercel.
+2. Set **Root Directory** to `apps/web`.
+3. Add your production domain in Vercel and map `NEXT_PUBLIC_BASE_URL` to it (for example: `https://mail.example.com`).
+
+## 2. Add Neon in Vercel
+
+1. In your Vercel project, add the Neon integration and create/select a database.
+2. From the integration/database settings, copy both connection strings:
+   - **Pooled** connection string
+   - **Direct** connection string
+3. Set the app variables Inbox Zero expects:
+
+```bash
+DATABASE_URL=postgresql://...  # pooled URL (runtime)
+DIRECT_URL=postgresql://...    # direct URL (migrations)
+```
+
+<Tip>
+  `prisma migrate deploy` runs during build. `DIRECT_URL` should be a direct (non-pooled) connection string.
+</Tip>
+
+Optional preview-specific database URLs:
+
+```bash
+PREVIEW_DATABASE_URL=postgresql://...            # pooled preview DB
+PREVIEW_DATABASE_URL_UNPOOLED=postgresql://...   # direct preview DB
+```
+
+If the integration created provider-specific variable names, map/copy their values into the variables above.
+
+## 3. Add Upstash Redis in Vercel
+
+1. In your Vercel project, add the Upstash integration and create/select a Redis database.
+2. Set the app variables Inbox Zero expects:
+
+```bash
+UPSTASH_REDIS_URL=https://...
+UPSTASH_REDIS_TOKEN=...
+```
+
+If the integration auto-created different variable names, copy them into `UPSTASH_REDIS_URL` and `UPSTASH_REDIS_TOKEN`.
+
+## 4. Add required app environment variables
+
+At minimum, set these in Vercel:
+
+```bash
+NEXT_PUBLIC_BASE_URL=https://your-domain.com
+AUTH_SECRET=...
+INTERNAL_API_KEY=...
+EMAIL_ENCRYPT_SECRET=...
+EMAIL_ENCRYPT_SALT=...
+
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_PUBSUB_TOPIC_NAME=projects/your-project/topics/your-topic
+
+DEFAULT_LLM_PROVIDER=openai
+OPENAI_API_KEY=...
+```
+
+Generate and copy these values as documented in [Environment Variables](/hosting/environment-variables):
+
+- `AUTH_SECRET`: `openssl rand -hex 32`
+- `INTERNAL_API_KEY`: `openssl rand -hex 32`
+- `EMAIL_ENCRYPT_SECRET`: `openssl rand -hex 32`
+- `EMAIL_ENCRYPT_SALT`: `openssl rand -hex 16`
+
+If you are not using Gmail/Google OAuth, use placeholders:
+
+```bash
+GOOGLE_CLIENT_ID=skipped
+GOOGLE_CLIENT_SECRET=skipped
+GOOGLE_PUBSUB_TOPIC_NAME=skipped
+```
+
+For the full list, see [Environment Variables](/hosting/environment-variables).
+
+## 5. Configure OAuth callback URLs
+
+Use your production domain in OAuth provider settings:
+
+- Google:
+  - `https://your-domain.com/api/auth/callback/google`
+  - `https://your-domain.com/api/google/linking/callback`
+  - `https://your-domain.com/api/google/calendar/callback` (optional)
+  - `https://your-domain.com/api/google/drive/callback` (optional)
+- Microsoft:
+  - `https://your-domain.com/api/auth/callback/microsoft`
+  - `https://your-domain.com/api/outlook/linking/callback`
+  - `https://your-domain.com/api/outlook/calendar/callback` (optional)
+  - `https://your-domain.com/api/outlook/drive/callback` (optional)
+
+Detailed provider setup:
+- [Google and Microsoft OAuth Setup](/hosting/setup-guides)
+
+## Optional: OAuth on preview deployments
+
+Google and Microsoft OAuth callbacks should usually target your stable production domain.
+If you need OAuth to work on preview deploys, use an OAuth proxy setup:
+
+```bash
+OAUTH_PROXY_URL=https://your-stable-domain.com
+ADDITIONAL_TRUSTED_ORIGINS=https://*.vercel.app
+```
+
+`IS_OAUTH_PROXY_SERVER=true` should only be set on the deployment that acts as the proxy.
+
+## 6. Deploy
+
+After all variables are set:
+
+1. Trigger a Vercel deploy.
+2. Confirm build completes and migrations run.
+3. Sign in and connect an email account.
+
+## Optional: QStash for scheduled actions
+
+[Upstash QStash](https://upstash.com/docs/qstash/overall/getstarted) is optional but recommended for delayed/scheduled actions and retries.
+
+Add these if you enable QStash:
+
+```bash
+QSTASH_TOKEN=...
+QSTASH_CURRENT_SIGNING_KEY=...
+QSTASH_NEXT_SIGNING_KEY=...
+```
+
+Without QStash, use an external scheduler (for example Vercel Cron) and call cron endpoints with `Authorization: Bearer <CRON_SECRET>`.
