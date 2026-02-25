@@ -86,10 +86,15 @@ export class GoogleDriveProvider implements DriveProvider {
     try {
       const response = await this.client.files.get({
         fileId: folderId,
-        fields: "id, name, parents, webViewLink, mimeType",
+        fields: "id, name, parents, webViewLink, mimeType, trashed",
       });
 
       const file = response.data;
+
+      if (file.trashed) {
+        this.logger.trace("Folder is trashed", { folderId });
+        return null;
+      }
 
       // Check if it's actually a folder
       if (file.mimeType !== "application/vnd.google-apps.folder") {
