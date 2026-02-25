@@ -29,7 +29,7 @@ export function PreWrittenDrafts({ title, subtitle }: PreWrittenDraftsProps) {
         <Image
           className="block md:hidden"
           src="/images/new-landing/pre-written-drafts-mobile.png"
-          alt="an organized inbox"
+          alt="pre-written drafts"
           width={2000}
           height={2000}
         />

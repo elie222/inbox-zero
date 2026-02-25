@@ -266,7 +266,7 @@ const enterpriseTier: Tier = {
     "For organizations with enterprise-grade security and compliance requirements.",
   features: [
     {
-      text: "Everything in Team, plus:",
+      text: "Everything in Professional, plus:",
     },
     {
       text: "SSO login",
