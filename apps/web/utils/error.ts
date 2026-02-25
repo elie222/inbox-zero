@@ -23,18 +23,18 @@ export type ApiErrorType = {
 const RATE_LIMIT_API_ERROR_BY_PROVIDER = {
   google: {
     type: "Gmail Rate Limit Exceeded",
-    message:
-      "Gmail is temporarily limiting requests. Please try again shortly.",
+    providerLabel: "Gmail",
   },
   microsoft: {
     type: "Outlook Rate Limit",
-    message:
-      "Microsoft is temporarily limiting requests. Please try again shortly.",
+    providerLabel: "Microsoft",
   },
 } satisfies Record<
   EmailProviderRateLimitProvider,
-  { type: string; message: string }
+  { type: string; providerLabel: string }
 >;
+const RATE_LIMIT_MESSAGE_TEMPLATE =
+  "{provider} is temporarily limiting requests. Please try again shortly.";
 
 export function isError(value: any): value is ErrorMessage | ZodError {
   return value?.error;
@@ -277,7 +277,10 @@ export function checkCommonErrors(
     });
     return {
       type: rateLimitApiError.type,
-      message: rateLimitApiError.message,
+      message: RATE_LIMIT_MESSAGE_TEMPLATE.replace(
+        "{provider}",
+        rateLimitApiError.providerLabel,
+      ),
       code: 429,
     };
   }
