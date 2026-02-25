@@ -9,7 +9,7 @@ import {
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
 import type { EmailProvider } from "@/utils/email/types";
-import { assertGmailNotRateLimited } from "@/utils/gmail/rate-limit";
+import { assertGmailNotRateLimited } from "@/utils/email/rate-limit";
 import type { Logger } from "@/utils/logger";
 
 export async function createEmailProvider({

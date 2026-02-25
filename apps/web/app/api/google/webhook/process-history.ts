@@ -18,7 +18,7 @@ import {
 import {
   getGmailRateLimitState,
   withRateLimitRecording,
-} from "@/utils/gmail/rate-limit";
+} from "@/utils/email/rate-limit";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import type { gmail_v1 } from "@googleapis/gmail";

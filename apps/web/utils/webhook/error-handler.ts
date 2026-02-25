@@ -4,7 +4,7 @@ import type { Logger } from "@/utils/logger";
 import {
   getProviderFromRateLimitApiErrorType,
   recordProviderRateLimitFromError,
-} from "@/utils/gmail/rate-limit";
+} from "@/utils/email/rate-limit";
 
 /**
  * Handles errors from async webhook processing in the same way as withError middleware

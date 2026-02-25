@@ -7,7 +7,7 @@ import {
 } from "@/utils/webhook/validate-webhook-account";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { getGmailRateLimitState } from "@/utils/gmail/rate-limit";
+import { getGmailRateLimitState } from "@/utils/email/rate-limit";
 
 const logger = createScopedLogger("test");
 // Mock logger.with to return the same logger instance so spies work
@@ -41,7 +41,7 @@ vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
 }));
 
-vi.mock("@/utils/gmail/rate-limit", () => ({
+vi.mock("@/utils/email/rate-limit", () => ({
   getGmailRateLimitState: vi.fn().mockResolvedValue(null),
   recordGmailRateLimitFromError: vi.fn(),
   withRateLimitRecording: vi.fn(async (_context, operation) => operation()),

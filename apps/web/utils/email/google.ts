@@ -75,7 +75,7 @@ import type {
 } from "@/utils/email/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
-import { withRateLimitRecording } from "@/utils/gmail/rate-limit";
+import { withRateLimitRecording } from "@/utils/email/rate-limit";
 
 /**
  * Build a raw RFC 2822 message and encode it as base64url for Gmail API

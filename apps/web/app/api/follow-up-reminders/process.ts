@@ -16,7 +16,7 @@ import {
   getProviderRateLimitDelayMs,
   isGmailRateLimitModeError,
   withRateLimitRecording,
-} from "@/utils/gmail/rate-limit";
+} from "@/utils/email/rate-limit";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   getLabelsFromDb,
@@ -76,15 +76,14 @@ export async function processAllFollowUpReminders(logger: Logger) {
       emailAccountId: emailAccount.id,
     });
     let recordedRetryAt: Date | undefined;
+    const provider =
+      emailAccount.account?.provider === "microsoft" ? "microsoft" : "google";
 
     try {
       await withRateLimitRecording(
         {
           emailAccountId: emailAccount.id,
-          provider:
-            emailAccount.account?.provider === "microsoft"
-              ? "microsoft"
-              : "google",
+          provider,
           logger: accountLogger,
           source: "follow-up-reminders",
           onRateLimitRecorded: (state) => {
@@ -99,7 +98,7 @@ export async function processAllFollowUpReminders(logger: Logger) {
       );
       successCount++;
     } catch (error) {
-      const retryAtFromError = getRetryAtFromRateLimitError(error);
+      const retryAtFromError = getRetryAtFromRateLimitError(error, provider);
       const retryAt = recordedRetryAt || retryAtFromError;
 
       if (retryAt) {
@@ -214,7 +213,10 @@ export async function processAccountFollowUps({
   logger.info("Finished processing follow-ups for account");
 }
 
-function getRetryAtFromRateLimitError(error: unknown): Date | undefined {
+function getRetryAtFromRateLimitError(
+  error: unknown,
+  provider: "google" | "microsoft",
+): Date | undefined {
   if (isGmailRateLimitModeError(error) && error.retryAt) {
     const retryAt = new Date(error.retryAt);
     if (!Number.isNaN(retryAt.getTime())) return retryAt;
@@ -222,7 +224,7 @@ function getRetryAtFromRateLimitError(error: unknown): Date | undefined {
 
   const delayMs = getProviderRateLimitDelayMs({
     error,
-    provider: "google",
+    provider,
     attemptNumber: 1,
   });
   if (!delayMs) return undefined;

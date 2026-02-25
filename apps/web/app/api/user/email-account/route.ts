@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
-import { getEmailProviderRateLimitState } from "@/utils/gmail/rate-limit";
+import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 
 export type EmailAccountFullResponse = Awaited<
   ReturnType<typeof getEmailAccount>

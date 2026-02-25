@@ -2,13 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { createScopedLogger } from "@/utils/logger";
 import { trackError } from "@/utils/posthog";
-import { recordProviderRateLimitFromError } from "@/utils/gmail/rate-limit";
+import { recordProviderRateLimitFromError } from "@/utils/email/rate-limit";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/posthog", () => ({
   trackError: vi.fn(),
 }));
-vi.mock("@/utils/gmail/rate-limit", () => ({
+vi.mock("@/utils/email/rate-limit", () => ({
   getProviderFromRateLimitApiErrorType: vi.fn((type: string) => {
     if (type === "Outlook Rate Limit") return "microsoft";
     if (type === "Gmail Rate Limit Exceeded") return "google";

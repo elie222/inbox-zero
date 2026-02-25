@@ -14,7 +14,7 @@ import {
   getProviderFromRateLimitApiErrorType,
   isGmailRateLimitModeError,
   recordProviderRateLimitFromError,
-} from "@/utils/gmail/rate-limit";
+} from "@/utils/email/rate-limit";
 import {
   EMAIL_ACCOUNT_HEADER,
   MICROSOFT_AUTH_EXPIRED_ERROR_CODE,

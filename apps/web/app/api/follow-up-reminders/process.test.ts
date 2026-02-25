@@ -53,7 +53,7 @@ vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
 }));
 
-vi.mock("@/utils/gmail/rate-limit", () => ({
+vi.mock("@/utils/email/rate-limit", () => ({
   isGmailRateLimitModeError: vi.fn().mockReturnValue(false),
   getProviderRateLimitDelayMs: vi.fn((options: { error: unknown }) => {
     const err = options.error as Record<string, unknown>;

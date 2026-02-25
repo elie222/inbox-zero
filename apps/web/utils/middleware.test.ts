@@ -46,7 +46,7 @@ vi.mock("@/utils/admin", () => ({
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn(),
 }));
-vi.mock("@/utils/gmail/rate-limit", () => ({
+vi.mock("@/utils/email/rate-limit", () => ({
   getProviderFromRateLimitApiErrorType: vi.fn((type: string) => {
     if (type === "Outlook Rate Limit") return "microsoft";
     if (type === "Gmail Rate Limit Exceeded") return "google";
@@ -77,7 +77,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import {
   isGmailRateLimitModeError,
   recordProviderRateLimitFromError,
-} from "@/utils/gmail/rate-limit";
+} from "@/utils/email/rate-limit";
 
 // This should now correctly reference mockAuthFn
 const mockAuth = vi.mocked(auth);
