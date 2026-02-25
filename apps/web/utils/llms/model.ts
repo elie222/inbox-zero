@@ -109,9 +109,9 @@ function selectModel(
       return {
         provider: Provider.OPEN_AI,
         modelName,
-        model: createOpenAI({ apiKey: aiApiKey || env.OPENAI_API_KEY })(
-          modelName,
-        ),
+        model: createOpenAI({
+          apiKey: resolveApiKey(aiApiKey, env.OPENAI_API_KEY),
+        })(modelName),
         providerOptions: openAiProviderOptions,
       };
     }
@@ -127,7 +127,7 @@ function selectModel(
         provider: Provider.AZURE,
         modelName,
         model: createAzure({
-          apiKey: aiApiKey || env.AZURE_API_KEY,
+          apiKey: resolveApiKey(aiApiKey, env.AZURE_API_KEY),
           resourceName,
           apiVersion: env.AZURE_API_VERSION,
         })(modelName),
@@ -143,7 +143,7 @@ function selectModel(
         provider: Provider.GOOGLE,
         modelName: mod,
         model: createGoogleGenerativeAI({
-          apiKey: aiApiKey || env.GOOGLE_API_KEY,
+          apiKey: resolveApiKey(aiApiKey, env.GOOGLE_API_KEY),
         })(mod),
         providerOptions: {
           google: {
@@ -159,7 +159,9 @@ function selectModel(
       return {
         provider: Provider.GROQ,
         modelName,
-        model: createGroq({ apiKey: aiApiKey || env.GROQ_API_KEY })(modelName),
+        model: createGroq({
+          apiKey: resolveApiKey(aiApiKey, env.GROQ_API_KEY),
+        })(modelName),
       };
     }
     case Provider.OPENROUTER: {
@@ -167,7 +169,7 @@ function selectModel(
       if (online) modelName += ":online";
 
       const openrouter = createOpenRouter({
-        apiKey: aiApiKey || env.OPENROUTER_API_KEY,
+        apiKey: resolveApiKey(aiApiKey, env.OPENROUTER_API_KEY),
         headers: {
           "HTTP-Referer": "https://www.getinboxzero.com",
           "X-Title": "Inbox Zero",
@@ -184,7 +186,7 @@ function selectModel(
     }
     case Provider.AI_GATEWAY: {
       const modelName = aiModel || "google/gemini-3-flash";
-      const aiGatewayApiKey = aiApiKey || env.AI_GATEWAY_API_KEY;
+      const aiGatewayApiKey = resolveApiKey(aiApiKey, env.AI_GATEWAY_API_KEY);
       const gateway = createGateway({ apiKey: aiGatewayApiKey });
       return {
         provider: Provider.AI_GATEWAY,
@@ -219,12 +221,11 @@ function selectModel(
         );
       const baseURL =
         env.OPENAI_COMPATIBLE_BASE_URL || "http://localhost:1234/v1";
+      const openAiCompatibleApiKey = resolveApiKey(aiApiKey, undefined);
       const openaiCompatible = createOpenAICompatible({
         name: "openai-compatible",
         baseURL,
-        ...(aiApiKey || env.OPENAI_COMPATIBLE_API_KEY
-          ? { apiKey: aiApiKey || env.OPENAI_COMPATIBLE_API_KEY }
-          : {}),
+        ...(openAiCompatibleApiKey ? { apiKey: openAiCompatibleApiKey } : {}),
       });
       return {
         provider: Provider.OPENAI_COMPATIBLE,
@@ -257,7 +258,7 @@ function selectModel(
         provider: Provider.ANTHROPIC,
         modelName,
         model: createAnthropic({
-          apiKey: aiApiKey || env.ANTHROPIC_API_KEY,
+          apiKey: resolveApiKey(aiApiKey, env.ANTHROPIC_API_KEY),
         })(modelName),
         // Note: Anthropic thinking is disabled by default (not including the config)
       };
@@ -449,29 +450,34 @@ function selectDefaultModel(
 }
 
 function getProviderApiKey(provider: string) {
+  const azureApiKey = resolveApiKey(null, env.AZURE_API_KEY);
   const providerApiKeys: Record<string, string | undefined> = {
-    [Provider.ANTHROPIC]: env.ANTHROPIC_API_KEY,
+    [Provider.ANTHROPIC]: resolveApiKey(null, env.ANTHROPIC_API_KEY),
     [Provider.AZURE]:
-      env.AZURE_API_KEY && env.AZURE_RESOURCE_NAME
-        ? env.AZURE_API_KEY
-        : undefined,
+      azureApiKey && env.AZURE_RESOURCE_NAME ? azureApiKey : undefined,
     [Provider.BEDROCK]:
       env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY
         ? "bedrock-credentials"
         : undefined,
-    [Provider.OPEN_AI]: env.OPENAI_API_KEY,
-    [Provider.GOOGLE]: env.GOOGLE_API_KEY,
-    [Provider.GROQ]: env.GROQ_API_KEY,
-    [Provider.OPENROUTER]: env.OPENROUTER_API_KEY,
-    [Provider.AI_GATEWAY]: env.AI_GATEWAY_API_KEY,
+    [Provider.OPEN_AI]: resolveApiKey(null, env.OPENAI_API_KEY),
+    [Provider.GOOGLE]: resolveApiKey(null, env.GOOGLE_API_KEY),
+    [Provider.GROQ]: resolveApiKey(null, env.GROQ_API_KEY),
+    [Provider.OPENROUTER]: resolveApiKey(null, env.OPENROUTER_API_KEY),
+    [Provider.AI_GATEWAY]: resolveApiKey(null, env.AI_GATEWAY_API_KEY),
     [Provider.OLLAMA]: "ollama-local",
     // Returns a placeholder so the fallback chain doesn't skip this provider
     // when no API key is configured (many OpenAI-compatible servers don't require one)
-    [Provider.OPENAI_COMPATIBLE]:
-      env.OPENAI_COMPATIBLE_API_KEY || "not-required",
+    [Provider.OPENAI_COMPATIBLE]: env.LLM_API_KEY || "not-required",
   };
 
   return providerApiKeys[provider];
+}
+
+function resolveApiKey(
+  aiApiKey: string | null | undefined,
+  providerApiKey: string | undefined,
+) {
+  return aiApiKey || providerApiKey || env.LLM_API_KEY;
 }
 
 function getFallbackModels({

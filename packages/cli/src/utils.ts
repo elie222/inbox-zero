@@ -116,6 +116,21 @@ export function generateEnvFile(config: {
   setValue("ECONOMY_LLM_PROVIDER", env.ECONOMY_LLM_PROVIDER);
   setValue("ECONOMY_LLM_MODEL", env.ECONOMY_LLM_MODEL);
 
+  // Shared fallback key for cloud LLM providers.
+  const legacyProviderApiKeyMap: Record<string, string> = {
+    anthropic: "ANTHROPIC_API_KEY",
+    openai: "OPENAI_API_KEY",
+    google: "GOOGLE_API_KEY",
+    openrouter: "OPENROUTER_API_KEY",
+    aigateway: "AI_GATEWAY_API_KEY",
+    groq: "GROQ_API_KEY",
+  };
+  const legacyApiKeyName = legacyProviderApiKeyMap[llmProvider];
+  setValue(
+    "LLM_API_KEY",
+    env.LLM_API_KEY || (legacyApiKeyName && env[legacyApiKeyName]),
+  );
+
   // Set the API key for the selected provider
   if (llmProvider === "bedrock") {
     setValue("BEDROCK_ACCESS_KEY", env.BEDROCK_ACCESS_KEY);
@@ -127,20 +142,6 @@ export function generateEnvFile(config: {
   } else if (llmProvider === "openai-compatible") {
     setValue("OPENAI_COMPATIBLE_BASE_URL", env.OPENAI_COMPATIBLE_BASE_URL);
     setValue("OPENAI_COMPATIBLE_MODEL", env.OPENAI_COMPATIBLE_MODEL);
-    setValue("OPENAI_COMPATIBLE_API_KEY", env.OPENAI_COMPATIBLE_API_KEY);
-  } else {
-    const apiKeyMap: Record<string, string> = {
-      anthropic: "ANTHROPIC_API_KEY",
-      openai: "OPENAI_API_KEY",
-      google: "GOOGLE_API_KEY",
-      openrouter: "OPENROUTER_API_KEY",
-      aigateway: "AI_GATEWAY_API_KEY",
-      groq: "GROQ_API_KEY",
-    };
-    const apiKeyName = apiKeyMap[llmProvider];
-    if (apiKeyName && env[apiKeyName]) {
-      setValue(apiKeyName, env[apiKeyName]);
-    }
   }
 
   return content;
@@ -155,6 +156,7 @@ const SENSITIVE_KEYS = new Set([
   "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
   "MICROSOFT_CLIENT_SECRET",
   "MICROSOFT_WEBHOOK_CLIENT_STATE",
+  "LLM_API_KEY",
   "ANTHROPIC_API_KEY",
   "OPENAI_API_KEY",
   "GOOGLE_API_KEY",

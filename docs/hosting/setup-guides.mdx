@@ -1,169 +1,31 @@
 ---
-title: 'Setup Guides'
-description: 'Configure Google OAuth, Microsoft OAuth, PubSub, and your AI provider'
+title: 'Overview'
+description: 'Manual setup for OAuth, PubSub, and your AI provider'
 ---
 
 <Tip>
   The [setup CLI](/hosting/quick-start) walks you through all of this interactively. These guides are for manual configuration or reference.
 </Tip>
 
-## Google OAuth Setup
+## OAuth
 
-<Tip>
-  **Quick Setup with CLI:** If you have the `gcloud` CLI installed, run `inbox-zero setup-google` to automate API enabling and Pub/Sub setup. It will guide you through the OAuth steps that require manual console access.
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Google OAuth" href="/hosting/google-oauth">
+    Configure Google OAuth credentials, scopes, and required APIs.
+  </Card>
+  <Card title="Microsoft OAuth" href="/hosting/microsoft-oauth">
+    Configure Azure app registration, credentials, and Graph permissions.
+  </Card>
+</CardGroup>
 
-Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new project if necessary.
+## PubSub
 
-1. **Configure consent screen:**
-   1. Go to [Credentials](https://console.cloud.google.com/apis/credentials). If the banner shows up, click it and then click `Get Started`.
-   2. Choose a name for your app and enter your email.
-   3. In Audience, choose a user type:
-      - **Internal** — Google Workspace only. All members of your organization can sign in without additional setup. Personal Gmail accounts cannot use Internal apps.
-      - **External** — any Google account, including personal Gmail. You'll need to add yourself as a test user (see step 5 below).
-   4. Enter your contact information.
-   5. Agree to the User Data policy and click `Create`.
+<Card title="Google PubSub" href="/hosting/google-pubsub">
+  Configure Gmail push notifications and webhook delivery with Google PubSub.
+</Card>
 
-   <Warning>
-     If you chose **External**: since your app is unverified (normal for self-hosted), you must add yourself as a test user (see step 5 below) before you can sign in. You'll also see a "This app isn't verified" warning screen when signing in — click "Advanced" then "Go to [app name]" to proceed.
-   </Warning>
+## LLM
 
-2. **Create OAuth credentials:**
-   1. Click `+Create Credentials` > `OAuth Client ID`.
-   2. Application Type: `Web application`.
-   3. Authorized JavaScript origins: `http://localhost:3000` (replace with your domain in production)
-   4. Authorized redirect URIs (replace `localhost:3000` with your domain in production):
-      - `http://localhost:3000/api/auth/callback/google`
-      - `http://localhost:3000/api/google/linking/callback`
-      - `http://localhost:3000/api/google/calendar/callback` (optional, for calendar)
-      - `http://localhost:3000/api/google/drive/callback` (optional, for Drive)
-   5. Click `Create` and copy the Client ID and secret.
-
-3. **Update `.env` file:**
-   - Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
-
-4. **Update [scopes](https://console.cloud.google.com/auth/scopes):**
-   1. Go to `Data Access` in the sidebar.
-   2. Click `Add or remove scopes`.
-   3. Manually add these scopes:
-      ```
-      https://www.googleapis.com/auth/userinfo.profile
-      https://www.googleapis.com/auth/userinfo.email
-      https://www.googleapis.com/auth/gmail.modify
-      https://www.googleapis.com/auth/gmail.settings.basic
-      https://www.googleapis.com/auth/contacts
-      https://www.googleapis.com/auth/calendar
-      https://www.googleapis.com/auth/drive.file
-      ```
-   4. Click `Update`, then `Save`.
-
-5. **Add yourself as a test user (External only):**
-   1. Go to [Audience](https://console.cloud.google.com/auth/audience).
-   2. In `Test users`, click `+Add users` and enter your email.
-
-   Skip this step if you chose Internal — all org members can sign in automatically.
-
-6. **Enable required APIs:**
-   - [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) (required)
-   - [Google People API](https://console.cloud.google.com/marketplace/product/google/people.googleapis.com) (required)
-   - [Google Calendar API](https://console.cloud.google.com/marketplace/product/google/calendar-json.googleapis.com) (optional)
-   - [Google Drive API](https://console.cloud.google.com/marketplace/product/google/drive.googleapis.com) (optional)
-
-## Google PubSub Setup
-
-<Tip>
-  **Automated Setup:** If you ran `inbox-zero setup-google`, the Pub/Sub topic and subscription were created automatically. Skip to the "For local development" section below.
-</Tip>
-
-PubSub enables real-time email notifications so Inbox Zero is notified immediately when new emails arrive.
-
-### 1. Create a topic
-
-1. Go to the [Pub/Sub Topics page](https://console.cloud.google.com/cloudpubsub/topic/list) in Google Cloud Console.
-2. Click **Create Topic**.
-3. Enter a topic ID (e.g., `inbox-zero-emails`).
-4. Click **Create**.
-
-### 2. Grant Gmail publish access
-
-Gmail needs permission to send notifications to your topic. This is the step that allows Google's servers to push email events into your Pub/Sub topic.
-
-1. Click your topic name to open it.
-2. Go to the **Permissions** tab (you may see it labeled "Info Panel" on the right side — look for the "Permissions" section).
-3. Click **Add Principal**.
-4. In the "New principals" field, enter: `gmail-api-push@system.gserviceaccount.com`
-5. In the "Role" dropdown, select **Pub/Sub Publisher**.
-6. Click **Save**.
-
-<Info>
-  `gmail-api-push@system.gserviceaccount.com` is Google's service account that sends Gmail push notifications. This is not your account — it's a Google-managed service account used by the Gmail API. See the [official docs](https://developers.google.com/gmail/api/guides/push#grant_publish_rights_on_your_topic) for more details.
-</Info>
-
-### 3. Create a push subscription
-
-1. In your topic, go to the **Subscriptions** tab.
-2. Click **Create Subscription**.
-3. Set the **Delivery type** to **Push**.
-4. Set the **Endpoint URL** to: `https://yourdomain.com/api/google/webhook?token=TOKEN`
-5. Click **Create**.
-
-### 4. Update your environment variables
-
-Set these in your `.env` file:
-- `GOOGLE_PUBSUB_TOPIC_NAME` — the full topic name (e.g., `projects/your-project-id/topics/inbox-zero-emails`)
-- `GOOGLE_PUBSUB_VERIFICATION_TOKEN` — the value of `TOKEN` you used in the webhook URL above
-
-### For local development
-
-Use ngrok to expose your local server:
-
-```bash
-ngrok http 3000
-```
-
-Then update the webhook endpoint in the [Google PubSub subscriptions dashboard](https://console.cloud.google.com/cloudpubsub/subscription/list) to use your ngrok URL (e.g., `https://abc123.ngrok.io/api/google/webhook?token=TOKEN`).
-
-## Microsoft OAuth Setup
-
-Go to [Microsoft Azure Portal](https://portal.azure.com/) and create a new app registration:
-
-1. Navigate to Azure Active Directory > "App registrations" > "New registration".
-2. Choose a name and select a supported account type:
-   - **Multitenant** (default): allows any Microsoft account
-   - **Single tenant**: restricts to your organization
-3. Set the Redirect URI:
-   - Platform: Web
-   - URL: `http://localhost:3000/api/auth/callback/microsoft` (replace with your domain in production)
-4. Click "Register".
-5. In "Authentication", add additional redirect URIs (replace `localhost:3000` with your domain in production):
-   - `http://localhost:3000/api/outlook/linking/callback`
-   - `http://localhost:3000/api/outlook/calendar/callback` (optional)
-   - `http://localhost:3000/api/outlook/drive/callback` (optional)
-
-6. **Get credentials** from the Overview tab:
-   - Copy "Application (client) ID" → `MICROSOFT_CLIENT_ID`
-   - For single tenant, copy "Directory (tenant) ID" → `MICROSOFT_TENANT_ID`
-   - Go to "Certificates & secrets" > "New client secret" > copy the **Value** → `MICROSOFT_CLIENT_SECRET`
-
-7. **Configure API permissions:**
-   - Go to "API permissions" > "Add a permission" > "Microsoft Graph" > "Delegated permissions"
-   - Add: `openid`, `profile`, `email`, `User.Read`, `offline_access`, `Mail.ReadWrite`, `Mail.Send`, `MailboxSettings.ReadWrite`, `Calendars.Read`, `Calendars.ReadWrite`, `Files.ReadWrite`
-   - Click "Grant admin consent" if you're an admin.
-
-## LLM Setup
-
-In your `.env` file, uncomment one of the LLM provider blocks and add your API key:
-
-- [Anthropic](https://console.anthropic.com/settings/keys)
-- [OpenAI](https://platform.openai.com/api-keys)
-- [Azure OpenAI](https://ai-sdk.dev/providers/ai-sdk-providers/azure)
-- [Google Gemini](https://ai.google.dev/)
-- [OpenRouter](https://openrouter.ai/settings/keys)
-- [AWS Bedrock](https://aws.amazon.com/bedrock/)
-- [Groq](https://console.groq.com/)
-
-Users can also change the model in the app on the Settings page.
-
-<Warning>
-  API keys require billing credits on the provider's platform. A ChatGPT Plus or Claude Pro subscription does **not** include API access.
-</Warning>
+<Card title="LLM" href="/hosting/llm-setup">
+  Configure your default AI provider and API key.
+</Card>

@@ -74,15 +74,10 @@ interface TerraformSetupOptions {
   redisInstanceClass?: string;
   llmProvider?: string;
   llmModel?: string;
+  llmApiKey?: string;
   googleClientId?: string;
   googleClientSecret?: string;
   googlePubsubTopicName?: string;
-  anthropicApiKey?: string;
-  openaiApiKey?: string;
-  googleApiKey?: string;
-  openrouterApiKey?: string;
-  groqApiKey?: string;
-  aiGatewayApiKey?: string;
   bedrockAccessKey?: string;
   bedrockSecretKey?: string;
   bedrockRegion?: string;
@@ -90,7 +85,6 @@ interface TerraformSetupOptions {
   ollamaModel?: string;
   openaiCompatibleBaseUrl?: string;
   openaiCompatibleModel?: string;
-  openaiCompatibleApiKey?: string;
   microsoftClientId?: string;
   microsoftClientSecret?: string;
   yes?: boolean;
@@ -112,12 +106,7 @@ interface TerraformVarsConfig {
   googlePubsubTopicName: string;
   defaultLlmProvider: string;
   defaultLlmModel: string;
-  anthropicApiKey?: string;
-  openaiApiKey?: string;
-  googleApiKey?: string;
-  openrouterApiKey?: string;
-  groqApiKey?: string;
-  aiGatewayApiKey?: string;
+  llmApiKey?: string;
   bedrockAccessKey?: string;
   bedrockSecretKey?: string;
   bedrockRegion?: string;
@@ -125,7 +114,6 @@ interface TerraformVarsConfig {
   ollamaModel?: string;
   openaiCompatibleBaseUrl?: string;
   openaiCompatibleModel?: string;
-  openaiCompatibleApiKey?: string;
   microsoftClientId?: string;
   microsoftClientSecret?: string;
 }
@@ -444,8 +432,9 @@ async function getLlmSecrets(config: {
 }): Promise<Partial<TerraformVarsConfig>> {
   switch (config.provider) {
     case "anthropic": {
-      const anthropicApiKey =
-        config.options.anthropicApiKey ||
+      const llmApiKey =
+        config.options.llmApiKey ||
+        process.env.LLM_API_KEY ||
         process.env.ANTHROPIC_API_KEY ||
         (config.nonInteractive
           ? ""
@@ -454,13 +443,14 @@ async function getLlmSecrets(config: {
               placeholder: "sk-ant-...",
             }));
       if (config.nonInteractive) {
-        assertNonEmpty("ANTHROPIC_API_KEY", anthropicApiKey);
+        assertNonEmpty("LLM_API_KEY", llmApiKey);
       }
-      return { anthropicApiKey };
+      return { llmApiKey };
     }
     case "openai": {
-      const openaiApiKey =
-        config.options.openaiApiKey ||
+      const llmApiKey =
+        config.options.llmApiKey ||
+        process.env.LLM_API_KEY ||
         process.env.OPENAI_API_KEY ||
         (config.nonInteractive
           ? ""
@@ -469,13 +459,14 @@ async function getLlmSecrets(config: {
               placeholder: "sk-...",
             }));
       if (config.nonInteractive) {
-        assertNonEmpty("OPENAI_API_KEY", openaiApiKey);
+        assertNonEmpty("LLM_API_KEY", llmApiKey);
       }
-      return { openaiApiKey };
+      return { llmApiKey };
     }
     case "google": {
-      const googleApiKey =
-        config.options.googleApiKey ||
+      const llmApiKey =
+        config.options.llmApiKey ||
+        process.env.LLM_API_KEY ||
         process.env.GOOGLE_API_KEY ||
         (config.nonInteractive
           ? ""
@@ -484,13 +475,14 @@ async function getLlmSecrets(config: {
               placeholder: "AIza...",
             }));
       if (config.nonInteractive) {
-        assertNonEmpty("GOOGLE_API_KEY", googleApiKey);
+        assertNonEmpty("LLM_API_KEY", llmApiKey);
       }
-      return { googleApiKey };
+      return { llmApiKey };
     }
     case "openrouter": {
-      const openrouterApiKey =
-        config.options.openrouterApiKey ||
+      const llmApiKey =
+        config.options.llmApiKey ||
+        process.env.LLM_API_KEY ||
         process.env.OPENROUTER_API_KEY ||
         (config.nonInteractive
           ? ""
@@ -499,13 +491,14 @@ async function getLlmSecrets(config: {
               placeholder: "sk-or-...",
             }));
       if (config.nonInteractive) {
-        assertNonEmpty("OPENROUTER_API_KEY", openrouterApiKey);
+        assertNonEmpty("LLM_API_KEY", llmApiKey);
       }
-      return { openrouterApiKey };
+      return { llmApiKey };
     }
     case "groq": {
-      const groqApiKey =
-        config.options.groqApiKey ||
+      const llmApiKey =
+        config.options.llmApiKey ||
+        process.env.LLM_API_KEY ||
         process.env.GROQ_API_KEY ||
         (config.nonInteractive
           ? ""
@@ -514,13 +507,14 @@ async function getLlmSecrets(config: {
               placeholder: "gsk_...",
             }));
       if (config.nonInteractive) {
-        assertNonEmpty("GROQ_API_KEY", groqApiKey);
+        assertNonEmpty("LLM_API_KEY", llmApiKey);
       }
-      return { groqApiKey };
+      return { llmApiKey };
     }
     case "aigateway": {
-      const aiGatewayApiKey =
-        config.options.aiGatewayApiKey ||
+      const llmApiKey =
+        config.options.llmApiKey ||
+        process.env.LLM_API_KEY ||
         process.env.AI_GATEWAY_API_KEY ||
         (config.nonInteractive
           ? ""
@@ -529,9 +523,9 @@ async function getLlmSecrets(config: {
               placeholder: "sk-...",
             }));
       if (config.nonInteractive) {
-        assertNonEmpty("AI_GATEWAY_API_KEY", aiGatewayApiKey);
+        assertNonEmpty("LLM_API_KEY", llmApiKey);
       }
-      return { aiGatewayApiKey };
+      return { llmApiKey };
     }
     case "bedrock": {
       const bedrockAccessKey =
@@ -613,8 +607,8 @@ async function getLlmSecrets(config: {
               placeholder: "llama-3.2-3b-instruct",
             }));
       const openaiCompatibleApiKey =
-        config.options.openaiCompatibleApiKey ||
-        process.env.OPENAI_COMPATIBLE_API_KEY ||
+        config.options.llmApiKey ||
+        process.env.LLM_API_KEY ||
         (config.nonInteractive
           ? ""
           : await promptOptionalText({
@@ -628,7 +622,7 @@ async function getLlmSecrets(config: {
       return {
         openaiCompatibleBaseUrl,
         openaiCompatibleModel,
-        openaiCompatibleApiKey: openaiCompatibleApiKey || undefined,
+        llmApiKey: openaiCompatibleApiKey || undefined,
       };
     }
     default:
@@ -832,12 +826,7 @@ function renderTerraformTfvars(config: TerraformVarsConfig) {
     );
   }
 
-  addOptionalTfVar(lines, "anthropic_api_key", config.anthropicApiKey);
-  addOptionalTfVar(lines, "openai_api_key", config.openaiApiKey);
-  addOptionalTfVar(lines, "google_api_key", config.googleApiKey);
-  addOptionalTfVar(lines, "openrouter_api_key", config.openrouterApiKey);
-  addOptionalTfVar(lines, "groq_api_key", config.groqApiKey);
-  addOptionalTfVar(lines, "ai_gateway_api_key", config.aiGatewayApiKey);
+  addOptionalTfVar(lines, "llm_api_key", config.llmApiKey);
   addOptionalTfVar(lines, "bedrock_access_key", config.bedrockAccessKey);
   addOptionalTfVar(lines, "bedrock_secret_key", config.bedrockSecretKey);
   addOptionalTfVar(lines, "bedrock_region", config.bedrockRegion);
@@ -852,11 +841,6 @@ function renderTerraformTfvars(config: TerraformVarsConfig) {
     lines,
     "openai_compatible_model",
     config.openaiCompatibleModel,
-  );
-  addOptionalTfVar(
-    lines,
-    "openai_compatible_api_key",
-    config.openaiCompatibleApiKey,
   );
   addOptionalTfVar(lines, "microsoft_client_id", config.microsoftClientId);
   addOptionalTfVar(
@@ -1236,15 +1220,9 @@ locals {
       MICROSOFT_CLIENT_SECRET      = var.microsoft_client_secret
       MICROSOFT_WEBHOOK_CLIENT_STATE = random_password.generated["MICROSOFT_WEBHOOK_CLIENT_STATE"].result
     } : {},
-    var.anthropic_api_key != "" ? { ANTHROPIC_API_KEY = var.anthropic_api_key } : {},
-    var.openai_api_key != "" ? { OPENAI_API_KEY = var.openai_api_key } : {},
-    var.google_api_key != "" ? { GOOGLE_API_KEY = var.google_api_key } : {},
-    var.openrouter_api_key != "" ? { OPENROUTER_API_KEY = var.openrouter_api_key } : {},
-    var.groq_api_key != "" ? { GROQ_API_KEY = var.groq_api_key } : {},
-    var.ai_gateway_api_key != "" ? { AI_GATEWAY_API_KEY = var.ai_gateway_api_key } : {},
+    var.llm_api_key != "" ? { LLM_API_KEY = var.llm_api_key } : {},
     var.bedrock_access_key != "" ? { BEDROCK_ACCESS_KEY = var.bedrock_access_key } : {},
-    var.bedrock_secret_key != "" ? { BEDROCK_SECRET_KEY = var.bedrock_secret_key } : {},
-    var.openai_compatible_api_key != "" ? { OPENAI_COMPATIBLE_API_KEY = var.openai_compatible_api_key } : {}
+    var.bedrock_secret_key != "" ? { BEDROCK_SECRET_KEY = var.bedrock_secret_key } : {}
   )
   secret_values = merge(local.generated_secrets, local.required_secrets, local.optional_secrets)
 
@@ -1575,32 +1553,7 @@ variable "default_llm_model" {
   default = ""
 }
 
-variable "anthropic_api_key" {
-  type    = string
-  default = ""
-}
-
-variable "openai_api_key" {
-  type    = string
-  default = ""
-}
-
-variable "google_api_key" {
-  type    = string
-  default = ""
-}
-
-variable "openrouter_api_key" {
-  type    = string
-  default = ""
-}
-
-variable "groq_api_key" {
-  type    = string
-  default = ""
-}
-
-variable "ai_gateway_api_key" {
+variable "llm_api_key" {
   type    = string
   default = ""
 }
@@ -1638,12 +1591,6 @@ variable "openai_compatible_base_url" {
 variable "openai_compatible_model" {
   type    = string
   default = ""
-}
-
-variable "openai_compatible_api_key" {
-  type      = string
-  default   = ""
-  sensitive = true
 }
 
 variable "microsoft_client_id" {

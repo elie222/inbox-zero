@@ -1,0 +1,22 @@
+---
+title: 'LLM'
+description: 'Configure your default AI provider and API key'
+---
+
+In your `.env` file, uncomment one of the LLM provider blocks and add your API key:
+
+You can also set `LLM_API_KEY` as a shared fallback so you don't need to set a provider-specific key for every provider.
+
+- [Anthropic](https://console.anthropic.com/settings/keys)
+- [OpenAI](https://platform.openai.com/api-keys)
+- [Azure OpenAI](https://ai-sdk.dev/providers/ai-sdk-providers/azure)
+- [Google Gemini](https://ai.google.dev/)
+- [OpenRouter](https://openrouter.ai/settings/keys)
+- [AWS Bedrock](https://aws.amazon.com/bedrock/)
+- [Groq](https://console.groq.com/)
+
+Users can also change the model in the app on the Settings page.
+
+<Warning>
+  API keys require billing credits on the provider's platform. A ChatGPT Plus or Claude Pro subscription does **not** include API access.
+</Warning>
