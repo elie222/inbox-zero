@@ -13,15 +13,10 @@ import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import {
+  getProviderRateLimitDelayMs,
   isGmailRateLimitModeError,
   withRateLimitRecording,
 } from "@/utils/gmail/rate-limit";
-import {
-  calculateRetryDelay as calculateGmailRetryDelay,
-  extractErrorInfo as extractGmailErrorInfo,
-  getRetryAfterHeader as getGmailRetryAfterHeader,
-  isRetryableError as isGmailRetryableError,
-} from "@/utils/gmail/retry";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   getLabelsFromDb,
@@ -32,7 +27,6 @@ import { internalDateToDate } from "@/utils/date";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
-const RATE_LIMIT_FALLBACK_DELAY_MS = 60_000;
 
 export async function processAllFollowUpReminders(logger: Logger) {
   logger.info("Processing follow-up reminders for all users");
@@ -226,22 +220,13 @@ function getRetryAtFromRateLimitError(error: unknown): Date | undefined {
     if (!Number.isNaN(retryAt.getTime())) return retryAt;
   }
 
-  const errorInfo = extractGmailErrorInfo(error);
-  const { isRateLimit } = isGmailRetryableError(errorInfo);
-  if (!isRateLimit) return undefined;
-
-  const delayMs = calculateGmailRetryDelay(
-    true,
-    false,
-    false,
-    1,
-    getGmailRetryAfterHeader(error),
-    errorInfo.errorMessage,
-  );
-
-  return new Date(
-    Date.now() + (delayMs > 0 ? delayMs : RATE_LIMIT_FALLBACK_DELAY_MS),
-  );
+  const delayMs = getProviderRateLimitDelayMs({
+    error,
+    provider: "google",
+    attemptNumber: 1,
+  });
+  if (!delayMs) return undefined;
+  return new Date(Date.now() + delayMs);
 }
 
 async function processFollowUpsForType({

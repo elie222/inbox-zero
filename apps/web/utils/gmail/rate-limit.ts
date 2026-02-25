@@ -267,7 +267,7 @@ export async function recordProviderRateLimitFromError({
 }): Promise<EmailProviderRateLimitState | null> {
   if (!hasRedisConfig) return null;
 
-  const delayMs = getRateLimitDelayMs({
+  const delayMs = getProviderRateLimitDelayMs({
     error,
     provider,
     attemptNumber,
@@ -325,7 +325,7 @@ export async function withRateLimitRecording<T>(
   }
 }
 
-function getRateLimitDelayMs({
+export function getProviderRateLimitDelayMs({
   error,
   provider,
   attemptNumber,
