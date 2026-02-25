@@ -15,6 +15,7 @@ import {
   MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
   NO_REFRESH_TOKEN_ERROR_CODE,
 } from "@/utils/config";
+import { isAdmin } from "@/utils/admin";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
@@ -438,6 +439,27 @@ async function emailProviderMiddleware(
   }
 }
 
+async function adminMiddleware(
+  req: NextRequest,
+): Promise<RequestWithAuth | Response> {
+  const authReq = await authMiddleware(req);
+  if (authReq instanceof Response) return authReq;
+
+  const user = await prisma.user.findUnique({
+    where: { id: authReq.auth.userId },
+    select: { email: true },
+  });
+
+  if (!isAdmin({ email: user?.email })) {
+    return NextResponse.json(
+      { error: "Unauthorized", isKnownError: true },
+      { status: 403 },
+    );
+  }
+
+  return authReq;
+}
+
 // Public middlewares that build on the common infrastructure
 
 // withError overloads
@@ -484,6 +506,22 @@ export function withAuth(
     return withMiddleware(handler!, authMiddleware, undefined, scopeOrHandler);
   }
   return withMiddleware(scopeOrHandler, authMiddleware);
+}
+
+// withAdmin overloads
+export function withAdmin(
+  scope: string,
+  handler: NextHandler<RequestWithAuth>,
+): NextHandler;
+export function withAdmin(handler: NextHandler<RequestWithAuth>): NextHandler;
+export function withAdmin(
+  scopeOrHandler: string | NextHandler<RequestWithAuth>,
+  handler?: NextHandler<RequestWithAuth>,
+): NextHandler {
+  if (typeof scopeOrHandler === "string") {
+    return withMiddleware(handler!, adminMiddleware, undefined, scopeOrHandler);
+  }
+  return withMiddleware(scopeOrHandler, adminMiddleware);
 }
 
 // withEmailAccount overloads
