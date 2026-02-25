@@ -53,8 +53,11 @@ vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
 }));
 
-vi.mock("@/utils/email/rate-limit", () => ({
+vi.mock("@/utils/email/rate-limit-mode-error", () => ({
   isProviderRateLimitModeError: vi.fn().mockReturnValue(false),
+}));
+
+vi.mock("@/utils/email/rate-limit", () => ({
   toRateLimitProvider: vi.fn((provider: string | null | undefined) => {
     if (provider === "google" || provider === "microsoft") return provider;
     return null;

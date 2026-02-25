@@ -47,8 +47,10 @@ vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn(),
 }));
 vi.mock("@/utils/email/rate-limit", () => ({
-  isProviderRateLimitModeError: vi.fn(),
   recordRateLimitFromApiError: vi.fn(),
+}));
+vi.mock("@/utils/email/rate-limit-mode-error", () => ({
+  isProviderRateLimitModeError: vi.fn(),
 }));
 
 // Mock specific functions from @/utils/error, keep original SafeError
@@ -69,10 +71,8 @@ import { isAdmin } from "@/utils/admin";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
-import {
-  isProviderRateLimitModeError,
-  recordRateLimitFromApiError,
-} from "@/utils/email/rate-limit";
+import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
 
 // This should now correctly reference mockAuthFn
 const mockAuth = vi.mocked(auth);

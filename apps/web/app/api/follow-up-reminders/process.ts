@@ -14,10 +14,10 @@ import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import {
   getProviderRateLimitDelayMs,
-  isProviderRateLimitModeError,
   toRateLimitProvider,
   withRateLimitRecording,
 } from "@/utils/email/rate-limit";
+import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   getLabelsFromDb,

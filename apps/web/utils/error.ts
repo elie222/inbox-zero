@@ -4,6 +4,10 @@ import {
 } from "@sentry/nextjs";
 import { APICallError, RetryError } from "ai";
 import type { FlattenedValidationErrors } from "next-safe-action";
+import {
+  isProviderRateLimitModeError,
+  type EmailProviderRateLimitProvider,
+} from "@/utils/email/rate-limit-mode-error";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 
 export type ErrorMessage = { error: string; data?: any };
@@ -27,9 +31,10 @@ const RATE_LIMIT_API_ERROR_BY_PROVIDER = {
     message:
       "Microsoft is temporarily limiting requests. Please try again shortly.",
   },
-} as const;
-
-type RateLimitProvider = keyof typeof RATE_LIMIT_API_ERROR_BY_PROVIDER;
+} satisfies Record<
+  EmailProviderRateLimitProvider,
+  { type: string; message: string }
+>;
 
 export function isError(value: any): value is ErrorMessage | ZodError {
   return value?.error;
@@ -122,23 +127,6 @@ export function isGmailRateLimitExceededError(error: unknown): boolean {
 
 export function isGmailQuotaExceededError(error: unknown): boolean {
   return (error as any)?.errors?.[0]?.reason === "quotaExceeded";
-}
-
-function isRateLimitProvider(provider: unknown): provider is RateLimitProvider {
-  return provider === "google" || provider === "microsoft";
-}
-
-function isProviderRateLimitModeError(error: unknown): error is {
-  name: "ProviderRateLimitModeError";
-  provider: RateLimitProvider;
-  retryAt?: string;
-} {
-  if (typeof error !== "object" || error === null) return false;
-  const maybeError = error as Record<string, unknown>;
-  return (
-    maybeError.name === "ProviderRateLimitModeError" &&
-    isRateLimitProvider(maybeError.provider)
-  );
 }
 
 export function isIncorrectOpenAIAPIKeyError(error: APICallError): boolean {

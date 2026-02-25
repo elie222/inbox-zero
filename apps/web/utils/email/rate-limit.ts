@@ -2,7 +2,10 @@ import "server-only";
 import { env } from "@/env";
 import { redis } from "@/utils/redis";
 import { createScopedLogger, type Logger } from "@/utils/logger";
-import type { EmailProvider } from "@/utils/email/types";
+import {
+  type EmailProviderRateLimitProvider,
+  ProviderRateLimitModeError,
+} from "@/utils/email/rate-limit-mode-error";
 import {
   calculateRetryDelay,
   extractErrorInfo,
@@ -31,8 +34,6 @@ type StoredProviderRateLimitState = {
   source?: string;
   detectedAt: string;
 };
-
-export type EmailProviderRateLimitProvider = EmailProvider["name"];
 
 export type EmailProviderRateLimitState = {
   provider: EmailProviderRateLimitProvider;
@@ -93,35 +94,6 @@ type RateLimitRecordingContext = {
     error: unknown,
   ) => void | Promise<void>;
 };
-
-export class ProviderRateLimitModeError extends Error {
-  provider: EmailProviderRateLimitProvider;
-  retryAt?: string;
-
-  constructor({
-    provider,
-    retryAt,
-  }: {
-    provider: EmailProviderRateLimitProvider;
-    retryAt?: Date;
-  }) {
-    const message =
-      provider === "google"
-        ? `Gmail is temporarily rate limiting this account. Retry after ${retryAt?.toISOString()}.`
-        : `Microsoft is temporarily rate limiting this account. Retry after ${retryAt?.toISOString()}.`;
-
-    super(message);
-    this.name = "ProviderRateLimitModeError";
-    this.provider = provider;
-    this.retryAt = retryAt?.toISOString();
-  }
-}
-
-export function isProviderRateLimitModeError(
-  error: unknown,
-): error is ProviderRateLimitModeError {
-  return error instanceof ProviderRateLimitModeError;
-}
 
 export async function getEmailProviderRateLimitState({
   emailAccountId,

@@ -10,10 +10,8 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
-import {
-  isProviderRateLimitModeError,
-  recordRateLimitFromApiError,
-} from "@/utils/email/rate-limit";
+import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
+import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import {
   EMAIL_ACCOUNT_HEADER,
   MICROSOFT_AUTH_EXPIRED_ERROR_CODE,

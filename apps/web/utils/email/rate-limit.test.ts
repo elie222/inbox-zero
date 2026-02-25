@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { redis } from "@/utils/redis";
+import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import {
   assertProviderNotRateLimited,
   getEmailProviderRateLimitState,
-  ProviderRateLimitModeError,
   recordRateLimitFromApiError,
   recordProviderRateLimitFromError,
   setEmailProviderRateLimitState,
