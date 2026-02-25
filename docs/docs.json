@@ -51,10 +51,20 @@
             ]
           },
           {
+            "group": "Setup Guides",
+            "pages": [
+              "hosting/setup-guides",
+              "hosting/google-oauth",
+              "hosting/google-pubsub",
+              "hosting/microsoft-oauth",
+              "hosting/llm-setup"
+            ]
+          },
+          {
             "group": "Self-Hosting",
             "pages": [
               "hosting/self-hosting",
-              "hosting/setup-guides",
+              "hosting/vercel",
               "hosting/environment-variables",
               "hosting/troubleshooting"
             ]

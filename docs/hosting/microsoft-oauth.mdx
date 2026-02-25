@@ -1,0 +1,29 @@
+---
+title: 'Microsoft OAuth'
+description: 'Configure Azure app registration and Microsoft Graph permissions'
+---
+
+Go to [Microsoft Azure Portal](https://portal.azure.com/) and create a new app registration:
+
+1. Navigate to Azure Active Directory > "App registrations" > "New registration".
+2. Choose a name and select a supported account type:
+   - **Multitenant** (default): allows any Microsoft account
+   - **Single tenant**: restricts to your organization
+3. Set the Redirect URI:
+   - Platform: Web
+   - URL: `http://localhost:3000/api/auth/callback/microsoft` (replace with your domain in production)
+4. Click "Register".
+5. In "Authentication", add additional redirect URIs (replace `localhost:3000` with your domain in production):
+   - `http://localhost:3000/api/outlook/linking/callback`
+   - `http://localhost:3000/api/outlook/calendar/callback` (optional)
+   - `http://localhost:3000/api/outlook/drive/callback` (optional)
+
+6. **Get credentials** from the Overview tab:
+   - Copy "Application (client) ID" → `MICROSOFT_CLIENT_ID`
+   - For single tenant, copy "Directory (tenant) ID" → `MICROSOFT_TENANT_ID`
+   - Go to "Certificates & secrets" > "New client secret" > copy the **Value** → `MICROSOFT_CLIENT_SECRET`
+
+7. **Configure API permissions:**
+   - Go to "API permissions" > "Add a permission" > "Microsoft Graph" > "Delegated permissions"
+   - Add: `openid`, `profile`, `email`, `User.Read`, `offline_access`, `Mail.ReadWrite`, `Mail.Send`, `MailboxSettings.ReadWrite`, `Calendars.Read`, `Calendars.ReadWrite`, `Files.ReadWrite`
+   - Click "Grant admin consent" if you're an admin.

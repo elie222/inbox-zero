@@ -19,6 +19,7 @@ import {
 import { runGoogleSetup } from "./setup-google";
 import { runAwsSetup } from "./setup-aws";
 import { runTerraformSetup } from "./setup-terraform";
+import { formatPortConfigNote, resolveSetupPorts } from "./setup-ports";
 import packageJson from "../package.json" with { type: "json" };
 
 // Detect if we're running from within the repo
@@ -238,15 +239,10 @@ async function main() {
     .option("--redis-instance-class <class>", "Redis instance class")
     .option("--llm-provider <provider>", "Default LLM provider")
     .option("--llm-model <model>", "Default LLM model")
+    .option("--llm-api-key <key>", "Shared LLM API key")
     .option("--google-client-id <id>", "Google OAuth client ID")
     .option("--google-client-secret <secret>", "Google OAuth client secret")
     .option("--google-pubsub-topic-name <name>", "Google Pub/Sub topic name")
-    .option("--anthropic-api-key <key>", "Anthropic API key")
-    .option("--openai-api-key <key>", "OpenAI API key")
-    .option("--google-api-key <key>", "Google Gemini API key")
-    .option("--openrouter-api-key <key>", "OpenRouter API key")
-    .option("--groq-api-key <key>", "Groq API key")
-    .option("--ai-gateway-api-key <key>", "AI Gateway API key")
     .option("--bedrock-access-key <key>", "AWS access key for Bedrock")
     .option("--bedrock-secret-key <key>", "AWS secret key for Bedrock")
     .option("--bedrock-region <region>", "AWS region for Bedrock")
@@ -259,10 +255,6 @@ async function main() {
     .option(
       "--openai-compatible-model <model>",
       "OpenAI-compatible server model name",
-    )
-    .option(
-      "--openai-compatible-api-key <key>",
-      "OpenAI-compatible server API key (optional)",
     )
     .option("--microsoft-client-id <id>", "Microsoft OAuth client ID")
     .option(
@@ -331,6 +323,12 @@ async function runSetupQuick(options: { name?: string }) {
   const configName = options.name;
 
   requireDocker();
+  const { webPort, postgresPort, redisPort, redisHttpPort, changedPorts } =
+    await resolveSetupPorts({ useDockerInfra: true });
+  const portConfigNote = formatPortConfigNote(changedPorts);
+  if (portConfigNote) {
+    p.note(portConfigNote, "Port Configuration");
+  }
 
   p.note(
     "Choose the email provider(s) you want to enable now.\n" +
@@ -358,9 +356,8 @@ async function runSetupQuick(options: { name?: string }) {
   let googleClientId = "";
   let googleClientSecret = "";
   if (wantsGoogle) {
-    const callbackUrl = "http://localhost:3000/api/auth/callback/google";
-    const linkingCallbackUrl =
-      "http://localhost:3000/api/google/linking/callback";
+    const callbackUrl = `http://localhost:${webPort}/api/auth/callback/google`;
+    const linkingCallbackUrl = `http://localhost:${webPort}/api/google/linking/callback`;
 
     p.note(
       "You need a Google OAuth app to connect your Gmail.\n\n" +
@@ -413,12 +410,9 @@ async function runSetupQuick(options: { name?: string }) {
   let microsoftClientSecret = "";
   let microsoftTenantId = "common";
   if (wantsMicrosoft) {
-    const microsoftCallbackUrl =
-      "http://localhost:3000/api/auth/callback/microsoft";
-    const microsoftLinkingCallbackUrl =
-      "http://localhost:3000/api/outlook/linking/callback";
-    const microsoftCalendarCallbackUrl =
-      "http://localhost:3000/api/outlook/calendar/callback";
+    const microsoftCallbackUrl = `http://localhost:${webPort}/api/auth/callback/microsoft`;
+    const microsoftLinkingCallbackUrl = `http://localhost:${webPort}/api/outlook/linking/callback`;
+    const microsoftCalendarCallbackUrl = `http://localhost:${webPort}/api/outlook/calendar/callback`;
 
     p.note(
       "You need a Microsoft app registration to connect Outlook.\n\n" +
@@ -563,6 +557,10 @@ async function runSetupQuick(options: { name?: string }) {
     POSTGRES_USER: "postgres",
     POSTGRES_PASSWORD: dbPassword,
     POSTGRES_DB: "inboxzero",
+    POSTGRES_PORT: postgresPort,
+    REDIS_PORT: redisPort,
+    REDIS_HTTP_PORT: redisHttpPort,
+    WEB_PORT: webPort,
     DATABASE_URL: `postgresql://postgres:${dbPassword}@db:5432/inboxzero`,
     UPSTASH_REDIS_TOKEN: redisToken,
     UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
@@ -598,7 +596,7 @@ async function runSetupQuick(options: { name?: string }) {
     // LLM
     ...llmEnv,
     // App
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+    NEXT_PUBLIC_BASE_URL: `http://localhost:${webPort}`,
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
   };
 
@@ -672,7 +670,7 @@ async function runSetupQuick(options: { name?: string }) {
     });
     if (p.isCancel(restart) || !restart) {
       p.note(
-        "Inbox Zero is still running at http://localhost:3000",
+        `Inbox Zero is still running at http://localhost:${webPort}`,
         "Already running",
       );
       p.outro("Setup complete!");
@@ -729,7 +727,7 @@ async function runSetupQuick(options: { name?: string }) {
   startSpinner.stop("Inbox Zero is running!");
 
   p.note(
-    "Open http://localhost:3000 to get started.\n\n" +
+    `Open http://localhost:${webPort} to get started.\n\n` +
       "Useful commands:\n" +
       "  inbox-zero config    — update settings (e.g. add Pub/Sub token)\n" +
       "  inbox-zero logs -f   — view live logs\n" +
@@ -869,11 +867,12 @@ async function runSetupAdvanced(options: { name?: string }) {
   }
 
   const env: EnvConfig = {};
-
-  // Default ports
-  const webPort = "3000";
-  const postgresPort = "5432";
-  const redisPort = "8079";
+  const { webPort, postgresPort, redisPort, redisHttpPort, changedPorts } =
+    await resolveSetupPorts({ useDockerInfra });
+  const portConfigNote = formatPortConfigNote(changedPorts);
+  if (portConfigNote) {
+    p.note(portConfigNote, "Port Configuration");
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // OAuth Providers
@@ -1072,6 +1071,10 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       readExistingDbPassword(envFile) ||
       (isDevMode ? "password" : generateSecret(16));
     env.POSTGRES_DB = "inboxzero";
+    env.POSTGRES_PORT = postgresPort;
+    env.REDIS_PORT = redisPort;
+    env.REDIS_HTTP_PORT = redisHttpPort;
+    env.WEB_PORT = webPort;
     env.UPSTASH_REDIS_TOKEN = redisToken;
 
     if (runWebInDocker) {
@@ -1084,7 +1087,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       // Web app runs on host: containers expose ports to localhost
       env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
-      env.UPSTASH_REDIS_URL = `http://localhost:${redisPort}`;
+      env.UPSTASH_REDIS_URL = `http://localhost:${redisHttpPort}`;
       env.INTERNAL_API_URL = `http://localhost:${webPort}`;
     }
   } else {
@@ -1302,12 +1305,7 @@ async function runStart(options: { detach: boolean }) {
       spinner.stop("Failed to start");
       if (portError) {
         p.log.error(portError);
-        p.log.info(
-          "Stop the conflicting process or change the port:\n" +
-            "  inbox-zero config set WEB_PORT <port>\n" +
-            "  inbox-zero config set POSTGRES_PORT <port>\n" +
-            "  inbox-zero config set REDIS_PORT <port>",
-        );
+        logPortConflictGuidance();
       } else {
         p.log.error(upResult.stderr || "Unknown error");
       }
@@ -1321,7 +1319,8 @@ async function runStart(options: { detach: boolean }) {
     if (existsSync(STANDALONE_ENV_FILE)) {
       try {
         const envContent = readFileSync(STANDALONE_ENV_FILE, "utf-8");
-        webPort = envContent.match(/WEB_PORT=(\d+)/)?.[1] || webPort;
+        const parsedEnv = parseEnvFile(envContent);
+        webPort = parsedEnv.WEB_PORT || webPort;
       } catch {
         // Use default port if env file can't be read
       }
@@ -1498,12 +1497,7 @@ async function runUpdate() {
       spinner.stop("Failed to restart");
       if (portError) {
         p.log.error(portError);
-        p.log.info(
-          "Stop the conflicting process or change the port:\n" +
-            "  inbox-zero config set WEB_PORT <port>\n" +
-            "  inbox-zero config set POSTGRES_PORT <port>\n" +
-            "  inbox-zero config set REDIS_PORT <port>",
-        );
+        logPortConflictGuidance();
       } else {
         p.log.error(upResult.stderr || "Unknown error");
       }
@@ -1546,12 +1540,7 @@ const CONFIG_CATEGORIES: Record<
     keys: [
       "DEFAULT_LLM_PROVIDER",
       "DEFAULT_LLM_MODEL",
-      "ANTHROPIC_API_KEY",
-      "OPENAI_API_KEY",
-      "GOOGLE_API_KEY",
-      "OPENROUTER_API_KEY",
-      "AI_GATEWAY_API_KEY",
-      "GROQ_API_KEY",
+      "LLM_API_KEY",
       "BEDROCK_ACCESS_KEY",
       "BEDROCK_SECRET_KEY",
       "BEDROCK_REGION",
@@ -1565,6 +1554,10 @@ const CONFIG_CATEGORIES: Record<
       "UPSTASH_REDIS_URL",
       "UPSTASH_REDIS_TOKEN",
     ],
+  },
+  "Local Ports": {
+    description: "Docker host port bindings",
+    keys: ["WEB_PORT", "POSTGRES_PORT", "REDIS_PORT", "REDIS_HTTP_PORT"],
   },
   "App Settings": {
     description: "Application URL and feature flags",
@@ -1776,15 +1769,6 @@ const DEFAULT_MODELS: Record<string, { default: string; economy: string }> = {
   },
 };
 
-const API_KEY_ENV_VAR: Record<string, string> = {
-  anthropic: "ANTHROPIC_API_KEY",
-  openai: "OPENAI_API_KEY",
-  google: "GOOGLE_API_KEY",
-  openrouter: "OPENROUTER_API_KEY",
-  aigateway: "AI_GATEWAY_API_KEY",
-  groq: "GROQ_API_KEY",
-};
-
 function cancelSetup(): never {
   p.cancel("Setup cancelled.");
   process.exit(0);
@@ -1908,7 +1892,7 @@ async function promptLlmCredentials(
     const creds = await promptOpenAICompatibleCreds();
     env.OPENAI_COMPATIBLE_BASE_URL = creds.baseUrl;
     env.OPENAI_COMPATIBLE_MODEL = creds.model;
-    if (creds.apiKey) env.OPENAI_COMPATIBLE_API_KEY = creds.apiKey;
+    if (creds.apiKey) env.LLM_API_KEY = creds.apiKey;
     env.DEFAULT_LLM_MODEL = creds.model;
     env.ECONOMY_LLM_PROVIDER = provider;
     env.ECONOMY_LLM_MODEL = creds.model;
@@ -1930,7 +1914,7 @@ async function promptLlmCredentials(
       env.BEDROCK_SECRET_KEY = bedrock.secretKey;
       env.BEDROCK_REGION = bedrock.region;
     } else {
-      env[API_KEY_ENV_VAR[provider]] = await promptApiKey(provider);
+      env.LLM_API_KEY = await promptApiKey(provider);
     }
   }
 }
@@ -1979,6 +1963,16 @@ function runDockerCommand(
       resolve({ status: 1, stdout: "", stderr: err.message });
     });
   });
+}
+
+function logPortConflictGuidance() {
+  p.log.info(
+    "Stop the conflicting process or change the port:\n" +
+      "  inbox-zero config set WEB_PORT <port>\n" +
+      "  inbox-zero config set POSTGRES_PORT <port>\n" +
+      "  inbox-zero config set REDIS_PORT <port>\n" +
+      "  inbox-zero config set REDIS_HTTP_PORT <port>",
+  );
 }
 
 function readExistingDbPassword(envFile: string): string | undefined {

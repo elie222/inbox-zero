@@ -491,35 +491,29 @@ export async function runAwsSetup(options: AwsSetupOptions) {
       llmEnvVar = "BEDROCK_REGION";
       llmApiKey = region;
     } else {
-      const apiKeyMap: Record<string, { envVar: string; url: string }> = {
+      const apiKeyMap: Record<string, { url: string }> = {
         anthropic: {
-          envVar: "ANTHROPIC_API_KEY",
           url: "https://console.anthropic.com/settings/keys",
         },
         openai: {
-          envVar: "OPENAI_API_KEY",
           url: "https://platform.openai.com/api-keys",
         },
         google: {
-          envVar: "GOOGLE_API_KEY",
           url: "https://aistudio.google.com/apikey",
         },
         openrouter: {
-          envVar: "OPENROUTER_API_KEY",
           url: "https://openrouter.ai/settings/keys",
         },
         aigateway: {
-          envVar: "AI_GATEWAY_API_KEY",
           url: "https://vercel.com/docs/ai-gateway",
         },
         groq: {
-          envVar: "GROQ_API_KEY",
           url: "https://console.groq.com/keys",
         },
       };
 
-      const { envVar, url } = apiKeyMap[llmProvider];
-      llmEnvVar = envVar;
+      const { url } = apiKeyMap[llmProvider];
+      llmEnvVar = "LLM_API_KEY";
 
       p.log.info(`Get your API key at: ${url}`);
 

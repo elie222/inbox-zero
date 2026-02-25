@@ -16,10 +16,7 @@ Then open [http://localhost:3000](http://localhost:3000) (or your domain).
   **Prerequisites:** [Docker](https://docs.docker.com/engine/install/) and [Node.js](https://nodejs.org/) v22+ must be installed.
 </Info>
 
-## What the CLI Does
-
-- **`setup`** downloads the Docker Compose file, creates your `.env`, and walks you through configuring Google/Microsoft OAuth and your AI provider. For manual configuration, see the [Setup Guides](/hosting/setup-guides).
-- **`start`** pulls the latest pre-built Docker image from `ghcr.io/elie222/inbox-zero:latest` and starts all containers (app, Postgres, Redis).
+The CLI will walk you through configuring [Google OAuth](/hosting/google-oauth) or [Microsoft OAuth](/hosting/microsoft-oauth) and your AI provider. For manual configuration, see the [Setup Guides](/hosting/setup-guides).
 
 ## Install Options
 
@@ -77,11 +74,20 @@ Need to remove Inbox Zero or start fresh? See the [full cleanup guide](/hosting/
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Setup Guides" icon="wrench" href="/hosting/setup-guides">
-    Manual configuration for Google OAuth, Microsoft OAuth, PubSub, and AI providers.
+  <Card title="Google OAuth" icon="google" href="/hosting/google-oauth">
+    Configure Google OAuth credentials and Gmail API access.
   </Card>
-  <Card title="Self-Hosting Guide" icon="server" href="/hosting/self-hosting">
+  <Card title="Microsoft OAuth" icon="microsoft" href="/hosting/microsoft-oauth">
+    Configure Azure app registration and Graph permissions.
+  </Card>
+  <Card title="All Guides" icon="wrench" href="/hosting/setup-guides">
+    PubSub, AI providers, and more manual configuration options.
+  </Card>
+  <Card title="Docker/VPS Deployment Guide" icon="server" href="/hosting/self-hosting">
     Production deployment, Docker profiles, and scheduled tasks.
+  </Card>
+  <Card title="Vercel Deployment" icon="cloud" href="/hosting/vercel">
+    Deploy on Vercel with Neon Postgres and Upstash Redis.
   </Card>
   <Card title="AWS Deployment" icon="aws" href="/hosting/aws">
     Deploy on AWS using EC2, Terraform, or AWS Copilot.

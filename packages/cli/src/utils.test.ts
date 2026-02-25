@@ -43,7 +43,7 @@ GOOGLE_CLIENT_ID=
 MICROSOFT_CLIENT_ID=
 DEFAULT_LLM_PROVIDER=
 DEFAULT_LLM_MODEL=
-ANTHROPIC_API_KEY=
+LLM_API_KEY=
 `;
 
   const baseEnv: EnvConfig = {
@@ -59,7 +59,7 @@ ANTHROPIC_API_KEY=
     DEFAULT_LLM_MODEL: "claude-sonnet-4-5-20250929",
     ECONOMY_LLM_PROVIDER: "anthropic",
     ECONOMY_LLM_MODEL: "claude-haiku-4-5-20251001",
-    ANTHROPIC_API_KEY: "sk-ant-xxx",
+    LLM_API_KEY: "sk-ant-xxx",
   };
 
   it("should replace existing values in template", () => {
@@ -83,12 +83,20 @@ ANTHROPIC_API_KEY=
       POSTGRES_USER: "postgres",
       POSTGRES_PASSWORD: "mypassword",
       POSTGRES_DB: "inboxzero",
+      POSTGRES_PORT: "5433",
+      REDIS_PORT: "6381",
+      REDIS_HTTP_PORT: "8080",
+      WEB_PORT: "3001",
     };
 
     const templateWithPostgres = `${baseTemplate}
 POSTGRES_USER=
 POSTGRES_PASSWORD=
 POSTGRES_DB=
+POSTGRES_PORT=
+REDIS_PORT=
+REDIS_HTTP_PORT=
+WEB_PORT=
 `;
 
     const result = generateEnvFile({
@@ -101,9 +109,13 @@ POSTGRES_DB=
     expect(result).toContain("POSTGRES_USER=postgres");
     expect(result).toContain("POSTGRES_PASSWORD=mypassword");
     expect(result).toContain("POSTGRES_DB=inboxzero");
+    expect(result).toContain("POSTGRES_PORT=5433");
+    expect(result).toContain("REDIS_PORT=6381");
+    expect(result).toContain("REDIS_HTTP_PORT=8080");
+    expect(result).toContain("WEB_PORT=3001");
   });
 
-  it("should set LLM provider API key", () => {
+  it("should set shared LLM_API_KEY", () => {
     const result = generateEnvFile({
       env: baseEnv,
       useDockerInfra: false,
@@ -111,30 +123,27 @@ POSTGRES_DB=
       template: baseTemplate,
     });
 
-    expect(result).toContain("ANTHROPIC_API_KEY=sk-ant-xxx");
+    expect(result).toContain("LLM_API_KEY=sk-ant-xxx");
     expect(result).toContain("DEFAULT_LLM_PROVIDER=anthropic");
   });
 
   it("should handle OpenAI provider", () => {
     const openaiEnv: EnvConfig = {
       ...baseEnv,
+      LLM_API_KEY: undefined,
       DEFAULT_LLM_PROVIDER: "openai",
       DEFAULT_LLM_MODEL: "gpt-4.1",
       OPENAI_API_KEY: "sk-openai-xxx",
     };
 
-    const templateWithOpenai = `${baseTemplate}
-OPENAI_API_KEY=
-`;
-
     const result = generateEnvFile({
       env: openaiEnv,
       useDockerInfra: false,
       llmProvider: "openai",
-      template: templateWithOpenai,
+      template: baseTemplate,
     });
 
-    expect(result).toContain("OPENAI_API_KEY=sk-openai-xxx");
+    expect(result).toContain("LLM_API_KEY=sk-openai-xxx");
     expect(result).toContain("DEFAULT_LLM_PROVIDER=openai");
   });
 
@@ -169,17 +178,16 @@ BEDROCK_REGION=
   it("should handle OpenAI-compatible provider settings", () => {
     const openaiCompatibleEnv: EnvConfig = {
       ...baseEnv,
+      LLM_API_KEY: "lm-studio-key",
       DEFAULT_LLM_PROVIDER: "openai-compatible",
       DEFAULT_LLM_MODEL: "llama-3.2-3b-instruct",
       OPENAI_COMPATIBLE_BASE_URL: "http://localhost:1234/v1",
       OPENAI_COMPATIBLE_MODEL: "llama-3.2-3b-instruct",
-      OPENAI_COMPATIBLE_API_KEY: "lm-studio-key",
     };
 
     const templateWithOpenAICompatible = `${baseTemplate}
 OPENAI_COMPATIBLE_BASE_URL=
 OPENAI_COMPATIBLE_MODEL=
-OPENAI_COMPATIBLE_API_KEY=
 `;
 
     const result = generateEnvFile({
@@ -193,7 +201,8 @@ OPENAI_COMPATIBLE_API_KEY=
       "OPENAI_COMPATIBLE_BASE_URL=http://localhost:1234/v1",
     );
     expect(result).toContain("OPENAI_COMPATIBLE_MODEL=llama-3.2-3b-instruct");
-    expect(result).toContain("OPENAI_COMPATIBLE_API_KEY=lm-studio-key");
+    expect(result).toContain("LLM_API_KEY=lm-studio-key");
+    expect(result).not.toContain("OPENAI_COMPATIBLE_API_KEY=");
     expect(result).toContain("DEFAULT_LLM_PROVIDER=openai-compatible");
   });
 
@@ -317,7 +326,7 @@ DEFAULT_LLM_PROVIDER=
 DEFAULT_LLM_MODEL=
 ECONOMY_LLM_PROVIDER=
 ECONOMY_LLM_MODEL=
-ANTHROPIC_API_KEY=
+LLM_API_KEY=
 
 # =============================================================================
 # Redis
@@ -359,7 +368,7 @@ UPSTASH_REDIS_TOKEN=
       DEFAULT_LLM_MODEL: "claude-sonnet-4-5-20250929",
       ECONOMY_LLM_PROVIDER: "anthropic",
       ECONOMY_LLM_MODEL: "claude-haiku-4-5-20251001",
-      ANTHROPIC_API_KEY: "sk-ant-api-key-value",
+      LLM_API_KEY: "sk-ant-api-key-value",
     };
 
     const result = generateEnvFile({
@@ -417,7 +426,7 @@ DEFAULT_LLM_PROVIDER=anthropic
 DEFAULT_LLM_MODEL=claude-sonnet-4-5-20250929
 ECONOMY_LLM_PROVIDER=anthropic
 ECONOMY_LLM_MODEL=claude-haiku-4-5-20251001
-ANTHROPIC_API_KEY=sk-ant-api-key-value
+LLM_API_KEY=sk-ant-api-key-value
 
 # =============================================================================
 # Redis
@@ -540,6 +549,7 @@ describe("updateEnvValue", () => {
 
 describe("redactValue", () => {
   it("should redact sensitive keys", () => {
+    expect(redactValue("LLM_API_KEY", "sk-ant-12345")).toBe("sk-a****");
     expect(redactValue("ANTHROPIC_API_KEY", "sk-ant-12345")).toBe("sk-a****");
     expect(redactValue("GOOGLE_CLIENT_SECRET", "GOCSPX-abc")).toBe("GOCS****");
   });
@@ -574,6 +584,7 @@ describe("redactValue", () => {
 
 describe("isSensitiveKey", () => {
   it("should identify known sensitive keys", () => {
+    expect(isSensitiveKey("LLM_API_KEY")).toBe(true);
     expect(isSensitiveKey("ANTHROPIC_API_KEY")).toBe(true);
     expect(isSensitiveKey("AUTH_SECRET")).toBe(true);
     expect(isSensitiveKey("CRON_SECRET")).toBe(true);
