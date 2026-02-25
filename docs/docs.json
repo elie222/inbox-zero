@@ -47,14 +47,14 @@
           {
             "group": "Quick Start",
             "pages": [
-              "hosting/quick-start",
-              "hosting/vercel"
+              "hosting/quick-start"
             ]
           },
           {
             "group": "Self-Hosting",
             "pages": [
               "hosting/self-hosting",
+              "hosting/vercel",
               "hosting/setup-guides",
               "hosting/environment-variables",
               "hosting/troubleshooting"

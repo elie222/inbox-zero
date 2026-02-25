@@ -9,27 +9,12 @@ This guide covers a managed setup on Vercel using the Neon and Upstash integrati
   For Docker/VPS deployment, use the [Self-Hosting Guide](/hosting/self-hosting).
 </Info>
 
-## Architecture
-
-- **App hosting:** Vercel (Next.js)
-- **Database:** Neon Postgres
-- **Cache/queue state:** Upstash Redis
-
-## Prerequisites
-
-- Vercel account
-- GitHub repo or fork of Inbox Zero
-- OAuth provider credentials (Google and/or Microsoft)
-- One LLM provider API key
-- Custom domain for production (recommended for OAuth stability)
-
 ## 1. Create a Vercel project
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Felie222%2Finbox-zero&env=AUTH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,MICROSOFT_CLIENT_ID,MICROSOFT_CLIENT_SECRET,EMAIL_ENCRYPT_SECRET,EMAIL_ENCRYPT_SALT,UPSTASH_REDIS_URL,UPSTASH_REDIS_TOKEN,GOOGLE_PUBSUB_TOPIC_NAME,DATABASE_URL,NEXT_PUBLIC_BASE_URL)
 
 1. Import the repository in Vercel.
 2. Set **Root Directory** to `apps/web`.
-3. Add your production domain in Vercel and map `NEXT_PUBLIC_BASE_URL` to it (for example: `https://mail.example.com`).
 
 ## 2. Add Neon in Vercel
 
