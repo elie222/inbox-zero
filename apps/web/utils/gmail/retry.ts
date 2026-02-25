@@ -81,9 +81,14 @@ export async function withGmailRetry<T>(
         });
         const originalError = (error as { originalError?: unknown })
           .originalError;
-        throw new AbortError(
-          originalError instanceof Error ? originalError : error,
-        );
+        const abortError =
+          originalError instanceof Error
+            ? originalError
+            : new Error(
+                errorInfo.errorMessage ||
+                  "Aborted retry due to long backoff in serverless",
+              );
+        throw new AbortError(abortError);
       }
 
       // Apply the custom delay
