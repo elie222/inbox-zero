@@ -154,7 +154,7 @@ export const useNavigation = () => {
         name: "Attachments",
         href: prefixPath(currentEmailAccountId, "/drive"),
         icon: HardDriveIcon,
-        new: true,
+        new: false,
       },
       ...(showIntegrations
         ? [

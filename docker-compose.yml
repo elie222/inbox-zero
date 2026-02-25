@@ -107,7 +107,7 @@ services:
           while true; do
             echo \"[cron] Processing follow-up reminders...\"
             curl -s -X GET 'http://web:3000/api/follow-up-reminders' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: follow-up-reminders request failed\"
-            sleep 1800
+            sleep 3600
           done
         ) &
         (

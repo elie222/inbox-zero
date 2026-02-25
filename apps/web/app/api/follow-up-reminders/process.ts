@@ -155,11 +155,14 @@ export async function processAccountFollowUps({
     logger,
   });
 
-  const [followUpLabel, dbLabels, providerLabels] = await Promise.all([
-    getOrCreateFollowUpLabel(provider),
+  const [dbLabels, providerLabels] = await Promise.all([
     getLabelsFromDb(emailAccountId),
     provider.getLabels(),
   ]);
+  const followUpLabel = await getOrCreateFollowUpLabel(
+    provider,
+    providerLabels,
+  );
 
   await processFollowUpsForType({
     systemType: SystemType.AWAITING_REPLY,
@@ -283,7 +286,10 @@ async function processFollowUpsForType({
     const threadLogger = logger.with({ threadId: thread.id });
 
     try {
-      const lastMessage = await provider.getLatestMessageInThread(thread.id);
+      const lastMessage = await provider.getLatestMessageFromThreadSnapshot({
+        id: thread.id,
+        messages: thread.messages,
+      });
       if (!lastMessage) {
         skippedNoLatestMessageCount++;
         continue;
@@ -325,7 +331,7 @@ async function processFollowUpsForType({
         orderBy: { createdAt: "desc" },
       });
 
-      let tracker: Awaited<ReturnType<typeof prisma.threadTracker.create>>;
+      let tracker: { id: string };
       if (existingTracker) {
         try {
           tracker = await prisma.threadTracker.update({

@@ -228,6 +228,9 @@ export interface EmailProvider {
     labelId: string;
     maxResults?: number;
   }): Promise<EmailThread[]>;
+  getLatestMessageFromThreadSnapshot(
+    thread: Pick<EmailThread, "id" | "messages">,
+  ): Promise<ParsedMessage | null>;
   getLatestMessageInThread(threadId: string): Promise<ParsedMessage | null>;
   getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]>;
   getAccessToken(): string;

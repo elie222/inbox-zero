@@ -21,6 +21,7 @@ import {
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
 import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
+import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import {
   draftEmail,
   forwardEmail,
@@ -1253,6 +1254,12 @@ export class OutlookProvider implements EmailProvider {
     );
   }
 
+  async getLatestMessageFromThreadSnapshot(
+    threadSnapshot: Pick<EmailThread, "id" | "messages">,
+  ): Promise<ParsedMessage | null> {
+    return this.getLatestMessageInThread(threadSnapshot.id);
+  }
+
   async getLatestMessageInThread(
     threadId: string,
   ): Promise<ParsedMessage | null> {
@@ -1264,17 +1271,14 @@ export class OutlookProvider implements EmailProvider {
       .select(MESSAGE_SELECT_FIELDS)
       .get();
 
-    const parsedMessages = (response.value || [])
+    const parsedMessages: ParsedMessage[] = (response.value || [])
       .filter((message: Message) => !message.isDraft)
       .map((message: Message) => convertMessage(message));
     if (parsedMessages.length === 0) return null;
 
     const latestMessage = getLatestNonDraftMessage({
       messages: parsedMessages,
-      getTimestamp: (message: ParsedMessage) => {
-        const timestamp = new Date(message.date).getTime();
-        return Number.isNaN(timestamp) ? Date.now() : timestamp;
-      },
+      getTimestamp: getMessageTimestamp,
     });
     if (!latestMessage) return null;
 

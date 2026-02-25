@@ -1,24 +1,12 @@
 import type { ModelMessage } from "ai";
 import { z } from "zod";
-import { Provider } from "@/utils/llms/config";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateText, createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 
 export const RECENT_MESSAGES_TO_KEEP = 6;
-
-const COMPACTION_THRESHOLDS: Record<string, number> = {
-  [Provider.OPENROUTER]: 200_000,
-  [Provider.GOOGLE]: 200_000,
-  [Provider.AI_GATEWAY]: 200_000,
-  [Provider.ANTHROPIC]: 150_000,
-  [Provider.BEDROCK]: 150_000,
-  [Provider.OPEN_AI]: 96_000,
-  [Provider.GROQ]: 60_000,
-};
-
-const DEFAULT_COMPACTION_THRESHOLD = 80_000;
+const COMPACTION_TOKEN_THRESHOLD = 80_000;
 
 export function estimateTokens(messages: ModelMessage[]): number {
   let totalChars = 0;
@@ -44,13 +32,8 @@ export function estimateTokens(messages: ModelMessage[]): number {
   return Math.ceil(totalChars / 4);
 }
 
-export function shouldCompact(
-  messages: ModelMessage[],
-  provider: string,
-): boolean {
-  const threshold =
-    COMPACTION_THRESHOLDS[provider] ?? DEFAULT_COMPACTION_THRESHOLD;
-  return estimateTokens(messages) > threshold;
+export function shouldCompact(messages: ModelMessage[]): boolean {
+  return estimateTokens(messages) > COMPACTION_TOKEN_THRESHOLD;
 }
 
 export async function compactMessages({
