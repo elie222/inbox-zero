@@ -16,6 +16,12 @@ import {
   isGmailRateLimitModeError,
   withRateLimitRecording,
 } from "@/utils/gmail/rate-limit";
+import {
+  calculateRetryDelay as calculateGmailRetryDelay,
+  extractErrorInfo as extractGmailErrorInfo,
+  getRetryAfterHeader as getGmailRetryAfterHeader,
+  isRetryableError as isGmailRetryableError,
+} from "@/utils/gmail/retry";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   getLabelsFromDb,
@@ -26,6 +32,7 @@ import { internalDateToDate } from "@/utils/date";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
+const RATE_LIMIT_FALLBACK_DELAY_MS = 60_000;
 
 export async function processAllFollowUpReminders(logger: Logger) {
   logger.info("Processing follow-up reminders for all users");
@@ -98,10 +105,7 @@ export async function processAllFollowUpReminders(logger: Logger) {
       );
       successCount++;
     } catch (error) {
-      const retryAtFromError =
-        isGmailRateLimitModeError(error) && error.retryAt
-          ? new Date(error.retryAt)
-          : undefined;
+      const retryAtFromError = getRetryAtFromRateLimitError(error);
       const retryAt = recordedRetryAt || retryAtFromError;
 
       if (retryAt) {
@@ -214,6 +218,30 @@ export async function processAccountFollowUps({
   // }
 
   logger.info("Finished processing follow-ups for account");
+}
+
+function getRetryAtFromRateLimitError(error: unknown): Date | undefined {
+  if (isGmailRateLimitModeError(error) && error.retryAt) {
+    const retryAt = new Date(error.retryAt);
+    if (!Number.isNaN(retryAt.getTime())) return retryAt;
+  }
+
+  const errorInfo = extractGmailErrorInfo(error);
+  const { isRateLimit } = isGmailRetryableError(errorInfo);
+  if (!isRateLimit) return undefined;
+
+  const delayMs = calculateGmailRetryDelay(
+    true,
+    false,
+    false,
+    1,
+    getGmailRetryAfterHeader(error),
+    errorInfo.errorMessage,
+  );
+
+  return new Date(
+    Date.now() + (delayMs > 0 ? delayMs : RATE_LIMIT_FALLBACK_DELAY_MS),
+  );
 }
 
 async function processFollowUpsForType({

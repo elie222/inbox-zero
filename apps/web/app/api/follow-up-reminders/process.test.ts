@@ -1,5 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { processAccountFollowUps } from "./process";
+import {
+  processAccountFollowUps,
+  processAllFollowUpReminders,
+} from "./process";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
@@ -8,6 +11,9 @@ vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/prisma", () => ({
   default: {
+    emailAccount: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     threadTracker: {
       findMany: vi.fn().mockResolvedValue([]),
       findFirst: vi.fn().mockResolvedValue(null),
@@ -796,5 +802,37 @@ describe("processAccountFollowUps - dedup logic", () => {
       }),
     );
     expect(generateFollowUpDraft).toHaveBeenCalled();
+  });
+});
+
+describe("processAllFollowUpReminders", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("counts Gmail 429 failures as rate-limited when no retry state is recorded", async () => {
+    vi.mocked(prisma.emailAccount.findMany).mockResolvedValue([
+      createMockAccount({
+        account: { provider: "google" } as any,
+      }),
+    ] as any);
+
+    vi.mocked(createEmailProvider).mockRejectedValue(
+      Object.assign(new Error("Rate limit exceeded"), {
+        cause: {
+          status: 429,
+          message: "Rate limit exceeded",
+        },
+      }),
+    );
+
+    const result = await processAllFollowUpReminders(logger);
+
+    expect(result).toEqual({
+      total: 1,
+      success: 0,
+      errors: 0,
+      rateLimited: 1,
+    });
   });
 });
