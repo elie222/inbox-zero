@@ -14,6 +14,7 @@ import { GmailUrlConverter } from "@/app/(app)/admin/GmailUrlConverter";
 import { DebugLabels } from "@/app/(app)/admin/DebugLabels";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
+import { AdminTopSpenders } from "@/app/(app)/admin/AdminTopSpenders";
 
 // NOTE: Turn on Fluid Compute on Vercel to allow for 800 seconds max duration
 export const maxDuration = 800;
@@ -36,6 +37,7 @@ export default async function AdminPage() {
 
       <div className="space-y-8 mt-4 mb-20">
         <AdminUpgradeUserForm />
+        <AdminTopSpenders />
         <AdminUserControls />
         <AdminUserInfo />
         <AdminHashEmail />
