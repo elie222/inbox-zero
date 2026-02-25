@@ -3,7 +3,6 @@ import { addMinutes } from "date-fns/addMinutes";
 import prisma from "@/utils/prisma";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import {
   applyFollowUpLabel,
   getOrCreateFollowUpLabel,
@@ -14,6 +13,7 @@ import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import {
+  type EmailProviderRateLimitProvider,
   getProviderRateLimitDelayMs,
   isProviderRateLimitModeError,
   withRateLimitRecording,
@@ -77,9 +77,7 @@ export async function processAllFollowUpReminders(logger: Logger) {
       emailAccountId: emailAccount.id,
     });
     let recordedRetryAt: Date | undefined;
-    const provider = isMicrosoftProvider(emailAccount.account?.provider)
-      ? "microsoft"
-      : "google";
+    const provider = emailAccount.account?.provider;
 
     try {
       await withRateLimitRecording(
@@ -217,7 +215,7 @@ export async function processAccountFollowUps({
 
 function getRetryAtFromRateLimitError(
   error: unknown,
-  provider: "google" | "microsoft",
+  provider?: EmailProviderRateLimitProvider,
 ): Date | undefined {
   if (isProviderRateLimitModeError(error) && error.retryAt) {
     const retryAt = new Date(error.retryAt);
@@ -226,7 +224,7 @@ function getRetryAtFromRateLimitError(
 
   const delayMs = getProviderRateLimitDelayMs({
     error,
-    provider,
+    provider: provider ?? "google",
     attemptNumber: 1,
   });
   if (!delayMs) return undefined;
