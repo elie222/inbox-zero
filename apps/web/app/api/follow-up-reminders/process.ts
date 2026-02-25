@@ -3,7 +3,6 @@ import { addMinutes } from "date-fns/addMinutes";
 import prisma from "@/utils/prisma";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { ParsedMessage } from "@/utils/types";
 import {
   applyFollowUpLabel,
   getOrCreateFollowUpLabel,
@@ -14,8 +13,6 @@ import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
-import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import {
   getLabelsFromDb,
   type LabelIds,
@@ -136,8 +133,6 @@ export async function processAccountFollowUps({
     provider,
     providerLabels,
   );
-  const canUseInlineThreadMessages =
-    provider.capabilities.threadsWithLabelReturnsCompleteThreadPayload;
 
   await processFollowUpsForType({
     systemType: SystemType.AWAITING_REPLY,
@@ -150,7 +145,6 @@ export async function processAccountFollowUps({
     providerLabels,
     now,
     logger,
-    canUseInlineThreadMessages,
   });
 
   await processFollowUpsForType({
@@ -164,7 +158,6 @@ export async function processAccountFollowUps({
     providerLabels,
     now,
     logger,
-    canUseInlineThreadMessages,
   });
 
   // Draft cleanup temporarily disabled to avoid deleting old drafts.
@@ -194,7 +187,6 @@ async function processFollowUpsForType({
   providerLabels,
   now,
   logger,
-  canUseInlineThreadMessages,
 }: {
   systemType: SystemType;
   thresholdDays: number | null;
@@ -206,7 +198,6 @@ async function processFollowUpsForType({
   providerLabels: EmailLabel[];
   now: Date;
   logger: Logger;
-  canUseInlineThreadMessages: boolean;
 }) {
   if (thresholdDays === null) return;
 
@@ -265,12 +256,10 @@ async function processFollowUpsForType({
     const threadLogger = logger.with({ threadId: thread.id });
 
     try {
-      const inlineLatestMessage = canUseInlineThreadMessages
-        ? getLatestMessageFromThread(thread)
-        : null;
-      const lastMessage =
-        inlineLatestMessage ||
-        (await provider.getLatestMessageInThread(thread.id));
+      const lastMessage = await provider.getLatestMessageFromThreadSnapshot({
+        id: thread.id,
+        messages: thread.messages,
+      });
       if (!lastMessage) {
         skippedNoLatestMessageCount++;
         continue;
@@ -486,12 +475,4 @@ function hasFollowUpBeenProcessed({
   messageId: string;
 }): boolean {
   return processedLedger.get(threadId)?.has(messageId) ?? false;
-}
-
-function getLatestMessageFromThread(thread: { messages: ParsedMessage[] }) {
-  return getLatestNonDraftMessage({
-    messages: thread.messages || [],
-    isDraft: (message) => message.labelIds?.includes("DRAFT") ?? false,
-    getTimestamp: getMessageTimestamp,
-  });
 }

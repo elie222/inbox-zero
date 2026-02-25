@@ -42,13 +42,8 @@ export interface EmailSignature {
   displayName?: string;
 }
 
-export interface EmailProviderCapabilities {
-  readonly threadsWithLabelReturnsCompleteThreadPayload: boolean;
-}
-
 export interface EmailProvider {
   readonly name: "google" | "microsoft";
-  readonly capabilities: EmailProviderCapabilities;
   toJSON(): { name: string; type: string };
   getThreads(folderId?: string): Promise<EmailThread[]>;
   getThread(threadId: string): Promise<EmailThread>;
@@ -233,6 +228,9 @@ export interface EmailProvider {
     labelId: string;
     maxResults?: number;
   }): Promise<EmailThread[]>;
+  getLatestMessageFromThreadSnapshot(
+    thread: Pick<EmailThread, "id" | "messages">,
+  ): Promise<ParsedMessage | null>;
   getLatestMessageInThread(threadId: string): Promise<ParsedMessage | null>;
   getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]>;
   getAccessToken(): string;

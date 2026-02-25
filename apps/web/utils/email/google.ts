@@ -57,6 +57,7 @@ import { decodeSnippet } from "@/utils/gmail/decode";
 import { getDraft, deleteDraft, sendDraft } from "@/utils/gmail/draft";
 import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
 import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
+import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import {
   getFiltersList,
   createFilter,
@@ -89,9 +90,6 @@ function buildRawMessageBase64(headers: string[], body: string): string {
 
 export class GmailProvider implements EmailProvider {
   readonly name = "google";
-  readonly capabilities = {
-    threadsWithLabelReturnsCompleteThreadPayload: true,
-  } as const;
   private readonly client: gmail_v1.Gmail;
   private readonly logger: Logger;
 
@@ -1139,6 +1137,20 @@ export class GmailProvider implements EmailProvider {
     return threads;
   }
 
+  async getLatestMessageFromThreadSnapshot(
+    threadSnapshot: Pick<EmailThread, "id" | "messages">,
+  ): Promise<ParsedMessage | null> {
+    const latestMessage = getLatestNonDraftMessage({
+      messages: threadSnapshot.messages,
+      isDraft: (message) =>
+        message.labelIds?.includes(GmailLabel.DRAFT) ?? false,
+      getTimestamp: getMessageTimestamp,
+    });
+    if (latestMessage) return latestMessage;
+
+    return this.getLatestMessageInThread(threadSnapshot.id);
+  }
+
   async getLatestMessageInThread(
     threadId: string,
   ): Promise<ParsedMessage | null> {
@@ -1147,7 +1159,7 @@ export class GmailProvider implements EmailProvider {
       messages: thread.messages,
       isDraft: (message) =>
         message.labelIds?.includes(GmailLabel.DRAFT) ?? false,
-      getTimestamp: (message) => Number(message.internalDate) || 0,
+      getTimestamp: getMessageTimestamp,
     });
   }
 

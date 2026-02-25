@@ -44,7 +44,6 @@ export function createMockEmailProvider(
 
   const baseMock: EmailProvider = {
     name: "google",
-    capabilities: { threadsWithLabelReturnsCompleteThreadPayload: true },
     toJSON: vi.fn(() => ({ name: "google", type: "mock" })),
 
     // Message operations
@@ -67,6 +66,9 @@ export function createMockEmailProvider(
     getThreadsWithParticipant: vi.fn().mockResolvedValue([]),
     getThreadsFromSenderWithSubject: vi.fn().mockResolvedValue([]),
     getPreviousConversationMessages: vi.fn().mockResolvedValue([]),
+    getLatestMessageFromThreadSnapshot: vi
+      .fn()
+      .mockResolvedValue(defaultMessage),
     getLatestMessageInThread: vi.fn().mockResolvedValue(defaultMessage),
 
     // Message retrieval

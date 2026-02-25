@@ -36,7 +36,6 @@ export const createMockEmailProvider = (
   overrides?: Partial<EmailProvider>,
 ): EmailProvider => ({
   name: "google",
-  capabilities: { threadsWithLabelReturnsCompleteThreadPayload: true },
   toJSON: () => ({ name: "google", type: "MockEmailProvider" }),
   getThreads: vi.fn().mockResolvedValue([]),
   getThread: vi.fn().mockResolvedValue({
@@ -123,6 +122,9 @@ export const createMockEmailProvider = (
     .fn()
     .mockResolvedValue({ messages: [], nextPageToken: undefined }),
   getThreadsWithParticipant: vi.fn().mockResolvedValue([]),
+  getThreadsWithLabel: vi.fn().mockResolvedValue([]),
+  getLatestMessageFromThreadSnapshot: vi.fn().mockResolvedValue(null),
+  getLatestMessageInThread: vi.fn().mockResolvedValue(null),
   getMessagesBatch: vi.fn().mockResolvedValue([]),
   getAccessToken: vi.fn().mockReturnValue("mock-token"),
   checkIfReplySent: vi.fn().mockResolvedValue(false),

@@ -88,10 +88,7 @@ function createMockAccount(
 function createMockProvider(
   overrides?: Partial<Record<string, unknown>>,
 ): EmailProvider {
-  return {
-    capabilities: {
-      threadsWithLabelReturnsCompleteThreadPayload: false,
-    },
+  const provider = {
     getLabels: vi
       .fn()
       .mockResolvedValue([
@@ -102,6 +99,16 @@ function createMockProvider(
     labelMessage: vi.fn(),
     ...overrides,
   } as any;
+
+  if (!provider.getLatestMessageFromThreadSnapshot) {
+    provider.getLatestMessageFromThreadSnapshot = vi.fn(
+      async (thread: { id: string }) => {
+        return provider.getLatestMessageInThread(thread.id);
+      },
+    );
+  }
+
+  return provider as EmailProvider;
 }
 
 function mockMessage(id: string, internalDate: string) {
@@ -237,11 +244,8 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(generateFollowUpDraft).toHaveBeenCalled();
   });
 
-  it("uses inline messages when provider reports complete thread payloads", async () => {
+  it("uses provider snapshot resolver when available", async () => {
     const provider = createMockProvider({
-      capabilities: {
-        threadsWithLabelReturnsCompleteThreadPayload: true,
-      },
       getThreadsWithLabel: vi.fn().mockResolvedValue([
         {
           id: "thread-inline",
@@ -249,6 +253,9 @@ describe("processAccountFollowUps - dedup logic", () => {
           snippet: "",
         },
       ]),
+      getLatestMessageFromThreadSnapshot: vi
+        .fn()
+        .mockResolvedValue(mockMessage("msg-inline", OLD_DATE)),
       getLatestMessageInThread: vi.fn(),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
@@ -264,6 +271,10 @@ describe("processAccountFollowUps - dedup logic", () => {
       logger,
     });
 
+    expect(provider.getLatestMessageFromThreadSnapshot).toHaveBeenCalledWith({
+      id: "thread-inline",
+      messages: [expect.objectContaining({ id: "msg-inline" })],
+    });
     expect(provider.getLatestMessageInThread).not.toHaveBeenCalled();
     expect(applyFollowUpLabel).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -273,7 +284,7 @@ describe("processAccountFollowUps - dedup logic", () => {
     );
   });
 
-  it("refetches latest thread message when provider reports partial thread payloads", async () => {
+  it("uses provider snapshot resolver result for partial payload providers", async () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi.fn().mockResolvedValue([
         {
@@ -282,7 +293,7 @@ describe("processAccountFollowUps - dedup logic", () => {
           snippet: "",
         },
       ]),
-      getLatestMessageInThread: vi
+      getLatestMessageFromThreadSnapshot: vi
         .fn()
         .mockResolvedValue(
           mockMessage("msg-refetched", "2026-02-20T12:00:00.000Z"),
@@ -301,9 +312,10 @@ describe("processAccountFollowUps - dedup logic", () => {
       logger,
     });
 
-    expect(provider.getLatestMessageInThread).toHaveBeenCalledWith(
-      "thread-partial",
-    );
+    expect(provider.getLatestMessageFromThreadSnapshot).toHaveBeenCalledWith({
+      id: "thread-partial",
+      messages: [expect.objectContaining({ id: "msg-inline-old" })],
+    });
     expect(applyFollowUpLabel).toHaveBeenCalledWith(
       expect.objectContaining({
         threadId: "thread-partial",
