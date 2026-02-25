@@ -145,6 +145,51 @@ describe("gmail rate-limit state", () => {
     );
   });
 
+  it("rethrows original error when recording state fails", async () => {
+    const rateLimitError = {
+      cause: {
+        status: 429,
+        message: "Rate limit exceeded",
+      },
+    };
+    vi.mocked(redis.get).mockResolvedValueOnce(null);
+    vi.mocked(redis.set).mockRejectedValueOnce(new Error("redis unavailable"));
+
+    await expect(
+      withRateLimitRecording(
+        {
+          emailAccountId: "account-1",
+          source: "test-wrapper",
+        },
+        async () => {
+          throw rateLimitError;
+        },
+      ),
+    ).rejects.toBe(rateLimitError);
+  });
+
+  it("keeps existing longer retry window even when source differs", async () => {
+    const existingRetryAt = new Date(Date.now() + 120_000);
+    vi.mocked(redis.get).mockResolvedValueOnce(
+      JSON.stringify({
+        provider: "google",
+        retryAt: existingRetryAt.toISOString(),
+        source: "long-window",
+        detectedAt: new Date().toISOString(),
+      }),
+    );
+
+    const state = await setGmailRateLimitState({
+      emailAccountId: "account-1",
+      retryAt: new Date(Date.now() + 30_000),
+      source: "short-window",
+    });
+
+    expect(state.retryAt.toISOString()).toBe(existingRetryAt.toISOString());
+    expect(state.source).toBe("long-window");
+    expect(redis.set).not.toHaveBeenCalled();
+  });
+
   it("records rate-limit mode for microsoft provider errors", async () => {
     vi.mocked(redis.get).mockResolvedValueOnce(null);
 

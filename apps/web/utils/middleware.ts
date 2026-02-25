@@ -166,14 +166,25 @@ function withMiddleware<T extends NextRequest>(
         ) {
           const emailAccountId = getEmailAccountId(requestForError);
           if (emailAccountId) {
-            await recordProviderRateLimitFromError({
-              error,
-              emailAccountId,
-              provider:
-                apiError.type === "Outlook Rate Limit" ? "microsoft" : "google",
-              logger: reqLogger,
-              source: scope || new URL(requestForError.url).pathname,
-            });
+            const provider =
+              apiError.type === "Outlook Rate Limit" ? "microsoft" : "google";
+            try {
+              await recordProviderRateLimitFromError({
+                error,
+                emailAccountId,
+                provider,
+                logger: reqLogger,
+                source: scope || new URL(requestForError.url).pathname,
+              });
+            } catch (recordError) {
+              reqLogger.warn("Failed to record provider rate-limit state", {
+                provider,
+                error:
+                  recordError instanceof Error
+                    ? recordError.message
+                    : recordError,
+              });
+            }
           }
         }
 

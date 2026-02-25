@@ -162,8 +162,7 @@ export async function setEmailProviderRateLimitState({
   if (
     existing &&
     existing.provider === provider &&
-    existing.retryAt.getTime() >= retryAt.getTime() &&
-    existing.source === source
+    existing.retryAt.getTime() >= retryAt.getTime()
   ) {
     return existing;
   }
@@ -299,16 +298,26 @@ export async function withRateLimitRecording<T>(
   try {
     return await operation();
   } catch (error) {
-    const rateLimitState = emailAccountId
-      ? await recordProviderRateLimitFromError({
+    let rateLimitState: EmailProviderRateLimitState | null = null;
+    if (emailAccountId) {
+      try {
+        rateLimitState = await recordProviderRateLimitFromError({
           error,
           emailAccountId,
           provider,
           logger,
           source,
           attemptNumber,
-        })
-      : null;
+        });
+      } catch (recordError) {
+        logger?.warn("Failed to record provider rate-limit state", {
+          provider,
+          source,
+          error:
+            recordError instanceof Error ? recordError.message : recordError,
+        });
+      }
+    }
     if (onRateLimitRecorded) {
       await onRateLimitRecorded(rateLimitState, error);
     }

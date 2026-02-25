@@ -135,6 +135,29 @@ describe("handleWebhookError", () => {
         }),
       );
     });
+
+    it("continues processing when rate-limit recording fails", async () => {
+      const error = Object.assign(new Error("Too many requests"), {
+        statusCode: 429,
+        code: "TooManyRequests",
+      });
+      mockRecordProviderRateLimitFromError.mockRejectedValueOnce(
+        new Error("redis unavailable"),
+      );
+
+      await expect(
+        handleWebhookError(error, {
+          ...baseOptions,
+          url: "/api/outlook/webhook",
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(trackError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          errorType: "Outlook Rate Limit",
+        }),
+      );
+    });
   });
 
   describe("Unknown errors", () => {

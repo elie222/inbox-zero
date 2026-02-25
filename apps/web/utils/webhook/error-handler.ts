@@ -24,14 +24,23 @@ export async function handleWebhookError(
       apiError.type === "Gmail Rate Limit Exceeded" ||
       apiError.type === "Outlook Rate Limit"
     ) {
-      await recordProviderRateLimitFromError({
-        error,
-        emailAccountId,
-        provider:
-          apiError.type === "Outlook Rate Limit" ? "microsoft" : "google",
-        logger,
-        source: url,
-      });
+      const provider =
+        apiError.type === "Outlook Rate Limit" ? "microsoft" : "google";
+      try {
+        await recordProviderRateLimitFromError({
+          error,
+          emailAccountId,
+          provider,
+          logger,
+          source: url,
+        });
+      } catch (recordError) {
+        logger.warn("Failed to record provider rate-limit state", {
+          provider,
+          error:
+            recordError instanceof Error ? recordError.message : recordError,
+        });
+      }
     }
 
     await trackError({

@@ -183,6 +183,39 @@ describe("Middleware", () => {
       });
     });
 
+    it("should still return 429 when rate-limit recording fails", async () => {
+      const rateLimitError = new Error("Rate limit exceeded");
+      const commonError = {
+        message: "Gmail error: retry later",
+        code: 429,
+        type: "Gmail Rate Limit Exceeded",
+      };
+      mockCheckCommonErrors.mockReturnValue(commonError);
+      mockRecordProviderRateLimitFromError.mockRejectedValueOnce(
+        new Error("redis unavailable"),
+      );
+      (mockReq as any).auth = { emailAccountId: "acc-456" };
+
+      const handler = vi.fn().mockRejectedValue(rateLimitError);
+      const wrappedHandler = withError("labels", handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(mockRecordProviderRateLimitFromError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: rateLimitError,
+          emailAccountId: "acc-456",
+          provider: "google",
+        }),
+      );
+      expect(response.status).toBe(429);
+      expect(responseBody).toEqual({
+        error: commonError.message,
+        isKnownError: true,
+      });
+    });
+
     it("should return 500 and capture unhandled errors", async () => {
       const unexpectedError = new Error("Something went very wrong");
       mockCheckCommonErrors.mockReturnValue(null); // Ensure it's not a common error
