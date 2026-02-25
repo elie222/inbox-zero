@@ -37,7 +37,6 @@ export default async function AdminPage() {
 
       <div className="space-y-8 mt-4 mb-20">
         <AdminUpgradeUserForm />
-        <AdminTopSpenders />
         <AdminUserControls />
         <AdminUserInfo />
         <AdminHashEmail />
@@ -49,6 +48,8 @@ export default async function AdminPage() {
           <AdminSyncStripe />
           <AdminSyncStripeCustomers />
         </div>
+
+        <AdminTopSpenders />
       </div>
     </PageWrapper>
   );
