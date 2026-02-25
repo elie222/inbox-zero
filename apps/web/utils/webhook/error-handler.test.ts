@@ -2,19 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { createScopedLogger } from "@/utils/logger";
 import { trackError } from "@/utils/posthog";
-import { recordProviderRateLimitFromError } from "@/utils/email/rate-limit";
+import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/posthog", () => ({
   trackError: vi.fn(),
 }));
 vi.mock("@/utils/email/rate-limit", () => ({
-  getProviderFromRateLimitApiErrorType: vi.fn((type: string) => {
-    if (type === "Outlook Rate Limit") return "microsoft";
-    if (type === "Gmail Rate Limit Exceeded") return "google";
-    return null;
-  }),
-  recordProviderRateLimitFromError: vi.fn().mockResolvedValue(null),
+  recordRateLimitFromApiError: vi.fn().mockResolvedValue(null),
 }));
 
 describe("handleWebhookError", () => {
@@ -30,8 +25,8 @@ describe("handleWebhookError", () => {
     vi.clearAllMocks();
   });
 
-  const mockRecordProviderRateLimitFromError = vi.mocked(
-    recordProviderRateLimitFromError,
+  const mockRecordRateLimitFromApiError = vi.mocked(
+    recordRateLimitFromApiError,
   );
 
   describe("Gmail errors", () => {
@@ -100,11 +95,11 @@ describe("handleWebhookError", () => {
           url: "/api/outlook/webhook",
         }),
       );
-      expect(mockRecordProviderRateLimitFromError).toHaveBeenCalledWith(
+      expect(mockRecordRateLimitFromApiError).toHaveBeenCalledWith(
         expect.objectContaining({
+          apiErrorType: "Outlook Rate Limit",
           error,
           emailAccountId: "acc-123",
-          provider: "microsoft",
         }),
       );
     });
@@ -141,14 +136,12 @@ describe("handleWebhookError", () => {
       );
     });
 
-    it("continues processing when rate-limit recording fails", async () => {
+    it("continues processing when rate-limit recording returns no state", async () => {
       const error = Object.assign(new Error("Too many requests"), {
         statusCode: 429,
         code: "TooManyRequests",
       });
-      mockRecordProviderRateLimitFromError.mockRejectedValueOnce(
-        new Error("redis unavailable"),
-      );
+      mockRecordRateLimitFromApiError.mockResolvedValueOnce(null);
 
       await expect(
         handleWebhookError(error, {

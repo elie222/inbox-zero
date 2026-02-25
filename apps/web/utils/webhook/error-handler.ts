@@ -1,10 +1,7 @@
 import { checkCommonErrors } from "@/utils/error";
 import { trackError } from "@/utils/posthog";
 import type { Logger } from "@/utils/logger";
-import {
-  getProviderFromRateLimitApiErrorType,
-  recordProviderRateLimitFromError,
-} from "@/utils/email/rate-limit";
+import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
 
 /**
  * Handles errors from async webhook processing in the same way as withError middleware
@@ -23,24 +20,13 @@ export async function handleWebhookError(
 
   const apiError = checkCommonErrors(error, url, logger);
   if (apiError) {
-    const provider = getProviderFromRateLimitApiErrorType(apiError.type);
-    if (provider) {
-      try {
-        await recordProviderRateLimitFromError({
-          error,
-          emailAccountId,
-          provider,
-          logger,
-          source: url,
-        });
-      } catch (recordError) {
-        logger.warn("Failed to record provider rate-limit state", {
-          provider,
-          error:
-            recordError instanceof Error ? recordError.message : recordError,
-        });
-      }
-    }
+    await recordRateLimitFromApiError({
+      apiErrorType: apiError.type,
+      error,
+      emailAccountId,
+      logger,
+      source: url,
+    });
 
     await trackError({
       email,

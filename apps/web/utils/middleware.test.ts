@@ -47,13 +47,8 @@ vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn(),
 }));
 vi.mock("@/utils/email/rate-limit", () => ({
-  getProviderFromRateLimitApiErrorType: vi.fn((type: string) => {
-    if (type === "Outlook Rate Limit") return "microsoft";
-    if (type === "Gmail Rate Limit Exceeded") return "google";
-    return null;
-  }),
   isGmailRateLimitModeError: vi.fn(),
-  recordProviderRateLimitFromError: vi.fn(),
+  recordRateLimitFromApiError: vi.fn(),
 }));
 
 // Mock specific functions from @/utils/error, keep original SafeError
@@ -76,7 +71,7 @@ import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
   isGmailRateLimitModeError,
-  recordProviderRateLimitFromError,
+  recordRateLimitFromApiError,
 } from "@/utils/email/rate-limit";
 
 // This should now correctly reference mockAuthFn
@@ -91,9 +86,7 @@ const mockPrismaEmailAccountFindUnique = vi.mocked(
   prisma.emailAccount.findUnique,
 );
 const mockIsGmailRateLimitModeError = vi.mocked(isGmailRateLimitModeError);
-const mockRecordProviderRateLimitFromError = vi.mocked(
-  recordProviderRateLimitFromError,
-);
+const mockRecordRateLimitFromApiError = vi.mocked(recordRateLimitFromApiError);
 
 // Helper to create a mock NextRequest
 const createMockRequest = (
@@ -185,7 +178,7 @@ describe("Middleware", () => {
       });
     });
 
-    it("should still return 429 when rate-limit recording fails", async () => {
+    it("should still return 429 for rate-limit API errors", async () => {
       const rateLimitError = new Error("Rate limit exceeded");
       const commonError = {
         message: "Gmail error: retry later",
@@ -193,9 +186,7 @@ describe("Middleware", () => {
         type: "Gmail Rate Limit Exceeded",
       };
       mockCheckCommonErrors.mockReturnValue(commonError);
-      mockRecordProviderRateLimitFromError.mockRejectedValueOnce(
-        new Error("redis unavailable"),
-      );
+      mockRecordRateLimitFromApiError.mockResolvedValueOnce("google");
       (mockReq as any).auth = { emailAccountId: "acc-456" };
 
       const handler = vi.fn().mockRejectedValue(rateLimitError);
@@ -204,11 +195,11 @@ describe("Middleware", () => {
       const response = await wrappedHandler(mockReq, mockContext);
       const responseBody = await response.json();
 
-      expect(mockRecordProviderRateLimitFromError).toHaveBeenCalledWith(
+      expect(mockRecordRateLimitFromApiError).toHaveBeenCalledWith(
         expect.objectContaining({
+          apiErrorType: commonError.type,
           error: rateLimitError,
           emailAccountId: "acc-456",
-          provider: "google",
         }),
       );
       expect(response.status).toBe(429);
@@ -500,11 +491,11 @@ describe("Middleware", () => {
         mockReq.url,
         expect.anything(),
       );
-      expect(mockRecordProviderRateLimitFromError).toHaveBeenCalledWith(
+      expect(mockRecordRateLimitFromApiError).toHaveBeenCalledWith(
         expect.objectContaining({
+          apiErrorType: commonError.type,
           error: rateLimitError,
           emailAccountId: mockAccountId,
-          provider: "google",
           source: "labels",
         }),
       );

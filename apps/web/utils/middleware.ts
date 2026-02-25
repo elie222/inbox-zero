@@ -11,9 +11,8 @@ import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
 import {
-  getProviderFromRateLimitApiErrorType,
   isGmailRateLimitModeError,
-  recordProviderRateLimitFromError,
+  recordRateLimitFromApiError,
 } from "@/utils/email/rate-limit";
 import {
   EMAIL_ACCOUNT_HEADER,
@@ -162,29 +161,13 @@ function withMiddleware<T extends NextRequest>(
 
       const apiError = checkCommonErrors(error, requestForError.url, reqLogger);
       if (apiError) {
-        const provider = getProviderFromRateLimitApiErrorType(apiError.type);
-        if (provider) {
-          const emailAccountId = getEmailAccountId(requestForError);
-          if (emailAccountId) {
-            try {
-              await recordProviderRateLimitFromError({
-                error,
-                emailAccountId,
-                provider,
-                logger: reqLogger,
-                source: scope || new URL(requestForError.url).pathname,
-              });
-            } catch (recordError) {
-              reqLogger.warn("Failed to record provider rate-limit state", {
-                provider,
-                error:
-                  recordError instanceof Error
-                    ? recordError.message
-                    : recordError,
-              });
-            }
-          }
-        }
+        await recordRateLimitFromApiError({
+          apiErrorType: apiError.type,
+          error,
+          emailAccountId: getEmailAccountId(requestForError),
+          logger: reqLogger,
+          source: scope || new URL(requestForError.url).pathname,
+        });
 
         await logErrorToPosthog(
           "api",

@@ -4,6 +4,7 @@ import {
   assertGmailNotRateLimited,
   getGmailRateLimitState,
   GmailRateLimitModeError,
+  recordRateLimitFromApiError,
   recordProviderRateLimitFromError,
   recordGmailRateLimitFromError,
   setGmailRateLimitState,
@@ -217,5 +218,47 @@ describe("gmail rate-limit state", () => {
         ex: expect.any(Number),
       }),
     );
+  });
+
+  it("records rate-limit state from mapped API error type", async () => {
+    vi.mocked(redis.get).mockResolvedValueOnce(null);
+
+    const provider = await recordRateLimitFromApiError({
+      apiErrorType: "Outlook Rate Limit",
+      emailAccountId: "account-1",
+      error: {
+        statusCode: 429,
+        code: "TooManyRequests",
+      },
+      source: "test-outlook-api-error",
+    });
+
+    expect(provider).toBe("microsoft");
+    expect(redis.set).toHaveBeenCalledWith(
+      "gmail-rate-limit:account-1",
+      expect.any(String),
+      expect.objectContaining({
+        ex: expect.any(Number),
+      }),
+    );
+  });
+
+  it("does not throw when API-error rate-limit recording fails", async () => {
+    vi.mocked(redis.get).mockResolvedValueOnce(null);
+    vi.mocked(redis.set).mockRejectedValueOnce(new Error("redis unavailable"));
+
+    await expect(
+      recordRateLimitFromApiError({
+        apiErrorType: "Gmail Rate Limit Exceeded",
+        emailAccountId: "account-1",
+        error: {
+          cause: {
+            status: 429,
+            message: "Rate limit exceeded",
+          },
+        },
+        source: "test-gmail-api-error",
+      }),
+    ).resolves.toBe("google");
   });
 });

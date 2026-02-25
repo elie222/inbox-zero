@@ -49,6 +49,40 @@ export function getProviderFromRateLimitApiErrorType(
   return null;
 }
 
+export async function recordRateLimitFromApiError({
+  apiErrorType,
+  error,
+  emailAccountId,
+  logger,
+  source,
+}: {
+  apiErrorType: string;
+  error: unknown;
+  emailAccountId?: string;
+  logger?: Logger;
+  source?: string;
+}) {
+  const provider = getProviderFromRateLimitApiErrorType(apiErrorType);
+  if (!provider || !emailAccountId) return null;
+
+  try {
+    await recordProviderRateLimitFromError({
+      error,
+      emailAccountId,
+      provider,
+      logger,
+      source,
+    });
+  } catch (recordError) {
+    logger?.warn("Failed to record provider rate-limit state", {
+      provider,
+      error: recordError instanceof Error ? recordError.message : recordError,
+    });
+  }
+
+  return provider;
+}
+
 type RateLimitRecordingContext = {
   emailAccountId?: string;
   provider?: EmailProviderRateLimitProvider;
