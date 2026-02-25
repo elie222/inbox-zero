@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Card,
   CardContent,
@@ -5,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { LoadingContent } from "@/components/LoadingContent";
 import {
   Table,
   TableBody,
@@ -13,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getTopWeeklyUsageCosts } from "@/utils/redis/usage";
+import { useAdminTopSpenders } from "@/hooks/useAdminTopSpenders";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -22,8 +25,9 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-export async function AdminTopSpenders() {
-  const topSpenders = await getTopWeeklyUsageCosts({ limit: 25 });
+export function AdminTopSpenders() {
+  const { data, isLoading, error } = useAdminTopSpenders();
+  const topSpenders = data?.topSpenders ?? [];
 
   return (
     <Card className="max-w-3xl">
@@ -34,34 +38,36 @@ export async function AdminTopSpenders() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {topSpenders.length ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-16">Rank</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {topSpenders.map((spender, index) => (
-                <TableRow key={spender.email}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell className="font-mono text-xs sm:text-sm">
-                    {spender.email}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {currencyFormatter.format(spender.cost)}
-                  </TableCell>
+        <LoadingContent loading={isLoading} error={error}>
+          {topSpenders.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">Rank</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No usage cost recorded in the past 7 days.
-          </p>
-        )}
+              </TableHeader>
+              <TableBody>
+                {topSpenders.map((spender, index) => (
+                  <TableRow key={spender.email}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell className="font-mono text-xs sm:text-sm">
+                      {spender.email}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {currencyFormatter.format(spender.cost)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No usage cost recorded in the past 7 days.
+            </p>
+          )}
+        </LoadingContent>
       </CardContent>
     </Card>
   );
