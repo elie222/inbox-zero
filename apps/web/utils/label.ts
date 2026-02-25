@@ -69,25 +69,25 @@ export const FOLLOW_UP_LABEL = "Follow-up";
 
 export function getLabelColor(name: string) {
   switch (name) {
-    case getRuleLabel(SystemType.ACTIONED):
-      return red;
-    case getRuleLabel(SystemType.AWAITING_REPLY):
-      return coral;
-    case getRuleLabel(SystemType.CALENDAR):
-      return orange;
-    case getRuleLabel(SystemType.COLD_EMAIL):
-      return yellow;
-    case getRuleLabel(SystemType.FYI):
-      return green;
     case getRuleLabel(SystemType.MARKETING):
-      return cyan;
+      return red;
     case getRuleLabel(SystemType.NEWSLETTER):
-      return blue;
+      return coral;
     case getRuleLabel(SystemType.NOTIFICATION):
-      return purple;
+      return orange;
     case getRuleLabel(SystemType.RECEIPT):
-      return rose;
+      return yellow;
     case getRuleLabel(SystemType.TO_REPLY):
+      return green;
+    case getRuleLabel(SystemType.ACTIONED):
+      return blue;
+    case getRuleLabel(SystemType.AWAITING_REPLY):
+      return cyan;
+    case getRuleLabel(SystemType.CALENDAR):
+      return purple;
+    case getRuleLabel(SystemType.COLD_EMAIL):
+      return pink;
+    case getRuleLabel(SystemType.FYI):
       return sage;
     case FOLLOW_UP_LABEL:
       return yellow;
