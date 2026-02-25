@@ -1,7 +1,7 @@
 import { checkCommonErrors } from "@/utils/error";
 import { trackError } from "@/utils/posthog";
 import type { Logger } from "@/utils/logger";
-import { recordGmailRateLimitFromError } from "@/utils/gmail/rate-limit";
+import { recordProviderRateLimitFromError } from "@/utils/gmail/rate-limit";
 
 /**
  * Handles errors from async webhook processing in the same way as withError middleware
@@ -20,10 +20,15 @@ export async function handleWebhookError(
 
   const apiError = checkCommonErrors(error, url, logger);
   if (apiError) {
-    if (apiError.type === "Gmail Rate Limit Exceeded") {
-      await recordGmailRateLimitFromError({
+    if (
+      apiError.type === "Gmail Rate Limit Exceeded" ||
+      apiError.type === "Outlook Rate Limit"
+    ) {
+      await recordProviderRateLimitFromError({
         error,
         emailAccountId,
+        provider:
+          apiError.type === "Outlook Rate Limit" ? "microsoft" : "google",
         logger,
         source: url,
       });

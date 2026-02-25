@@ -2,13 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { createScopedLogger } from "@/utils/logger";
 import { trackError } from "@/utils/posthog";
+import { recordProviderRateLimitFromError } from "@/utils/gmail/rate-limit";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/posthog", () => ({
   trackError: vi.fn(),
 }));
 vi.mock("@/utils/gmail/rate-limit", () => ({
-  recordGmailRateLimitFromError: vi.fn().mockResolvedValue(null),
+  recordProviderRateLimitFromError: vi.fn().mockResolvedValue(null),
 }));
 
 describe("handleWebhookError", () => {
@@ -23,6 +24,10 @@ describe("handleWebhookError", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+
+  const mockRecordProviderRateLimitFromError = vi.mocked(
+    recordProviderRateLimitFromError,
+  );
 
   describe("Gmail errors", () => {
     it("tracks Gmail rate limit errors", async () => {
@@ -88,6 +93,13 @@ describe("handleWebhookError", () => {
         expect.objectContaining({
           errorType: "Outlook Rate Limit",
           url: "/api/outlook/webhook",
+        }),
+      );
+      expect(mockRecordProviderRateLimitFromError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error,
+          emailAccountId: "acc-123",
+          provider: "microsoft",
         }),
       );
     });

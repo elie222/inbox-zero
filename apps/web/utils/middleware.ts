@@ -12,7 +12,7 @@ import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
 import {
   isGmailRateLimitModeError,
-  recordGmailRateLimitFromError,
+  recordProviderRateLimitFromError,
 } from "@/utils/gmail/rate-limit";
 import {
   EMAIL_ACCOUNT_HEADER,
@@ -160,12 +160,17 @@ function withMiddleware<T extends NextRequest>(
 
       const apiError = checkCommonErrors(error, requestForError.url, reqLogger);
       if (apiError) {
-        if (apiError.type === "Gmail Rate Limit Exceeded") {
+        if (
+          apiError.type === "Gmail Rate Limit Exceeded" ||
+          apiError.type === "Outlook Rate Limit"
+        ) {
           const emailAccountId = getEmailAccountId(requestForError);
           if (emailAccountId) {
-            await recordGmailRateLimitFromError({
+            await recordProviderRateLimitFromError({
               error,
               emailAccountId,
+              provider:
+                apiError.type === "Outlook Rate Limit" ? "microsoft" : "google",
               logger: reqLogger,
               source: scope || new URL(requestForError.url).pathname,
             });

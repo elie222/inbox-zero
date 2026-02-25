@@ -80,6 +80,10 @@ export async function processAllFollowUpReminders(logger: Logger) {
       await withRateLimitRecording(
         {
           emailAccountId: emailAccount.id,
+          provider:
+            emailAccount.account.provider === "microsoft"
+              ? "microsoft"
+              : "google",
           logger: accountLogger,
           source: "follow-up-reminders",
           onRateLimitRecorded: (state) => {
@@ -102,7 +106,7 @@ export async function processAllFollowUpReminders(logger: Logger) {
 
       if (retryAt) {
         accountLogger.warn(
-          "Skipping follow-up reminders while Gmail rate limit is active",
+          "Skipping follow-up reminders while provider rate limit is active",
           {
             retryAt: retryAt.toISOString(),
           },

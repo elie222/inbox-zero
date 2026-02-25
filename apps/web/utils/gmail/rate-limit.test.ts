@@ -4,6 +4,7 @@ import {
   assertGmailNotRateLimited,
   getGmailRateLimitState,
   GmailRateLimitModeError,
+  recordProviderRateLimitFromError,
   recordGmailRateLimitFromError,
   setGmailRateLimitState,
   withRateLimitRecording,
@@ -135,6 +136,35 @@ describe("gmail rate-limit state", () => {
       ),
     ).rejects.toBe(rateLimitError);
 
+    expect(redis.set).toHaveBeenCalledWith(
+      "gmail-rate-limit:account-1",
+      expect.any(String),
+      expect.objectContaining({
+        ex: expect.any(Number),
+      }),
+    );
+  });
+
+  it("records rate-limit mode for microsoft provider errors", async () => {
+    vi.mocked(redis.get).mockResolvedValueOnce(null);
+
+    const state = await recordProviderRateLimitFromError({
+      emailAccountId: "account-1",
+      provider: "microsoft",
+      error: {
+        statusCode: 429,
+        code: "TooManyRequests",
+        response: {
+          headers: {
+            "retry-after": "45",
+          },
+        },
+      },
+      source: "test-outlook",
+    });
+
+    expect(state).not.toBeNull();
+    expect(state?.provider).toBe("microsoft");
     expect(redis.set).toHaveBeenCalledWith(
       "gmail-rate-limit:account-1",
       expect.any(String),

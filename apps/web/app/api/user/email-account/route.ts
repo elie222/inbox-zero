@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
+import { getEmailProviderRateLimitState } from "@/utils/gmail/rate-limit";
 
 export type EmailAccountFullResponse = Awaited<
   ReturnType<typeof getEmailAccount>
@@ -34,7 +35,20 @@ async function getEmailAccount({ emailAccountId }: { emailAccountId: string }) {
 
   if (!emailAccount) throw new SafeError("Email account not found");
 
-  return emailAccount;
+  const providerRateLimit = await getEmailProviderRateLimitState({
+    emailAccountId,
+  });
+
+  return {
+    ...emailAccount,
+    providerRateLimit: providerRateLimit
+      ? {
+          provider: providerRateLimit.provider,
+          retryAt: providerRateLimit.retryAt.toISOString(),
+          source: providerRateLimit.source,
+        }
+      : null,
+  };
 }
 
 export const GET = withEmailAccount(

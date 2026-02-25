@@ -52,7 +52,7 @@ vi.mock("@/utils/email/provider", () => ({
 }));
 vi.mock("@/utils/gmail/rate-limit", () => ({
   isGmailRateLimitModeError: vi.fn(),
-  recordGmailRateLimitFromError: vi.fn(),
+  recordProviderRateLimitFromError: vi.fn(),
 }));
 
 // Mock specific functions from @/utils/error, keep original SafeError
@@ -75,7 +75,7 @@ import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
   isGmailRateLimitModeError,
-  recordGmailRateLimitFromError,
+  recordProviderRateLimitFromError,
 } from "@/utils/gmail/rate-limit";
 
 // This should now correctly reference mockAuthFn
@@ -89,8 +89,8 @@ const mockPrismaEmailAccountFindUnique = vi.mocked(
   prisma.emailAccount.findUnique,
 );
 const mockIsGmailRateLimitModeError = vi.mocked(isGmailRateLimitModeError);
-const mockRecordGmailRateLimitFromError = vi.mocked(
-  recordGmailRateLimitFromError,
+const mockRecordProviderRateLimitFromError = vi.mocked(
+  recordProviderRateLimitFromError,
 );
 
 // Helper to create a mock NextRequest
@@ -393,10 +393,11 @@ describe("Middleware", () => {
         mockReq.url,
         expect.anything(),
       );
-      expect(mockRecordGmailRateLimitFromError).toHaveBeenCalledWith(
+      expect(mockRecordProviderRateLimitFromError).toHaveBeenCalledWith(
         expect.objectContaining({
           error: rateLimitError,
           emailAccountId: mockAccountId,
+          provider: "google",
           source: "labels",
         }),
       );

@@ -8,6 +8,11 @@ import {
   getRetryAfterHeader,
   isRetryableError,
 } from "@/utils/gmail/retry";
+import {
+  calculateRetryDelay as calculateOutlookRetryDelay,
+  extractErrorInfo as extractOutlookErrorInfo,
+  isRetryableError as isOutlookRetryableError,
+} from "@/utils/outlook/retry";
 
 const logger = createScopedLogger("gmail-rate-limit");
 
@@ -19,24 +24,31 @@ const hasRedisConfig =
   env.NODE_ENV === "test" ||
   !!(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN);
 
-type StoredGmailRateLimitState = {
+type StoredProviderRateLimitState = {
+  provider: EmailProviderRateLimitProvider;
   retryAt: string;
   source?: string;
   detectedAt: string;
 };
 
-export type GmailRateLimitState = {
+export type EmailProviderRateLimitProvider = "google" | "microsoft";
+
+export type EmailProviderRateLimitState = {
+  provider: EmailProviderRateLimitProvider;
   retryAt: Date;
   source?: string;
 };
 
+export type GmailRateLimitState = EmailProviderRateLimitState;
+
 type RateLimitRecordingContext = {
   emailAccountId?: string;
+  provider?: EmailProviderRateLimitProvider;
   source?: string;
   logger?: Logger;
   attemptNumber?: number;
   onRateLimitRecorded?: (
-    state: GmailRateLimitState | null,
+    state: EmailProviderRateLimitState | null,
     error: unknown,
   ) => void | Promise<void>;
 };
@@ -70,6 +82,14 @@ export async function getGmailRateLimitState({
 }: {
   emailAccountId: string;
 }): Promise<GmailRateLimitState | null> {
+  return getEmailProviderRateLimitState({ emailAccountId });
+}
+
+export async function getEmailProviderRateLimitState({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}): Promise<EmailProviderRateLimitState | null> {
   if (!hasRedisConfig) return null;
 
   const key = getGmailRateLimitKey(emailAccountId);
@@ -89,6 +109,7 @@ export async function getGmailRateLimitState({
   }
 
   return {
+    provider: parsed.provider,
     retryAt,
     source: parsed.source,
   };
@@ -105,18 +126,42 @@ export async function setGmailRateLimitState({
   source?: string;
   logger?: Logger;
 }): Promise<GmailRateLimitState> {
+  return setEmailProviderRateLimitState({
+    emailAccountId,
+    provider: "google",
+    retryAt,
+    source,
+    logger: customLogger,
+  });
+}
+
+export async function setEmailProviderRateLimitState({
+  emailAccountId,
+  provider,
+  retryAt,
+  source,
+  logger: customLogger,
+}: {
+  emailAccountId: string;
+  provider: EmailProviderRateLimitProvider;
+  retryAt: Date;
+  source?: string;
+  logger?: Logger;
+}): Promise<EmailProviderRateLimitState> {
   if (!hasRedisConfig) {
     return {
+      provider,
       retryAt,
       source,
     };
   }
 
   const stateLogger = customLogger || logger;
-  const existing = await getGmailRateLimitState({ emailAccountId });
+  const existing = await getEmailProviderRateLimitState({ emailAccountId });
 
   if (
     existing &&
+    existing.provider === provider &&
     existing.retryAt.getTime() >= retryAt.getTime() &&
     existing.source === source
   ) {
@@ -132,7 +177,8 @@ export async function setGmailRateLimitState({
     MAX_RATE_LIMIT_TTL_SECONDS,
   );
 
-  const value: StoredGmailRateLimitState = {
+  const value: StoredProviderRateLimitState = {
+    provider,
     retryAt: retryAt.toISOString(),
     source,
     detectedAt: new Date().toISOString(),
@@ -142,14 +188,16 @@ export async function setGmailRateLimitState({
     ex: ttlSeconds,
   });
 
-  stateLogger.warn("Set Gmail rate-limit mode", {
+  stateLogger.warn("Set provider rate-limit mode", {
     emailAccountId,
+    provider,
     retryAt: value.retryAt,
     source,
     ttlSeconds,
   });
 
   return {
+    provider,
     retryAt,
     source,
   };
@@ -193,14 +241,44 @@ export async function recordGmailRateLimitFromError({
   source?: string;
   attemptNumber?: number;
 }): Promise<GmailRateLimitState | null> {
+  return recordProviderRateLimitFromError({
+    error,
+    emailAccountId,
+    provider: "google",
+    logger,
+    source,
+    attemptNumber,
+  });
+}
+
+export async function recordProviderRateLimitFromError({
+  error,
+  emailAccountId,
+  provider,
+  logger,
+  source,
+  attemptNumber = 1,
+}: {
+  error: unknown;
+  emailAccountId: string;
+  provider: EmailProviderRateLimitProvider;
+  logger?: Logger;
+  source?: string;
+  attemptNumber?: number;
+}): Promise<EmailProviderRateLimitState | null> {
   if (!hasRedisConfig) return null;
 
-  const delayMs = getRateLimitDelayMs(error, attemptNumber);
+  const delayMs = getRateLimitDelayMs({
+    error,
+    provider,
+    attemptNumber,
+  });
   if (!delayMs) return null;
 
   const retryAt = new Date(Date.now() + delayMs);
-  return setGmailRateLimitState({
+  return setEmailProviderRateLimitState({
     emailAccountId,
+    provider,
     retryAt,
     source,
     logger,
@@ -210,6 +288,7 @@ export async function recordGmailRateLimitFromError({
 export async function withRateLimitRecording<T>(
   {
     emailAccountId,
+    provider = "google",
     source,
     logger,
     attemptNumber = 1,
@@ -221,9 +300,10 @@ export async function withRateLimitRecording<T>(
     return await operation();
   } catch (error) {
     const rateLimitState = emailAccountId
-      ? await recordGmailRateLimitFromError({
+      ? await recordProviderRateLimitFromError({
           error,
           emailAccountId,
+          provider,
           logger,
           source,
           attemptNumber,
@@ -236,7 +316,30 @@ export async function withRateLimitRecording<T>(
   }
 }
 
-function getRateLimitDelayMs(error: unknown, attemptNumber: number) {
+function getRateLimitDelayMs({
+  error,
+  provider,
+  attemptNumber,
+}: {
+  error: unknown;
+  provider: EmailProviderRateLimitProvider;
+  attemptNumber: number;
+}) {
+  if (provider === "microsoft") {
+    const errorInfo = extractOutlookErrorInfo(error);
+    const { isRateLimit } = isOutlookRetryableError(errorInfo);
+    if (!isRateLimit) return null;
+
+    const delayMs = calculateOutlookRetryDelay(
+      true,
+      false,
+      false,
+      attemptNumber,
+      getOutlookRetryAfterHeader(error),
+    );
+    return delayMs > 0 ? delayMs : DEFAULT_RATE_LIMIT_DELAY_MS;
+  }
+
   const errorInfo = extractErrorInfo(error);
   const { isRateLimit } = isRetryableError(errorInfo);
   if (!isRateLimit) return null;
@@ -253,12 +356,17 @@ function getRateLimitDelayMs(error: unknown, attemptNumber: number) {
   return delayMs > 0 ? delayMs : DEFAULT_RATE_LIMIT_DELAY_MS;
 }
 
-function parseStoredState(value: string): StoredGmailRateLimitState | null {
+function parseStoredState(value: string): StoredProviderRateLimitState | null {
   try {
-    const parsed = JSON.parse(value) as Partial<StoredGmailRateLimitState>;
+    const parsed = JSON.parse(value) as Partial<StoredProviderRateLimitState>;
     if (!parsed.retryAt || typeof parsed.retryAt !== "string") return null;
     if (Number.isNaN(new Date(parsed.retryAt).getTime())) return null;
+    const provider =
+      parsed.provider === "microsoft" || parsed.provider === "google"
+        ? parsed.provider
+        : "google";
     return {
+      provider,
       retryAt: parsed.retryAt,
       source: parsed.source,
       detectedAt: parsed.detectedAt || new Date().toISOString(),
@@ -270,4 +378,11 @@ function parseStoredState(value: string): StoredGmailRateLimitState | null {
 
 function getGmailRateLimitKey(emailAccountId: string) {
   return `${GMAIL_RATE_LIMIT_KEY_PREFIX}:${emailAccountId}`;
+}
+
+function getOutlookRetryAfterHeader(error: unknown): string | undefined {
+  const err = error as Record<string, unknown>;
+  const response = err?.response as Record<string, unknown> | undefined;
+  const headers = response?.headers as Record<string, string> | undefined;
+  return headers?.["retry-after"] ?? headers?.["Retry-After"];
 }

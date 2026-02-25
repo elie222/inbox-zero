@@ -88,6 +88,7 @@ export async function processHistoryForUser(
     return await withRateLimitRecording(
       {
         emailAccountId: validatedEmailAccount.id,
+        provider: "google",
         logger,
         source: "google/webhook",
       },

@@ -125,6 +125,7 @@ describe("processHistoryForUser - 404 Handling", () => {
       },
     } as any);
     vi.mocked(getGmailRateLimitState).mockResolvedValue({
+      provider: "google",
       retryAt: new Date(Date.now() + 60_000),
       source: "test",
     });
