@@ -92,7 +92,6 @@ export class GoogleDriveProvider implements DriveProvider {
       const file = response.data;
 
       if (file.trashed) {
-        this.logger.trace("Folder is trashed", { folderId });
         return null;
       }
 
