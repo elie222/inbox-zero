@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useAction } from "next-safe-action/hooks";
 import {
   ArchiveIcon,
   CheckIcon,
@@ -32,6 +33,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/onboarding/steps";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { BRAND_NAME } from "@/utils/branding";
+import { dismissHintAction } from "@/utils/actions/hints";
 
 function FeatureCard({
   emailAccountId,
@@ -240,6 +242,7 @@ function Checklist({
   isAiAssistantConfigured,
   isCalendarConnected,
   teamInvite,
+  onSetupProgressChanged,
 }: {
   emailAccountId: string;
   provider: string;
@@ -252,30 +255,27 @@ function Checklist({
     completed: boolean;
     organizationId: string | undefined;
   } | null;
+  onSetupProgressChanged: () => void;
 }) {
   const [isExtensionInstalled, setIsExtensionInstalled] = useLocalStorage(
     "inbox-zero-extension-installed",
     false,
   );
-  const [isTeamInviteViewed, setIsTeamInviteViewed] = useLocalStorage(
-    "inbox-zero-team-invite-viewed",
-    false,
+  const { execute: dismissSetupStep } = useAction(
+    dismissHintAction,
+    {
+      onSuccess: () => onSetupProgressChanged(),
+    },
   );
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const isTeamInviteSkipped =
-    teamInvite && isTeamInviteViewed && !teamInvite.completed;
-  const adjustedCompletedCount = isTeamInviteSkipped
-    ? completedCount + 1
-    : completedCount;
-  const adjustedProgressPercentage =
-    (adjustedCompletedCount / totalSteps) * 100;
+  const progressPercentage = (completedCount / totalSteps) * 100;
 
   const handleMarkExtensionDone = () => {
     setIsExtensionInstalled(true);
   };
 
   const handleMarkTeamInviteDone = () => {
-    setIsTeamInviteViewed(true);
+    dismissSetupStep({ hintId: `setup:teamInvite:${emailAccountId}` });
   };
 
   const handleOpenInviteModal = () => {
@@ -289,12 +289,12 @@ function Checklist({
           <h2 className="font-semibold text-foreground">Complete your setup</h2>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden sm:block">
-              {adjustedCompletedCount} of {totalSteps} completed
+              {completedCount} of {totalSteps} completed
             </span>
             <div className="h-2 w-32 overflow-hidden rounded-full bg-muted">
               <div
                 className="h-2 rounded-full bg-primary"
-                style={{ width: `${adjustedProgressPercentage}%` }}
+                style={{ width: `${progressPercentage}%` }}
               />
             </div>
           </div>
@@ -345,7 +345,7 @@ function Checklist({
           iconColor="text-indigo-500 dark:text-indigo-400"
           title="Invite team members"
           timeEstimate="2 minutes"
-          completed={teamInvite.completed || isTeamInviteViewed}
+          completed={teamInvite.completed}
           actionText="Invite"
           onMarkDone={handleMarkTeamInviteDone}
           showMarkDone
@@ -384,17 +384,7 @@ function Checklist({
 
 export function SetupContent() {
   const { emailAccountId, provider } = useAccount();
-  const { data, isLoading, error } = useSetupProgress();
-  const [isTeamInviteViewed] = useLocalStorage(
-    "inbox-zero-team-invite-viewed",
-    false,
-  );
-
-  const isTeamInviteSkipped =
-    data?.teamInvite && isTeamInviteViewed && !data.teamInvite.completed;
-  const allBaseStepsDone = data && data.completed === data.total - 1;
-  const adjustedIsComplete =
-    data?.isComplete || (isTeamInviteSkipped && allBaseStepsDone);
+  const { data, isLoading, error, mutate } = useSetupProgress();
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -407,8 +397,11 @@ export function SetupContent() {
           isCalendarConnected={data.steps.calendarConnected}
           completedCount={data.completed}
           totalSteps={data.total}
-          isSetupComplete={adjustedIsComplete ?? false}
+          isSetupComplete={data.isComplete}
           teamInvite={data.teamInvite}
+          onSetupProgressChanged={() => {
+            void mutate();
+          }}
         />
       )}
     </LoadingContent>
@@ -425,6 +418,7 @@ function SetupPageContent({
   totalSteps,
   isSetupComplete,
   teamInvite,
+  onSetupProgressChanged,
 }: {
   emailAccountId: string;
   provider: string;
@@ -438,6 +432,7 @@ function SetupPageContent({
     completed: boolean;
     organizationId: string | undefined;
   } | null;
+  onSetupProgressChanged: () => void;
 }) {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
@@ -464,6 +459,7 @@ function SetupPageContent({
           completedCount={completedCount}
           totalSteps={totalSteps}
           teamInvite={teamInvite}
+          onSetupProgressChanged={onSetupProgressChanged}
         />
       )}
     </div>

@@ -38,6 +38,7 @@ async function getSetupProgress({
         take: 1,
       },
       calendarConnections: { select: { id: true }, take: 1 },
+      user: { select: { dismissedHints: true } },
       members: {
         take: 1,
         select: {
@@ -68,7 +69,11 @@ async function getSetupProgress({
   const hasTeamMembers = (membership?.organization?._count.members ?? 0) > 1;
   const hasPendingInvitations =
     (membership?.organization?._count.invitations ?? 0) > 0;
-  const teamInviteCompleted = hasTeamMembers || hasPendingInvitations;
+  const teamInviteDismissed = emailAccount.user.dismissedHints.includes(
+    `setup:teamInvite:${emailAccountId}`,
+  );
+  const teamInviteCompleted =
+    hasTeamMembers || hasPendingInvitations || teamInviteDismissed;
 
   const showTeamInviteStep = hasNoOrg || isOwner;
 
