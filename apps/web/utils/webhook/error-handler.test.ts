@@ -9,6 +9,11 @@ vi.mock("@/utils/posthog", () => ({
   trackError: vi.fn(),
 }));
 vi.mock("@/utils/gmail/rate-limit", () => ({
+  getProviderFromRateLimitApiErrorType: vi.fn((type: string) => {
+    if (type === "Outlook Rate Limit") return "microsoft";
+    if (type === "Gmail Rate Limit Exceeded") return "google";
+    return null;
+  }),
   recordProviderRateLimitFromError: vi.fn().mockResolvedValue(null),
 }));
 

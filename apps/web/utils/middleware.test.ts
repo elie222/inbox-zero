@@ -47,6 +47,11 @@ vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn(),
 }));
 vi.mock("@/utils/gmail/rate-limit", () => ({
+  getProviderFromRateLimitApiErrorType: vi.fn((type: string) => {
+    if (type === "Outlook Rate Limit") return "microsoft";
+    if (type === "Gmail Rate Limit Exceeded") return "google";
+    return null;
+  }),
   isGmailRateLimitModeError: vi.fn(),
   recordProviderRateLimitFromError: vi.fn(),
 }));

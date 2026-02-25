@@ -41,6 +41,14 @@ export type EmailProviderRateLimitState = {
 
 export type GmailRateLimitState = EmailProviderRateLimitState;
 
+export function getProviderFromRateLimitApiErrorType(
+  apiErrorType: string,
+): EmailProviderRateLimitProvider | null {
+  if (apiErrorType === "Gmail Rate Limit Exceeded") return "google";
+  if (apiErrorType === "Outlook Rate Limit") return "microsoft";
+  return null;
+}
+
 type RateLimitRecordingContext = {
   emailAccountId?: string;
   provider?: EmailProviderRateLimitProvider;
