@@ -3,6 +3,7 @@ import { addMinutes } from "date-fns/addMinutes";
 import prisma from "@/utils/prisma";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import {
   applyFollowUpLabel,
   getOrCreateFollowUpLabel,
@@ -76,8 +77,9 @@ export async function processAllFollowUpReminders(logger: Logger) {
       emailAccountId: emailAccount.id,
     });
     let recordedRetryAt: Date | undefined;
-    const provider =
-      emailAccount.account?.provider === "microsoft" ? "microsoft" : "google";
+    const provider = isMicrosoftProvider(emailAccount.account?.provider)
+      ? "microsoft"
+      : "google";
 
     try {
       await withRateLimitRecording(
