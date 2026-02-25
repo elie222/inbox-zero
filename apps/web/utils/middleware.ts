@@ -10,7 +10,10 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
-import { recordGmailRateLimitFromError } from "@/utils/gmail/rate-limit";
+import {
+  isGmailRateLimitModeError,
+  recordGmailRateLimitFromError,
+} from "@/utils/gmail/rate-limit";
 import {
   EMAIL_ACCOUNT_HEADER,
   MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
@@ -382,6 +385,9 @@ async function emailProviderMiddleware(
   if (emailAccountReq instanceof Response) return emailAccountReq;
 
   const { userId, emailAccountId } = emailAccountReq.auth;
+  const reqWithAuth = req as RequestWithEmailAccount;
+  reqWithAuth.auth = emailAccountReq.auth;
+  reqWithAuth.logger = emailAccountReq.logger;
   const middlewareStartTime = Date.now();
 
   try {
@@ -435,8 +441,8 @@ async function emailProviderMiddleware(
       userId,
     });
 
-    // Re-throw SafeError so it gets handled with the user-friendly message
-    if (error instanceof SafeError) {
+    // Re-throw known errors so withMiddleware can apply shared error handling.
+    if (error instanceof SafeError || isGmailRateLimitModeError(error)) {
       throw error;
     }
 
