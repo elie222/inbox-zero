@@ -4,12 +4,14 @@ import { ZodError, type ZodIssue } from "zod";
 import {
   withError,
   withAuth,
+  withAdmin,
   withEmailAccount,
   withEmailProvider,
   type RequestWithAuth,
   type NextHandler,
 } from "./middleware";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import prisma from "@/utils/__mocks__/prisma";
 
 // --- Mocks ---
 
@@ -37,15 +39,9 @@ vi.mock("@/utils/auth", () => ({
 }));
 
 vi.mock("@/utils/redis/account-validation");
-vi.mock("@/utils/prisma", () => ({
-  default: {
-    emailAccount: {
-      findUnique: vi.fn(),
-    },
-    member: {
-      findFirst: vi.fn(),
-    },
-  },
+vi.mock("@/utils/prisma");
+vi.mock("@/utils/admin", () => ({
+  isAdmin: vi.fn(),
 }));
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn(),
@@ -69,9 +65,9 @@ vi.mock("@/utils/error.server");
 
 // Import from the local path as before
 import { auth } from "@/utils/auth";
+import { isAdmin } from "@/utils/admin";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
-import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
   isGmailRateLimitModeError,
@@ -84,6 +80,7 @@ const mockAuth = vi.mocked(auth);
 const mockGetEmailAccount = vi.mocked(getEmailAccount);
 const mockCheckCommonErrors = vi.mocked(checkCommonErrors);
 const mockCaptureException = vi.mocked(captureException);
+const mockIsAdmin = vi.mocked(isAdmin);
 const mockCreateEmailProvider = vi.mocked(createEmailProvider);
 const mockPrismaEmailAccountFindUnique = vi.mocked(
   prisma.emailAccount.findUnique,
@@ -266,6 +263,78 @@ describe("Middleware", () => {
       const responseBody = await response.json();
 
       expect(auth).toHaveBeenCalledTimes(1);
+      expect(handler).not.toHaveBeenCalled();
+      expect(response.status).toBe(401);
+      expect(responseBody).toEqual({
+        error: "Unauthorized",
+        isKnownError: true,
+      });
+    });
+  });
+
+  describe("withAdmin", () => {
+    const mockUserId = "user-123";
+
+    it("should call the handler for admin users", async () => {
+      mockAuth.mockResolvedValue({ user: { id: mockUserId } } as any);
+      prisma.user.findUnique.mockResolvedValue({
+        email: "admin@example.com",
+      } as any);
+      mockIsAdmin.mockReturnValue(true);
+
+      const handler = vi.fn(async (_req: RequestWithAuth, _ctx: any) =>
+        NextResponse.json({ ok: true }),
+      );
+      const wrappedHandler = withAdmin("admin/test", handler);
+
+      await wrappedHandler(mockReq, mockContext);
+
+      expect(auth).toHaveBeenCalledTimes(1);
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: mockUserId },
+        select: { email: true },
+      });
+      expect(mockIsAdmin).toHaveBeenCalledWith({ email: "admin@example.com" });
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          auth: { userId: mockUserId },
+        }),
+        mockContext,
+      );
+    });
+
+    it("should return 403 if user is not admin", async () => {
+      mockAuth.mockResolvedValue({ user: { id: mockUserId } } as any);
+      prisma.user.findUnique.mockResolvedValue({
+        email: "user@example.com",
+      } as any);
+      mockIsAdmin.mockReturnValue(false);
+
+      const handler: NextHandler<RequestWithAuth> = vi.fn();
+      const wrappedHandler = withAdmin("admin/test", handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(handler).not.toHaveBeenCalled();
+      expect(response.status).toBe(403);
+      expect(responseBody).toEqual({
+        error: "Unauthorized",
+        isKnownError: true,
+      });
+    });
+
+    it("should return 401 if session does not exist", async () => {
+      mockAuth.mockResolvedValue(null as any);
+
+      const handler: NextHandler<RequestWithAuth> = vi.fn();
+      const wrappedHandler = withAdmin("admin/test", handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(mockIsAdmin).not.toHaveBeenCalled();
       expect(handler).not.toHaveBeenCalled();
       expect(response.status).toBe(401);
       expect(responseBody).toEqual({

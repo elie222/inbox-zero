@@ -18,6 +18,11 @@ export type RedisUsage = {
   cost?: number;
 };
 
+export type WeeklyUsageCostByEmail = {
+  email: string;
+  cost: number;
+};
+
 function getUsageKey(email: string) {
   return `usage:${email}`;
 }
@@ -77,26 +82,97 @@ export async function getWeeklyUsageCost({
   const weeklyCosts = await Promise.all(
     usageKeys.map(async (key) => {
       const data = await redis.hgetall<{ cost?: string | number }>(key);
-      const rawCost = data?.cost;
-      if (typeof rawCost === "number") return rawCost;
-      if (typeof rawCost === "string") return Number.parseFloat(rawCost) || 0;
-      return 0;
+      return parseUsageCost(data?.cost);
     }),
   );
 
   return weeklyCosts.reduce((sum, value) => sum + value, 0);
 }
 
+export async function getTopWeeklyUsageCosts({
+  limit = 20,
+  now = new Date(),
+}: {
+  limit?: number;
+  now?: Date;
+} = {}): Promise<WeeklyUsageCostByEmail[]> {
+  if (limit <= 0) return [];
+
+  const daysInWindow = new Set(getWeeklyUsageCostDays(now));
+  const costsByEmail = new Map<string, number>();
+  let cursor = "0";
+
+  do {
+    const [nextCursor, batch] = await redis.scan(cursor, {
+      match: `${WEEKLY_USAGE_COST_KEY_PREFIX}:*`,
+      count: 200,
+    });
+    cursor = String(nextCursor);
+
+    const costEntries = await Promise.all(
+      batch.map(async (key) => {
+        const parsed = parseWeeklyUsageCostKey(key);
+        if (!parsed || !daysInWindow.has(parsed.day)) return null;
+
+        const data = await redis.hgetall<{ cost?: string | number }>(key);
+        const cost = parseUsageCost(data?.cost);
+        if (cost <= 0) return null;
+
+        return { email: parsed.email, cost };
+      }),
+    );
+
+    for (const entry of costEntries) {
+      if (!entry) continue;
+      costsByEmail.set(
+        entry.email,
+        (costsByEmail.get(entry.email) ?? 0) + entry.cost,
+      );
+    }
+  } while (cursor !== "0");
+
+  return Array.from(costsByEmail.entries())
+    .map(([email, cost]) => ({ email, cost }))
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, limit);
+}
+
 function getWeeklyUsageCostKeys(email: string, now: Date) {
+  const days = getWeeklyUsageCostDays(now);
+  return days.map((day) => getWeeklyUsageCostKey(email, day));
+}
+
+function getWeeklyUsageCostDays(now: Date) {
   return Array.from({ length: WEEKLY_USAGE_COST_DAYS }, (_, offsetDays) => {
     const date = new Date(now);
     date.setUTCDate(now.getUTCDate() - offsetDays);
-    return getWeeklyUsageCostKey(email, date);
+    return getUtcDay(date);
   });
 }
 
-function getWeeklyUsageCostKey(email: string, date: Date) {
-  return `${WEEKLY_USAGE_COST_KEY_PREFIX}:${email}:${getUtcDay(date)}`;
+function getWeeklyUsageCostKey(email: string, date: Date | string) {
+  const day = typeof date === "string" ? date : getUtcDay(date);
+  return `${WEEKLY_USAGE_COST_KEY_PREFIX}:${email}:${day}`;
+}
+
+function parseWeeklyUsageCostKey(key: string) {
+  const prefix = `${WEEKLY_USAGE_COST_KEY_PREFIX}:`;
+  if (!key.startsWith(prefix)) return null;
+
+  const lastSeparatorIndex = key.lastIndexOf(":");
+  if (lastSeparatorIndex <= prefix.length) return null;
+
+  const email = key.slice(prefix.length, lastSeparatorIndex);
+  const day = key.slice(lastSeparatorIndex + 1);
+  if (!email || !day) return null;
+
+  return { email, day };
+}
+
+function parseUsageCost(rawCost: string | number | undefined): number {
+  if (typeof rawCost === "number") return rawCost;
+  if (typeof rawCost === "string") return Number.parseFloat(rawCost) || 0;
+  return 0;
 }
 
 function getUtcDay(date: Date) {
