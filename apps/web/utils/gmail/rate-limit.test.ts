@@ -6,6 +6,7 @@ import {
   GmailRateLimitModeError,
   recordGmailRateLimitFromError,
   setGmailRateLimitState,
+  withRateLimitRecording,
 } from "./rate-limit";
 
 vi.mock("server-only", () => ({}));
@@ -103,6 +104,37 @@ describe("gmail rate-limit state", () => {
     });
 
     expect(state).not.toBeNull();
+    expect(redis.set).toHaveBeenCalledWith(
+      "gmail-rate-limit:account-1",
+      expect.any(String),
+      expect.objectContaining({
+        ex: expect.any(Number),
+      }),
+    );
+  });
+
+  it("records and rethrows from wrapped operations", async () => {
+    const retryAt = new Date(Date.now() + 120_000).toISOString();
+    const rateLimitError = {
+      cause: {
+        status: 429,
+        message: `User-rate limit exceeded. Retry after ${retryAt}`,
+      },
+    };
+    vi.mocked(redis.get).mockResolvedValueOnce(null);
+
+    await expect(
+      withRateLimitRecording(
+        {
+          emailAccountId: "account-1",
+          source: "test-wrapper",
+        },
+        async () => {
+          throw rateLimitError;
+        },
+      ),
+    ).rejects.toBe(rateLimitError);
+
     expect(redis.set).toHaveBeenCalledWith(
       "gmail-rate-limit:account-1",
       expect.any(String),

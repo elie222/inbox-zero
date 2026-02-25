@@ -44,6 +44,7 @@ vi.mock("@/utils/error", () => ({
 vi.mock("@/utils/gmail/rate-limit", () => ({
   getGmailRateLimitState: vi.fn().mockResolvedValue(null),
   recordGmailRateLimitFromError: vi.fn(),
+  withRateLimitRecording: vi.fn(async (_context, operation) => operation()),
 }));
 
 describe("processHistoryForUser - 404 Handling", () => {

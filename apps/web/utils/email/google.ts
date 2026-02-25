@@ -75,7 +75,7 @@ import type {
 } from "@/utils/email/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
-import { recordGmailRateLimitFromError } from "@/utils/gmail/rate-limit";
+import { withRateLimitRecording } from "@/utils/gmail/rate-limit";
 
 /**
  * Build a raw RFC 2822 message and encode it as base64url for Gmail API
@@ -1519,22 +1519,13 @@ export class GmailProvider implements EmailProvider {
     source: string,
     operation: () => Promise<T>,
   ): Promise<T> {
-    try {
-      return await operation();
-    } catch (error) {
-      await this.trackRateLimitError(error, source);
-      throw error;
-    }
-  }
-
-  private async trackRateLimitError(error: unknown, source: string) {
-    if (!this.emailAccountId) return;
-
-    await recordGmailRateLimitFromError({
-      error,
-      emailAccountId: this.emailAccountId,
-      logger: this.logger,
-      source: `gmail-provider/${source}`,
-    });
+    return withRateLimitRecording(
+      {
+        emailAccountId: this.emailAccountId,
+        logger: this.logger,
+        source: `gmail-provider/${source}`,
+      },
+      operation,
+    );
   }
 }

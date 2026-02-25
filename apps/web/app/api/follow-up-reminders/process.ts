@@ -14,7 +14,7 @@ import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import {
   isGmailRateLimitModeError,
-  recordGmailRateLimitFromError,
+  withRateLimitRecording,
 } from "@/utils/gmail/rate-limit";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
@@ -74,25 +74,31 @@ export async function processAllFollowUpReminders(logger: Logger) {
     const accountLogger = logger.with({
       emailAccountId: emailAccount.id,
     });
+    let recordedRetryAt: Date | undefined;
 
     try {
-      await processAccountFollowUps({
-        emailAccount,
-        logger: accountLogger,
-      });
+      await withRateLimitRecording(
+        {
+          emailAccountId: emailAccount.id,
+          logger: accountLogger,
+          source: "follow-up-reminders",
+          onRateLimitRecorded: (state) => {
+            recordedRetryAt = state?.retryAt;
+          },
+        },
+        async () =>
+          processAccountFollowUps({
+            emailAccount,
+            logger: accountLogger,
+          }),
+      );
       successCount++;
     } catch (error) {
       const retryAtFromError =
         isGmailRateLimitModeError(error) && error.retryAt
           ? new Date(error.retryAt)
           : undefined;
-      const recordedRateLimitState = await recordGmailRateLimitFromError({
-        error,
-        emailAccountId: emailAccount.id,
-        logger: accountLogger,
-        source: "follow-up-reminders",
-      });
-      const retryAt = recordedRateLimitState?.retryAt || retryAtFromError;
+      const retryAt = recordedRetryAt || retryAtFromError;
 
       if (retryAt) {
         accountLogger.warn(

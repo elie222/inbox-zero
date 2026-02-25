@@ -30,6 +30,17 @@ export type GmailRateLimitState = {
   source?: string;
 };
 
+type RateLimitRecordingContext = {
+  emailAccountId?: string;
+  source?: string;
+  logger?: Logger;
+  attemptNumber?: number;
+  onRateLimitRecorded?: (
+    state: GmailRateLimitState | null,
+    error: unknown,
+  ) => void | Promise<void>;
+};
+
 export class GmailRateLimitModeError extends Error {
   errors: Array<{ reason: "rateLimitExceeded"; message: string }>;
   retryAt?: string;
@@ -194,6 +205,35 @@ export async function recordGmailRateLimitFromError({
     source,
     logger,
   });
+}
+
+export async function withRateLimitRecording<T>(
+  {
+    emailAccountId,
+    source,
+    logger,
+    attemptNumber = 1,
+    onRateLimitRecorded,
+  }: RateLimitRecordingContext,
+  operation: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    const rateLimitState = emailAccountId
+      ? await recordGmailRateLimitFromError({
+          error,
+          emailAccountId,
+          logger,
+          source,
+          attemptNumber,
+        })
+      : null;
+    if (onRateLimitRecorded) {
+      await onRateLimitRecorded(rateLimitState, error);
+    }
+    throw error;
+  }
 }
 
 function getRateLimitDelayMs(error: unknown, attemptNumber: number) {

@@ -17,7 +17,7 @@ import {
 } from "@/utils/webhook/validate-webhook-account";
 import {
   getGmailRateLimitState,
-  recordGmailRateLimitFromError,
+  withRateLimitRecording,
 } from "@/utils/gmail/rate-limit";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
@@ -85,86 +85,89 @@ export async function processHistoryForUser(
   }
 
   try {
-    const gmail = await getGmailClientWithRefresh({
-      accessToken: accountAccessToken,
-      refreshToken: accountRefreshToken,
-      expiresAt: validatedEmailAccount.account.expires_at?.getTime() || null,
-      emailAccountId: validatedEmailAccount.id,
-      logger,
-    });
-
-    const historyResult = await fetchGmailHistoryResilient({
-      gmail,
-      emailAccount: validatedEmailAccount,
-      webhookHistoryId: historyId,
-      options,
-      logger,
-    });
-
-    if (historyResult.status === "expired") {
-      await updateLastSyncedHistoryId({
+    return await withRateLimitRecording(
+      {
         emailAccountId: validatedEmailAccount.id,
-        lastSyncedHistoryId: historyId.toString(),
-      });
-      return NextResponse.json({ ok: true });
-    }
-
-    const history = historyResult.data;
-    const historyEntries = history.history ?? [];
-
-    if (historyEntries.length > 0) {
-      logger.info("Processing history", {
-        startHistoryId: historyResult.startHistoryId,
-      });
-
-      await processHistory(
-        {
-          history: historyEntries,
-          gmail,
-          accessToken: accountAccessToken,
-          hasAutomationRules,
-          hasAiAccess: userHasAiAccess,
-          rules: validatedEmailAccount.rules,
-          emailAccount: {
-            ...validatedEmailAccount,
-            account: {
-              provider: accountProvider,
-            },
-          },
-        },
         logger,
-      );
-    } else {
-      // When we truncate a large gap (webhookHistoryId - 500), Gmail can return
-      // an empty recent window. We still need to advance to the webhook historyId
-      // so we don't stay permanently behind and keep skipping.
-      logger.info("No history", {
-        startHistoryId: historyResult.startHistoryId,
-      });
+        source: "google/webhook",
+      },
+      async () => {
+        const gmail = await getGmailClientWithRefresh({
+          accessToken: accountAccessToken,
+          refreshToken: accountRefreshToken,
+          expiresAt:
+            validatedEmailAccount.account.expires_at?.getTime() || null,
+          emailAccountId: validatedEmailAccount.id,
+          logger,
+        });
 
-      // important to save this or we can get into a loop with never receiving history
-      await updateLastSyncedHistoryId({
-        emailAccountId: validatedEmailAccount.id,
-        lastSyncedHistoryId: historyId.toString(),
-      });
-    }
+        const historyResult = await fetchGmailHistoryResilient({
+          gmail,
+          emailAccount: validatedEmailAccount,
+          webhookHistoryId: historyId,
+          options,
+          logger,
+        });
 
-    const processingTimeMs = Date.now() - startTime;
-    logger.info("Completed processing history", { processingTimeMs });
+        if (historyResult.status === "expired") {
+          await updateLastSyncedHistoryId({
+            emailAccountId: validatedEmailAccount.id,
+            lastSyncedHistoryId: historyId.toString(),
+          });
+          return NextResponse.json({ ok: true });
+        }
 
-    return NextResponse.json({ ok: true });
+        const history = historyResult.data;
+        const historyEntries = history.history ?? [];
+
+        if (historyEntries.length > 0) {
+          logger.info("Processing history", {
+            startHistoryId: historyResult.startHistoryId,
+          });
+
+          await processHistory(
+            {
+              history: historyEntries,
+              gmail,
+              accessToken: accountAccessToken,
+              hasAutomationRules,
+              hasAiAccess: userHasAiAccess,
+              rules: validatedEmailAccount.rules,
+              emailAccount: {
+                ...validatedEmailAccount,
+                account: {
+                  provider: accountProvider,
+                },
+              },
+            },
+            logger,
+          );
+        } else {
+          // When we truncate a large gap (webhookHistoryId - 500), Gmail can return
+          // an empty recent window. We still need to advance to the webhook historyId
+          // so we don't stay permanently behind and keep skipping.
+          logger.info("No history", {
+            startHistoryId: historyResult.startHistoryId,
+          });
+
+          // important to save this or we can get into a loop with never receiving history
+          await updateLastSyncedHistoryId({
+            emailAccountId: validatedEmailAccount.id,
+            lastSyncedHistoryId: historyId.toString(),
+          });
+        }
+
+        const processingTimeMs = Date.now() - startTime;
+        logger.info("Completed processing history", { processingTimeMs });
+
+        return NextResponse.json({ ok: true });
+      },
+    );
   } catch (error) {
     if (error instanceof Error && error.message === "invalid_grant") {
       logger.warn("Invalid grant", { email });
       return NextResponse.json({ ok: true });
     }
-
-    await recordGmailRateLimitFromError({
-      error,
-      emailAccountId: validatedEmailAccount.id,
-      logger,
-      source: "google/webhook",
-    });
 
     captureException(error, { userEmail: email, extra: { decodedData } });
     logger.error("Error processing webhook", {

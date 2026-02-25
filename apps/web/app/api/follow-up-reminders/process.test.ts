@@ -50,6 +50,7 @@ vi.mock("@/utils/error", () => ({
 vi.mock("@/utils/gmail/rate-limit", () => ({
   isGmailRateLimitModeError: vi.fn().mockReturnValue(false),
   recordGmailRateLimitFromError: vi.fn().mockResolvedValue(null),
+  withRateLimitRecording: vi.fn(async (_context, operation) => operation()),
 }));
 
 import prisma from "@/utils/prisma";
