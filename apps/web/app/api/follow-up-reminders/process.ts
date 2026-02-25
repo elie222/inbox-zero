@@ -81,7 +81,7 @@ export async function processAllFollowUpReminders(logger: Logger) {
         {
           emailAccountId: emailAccount.id,
           provider:
-            emailAccount.account.provider === "microsoft"
+            emailAccount.account?.provider === "microsoft"
               ? "microsoft"
               : "google",
           logger: accountLogger,
