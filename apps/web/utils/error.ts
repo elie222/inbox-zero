@@ -16,6 +16,21 @@ export type ApiErrorType = {
   code: number;
 };
 
+const RATE_LIMIT_API_ERROR_BY_PROVIDER = {
+  google: {
+    type: "Gmail Rate Limit Exceeded",
+    message:
+      "Gmail is temporarily limiting requests. Please try again shortly.",
+  },
+  microsoft: {
+    type: "Outlook Rate Limit",
+    message:
+      "Microsoft is temporarily limiting requests. Please try again shortly.",
+  },
+} as const;
+
+type RateLimitProvider = keyof typeof RATE_LIMIT_API_ERROR_BY_PROVIDER;
+
 export function isError(value: any): value is ErrorMessage | ZodError {
   return value?.error;
 }
@@ -107,6 +122,23 @@ export function isGmailRateLimitExceededError(error: unknown): boolean {
 
 export function isGmailQuotaExceededError(error: unknown): boolean {
   return (error as any)?.errors?.[0]?.reason === "quotaExceeded";
+}
+
+function isRateLimitProvider(provider: unknown): provider is RateLimitProvider {
+  return provider === "google" || provider === "microsoft";
+}
+
+function isProviderRateLimitModeError(error: unknown): error is {
+  name: "ProviderRateLimitModeError";
+  provider: RateLimitProvider;
+  retryAt?: string;
+} {
+  if (typeof error !== "object" || error === null) return false;
+  const maybeError = error as Record<string, unknown>;
+  return (
+    maybeError.name === "ProviderRateLimitModeError" &&
+    isRateLimitProvider(maybeError.provider)
+  );
 }
 
 export function isIncorrectOpenAIAPIKeyError(error: APICallError): boolean {
@@ -229,6 +261,7 @@ export function isAICallError(error: unknown): error is APICallError {
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (
+    isProviderRateLimitModeError(error) ||
     isGmailInsufficientPermissionsError(error) ||
     isGmailRateLimitExceededError(error) ||
     isGmailQuotaExceededError(error) ||
@@ -247,6 +280,20 @@ export function checkCommonErrors(
   url: string,
   logger: Logger,
 ): ApiErrorType | null {
+  if (isProviderRateLimitModeError(error)) {
+    const rateLimitApiError = RATE_LIMIT_API_ERROR_BY_PROVIDER[error.provider];
+    logger.warn("Provider rate-limit mode active for url", {
+      url,
+      provider: error.provider,
+      retryAt: error.retryAt,
+    });
+    return {
+      type: rateLimitApiError.type,
+      message: rateLimitApiError.message,
+      code: 429,
+    };
+  }
+
   if (isGmailInsufficientPermissionsError(error)) {
     logger.warn("Gmail insufficient permissions error for url", { url });
     return {

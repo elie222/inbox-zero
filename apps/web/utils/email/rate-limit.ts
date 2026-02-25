@@ -96,9 +96,6 @@ type RateLimitRecordingContext = {
 
 export class ProviderRateLimitModeError extends Error {
   provider: EmailProviderRateLimitProvider;
-  errors?: Array<{ reason: "rateLimitExceeded"; message: string }>;
-  statusCode?: number;
-  code?: string;
   retryAt?: string;
 
   constructor({
@@ -116,12 +113,6 @@ export class ProviderRateLimitModeError extends Error {
     super(message);
     this.name = "ProviderRateLimitModeError";
     this.provider = provider;
-    if (provider === "google") {
-      this.errors = [{ reason: "rateLimitExceeded", message }];
-    } else {
-      this.statusCode = 429;
-      this.code = "TooManyRequests";
-    }
     this.retryAt = retryAt?.toISOString();
   }
 }
