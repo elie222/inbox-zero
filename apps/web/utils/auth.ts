@@ -430,10 +430,17 @@ async function handleLinkAccount(account: Account) {
       throw new Error("Primary email not found for linked account.");
     }
 
+    const normalizedEmail = primaryEmail.trim().toLowerCase();
+
     // Check if email already belongs to a different user
     const existingEmailAccount = await prisma.emailAccount.findUnique({
-      where: { email: primaryEmail.trim().toLowerCase() },
-      select: { userId: true },
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        userId: true,
+        accountId: true,
+        account: { select: { provider: true } },
+      },
     });
 
     if (
@@ -446,6 +453,46 @@ async function handleLinkAccount(account: Account) {
         newUserId: account.userId,
       });
       throw new Error("email_already_linked");
+    }
+
+    const crossProviderRelink =
+      existingEmailAccount &&
+      existingEmailAccount.userId === account.userId &&
+      existingEmailAccount.accountId !== account.id &&
+      existingEmailAccount.account.provider !== account.providerId;
+
+    if (crossProviderRelink) {
+      logger.warn(
+        "[linkAccount] Skipping cross-provider EmailAccount reassignment",
+        {
+          userId: account.userId,
+          accountId: account.id,
+          currentProvider: existingEmailAccount.account.provider,
+          attemptedProvider: account.providerId,
+        },
+      );
+
+      await prisma.$transaction([
+        prisma.emailAccount.update({
+          where: { id: existingEmailAccount.id },
+          data: {
+            name: primaryName,
+            image: primaryPhotoUrl,
+          },
+        }),
+        prisma.account.update({
+          where: { id: account.id },
+          data: { disconnectedAt: null },
+        }),
+      ]);
+
+      await clearSpecificErrorMessages({
+        userId: account.userId,
+        errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
+        logger,
+      });
+
+      return;
     }
 
     const user = await prisma.user.findUnique({
@@ -469,11 +516,11 @@ async function handleLinkAccount(account: Account) {
 
     await prisma.$transaction([
       prisma.emailAccount.upsert({
-        where: { email: profileData?.email },
+        where: { email: normalizedEmail },
         update: data,
         create: {
           ...data,
-          email: primaryEmail,
+          email: normalizedEmail,
         },
       }),
       prisma.account.update({
