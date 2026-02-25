@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { GroupItemSource } from "@/generated/prisma/enums";
+import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -60,7 +60,7 @@ export async function handleLabelAddedEvent(
       systemType: "COLD_EMAIL",
       enabled: true,
     },
-    select: { id: true },
+    select: { id: true, groupId: true },
   });
 
   if (!coldEmailRule) {
@@ -111,7 +111,28 @@ export async function handleLabelAddedEvent(
     return;
   }
 
-  logger.info("Saving cold email learned pattern from SPAM action", {
+  // Don't overwrite existing patterns (e.g., AI classification)
+  if (coldEmailRule.groupId) {
+    const existing = await prisma.groupItem.findUnique({
+      where: {
+        groupId_type_value: {
+          groupId: coldEmailRule.groupId,
+          type: GroupItemType.FROM,
+          value: sender,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      logger.trace("Sender already in cold email group, skipping", {
+        sender,
+      });
+      return;
+    }
+  }
+
+  logger.trace("Saving cold email learned pattern from SPAM action", {
     sender,
   });
 

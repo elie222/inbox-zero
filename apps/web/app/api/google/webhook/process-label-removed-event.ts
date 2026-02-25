@@ -230,7 +230,7 @@ async function undoSpamLearning({
   });
 
   if (deleted.count > 0) {
-    logger.info("Undid cold email learning from spam removal", {
+    logger.trace("Undid cold email learning from spam removal", {
       sender,
       deletedCount: deleted.count,
     });
