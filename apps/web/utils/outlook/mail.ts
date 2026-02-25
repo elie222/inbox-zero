@@ -118,11 +118,20 @@ export async function replyToEmail(
     logger,
   );
 
-  const fromField = buildFromField(
-    options?.from,
-    replyDraft.from?.emailAddress?.address,
-  );
-  const replyToRecipients = buildGraphRecipients(options?.replyTo);
+  // Build the from field if a display name is provided
+  const fromField = options?.from
+    ? {
+        from: {
+          emailAddress: {
+            name: extractNameFromEmail(options.from),
+            address:
+              extractEmailAddress(options.from) ||
+              replyDraft.from?.emailAddress?.address ||
+              "",
+          },
+        },
+      }
+    : {};
 
   // Update the draft with our content
   await withOutlookRetry(
@@ -136,7 +145,11 @@ export async function replyToEmail(
             content: html,
           },
           ...fromField,
-          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
+          ...(options?.replyTo
+            ? {
+                replyTo: [{ emailAddress: { address: options.replyTo } }],
+              }
+            : {}),
         }),
     logger,
   );
@@ -377,16 +390,6 @@ async function sendReplyUsingCreateReply(
     logger,
   );
 
-  const toRecipients = buildGraphRecipients(body.to);
-  if (!toRecipients?.length) throw new Error("Recipient address is required");
-  const ccRecipients = buildGraphRecipients(body.cc);
-  const bccRecipients = buildGraphRecipients(body.bcc);
-  const replyToRecipients = buildGraphRecipients(body.replyTo);
-  const fromField = buildFromField(
-    body.from,
-    replyDraft.from?.emailAddress?.address,
-  );
-
   // Update the draft with our content and recipients
   // Note: We cannot set In-Reply-To/References headers via internetMessageHeaders
   // as Microsoft Graph only allows custom headers (starting with x-) there.
@@ -402,11 +405,13 @@ async function sendReplyUsingCreateReply(
             contentType: "html",
             content: body.messageHtml,
           },
-          toRecipients,
-          ...fromField,
-          ...(ccRecipients ? { ccRecipients } : {}),
-          ...(bccRecipients ? { bccRecipients } : {}),
-          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
+          toRecipients: [{ emailAddress: { address: body.to } }],
+          ...(body.cc
+            ? { ccRecipients: [{ emailAddress: { address: body.cc } }] }
+            : {}),
+          ...(body.bcc
+            ? { bccRecipients: [{ emailAddress: { address: body.bcc } }] }
+            : {}),
         }),
     logger,
   );
@@ -456,21 +461,4 @@ function buildGraphRecipients(
     seen.add(key);
     return true;
   });
-}
-
-function buildFromField(from?: string, fallbackAddress?: string) {
-  if (!from) return {};
-
-  const address = extractEmailAddress(from) || fallbackAddress;
-  if (!address) return {};
-
-  const name = extractNameFromEmail(from).trim();
-  return {
-    from: {
-      emailAddress: {
-        address,
-        ...(name && name !== address ? { name } : {}),
-      },
-    },
-  };
 }

@@ -1,5 +1,6 @@
 import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
+import type { Logger } from "@/utils/logger";
 import {
   getFilebotFrom,
   getFilebotReplyTo,
@@ -21,6 +22,7 @@ interface FilingNotificationParams {
   userEmail: string;
   filingId: string;
   sourceMessage: SourceMessageInfo;
+  logger: Logger;
 }
 
 // ============================================================================
@@ -37,7 +39,10 @@ export async function sendFiledNotification({
   userEmail,
   filingId,
   sourceMessage,
+  logger,
 }: FilingNotificationParams): Promise<void> {
+  const log = logger.with({ action: "sendFiledNotification", filingId });
+
   const filing = await prisma.documentFiling.findUnique({
     where: { id: filingId },
     include: {
@@ -46,6 +51,7 @@ export async function sendFiledNotification({
   });
 
   if (!filing) {
+    log.error("Filing not found");
     return;
   }
 
@@ -59,22 +65,29 @@ export async function sendFiledNotification({
     driveProvider: filing.driveConnection.provider,
   });
 
-  const result = await emailProvider.sendEmailWithHtml({
-    replyToEmail: sourceMessage,
-    to: userEmail,
-    from: fromAddress,
-    replyTo: replyToAddress,
-    subject,
-    messageHtml,
-  });
+  try {
+    const result = await emailProvider.sendEmailWithHtml({
+      replyToEmail: sourceMessage,
+      to: userEmail,
+      from: fromAddress,
+      replyTo: replyToAddress,
+      subject,
+      messageHtml,
+    });
 
-  await prisma.documentFiling.update({
-    where: { id: filingId },
-    data: {
-      notificationMessageId: result.messageId,
-      notificationSentAt: new Date(),
-    },
-  });
+    await prisma.documentFiling.update({
+      where: { id: filingId },
+      data: {
+        notificationMessageId: result.messageId,
+        notificationSentAt: new Date(),
+      },
+    });
+
+    log.info("Filed notification sent", { messageId: result.messageId });
+  } catch (error) {
+    log.error("Failed to send filed notification", { error });
+    throw error;
+  }
 }
 
 /**
@@ -87,12 +100,16 @@ export async function sendAskNotification({
   userEmail,
   filingId,
   sourceMessage,
+  logger,
 }: FilingNotificationParams): Promise<void> {
+  const log = logger.with({ action: "sendAskNotification", filingId });
+
   const filing = await prisma.documentFiling.findUnique({
     where: { id: filingId },
   });
 
   if (!filing) {
+    log.error("Filing not found");
     return;
   }
 
@@ -105,22 +122,29 @@ export async function sendAskNotification({
     reasoning: filing.reasoning,
   });
 
-  const result = await emailProvider.sendEmailWithHtml({
-    replyToEmail: sourceMessage,
-    to: userEmail,
-    from: fromAddress,
-    replyTo: replyToAddress,
-    subject,
-    messageHtml,
-  });
+  try {
+    const result = await emailProvider.sendEmailWithHtml({
+      replyToEmail: sourceMessage,
+      to: userEmail,
+      from: fromAddress,
+      replyTo: replyToAddress,
+      subject,
+      messageHtml,
+    });
 
-  await prisma.documentFiling.update({
-    where: { id: filingId },
-    data: {
-      notificationMessageId: result.messageId,
-      notificationSentAt: new Date(),
-    },
-  });
+    await prisma.documentFiling.update({
+      where: { id: filingId },
+      data: {
+        notificationMessageId: result.messageId,
+        notificationSentAt: new Date(),
+      },
+    });
+
+    log.info("Ask notification sent", { messageId: result.messageId });
+  } catch (error) {
+    log.error("Failed to send ask notification", { error });
+    throw error;
+  }
 }
 
 /**
@@ -134,12 +158,16 @@ export async function sendCorrectionConfirmation({
   filingId,
   sourceMessage,
   newFolderPath,
+  logger,
 }: FilingNotificationParams & { newFolderPath: string }): Promise<void> {
+  const log = logger.with({ action: "sendCorrectionConfirmation", filingId });
+
   const filing = await prisma.documentFiling.findUnique({
     where: { id: filingId },
   });
 
   if (!filing) {
+    log.error("Filing not found");
     return;
   }
 
@@ -152,14 +180,21 @@ export async function sendCorrectionConfirmation({
     newFolderPath,
   });
 
-  await emailProvider.sendEmailWithHtml({
-    replyToEmail: sourceMessage,
-    to: userEmail,
-    from: fromAddress,
-    replyTo: replyToAddress,
-    subject,
-    messageHtml,
-  });
+  try {
+    await emailProvider.sendEmailWithHtml({
+      replyToEmail: sourceMessage,
+      to: userEmail,
+      from: fromAddress,
+      replyTo: replyToAddress,
+      subject,
+      messageHtml,
+    });
+
+    log.info("Correction confirmation sent");
+  } catch (error) {
+    log.error("Failed to send correction confirmation", { error });
+    throw error;
+  }
 }
 
 // ============================================================================

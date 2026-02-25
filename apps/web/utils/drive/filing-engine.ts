@@ -274,6 +274,7 @@ export async function processAttachment({
             userEmail: emailAccount.email,
             filingId: filing.id,
             sourceMessage,
+            logger: log,
           });
         } else {
           await sendFiledNotification({
@@ -281,6 +282,7 @@ export async function processAttachment({
             userEmail: emailAccount.email,
             filingId: filing.id,
             sourceMessage,
+            logger: log,
           });
         }
       } catch (notificationError) {
