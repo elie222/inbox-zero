@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { useAdminTopSpenders } from "@/hooks/useAdminTopSpenders";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -30,11 +31,12 @@ export function AdminTopSpenders() {
   const topSpenders = data?.topSpenders ?? [];
 
   return (
-    <Card className="max-w-3xl">
+    <Card className="max-w-5xl">
       <CardHeader>
         <CardTitle>Top Spenders</CardTitle>
         <CardDescription>
-          Last 7 days (same window as spend limiter)
+          Last 7 days (same window as spend limiter). Nano-Limited shows who is
+          currently forced onto nano via the Redis spend guard.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -44,7 +46,9 @@ export function AdminTopSpenders() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">Rank</TableHead>
+                  <TableHead>Email Account ID</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Nano-Limited</TableHead>
                   <TableHead className="text-right">Cost</TableHead>
                 </TableRow>
               </TableHeader>
@@ -52,8 +56,18 @@ export function AdminTopSpenders() {
                 {topSpenders.map((spender, index) => (
                   <TableRow key={spender.email}>
                     <TableCell>{index + 1}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {spender.emailAccountId ?? "-"}
+                    </TableCell>
                     <TableCell className="font-mono text-xs sm:text-sm">
                       {spender.email}
+                    </TableCell>
+                    <TableCell>
+                      {spender.nanoLimitedBySpendGuard ? (
+                        <Badge variant="red">Yes</Badge>
+                      ) : (
+                        <Badge variant="green">No</Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       {currencyFormatter.format(spender.cost)}
