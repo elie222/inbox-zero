@@ -31,7 +31,6 @@ export async function processHistoryForUser(
   options: { startHistoryId?: string },
   logger: Logger,
 ) {
-  const startTime = Date.now();
   const { emailAddress, historyId } = decodedData;
   // All emails in the database are stored in lowercase
   // But it's possible that the email address in the webhook is not
@@ -157,9 +156,6 @@ export async function processHistoryForUser(
             lastSyncedHistoryId: historyId.toString(),
           });
         }
-
-        const processingTimeMs = Date.now() - startTime;
-        logger.info("Completed processing history", { processingTimeMs });
 
         return NextResponse.json({ ok: true });
       },
