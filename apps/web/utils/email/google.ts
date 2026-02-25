@@ -1286,7 +1286,7 @@ export class GmailProvider implements EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
-    try {
+    return this.withRateLimitTracking("get-threads-with-query", async () => {
       const {
         fromEmail,
         after,
@@ -1404,10 +1404,7 @@ export class GmailProvider implements EmailProvider {
         threads: emailThreads,
         nextPageToken: nextPageToken || undefined,
       };
-    } catch (error) {
-      await this.trackRateLimitError(error, "get-threads-with-query");
-      throw error;
-    }
+    });
   }
 
   async hasPreviousCommunicationsWithSenderOrDomain(options: {
