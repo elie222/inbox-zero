@@ -54,7 +54,7 @@ vi.mock("@/utils/error", () => ({
 }));
 
 vi.mock("@/utils/email/rate-limit", () => ({
-  isGmailRateLimitModeError: vi.fn().mockReturnValue(false),
+  isProviderRateLimitModeError: vi.fn().mockReturnValue(false),
   getProviderRateLimitDelayMs: vi.fn((options: { error: unknown }) => {
     const err = options.error as Record<string, unknown>;
     const cause = err.cause as Record<string, unknown> | undefined;

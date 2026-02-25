@@ -15,7 +15,7 @@ import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import {
   getProviderRateLimitDelayMs,
-  isGmailRateLimitModeError,
+  isProviderRateLimitModeError,
   withRateLimitRecording,
 } from "@/utils/email/rate-limit";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -219,7 +219,7 @@ function getRetryAtFromRateLimitError(
   error: unknown,
   provider: "google" | "microsoft",
 ): Date | undefined {
-  if (isGmailRateLimitModeError(error) && error.retryAt) {
+  if (isProviderRateLimitModeError(error) && error.retryAt) {
     const retryAt = new Date(error.retryAt);
     if (!Number.isNaN(retryAt.getTime())) return retryAt;
   }

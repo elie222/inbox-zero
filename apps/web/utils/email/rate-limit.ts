@@ -113,18 +113,10 @@ export class GmailRateLimitModeError extends Error {
   }
 }
 
-export function isGmailRateLimitModeError(
+export function isProviderRateLimitModeError(
   error: unknown,
 ): error is GmailRateLimitModeError {
   return error instanceof GmailRateLimitModeError;
-}
-
-export type ProviderRateLimitModeError = GmailRateLimitModeError;
-
-export function isProviderRateLimitModeError(
-  error: unknown,
-): error is ProviderRateLimitModeError {
-  return isGmailRateLimitModeError(error);
 }
 
 export async function getGmailRateLimitState({
