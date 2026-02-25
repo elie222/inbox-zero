@@ -2,13 +2,14 @@ import { env } from "@/env";
 import type { RequestWithLogger } from "@/utils/middleware";
 
 export function hasCronSecret(request: RequestWithLogger) {
-  if (!env.CRON_SECRET) {
+  const cronSecret = process.env.CRON_SECRET ?? env.CRON_SECRET;
+  if (!cronSecret) {
     request.logger.error("No cron secret set, unauthorized cron request");
     return false;
   }
 
   const authHeader = request.headers.get("authorization");
-  const valid = authHeader === `Bearer ${env.CRON_SECRET}`;
+  const valid = authHeader === `Bearer ${cronSecret}`;
 
   if (!valid)
     request.logger.error("Unauthorized cron request:", { authHeader });
@@ -33,5 +34,6 @@ export async function hasPostCronSecret(request: RequestWithLogger) {
 }
 
 export function getCronSecretHeader() {
-  return new Headers({ authorization: `Bearer ${env.CRON_SECRET}` });
+  const cronSecret = process.env.CRON_SECRET ?? env.CRON_SECRET;
+  return new Headers({ authorization: `Bearer ${cronSecret}` });
 }
