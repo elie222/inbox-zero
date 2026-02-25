@@ -5,7 +5,9 @@ type MessageTimestampInput = {
   date: string;
 };
 
-export function getMessageTimestamp(message: MessageTimestampInput): number {
+export function getMessageTimestamp<T extends MessageTimestampInput>(
+  message: T,
+): number {
   const internalDate = message.internalDate?.trim();
   if (internalDate) {
     const internalDateMs = internalDateToDate(internalDate, {

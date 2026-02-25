@@ -1271,7 +1271,7 @@ export class OutlookProvider implements EmailProvider {
       .select(MESSAGE_SELECT_FIELDS)
       .get();
 
-    const parsedMessages = (response.value || [])
+    const parsedMessages: ParsedMessage[] = (response.value || [])
       .filter((message: Message) => !message.isDraft)
       .map((message: Message) => convertMessage(message));
     if (parsedMessages.length === 0) return null;
