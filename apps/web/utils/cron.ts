@@ -34,6 +34,5 @@ export async function hasPostCronSecret(request: RequestWithLogger) {
 }
 
 export function getCronSecretHeader() {
-  const cronSecret = process.env.CRON_SECRET ?? env.CRON_SECRET;
-  return new Headers({ authorization: `Bearer ${cronSecret}` });
+  return new Headers({ authorization: `Bearer ${env.CRON_SECRET}` });
 }
