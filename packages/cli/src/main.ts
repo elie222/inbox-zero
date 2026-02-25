@@ -239,15 +239,10 @@ async function main() {
     .option("--redis-instance-class <class>", "Redis instance class")
     .option("--llm-provider <provider>", "Default LLM provider")
     .option("--llm-model <model>", "Default LLM model")
+    .option("--llm-api-key <key>", "Shared LLM API key")
     .option("--google-client-id <id>", "Google OAuth client ID")
     .option("--google-client-secret <secret>", "Google OAuth client secret")
     .option("--google-pubsub-topic-name <name>", "Google Pub/Sub topic name")
-    .option("--anthropic-api-key <key>", "Anthropic API key")
-    .option("--openai-api-key <key>", "OpenAI API key")
-    .option("--google-api-key <key>", "Google Gemini API key")
-    .option("--openrouter-api-key <key>", "OpenRouter API key")
-    .option("--groq-api-key <key>", "Groq API key")
-    .option("--ai-gateway-api-key <key>", "AI Gateway API key")
     .option("--bedrock-access-key <key>", "AWS access key for Bedrock")
     .option("--bedrock-secret-key <key>", "AWS secret key for Bedrock")
     .option("--bedrock-region <region>", "AWS region for Bedrock")
@@ -260,10 +255,6 @@ async function main() {
     .option(
       "--openai-compatible-model <model>",
       "OpenAI-compatible server model name",
-    )
-    .option(
-      "--openai-compatible-api-key <key>",
-      "OpenAI-compatible server API key (optional)",
     )
     .option("--microsoft-client-id <id>", "Microsoft OAuth client ID")
     .option(
@@ -1549,12 +1540,7 @@ const CONFIG_CATEGORIES: Record<
     keys: [
       "DEFAULT_LLM_PROVIDER",
       "DEFAULT_LLM_MODEL",
-      "ANTHROPIC_API_KEY",
-      "OPENAI_API_KEY",
-      "GOOGLE_API_KEY",
-      "OPENROUTER_API_KEY",
-      "AI_GATEWAY_API_KEY",
-      "GROQ_API_KEY",
+      "LLM_API_KEY",
       "BEDROCK_ACCESS_KEY",
       "BEDROCK_SECRET_KEY",
       "BEDROCK_REGION",
@@ -1783,15 +1769,6 @@ const DEFAULT_MODELS: Record<string, { default: string; economy: string }> = {
   },
 };
 
-const API_KEY_ENV_VAR: Record<string, string> = {
-  anthropic: "ANTHROPIC_API_KEY",
-  openai: "OPENAI_API_KEY",
-  google: "GOOGLE_API_KEY",
-  openrouter: "OPENROUTER_API_KEY",
-  aigateway: "AI_GATEWAY_API_KEY",
-  groq: "GROQ_API_KEY",
-};
-
 function cancelSetup(): never {
   p.cancel("Setup cancelled.");
   process.exit(0);
@@ -1915,7 +1892,7 @@ async function promptLlmCredentials(
     const creds = await promptOpenAICompatibleCreds();
     env.OPENAI_COMPATIBLE_BASE_URL = creds.baseUrl;
     env.OPENAI_COMPATIBLE_MODEL = creds.model;
-    if (creds.apiKey) env.OPENAI_COMPATIBLE_API_KEY = creds.apiKey;
+    if (creds.apiKey) env.LLM_API_KEY = creds.apiKey;
     env.DEFAULT_LLM_MODEL = creds.model;
     env.ECONOMY_LLM_PROVIDER = provider;
     env.ECONOMY_LLM_MODEL = creds.model;
@@ -1937,7 +1914,7 @@ async function promptLlmCredentials(
       env.BEDROCK_SECRET_KEY = bedrock.secretKey;
       env.BEDROCK_REGION = bedrock.region;
     } else {
-      env[API_KEY_ENV_VAR[provider]] = await promptApiKey(provider);
+      env.LLM_API_KEY = await promptApiKey(provider);
     }
   }
 }

@@ -4,6 +4,7 @@ import { Provider } from "./config";
 import { env } from "@/env";
 import type { UserAIFields } from "./types";
 import { createAzure } from "@ai-sdk/azure";
+import { createOpenAI } from "@ai-sdk/openai";
 
 // Mock AI provider imports
 vi.mock("@ai-sdk/openai", () => ({
@@ -61,6 +62,7 @@ vi.mock("@/env", () => ({
     NANO_LLM_MODEL: undefined,
     OPENROUTER_BACKUP_MODEL: undefined,
     USE_BACKUP_MODEL: false,
+    LLM_API_KEY: undefined,
     OPENAI_API_KEY: "test-openai-key",
     AZURE_API_KEY: "test-azure-key",
     AZURE_RESOURCE_NAME: "test-azure-resource",
@@ -73,7 +75,6 @@ vi.mock("@/env", () => ({
     OLLAMA_MODEL: "llama3",
     OPENAI_COMPATIBLE_BASE_URL: "http://localhost:1234/v1",
     OPENAI_COMPATIBLE_MODEL: "llama-3.2-3b-instruct",
-    OPENAI_COMPATIBLE_API_KEY: undefined,
     BEDROCK_REGION: "us-west-2",
     BEDROCK_ACCESS_KEY: "",
     BEDROCK_SECRET_KEY: "",
@@ -100,6 +101,8 @@ describe("Models", () => {
     vi.mocked(env).CHAT_LLM_FALLBACKS = undefined;
     vi.mocked(env).OPENROUTER_BACKUP_MODEL = undefined;
     vi.mocked(env).USE_BACKUP_MODEL = false;
+    vi.mocked(env).LLM_API_KEY = undefined;
+    vi.mocked(env).OPENAI_API_KEY = "test-openai-key";
     vi.mocked(env).NANO_LLM_PROVIDER = undefined;
     vi.mocked(env).NANO_LLM_MODEL = undefined;
     vi.mocked(env).AZURE_API_KEY = "test-azure-key";
@@ -120,6 +123,24 @@ describe("Models", () => {
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPEN_AI);
       expect(result.modelName).toBe("gpt-5.1");
+    });
+
+    it("should use LLM_API_KEY when provider-specific OpenAI key is not set", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
+      vi.mocked(env).OPENAI_API_KEY = undefined;
+      vi.mocked(env).LLM_API_KEY = "test-shared-ai-key";
+
+      getModel(userAi);
+
+      expect(createOpenAI).toHaveBeenCalledWith(
+        expect.objectContaining({ apiKey: "test-shared-ai-key" }),
+      );
     });
 
     it("should use user's provider and model when API key is provided", () => {
@@ -546,6 +567,31 @@ describe("Models", () => {
       });
     });
 
+    it("should use LLM_API_KEY for fallback providers when provider key is not set", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
+      vi.mocked(env).DEFAULT_LLM_MODEL =
+        "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
+      vi.mocked(env).DEFAULT_LLM_FALLBACKS = "openai:gpt-5.1";
+      vi.mocked(env).BEDROCK_ACCESS_KEY = "test-bedrock-key";
+      vi.mocked(env).BEDROCK_SECRET_KEY = "test-bedrock-secret";
+      vi.mocked(env).OPENAI_API_KEY = undefined;
+      vi.mocked(env).LLM_API_KEY = "test-shared-ai-key";
+
+      const result = getModel(userAi);
+
+      expect(result.fallbackModels).toHaveLength(1);
+      expect(result.fallbackModels[0]).toMatchObject({
+        provider: Provider.OPEN_AI,
+        modelName: "gpt-5.1",
+      });
+    });
+
     it("should support deprecated backup env vars as fallback config", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
@@ -616,7 +662,6 @@ describe("Models", () => {
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai-compatible";
       vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
       vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
-      vi.mocked(env).OPENAI_COMPATIBLE_API_KEY = undefined;
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPENAI_COMPATIBLE);
@@ -634,7 +679,6 @@ describe("Models", () => {
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai-compatible";
       vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
       vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
-      vi.mocked(env).OPENAI_COMPATIBLE_API_KEY = undefined;
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPENAI_COMPATIBLE);

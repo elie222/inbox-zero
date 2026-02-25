@@ -1,0 +1,79 @@
+---
+title: "Vercel Deployment"
+description: "Deploy Inbox Zero on Vercel using Neon and Upstash integrations"
+---
+
+This guide covers a managed setup on Vercel using the Neon and Upstash integrations.
+To use other databases, see [Environment Variables](/hosting/environment-variables) for more details.
+
+## 1. Deploy on Vercel
+
+Click here to deploy on Vercel:
+
+[![Deploy on Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Felie222%2Finbox-zero&root-directory=apps%2Fweb&env=AUTH_SECRET%2CINTERNAL_API_KEY%2CEMAIL_ENCRYPT_SECRET%2CEMAIL_ENCRYPT_SALT%2CDEFAULT_LLM_PROVIDER%2CLLM_API_KEY&integration-ids=icfg_7PxtVfUypEklb2DtJhjRRMEY%2Cicfg_grUsNAwBAqMdv3Hx2DeIdDL5)
+
+Set the following environment variables:
+
+```bash
+AUTH_SECRET= # https://generate-secret.vercel.app/32
+INTERNAL_API_KEY= # https://generate-secret.vercel.app/32
+EMAIL_ENCRYPT_SECRET= # https://generate-secret.vercel.app/32
+EMAIL_ENCRYPT_SALT= # https://generate-secret.vercel.app/16
+
+# LLM:
+DEFAULT_LLM_PROVIDER= # openai, anthropic, openrouter, aigateway, google, etc.
+LLM_API_KEY=
+```
+
+For secret generation you can also use `openssl rand -base64 32` on macOS or Linux.
+
+To find your LLM API key, see [LLM Setup](/hosting/llm-setup).
+
+<Tip>
+  For the full list of environment variables, see [Environment Variables](/hosting/environment-variables). We will set more environment variables later in the guide.
+</Tip>
+
+## 2. Neon PostgreSQL Database in Vercel
+
+Neon is a PostgreSQL database provider that offers a free tier which is enough for personal use cases.
+
+1. In your Vercel project, open `Storage`.
+2. Click `Create Database`.
+3. Click `Neon`.
+
+Vercel injects Neon connection variables automatically.
+
+![Neon option in Vercel Storage.](/images/self-hosting/vercel/neon.png)
+
+## 3. Upstash Redis Database in Vercel
+
+Upstash is a Redis database provider that offers a free tier which is enough for personal use cases.
+
+1. In your Vercel project, open `Storage`.
+2. Click `Create Database`.
+3. Click `Upstash`.
+
+Vercel injects Upstash connection variables automatically.
+
+## 4. Set other environment variables
+
+After your first deploy, Vercel assigns a project domain (for example `https://your-project.vercel.app`).
+
+Go to Project `Settings` -> `Environment Variables` and set:
+
+```bash
+NEXT_PUBLIC_BASE_URL=https://your-project.vercel.app
+```
+
+Set Google or Microsoft environment variables based on the guides:
+
+- [Google OAuth](/hosting/google-oauth)
+- [Microsoft OAuth](/hosting/microsoft-oauth)
+- [Google PubSub](/hosting/google-pubsub)
+
+## 5. Redeploy and verify
+
+1. Trigger a new Vercel deploy.
+2. Confirm build completes.
+3. Visit your project domain and verify it works.
+4. Sign in and connect an email account.

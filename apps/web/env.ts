@@ -34,8 +34,12 @@ export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
     DATABASE_URL: z.string().url(),
+    DATABASE_URL_UNPOOLED: z.string().url().optional(),
     PREVIEW_DATABASE_URL: z.string().url().optional(),
-    PREVIEW_DATABASE_URL_UNPOOLED: z.string().url().optional(),
+    PREVIEW_DATABASE_URL_UNPOOLED: z.preprocess(
+      (value) => value ?? process.env.DATABASE_URL_UNPOOLED,
+      z.string().url().optional(),
+    ),
 
     AUTH_SECRET: z.string().optional(),
     NEXTAUTH_SECRET: z.string().optional(),
@@ -69,6 +73,7 @@ export const env = createEnv({
     // Deprecated: legacy fallback configuration, kept for backwards compatibility.
     OPENROUTER_BACKUP_MODEL: z.string().optional(),
 
+    LLM_API_KEY: z.string().optional(),
     OPENAI_API_KEY: z.string().optional(),
     AZURE_API_KEY: z.string().optional(),
     AZURE_RESOURCE_NAME: z.string().optional(),
@@ -86,13 +91,21 @@ export const env = createEnv({
     OLLAMA_MODEL: z.string().optional(),
     OPENAI_COMPATIBLE_BASE_URL: z.string().optional(),
     OPENAI_COMPATIBLE_MODEL: z.string().optional(),
-    OPENAI_COMPATIBLE_API_KEY: z.string().optional(), // optional — not all servers require auth
 
     OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
 
-    UPSTASH_REDIS_URL: z.string().optional(),
-    UPSTASH_REDIS_TOKEN: z.string().optional(),
-    REDIS_URL: z.string().optional(), // used for subscriptions
+    UPSTASH_REDIS_URL: z
+      .string()
+      .optional()
+      .transform((value) => value || process.env.KV_REST_API_URL),
+    UPSTASH_REDIS_TOKEN: z
+      .string()
+      .optional()
+      .transform((value) => value || process.env.KV_REST_API_TOKEN),
+    REDIS_URL: z
+      .string()
+      .optional()
+      .transform((value) => value || process.env.KV_URL), // used for subscriptions
 
     QSTASH_TOKEN: z.string().optional(),
     QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
