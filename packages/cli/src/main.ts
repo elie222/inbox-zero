@@ -19,6 +19,7 @@ import {
 import { runGoogleSetup } from "./setup-google";
 import { runAwsSetup } from "./setup-aws";
 import { runTerraformSetup } from "./setup-terraform";
+import { formatPortConfigNote, resolveSetupPorts } from "./setup-ports";
 import packageJson from "../package.json" with { type: "json" };
 
 // Detect if we're running from within the repo
@@ -331,6 +332,12 @@ async function runSetupQuick(options: { name?: string }) {
   const configName = options.name;
 
   requireDocker();
+  const { webPort, postgresPort, redisPort, redisHttpPort, changedPorts } =
+    await resolveSetupPorts({ useDockerInfra: true });
+  const portConfigNote = formatPortConfigNote(changedPorts);
+  if (portConfigNote) {
+    p.note(portConfigNote, "Port Configuration");
+  }
 
   p.note(
     "Choose the email provider(s) you want to enable now.\n" +
@@ -358,9 +365,8 @@ async function runSetupQuick(options: { name?: string }) {
   let googleClientId = "";
   let googleClientSecret = "";
   if (wantsGoogle) {
-    const callbackUrl = "http://localhost:3000/api/auth/callback/google";
-    const linkingCallbackUrl =
-      "http://localhost:3000/api/google/linking/callback";
+    const callbackUrl = `http://localhost:${webPort}/api/auth/callback/google`;
+    const linkingCallbackUrl = `http://localhost:${webPort}/api/google/linking/callback`;
 
     p.note(
       "You need a Google OAuth app to connect your Gmail.\n\n" +
@@ -413,12 +419,9 @@ async function runSetupQuick(options: { name?: string }) {
   let microsoftClientSecret = "";
   let microsoftTenantId = "common";
   if (wantsMicrosoft) {
-    const microsoftCallbackUrl =
-      "http://localhost:3000/api/auth/callback/microsoft";
-    const microsoftLinkingCallbackUrl =
-      "http://localhost:3000/api/outlook/linking/callback";
-    const microsoftCalendarCallbackUrl =
-      "http://localhost:3000/api/outlook/calendar/callback";
+    const microsoftCallbackUrl = `http://localhost:${webPort}/api/auth/callback/microsoft`;
+    const microsoftLinkingCallbackUrl = `http://localhost:${webPort}/api/outlook/linking/callback`;
+    const microsoftCalendarCallbackUrl = `http://localhost:${webPort}/api/outlook/calendar/callback`;
 
     p.note(
       "You need a Microsoft app registration to connect Outlook.\n\n" +
@@ -563,6 +566,10 @@ async function runSetupQuick(options: { name?: string }) {
     POSTGRES_USER: "postgres",
     POSTGRES_PASSWORD: dbPassword,
     POSTGRES_DB: "inboxzero",
+    POSTGRES_PORT: postgresPort,
+    REDIS_PORT: redisPort,
+    REDIS_HTTP_PORT: redisHttpPort,
+    WEB_PORT: webPort,
     DATABASE_URL: `postgresql://postgres:${dbPassword}@db:5432/inboxzero`,
     UPSTASH_REDIS_TOKEN: redisToken,
     UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
@@ -598,7 +605,7 @@ async function runSetupQuick(options: { name?: string }) {
     // LLM
     ...llmEnv,
     // App
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+    NEXT_PUBLIC_BASE_URL: `http://localhost:${webPort}`,
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
   };
 
@@ -672,7 +679,7 @@ async function runSetupQuick(options: { name?: string }) {
     });
     if (p.isCancel(restart) || !restart) {
       p.note(
-        "Inbox Zero is still running at http://localhost:3000",
+        `Inbox Zero is still running at http://localhost:${webPort}`,
         "Already running",
       );
       p.outro("Setup complete!");
@@ -729,7 +736,7 @@ async function runSetupQuick(options: { name?: string }) {
   startSpinner.stop("Inbox Zero is running!");
 
   p.note(
-    "Open http://localhost:3000 to get started.\n\n" +
+    `Open http://localhost:${webPort} to get started.\n\n` +
       "Useful commands:\n" +
       "  inbox-zero config    — update settings (e.g. add Pub/Sub token)\n" +
       "  inbox-zero logs -f   — view live logs\n" +
@@ -869,11 +876,12 @@ async function runSetupAdvanced(options: { name?: string }) {
   }
 
   const env: EnvConfig = {};
-
-  // Default ports
-  const webPort = "3000";
-  const postgresPort = "5432";
-  const redisPort = "8079";
+  const { webPort, postgresPort, redisPort, redisHttpPort, changedPorts } =
+    await resolveSetupPorts({ useDockerInfra });
+  const portConfigNote = formatPortConfigNote(changedPorts);
+  if (portConfigNote) {
+    p.note(portConfigNote, "Port Configuration");
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // OAuth Providers
@@ -1072,6 +1080,10 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       readExistingDbPassword(envFile) ||
       (isDevMode ? "password" : generateSecret(16));
     env.POSTGRES_DB = "inboxzero";
+    env.POSTGRES_PORT = postgresPort;
+    env.REDIS_PORT = redisPort;
+    env.REDIS_HTTP_PORT = redisHttpPort;
+    env.WEB_PORT = webPort;
     env.UPSTASH_REDIS_TOKEN = redisToken;
 
     if (runWebInDocker) {
@@ -1084,7 +1096,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       // Web app runs on host: containers expose ports to localhost
       env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
-      env.UPSTASH_REDIS_URL = `http://localhost:${redisPort}`;
+      env.UPSTASH_REDIS_URL = `http://localhost:${redisHttpPort}`;
       env.INTERNAL_API_URL = `http://localhost:${webPort}`;
     }
   } else {
@@ -1306,7 +1318,8 @@ async function runStart(options: { detach: boolean }) {
           "Stop the conflicting process or change the port:\n" +
             "  inbox-zero config set WEB_PORT <port>\n" +
             "  inbox-zero config set POSTGRES_PORT <port>\n" +
-            "  inbox-zero config set REDIS_PORT <port>",
+            "  inbox-zero config set REDIS_PORT <port>\n" +
+            "  inbox-zero config set REDIS_HTTP_PORT <port>",
         );
       } else {
         p.log.error(upResult.stderr || "Unknown error");
@@ -1321,7 +1334,8 @@ async function runStart(options: { detach: boolean }) {
     if (existsSync(STANDALONE_ENV_FILE)) {
       try {
         const envContent = readFileSync(STANDALONE_ENV_FILE, "utf-8");
-        webPort = envContent.match(/WEB_PORT=(\d+)/)?.[1] || webPort;
+        const parsedEnv = parseEnvFile(envContent);
+        webPort = parsedEnv.WEB_PORT || webPort;
       } catch {
         // Use default port if env file can't be read
       }
@@ -1502,7 +1516,8 @@ async function runUpdate() {
           "Stop the conflicting process or change the port:\n" +
             "  inbox-zero config set WEB_PORT <port>\n" +
             "  inbox-zero config set POSTGRES_PORT <port>\n" +
-            "  inbox-zero config set REDIS_PORT <port>",
+            "  inbox-zero config set REDIS_PORT <port>\n" +
+            "  inbox-zero config set REDIS_HTTP_PORT <port>",
         );
       } else {
         p.log.error(upResult.stderr || "Unknown error");
@@ -1565,6 +1580,10 @@ const CONFIG_CATEGORIES: Record<
       "UPSTASH_REDIS_URL",
       "UPSTASH_REDIS_TOKEN",
     ],
+  },
+  "Local Ports": {
+    description: "Docker host port bindings",
+    keys: ["WEB_PORT", "POSTGRES_PORT", "REDIS_PORT", "REDIS_HTTP_PORT"],
   },
   "App Settings": {
     description: "Application URL and feature flags",

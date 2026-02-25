@@ -49,6 +49,10 @@ export function generateEnvFile(config: {
     setValue("POSTGRES_USER", env.POSTGRES_USER);
     setValue("POSTGRES_PASSWORD", env.POSTGRES_PASSWORD);
     setValue("POSTGRES_DB", env.POSTGRES_DB);
+    setValue("POSTGRES_PORT", env.POSTGRES_PORT);
+    setValue("REDIS_PORT", env.REDIS_PORT);
+    setValue("REDIS_HTTP_PORT", env.REDIS_HTTP_PORT);
+    setValue("WEB_PORT", env.WEB_PORT);
     setValue("DATABASE_URL", wrapInQuotes(env.DATABASE_URL));
     setValue("DIRECT_URL", wrapInQuotes(env.DIRECT_URL));
     setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));

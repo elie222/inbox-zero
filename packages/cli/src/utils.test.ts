@@ -83,12 +83,20 @@ ANTHROPIC_API_KEY=
       POSTGRES_USER: "postgres",
       POSTGRES_PASSWORD: "mypassword",
       POSTGRES_DB: "inboxzero",
+      POSTGRES_PORT: "5433",
+      REDIS_PORT: "6381",
+      REDIS_HTTP_PORT: "8080",
+      WEB_PORT: "3001",
     };
 
     const templateWithPostgres = `${baseTemplate}
 POSTGRES_USER=
 POSTGRES_PASSWORD=
 POSTGRES_DB=
+POSTGRES_PORT=
+REDIS_PORT=
+REDIS_HTTP_PORT=
+WEB_PORT=
 `;
 
     const result = generateEnvFile({
@@ -101,6 +109,10 @@ POSTGRES_DB=
     expect(result).toContain("POSTGRES_USER=postgres");
     expect(result).toContain("POSTGRES_PASSWORD=mypassword");
     expect(result).toContain("POSTGRES_DB=inboxzero");
+    expect(result).toContain("POSTGRES_PORT=5433");
+    expect(result).toContain("REDIS_PORT=6381");
+    expect(result).toContain("REDIS_HTTP_PORT=8080");
+    expect(result).toContain("WEB_PORT=3001");
   });
 
   it("should set LLM provider API key", () => {
