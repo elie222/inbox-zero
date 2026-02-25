@@ -2,7 +2,7 @@ import { env } from "@/env";
 import type { RequestWithLogger } from "@/utils/middleware";
 
 export function hasCronSecret(request: RequestWithLogger) {
-  const cronSecret = process.env.CRON_SECRET ?? env.CRON_SECRET;
+  const cronSecret = env.CRON_SECRET;
   if (!cronSecret) {
     request.logger.error("No cron secret set, unauthorized cron request");
     return false;
