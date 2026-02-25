@@ -66,6 +66,17 @@ export async function sendFiledNotification({
   });
 
   try {
+    log.info("Sending filed notification", {
+      provider: emailProvider.name,
+      hasReplyContext: !!sourceMessage.threadId,
+    });
+    log.trace("Filed notification email metadata", {
+      to: userEmail,
+      from: fromAddress,
+      replyTo: replyToAddress,
+      subject,
+    });
+
     const result = await emailProvider.sendEmailWithHtml({
       replyToEmail: sourceMessage,
       to: userEmail,
@@ -123,6 +134,17 @@ export async function sendAskNotification({
   });
 
   try {
+    log.info("Sending ask notification", {
+      provider: emailProvider.name,
+      hasReplyContext: !!sourceMessage.threadId,
+    });
+    log.trace("Ask notification email metadata", {
+      to: userEmail,
+      from: fromAddress,
+      replyTo: replyToAddress,
+      subject,
+    });
+
     const result = await emailProvider.sendEmailWithHtml({
       replyToEmail: sourceMessage,
       to: userEmail,
@@ -181,6 +203,17 @@ export async function sendCorrectionConfirmation({
   });
 
   try {
+    log.info("Sending correction confirmation", {
+      provider: emailProvider.name,
+      hasReplyContext: !!sourceMessage.threadId,
+    });
+    log.trace("Correction confirmation email metadata", {
+      to: userEmail,
+      from: fromAddress,
+      replyTo: replyToAddress,
+      subject,
+    });
+
     await emailProvider.sendEmailWithHtml({
       replyToEmail: sourceMessage,
       to: userEmail,

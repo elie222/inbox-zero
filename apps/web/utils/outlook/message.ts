@@ -14,7 +14,7 @@ import { isOutlookThrottlingError } from "@/utils/error";
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
 export const MESSAGE_SELECT_FIELDS =
-  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,hasAttachments";
+  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,replyTo,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,hasAttachments";
 
 // Expand attachments to get metadata (name, type, size) without fetching content
 export const MESSAGE_EXPAND_ATTACHMENTS =
@@ -750,6 +750,7 @@ export function convertMessage(
         ) || "",
       to: formatRecipientsList(message.toRecipients) || "",
       cc: formatRecipientsList(message.ccRecipients),
+      "reply-to": formatRecipientsList(message.replyTo),
       subject: message.subject || "",
       date: message.receivedDateTime || new Date().toISOString(),
       // RFC 5322 Message-ID header, needed for cross-provider email threading (e.g., Outlook -> Gmail)

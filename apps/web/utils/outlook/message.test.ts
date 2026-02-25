@@ -9,6 +9,36 @@ import {
 } from "@/utils/outlook/message";
 
 describe("convertMessage", () => {
+  it("maps reply-to recipients into parsed headers", () => {
+    const message: Message = {
+      id: "msg-123",
+      conversationId: "thread-456",
+      subject: "Test",
+      from: {
+        emailAddress: { name: "Sender", address: "sender@example.com" },
+      },
+      toRecipients: [
+        { emailAddress: { name: "Me", address: "me@example.com" } },
+      ],
+      replyTo: [
+        {
+          emailAddress: {
+            name: "Inbox Zero Assistant",
+            address: "me+ai@example.com",
+          },
+        },
+      ],
+      receivedDateTime: "2026-02-10T10:00:00.000Z",
+      isRead: true,
+    };
+
+    const result = convertMessage(message, {});
+
+    expect(result.headers["reply-to"]).toBe(
+      "Inbox Zero Assistant <me+ai@example.com>",
+    );
+  });
+
   describe("category ID mapping", () => {
     it("should return category IDs when categoryMap is provided", () => {
       const message: Message = {

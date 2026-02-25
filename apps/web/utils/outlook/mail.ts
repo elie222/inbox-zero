@@ -16,16 +16,20 @@ import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import type { Logger } from "@/utils/logger";
 
+type GraphRecipient = {
+  emailAddress: { address: string; name?: string };
+};
+
 interface OutlookMessageRequest {
   subject: string;
   body: {
     contentType: string;
     content: string;
   };
-  toRecipients: { emailAddress: { address: string } }[];
-  ccRecipients?: { emailAddress: { address: string } }[];
-  bccRecipients?: { emailAddress: { address: string } }[];
-  replyTo?: { emailAddress: { address: string } }[];
+  toRecipients: GraphRecipient[];
+  ccRecipients?: GraphRecipient[];
+  bccRecipients?: GraphRecipient[];
+  replyTo?: GraphRecipient[];
 }
 
 type SentEmailResult = Pick<Message, "id" | "conversationId">;
@@ -43,6 +47,12 @@ export async function sendEmailWithHtml(
     return sendReplyUsingCreateReply(client, body, logger);
   }
 
+  const toRecipients = buildGraphRecipients(body.to);
+  if (!toRecipients?.length) throw new Error("Recipient address is required");
+  const ccRecipients = buildGraphRecipients(body.cc);
+  const bccRecipients = buildGraphRecipients(body.bcc);
+  const replyToRecipients = buildGraphRecipients(body.replyTo);
+
   // For new emails, create draft then send to get the conversationId.
   // sendMail returns 202 with no body, so we use the draft approach instead.
   const draft: Message = await withOutlookRetry(
@@ -56,16 +66,10 @@ export async function sendEmailWithHtml(
             contentType: "html",
             content: body.messageHtml,
           },
-          toRecipients: [{ emailAddress: { address: body.to } }],
-          ...(body.cc
-            ? { ccRecipients: [{ emailAddress: { address: body.cc } }] }
-            : {}),
-          ...(body.bcc
-            ? { bccRecipients: [{ emailAddress: { address: body.bcc } }] }
-            : {}),
-          ...(body.replyTo
-            ? { replyTo: [{ emailAddress: { address: body.replyTo } }] }
-            : {}),
+          toRecipients,
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
+          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
         }),
     logger,
   );
@@ -114,20 +118,11 @@ export async function replyToEmail(
     logger,
   );
 
-  // Build the from field if a display name is provided
-  const fromField = options?.from
-    ? {
-        from: {
-          emailAddress: {
-            name: extractNameFromEmail(options.from),
-            address:
-              extractEmailAddress(options.from) ||
-              replyDraft.from?.emailAddress?.address ||
-              "",
-          },
-        },
-      }
-    : {};
+  const fromField = buildFromField(
+    options?.from,
+    replyDraft.from?.emailAddress?.address,
+  );
+  const replyToRecipients = buildGraphRecipients(options?.replyTo);
 
   // Update the draft with our content
   await withOutlookRetry(
@@ -141,11 +136,7 @@ export async function replyToEmail(
             content: html,
           },
           ...fromField,
-          ...(options?.replyTo
-            ? {
-                replyTo: [{ emailAddress: { address: options.replyTo } }],
-              }
-            : {}),
+          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
         }),
     logger,
   );
@@ -386,6 +377,16 @@ async function sendReplyUsingCreateReply(
     logger,
   );
 
+  const toRecipients = buildGraphRecipients(body.to);
+  if (!toRecipients?.length) throw new Error("Recipient address is required");
+  const ccRecipients = buildGraphRecipients(body.cc);
+  const bccRecipients = buildGraphRecipients(body.bcc);
+  const replyToRecipients = buildGraphRecipients(body.replyTo);
+  const fromField = buildFromField(
+    body.from,
+    replyDraft.from?.emailAddress?.address,
+  );
+
   // Update the draft with our content and recipients
   // Note: We cannot set In-Reply-To/References headers via internetMessageHeaders
   // as Microsoft Graph only allows custom headers (starting with x-) there.
@@ -401,13 +402,11 @@ async function sendReplyUsingCreateReply(
             contentType: "html",
             content: body.messageHtml,
           },
-          toRecipients: [{ emailAddress: { address: body.to } }],
-          ...(body.cc
-            ? { ccRecipients: [{ emailAddress: { address: body.cc } }] }
-            : {}),
-          ...(body.bcc
-            ? { bccRecipients: [{ emailAddress: { address: body.bcc } }] }
-            : {}),
+          toRecipients,
+          ...fromField,
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
+          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
         }),
     logger,
   );
@@ -422,5 +421,56 @@ async function sendReplyUsingCreateReply(
   return {
     id: "",
     conversationId: replyDraft.conversationId,
+  };
+}
+
+function buildGraphRecipients(
+  recipientList?: string,
+): GraphRecipient[] | undefined {
+  if (!recipientList) return undefined;
+
+  const parts = recipientList.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+  const recipients = parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part): GraphRecipient | null => {
+      const address = extractEmailAddress(part);
+      if (!address) return null;
+
+      const name = extractNameFromEmail(part).trim();
+      return {
+        emailAddress: {
+          address,
+          ...(name && name !== address ? { name } : {}),
+        },
+      };
+    })
+    .filter((recipient): recipient is GraphRecipient => recipient !== null);
+
+  if (!recipients.length) return undefined;
+
+  const seen = new Set<string>();
+  return recipients.filter((recipient) => {
+    const key = recipient.emailAddress.address.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function buildFromField(from?: string, fallbackAddress?: string) {
+  if (!from) return {};
+
+  const address = extractEmailAddress(from) || fallbackAddress;
+  if (!address) return {};
+
+  const name = extractNameFromEmail(from).trim();
+  return {
+    from: {
+      emailAddress: {
+        address,
+        ...(name && name !== address ? { name } : {}),
+      },
+    },
   };
 }
