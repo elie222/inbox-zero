@@ -25,7 +25,7 @@
 - Co-locate test files next to source files (e.g., `utils/example.test.ts`). Only E2E and AI tests go in `__tests__/`.
 - Don't export types/interfaces only used within the same file
 - No re-export patterns. Import from the original source.
-- Use provider helpers (`isGoogleProvider`, `isMicrosoftProvider`) instead of inline provider string checks.
+- Prefer the `EmailProvider` abstraction; only use provider-type checks (`isGoogleProvider`, `isMicrosoftProvider`) at true provider boundary/integration code.
 - Infer types from Zod schemas using `z.infer<typeof schema>` instead of duplicating as separate interfaces
 - Avoid premature abstraction. Duplicating 2-3 times is fine; extract when a stable pattern emerges.
 - No barrel files. Import directly from source files.
