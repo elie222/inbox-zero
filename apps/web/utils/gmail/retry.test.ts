@@ -1,11 +1,22 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   extractErrorInfo,
   isRetryableError,
   calculateRetryDelay,
+  withGmailRetry,
+  MAX_GMAIL_BLOCKING_RETRY_DELAY_MS,
 } from "./retry";
+import { sleep } from "@/utils/sleep";
+
+vi.mock("@/utils/sleep", () => ({
+  sleep: vi.fn().mockResolvedValue(undefined),
+}));
 
 describe("Gmail retry helpers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   describe("isRetryableError", () => {
     it("should identify 502 status code as retryable server error", () => {
       const errorInfo = { status: 502, errorMessage: "Server Error" };
@@ -221,6 +232,29 @@ describe("Gmail retry helpers", () => {
       expect(info.status).toBeUndefined();
       expect(info.reason).toBeUndefined();
       expect(info.errorMessage).toBe("Some top-level error");
+    });
+  });
+
+  describe("withGmailRetry", () => {
+    it("aborts retry loop when backoff exceeds serverless cap", async () => {
+      const retryAt = new Date(
+        Date.now() + MAX_GMAIL_BLOCKING_RETRY_DELAY_MS + 60_000,
+      ).toISOString();
+      const error = Object.assign(
+        new Error(`User-rate limit exceeded. Retry after ${retryAt}`),
+        {
+          cause: {
+            status: 429,
+            message: `User-rate limit exceeded. Retry after ${retryAt}`,
+          },
+        },
+      );
+      const operation = vi.fn().mockRejectedValue(error);
+
+      await expect(withGmailRetry(operation, 5)).rejects.toBeDefined();
+
+      expect(operation).toHaveBeenCalledTimes(1);
+      expect(sleep).not.toHaveBeenCalled();
     });
   });
 });

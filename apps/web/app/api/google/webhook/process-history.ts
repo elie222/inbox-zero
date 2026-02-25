@@ -15,6 +15,10 @@ import {
   getWebhookEmailAccount,
   type ValidatedWebhookAccountData,
 } from "@/utils/webhook/validate-webhook-account";
+import {
+  getGmailRateLimitState,
+  recordGmailRateLimitFromError,
+} from "@/utils/gmail/rate-limit";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import type { gmail_v1 } from "@googleapis/gmail";
@@ -68,6 +72,17 @@ export async function processHistoryForUser(
   const accountAccessToken = validatedEmailAccount.account.access_token;
   const accountRefreshToken = validatedEmailAccount.account.refresh_token;
   const accountProvider = validatedEmailAccount.account.provider || "google";
+  const activeRateLimit = await getGmailRateLimitState({
+    emailAccountId: validatedEmailAccount.id,
+  });
+
+  if (activeRateLimit) {
+    logger.warn("Skipping webhook processing due to active Gmail rate limit", {
+      retryAt: activeRateLimit.retryAt.toISOString(),
+      rateLimitSource: activeRateLimit.source,
+    });
+    return NextResponse.json({ ok: true });
+  }
 
   try {
     const gmail = await getGmailClientWithRefresh({
@@ -143,6 +158,13 @@ export async function processHistoryForUser(
       logger.warn("Invalid grant", { email });
       return NextResponse.json({ ok: true });
     }
+
+    await recordGmailRateLimitFromError({
+      error,
+      emailAccountId: validatedEmailAccount.id,
+      logger,
+      source: "google/webhook",
+    });
 
     captureException(error, { userEmail: email, extra: { decodedData } });
     logger.error("Error processing webhook", {

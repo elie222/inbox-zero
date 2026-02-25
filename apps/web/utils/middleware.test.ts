@@ -36,6 +36,9 @@ vi.mock("@/utils/auth", () => ({
 }));
 
 vi.mock("@/utils/redis/account-validation");
+vi.mock("@/utils/gmail/rate-limit", () => ({
+  recordGmailRateLimitFromError: vi.fn(),
+}));
 
 // Mock specific functions from @/utils/error, keep original SafeError
 vi.mock("@/utils/error", async (importActual) => {

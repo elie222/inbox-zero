@@ -12,6 +12,10 @@ import { ThreadTrackerType, SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
+import {
+  isGmailRateLimitModeError,
+  recordGmailRateLimitFromError,
+} from "@/utils/gmail/rate-limit";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   getLabelsFromDb,
@@ -64,6 +68,7 @@ export async function processAllFollowUpReminders(logger: Logger) {
 
   let successCount = 0;
   let errorCount = 0;
+  let rateLimitedCount = 0;
 
   for (const emailAccount of emailAccounts) {
     const accountLogger = logger.with({
@@ -77,6 +82,29 @@ export async function processAllFollowUpReminders(logger: Logger) {
       });
       successCount++;
     } catch (error) {
+      const retryAtFromError =
+        isGmailRateLimitModeError(error) && error.retryAt
+          ? new Date(error.retryAt)
+          : undefined;
+      const recordedRateLimitState = await recordGmailRateLimitFromError({
+        error,
+        emailAccountId: emailAccount.id,
+        logger: accountLogger,
+        source: "follow-up-reminders",
+      });
+      const retryAt = recordedRateLimitState?.retryAt || retryAtFromError;
+
+      if (retryAt) {
+        accountLogger.warn(
+          "Skipping follow-up reminders while Gmail rate limit is active",
+          {
+            retryAt: retryAt.toISOString(),
+          },
+        );
+        rateLimitedCount++;
+        continue;
+      }
+
       accountLogger.error("Failed to process follow-up reminders for user", {
         error,
       });
@@ -89,12 +117,14 @@ export async function processAllFollowUpReminders(logger: Logger) {
     total: emailAccounts.length,
     success: successCount,
     errors: errorCount,
+    rateLimited: rateLimitedCount,
   });
 
   return {
     total: emailAccounts.length,
     success: successCount,
     errors: errorCount,
+    rateLimited: rateLimitedCount,
   };
 }
 
@@ -295,7 +325,7 @@ async function processFollowUpsForType({
         orderBy: { createdAt: "desc" },
       });
 
-      let tracker;
+      let tracker: Awaited<ReturnType<typeof prisma.threadTracker.create>>;
       if (existingTracker) {
         try {
           tracker = await prisma.threadTracker.update({
@@ -450,7 +480,8 @@ async function getProcessedFollowUpLedger({
   const processedLedger = new Map<string, Set<string>>();
 
   for (const tracker of existingTrackers) {
-    const messageIds = processedLedger.get(tracker.threadId) ?? new Set<string>();
+    const messageIds =
+      processedLedger.get(tracker.threadId) ?? new Set<string>();
     messageIds.add(tracker.messageId);
     processedLedger.set(tracker.threadId, messageIds);
   }

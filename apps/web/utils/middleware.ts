@@ -10,6 +10,7 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
+import { recordGmailRateLimitFromError } from "@/utils/gmail/rate-limit";
 import {
   EMAIL_ACCOUNT_HEADER,
   MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
@@ -85,6 +86,7 @@ function withMiddleware<T extends NextRequest>(
 
     const reqWithLogger = req as NextRequest & { logger?: Logger };
     reqWithLogger.logger = baseLogger;
+    let requestForError = reqWithLogger as NextRequest;
 
     try {
       // Apply middleware if provided
@@ -101,6 +103,7 @@ function withMiddleware<T extends NextRequest>(
         // Otherwise, continue with the enhanced request
         enhancedReq = middlewareResult;
       }
+      requestForError = enhancedReq;
 
       // Execute the handler with the (potentially) enhanced request
       const response = await handler(enhancedReq as T, context);
@@ -109,7 +112,7 @@ function withMiddleware<T extends NextRequest>(
 
       return response;
     } catch (error) {
-      flushLogger(reqWithLogger);
+      flushLogger(requestForError);
 
       // redirects work by throwing an error. allow these
       if (error instanceof Error && error.message === "NEXT_REDIRECT") {
@@ -140,7 +143,7 @@ function withMiddleware<T extends NextRequest>(
         }
       }
 
-      const reqLogger = getLogger(reqWithLogger);
+      const reqLogger = getLogger(requestForError);
 
       if (error instanceof ZodError) {
         if (!env.DISABLE_LOG_ZOD_ERRORS) {
@@ -152,11 +155,23 @@ function withMiddleware<T extends NextRequest>(
         );
       }
 
-      const apiError = checkCommonErrors(error, req.url, reqLogger);
+      const apiError = checkCommonErrors(error, requestForError.url, reqLogger);
       if (apiError) {
+        if (apiError.type === "Gmail Rate Limit Exceeded") {
+          const emailAccountId = getEmailAccountId(requestForError);
+          if (emailAccountId) {
+            await recordGmailRateLimitFromError({
+              error,
+              emailAccountId,
+              logger: reqLogger,
+              source: scope || new URL(requestForError.url).pathname,
+            });
+          }
+        }
+
         await logErrorToPosthog(
           "api",
-          req.url,
+          requestForError.url,
           apiError.type,
           "unknown",
           reqLogger,
@@ -195,7 +210,7 @@ function withMiddleware<T extends NextRequest>(
             : undefined,
         stack: error instanceof Error ? error.stack : undefined,
       });
-      captureException(error, { extra: { url: req.url } });
+      captureException(error, { extra: { url: requestForError.url } });
 
       return NextResponse.json(
         { error: "An unexpected error occurred" },
@@ -560,6 +575,11 @@ function isErrorWithConfigAndHeaders(
 function getLogger(req: NextRequest): Logger {
   const reqWithLogger = req as RequestWithLogger;
   return reqWithLogger.logger || logger;
+}
+
+function getEmailAccountId(req: NextRequest): string | undefined {
+  const authReq = req as Partial<RequestWithEmailAccount>;
+  return authReq.auth?.emailAccountId;
 }
 
 function flushLogger(req: NextRequest) {

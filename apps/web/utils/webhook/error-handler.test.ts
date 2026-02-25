@@ -7,6 +7,9 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/utils/posthog", () => ({
   trackError: vi.fn(),
 }));
+vi.mock("@/utils/gmail/rate-limit", () => ({
+  recordGmailRateLimitFromError: vi.fn().mockResolvedValue(null),
+}));
 
 describe("handleWebhookError", () => {
   const logger = createScopedLogger("test");

@@ -47,6 +47,11 @@ vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
 }));
 
+vi.mock("@/utils/gmail/rate-limit", () => ({
+  isGmailRateLimitModeError: vi.fn().mockReturnValue(false),
+  recordGmailRateLimitFromError: vi.fn().mockResolvedValue(null),
+}));
+
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import { generateFollowUpDraft } from "@/utils/follow-up/generate-draft";
@@ -233,7 +238,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-repeat", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-repeat", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi
         .fn()
         .mockResolvedValue(mockMessage("msg-repeat", OLD_DATE)),
@@ -268,7 +275,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-replay", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-replay", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi
         .fn()
         .mockResolvedValue(mockMessage("msg-replay", OLD_DATE)),
@@ -336,7 +345,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-window", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-window", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi
         .fn()
         .mockResolvedValue(mockMessage("msg-window", twentyMinutesAgo)),
@@ -439,7 +450,9 @@ describe("processAccountFollowUps - dedup logic", () => {
       ] as EmailLabel[]),
       getThreadsWithLabel: vi
         .fn()
-        .mockResolvedValue([{ id: "thread-shared", messages: [], snippet: "" }]),
+        .mockResolvedValue([
+          { id: "thread-shared", messages: [], snippet: "" },
+        ]),
       getLatestMessageInThread: vi
         .fn()
         .mockResolvedValue(mockMessage("msg-shared", OLD_DATE)),

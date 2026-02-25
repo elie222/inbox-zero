@@ -1,9 +1,10 @@
-import pRetry from "p-retry";
+import pRetry, { AbortError } from "p-retry";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
 import { isFetchError } from "@/utils/retry/is-fetch-error";
 
 const logger = createScopedLogger("gmail-retry");
+export const MAX_GMAIL_BLOCKING_RETRY_DELAY_MS = 10_000;
 
 interface RetryLogContext {
   logger?: Logger;
@@ -67,6 +68,23 @@ export async function withGmailRetry<T>(
         isServerError,
         isFailedPrecondition,
       });
+
+      if (delayMs > MAX_GMAIL_BLOCKING_RETRY_DELAY_MS) {
+        retryLogger.warn("Aborting retry due to long backoff in serverless", {
+          delaySeconds: Math.ceil(delayMs / 1000),
+          maxBlockingDelaySeconds: Math.ceil(
+            MAX_GMAIL_BLOCKING_RETRY_DELAY_MS / 1000,
+          ),
+          attemptNumber: error.attemptNumber,
+          maxRetries,
+          ...retryLogFields,
+        });
+        const originalError = (error as { originalError?: unknown })
+          .originalError;
+        throw new AbortError(
+          originalError instanceof Error ? originalError : error,
+        );
+      }
 
       // Apply the custom delay
       if (delayMs > 0) {
@@ -260,7 +278,7 @@ function buildRetryLogFields(errorInfo: ErrorInfo) {
   };
 }
 
-function getRetryAfterHeader(error: unknown): string | undefined {
+export function getRetryAfterHeader(error: unknown): string | undefined {
   const err = toRecord(error);
   const cause = toRecord(err.cause ?? err);
   const response = toRecord(cause.response);
