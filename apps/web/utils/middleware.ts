@@ -11,7 +11,7 @@ import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
 import {
-  isGmailRateLimitModeError,
+  isProviderRateLimitModeError,
   recordRateLimitFromApiError,
 } from "@/utils/email/rate-limit";
 import {
@@ -439,7 +439,7 @@ async function emailProviderMiddleware(
     });
 
     // Re-throw known errors so withMiddleware can apply shared error handling.
-    if (error instanceof SafeError || isGmailRateLimitModeError(error)) {
+    if (error instanceof SafeError || isProviderRateLimitModeError(error)) {
       throw error;
     }
 

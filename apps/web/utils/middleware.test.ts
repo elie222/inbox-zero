@@ -47,7 +47,7 @@ vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn(),
 }));
 vi.mock("@/utils/email/rate-limit", () => ({
-  isGmailRateLimitModeError: vi.fn(),
+  isProviderRateLimitModeError: vi.fn(),
   recordRateLimitFromApiError: vi.fn(),
 }));
 
@@ -70,7 +70,7 @@ import { getEmailAccount } from "@/utils/redis/account-validation";
 import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
-  isGmailRateLimitModeError,
+  isProviderRateLimitModeError,
   recordRateLimitFromApiError,
 } from "@/utils/email/rate-limit";
 
@@ -85,7 +85,9 @@ const mockCreateEmailProvider = vi.mocked(createEmailProvider);
 const mockPrismaEmailAccountFindUnique = vi.mocked(
   prisma.emailAccount.findUnique,
 );
-const mockIsGmailRateLimitModeError = vi.mocked(isGmailRateLimitModeError);
+const mockIsProviderRateLimitModeError = vi.mocked(
+  isProviderRateLimitModeError,
+);
 const mockRecordRateLimitFromApiError = vi.mocked(recordRateLimitFromApiError);
 
 // Helper to create a mock NextRequest
@@ -468,7 +470,7 @@ describe("Middleware", () => {
 
       const rateLimitError = new Error("Rate-limit mode active");
       mockCreateEmailProvider.mockRejectedValue(rateLimitError);
-      mockIsGmailRateLimitModeError.mockImplementation(
+      mockIsProviderRateLimitModeError.mockImplementation(
         (error) => error === rateLimitError,
       );
 
