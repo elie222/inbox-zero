@@ -3,7 +3,7 @@ title: 'LLM'
 description: 'Configure your default AI provider and API key'
 ---
 
-In your `.env` file, uncomment one of the LLM provider blocks and add your API key:
+In your `.env` file, uncomment one of the LLM provider blocks and configure provider credentials (API key for most providers, service account credentials for Vertex AI):
 
 You can also set `LLM_API_KEY` as a shared fallback so you don't need to set a provider-specific key for every provider.
 
@@ -11,6 +11,7 @@ You can also set `LLM_API_KEY` as a shared fallback so you don't need to set a p
 - [OpenAI](https://platform.openai.com/api-keys)
 - [Azure OpenAI](https://ai-sdk.dev/providers/ai-sdk-providers/azure)
 - [Google Gemini](https://ai.google.dev/)
+- [Google Vertex AI](https://ai-sdk.dev/providers/ai-sdk-providers/google-vertex)
 - [OpenRouter](https://openrouter.ai/settings/keys)
 - [AWS Bedrock](https://aws.amazon.com/bedrock/)
 - [Groq](https://console.groq.com/)

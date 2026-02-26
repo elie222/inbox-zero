@@ -33,7 +33,7 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `UPSTASH_REDIS_TOKEN` | No* | Upstash Redis token or serverless-redis-http token (*required if not using Docker Compose) | — |
 | `REDIS_URL` | No | Alternative Redis URL (for subscriptions) | — |
 | **LLM Provider Selection** ||||
-| `DEFAULT_LLM_PROVIDER` | Yes | Primary LLM provider (`anthropic`, `azure`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`) | — |
+| `DEFAULT_LLM_PROVIDER` | Yes | Primary LLM provider (`anthropic`, `azure`, `vertex`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`) | — |
 | `DEFAULT_LLM_MODEL` | No | Model to use with default provider | Provider default |
 | `DEFAULT_LLM_FALLBACKS` | No | Ordered fallback chain (`provider:model,provider:model`, explicit model required) | — |
 | `DEFAULT_OPENROUTER_PROVIDERS` | No | Comma-separated list of OpenRouter providers | — |
@@ -47,7 +47,7 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `CHAT_OPENROUTER_PROVIDERS` | No | OpenRouter providers for chat | — |
 | `USE_BACKUP_MODEL` | No | Deprecated legacy fallback toggle. Use `*_LLM_FALLBACKS` instead. | `false` |
 | `OPENROUTER_BACKUP_MODEL` | No | Deprecated legacy backup model. Use `*_LLM_FALLBACKS` instead. | — |
-| **LLM API Keys** ||||
+| **LLM Provider Credentials** ||||
 | `LLM_API_KEY` | No | Shared fallback API key for LLM providers. Used when a provider-specific key is not set. | — |
 | `ANTHROPIC_API_KEY` | No | Anthropic API key | — |
 | `OPENAI_API_KEY` | No | OpenAI API key | — |
@@ -55,6 +55,11 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `AZURE_RESOURCE_NAME` | No | Azure OpenAI resource name | — |
 | `AZURE_API_VERSION` | No | Azure OpenAI API version override | — |
 | `GOOGLE_API_KEY` | No | Google Gemini API key | — |
+| `GOOGLE_VERTEX_PROJECT` | No | Google Cloud project ID for Vertex AI | — |
+| `GOOGLE_VERTEX_LOCATION` | No | Vertex AI location | `us-central1` |
+| `GOOGLE_VERTEX_CLIENT_EMAIL` | No | Service account client email for Vertex auth (when not using ADC file) | — |
+| `GOOGLE_VERTEX_PRIVATE_KEY` | No | Service account private key for Vertex auth (supports `\n` escaped newlines) | — |
+| `GOOGLE_APPLICATION_CREDENTIALS` | No | Path to a Google service account JSON file for ADC/Vertex auth | — |
 | `GROQ_API_KEY` | No | Groq API key | — |
 | `OPENROUTER_API_KEY` | No | OpenRouter API key | — |
 | `AI_GATEWAY_API_KEY` | No | AI Gateway API key | — |
