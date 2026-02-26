@@ -86,12 +86,9 @@ export function StepWho({
       </div>
 
       <div className="text-center">
-        <PageHeading className="mt-4">
-          Let's understand how you use email
-        </PageHeading>
+        <PageHeading className="mt-4">What do you do?</PageHeading>
         <TypographyP className="mt-2">
-          Your role helps us design a smarter, clearer inbox with AI tailored
-          just for you.
+          This helps us set up your inbox the way you actually need it.
         </TypographyP>
       </div>
 
@@ -122,41 +119,43 @@ export function StepWho({
             onNext();
           })}
         >
-          <ScrollableFadeContainer
-            ref={scrollContainerRef}
-            className="grid gap-2 px-1 pt-6 pb-6 max-w-md w-full mx-auto"
-            fadeFromClass="from-slate-50"
-          >
-            {Object.entries(usersRolesInfo).map(([roleName, role]) => {
-              const Icon = role.icon;
+          <div className="max-w-md w-full mx-auto">
+            <ScrollableFadeContainer
+              ref={scrollContainerRef}
+              className="grid gap-2 px-1 pt-6 pb-6"
+              fadeFromClass="from-slate-50"
+            >
+              {Object.entries(usersRolesInfo).map(([roleName, role]) => {
+                const Icon = role.icon;
 
-              return (
-                <button
-                  type="button"
-                  key={roleName}
-                  className={cn(
-                    "rounded-xl border bg-card p-4 text-card-foreground shadow-sm text-left flex items-center gap-4 transition-all",
-                    watchedRole === roleName &&
-                      "border-blue-600 ring-2 ring-blue-100",
-                  )}
-                  onClick={() => {
-                    setValue("role", roleName);
-                    if (roleName !== "Other") {
-                      setCustomRole("");
-                    }
-                  }}
-                >
-                  <IconCircle size="sm">
-                    <Icon className="size-4" />
-                  </IconCircle>
+                return (
+                  <button
+                    type="button"
+                    key={roleName}
+                    className={cn(
+                      "rounded-xl border bg-card p-4 text-card-foreground shadow-sm text-left flex items-center gap-4 transition-all",
+                      watchedRole === roleName &&
+                        "border-blue-600 ring-2 ring-blue-100",
+                    )}
+                    onClick={() => {
+                      setValue("role", roleName);
+                      if (roleName !== "Other") {
+                        setCustomRole("");
+                      }
+                    }}
+                  >
+                    <IconCircle size="sm">
+                      <Icon className="size-4" />
+                    </IconCircle>
 
-                  <div>
-                    <div className="font-medium">{roleName}</div>
-                  </div>
-                </button>
-              );
-            })}
-          </ScrollableFadeContainer>
+                    <div>
+                      <div className="font-medium">{roleName}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </ScrollableFadeContainer>
+          </div>
 
           {watchedRole === "Other" && (
             <div className="px-1 pb-6 max-w-md w-full mx-auto">
