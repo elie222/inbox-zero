@@ -208,8 +208,6 @@ export const saveRulesPromptAction = actionClient
           userId: true,
           about: true,
           multiRuleSelectionEnabled: true,
-
-          draftReplyConfidenceThreshold: true,
           timezone: true,
           calendarBookingLink: true,
           rulesPrompt: true,
@@ -448,8 +446,6 @@ export const createRulesAction = actionClient
           userId: true,
           about: true,
           multiRuleSelectionEnabled: true,
-
-          draftReplyConfidenceThreshold: true,
           timezone: true,
           calendarBookingLink: true,
           rulesPrompt: true,

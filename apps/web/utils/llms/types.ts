@@ -14,7 +14,6 @@ export type EmailAccountWithAI = Prisma.EmailAccountGetPayload<{
     email: true;
     about: true;
     multiRuleSelectionEnabled: true;
-    draftReplyConfidenceThreshold: true;
     timezone: true;
     calendarBookingLink: true;
     user: {
@@ -30,4 +29,6 @@ export type EmailAccountWithAI = Prisma.EmailAccountGetPayload<{
       };
     };
   };
-}>;
+}> & {
+  draftReplyConfidenceThreshold?: number | null;
+};
