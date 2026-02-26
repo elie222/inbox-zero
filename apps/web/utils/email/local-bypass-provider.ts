@@ -3,6 +3,11 @@ import type {
   EmailProvider,
   EmailThread,
 } from "@/utils/email/types";
+import {
+  extractDomainFromEmail,
+  extractEmailAddress,
+  normalizeEmailAddress,
+} from "@/utils/email";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
 import { createScopedLogger, type Logger } from "@/utils/logger";
@@ -86,17 +91,17 @@ export function createLocalBypassEmailProvider(logger?: Logger): EmailProvider {
       maxResults,
     }) => {
       const excludedFrom = new Set(
-        excludeFromEmails.map((email) => normalizeEmailAddress(email)),
+        excludeFromEmails.map((email) => normalizeComparableEmail(email)),
       );
       const excludedTo = new Set(
-        excludeToEmails.map((email) => normalizeEmailAddress(email)),
+        excludeToEmails.map((email) => normalizeComparableEmail(email)),
       );
 
       const filtered = messages.filter((message) => {
         if (!hasLabel(message, "SENT")) return false;
 
-        const normalizedFrom = normalizeEmailAddress(message.headers.from);
-        const normalizedTo = normalizeEmailAddress(message.headers.to);
+        const normalizedFrom = normalizeComparableEmail(message.headers.from);
+        const normalizedTo = normalizeComparableEmail(message.headers.to);
 
         if (excludedFrom.has(normalizedFrom)) return false;
         if (excludedTo.has(normalizedTo)) return false;
@@ -211,10 +216,10 @@ export function createLocalBypassEmailProvider(logger?: Logger): EmailProvider {
     getThreadsWithParticipant: async ({ participantEmail, maxThreads }) =>
       toThreads(
         messages.filter((message) => {
-          const participant = normalizeEmailAddress(participantEmail);
+          const participant = normalizeComparableEmail(participantEmail);
           return (
-            normalizeEmailAddress(message.headers.from) === participant ||
-            normalizeEmailAddress(message.headers.to) === participant
+            normalizeComparableEmail(message.headers.from) === participant ||
+            normalizeComparableEmail(message.headers.to) === participant
           );
         }),
       ).slice(0, maxThreads),
@@ -238,8 +243,8 @@ export function createLocalBypassEmailProvider(logger?: Logger): EmailProvider {
       messages.some(
         (message) =>
           hasLabel(message, "SENT") &&
-          normalizeEmailAddress(message.headers.to) ===
-            normalizeEmailAddress(senderEmail),
+          normalizeComparableEmail(message.headers.to) ===
+            normalizeComparableEmail(senderEmail),
       ),
     countReceivedMessages: async (senderEmail, threshold) =>
       messages.filter(
@@ -287,17 +292,17 @@ export function createLocalBypassEmailProvider(logger?: Logger): EmailProvider {
       date,
       messageId,
     }) => {
-      const normalizedFrom = normalizeEmailAddress(from);
-      const senderDomain = getEmailDomain(normalizedFrom);
+      const normalizedFrom = normalizeComparableEmail(from);
+      const senderDomain = extractDomainFromEmail(normalizedFrom);
 
       return messages.some((message) => {
         if (message.id === messageId) return false;
         if (getMessageTime(message) >= date.getTime()) return false;
 
-        const messageFrom = normalizeEmailAddress(message.headers.from);
+        const messageFrom = normalizeComparableEmail(message.headers.from);
         if (messageFrom === normalizedFrom) return true;
 
-        return getEmailDomain(messageFrom) === senderDomain;
+        return extractDomainFromEmail(messageFrom) === senderDomain;
       });
     },
     getThreadsFromSenderWithSubject: async (sender, limit) =>
@@ -730,8 +735,8 @@ function matchesTextQuery(message: ParsedMessage, query: string) {
 
 function matchesSender(message: ParsedMessage, senderEmail: string) {
   return (
-    normalizeEmailAddress(message.headers.from) ===
-    normalizeEmailAddress(senderEmail)
+    normalizeComparableEmail(message.headers.from) ===
+    normalizeComparableEmail(senderEmail)
   );
 }
 
@@ -763,12 +768,7 @@ function normalizeLimit(value: number | undefined, fallback: number) {
   return Math.max(1, Math.min(100, value));
 }
 
-function normalizeEmailAddress(value: string) {
-  const match = value.match(/<([^>]+)>/);
-  return (match?.[1] || value).trim().toLowerCase();
-}
-
-function getEmailDomain(value: string) {
-  const [, domain] = normalizeEmailAddress(value).split("@");
-  return domain || "";
+function normalizeComparableEmail(value: string) {
+  const email = extractEmailAddress(value) || value.trim();
+  return normalizeEmailAddress(email);
 }
