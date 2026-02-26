@@ -332,6 +332,25 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
   });
 
+  it("uses legacy cached drafts without confidence when threshold is 0", async () => {
+    vi.mocked(getReplyWithConfidence).mockResolvedValue({
+      reply: "Legacy cached draft",
+      confidence: null,
+    });
+
+    const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      mockLogger,
+      0,
+    );
+
+    expect(result).toEqual({ draft: "Legacy cached draft", confidence: null });
+    expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
+  });
+
   it("regenerates drafts when cached confidence is below the threshold", async () => {
     vi.mocked(getReplyWithConfidence).mockResolvedValue({
       reply: "Old cached draft",
@@ -380,5 +399,11 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     );
 
     expect(result).toEqual({ draft: null, confidence: 60 });
+    expect(saveReply).toHaveBeenCalledWith({
+      emailAccountId: "test-account-id",
+      messageId: "msg-1",
+      reply: "Draft that should be skipped",
+      confidence: 60,
+    });
   });
 });

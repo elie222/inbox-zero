@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEmail, getEmailAccount } from "@/__tests__/helpers";
-import { aiDraftReply } from "@/utils/ai/reply/draft-reply";
+import {
+  aiDraftReply,
+  aiDraftReplyWithConfidence,
+} from "@/utils/ai/reply/draft-reply";
 
 const { mockCreateGenerateObject, mockGenerateObject } = vi.hoisted(() => {
   const mockGenerateObject = vi.fn();
@@ -210,6 +213,19 @@ describe("aiDraftReply formatting", () => {
     expect(callArgs.prompt).toContain(
       "IMPORTANT: You are writing an email as user@example.com. Write the reply from their perspective.",
     );
+  });
+
+  it("defaults invalid confidence values to 0", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Thanks for your message.",
+        confidence: Number.NaN,
+      },
+    });
+
+    const result = await aiDraftReplyWithConfidence(getDraftParams());
+
+    expect(result.confidence).toBe(0);
   });
 });
 
