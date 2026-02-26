@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { captureException, checkCommonErrors } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -11,6 +11,9 @@ import {
 } from "@/utils/webhook/validate-webhook-account";
 import type { Logger } from "@/utils/logger";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { learnFromOutlookLabelRemoval } from "@/app/api/outlook/webhook/learn-label-removal";
+import prisma from "@/utils/prisma";
+import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 
 export async function processHistoryForUser({
   subscriptionId,
@@ -87,6 +90,49 @@ export async function processHistoryForUser({
     });
     if (!isFree) {
       logger.info("Skipping. Message already being processed.");
+      return NextResponse.json({ ok: true });
+    }
+
+    const hasExistingRule = message.threadId
+      ? await prisma.executedRule.findFirst({
+          where: {
+            emailAccountId: validatedEmailAccount.id,
+            threadId: message.threadId,
+            messageId: message.id,
+          },
+          select: { id: true },
+        })
+      : null;
+
+    if (hasExistingRule) {
+      after(() =>
+        runWithBackgroundLoggerFlush({
+          logger,
+          task: async () => {
+            try {
+              await learnFromOutlookLabelRemoval({
+                message,
+                emailAccountId: validatedEmailAccount.id,
+                logger,
+              });
+            } catch (error) {
+              await logErrorWithDedupe({
+                logger,
+                message: "Error learning from Outlook label removal",
+                error,
+                context: { messageId: message.id, threadId: message.threadId },
+                dedupeKeyParts: {
+                  scope: "outlook/webhook",
+                  operation: "learn-label-removal",
+                  emailAccountId: validatedEmailAccount.id,
+                },
+              });
+            }
+          },
+          extra: { operation: "learn-outlook-label-removal" },
+        }),
+      );
+      logger.info("Skipping. Rule already exists.");
       return NextResponse.json({ ok: true });
     }
 

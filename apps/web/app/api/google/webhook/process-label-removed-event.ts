@@ -1,13 +1,12 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { GroupItemSource, ActionType } from "@/generated/prisma/enums";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import { ActionType } from "@/generated/prisma/enums";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { GmailLabel } from "@/utils/gmail/label";
-import { shouldLearnFromLabelRemoval } from "@/utils/rule/consts";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { recordLabelRemovalLearning } from "@/utils/rule/record-label-removal-learning";
 import {
   isGmailRateLimitExceededError,
   isGmailQuotaExceededError,
@@ -151,13 +150,7 @@ async function learnFromRemovedLabel({
   emailAccountId: string;
   logger: Logger;
 }) {
-  logger = logger.with({ labelId, sender });
-
-  // Can't learn patterns without knowing who to exclude
-  if (!sender) {
-    logger.info("No sender found, skipping learning");
-    return;
-  }
+  logger = logger.with({ labelId });
 
   // Find rule with matching label action
   const rule = await prisma.rule.findFirst({
@@ -174,26 +167,13 @@ async function learnFromRemovedLabel({
     select: { id: true, systemType: true },
   });
 
-  if (!rule?.systemType || !shouldLearnFromLabelRemoval(rule.systemType)) {
-    logger.info("Label removal does not match a learnable system rule", {
-      systemType: rule?.systemType,
-    });
-    return;
-  }
-
-  logger.info("Processing label removal for learning", {
-    systemType: rule.systemType,
-  });
-
-  await saveLearnedPattern({
-    emailAccountId,
-    from: sender,
-    ruleId: rule.id,
-    exclude: true,
-    logger,
+  await recordLabelRemovalLearning({
+    sender,
+    ruleId: rule?.id,
+    systemType: rule?.systemType,
     messageId,
     threadId,
-    reason: "Label removed",
-    source: GroupItemSource.LABEL_REMOVED,
+    emailAccountId,
+    logger,
   });
 }
