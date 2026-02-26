@@ -325,6 +325,7 @@ describe("clearFollowUpLabel", () => {
         emailAccountId: "account-1",
         threadId: "thread-1",
         followUpAppliedAt: { not: null },
+        resolved: false,
       },
       select: { id: true },
     });
@@ -377,7 +378,7 @@ describe("clearFollowUpLabel", () => {
     );
   });
 
-  it("still attempts label removal when DB clear fails", async () => {
+  it("skips label removal when DB clear fails", async () => {
     const mockProvider = createMockEmailProvider({
       getLabelByName: vi
         .fn()
@@ -394,9 +395,6 @@ describe("clearFollowUpLabel", () => {
       }),
     ).resolves.not.toThrow();
 
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      "thread-1",
-      "label-123",
-    );
+    expect(mockProvider.removeThreadLabel).not.toHaveBeenCalled();
   });
 });

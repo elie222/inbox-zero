@@ -128,7 +128,6 @@ export async function clearFollowUpLabel({
   let removalReason:
     | "cleared-unresolved-trackers"
     | "existing-follow-up-tracker"
-    | "db-error-fallback"
     | null = null;
 
   try {
@@ -160,6 +159,7 @@ export async function clearFollowUpLabel({
               emailAccountId,
               threadId,
               followUpAppliedAt: { not: null },
+              resolved: false,
             },
             select: { id: true },
           }),
@@ -176,8 +176,6 @@ export async function clearFollowUpLabel({
       threadId,
       error,
     });
-    shouldAttemptLabelRemoval = true;
-    removalReason = "db-error-fallback";
   }
 
   if (!shouldAttemptLabelRemoval) {
