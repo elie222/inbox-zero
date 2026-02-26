@@ -55,13 +55,13 @@ vi.mock("@/utils/error", () => ({
 
 vi.mock("@/utils/email/rate-limit-mode-error", () => ({
   isProviderRateLimitModeError: vi.fn().mockReturnValue(false),
-}));
-
-vi.mock("@/utils/email/rate-limit", () => ({
   toRateLimitProvider: vi.fn((provider: string | null | undefined) => {
     if (provider === "google" || provider === "microsoft") return provider;
     return null;
   }),
+}));
+
+vi.mock("@/utils/email/rate-limit", () => ({
   getProviderRateLimitDelayMs: vi.fn((options: { error: unknown }) => {
     const err = options.error as Record<string, unknown>;
     const cause = err.cause as Record<string, unknown> | undefined;

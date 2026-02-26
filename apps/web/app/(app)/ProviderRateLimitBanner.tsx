@@ -2,6 +2,7 @@
 
 import { AlertError } from "@/components/Alert";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
+import { getProviderRateLimitBannerLabel } from "@/utils/email/rate-limit-mode-error";
 
 export function ProviderRateLimitBanner() {
   const { data, isLoading, error } = useEmailAccountFull();
@@ -9,7 +10,7 @@ export function ProviderRateLimitBanner() {
   if (isLoading || error || !data?.providerRateLimit) return null;
 
   const { provider, retryAt } = data.providerRateLimit;
-  const providerLabel = provider === "microsoft" ? "Microsoft Outlook" : "Gmail";
+  const providerLabel = getProviderRateLimitBannerLabel(provider);
 
   const retryAtDate = new Date(retryAt);
   const retryAtLabel = Number.isNaN(retryAtDate.getTime())
@@ -32,4 +33,3 @@ export function ProviderRateLimitBanner() {
     </div>
   );
 }
-

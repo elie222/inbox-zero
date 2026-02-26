@@ -507,5 +507,55 @@ describe("Middleware", () => {
         isKnownError: true,
       });
     });
+
+    it("should return 429 for Outlook rate-limit mode errors from provider initialization", async () => {
+      mockReq = createMockRequest("GET", "http://localhost/api/labels", {
+        [EMAIL_ACCOUNT_HEADER]: mockAccountId,
+      });
+      mockGetEmailAccount.mockResolvedValue(mockEmail);
+      mockPrismaEmailAccountFindUnique.mockResolvedValue({
+        id: mockAccountId,
+        account: { provider: "microsoft" },
+      } as any);
+
+      const rateLimitError = new Error("Rate-limit mode active");
+      mockCreateEmailProvider.mockRejectedValue(rateLimitError);
+      mockIsProviderRateLimitModeError.mockImplementation(
+        (error) => error === rateLimitError,
+      );
+
+      const commonError = {
+        type: "Outlook Rate Limit",
+        message: "Microsoft is temporarily limiting requests.",
+        code: 429,
+      } as const;
+      mockCheckCommonErrors.mockReturnValue(commonError);
+
+      const handler = vi.fn(async () => NextResponse.json({ ok: true }));
+      const wrappedHandler = withEmailProvider("labels", handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(handler).not.toHaveBeenCalled();
+      expect(checkCommonErrors).toHaveBeenCalledWith(
+        rateLimitError,
+        mockReq.url,
+        expect.anything(),
+      );
+      expect(mockRecordRateLimitFromApiError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          apiErrorType: commonError.type,
+          error: rateLimitError,
+          emailAccountId: mockAccountId,
+          source: "labels",
+        }),
+      );
+      expect(response.status).toBe(429);
+      expect(responseBody).toEqual({
+        error: commonError.message,
+        isKnownError: true,
+      });
+    });
   });
 });

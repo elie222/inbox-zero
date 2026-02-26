@@ -3,8 +3,10 @@ import { env } from "@/env";
 import { redis } from "@/utils/redis";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import {
+  getProviderFromRateLimitApiErrorType,
   type EmailProviderRateLimitProvider,
   ProviderRateLimitModeError,
+  toRateLimitProvider,
 } from "@/utils/email/rate-limit-mode-error";
 import {
   calculateRetryDelay,
@@ -40,14 +42,6 @@ export type EmailProviderRateLimitState = {
   retryAt: Date;
   source?: string;
 };
-
-export function getProviderFromRateLimitApiErrorType(
-  apiErrorType: string,
-): EmailProviderRateLimitProvider | null {
-  if (apiErrorType === "Gmail Rate Limit Exceeded") return "google";
-  if (apiErrorType === "Outlook Rate Limit") return "microsoft";
-  return null;
-}
 
 export async function recordRateLimitFromApiError({
   apiErrorType,
@@ -371,11 +365,4 @@ function getOutlookRetryAfterHeader(error: unknown): string | undefined {
   const response = err?.response as Record<string, unknown> | undefined;
   const headers = response?.headers as Record<string, string> | undefined;
   return headers?.["retry-after"] ?? headers?.["Retry-After"];
-}
-
-export function toRateLimitProvider(
-  provider: string | null | undefined,
-): EmailProviderRateLimitProvider | null {
-  if (provider === "google" || provider === "microsoft") return provider;
-  return null;
 }

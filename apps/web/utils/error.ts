@@ -5,8 +5,9 @@ import {
 import { APICallError, RetryError } from "ai";
 import type { FlattenedValidationErrors } from "next-safe-action";
 import {
+  getProviderRateLimitApiErrorType,
+  getProviderRateLimitMessageLabel,
   isProviderRateLimitModeError,
-  type EmailProviderRateLimitProvider,
 } from "@/utils/email/rate-limit-mode-error";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 
@@ -20,19 +21,6 @@ export type ApiErrorType = {
   code: number;
 };
 
-const RATE_LIMIT_API_ERROR_BY_PROVIDER = {
-  google: {
-    type: "Gmail Rate Limit Exceeded",
-    providerLabel: "Gmail",
-  },
-  microsoft: {
-    type: "Outlook Rate Limit",
-    providerLabel: "Microsoft",
-  },
-} satisfies Record<
-  EmailProviderRateLimitProvider,
-  { type: string; providerLabel: string }
->;
 const RATE_LIMIT_MESSAGE_TEMPLATE =
   "{provider} is temporarily limiting requests. Please try again shortly.";
 
@@ -269,18 +257,16 @@ export function checkCommonErrors(
   logger: Logger,
 ): ApiErrorType | null {
   if (isProviderRateLimitModeError(error)) {
-    const rateLimitApiError = RATE_LIMIT_API_ERROR_BY_PROVIDER[error.provider];
+    const apiErrorType = getProviderRateLimitApiErrorType(error.provider);
+    const providerLabel = getProviderRateLimitMessageLabel(error.provider);
     logger.warn("Provider rate-limit mode active for url", {
       url,
       provider: error.provider,
       retryAt: error.retryAt,
     });
     return {
-      type: rateLimitApiError.type,
-      message: RATE_LIMIT_MESSAGE_TEMPLATE.replace(
-        "{provider}",
-        rateLimitApiError.providerLabel,
-      ),
+      type: apiErrorType,
+      message: RATE_LIMIT_MESSAGE_TEMPLATE.replace("{provider}", providerLabel),
       code: 429,
     };
   }
@@ -300,7 +286,7 @@ export function checkCommonErrors(
     const errorMessage =
       (error as any)?.errors?.[0]?.message ?? "Unknown error";
     return {
-      type: "Gmail Rate Limit Exceeded",
+      type: getProviderRateLimitApiErrorType("google"),
       message: `Gmail error: ${errorMessage}`,
       code: 429,
     };
@@ -318,7 +304,7 @@ export function checkCommonErrors(
   if (isOutlookThrottlingError(error)) {
     logger.warn("Outlook throttling error for url", { url });
     return {
-      type: "Outlook Rate Limit",
+      type: getProviderRateLimitApiErrorType("microsoft"),
       message:
         "Microsoft is temporarily limiting requests. Please try again shortly.",
       code: 429,
