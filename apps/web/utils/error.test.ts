@@ -36,6 +36,18 @@ describe("getUserFacingErrorMessage", () => {
     expect(result).toBe("Invalid arguments passed to the model.");
   });
 
+  it("reads direct string error from structured payloads", () => {
+    const result = getUserFacingErrorMessage(
+      new Error(
+        JSON.stringify({
+          error: "Too many requests",
+        }),
+      ),
+    );
+
+    expect(result).toBe("Too many requests");
+  });
+
   it("reads nested message from structured error payloads", () => {
     const result = getUserFacingErrorMessage(
       new Error(

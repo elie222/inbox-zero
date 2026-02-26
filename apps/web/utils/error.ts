@@ -368,7 +368,7 @@ export function getUserFacingErrorMessage(
   const parsed = parseJsonRecord(message);
   if (!parsed) return message;
 
-  return getErrorMessage(parsed) || message;
+  return getErrorMessage(parsed) || getStringProp(parsed, "error") || message;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
