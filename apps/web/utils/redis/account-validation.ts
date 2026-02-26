@@ -1,8 +1,12 @@
 import "server-only";
+import { env } from "@/env";
 import { redis } from "@/utils/redis";
 import prisma from "@/utils/prisma";
 
 const EXPIRATION = 60 * 60; // 1 hour
+const shouldUseRedisCache = !!(
+  env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN
+);
 
 /**
  * Get the Redis key for account validation
@@ -35,9 +39,15 @@ export async function getEmailAccount({
   const key = getValidationKey({ userId, emailAccountId });
 
   // Check Redis cache first
-  const cachedResult = await redis.get<string>(key);
-  if (cachedResult !== null) {
-    return cachedResult;
+  if (shouldUseRedisCache) {
+    try {
+      const cachedResult = await redis.get<string>(key);
+      if (cachedResult !== null) {
+        return cachedResult;
+      }
+    } catch {
+      // Ignore Redis failures in local/dev environments and continue with DB lookup.
+    }
   }
 
   // Not in cache, check database
@@ -47,7 +57,13 @@ export async function getEmailAccount({
   });
 
   // Cache the result
-  await redis.set(key, emailAccount?.email ?? null, { ex: EXPIRATION });
+  if (shouldUseRedisCache) {
+    try {
+      await redis.set(key, emailAccount?.email ?? null, { ex: EXPIRATION });
+    } catch {
+      // Ignore Redis failures in local/dev environments.
+    }
+  }
 
   return emailAccount?.email ?? null;
 }
@@ -63,6 +79,12 @@ export async function invalidateAccountValidation({
   userId: string;
   emailAccountId: string;
 }): Promise<void> {
+  if (!shouldUseRedisCache) return;
+
   const key = getValidationKey({ userId, emailAccountId });
-  await redis.del(key);
+  try {
+    await redis.del(key);
+  } catch {
+    // Ignore Redis failures in local/dev environments.
+  }
 }

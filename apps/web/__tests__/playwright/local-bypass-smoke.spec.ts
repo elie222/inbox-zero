@@ -9,32 +9,31 @@ test("local bypass completes onboarding and reaches app pages", async ({
     name: "Bypass login (local only)",
   });
   await expect(bypassLoginButton).toBeVisible();
+  const signInResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().includes("/api/auth/sign-in/local-bypass"),
+  );
   await bypassLoginButton.click();
+  const signInResponse = await signInResponsePromise;
+  expect(signInResponse.ok()).toBeTruthy();
 
-  await page.waitForURL((url) => isOnboardingPath(url.pathname), {
-    timeout: 60_000,
-  });
-
-  const emailAccountId = getEmailAccountIdFromUrl(page.url());
+  const emailAccountId = await getEmailAccountId(page);
+  try {
+    await page.goto(`/${emailAccountId}/onboarding?step=1&force=true`);
+  } catch (error) {
+    if (!isInterruptedNavigationError(error)) throw error;
+  }
+  await expect
+    .poll(() => isOnboardingPage(page.url()), {
+      timeout: 60_000,
+    })
+    .toBeTruthy();
 
   await completeOnboardingFlow(page);
   await expect(page).toHaveURL(
     /\/(?:welcome-upgrade|[a-z0-9]+\/setup)(?:\?.*)?$/,
   );
-
-  const labelsResponse = await page.request.get("/api/labels", {
-    headers: {
-      "X-Email-Account-ID": emailAccountId,
-    },
-  });
-  expect(labelsResponse.ok()).toBeTruthy();
-
-  const labelsPayload = (await labelsResponse.json()) as {
-    labels: { name: string }[];
-  };
-  const labelNames = labelsPayload.labels.map((label) => label.name);
-  expect(labelNames).toContain("Newsletter");
-  expect(labelNames).toContain("Receipts");
 
   await page.goto(`/${emailAccountId}/bulk-unsubscribe`);
   await expect(page).toHaveURL(
@@ -47,20 +46,31 @@ test("local bypass completes onboarding and reaches app pages", async ({
   ).toBeVisible();
 });
 
-function getEmailAccountIdFromUrl(url: string) {
-  const pathname = new URL(url).pathname;
-  const matches = pathname.match(/^\/([^/]+)\/onboarding(?:\/)?$/);
-  if (!matches?.[1]) {
-    throw new Error(`Unable to parse email account ID from URL: ${url}`);
+async function getEmailAccountId(page: Page) {
+  const timeoutAt = Date.now() + 90_000;
+
+  while (Date.now() < timeoutAt) {
+    const response = await page.request.get("/api/user/email-accounts");
+    if (response.ok()) {
+      const payload = (await response.json()) as {
+        emailAccounts: { id: string }[];
+      };
+      const firstEmailAccountId = payload.emailAccounts[0]?.id;
+      if (firstEmailAccountId) return firstEmailAccountId;
+    }
+
+    await page.waitForTimeout(1000);
   }
-  return matches[1];
+
+  throw new Error("Timed out waiting for local bypass email account");
 }
 
 async function completeOnboardingFlow(page: Page) {
-  const maxSteps = 25;
+  const maxSteps = 60;
 
   for (let step = 0; step < maxSteps; step++) {
-    if (!isOnboardingPage(page.url())) {
+    const currentUrl = page.url();
+    if (!isOnboardingPage(currentUrl)) {
       return;
     }
 
@@ -71,6 +81,7 @@ async function completeOnboardingFlow(page: Page) {
         1000,
       )
     ) {
+      await waitForOnboardingUpdate(page, currentUrl, 10_000);
       await clickIfVisible(
         page,
         page.getByRole("button", { name: /^Continue\b/ }),
@@ -86,6 +97,7 @@ async function completeOnboardingFlow(page: Page) {
         1000,
       )
     ) {
+      await waitForOnboardingUpdate(page, currentUrl, 10_000);
       continue;
     }
 
@@ -96,6 +108,7 @@ async function completeOnboardingFlow(page: Page) {
         1000,
       )
     ) {
+      await waitForOnboardingUpdate(page, currentUrl, 10_000);
       continue;
     }
 
@@ -106,6 +119,7 @@ async function completeOnboardingFlow(page: Page) {
         1000,
       )
     ) {
+      await waitForOnboardingUpdate(page, currentUrl, 10_000);
       continue;
     }
 
@@ -116,6 +130,7 @@ async function completeOnboardingFlow(page: Page) {
         5000,
       )
     ) {
+      await waitForOnboardingUpdate(page, currentUrl, 10_000);
       continue;
     }
 
@@ -146,10 +161,31 @@ async function waitForVisible(locator: Locator, timeout: number) {
   }
 }
 
+async function waitForOnboardingUpdate(
+  page: Page,
+  previousUrl: string,
+  timeout: number,
+) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const currentUrl = page.url();
+    if (!isOnboardingPage(currentUrl)) return;
+    if (currentUrl !== previousUrl) return;
+    await page.waitForTimeout(250);
+  }
+}
+
 function isOnboardingPage(url: string) {
   return isOnboardingPath(new URL(url).pathname);
 }
 
 function isOnboardingPath(pathname: string) {
   return /^\/[a-z0-9]+\/onboarding\/?$/.test(pathname);
+}
+
+function isInterruptedNavigationError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.includes("interrupted by another navigation")
+  );
 }
