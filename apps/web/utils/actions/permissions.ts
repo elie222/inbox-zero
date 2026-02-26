@@ -7,6 +7,10 @@ import {
   getGmailAndAccessTokenForEmail,
   getOutlookClientForEmail,
 } from "@/utils/account";
+import {
+  isLocalAuthBypassEnabled,
+  isLocalBypassProviderAccountId,
+} from "@/utils/auth/local-bypass-config";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import {
@@ -18,6 +22,10 @@ import type { Logger } from "@/utils/logger";
 export const checkPermissionsAction = actionClient
   .metadata({ name: "checkPermissions" })
   .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
+    if (await isLocalBypassEmailAccount(emailAccountId)) {
+      return { hasAllPermissions: true, hasRefreshToken: true };
+    }
+
     if (isMicrosoftProvider(provider)) {
       return checkOutlookPermissions({ emailAccountId, logger });
     }
@@ -68,6 +76,10 @@ export const adminCheckPermissionsAction = adminActionClient
       if (!emailAccount) throw new SafeError("Email account not found");
       const emailAccountId = emailAccount.id;
 
+      if (await isLocalBypassEmailAccount(emailAccountId)) {
+        return { hasAllPermissions: true };
+      }
+
       if (isMicrosoftProvider(emailAccount.account.provider)) {
         return checkOutlookPermissions({ emailAccountId, logger });
       }
@@ -110,4 +122,23 @@ async function checkOutlookPermissions({
     logger.error("Outlook permissions check failed", { error });
     return { hasAllPermissions: false, hasRefreshToken: false };
   }
+}
+
+async function isLocalBypassEmailAccount(emailAccountId: string) {
+  if (!isLocalAuthBypassEnabled()) return false;
+
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      account: {
+        select: {
+          providerAccountId: true,
+        },
+      },
+    },
+  });
+
+  return isLocalBypassProviderAccountId(
+    emailAccount?.account.providerAccountId,
+  );
 }
