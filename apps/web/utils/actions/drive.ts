@@ -269,8 +269,6 @@ export const fileAttachmentAction = actionClient
           email: true,
           about: true,
           multiRuleSelectionEnabled: true,
-
-          draftReplyConfidenceThreshold: true,
           timezone: true,
           calendarBookingLink: true,
           filingEnabled: true,

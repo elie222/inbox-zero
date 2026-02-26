@@ -18,6 +18,7 @@ import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 
 const MODULE = "choose-args";
+const DEFAULT_DRAFT_REPLY_CONFIDENCE_THRESHOLD = 100;
 
 export async function getActionItemsWithAiArgs({
   message,
@@ -55,7 +56,7 @@ export async function getActionItemsWithAiArgs({
       });
 
       const minimumConfidenceThreshold =
-        emailAccount.draftReplyConfidenceThreshold;
+        getDraftReplyConfidenceThreshold(emailAccount);
 
       const draftResult =
         await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
@@ -113,13 +114,13 @@ export async function getActionItemsWithAiArgs({
     log.info("Skipping draft action with no generated content", {
       removedDraftActions: combinedActions.length - filteredActions.length,
       confidence: draftConfidence,
-      minimumConfidenceThreshold: emailAccount.draftReplyConfidenceThreshold,
+      minimumConfidenceThreshold:
+        getDraftReplyConfidenceThreshold(emailAccount),
     });
   }
 
   return filteredActions;
 }
-
 export function combineActionsWithAiArgs(
   actions: Action[],
   aiArgs: ActionArgResponse | undefined,
@@ -372,4 +373,12 @@ export function mergeTemplateWithVars(
   }
 
   return result;
+}
+
+function getDraftReplyConfidenceThreshold(emailAccount: EmailAccountWithAI) {
+  if (typeof emailAccount.draftReplyConfidenceThreshold === "number") {
+    return emailAccount.draftReplyConfidenceThreshold;
+  }
+
+  return DEFAULT_DRAFT_REPLY_CONFIDENCE_THRESHOLD;
 }

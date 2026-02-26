@@ -192,8 +192,6 @@ const accountSettingsSnapshotRawSelect = {
   timezone: true,
   about: true,
   multiRuleSelectionEnabled: true,
-
-  draftReplyConfidenceThreshold: true,
   meetingBriefingsEnabled: true,
   meetingBriefingsMinutesBefore: true,
   meetingBriefsSendEmail: true,
