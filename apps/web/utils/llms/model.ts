@@ -156,7 +156,7 @@ function selectModel(
       };
     }
     case Provider.VERTEX: {
-      const modelName = aiModel || "gemini-2.5-flash";
+      const modelName = aiModel || "gemini-3-flash";
       return {
         provider: Provider.VERTEX,
         modelName,
