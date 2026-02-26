@@ -20,22 +20,6 @@ export const USER_ROLES = [
     description: "Managing communications and calendars for others",
   },
   {
-    value: "Investor",
-    description: "VC, angel investor, or fund manager",
-  },
-  {
-    value: "Sales",
-    description: "Closing deals and managing client relationships",
-  },
-  {
-    value: "Marketing",
-    description: "Growing brands and driving campaigns",
-  },
-  {
-    value: "Customer Support",
-    description: "Helping customers and resolving issues",
-  },
-  {
     value: "Realtor",
     description: "Buying, selling, and managing properties",
   },
@@ -50,6 +34,22 @@ export const USER_ROLES = [
   {
     value: "E-commerce",
     description: "Running an online store or marketplace",
+  },
+  {
+    value: "Customer Support",
+    description: "Helping customers and resolving issues",
+  },
+  {
+    value: "Sales",
+    description: "Closing deals and managing client relationships",
+  },
+  {
+    value: "Marketing",
+    description: "Growing brands and driving campaigns",
+  },
+  {
+    value: "Investor",
+    description: "VC, angel investor, or fund manager",
   },
   {
     value: "Student",
