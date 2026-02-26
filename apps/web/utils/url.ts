@@ -53,7 +53,8 @@ const PROVIDER_CONFIG: Record<
 function getProviderConfig(
   provider?: string,
 ): (typeof PROVIDER_CONFIG)[keyof typeof PROVIDER_CONFIG] {
-  return PROVIDER_CONFIG[provider ?? "default"];
+  if (!provider) return PROVIDER_CONFIG.default;
+  return PROVIDER_CONFIG[provider] ?? PROVIDER_CONFIG.default;
 }
 
 export function getEmailUrl(
