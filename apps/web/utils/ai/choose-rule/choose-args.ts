@@ -18,7 +18,7 @@ import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 
 const MODULE = "choose-args";
-const DEFAULT_DRAFT_REPLY_CONFIDENCE_THRESHOLD = 100;
+const DEFAULT_DRAFT_REPLY_CONFIDENCE_THRESHOLD = 0;
 
 export async function getActionItemsWithAiArgs({
   message,
