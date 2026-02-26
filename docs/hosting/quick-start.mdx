@@ -18,6 +18,12 @@ Then open [http://localhost:3000](http://localhost:3000) (or your domain).
 
 The CLI will walk you through configuring [Google OAuth](/hosting/google-oauth) or [Microsoft OAuth](/hosting/microsoft-oauth) and your AI provider. For manual configuration, see the [Setup Guides](/hosting/setup-guides).
 
+<Info>
+  **CLI is optional:** The setup command is a convenience wrapper that helps prepare your `.env` and run Docker Compose with sensible defaults.
+
+  Prefer manual setup? Clone the repo, copy `apps/web/.env.example` to `apps/web/.env`, and run the Docker/Node commands that match your environment.
+</Info>
+
 ## Install Options
 
 You can also install the CLI globally instead of using `npx`:
