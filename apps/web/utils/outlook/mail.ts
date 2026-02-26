@@ -16,16 +16,20 @@ import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import type { Logger } from "@/utils/logger";
 
+type GraphRecipient = {
+  emailAddress: { address: string; name?: string };
+};
+
 interface OutlookMessageRequest {
   subject: string;
   body: {
     contentType: string;
     content: string;
   };
-  toRecipients: { emailAddress: { address: string } }[];
-  ccRecipients?: { emailAddress: { address: string } }[];
-  bccRecipients?: { emailAddress: { address: string } }[];
-  replyTo?: { emailAddress: { address: string } }[];
+  toRecipients: GraphRecipient[];
+  ccRecipients?: GraphRecipient[];
+  bccRecipients?: GraphRecipient[];
+  replyTo?: GraphRecipient[];
 }
 
 type SentEmailResult = Pick<Message, "id" | "conversationId">;
@@ -43,6 +47,12 @@ export async function sendEmailWithHtml(
     return sendReplyUsingCreateReply(client, body, logger);
   }
 
+  const toRecipients = buildGraphRecipients(body.to);
+  if (!toRecipients?.length) throw new Error("Recipient address is required");
+  const ccRecipients = buildGraphRecipients(body.cc);
+  const bccRecipients = buildGraphRecipients(body.bcc);
+  const replyToRecipients = buildGraphRecipients(body.replyTo);
+
   // For new emails, create draft then send to get the conversationId.
   // sendMail returns 202 with no body, so we use the draft approach instead.
   const draft: Message = await withOutlookRetry(
@@ -56,16 +66,10 @@ export async function sendEmailWithHtml(
             contentType: "html",
             content: body.messageHtml,
           },
-          toRecipients: [{ emailAddress: { address: body.to } }],
-          ...(body.cc
-            ? { ccRecipients: [{ emailAddress: { address: body.cc } }] }
-            : {}),
-          ...(body.bcc
-            ? { bccRecipients: [{ emailAddress: { address: body.bcc } }] }
-            : {}),
-          ...(body.replyTo
-            ? { replyTo: [{ emailAddress: { address: body.replyTo } }] }
-            : {}),
+          toRecipients,
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
+          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
         }),
     logger,
   );
@@ -423,4 +427,38 @@ async function sendReplyUsingCreateReply(
     id: "",
     conversationId: replyDraft.conversationId,
   };
+}
+
+function buildGraphRecipients(
+  recipientList?: string,
+): GraphRecipient[] | undefined {
+  if (!recipientList) return undefined;
+
+  const parts = recipientList.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+  const recipients = parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part): GraphRecipient | null => {
+      const address = extractEmailAddress(part);
+      if (!address) return null;
+
+      const name = extractNameFromEmail(part).trim();
+      return {
+        emailAddress: {
+          address,
+          ...(name && name !== address ? { name } : {}),
+        },
+      };
+    })
+    .filter((recipient): recipient is GraphRecipient => recipient !== null);
+
+  if (!recipients.length) return undefined;
+
+  const seen = new Set<string>();
+  return recipients.filter((recipient) => {
+    const key = recipient.emailAddress.address.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
