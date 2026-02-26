@@ -23,9 +23,17 @@ const recipientListSchema = z
   );
 const sendEmailToolInputSchema = z
   .object({
-    to: recipientListSchema,
-    cc: recipientListSchema.optional(),
-    bcc: recipientListSchema.optional(),
+    to: recipientListSchema.describe(
+      'Recipient email list. Must include valid email addresses (for example "Name <person@domain.com>" or "person@domain.com"). If the user only gives a name, resolve the address first (for example using searchInbox).',
+    ),
+    cc: recipientListSchema
+      .optional()
+      .describe("Optional CC recipient email list with valid email addresses."),
+    bcc: recipientListSchema
+      .optional()
+      .describe(
+        "Optional BCC recipient email list with valid email addresses.",
+      ),
     subject: z.string().trim().min(1).max(300),
     messageHtml: z.string().trim().min(1),
   })
@@ -45,9 +53,17 @@ const replyEmailToolInputSchema = z
 const forwardEmailToolInputSchema = z
   .object({
     messageId: z.string().trim().min(1),
-    to: recipientListSchema,
-    cc: recipientListSchema.optional(),
-    bcc: recipientListSchema.optional(),
+    to: recipientListSchema.describe(
+      'Recipient email list. Must include valid email addresses (for example "Name <person@domain.com>" or "person@domain.com"). If the user only gives a name, resolve the address first (for example using searchInbox).',
+    ),
+    cc: recipientListSchema
+      .optional()
+      .describe("Optional CC recipient email list with valid email addresses."),
+    bcc: recipientListSchema
+      .optional()
+      .describe(
+        "Optional BCC recipient email list with valid email addresses.",
+      ),
     content: z.string().trim().max(5000).optional(),
   })
   .strict();
@@ -625,7 +641,7 @@ export const sendEmailTool = ({
 }) =>
   tool({
     description:
-      "Prepare a new email to send. Recipients in to/cc/bcc must include valid email addresses. If the user only gives a name, resolve the address first (for example using searchInbox). This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
+      "Prepare a new email to send. This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
     inputSchema: sendEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "send_email", email, logger });
@@ -711,7 +727,7 @@ export const forwardEmailTool = ({
 }) =>
   tool({
     description:
-      "Prepare a forward for an existing email by message ID. Recipients in to/cc/bcc must include valid email addresses. If the user only gives a name, resolve the address first (for example using searchInbox). This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
+      "Prepare a forward for an existing email by message ID. This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
     inputSchema: forwardEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "forward_email", email, logger });

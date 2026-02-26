@@ -140,10 +140,6 @@ describe("aiProcessAssistantChat", () => {
     expect(args.messages[0].content).toContain(
       "If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.",
     );
-    expect(args.messages[0].content).toContain(
-      "For sendEmail and forwardEmail, recipients in to/cc/bcc must include real email addresses",
-    );
-
     expect(args.tools.getAccountOverview).toBeDefined();
     expect(args.tools.getAssistantCapabilities).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
