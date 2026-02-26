@@ -5,6 +5,7 @@ import { createAzure } from "@ai-sdk/azure";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createVertex } from "@ai-sdk/google-vertex";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
@@ -152,6 +153,14 @@ function selectModel(
             },
           } satisfies GoogleGenerativeAIProviderOptions,
         },
+      };
+    }
+    case Provider.VERTEX: {
+      const modelName = aiModel || "gemini-2.5-flash";
+      return {
+        provider: Provider.VERTEX,
+        modelName,
+        model: createVertex(getVertexConfig())(modelName),
       };
     }
     case Provider.GROQ: {
@@ -461,6 +470,11 @@ function getProviderApiKey(provider: string) {
         : undefined,
     [Provider.OPEN_AI]: resolveApiKey(null, env.OPENAI_API_KEY),
     [Provider.GOOGLE]: resolveApiKey(null, env.GOOGLE_API_KEY),
+    // Returns a placeholder so this provider can be selected in fallback chains.
+    // Authentication is handled by Google auth options or ADC at runtime.
+    [Provider.VERTEX]: env.GOOGLE_VERTEX_PROJECT
+      ? "vertex-credentials"
+      : undefined,
     [Provider.GROQ]: resolveApiKey(null, env.GROQ_API_KEY),
     [Provider.OPENROUTER]: resolveApiKey(null, env.OPENROUTER_API_KEY),
     [Provider.AI_GATEWAY]: resolveApiKey(null, env.AI_GATEWAY_API_KEY),
@@ -478,6 +492,45 @@ function resolveApiKey(
   providerApiKey: string | undefined,
 ) {
   return aiApiKey || providerApiKey || env.LLM_API_KEY;
+}
+
+function getVertexConfig(): {
+  project: string;
+  location: string;
+  googleAuthOptions?: {
+    credentials: {
+      client_email: string;
+      private_key: string;
+    };
+  };
+} {
+  const project = env.GOOGLE_VERTEX_PROJECT;
+  if (!project) {
+    throw new Error("GOOGLE_VERTEX_PROJECT environment variable is not set");
+  }
+
+  const location = env.GOOGLE_VERTEX_LOCATION;
+  const clientEmail = env.GOOGLE_VERTEX_CLIENT_EMAIL;
+  const privateKey = normalizePrivateKey(env.GOOGLE_VERTEX_PRIVATE_KEY);
+
+  if (!clientEmail || !privateKey) {
+    return { project, location };
+  }
+
+  return {
+    project,
+    location,
+    googleAuthOptions: {
+      credentials: {
+        client_email: clientEmail,
+        private_key: privateKey,
+      },
+    },
+  };
+}
+
+function normalizePrivateKey(value: string | undefined): string | undefined {
+  return value?.replace(/\\n/g, "\n");
 }
 
 function getFallbackModels({

@@ -5,6 +5,7 @@ import { env } from "@/env";
 import type { UserAIFields } from "./types";
 import { createAzure } from "@ai-sdk/azure";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createVertex } from "@ai-sdk/google-vertex";
 
 // Mock AI provider imports
 vi.mock("@ai-sdk/openai", () => ({
@@ -25,6 +26,10 @@ vi.mock("@ai-sdk/amazon-bedrock", () => ({
 
 vi.mock("@ai-sdk/google", () => ({
   createGoogleGenerativeAI: vi.fn(() => (model: string) => ({ model })),
+}));
+
+vi.mock("@ai-sdk/google-vertex", () => ({
+  createVertex: vi.fn(() => (model: string) => ({ model })),
 }));
 
 vi.mock("@ai-sdk/groq", () => ({
@@ -68,6 +73,11 @@ vi.mock("@/env", () => ({
     AZURE_RESOURCE_NAME: "test-azure-resource",
     AZURE_API_VERSION: "2024-10-21",
     GOOGLE_API_KEY: "test-google-key",
+    GOOGLE_VERTEX_PROJECT: "test-vertex-project",
+    GOOGLE_VERTEX_LOCATION: "us-central1",
+    GOOGLE_VERTEX_CLIENT_EMAIL: undefined,
+    GOOGLE_VERTEX_PRIVATE_KEY: undefined,
+    GOOGLE_APPLICATION_CREDENTIALS: undefined,
     ANTHROPIC_API_KEY: "test-anthropic-key",
     GROQ_API_KEY: "test-groq-key",
     OPENROUTER_API_KEY: "test-openrouter-key",
@@ -108,6 +118,11 @@ describe("Models", () => {
     vi.mocked(env).AZURE_API_KEY = "test-azure-key";
     vi.mocked(env).AZURE_RESOURCE_NAME = "test-azure-resource";
     vi.mocked(env).AZURE_API_VERSION = "2024-10-21";
+    vi.mocked(env).GOOGLE_VERTEX_PROJECT = "test-vertex-project";
+    vi.mocked(env).GOOGLE_VERTEX_LOCATION = "us-central1";
+    vi.mocked(env).GOOGLE_VERTEX_CLIENT_EMAIL = undefined;
+    vi.mocked(env).GOOGLE_VERTEX_PRIVATE_KEY = undefined;
+    vi.mocked(env).GOOGLE_APPLICATION_CREDENTIALS = undefined;
     vi.mocked(env).BEDROCK_ACCESS_KEY = "";
     vi.mocked(env).BEDROCK_SECRET_KEY = "";
   });
@@ -178,6 +193,58 @@ describe("Models", () => {
       expect(result.provider).toBe(Provider.GOOGLE);
       expect(result.modelName).toBe("gemini-1.5-pro-latest");
       expect(result.model).toBeDefined();
+    });
+
+    it("should configure Vertex model correctly", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "vertex";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "gemini-2.5-flash";
+      vi.mocked(env).GOOGLE_VERTEX_PROJECT = "test-vertex-project";
+      vi.mocked(env).GOOGLE_VERTEX_LOCATION = "us-central1";
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.VERTEX);
+      expect(result.modelName).toBe("gemini-2.5-flash");
+      expect(result.model).toBeDefined();
+      expect(createVertex).toHaveBeenCalledWith({
+        project: "test-vertex-project",
+        location: "us-central1",
+      });
+    });
+
+    it("should configure Vertex model with inline service account credentials", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "vertex";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "gemini-2.5-flash";
+      vi.mocked(env).GOOGLE_VERTEX_PROJECT = "test-vertex-project";
+      vi.mocked(env).GOOGLE_VERTEX_LOCATION = "us-central1";
+      vi.mocked(env).GOOGLE_VERTEX_CLIENT_EMAIL =
+        "service-account@test.iam.gserviceaccount.com";
+      vi.mocked(env).GOOGLE_VERTEX_PRIVATE_KEY = "line1\\nline2";
+
+      getModel(userAi);
+
+      expect(createVertex).toHaveBeenCalledWith({
+        project: "test-vertex-project",
+        location: "us-central1",
+        googleAuthOptions: {
+          credentials: {
+            client_email: "service-account@test.iam.gserviceaccount.com",
+            private_key: "line1\nline2",
+          },
+        },
+      });
     });
 
     it("should configure Groq model correctly", () => {
@@ -293,6 +360,22 @@ describe("Models", () => {
 
       expect(() => getModel(userAi)).toThrow(
         "AZURE_RESOURCE_NAME environment variable is not set",
+      );
+    });
+
+    it("should throw when Vertex is selected without project", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "vertex";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "gemini-2.5-flash";
+      vi.mocked(env).GOOGLE_VERTEX_PROJECT = undefined;
+
+      expect(() => getModel(userAi)).toThrow(
+        "GOOGLE_VERTEX_PROJECT environment variable is not set",
       );
     });
 
