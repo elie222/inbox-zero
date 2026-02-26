@@ -62,7 +62,11 @@ import type {
 } from "@/utils/email/types";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
-import { extractEmailAddress, getSearchTermForSender } from "@/utils/email";
+import {
+  extractEmailAddress,
+  getSearchTermForSender,
+  splitRecipientList,
+} from "@/utils/email";
 import {
   getOrCreateOutlookFolderIdByName,
   getOutlookFolderTree,
@@ -1153,15 +1157,13 @@ export class OutlookProvider implements EmailProvider {
       const fromEmail = extractEmailAddress(h.from || "").toLowerCase();
       if (fromEmail === participantLower) return true;
 
-      const toAddresses = (h.to || "")
-        .split(",")
-        .map((addr) => extractEmailAddress(addr.trim()).toLowerCase())
+      const toAddresses = splitRecipientList(h.to || "")
+        .map((addr) => extractEmailAddress(addr).toLowerCase())
         .filter(Boolean);
       if (toAddresses.includes(participantLower)) return true;
 
-      const ccAddresses = (h.cc || "")
-        .split(",")
-        .map((addr) => extractEmailAddress(addr.trim()).toLowerCase())
+      const ccAddresses = splitRecipientList(h.cc || "")
+        .map((addr) => extractEmailAddress(addr).toLowerCase())
         .filter(Boolean);
       if (ccAddresses.includes(participantLower)) return true;
 

@@ -1,5 +1,5 @@
 import type { ParsedMessageHeaders } from "@/utils/types";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, splitRecipientList } from "@/utils/email";
 
 export interface ReplyAllRecipients {
   to: string;
@@ -31,47 +31,20 @@ export function buildReplyAllRecipients(
   const ccSet = new Set<string>();
   const seenEmails = new Set<string>();
 
-  // Add original CC recipients if they exist
-  if (headers.cc) {
-    const originalCcAddresses = headers.cc
-      .split(",")
-      .map((addr) => ({
-        raw: addr.trim(),
-        email: extractEmailAddress(addr.trim()),
-      }))
-      .filter(
-        ({ email }) => email && email !== replyTo && email !== currentUser,
-      );
-
-    for (const { raw, email } of originalCcAddresses) {
-      const key = email.toLowerCase();
-      if (!seenEmails.has(key)) {
-        seenEmails.add(key);
-        ccSet.add(email);
-      }
-    }
-  }
-
-  // Add original TO recipients to CC (excluding the reply-to address and current user)
-  if (headers.to) {
-    const originalToAddresses = headers.to
-      .split(",")
-      .map((addr) => ({
-        raw: addr.trim(),
-        email: extractEmailAddress(addr.trim()),
-      }))
-      .filter(
-        ({ email }) => email && email !== replyTo && email !== currentUser,
-      );
-
-    for (const { raw, email } of originalToAddresses) {
-      const key = email.toLowerCase();
-      if (!seenEmails.has(key)) {
-        seenEmails.add(key);
-        ccSet.add(email);
-      }
-    }
-  }
+  addHeaderRecipientsToCcSet({
+    headerValue: headers.cc,
+    replyTo,
+    currentUser,
+    seenEmails,
+    ccSet,
+  });
+  addHeaderRecipientsToCcSet({
+    headerValue: headers.to,
+    replyTo,
+    currentUser,
+    seenEmails,
+    ccSet,
+  });
 
   return {
     to: replyToRaw, // Keep the original format for the TO field
@@ -101,10 +74,7 @@ export function mergeAndDedupeRecipients(
   );
 
   if (manual) {
-    const manualEntries = manual
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const manualEntries = splitRecipientList(manual);
 
     for (const entry of manualEntries) {
       const email = extractEmailAddress(entry);
@@ -119,4 +89,32 @@ export function mergeAndDedupeRecipients(
   }
 
   return result;
+}
+
+function addHeaderRecipientsToCcSet({
+  headerValue,
+  replyTo,
+  currentUser,
+  seenEmails,
+  ccSet,
+}: {
+  headerValue: string | undefined;
+  replyTo: string;
+  currentUser: string;
+  seenEmails: Set<string>;
+  ccSet: Set<string>;
+}) {
+  if (!headerValue) return;
+
+  const headerEmails = splitRecipientList(headerValue)
+    .map((entry) => extractEmailAddress(entry))
+    .filter((email) => email && email !== replyTo && email !== currentUser);
+
+  for (const email of headerEmails) {
+    const key = email.toLowerCase();
+    if (!seenEmails.has(key)) {
+      seenEmails.add(key);
+      ccSet.add(email);
+    }
+  }
 }

@@ -140,7 +140,6 @@ describe("aiProcessAssistantChat", () => {
     expect(args.messages[0].content).toContain(
       "If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.",
     );
-
     expect(args.tools.getAccountOverview).toBeDefined();
     expect(args.tools.getAssistantCapabilities).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
@@ -952,6 +951,25 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result).toEqual({
       error: 'Invalid sendEmail input: unsupported field "from"',
+    });
+    expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
+  });
+
+  it("rejects send params when to field has no email address", async () => {
+    const tools = await captureToolSet(true, "google");
+    mockCreateEmailProvider.mockResolvedValue({
+      sendEmailWithHtml: vi.fn(),
+    });
+    const providerCallsBefore = mockCreateEmailProvider.mock.calls.length;
+
+    const result = await tools.sendEmail.execute({
+      to: "Jack Cohen",
+      subject: "Subject line",
+      messageHtml: "<p>Hello</p>",
+    });
+
+    expect(result).toEqual({
+      error: "Invalid sendEmail input: to must include valid email address(es)",
     });
     expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
   });

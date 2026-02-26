@@ -4,6 +4,7 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createEmailProvider } from "@/utils/email/provider";
+import { extractEmailAddress, splitRecipientList } from "@/utils/email";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
@@ -12,11 +13,31 @@ import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-ad
 import { runWithBoundedConcurrency } from "@/utils/async";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
+const recipientListSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine(
+    (recipientList) => hasOnlyValidRecipients(recipientList),
+    "must include valid email address(es)",
+  );
+const toRecipientFieldSchema = recipientListSchema.describe(
+  'Recipient email list. Must include valid email addresses (for example "Name <person@domain.com>" or "person@domain.com"). If the user only gives a name, resolve the address first (for example using searchInbox).',
+);
+const ccRecipientFieldSchema = recipientListSchema
+  .optional()
+  .describe("Optional CC recipient email list with valid email addresses.");
+const bccRecipientFieldSchema = recipientListSchema
+  .optional()
+  .describe("Optional BCC recipient email list with valid email addresses.");
+const recipientFieldsSchema = {
+  to: toRecipientFieldSchema,
+  cc: ccRecipientFieldSchema,
+  bcc: bccRecipientFieldSchema,
+};
 const sendEmailToolInputSchema = z
   .object({
-    to: z.string().trim().min(1),
-    cc: z.string().trim().min(1).optional(),
-    bcc: z.string().trim().min(1).optional(),
+    ...recipientFieldsSchema,
     subject: z.string().trim().min(1).max(300),
     messageHtml: z.string().trim().min(1),
   })
@@ -36,9 +57,7 @@ const replyEmailToolInputSchema = z
 const forwardEmailToolInputSchema = z
   .object({
     messageId: z.string().trim().min(1),
-    to: z.string().trim().min(1),
-    cc: z.string().trim().min(1).optional(),
-    bcc: z.string().trim().min(1).optional(),
+    ...recipientFieldsSchema,
     content: z.string().trim().max(5000).optional(),
   })
   .strict();
@@ -1013,6 +1032,15 @@ function getForwardEmailValidationError(error: z.ZodError) {
 
 function getReplyEmailValidationError(error: z.ZodError) {
   return getValidationErrorMessage("replyEmail", error);
+}
+
+function hasOnlyValidRecipients(recipientList: string) {
+  const recipients = splitRecipientList(recipientList);
+  if (recipients.length === 0) return false;
+
+  return recipients.every((recipient) =>
+    Boolean(extractEmailAddress(recipient)),
+  );
 }
 
 function getValidationErrorMessage(toolName: string, error: z.ZodError) {

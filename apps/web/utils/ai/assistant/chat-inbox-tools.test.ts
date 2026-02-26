@@ -57,6 +57,26 @@ describe("chat inbox tools", () => {
     });
   });
 
+  it("rejects sendEmail input when recipient has no email address", async () => {
+    const toolInstance = sendEmailTool({
+      email: "sender@example.com",
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      to: "Jack Cohen",
+      subject: "Hello",
+      messageHtml: "<p>Hi there</p>",
+    });
+
+    expect(result).toEqual({
+      error: "Invalid sendEmail input: to must include valid email address(es)",
+    });
+    expect(createEmailProvider).not.toHaveBeenCalled();
+  });
+
   it("prepares threaded reply flow without sending immediately", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       name: "Test User",
@@ -177,5 +197,26 @@ describe("chat inbox tools", () => {
         threadId: "thread-1",
       },
     });
+  });
+
+  it("rejects forwardEmail input when recipient has no email address", async () => {
+    const toolInstance = forwardEmailTool({
+      email: "sender@example.com",
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      messageId: "message-1",
+      to: "Jack Cohen",
+      content: "Forwarding this along.",
+    });
+
+    expect(result).toEqual({
+      error:
+        "Invalid forwardEmail input: to must include valid email address(es)",
+    });
+    expect(createEmailProvider).not.toHaveBeenCalled();
   });
 });
