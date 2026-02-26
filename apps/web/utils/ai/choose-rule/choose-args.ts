@@ -19,6 +19,9 @@ import type { EmailProvider } from "@/utils/email/types";
 
 const MODULE = "choose-args";
 const DEFAULT_DRAFT_REPLY_CONFIDENCE_THRESHOLD = 0;
+type EmailAccountForDrafting = EmailAccountWithAI & {
+  draftReplyConfidenceThreshold?: number | null;
+};
 
 export async function getActionItemsWithAiArgs({
   message,
@@ -30,7 +33,7 @@ export async function getActionItemsWithAiArgs({
   isTest = false,
 }: {
   message: ParsedMessage;
-  emailAccount: EmailAccountWithAI;
+  emailAccount: EmailAccountForDrafting;
   selectedRule: RuleWithActions;
   client: EmailProvider;
   modelType: ModelType;
@@ -375,7 +378,9 @@ export function mergeTemplateWithVars(
   return result;
 }
 
-function getDraftReplyConfidenceThreshold(emailAccount: EmailAccountWithAI) {
+function getDraftReplyConfidenceThreshold(
+  emailAccount: EmailAccountForDrafting,
+) {
   if (typeof emailAccount.draftReplyConfidenceThreshold === "number") {
     return emailAccount.draftReplyConfidenceThreshold;
   }

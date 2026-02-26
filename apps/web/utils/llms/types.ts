@@ -29,6 +29,4 @@ export type EmailAccountWithAI = Prisma.EmailAccountGetPayload<{
       };
     };
   };
-}> & {
-  draftReplyConfidenceThreshold?: number | null;
-};
+}>;
