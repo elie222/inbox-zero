@@ -140,6 +140,15 @@ describe("aiProcessAssistantChat", () => {
     expect(args.messages[0].content).toContain(
       "If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.",
     );
+    expect(args.messages[0].content).toContain(
+      "Only send emails when the user clearly asks to send now.",
+    );
+    expect(args.messages[0].content).toContain(
+      "sendEmail, replyEmail, and forwardEmail prepare a pending action only.",
+    );
+    expect(args.messages[0].content).toContain(
+      "After these tools run, explicitly tell the user the email is pending confirmation.",
+    );
     expect(args.tools.getAccountOverview).toBeDefined();
     expect(args.tools.getAssistantCapabilities).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
