@@ -1,6 +1,4 @@
 import "server-only";
-import { env } from "@/env";
-import { redis } from "@/utils/redis";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import {
   getProviderFromRateLimitApiErrorType,
@@ -8,6 +6,12 @@ import {
   ProviderRateLimitModeError,
   toRateLimitProvider,
 } from "@/utils/email/rate-limit-mode-error";
+import {
+  deleteEmailProviderRateLimitState,
+  getEmailProviderRateLimitStateValue,
+  isEmailProviderRateLimitRedisConfigured,
+  setEmailProviderRateLimitStateValue,
+} from "@/utils/redis/email-provider-rate-limit";
 import {
   calculateRetryDelay,
   extractErrorInfo,
@@ -22,13 +26,9 @@ import {
 
 const logger = createScopedLogger("email-rate-limit");
 
-const RATE_LIMIT_KEY_PREFIX = "email-provider-rate-limit";
 const DEFAULT_RATE_LIMIT_DELAY_MS = 30_000;
 const MAX_RATE_LIMIT_TTL_SECONDS = 60 * 60;
 const RETRY_AT_BUFFER_SECONDS = 5;
-const hasRedisConfig =
-  env.NODE_ENV === "test" ||
-  !!(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN);
 
 type StoredProviderRateLimitState = {
   provider: EmailProviderRateLimitProvider;
@@ -94,21 +94,18 @@ export async function getEmailProviderRateLimitState({
 }: {
   emailAccountId: string;
 }): Promise<EmailProviderRateLimitState | null> {
-  if (!hasRedisConfig) return null;
-
-  const key = getRateLimitKey(emailAccountId);
-  const value = await redis.get<string>(key);
+  const value = await getEmailProviderRateLimitStateValue({ emailAccountId });
   if (!value) return null;
 
   const parsed = parseStoredState(value);
   if (!parsed) {
-    await redis.del(key);
+    await deleteEmailProviderRateLimitState({ emailAccountId });
     return null;
   }
 
   const retryAt = new Date(parsed.retryAt);
   if (retryAt.getTime() <= Date.now()) {
-    await redis.del(key);
+    await deleteEmailProviderRateLimitState({ emailAccountId });
     return null;
   }
 
@@ -132,7 +129,7 @@ export async function setEmailProviderRateLimitState({
   source?: string;
   logger?: Logger;
 }): Promise<EmailProviderRateLimitState> {
-  if (!hasRedisConfig) {
+  if (!isEmailProviderRateLimitRedisConfigured()) {
     return {
       provider,
       retryAt,
@@ -167,8 +164,10 @@ export async function setEmailProviderRateLimitState({
     detectedAt: new Date().toISOString(),
   };
 
-  await redis.set(getRateLimitKey(emailAccountId), JSON.stringify(value), {
-    ex: ttlSeconds,
+  await setEmailProviderRateLimitStateValue({
+    emailAccountId,
+    value: JSON.stringify(value),
+    ttlSeconds,
   });
 
   stateLogger.warn("Set provider rate-limit mode", {
@@ -229,7 +228,7 @@ export async function recordProviderRateLimitFromError({
   source?: string;
   attemptNumber?: number;
 }): Promise<EmailProviderRateLimitState | null> {
-  if (!hasRedisConfig) return null;
+  if (!isEmailProviderRateLimitRedisConfigured()) return null;
 
   const delayMs = getProviderRateLimitDelayMs({
     error,
@@ -354,10 +353,6 @@ function parseStoredState(value: string): StoredProviderRateLimitState | null {
   } catch {
     return null;
   }
-}
-
-function getRateLimitKey(emailAccountId: string) {
-  return `${RATE_LIMIT_KEY_PREFIX}:${emailAccountId}`;
 }
 
 function getOutlookRetryAfterHeader(error: unknown): string | undefined {
