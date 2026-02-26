@@ -57,9 +57,10 @@ export const confirmAssistantEmailAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, provider, logger },
-      parsedInput: { chatMessageId, toolCallId, actionType },
+      parsedInput: { chatId, chatMessageId, toolCallId, actionType },
     }) => {
       const reservation = await reservePendingAssistantEmailAction({
+        chatId,
         chatMessageId,
         toolCallId,
         actionType,
@@ -363,12 +364,14 @@ function updateAssistantEmailPartWithPending({
 }
 
 async function reservePendingAssistantEmailAction({
+  chatId,
   chatMessageId,
   toolCallId,
   actionType,
   emailAccountId,
   logger,
 }: {
+  chatId: string;
   chatMessageId: string;
   toolCallId: string;
   actionType: AssistantPendingEmailActionType;
@@ -376,6 +379,7 @@ async function reservePendingAssistantEmailAction({
   logger: Logger;
 }) {
   const chatMessage = await findChatMessageForPendingAssistantEmailAction({
+    chatId,
     chatMessageId,
     toolCallId,
     actionType,
@@ -456,14 +460,13 @@ async function reservePendingAssistantEmailAction({
     };
   }
 
-  const latestMessage = await prisma.chatMessage.findFirst({
-    where: {
-      id: chatMessage.id,
-      chat: { emailAccountId },
-    },
-    select: {
-      parts: true,
-    },
+  const latestMessage = await findChatMessageForPendingAssistantEmailAction({
+    chatId,
+    chatMessageId,
+    toolCallId,
+    actionType,
+    emailAccountId,
+    logger,
   });
 
   if (!latestMessage) {
@@ -658,12 +661,14 @@ function warnAndThrowAssistantEmailConfirmationError({
 }
 
 async function findChatMessageForPendingAssistantEmailAction({
+  chatId,
   chatMessageId,
   toolCallId,
   actionType,
   emailAccountId,
   logger,
 }: {
+  chatId: string;
   chatMessageId: string;
   toolCallId: string;
   actionType: AssistantPendingEmailActionType;
@@ -673,7 +678,7 @@ async function findChatMessageForPendingAssistantEmailAction({
   const chatMessage = await prisma.chatMessage.findFirst({
     where: {
       id: chatMessageId,
-      chat: { emailAccountId },
+      chat: { id: chatId, emailAccountId },
     },
     select: {
       id: true,
@@ -688,7 +693,7 @@ async function findChatMessageForPendingAssistantEmailAction({
   const fallbackCandidates = await prisma.chatMessage.findMany({
     where: {
       role: "assistant",
-      chat: { emailAccountId },
+      chat: { id: chatId, emailAccountId },
     },
     orderBy: { updatedAt: "desc" },
     take: CONFIRMATION_FALLBACK_LOOKUP_LIMIT,
@@ -711,6 +716,7 @@ async function findChatMessageForPendingAssistantEmailAction({
     logger.warn(
       "Assistant email confirmation recovered using fallback message lookup",
       {
+        chatId,
         chatMessageId,
         resolvedChatMessageId: candidate.id,
         toolCallId,

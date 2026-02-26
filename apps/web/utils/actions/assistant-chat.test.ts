@@ -49,6 +49,7 @@ describe("confirmAssistantEmailAction", () => {
     const result = await confirmAssistantEmailAction(
       "ea_1" as any,
       {
+        chatId: "chat-1",
         chatMessageId: "chat-message-1",
         toolCallId: "tool-1",
         actionType: "send_email",
@@ -125,6 +126,7 @@ describe("confirmAssistantEmailAction", () => {
     const result = await confirmAssistantEmailAction(
       "ea_1" as any,
       {
+        chatId: "chat-1",
         chatMessageId: "chat-message-1",
         toolCallId: "tool-1",
         actionType: "reply_email",
@@ -181,6 +183,7 @@ describe("confirmAssistantEmailAction", () => {
     const result = await confirmAssistantEmailAction(
       "ea_1" as any,
       {
+        chatId: "chat-1",
         chatMessageId: "chat-message-1",
         toolCallId: "tool-1",
         actionType: "forward_email",
@@ -247,6 +250,7 @@ describe("confirmAssistantEmailAction", () => {
     const result = await confirmAssistantEmailAction(
       "ea_1" as any,
       {
+        chatId: "chat-1",
         chatMessageId: "chat-message-1",
         toolCallId: "tool-1",
         actionType: "send_email",
@@ -280,6 +284,7 @@ describe("confirmAssistantEmailAction", () => {
     const result = await confirmAssistantEmailAction(
       "ea_1" as any,
       {
+        chatId: "chat-1",
         chatMessageId: "chat-message-1",
         toolCallId: "tool-1",
         actionType: "send_email",
@@ -331,6 +336,7 @@ describe("confirmAssistantEmailAction", () => {
     const result = await confirmAssistantEmailAction(
       "ea_1" as any,
       {
+        chatId: "chat-1",
         chatMessageId: "chat-message-1",
         toolCallId: "tool-1",
         actionType: "send_email",
@@ -365,6 +371,7 @@ describe("confirmAssistantEmailAction", () => {
     const result = await confirmAssistantEmailAction(
       "ea_1" as any,
       {
+        chatId: "chat-1",
         chatMessageId: "chat-message-1",
         toolCallId: "tool-1",
         actionType: "send_email",
@@ -414,6 +421,7 @@ describe("confirmAssistantEmailAction", () => {
     const result = await confirmAssistantEmailAction(
       "ea_1" as any,
       {
+        chatId: "chat-1",
         chatMessageId: "stale-message-id",
         toolCallId: "tool-1",
         actionType: "send_email",
@@ -423,6 +431,17 @@ describe("confirmAssistantEmailAction", () => {
     expect(result?.data?.confirmationState).toBe("confirmed");
     expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
     expect(prisma.chatMessage.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.chatMessage.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          role: "assistant",
+          chat: {
+            id: "chat-1",
+            emailAccountId: "ea_1",
+          },
+        }),
+      }),
+    );
     expect(prisma.chatMessage.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -451,6 +470,7 @@ describe("confirmAssistantEmailAction", () => {
     const result = await confirmAssistantEmailAction(
       "ea_1" as any,
       {
+        chatId: "chat-1",
         chatMessageId: "stale-message-id",
         toolCallId: "tool-missing",
         actionType: "send_email",
@@ -458,6 +478,17 @@ describe("confirmAssistantEmailAction", () => {
     );
 
     expect(result?.serverError).toBe("Chat message not found");
+    expect(prisma.chatMessage.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          role: "assistant",
+          chat: {
+            id: "chat-1",
+            emailAccountId: "ea_1",
+          },
+        }),
+      }),
+    );
     expect(createEmailProvider).not.toHaveBeenCalled();
     expect(prisma.chatMessage.updateMany).not.toHaveBeenCalled();
   });
@@ -497,6 +528,7 @@ describe("confirmAssistantEmailAction", () => {
     const result = await confirmAssistantEmailAction(
       "ea_1" as any,
       {
+        chatId: "chat-1",
         chatMessageId: "chat-message-1",
         toolCallId: "tool-1",
         actionType: "send_email",
@@ -544,6 +576,7 @@ describe("confirmAssistantEmailAction", () => {
     const result = await confirmAssistantEmailAction(
       "ea_1" as any,
       {
+        chatId: "chat-1",
         chatMessageId: "chat-message-1",
         toolCallId: "tool-1",
         actionType: "send_email",
