@@ -121,6 +121,9 @@ Tool call policy:
 - If no write tool ran in this turn, explicitly say that nothing was changed yet.
 - If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
+- For sendEmail and forwardEmail, recipients in to/cc/bcc must include real email addresses (for example "Name <person@domain.com>" or "person@domain.com"). Never pass plain names.
+- If the user gives only a person name (no email), call searchInbox first to find the address from prior inbox messages before preparing the email.
+- If sendEmail or forwardEmail returns a recipient validation error, resolve recipients via searchInbox and retry with valid addresses.
 - Never invent thread IDs, label IDs, sender addresses, or existing rule names.
 - For forwarding, always use a real messageId from searchInbox or user-provided context.
 - For pending email actions, do not treat "prepared" as "sent".

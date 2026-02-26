@@ -4,6 +4,7 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createEmailProvider } from "@/utils/email/provider";
+import { extractEmailAddress } from "@/utils/email";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
@@ -12,11 +13,19 @@ import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-ad
 import { runWithBoundedConcurrency } from "@/utils/async";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
+const recipientListSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine(
+    (recipientList) => hasOnlyValidRecipients(recipientList),
+    "must include valid email address(es)",
+  );
 const sendEmailToolInputSchema = z
   .object({
-    to: z.string().trim().min(1),
-    cc: z.string().trim().min(1).optional(),
-    bcc: z.string().trim().min(1).optional(),
+    to: recipientListSchema,
+    cc: recipientListSchema.optional(),
+    bcc: recipientListSchema.optional(),
     subject: z.string().trim().min(1).max(300),
     messageHtml: z.string().trim().min(1),
   })
@@ -36,9 +45,9 @@ const replyEmailToolInputSchema = z
 const forwardEmailToolInputSchema = z
   .object({
     messageId: z.string().trim().min(1),
-    to: z.string().trim().min(1),
-    cc: z.string().trim().min(1).optional(),
-    bcc: z.string().trim().min(1).optional(),
+    to: recipientListSchema,
+    cc: recipientListSchema.optional(),
+    bcc: recipientListSchema.optional(),
     content: z.string().trim().max(5000).optional(),
   })
   .strict();
@@ -616,7 +625,7 @@ export const sendEmailTool = ({
 }) =>
   tool({
     description:
-      "Prepare a new email to send. This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
+      "Prepare a new email to send. Recipients in to/cc/bcc must include valid email addresses. If the user only gives a name, resolve the address first (for example using searchInbox). This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
     inputSchema: sendEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "send_email", email, logger });
@@ -702,7 +711,7 @@ export const forwardEmailTool = ({
 }) =>
   tool({
     description:
-      "Prepare a forward for an existing email by message ID. This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
+      "Prepare a forward for an existing email by message ID. Recipients in to/cc/bcc must include valid email addresses. If the user only gives a name, resolve the address first (for example using searchInbox). This does NOT send immediately. It returns a confirmation payload that must be approved by the user in the UI.",
     inputSchema: forwardEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "forward_email", email, logger });
@@ -1013,6 +1022,22 @@ function getForwardEmailValidationError(error: z.ZodError) {
 
 function getReplyEmailValidationError(error: z.ZodError) {
   return getValidationErrorMessage("replyEmail", error);
+}
+
+function hasOnlyValidRecipients(recipientList: string) {
+  const recipients = splitRecipients(recipientList);
+  if (recipients.length === 0) return false;
+
+  return recipients.every((recipient) =>
+    Boolean(extractEmailAddress(recipient)),
+  );
+}
+
+function splitRecipients(recipientList: string) {
+  return recipientList
+    .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
+    .map((recipient) => recipient.trim())
+    .filter(Boolean);
 }
 
 function getValidationErrorMessage(toolName: string, error: z.ZodError) {
