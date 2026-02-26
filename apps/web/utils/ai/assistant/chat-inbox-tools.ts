@@ -4,7 +4,7 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createEmailProvider } from "@/utils/email/provider";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, splitRecipientList } from "@/utils/email";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
@@ -1025,19 +1025,12 @@ function getReplyEmailValidationError(error: z.ZodError) {
 }
 
 function hasOnlyValidRecipients(recipientList: string) {
-  const recipients = splitRecipients(recipientList);
+  const recipients = splitRecipientList(recipientList);
   if (recipients.length === 0) return false;
 
   return recipients.every((recipient) =>
     Boolean(extractEmailAddress(recipient)),
   );
-}
-
-function splitRecipients(recipientList: string) {
-  return recipientList
-    .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
-    .map((recipient) => recipient.trim())
-    .filter(Boolean);
 }
 
 function getValidationErrorMessage(toolName: string, error: z.ZodError) {

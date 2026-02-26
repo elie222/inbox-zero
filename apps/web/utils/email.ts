@@ -2,6 +2,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { z } from "zod";
 
 const emailSchema = z.string().email();
+const recipientSeparatorRegex = /,(?=(?:[^"]*"[^"]*")*[^"]*$)/;
 
 // Converts "John Doe <john.doe@gmail>" to "John Doe"
 // Converts "<john.doe@gmail>" to "john.doe@gmail"
@@ -18,14 +19,18 @@ export function extractNameFromEmail(email: string) {
 // Extracts all email addresses from a comma-separated header string
 // e.g., "John <john@example.com>, Jane <jane@example.com>" -> ["john@example.com", "jane@example.com"]
 export function extractEmailAddresses(header: string): string[] {
-  if (!header) return [];
-
-  // split by comma, but be careful about commas inside quoted names
-  const parts = header.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
-
-  return parts
-    .map((part) => extractEmailAddress(part.trim()))
+  return splitRecipientList(header)
+    .map((part) => extractEmailAddress(part))
     .filter((email) => email.length > 0);
+}
+
+export function splitRecipientList(recipientList: string): string[] {
+  if (!recipientList) return [];
+
+  return recipientList
+    .split(recipientSeparatorRegex)
+    .map((recipient) => recipient.trim())
+    .filter(Boolean);
 }
 
 // Converts "John Doe <john.doe@gmail>" to "john.doe@gmail"

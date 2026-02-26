@@ -3,6 +3,7 @@ import {
   extractNameFromEmail,
   extractEmailAddress,
   extractEmailAddresses,
+  splitRecipientList,
   extractDomainFromEmail,
   participant,
   normalizeEmailAddress,
@@ -149,6 +150,20 @@ describe("email utils", () => {
 
     it("handles all invalid emails", () => {
       expect(extractEmailAddresses("invalid, also-invalid")).toEqual([]);
+    });
+  });
+
+  describe("splitRecipientList", () => {
+    it("splits comma-separated recipients and trims whitespace", () => {
+      expect(
+        splitRecipientList("  john@example.com  ,  jane@example.com  "),
+      ).toEqual(["john@example.com", "jane@example.com"]);
+    });
+
+    it("keeps commas inside quoted display names", () => {
+      expect(
+        splitRecipientList('"Doe, John" <john@example.com>, jane@example.com'),
+      ).toEqual(['"Doe, John" <john@example.com>', "jane@example.com"]);
     });
   });
 
