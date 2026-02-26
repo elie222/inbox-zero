@@ -377,6 +377,91 @@ describe("confirmAssistantEmailAction", () => {
     expect(createEmailProvider).not.toHaveBeenCalled();
   });
 
+  it("falls back to matching assistant message when chat message id is stale", async () => {
+    (prisma.emailAccount.findUnique as any)
+      .mockResolvedValueOnce({
+        email: "owner@example.com",
+        account: { userId: "u1", provider: "google" },
+      })
+      .mockResolvedValueOnce({
+        name: "Owner",
+        email: "owner@example.com",
+      });
+
+    prisma.chatMessage.findFirst.mockResolvedValue(null as any);
+    prisma.chatMessage.findMany.mockResolvedValue([
+      {
+        id: "assistant-message-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+        parts: [buildPendingSendPart()],
+      },
+    ] as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+    prisma.chatMessage.update.mockResolvedValue({
+      id: "assistant-message-1",
+    } as any);
+
+    const sendEmailWithHtml = vi.fn().mockResolvedValue({
+      messageId: "msg-1",
+      threadId: "thr-1",
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      sendEmailWithHtml,
+    } as any);
+
+    const result = await confirmAssistantEmailAction(
+      "ea_1" as any,
+      {
+        chatMessageId: "stale-message-id",
+        toolCallId: "tool-1",
+        actionType: "send_email",
+      } as any,
+    );
+
+    expect(result?.data?.confirmationState).toBe("confirmed");
+    expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
+    expect(prisma.chatMessage.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "assistant-message-1",
+        }),
+      }),
+    );
+  });
+
+  it("returns not found when chat message id is stale and no fallback candidate matches", async () => {
+    (prisma.emailAccount.findUnique as any).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.chatMessage.findFirst.mockResolvedValue(null as any);
+    prisma.chatMessage.findMany.mockResolvedValue([
+      {
+        id: "assistant-message-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+        parts: [buildPendingSendPart()],
+      },
+    ] as any);
+
+    const result = await confirmAssistantEmailAction(
+      "ea_1" as any,
+      {
+        chatMessageId: "stale-message-id",
+        toolCallId: "tool-missing",
+        actionType: "send_email",
+      } as any,
+    );
+
+    expect(result?.serverError).toBe("Chat message not found");
+    expect(createEmailProvider).not.toHaveBeenCalled();
+    expect(prisma.chatMessage.updateMany).not.toHaveBeenCalled();
+  });
+
   it("clears processing state when provider send fails", async () => {
     (prisma.emailAccount.findUnique as any)
       .mockResolvedValueOnce({
