@@ -3,9 +3,11 @@ import type {
   EmailProvider,
   EmailThread,
 } from "@/utils/email/types";
+import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
+import { isDefined } from "@/utils/types";
 import { LOCAL_BYPASS_USER_EMAIL } from "@/utils/auth/local-bypass-config";
 
 export function createLocalBypassEmailProvider(logger?: Logger): EmailProvider {
@@ -746,13 +748,7 @@ function sortMessagesByDateAsc(messages: ParsedMessage[]) {
 }
 
 function getMessageTime(message: ParsedMessage) {
-  if (message.internalDate) {
-    const parsed = Number.parseInt(message.internalDate, 10);
-    if (!Number.isNaN(parsed)) return parsed;
-  }
-
-  const dateFromHeader = Date.parse(message.date);
-  return Number.isNaN(dateFromHeader) ? 0 : dateFromHeader;
+  return getMessageTimestamp(message);
 }
 
 function parseOffset(pageToken?: string) {
@@ -775,8 +771,4 @@ function normalizeEmailAddress(value: string) {
 function getEmailDomain(value: string) {
   const [, domain] = normalizeEmailAddress(value).split("@");
   return domain || "";
-}
-
-function isDefined<T>(value: T | undefined | null): value is T {
-  return value !== undefined && value !== null;
 }

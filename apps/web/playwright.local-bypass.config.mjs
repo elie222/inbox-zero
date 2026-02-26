@@ -1,8 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
-const baseURL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+const baseURL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 const databaseUrl =
-  process.env.DATABASE_URL ||
+  process.env.DATABASE_URL ??
   "postgresql://postgres:postgres@localhost:5432/postgres";
 
 export default defineConfig({
@@ -31,16 +31,16 @@ export default defineConfig({
       NODE_ENV: "development",
       NEXT_PUBLIC_BASE_URL: baseURL,
       DATABASE_URL: databaseUrl,
-      AUTH_SECRET: process.env.AUTH_SECRET || "secret",
-      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "client_id",
-      GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "client_secret",
-      GOOGLE_PUBSUB_TOPIC_NAME: process.env.GOOGLE_PUBSUB_TOPIC_NAME || "topic",
-      EMAIL_ENCRYPT_SECRET: process.env.EMAIL_ENCRYPT_SECRET || "secret",
-      EMAIL_ENCRYPT_SALT: process.env.EMAIL_ENCRYPT_SALT || "salt",
-      INTERNAL_API_KEY: process.env.INTERNAL_API_KEY || "secret",
-      DEFAULT_LLM_PROVIDER: process.env.DEFAULT_LLM_PROVIDER || "openai",
+      AUTH_SECRET: process.env.AUTH_SECRET ?? "secret",
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "client_id",
+      GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? "client_secret",
+      GOOGLE_PUBSUB_TOPIC_NAME: process.env.GOOGLE_PUBSUB_TOPIC_NAME ?? "topic",
+      EMAIL_ENCRYPT_SECRET: process.env.EMAIL_ENCRYPT_SECRET ?? "secret",
+      EMAIL_ENCRYPT_SALT: process.env.EMAIL_ENCRYPT_SALT ?? "salt",
+      INTERNAL_API_KEY: process.env.INTERNAL_API_KEY ?? "secret",
+      DEFAULT_LLM_PROVIDER: process.env.DEFAULT_LLM_PROVIDER ?? "openai",
       LOCAL_AUTH_BYPASS_ENABLED:
-        process.env.LOCAL_AUTH_BYPASS_ENABLED || "true",
+        process.env.LOCAL_AUTH_BYPASS_ENABLED ?? "true",
     },
   },
 });
