@@ -10,13 +10,10 @@ description: 'Configure Google OAuth credentials, scopes, and required APIs'
 Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new project if necessary.
 
 1. **Configure consent screen:**
-   1. Go to [Credentials](https://console.cloud.google.com/apis/credentials). If the banner shows up, click it and then click `Get Started`.
-   2. Choose a name for your app and enter your email.
-   3. In Audience, choose a user type:
-      - **Internal** — Google Workspace only. All members of your organization can sign in without additional setup. Personal Gmail accounts cannot use Internal apps.
-      - **External** — any Google account, including personal Gmail. You'll need to add yourself as a test user (see step 5 below).
-   4. Enter your contact information.
-   5. Agree to the User Data policy and click `Create`.
+   Go to [Credentials](https://console.cloud.google.com/apis/credentials). If the banner shows up, click it and then click `Get Started`. Follow the prompts to name your app and set your contact email.
+
+   - **Internal** — Google Workspace only. All members of your organization can sign in without additional setup. Personal Gmail accounts cannot use Internal apps.
+   - **External** — any Google account, including personal Gmail. You'll need to add yourself as a test user (see step 5 below).
 
    <Warning>
      If you chose **External**: since your app is unverified (normal for self-hosted), you must add yourself as a test user (see step 5 below) before you can sign in. You'll also see a "This app isn't verified" warning screen when signing in — click "Advanced" then "Go to [app name]" to proceed.
@@ -32,6 +29,10 @@ Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new
       - `http://localhost:3000/api/google/calendar/callback` (optional, for calendar)
       - `http://localhost:3000/api/google/drive/callback` (optional, for Drive)
    5. Click `Create` and copy the Client ID and secret.
+
+   ![Create OAuth Client ID](/images/self-hosting/google-auth/1-create-oauth-client.png)
+   ![Configure Web Application](/images/self-hosting/google-auth/2-create-oauth-client.png)
+   ![Client ID and Secret](/images/self-hosting/google-auth/3-clientid-secret.png)
 
 3. **Update `.env` file:**
    - Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
@@ -51,9 +52,15 @@ Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new
       ```
    4. Click `Update`, then `Save`.
 
+   ![Add Scopes](/images/self-hosting/google-auth/6-add-scopes.png)
+   ![Manually Add Scopes](/images/self-hosting/google-auth/7-add-scopes.png)
+   ![Save Scopes](/images/self-hosting/google-auth/8-save-scopes.png)
+
 5. **Add yourself as a test user (External only):**
    1. Go to [Audience](https://console.cloud.google.com/auth/audience).
    2. In `Test users`, click `+Add users` and enter your email.
+
+   ![Add Test User](/images/self-hosting/google-auth/5-extenal-add-user.png)
 
    Skip this step if you chose Internal — all org members can sign in automatically.
 
@@ -62,5 +69,8 @@ Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new
    - [Google People API](https://console.cloud.google.com/marketplace/product/google/people.googleapis.com) (required)
    - [Google Calendar API](https://console.cloud.google.com/marketplace/product/google/calendar-json.googleapis.com) (optional)
    - [Google Drive API](https://console.cloud.google.com/marketplace/product/google/drive.googleapis.com) (optional)
+
+   ![Enable Gmail API](/images/self-hosting/google-auth/9-enable-gmail-api.png)
+   ![Enable People API](/images/self-hosting/google-auth/10-enable-people-api.png)
 
 Next step for real-time notifications: [Google PubSub](/hosting/google-pubsub)
