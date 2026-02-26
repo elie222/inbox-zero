@@ -29,7 +29,7 @@
     "prettier": "3.6.2",
     "tsconfig-paths": "^4.2.0",
     "tsx": "4.21.0",
-    "turbo": "2.8.3",
+    "turbo": "2.8.11",
     "ultracite": "7.1.5"
   },
   "packageManager": "pnpm@10.29.2",
