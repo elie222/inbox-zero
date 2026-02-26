@@ -12,6 +12,14 @@ import { ThreadTrackerType, SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
+import {
+  getProviderRateLimitDelayMs,
+  withRateLimitRecording,
+} from "@/utils/email/rate-limit";
+import {
+  isProviderRateLimitModeError,
+  toRateLimitProvider,
+} from "@/utils/email/rate-limit-mode-error";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   getLabelsFromDb,
@@ -64,19 +72,48 @@ export async function processAllFollowUpReminders(logger: Logger) {
 
   let successCount = 0;
   let errorCount = 0;
+  let rateLimitedCount = 0;
 
   for (const emailAccount of emailAccounts) {
     const accountLogger = logger.with({
       emailAccountId: emailAccount.id,
     });
+    let recordedRetryAt: Date | undefined;
+    const provider = emailAccount.account?.provider;
 
     try {
-      await processAccountFollowUps({
-        emailAccount,
-        logger: accountLogger,
-      });
+      await withRateLimitRecording(
+        {
+          emailAccountId: emailAccount.id,
+          provider,
+          logger: accountLogger,
+          source: "follow-up-reminders",
+          onRateLimitRecorded: (state) => {
+            recordedRetryAt = state?.retryAt;
+          },
+        },
+        async () =>
+          processAccountFollowUps({
+            emailAccount,
+            logger: accountLogger,
+          }),
+      );
       successCount++;
     } catch (error) {
+      const retryAtFromError = getRetryAtFromRateLimitError(error, provider);
+      const retryAt = recordedRetryAt || retryAtFromError;
+
+      if (retryAt) {
+        accountLogger.warn(
+          "Skipping follow-up reminders while provider rate limit is active",
+          {
+            retryAt: retryAt.toISOString(),
+          },
+        );
+        rateLimitedCount++;
+        continue;
+      }
+
       accountLogger.error("Failed to process follow-up reminders for user", {
         error,
       });
@@ -89,12 +126,14 @@ export async function processAllFollowUpReminders(logger: Logger) {
     total: emailAccounts.length,
     success: successCount,
     errors: errorCount,
+    rateLimited: rateLimitedCount,
   });
 
   return {
     total: emailAccounts.length,
     success: successCount,
     errors: errorCount,
+    rateLimited: rateLimitedCount,
   };
 }
 
@@ -174,6 +213,27 @@ export async function processAccountFollowUps({
   // }
 
   logger.info("Finished processing follow-ups for account");
+}
+
+function getRetryAtFromRateLimitError(
+  error: unknown,
+  provider?: string | null,
+): Date | undefined {
+  if (isProviderRateLimitModeError(error) && error.retryAt) {
+    const retryAt = new Date(error.retryAt);
+    if (!Number.isNaN(retryAt.getTime())) return retryAt;
+  }
+
+  const rateLimitProvider = toRateLimitProvider(provider);
+  if (!rateLimitProvider) return undefined;
+
+  const delayMs = getProviderRateLimitDelayMs({
+    error,
+    provider: rateLimitProvider,
+    attemptNumber: 1,
+  });
+  if (!delayMs) return undefined;
+  return new Date(Date.now() + delayMs);
 }
 
 async function processFollowUpsForType({

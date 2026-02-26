@@ -75,6 +75,7 @@ import type {
 } from "@/utils/email/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
+import { withRateLimitRecording } from "@/utils/email/rate-limit";
 
 /**
  * Build a raw RFC 2822 message and encode it as base64url for Gmail API
@@ -92,9 +93,15 @@ export class GmailProvider implements EmailProvider {
   readonly name = "google";
   private readonly client: gmail_v1.Gmail;
   private readonly logger: Logger;
+  private readonly emailAccountId?: string;
 
-  constructor(client: gmail_v1.Gmail, logger?: Logger) {
+  constructor(
+    client: gmail_v1.Gmail,
+    logger?: Logger,
+    emailAccountId?: string,
+  ) {
     this.client = client;
+    this.emailAccountId = emailAccountId;
     this.logger = (logger || createScopedLogger("gmail-provider")).with({
       provider: "google",
     });
@@ -105,51 +112,59 @@ export class GmailProvider implements EmailProvider {
   }
 
   async getThreads(labelId?: string): Promise<EmailThread[]> {
-    const response = await this.client.users.threads.list({
-      userId: "me",
-      q: labelId ? `in:${labelId}` : undefined,
-    });
+    return this.withRateLimitTracking("get-threads", async () => {
+      const response = await this.client.users.threads.list({
+        userId: "me",
+        q: labelId ? `in:${labelId}` : undefined,
+      });
 
-    const threads = response.data.threads || [];
-    const threadPromises = threads.map((thread) => this.getThread(thread.id!));
-    return Promise.all(threadPromises);
+      const threads = response.data.threads || [];
+      const threadPromises = threads.map((thread) =>
+        this.getThread(thread.id!),
+      );
+      return Promise.all(threadPromises);
+    });
   }
 
   async getThread(threadId: string): Promise<EmailThread> {
-    const response = await this.client.users.threads.get({
-      userId: "me",
-      id: threadId,
+    return this.withRateLimitTracking("get-thread", async () => {
+      const response = await this.client.users.threads.get({
+        userId: "me",
+        id: threadId,
+      });
+
+      const messages = response.data.messages || [];
+      const messagePromises = messages.map((message) =>
+        this.getMessage(message.id!),
+      );
+
+      return {
+        id: threadId,
+        messages: await Promise.all(messagePromises),
+        snippet: response.data.snippet || "",
+        historyId: response.data.historyId || undefined,
+      };
     });
-
-    const messages = response.data.messages || [];
-    const messagePromises = messages.map((message) =>
-      this.getMessage(message.id!),
-    );
-
-    return {
-      id: threadId,
-      messages: await Promise.all(messagePromises),
-      snippet: response.data.snippet || "",
-      historyId: response.data.historyId || undefined,
-    };
   }
 
   async getLabels(): Promise<EmailLabel[]> {
-    const labels = await getLabels(this.client, { logger: this.logger });
-    return (labels || [])
-      .filter(
-        (label) =>
-          label.type === "user" &&
-          label.labelListVisibility !== labelVisibility.labelHide,
-      )
-      .map((label) => ({
-        id: label.id!,
-        name: label.name!,
-        type: label.type!,
-        threadsTotal: label.threadsTotal || undefined,
-        labelListVisibility: label.labelListVisibility || undefined,
-        messageListVisibility: label.messageListVisibility || undefined,
-      }));
+    return this.withRateLimitTracking("get-labels", async () => {
+      const labels = await getLabels(this.client, { logger: this.logger });
+      return (labels || [])
+        .filter(
+          (label) =>
+            label.type === "user" &&
+            label.labelListVisibility !== labelVisibility.labelHide,
+        )
+        .map((label) => ({
+          id: label.id!,
+          name: label.name!,
+          type: label.type!,
+          threadsTotal: label.threadsTotal || undefined,
+          labelListVisibility: label.labelListVisibility || undefined,
+          messageListVisibility: label.messageListVisibility || undefined,
+        }));
+    });
   }
 
   async getLabelById(labelId: string): Promise<EmailLabel | null> {
@@ -1271,123 +1286,125 @@ export class GmailProvider implements EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
-    const {
-      fromEmail,
-      after,
-      before,
-      isUnread,
-      type,
-      excludeLabelNames,
-      labelIds,
-      labelId,
-    } = options.query || {};
+    return this.withRateLimitTracking("get-threads-with-query", async () => {
+      const {
+        fromEmail,
+        after,
+        before,
+        isUnread,
+        type,
+        excludeLabelNames,
+        labelIds,
+        labelId,
+      } = options.query || {};
 
-    function getQuery() {
-      const queryParts: string[] = [];
+      function getQuery() {
+        const queryParts: string[] = [];
 
-      if (fromEmail) {
-        queryParts.push(`from:${fromEmail}`);
+        if (fromEmail) {
+          queryParts.push(`from:${fromEmail}`);
+        }
+
+        if (after) {
+          const afterSeconds = Math.floor(after.getTime() / 1000);
+          queryParts.push(`after:${afterSeconds}`);
+        }
+
+        if (before) {
+          const beforeSeconds = Math.floor(before.getTime() / 1000);
+          queryParts.push(`before:${beforeSeconds}`);
+        }
+
+        if (isUnread) {
+          queryParts.push("is:unread");
+        }
+
+        if (type === "archive") {
+          queryParts.push(`-in:${GmailLabel.INBOX}`);
+        }
+
+        if (excludeLabelNames) {
+          for (const labelName of excludeLabelNames) {
+            queryParts.push(`-label:"${labelName}"`);
+          }
+        }
+
+        return queryParts.length > 0 ? queryParts.join(" ") : undefined;
       }
 
-      if (after) {
-        const afterSeconds = Math.floor(after.getTime() / 1000);
-        queryParts.push(`after:${afterSeconds}`);
-      }
+      function getLabelIds(type?: string | null) {
+        if (labelIds) {
+          return labelIds;
+        }
 
-      if (before) {
-        const beforeSeconds = Math.floor(before.getTime() / 1000);
-        queryParts.push(`before:${beforeSeconds}`);
-      }
-
-      if (isUnread) {
-        queryParts.push("is:unread");
-      }
-
-      if (type === "archive") {
-        queryParts.push(`-in:${GmailLabel.INBOX}`);
-      }
-
-      if (excludeLabelNames) {
-        for (const labelName of excludeLabelNames) {
-          queryParts.push(`-label:"${labelName}"`);
+        switch (type) {
+          case "inbox":
+            return [GmailLabel.INBOX];
+          case "sent":
+            return [GmailLabel.SENT];
+          case "draft":
+            return [GmailLabel.DRAFT];
+          case "trash":
+            return [GmailLabel.TRASH];
+          case "spam":
+            return [GmailLabel.SPAM];
+          case "starred":
+            return [GmailLabel.STARRED];
+          case "important":
+            return [GmailLabel.IMPORTANT];
+          case "unread":
+            return [GmailLabel.UNREAD];
+          case "archive":
+            return undefined;
+          case "all":
+            return undefined;
+          default:
+            if (!type || type === "undefined" || type === "null")
+              return [GmailLabel.INBOX];
+            return [type];
         }
       }
 
-      return queryParts.length > 0 ? queryParts.join(" ") : undefined;
-    }
+      const { threads: gmailThreads, nextPageToken } =
+        await getThreadsWithNextPageToken({
+          gmail: this.client,
+          q: getQuery(),
+          labelIds: labelId ? [labelId] : getLabelIds(type) || [],
+          maxResults: options.maxResults || 50,
+          pageToken: options.pageToken || undefined,
+          logger: this.logger,
+        });
 
-    function getLabelIds(type?: string | null) {
-      if (labelIds) {
-        return labelIds;
-      }
+      const threadIds =
+        gmailThreads?.map((t) => t.id).filter((id): id is string => !!id) || [];
+      const threads = await getThreadsBatch(
+        threadIds,
+        getAccessTokenFromClient(this.client),
+      );
 
-      switch (type) {
-        case "inbox":
-          return [GmailLabel.INBOX];
-        case "sent":
-          return [GmailLabel.SENT];
-        case "draft":
-          return [GmailLabel.DRAFT];
-        case "trash":
-          return [GmailLabel.TRASH];
-        case "spam":
-          return [GmailLabel.SPAM];
-        case "starred":
-          return [GmailLabel.STARRED];
-        case "important":
-          return [GmailLabel.IMPORTANT];
-        case "unread":
-          return [GmailLabel.UNREAD];
-        case "archive":
-          return undefined;
-        case "all":
-          return undefined;
-        default:
-          if (!type || type === "undefined" || type === "null")
-            return [GmailLabel.INBOX];
-          return [type];
-      }
-    }
+      const emailThreads: EmailThread[] = threads
+        .map((thread) => {
+          const id = thread.id;
+          if (!id) return null;
 
-    const { threads: gmailThreads, nextPageToken } =
-      await getThreadsWithNextPageToken({
-        gmail: this.client,
-        q: getQuery(),
-        labelIds: labelId ? [labelId] : getLabelIds(type) || [],
-        maxResults: options.maxResults || 50,
-        pageToken: options.pageToken || undefined,
-        logger: this.logger,
-      });
+          const emailThread: EmailThread = {
+            id,
+            messages:
+              thread.messages?.map((message) =>
+                parseMessage(message as MessageWithPayload),
+              ) || [],
+            snippet: decodeSnippet(thread.snippet),
+            historyId: thread.historyId || undefined,
+          };
+          return emailThread;
+        })
+        .filter((thread): thread is EmailThread => thread !== null);
 
-    const threadIds =
-      gmailThreads?.map((t) => t.id).filter((id): id is string => !!id) || [];
-    const threads = await getThreadsBatch(
-      threadIds,
-      getAccessTokenFromClient(this.client),
-    );
-
-    const emailThreads: EmailThread[] = threads
-      .map((thread) => {
-        const id = thread.id;
-        if (!id) return null;
-
-        const emailThread: EmailThread = {
-          id,
-          messages:
-            thread.messages?.map((message) =>
-              parseMessage(message as MessageWithPayload),
-            ) || [],
-          snippet: decodeSnippet(thread.snippet),
-          historyId: thread.historyId || undefined,
-        };
-        return emailThread;
-      })
-      .filter((thread): thread is EmailThread => thread !== null);
-
-    return {
-      threads: emailThreads,
-      nextPageToken: nextPageToken || undefined,
-    };
+      return {
+        threads: emailThreads,
+        nextPageToken: nextPageToken || undefined,
+      };
+    });
   }
 
   async hasPreviousCommunicationsWithSenderOrDomain(options: {
@@ -1493,5 +1510,20 @@ export class GmailProvider implements EmailProvider {
       total: label.messagesTotal ?? 0,
       unread: label.messagesUnread ?? 0,
     };
+  }
+
+  private async withRateLimitTracking<T>(
+    source: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    return withRateLimitRecording(
+      {
+        emailAccountId: this.emailAccountId,
+        provider: "google",
+        logger: this.logger,
+        source: `gmail-provider/${source}`,
+      },
+      operation,
+    );
   }
 }

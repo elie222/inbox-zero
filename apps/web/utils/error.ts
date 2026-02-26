@@ -4,6 +4,11 @@ import {
 } from "@sentry/nextjs";
 import { APICallError, RetryError } from "ai";
 import type { FlattenedValidationErrors } from "next-safe-action";
+import {
+  getProviderRateLimitApiErrorType,
+  getProviderRateLimitMessageLabel,
+  isProviderRateLimitModeError,
+} from "@/utils/email/rate-limit-mode-error";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 
 export type ErrorMessage = { error: string; data?: any };
@@ -15,6 +20,9 @@ export type ApiErrorType = {
   message?: string;
   code: number;
 };
+
+const RATE_LIMIT_MESSAGE_TEMPLATE =
+  "{provider} is temporarily limiting requests. Please try again shortly.";
 
 export function isError(value: any): value is ErrorMessage | ZodError {
   return value?.error;
@@ -229,6 +237,7 @@ export function isAICallError(error: unknown): error is APICallError {
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (
+    isProviderRateLimitModeError(error) ||
     isGmailInsufficientPermissionsError(error) ||
     isGmailRateLimitExceededError(error) ||
     isGmailQuotaExceededError(error) ||
@@ -247,6 +256,21 @@ export function checkCommonErrors(
   url: string,
   logger: Logger,
 ): ApiErrorType | null {
+  if (isProviderRateLimitModeError(error)) {
+    const apiErrorType = getProviderRateLimitApiErrorType(error.provider);
+    const providerLabel = getProviderRateLimitMessageLabel(error.provider);
+    logger.warn("Provider rate-limit mode active for url", {
+      url,
+      provider: error.provider,
+      retryAt: error.retryAt,
+    });
+    return {
+      type: apiErrorType,
+      message: RATE_LIMIT_MESSAGE_TEMPLATE.replace("{provider}", providerLabel),
+      code: 429,
+    };
+  }
+
   if (isGmailInsufficientPermissionsError(error)) {
     logger.warn("Gmail insufficient permissions error for url", { url });
     return {
@@ -262,7 +286,7 @@ export function checkCommonErrors(
     const errorMessage =
       (error as any)?.errors?.[0]?.message ?? "Unknown error";
     return {
-      type: "Gmail Rate Limit Exceeded",
+      type: getProviderRateLimitApiErrorType("google"),
       message: `Gmail error: ${errorMessage}`,
       code: 429,
     };
@@ -280,7 +304,7 @@ export function checkCommonErrors(
   if (isOutlookThrottlingError(error)) {
     logger.warn("Outlook throttling error for url", { url });
     return {
-      type: "Outlook Rate Limit",
+      type: getProviderRateLimitApiErrorType("microsoft"),
       message:
         "Microsoft is temporarily limiting requests. Please try again shortly.",
       code: 429,

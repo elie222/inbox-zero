@@ -1,5 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { processAccountFollowUps } from "./process";
+import {
+  processAccountFollowUps,
+  processAllFollowUpReminders,
+} from "./process";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
@@ -8,6 +11,9 @@ vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/prisma", () => ({
   default: {
+    emailAccount: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     threadTracker: {
       findMany: vi.fn().mockResolvedValue([]),
       findFirst: vi.fn().mockResolvedValue(null),
@@ -45,6 +51,24 @@ vi.mock("@/utils/rule/consts", () => ({
 
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
+}));
+
+vi.mock("@/utils/email/rate-limit-mode-error", () => ({
+  isProviderRateLimitModeError: vi.fn().mockReturnValue(false),
+  toRateLimitProvider: vi.fn((provider: string | null | undefined) => {
+    if (provider === "google" || provider === "microsoft") return provider;
+    return null;
+  }),
+}));
+
+vi.mock("@/utils/email/rate-limit", () => ({
+  getProviderRateLimitDelayMs: vi.fn((options: { error: unknown }) => {
+    const err = options.error as Record<string, unknown>;
+    const cause = err.cause as Record<string, unknown> | undefined;
+    const status = (cause?.status as number) ?? (err.status as number);
+    return status === 429 ? 60_000 : null;
+  }),
+  withRateLimitRecording: vi.fn(async (_context, operation) => operation()),
 }));
 
 import prisma from "@/utils/prisma";
@@ -790,5 +814,37 @@ describe("processAccountFollowUps - dedup logic", () => {
       }),
     );
     expect(generateFollowUpDraft).toHaveBeenCalled();
+  });
+});
+
+describe("processAllFollowUpReminders", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("counts Gmail 429 failures as rate-limited when no retry state is recorded", async () => {
+    vi.mocked(prisma.emailAccount.findMany).mockResolvedValue([
+      createMockAccount({
+        account: { provider: "google" } as any,
+      }),
+    ] as any);
+
+    vi.mocked(createEmailProvider).mockRejectedValue(
+      Object.assign(new Error("Rate limit exceeded"), {
+        cause: {
+          status: 429,
+          message: "Rate limit exceeded",
+        },
+      }),
+    );
+
+    const result = await processAllFollowUpReminders(logger);
+
+    expect(result).toEqual({
+      total: 1,
+      success: 0,
+      errors: 0,
+      rateLimited: 1,
+    });
   });
 });

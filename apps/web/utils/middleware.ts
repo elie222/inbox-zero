@@ -10,6 +10,8 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
+import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
+import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import {
   EMAIL_ACCOUNT_HEADER,
   MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
@@ -86,6 +88,7 @@ function withMiddleware<T extends NextRequest>(
 
     const reqWithLogger = req as NextRequest & { logger?: Logger };
     reqWithLogger.logger = baseLogger;
+    let requestForError = reqWithLogger as NextRequest;
 
     try {
       // Apply middleware if provided
@@ -102,6 +105,7 @@ function withMiddleware<T extends NextRequest>(
         // Otherwise, continue with the enhanced request
         enhancedReq = middlewareResult;
       }
+      requestForError = enhancedReq;
 
       // Execute the handler with the (potentially) enhanced request
       const response = await handler(enhancedReq as T, context);
@@ -110,7 +114,7 @@ function withMiddleware<T extends NextRequest>(
 
       return response;
     } catch (error) {
-      flushLogger(reqWithLogger);
+      flushLogger(requestForError);
 
       // redirects work by throwing an error. allow these
       if (error instanceof Error && error.message === "NEXT_REDIRECT") {
@@ -141,7 +145,7 @@ function withMiddleware<T extends NextRequest>(
         }
       }
 
-      const reqLogger = getLogger(reqWithLogger);
+      const reqLogger = getLogger(requestForError);
 
       if (error instanceof ZodError) {
         if (!env.DISABLE_LOG_ZOD_ERRORS) {
@@ -153,11 +157,19 @@ function withMiddleware<T extends NextRequest>(
         );
       }
 
-      const apiError = checkCommonErrors(error, req.url, reqLogger);
+      const apiError = checkCommonErrors(error, requestForError.url, reqLogger);
       if (apiError) {
+        await recordRateLimitFromApiError({
+          apiErrorType: apiError.type,
+          error,
+          emailAccountId: getEmailAccountId(requestForError),
+          logger: reqLogger,
+          source: scope || new URL(requestForError.url).pathname,
+        });
+
         await logErrorToPosthog(
           "api",
-          req.url,
+          requestForError.url,
           apiError.type,
           "unknown",
           reqLogger,
@@ -196,7 +208,7 @@ function withMiddleware<T extends NextRequest>(
             : undefined,
         stack: error instanceof Error ? error.stack : undefined,
       });
-      captureException(error, { extra: { url: req.url } });
+      captureException(error, { extra: { url: requestForError.url } });
 
       return NextResponse.json(
         { error: "An unexpected error occurred" },
@@ -368,6 +380,9 @@ async function emailProviderMiddleware(
   if (emailAccountReq instanceof Response) return emailAccountReq;
 
   const { userId, emailAccountId } = emailAccountReq.auth;
+  const reqWithAuth = req as RequestWithEmailAccount;
+  reqWithAuth.auth = emailAccountReq.auth;
+  reqWithAuth.logger = emailAccountReq.logger;
   const middlewareStartTime = Date.now();
 
   try {
@@ -421,8 +436,8 @@ async function emailProviderMiddleware(
       userId,
     });
 
-    // Re-throw SafeError so it gets handled with the user-friendly message
-    if (error instanceof SafeError) {
+    // Re-throw known errors so withMiddleware can apply shared error handling.
+    if (error instanceof SafeError || isProviderRateLimitModeError(error)) {
       throw error;
     }
 
@@ -589,6 +604,11 @@ function isErrorWithConfigAndHeaders(
 function getLogger(req: NextRequest): Logger {
   const reqWithLogger = req as RequestWithLogger;
   return reqWithLogger.logger || logger;
+}
+
+function getEmailAccountId(req: NextRequest): string | undefined {
+  const authReq = req as Partial<RequestWithEmailAccount>;
+  return authReq.auth?.emailAccountId;
 }
 
 function flushLogger(req: NextRequest) {

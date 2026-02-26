@@ -7,6 +7,7 @@ import {
 } from "@/utils/webhook/validate-webhook-account";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 
 const logger = createScopedLogger("test");
 // Mock logger.with to return the same logger instance so spies work
@@ -40,9 +41,15 @@ vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
 }));
 
+vi.mock("@/utils/email/rate-limit", () => ({
+  getEmailProviderRateLimitState: vi.fn().mockResolvedValue(null),
+  withRateLimitRecording: vi.fn(async (_context, operation) => operation()),
+}));
+
 describe("processHistoryForUser - 404 Handling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getEmailProviderRateLimitState).mockResolvedValue(null);
   });
 
   it("should reset lastSyncedHistoryId when Gmail returns 404 (expired historyId)", async () => {
@@ -88,6 +95,91 @@ describe("processHistoryForUser - 404 Handling", () => {
 
     // Verify lastSyncedHistoryId was updated to the current historyId via conditional update
     expect(prisma.$executeRaw).toHaveBeenCalled();
+  });
+
+  it("should skip webhook history calls while account is in rate-limit mode", async () => {
+    const email = "user@test.com";
+    const historyId = 2000;
+    const emailAccount = {
+      id: "account-123",
+      email,
+      lastSyncedHistoryId: "1000",
+    };
+
+    vi.mocked(getWebhookEmailAccount).mockResolvedValue(emailAccount as any);
+    vi.mocked(validateWebhookAccount).mockResolvedValue({
+      success: true,
+      data: {
+        emailAccount: {
+          ...emailAccount,
+          account: {
+            access_token: "token",
+            refresh_token: "refresh",
+            expires_at: new Date(Date.now() + 3_600_000),
+          },
+          rules: [],
+        },
+        hasAutomationRules: false,
+        hasAiAccess: false,
+      },
+    } as any);
+    vi.mocked(getEmailProviderRateLimitState).mockResolvedValue({
+      provider: "google",
+      retryAt: new Date(Date.now() + 60_000),
+      source: "test",
+    });
+
+    const result = await processHistoryForUser(
+      { emailAddress: email, historyId },
+      {},
+      logger,
+    );
+
+    const jsonResponse = await (result as any).json();
+    expect(jsonResponse).toEqual({ ok: true });
+    expect(getHistory).not.toHaveBeenCalled();
+  });
+
+  it("should continue processing when rate-limit state lookup fails", async () => {
+    const email = "user@test.com";
+    const historyId = 2000;
+    const emailAccount = {
+      id: "account-123",
+      email,
+      lastSyncedHistoryId: "1000",
+    };
+
+    vi.mocked(getWebhookEmailAccount).mockResolvedValue(emailAccount as any);
+    vi.mocked(validateWebhookAccount).mockResolvedValue({
+      success: true,
+      data: {
+        emailAccount: {
+          ...emailAccount,
+          account: {
+            access_token: "token",
+            refresh_token: "refresh",
+            expires_at: new Date(Date.now() + 3_600_000),
+          },
+          rules: [],
+        },
+        hasAutomationRules: false,
+        hasAiAccess: false,
+      },
+    } as any);
+    vi.mocked(getEmailProviderRateLimitState).mockRejectedValueOnce(
+      new Error("redis unavailable"),
+    );
+    vi.mocked(getHistory).mockResolvedValue({ history: [] });
+
+    const result = await processHistoryForUser(
+      { emailAddress: email, historyId },
+      {},
+      logger,
+    );
+
+    const jsonResponse = await (result as any).json();
+    expect(jsonResponse).toEqual({ ok: true });
+    expect(getHistory).toHaveBeenCalled();
   });
 
   it("should log a warning and advance cursor when large-gap history is truncated", async () => {

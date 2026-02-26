@@ -15,6 +15,10 @@ import {
   getWebhookEmailAccount,
   type ValidatedWebhookAccountData,
 } from "@/utils/webhook/validate-webhook-account";
+import {
+  getEmailProviderRateLimitState,
+  withRateLimitRecording,
+} from "@/utils/email/rate-limit";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import type { gmail_v1 } from "@googleapis/gmail";
@@ -27,7 +31,6 @@ export async function processHistoryForUser(
   options: { startHistoryId?: string },
   logger: Logger,
 ) {
-  const startTime = Date.now();
   const { emailAddress, historyId } = decodedData;
   // All emails in the database are stored in lowercase
   // But it's possible that the email address in the webhook is not
@@ -70,74 +73,107 @@ export async function processHistoryForUser(
   const accountProvider = validatedEmailAccount.account.provider || "google";
 
   try {
-    const gmail = await getGmailClientWithRefresh({
-      accessToken: accountAccessToken,
-      refreshToken: accountRefreshToken,
-      expiresAt: validatedEmailAccount.account.expires_at?.getTime() || null,
-      emailAccountId: validatedEmailAccount.id,
-      logger,
-    });
-
-    const historyResult = await fetchGmailHistoryResilient({
-      gmail,
-      emailAccount: validatedEmailAccount,
-      webhookHistoryId: historyId,
-      options,
-      logger,
-    });
-
-    if (historyResult.status === "expired") {
-      await updateLastSyncedHistoryId({
+    let activeRateLimit: Awaited<
+      ReturnType<typeof getEmailProviderRateLimitState>
+    > = null;
+    try {
+      activeRateLimit = await getEmailProviderRateLimitState({
         emailAccountId: validatedEmailAccount.id,
-        lastSyncedHistoryId: historyId.toString(),
+        logger,
       });
+    } catch (error) {
+      logger.warn("Failed to read provider rate-limit state for webhook", {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+
+    if (activeRateLimit?.provider === "google") {
+      logger.warn(
+        "Skipping webhook processing due to active Gmail rate limit",
+        {
+          retryAt: activeRateLimit.retryAt.toISOString(),
+          rateLimitSource: activeRateLimit.source,
+        },
+      );
       return NextResponse.json({ ok: true });
     }
 
-    const history = historyResult.data;
-    const historyEntries = history.history ?? [];
-
-    if (historyEntries.length > 0) {
-      logger.info("Processing history", {
-        startHistoryId: historyResult.startHistoryId,
-      });
-
-      await processHistory(
-        {
-          history: historyEntries,
-          gmail,
-          accessToken: accountAccessToken,
-          hasAutomationRules,
-          hasAiAccess: userHasAiAccess,
-          rules: validatedEmailAccount.rules,
-          emailAccount: {
-            ...validatedEmailAccount,
-            account: {
-              provider: accountProvider,
-            },
-          },
-        },
-        logger,
-      );
-    } else {
-      // When we truncate a large gap (webhookHistoryId - 500), Gmail can return
-      // an empty recent window. We still need to advance to the webhook historyId
-      // so we don't stay permanently behind and keep skipping.
-      logger.info("No history", {
-        startHistoryId: historyResult.startHistoryId,
-      });
-
-      // important to save this or we can get into a loop with never receiving history
-      await updateLastSyncedHistoryId({
+    return await withRateLimitRecording(
+      {
         emailAccountId: validatedEmailAccount.id,
-        lastSyncedHistoryId: historyId.toString(),
-      });
-    }
+        provider: "google",
+        logger,
+        source: "google/webhook",
+      },
+      async () => {
+        const gmail = await getGmailClientWithRefresh({
+          accessToken: accountAccessToken,
+          refreshToken: accountRefreshToken,
+          expiresAt:
+            validatedEmailAccount.account.expires_at?.getTime() || null,
+          emailAccountId: validatedEmailAccount.id,
+          logger,
+        });
 
-    const processingTimeMs = Date.now() - startTime;
-    logger.info("Completed processing history", { processingTimeMs });
+        const historyResult = await fetchGmailHistoryResilient({
+          gmail,
+          emailAccount: validatedEmailAccount,
+          webhookHistoryId: historyId,
+          options,
+          logger,
+        });
 
-    return NextResponse.json({ ok: true });
+        if (historyResult.status === "expired") {
+          await updateLastSyncedHistoryId({
+            emailAccountId: validatedEmailAccount.id,
+            lastSyncedHistoryId: historyId.toString(),
+          });
+          return NextResponse.json({ ok: true });
+        }
+
+        const history = historyResult.data;
+        const historyEntries = history.history ?? [];
+
+        if (historyEntries.length > 0) {
+          logger.info("Processing history", {
+            startHistoryId: historyResult.startHistoryId,
+          });
+
+          await processHistory(
+            {
+              history: historyEntries,
+              gmail,
+              accessToken: accountAccessToken,
+              hasAutomationRules,
+              hasAiAccess: userHasAiAccess,
+              rules: validatedEmailAccount.rules,
+              emailAccount: {
+                ...validatedEmailAccount,
+                account: {
+                  provider: accountProvider,
+                },
+              },
+            },
+            logger,
+          );
+        } else {
+          // When we truncate a large gap (webhookHistoryId - 500), Gmail can return
+          // an empty recent window. We still need to advance to the webhook historyId
+          // so we don't stay permanently behind and keep skipping.
+          logger.info("No history", {
+            startHistoryId: historyResult.startHistoryId,
+          });
+
+          // important to save this or we can get into a loop with never receiving history
+          await updateLastSyncedHistoryId({
+            emailAccountId: validatedEmailAccount.id,
+            lastSyncedHistoryId: historyId.toString(),
+          });
+        }
+
+        return NextResponse.json({ ok: true });
+      },
+    );
   } catch (error) {
     if (error instanceof Error && error.message === "invalid_grant") {
       logger.warn("Invalid grant", { email });

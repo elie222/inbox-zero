@@ -2,6 +2,7 @@ import pRetry from "p-retry";
 import type { Logger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
 import { isFetchError } from "@/utils/retry/is-fetch-error";
+import { getRetryAfterHeaderFromError } from "@/utils/retry/get-retry-after-header";
 
 interface ErrorInfo {
   status?: number;
@@ -37,20 +38,7 @@ export async function withOutlookRetry<T>(
         throw error;
       }
 
-      const err = error as Record<string, unknown>;
-      const retryAfterHeader =
-        (
-          (err?.response as Record<string, unknown>)?.headers as Record<
-            string,
-            string
-          >
-        )?.["retry-after"] ??
-        (
-          (err?.response as Record<string, unknown>)?.headers as Record<
-            string,
-            string
-          >
-        )?.["Retry-After"];
+      const retryAfterHeader = getRetryAfterHeaderFromError(error);
 
       const delayMs = calculateRetryDelay(
         isRateLimit,

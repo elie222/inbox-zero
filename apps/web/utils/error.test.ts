@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { APICallError } from "ai";
+import { createScopedLogger } from "@/utils/logger";
 import {
+  checkCommonErrors,
   getActionErrorMessage,
   isInsufficientCreditsError,
   isHandledUserKeyError,
@@ -299,9 +301,9 @@ describe("isOutlookAccessDeniedError", () => {
   });
 
   it("does not match generic access denied from other providers", () => {
-    expect(
-      isOutlookAccessDeniedError({ message: "Access is denied" }),
-    ).toBe(false);
+    expect(isOutlookAccessDeniedError({ message: "Access is denied" })).toBe(
+      false,
+    );
   });
 
   it("returns false for unrelated errors", () => {
@@ -325,9 +327,9 @@ describe("isOutlookItemNotFoundError", () => {
   });
 
   it("detects ResourceNotFound message", () => {
-    expect(
-      isOutlookItemNotFoundError({ message: "ResourceNotFound" }),
-    ).toBe(true);
+    expect(isOutlookItemNotFoundError({ message: "ResourceNotFound" })).toBe(
+      true,
+    );
   });
 
   it("detects string error with store ID", () => {
@@ -384,5 +386,47 @@ describe("isKnownApiError", () => {
       statusCode: 401,
     });
     expect(isKnownApiError(error)).toBe(true);
+  });
+
+  it("treats provider rate-limit mode errors as known errors", () => {
+    const error = Object.assign(new Error("Rate-limit mode active"), {
+      name: "ProviderRateLimitModeError",
+      provider: "google",
+    });
+    expect(isKnownApiError(error)).toBe(true);
+  });
+});
+
+describe("checkCommonErrors", () => {
+  const logger = createScopedLogger("error-test");
+
+  it("maps provider rate-limit mode errors for Gmail", () => {
+    const error = Object.assign(new Error("Rate-limit mode active"), {
+      name: "ProviderRateLimitModeError",
+      provider: "google",
+      retryAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+
+    expect(checkCommonErrors(error, "/api/test", logger)).toEqual({
+      type: "Gmail Rate Limit Exceeded",
+      message:
+        "Gmail is temporarily limiting requests. Please try again shortly.",
+      code: 429,
+    });
+  });
+
+  it("maps provider rate-limit mode errors for Outlook", () => {
+    const error = Object.assign(new Error("Rate-limit mode active"), {
+      name: "ProviderRateLimitModeError",
+      provider: "microsoft",
+      retryAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+
+    expect(checkCommonErrors(error, "/api/test", logger)).toEqual({
+      type: "Outlook Rate Limit",
+      message:
+        "Microsoft is temporarily limiting requests. Please try again shortly.",
+      code: 429,
+    });
   });
 });
