@@ -198,6 +198,26 @@ describe("Models", () => {
       });
     });
 
+    it("should configure Gemini 3 Google model with thinking level", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: "user-api-key",
+        aiProvider: Provider.GOOGLE,
+        aiModel: "gemini-3-pro-preview",
+      };
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.GOOGLE);
+      expect(result.modelName).toBe("gemini-3-pro-preview");
+      expect(result.providerOptions).toEqual({
+        google: {
+          thinkingConfig: {
+            thinkingLevel: "minimal",
+          },
+        },
+      });
+    });
+
     it("should configure Vertex model correctly", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
@@ -260,6 +280,31 @@ describe("Models", () => {
           credentials: {
             client_email: "service-account@test.iam.gserviceaccount.com",
             private_key: "line1\nline2",
+          },
+        },
+      });
+    });
+
+    it("should configure Gemini 3 Vertex model with thinking level", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "vertex";
+      vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
+      vi.mocked(env).GOOGLE_VERTEX_PROJECT = "test-vertex-project";
+      vi.mocked(env).GOOGLE_VERTEX_LOCATION = "us-central1";
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.VERTEX);
+      expect(result.modelName).toBe("gemini-3-flash");
+      expect(result.providerOptions).toEqual({
+        vertex: {
+          thinkingConfig: {
+            thinkingLevel: "minimal",
           },
         },
       });

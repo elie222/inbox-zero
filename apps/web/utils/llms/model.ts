@@ -147,9 +147,7 @@ function selectModel(
         })(mod),
         providerOptions: {
           google: {
-            thinkingConfig: {
-              thinkingBudget: GOOGLE_THINKING_BUDGET,
-            },
+            thinkingConfig: getGoogleThinkingConfig(mod),
           } satisfies GoogleGenerativeAIProviderOptions,
         },
       };
@@ -162,9 +160,7 @@ function selectModel(
         model: createVertex(getVertexConfig())(modelName),
         providerOptions: {
           vertex: {
-            thinkingConfig: {
-              thinkingBudget: GOOGLE_THINKING_BUDGET,
-            },
+            thinkingConfig: getGoogleThinkingConfig(modelName),
           } satisfies GoogleGenerativeAIProviderOptions,
         },
       };
@@ -667,6 +663,20 @@ function getOpenRouterProviderOptionsByType(
   const providers = providersByType[modelType];
   if (!providers) return;
   return createOpenRouterProviderOptions(providers);
+}
+
+function getGoogleThinkingConfig(
+  modelName: string,
+): NonNullable<GoogleGenerativeAIProviderOptions["thinkingConfig"]> {
+  if (isGemini3Model(modelName)) {
+    return { thinkingLevel: "minimal" };
+  }
+
+  return { thinkingBudget: GOOGLE_THINKING_BUDGET };
+}
+
+function isGemini3Model(modelName: string): boolean {
+  return modelName.toLowerCase().startsWith("gemini-3");
 }
 
 function parseFallbackConfig(
