@@ -35,6 +35,10 @@ export type EmailProviderRateLimitState = {
   source?: string;
 };
 
+export {
+  getEmailProviderRateLimitStateFromRedis as getEmailProviderRateLimitState,
+};
+
 export async function recordRateLimitFromApiError({
   apiErrorType,
   error,
@@ -81,14 +85,6 @@ type RateLimitRecordingContext = {
   ) => void | Promise<void>;
 };
 
-export async function getEmailProviderRateLimitState({
-  emailAccountId,
-}: {
-  emailAccountId: string;
-}): Promise<EmailProviderRateLimitState | null> {
-  return getEmailProviderRateLimitStateFromRedis({ emailAccountId });
-}
-
 export async function setEmailProviderRateLimitState({
   emailAccountId,
   provider,
@@ -111,7 +107,9 @@ export async function setEmailProviderRateLimitState({
   }
 
   const stateLogger = customLogger || logger;
-  const existing = await getEmailProviderRateLimitState({ emailAccountId });
+  const existing = await getEmailProviderRateLimitStateFromRedis({
+    emailAccountId,
+  });
 
   if (
     existing &&
@@ -164,7 +162,9 @@ export async function assertProviderNotRateLimited({
   logger?: Logger;
   source?: string;
 }) {
-  const state = await getEmailProviderRateLimitState({ emailAccountId });
+  const state = await getEmailProviderRateLimitStateFromRedis({
+    emailAccountId,
+  });
   if (!state || state.provider !== provider) return;
 
   logger?.warn("Skipping provider call while rate-limit mode is active", {
