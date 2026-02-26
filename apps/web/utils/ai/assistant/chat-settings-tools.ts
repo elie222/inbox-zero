@@ -341,23 +341,29 @@ export const getAssistantCapabilitiesTool = ({
     inputSchema: emptyInputSchema,
     execute: async () => {
       trackToolCall({ tool: "get_assistant_capabilities", email, logger });
+      try {
+        const snapshot = await loadAccountSettingsSnapshot(emailAccountId);
+        if (!snapshot) return { error: "Email account not found" };
 
-      const snapshot = await loadAccountSettingsSnapshot(emailAccountId);
-      if (!snapshot) return { error: "Email account not found" };
-
-      return {
-        snapshotVersion: "2026-02-20",
-        account: {
-          email: snapshot.email,
-          provider,
-          timezone: snapshot.timezone,
-        },
-        capabilities: [
-          ...getWritableCapabilities(snapshot),
-          ...getReadOnlyCapabilities(snapshot),
-        ],
-        writablePaths: settingsPathSchema.options,
-      };
+        return {
+          snapshotVersion: "2026-02-20",
+          account: {
+            email: snapshot.email,
+            provider,
+            timezone: snapshot.timezone,
+          },
+          capabilities: [
+            ...getWritableCapabilities(snapshot),
+            ...getReadOnlyCapabilities(snapshot),
+          ],
+          writablePaths: settingsPathSchema.options,
+        };
+      } catch (error) {
+        logger.error("Failed to load assistant capabilities", { error });
+        return {
+          error: "Failed to load assistant capabilities",
+        };
+      }
     },
   });
 
@@ -382,236 +388,243 @@ export const updateAssistantSettingsTool = ({
     inputSchema: updateAssistantSettingsInputSchema,
     execute: async ({ changes, dryRun }) => {
       trackToolCall({ tool: "update_assistant_settings", email, logger });
+      try {
+        const existing = await loadAccountSettingsSnapshot(emailAccountId);
+        if (!existing) return { error: "Email account not found" };
 
-      const existing = await loadAccountSettingsSnapshot(emailAccountId);
-      if (!existing) return { error: "Email account not found" };
+        const normalizedChanges = dedupeSettingsChanges(changes);
+        const data: {
+          about?: string;
+          multiRuleSelectionEnabled?: boolean;
+          meetingBriefingsEnabled?: boolean;
+          meetingBriefingsMinutesBefore?: number;
+          meetingBriefsSendEmail?: boolean;
+          filingEnabled?: boolean;
+          filingPrompt?: string | null;
+        } = {};
+        let scheduledCheckInsConfig: ScheduledCheckInsConfig | null = null;
+        let hasScheduledCheckInsPremium: boolean | null = null;
+        const knowledgeOperations: Array<
+          | {
+              type: "upsert";
+              title: string;
+              content: string;
+            }
+          | {
+              type: "delete";
+              title: string;
+            }
+        > = [];
+        const appliedChanges: Array<{
+          path: z.infer<typeof settingsPathSchema>;
+          previous: unknown;
+          next: unknown;
+        }> = [];
+        const draftKnowledgeByTitle = new Map<string, DraftKnowledgeItem>(
+          existing.draftKnowledgeBase.items.map((item: DraftKnowledgeItem) => [
+            item.title,
+            item,
+          ]),
+        );
 
-      const normalizedChanges = dedupeSettingsChanges(changes);
-      const data: {
-        about?: string;
-        multiRuleSelectionEnabled?: boolean;
-        meetingBriefingsEnabled?: boolean;
-        meetingBriefingsMinutesBefore?: number;
-        meetingBriefsSendEmail?: boolean;
-        filingEnabled?: boolean;
-        filingPrompt?: string | null;
-      } = {};
-      let scheduledCheckInsConfig: ScheduledCheckInsConfig | null = null;
-      let hasScheduledCheckInsPremium: boolean | null = null;
-      const knowledgeOperations: Array<
-        | {
-            type: "upsert";
-            title: string;
-            content: string;
-          }
-        | {
-            type: "delete";
-            title: string;
-          }
-      > = [];
-      const appliedChanges: Array<{
-        path: z.infer<typeof settingsPathSchema>;
-        previous: unknown;
-        next: unknown;
-      }> = [];
-      const draftKnowledgeByTitle = new Map<string, DraftKnowledgeItem>(
-        existing.draftKnowledgeBase.items.map((item: DraftKnowledgeItem) => [
-          item.title,
-          item,
-        ]),
-      );
+        for (const change of normalizedChanges) {
+          if (change.path === "assistant.draftKnowledgeBase.upsert") {
+            const existingItem = draftKnowledgeByTitle.get(change.value.title);
+            const nextContent = resolveKnowledgeContent({
+              existingContent: existingItem?.content ?? null,
+              incomingContent: change.value.content,
+              mode: change.mode,
+            });
 
-      for (const change of normalizedChanges) {
-        if (change.path === "assistant.draftKnowledgeBase.upsert") {
-          const existingItem = draftKnowledgeByTitle.get(change.value.title);
-          const nextContent = resolveKnowledgeContent({
-            existingContent: existingItem?.content ?? null,
-            incomingContent: change.value.content,
-            mode: change.mode,
-          });
+            if (existingItem?.content === nextContent) continue;
 
-          if (existingItem?.content === nextContent) continue;
+            appliedChanges.push({
+              path: change.path,
+              previous: existingItem
+                ? {
+                    title: existingItem.title,
+                    contentLength: existingItem.content.length,
+                  }
+                : null,
+              next: {
+                title: change.value.title,
+                contentLength: nextContent.length,
+              },
+            });
 
-          appliedChanges.push({
-            path: change.path,
-            previous: existingItem
-              ? {
-                  title: existingItem.title,
-                  contentLength: existingItem.content.length,
-                }
-              : null,
-            next: {
+            draftKnowledgeByTitle.set(change.value.title, {
+              id: existingItem?.id ?? "",
               title: change.value.title,
-              contentLength: nextContent.length,
-            },
-          });
+              content: nextContent,
+              updatedAt: new Date().toISOString(),
+            });
 
-          draftKnowledgeByTitle.set(change.value.title, {
-            id: existingItem?.id ?? "",
-            title: change.value.title,
-            content: nextContent,
-            updatedAt: new Date().toISOString(),
-          });
-
-          knowledgeOperations.push({
-            type: "upsert",
-            title: change.value.title,
-            content: nextContent,
-          });
-          continue;
-        }
-
-        if (change.path === "assistant.draftKnowledgeBase.delete") {
-          const existingItem = draftKnowledgeByTitle.get(change.value.title);
-          if (!existingItem) continue;
-
-          appliedChanges.push({
-            path: change.path,
-            previous: {
-              title: existingItem.title,
-              contentLength: existingItem.content.length,
-            },
-            next: null,
-          });
-
-          draftKnowledgeByTitle.delete(change.value.title);
-          knowledgeOperations.push({
-            type: "delete",
-            title: change.value.title,
-          });
-          continue;
-        }
-
-        const previousValue = getCurrentValue({
-          snapshot: existing,
-          path: change.path,
-        });
-        let resolvedNextValue: unknown;
-
-        try {
-          resolvedNextValue = resolveNextValue({
-            snapshot: existing,
-            change,
-          });
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          return { error: message };
-        }
-
-        if (areValuesEqual(previousValue, resolvedNextValue)) continue;
-
-        if (
-          change.path === "assistant.scheduledCheckIns.config" &&
-          requiresScheduledCheckInsPremium({
-            current: previousValue as ScheduledCheckInsConfig,
-            next: resolvedNextValue as ScheduledCheckInsConfig,
-          })
-        ) {
-          if (hasScheduledCheckInsPremium === null) {
-            hasScheduledCheckInsPremium = await canEnableAutomationJobs(userId);
-          }
-
-          if (!hasScheduledCheckInsPremium) {
-            return { error: "Premium is required for scheduled check-ins." };
-          }
-        }
-
-        appliedChanges.push({
-          path: change.path,
-          previous: previousValue,
-          next: resolvedNextValue,
-        });
-
-        switch (change.path) {
-          case "assistant.personalInstructions.about":
-            data.about = resolvedNextValue as string;
-            break;
-          case "assistant.multiRuleSelection.enabled":
-            data.multiRuleSelectionEnabled = resolvedNextValue as boolean;
-            break;
-          case "assistant.meetingBriefs.enabled":
-            data.meetingBriefingsEnabled = resolvedNextValue as boolean;
-            break;
-          case "assistant.meetingBriefs.minutesBefore":
-            data.meetingBriefingsMinutesBefore = resolvedNextValue as number;
-            break;
-          case "assistant.meetingBriefs.sendEmail":
-            data.meetingBriefsSendEmail = resolvedNextValue as boolean;
-            break;
-          case "assistant.attachmentFiling.enabled":
-            data.filingEnabled = resolvedNextValue as boolean;
-            break;
-          case "assistant.attachmentFiling.prompt":
-            data.filingPrompt = resolvedNextValue as string | null;
-            break;
-          case "assistant.scheduledCheckIns.config":
-            scheduledCheckInsConfig =
-              resolvedNextValue as ScheduledCheckInsConfig;
-            break;
-        }
-      }
-
-      if (appliedChanges.length === 0) {
-        return {
-          success: true,
-          dryRun,
-          message: "No setting changes were needed.",
-          appliedChanges: [],
-        };
-      }
-
-      if (!dryRun) {
-        if (Object.keys(data).length > 0) {
-          await prisma.emailAccount.update({
-            where: { id: emailAccountId },
-            data,
-          });
-        }
-
-        if (scheduledCheckInsConfig) {
-          await applyScheduledCheckInsConfig({
-            emailAccountId,
-            current: existing.scheduledCheckIns,
-            config: scheduledCheckInsConfig,
-          });
-        }
-
-        for (const operation of knowledgeOperations) {
-          if (operation.type === "upsert") {
-            await prisma.knowledge.upsert({
-              where: {
-                emailAccountId_title: {
-                  emailAccountId,
-                  title: operation.title,
-                },
-              },
-              create: {
-                emailAccountId,
-                title: operation.title,
-                content: operation.content,
-              },
-              update: {
-                content: operation.content,
-              },
+            knowledgeOperations.push({
+              type: "upsert",
+              title: change.value.title,
+              content: nextContent,
             });
             continue;
           }
 
-          await prisma.knowledge.deleteMany({
-            where: {
-              emailAccountId,
-              title: operation.title,
-            },
-          });
-        }
-      }
+          if (change.path === "assistant.draftKnowledgeBase.delete") {
+            const existingItem = draftKnowledgeByTitle.get(change.value.title);
+            if (!existingItem) continue;
 
-      return {
-        success: true,
-        dryRun,
-        appliedChanges,
-      };
+            appliedChanges.push({
+              path: change.path,
+              previous: {
+                title: existingItem.title,
+                contentLength: existingItem.content.length,
+              },
+              next: null,
+            });
+
+            draftKnowledgeByTitle.delete(change.value.title);
+            knowledgeOperations.push({
+              type: "delete",
+              title: change.value.title,
+            });
+            continue;
+          }
+
+          const previousValue = getCurrentValue({
+            snapshot: existing,
+            path: change.path,
+          });
+          let resolvedNextValue: unknown;
+
+          try {
+            resolvedNextValue = resolveNextValue({
+              snapshot: existing,
+              change,
+            });
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            return { error: message };
+          }
+
+          if (areValuesEqual(previousValue, resolvedNextValue)) continue;
+
+          if (
+            change.path === "assistant.scheduledCheckIns.config" &&
+            requiresScheduledCheckInsPremium({
+              current: previousValue as ScheduledCheckInsConfig,
+              next: resolvedNextValue as ScheduledCheckInsConfig,
+            })
+          ) {
+            if (hasScheduledCheckInsPremium === null) {
+              hasScheduledCheckInsPremium =
+                await canEnableAutomationJobs(userId);
+            }
+
+            if (!hasScheduledCheckInsPremium) {
+              return { error: "Premium is required for scheduled check-ins." };
+            }
+          }
+
+          appliedChanges.push({
+            path: change.path,
+            previous: previousValue,
+            next: resolvedNextValue,
+          });
+
+          switch (change.path) {
+            case "assistant.personalInstructions.about":
+              data.about = resolvedNextValue as string;
+              break;
+            case "assistant.multiRuleSelection.enabled":
+              data.multiRuleSelectionEnabled = resolvedNextValue as boolean;
+              break;
+            case "assistant.meetingBriefs.enabled":
+              data.meetingBriefingsEnabled = resolvedNextValue as boolean;
+              break;
+            case "assistant.meetingBriefs.minutesBefore":
+              data.meetingBriefingsMinutesBefore = resolvedNextValue as number;
+              break;
+            case "assistant.meetingBriefs.sendEmail":
+              data.meetingBriefsSendEmail = resolvedNextValue as boolean;
+              break;
+            case "assistant.attachmentFiling.enabled":
+              data.filingEnabled = resolvedNextValue as boolean;
+              break;
+            case "assistant.attachmentFiling.prompt":
+              data.filingPrompt = resolvedNextValue as string | null;
+              break;
+            case "assistant.scheduledCheckIns.config":
+              scheduledCheckInsConfig =
+                resolvedNextValue as ScheduledCheckInsConfig;
+              break;
+          }
+        }
+
+        if (appliedChanges.length === 0) {
+          return {
+            success: true,
+            dryRun,
+            message: "No setting changes were needed.",
+            appliedChanges: [],
+          };
+        }
+
+        if (!dryRun) {
+          if (Object.keys(data).length > 0) {
+            await prisma.emailAccount.update({
+              where: { id: emailAccountId },
+              data,
+            });
+          }
+
+          if (scheduledCheckInsConfig) {
+            await applyScheduledCheckInsConfig({
+              emailAccountId,
+              current: existing.scheduledCheckIns,
+              config: scheduledCheckInsConfig,
+            });
+          }
+
+          for (const operation of knowledgeOperations) {
+            if (operation.type === "upsert") {
+              await prisma.knowledge.upsert({
+                where: {
+                  emailAccountId_title: {
+                    emailAccountId,
+                    title: operation.title,
+                  },
+                },
+                create: {
+                  emailAccountId,
+                  title: operation.title,
+                  content: operation.content,
+                },
+                update: {
+                  content: operation.content,
+                },
+              });
+              continue;
+            }
+
+            await prisma.knowledge.deleteMany({
+              where: {
+                emailAccountId,
+                title: operation.title,
+              },
+            });
+          }
+        }
+
+        return {
+          success: true,
+          dryRun,
+          appliedChanges,
+        };
+      } catch (error) {
+        logger.error("Failed to update assistant settings", { error });
+        return {
+          error: "Failed to update assistant settings",
+        };
+      }
     },
   });
 

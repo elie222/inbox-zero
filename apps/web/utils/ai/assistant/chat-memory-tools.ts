@@ -28,30 +28,36 @@ export const searchMemoriesTool = ({
     }),
     execute: async ({ query }) => {
       logger.trace("Tool call: search_memories", { email });
+      try {
+        const memories = await prisma.chatMemory.findMany({
+          where: {
+            emailAccountId,
+            content: { contains: query, mode: "insensitive" },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          select: {
+            content: true,
+            createdAt: true,
+          },
+        });
 
-      const memories = await prisma.chatMemory.findMany({
-        where: {
-          emailAccountId,
-          content: { contains: query, mode: "insensitive" },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        select: {
-          content: true,
-          createdAt: true,
-        },
-      });
+        if (memories.length === 0) {
+          return { memories: [], message: "No matching memories found." };
+        }
 
-      if (memories.length === 0) {
-        return { memories: [], message: "No matching memories found." };
+        return {
+          memories: memories.map((m) => ({
+            content: m.content,
+            date: formatUtcDate(m.createdAt),
+          })),
+        };
+      } catch (error) {
+        logger.error("Failed to search memories", { error });
+        return {
+          error: "Failed to search memories",
+        };
       }
-
-      return {
-        memories: memories.map((m) => ({
-          content: m.content,
-          date: formatUtcDate(m.createdAt),
-        })),
-      };
     },
   });
 
@@ -85,25 +91,31 @@ export const saveMemoryTool = ({
     }),
     execute: async ({ content }) => {
       logger.trace("Tool call: save_memory", { email });
+      try {
+        const existing = await prisma.chatMemory.findFirst({
+          where: { emailAccountId, content },
+          select: { id: true },
+        });
 
-      const existing = await prisma.chatMemory.findFirst({
-        where: { emailAccountId, content },
-        select: { id: true },
-      });
+        if (existing) {
+          return { success: true, content, deduplicated: true };
+        }
 
-      if (existing) {
-        return { success: true, content, deduplicated: true };
+        await prisma.chatMemory.create({
+          data: {
+            content,
+            chatId: chatId ?? null,
+            emailAccountId,
+          },
+        });
+
+        return { success: true, content };
+      } catch (error) {
+        logger.error("Failed to save memory", { error });
+        return {
+          error: "Failed to save memory",
+        };
       }
-
-      await prisma.chatMemory.create({
-        data: {
-          content,
-          chatId: chatId ?? null,
-          emailAccountId,
-        },
-      });
-
-      return { success: true, content };
     },
   });
 

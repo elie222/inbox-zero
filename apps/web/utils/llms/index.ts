@@ -99,6 +99,7 @@ export function createGenerateText({
 
       const providerOptions = buildProviderOptions({
         provider: candidate.provider,
+        modelName: candidate.modelName,
         modelProviderOptions: candidate.providerOptions as
           | LLMProviderOptions
           | undefined,
@@ -221,6 +222,7 @@ export function createGenerateObject({
 
       const providerOptions = buildProviderOptions({
         provider: candidate.provider,
+        modelName: candidate.modelName,
         modelProviderOptions: candidate.providerOptions as
           | LLMProviderOptions
           | undefined,
@@ -351,6 +353,7 @@ export async function chatCompletionStream({
     const nextCandidate = modelCandidates[index + 1];
     const providerOptions = buildProviderOptions({
       provider: candidate.provider,
+      modelName: candidate.modelName,
       modelProviderOptions: candidate.providerOptions as
         | LLMProviderOptions
         | undefined,
@@ -478,6 +481,7 @@ export async function toolCallAgentStream({
     const nextCandidate = modelCandidates[index + 1];
     const providerOptions = buildProviderOptions({
       provider: candidate.provider,
+      modelName: candidate.modelName,
       modelProviderOptions: candidate.providerOptions as
         | LLMProviderOptions
         | undefined,
@@ -832,6 +836,7 @@ function mergeProviderOptions(
 
 function buildProviderOptions({
   provider,
+  modelName,
   modelProviderOptions,
   requestProviderOptions,
   userId,
@@ -839,6 +844,7 @@ function buildProviderOptions({
   emailAccountId,
 }: {
   provider: string;
+  modelName?: string;
   modelProviderOptions?: LLMProviderOptions;
   requestProviderOptions?: LLMProviderOptions;
   userId?: string;
@@ -851,12 +857,18 @@ function buildProviderOptions({
     requestProviderOptions,
   );
 
-  return withOpenRouterMetadata({
+  const withMetadata = withOpenRouterMetadata({
     provider,
     providerOptions: mergedProviderOptions,
     userId,
     label,
     emailAccountId,
+  });
+
+  return normalizeOpenRouterReasoningOptions({
+    provider,
+    modelName,
+    providerOptions: withMetadata,
   });
 }
 
@@ -924,6 +936,45 @@ function withOpenRouterMetadata({
   return {
     ...providerOptions,
     openrouter: nextOpenRouterOptions,
+  };
+}
+
+function normalizeOpenRouterReasoningOptions({
+  provider,
+  modelName,
+  providerOptions,
+}: {
+  provider: string;
+  modelName?: string;
+  providerOptions: LLMProviderOptions;
+}) {
+  if (provider !== Provider.OPENROUTER) return providerOptions;
+  if (!modelName?.startsWith("x-ai/grok-")) return providerOptions;
+
+  const openRouterOptions = providerOptions.openrouter;
+  if (!isJsonObject(openRouterOptions)) return providerOptions;
+
+  const reasoningOptions = openRouterOptions.reasoning;
+  if (!isJsonObject(reasoningOptions)) return providerOptions;
+
+  const { max_tokens: _maxTokens, ...restReasoningOptions } = reasoningOptions;
+  const normalizedReasoning: Record<string, JSONValue> = {
+    ...restReasoningOptions,
+  };
+
+  if (
+    !("enabled" in normalizedReasoning) &&
+    !("effort" in normalizedReasoning)
+  ) {
+    normalizedReasoning.enabled = true;
+  }
+
+  return {
+    ...providerOptions,
+    openrouter: {
+      ...openRouterOptions,
+      reasoning: normalizedReasoning,
+    },
   };
 }
 

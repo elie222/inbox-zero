@@ -79,69 +79,75 @@ export const getAccountOverviewTool = ({
     inputSchema: emptyInputSchema,
     execute: async () => {
       trackToolCall({ tool: "get_account_overview", email, logger });
+      try {
+        const [emailAccount, labelNames] = await Promise.all([
+          prisma.emailAccount.findUnique({
+            where: { id: emailAccountId },
+            select: {
+              email: true,
+              timezone: true,
+              meetingBriefingsEnabled: true,
+              meetingBriefingsMinutesBefore: true,
+              meetingBriefsSendEmail: true,
+              filingEnabled: true,
+              filingPrompt: true,
+              filingFolders: {
+                select: {
+                  folderName: true,
+                  folderPath: true,
+                },
+                take: 50,
+              },
+              driveConnections: {
+                select: {
+                  id: true,
+                },
+                take: 1,
+              },
+            },
+          }),
+          listLabelNames({
+            emailAccountId,
+            provider,
+            logger,
+          }),
+        ]);
 
-      const [emailAccount, labelNames] = await Promise.all([
-        prisma.emailAccount.findUnique({
-          where: { id: emailAccountId },
-          select: {
-            email: true,
-            timezone: true,
-            meetingBriefingsEnabled: true,
-            meetingBriefingsMinutesBefore: true,
-            meetingBriefsSendEmail: true,
-            filingEnabled: true,
-            filingPrompt: true,
-            filingFolders: {
-              select: {
-                folderName: true,
-                folderPath: true,
-              },
-              take: 50,
-            },
-            driveConnections: {
-              select: {
-                id: true,
-              },
-              take: 1,
-            },
+        if (!emailAccount) {
+          return { error: "Email account not found" };
+        }
+
+        return {
+          account: {
+            email: emailAccount.email,
+            provider,
+            timezone: emailAccount.timezone,
           },
-        }),
-        listLabelNames({
-          emailAccountId,
-          provider,
-          logger,
-        }),
-      ]);
-
-      if (!emailAccount) {
-        return { error: "Email account not found" };
+          meetingBriefs: {
+            enabled: emailAccount.meetingBriefingsEnabled,
+            minutesBefore: emailAccount.meetingBriefingsMinutesBefore,
+            sendEmail: emailAccount.meetingBriefsSendEmail,
+          },
+          attachmentFiling: {
+            enabled: emailAccount.filingEnabled,
+            promptConfigured: Boolean(emailAccount.filingPrompt),
+            driveConnected: emailAccount.driveConnections.length > 0,
+            folders: emailAccount.filingFolders.map((folder) => ({
+              name: folder.folderName,
+              path: folder.folderPath,
+            })),
+          },
+          labels: {
+            count: labelNames.length,
+            names: labelNames.slice(0, 200),
+          },
+        };
+      } catch (error) {
+        logger.error("Failed to load account overview", { error });
+        return {
+          error: "Failed to load account overview",
+        };
       }
-
-      return {
-        account: {
-          email: emailAccount.email,
-          provider,
-          timezone: emailAccount.timezone,
-        },
-        meetingBriefs: {
-          enabled: emailAccount.meetingBriefingsEnabled,
-          minutesBefore: emailAccount.meetingBriefingsMinutesBefore,
-          sendEmail: emailAccount.meetingBriefsSendEmail,
-        },
-        attachmentFiling: {
-          enabled: emailAccount.filingEnabled,
-          promptConfigured: Boolean(emailAccount.filingPrompt),
-          driveConnected: emailAccount.driveConnections.length > 0,
-          folders: emailAccount.filingFolders.map((folder) => ({
-            name: folder.folderName,
-            path: folder.folderPath,
-          })),
-        },
-        labels: {
-          count: labelNames.length,
-          names: labelNames.slice(0, 200),
-        },
-      };
     },
   });
 
@@ -558,63 +564,69 @@ export const updateInboxFeaturesTool = ({
       filingPrompt,
     }) => {
       trackToolCall({ tool: "update_inbox_features", email, logger });
+      try {
+        const existing = await prisma.emailAccount.findUnique({
+          where: { id: emailAccountId },
+          select: {
+            meetingBriefingsEnabled: true,
+            meetingBriefingsMinutesBefore: true,
+            meetingBriefsSendEmail: true,
+            filingEnabled: true,
+            filingPrompt: true,
+          },
+        });
 
-      const existing = await prisma.emailAccount.findUnique({
-        where: { id: emailAccountId },
-        select: {
-          meetingBriefingsEnabled: true,
-          meetingBriefingsMinutesBefore: true,
-          meetingBriefsSendEmail: true,
-          filingEnabled: true,
-          filingPrompt: true,
-        },
-      });
+        if (!existing) return { error: "Email account not found" };
 
-      if (!existing) return { error: "Email account not found" };
+        await prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data: {
+            ...(meetingBriefsEnabled !== undefined && {
+              meetingBriefingsEnabled: meetingBriefsEnabled,
+            }),
+            ...(meetingBriefsMinutesBefore !== undefined && {
+              meetingBriefingsMinutesBefore: meetingBriefsMinutesBefore,
+            }),
+            ...(meetingBriefsSendEmail !== undefined && {
+              meetingBriefsSendEmail,
+            }),
+            ...(filingEnabled !== undefined && {
+              filingEnabled,
+            }),
+            ...(filingPrompt !== undefined && {
+              filingPrompt,
+            }),
+          },
+        });
 
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: {
-          ...(meetingBriefsEnabled !== undefined && {
-            meetingBriefingsEnabled: meetingBriefsEnabled,
-          }),
-          ...(meetingBriefsMinutesBefore !== undefined && {
-            meetingBriefingsMinutesBefore: meetingBriefsMinutesBefore,
-          }),
-          ...(meetingBriefsSendEmail !== undefined && {
-            meetingBriefsSendEmail,
-          }),
-          ...(filingEnabled !== undefined && {
-            filingEnabled,
-          }),
-          ...(filingPrompt !== undefined && {
-            filingPrompt,
-          }),
-        },
-      });
-
-      return {
-        success: true,
-        previous: {
-          meetingBriefsEnabled: existing.meetingBriefingsEnabled,
-          meetingBriefsMinutesBefore: existing.meetingBriefingsMinutesBefore,
-          meetingBriefsSendEmail: existing.meetingBriefsSendEmail,
-          filingEnabled: existing.filingEnabled,
-          filingPrompt: existing.filingPrompt,
-        },
-        updated: {
-          meetingBriefsEnabled:
-            meetingBriefsEnabled ?? existing.meetingBriefingsEnabled,
-          meetingBriefsMinutesBefore:
-            meetingBriefsMinutesBefore ??
-            existing.meetingBriefingsMinutesBefore,
-          meetingBriefsSendEmail:
-            meetingBriefsSendEmail ?? existing.meetingBriefsSendEmail,
-          filingEnabled: filingEnabled ?? existing.filingEnabled,
-          filingPrompt:
-            filingPrompt !== undefined ? filingPrompt : existing.filingPrompt,
-        },
-      };
+        return {
+          success: true,
+          previous: {
+            meetingBriefsEnabled: existing.meetingBriefingsEnabled,
+            meetingBriefsMinutesBefore: existing.meetingBriefingsMinutesBefore,
+            meetingBriefsSendEmail: existing.meetingBriefsSendEmail,
+            filingEnabled: existing.filingEnabled,
+            filingPrompt: existing.filingPrompt,
+          },
+          updated: {
+            meetingBriefsEnabled:
+              meetingBriefsEnabled ?? existing.meetingBriefingsEnabled,
+            meetingBriefsMinutesBefore:
+              meetingBriefsMinutesBefore ??
+              existing.meetingBriefingsMinutesBefore,
+            meetingBriefsSendEmail:
+              meetingBriefsSendEmail ?? existing.meetingBriefsSendEmail,
+            filingEnabled: filingEnabled ?? existing.filingEnabled,
+            filingPrompt:
+              filingPrompt !== undefined ? filingPrompt : existing.filingPrompt,
+          },
+        };
+      } catch (error) {
+        logger.error("Failed to update inbox features", { error });
+        return {
+          error: "Failed to update inbox features",
+        };
+      }
     },
   });
 
