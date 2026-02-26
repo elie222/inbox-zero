@@ -1,9 +1,8 @@
-import { ActionType, GroupItemSource } from "@/generated/prisma/enums";
+import { ActionType } from "@/generated/prisma/enums";
 import { extractEmailAddress } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { shouldLearnFromLabelRemoval } from "@/utils/rule/consts";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import { recordLabelRemovalLearning } from "@/utils/rule/record-label-removal-learning";
 import type { ParsedMessage } from "@/utils/types";
 
 export async function learnFromOutlookLabelRemoval({
@@ -57,10 +56,7 @@ export async function learnFromOutlookLabelRemoval({
 
   for (const executedRule of executedRules) {
     const ruleId = executedRule.rule?.id;
-    const systemType = executedRule.rule?.systemType;
-    if (!ruleId || !systemType || !shouldLearnFromLabelRemoval(systemType)) {
-      continue;
-    }
+    if (!ruleId) continue;
 
     const hasRemovedLabel = executedRule.actionItems.some((action) => {
       const hasMatchingLabelId =
@@ -78,24 +74,18 @@ export async function learnFromOutlookLabelRemoval({
 
   if (removedRuleIds.size === 0) return;
 
-  logger.info("Processing Outlook label removal for learning", {
-    ruleCount: removedRuleIds.size,
-  });
-  logger.trace("Outlook label removal sender", {
-    from: sender,
-  });
+  for (const executedRule of executedRules) {
+    const ruleId = executedRule.rule?.id;
+    if (!ruleId || !removedRuleIds.has(ruleId)) continue;
 
-  for (const ruleId of removedRuleIds) {
-    await saveLearnedPattern({
-      emailAccountId,
-      from: sender,
+    await recordLabelRemovalLearning({
+      sender,
       ruleId,
-      exclude: true,
-      logger,
+      systemType: executedRule.rule?.systemType,
       messageId: message.id,
       threadId: message.threadId,
-      reason: "Label removed",
-      source: GroupItemSource.LABEL_REMOVED,
+      emailAccountId,
+      logger,
     });
   }
 }
