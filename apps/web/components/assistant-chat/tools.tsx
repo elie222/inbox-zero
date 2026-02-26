@@ -494,7 +494,7 @@ function EmailActionResult({
               Message
             </div>
             <div className="rounded-md bg-muted p-2 text-xs">
-              <ExpandableText text={body} />
+              <div className="break-words whitespace-pre-wrap">{body}</div>
             </div>
           </div>
         )}
@@ -506,70 +506,74 @@ function EmailActionResult({
           </div>
         )}
 
-        {externalUrl && (
-          <ToolExternalLink href={externalUrl}>
-            Open in {provider === "microsoft" ? "Outlook" : "Gmail"}
-          </ToolExternalLink>
-        )}
-
-        {requiresConfirmation && !isConfirmed && (
-          <Button
-            size="sm"
-            className="w-fit"
-            disabled={isConfirming || isProcessing || isChatBusy}
-            onClick={async () => {
-              setIsConfirming(true);
-              try {
-                const result = await confirmAssistantEmailAction(
-                  emailAccountId,
-                  {
-                    chatMessageId,
-                    toolCallId,
-                    actionType,
-                  },
-                );
-
-                if (result?.serverError) {
-                  toastError({ description: result.serverError });
-                  return;
-                }
-
-                const confirmationResult = parseConfirmationResult(
-                  result?.data?.confirmationResult,
-                );
-                if (!confirmationResult) {
-                  toastError({
-                    description: "Could not confirm this email action.",
-                  });
-                  return;
-                }
-
-                setConfirmationResultOverride(confirmationResult);
-                toastSuccess({
-                  description: getAssistantEmailSuccessMessage(actionType),
-                });
-              } catch {
-                toastError({
-                  description: "Could not confirm this email action.",
-                });
-              } finally {
-                setIsConfirming(false);
-              }
-            }}
-          >
-            {isProcessing ? (
-              "Sending..."
-            ) : isConfirming ? (
-              <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                Sending...
-              </>
-            ) : isChatBusy ? (
-              "Wait for response..."
-            ) : (
-              "Confirm and send"
+        {(externalUrl || (requiresConfirmation && !isConfirmed)) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {externalUrl && (
+              <ToolExternalLink href={externalUrl}>
+                Open in {provider === "microsoft" ? "Outlook" : "Gmail"}
+              </ToolExternalLink>
             )}
-          </Button>
+
+            {requiresConfirmation && !isConfirmed && (
+              <Button
+                size="sm"
+                className="w-fit"
+                disabled={isConfirming || isProcessing || isChatBusy}
+                onClick={async () => {
+                  setIsConfirming(true);
+                  try {
+                    const result = await confirmAssistantEmailAction(
+                      emailAccountId,
+                      {
+                        chatMessageId,
+                        toolCallId,
+                        actionType,
+                      },
+                    );
+
+                    if (result?.serverError) {
+                      toastError({ description: result.serverError });
+                      return;
+                    }
+
+                    const confirmationResult = parseConfirmationResult(
+                      result?.data?.confirmationResult,
+                    );
+                    if (!confirmationResult) {
+                      toastError({
+                        description: "Could not confirm this email action.",
+                      });
+                      return;
+                    }
+
+                    setConfirmationResultOverride(confirmationResult);
+                    toastSuccess({
+                      description: getAssistantEmailSuccessMessage(actionType),
+                    });
+                  } catch {
+                    toastError({
+                      description: "Could not confirm this email action.",
+                    });
+                  } finally {
+                    setIsConfirming(false);
+                  }
+                }}
+              >
+                {isProcessing ? (
+                  "Sending..."
+                ) : isConfirming ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : isChatBusy ? (
+                  "Wait for response..."
+                ) : (
+                  "Confirm and send"
+                )}
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </CollapsibleToolCard>
