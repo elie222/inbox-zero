@@ -65,8 +65,6 @@ vi.mock("@/env", () => ({
     CHAT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
     NANO_LLM_PROVIDER: undefined,
     NANO_LLM_MODEL: undefined,
-    OPENROUTER_BACKUP_MODEL: undefined,
-    USE_BACKUP_MODEL: false,
     LLM_API_KEY: undefined,
     OPENAI_API_KEY: "test-openai-key",
     AZURE_API_KEY: "test-azure-key",
@@ -109,8 +107,6 @@ describe("Models", () => {
     vi.mocked(env).DEFAULT_LLM_FALLBACKS = undefined;
     vi.mocked(env).ECONOMY_LLM_FALLBACKS = undefined;
     vi.mocked(env).CHAT_LLM_FALLBACKS = undefined;
-    vi.mocked(env).OPENROUTER_BACKUP_MODEL = undefined;
-    vi.mocked(env).USE_BACKUP_MODEL = false;
     vi.mocked(env).LLM_API_KEY = undefined;
     vi.mocked(env).OPENAI_API_KEY = "test-openai-key";
     vi.mocked(env).NANO_LLM_PROVIDER = undefined;
@@ -193,6 +189,33 @@ describe("Models", () => {
       expect(result.provider).toBe(Provider.GOOGLE);
       expect(result.modelName).toBe("gemini-1.5-pro-latest");
       expect(result.model).toBeDefined();
+      expect(result.providerOptions).toEqual({
+        google: {
+          thinkingConfig: {
+            thinkingBudget: 50,
+          },
+        },
+      });
+    });
+
+    it("should configure Gemini 3 Google model with thinking level", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: "user-api-key",
+        aiProvider: Provider.GOOGLE,
+        aiModel: "gemini-3-pro-preview",
+      };
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.GOOGLE);
+      expect(result.modelName).toBe("gemini-3-pro-preview");
+      expect(result.providerOptions).toEqual({
+        google: {
+          thinkingConfig: {
+            thinkingLevel: "minimal",
+          },
+        },
+      });
     });
 
     it("should configure Vertex model correctly", () => {
@@ -212,6 +235,13 @@ describe("Models", () => {
       expect(result.provider).toBe(Provider.VERTEX);
       expect(result.modelName).toBe("gemini-2.5-flash");
       expect(result.model).toBeDefined();
+      expect(result.providerOptions).toEqual({
+        vertex: {
+          thinkingConfig: {
+            thinkingBudget: 50,
+          },
+        },
+      });
       expect(createVertex).toHaveBeenCalledWith({
         project: "test-vertex-project",
         location: "us-central1",
@@ -233,7 +263,15 @@ describe("Models", () => {
         "service-account@test.iam.gserviceaccount.com";
       vi.mocked(env).GOOGLE_VERTEX_PRIVATE_KEY = "line1\\nline2";
 
-      getModel(userAi);
+      const result = getModel(userAi);
+
+      expect(result.providerOptions).toEqual({
+        vertex: {
+          thinkingConfig: {
+            thinkingBudget: 50,
+          },
+        },
+      });
 
       expect(createVertex).toHaveBeenCalledWith({
         project: "test-vertex-project",
@@ -242,6 +280,31 @@ describe("Models", () => {
           credentials: {
             client_email: "service-account@test.iam.gserviceaccount.com",
             private_key: "line1\nline2",
+          },
+        },
+      });
+    });
+
+    it("should configure Gemini 3 Vertex model with thinking level", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "vertex";
+      vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
+      vi.mocked(env).GOOGLE_VERTEX_PROJECT = "test-vertex-project";
+      vi.mocked(env).GOOGLE_VERTEX_LOCATION = "us-central1";
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.VERTEX);
+      expect(result.modelName).toBe("gemini-3-flash");
+      expect(result.providerOptions).toEqual({
+        vertex: {
+          thinkingConfig: {
+            thinkingLevel: "minimal",
           },
         },
       });
@@ -672,26 +735,6 @@ describe("Models", () => {
       expect(result.fallbackModels[0]).toMatchObject({
         provider: Provider.OPEN_AI,
         modelName: "gpt-5.1",
-      });
-    });
-
-    it("should support deprecated backup env vars as fallback config", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
-
-      vi.mocked(env).USE_BACKUP_MODEL = true;
-      vi.mocked(env).OPENROUTER_BACKUP_MODEL = "google/gemini-2.5-flash";
-      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
-
-      const result = getModel(userAi);
-
-      expect(result.fallbackModels).toHaveLength(1);
-      expect(result.fallbackModels[0]).toMatchObject({
-        provider: Provider.OPENROUTER,
-        modelName: "google/gemini-2.5-flash",
       });
     });
 

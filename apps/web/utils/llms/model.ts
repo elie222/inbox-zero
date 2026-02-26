@@ -16,9 +16,8 @@ import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
-// Thinking budget for Google models (set low to minimize cost)
-const GOOGLE_THINKING_BUDGET = 0;
-const LEGACY_OPENROUTER_BACKUP_DEFAULT_MODEL = "google/gemini-2.5-flash";
+// Thinking budgets for Google-family models (set low to minimize cost)
+const GOOGLE_THINKING_BUDGET = 50;
 
 const logger = createScopedLogger("llms/model");
 
@@ -148,9 +147,7 @@ function selectModel(
         })(mod),
         providerOptions: {
           google: {
-            thinkingConfig: {
-              thinkingBudget: GOOGLE_THINKING_BUDGET,
-            },
+            thinkingConfig: getGoogleThinkingConfig(mod),
           } satisfies GoogleGenerativeAIProviderOptions,
         },
       };
@@ -161,6 +158,11 @@ function selectModel(
         provider: Provider.VERTEX,
         modelName,
         model: createVertex(getVertexConfig())(modelName),
+        providerOptions: {
+          vertex: {
+            thinkingConfig: getGoogleThinkingConfig(modelName),
+          } satisfies GoogleGenerativeAIProviderOptions,
+        },
       };
     }
     case Provider.GROQ: {
@@ -630,20 +632,7 @@ function getFallbackModels({
 }
 
 function getFallbackConfig(modelType: ModelType): string | undefined {
-  const configuredFallbacks = getConfiguredFallbacksByType(modelType);
-
-  if (configuredFallbacks) return configuredFallbacks;
-
-  return getLegacyFallbackConfig();
-}
-
-function getLegacyFallbackConfig(): string | undefined {
-  if (!env.USE_BACKUP_MODEL) return;
-
-  const legacyBackupModel = env.OPENROUTER_BACKUP_MODEL?.trim();
-  if (legacyBackupModel) return `openrouter:${legacyBackupModel}`;
-
-  return `openrouter:${LEGACY_OPENROUTER_BACKUP_DEFAULT_MODEL}`;
+  return getConfiguredFallbacksByType(modelType);
 }
 
 function getConfiguredFallbacksByType(
@@ -674,6 +663,20 @@ function getOpenRouterProviderOptionsByType(
   const providers = providersByType[modelType];
   if (!providers) return;
   return createOpenRouterProviderOptions(providers);
+}
+
+function getGoogleThinkingConfig(
+  modelName: string,
+): NonNullable<GoogleGenerativeAIProviderOptions["thinkingConfig"]> {
+  if (isGemini3Model(modelName)) {
+    return { thinkingLevel: "minimal" };
+  }
+
+  return { thinkingBudget: GOOGLE_THINKING_BUDGET };
+}
+
+function isGemini3Model(modelName: string): boolean {
+  return modelName.toLowerCase().startsWith("gemini-3");
 }
 
 function parseFallbackConfig(

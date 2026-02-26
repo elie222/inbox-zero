@@ -45,25 +45,25 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `CHAT_LLM_MODEL` | No | Model for chat provider | — |
 | `CHAT_LLM_FALLBACKS` | No | Fallback chain for chat model type (`provider:model`, explicit model required) | — |
 | `CHAT_OPENROUTER_PROVIDERS` | No | OpenRouter providers for chat | — |
-| `USE_BACKUP_MODEL` | No | Deprecated legacy fallback toggle. Use `*_LLM_FALLBACKS` instead. | `false` |
-| `OPENROUTER_BACKUP_MODEL` | No | Deprecated legacy backup model. Use `*_LLM_FALLBACKS` instead. | — |
 | **LLM Provider Credentials** ||||
 | `LLM_API_KEY` | No | Shared fallback API key for LLM providers. Used when a provider-specific key is not set. | — |
 | `ANTHROPIC_API_KEY` | No | Anthropic API key | — |
 | `OPENAI_API_KEY` | No | OpenAI API key | — |
-| `AZURE_API_KEY` | No | Azure OpenAI API key | — |
-| `AZURE_RESOURCE_NAME` | No | Azure OpenAI resource name | — |
-| `AZURE_API_VERSION` | No | Azure OpenAI API version override | — |
 | `GOOGLE_API_KEY` | No | Google Gemini API key | — |
-| `GOOGLE_VERTEX_PROJECT` | No | Google Cloud project ID for Vertex AI | — |
-| `GOOGLE_VERTEX_LOCATION` | No | Vertex AI location | `us-central1` |
-| `GOOGLE_VERTEX_CLIENT_EMAIL` | No | Service account client email for Vertex auth (when not using ADC file) | — |
-| `GOOGLE_VERTEX_PRIVATE_KEY` | No | Service account private key for Vertex auth (supports `\n` escaped newlines) | — |
-| `GOOGLE_APPLICATION_CREDENTIALS` | No | Path to a Google service account JSON file for ADC/Vertex auth | — |
 | `GROQ_API_KEY` | No | Groq API key | — |
 | `OPENROUTER_API_KEY` | No | OpenRouter API key | — |
 | `AI_GATEWAY_API_KEY` | No | AI Gateway API key | — |
 | `PERPLEXITY_API_KEY` | No | Perplexity API key for guest research for meeting briefs | — |
+| **Azure OpenAI** ||||
+| `AZURE_API_KEY` | No | Azure OpenAI API key (required when `azure` is used and `LLM_API_KEY` is not set) | — |
+| `AZURE_RESOURCE_NAME` | No | Azure OpenAI resource name (required when `azure` is used as a default or fallback provider) | — |
+| `AZURE_API_VERSION` | No | Azure OpenAI API version override | — |
+| **Google Vertex** ||||
+| `GOOGLE_VERTEX_PROJECT` | No | Google Cloud project ID for Vertex AI (required when `vertex` is used as a default or fallback provider) | — |
+| `GOOGLE_VERTEX_LOCATION` | No | Vertex AI location | `us-central1` |
+| `GOOGLE_VERTEX_CLIENT_EMAIL` | No | Service account client email for Vertex auth (when not using ADC file) | — |
+| `GOOGLE_VERTEX_PRIVATE_KEY` | No | Service account private key for Vertex auth (supports `\n` escaped newlines) | — |
+| `GOOGLE_APPLICATION_CREDENTIALS` | No | Path to a Google service account JSON file for ADC/Vertex auth | — |
 | **AWS Bedrock** ||||
 | `BEDROCK_ACCESS_KEY` | No | AWS access key for Bedrock. See [AI SDK Bedrock documentation](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock). | — |
 | `BEDROCK_SECRET_KEY` | No | AWS secret key for Bedrock | — |
@@ -129,3 +129,5 @@ For detailed setup instructions, see the [Setup Guides](/hosting/setup-guides):
 - If running the app in Docker and Ollama locally, use `http://host.docker.internal:11434/api` as the `OLLAMA_BASE_URL`.
 - If running the app in Docker and an OpenAI-compatible server locally, replace `localhost` with `host.docker.internal` in `OPENAI_COMPATIBLE_BASE_URL`.
 - When using Docker Compose with `--profile all`, database and Redis URLs are auto-configured. See the [Docker/VPS Deployment Guide](/hosting/self-hosting) for details.
+- For Azure OpenAI, set `AZURE_RESOURCE_NAME` and either `AZURE_API_KEY` or `LLM_API_KEY` when using `azure` as a default or fallback provider.
+- For Google Vertex, set `GOOGLE_VERTEX_PROJECT` when using `vertex` as a provider. For auth, use either `GOOGLE_APPLICATION_CREDENTIALS` (recommended for Node.js) or both `GOOGLE_VERTEX_CLIENT_EMAIL` and `GOOGLE_VERTEX_PRIVATE_KEY`. You do not need to set all three auth variables. See [AI SDK Google Vertex documentation](https://ai-sdk.dev/providers/ai-sdk-providers/google-vertex).
