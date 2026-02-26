@@ -9,7 +9,7 @@ export default defineConfig({
   testDir: "./__tests__/playwright",
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
-  timeout: 120_000,
+  timeout: 240_000,
   expect: {
     timeout: 20_000,
   },

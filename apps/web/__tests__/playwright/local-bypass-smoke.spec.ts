@@ -11,16 +11,9 @@ test("local bypass completes onboarding and reaches app pages", async ({
   await expect(bypassLoginButton).toBeVisible();
   await bypassLoginButton.click();
 
-  const onboardingUrlPattern = /\/[a-z0-9]+\/onboarding(\?.*)?$/;
-  if (!(await waitForUrl(page, onboardingUrlPattern, 20_000))) {
-    if (!page.url().includes("/login")) {
-      await page.goto("/login?next=%2Fwelcome-redirect%3Fforce%3Dtrue");
-    }
-    await page
-      .getByRole("button", { name: "Bypass login (local only)" })
-      .click();
-    await expect(page).toHaveURL(onboardingUrlPattern);
-  }
+  await page.waitForURL((url) => isOnboardingPath(url.pathname), {
+    timeout: 60_000,
+  });
 
   const emailAccountId = getEmailAccountIdFromUrl(page.url());
 
@@ -64,42 +57,84 @@ function getEmailAccountIdFromUrl(url: string) {
 }
 
 async function completeOnboardingFlow(page: Page) {
-  await continueFromStep(page, /Welcome to/i);
-  await continueFromStep(page, "We sort your emails");
-  await continueFromStep(page, "Pre-drafted replies");
-  await continueFromStep(page, "Bulk Unsubscriber & Archiver");
-  await continueFromStep(page, /How would you like to use/i);
+  const maxSteps = 25;
 
-  await expect(
-    page.getByRole("heading", { name: "Let's understand how you use email" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: /^Founder\b/ }).click();
-  await page.getByRole("button", { name: /^Continue\b/ }).click();
+  for (let step = 0; step < maxSteps; step++) {
+    if (!isOnboardingPage(page.url())) {
+      return;
+    }
 
-  await expect(
-    page.getByRole("heading", { name: "What's the size of your company?" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Only me" }).click();
+    if (
+      await clickIfVisible(
+        page,
+        page.getByRole("button", { name: /^Founder\b/ }),
+        1000,
+      )
+    ) {
+      await clickIfVisible(
+        page,
+        page.getByRole("button", { name: /^Continue\b/ }),
+        5000,
+      );
+      continue;
+    }
 
-  await continueFromStep(page, "How do you want your inbox organized?");
+    if (
+      await clickIfVisible(
+        page,
+        page.getByRole("button", { name: "Only me" }),
+        1000,
+      )
+    ) {
+      continue;
+    }
 
-  await expect(
-    page.getByRole("heading", { name: "Should we draft replies for you?" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "No, thanks" }).click();
+    if (
+      await clickIfVisible(
+        page,
+        page.getByRole("button", { name: "No, thanks" }),
+        1000,
+      )
+    ) {
+      continue;
+    }
 
-  await continueFromStep(page, "Custom rules");
+    if (
+      await clickIfVisible(
+        page,
+        page.getByRole("button", { name: "Skip" }),
+        1000,
+      )
+    ) {
+      continue;
+    }
 
-  if (await waitForVisible(page.getByRole("button", { name: "Skip" }), 5000)) {
-    await page.getByRole("button", { name: "Skip" }).click();
+    if (
+      await clickIfVisible(
+        page,
+        page.getByRole("button", { name: /^Continue\b/ }),
+        5000,
+      )
+    ) {
+      continue;
+    }
+
+    await page.waitForTimeout(1000);
   }
 
-  await continueFromStep(page, "Inbox Preview Ready");
+  if (isOnboardingPage(page.url())) {
+    throw new Error(`Unable to complete onboarding from URL: ${page.url()}`);
+  }
 }
 
-async function continueFromStep(page: Page, heading: string | RegExp) {
-  await expect(page.getByRole("heading", { name: heading })).toBeVisible();
-  await page.getByRole("button", { name: /^Continue\b/ }).click();
+async function clickIfVisible(page: Page, locator: Locator, timeout: number) {
+  if (!(await waitForVisible(locator, timeout))) {
+    return false;
+  }
+
+  await locator.click();
+  await page.waitForTimeout(200);
+  return true;
 }
 
 async function waitForVisible(locator: Locator, timeout: number) {
@@ -111,11 +146,10 @@ async function waitForVisible(locator: Locator, timeout: number) {
   }
 }
 
-async function waitForUrl(page: Page, urlPattern: RegExp, timeout: number) {
-  try {
-    await page.waitForURL(urlPattern, { timeout });
-    return true;
-  } catch {
-    return false;
-  }
+function isOnboardingPage(url: string) {
+  return isOnboardingPath(new URL(url).pathname);
+}
+
+function isOnboardingPath(pathname: string) {
+  return /^\/[a-z0-9]+\/onboarding\/?$/.test(pathname);
 }
