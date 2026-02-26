@@ -1,4 +1,4 @@
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, type SystemType } from "@/generated/prisma/enums";
 import { extractEmailAddress } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -17,7 +17,12 @@ export async function learnFromOutlookLabelRemoval({
   const sender = extractEmailAddress(message.headers.from);
   if (!sender || !message.threadId) return;
 
-  const currentLabels = new Set(message.labelIds || []);
+  if (!message.labelIds || message.labelIds.length === 0) {
+    logger.info("Skipping label removal learning - missing label state");
+    return;
+  }
+
+  const currentLabels = new Set(message.labelIds);
 
   const executedRules = await prisma.executedRule.findMany({
     where: {
@@ -52,7 +57,12 @@ export async function learnFromOutlookLabelRemoval({
     },
   });
 
-  const removedRuleIds = new Set<string>();
+  const removedRules = new Map<
+    string,
+    {
+      systemType: SystemType | null | undefined;
+    }
+  >();
 
   for (const executedRule of executedRules) {
     const ruleId = executedRule.rule?.id;
@@ -68,20 +78,19 @@ export async function learnFromOutlookLabelRemoval({
     });
 
     if (hasRemovedLabel) {
-      removedRuleIds.add(ruleId);
+      removedRules.set(ruleId, {
+        systemType: executedRule.rule?.systemType,
+      });
     }
   }
 
-  if (removedRuleIds.size === 0) return;
+  if (removedRules.size === 0) return;
 
-  for (const executedRule of executedRules) {
-    const ruleId = executedRule.rule?.id;
-    if (!ruleId || !removedRuleIds.has(ruleId)) continue;
-
+  for (const [ruleId, { systemType }] of removedRules) {
     await recordLabelRemovalLearning({
       sender,
       ruleId,
-      systemType: executedRule.rule?.systemType,
+      systemType,
       messageId: message.id,
       threadId: message.threadId,
       emailAccountId,

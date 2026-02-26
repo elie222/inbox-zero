@@ -120,4 +120,59 @@ describe("learnFromOutlookLabelRemoval", () => {
 
     expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
+
+  it("skips learning when label state is missing", async () => {
+    const message = getMockParsedMessage({
+      id: "message-123",
+      threadId: "thread-123",
+      labelIds: undefined,
+      headers: { from: "sender@example.com" },
+    });
+
+    await learnFromOutlookLabelRemoval({
+      message,
+      emailAccountId: "email-account-123",
+      logger,
+    });
+
+    expect(prisma.executedRule.findMany).not.toHaveBeenCalled();
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
+  it("deduplicates learning calls by rule id", async () => {
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+      {
+        rule: {
+          id: "rule-1",
+          systemType: SystemType.NEWSLETTER,
+        },
+        actionItems: [{ labelId: "label-newsletter", label: "Newsletter" }],
+      },
+      {
+        rule: {
+          id: "rule-1",
+          systemType: SystemType.NEWSLETTER,
+        },
+        actionItems: [{ labelId: "label-newsletter", label: "Newsletter" }],
+      },
+    ] as any);
+
+    const message = getMockParsedMessage({
+      id: "message-123",
+      threadId: "thread-123",
+      labelIds: ["INBOX"],
+      headers: { from: "sender@example.com" },
+    });
+
+    await learnFromOutlookLabelRemoval({
+      message,
+      emailAccountId: "email-account-123",
+      logger,
+    });
+
+    expect(saveLearnedPattern).toHaveBeenCalledTimes(1);
+    expect(saveLearnedPattern).toHaveBeenCalledWith(
+      expect.objectContaining({ ruleId: "rule-1" }),
+    );
+  });
 });
