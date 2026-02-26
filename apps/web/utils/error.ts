@@ -362,21 +362,13 @@ export function getUserFacingErrorMessage(
   error: unknown,
   fallback = "An unexpected error occurred. Please try again.",
 ): string {
-  const rawMessage = getErrorMessage(error);
-  if (!rawMessage) return fallback;
+  const message = getErrorMessage(error);
+  if (!message) return fallback;
 
-  const structured = parseStructuredErrorMessage(rawMessage);
-  if (!structured) return rawMessage;
+  const parsed = parseJsonRecord(message);
+  if (!parsed) return message;
 
-  const structuredMessage = extractStructuredMessage(structured);
-  if (!structuredMessage) return rawMessage;
-
-  const providerName = extractProviderName(structured);
-  if (providerName && !structuredMessage.includes(providerName)) {
-    return `${structuredMessage} (${providerName})`;
-  }
-
-  return structuredMessage;
+  return getErrorMessage(parsed) || message;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -393,44 +385,12 @@ function getStringProp(
   return typeof value === "string" ? value : undefined;
 }
 
-function parseStructuredErrorMessage(
-  message: string,
-): Record<string, unknown> | null {
-  const trimmed = message.trim();
-  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return null;
-
+function parseJsonRecord(message: string): Record<string, unknown> | null {
   try {
-    return asRecord(JSON.parse(trimmed));
+    return asRecord(JSON.parse(message));
   } catch {
     return null;
   }
-}
-
-function extractStructuredMessage(
-  payload: Record<string, unknown>,
-): string | undefined {
-  const direct = getStringProp(payload, "message");
-  if (direct) return direct;
-
-  const directError = getStringProp(payload, "error");
-  if (directError) return directError;
-
-  const nestedError = asRecord(payload.error);
-  if (!nestedError) return undefined;
-
-  return getStringProp(nestedError, "message");
-}
-
-function extractProviderName(
-  payload: Record<string, unknown>,
-): string | undefined {
-  const direct = getStringProp(payload, "provider_name");
-  if (direct) return direct;
-
-  const metadata = asRecord(payload.metadata);
-  if (!metadata) return undefined;
-
-  return getStringProp(metadata, "provider_name");
 }
 
 // --- Safe Action Error Handling ---

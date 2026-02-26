@@ -22,7 +22,7 @@ describe("getUserFacingErrorMessage", () => {
     expect(result).toBe("Something failed");
   });
 
-  it("formats structured provider JSON errors", () => {
+  it("formats structured JSON errors", () => {
     const result = getUserFacingErrorMessage(
       new Error(
         JSON.stringify({
@@ -33,7 +33,7 @@ describe("getUserFacingErrorMessage", () => {
       ),
     );
 
-    expect(result).toBe("Invalid arguments passed to the model. (xAI)");
+    expect(result).toBe("Invalid arguments passed to the model.");
   });
 
   it("reads nested message from structured error payloads", () => {
