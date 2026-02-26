@@ -12,7 +12,7 @@ import {
 } from "react";
 import { useSWRConfig } from "swr";
 import { toastError } from "@/components/Toast";
-import { captureException } from "@/utils/error";
+import { captureException, getUserFacingErrorMessage } from "@/utils/error";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import { useChatMessages } from "@/hooks/useChatMessages";
@@ -78,8 +78,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       console.error(error);
       captureException(error);
       toastError({
-        title: "An error occured!",
-        description: error.message || "",
+        title: "An error occurred!",
+        description: getUserFacingErrorMessage(error),
       });
     },
   });
