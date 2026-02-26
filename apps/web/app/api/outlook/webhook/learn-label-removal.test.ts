@@ -13,6 +13,9 @@ vi.mock("@/utils/prisma", () => ({
     executedRule: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    action: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -26,6 +29,7 @@ describe("learnFromOutlookLabelRemoval", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.executedRule.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.action.findMany).mockResolvedValue([]);
     vi.mocked(saveLearnedPattern).mockResolvedValue(undefined);
   });
 
@@ -174,5 +178,67 @@ describe("learnFromOutlookLabelRemoval", () => {
     expect(saveLearnedPattern).toHaveBeenCalledWith(
       expect.objectContaining({ ruleId: "rule-1" }),
     );
+  });
+
+  it("does not learn when name-only action resolves to an existing label id", async () => {
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+      {
+        rule: {
+          id: "rule-1",
+          systemType: SystemType.NEWSLETTER,
+        },
+        actionItems: [{ labelId: null, label: "Newsletter" }],
+      },
+    ] as any);
+    vi.mocked(prisma.action.findMany).mockResolvedValue([
+      {
+        ruleId: "rule-1",
+        label: "Newsletter",
+        labelId: "label-newsletter",
+      },
+    ] as any);
+
+    const message = getMockParsedMessage({
+      id: "message-123",
+      threadId: "thread-123",
+      labelIds: ["INBOX", "label-newsletter"],
+      headers: { from: "sender@example.com" },
+    });
+
+    await learnFromOutlookLabelRemoval({
+      message,
+      emailAccountId: "email-account-123",
+      logger,
+    });
+
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
+  it("skips learning for unresolved name-only actions", async () => {
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+      {
+        rule: {
+          id: "rule-1",
+          systemType: SystemType.NEWSLETTER,
+        },
+        actionItems: [{ labelId: null, label: "Newsletter" }],
+      },
+    ] as any);
+    vi.mocked(prisma.action.findMany).mockResolvedValue([]);
+
+    const message = getMockParsedMessage({
+      id: "message-123",
+      threadId: "thread-123",
+      labelIds: ["INBOX", "label-newsletter-id"],
+      headers: { from: "sender@example.com" },
+    });
+
+    await learnFromOutlookLabelRemoval({
+      message,
+      emailAccountId: "email-account-123",
+      logger,
+    });
+
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 });
