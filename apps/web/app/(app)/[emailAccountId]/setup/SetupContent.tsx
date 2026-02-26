@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import {
@@ -34,6 +34,7 @@ import {
 import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { BRAND_NAME } from "@/utils/branding";
 import { dismissHintAction } from "@/utils/actions/hints";
+import { toastError } from "@/components/Toast";
 
 function FeatureCard({
   emailAccountId,
@@ -145,6 +146,7 @@ const StepItem = ({
   onMarkDone,
   showMarkDone,
   markDoneText = "Mark Done",
+  markDoneDisabled,
   onActionClick,
 }: {
   href: string;
@@ -159,6 +161,7 @@ const StepItem = ({
   onMarkDone?: () => void;
   showMarkDone?: boolean;
   markDoneText?: string;
+  markDoneDisabled?: boolean;
   onActionClick?: () => void;
 }) => {
   const handleMarkDone = (e: React.MouseEvent) => {
@@ -202,6 +205,7 @@ const StepItem = ({
                 <button
                   type="button"
                   onClick={handleMarkDone}
+                  disabled={markDoneDisabled}
                   className="rounded-md bg-slate-100 px-3 py-1 text-sm text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
                 >
                   {markDoneText}
@@ -261,22 +265,43 @@ function Checklist({
     "inbox-zero-extension-installed",
     false,
   );
-  const { execute: dismissSetupStep } = useAction(
-    dismissHintAction,
-    {
-      onSuccess: () => onSetupProgressChanged(),
-    },
-  );
+  const {
+    executeAsync: dismissSetupStep,
+    isExecuting: isDismissingTeamInvite,
+  } = useAction(dismissHintAction);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isTeamInviteDismissed, setIsTeamInviteDismissed] = useState(false);
   const progressPercentage = (completedCount / totalSteps) * 100;
 
   const handleMarkExtensionDone = () => {
     setIsExtensionInstalled(true);
   };
 
-  const handleMarkTeamInviteDone = () => {
-    dismissSetupStep({ hintId: `setup:teamInvite:${emailAccountId}` });
-  };
+  const handleMarkTeamInviteDone = useCallback(async () => {
+    if (isDismissingTeamInvite || isTeamInviteDismissed) {
+      return;
+    }
+
+    setIsTeamInviteDismissed(true);
+
+    const result = await dismissSetupStep({
+      hintId: `setup:teamInvite:${emailAccountId}`,
+    });
+
+    if (result?.serverError || result?.validationErrors) {
+      setIsTeamInviteDismissed(false);
+      toastError({ description: "Failed to skip this step" });
+      return;
+    }
+
+    onSetupProgressChanged();
+  }, [
+    dismissSetupStep,
+    emailAccountId,
+    isDismissingTeamInvite,
+    isTeamInviteDismissed,
+    onSetupProgressChanged,
+  ]);
 
   const handleOpenInviteModal = () => {
     setIsInviteModalOpen(true);
@@ -345,9 +370,10 @@ function Checklist({
           iconColor="text-indigo-500 dark:text-indigo-400"
           title="Invite team members"
           timeEstimate="2 minutes"
-          completed={teamInvite.completed}
+          completed={teamInvite.completed || isTeamInviteDismissed}
           actionText="Invite"
           onMarkDone={handleMarkTeamInviteDone}
+          markDoneDisabled={isDismissingTeamInvite}
           showMarkDone
           markDoneText="Skip"
           onActionClick={handleOpenInviteModal}
@@ -400,7 +426,7 @@ export function SetupContent() {
           isSetupComplete={data.isComplete}
           teamInvite={data.teamInvite}
           onSetupProgressChanged={() => {
-            void mutate();
+            mutate();
           }}
         />
       )}
