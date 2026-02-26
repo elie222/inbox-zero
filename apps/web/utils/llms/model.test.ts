@@ -193,6 +193,13 @@ describe("Models", () => {
       expect(result.provider).toBe(Provider.GOOGLE);
       expect(result.modelName).toBe("gemini-1.5-pro-latest");
       expect(result.model).toBeDefined();
+      expect(result.providerOptions).toEqual({
+        google: {
+          thinkingConfig: {
+            thinkingBudget: 50,
+          },
+        },
+      });
     });
 
     it("should configure Vertex model correctly", () => {
@@ -212,6 +219,13 @@ describe("Models", () => {
       expect(result.provider).toBe(Provider.VERTEX);
       expect(result.modelName).toBe("gemini-2.5-flash");
       expect(result.model).toBeDefined();
+      expect(result.providerOptions).toEqual({
+        vertex: {
+          thinkingConfig: {
+            thinkingBudget: 50,
+          },
+        },
+      });
       expect(createVertex).toHaveBeenCalledWith({
         project: "test-vertex-project",
         location: "us-central1",
@@ -233,7 +247,15 @@ describe("Models", () => {
         "service-account@test.iam.gserviceaccount.com";
       vi.mocked(env).GOOGLE_VERTEX_PRIVATE_KEY = "line1\\nline2";
 
-      getModel(userAi);
+      const result = getModel(userAi);
+
+      expect(result.providerOptions).toEqual({
+        vertex: {
+          thinkingConfig: {
+            thinkingBudget: 50,
+          },
+        },
+      });
 
       expect(createVertex).toHaveBeenCalledWith({
         project: "test-vertex-project",

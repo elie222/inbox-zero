@@ -16,8 +16,8 @@ import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
-// Thinking budget for Google models (set low to minimize cost)
-const GOOGLE_THINKING_BUDGET = 0;
+// Thinking budgets for Google-family models (set low to minimize cost)
+const GOOGLE_THINKING_BUDGET = 50;
 const LEGACY_OPENROUTER_BACKUP_DEFAULT_MODEL = "google/gemini-2.5-flash";
 
 const logger = createScopedLogger("llms/model");
@@ -161,6 +161,13 @@ function selectModel(
         provider: Provider.VERTEX,
         modelName,
         model: createVertex(getVertexConfig())(modelName),
+        providerOptions: {
+          vertex: {
+            thinkingConfig: {
+              thinkingBudget: GOOGLE_THINKING_BUDGET,
+            },
+          } satisfies GoogleGenerativeAIProviderOptions,
+        },
       };
     }
     case Provider.GROQ: {
