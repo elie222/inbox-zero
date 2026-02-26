@@ -28,6 +28,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { confirmAssistantEmailAction } from "@/utils/actions/assistant-chat";
 import { deleteRuleAction } from "@/utils/actions/rule";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useChat } from "@/providers/ChatProvider";
 import { ExpandableText } from "@/components/ExpandableText";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
@@ -407,6 +408,7 @@ function EmailActionResult({
   disableConfirm: boolean;
 }) {
   const { emailAccountId, provider, userEmail } = useAccount();
+  const { chatId } = useChat();
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmationResultOverride, setConfirmationResultOverride] =
     useState<EmailConfirmationResult | null>(null);
@@ -522,9 +524,17 @@ function EmailActionResult({
                 onClick={async () => {
                   setIsConfirming(true);
                   try {
+                    if (!chatId) {
+                      toastError({
+                        description: "Could not confirm this email action.",
+                      });
+                      return;
+                    }
+
                     const result = await confirmAssistantEmailAction(
                       emailAccountId,
                       {
+                        chatId,
                         chatMessageId,
                         toolCallId,
                         actionType,

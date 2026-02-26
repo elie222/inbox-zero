@@ -56,9 +56,10 @@ export const confirmAssistantEmailAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, provider, logger },
-      parsedInput: { chatMessageId, toolCallId, actionType },
+      parsedInput: { chatId, chatMessageId, toolCallId, actionType },
     }) => {
       const reservation = await reservePendingAssistantEmailAction({
+        chatId,
         chatMessageId,
         toolCallId,
         actionType,
@@ -362,29 +363,27 @@ function updateAssistantEmailPartWithPending({
 }
 
 async function reservePendingAssistantEmailAction({
+  chatId,
   chatMessageId,
   toolCallId,
   actionType,
   emailAccountId,
   logger,
 }: {
+  chatId: string;
   chatMessageId: string;
   toolCallId: string;
   actionType: AssistantPendingEmailActionType;
   emailAccountId: string;
   logger: Logger;
 }) {
-  const chatMessage = await prisma.chatMessage.findFirst({
-    where: {
-      id: chatMessageId,
-      chat: { emailAccountId },
-    },
-    select: {
-      id: true,
-      chatId: true,
-      updatedAt: true,
-      parts: true,
-    },
+  const chatMessage = await findChatMessageForPendingAssistantEmailAction({
+    chatId,
+    chatMessageId,
+    toolCallId,
+    actionType,
+    emailAccountId,
+    logger,
   });
 
   if (!chatMessage) {
@@ -409,7 +408,7 @@ async function reservePendingAssistantEmailAction({
       logMessage:
         "Assistant email confirmation failed: pending assistant action not found",
       safeMessage: "Pending assistant action not found",
-      chatMessageId,
+      chatMessageId: chatMessage.id,
       toolCallId,
       actionType,
     });
@@ -460,14 +459,13 @@ async function reservePendingAssistantEmailAction({
     };
   }
 
-  const latestMessage = await prisma.chatMessage.findFirst({
-    where: {
-      id: chatMessageId,
-      chat: { emailAccountId },
-    },
-    select: {
-      parts: true,
-    },
+  const latestMessage = await findChatMessageForPendingAssistantEmailAction({
+    chatId,
+    chatMessageId,
+    toolCallId,
+    actionType,
+    emailAccountId,
+    logger,
   });
 
   if (!latestMessage) {
@@ -476,7 +474,7 @@ async function reservePendingAssistantEmailAction({
       logMessage:
         "Assistant email confirmation failed after reservation race: chat message not found",
       safeMessage: "Chat message not found",
-      chatMessageId,
+      chatMessageId: chatMessage.id,
       toolCallId,
       actionType,
     });
@@ -659,6 +657,74 @@ function warnAndThrowAssistantEmailConfirmationError({
   });
 
   throw new SafeError(safeMessage);
+}
+
+async function findChatMessageForPendingAssistantEmailAction({
+  chatId,
+  chatMessageId,
+  toolCallId,
+  actionType,
+  emailAccountId,
+  logger,
+}: {
+  chatId: string;
+  chatMessageId: string;
+  toolCallId: string;
+  actionType: AssistantPendingEmailActionType;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const chatMessage = await prisma.chatMessage.findFirst({
+    where: {
+      id: chatMessageId,
+      chat: { id: chatId, emailAccountId },
+    },
+    select: {
+      id: true,
+      chatId: true,
+      updatedAt: true,
+      parts: true,
+    },
+  });
+
+  if (chatMessage) return chatMessage;
+
+  const fallbackCandidates = await prisma.chatMessage.findMany({
+    where: {
+      role: "assistant",
+      chat: { id: chatId, emailAccountId },
+    },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      chatId: true,
+      updatedAt: true,
+      parts: true,
+    },
+  });
+
+  for (const candidate of fallbackCandidates) {
+    const lookup = findPendingAssistantEmailPart({
+      parts: candidate.parts,
+      toolCallId,
+      actionType,
+    });
+    if (!lookup) continue;
+
+    logger.warn(
+      "Assistant email confirmation recovered using fallback message lookup",
+      {
+        chatId,
+        chatMessageId,
+        resolvedChatMessageId: candidate.id,
+        toolCallId,
+        actionType,
+      },
+    );
+    return candidate;
+  }
+
+  return null;
 }
 
 function parsePendingSendEmailOutput(output: unknown) {

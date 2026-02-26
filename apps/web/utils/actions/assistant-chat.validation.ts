@@ -99,6 +99,7 @@ export type AssistantPendingEmailToolOutput =
   | PendingForwardEmailToolOutput;
 
 export const confirmAssistantEmailActionBody = z.object({
+  chatId: z.string().trim().min(1),
   chatMessageId: z.string().trim().min(1),
   toolCallId: z.string().trim().min(1),
   actionType: assistantPendingEmailActionTypeSchema,
