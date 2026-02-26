@@ -156,8 +156,11 @@ async function generateDraftContent(
   });
 
   if (cachedReply) {
+    const allowsLegacyZeroThresholdDraft =
+      minimumConfidenceThreshold === 0 && cachedReply.confidence == null;
     const meetsThreshold =
       minimumConfidenceThreshold == null ||
+      allowsLegacyZeroThresholdDraft ||
       (cachedReply.confidence != null &&
         cachedReply.confidence >= minimumConfidenceThreshold);
 
@@ -291,6 +294,24 @@ async function generateDraftContent(
       threadId: lastMessage.threadId,
       messageId: lastMessage.id,
     });
+
+    if (typeof reply === "string") {
+      try {
+        await saveReply({
+          emailAccountId: emailAccount.id,
+          messageId: lastMessage.id,
+          reply,
+          confidence,
+        });
+      } catch (error) {
+        logger.error("Failed to cache low-confidence draft", {
+          error,
+          messageId: lastMessage.id,
+          confidence,
+        });
+      }
+    }
+
     return { draft: null, confidence };
   }
 
