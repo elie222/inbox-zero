@@ -21,7 +21,7 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: {
-    command: "pnpm dev",
+    command: "pnpm exec next dev",
     cwd: import.meta.dirname,
     url: `${baseURL}/login`,
     timeout: 240_000,
