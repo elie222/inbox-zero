@@ -41,9 +41,9 @@ const slackOAuthResponseSchema = z.object({
 type SlackOAuthResponse = z.infer<typeof slackOAuthResponseSchema>;
 
 export async function handleSlackCallback(
-  request: NextRequest,
-  logger: Logger,
+  request: NextRequest & { logger: Logger },
 ): Promise<NextResponse> {
+  const logger = request.logger;
   let redirectHeaders = new Headers();
   let codeForCleanup: string | null = null;
   let callbackLogger = logger;
