@@ -4,6 +4,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
+import type { DriveProvider } from "@/utils/drive/types";
 
 export type GetDriveFoldersResponse = Awaited<ReturnType<typeof getData>>;
 export type FolderItem = GetDriveFoldersResponse["availableFolders"][number] & {
@@ -58,12 +59,14 @@ async function getData({
   }> = [];
 
   const connectionErrors: Array<{ provider: string; error: unknown }> = [];
+  const providersByConnectionId = new Map<string, DriveProvider>();
 
   const driveConnections = emailAccount?.driveConnections ?? [];
 
   for (const connection of driveConnections) {
     try {
       const provider = await createDriveProviderWithRefresh(connection, logger);
+      providersByConnectionId.set(connection.id, provider);
       const folders = await provider.listFolders(undefined);
 
       for (const folder of folders) {
@@ -96,8 +99,36 @@ async function getData({
     );
   }
 
+  // Filter out saved folders that no longer exist in the connected drive.
+  // Uses getFolder() per folder so it works for both root and nested folders
+  // across all providers (Google Drive, OneDrive).
+  // Folders whose connection failed to load are kept to avoid false-positive cleanup.
+  const allSavedFolders = emailAccount?.filingFolders ?? [];
+  const savedFolders: typeof allSavedFolders = [];
+  const staleFolderDbIds: string[] = [];
+
+  const validationResults = await Promise.allSettled(
+    allSavedFolders.map(async (sf) => {
+      const provider = providersByConnectionId.get(sf.driveConnectionId);
+      if (!provider) return true;
+      const folder = await provider.getFolder(sf.folderId);
+      return folder !== null;
+    }),
+  );
+
+  for (let i = 0; i < validationResults.length; i++) {
+    const result = validationResults[i];
+    if (result.status === "fulfilled" && !result.value) {
+      staleFolderDbIds.push(allSavedFolders[i].id);
+    } else {
+      // Keep folder if it exists, or if validation failed (network error etc.)
+      savedFolders.push(allSavedFolders[i]);
+    }
+  }
+
   return {
-    savedFolders: emailAccount?.filingFolders ?? [],
+    savedFolders,
     availableFolders,
+    staleFolderDbIds,
   };
 }
