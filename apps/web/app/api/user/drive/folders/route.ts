@@ -126,19 +126,9 @@ async function getData({
     }
   }
 
-  if (staleFolderDbIds.length > 0) {
-    logger.info("Cleaning up stale filing folders", {
-      count: staleFolderDbIds.length,
-    });
-    prisma.filingFolder
-      .deleteMany({ where: { id: { in: staleFolderDbIds } } })
-      .catch((err) => {
-        logger.warn("Failed to clean up stale filing folders", { error: err });
-      });
-  }
-
   return {
     savedFolders,
     availableFolders,
+    staleFolderDbIds,
   };
 }

@@ -7,6 +7,7 @@ import {
   updateFilingEnabledBody,
   addFilingFolderBody,
   removeFilingFolderBody,
+  cleanupStaleFilingFoldersBody,
   submitPreviewFeedbackBody,
   moveFilingBody,
   createDriveFolderBody,
@@ -122,6 +123,26 @@ export const removeFilingFolderAction = actionClient
       where: { emailAccountId, folderId },
     });
   });
+
+export const cleanupStaleFilingFoldersAction = actionClient
+  .metadata({ name: "cleanupStaleFilingFolders" })
+  .inputSchema(cleanupStaleFilingFoldersBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { filingFolderIds },
+    }) => {
+      const result = await prisma.filingFolder.deleteMany({
+        where: { emailAccountId, id: { in: filingFolderIds } },
+      });
+
+      logger.info("Cleaned up stale filing folders", {
+        count: result.count,
+      });
+
+      return { count: result.count };
+    },
+  );
 
 export const submitPreviewFeedbackAction = actionClient
   .metadata({ name: "submitPreviewFeedback" })

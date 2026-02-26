@@ -41,6 +41,7 @@ import type {
   FolderItem,
   SavedFolder,
 } from "@/app/api/user/drive/folders/route";
+import { AlertBasic } from "@/components/Alert";
 import {
   Empty,
   EmptyContent,
@@ -63,7 +64,7 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
 
 export function AllowedFolders({ emailAccountId }: { emailAccountId: string }) {
-  const { data, isLoading, error, mutate } = useDriveFolders();
+  const { data, isLoading, error, mutate } = useDriveFolders(emailAccountId);
   const { data: connectionsData } = useDriveConnections();
   const driveConnectionId = connectionsData?.connections[0]?.id;
 
@@ -74,6 +75,7 @@ export function AllowedFolders({ emailAccountId }: { emailAccountId: string }) {
           emailAccountId={emailAccountId}
           availableFolders={data.availableFolders}
           savedFolders={data.savedFolders}
+          staleFolderCount={data.staleFolderDbIds.length}
           mutateFolders={mutate}
           driveConnectionId={driveConnectionId ?? null}
         />
@@ -87,12 +89,14 @@ function AllowedFoldersContent({
   driveConnectionId,
   availableFolders,
   savedFolders,
+  staleFolderCount,
   mutateFolders,
 }: {
   emailAccountId: string;
   driveConnectionId: string | null;
   availableFolders: FolderItem[];
   savedFolders: SavedFolder[];
+  staleFolderCount: number;
   mutateFolders: () => void;
 }) {
   const [isFolderBusy, setIsFolderBusy] = useState(false);
@@ -181,6 +185,14 @@ function AllowedFoldersContent({
         <CardDescription>AI can only file to these folders</CardDescription>
       </CardHeader>
       <CardContent>
+        {staleFolderCount > 0 && (
+          <AlertBasic
+            className="mb-4"
+            variant="blue"
+            title="Deleted folders detected"
+            description={`Removed ${staleFolderCount} deleted folder${staleFolderCount === 1 ? "" : "s"} from your saved list.`}
+          />
+        )}
         {hasFolders ? (
           <>
             <TreeProvider
