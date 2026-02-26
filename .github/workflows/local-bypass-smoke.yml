@@ -1,0 +1,93 @@
+name: Local Bypass Smoke
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-bypass-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-bypass-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: development
+      NEXT_PUBLIC_BASE_URL: http://localhost:3000
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      AUTH_SECRET: secret
+      GOOGLE_CLIENT_ID: client_id
+      GOOGLE_CLIENT_SECRET: client_secret
+      GOOGLE_PUBSUB_TOPIC_NAME: topic
+      EMAIL_ENCRYPT_SECRET: secret
+      EMAIL_ENCRYPT_SALT: salt
+      INTERNAL_API_KEY: secret
+      DEFAULT_LLM_PROVIDER: openai
+      LOCAL_AUTH_BYPASS_ENABLED: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - name: Apply database migrations
+        run: pnpm -F inbox-zero-ai exec prisma migrate deploy
+
+      - name: Install Playwright browser
+        run: pnpm -F inbox-zero-ai exec playwright install --with-deps chromium
+
+      - name: Run local bypass smoke test
+        id: smoke_test
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        run: pnpm -F inbox-zero-ai test:local-bypass-smoke
+
+      - name: Report PR smoke failure (non-blocking)
+        if: ${{ github.event_name == 'pull_request' && steps.smoke_test.outcome == 'failure' }}
+        run: |
+          echo "::warning::Local bypass smoke test failed (non-blocking on pull requests)."
+          echo "::warning::Run this workflow manually (workflow_dispatch) to collect artifacts."
+
+      - name: Upload smoke artifacts
+        if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-bypass-smoke-artifacts-${{ github.run_id }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7

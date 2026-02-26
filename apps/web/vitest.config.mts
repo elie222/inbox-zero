@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 const isE2E = process.env.RUN_E2E_FLOW_TESTS === "true";
@@ -10,6 +10,7 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["./__tests__/setup.ts"],
+    exclude: [...configDefaults.exclude, "__tests__/playwright/**"],
     env: {
       ...config({ path: envFile }).parsed,
     },

@@ -2,7 +2,10 @@ import {
   getGmailClientForEmail,
   getOutlookClientForEmail,
 } from "@/utils/account";
+import { isLocalAuthBypassEnabled } from "@/utils/auth/local-bypass-config";
+import { isLocalBypassEmailAccount } from "@/utils/auth/local-bypass-email-account";
 import { GmailProvider } from "@/utils/email/google";
+import { createLocalBypassEmailProvider } from "@/utils/email/local-bypass-provider";
 import { OutlookProvider } from "@/utils/email/microsoft";
 import type { EmailProvider } from "@/utils/email/types";
 import { assertProviderNotRateLimited } from "@/utils/email/rate-limit";
@@ -18,6 +21,14 @@ export async function createEmailProvider({
   provider: string;
   logger: Logger;
 }): Promise<EmailProvider> {
+  if (isLocalAuthBypassEnabled()) {
+    const localBypassProvider = await getLocalBypassProvider({
+      emailAccountId,
+      logger,
+    });
+    if (localBypassProvider) return localBypassProvider;
+  }
+
   const rateLimitProvider = toRateLimitProvider(provider);
   if (!rateLimitProvider) throw new Error(`Unsupported provider: ${provider}`);
 
@@ -35,4 +46,16 @@ export async function createEmailProvider({
 
   const client = await getOutlookClientForEmail({ emailAccountId, logger });
   return new OutlookProvider(client, logger);
+}
+
+async function getLocalBypassProvider({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}): Promise<EmailProvider | null> {
+  if (!(await isLocalBypassEmailAccount(emailAccountId))) return null;
+
+  return createLocalBypassEmailProvider(logger);
 }

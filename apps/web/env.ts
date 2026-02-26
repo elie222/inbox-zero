@@ -188,6 +188,7 @@ export const env = createEnv({
       ),
     // Mobile auth trusted origin, e.g. inboxzero://
     MOBILE_AUTH_ORIGIN: z.string().trim().min(1).optional(),
+    LOCAL_AUTH_BYPASS_ENABLED: booleanString.optional().default(false),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
