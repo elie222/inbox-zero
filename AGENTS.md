@@ -32,6 +32,7 @@
 - Reusable components shared across pages go in `apps/web/components/`
 - One resource per API route file
 - Env vars: add to `.env.example`, `env.ts`, and `turbo.json`. Prefix client-side with `NEXT_PUBLIC_`.
+- Prisma retries: default to no retry logic. Use `withPrismaRetry` only for clearly idempotent operations where transient DB failures are expected, and keep the reason explicit in code.
 
 ## Change Philosophy
 - Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.

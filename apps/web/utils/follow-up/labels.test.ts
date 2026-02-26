@@ -278,6 +278,7 @@ describe("clearFollowUpLabel", () => {
     });
 
     prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
+    prisma.threadTracker.findFirst.mockResolvedValue({ id: "tracker-1" });
 
     await clearFollowUpLabel({
       emailAccountId: "account-1",
@@ -297,7 +298,14 @@ describe("clearFollowUpLabel", () => {
         followUpAppliedAt: null,
       },
     });
-    expect(prisma.threadTracker.findFirst).not.toHaveBeenCalled();
+    expect(prisma.threadTracker.findFirst).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        followUpAppliedAt: { not: null },
+      },
+      select: { id: true },
+    });
     expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
       "thread-1",
       "label-123",
@@ -325,7 +333,6 @@ describe("clearFollowUpLabel", () => {
         emailAccountId: "account-1",
         threadId: "thread-1",
         followUpAppliedAt: { not: null },
-        resolved: false,
       },
       select: { id: true },
     });
@@ -357,6 +364,7 @@ describe("clearFollowUpLabel", () => {
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
     });
     prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
+    prisma.threadTracker.findFirst.mockResolvedValue({ id: "tracker-1" });
 
     await clearFollowUpLabel({
       emailAccountId: "account-1",
@@ -384,6 +392,7 @@ describe("clearFollowUpLabel", () => {
         .fn()
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
     });
+    prisma.threadTracker.findFirst.mockResolvedValue({ id: "tracker-1" });
     prisma.threadTracker.updateMany.mockRejectedValue(new Error("db failed"));
 
     await expect(

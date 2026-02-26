@@ -1,5 +1,4 @@
 import prisma from "@/utils/prisma";
-import { withPrismaRetry } from "@/utils/prisma-retry";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import { FOLLOW_UP_LABEL } from "@/utils/label";
 import type { Logger } from "@/utils/logger";
@@ -123,83 +122,51 @@ export async function clearFollowUpLabel({
 }): Promise<void> {
   if (!threadId) return;
 
-  let clearedTrackerCount = 0;
-  let shouldAttemptLabelRemoval = false;
-  let removalReason:
-    | "cleared-unresolved-trackers"
-    | "existing-follow-up-tracker"
-    | null = null;
-
   try {
-    const { count } = await withPrismaRetry(
-      () =>
-        prisma.threadTracker.updateMany({
-          where: {
-            emailAccountId,
-            threadId,
-            followUpAppliedAt: { not: null },
-            resolved: false,
-          },
-          data: {
-            followUpAppliedAt: null,
-          },
-        }),
-      { logger },
-    );
-    clearedTrackerCount = count;
+    const followUpTracker = await prisma.threadTracker.findFirst({
+      where: {
+        emailAccountId,
+        threadId,
+        followUpAppliedAt: { not: null },
+      },
+      select: { id: true },
+    });
 
-    if (count > 0) {
-      shouldAttemptLabelRemoval = true;
-      removalReason = "cleared-unresolved-trackers";
-    } else {
-      const existingFollowUpTracker = await withPrismaRetry(
-        () =>
-          prisma.threadTracker.findFirst({
-            where: {
-              emailAccountId,
-              threadId,
-              followUpAppliedAt: { not: null },
-              resolved: false,
-            },
-            select: { id: true },
-          }),
-        { logger },
+    if (!followUpTracker) {
+      logger.info(
+        "Skipping follow-up label removal; no app-managed follow-up tracker found",
+        { threadId },
       );
-
-      if (existingFollowUpTracker) {
-        shouldAttemptLabelRemoval = true;
-        removalReason = "existing-follow-up-tracker";
-      }
+      return;
     }
+
+    const { count } = await prisma.threadTracker.updateMany({
+      where: {
+        emailAccountId,
+        threadId,
+        followUpAppliedAt: { not: null },
+        resolved: false,
+      },
+      data: {
+        followUpAppliedAt: null,
+      },
+    });
+
+    logger.info("Removing follow-up label", {
+      threadId,
+      clearedTrackerCount: count,
+    });
+
+    await removeFollowUpLabel({ provider, threadId, logger });
+
+    logger.info("Completed follow-up label removal check", {
+      threadId,
+      clearedTrackerCount: count,
+    });
   } catch (error) {
     logger.error("Failed to clear follow-up tracker state", {
       threadId,
       error,
     });
-  }
-
-  if (!shouldAttemptLabelRemoval) {
-    logger.info(
-      "Skipping follow-up label removal; no app-managed follow-up tracker found",
-      {
-        threadId,
-        clearedTrackerCount,
-      },
-    );
-    return;
-  }
-
-  logger.info("Removing follow-up label", { threadId, removalReason });
-
-  try {
-    await removeFollowUpLabel({ provider, threadId, logger });
-
-    logger.info("Completed follow-up label removal check", {
-      threadId,
-      clearedTrackerCount,
-      removalReason,
-    });
-  } catch (error) {
-    logger.error("Failed to remove follow-up label", { threadId, error });
   }
 }
