@@ -20,10 +20,6 @@ export const USER_ROLES = [
     description: "Managing communications and calendars for others",
   },
   {
-    value: "Investor",
-    description: "VC, angel investor, or fund manager",
-  },
-  {
     value: "Realtor",
     description: "Buying, selling, and managing properties",
   },
@@ -50,6 +46,10 @@ export const USER_ROLES = [
   {
     value: "Marketing",
     description: "Growing brands and driving campaigns",
+  },
+  {
+    value: "Investor",
+    description: "VC, angel investor, or fund manager",
   },
   {
     value: "Student",

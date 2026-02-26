@@ -132,7 +132,7 @@ export function StepWho({
               ref={scrollContainerRef}
               className="grid gap-2 px-1 pt-6 pb-6"
               fadeFromClass="from-slate-50"
-              height="h-[560px]"
+              height="h-[576px]"
             >
               {displayedRoles.map(({ value: roleName }) => {
                 const role = usersRolesInfo[roleName];
