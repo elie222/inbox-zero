@@ -569,7 +569,7 @@ function EmailActionResult({
                 ) : isChatBusy ? (
                   "Wait for response..."
                 ) : (
-                  "Confirm and send"
+                  "Send"
                 )}
               </Button>
             )}
