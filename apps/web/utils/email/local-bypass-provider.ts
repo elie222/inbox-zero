@@ -1,5 +1,9 @@
-import type { EmailProvider, EmailThread } from "@/utils/email/types";
-import type { InboxZeroLabel } from "@/utils/label";
+import type {
+  EmailLabel,
+  EmailProvider,
+  EmailThread,
+} from "@/utils/email/types";
+import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import { LOCAL_BYPASS_USER_EMAIL } from "@/utils/auth/local-bypass-config";
@@ -14,6 +18,26 @@ export function createLocalBypassEmailProvider(logger?: Logger): EmailProvider {
     messages.map((message) => [message.id, message]),
   );
   const defaultMessage = messages[0] || getFallbackMessage();
+  let labels = getLocalBypassLabels();
+
+  const findLabelById = (labelId: string) =>
+    labels.find((label) => label.id === labelId) || null;
+  const findLabelByName = (name: string) =>
+    labels.find(
+      (label) => label.name.toLowerCase() === name.trim().toLowerCase(),
+    ) || null;
+  const getOrCreateUserLabel = (name: string) => {
+    const existingLabel = findLabelByName(name);
+    if (existingLabel) return existingLabel;
+
+    const createdLabel: EmailLabel = {
+      id: getLocalBypassUserLabelId(name),
+      name: name.trim(),
+      type: "user",
+    };
+    labels = [...labels, createdLabel];
+    return createdLabel;
+  };
 
   return {
     name: "google",
@@ -25,9 +49,9 @@ export function createLocalBypassEmailProvider(logger?: Logger): EmailProvider {
         messages: [defaultMessage],
         snippet: defaultMessage.snippet,
       },
-    getLabels: async () => [],
-    getLabelById: async () => null,
-    getLabelByName: async () => null,
+    getLabels: async () => labels,
+    getLabelById: async (labelId) => findLabelById(labelId),
+    getLabelByName: async (name) => findLabelByName(name),
     getFolders: async () => [],
     getMessage: async (messageId) =>
       messagesById.get(messageId) || defaultMessage,
@@ -139,17 +163,15 @@ export function createLocalBypassEmailProvider(logger?: Logger): EmailProvider {
     }),
     createDraft: async () => ({ id: "local-bypass-draft-id" }),
     updateDraft: async () => {},
-    createLabel: async (name) => ({
-      id: `local-bypass-label:${name}`,
-      name,
-      type: "user",
-    }),
-    deleteLabel: async () => {},
-    getOrCreateInboxZeroLabel: async (key: InboxZeroLabel) => ({
-      id: `local-bypass-label:${key}`,
-      name: key,
-      type: "user",
-    }),
+    createLabel: async (name) => getOrCreateUserLabel(name),
+    deleteLabel: async (labelId) => {
+      const labelToDelete = findLabelById(labelId);
+      if (!labelToDelete || labelToDelete.type === "system") return;
+
+      labels = labels.filter((label) => label.id !== labelId);
+    },
+    getOrCreateInboxZeroLabel: async (key: InboxZeroLabel) =>
+      getOrCreateUserLabel(inboxZeroLabels[key].name),
     blockUnsubscribedEmail: async () => {},
     getOriginalMessage: async () => null,
     getFiltersList: async () => [],
@@ -337,6 +359,46 @@ function getFallbackMessage(): ParsedMessage {
     textHtml: "<p>Local bypass test message</p>",
     inline: [],
   };
+}
+
+function getLocalBypassLabels(): EmailLabel[] {
+  const systemLabels: EmailLabel[] = [
+    { id: "INBOX", name: "INBOX", type: "system" },
+    { id: "UNREAD", name: "UNREAD", type: "system" },
+    { id: "SENT", name: "SENT", type: "system" },
+    { id: "DRAFT", name: "DRAFT", type: "system" },
+    { id: "TRASH", name: "TRASH", type: "system" },
+  ];
+
+  const inboxZeroSystemLabels = Object.values(inboxZeroLabels).map((label) => ({
+    id: getLocalBypassUserLabelId(label.name),
+    name: label.name,
+    type: "user",
+  }));
+
+  const userLabels: EmailLabel[] = [
+    {
+      id: getLocalBypassUserLabelId("Newsletter"),
+      name: "Newsletter",
+      type: "user",
+    },
+    {
+      id: getLocalBypassUserLabelId("Receipts"),
+      name: "Receipts",
+      type: "user",
+    },
+    {
+      id: getLocalBypassUserLabelId("Follow-up"),
+      name: "Follow-up",
+      type: "user",
+    },
+  ];
+
+  return [...systemLabels, ...inboxZeroSystemLabels, ...userLabels];
+}
+
+function getLocalBypassUserLabelId(name: string) {
+  return `local-bypass-label:${encodeURIComponent(name.trim().toLowerCase())}`;
 }
 
 function getLocalBypassMessages(): ParsedMessage[] {
