@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
 import { auth } from "@/utils/auth";
+import { isLocalAuthBypassEnabled } from "@/utils/auth/local-bypass-config";
 import { AlertBasic } from "@/components/Alert";
 import { Button } from "@/components/ui/button";
 import { WELCOME_PATH } from "@/utils/config";
@@ -47,7 +48,7 @@ export default async function AuthenticationPage(props: {
         </div>
         <div className="mt-4">
           <Suspense>
-            <LoginForm />
+            <LoginForm showLocalBypass={isLocalAuthBypassEnabled()} />
           </Suspense>
         </div>
 
