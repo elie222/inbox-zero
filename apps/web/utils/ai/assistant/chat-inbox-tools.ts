@@ -21,19 +21,20 @@ const recipientListSchema = z
     (recipientList) => hasOnlyValidRecipients(recipientList),
     "must include valid email address(es)",
   );
+const toRecipientFieldSchema = recipientListSchema.describe(
+  'Recipient email list. Must include valid email addresses (for example "Name <person@domain.com>" or "person@domain.com"). If the user only gives a name, resolve the address first (for example using searchInbox).',
+);
+const ccRecipientFieldSchema = recipientListSchema
+  .optional()
+  .describe("Optional CC recipient email list with valid email addresses.");
+const bccRecipientFieldSchema = recipientListSchema
+  .optional()
+  .describe("Optional BCC recipient email list with valid email addresses.");
 const sendEmailToolInputSchema = z
   .object({
-    to: recipientListSchema.describe(
-      'Recipient email list. Must include valid email addresses (for example "Name <person@domain.com>" or "person@domain.com"). If the user only gives a name, resolve the address first (for example using searchInbox).',
-    ),
-    cc: recipientListSchema
-      .optional()
-      .describe("Optional CC recipient email list with valid email addresses."),
-    bcc: recipientListSchema
-      .optional()
-      .describe(
-        "Optional BCC recipient email list with valid email addresses.",
-      ),
+    to: toRecipientFieldSchema,
+    cc: ccRecipientFieldSchema,
+    bcc: bccRecipientFieldSchema,
     subject: z.string().trim().min(1).max(300),
     messageHtml: z.string().trim().min(1),
   })
@@ -53,17 +54,9 @@ const replyEmailToolInputSchema = z
 const forwardEmailToolInputSchema = z
   .object({
     messageId: z.string().trim().min(1),
-    to: recipientListSchema.describe(
-      'Recipient email list. Must include valid email addresses (for example "Name <person@domain.com>" or "person@domain.com"). If the user only gives a name, resolve the address first (for example using searchInbox).',
-    ),
-    cc: recipientListSchema
-      .optional()
-      .describe("Optional CC recipient email list with valid email addresses."),
-    bcc: recipientListSchema
-      .optional()
-      .describe(
-        "Optional BCC recipient email list with valid email addresses.",
-      ),
+    to: toRecipientFieldSchema,
+    cc: ccRecipientFieldSchema,
+    bcc: bccRecipientFieldSchema,
     content: z.string().trim().max(5000).optional(),
   })
   .strict();
