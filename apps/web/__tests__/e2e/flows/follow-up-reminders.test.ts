@@ -99,6 +99,8 @@ async function getEmailAccountForProcessing(emailAccountId: string) {
       email: true,
       about: true,
       multiRuleSelectionEnabled: true,
+
+      draftReplyConfidenceThreshold: true,
       timezone: true,
       calendarBookingLink: true,
       followUpAwaitingReplyDays: true,

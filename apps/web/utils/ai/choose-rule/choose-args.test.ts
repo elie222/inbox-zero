@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { combineActionsWithAiArgs } from "./choose-args";
+import {
+  combineActionsWithAiArgs,
+  filterIncompleteDraftActions,
+} from "./choose-args";
 import { ActionType } from "@/generated/prisma/enums";
 import type { Action } from "@/generated/prisma/client";
 
@@ -133,5 +136,38 @@ describe("combineActionsWithAiArgs", () => {
 
       expect(result[0].label).toBe("Priority: High");
     });
+  });
+});
+
+describe("filterIncompleteDraftActions", () => {
+  it("removes draft actions that have no content", () => {
+    const result = filterIncompleteDraftActions([
+      createMockAction({
+        id: "draft-empty",
+        type: ActionType.DRAFT_EMAIL,
+        content: null,
+      }),
+      createMockAction({
+        id: "label-1",
+        type: ActionType.LABEL,
+        label: "Important",
+      }),
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe(ActionType.LABEL);
+  });
+
+  it("keeps draft actions when content exists", () => {
+    const result = filterIncompleteDraftActions([
+      createMockAction({
+        id: "draft-filled",
+        type: ActionType.DRAFT_EMAIL,
+        content: "Thanks for reaching out.",
+      }),
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("draft-filled");
   });
 });

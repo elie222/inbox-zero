@@ -56,6 +56,8 @@ async function getPreviewData({
       email: true,
       about: true,
       multiRuleSelectionEnabled: true,
+
+      draftReplyConfidenceThreshold: true,
       timezone: true,
       calendarBookingLink: true,
       filingEnabled: true,
