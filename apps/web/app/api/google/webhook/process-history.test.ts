@@ -140,6 +140,48 @@ describe("processHistoryForUser - 404 Handling", () => {
     expect(getHistory).not.toHaveBeenCalled();
   });
 
+  it("should continue processing when rate-limit state lookup fails", async () => {
+    const email = "user@test.com";
+    const historyId = 2000;
+    const emailAccount = {
+      id: "account-123",
+      email,
+      lastSyncedHistoryId: "1000",
+    };
+
+    vi.mocked(getWebhookEmailAccount).mockResolvedValue(emailAccount as any);
+    vi.mocked(validateWebhookAccount).mockResolvedValue({
+      success: true,
+      data: {
+        emailAccount: {
+          ...emailAccount,
+          account: {
+            access_token: "token",
+            refresh_token: "refresh",
+            expires_at: new Date(Date.now() + 3_600_000),
+          },
+          rules: [],
+        },
+        hasAutomationRules: false,
+        hasAiAccess: false,
+      },
+    } as any);
+    vi.mocked(getEmailProviderRateLimitState).mockRejectedValueOnce(
+      new Error("redis unavailable"),
+    );
+    vi.mocked(getHistory).mockResolvedValue({ history: [] });
+
+    const result = await processHistoryForUser(
+      { emailAddress: email, historyId },
+      {},
+      logger,
+    );
+
+    const jsonResponse = await (result as any).json();
+    expect(jsonResponse).toEqual({ ok: true });
+    expect(getHistory).toHaveBeenCalled();
+  });
+
   it("should log a warning and advance cursor when large-gap history is truncated", async () => {
     const email = "user@test.com";
     const historyId = 2000; // Gap of 1000 (2000 - 1000)

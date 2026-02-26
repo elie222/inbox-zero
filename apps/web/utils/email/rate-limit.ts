@@ -35,9 +35,25 @@ export type EmailProviderRateLimitState = {
   source?: string;
 };
 
-export {
-  getEmailProviderRateLimitStateFromRedis as getEmailProviderRateLimitState,
-};
+export async function getEmailProviderRateLimitState({
+  emailAccountId,
+  logger: customLogger,
+}: {
+  emailAccountId: string;
+  logger?: Logger;
+}) {
+  try {
+    return await getEmailProviderRateLimitStateFromRedis({
+      emailAccountId,
+    });
+  } catch (error) {
+    customLogger?.warn("Failed to read provider rate-limit state", {
+      emailAccountId,
+      error: error instanceof Error ? error.message : error,
+    });
+    return null;
+  }
+}
 
 export async function recordRateLimitFromApiError({
   apiErrorType,
@@ -107,9 +123,18 @@ export async function setEmailProviderRateLimitState({
   }
 
   const stateLogger = customLogger || logger;
-  const existing = await getEmailProviderRateLimitStateFromRedis({
-    emailAccountId,
-  });
+  let existing: EmailProviderRateLimitState | null = null;
+  try {
+    existing = await getEmailProviderRateLimitStateFromRedis({
+      emailAccountId,
+    });
+  } catch (error) {
+    stateLogger.warn("Failed to read existing provider rate-limit state", {
+      emailAccountId,
+      provider,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
 
   if (
     existing &&
@@ -162,8 +187,9 @@ export async function assertProviderNotRateLimited({
   logger?: Logger;
   source?: string;
 }) {
-  const state = await getEmailProviderRateLimitStateFromRedis({
+  const state = await getEmailProviderRateLimitState({
     emailAccountId,
+    logger,
   });
   if (!state || state.provider !== provider) return;
 

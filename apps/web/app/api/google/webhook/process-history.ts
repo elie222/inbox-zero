@@ -71,19 +71,33 @@ export async function processHistoryForUser(
   const accountAccessToken = validatedEmailAccount.account.access_token;
   const accountRefreshToken = validatedEmailAccount.account.refresh_token;
   const accountProvider = validatedEmailAccount.account.provider || "google";
-  const activeRateLimit = await getEmailProviderRateLimitState({
-    emailAccountId: validatedEmailAccount.id,
-  });
-
-  if (activeRateLimit?.provider === "google") {
-    logger.warn("Skipping webhook processing due to active Gmail rate limit", {
-      retryAt: activeRateLimit.retryAt.toISOString(),
-      rateLimitSource: activeRateLimit.source,
-    });
-    return NextResponse.json({ ok: true });
-  }
 
   try {
+    let activeRateLimit: Awaited<
+      ReturnType<typeof getEmailProviderRateLimitState>
+    > = null;
+    try {
+      activeRateLimit = await getEmailProviderRateLimitState({
+        emailAccountId: validatedEmailAccount.id,
+        logger,
+      });
+    } catch (error) {
+      logger.warn("Failed to read provider rate-limit state for webhook", {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+
+    if (activeRateLimit?.provider === "google") {
+      logger.warn(
+        "Skipping webhook processing due to active Gmail rate limit",
+        {
+          retryAt: activeRateLimit.retryAt.toISOString(),
+          rateLimitSource: activeRateLimit.source,
+        },
+      );
+      return NextResponse.json({ ok: true });
+    }
+
     return await withRateLimitRecording(
       {
         emailAccountId: validatedEmailAccount.id,

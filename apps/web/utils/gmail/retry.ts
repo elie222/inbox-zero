@@ -30,80 +30,85 @@ export async function withGmailRetry<T>(
 ): Promise<T> {
   const retryLogger = context?.logger || logger;
 
-  return pRetry(operation, {
-    retries: maxRetries,
-    onFailedAttempt: async (error) => {
-      const errorInfo = extractErrorInfo(error);
-      const { retryable, isRateLimit, isServerError, isFailedPrecondition } =
-        isRetryableError(errorInfo);
-      const retryLogFields = buildRetryLogFields(errorInfo);
+  try {
+    return await pRetry(operation, {
+      retries: maxRetries,
+      onFailedAttempt: async (attempt) => {
+        const originalError = getRetryAttemptError(attempt);
+        const attemptNumber = getRetryAttemptNumber(attempt);
+        const errorInfo = extractErrorInfo(originalError);
+        const { retryable, isRateLimit, isServerError, isFailedPrecondition } =
+          isRetryableError(errorInfo);
+        const retryLogFields = buildRetryLogFields(errorInfo);
 
-      if (!retryable) {
-        retryLogger.warn("Non-retryable error encountered", retryLogFields);
-        throw error;
-      }
+        if (!retryable) {
+          retryLogger.warn("Non-retryable error encountered", retryLogFields);
+          throw originalError;
+        }
 
-      const retryAfterHeader = getRetryAfterHeader(error);
-      const retryAfterFromMessage = parseRetryTime(
-        errorInfo.errorMessage,
-      )?.toISOString();
+        const retryAfterHeader = getRetryAfterHeader(originalError);
+        const retryAfterFromMessage = parseRetryTime(
+          errorInfo.errorMessage,
+        )?.toISOString();
 
-      const delayMs = calculateRetryDelay(
-        isRateLimit,
-        isServerError,
-        isFailedPrecondition,
-        error.attemptNumber,
-        retryAfterHeader,
-        errorInfo.errorMessage,
-      );
+        const delayMs = calculateRetryDelay(
+          isRateLimit,
+          isServerError,
+          isFailedPrecondition,
+          attemptNumber,
+          retryAfterHeader,
+          errorInfo.errorMessage,
+        );
 
-      retryLogger.warn("Gmail error. Will retry", {
-        delaySeconds: Math.ceil(delayMs / 1000),
-        attemptNumber: error.attemptNumber,
-        maxRetries,
-        ...retryLogFields,
-        retryAfterHeader,
-        retryAfterFromMessage,
-        isRateLimit,
-        isServerError,
-        isFailedPrecondition,
-      });
-
-      if (delayMs > MAX_GMAIL_BLOCKING_RETRY_DELAY_MS) {
-        retryLogger.warn("Aborting retry due to long backoff in serverless", {
+        retryLogger.warn("Gmail error. Will retry", {
           delaySeconds: Math.ceil(delayMs / 1000),
-          maxBlockingDelaySeconds: Math.ceil(
-            MAX_GMAIL_BLOCKING_RETRY_DELAY_MS / 1000,
-          ),
-          attemptNumber: error.attemptNumber,
+          attemptNumber,
           maxRetries,
           ...retryLogFields,
+          retryAfterHeader,
+          retryAfterFromMessage,
+          isRateLimit,
+          isServerError,
+          isFailedPrecondition,
         });
-        const originalError = (error as { originalError?: unknown })
-          .originalError;
-        const abortError =
-          originalError instanceof Error
-            ? originalError
-            : new Error(
-                errorInfo.errorMessage ||
-                  "Aborted retry due to long backoff in serverless",
-              );
-        throw new AbortError(abortError);
-      }
 
-      // Apply the custom delay
-      if (delayMs > 0) {
-        await sleep(delayMs);
-      }
-    },
-  });
+        if (delayMs > MAX_GMAIL_BLOCKING_RETRY_DELAY_MS) {
+          retryLogger.warn("Aborting retry due to long backoff in serverless", {
+            delaySeconds: Math.ceil(delayMs / 1000),
+            maxBlockingDelaySeconds: Math.ceil(
+              MAX_GMAIL_BLOCKING_RETRY_DELAY_MS / 1000,
+            ),
+            attemptNumber,
+            maxRetries,
+            ...retryLogFields,
+          });
+          throw new AbortError(
+            toErrorInstance(
+              originalError,
+              errorInfo.errorMessage ||
+                "Aborted retry due to long backoff in serverless",
+            ),
+          );
+        }
+
+        // Apply the custom delay
+        if (delayMs > 0) {
+          await sleep(delayMs);
+        }
+      },
+    });
+  } catch (error) {
+    const originalError = getAbortOriginalError(error);
+    if (originalError !== undefined) throw originalError;
+    throw error;
+  }
 }
 
 /**
  * Extracts error information from various error shapes
  */
 export function extractErrorInfo(error: unknown): ErrorInfo {
-  const err = toRecord(error);
+  const err = toRecord(getRetryAttemptError(error));
   const cause = toRecord(err.cause ?? err);
   const response = toRecord(cause.response);
   const responseData = toRecord(response.data);
@@ -300,6 +305,46 @@ function getFirstErrorValue(
   if (!firstError || typeof firstError !== "object") return undefined;
   const value = (firstError as Record<string, unknown>)[key];
   return typeof value === "string" ? value : undefined;
+}
+
+function getRetryAttemptError(attempt: unknown): unknown {
+  const attemptRecord = toRecord(attempt);
+  if ("attemptNumber" in attemptRecord && "error" in attemptRecord) {
+    return attemptRecord.error;
+  }
+  return attempt;
+}
+
+function getRetryAttemptNumber(attempt: unknown): number {
+  const attemptRecord = toRecord(attempt);
+  const attemptNumber = attemptRecord.attemptNumber;
+  if (typeof attemptNumber !== "number" || Number.isNaN(attemptNumber)) {
+    return 1;
+  }
+  return attemptNumber;
+}
+
+function toErrorInstance(error: unknown, fallbackMessage: string): Error {
+  if (error instanceof Error) return error;
+
+  const message =
+    typeof error === "string" && error.trim()
+      ? error
+      : fallbackMessage || "Retry aborted";
+  const normalizedError = new Error(message);
+
+  if (error && typeof error === "object") {
+    Object.assign(normalizedError, error);
+  }
+
+  return normalizedError;
+}
+
+function getAbortOriginalError(error: unknown): unknown | undefined {
+  const errorRecord = toRecord(error);
+  if (errorRecord.name !== "AbortError") return undefined;
+  if (!("originalError" in errorRecord)) return undefined;
+  return errorRecord.originalError;
 }
 
 function toRecord(value: unknown): Record<string, unknown> {

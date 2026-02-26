@@ -251,7 +251,17 @@ describe("Gmail retry helpers", () => {
       );
       const operation = vi.fn().mockRejectedValue(error);
 
-      await expect(withGmailRetry(operation, 5)).rejects.toBeDefined();
+      await expect(withGmailRetry(operation, 5)).rejects.toBe(error);
+
+      expect(operation).toHaveBeenCalledTimes(1);
+      expect(sleep).not.toHaveBeenCalled();
+    });
+
+    it("rethrows original non-retryable errors", async () => {
+      const error = Object.assign(new Error("Not Found"), { status: 404 });
+      const operation = vi.fn().mockRejectedValue(error);
+
+      await expect(withGmailRetry(operation, 5)).rejects.toBe(error);
 
       expect(operation).toHaveBeenCalledTimes(1);
       expect(sleep).not.toHaveBeenCalled();

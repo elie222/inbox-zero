@@ -80,6 +80,16 @@ describe("email provider rate-limit state", () => {
     );
   });
 
+  it("returns null when reading rate-limit state fails", async () => {
+    vi.mocked(redis.get).mockRejectedValueOnce(new Error("redis unavailable"));
+
+    const state = await getEmailProviderRateLimitState({
+      emailAccountId: "account-1",
+    });
+
+    expect(state).toBeNull();
+  });
+
   it("throws a typed error when account is currently rate-limited", async () => {
     vi.mocked(redis.get).mockResolvedValueOnce(
       JSON.stringify({
@@ -96,6 +106,17 @@ describe("email provider rate-limit state", () => {
         provider: "google",
       }),
     ).rejects.toBeInstanceOf(ProviderRateLimitModeError);
+  });
+
+  it("does not throw when guard state lookup fails", async () => {
+    vi.mocked(redis.get).mockRejectedValueOnce(new Error("redis unavailable"));
+
+    await expect(
+      assertProviderNotRateLimited({
+        emailAccountId: "account-1",
+        provider: "google",
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it("records rate-limit mode from gmail retry errors", async () => {
