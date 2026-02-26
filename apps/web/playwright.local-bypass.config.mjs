@@ -21,8 +21,8 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: {
-    command: "pnpm exec next dev",
-    cwd: import.meta.dirname,
+    command: "pnpm exec next dev --webpack",
+    cwd: process.cwd(),
     url: `${baseURL}/login`,
     timeout: 240_000,
     reuseExistingServer: !process.env.CI,

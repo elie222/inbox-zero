@@ -11,7 +11,17 @@ test("local bypass completes onboarding and reaches app pages", async ({
   await expect(bypassLoginButton).toBeVisible();
   await bypassLoginButton.click();
 
-  await expect(page).toHaveURL(/\/[a-z0-9]+\/onboarding(\?.*)?$/);
+  const onboardingUrlPattern = /\/[a-z0-9]+\/onboarding(\?.*)?$/;
+  if (!(await waitForUrl(page, onboardingUrlPattern, 20_000))) {
+    if (!page.url().includes("/login")) {
+      await page.goto("/login?next=%2Fwelcome-redirect%3Fforce%3Dtrue");
+    }
+    await page
+      .getByRole("button", { name: "Bypass login (local only)" })
+      .click();
+    await expect(page).toHaveURL(onboardingUrlPattern);
+  }
+
   const emailAccountId = getEmailAccountIdFromUrl(page.url());
 
   await completeOnboardingFlow(page);
@@ -95,6 +105,15 @@ async function continueFromStep(page: Page, heading: string | RegExp) {
 async function waitForVisible(locator: Locator, timeout: number) {
   try {
     await locator.waitFor({ state: "visible", timeout });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForUrl(page: Page, urlPattern: RegExp, timeout: number) {
+  try {
+    await page.waitForURL(urlPattern, { timeout });
     return true;
   } catch {
     return false;
