@@ -124,6 +124,12 @@ export async function clearFollowUpLabel({
   if (!threadId) return;
 
   let clearedTrackerCount = 0;
+  let shouldAttemptLabelRemoval = false;
+  let removalReason:
+    | "cleared-unresolved-trackers"
+    | "existing-follow-up-tracker"
+    | "db-error-fallback"
+    | null = null;
 
   try {
     const { count } = await withPrismaRetry(
@@ -142,21 +148,58 @@ export async function clearFollowUpLabel({
       { logger },
     );
     clearedTrackerCount = count;
+
+    if (count > 0) {
+      shouldAttemptLabelRemoval = true;
+      removalReason = "cleared-unresolved-trackers";
+    } else {
+      const existingFollowUpTracker = await withPrismaRetry(
+        () =>
+          prisma.threadTracker.findFirst({
+            where: {
+              emailAccountId,
+              threadId,
+              followUpAppliedAt: { not: null },
+            },
+            select: { id: true },
+          }),
+        { logger },
+      );
+
+      if (existingFollowUpTracker) {
+        shouldAttemptLabelRemoval = true;
+        removalReason = "existing-follow-up-tracker";
+      }
+    }
   } catch (error) {
     logger.error("Failed to clear follow-up tracker state", {
       threadId,
       error,
     });
+    shouldAttemptLabelRemoval = true;
+    removalReason = "db-error-fallback";
   }
 
-  logger.info("Removing follow-up label", { threadId });
+  if (!shouldAttemptLabelRemoval) {
+    logger.info(
+      "Skipping follow-up label removal; no app-managed follow-up tracker found",
+      {
+        threadId,
+        clearedTrackerCount,
+      },
+    );
+    return;
+  }
+
+  logger.info("Removing follow-up label", { threadId, removalReason });
 
   try {
     await removeFollowUpLabel({ provider, threadId, logger });
 
-    logger.info("Removed follow-up label and cleared tracker", {
+    logger.info("Completed follow-up label removal check", {
       threadId,
       clearedTrackerCount,
+      removalReason,
     });
   } catch (error) {
     logger.error("Failed to remove follow-up label", { threadId, error });
