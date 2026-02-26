@@ -4,6 +4,7 @@ import { createScopedLogger } from "@/utils/logger";
 import {
   checkCommonErrors,
   getActionErrorMessage,
+  getUserFacingErrorMessage,
   isInsufficientCreditsError,
   isHandledUserKeyError,
   isKnownApiError,
@@ -13,6 +14,46 @@ import {
   isOutlookThrottlingError,
   markAsHandledUserKeyError,
 } from "./error";
+
+describe("getUserFacingErrorMessage", () => {
+  it("returns plain error messages unchanged", () => {
+    const result = getUserFacingErrorMessage(new Error("Something failed"));
+
+    expect(result).toBe("Something failed");
+  });
+
+  it("formats structured JSON errors", () => {
+    const result = getUserFacingErrorMessage(
+      new Error(
+        JSON.stringify({
+          code: 502,
+          message: "Invalid arguments passed to the model.",
+          metadata: { provider_name: "xAI" },
+        }),
+      ),
+    );
+
+    expect(result).toBe("Invalid arguments passed to the model.");
+  });
+
+  it("reads nested message from structured error payloads", () => {
+    const result = getUserFacingErrorMessage(
+      new Error(
+        JSON.stringify({
+          error: { message: "Upstream model rejected this request." },
+        }),
+      ),
+    );
+
+    expect(result).toBe("Upstream model rejected this request.");
+  });
+
+  it("uses fallback when no message can be extracted", () => {
+    const result = getUserFacingErrorMessage({}, "Fallback");
+
+    expect(result).toBe("Fallback");
+  });
+});
 
 function createAPICallError({
   message,

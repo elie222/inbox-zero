@@ -358,6 +358,19 @@ export function getErrorMessage(error: unknown): string | undefined {
   return getStringProp(nested, "message");
 }
 
+export function getUserFacingErrorMessage(
+  error: unknown,
+  fallback = "An unexpected error occurred. Please try again.",
+): string {
+  const message = getErrorMessage(error);
+  if (!message) return fallback;
+
+  const parsed = parseJsonRecord(message);
+  if (!parsed) return message;
+
+  return getErrorMessage(parsed) || message;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null
     ? (value as Record<string, unknown>)
@@ -370,6 +383,14 @@ function getStringProp(
 ): string | undefined {
   const value = obj[key];
   return typeof value === "string" ? value : undefined;
+}
+
+function parseJsonRecord(message: string): Record<string, unknown> | null {
+  try {
+    return asRecord(JSON.parse(message));
+  } catch {
+    return null;
+  }
 }
 
 // --- Safe Action Error Handling ---
