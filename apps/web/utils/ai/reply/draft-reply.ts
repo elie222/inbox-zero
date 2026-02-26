@@ -37,12 +37,6 @@ Your reply should aim to continue the conversation or provide new information ba
 Return your response in JSON format with:
 - "reply": the drafted email body
 - "confidence": an integer from 0 to 100 representing confidence in the draft quality/accuracy for this conversation
-
-Confidence scoring guidance:
-- 90-100: clear user intent, complete context, high certainty
-- 70-89: good draft with minor uncertainty
-- 40-69: notable missing context or uncertainty
-- 0-39: likely incorrect or unsafe to draft automatically
 `;
 
 const defaultWritingStyle = `Keep it concise and friendly.
@@ -198,7 +192,7 @@ const draftSchema = z.object({
     .min(0)
     .max(100)
     .describe(
-      "Confidence score from 0 to 100 for this drafted reply. Use conservative values when uncertain.",
+      "Confidence score from 0 to 100 for this drafted reply. Use conservative values when uncertain. 90-100: clear user intent with high certainty. 70-89: good draft with minor uncertainty. 40-69: notable missing context or uncertainty. 0-39: likely incorrect or unsafe to draft automatically.",
     ),
 });
 
