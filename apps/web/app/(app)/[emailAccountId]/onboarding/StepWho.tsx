@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
 import { saveOnboardingAnswersAction } from "@/utils/actions/onboarding";
-import { MutedText, PageHeading, TypographyP } from "@/components/Typography";
+import { PageHeading, TypographyP } from "@/components/Typography";
 import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import { USER_ROLES } from "@/utils/constants/user-roles";
 import { cn } from "@/utils";
@@ -124,14 +124,11 @@ export function StepWho({
         >
           <ScrollableFadeContainer
             ref={scrollContainerRef}
-            className="grid gap-2 px-1 pt-6 pb-6"
+            className="grid gap-2 px-1 pt-6 pb-6 max-w-md w-full mx-auto"
             fadeFromClass="from-slate-50"
           >
             {Object.entries(usersRolesInfo).map(([roleName, role]) => {
               const Icon = role.icon;
-              const description = USER_ROLES.find(
-                (r) => r.value === roleName,
-              )?.description;
 
               return (
                 <button
@@ -155,7 +152,6 @@ export function StepWho({
 
                   <div>
                     <div className="font-medium">{roleName}</div>
-                    <MutedText>{description}</MutedText>
                   </div>
                 </button>
               );
@@ -163,7 +159,7 @@ export function StepWho({
           </ScrollableFadeContainer>
 
           {watchedRole === "Other" && (
-            <div className="px-1 pb-6">
+            <div className="px-1 pb-6 max-w-md w-full mx-auto">
               <Input
                 name="customRole"
                 type="text"
