@@ -30,11 +30,14 @@ const ccRecipientFieldSchema = recipientListSchema
 const bccRecipientFieldSchema = recipientListSchema
   .optional()
   .describe("Optional BCC recipient email list with valid email addresses.");
+const recipientFieldsSchema = {
+  to: toRecipientFieldSchema,
+  cc: ccRecipientFieldSchema,
+  bcc: bccRecipientFieldSchema,
+};
 const sendEmailToolInputSchema = z
   .object({
-    to: toRecipientFieldSchema,
-    cc: ccRecipientFieldSchema,
-    bcc: bccRecipientFieldSchema,
+    ...recipientFieldsSchema,
     subject: z.string().trim().min(1).max(300),
     messageHtml: z.string().trim().min(1),
   })
@@ -54,9 +57,7 @@ const replyEmailToolInputSchema = z
 const forwardEmailToolInputSchema = z
   .object({
     messageId: z.string().trim().min(1),
-    to: toRecipientFieldSchema,
-    cc: ccRecipientFieldSchema,
-    bcc: bccRecipientFieldSchema,
+    ...recipientFieldsSchema,
     content: z.string().trim().max(5000).optional(),
   })
   .strict();

@@ -434,4 +434,16 @@ describe("mergeAndDedupeRecipients", () => {
     const result = mergeAndDedupeRecipients(existing, manual);
     expect(result).toEqual(["john@example.com", "jane@example.com"]);
   });
+
+  it("handles display names with commas", () => {
+    const existing = ["john@example.com"];
+    const manual =
+      '"Doe, Jane" <jane@example.com>, "Smith, Bob" <bob@example.com>';
+    const result = mergeAndDedupeRecipients(existing, manual);
+    expect(result).toEqual([
+      "john@example.com",
+      '"Doe, Jane" <jane@example.com>',
+      '"Smith, Bob" <bob@example.com>',
+    ]);
+  });
 });
