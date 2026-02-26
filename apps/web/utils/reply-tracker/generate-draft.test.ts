@@ -14,6 +14,7 @@ vi.mock("@/utils/ai/reply/draft-reply", () => ({
 }));
 
 vi.mock("@/utils/redis/reply", () => ({
+  getReplyWithConfidence: vi.fn().mockResolvedValue(null),
   getReply: vi.fn().mockResolvedValue(null),
   saveReply: vi.fn().mockResolvedValue(undefined),
 }));
@@ -76,6 +77,7 @@ vi.mock("@/env", () => ({
 
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
 import prisma from "@/utils/prisma";
+import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
 
 const mockLogger = {
   info: vi.fn(),
@@ -309,6 +311,57 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
 describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("uses cached drafts when cached confidence meets the threshold", async () => {
+    vi.mocked(getReplyWithConfidence).mockResolvedValue({
+      reply: "Cached draft reply",
+      confidence: 80,
+    });
+
+    const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      mockLogger,
+      70,
+    );
+
+    expect(result).toEqual({ draft: "Cached draft reply", confidence: 80 });
+    expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
+  });
+
+  it("regenerates drafts when cached confidence is below the threshold", async () => {
+    vi.mocked(getReplyWithConfidence).mockResolvedValue({
+      reply: "Old cached draft",
+      confidence: 60,
+    });
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Fresh draft",
+      confidence: 90,
+    });
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+      includeReferralSignature: false,
+      signature: null,
+    } as any);
+
+    const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      mockLogger,
+      70,
+    );
+
+    expect(result).toEqual({ draft: "Fresh draft", confidence: 90 });
+    expect(saveReply).toHaveBeenCalledWith({
+      emailAccountId: "test-account-id",
+      messageId: "msg-1",
+      reply: "Fresh draft",
+      confidence: 90,
+    });
   });
 
   it("skips drafting when confidence is below the threshold", async () => {
