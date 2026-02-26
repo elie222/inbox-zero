@@ -24,7 +24,6 @@ const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
 const CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
 const CONFIRMATION_PERSIST_MAX_ATTEMPTS = 3;
-const CONFIRMATION_FALLBACK_LOOKUP_LIMIT = 20;
 
 const ASSISTANT_EMAIL_ACTION_METADATA: Record<
   AssistantPendingEmailActionType,
@@ -696,7 +695,6 @@ async function findChatMessageForPendingAssistantEmailAction({
       chat: { id: chatId, emailAccountId },
     },
     orderBy: { updatedAt: "desc" },
-    take: CONFIRMATION_FALLBACK_LOOKUP_LIMIT,
     select: {
       id: true,
       chatId: true,
