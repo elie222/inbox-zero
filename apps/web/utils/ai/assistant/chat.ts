@@ -108,12 +108,19 @@ Tool usage strategy (progressive disclosure):
 - For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then provide a concise grouped summary and recommend a next action.
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
-- When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
-- When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.
 - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
+${
+  env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+    ? `- When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
+- When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.
 - Only send emails when the user clearly asks to send now.
   - sendEmail, replyEmail, and forwardEmail prepare a pending action only. The user must click a confirmation button in the UI before any email is actually sent.
-- After these tools run, explicitly tell the user the email is pending confirmation. Do not say it was sent unless the confirmation result says it was sent.
+- After these tools run, explicitly tell the user the email is pending confirmation. Do not say it was sent unless the confirmation result says it was sent.`
+    : `- Email sending actions are disabled in this environment. sendEmail, replyEmail, and forwardEmail tools are unavailable.
+- If the user asks to send, reply, or forward, clearly explain that this environment cannot prepare or send those actions.
+- Do not claim that an email was prepared, replied to, forwarded, or sent when send tools are unavailable.
+- Do not create or modify rules as a substitute unless the user explicitly asks for automation.`
+}
 
 Tool call policy:
 - When a request can be completed with available tools, call the tool instead of only describing what you would do.
@@ -122,8 +129,7 @@ Tool call policy:
 - If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
 - Never invent thread IDs, label IDs, sender addresses, or existing rule names.
-- For forwarding, always use a real messageId from searchInbox or user-provided context.
-- For pending email actions, do not treat "prepared" as "sent".
+${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? '- For forwarding, always use a real messageId from searchInbox or user-provided context.\n- For pending email actions, do not treat "prepared" as "sent".' : ""}
 - "archive_threads" archives specific threads by ID. Use it when the user refers to specific emails shown in results.
 - "bulk_archive_senders" archives ALL emails from given senders server-side, not just the visible ones. Use it when the user asks to clean up by sender. Since it affects emails beyond what's shown, confirm the scope with the user before executing.
 - Choose the tool that matches what the user actually asked for. Do not default to bulk archive when the user is referring to specific emails.
