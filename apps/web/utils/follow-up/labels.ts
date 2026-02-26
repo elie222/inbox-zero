@@ -123,6 +123,8 @@ export async function clearFollowUpLabel({
 }): Promise<void> {
   if (!threadId) return;
 
+  let clearedTrackerCount = 0;
+
   try {
     const { count } = await withPrismaRetry(
       () =>
@@ -139,17 +141,22 @@ export async function clearFollowUpLabel({
         }),
       { logger },
     );
+    clearedTrackerCount = count;
+  } catch (error) {
+    logger.error("Failed to clear follow-up tracker state", {
+      threadId,
+      error,
+    });
+  }
 
-    if (count === 0) {
-      return;
-    }
+  logger.info("Removing follow-up label", { threadId });
 
-    logger.info("Removing follow-up label", { threadId });
-
+  try {
     await removeFollowUpLabel({ provider, threadId, logger });
 
     logger.info("Removed follow-up label and cleared tracker", {
       threadId,
+      clearedTrackerCount,
     });
   } catch (error) {
     logger.error("Failed to remove follow-up label", { threadId, error });
