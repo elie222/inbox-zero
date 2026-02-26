@@ -10,7 +10,7 @@ import { updateDraftReplyConfidenceThresholdAction } from "@/utils/actions/rule"
 import { getActionErrorMessage } from "@/utils/error";
 import { useAction } from "next-safe-action/hooks";
 
-const DEFAULT_THRESHOLD = 100;
+const DEFAULT_THRESHOLD = 0;
 
 export function DraftConfidenceSetting() {
   const { data, isLoading, error, mutate } = useEmailAccountFull();

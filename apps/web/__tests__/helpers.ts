@@ -34,8 +34,7 @@ export function getEmailAccount(
     email: overrides.email || "user@test.com",
     about: null,
     multiRuleSelectionEnabled: overrides.multiRuleSelectionEnabled ?? false,
-    draftReplyConfidenceThreshold:
-      overrides.draftReplyConfidenceThreshold ?? 100,
+    draftReplyConfidenceThreshold: overrides.draftReplyConfidenceThreshold ?? 0,
     timezone: null,
     calendarBookingLink: null,
     user: {
