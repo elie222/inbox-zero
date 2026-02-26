@@ -7,12 +7,13 @@ export const PARENT_LABEL = "Inbox Zero";
 const blue = "#b6cff5";
 const cyan = "#98d7e4";
 const purple = "#e3d7ff";
-const pink = "#fbd3e0";
+const pink = "#fcdee8";
 const red = "#f2b2a8";
 const coral = "#ffc8af";
 const orange = "#ffdeb5";
 const yellow = "#fdedc1";
 const green = "#b3efd3";
+const rose = "#fbc8d9";
 const gray = "#c2c2c2";
 
 const LABEL_COLORS = [
@@ -25,6 +26,7 @@ const LABEL_COLORS = [
   orange,
   yellow,
   green,
+  rose,
 ] as const;
 
 export const inboxZeroLabels = {
@@ -66,26 +68,26 @@ export const FOLLOW_UP_LABEL = "Follow-up";
 
 export function getLabelColor(name: string) {
   switch (name) {
-    case getRuleLabel(SystemType.TO_REPLY):
-      return blue;
-    case getRuleLabel(SystemType.AWAITING_REPLY):
-      return green;
-    case getRuleLabel(SystemType.FYI):
-      return pink;
-    case getRuleLabel(SystemType.ACTIONED):
-      return coral;
-    case getRuleLabel(SystemType.NEWSLETTER):
-      return cyan;
     case getRuleLabel(SystemType.MARKETING):
-      return purple;
-    case getRuleLabel(SystemType.CALENDAR):
-      return pink;
-    case getRuleLabel(SystemType.RECEIPT):
       return red;
-    case getRuleLabel(SystemType.NOTIFICATION):
+    case getRuleLabel(SystemType.NEWSLETTER):
       return coral;
-    case getRuleLabel(SystemType.COLD_EMAIL):
+    case getRuleLabel(SystemType.NOTIFICATION):
       return orange;
+    case getRuleLabel(SystemType.RECEIPT):
+      return yellow;
+    case getRuleLabel(SystemType.TO_REPLY):
+      return green;
+    case getRuleLabel(SystemType.ACTIONED):
+      return cyan;
+    case getRuleLabel(SystemType.AWAITING_REPLY):
+      return blue;
+    case getRuleLabel(SystemType.CALENDAR):
+      return purple;
+    case getRuleLabel(SystemType.COLD_EMAIL):
+      return pink;
+    case getRuleLabel(SystemType.FYI):
+      return rose;
     case FOLLOW_UP_LABEL:
       return yellow;
     default:
