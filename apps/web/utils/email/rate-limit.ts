@@ -1,5 +1,5 @@
 import "server-only";
-import { createScopedLogger, type Logger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import {
   getProviderFromRateLimitApiErrorType,
   type EmailProviderRateLimitProvider,
@@ -14,7 +14,6 @@ import {
 import {
   calculateRetryDelay,
   extractErrorInfo,
-  getRetryAfterHeader,
   isRetryableError,
 } from "@/utils/gmail/retry";
 import {
@@ -22,11 +21,9 @@ import {
   extractErrorInfo as extractOutlookErrorInfo,
   isRetryableError as isOutlookRetryableError,
 } from "@/utils/outlook/retry";
-
-const logger = createScopedLogger("email-rate-limit");
+import { getRetryAfterHeaderFromError } from "@/utils/retry/get-retry-after-header";
 
 const DEFAULT_RATE_LIMIT_DELAY_MS = 30_000;
-const MAX_RATE_LIMIT_TTL_SECONDS = 60 * 60;
 const RETRY_AT_BUFFER_SECONDS = 5;
 
 export type EmailProviderRateLimitState = {
@@ -65,7 +62,7 @@ export async function recordRateLimitFromApiError({
   apiErrorType: string;
   error: unknown;
   emailAccountId?: string;
-  logger?: Logger;
+  logger: Logger;
   source?: string;
 }) {
   const provider = getProviderFromRateLimitApiErrorType(apiErrorType);
@@ -80,7 +77,7 @@ export async function recordRateLimitFromApiError({
       source,
     });
   } catch (recordError) {
-    logger?.warn("Failed to record provider rate-limit state", {
+    logger.warn("Failed to record provider rate-limit state", {
       provider,
       error: recordError instanceof Error ? recordError.message : recordError,
     });
@@ -93,7 +90,7 @@ type RateLimitRecordingContext = {
   emailAccountId?: string;
   provider?: string | null;
   source?: string;
-  logger?: Logger;
+  logger: Logger;
   attemptNumber?: number;
   onRateLimitRecorded?: (
     state: EmailProviderRateLimitState | null,
@@ -106,14 +103,20 @@ export async function setEmailProviderRateLimitState({
   provider,
   retryAt,
   source,
-  logger: customLogger,
+  logger,
 }: {
   emailAccountId: string;
   provider: EmailProviderRateLimitProvider;
   retryAt: Date;
   source?: string;
-  logger?: Logger;
+  logger: Logger;
 }): Promise<EmailProviderRateLimitState> {
+  if (!logger) {
+    throw new Error(
+      "setEmailProviderRateLimitState requires a request-scoped logger",
+    );
+  }
+
   if (!isEmailProviderRateLimitRedisConfigured()) {
     return {
       provider,
@@ -122,14 +125,13 @@ export async function setEmailProviderRateLimitState({
     };
   }
 
-  const stateLogger = customLogger || logger;
   let existing: EmailProviderRateLimitState | null = null;
   try {
     existing = await getEmailProviderRateLimitStateFromRedis({
       emailAccountId,
     });
   } catch (error) {
-    stateLogger.warn("Failed to read existing provider rate-limit state", {
+    logger.warn("Failed to read existing provider rate-limit state", {
       emailAccountId,
       provider,
       error: error instanceof Error ? error.message : error,
@@ -145,12 +147,9 @@ export async function setEmailProviderRateLimitState({
   }
 
   const delayMs = Math.max(0, retryAt.getTime() - Date.now());
-  const ttlSeconds = Math.min(
-    Math.max(
-      Math.ceil(delayMs / 1000) + RETRY_AT_BUFFER_SECONDS,
-      RETRY_AT_BUFFER_SECONDS,
-    ),
-    MAX_RATE_LIMIT_TTL_SECONDS,
+  const ttlSeconds = Math.max(
+    Math.ceil(delayMs / 1000) + RETRY_AT_BUFFER_SECONDS,
+    RETRY_AT_BUFFER_SECONDS,
   );
 
   await setEmailProviderRateLimitStateInRedis({
@@ -161,7 +160,7 @@ export async function setEmailProviderRateLimitState({
     ttlSeconds,
   });
 
-  stateLogger.warn("Set provider rate-limit mode", {
+  logger.warn("Set provider rate-limit mode", {
     emailAccountId,
     provider,
     retryAt: retryAt.toISOString(),
@@ -218,7 +217,7 @@ export async function recordProviderRateLimitFromError({
   error: unknown;
   emailAccountId: string;
   provider: EmailProviderRateLimitProvider;
-  logger?: Logger;
+  logger: Logger;
   source?: string;
   attemptNumber?: number;
 }): Promise<EmailProviderRateLimitState | null> {
@@ -268,7 +267,7 @@ export async function withRateLimitRecording<T>(
           attemptNumber,
         });
       } catch (recordError) {
-        logger?.warn("Failed to record provider rate-limit state", {
+        logger.warn("Failed to record provider rate-limit state", {
           provider: rateLimitProvider,
           source,
           error:
@@ -300,40 +299,67 @@ export function getProviderRateLimitDelayMs({
 }
 
 function getGoogleRateLimitDelayMs(error: unknown, attemptNumber: number) {
-  const errorInfo = extractErrorInfo(error);
-  const { isRateLimit } = isRetryableError(errorInfo);
-  if (!isRateLimit) return null;
-
-  const delayMs = calculateRetryDelay(
-    true,
-    false,
-    false,
+  return calculateProviderRateLimitDelay({
+    error,
     attemptNumber,
-    getRetryAfterHeader(error),
-    errorInfo.errorMessage,
-  );
-
-  return delayMs > 0 ? delayMs : DEFAULT_RATE_LIMIT_DELAY_MS;
+    extractErrorInfo,
+    isRateLimitError: (errorInfo) => isRetryableError(errorInfo).isRateLimit,
+    calculateDelayMs: ({ attemptNumber, retryAfterHeader, errorInfo }) =>
+      calculateRetryDelay(
+        true,
+        false,
+        false,
+        attemptNumber,
+        retryAfterHeader,
+        errorInfo.errorMessage,
+      ),
+  });
 }
 
 function getMicrosoftRateLimitDelayMs(error: unknown, attemptNumber: number) {
-  const errorInfo = extractOutlookErrorInfo(error);
-  const { isRateLimit } = isOutlookRetryableError(errorInfo);
-  if (!isRateLimit) return null;
-
-  const delayMs = calculateOutlookRetryDelay(
-    true,
-    false,
-    false,
+  return calculateProviderRateLimitDelay({
+    error,
     attemptNumber,
-    getOutlookRetryAfterHeader(error),
-  );
-  return delayMs > 0 ? delayMs : DEFAULT_RATE_LIMIT_DELAY_MS;
+    extractErrorInfo: extractOutlookErrorInfo,
+    isRateLimitError: (errorInfo) =>
+      isOutlookRetryableError(errorInfo).isRateLimit,
+    calculateDelayMs: ({ attemptNumber, retryAfterHeader }) =>
+      calculateOutlookRetryDelay(
+        true,
+        false,
+        false,
+        attemptNumber,
+        retryAfterHeader,
+      ),
+  });
 }
 
-function getOutlookRetryAfterHeader(error: unknown): string | undefined {
-  const err = error as Record<string, unknown>;
-  const response = err?.response as Record<string, unknown> | undefined;
-  const headers = response?.headers as Record<string, string> | undefined;
-  return headers?.["retry-after"] ?? headers?.["Retry-After"];
+function calculateProviderRateLimitDelay<TErrorInfo>({
+  error,
+  attemptNumber,
+  extractErrorInfo,
+  isRateLimitError,
+  calculateDelayMs,
+}: {
+  error: unknown;
+  attemptNumber: number;
+  extractErrorInfo: (error: unknown) => TErrorInfo;
+  isRateLimitError: (errorInfo: TErrorInfo) => boolean;
+  calculateDelayMs: (options: {
+    attemptNumber: number;
+    retryAfterHeader?: string;
+    errorInfo: TErrorInfo;
+  }) => number;
+}): number | null {
+  const errorInfo = extractErrorInfo(error);
+  if (!isRateLimitError(errorInfo)) return null;
+
+  const retryAfterHeader = getRetryAfterHeaderFromError(error);
+  const delayMs = calculateDelayMs({
+    attemptNumber,
+    retryAfterHeader,
+    errorInfo,
+  });
+
+  return delayMs > 0 ? delayMs : DEFAULT_RATE_LIMIT_DELAY_MS;
 }

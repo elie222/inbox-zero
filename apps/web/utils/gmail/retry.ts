@@ -2,6 +2,7 @@ import pRetry, { AbortError } from "p-retry";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
 import { isFetchError } from "@/utils/retry/is-fetch-error";
+import { getRetryAfterHeaderFromError } from "@/utils/retry/get-retry-after-header";
 
 const logger = createScopedLogger("gmail-retry");
 export const MAX_GMAIL_BLOCKING_RETRY_DELAY_MS = 10_000;
@@ -289,11 +290,7 @@ function buildRetryLogFields(errorInfo: ErrorInfo) {
 }
 
 export function getRetryAfterHeader(error: unknown): string | undefined {
-  const err = toRecord(error);
-  const cause = toRecord(err.cause ?? err);
-  const response = toRecord(cause.response);
-  const headers = toRecord(response.headers);
-  return headers["retry-after"] as string | undefined;
+  return getRetryAfterHeaderFromError(error);
 }
 
 function getFirstErrorValue(

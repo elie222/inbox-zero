@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { redis } from "@/utils/redis";
 import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import { createScopedLogger } from "@/utils/logger";
 import {
   assertProviderNotRateLimited,
   getEmailProviderRateLimitState,
@@ -20,6 +21,8 @@ vi.mock("@/utils/redis", () => ({
   },
 }));
 
+const logger = createScopedLogger("test-rate-limit");
+
 describe("email provider rate-limit state", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -34,6 +37,7 @@ describe("email provider rate-limit state", () => {
       provider: "google",
       retryAt,
       source: "test",
+      logger,
     });
 
     expect(redis.set).toHaveBeenCalledWith(
@@ -59,6 +63,32 @@ describe("email provider rate-limit state", () => {
 
     expect(state?.retryAt.toISOString()).toBe(retryAt.toISOString());
     expect(state?.source).toBe("test");
+  });
+
+  it("keeps ttl aligned to retryAt even for long windows", async () => {
+    const retryAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    vi.mocked(redis.get).mockResolvedValueOnce(null);
+
+    await setEmailProviderRateLimitState({
+      emailAccountId: "account-1",
+      provider: "google",
+      retryAt,
+      logger,
+    });
+
+    expect(redis.set).toHaveBeenCalledWith(
+      "email-provider-rate-limit:account-1",
+      expect.any(String),
+      expect.objectContaining({
+        ex: expect.any(Number),
+      }),
+    );
+
+    const options = vi.mocked(redis.set).mock.calls[0]?.[2] as
+      | { ex?: number }
+      | undefined;
+    expect(options?.ex).toBeDefined();
+    expect(options!.ex!).toBeGreaterThan(60 * 60);
   });
 
   it("clears stale rate-limit entries", async () => {
@@ -133,6 +163,7 @@ describe("email provider rate-limit state", () => {
         },
       },
       source: "test",
+      logger,
     });
 
     expect(state).not.toBeNull();
@@ -161,6 +192,7 @@ describe("email provider rate-limit state", () => {
           emailAccountId: "account-1",
           provider: "google",
           source: "test-wrapper",
+          logger,
         },
         async () => {
           throw rateLimitError;
@@ -193,6 +225,7 @@ describe("email provider rate-limit state", () => {
           emailAccountId: "account-1",
           provider: "google",
           source: "test-wrapper",
+          logger,
         },
         async () => {
           throw rateLimitError;
@@ -217,6 +250,7 @@ describe("email provider rate-limit state", () => {
       provider: "google",
       retryAt: new Date(Date.now() + 30_000),
       source: "short-window",
+      logger,
     });
 
     expect(state.retryAt.toISOString()).toBe(existingRetryAt.toISOString());
@@ -240,6 +274,7 @@ describe("email provider rate-limit state", () => {
         },
       },
       source: "test-outlook",
+      logger,
     });
 
     expect(state).not.toBeNull();
@@ -264,6 +299,7 @@ describe("email provider rate-limit state", () => {
         code: "TooManyRequests",
       },
       source: "test-outlook-api-error",
+      logger,
     });
 
     expect(provider).toBe("microsoft");
@@ -291,6 +327,7 @@ describe("email provider rate-limit state", () => {
           },
         },
         source: "test-gmail-api-error",
+        logger,
       }),
     ).resolves.toBe("google");
   });
