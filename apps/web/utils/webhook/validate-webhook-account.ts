@@ -14,8 +14,6 @@ const webhookEmailAccountSelect = {
   userId: true,
   about: true,
   multiRuleSelectionEnabled: true,
-
-  draftReplyConfidenceThreshold: true,
   timezone: true,
   calendarBookingLink: true,
   lastSyncedHistoryId: true,
