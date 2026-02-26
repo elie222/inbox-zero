@@ -58,14 +58,18 @@ describe("getEmailUrl", () => {
       );
     });
 
-    it("throws for unknown provider (bug: should fall back to default)", () => {
-      // NOTE: This documents a potential bug - unknown providers cause an error
-      // instead of falling back to the "default" config.
-      // The getProviderConfig function only falls back when provider is undefined,
-      // not when the provider key doesn't exist in PROVIDER_CONFIG.
-      expect(() =>
-        getEmailUrl("msg123", "user@gmail.com", "unknown"),
-      ).toThrow();
+    it("falls back to default for unknown provider", () => {
+      const result = getEmailUrl("msg123", "user@gmail.com", "unknown");
+      expect(result).toBe(
+        "https://mail.google.com/mail/u/user@gmail.com/#all/msg123",
+      );
+    });
+
+    it("falls back to default for empty provider", () => {
+      const result = getEmailUrl("msg123", "user@gmail.com", "");
+      expect(result).toBe(
+        "https://mail.google.com/mail/u/user@gmail.com/#all/msg123",
+      );
     });
   });
 });
