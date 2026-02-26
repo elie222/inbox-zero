@@ -20,34 +20,20 @@ const localBypassSignInSchema = z.object({
 type LocalBypassUser = {
   id: string;
   email: string;
-  name?: string | null;
+  name: string;
+  emailVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
   image?: string | null;
-  emailVerified?: boolean | null;
 };
 
-type LocalBypassContext = {
-  body: z.infer<typeof localBypassSignInSchema>;
-  context: {
-    internalAdapter: {
-      findUserByEmail: (
-        email: string,
-      ) => Promise<{ user: LocalBypassUser } | null>;
-      createUser: (user: {
-        email: string;
-        name: string;
-        emailVerified: boolean;
-      }) => Promise<LocalBypassUser | null>;
-      createSession: (userId: string) => Promise<{
-        id: string;
-        token: string;
-        userId: string;
-        expiresAt: Date;
-        createdAt: Date;
-        updatedAt: Date;
-      } | null>;
-    };
-  };
-  json: (data: unknown, options?: { status?: number }) => Response;
+type LocalBypassInternalAdapter = {
+  findUserByEmail: (email: string) => Promise<{ user: LocalBypassUser } | null>;
+  createUser: (user: {
+    email: string;
+    name: string;
+    emailVerified: boolean;
+  }) => Promise<LocalBypassUser | null>;
 };
 
 export function localBypassAuthPlugin() {
@@ -61,15 +47,16 @@ export function localBypassAuthPlugin() {
           body: localBypassSignInSchema,
         },
         async (ctx) => {
-          const typedCtx = ctx as LocalBypassContext;
           if (!isLocalAuthBypassEnabled()) {
             throw new APIError("NOT_FOUND", { message: "Not found" });
           }
 
-          const user = await getOrCreateLocalBypassUser(typedCtx);
+          const user = await getOrCreateLocalBypassUser(
+            ctx.context.internalAdapter,
+          );
           await ensureLocalBypassAccount(user);
 
-          const session = await typedCtx.context.internalAdapter.createSession(
+          const session = await ctx.context.internalAdapter.createSession(
             user.id,
           );
           if (!session) {
@@ -87,26 +74,28 @@ export function localBypassAuthPlugin() {
             false,
           );
 
-          const callbackURL = isInternalPath(typedCtx.body.callbackURL)
-            ? typedCtx.body.callbackURL
+          const callbackURL = isInternalPath(ctx.body.callbackURL)
+            ? ctx.body.callbackURL
             : WELCOME_PATH;
 
-          return typedCtx.json({ callbackURL });
+          return ctx.json({ callbackURL });
         },
       ),
     },
   };
 }
 
-async function getOrCreateLocalBypassUser(ctx: LocalBypassContext) {
-  const existingUser = await ctx.context.internalAdapter.findUserByEmail(
+async function getOrCreateLocalBypassUser(
+  internalAdapter: LocalBypassInternalAdapter,
+) {
+  const existingUser = await internalAdapter.findUserByEmail(
     LOCAL_BYPASS_USER_EMAIL,
   );
   if (existingUser?.user) {
     return existingUser.user;
   }
 
-  const createdUser = await ctx.context.internalAdapter.createUser({
+  const createdUser = await internalAdapter.createUser({
     email: LOCAL_BYPASS_USER_EMAIL,
     name: LOCAL_BYPASS_USER_NAME,
     emailVerified: true,

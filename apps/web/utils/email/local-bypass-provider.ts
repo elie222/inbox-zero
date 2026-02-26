@@ -252,8 +252,8 @@ export function createLocalBypassEmailProvider(logger?: Logger): EmailProvider {
     getAttachment: async () => ({ data: "", size: 0 }),
     getThreadsWithQuery: async ({ query, maxResults, pageToken }) => {
       const filteredMessages = filterMessages(messages, {
-        before: query?.before,
-        after: query?.after,
+        before: query?.before ?? undefined,
+        after: query?.after ?? undefined,
       }).filter((message) => {
         if (query?.fromEmail && !matchesSender(message, query.fromEmail)) {
           return false;
