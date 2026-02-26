@@ -10,11 +10,20 @@ import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
+import { learnFromOutlookLabelRemoval } from "./learn-label-removal";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("test");
 vi.spyOn(logger, "with").mockReturnValue(logger);
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: vi.fn((callback: () => Promise<void> | void) => callback()),
+  };
+});
 
 vi.mock("@/utils/webhook/validate-webhook-account", () => ({
   getWebhookEmailAccount: vi.fn(),
@@ -32,10 +41,19 @@ vi.mock("@/utils/redis/message-processing", () => ({
 vi.mock("@/utils/webhook/process-history-item", () => ({
   processHistoryItem: vi.fn(),
 }));
+vi.mock("./learn-label-removal", () => ({
+  learnFromOutlookLabelRemoval: vi.fn(),
+}));
+vi.mock("@/utils/prisma", () => ({
+  default: {
+    executedRule: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
+  },
+}));
 
 vi.mock("@/utils/error", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/utils/error")>();
+  const actual = await importOriginal<typeof import("@/utils/error")>();
   return {
     ...actual,
     captureException: vi.fn(),
@@ -72,6 +90,8 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     } as any);
     vi.mocked(markMessageAsProcessing).mockResolvedValue(true);
     vi.mocked(processHistoryItem).mockResolvedValue(undefined);
+    vi.mocked(learnFromOutlookLabelRemoval).mockResolvedValue(undefined);
+    vi.mocked(prisma.executedRule.findFirst).mockResolvedValue(null);
   });
 
   it("processes messages in INBOX folder", async () => {
@@ -97,6 +117,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
       { messageId: "message-123", message: inboxMessage },
       expect.any(Object),
     );
+    expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
   });
 
   it("processes messages in SENT folder", async () => {
@@ -114,6 +135,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(jsonResponse).toEqual({ ok: true });
     expect(markMessageAsProcessing).toHaveBeenCalled();
     expect(processHistoryItem).toHaveBeenCalled();
+    expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
   });
 
   it("skips messages in DRAFT folder without acquiring lock", async () => {
@@ -135,6 +157,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(jsonResponse).toEqual({ ok: true });
     expect(markMessageAsProcessing).not.toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
+    expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
     expect(infoSpy).toHaveBeenCalledWith(
       "Skipping message not in inbox or sent items",
       expect.objectContaining({ labelIds: ["DRAFT"] }),
@@ -158,6 +181,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(jsonResponse).toEqual({ ok: true });
     expect(markMessageAsProcessing).not.toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
+    expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
   });
 
   it("skips messages with no labelIds without acquiring lock", async () => {
@@ -177,6 +201,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(jsonResponse).toEqual({ ok: true });
     expect(markMessageAsProcessing).not.toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
+    expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
   });
 
   it("skips processing when lock cannot be acquired", async () => {
@@ -199,6 +224,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(jsonResponse).toEqual({ ok: true });
     expect(markMessageAsProcessing).toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
+    expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
     expect(infoSpy).toHaveBeenCalledWith(
       "Skipping. Message already being processed.",
     );
@@ -228,6 +254,36 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     );
   });
 
+  it("learns from Outlook label removal when rule already exists", async () => {
+    const inboxMessage = getMockParsedMessage({
+      id: "message-123",
+      threadId: "thread-123",
+      labelIds: ["INBOX"],
+    });
+    const mockProvider = {
+      getMessage: vi.fn().mockResolvedValue(inboxMessage),
+    };
+    vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
+    vi.mocked(prisma.executedRule.findFirst).mockResolvedValue({
+      id: "exec-rule-123",
+    } as any);
+
+    const result = await processHistoryForUser({
+      subscriptionId: "sub-123",
+      resourceData: mockResourceData as any,
+      logger,
+    });
+
+    const jsonResponse = await result.json();
+    expect(jsonResponse).toEqual({ ok: true });
+    expect(learnFromOutlookLabelRemoval).toHaveBeenCalledWith({
+      message: inboxMessage,
+      emailAccountId: "account-123",
+      logger,
+    });
+    expect(processHistoryItem).not.toHaveBeenCalled();
+  });
+
   describe("error handling", () => {
     it("handles Outlook throttling errors gracefully without Sentry", async () => {
       const error = Object.assign(new Error("Throttled"), {
@@ -249,9 +305,12 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     });
 
     it("handles Outlook access denied errors gracefully without Sentry", async () => {
-      const error = Object.assign(new Error("Access is denied. Check credentials and try again."), {
-        code: "ErrorAccessDenied",
-      });
+      const error = Object.assign(
+        new Error("Access is denied. Check credentials and try again."),
+        {
+          code: "ErrorAccessDenied",
+        },
+      );
       const mockProvider = { getMessage: vi.fn().mockRejectedValue(error) };
       vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
 
@@ -267,9 +326,12 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     });
 
     it("handles Outlook item not found errors gracefully without Sentry", async () => {
-      const error = Object.assign(new Error("The store ID provided isn't an ID of an item."), {
-        code: "ErrorItemNotFound",
-      });
+      const error = Object.assign(
+        new Error("The store ID provided isn't an ID of an item."),
+        {
+          code: "ErrorItemNotFound",
+        },
+      );
       const mockProvider = { getMessage: vi.fn().mockRejectedValue(error) };
       vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
 
