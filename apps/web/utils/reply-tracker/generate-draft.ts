@@ -4,7 +4,7 @@ import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { extractEmailAddress, extractEmailAddresses } from "@/utils/email";
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
-import { getReply, saveReply } from "@/utils/redis/reply";
+import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
 import { getWritingStyle } from "@/utils/user/get";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
@@ -150,13 +150,35 @@ async function generateDraftContent(
 
   if (!lastMessage) throw new Error("No message provided");
 
-  // Check Redis cache for reply
-  if (minimumConfidenceThreshold == null) {
-    const reply = await getReply({
-      emailAccountId: emailAccount.id,
-      messageId: lastMessage.id,
-    });
-    if (reply) return { draft: reply, confidence: 100 };
+  const cachedReply = await getReplyWithConfidence({
+    emailAccountId: emailAccount.id,
+    messageId: lastMessage.id,
+  });
+
+  if (cachedReply) {
+    const meetsThreshold =
+      minimumConfidenceThreshold == null ||
+      (cachedReply.confidence != null &&
+        cachedReply.confidence >= minimumConfidenceThreshold);
+
+    if (meetsThreshold) {
+      return { draft: cachedReply.reply, confidence: cachedReply.confidence };
+    }
+
+    if (cachedReply.confidence == null) {
+      logger.info("Skipping cached draft without confidence", {
+        minimumConfidenceThreshold,
+        threadId: lastMessage.threadId,
+        messageId: lastMessage.id,
+      });
+    } else {
+      logger.info("Skipping cached draft due to low confidence", {
+        confidence: cachedReply.confidence,
+        minimumConfidenceThreshold,
+        threadId: lastMessage.threadId,
+        messageId: lastMessage.id,
+      });
+    }
   }
 
   const messages = threadMessages.map((msg, index) => ({
@@ -277,6 +299,7 @@ async function generateDraftContent(
       emailAccountId: emailAccount.id,
       messageId: lastMessage.id,
       reply,
+      confidence,
     });
   }
 

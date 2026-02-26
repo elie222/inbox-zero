@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SettingCard } from "@/components/SettingCard";
 import { toastError } from "@/components/Toast";
@@ -14,29 +14,28 @@ const DEFAULT_THRESHOLD = 70;
 
 export function DraftConfidenceSetting() {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
+  const persistedThreshold =
+    data?.draftReplyConfidenceThreshold ?? DEFAULT_THRESHOLD;
+  const [sliderThreshold, setSliderThreshold] = useState(persistedThreshold);
+  const requestSequenceRef = useRef(0);
+  const lastRequestedThresholdRef = useRef<number | null>(null);
 
-  const { execute } = useAction(
+  const { executeAsync } = useAction(
     updateDraftReplyConfidenceThresholdAction.bind(null, data?.id ?? ""),
-    {
-      onSuccess: () => {
-        mutate();
-      },
-      onError: (error) => {
-        mutate();
-        toastError({
-          description: getActionErrorMessage(error.error, {
-            prefix: "There was an error",
-          }),
-        });
-      },
-    },
   );
 
-  const threshold = data?.draftReplyConfidenceThreshold ?? DEFAULT_THRESHOLD;
+  useEffect(() => {
+    setSliderThreshold(persistedThreshold);
+  }, [persistedThreshold]);
 
-  const handleThresholdChange = useCallback(
+  const saveThreshold = useCallback(
     (nextThreshold: number) => {
       if (!data) return;
+      if (nextThreshold === persistedThreshold) return;
+      if (lastRequestedThresholdRef.current === nextThreshold) return;
+
+      lastRequestedThresholdRef.current = nextThreshold;
+      const requestSequence = ++requestSequenceRef.current;
 
       mutate(
         {
@@ -46,10 +45,54 @@ export function DraftConfidenceSetting() {
         false,
       );
 
-      execute({ threshold: nextThreshold });
+      executeAsync({ threshold: nextThreshold })
+        .then((result) => {
+          if (requestSequence !== requestSequenceRef.current) return;
+
+          if (
+            result?.serverError ||
+            result?.validationErrors ||
+            result?.bindArgsValidationErrors
+          ) {
+            lastRequestedThresholdRef.current = null;
+            mutate();
+            toastError({
+              description: getActionErrorMessage(
+                {
+                  serverError: result.serverError,
+                  validationErrors: result.validationErrors,
+                  bindArgsValidationErrors: result.bindArgsValidationErrors,
+                },
+                {
+                  prefix: "There was an error",
+                },
+              ),
+            });
+            return;
+          }
+
+          mutate();
+        })
+        .catch(() => {
+          if (requestSequence !== requestSequenceRef.current) return;
+
+          lastRequestedThresholdRef.current = null;
+          mutate();
+          toastError({
+            description: "There was an error",
+          });
+        });
     },
-    [data, mutate, execute],
+    [data, mutate, executeAsync, persistedThreshold],
   );
+
+  const commitThreshold = useCallback(() => {
+    saveThreshold(sliderThreshold);
+  }, [saveThreshold, sliderThreshold]);
+
+  const handleSliderChange = (nextThreshold: number) => {
+    setSliderThreshold(nextThreshold);
+  };
 
   return (
     <SettingCard
@@ -63,17 +106,19 @@ export function DraftConfidenceSetting() {
         >
           <div className="w-44 space-y-1">
             <div className="text-right text-xs text-muted-foreground">
-              {threshold}%
+              {sliderThreshold}%
             </div>
             <input
               type="range"
               min={0}
               max={100}
               step={1}
-              value={threshold}
+              value={sliderThreshold}
               onChange={(event) =>
-                handleThresholdChange(Number(event.currentTarget.value))
+                handleSliderChange(Number(event.currentTarget.value))
               }
+              onPointerUp={commitThreshold}
+              onBlur={commitThreshold}
               className="w-full accent-foreground"
               disabled={!data}
               aria-label="Draft confidence threshold"
