@@ -18,7 +18,6 @@ import { createScopedLogger } from "@/utils/logger";
 
 // Thinking budgets for Google-family models (set low to minimize cost)
 const GOOGLE_THINKING_BUDGET = 50;
-const LEGACY_OPENROUTER_BACKUP_DEFAULT_MODEL = "google/gemini-2.5-flash";
 
 const logger = createScopedLogger("llms/model");
 
@@ -637,20 +636,7 @@ function getFallbackModels({
 }
 
 function getFallbackConfig(modelType: ModelType): string | undefined {
-  const configuredFallbacks = getConfiguredFallbacksByType(modelType);
-
-  if (configuredFallbacks) return configuredFallbacks;
-
-  return getLegacyFallbackConfig();
-}
-
-function getLegacyFallbackConfig(): string | undefined {
-  if (!env.USE_BACKUP_MODEL) return;
-
-  const legacyBackupModel = env.OPENROUTER_BACKUP_MODEL?.trim();
-  if (legacyBackupModel) return `openrouter:${legacyBackupModel}`;
-
-  return `openrouter:${LEGACY_OPENROUTER_BACKUP_DEFAULT_MODEL}`;
+  return getConfiguredFallbacksByType(modelType);
 }
 
 function getConfiguredFallbacksByType(

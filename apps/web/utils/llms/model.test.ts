@@ -65,8 +65,6 @@ vi.mock("@/env", () => ({
     CHAT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
     NANO_LLM_PROVIDER: undefined,
     NANO_LLM_MODEL: undefined,
-    OPENROUTER_BACKUP_MODEL: undefined,
-    USE_BACKUP_MODEL: false,
     LLM_API_KEY: undefined,
     OPENAI_API_KEY: "test-openai-key",
     AZURE_API_KEY: "test-azure-key",
@@ -109,8 +107,6 @@ describe("Models", () => {
     vi.mocked(env).DEFAULT_LLM_FALLBACKS = undefined;
     vi.mocked(env).ECONOMY_LLM_FALLBACKS = undefined;
     vi.mocked(env).CHAT_LLM_FALLBACKS = undefined;
-    vi.mocked(env).OPENROUTER_BACKUP_MODEL = undefined;
-    vi.mocked(env).USE_BACKUP_MODEL = false;
     vi.mocked(env).LLM_API_KEY = undefined;
     vi.mocked(env).OPENAI_API_KEY = "test-openai-key";
     vi.mocked(env).NANO_LLM_PROVIDER = undefined;
@@ -694,26 +690,6 @@ describe("Models", () => {
       expect(result.fallbackModels[0]).toMatchObject({
         provider: Provider.OPEN_AI,
         modelName: "gpt-5.1",
-      });
-    });
-
-    it("should support deprecated backup env vars as fallback config", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
-
-      vi.mocked(env).USE_BACKUP_MODEL = true;
-      vi.mocked(env).OPENROUTER_BACKUP_MODEL = "google/gemini-2.5-flash";
-      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
-
-      const result = getModel(userAi);
-
-      expect(result.fallbackModels).toHaveLength(1);
-      expect(result.fallbackModels[0]).toMatchObject({
-        provider: Provider.OPENROUTER,
-        modelName: "google/gemini-2.5-flash",
       });
     });
 

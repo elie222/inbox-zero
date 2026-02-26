@@ -71,8 +71,6 @@ export const env = createEnv({
     NANO_LLM_PROVIDER: llmProviderEnum.optional(),
     NANO_LLM_MODEL: z.string().optional(),
     AI_NANO_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),
-    // Deprecated: legacy fallback configuration, kept for backwards compatibility.
-    OPENROUTER_BACKUP_MODEL: z.string().optional(),
 
     LLM_API_KEY: z.string().optional(),
     OPENAI_API_KEY: z.string().optional(),
@@ -170,8 +168,6 @@ export const env = createEnv({
     INTERNAL_API_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),
     WHITELIST_FROM: z.string().optional(),
-    // Deprecated: legacy fallback flag, kept for backwards compatibility.
-    USE_BACKUP_MODEL: booleanString.optional().default(false),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
