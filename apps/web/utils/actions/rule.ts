@@ -9,6 +9,7 @@ import {
   updateRuleSettingsBody,
   enableDraftRepliesBody,
   enableMultiRuleSelectionBody,
+  updateDraftReplyConfidenceThresholdBody,
   deleteRuleBody,
   createRulesOnboardingBody,
   type CategoryConfig,
@@ -237,6 +238,16 @@ export const enableMultiRuleSelectionAction = actionClient
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
       data: { multiRuleSelectionEnabled: enable },
+    });
+  });
+
+export const updateDraftReplyConfidenceThresholdAction = actionClient
+  .metadata({ name: "updateDraftReplyConfidenceThreshold" })
+  .inputSchema(updateDraftReplyConfidenceThresholdBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { threshold } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { draftReplyConfidenceThreshold: threshold },
     });
   });
 

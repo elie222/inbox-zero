@@ -34,7 +34,15 @@ Don't suggest meeting times or mention availability unless specific calendar inf
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 
-Return your response in JSON format.
+Return your response in JSON format with:
+- "reply": the drafted email body
+- "confidence": an integer from 0 to 100 representing confidence in the draft quality/accuracy for this conversation
+
+Confidence scoring guidance:
+- 90-100: clear user intent, complete context, high certainty
+- 70-89: good draft with minor uncertainty
+- 40-69: notable missing context or uncertainty
+- 0-39: likely incorrect or unsafe to draft automatically
 `;
 
 const defaultWritingStyle = `Keep it concise and friendly.
@@ -185,9 +193,21 @@ const draftSchema = z.object({
     .describe(
       "The complete email reply draft incorporating knowledge base information",
     ),
+  confidence: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe(
+      "Confidence score from 0 to 100 for this drafted reply. Use conservative values when uncertain.",
+    ),
 });
 
-export async function aiDraftReply({
+export type DraftReplyResult = {
+  reply: string;
+  confidence: number;
+};
+
+export async function aiDraftReplyWithConfidence({
   messages,
   emailAccount,
   knowledgeBaseContent,
@@ -207,7 +227,7 @@ export async function aiDraftReply({
   writingStyle: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
-}) {
+}): Promise<DraftReplyResult> {
   logger.info("Drafting email reply", {
     messageCount: messages.length,
     hasKnowledge: !!knowledgeBaseContent,
@@ -260,7 +280,46 @@ export async function aiDraftReply({
     }
   }
 
-  return normalizeDraftReplyFormatting(result.object.reply);
+  return {
+    reply: normalizeDraftReplyFormatting(result.object.reply),
+    confidence: normalizeConfidence(result.object.confidence),
+  };
+}
+
+export async function aiDraftReply({
+  messages,
+  emailAccount,
+  knowledgeBaseContent,
+  emailHistorySummary,
+  emailHistoryContext,
+  calendarAvailability,
+  writingStyle,
+  mcpContext,
+  meetingContext,
+}: {
+  messages: (EmailForLLM & { to: string })[];
+  emailAccount: EmailAccountWithAI;
+  knowledgeBaseContent: string | null;
+  emailHistorySummary: string | null;
+  emailHistoryContext: ReplyContextCollectorResult | null;
+  calendarAvailability: CalendarAvailabilityContext | null;
+  writingStyle: string | null;
+  mcpContext: string | null;
+  meetingContext: string | null;
+}) {
+  const result = await aiDraftReplyWithConfidence({
+    messages,
+    emailAccount,
+    knowledgeBaseContent,
+    emailHistorySummary,
+    emailHistoryContext,
+    calendarAvailability,
+    writingStyle,
+    mcpContext,
+    meetingContext,
+  });
+
+  return result.reply;
 }
 
 function normalizeDraftReplyFormatting(reply: string): string {
@@ -303,6 +362,11 @@ function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
   const punctuationRatio = punctuatedLines / lines.length;
 
   return punctuationRatio >= 0.6;
+}
+
+function normalizeConfidence(confidence: number | null | undefined): number {
+  if (!Number.isFinite(confidence)) return 100;
+  return Math.min(100, Math.max(0, Math.round(confidence)));
 }
 
 function isLikelyListItem(line: string): boolean {

@@ -59,6 +59,8 @@ export const scanFollowUpRemindersAction = actionClient
         email: true,
         about: true,
         multiRuleSelectionEnabled: true,
+
+        draftReplyConfidenceThreshold: true,
         timezone: true,
         calendarBookingLink: true,
         followUpAwaitingReplyDays: true,

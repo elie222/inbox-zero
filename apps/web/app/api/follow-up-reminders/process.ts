@@ -48,6 +48,8 @@ export async function processAllFollowUpReminders(logger: Logger) {
       about: true,
       userId: true,
       multiRuleSelectionEnabled: true,
+
+      draftReplyConfidenceThreshold: true,
       timezone: true,
       calendarBookingLink: true,
       followUpAwaitingReplyDays: true,

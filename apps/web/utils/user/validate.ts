@@ -15,6 +15,8 @@ export async function validateUserAndAiAccess({
       email: true,
       about: true,
       multiRuleSelectionEnabled: true,
+
+      draftReplyConfidenceThreshold: true,
       timezone: true,
       calendarBookingLink: true,
       user: {

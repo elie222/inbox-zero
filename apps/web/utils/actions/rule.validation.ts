@@ -251,6 +251,13 @@ export type EnableMultiRuleSelectionBody = z.infer<
   typeof enableMultiRuleSelectionBody
 >;
 
+export const updateDraftReplyConfidenceThresholdBody = z.object({
+  threshold: z.number().int().min(0).max(100),
+});
+export type UpdateDraftReplyConfidenceThresholdBody = z.infer<
+  typeof updateDraftReplyConfidenceThresholdBody
+>;
+
 const categoryAction = z.enum([
   "label",
   "label_archive",
