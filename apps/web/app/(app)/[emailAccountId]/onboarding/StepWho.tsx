@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ArrowRightIcon, SendIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -44,6 +44,14 @@ export function StepWho({
   });
   const { watch, setValue } = form;
   const watchedRole = watch("role");
+  const displayedRoles = useMemo(
+    () => USER_ROLES.filter((role) => usersRolesInfo[role.value]),
+    [],
+  );
+  const displayedRoleValues = useMemo(
+    () => displayedRoles.map((role) => role.value),
+    [displayedRoles],
+  );
 
   // Initialize custom role if it's a custom value
   useEffect(() => {
@@ -56,8 +64,8 @@ export function StepWho({
   useEffect(() => {
     if (defaultRole && scrollContainerRef.current) {
       // Find the button with the selected role
-      const selectedIndex = USER_ROLES.findIndex(
-        (role) => role.value === defaultRole,
+      const selectedIndex = displayedRoleValues.findIndex(
+        (role) => role === defaultRole,
       );
       if (selectedIndex !== -1) {
         const buttons = scrollContainerRef.current.querySelectorAll(
@@ -75,7 +83,7 @@ export function StepWho({
         }
       }
     }
-  }, [defaultRole]);
+  }, [defaultRole, displayedRoleValues]);
 
   return (
     <OnboardingWrapper>
@@ -124,8 +132,10 @@ export function StepWho({
               ref={scrollContainerRef}
               className="grid gap-2 px-1 pt-6 pb-6"
               fadeFromClass="from-slate-50"
+              height="h-[560px]"
             >
-              {Object.entries(usersRolesInfo).map(([roleName, role]) => {
+              {displayedRoles.map(({ value: roleName }) => {
+                const role = usersRolesInfo[roleName];
                 const Icon = role.icon;
 
                 return (
