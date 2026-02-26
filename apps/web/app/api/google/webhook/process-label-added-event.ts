@@ -1,5 +1,9 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
+import {
+  GroupItemSource,
+  GroupItemType,
+  SystemType,
+} from "@/generated/prisma/enums";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -57,7 +61,7 @@ export async function handleLabelAddedEvent(
   const coldEmailRule = await prisma.rule.findFirst({
     where: {
       emailAccountId,
-      systemType: "COLD_EMAIL",
+      systemType: SystemType.COLD_EMAIL,
       enabled: true,
     },
     select: { id: true, groupId: true },

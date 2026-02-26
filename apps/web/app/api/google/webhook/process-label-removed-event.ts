@@ -3,6 +3,7 @@ import {
   ActionType,
   GroupItemSource,
   GroupItemType,
+  SystemType,
 } from "@/generated/prisma/enums";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -212,7 +213,7 @@ async function undoSpamLearning({
   const coldEmailRule = await prisma.rule.findFirst({
     where: {
       emailAccountId,
-      systemType: "COLD_EMAIL",
+      systemType: SystemType.COLD_EMAIL,
       enabled: true,
     },
     select: { id: true, groupId: true },
