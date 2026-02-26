@@ -287,6 +287,11 @@ function stripSetupAwsDoubleDash(argv: string[]) {
 
 async function runSetup(options: { name?: string }) {
   p.intro("Inbox Zero Setup");
+  p.note(
+    "Quick setup uses production defaults with Docker Compose infrastructure\n" +
+      "(Postgres + Redis) and runs the web app in Docker.",
+    "Quick Setup Includes",
+  );
 
   const mode = await p.select({
     message: "How would you like to set up?",
@@ -294,7 +299,7 @@ async function runSetup(options: { name?: string }) {
       {
         value: "quick",
         label: "Quick setup",
-        hint: "just the essentials, we handle the rest",
+        hint: "production defaults with Docker Postgres + Redis",
       },
       {
         value: "custom",
@@ -752,14 +757,14 @@ async function runSetupAdvanced(options: { name?: string }) {
     message: "What environment are you setting up?",
     options: [
       {
+        value: "production",
+        label: "Production",
+        hint: "deployed or self-hosted (recommended)",
+      },
+      {
         value: "development",
         label: "Development",
         hint: "local dev with pnpm dev",
-      },
-      {
-        value: "production",
-        label: "Production",
-        hint: "deployed or self-hosted",
       },
     ],
   });
