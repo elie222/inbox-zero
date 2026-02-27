@@ -47,7 +47,7 @@ import type { Logger } from "@/utils/logger";
 import { validateGmailLabelName } from "@/utils/gmail/label-validation";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
-import { getEmailAccountWithAi } from "@/utils/user/get";
+import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -293,7 +293,9 @@ export const createRulesOnboardingAction = actionClient
         }
       }
 
-      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+      const emailAccount = await getEmailAccountForRuleExecution({
+        emailAccountId,
+      });
       if (!emailAccount) throw new SafeError("User not found");
 
       const promises: Promise<unknown>[] = [];

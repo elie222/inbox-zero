@@ -153,6 +153,9 @@ describe("processHistoryItem", () => {
     return {
       ...getEmailAccount(),
       autoCategorizeSenders: false,
+      filingEnabled: false,
+      filingPrompt: null,
+      draftReplyConfidenceThreshold: 0,
     };
   }
 
@@ -227,6 +230,7 @@ describe("processHistoryItem", () => {
     vi.mocked(mockPrisma.default.newsletter.findFirst).mockResolvedValueOnce({
       id: "newsletter-123",
       email: "sender@example.com",
+      name: null,
       status: NewsletterStatus.UNSUBSCRIBED,
       emailAccountId: "email-account-id",
       createdAt: new Date(),
