@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SettingCard } from "@/components/SettingCard";
-import { toastError } from "@/components/Toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -20,7 +19,7 @@ import {
   DRAFT_REPLY_CONFIDENCE_OPTIONS,
   getDraftReplyConfidenceOption,
 } from "@/utils/ai/reply/draft-confidence";
-import { getActionErrorMessage } from "@/utils/error";
+import { showSettingActionError } from "@/utils/actions/error-handling";
 import { useAction } from "next-safe-action/hooks";
 
 export function DraftConfidenceSetting() {
@@ -64,17 +63,13 @@ export function DraftConfidenceSetting() {
 
         if (result?.serverError || result?.validationErrors) {
           lastRequestedConfidenceRef.current = null;
-          mutate();
-          toastError({
-            description: getActionErrorMessage(
-              {
-                serverError: result.serverError,
-                validationErrors: result.validationErrors,
-              },
-              {
-                prefix: "There was an error",
-              },
-            ),
+          showSettingActionError({
+            error: {
+              serverError: result.serverError,
+              validationErrors: result.validationErrors,
+            },
+            mutate,
+            prefix: "There was an error",
           });
           return;
         }
@@ -85,9 +80,10 @@ export function DraftConfidenceSetting() {
         if (requestSequence !== requestSequenceRef.current) return;
 
         lastRequestedConfidenceRef.current = null;
-        mutate();
-        toastError({
-          description: "There was an error",
+        showSettingActionError({
+          error: {},
+          mutate,
+          defaultMessage: "There was an error",
         });
       });
   };

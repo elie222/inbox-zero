@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { Toggle } from "@/components/Toggle";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastSuccess } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,8 +10,8 @@ import { SettingCard } from "@/components/SettingCard";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAction } from "next-safe-action/hooks";
 import { updateReferralSignatureAction } from "@/utils/actions/email-account";
+import { createSettingActionErrorHandler } from "@/utils/actions/error-handling";
 import { env } from "@/env";
-import { getActionErrorMessage } from "@/utils/error";
 import { BRAND_NAME } from "@/utils/branding";
 
 export function ReferralSignatureSetting() {
@@ -26,14 +26,10 @@ export function ReferralSignatureSetting() {
           description: "Referral signature setting updated!",
         });
       },
-      onError: (error) => {
-        mutate();
-        toastError({
-          description: getActionErrorMessage(error.error, {
-            prefix: "Failed to update referral signature setting",
-          }),
-        });
-      },
+      onError: createSettingActionErrorHandler({
+        mutate,
+        prefix: "Failed to update referral signature setting",
+      }),
       onSettled: () => {
         mutate();
       },

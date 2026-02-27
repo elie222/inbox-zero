@@ -47,7 +47,7 @@ export async function saveReply({
     getReplyKey({ emailAccountId, messageId }),
     JSON.stringify({
       reply,
-      confidence: Number.isFinite(confidence) ? confidence : null,
+      confidence: Number.isFinite(confidence) ? confidence : 0,
     }),
     {
       ex: 60 * 60 * 24, // 1 day

@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastSuccess } from "@/components/Toast";
 import { useAutomationJob } from "@/hooks/useAutomationJob";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -35,7 +35,7 @@ import {
   toggleAutomationJobAction,
   triggerTestCheckInAction,
 } from "@/utils/actions/automation-jobs";
-import { getActionErrorMessage } from "@/utils/error";
+import { createSettingActionErrorHandler } from "@/utils/actions/error-handling";
 import {
   AUTOMATION_CRON_PRESETS,
   DEFAULT_AUTOMATION_JOB_CRON,
@@ -116,13 +116,10 @@ export function ProactiveUpdatesSetting() {
         mutate();
         toastSuccess({ description: "Scheduled check-ins updated" });
       },
-      onError: (error) => {
-        mutate();
-        toastError({
-          description:
-            getActionErrorMessage(error.error) ?? "Failed to update setting",
-        });
-      },
+      onError: createSettingActionErrorHandler({
+        mutate,
+        defaultMessage: "Failed to update setting",
+      }),
     },
   );
 
@@ -135,12 +132,9 @@ export function ProactiveUpdatesSetting() {
         setOpen(false);
         toastSuccess({ description: "Scheduled check-in settings saved" });
       },
-      onError: (error) => {
-        toastError({
-          description:
-            getActionErrorMessage(error.error) ?? "Failed to save settings",
-        });
-      },
+      onError: createSettingActionErrorHandler({
+        defaultMessage: "Failed to save settings",
+      }),
     },
   );
 
@@ -150,13 +144,9 @@ export function ProactiveUpdatesSetting() {
       onSuccess: () => {
         toastSuccess({ description: "Test check-in sent to Slack" });
       },
-      onError: (error) => {
-        toastError({
-          description:
-            getActionErrorMessage(error.error) ??
-            "Failed to send test check-in",
-        });
-      },
+      onError: createSettingActionErrorHandler({
+        defaultMessage: "Failed to send test check-in",
+      }),
     },
   );
 
