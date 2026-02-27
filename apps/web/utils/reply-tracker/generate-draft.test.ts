@@ -249,6 +249,27 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     // Normal text should be unchanged
     expect(result).toBe(normalAiOutput);
   });
+
+  it("preserves empty-string drafts", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "",
+      confidence: 90,
+    });
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+      includeReferralSignature: false,
+      signature: null,
+    } as any);
+
+    const result = await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      mockLogger,
+    );
+
+    expect(result).toBe("");
+  });
 });
 
 describe("fetchMessagesAndGenerateDraft - thread ordering", () => {

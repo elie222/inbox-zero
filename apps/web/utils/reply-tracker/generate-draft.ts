@@ -48,7 +48,7 @@ export async function fetchMessagesAndGenerateDraft(
     null,
   );
 
-  if (!result.draft) {
+  if (result.draft == null) {
     throw new Error("Draft generation did not return content");
   }
 
@@ -76,7 +76,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     minimumConfidenceThreshold,
   );
 
-  if (!draft) {
+  if (draft == null) {
     return { draft: null, confidence };
   }
 
