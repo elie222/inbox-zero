@@ -11,7 +11,7 @@ import {
 } from "@/utils/webhook/validate-webhook-account";
 import type { Logger } from "@/utils/logger";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
-import { learnFromOutlookLabelRemoval } from "@/app/api/outlook/webhook/learn-label-removal";
+import { learnFromOutlookCategoryReversal } from "@/app/api/outlook/webhook/learn-label-removal";
 import prisma from "@/utils/prisma";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
@@ -119,7 +119,7 @@ export async function processHistoryForUser({
               logger,
               task: async () => {
                 try {
-                  await learnFromOutlookLabelRemoval({
+                  await learnFromOutlookCategoryReversal({
                     message,
                     emailAccountId: validatedEmailAccount.id,
                     logger,
@@ -127,7 +127,7 @@ export async function processHistoryForUser({
                 } catch (error) {
                   await logErrorWithDedupe({
                     logger,
-                    message: "Error learning from Outlook label removal",
+                    message: "Error learning from Outlook category reversal",
                     error,
                     context: {
                       messageId: message.id,

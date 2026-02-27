@@ -10,7 +10,7 @@ import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
-import { learnFromOutlookLabelRemoval } from "./learn-label-removal";
+import { learnFromOutlookCategoryReversal } from "./learn-label-removal";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("test");
@@ -42,7 +42,7 @@ vi.mock("@/utils/webhook/process-history-item", () => ({
   processHistoryItem: vi.fn(),
 }));
 vi.mock("./learn-label-removal", () => ({
-  learnFromOutlookLabelRemoval: vi.fn(),
+  learnFromOutlookCategoryReversal: vi.fn(),
 }));
 vi.mock("@/utils/prisma", () => ({
   default: {
@@ -94,7 +94,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     } as any);
     vi.mocked(markMessageAsProcessing).mockResolvedValue(true);
     vi.mocked(processHistoryItem).mockResolvedValue(undefined);
-    vi.mocked(learnFromOutlookLabelRemoval).mockResolvedValue(undefined);
+    vi.mocked(learnFromOutlookCategoryReversal).mockResolvedValue(undefined);
     vi.mocked(prisma.executedRule.findFirst).mockResolvedValue(null);
   });
 
@@ -121,7 +121,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
       { messageId: "message-123", message: inboxMessage },
       expect.any(Object),
     );
-    expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
+    expect(learnFromOutlookCategoryReversal).not.toHaveBeenCalled();
   });
 
   it("processes messages in SENT folder", async () => {
@@ -139,7 +139,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(jsonResponse).toEqual({ ok: true });
     expect(markMessageAsProcessing).toHaveBeenCalled();
     expect(processHistoryItem).toHaveBeenCalled();
-    expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
+    expect(learnFromOutlookCategoryReversal).not.toHaveBeenCalled();
   });
 
   it("skips messages in DRAFT folder without acquiring lock", async () => {
@@ -161,7 +161,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(jsonResponse).toEqual({ ok: true });
     expect(markMessageAsProcessing).not.toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
-    expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
+    expect(learnFromOutlookCategoryReversal).not.toHaveBeenCalled();
     expect(infoSpy).toHaveBeenCalledWith(
       "Skipping message not in inbox or sent items",
       expect.objectContaining({ labelIds: ["DRAFT"] }),
@@ -185,7 +185,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(jsonResponse).toEqual({ ok: true });
     expect(markMessageAsProcessing).not.toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
-    expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
+    expect(learnFromOutlookCategoryReversal).not.toHaveBeenCalled();
   });
 
   it("skips messages with no labelIds without acquiring lock", async () => {
@@ -205,7 +205,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(jsonResponse).toEqual({ ok: true });
     expect(markMessageAsProcessing).not.toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
-    expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
+    expect(learnFromOutlookCategoryReversal).not.toHaveBeenCalled();
   });
 
   it("skips processing when lock cannot be acquired", async () => {
@@ -228,7 +228,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(jsonResponse).toEqual({ ok: true });
     expect(markMessageAsProcessing).toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
-    expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
+    expect(learnFromOutlookCategoryReversal).not.toHaveBeenCalled();
     expect(infoSpy).toHaveBeenCalledWith(
       "Skipping. Message already being processed.",
     );
@@ -280,7 +280,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
 
     const jsonResponse = await result.json();
     expect(jsonResponse).toEqual({ ok: true });
-    expect(learnFromOutlookLabelRemoval).toHaveBeenCalledWith({
+    expect(learnFromOutlookCategoryReversal).toHaveBeenCalledWith({
       message: inboxMessage,
       emailAccountId: "account-123",
       logger,
