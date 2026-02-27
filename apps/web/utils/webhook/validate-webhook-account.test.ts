@@ -4,7 +4,7 @@ import {
   validateWebhookAccount,
 } from "./validate-webhook-account";
 import type { ValidatedWebhookAccountData } from "./validate-webhook-account";
-import { PremiumTier } from "@/generated/prisma/enums";
+import { DraftReplyConfidence, PremiumTier } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
@@ -90,8 +90,8 @@ describe("validateWebhookAccount", () => {
         },
       },
       ...overrides,
-      draftReplyConfidenceThreshold:
-        overrides.draftReplyConfidenceThreshold ?? 0,
+      draftReplyConfidence:
+        overrides.draftReplyConfidence ?? DraftReplyConfidence.ALL_EMAILS,
       filingEnabled: overrides.filingEnabled ?? false,
       filingPrompt: overrides.filingPrompt ?? null,
     };

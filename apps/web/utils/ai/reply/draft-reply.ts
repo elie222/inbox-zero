@@ -33,10 +33,6 @@ Don't suggest meeting times or mention availability unless specific calendar inf
 
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
-
-Return your response in JSON format with:
-- "reply": the drafted email body
-- "confidence": an integer from 0 to 100 representing confidence in the draft quality/accuracy for this conversation
 `;
 
 const defaultWritingStyle = `Keep it concise and friendly.

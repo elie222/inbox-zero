@@ -94,7 +94,6 @@ const createMockEmailAccount = (): EmailAccountWithAI =>
     timezone: "UTC",
     about: null,
     multiRuleSelectionEnabled: false,
-    draftReplyConfidenceThreshold: 70,
     calendarBookingLink: null,
     user: {
       aiProvider: "openai",

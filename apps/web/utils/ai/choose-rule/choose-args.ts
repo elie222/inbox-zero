@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ModelType } from "@/utils/llms/model";
 import { ActionType } from "@/generated/prisma/enums";
+import type { DraftReplyConfidence } from "@/generated/prisma/enums";
 import type { Action } from "@/generated/prisma/client";
 import {
   type RuleWithActions,
@@ -16,10 +17,11 @@ import {
 } from "@/utils/ai/choose-rule/ai-choose-args";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
+import { getDraftReplyMinimumThreshold } from "@/utils/ai/reply/draft-confidence";
 
 const MODULE = "choose-args";
 export type EmailAccountForDrafting = EmailAccountWithAI & {
-  draftReplyConfidenceThreshold: number;
+  draftReplyConfidence: DraftReplyConfidence;
 };
 
 export async function getActionItemsWithAiArgs({
@@ -57,8 +59,9 @@ export async function getActionItemsWithAiArgs({
         isTest,
       });
 
-      const minimumConfidenceThreshold =
-        getDraftReplyConfidenceThreshold(emailAccount);
+      const minimumConfidenceThreshold = getDraftReplyMinimumThreshold(
+        emailAccount.draftReplyConfidence,
+      );
 
       const draftResult =
         await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
@@ -116,8 +119,9 @@ export async function getActionItemsWithAiArgs({
     log.info("Skipping draft action with no generated content", {
       removedDraftActions: combinedActions.length - filteredActions.length,
       confidence: draftConfidence,
-      minimumConfidenceThreshold:
-        getDraftReplyConfidenceThreshold(emailAccount),
+      minimumConfidenceThreshold: getDraftReplyMinimumThreshold(
+        emailAccount.draftReplyConfidence,
+      ),
     });
   }
 
@@ -375,10 +379,4 @@ export function mergeTemplateWithVars(
   }
 
   return result;
-}
-
-function getDraftReplyConfidenceThreshold(
-  emailAccount: EmailAccountForDrafting,
-) {
-  return emailAccount.draftReplyConfidenceThreshold;
 }
