@@ -1,5 +1,12 @@
 import { isIP } from "node:net";
 
+const BLOCKED_HOSTNAMES = new Set([
+  "localhost",
+  "localhost.localdomain",
+  "ip6-localhost",
+  "ip6-loopback",
+]);
+
 export function isSafeExternalHttpUrl(url: string) {
   try {
     const parsed = new URL(url);
@@ -7,9 +14,9 @@ export function isSafeExternalHttpUrl(url: string) {
       return false;
     }
 
-    const hostname = parsed.hostname.toLowerCase();
+    const hostname = normalizeHostname(parsed.hostname);
     if (!hostname) return false;
-    if (hostname === "localhost" || hostname.endsWith(".local")) return false;
+    if (isBlockedHostname(hostname)) return false;
 
     const ipAddress = stripIpv6Brackets(hostname);
     const ipVersion = isIP(ipAddress);
@@ -45,6 +52,9 @@ function isPrivateIpv4(hostname: string) {
 
 function isPrivateIpv6(hostname: string) {
   const normalized = hostname.toLowerCase();
+  const mappedIpv4 = getMappedIpv4Address(normalized);
+  if (mappedIpv4) return isPrivateIpv4(mappedIpv4);
+
   return (
     normalized === "::1" ||
     normalized === "::" ||
@@ -63,4 +73,36 @@ function stripIpv6Brackets(hostname: string) {
   }
 
   return hostname;
+}
+
+function normalizeHostname(hostname: string) {
+  return hostname.toLowerCase().replace(/\.+$/, "");
+}
+
+function isBlockedHostname(hostname: string) {
+  return (
+    BLOCKED_HOSTNAMES.has(hostname) ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".localhost")
+  );
+}
+
+function getMappedIpv4Address(ipv6Address: string) {
+  if (!ipv6Address.startsWith("::ffff:")) return null;
+
+  const mappedAddress = ipv6Address.slice(7);
+  if (isIP(mappedAddress) === 4) return mappedAddress;
+
+  const mappedSegments = mappedAddress.split(":");
+  if (mappedSegments.length !== 2) return null;
+
+  const [highHex, lowHex] = mappedSegments;
+  if (!highHex || !lowHex) return null;
+  if (!/^[0-9a-f]{1,4}$/i.test(highHex)) return null;
+  if (!/^[0-9a-f]{1,4}$/i.test(lowHex)) return null;
+
+  const high = Number.parseInt(highHex, 16);
+  const low = Number.parseInt(lowHex, 16);
+
+  return `${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`;
 }

@@ -9,6 +9,7 @@ import { getHttpUnsubscribeLink } from "@/utils/parse/unsubscribe";
 
 const ONE_CLICK_REQUEST_BODY = "List-Unsubscribe=One-Click";
 const UNSUBSCRIBE_REQUEST_TIMEOUT_MS = 10_000;
+const MAX_UNSUBSCRIBE_REDIRECTS = 5;
 
 export type AutomaticUnsubscribeResult = {
   attempted: boolean;
@@ -178,23 +179,65 @@ async function sendUnsubscribeRequest({
   );
 
   try {
-    const response = await fetch(unsubscribeUrl, {
-      method,
-      headers: {
-        Accept: "*/*",
-        ...(method === "POST"
-          ? { "Content-Type": "application/x-www-form-urlencoded" }
-          : {}),
-      },
-      ...(method === "POST" ? { body: ONE_CLICK_REQUEST_BODY } : {}),
-      signal: controller.signal,
-      redirect: "follow",
-    });
+    let currentUrl = unsubscribeUrl;
+    let currentMethod = method;
+
+    for (
+      let redirectCount = 0;
+      redirectCount <= MAX_UNSUBSCRIBE_REDIRECTS;
+      redirectCount += 1
+    ) {
+      const response = await fetch(currentUrl, {
+        method: currentMethod,
+        headers: {
+          Accept: "*/*",
+          ...(currentMethod === "POST"
+            ? { "Content-Type": "application/x-www-form-urlencoded" }
+            : {}),
+        },
+        ...(currentMethod === "POST" ? { body: ONE_CLICK_REQUEST_BODY } : {}),
+        signal: controller.signal,
+        redirect: "manual",
+      });
+
+      if (!isRedirectStatusCode(response.status)) {
+        return {
+          success: response.ok,
+          statusCode: response.status,
+          reason: response.ok ? undefined : "request_rejected",
+        };
+      }
+
+      if (redirectCount === MAX_UNSUBSCRIBE_REDIRECTS) {
+        return {
+          success: false,
+          statusCode: response.status,
+          reason: "request_rejected",
+        };
+      }
+
+      const redirectedUrl = getSafeRedirectUrl({
+        currentUrl,
+        location: response.headers.get("location"),
+      });
+      if (!redirectedUrl) {
+        return {
+          success: false,
+          statusCode: response.status,
+          reason: "unsafe_unsubscribe_url",
+        };
+      }
+
+      currentUrl = redirectedUrl;
+      currentMethod = getRedirectMethod({
+        currentMethod,
+        statusCode: response.status,
+      });
+    }
 
     return {
-      success: response.ok,
-      statusCode: response.status,
-      reason: response.ok ? undefined : "request_rejected",
+      success: false,
+      reason: "request_rejected",
     };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
@@ -205,4 +248,48 @@ async function sendUnsubscribeRequest({
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function getSafeRedirectUrl({
+  currentUrl,
+  location,
+}: {
+  currentUrl: string;
+  location: string | null;
+}) {
+  if (!location) return null;
+
+  try {
+    const redirectedUrl = new URL(location, currentUrl).toString();
+    return isSafeExternalHttpUrl(redirectedUrl) ? redirectedUrl : null;
+  } catch {
+    return null;
+  }
+}
+
+function isRedirectStatusCode(statusCode: number) {
+  return (
+    statusCode === 301 ||
+    statusCode === 302 ||
+    statusCode === 303 ||
+    statusCode === 307 ||
+    statusCode === 308
+  );
+}
+
+function getRedirectMethod({
+  currentMethod,
+  statusCode,
+}: {
+  currentMethod: "POST" | "GET";
+  statusCode: number;
+}) {
+  if (
+    currentMethod === "POST" &&
+    (statusCode === 301 || statusCode === 302 || statusCode === 303)
+  ) {
+    return "GET";
+  }
+
+  return currentMethod;
 }

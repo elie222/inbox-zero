@@ -110,4 +110,30 @@ describe("sender-unsubscribe", () => {
     );
     expect(prisma.newsletter.upsert).toHaveBeenCalledTimes(1);
   });
+
+  it("rejects redirects to unsafe URLs", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        Response.redirect("http://127.0.0.1/unsubscribe", 302),
+      );
+
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId: "email-account-1",
+      newsletterEmail: "sender@example.com",
+      unsubscribeLink: "https://example.com/unsubscribe",
+      logger,
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(result.unsubscribe).toEqual(
+      expect.objectContaining({
+        attempted: true,
+        success: false,
+        reason: "unsafe_unsubscribe_url",
+      }),
+    );
+    expect(result.status).toBeNull();
+    expect(prisma.newsletter.upsert).not.toHaveBeenCalled();
+  });
 });
