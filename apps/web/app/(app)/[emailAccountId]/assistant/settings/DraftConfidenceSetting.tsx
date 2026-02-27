@@ -51,8 +51,7 @@ export function DraftConfidenceSetting() {
 
           if (
             result?.serverError ||
-            result?.validationErrors ||
-            result?.bindArgsValidationErrors
+            result?.validationErrors
           ) {
             lastRequestedThresholdRef.current = null;
             mutate();
@@ -61,7 +60,6 @@ export function DraftConfidenceSetting() {
                 {
                   serverError: result.serverError,
                   validationErrors: result.validationErrors,
-                  bindArgsValidationErrors: result.bindArgsValidationErrors,
                 },
                 {
                   prefix: "There was an error",
