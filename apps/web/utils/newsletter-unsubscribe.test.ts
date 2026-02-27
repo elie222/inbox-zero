@@ -83,4 +83,33 @@ describe("newsletter-unsubscribe", () => {
     );
     expect(prisma.newsletter.upsert).toHaveBeenCalledTimes(1);
   });
+
+  it("allows bracketed public IPv6 unsubscribe URLs", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("", { status: 200 }));
+
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId: "email-account-1",
+      newsletterEmail: "sender@example.com",
+      unsubscribeLink: "https://[2001:4860:4860::8888]/unsubscribe",
+      logger,
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://[2001:4860:4860::8888]/unsubscribe",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+    expect(result.unsubscribe).toEqual(
+      expect.objectContaining({
+        attempted: true,
+        success: true,
+        method: "post",
+        statusCode: 200,
+      }),
+    );
+    expect(prisma.newsletter.upsert).toHaveBeenCalledTimes(1);
+  });
 });

@@ -244,6 +244,7 @@ export function useUnsubscribe<T extends Row>({
     hasUnsubscribeAccess,
     item.name,
     item.status,
+    item.unsubscribeLink,
     mutate,
     refetchPremium,
     posthog,

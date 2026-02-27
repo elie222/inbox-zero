@@ -214,9 +214,10 @@ function isSafeUnsubscribeUrl(unsubscribeUrl: string) {
     if (!hostname) return false;
     if (hostname === "localhost" || hostname.endsWith(".local")) return false;
 
-    const ipVersion = isIP(hostname);
-    if (ipVersion === 4) return !isPrivateIpv4(hostname);
-    if (ipVersion === 6) return !isPrivateIpv6(hostname);
+    const ipAddress = stripIpv6Brackets(hostname);
+    const ipVersion = isIP(ipAddress);
+    if (ipVersion === 4) return !isPrivateIpv4(ipAddress);
+    if (ipVersion === 6) return !isPrivateIpv6(ipAddress);
 
     if (!hostname.includes(".")) return false;
     return true;
@@ -256,4 +257,12 @@ function isPrivateIpv6(hostname: string) {
     normalized.startsWith("fea") ||
     normalized.startsWith("feb")
   );
+}
+
+function stripIpv6Brackets(hostname: string) {
+  if (hostname.startsWith("[") && hostname.endsWith("]")) {
+    return hostname.slice(1, -1);
+  }
+
+  return hostname;
 }
