@@ -15,7 +15,7 @@ import { env } from "@/env";
 
 export function SettingsTab() {
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl space-y-6">
       <div className="space-y-2">
         <DraftReplies />
         <DraftConfidenceSetting />
