@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { aiPromptToRulesOld as aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules-old";
+import { aiPromptToRulesOld } from "@/utils/ai/rule/prompt-to-rules-old";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { ActionType } from "@/generated/prisma/enums";
 import { getEmailAccount } from "@/__tests__/helpers";
@@ -12,7 +12,7 @@ const TIMEOUT = 15_000;
 
 vi.mock("server-only", () => ({}));
 
-describe.runIf(isAiTest)("aiPromptToRules", () => {
+describe.runIf(isAiTest)("aiPromptToRulesOld", () => {
   it(
     "should convert prompt file to rules",
     async () => {
@@ -27,13 +27,11 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
 
       const promptFile = prompts.join("\n");
 
-      const result = await aiPromptToRules({
+      const result = await aiPromptToRulesOld({
         emailAccount,
         promptFile,
         isEditing: false,
       });
-
-      console.log(JSON.stringify(result, null, 2));
 
       expect(Array.isArray(result)).toBe(true);
       expect(result.length).toBe(prompts.length);
@@ -121,7 +119,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
     const promptFile = "Some prompt";
 
     await expect(
-      aiPromptToRules({
+      aiPromptToRulesOld({
         emailAccount,
         promptFile,
         isEditing: false,
@@ -140,7 +138,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       * Forward emails from VIP clients (from @bigclient.com) to vip-support@company.com
     `.trim();
 
-      const result = await aiPromptToRules({
+      const result = await aiPromptToRulesOld({
         emailAccount,
         promptFile,
         isEditing: false,
@@ -217,7 +215,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       """
     `.trim();
 
-      const result = await aiPromptToRules({
+      const result = await aiPromptToRulesOld({
         emailAccount,
         promptFile,
         isEditing: false,
@@ -253,7 +251,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       forward it to manager@company.com and label it as "Escalation"
     `.trim();
 
-      const result = await aiPromptToRules({
+      const result = await aiPromptToRulesOld({
         emailAccount,
         promptFile,
         isEditing: false,
@@ -301,7 +299,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       """
     `.trim();
 
-      const result = await aiPromptToRules({
+      const result = await aiPromptToRulesOld({
         emailAccount,
         promptFile,
         isEditing: false,
