@@ -49,6 +49,7 @@ import {
   withNetworkRetry,
   withLLMRetry,
 } from "./retry";
+import { filterUnsupportedToolsForModel } from "./unsupported-tools";
 
 const logger = createScopedLogger("llms");
 
@@ -490,10 +491,24 @@ export async function toolCallAgentStream({
       label,
       emailAccountId,
     });
+    const { tools: candidateTools, excludedTools } =
+      filterUnsupportedToolsForModel({
+        provider: candidate.provider,
+        modelName: candidate.modelName,
+        tools,
+      });
+
+    if (excludedTools.length > 0) {
+      logger.warn("Excluding unsupported tools for model", {
+        provider: candidate.provider,
+        modelName: candidate.modelName,
+        excludedTools,
+      });
+    }
 
     const agent = new ToolLoopAgent({
       model: candidate.model,
-      tools,
+      tools: candidateTools,
       stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
       ...commonOptions,
       providerOptions,

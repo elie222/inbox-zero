@@ -642,6 +642,28 @@ describe("Models", () => {
       ]);
     });
 
+    it("should not include OpenRouter reasoning max_tokens for Grok models", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "openrouter";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "x-ai/grok-4.1-fast";
+      vi.mocked(env).DEFAULT_OPENROUTER_PROVIDERS = "Google Vertex,Anthropic";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi, "default");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.modelName).toBe("x-ai/grok-4.1-fast");
+      expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
+        "Google Vertex",
+        "Anthropic",
+      ]);
+      expect(result.providerOptions?.openrouter?.reasoning).toBeUndefined();
+    });
+
     it("should resolve ordered fallback models for default model type", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
@@ -671,6 +693,32 @@ describe("Models", () => {
         provider: Provider.OPEN_AI,
         modelName: "gpt-5.1",
       });
+    });
+
+    it("should omit OpenRouter reasoning options for Grok fallback models", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-5.1";
+      vi.mocked(env).DEFAULT_LLM_FALLBACKS = "openrouter:x-ai/grok-4.1-fast";
+      vi.mocked(env).OPENAI_API_KEY = "test-openai-key";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.OPEN_AI);
+      expect(result.fallbackModels).toHaveLength(1);
+      expect(result.fallbackModels[0]).toMatchObject({
+        provider: Provider.OPENROUTER,
+        modelName: "x-ai/grok-4.1-fast",
+      });
+      expect(
+        result.fallbackModels[0].providerOptions?.openrouter?.reasoning,
+      ).toBeUndefined();
     });
 
     it("should skip fallback models for users with their own API key", () => {
