@@ -23,6 +23,7 @@ import {
 } from "./chat-rule-tools";
 import {
   getAssistantCapabilitiesTool,
+  updateAssistantSettingsCompatTool,
   updateAssistantSettingsTool,
 } from "./chat-settings-tools";
 import {
@@ -355,6 +356,8 @@ Behavior anchors (minimal examples):
     tools: {
       getAssistantCapabilities: getAssistantCapabilitiesTool(toolOptions),
       updateAssistantSettings: updateAssistantSettingsTool(toolOptions),
+      updateAssistantSettingsCompat:
+        updateAssistantSettingsCompatTool(toolOptions),
       getAccountOverview: getAccountOverviewTool(toolOptions),
       searchInbox: searchInboxTool(toolOptions),
       readEmail: readEmailTool(toolOptions),

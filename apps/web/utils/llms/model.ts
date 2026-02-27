@@ -286,16 +286,19 @@ function selectModel(
  */
 function createOpenRouterProviderOptions(
   providers: string,
+  modelName?: string | null,
 ): Record<string, any> {
   const order = providers
     .split(",")
     .map((p: string) => p.trim())
     .filter(Boolean);
 
+  const includeReasoning = shouldIncludeOpenRouterReasoning(modelName);
+
   return {
     openrouter: {
       provider: order.length > 0 ? { order } : undefined,
-      reasoning: { max_tokens: 20 },
+      ...(includeReasoning ? { reasoning: { max_tokens: 20 } } : {}),
     },
   };
 }
@@ -331,6 +334,7 @@ function selectEconomyModel(
     ) {
       providerOptions = createOpenRouterProviderOptions(
         env.ECONOMY_OPENROUTER_PROVIDERS,
+        env.ECONOMY_LLM_MODEL,
       );
     }
 
@@ -369,6 +373,7 @@ function selectChatModel(userAi: UserAIFields, online = false): ResolvedModel {
     ) {
       providerOptions = createOpenRouterProviderOptions(
         env.CHAT_OPENROUTER_PROVIDERS,
+        env.CHAT_LLM_MODEL,
       );
     }
 
@@ -403,7 +408,7 @@ function selectNanoModel(userAi: UserAIFields, online = false): ResolvedModel {
         aiApiKey: apiKey,
       },
       env.NANO_LLM_PROVIDER === Provider.OPENROUTER
-        ? getOpenRouterProviderOptionsByType("nano")
+        ? getOpenRouterProviderOptionsByType("nano", env.NANO_LLM_MODEL)
         : undefined,
       online,
     );
@@ -435,18 +440,25 @@ function selectDefaultModel(
   if (aiProvider === Provider.OPENROUTER) {
     const openRouterOptions = createOpenRouterProviderOptions(
       env.DEFAULT_OPENROUTER_PROVIDERS || "",
+      aiModel,
     );
 
-    // Preserve any custom options set earlier; always ensure reasoning exists.
+    // Preserve any custom options set earlier.
     const existingOpenRouterOptions = providerOptions.openrouter || {};
     providerOptions.openrouter = {
       ...openRouterOptions.openrouter,
       ...existingOpenRouterOptions,
-      reasoning: {
-        ...openRouterOptions.openrouter.reasoning,
-        ...(existingOpenRouterOptions.reasoning ?? {}),
-      },
     };
+
+    if (
+      openRouterOptions.openrouter.reasoning ||
+      existingOpenRouterOptions.reasoning
+    ) {
+      providerOptions.openrouter.reasoning = {
+        ...(openRouterOptions.openrouter.reasoning ?? {}),
+        ...(existingOpenRouterOptions.reasoning ?? {}),
+      };
+    }
   }
 
   return selectModel(
@@ -601,7 +613,7 @@ function getFallbackModels({
 
     const providerOptions =
       fallback.provider === Provider.OPENROUTER
-        ? getOpenRouterProviderOptionsByType(modelType)
+        ? getOpenRouterProviderOptionsByType(modelType, fallback.modelName)
         : undefined;
 
     const resolvedFallback = selectModel(
@@ -652,6 +664,7 @@ function getConfiguredFallbacksByType(
 
 function getOpenRouterProviderOptionsByType(
   modelType: ModelType,
+  modelName?: string | null,
 ): Record<string, any> | undefined {
   const providersByType: Record<ModelType, string | undefined> = {
     default: env.DEFAULT_OPENROUTER_PROVIDERS,
@@ -662,7 +675,15 @@ function getOpenRouterProviderOptionsByType(
 
   const providers = providersByType[modelType];
   if (!providers) return;
-  return createOpenRouterProviderOptions(providers);
+  return createOpenRouterProviderOptions(providers, modelName);
+}
+
+function shouldIncludeOpenRouterReasoning(modelName?: string | null): boolean {
+  return !isXaiGrokModel(modelName);
+}
+
+function isXaiGrokModel(modelName?: string | null): boolean {
+  return modelName?.toLowerCase().startsWith("x-ai/grok-") ?? false;
 }
 
 function getGoogleThinkingConfig(

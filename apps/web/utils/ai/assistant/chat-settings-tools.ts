@@ -119,6 +119,40 @@ const updateAssistantSettingsInputSchema = z.object({
     .describe("Structured settings changes to apply."),
 });
 
+const updateAssistantSettingsCompatChangeSchema = z
+  .object({
+    path: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .describe(
+        "Writable settings path (use a path returned by getAssistantCapabilities).",
+      ),
+    value: z
+      .unknown()
+      .describe(
+        "Setting value for the path. Type depends on the path definition.",
+      ),
+    mode: z
+      .enum(["append", "replace"])
+      .optional()
+      .describe("Optional mode for appendable fields."),
+  })
+  .strict();
+
+const updateAssistantSettingsCompatInputSchema = z.object({
+  dryRun: z
+    .boolean()
+    .default(false)
+    .describe("If true, return the change preview without applying updates."),
+  changes: z
+    .array(updateAssistantSettingsCompatChangeSchema)
+    .min(1)
+    .max(20)
+    .describe("Structured settings changes to apply."),
+});
+
 type AccountSettingsSnapshot = {
   id: string;
   email: string;
@@ -388,243 +422,55 @@ export const updateAssistantSettingsTool = ({
     inputSchema: updateAssistantSettingsInputSchema,
     execute: async ({ changes, dryRun }) => {
       trackToolCall({ tool: "update_assistant_settings", email, logger });
-      try {
-        const existing = await loadAccountSettingsSnapshot(emailAccountId);
-        if (!existing) return { error: "Email account not found" };
+      return executeUpdateAssistantSettings({
+        emailAccountId,
+        userId,
+        logger,
+        changes,
+        dryRun,
+      });
+    },
+  });
 
-        const normalizedChanges = dedupeSettingsChanges(changes);
-        const data: {
-          about?: string;
-          multiRuleSelectionEnabled?: boolean;
-          meetingBriefingsEnabled?: boolean;
-          meetingBriefingsMinutesBefore?: number;
-          meetingBriefsSendEmail?: boolean;
-          filingEnabled?: boolean;
-          filingPrompt?: string | null;
-        } = {};
-        let scheduledCheckInsConfig: ScheduledCheckInsConfig | null = null;
-        let hasScheduledCheckInsPremium: boolean | null = null;
-        const knowledgeOperations: Array<
-          | {
-              type: "upsert";
-              title: string;
-              content: string;
-            }
-          | {
-              type: "delete";
-              title: string;
-            }
-        > = [];
-        const appliedChanges: Array<{
-          path: z.infer<typeof settingsPathSchema>;
-          previous: unknown;
-          next: unknown;
-        }> = [];
-        const draftKnowledgeByTitle = new Map<string, DraftKnowledgeItem>(
-          existing.draftKnowledgeBase.items.map((item: DraftKnowledgeItem) => [
-            item.title,
-            item,
-          ]),
-        );
+export const updateAssistantSettingsCompatTool = ({
+  email,
+  emailAccountId,
+  userId,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  userId: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Update supported assistant settings using a compact payload. Use getAssistantCapabilities first when unsure.",
+    inputSchema: updateAssistantSettingsCompatInputSchema,
+    execute: async ({ changes, dryRun }) => {
+      trackToolCall({
+        tool: "update_assistant_settings_compat",
+        email,
+        logger,
+      });
 
-        for (const change of normalizedChanges) {
-          if (change.path === "assistant.draftKnowledgeBase.upsert") {
-            const existingItem = draftKnowledgeByTitle.get(change.value.title);
-            const nextContent = resolveKnowledgeContent({
-              existingContent: existingItem?.content ?? null,
-              incomingContent: change.value.content,
-              mode: change.mode,
-            });
-
-            if (existingItem?.content === nextContent) continue;
-
-            appliedChanges.push({
-              path: change.path,
-              previous: existingItem
-                ? {
-                    title: existingItem.title,
-                    contentLength: existingItem.content.length,
-                  }
-                : null,
-              next: {
-                title: change.value.title,
-                contentLength: nextContent.length,
-              },
-            });
-
-            draftKnowledgeByTitle.set(change.value.title, {
-              id: existingItem?.id ?? "",
-              title: change.value.title,
-              content: nextContent,
-              updatedAt: new Date().toISOString(),
-            });
-
-            knowledgeOperations.push({
-              type: "upsert",
-              title: change.value.title,
-              content: nextContent,
-            });
-            continue;
-          }
-
-          if (change.path === "assistant.draftKnowledgeBase.delete") {
-            const existingItem = draftKnowledgeByTitle.get(change.value.title);
-            if (!existingItem) continue;
-
-            appliedChanges.push({
-              path: change.path,
-              previous: {
-                title: existingItem.title,
-                contentLength: existingItem.content.length,
-              },
-              next: null,
-            });
-
-            draftKnowledgeByTitle.delete(change.value.title);
-            knowledgeOperations.push({
-              type: "delete",
-              title: change.value.title,
-            });
-            continue;
-          }
-
-          const previousValue = getCurrentValue({
-            snapshot: existing,
-            path: change.path,
-          });
-          let resolvedNextValue: unknown;
-
-          try {
-            resolvedNextValue = resolveNextValue({
-              snapshot: existing,
-              change,
-            });
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : String(error);
-            return { error: message };
-          }
-
-          if (areValuesEqual(previousValue, resolvedNextValue)) continue;
-
-          if (
-            change.path === "assistant.scheduledCheckIns.config" &&
-            requiresScheduledCheckInsPremium({
-              current: previousValue as ScheduledCheckInsConfig,
-              next: resolvedNextValue as ScheduledCheckInsConfig,
-            })
-          ) {
-            if (hasScheduledCheckInsPremium === null) {
-              hasScheduledCheckInsPremium =
-                await canEnableAutomationJobs(userId);
-            }
-
-            if (!hasScheduledCheckInsPremium) {
-              return { error: "Premium is required for scheduled check-ins." };
-            }
-          }
-
-          appliedChanges.push({
-            path: change.path,
-            previous: previousValue,
-            next: resolvedNextValue,
-          });
-
-          switch (change.path) {
-            case "assistant.personalInstructions.about":
-              data.about = resolvedNextValue as string;
-              break;
-            case "assistant.multiRuleSelection.enabled":
-              data.multiRuleSelectionEnabled = resolvedNextValue as boolean;
-              break;
-            case "assistant.meetingBriefs.enabled":
-              data.meetingBriefingsEnabled = resolvedNextValue as boolean;
-              break;
-            case "assistant.meetingBriefs.minutesBefore":
-              data.meetingBriefingsMinutesBefore = resolvedNextValue as number;
-              break;
-            case "assistant.meetingBriefs.sendEmail":
-              data.meetingBriefsSendEmail = resolvedNextValue as boolean;
-              break;
-            case "assistant.attachmentFiling.enabled":
-              data.filingEnabled = resolvedNextValue as boolean;
-              break;
-            case "assistant.attachmentFiling.prompt":
-              data.filingPrompt = resolvedNextValue as string | null;
-              break;
-            case "assistant.scheduledCheckIns.config":
-              scheduledCheckInsConfig =
-                resolvedNextValue as ScheduledCheckInsConfig;
-              break;
-          }
-        }
-
-        if (appliedChanges.length === 0) {
-          return {
-            success: true,
-            dryRun,
-            message: "No setting changes were needed.",
-            appliedChanges: [],
-          };
-        }
-
-        if (!dryRun) {
-          if (Object.keys(data).length > 0) {
-            await prisma.emailAccount.update({
-              where: { id: emailAccountId },
-              data,
-            });
-          }
-
-          if (scheduledCheckInsConfig) {
-            await applyScheduledCheckInsConfig({
-              emailAccountId,
-              current: existing.scheduledCheckIns,
-              config: scheduledCheckInsConfig,
-            });
-          }
-
-          for (const operation of knowledgeOperations) {
-            if (operation.type === "upsert") {
-              await prisma.knowledge.upsert({
-                where: {
-                  emailAccountId_title: {
-                    emailAccountId,
-                    title: operation.title,
-                  },
-                },
-                create: {
-                  emailAccountId,
-                  title: operation.title,
-                  content: operation.content,
-                },
-                update: {
-                  content: operation.content,
-                },
-              });
-              continue;
-            }
-
-            await prisma.knowledge.deleteMany({
-              where: {
-                emailAccountId,
-                title: operation.title,
-              },
-            });
-          }
-        }
-
+      const parsedInput = updateAssistantSettingsInputSchema.safeParse({
+        changes,
+        dryRun,
+      });
+      if (!parsedInput.success) {
         return {
-          success: true,
-          dryRun,
-          appliedChanges,
-        };
-      } catch (error) {
-        logger.error("Failed to update assistant settings", { error });
-        return {
-          error: "Failed to update assistant settings",
+          error: getUpdateAssistantSettingsValidationError(parsedInput.error),
         };
       }
+
+      return executeUpdateAssistantSettings({
+        emailAccountId,
+        userId,
+        logger,
+        changes: parsedInput.data.changes,
+        dryRun: parsedInput.data.dryRun,
+      });
     },
   });
 
@@ -643,6 +489,268 @@ async function trackToolCall({
 }) {
   logger.trace("Tracking tool call", { tool, email });
   return posthogCaptureEvent(email, "AI Assistant Chat Tool Call", { tool });
+}
+
+async function executeUpdateAssistantSettings({
+  emailAccountId,
+  userId,
+  logger,
+  changes,
+  dryRun,
+}: {
+  emailAccountId: string;
+  userId: string;
+  logger: Logger;
+  changes: Array<z.infer<typeof settingsChangeSchema>>;
+  dryRun: boolean;
+}) {
+  try {
+    const existing = await loadAccountSettingsSnapshot(emailAccountId);
+    if (!existing) return { error: "Email account not found" };
+
+    const normalizedChanges = dedupeSettingsChanges(changes);
+    const data: {
+      about?: string;
+      multiRuleSelectionEnabled?: boolean;
+      meetingBriefingsEnabled?: boolean;
+      meetingBriefingsMinutesBefore?: number;
+      meetingBriefsSendEmail?: boolean;
+      filingEnabled?: boolean;
+      filingPrompt?: string | null;
+    } = {};
+    let scheduledCheckInsConfig: ScheduledCheckInsConfig | null = null;
+    let hasScheduledCheckInsPremium: boolean | null = null;
+    const knowledgeOperations: Array<
+      | {
+          type: "upsert";
+          title: string;
+          content: string;
+        }
+      | {
+          type: "delete";
+          title: string;
+        }
+    > = [];
+    const appliedChanges: Array<{
+      path: z.infer<typeof settingsPathSchema>;
+      previous: unknown;
+      next: unknown;
+    }> = [];
+    const draftKnowledgeByTitle = new Map<string, DraftKnowledgeItem>(
+      existing.draftKnowledgeBase.items.map((item: DraftKnowledgeItem) => [
+        item.title,
+        item,
+      ]),
+    );
+
+    for (const change of normalizedChanges) {
+      if (change.path === "assistant.draftKnowledgeBase.upsert") {
+        const existingItem = draftKnowledgeByTitle.get(change.value.title);
+        const nextContent = resolveKnowledgeContent({
+          existingContent: existingItem?.content ?? null,
+          incomingContent: change.value.content,
+          mode: change.mode,
+        });
+
+        if (existingItem?.content === nextContent) continue;
+
+        appliedChanges.push({
+          path: change.path,
+          previous: existingItem
+            ? {
+                title: existingItem.title,
+                contentLength: existingItem.content.length,
+              }
+            : null,
+          next: {
+            title: change.value.title,
+            contentLength: nextContent.length,
+          },
+        });
+
+        draftKnowledgeByTitle.set(change.value.title, {
+          id: existingItem?.id ?? "",
+          title: change.value.title,
+          content: nextContent,
+          updatedAt: new Date().toISOString(),
+        });
+
+        knowledgeOperations.push({
+          type: "upsert",
+          title: change.value.title,
+          content: nextContent,
+        });
+        continue;
+      }
+
+      if (change.path === "assistant.draftKnowledgeBase.delete") {
+        const existingItem = draftKnowledgeByTitle.get(change.value.title);
+        if (!existingItem) continue;
+
+        appliedChanges.push({
+          path: change.path,
+          previous: {
+            title: existingItem.title,
+            contentLength: existingItem.content.length,
+          },
+          next: null,
+        });
+
+        draftKnowledgeByTitle.delete(change.value.title);
+        knowledgeOperations.push({
+          type: "delete",
+          title: change.value.title,
+        });
+        continue;
+      }
+
+      const previousValue = getCurrentValue({
+        snapshot: existing,
+        path: change.path,
+      });
+      let resolvedNextValue: unknown;
+
+      try {
+        resolvedNextValue = resolveNextValue({
+          snapshot: existing,
+          change,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { error: message };
+      }
+
+      if (areValuesEqual(previousValue, resolvedNextValue)) continue;
+
+      if (
+        change.path === "assistant.scheduledCheckIns.config" &&
+        requiresScheduledCheckInsPremium({
+          current: previousValue as ScheduledCheckInsConfig,
+          next: resolvedNextValue as ScheduledCheckInsConfig,
+        })
+      ) {
+        if (hasScheduledCheckInsPremium === null) {
+          hasScheduledCheckInsPremium = await canEnableAutomationJobs(userId);
+        }
+
+        if (!hasScheduledCheckInsPremium) {
+          return { error: "Premium is required for scheduled check-ins." };
+        }
+      }
+
+      appliedChanges.push({
+        path: change.path,
+        previous: previousValue,
+        next: resolvedNextValue,
+      });
+
+      switch (change.path) {
+        case "assistant.personalInstructions.about":
+          data.about = resolvedNextValue as string;
+          break;
+        case "assistant.multiRuleSelection.enabled":
+          data.multiRuleSelectionEnabled = resolvedNextValue as boolean;
+          break;
+        case "assistant.meetingBriefs.enabled":
+          data.meetingBriefingsEnabled = resolvedNextValue as boolean;
+          break;
+        case "assistant.meetingBriefs.minutesBefore":
+          data.meetingBriefingsMinutesBefore = resolvedNextValue as number;
+          break;
+        case "assistant.meetingBriefs.sendEmail":
+          data.meetingBriefsSendEmail = resolvedNextValue as boolean;
+          break;
+        case "assistant.attachmentFiling.enabled":
+          data.filingEnabled = resolvedNextValue as boolean;
+          break;
+        case "assistant.attachmentFiling.prompt":
+          data.filingPrompt = resolvedNextValue as string | null;
+          break;
+        case "assistant.scheduledCheckIns.config":
+          scheduledCheckInsConfig =
+            resolvedNextValue as ScheduledCheckInsConfig;
+          break;
+      }
+    }
+
+    if (appliedChanges.length === 0) {
+      return {
+        success: true,
+        dryRun,
+        message: "No setting changes were needed.",
+        appliedChanges: [],
+      };
+    }
+
+    if (!dryRun) {
+      if (Object.keys(data).length > 0) {
+        await prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data,
+        });
+      }
+
+      if (scheduledCheckInsConfig) {
+        await applyScheduledCheckInsConfig({
+          emailAccountId,
+          current: existing.scheduledCheckIns,
+          config: scheduledCheckInsConfig,
+        });
+      }
+
+      for (const operation of knowledgeOperations) {
+        if (operation.type === "upsert") {
+          await prisma.knowledge.upsert({
+            where: {
+              emailAccountId_title: {
+                emailAccountId,
+                title: operation.title,
+              },
+            },
+            create: {
+              emailAccountId,
+              title: operation.title,
+              content: operation.content,
+            },
+            update: {
+              content: operation.content,
+            },
+          });
+          continue;
+        }
+
+        await prisma.knowledge.deleteMany({
+          where: {
+            emailAccountId,
+            title: operation.title,
+          },
+        });
+      }
+    }
+
+    return {
+      success: true,
+      dryRun,
+      appliedChanges,
+    };
+  } catch (error) {
+    logger.error("Failed to update assistant settings", { error });
+    return {
+      error: "Failed to update assistant settings",
+    };
+  }
+}
+
+function getUpdateAssistantSettingsValidationError(error: z.ZodError) {
+  const issueSummary = error.issues
+    .slice(0, 3)
+    .map((issue) => {
+      const path = issue.path.length > 0 ? issue.path.join(".") : "input";
+      return `${path}: ${issue.message}`;
+    })
+    .join("; ");
+
+  return `Invalid settings update payload. ${issueSummary}. Use a writable path from getAssistantCapabilities.`;
 }
 
 function dedupeSettingsChanges(

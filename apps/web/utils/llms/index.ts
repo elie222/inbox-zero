@@ -49,6 +49,7 @@ import {
   withNetworkRetry,
   withLLMRetry,
 } from "./retry";
+import { filterUnsupportedToolsForModel } from "./unsupported-tools";
 
 const logger = createScopedLogger("llms");
 
@@ -490,10 +491,35 @@ export async function toolCallAgentStream({
       label,
       emailAccountId,
     });
+    const {
+      tools: candidateTools,
+      excludedTools,
+      replacedTools,
+    } = filterUnsupportedToolsForModel({
+      provider: candidate.provider,
+      modelName: candidate.modelName,
+      tools,
+    });
+
+    if (replacedTools.length > 0) {
+      logger.warn("Replacing incompatible tools for model", {
+        provider: candidate.provider,
+        modelName: candidate.modelName,
+        replacedTools,
+      });
+    }
+
+    if (excludedTools.length > 0) {
+      logger.warn("Excluding unsupported tools for model", {
+        provider: candidate.provider,
+        modelName: candidate.modelName,
+        excludedTools,
+      });
+    }
 
     const agent = new ToolLoopAgent({
       model: candidate.model,
-      tools,
+      tools: candidateTools,
       stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
       ...commonOptions,
       providerOptions,
@@ -949,7 +975,7 @@ function normalizeOpenRouterReasoningOptions({
   providerOptions: LLMProviderOptions;
 }) {
   if (provider !== Provider.OPENROUTER) return providerOptions;
-  if (!modelName?.startsWith("x-ai/grok-")) return providerOptions;
+  if (!isOpenRouterXaiGrokModel(modelName)) return providerOptions;
 
   const openRouterOptions = providerOptions.openrouter;
   if (!isJsonObject(openRouterOptions)) return providerOptions;
@@ -976,6 +1002,10 @@ function normalizeOpenRouterReasoningOptions({
       reasoning: normalizedReasoning,
     },
   };
+}
+
+function isOpenRouterXaiGrokModel(modelName?: string) {
+  return modelName?.toLowerCase().startsWith("x-ai/grok-");
 }
 
 function isJsonObject(
