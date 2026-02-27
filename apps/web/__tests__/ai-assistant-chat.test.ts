@@ -1388,6 +1388,68 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
+  it("does not archive sender messages when automatic unsubscribe fails", async () => {
+    const tools = await captureToolSet();
+
+    const getMessagesFromSender = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "message-1",
+          threadId: "thread-1",
+          snippet: "Weekly update",
+          historyId: "history-1",
+          inline: [],
+          headers: {
+            from: "Sender <sender@example.com>",
+            to: "user@example.com",
+            subject: "Weekly update",
+            date: new Date().toISOString(),
+            "list-unsubscribe": "<https://example.com/unsubscribe?id=1>",
+          },
+          textHtml:
+            '<html><body><a href="https://example.com/unsubscribe?id=1">Unsubscribe</a></body></html>',
+          subject: "Weekly update",
+          date: new Date().toISOString(),
+        },
+      ],
+      nextPageToken: undefined,
+    });
+    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(undefined);
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessagesFromSender,
+      bulkArchiveFromSenders,
+    });
+    mockUnsubscribeSenderAndMark.mockResolvedValue({
+      senderEmail: "sender@example.com",
+      status: null,
+      unsubscribe: {
+        attempted: false,
+        success: false,
+        reason: "no_unsubscribe_url",
+      },
+    });
+
+    const result = await tools.manageInbox.execute({
+      action: "unsubscribe_senders",
+      fromEmails: ["sender@example.com"],
+    });
+
+    expect(bulkArchiveFromSenders).not.toHaveBeenCalled();
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: false,
+        action: "unsubscribe_senders",
+        sendersCount: 1,
+        successCount: 0,
+        failedCount: 1,
+        failedSenders: ["sender@example.com"],
+        autoUnsubscribeCount: 0,
+        autoUnsubscribeAttemptedCount: 0,
+      }),
+    );
+  });
+
   it("executes searchInbox and manageInbox tools with resilient behavior", async () => {
     const tools = await captureToolSet(true, "microsoft");
 

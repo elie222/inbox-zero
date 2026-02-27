@@ -182,10 +182,12 @@ async function unsubscribeAndArchive({
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
 }) {
-  await unsubscribeSenderAction(emailAccountId, {
+  const unsubscribeResult = await unsubscribeSenderAction(emailAccountId, {
     newsletterEmail,
     unsubscribeLink,
   });
+  if (!didAutomaticUnsubscribeSucceed(unsubscribeResult)) return false;
+
   await mutate();
   await decrementUnsubscribeCreditAction();
   await refetchPremium();
@@ -193,6 +195,8 @@ async function unsubscribeAndArchive({
     sender: newsletterEmail,
     emailAccountId,
   });
+
+  return true;
 }
 
 export function useUnsubscribe<T extends Row>({
@@ -227,13 +231,16 @@ export function useUnsubscribe<T extends Row>({
         });
         await mutate();
       } else {
-        await unsubscribeAndArchive({
+        const unsubscribed = await unsubscribeAndArchive({
           newsletterEmail: item.name,
           unsubscribeLink: item.unsubscribeLink,
           mutate,
           refetchPremium,
           emailAccountId,
         });
+        if (!unsubscribed) {
+          toast.error(`Could not automatically unsubscribe from ${item.name}`);
+        }
       }
     } catch (error) {
       captureException(error);
@@ -293,10 +300,17 @@ export function useBulkUnsubscribe<T extends Row>({
         successMessage: "unsubscribed",
         errorMessage: "Failed to unsubscribe from",
         processItem: async (item) => {
-          await unsubscribeSenderAction(emailAccountId, {
-            newsletterEmail: item.name,
-            unsubscribeLink: item.unsubscribeLink,
-          });
+          const unsubscribeResult = await unsubscribeSenderAction(
+            emailAccountId,
+            {
+              newsletterEmail: item.name,
+              unsubscribeLink: item.unsubscribeLink,
+            },
+          );
+          if (!didAutomaticUnsubscribeSucceed(unsubscribeResult)) {
+            throw new Error("Automatic unsubscribe did not succeed");
+          }
+
           await decrementUnsubscribeCreditAction();
           await addToArchiveSenderQueue({
             sender: item.name,
@@ -876,10 +890,12 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
       if (e.key === "u") {
         // unsubscribe
         e.preventDefault();
-        await unsubscribeSenderAction(emailAccountId, {
+        const unsubscribeResult = await unsubscribeSenderAction(emailAccountId, {
           newsletterEmail: item.name,
           unsubscribeLink: item.unsubscribeLink,
         });
+        if (!didAutomaticUnsubscribeSucceed(unsubscribeResult)) return;
+
         await mutate();
         await decrementUnsubscribeCreditAction();
         await refetchPremium();
@@ -929,4 +945,14 @@ export function useNewsletterFilter() {
     filtersArray,
     setFilter,
   };
+}
+
+function didAutomaticUnsubscribeSucceed(
+  result: Awaited<ReturnType<typeof unsubscribeSenderAction>>,
+) {
+  if (result?.serverError) {
+    throw new Error(result.serverError);
+  }
+
+  return result?.data?.unsubscribe.success === true;
 }

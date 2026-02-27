@@ -461,23 +461,27 @@ export const manageInboxTool = ({
               emailAccountId,
               logger,
             });
+            const successfulSenders = unsubscribeResults
+              .filter((result) => result.success)
+              .map((result) => result.senderEmail);
             const failedSenders = unsubscribeResults
               .filter((result) => !result.success)
               .map((result) => result.senderEmail);
-            const successCount =
-              unsubscribeResults.length - failedSenders.length;
+            const successCount = successfulSenders.length;
             const autoUnsubscribeCount = unsubscribeResults.filter(
               (result) => result.success && result.unsubscribe.success,
             ).length;
             const autoUnsubscribeAttemptedCount = unsubscribeResults.filter(
-              (result) => result.success && result.unsubscribe.attempted,
+              (result) => result.unsubscribe.attempted,
             ).length;
 
-            await emailProvider.bulkArchiveFromSenders(
-              normalizedFromEmails,
-              email,
-              emailAccountId,
-            );
+            if (successfulSenders.length) {
+              await emailProvider.bulkArchiveFromSenders(
+                successfulSenders,
+                email,
+                emailAccountId,
+              );
+            }
 
             return {
               success: failedSenders.length === 0,
@@ -1105,9 +1109,10 @@ async function runSenderUnsubscribeActions({
 
   return results.map(({ item: senderEmail, result }) => {
     if (result.status === "fulfilled") {
+      const unsubscribeSuccess = result.value.unsubscribe.success;
       return {
         senderEmail,
-        success: true,
+        success: unsubscribeSuccess,
         unsubscribe: result.value.unsubscribe,
       };
     }

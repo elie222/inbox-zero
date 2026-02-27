@@ -37,7 +37,7 @@ describe("newsletter-unsubscribe", () => {
     );
   });
 
-  it("marks sender as unsubscribed even when no unsubscribe URL is available", async () => {
+  it("does not mark sender as unsubscribed when no unsubscribe URL is available", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     const result = await unsubscribeSenderAndMark({
@@ -52,7 +52,8 @@ describe("newsletter-unsubscribe", () => {
       success: false,
       reason: "no_unsubscribe_url",
     });
-    expect(prisma.newsletter.upsert).toHaveBeenCalledTimes(1);
+    expect(result.status).toBeNull();
+    expect(prisma.newsletter.upsert).not.toHaveBeenCalled();
   });
 
   it("attempts one-click unsubscribe with POST when an HTTP URL is available", async () => {

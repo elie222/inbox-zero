@@ -1,10 +1,11 @@
 import { isIP } from "node:net";
 import { NewsletterStatus } from "@/generated/prisma/enums";
-import { extractEmailAddress } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
-import { createScopedLogger } from "@/utils/logger";
+import {
+  extractEmailOrThrow,
+  upsertNewsletterRecord,
+} from "@/utils/newsletter-record";
 import { getHttpUnsubscribeLink } from "@/utils/parse/unsubscribe";
-import prisma from "@/utils/prisma";
 
 const ONE_CLICK_REQUEST_BODY = "List-Unsubscribe=One-Click";
 const UNSUBSCRIBE_REQUEST_TIMEOUT_MS = 10_000;
@@ -31,19 +32,10 @@ export async function setNewsletterStatus({
   newsletterEmail: string;
   status: NewsletterStatus | null;
 }) {
-  const email = extractEmailAddress(newsletterEmail);
-  if (!email) throw new Error("Invalid newsletter email address");
-
-  return prisma.newsletter.upsert({
-    where: {
-      email_emailAccountId: { email, emailAccountId },
-    },
-    create: {
-      status,
-      email,
-      emailAccountId,
-    },
-    update: { status },
+  return upsertNewsletterRecord({
+    emailAccountId,
+    newsletterEmail,
+    changes: { status },
   });
 }
 
@@ -58,12 +50,15 @@ export async function unsubscribeSenderAndMark({
   newsletterEmail: string;
   unsubscribeLink?: string | null;
   listUnsubscribeHeader?: string | null;
-  logger?: Logger;
+  logger: Logger;
 }) {
-  const senderEmail = extractEmailAddress(newsletterEmail);
-  if (!senderEmail) throw new Error("Invalid newsletter email address");
+  if (!logger) {
+    throw new Error("Logger is required for unsubscribeSenderAndMark");
+  }
 
-  const log = (logger || createScopedLogger("newsletter-unsubscribe")).with({
+  const senderEmail = extractEmailOrThrow(newsletterEmail);
+
+  const log = logger.with({
     action: "unsubscribe-sender",
   });
 
@@ -73,17 +68,25 @@ export async function unsubscribeSenderAndMark({
     logger: log,
   });
 
-  await setNewsletterStatus({
-    emailAccountId,
-    newsletterEmail: senderEmail,
-    status: NewsletterStatus.UNSUBSCRIBED,
-  });
-
-  log.trace("Marked sender as unsubscribed", { senderEmail });
+  const status = unsubscribe.success ? NewsletterStatus.UNSUBSCRIBED : null;
+  if (status) {
+    await setNewsletterStatus({
+      emailAccountId,
+      newsletterEmail: senderEmail,
+      status,
+    });
+    log.trace("Marked sender as unsubscribed", { senderEmail });
+  } else {
+    log.trace("Did not mark sender as unsubscribed", {
+      senderEmail,
+      unsubscribeAttempted: unsubscribe.attempted,
+      unsubscribeReason: unsubscribe.reason,
+    });
+  }
 
   return {
     senderEmail,
-    status: NewsletterStatus.UNSUBSCRIBED,
+    status,
     unsubscribe,
   };
 }
