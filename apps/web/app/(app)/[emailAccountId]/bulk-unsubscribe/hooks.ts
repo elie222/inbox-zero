@@ -78,6 +78,7 @@ async function executeBulkOperation<T extends Row>({
   onDeselectItem,
   processItem,
   newStatus,
+  getNewStatus,
   loadingMessage,
   successMessage,
   errorMessage,
@@ -89,6 +90,7 @@ async function executeBulkOperation<T extends Row>({
   onDeselectItem?: (id: string) => void;
   processItem: (item: T) => Promise<void>;
   newStatus: NewsletterStatus | null;
+  getNewStatus?: (item: T) => NewsletterStatus | null;
   loadingMessage: string;
   successMessage: string;
   errorMessage: string;
@@ -103,7 +105,8 @@ async function executeBulkOperation<T extends Row>({
   let completed = 0;
   const failures: Error[] = [];
 
-  const updateItemOptimistically = (itemName: string) => {
+  const updateItemOptimistically = (item: T) => {
+    const optimisticStatus = getNewStatus ? getNewStatus(item) : newStatus;
     mutate(
       // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
       (currentData: any) => {
@@ -113,7 +116,7 @@ async function executeBulkOperation<T extends Row>({
           newsletters: currentData.newsletters
             // biome-ignore lint/suspicious/noExplicitAny: newsletter type
             .map((n: any) =>
-              n.name === itemName ? { ...n, status: newStatus } : n,
+              n.name === item.name ? { ...n, status: optimisticStatus } : n,
             )
             // biome-ignore lint/suspicious/noExplicitAny: newsletter type
             .filter((n: any) => itemMatchesFilter(n.status, filter)),
@@ -125,7 +128,7 @@ async function executeBulkOperation<T extends Row>({
 
   for (const item of items) {
     onDeselectItem?.(item.name);
-    updateItemOptimistically(item.name);
+    updateItemOptimistically(item);
 
     try {
       await processItem(item);
@@ -199,6 +202,35 @@ async function unsubscribeAndArchive({
   return true;
 }
 
+async function blockSender({
+  sender,
+  emailAccountId,
+  labelId,
+  labelName,
+}: {
+  sender: string;
+  emailAccountId: string;
+  labelId?: string;
+  labelName?: string;
+}) {
+  await onAutoArchive({
+    emailAccountId,
+    from: sender,
+    gmailLabelId: labelId,
+    labelName,
+  });
+  await setNewsletterStatusAction(emailAccountId, {
+    newsletterEmail: sender,
+    status: NewsletterStatus.AUTO_ARCHIVED,
+  });
+  await decrementUnsubscribeCreditAction();
+  await addToArchiveSenderQueue({
+    sender,
+    labelId,
+    emailAccountId,
+  });
+}
+
 export function useUnsubscribe<T extends Row>({
   item,
   emailAccountId,
@@ -231,15 +263,25 @@ export function useUnsubscribe<T extends Row>({
         });
         await mutate();
       } else {
-        const unsubscribed = await unsubscribeAndArchive({
-          newsletterEmail: item.name,
-          unsubscribeLink: item.unsubscribeLink,
-          mutate,
-          refetchPremium,
-          emailAccountId,
-        });
-        if (!unsubscribed) {
-          toast.error(`Could not automatically unsubscribe from ${item.name}`);
+        const hasUnsubscribeLink = Boolean(cleanUnsubscribeLink(item.unsubscribeLink));
+        if (!hasUnsubscribeLink) {
+          await blockSender({
+            sender: item.name,
+            emailAccountId,
+          });
+          await mutate();
+          await refetchPremium();
+        } else {
+          const unsubscribed = await unsubscribeAndArchive({
+            newsletterEmail: item.name,
+            unsubscribeLink: item.unsubscribeLink,
+            mutate,
+            refetchPremium,
+            emailAccountId,
+          });
+          if (!unsubscribed) {
+            toast.error(`Could not automatically unsubscribe from ${item.name}`);
+          }
         }
       }
     } catch (error) {
@@ -296,10 +338,25 @@ export function useBulkUnsubscribe<T extends Row>({
         filter,
         onDeselectItem,
         newStatus: NewsletterStatus.UNSUBSCRIBED,
+        getNewStatus: (item) =>
+          cleanUnsubscribeLink(item.unsubscribeLink)
+            ? NewsletterStatus.UNSUBSCRIBED
+            : NewsletterStatus.AUTO_ARCHIVED,
         loadingMessage: "Unsubscribing from",
         successMessage: "unsubscribed",
         errorMessage: "Failed to unsubscribe from",
         processItem: async (item) => {
+          const hasUnsubscribeLink = Boolean(
+            cleanUnsubscribeLink(item.unsubscribeLink),
+          );
+          if (!hasUnsubscribeLink) {
+            await blockSender({
+              sender: item.name,
+              emailAccountId,
+            });
+            return;
+          }
+
           const unsubscribeResult = await unsubscribeSenderAction(
             emailAccountId,
             {
@@ -317,7 +374,10 @@ export function useBulkUnsubscribe<T extends Row>({
             emailAccountId,
           });
         },
-        onComplete: refetchPremium,
+        onComplete: async () => {
+          await mutate();
+          await refetchPremium();
+        },
       });
     },
     [
@@ -349,24 +409,14 @@ async function autoArchive({
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
 }) {
-  await onAutoArchive({
+  await blockSender({
+    sender: name,
     emailAccountId,
-    from: name,
-    gmailLabelId: labelId,
-    labelName: labelName,
-  });
-  await setNewsletterStatusAction(emailAccountId, {
-    newsletterEmail: name,
-    status: NewsletterStatus.AUTO_ARCHIVED,
+    labelId,
+    labelName,
   });
   await mutate();
-  await decrementUnsubscribeCreditAction();
   await refetchPremium();
-  await addToArchiveSenderQueue({
-    sender: name,
-    labelId,
-    emailAccountId,
-  });
 }
 
 export function useAutoArchive<T extends Row>({
@@ -890,6 +940,17 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
       if (e.key === "u") {
         // unsubscribe
         e.preventDefault();
+        const hasUnsubscribeLink = Boolean(cleanUnsubscribeLink(item.unsubscribeLink));
+        if (!hasUnsubscribeLink) {
+          await blockSender({
+            sender: item.name,
+            emailAccountId,
+          });
+          await mutate();
+          await refetchPremium();
+          return;
+        }
+
         const unsubscribeResult = await unsubscribeSenderAction(emailAccountId, {
           newsletterEmail: item.name,
           unsubscribeLink: item.unsubscribeLink,
