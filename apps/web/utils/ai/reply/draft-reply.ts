@@ -359,8 +359,9 @@ function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
 }
 
 function normalizeConfidence(confidence: number | null | undefined): number {
-  if (!Number.isFinite(confidence)) return 0;
-  return Math.min(100, Math.max(0, Math.round(confidence)));
+  const numericConfidence = Number(confidence);
+  if (!Number.isFinite(numericConfidence)) return 0;
+  return Math.min(100, Math.max(0, Math.round(numericConfidence)));
 }
 
 function isLikelyListItem(line: string): boolean {
