@@ -16,7 +16,7 @@ const LABEL_OR_FOLDER_ACTION_FILTER = {
       OR: [{ folderId: { not: null } }, { folderName: { not: null } }],
     },
   ],
-} as const;
+};
 
 export async function learnFromOutlookCategoryReversal({
   message,
