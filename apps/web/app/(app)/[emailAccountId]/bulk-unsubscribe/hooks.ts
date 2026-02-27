@@ -5,7 +5,10 @@ import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import type { PostHog } from "posthog-js/react";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
-import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
+import {
+  setNewsletterStatusAction,
+  unsubscribeSenderAction,
+} from "@/utils/actions/unsubscriber";
 import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
@@ -168,18 +171,20 @@ async function executeBulkOperation<T extends Row>({
 
 async function unsubscribeAndArchive({
   newsletterEmail,
+  unsubscribeLink,
   mutate,
   refetchPremium,
   emailAccountId,
 }: {
   newsletterEmail: string;
+  unsubscribeLink?: string | null;
   mutate: () => Promise<void>;
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
 }) {
-  await setNewsletterStatusAction(emailAccountId, {
+  await unsubscribeSenderAction(emailAccountId, {
     newsletterEmail,
-    status: NewsletterStatus.UNSUBSCRIBED,
+    unsubscribeLink,
   });
   await mutate();
   await decrementUnsubscribeCreditAction();
@@ -224,6 +229,7 @@ export function useUnsubscribe<T extends Row>({
       } else {
         await unsubscribeAndArchive({
           newsletterEmail: item.name,
+          unsubscribeLink: item.unsubscribeLink,
           mutate,
           refetchPremium,
           emailAccountId,
@@ -286,9 +292,9 @@ export function useBulkUnsubscribe<T extends Row>({
         successMessage: "unsubscribed",
         errorMessage: "Failed to unsubscribe from",
         processItem: async (item) => {
-          await setNewsletterStatusAction(emailAccountId, {
+          await unsubscribeSenderAction(emailAccountId, {
             newsletterEmail: item.name,
-            status: NewsletterStatus.UNSUBSCRIBED,
+            unsubscribeLink: item.unsubscribeLink,
           });
           await decrementUnsubscribeCreditAction();
           await addToArchiveSenderQueue({
@@ -869,11 +875,9 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
       if (e.key === "u") {
         // unsubscribe
         e.preventDefault();
-        if (!item.unsubscribeLink) return;
-        window.open(cleanUnsubscribeLink(item.unsubscribeLink), "_blank");
-        await setNewsletterStatusAction(emailAccountId, {
+        await unsubscribeSenderAction(emailAccountId, {
           newsletterEmail: item.name,
-          status: NewsletterStatus.UNSUBSCRIBED,
+          unsubscribeLink: item.unsubscribeLink,
         });
         await mutate();
         await decrementUnsubscribeCreditAction();

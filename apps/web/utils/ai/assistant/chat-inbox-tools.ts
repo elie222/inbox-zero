@@ -7,10 +7,16 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { extractEmailAddress, splitRecipientList } from "@/utils/email";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
+import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import { runWithBoundedConcurrency } from "@/utils/async";
+import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
+import {
+  type AutomaticUnsubscribeResult,
+  unsubscribeSenderAndMark,
+} from "@/utils/newsletter-unsubscribe";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 const recipientListSchema = z
@@ -350,7 +356,12 @@ const senderEmailsSchema = z
 
 const manageInboxInputSchema = z.object({
   action: z
-    .enum(["archive_threads", "mark_read_threads", "bulk_archive_senders"])
+    .enum([
+      "archive_threads",
+      "mark_read_threads",
+      "bulk_archive_senders",
+      "unsubscribe_senders",
+    ])
     .describe("Inbox action to run."),
   threadIds: threadIdsSchema
     .optional()
@@ -369,7 +380,7 @@ const manageInboxInputSchema = z.object({
     .describe("For mark_read_threads: true for read, false for unread."),
   fromEmails: senderEmailsSchema
     .optional()
-    .describe("Sender email addresses to bulk archive by sender."),
+    .describe("Sender email addresses to bulk archive or unsubscribe."),
 });
 
 export const manageInboxTool = ({
@@ -385,7 +396,7 @@ export const manageInboxTool = ({
 }) =>
   tool({
     description:
-      "Run inbox actions: archive threads, mark threads read/unread, or bulk archive by sender.",
+      "Run inbox actions: archive threads, mark threads read/unread, bulk archive by sender, or unsubscribe senders.",
     inputSchema: manageInboxInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
@@ -402,20 +413,18 @@ export const manageInboxTool = ({
       }
 
       const parsedInput = parsedInputResult.data;
+      const isSenderAction =
+        parsedInput.action === "bulk_archive_senders" ||
+        parsedInput.action === "unsubscribe_senders";
 
-      if (
-        parsedInput.action === "bulk_archive_senders" &&
-        !parsedInput.fromEmails?.length
-      ) {
+      if (isSenderAction && !parsedInput.fromEmails?.length) {
         return {
-          error: "fromEmails is required when action is bulk_archive_senders",
+          error:
+            "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
         };
       }
 
-      if (
-        parsedInput.action !== "bulk_archive_senders" &&
-        !parsedInput.threadIds?.length
-      ) {
+      if (!isSenderAction && !parsedInput.threadIds?.length) {
         return {
           error:
             "threadIds is required when action is archive_threads or mark_read_threads",
@@ -429,17 +438,62 @@ export const manageInboxTool = ({
           logger,
         });
 
-        if (parsedInput.action === "bulk_archive_senders") {
+        if (isSenderAction) {
           const fromEmails = parsedInput.fromEmails;
           if (!fromEmails) {
             return {
               error:
-                "fromEmails is required when action is bulk_archive_senders",
+                "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
+            };
+          }
+          const normalizedFromEmails = normalizeSenderEmails(fromEmails);
+          if (!normalizedFromEmails.length) {
+            return {
+              error:
+                "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
+            };
+          }
+
+          if (parsedInput.action === "unsubscribe_senders") {
+            const unsubscribeResults = await runSenderUnsubscribeActions({
+              fromEmails: normalizedFromEmails,
+              emailProvider,
+              emailAccountId,
+              logger,
+            });
+            const failedSenders = unsubscribeResults
+              .filter((result) => !result.success)
+              .map((result) => result.senderEmail);
+            const successCount =
+              unsubscribeResults.length - failedSenders.length;
+            const autoUnsubscribeCount = unsubscribeResults.filter(
+              (result) => result.success && result.unsubscribe.success,
+            ).length;
+            const autoUnsubscribeAttemptedCount = unsubscribeResults.filter(
+              (result) => result.success && result.unsubscribe.attempted,
+            ).length;
+
+            await emailProvider.bulkArchiveFromSenders(
+              normalizedFromEmails,
+              email,
+              emailAccountId,
+            );
+
+            return {
+              success: failedSenders.length === 0,
+              action: parsedInput.action,
+              sendersCount: normalizedFromEmails.length,
+              senders: normalizedFromEmails,
+              successCount,
+              failedCount: failedSenders.length,
+              failedSenders,
+              autoUnsubscribeCount,
+              autoUnsubscribeAttemptedCount,
             };
           }
 
           await emailProvider.bulkArchiveFromSenders(
-            fromEmails,
+            normalizedFromEmails,
             email,
             emailAccountId,
           );
@@ -447,8 +501,8 @@ export const manageInboxTool = ({
           return {
             success: true,
             action: parsedInput.action,
-            sendersCount: fromEmails.length,
-            senders: fromEmails,
+            sendersCount: normalizedFromEmails.length,
+            senders: normalizedFromEmails,
           };
         }
 
@@ -1016,6 +1070,94 @@ async function runThreadActionsInParallel({
   }));
 }
 
+async function runSenderUnsubscribeActions({
+  fromEmails,
+  emailProvider,
+  emailAccountId,
+  logger,
+}: {
+  fromEmails: string[];
+  emailProvider: EmailProvider;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const BATCH_SIZE = 5;
+  const results = await runWithBoundedConcurrency({
+    items: fromEmails,
+    concurrency: BATCH_SIZE,
+    run: async (senderEmail) => {
+      const { listUnsubscribeHeader, unsubscribeLink } =
+        await getSenderUnsubscribeSource({
+          senderEmail,
+          emailProvider,
+          logger,
+        });
+
+      return unsubscribeSenderAndMark({
+        emailAccountId,
+        newsletterEmail: senderEmail,
+        listUnsubscribeHeader,
+        unsubscribeLink,
+        logger,
+      });
+    },
+  });
+
+  return results.map(({ item: senderEmail, result }) => {
+    if (result.status === "fulfilled") {
+      return {
+        senderEmail,
+        success: true,
+        unsubscribe: result.value.unsubscribe,
+      };
+    }
+
+    return {
+      senderEmail,
+      success: false,
+      unsubscribe: {
+        attempted: false,
+        success: false,
+        reason: "request_failed",
+      } as AutomaticUnsubscribeResult,
+    };
+  });
+}
+
+async function getSenderUnsubscribeSource({
+  senderEmail,
+  emailProvider,
+  logger,
+}: {
+  senderEmail: string;
+  emailProvider: EmailProvider;
+  logger: Logger;
+}) {
+  try {
+    const { messages } = await emailProvider.getMessagesFromSender({
+      senderEmail,
+      maxResults: 5,
+    });
+
+    for (const message of messages) {
+      const listUnsubscribeHeader = message.headers["list-unsubscribe"];
+      const unsubscribeLink = findUnsubscribeLink(message.textHtml);
+
+      if (listUnsubscribeHeader || unsubscribeLink) {
+        return {
+          listUnsubscribeHeader,
+          unsubscribeLink,
+        };
+      }
+    }
+  } catch (error) {
+    logger.warn("Failed to fetch sender messages for unsubscribe", { error });
+    logger.trace("Sender lookup failed", { senderEmail });
+  }
+
+  return {};
+}
+
 function getManageInboxValidationError(error: z.ZodError) {
   const firstIssue = error.issues[0];
   if (!firstIssue) return "Invalid manageInbox input";
@@ -1053,6 +1195,16 @@ function hasOnlyValidRecipients(recipientList: string) {
   return recipients.every((recipient) =>
     Boolean(extractEmailAddress(recipient)),
   );
+}
+
+function normalizeSenderEmails(fromEmails: string[]) {
+  return [
+    ...new Set(
+      fromEmails
+        .map((fromEmail) => extractEmailAddress(fromEmail))
+        .filter((fromEmail): fromEmail is string => Boolean(fromEmail)),
+    ),
+  ];
 }
 
 function getValidationErrorMessage(toolName: string, error: z.ZodError) {

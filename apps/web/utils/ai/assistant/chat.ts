@@ -93,7 +93,7 @@ export async function aiProcessAssistantChat({
 
 Core responsibilities:
 1. Search and summarize inbox activity (especially what's new and what needs attention)
-2. Take inbox actions (archive, mark read, and bulk archive by sender)
+2. Take inbox actions (archive, mark read, bulk archive by sender, and sender unsubscribe)
 3. Update account features (meeting briefs and auto-file attachments)
 4. Create and update rules
 
@@ -132,6 +132,7 @@ Tool call policy:
 ${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? '- For forwarding, always use a real messageId from searchInbox or user-provided context.\n- For pending email actions, do not treat "prepared" as "sent".' : ""}
 - "archive_threads" archives specific threads by ID. Use it when the user refers to specific emails shown in results.
 - "bulk_archive_senders" archives ALL emails from given senders server-side, not just the visible ones. Use it when the user asks to clean up by sender. Since it affects emails beyond what's shown, confirm the scope with the user before executing.
+- "unsubscribe_senders" attempts automatic unsubscribe using message unsubscribe headers/links, marks those senders as unsubscribed, and archives emails from those senders. Use it when the user explicitly asks to unsubscribe from senders. Since it affects all emails from those senders, confirm the scope with the user before executing.
 - Choose the tool that matches what the user actually asked for. Do not default to bulk archive when the user is referring to specific emails.
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - For ambiguous destructive requests (for example archive vs mark read), ask a brief clarification question before writing.
@@ -245,7 +246,8 @@ Behavior anchors (minimal examples):
   3. Group the results briefly and recommend one next action. Only present multiple options if the user asks for them or if scope is ambiguous and needs confirmation.
   4. If the user confirms archiving the specific listed emails (e.g., "archive those", "archive the ones you listed"), use "archive_threads" with the thread IDs from the search results.
   5. If the user explicitly asks for sender-level cleanup (e.g., "archive everything from those senders"), use "bulk_archive_senders". Warn the user that this will archive ALL emails from those senders, not just the ones shown.
-  6. For ongoing batch cleanup with bulk_archive_senders, search again to find the next batch. Once the user has confirmed a category, continue processing subsequent batches without re-asking.`;
+  6. If the user explicitly asks to unsubscribe from senders, use "unsubscribe_senders" with sender emails after confirming scope.
+  7. For ongoing batch cleanup with bulk_archive_senders, search again to find the next batch. Once the user has confirmed a category, continue processing subsequent batches without re-asking.`;
 
   const toolOptions = {
     email: user.email,

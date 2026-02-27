@@ -191,11 +191,12 @@ export function ManageInboxResult({
     labelApplied,
     inProgress: isInProgress,
   });
-  const completedCount =
-    action === "bulk_archive_senders"
-      ? (sendersCount ?? senders?.length)
-      : (successCount ?? requestedCount);
-  const countLabel = action === "bulk_archive_senders" ? "sender" : "item";
+  const isSenderAction =
+    action === "bulk_archive_senders" || action === "unsubscribe_senders";
+  const completedCount = isSenderAction
+    ? (sendersCount ?? senders?.length)
+    : (successCount ?? requestedCount);
+  const countLabel = isSenderAction ? "sender" : "item";
 
   const summaryText =
     typeof completedCount === "number"
@@ -1109,7 +1110,8 @@ function renderActionFields(fields: {
 type ManageInboxAction =
   | "archive_threads"
   | "mark_read_threads"
-  | "bulk_archive_senders";
+  | "bulk_archive_senders"
+  | "unsubscribe_senders";
 
 function parseManageInboxAction(
   action: string | undefined,
@@ -1117,7 +1119,8 @@ function parseManageInboxAction(
   if (
     action === "archive_threads" ||
     action === "mark_read_threads" ||
-    action === "bulk_archive_senders"
+    action === "bulk_archive_senders" ||
+    action === "unsubscribe_senders"
   ) {
     return action;
   }
@@ -1138,6 +1141,9 @@ function getManageInboxActionLabel({
 }) {
   if (action === "bulk_archive_senders") {
     return inProgress ? "Bulk archiving senders" : "Bulk archived senders";
+  }
+  if (action === "unsubscribe_senders") {
+    return inProgress ? "Unsubscribing senders" : "Unsubscribed senders";
   }
   if (action === "archive_threads") {
     if (inProgress) {

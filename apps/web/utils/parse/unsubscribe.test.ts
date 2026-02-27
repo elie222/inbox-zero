@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
+  cleanUnsubscribeLink,
   containsUnsubscribeKeyword,
   containsUnsubscribeUrlPattern,
+  getHttpUnsubscribeLink,
+  parseListUnsubscribeHeader,
 } from "./unsubscribe";
 
 describe("containsUnsubscribeKeyword", () => {
@@ -188,5 +191,70 @@ describe("containsUnsubscribeUrlPattern", () => {
         containsUnsubscribeUrlPattern("https://example.com/submit-form"),
       ).toBe(false);
     });
+  });
+});
+
+describe("cleanUnsubscribeLink", () => {
+  it("removes surrounding angle brackets", () => {
+    expect(cleanUnsubscribeLink("<https://example.com/unsub>")).toBe(
+      "https://example.com/unsub",
+    );
+  });
+
+  it("trims whitespace", () => {
+    expect(cleanUnsubscribeLink("  https://example.com/unsub  ")).toBe(
+      "https://example.com/unsub",
+    );
+  });
+
+  it("returns undefined for empty strings", () => {
+    expect(cleanUnsubscribeLink("   ")).toBeUndefined();
+  });
+});
+
+describe("parseListUnsubscribeHeader", () => {
+  it("parses multiple header values", () => {
+    expect(
+      parseListUnsubscribeHeader(
+        "<mailto:unsubscribe@example.com>, <https://example.com/unsub?id=1>",
+      ),
+    ).toEqual([
+      "mailto:unsubscribe@example.com",
+      "https://example.com/unsub?id=1",
+    ]);
+  });
+
+  it("returns empty array for missing values", () => {
+    expect(parseListUnsubscribeHeader()).toEqual([]);
+  });
+});
+
+describe("getHttpUnsubscribeLink", () => {
+  it("prefers HTTP URLs from list-unsubscribe header", () => {
+    expect(
+      getHttpUnsubscribeLink({
+        listUnsubscribeHeader:
+          "<mailto:unsubscribe@example.com>, <https://example.com/unsub?id=1>",
+        unsubscribeLink: "https://fallback.example.com/unsub",
+      }),
+    ).toBe("https://example.com/unsub?id=1");
+  });
+
+  it("falls back to unsubscribe link when header has no HTTP URL", () => {
+    expect(
+      getHttpUnsubscribeLink({
+        listUnsubscribeHeader: "<mailto:unsubscribe@example.com>",
+        unsubscribeLink: "https://fallback.example.com/unsub",
+      }),
+    ).toBe("https://fallback.example.com/unsub");
+  });
+
+  it("returns undefined when no HTTP URL is present", () => {
+    expect(
+      getHttpUnsubscribeLink({
+        listUnsubscribeHeader: "<mailto:unsubscribe@example.com>",
+        unsubscribeLink: "mailto:alt@example.com",
+      }),
+    ).toBeUndefined();
   });
 });
