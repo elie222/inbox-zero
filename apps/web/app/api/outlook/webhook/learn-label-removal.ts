@@ -5,7 +5,20 @@ import prisma from "@/utils/prisma";
 import { recordLabelRemovalLearning } from "@/utils/rule/record-label-removal-learning";
 import type { ParsedMessage } from "@/utils/types";
 
-export async function learnFromOutlookLabelRemoval({
+const LABEL_OR_FOLDER_ACTION_FILTER = {
+  OR: [
+    {
+      type: ActionType.LABEL,
+      OR: [{ labelId: { not: null } }, { label: { not: null } }],
+    },
+    {
+      type: ActionType.MOVE_FOLDER,
+      OR: [{ folderId: { not: null } }, { folderName: { not: null } }],
+    },
+  ],
+} as const;
+
+export async function learnFromOutlookCategoryReversal({
   message,
   emailAccountId,
   logger,
@@ -18,11 +31,12 @@ export async function learnFromOutlookLabelRemoval({
   if (!sender || !message.threadId) return;
 
   if (!message.labelIds || message.labelIds.length === 0) {
-    logger.info("Skipping label removal learning - missing label state");
+    logger.info("Skipping category reversal learning - missing label state");
     return;
   }
 
   const currentLabels = new Set(message.labelIds);
+  const isInInbox = currentLabels.has("INBOX");
 
   const executedRules = await prisma.executedRule.findMany({
     where: {
@@ -30,12 +44,7 @@ export async function learnFromOutlookLabelRemoval({
       messageId: message.id,
       threadId: message.threadId,
       rule: { systemType: { not: null } },
-      actionItems: {
-        some: {
-          type: ActionType.LABEL,
-          OR: [{ labelId: { not: null } }, { label: { not: null } }],
-        },
-      },
+      actionItems: { some: LABEL_OR_FOLDER_ACTION_FILTER },
     },
     select: {
       rule: {
@@ -45,13 +54,13 @@ export async function learnFromOutlookLabelRemoval({
         },
       },
       actionItems: {
-        where: {
-          type: ActionType.LABEL,
-          OR: [{ labelId: { not: null } }, { label: { not: null } }],
-        },
+        where: LABEL_OR_FOLDER_ACTION_FILTER,
         select: {
+          type: true,
           labelId: true,
           label: true,
+          folderId: true,
+          folderName: true,
         },
       },
     },
@@ -73,7 +82,14 @@ export async function learnFromOutlookLabelRemoval({
     const ruleId = executedRule.rule?.id;
     if (!ruleId) continue;
 
-    const hasRemovedLabel = executedRule.actionItems.some((action) => {
+    const labelActions = executedRule.actionItems.filter(
+      (a) => a.type === ActionType.LABEL,
+    );
+    const folderActions = executedRule.actionItems.filter(
+      (a) => a.type === ActionType.MOVE_FOLDER,
+    );
+
+    const hasRemovedLabel = labelActions.some((action) => {
       const resolvedLabelIds = resolveActionLabelIds({
         action,
         ruleId,
@@ -93,7 +109,13 @@ export async function learnFromOutlookLabelRemoval({
       return !hasMatchingLabelId && !hasMatchingLabelName;
     });
 
-    if (hasRemovedLabel) {
+    // For MOVE_FOLDER actions: if the message is back in the inbox,
+    // the user has undone the folder move (Outlook messages can only
+    // be in one folder at a time).
+    const hasReversedFolderMove =
+      isInInbox && folderActions.some((a) => !!(a.folderId || a.folderName));
+
+    if (hasRemovedLabel || hasReversedFolderMove) {
       removedRules.set(ruleId, {
         systemType: executedRule.rule?.systemType,
       });
