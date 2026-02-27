@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { processHistoryItem } from "./process-history-item";
 import { HistoryEventType } from "./types";
-import { NewsletterStatus } from "@/generated/prisma/enums";
+import {
+  DraftReplyConfidence,
+  NewsletterStatus,
+} from "@/generated/prisma/enums";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
@@ -155,7 +158,7 @@ describe("processHistoryItem", () => {
       autoCategorizeSenders: false,
       filingEnabled: false,
       filingPrompt: null,
-      draftReplyConfidenceThreshold: 0,
+      draftReplyConfidence: DraftReplyConfidence.ALL_EMAILS,
     };
   }
 

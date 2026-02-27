@@ -1,127 +1,139 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SettingCard } from "@/components/SettingCard";
 import { toastError } from "@/components/Toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
-import { updateDraftReplyConfidenceThresholdAction } from "@/utils/actions/rule";
+import { updateDraftReplyConfidenceAction } from "@/utils/actions/rule";
+import {
+  DEFAULT_DRAFT_REPLY_CONFIDENCE,
+  DRAFT_REPLY_CONFIDENCE_OPTIONS,
+  getDraftReplyConfidenceOption,
+} from "@/utils/ai/reply/draft-confidence";
 import { getActionErrorMessage } from "@/utils/error";
 import { useAction } from "next-safe-action/hooks";
 
-const DEFAULT_THRESHOLD = 0;
-
 export function DraftConfidenceSetting() {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
-  const persistedThreshold =
-    data?.draftReplyConfidenceThreshold ?? DEFAULT_THRESHOLD;
-  const [sliderThreshold, setSliderThreshold] = useState(persistedThreshold);
+  const persistedConfidence =
+    data?.draftReplyConfidence ?? DEFAULT_DRAFT_REPLY_CONFIDENCE;
+  const [selectedConfidence, setSelectedConfidence] =
+    useState<DraftReplyConfidence>(persistedConfidence);
   const requestSequenceRef = useRef(0);
-  const lastRequestedThresholdRef = useRef<number | null>(null);
+  const lastRequestedConfidenceRef = useRef<DraftReplyConfidence | null>(null);
 
   const { executeAsync } = useAction(
-    updateDraftReplyConfidenceThresholdAction.bind(null, data?.id ?? ""),
+    updateDraftReplyConfidenceAction.bind(null, data?.id ?? ""),
   );
 
   useEffect(() => {
-    setSliderThreshold(persistedThreshold);
-  }, [persistedThreshold]);
+    setSelectedConfidence(persistedConfidence);
+  }, [persistedConfidence]);
 
-  const saveThreshold = useCallback(
-    (nextThreshold: number) => {
-      if (!data) return;
-      if (nextThreshold === persistedThreshold) return;
-      if (lastRequestedThresholdRef.current === nextThreshold) return;
+  const selectedOption = getDraftReplyConfidenceOption(selectedConfidence);
 
-      lastRequestedThresholdRef.current = nextThreshold;
-      const requestSequence = ++requestSequenceRef.current;
+  const saveConfidence = (nextConfidence: DraftReplyConfidence) => {
+    if (!data) return;
+    if (nextConfidence === persistedConfidence) return;
+    if (lastRequestedConfidenceRef.current === nextConfidence) return;
 
-      mutate(
-        {
-          ...data,
-          draftReplyConfidenceThreshold: nextThreshold,
-        },
-        false,
-      );
+    lastRequestedConfidenceRef.current = nextConfidence;
+    const requestSequence = ++requestSequenceRef.current;
 
-      executeAsync({ threshold: nextThreshold })
-        .then((result) => {
-          if (requestSequence !== requestSequenceRef.current) return;
+    mutate(
+      {
+        ...data,
+        draftReplyConfidence: nextConfidence,
+      },
+      false,
+    );
 
-          if (
-            result?.serverError ||
-            result?.validationErrors
-          ) {
-            lastRequestedThresholdRef.current = null;
-            mutate();
-            toastError({
-              description: getActionErrorMessage(
-                {
-                  serverError: result.serverError,
-                  validationErrors: result.validationErrors,
-                },
-                {
-                  prefix: "There was an error",
-                },
-              ),
-            });
-            return;
-          }
+    executeAsync({ confidence: nextConfidence })
+      .then((result) => {
+        if (requestSequence !== requestSequenceRef.current) return;
 
-          mutate();
-        })
-        .catch(() => {
-          if (requestSequence !== requestSequenceRef.current) return;
-
-          lastRequestedThresholdRef.current = null;
+        if (result?.serverError || result?.validationErrors) {
+          lastRequestedConfidenceRef.current = null;
           mutate();
           toastError({
-            description: "There was an error",
+            description: getActionErrorMessage(
+              {
+                serverError: result.serverError,
+                validationErrors: result.validationErrors,
+              },
+              {
+                prefix: "There was an error",
+              },
+            ),
           });
+          return;
+        }
+
+        mutate();
+      })
+      .catch(() => {
+        if (requestSequence !== requestSequenceRef.current) return;
+
+        lastRequestedConfidenceRef.current = null;
+        mutate();
+        toastError({
+          description: "There was an error",
         });
-    },
-    [data, mutate, executeAsync, persistedThreshold],
-  );
+      });
+  };
 
-  const commitThreshold = useCallback(() => {
-    saveThreshold(sliderThreshold);
-  }, [saveThreshold, sliderThreshold]);
-
-  const handleSliderChange = (nextThreshold: number) => {
-    setSliderThreshold(nextThreshold);
+  const onValueChange = (value: string) => {
+    const nextConfidence = value as DraftReplyConfidence;
+    setSelectedConfidence(nextConfidence);
+    saveConfidence(nextConfidence);
   };
 
   return (
     <SettingCard
       title="Draft confidence"
-      description="Skip auto-drafting when confidence is below this threshold."
+      description="How sure should the AI be before drafting a reply?"
       right={
         <LoadingContent
           loading={isLoading}
           error={error}
           loadingComponent={<Skeleton className="h-10 w-44" />}
         >
-          <div className="w-44 space-y-1">
-            <div className="text-right text-xs text-muted-foreground">
-              {sliderThreshold}%
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={sliderThreshold}
-              onChange={(event) =>
-                handleSliderChange(Number(event.currentTarget.value))
-              }
-              onPointerUp={commitThreshold}
-              onBlur={commitThreshold}
-              className="w-full accent-foreground"
+          <div className="w-72">
+            <Select
+              value={selectedConfidence}
+              onValueChange={onValueChange}
               disabled={!data}
-              aria-label="Draft confidence threshold"
-            />
-            <p className="text-xs text-muted-foreground">0% always drafts</p>
+            >
+              <SelectTrigger aria-label="Draft confidence">
+                <SelectValue>{selectedOption.label}</SelectValue>
+              </SelectTrigger>
+              <SelectContent align="end" className="w-[22rem]">
+                {DRAFT_REPLY_CONFIDENCE_OPTIONS.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    className="items-start py-2"
+                  >
+                    <div className="flex flex-col text-left">
+                      <span className="font-medium">{option.label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {option.description}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </LoadingContent>
       }

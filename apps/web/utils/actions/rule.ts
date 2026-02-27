@@ -9,7 +9,7 @@ import {
   updateRuleSettingsBody,
   enableDraftRepliesBody,
   enableMultiRuleSelectionBody,
-  updateDraftReplyConfidenceThresholdBody,
+  updateDraftReplyConfidenceBody,
   deleteRuleBody,
   createRulesOnboardingBody,
   type CategoryConfig,
@@ -241,13 +241,13 @@ export const enableMultiRuleSelectionAction = actionClient
     });
   });
 
-export const updateDraftReplyConfidenceThresholdAction = actionClient
-  .metadata({ name: "updateDraftReplyConfidenceThreshold" })
-  .inputSchema(updateDraftReplyConfidenceThresholdBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { threshold } }) => {
+export const updateDraftReplyConfidenceAction = actionClient
+  .metadata({ name: "updateDraftReplyConfidence" })
+  .inputSchema(updateDraftReplyConfidenceBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { confidence } }) => {
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
-      data: { draftReplyConfidenceThreshold: threshold },
+      data: { draftReplyConfidence: confidence },
     });
   });
 

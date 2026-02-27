@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import { getEmailAccount, getAction, getRule } from "@/__tests__/helpers";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, DraftReplyConfidence } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai ai-choose-args
@@ -16,7 +16,10 @@ const TIMEOUT = 15_000;
 vi.mock("server-only", () => ({}));
 
 function getDraftingEmailAccount() {
-  return { ...getEmailAccount(), draftReplyConfidenceThreshold: 0 };
+  return {
+    ...getEmailAccount(),
+    draftReplyConfidence: DraftReplyConfidence.ALL_EMAILS,
+  };
 }
 
 describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {

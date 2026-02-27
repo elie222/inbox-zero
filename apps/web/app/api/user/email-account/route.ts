@@ -27,7 +27,7 @@ async function getEmailAccount({
       userId: true,
       about: true,
       multiRuleSelectionEnabled: true,
-      draftReplyConfidenceThreshold: true,
+      draftReplyConfidence: true,
       timezone: true,
       calendarBookingLink: true,
       signature: true,

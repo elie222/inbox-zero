@@ -140,7 +140,7 @@ model EmailAccount {
   rulesPrompt               String? // @deprecated
   autoCategorizeSenders     Boolean           @default(false)
   multiRuleSelectionEnabled Boolean           @default(false)
-  draftReplyConfidenceThreshold Int           @default(0)
+  draftReplyConfidence      DraftReplyConfidence @default(ALL_EMAILS)
 
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
@@ -1294,6 +1294,12 @@ enum Frequency {
   WEEKLY
   // MONTHLY
   // ANNUALLY
+}
+
+enum DraftReplyConfidence {
+  ALL_EMAILS
+  STANDARD
+  HIGH_CONFIDENCE
 }
 
 enum NewsletterStatus {

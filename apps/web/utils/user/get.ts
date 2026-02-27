@@ -1,6 +1,7 @@
 import prisma from "@/utils/prisma";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Prisma } from "@/generated/prisma/client";
+import type { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { env } from "@/env";
 
 export type EmailAccountWithAIAndTokens = Prisma.EmailAccountGetPayload<{
@@ -70,7 +71,7 @@ export async function getEmailAccountWithAi({
 
 export type EmailAccountForRuleExecution = EmailAccountWithAI & {
   name: string | null;
-  draftReplyConfidenceThreshold: number;
+  draftReplyConfidence: DraftReplyConfidence;
 };
 
 export async function getEmailAccountForRuleExecution({
@@ -89,7 +90,7 @@ export async function getEmailAccountForRuleExecution({
       timezone: true,
       calendarBookingLink: true,
       name: true,
-      draftReplyConfidenceThreshold: true,
+      draftReplyConfidence: true,
       user: {
         select: {
           aiProvider: true,
