@@ -3,6 +3,7 @@ import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { env } from "@/env";
 import type { MessagingProvider } from "@/generated/prisma/enums";
+import { isTeamsOAuthConfigured } from "@/utils/teams/oauth";
 
 export type GetMessagingChannelsResponse = Awaited<ReturnType<typeof getData>>;
 
@@ -35,7 +36,10 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
   return {
     channels: channels.map(({ providerUserId, ...channel }) => ({
       ...channel,
-      hasSendDestination: Boolean(providerUserId || channel.channelId),
+      hasSendDestination:
+        channel.provider === "TEAMS"
+          ? Boolean(channel.channelId)
+          : Boolean(providerUserId || channel.channelId),
     })),
     availableProviders: getAvailableProviders(),
   };
@@ -44,5 +48,6 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
 function getAvailableProviders(): MessagingProvider[] {
   const providers: MessagingProvider[] = [];
   if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) providers.push("SLACK");
+  if (isTeamsOAuthConfigured()) providers.push("TEAMS");
   return providers;
 }

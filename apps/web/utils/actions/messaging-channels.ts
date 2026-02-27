@@ -2,7 +2,7 @@
 
 import { actionClient } from "@/utils/actions/safe-action";
 import {
-  updateSlackChannelBody,
+  updateMessagingChannelBody,
   updateChannelFeaturesBody,
   updateEmailDeliveryBody,
   disconnectChannelBody,
@@ -17,10 +17,13 @@ import {
   sendChannelConfirmation,
   lookupSlackUserByEmail,
 } from "@inboxzero/slack";
+import { getTeamsChannelInfo } from "@/utils/teams/channels";
+import { getTeamsAccessToken } from "@/utils/teams/token";
+import { sendChannelConfirmationToTeams } from "@/utils/teams/send";
 
-export const updateSlackChannelAction = actionClient
-  .metadata({ name: "updateSlackChannel" })
-  .inputSchema(updateSlackChannelBody)
+export const updateMessagingChannelAction = actionClient
+  .metadata({ name: "updateMessagingChannel" })
+  .inputSchema(updateMessagingChannelBody)
   .action(
     async ({
       ctx: { emailAccountId, logger },
@@ -38,41 +41,81 @@ export const updateSlackChannelAction = actionClient
         throw new SafeError("Messaging channel is not connected");
       }
 
-      if (!channel.accessToken) {
-        throw new SafeError("Messaging channel has no access token");
-      }
+      switch (channel.provider) {
+        case MessagingProvider.SLACK: {
+          if (!channel.accessToken) {
+            throw new SafeError("Messaging channel has no access token");
+          }
 
-      const client = createSlackClient(channel.accessToken);
-      const channelInfo = await getChannelInfo(client, targetId);
+          const client = createSlackClient(channel.accessToken);
+          const channelInfo = await getChannelInfo(client, targetId);
 
-      if (!channelInfo) {
-        throw new SafeError("Could not find the selected Slack channel");
-      }
+          if (!channelInfo) {
+            throw new SafeError("Could not find the selected Slack channel");
+          }
 
-      if (!channelInfo.isPrivate) {
-        throw new SafeError(
-          "Only private channels are allowed. Please select a private channel.",
-        );
-      }
+          if (!channelInfo.isPrivate) {
+            throw new SafeError(
+              "Only private channels are allowed. Please select a private channel.",
+            );
+          }
 
-      await prisma.messagingChannel.update({
-        where: { id: channelId },
-        data: {
-          channelId: targetId,
-          channelName: channelInfo.name,
-        },
-      });
+          await prisma.messagingChannel.update({
+            where: { id: channelId },
+            data: {
+              channelId: targetId,
+              channelName: channelInfo.name,
+            },
+          });
 
-      try {
-        await sendChannelConfirmation({
-          accessToken: channel.accessToken,
-          channelId: targetId,
-        });
-      } catch (error) {
-        logger.error("Failed to send channel confirmation", { error });
+          try {
+            await sendChannelConfirmation({
+              accessToken: channel.accessToken,
+              channelId: targetId,
+            });
+          } catch (error) {
+            logger.error("Failed to send Slack channel confirmation", {
+              error,
+            });
+          }
+          break;
+        }
+        case MessagingProvider.TEAMS: {
+          const accessToken = await getTeamsAccessToken({ channel, logger });
+          const channelInfo = await getTeamsChannelInfo(accessToken, targetId);
+
+          if (!channelInfo) {
+            throw new SafeError("Could not find the selected Teams channel");
+          }
+
+          await prisma.messagingChannel.update({
+            where: { id: channelId },
+            data: {
+              channelId: targetId,
+              channelName: channelInfo.name || targetName,
+              accessToken,
+            },
+          });
+
+          try {
+            await sendChannelConfirmationToTeams({
+              accessToken,
+              targetId,
+            });
+          } catch (error) {
+            logger.error("Failed to send Teams channel confirmation", {
+              error,
+            });
+          }
+          break;
+        }
+        default:
+          throw new SafeError("Messaging provider is not supported");
       }
     },
   );
+
+export const updateSlackChannelAction = updateMessagingChannelAction;
 
 export const updateChannelFeaturesAction = actionClient
   .metadata({ name: "updateChannelFeatures" })

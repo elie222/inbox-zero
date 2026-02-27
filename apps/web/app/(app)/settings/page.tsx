@@ -6,6 +6,7 @@ import {
   ChevronRightIcon,
   CreditCardIcon,
   MailIcon,
+  MessageSquareIcon,
   SlackIcon,
   SparklesIcon,
   WebhookIcon,
@@ -36,6 +37,7 @@ import { useAccounts } from "@/hooks/useAccounts";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useSlackConnect } from "@/hooks/useSlackConnect";
+import { useTeamsConnect } from "@/hooks/useTeamsConnect";
 import { cn } from "@/utils";
 import { env } from "@/env";
 
@@ -151,17 +153,32 @@ function EmailAccountSettingsCard({
     channelsData?.channels.some(
       (ch) => ch.isConnected && ch.provider === "SLACK",
     ) ?? false;
+  const hasTeams =
+    channelsData?.channels.some(
+      (ch) => ch.isConnected && ch.provider === "TEAMS",
+    ) ?? false;
   const slackAvailable =
     channelsData?.availableProviders?.includes("SLACK") ?? false;
+  const teamsAvailable =
+    channelsData?.availableProviders?.includes("TEAMS") ?? false;
   const { connect, connecting: connectingSlack } = useSlackConnect({
     emailAccountId: emailAccount.id,
     onConnected: () => mutateChannels(),
+  });
+  const { connect: connectTeams, connecting: connectingTeams } = useTeamsConnect({
+    emailAccountId: emailAccount.id,
   });
 
   const handleConnectSlack = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (connectingSlack) return;
     connect();
+  };
+
+  const handleConnectTeams = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (connectingTeams) return;
+    connectTeams();
   };
 
   return (
@@ -187,6 +204,12 @@ function EmailAccountSettingsCard({
             Slack
           </Badge>
         )}
+        {hasTeams && (
+          <Badge variant="secondary" className="gap-1 text-xs font-normal">
+            <MessageSquareIcon className="size-3" />
+            Teams
+          </Badge>
+        )}
         {!hasSlack && slackAvailable && (
           <Badge
             variant="outline"
@@ -201,6 +224,22 @@ function EmailAccountSettingsCard({
           >
             <SlackIcon className="size-3" />
             {connectingSlack ? "Connecting..." : "Connect Slack"}
+          </Badge>
+        )}
+        {!hasTeams && teamsAvailable && (
+          <Badge
+            variant="outline"
+            className={cn(
+              "gap-1 text-xs font-normal",
+              connectingTeams
+                ? "cursor-not-allowed opacity-60"
+                : "cursor-pointer hover:bg-muted",
+            )}
+            aria-disabled={connectingTeams}
+            onClick={handleConnectTeams}
+          >
+            <MessageSquareIcon className="size-3" />
+            {connectingTeams ? "Connecting..." : "Connect Teams"}
           </Badge>
         )}
         <ChevronRightIcon

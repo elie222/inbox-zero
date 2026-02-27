@@ -15,6 +15,8 @@ import type { Logger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { formatTimeInUserTimezone } from "@/utils/date";
 import prisma from "@/utils/prisma";
+import { sendMeetingBriefingToTeams } from "@/utils/teams/send";
+import { getTeamsAccessToken } from "@/utils/teams/token";
 
 export async function sendBriefing({
   event,
@@ -61,8 +63,11 @@ export async function sendBriefing({
       channelId: { not: null },
     },
     select: {
+      id: true,
       provider: true,
       accessToken: true,
+      refreshToken: true,
+      expiresAt: true,
       channelId: true,
     },
   });
@@ -84,14 +89,28 @@ export async function sendBriefing({
   }
 
   for (const channel of channels) {
-    if (!channel.accessToken || !channel.channelId) continue;
+    if (!channel.channelId) continue;
 
     switch (channel.provider) {
       case MessagingProvider.SLACK:
+        if (!channel.accessToken) continue;
         deliveryPromises.push(
           sendBriefingViaSlack({
             accessToken: channel.accessToken,
             channelId: channel.channelId,
+            meetingTitle: event.title,
+            formattedTime,
+            videoConferenceLink: event.videoConferenceLink ?? undefined,
+            eventUrl: event.eventUrl ?? undefined,
+            briefingContent: briefingContentWithTeam,
+            logger,
+          }),
+        );
+        break;
+      case MessagingProvider.TEAMS:
+        deliveryPromises.push(
+          sendBriefingViaTeams({
+            channel,
             meetingTitle: event.title,
             formattedTime,
             videoConferenceLink: event.videoConferenceLink ?? undefined,
@@ -221,4 +240,41 @@ async function sendBriefingViaSlack({
     briefingContent,
   });
   logger.info("Briefing sent successfully to Slack");
+}
+
+async function sendBriefingViaTeams({
+  channel,
+  meetingTitle,
+  formattedTime,
+  videoConferenceLink,
+  eventUrl,
+  briefingContent,
+  logger,
+}: {
+  channel: {
+    id: string;
+    accessToken: string | null;
+    refreshToken: string | null;
+    expiresAt: Date | null;
+    channelId: string;
+  };
+  meetingTitle: string;
+  formattedTime: string;
+  videoConferenceLink?: string;
+  eventUrl?: string;
+  briefingContent: BriefingContent;
+  logger: Logger;
+}): Promise<void> {
+  logger.info("Sending briefing to Teams");
+  const accessToken = await getTeamsAccessToken({ channel, logger });
+  await sendMeetingBriefingToTeams({
+    accessToken,
+    targetId: channel.channelId,
+    meetingTitle,
+    formattedTime,
+    videoConferenceLink,
+    eventUrl,
+    briefingContent,
+  });
+  logger.info("Briefing sent successfully to Teams");
 }

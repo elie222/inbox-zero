@@ -50,8 +50,14 @@ async function enqueueDueAutomationJobs(logger: Logger) {
       nextRunAt: { lte: now },
       messagingChannel: {
         isConnected: true,
-        provider: MessagingProvider.SLACK,
-        accessToken: { not: null },
+        provider: { in: [MessagingProvider.SLACK, MessagingProvider.TEAMS] },
+        OR: [
+          { accessToken: { not: null } },
+          {
+            provider: MessagingProvider.TEAMS,
+            refreshToken: { not: null },
+          },
+        ],
         emailAccount: {
           ...getPremiumUserFilter(),
         },

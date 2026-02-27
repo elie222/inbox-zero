@@ -97,6 +97,7 @@ export const saveAutomationJobAction = actionClient
           provider: true,
           isConnected: true,
           accessToken: true,
+          refreshToken: true,
           providerUserId: true,
           channelId: true,
         },
@@ -106,16 +107,27 @@ export const saveAutomationJobAction = actionClient
         throw new SafeError("Messaging channel not found");
       }
 
-      if (channel.provider !== MessagingProvider.SLACK) {
-        throw new SafeError("Only Slack is supported");
+      if (
+        channel.provider !== MessagingProvider.SLACK &&
+        channel.provider !== MessagingProvider.TEAMS
+      ) {
+        throw new SafeError("Unsupported messaging provider");
       }
 
-      if (!channel.isConnected || !channel.accessToken) {
-        throw new SafeError("Slack channel is not connected");
+      const hasCredentials =
+        Boolean(channel.accessToken) ||
+        (channel.provider === MessagingProvider.TEAMS &&
+          Boolean(channel.refreshToken));
+      if (!channel.isConnected || !hasCredentials) {
+        throw new SafeError("Messaging channel is not connected");
       }
 
-      if (!channel.providerUserId && !channel.channelId) {
-        throw new SafeError("Select a Slack destination first");
+      const hasDestination =
+        channel.provider === MessagingProvider.TEAMS
+          ? Boolean(channel.channelId)
+          : Boolean(channel.providerUserId || channel.channelId);
+      if (!hasDestination) {
+        throw new SafeError("Select a messaging destination first");
       }
 
       const existingJob = await prisma.automationJob.findUnique({
@@ -171,6 +183,7 @@ export const triggerTestCheckInAction = actionClient
             provider: true,
             isConnected: true,
             accessToken: true,
+            refreshToken: true,
             providerUserId: true,
             channelId: true,
           },
@@ -186,13 +199,23 @@ export const triggerTestCheckInAction = actionClient
     }
 
     const channel = job.messagingChannel;
+    const hasCredentials =
+      Boolean(channel.accessToken) ||
+      (channel.provider === MessagingProvider.TEAMS &&
+        Boolean(channel.refreshToken));
+    const hasDestination =
+      channel.provider === MessagingProvider.TEAMS
+        ? Boolean(channel.channelId)
+        : Boolean(channel.providerUserId || channel.channelId);
+
     if (
-      channel.provider !== MessagingProvider.SLACK ||
+      (channel.provider !== MessagingProvider.SLACK &&
+        channel.provider !== MessagingProvider.TEAMS) ||
       !channel.isConnected ||
-      !channel.accessToken ||
-      (!channel.providerUserId && !channel.channelId)
+      !hasCredentials ||
+      !hasDestination
     ) {
-      throw new SafeError("Slack channel is not connected");
+      throw new SafeError("Messaging channel is not connected");
     }
 
     const run = await prisma.automationJobRun.create({
@@ -216,17 +239,40 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
   const channel = await prisma.messagingChannel.findFirst({
     where: {
       emailAccountId,
-      provider: MessagingProvider.SLACK,
+      provider: { in: [MessagingProvider.SLACK, MessagingProvider.TEAMS] },
       isConnected: true,
-      accessToken: { not: null },
-      OR: [{ providerUserId: { not: null } }, { channelId: { not: null } }],
+      AND: [
+        {
+          OR: [
+            { accessToken: { not: null } },
+            { provider: MessagingProvider.TEAMS, refreshToken: { not: null } },
+          ],
+        },
+        {
+          OR: [
+            {
+              provider: MessagingProvider.SLACK,
+              OR: [
+                { providerUserId: { not: null } },
+                { channelId: { not: null } },
+              ],
+            },
+            {
+              provider: MessagingProvider.TEAMS,
+              channelId: { not: null },
+            },
+          ],
+        },
+      ],
     },
     select: { id: true },
     orderBy: { updatedAt: "desc" },
   });
 
   if (!channel) {
-    throw new SafeError("Connect Slack before enabling proactive updates");
+    throw new SafeError(
+      "Connect Slack or Teams before enabling proactive updates",
+    );
   }
 
   return channel;

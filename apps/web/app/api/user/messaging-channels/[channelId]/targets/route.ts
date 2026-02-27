@@ -3,6 +3,9 @@ import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import { createSlackClient, listChannels } from "@inboxzero/slack";
+import { listTeamsChannels } from "@/utils/teams/channels";
+import { getTeamsAccessToken } from "@/utils/teams/token";
+import type { Logger } from "@/utils/logger";
 
 export type GetChannelTargetsResponse = Awaited<ReturnType<typeof getData>>;
 
@@ -27,7 +30,7 @@ async function getData({
 }: {
   emailAccountId: string;
   channelId: string;
-  logger: { error: (msg: string, ctx?: Record<string, unknown>) => void };
+  logger: Logger;
 }) {
   const channel = await prisma.messagingChannel.findFirst({
     where: {
@@ -36,20 +39,42 @@ async function getData({
       isConnected: true,
     },
     select: {
+      id: true,
       provider: true,
       accessToken: true,
+      refreshToken: true,
+      expiresAt: true,
     },
   });
 
-  if (!channel || !channel.accessToken) {
+  const hasCredentials =
+    Boolean(channel?.accessToken) ||
+    (channel?.provider === MessagingProvider.TEAMS &&
+      Boolean(channel.refreshToken));
+
+  if (!channel || !hasCredentials) {
     return { targets: [], error: "Channel not found or not connected" };
   }
 
   try {
     switch (channel.provider) {
       case MessagingProvider.SLACK: {
+        if (!channel.accessToken) {
+          return { targets: [], error: "Channel not found or not connected" };
+        }
         const client = createSlackClient(channel.accessToken);
         const channels = await listChannels(client);
+        return {
+          targets: channels.map((c) => ({
+            id: c.id,
+            name: c.name,
+            isPrivate: c.isPrivate,
+          })),
+        };
+      }
+      case MessagingProvider.TEAMS: {
+        const accessToken = await getTeamsAccessToken({ channel, logger });
+        const channels = await listTeamsChannels(accessToken);
         return {
           targets: channels.map((c) => ({
             id: c.id,

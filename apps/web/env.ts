@@ -199,6 +199,10 @@ export const env = createEnv({
     SLACK_CLIENT_ID: z.string().optional(),
     SLACK_CLIENT_SECRET: z.string().optional(),
     SLACK_SIGNING_SECRET: z.string().optional(),
+
+    // Microsoft Teams (optional, defaults to Microsoft OAuth app if unset)
+    TEAMS_CLIENT_ID: z.string().optional(),
+    TEAMS_CLIENT_SECRET: z.string().optional(),
   },
   client: {
     // stripe

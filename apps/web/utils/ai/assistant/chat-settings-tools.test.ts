@@ -477,7 +477,7 @@ describe("chat settings tools", () => {
 
     expect(result).toEqual({
       error:
-        "Provide a messagingChannelId when enabling scheduled check-ins. Ask the user to choose a Slack destination from availableChannels.",
+        "Provide a messagingChannelId when enabling scheduled check-ins. Ask the user to choose a destination from availableChannels.",
     });
     expect(prisma.automationJob.create).not.toHaveBeenCalled();
   });
