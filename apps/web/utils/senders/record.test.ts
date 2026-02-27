@@ -1,22 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
-import {
-  extractEmailOrThrow,
-  upsertNewsletterRecord,
-} from "./newsletter-record";
+import { extractEmailOrThrow, upsertSenderRecord } from "./record";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
-describe("newsletter-record", () => {
+describe("sender-record", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.newsletter.upsert.mockResolvedValue({ id: "newsletter-1" } as any);
   });
 
   it("normalizes email addresses when upserting newsletter records", async () => {
-    await upsertNewsletterRecord({
+    await upsertSenderRecord({
       emailAccountId: "email-account-1",
       newsletterEmail: "Sender <sender@example.com>",
       changes: { status: NewsletterStatus.UNSUBSCRIBED },

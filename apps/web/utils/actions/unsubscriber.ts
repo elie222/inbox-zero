@@ -6,9 +6,9 @@ import {
 } from "@/utils/actions/unsubscriber.validation";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
-  setNewsletterStatus,
+  setSenderStatus,
   unsubscribeSenderAndMark,
-} from "@/utils/newsletter-unsubscribe";
+} from "@/utils/senders/unsubscribe";
 
 export const setNewsletterStatusAction = actionClient
   .metadata({ name: "setNewsletterStatus" })
@@ -18,7 +18,7 @@ export const setNewsletterStatusAction = actionClient
       parsedInput: { newsletterEmail, status },
       ctx: { emailAccountId },
     }) => {
-      return setNewsletterStatus({
+      return setSenderStatus({
         emailAccountId,
         newsletterEmail,
         status,

@@ -14,7 +14,7 @@ export function extractEmailOrThrow(newsletterEmail: string) {
   return email;
 }
 
-export async function upsertNewsletterRecord({
+export async function upsertSenderRecord({
   emailAccountId,
   newsletterEmail,
   changes,

@@ -2,16 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  setNewsletterStatus,
-  unsubscribeSenderAndMark,
-} from "./newsletter-unsubscribe";
+import { setSenderStatus, unsubscribeSenderAndMark } from "./unsubscribe";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
-describe("newsletter-unsubscribe", () => {
-  const logger = createScopedLogger("newsletter-unsubscribe-test");
+describe("sender-unsubscribe", () => {
+  const logger = createScopedLogger("sender-unsubscribe-test");
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -19,7 +16,7 @@ describe("newsletter-unsubscribe", () => {
   });
 
   it("normalizes sender emails when setting status", async () => {
-    await setNewsletterStatus({
+    await setSenderStatus({
       emailAccountId: "email-account-1",
       newsletterEmail: "Sender <sender@example.com>",
       status: NewsletterStatus.UNSUBSCRIBED,

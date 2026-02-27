@@ -51,7 +51,7 @@ vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: mockPosthogCaptureEvent,
 }));
 
-vi.mock("@/utils/newsletter-unsubscribe", () => ({
+vi.mock("@/utils/senders/unsubscribe", () => ({
   unsubscribeSenderAndMark: mockUnsubscribeSenderAndMark,
 }));
 

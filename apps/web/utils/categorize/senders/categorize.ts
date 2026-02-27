@@ -10,7 +10,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
-import { upsertNewsletterRecord } from "@/utils/newsletter-record";
+import { upsertSenderRecord } from "@/utils/senders/record";
 
 const logger = createScopedLogger("categorize/senders");
 
@@ -87,7 +87,7 @@ export async function updateSenderCategory({
   }
 
   // save category
-  const newsletter = await upsertNewsletterRecord({
+  const newsletter = await upsertSenderRecord({
     emailAccountId,
     newsletterEmail: sender,
     changes: {
@@ -113,7 +113,7 @@ export async function updateCategoryForSender({
   senderName?: string | null;
   categoryId: string;
 }) {
-  await upsertNewsletterRecord({
+  await upsertSenderRecord({
     emailAccountId,
     newsletterEmail: sender,
     changes: {

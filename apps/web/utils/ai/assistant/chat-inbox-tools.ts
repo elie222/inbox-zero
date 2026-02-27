@@ -16,7 +16,7 @@ import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import {
   type AutomaticUnsubscribeResult,
   unsubscribeSenderAndMark,
-} from "@/utils/newsletter-unsubscribe";
+} from "@/utils/senders/unsubscribe";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 const recipientListSchema = z
