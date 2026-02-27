@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SettingCard } from "@/components/SettingCard";
+import { toastSuccess } from "@/components/Toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -69,11 +70,14 @@ export function DraftConfidenceSetting() {
               validationErrors: result.validationErrors,
             },
             mutate,
-            prefix: "There was an error",
+            prefix: "Failed to update draft confidence",
           });
           return;
         }
 
+        toastSuccess({
+          description: "Draft confidence updated",
+        });
         mutate();
       })
       .catch(() => {
@@ -83,7 +87,7 @@ export function DraftConfidenceSetting() {
         showSettingActionError({
           error: {},
           mutate,
-          defaultMessage: "There was an error",
+          defaultMessage: "Failed to update draft confidence",
         });
       });
   };
@@ -104,7 +108,7 @@ export function DraftConfidenceSetting() {
           error={error}
           loadingComponent={<Skeleton className="h-10 w-44" />}
         >
-          <div className="w-72">
+          <div className="w-52">
             <Select
               value={selectedConfidence}
               onValueChange={onValueChange}
