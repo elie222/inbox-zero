@@ -68,6 +68,44 @@ export async function getEmailAccountWithAi({
   });
 }
 
+export type EmailAccountForRuleExecution = EmailAccountWithAI & {
+  name: string | null;
+  draftReplyConfidenceThreshold: number;
+};
+
+export async function getEmailAccountForRuleExecution({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}): Promise<EmailAccountForRuleExecution | null> {
+  return prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      id: true,
+      userId: true,
+      email: true,
+      about: true,
+      multiRuleSelectionEnabled: true,
+      timezone: true,
+      calendarBookingLink: true,
+      name: true,
+      draftReplyConfidenceThreshold: true,
+      user: {
+        select: {
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
+        },
+      },
+      account: {
+        select: {
+          provider: true,
+        },
+      },
+    },
+  });
+}
+
 export async function getEmailAccountWithAiAndTokens({
   emailAccountId,
 }: {

@@ -35,8 +35,8 @@ describe("validateWebhookAccount", () => {
   });
 
   function createMockEmailAccount(
-    overrides: Partial<ValidatedWebhookAccountData> = {},
-  ): ValidatedWebhookAccountData {
+    overrides: Partial<NonNullable<ValidatedWebhookAccountData>> = {},
+  ): NonNullable<ValidatedWebhookAccountData> {
     return {
       id: "account-id",
       email: "user@test.com",
@@ -90,6 +90,10 @@ describe("validateWebhookAccount", () => {
         },
       },
       ...overrides,
+      draftReplyConfidenceThreshold:
+        overrides.draftReplyConfidenceThreshold ?? 0,
+      filingEnabled: overrides.filingEnabled ?? false,
+      filingPrompt: overrides.filingPrompt ?? null,
     };
   }
 
