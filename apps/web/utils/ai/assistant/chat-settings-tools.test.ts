@@ -5,6 +5,7 @@ import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
 import {
   getAssistantCapabilitiesTool,
+  updateAssistantSettingsCompatTool,
   updateAssistantSettingsTool,
 } from "./chat-settings-tools";
 
@@ -709,5 +710,64 @@ describe("chat settings tools", () => {
         content: "Final update.",
       },
     });
+  });
+
+  it("applies valid changes through updateAssistantSettingsCompat", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
+    prisma.emailAccount.update.mockResolvedValue({});
+
+    const toolInstance = updateAssistantSettingsCompatTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      userId: "user-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      dryRun: false,
+      changes: [
+        {
+          path: "assistant.multiRuleSelection.enabled",
+          value: true,
+        },
+      ],
+    });
+
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: "email-account-1" },
+      data: {
+        multiRuleSelectionEnabled: true,
+      },
+    });
+    expect(result).toMatchObject({
+      success: true,
+      dryRun: false,
+    });
+  });
+
+  it("returns a validation error for invalid compat payload values", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
+
+    const toolInstance = updateAssistantSettingsCompatTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      userId: "user-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      dryRun: false,
+      changes: [
+        {
+          path: "assistant.meetingBriefs.minutesBefore",
+          value: "soon",
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      error: expect.stringContaining("Invalid settings update payload."),
+    });
+    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,11 @@
 import type { Tool } from "ai";
 import { Provider } from "@/utils/llms/config";
 
-const GROK_UNSUPPORTED_TOOL_NAMES = new Set(["updateAssistantSettings"]);
+const GROK_TOOL_REPLACEMENTS: Record<string, string> = {
+  updateAssistantSettings: "updateAssistantSettingsCompat",
+};
+
+const INTERNAL_TOOL_NAMES = new Set(Object.values(GROK_TOOL_REPLACEMENTS));
 
 export function filterUnsupportedToolsForModel({
   provider,
@@ -12,25 +16,52 @@ export function filterUnsupportedToolsForModel({
   modelName: string;
   tools?: Record<string, Tool>;
 }) {
-  if (!tools) return { tools, excludedTools: [] as string[] };
-  if (provider !== Provider.OPENROUTER)
-    return { tools, excludedTools: [] as string[] };
-  if (!isXaiGrokModel(modelName))
-    return { tools, excludedTools: [] as string[] };
+  if (!tools) {
+    return {
+      tools,
+      excludedTools: [] as string[],
+      replacedTools: [] as string[],
+    };
+  }
 
-  const excludedTools = Object.keys(tools).filter((name) =>
-    GROK_UNSUPPORTED_TOOL_NAMES.has(name),
-  );
-  if (excludedTools.length === 0)
-    return { tools, excludedTools: [] as string[] };
+  const candidateTools = { ...tools };
 
-  const supportedTools = Object.fromEntries(
-    Object.entries(tools).filter(
-      ([name]) => !GROK_UNSUPPORTED_TOOL_NAMES.has(name),
-    ),
-  ) as Record<string, Tool>;
+  for (const internalToolName of INTERNAL_TOOL_NAMES) {
+    delete candidateTools[internalToolName];
+  }
 
-  return { tools: supportedTools, excludedTools };
+  if (provider !== Provider.OPENROUTER || !isXaiGrokModel(modelName)) {
+    return {
+      tools: candidateTools,
+      excludedTools: [] as string[],
+      replacedTools: [] as string[],
+    };
+  }
+
+  const replacedTools: string[] = [];
+  const excludedTools: string[] = [];
+
+  for (const [toolName, replacementToolName] of Object.entries(
+    GROK_TOOL_REPLACEMENTS,
+  )) {
+    if (!(toolName in candidateTools)) continue;
+
+    const replacementTool = tools[replacementToolName];
+    if (replacementTool) {
+      candidateTools[toolName] = replacementTool;
+      replacedTools.push(toolName);
+      continue;
+    }
+
+    delete candidateTools[toolName];
+    excludedTools.push(toolName);
+  }
+
+  return {
+    tools: candidateTools,
+    excludedTools,
+    replacedTools,
+  };
 }
 
 function isXaiGrokModel(modelName: string): boolean {
