@@ -7,6 +7,7 @@ import {
   updateEmailDeliveryBody,
   disconnectChannelBody,
   linkSlackWorkspaceBody,
+  createMessagingLinkCodeBody,
 } from "@/utils/actions/messaging-channels.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
@@ -17,6 +18,8 @@ import {
   sendChannelConfirmation,
   lookupSlackUserByEmail,
 } from "@inboxzero/slack";
+import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
+import { env } from "@/env";
 
 export const updateSlackChannelAction = actionClient
   .metadata({ name: "updateSlackChannel" })
@@ -24,7 +27,7 @@ export const updateSlackChannelAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, logger },
-      parsedInput: { channelId, targetId, targetName },
+      parsedInput: { channelId, targetId },
     }) => {
       const channel = await prisma.messagingChannel.findUnique({
         where: { id: channelId },
@@ -240,3 +243,27 @@ export const linkSlackWorkspaceAction = actionClient
       logger.info("Slack workspace linked via org-mate token", { teamId });
     },
   );
+
+export const createMessagingLinkCodeAction = actionClient
+  .metadata({ name: "createMessagingLinkCode" })
+  .inputSchema(createMessagingLinkCodeBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { provider } }) => {
+    if (provider === "TEAMS") {
+      if (!env.TEAMS_BOT_APP_ID || !env.TEAMS_BOT_APP_PASSWORD) {
+        throw new SafeError("Teams integration is not configured");
+      }
+    } else if (!env.TELEGRAM_BOT_TOKEN) {
+      throw new SafeError("Telegram integration is not configured");
+    }
+
+    const code = generateMessagingLinkCode({
+      emailAccountId,
+      provider,
+    });
+
+    return {
+      code,
+      provider,
+      expiresInSeconds: 10 * 60,
+    };
+  });

@@ -10,6 +10,7 @@ export const SLACK_SCOPES = [
   "im:read",
   "im:write",
   "im:history",
+  "assistant:write",
   "reactions:write",
   "users:read",
   "users:read.email",

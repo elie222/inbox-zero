@@ -18,6 +18,7 @@ import {
   getOAuthCodeResult,
   setOAuthCodeResult,
 } from "@/utils/redis/oauth-code";
+import { syncSlackInstallation } from "@/utils/messaging/chat-sdk/bot";
 
 const slackOAuthStateSchema = z.object({
   emailAccountId: z.string().min(1).max(64),
@@ -104,6 +105,14 @@ export async function handleSlackCallback(
       providerUserId: tokens.authed_user.id,
       botUserId: tokens.bot_user_id,
       emailAccountId,
+    });
+
+    await syncSlackInstallation({
+      teamId: tokens.team.id,
+      teamName: tokens.team.name,
+      accessToken: tokens.access_token,
+      botUserId: tokens.bot_user_id,
+      logger: callbackLogger,
     });
 
     callbackLogger.info("Slack connected successfully", {
