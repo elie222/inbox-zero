@@ -11,7 +11,6 @@ import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Response } from "./response";
-import { Shimmer } from "./shimmer";
 
 type ReasoningContextValue = {
   isStreaming: boolean;
@@ -113,35 +112,28 @@ export const Reasoning = memo(
 
 export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger>;
 
-const getThinkingMessage = (isStreaming: boolean, duration?: number) => {
-  if (isStreaming || duration === 0) {
-    return <Shimmer duration={1}>Thinking...</Shimmer>;
-  }
-  if (duration === undefined) {
-    return <p>Thought for a few seconds</p>;
-  }
-  return <p>Thought for {duration} seconds</p>;
-};
-
 export const ReasoningTrigger = memo(
   ({ className, children, ...props }: ReasoningTriggerProps) => {
     const { isStreaming, isOpen, duration } = useReasoning();
+    const thinkingLabel = getThinkingLabel(isStreaming, duration);
 
     return (
       <CollapsibleTrigger
         className={cn(
-          "flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
+          "flex w-full items-center justify-between text-muted-foreground text-sm transition-colors hover:text-foreground",
           className,
         )}
         {...props}
       >
         {children ?? (
           <>
-            <BrainIcon className="size-4" />
-            {getThinkingMessage(isStreaming, duration)}
+            <span className="flex min-w-0 items-center gap-2">
+              <BrainIcon className="size-4 shrink-0" />
+              <span className="sr-only">{thinkingLabel}</span>
+            </span>
             <ChevronDownIcon
               className={cn(
-                "size-4 transition-transform",
+                "ml-3 size-4 shrink-0 transition-transform",
                 isOpen ? "rotate-180" : "rotate-0",
               )}
             />
@@ -172,6 +164,16 @@ export const ReasoningContent = memo(
     </CollapsibleContent>
   ),
 );
+
+function getThinkingLabel(isStreaming: boolean, duration?: number) {
+  if (isStreaming || duration === 0) {
+    return "Thinking";
+  }
+  if (duration === undefined) {
+    return "Thought for a few seconds";
+  }
+  return `Thought for ${duration} seconds`;
+}
 
 Reasoning.displayName = "Reasoning";
 ReasoningTrigger.displayName = "ReasoningTrigger";

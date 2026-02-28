@@ -23,7 +23,10 @@ import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
 import { createRule, updateRule, deleteRule } from "@/utils/rule/rule";
 import { actionClient } from "@/utils/actions/safe-action";
-import { getEmailAccountWithAi } from "@/utils/user/get";
+import {
+  getEmailAccountForRuleExecution,
+  getEmailAccountWithAi,
+} from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { aiPromptToRulesOld } from "@/utils/ai/rule/prompt-to-rules-old";
@@ -39,7 +42,9 @@ export const runRulesAction = actionClient
     }): Promise<RunRulesResult[]> => {
       const logger = ctxLogger.with({ messageId, threadId });
 
-      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+      const emailAccount = await getEmailAccountForRuleExecution({
+        emailAccountId,
+      });
 
       if (!emailAccount) throw new SafeError("Email account not found");
       if (!provider) throw new SafeError("Provider not found");
@@ -114,7 +119,9 @@ export const testAiCustomContentAction = actionClient
       ctx: { emailAccountId, provider, logger },
       parsedInput: { content },
     }) => {
-      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+      const emailAccount = await getEmailAccountForRuleExecution({
+        emailAccountId,
+      });
 
       if (!emailAccount) throw new SafeError("Email account not found");
 

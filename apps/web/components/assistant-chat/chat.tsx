@@ -96,10 +96,12 @@ export function Chat({ open }: { open: boolean }) {
               ? "submitted"
               : "ready"
         }
-        disabled={(!input.trim() && !context) || status !== "ready"}
+        disabled={
+          status === "ready" ? !input.trim() && !context : status === "error"
+        }
         className="absolute bottom-2 right-2 h-9 w-9 rounded-full bg-blue-500 text-white hover:bg-blue-600"
         onClick={(e) => {
-          if (status === "streaming") {
+          if (status === "streaming" || status === "submitted") {
             e.preventDefault();
             stop();
             setMessages((messages) => messages);
@@ -127,9 +129,7 @@ export function Chat({ open }: { open: boolean }) {
         } as React.CSSProperties
       }
     >
-      <ChatTopBar
-        hasMessages={hasMessages}
-      />
+      <ChatTopBar hasMessages={hasMessages} />
       {hasMessages ? (
         <ChatMessagesView
           status={status}
@@ -254,11 +254,7 @@ function NewChatView({
   );
 }
 
-function ChatTopBar({
-  hasMessages,
-}: {
-  hasMessages: boolean;
-}) {
+function ChatTopBar({ hasMessages }: { hasMessages: boolean }) {
   return (
     <div className="relative mx-auto w-full max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-2">
       <div className="flex items-center justify-end gap-1">

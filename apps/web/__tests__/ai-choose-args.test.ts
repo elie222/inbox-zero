@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import { getEmailAccount, getAction, getRule } from "@/__tests__/helpers";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, DraftReplyConfidence } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai ai-choose-args
@@ -15,6 +15,13 @@ const TIMEOUT = 15_000;
 
 vi.mock("server-only", () => ({}));
 
+function getDraftingEmailAccount() {
+  return {
+    ...getEmailAccount(),
+    draftReplyConfidence: DraftReplyConfidence.ALL_EMAILS,
+  };
+}
+
 describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
   test("should return actions unchanged when no AI args needed", async () => {
     const actions = [getAction({})];
@@ -25,7 +32,7 @@ describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
         subject: "Test subject",
         content: "Test content",
       }),
-      emailAccount: getEmailAccount(),
+      emailAccount: getDraftingEmailAccount(),
       selectedRule: rule,
       client: {} as any,
       modelType: "default",
@@ -49,7 +56,7 @@ describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
         subject: "Quick question",
         content: "When is the meeting tomorrow?",
       }),
-      emailAccount: getEmailAccount(),
+      emailAccount: getDraftingEmailAccount(),
       selectedRule: rule,
       client: {} as any,
       modelType: "default",
@@ -80,7 +87,7 @@ describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
           subject: "Quick question",
           content: "How much are pears?",
         }),
-        emailAccount: getEmailAccount(),
+        emailAccount: getDraftingEmailAccount(),
         selectedRule: rule,
         client: {} as any,
         modelType: "default",
@@ -111,7 +118,7 @@ describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
         subject: "Project status",
         content: "Can you update me on the project status?",
       }),
-      emailAccount: getEmailAccount(),
+      emailAccount: getDraftingEmailAccount(),
       selectedRule: rule,
       client: {} as any,
       modelType: "default",
@@ -150,7 +157,7 @@ Matt`,
         subject: "fruits",
         content: "how much do apples cost?",
       }),
-      emailAccount: getEmailAccount(),
+      emailAccount: getDraftingEmailAccount(),
       selectedRule: rule,
       client: {} as any,
       modelType: "default",
@@ -193,7 +200,7 @@ Matt`,
           subject: "Your order has shipped",
           content: "Your Amazon order #123 has been shipped",
         }),
-        emailAccount: getEmailAccount(),
+        emailAccount: getDraftingEmailAccount(),
         selectedRule: rule,
         client: {} as any,
         modelType: "default",

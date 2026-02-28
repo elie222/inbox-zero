@@ -4,7 +4,7 @@ import {
   validateWebhookAccount,
 } from "./validate-webhook-account";
 import type { ValidatedWebhookAccountData } from "./validate-webhook-account";
-import { PremiumTier } from "@/generated/prisma/enums";
+import { DraftReplyConfidence, PremiumTier } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
@@ -35,8 +35,8 @@ describe("validateWebhookAccount", () => {
   });
 
   function createMockEmailAccount(
-    overrides: Partial<ValidatedWebhookAccountData> = {},
-  ): ValidatedWebhookAccountData {
+    overrides: Partial<NonNullable<ValidatedWebhookAccountData>> = {},
+  ): NonNullable<ValidatedWebhookAccountData> {
     return {
       id: "account-id",
       email: "user@test.com",
@@ -90,6 +90,10 @@ describe("validateWebhookAccount", () => {
         },
       },
       ...overrides,
+      draftReplyConfidence:
+        overrides.draftReplyConfidence ?? DraftReplyConfidence.ALL_EMAILS,
+      filingEnabled: overrides.filingEnabled ?? false,
+      filingPrompt: overrides.filingPrompt ?? null,
     };
   }
 

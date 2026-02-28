@@ -9,6 +9,7 @@ import {
   updateRuleSettingsBody,
   enableDraftRepliesBody,
   enableMultiRuleSelectionBody,
+  updateDraftReplyConfidenceBody,
   deleteRuleBody,
   createRulesOnboardingBody,
   type CategoryConfig,
@@ -46,7 +47,7 @@ import type { Logger } from "@/utils/logger";
 import { validateGmailLabelName } from "@/utils/gmail/label-validation";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
-import { getEmailAccountWithAi } from "@/utils/user/get";
+import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -240,6 +241,16 @@ export const enableMultiRuleSelectionAction = actionClient
     });
   });
 
+export const updateDraftReplyConfidenceAction = actionClient
+  .metadata({ name: "updateDraftReplyConfidence" })
+  .inputSchema(updateDraftReplyConfidenceBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { confidence } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { draftReplyConfidence: confidence },
+    });
+  });
+
 export const deleteRuleAction = actionClient
   .metadata({ name: "deleteRule" })
   .inputSchema(deleteRuleBody)
@@ -282,7 +293,9 @@ export const createRulesOnboardingAction = actionClient
         }
       }
 
-      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+      const emailAccount = await getEmailAccountForRuleExecution({
+        emailAccountId,
+      });
       if (!emailAccount) throw new SafeError("User not found");
 
       const promises: Promise<unknown>[] = [];

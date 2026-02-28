@@ -3,8 +3,7 @@
 import { useCallback } from "react";
 import { Toggle } from "@/components/Toggle";
 import { enableMultiRuleSelectionAction } from "@/utils/actions/rule";
-import { toastError } from "@/components/Toast";
-import { getActionErrorMessage } from "@/utils/error";
+import { createSettingActionErrorHandler } from "@/utils/actions/error-handling";
 import { SettingCard } from "@/components/SettingCard";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAction } from "next-safe-action/hooks";
@@ -20,14 +19,10 @@ export function MultiRuleSetting() {
       onSuccess: () => {
         mutate();
       },
-      onError: (error) => {
-        mutate();
-        toastError({
-          description: getActionErrorMessage(error.error, {
-            prefix: "There was an error",
-          }),
-        });
-      },
+      onError: createSettingActionErrorHandler({
+        mutate,
+        prefix: "There was an error",
+      }),
     },
   );
 
