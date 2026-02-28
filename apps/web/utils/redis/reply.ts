@@ -3,7 +3,7 @@ import { DraftReplyConfidence } from "@/generated/prisma/enums";
 
 export type ReplyWithConfidence = {
   reply: string;
-  confidence: DraftReplyConfidence | null;
+  confidence: DraftReplyConfidence;
 };
 
 export async function getReply({
@@ -42,13 +42,13 @@ export async function saveReply({
   emailAccountId: string;
   messageId: string;
   reply: string;
-  confidence?: DraftReplyConfidence | null;
+  confidence: DraftReplyConfidence;
 }) {
   return redis.set(
     getReplyKey({ emailAccountId, messageId }),
     JSON.stringify({
       reply,
-      confidence: normalizeCachedConfidence(confidence),
+      confidence,
     }),
     {
       ex: 60 * 60 * 24, // 1 day
@@ -73,12 +73,10 @@ function parseCachedReply(
 
   try {
     const parsed = JSON.parse(cachedReply);
-    const parsedReply = parseReplyWithConfidenceFromObject(parsed);
-    if (parsedReply) return parsedReply;
-  } catch {}
-
-  // Legacy cache entries stored only the draft text.
-  return { reply: cachedReply, confidence: null };
+    return parseReplyWithConfidenceFromObject(parsed);
+  } catch {
+    return null;
+  }
 }
 
 function parseReplyWithConfidenceFromObject(
@@ -93,29 +91,9 @@ function parseReplyWithConfidenceFromObject(
 
   if (typeof reply !== "string") return null;
 
-  if (isDraftReplyConfidence(confidence)) {
-    return { reply, confidence };
-  }
+  if (!isDraftReplyConfidence(confidence)) return null;
 
-  if (confidence == null) {
-    return { reply, confidence: null };
-  }
-
-  if (typeof confidence === "number") {
-    return {
-      reply,
-      confidence: mapLegacyNumericConfidenceToEnum(confidence),
-    };
-  }
-
-  return null;
-}
-
-function normalizeCachedConfidence(
-  confidence: DraftReplyConfidence | null | undefined,
-): DraftReplyConfidence {
-  if (isDraftReplyConfidence(confidence)) return confidence;
-  return DraftReplyConfidence.ALL_EMAILS;
+  return { reply, confidence };
 }
 
 function isDraftReplyConfidence(
@@ -127,11 +105,4 @@ function isDraftReplyConfidence(
       confidence as DraftReplyConfidence,
     )
   );
-}
-
-function mapLegacyNumericConfidenceToEnum(confidence: number) {
-  if (!Number.isFinite(confidence)) return DraftReplyConfidence.ALL_EMAILS;
-  if (confidence >= 90) return DraftReplyConfidence.HIGH_CONFIDENCE;
-  if (confidence >= 70) return DraftReplyConfidence.STANDARD;
-  return DraftReplyConfidence.ALL_EMAILS;
 }

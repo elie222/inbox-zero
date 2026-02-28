@@ -23,12 +23,12 @@ import {
   getMeetingContext,
   formatMeetingContextForPrompt,
 } from "@/utils/meeting-briefs/recipient-context";
-import type { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { meetsDraftReplyConfidenceRequirement } from "@/utils/ai/reply/draft-confidence";
 
 export type DraftGenerationResult = {
   draft: string | null;
-  confidence: DraftReplyConfidence | null;
+  confidence: DraftReplyConfidence;
 };
 
 /**
@@ -47,7 +47,7 @@ export async function fetchMessagesAndGenerateDraft(
     client,
     testMessage,
     logger,
-    null,
+    DraftReplyConfidence.ALL_EMAILS,
   );
 
   if (result.draft == null) {
@@ -63,7 +63,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
   client: EmailProvider,
   testMessage: ParsedMessage | undefined,
   logger: Logger,
-  minimumConfidence: DraftReplyConfidence | null,
+  minimumConfidence: DraftReplyConfidence,
 ): Promise<DraftGenerationResult> {
   const { threadMessages, previousConversationMessages } = testMessage
     ? { threadMessages: [testMessage], previousConversationMessages: null }
@@ -146,7 +146,7 @@ async function generateDraftContent(
   previousConversationMessages: ParsedMessage[] | null,
   emailProvider: EmailProvider,
   logger: Logger,
-  minimumConfidence: DraftReplyConfidence | null,
+  minimumConfidence: DraftReplyConfidence,
 ): Promise<DraftGenerationResult> {
   const lastMessage = threadMessages.at(-1);
 
@@ -167,20 +167,12 @@ async function generateDraftContent(
       return { draft: cachedReply.reply, confidence: cachedReply.confidence };
     }
 
-    if (cachedReply.confidence == null) {
-      logger.info("Skipping cached draft without confidence", {
-        minimumConfidence,
-        threadId: lastMessage.threadId,
-        messageId: lastMessage.id,
-      });
-    } else {
-      logger.info("Skipping cached draft due to low confidence", {
-        draftConfidence: cachedReply.confidence,
-        minimumConfidence,
-        threadId: lastMessage.threadId,
-        messageId: lastMessage.id,
-      });
-    }
+    logger.info("Skipping cached draft due to low confidence", {
+      draftConfidence: cachedReply.confidence,
+      minimumConfidence,
+      threadId: lastMessage.threadId,
+      messageId: lastMessage.id,
+    });
   }
 
   const messages = threadMessages.map((msg, index) => ({

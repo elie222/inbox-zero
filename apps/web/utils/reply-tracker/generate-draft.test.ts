@@ -356,25 +356,6 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
   });
 
-  it("uses legacy cached drafts without confidence when minimum confidence is ALL_EMAILS", async () => {
-    vi.mocked(getReplyWithConfidence).mockResolvedValue({
-      reply: "Legacy cached draft",
-      confidence: null,
-    });
-
-    const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
-      createMockEmailAccount(),
-      "thread-1",
-      createMockClient(),
-      createMockMessage(),
-      mockLogger,
-      DraftReplyConfidence.ALL_EMAILS,
-    );
-
-    expect(result).toEqual({ draft: "Legacy cached draft", confidence: null });
-    expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
-  });
-
   it("regenerates drafts when cached confidence is below the threshold", async () => {
     vi.mocked(getReplyWithConfidence).mockResolvedValue({
       reply: "Old cached draft",
