@@ -112,16 +112,6 @@ export const Reasoning = memo(
 
 export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger>;
 
-const getThinkingLabel = (isStreaming: boolean, duration?: number) => {
-  if (isStreaming || duration === 0) {
-    return "Thinking";
-  }
-  if (duration === undefined) {
-    return "Thought for a few seconds";
-  }
-  return `Thought for ${duration} seconds`;
-};
-
 export const ReasoningTrigger = memo(
   ({ className, children, ...props }: ReasoningTriggerProps) => {
     const { isStreaming, isOpen, duration } = useReasoning();
@@ -174,6 +164,16 @@ export const ReasoningContent = memo(
     </CollapsibleContent>
   ),
 );
+
+function getThinkingLabel(isStreaming: boolean, duration?: number) {
+  if (isStreaming || duration === 0) {
+    return "Thinking";
+  }
+  if (duration === undefined) {
+    return "Thought for a few seconds";
+  }
+  return `Thought for ${duration} seconds`;
+}
 
 Reasoning.displayName = "Reasoning";
 ReasoningTrigger.displayName = "ReasoningTrigger";
