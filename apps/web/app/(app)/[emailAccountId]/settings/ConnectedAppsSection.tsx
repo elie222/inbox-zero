@@ -5,12 +5,22 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   HashIcon,
   LockIcon,
+  MessageCircleIcon,
   MessageSquareIcon,
+  SendIcon,
   SlackIcon,
   XIcon,
 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
+import { CopyInput } from "@/components/CopyInput";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -32,6 +42,7 @@ import {
   useMessagingChannels,
 } from "@/hooks/useMessagingChannels";
 import {
+  createMessagingLinkCodeAction,
   disconnectChannelAction,
   linkSlackWorkspaceAction,
   updateSlackChannelAction,
@@ -42,11 +53,14 @@ import { getActionErrorMessage } from "@/utils/error";
 import type { GetSlackAuthUrlResponse } from "@/app/api/slack/auth-url/route";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 
-const PROVIDER_CONFIG: Record<
-  MessagingProvider,
-  { name: string; icon: typeof MessageSquareIcon }
+type LinkableMessagingProvider = "TEAMS" | "TELEGRAM";
+
+const PROVIDER_CONFIG: Partial<
+  Record<MessagingProvider, { name: string; icon: typeof MessageSquareIcon }>
 > = {
   SLACK: { name: "Slack", icon: HashIcon },
+  TEAMS: { name: "Teams", icon: MessageCircleIcon },
+  TELEGRAM: { name: "Telegram", icon: SendIcon },
 };
 
 export function ConnectedAppsSection({
@@ -66,14 +80,28 @@ export function ConnectedAppsSection({
     teamName: string;
   } | null>(null);
   const [authUrl, setAuthUrl] = useState<string | null>(null);
+  const [linkCodeDialog, setLinkCodeDialog] = useState<{
+    provider: LinkableMessagingProvider;
+    code: string;
+  } | null>(null);
 
   const connectedChannels =
     channelsData?.channels.filter((channel) => channel.isConnected) ?? [];
   const hasSlack = connectedChannels.some(
     (channel) => channel.provider === "SLACK",
   );
+  const hasTeams = connectedChannels.some(
+    (channel) => channel.provider === "TEAMS",
+  );
+  const hasTelegram = connectedChannels.some(
+    (channel) => channel.provider === "TELEGRAM",
+  );
   const slackAvailable =
     channelsData?.availableProviders?.includes("SLACK") ?? false;
+  const teamsAvailable =
+    channelsData?.availableProviders?.includes("TEAMS") ?? false;
+  const telegramAvailable =
+    channelsData?.availableProviders?.includes("TELEGRAM") ?? false;
 
   const { execute: executeLinkSlack, status: linkStatus } = useAction(
     linkSlackWorkspaceAction.bind(null, emailAccountId),
@@ -99,7 +127,32 @@ export function ConnectedAppsSection({
     },
   );
 
-  if (!isLoading && !slackAvailable && connectedChannels.length === 0)
+  const { execute: executeCreateLinkCode, status: linkCodeStatus } = useAction(
+    createMessagingLinkCodeAction.bind(null, emailAccountId),
+    {
+      onSuccess: ({ data }) => {
+        if (!data?.code || !data.provider) return;
+        setLinkCodeDialog({
+          provider: data.provider,
+          code: data.code,
+        });
+      },
+      onError: (error) => {
+        toastError({
+          description:
+            getActionErrorMessage(error.error) ?? "Failed to generate code",
+        });
+      },
+    },
+  );
+
+  if (
+    !isLoading &&
+    !slackAvailable &&
+    !teamsAvailable &&
+    !telegramAvailable &&
+    connectedChannels.length === 0
+  )
     return null;
 
   const handleConnectSlack = async () => {
@@ -140,6 +193,10 @@ export function ConnectedAppsSection({
     executeLinkSlack({ teamId: existingWorkspace.teamId });
   };
 
+  const handleCreateLinkCode = (provider: LinkableMessagingProvider) => {
+    executeCreateLinkCode({ provider });
+  };
+
   return (
     <>
       <ItemSeparator />
@@ -148,42 +205,68 @@ export function ConnectedAppsSection({
           <ItemTitle>Connected Apps</ItemTitle>
         </ItemContent>
         <ItemActions>
-          {!hasSlack && slackAvailable ? (
-            existingWorkspace ? (
-              <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            {!hasSlack &&
+              slackAvailable &&
+              (existingWorkspace ? (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={linkStatus === "executing"}
+                    onClick={handleLinkSlack}
+                  >
+                    <SlackIcon className="mr-2 h-4 w-4" />
+                    {linkStatus === "executing"
+                      ? "Linking..."
+                      : `Link to ${existingWorkspace.teamName}`}
+                  </Button>
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline underline-offset-4"
+                    onClick={() => {
+                      if (authUrl) window.location.href = authUrl;
+                    }}
+                  >
+                    Install manually
+                  </button>
+                </div>
+              ) : (
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={linkStatus === "executing"}
-                  onClick={handleLinkSlack}
+                  disabled={connectingSlack || isLoading}
+                  onClick={handleConnectSlack}
                 >
                   <SlackIcon className="mr-2 h-4 w-4" />
-                  {linkStatus === "executing"
-                    ? "Linking..."
-                    : `Link to ${existingWorkspace.teamName}`}
+                  {connectingSlack ? "Connecting..." : "Connect Slack"}
                 </Button>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground underline underline-offset-4"
-                  onClick={() => {
-                    if (authUrl) window.location.href = authUrl;
-                  }}
-                >
-                  Install manually
-                </button>
-              </div>
-            ) : (
+              ))}
+
+            {!hasTeams && teamsAvailable && (
               <Button
                 variant="outline"
                 size="sm"
-                disabled={connectingSlack || isLoading}
-                onClick={handleConnectSlack}
+                disabled={linkCodeStatus === "executing"}
+                onClick={() => handleCreateLinkCode("TEAMS")}
               >
-                <SlackIcon className="mr-2 h-4 w-4" />
-                {connectingSlack ? "Connecting..." : "Connect Slack"}
+                <MessageCircleIcon className="mr-2 h-4 w-4" />
+                Connect Teams
               </Button>
-            )
-          ) : null}
+            )}
+
+            {!hasTelegram && telegramAvailable && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={linkCodeStatus === "executing"}
+                onClick={() => handleCreateLinkCode("TELEGRAM")}
+              >
+                <SendIcon className="mr-2 h-4 w-4" />
+                Connect Telegram
+              </Button>
+            )}
+          </div>
         </ItemActions>
       </Item>
       <LoadingContent loading={isLoading} error={error} loadingComponent={null}>
@@ -200,6 +283,14 @@ export function ConnectedAppsSection({
           </div>
         )}
       </LoadingContent>
+      <MessagingConnectCodeDialog
+        open={Boolean(linkCodeDialog)}
+        provider={linkCodeDialog?.provider ?? null}
+        code={linkCodeDialog?.code ?? null}
+        onOpenChange={(open) => {
+          if (!open) setLinkCodeDialog(null);
+        }}
+      />
     </>
   );
 }
@@ -251,7 +342,9 @@ function ConnectedChannelRow({
     disconnectChannelAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Slack disconnected" });
+        toastSuccess({
+          description: `${config?.name ?? channel.provider} disconnected`,
+        });
         onUpdate();
       },
       onError: (error) => {
@@ -409,6 +502,46 @@ function ConnectedChannelRow({
       </Button>
     </div>
   );
+}
+
+function MessagingConnectCodeDialog({
+  open,
+  provider,
+  code,
+  onOpenChange,
+}: {
+  open: boolean;
+  provider: LinkableMessagingProvider | null;
+  code: string | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (!provider || !code) return null;
+
+  const providerName = getProviderDisplayName(provider);
+  const command = `/connect ${code}`;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Connect {providerName}</DialogTitle>
+          <DialogDescription>
+            Send this command in a direct message with the Inbox Zero bot on{" "}
+            {providerName}. The code is one-time use and expires in 10 minutes.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <div className="text-xs text-muted-foreground">Command</div>
+          <CopyInput value={command} />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function getProviderDisplayName(provider: LinkableMessagingProvider): string {
+  if (provider === "TEAMS") return "Teams";
+  return "Telegram";
 }
 
 export function useSlackNotifications(enabled: boolean) {
