@@ -9,7 +9,6 @@ RUN npm install -g pnpm@10.22.0
 # Copy lockfiles/workspace manifests for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY apps/web/package.json apps/web/package.json
-COPY apps/unsubscriber/package.json apps/unsubscriber/package.json
 COPY packages/loops/package.json packages/loops/package.json
 COPY packages/resend/package.json packages/resend/package.json
 COPY packages/slack/package.json packages/slack/package.json
