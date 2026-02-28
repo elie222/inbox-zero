@@ -6,6 +6,7 @@ import {
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
+import { DraftReplyConfidence } from "@/generated/prisma/enums";
 
 vi.mock("server-only", () => ({}));
 
@@ -139,7 +140,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
 
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: maliciousAiOutput,
-      confidence: 90,
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: true,
@@ -179,7 +180,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
 
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: maliciousAiOutput,
-      confidence: 90,
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: false,
@@ -204,7 +205,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
 
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: maliciousAiOutput,
-      confidence: 90,
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: false,
@@ -231,7 +232,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
 
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: normalAiOutput,
-      confidence: 90,
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: false,
@@ -253,7 +254,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
   it("preserves empty-string drafts", async () => {
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: "",
-      confidence: 90,
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: false,
@@ -280,7 +281,7 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
   it("normalizes newest-first provider thread messages to chronological order before drafting", async () => {
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: "Draft reply",
-      confidence: 90,
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: false,
@@ -336,7 +337,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
   it("uses cached drafts when cached confidence meets the threshold", async () => {
     vi.mocked(getReplyWithConfidence).mockResolvedValue({
       reply: "Cached draft reply",
-      confidence: 80,
+      confidence: DraftReplyConfidence.STANDARD,
     });
 
     const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
@@ -345,14 +346,17 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       createMockClient(),
       createMockMessage(),
       mockLogger,
-      70,
+      DraftReplyConfidence.STANDARD,
     );
 
-    expect(result).toEqual({ draft: "Cached draft reply", confidence: 80 });
+    expect(result).toEqual({
+      draft: "Cached draft reply",
+      confidence: DraftReplyConfidence.STANDARD,
+    });
     expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
   });
 
-  it("uses legacy cached drafts without confidence when threshold is 0", async () => {
+  it("uses legacy cached drafts without confidence when minimum confidence is ALL_EMAILS", async () => {
     vi.mocked(getReplyWithConfidence).mockResolvedValue({
       reply: "Legacy cached draft",
       confidence: null,
@@ -364,7 +368,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       createMockClient(),
       createMockMessage(),
       mockLogger,
-      0,
+      DraftReplyConfidence.ALL_EMAILS,
     );
 
     expect(result).toEqual({ draft: "Legacy cached draft", confidence: null });
@@ -374,11 +378,11 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
   it("regenerates drafts when cached confidence is below the threshold", async () => {
     vi.mocked(getReplyWithConfidence).mockResolvedValue({
       reply: "Old cached draft",
-      confidence: 60,
+      confidence: DraftReplyConfidence.ALL_EMAILS,
     });
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: "Fresh draft",
-      confidence: 90,
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: false,
@@ -391,22 +395,25 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       createMockClient(),
       createMockMessage(),
       mockLogger,
-      70,
+      DraftReplyConfidence.STANDARD,
     );
 
-    expect(result).toEqual({ draft: "Fresh draft", confidence: 90 });
+    expect(result).toEqual({
+      draft: "Fresh draft",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
     expect(saveReply).toHaveBeenCalledWith({
       emailAccountId: "test-account-id",
       messageId: "msg-1",
       reply: "Fresh draft",
-      confidence: 90,
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
   });
 
   it("skips drafting when confidence is below the threshold", async () => {
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: "Draft that should be skipped",
-      confidence: 60,
+      confidence: DraftReplyConfidence.ALL_EMAILS,
     });
 
     const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
@@ -415,15 +422,18 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       createMockClient(),
       createMockMessage(),
       mockLogger,
-      70,
+      DraftReplyConfidence.STANDARD,
     );
 
-    expect(result).toEqual({ draft: null, confidence: 60 });
+    expect(result).toEqual({
+      draft: null,
+      confidence: DraftReplyConfidence.ALL_EMAILS,
+    });
     expect(saveReply).toHaveBeenCalledWith({
       emailAccountId: "test-account-id",
       messageId: "msg-1",
       reply: "Draft that should be skipped",
-      confidence: 60,
+      confidence: DraftReplyConfidence.ALL_EMAILS,
     });
   });
 });

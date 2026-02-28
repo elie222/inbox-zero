@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { saveReply } from "@/utils/redis/reply";
+import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
 import { redis } from "@/utils/redis";
+import { DraftReplyConfidence } from "@/generated/prisma/enums";
 
 vi.mock("@/utils/redis", () => ({
   redis: {
@@ -14,21 +15,39 @@ describe("saveReply", () => {
     vi.clearAllMocks();
   });
 
-  it("stores non-finite confidence values as 0", async () => {
+  it("stores missing confidence as ALL_EMAILS", async () => {
     await saveReply({
       emailAccountId: "account-1",
       messageId: "message-1",
       reply: "Draft reply",
-      confidence: Number.NaN,
     });
 
     expect(redis.set).toHaveBeenCalledWith(
       "reply:account-1:message-1",
       JSON.stringify({
         reply: "Draft reply",
-        confidence: 0,
+        confidence: DraftReplyConfidence.ALL_EMAILS,
       }),
       { ex: 60 * 60 * 24 },
     );
+  });
+
+  it("maps legacy numeric confidence values to enum when reading cache", async () => {
+    vi.mocked(redis.get).mockResolvedValue(
+      JSON.stringify({
+        reply: "Legacy draft reply",
+        confidence: 85,
+      }),
+    );
+
+    const result = await getReplyWithConfidence({
+      emailAccountId: "account-1",
+      messageId: "message-1",
+    });
+
+    expect(result).toEqual({
+      reply: "Legacy draft reply",
+      confidence: DraftReplyConfidence.STANDARD,
+    });
   });
 });

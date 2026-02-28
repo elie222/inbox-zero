@@ -4,6 +4,7 @@ import {
   aiDraftReply,
   aiDraftReplyWithConfidence,
 } from "@/utils/ai/reply/draft-reply";
+import { DraftReplyConfidence } from "@/generated/prisma/enums";
 
 const { mockCreateGenerateObject, mockGenerateObject } = vi.hoisted(() => {
   const mockGenerateObject = vi.fn();
@@ -215,7 +216,7 @@ describe("aiDraftReply formatting", () => {
     );
   });
 
-  it("defaults invalid confidence values to 0", async () => {
+  it("defaults invalid confidence values to ALL_EMAILS", async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {
         reply: "Thanks for your message.",
@@ -225,7 +226,7 @@ describe("aiDraftReply formatting", () => {
 
     const result = await aiDraftReplyWithConfidence(getDraftParams());
 
-    expect(result.confidence).toBe(0);
+    expect(result.confidence).toBe(DraftReplyConfidence.ALL_EMAILS);
   });
 });
 

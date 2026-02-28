@@ -23,10 +23,12 @@ import {
   getMeetingContext,
   formatMeetingContextForPrompt,
 } from "@/utils/meeting-briefs/recipient-context";
+import type { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { meetsDraftReplyConfidenceRequirement } from "@/utils/ai/reply/draft-confidence";
 
 export type DraftGenerationResult = {
   draft: string | null;
-  confidence: number | null;
+  confidence: DraftReplyConfidence | null;
 };
 
 /**
@@ -61,7 +63,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
   client: EmailProvider,
   testMessage: ParsedMessage | undefined,
   logger: Logger,
-  minimumConfidenceThreshold: number | null,
+  minimumConfidence: DraftReplyConfidence | null,
 ): Promise<DraftGenerationResult> {
   const { threadMessages, previousConversationMessages } = testMessage
     ? { threadMessages: [testMessage], previousConversationMessages: null }
@@ -73,7 +75,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     previousConversationMessages,
     client,
     logger,
-    minimumConfidenceThreshold,
+    minimumConfidence,
   );
 
   if (draft == null) {
@@ -144,7 +146,7 @@ async function generateDraftContent(
   previousConversationMessages: ParsedMessage[] | null,
   emailProvider: EmailProvider,
   logger: Logger,
-  minimumConfidenceThreshold: number | null,
+  minimumConfidence: DraftReplyConfidence | null,
 ): Promise<DraftGenerationResult> {
   const lastMessage = threadMessages.at(-1);
 
@@ -156,13 +158,10 @@ async function generateDraftContent(
   });
 
   if (cachedReply) {
-    const allowsLegacyZeroThresholdDraft =
-      minimumConfidenceThreshold === 0 && cachedReply.confidence == null;
-    const meetsThreshold =
-      minimumConfidenceThreshold == null ||
-      allowsLegacyZeroThresholdDraft ||
-      (cachedReply.confidence != null &&
-        cachedReply.confidence >= minimumConfidenceThreshold);
+    const meetsThreshold = meetsDraftReplyConfidenceRequirement({
+      draftConfidence: cachedReply.confidence,
+      minimumConfidence,
+    });
 
     if (meetsThreshold) {
       return { draft: cachedReply.reply, confidence: cachedReply.confidence };
@@ -170,14 +169,14 @@ async function generateDraftContent(
 
     if (cachedReply.confidence == null) {
       logger.info("Skipping cached draft without confidence", {
-        minimumConfidenceThreshold,
+        minimumConfidence,
         threadId: lastMessage.threadId,
         messageId: lastMessage.id,
       });
     } else {
       logger.info("Skipping cached draft due to low confidence", {
-        confidence: cachedReply.confidence,
-        minimumConfidenceThreshold,
+        draftConfidence: cachedReply.confidence,
+        minimumConfidence,
         threadId: lastMessage.threadId,
         messageId: lastMessage.id,
       });
@@ -285,12 +284,14 @@ async function generateDraftContent(
   });
 
   if (
-    minimumConfidenceThreshold != null &&
-    confidence < minimumConfidenceThreshold
+    !meetsDraftReplyConfidenceRequirement({
+      draftConfidence: confidence,
+      minimumConfidence,
+    })
   ) {
     logger.info("Skipping draft due to low confidence", {
-      confidence,
-      minimumConfidenceThreshold,
+      draftConfidence: confidence,
+      minimumConfidence,
       threadId: lastMessage.threadId,
       messageId: lastMessage.id,
     });

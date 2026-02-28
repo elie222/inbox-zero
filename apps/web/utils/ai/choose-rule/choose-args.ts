@@ -17,7 +17,6 @@ import {
 } from "@/utils/ai/choose-rule/ai-choose-args";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
-import { getDraftReplyMinimumThreshold } from "@/utils/ai/reply/draft-confidence";
 
 const MODULE = "choose-args";
 export type EmailAccountForDrafting = EmailAccountWithAI & {
@@ -49,7 +48,7 @@ export async function getActionItemsWithAiArgs({
   );
 
   let draft: string | null = null;
-  let draftConfidence: number | null = null;
+  let draftConfidence: DraftReplyConfidence | null = null;
 
   if (draftEmailActions.length) {
     try {
@@ -59,10 +58,6 @@ export async function getActionItemsWithAiArgs({
         isTest,
       });
 
-      const minimumConfidenceThreshold = getDraftReplyMinimumThreshold(
-        emailAccount.draftReplyConfidence,
-      );
-
       const draftResult =
         await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
           emailAccount,
@@ -70,7 +65,7 @@ export async function getActionItemsWithAiArgs({
           client,
           isTest ? message : undefined,
           logger,
-          minimumConfidenceThreshold,
+          emailAccount.draftReplyConfidence,
         );
       draft = draftResult.draft;
       draftConfidence = draftResult.confidence;
@@ -78,8 +73,8 @@ export async function getActionItemsWithAiArgs({
       log.info("Draft generated", {
         email: emailAccount.email,
         threadId: message.threadId,
-        confidence: draftConfidence,
-        minimumConfidenceThreshold,
+        draftConfidence,
+        minimumConfidence: emailAccount.draftReplyConfidence,
         drafted: !!draft,
       });
     } catch (error) {
@@ -118,10 +113,8 @@ export async function getActionItemsWithAiArgs({
   if (filteredActions.length < combinedActions.length) {
     log.info("Skipping draft action with no generated content", {
       removedDraftActions: combinedActions.length - filteredActions.length,
-      confidence: draftConfidence,
-      minimumConfidenceThreshold: getDraftReplyMinimumThreshold(
-        emailAccount.draftReplyConfidence,
-      ),
+      draftConfidence,
+      minimumConfidence: emailAccount.draftReplyConfidence,
     });
   }
 

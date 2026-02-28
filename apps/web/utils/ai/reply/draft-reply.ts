@@ -11,6 +11,7 @@ import {
   PLAIN_TEXT_OUTPUT_INSTRUCTION,
   PROMPT_SECURITY_INSTRUCTIONS,
 } from "@/utils/ai/security";
+import { DraftReplyConfidence } from "@/generated/prisma/enums";
 
 const logger = createScopedLogger("DraftReply");
 
@@ -184,17 +185,15 @@ const draftSchema = z.object({
       "The complete email reply draft incorporating knowledge base information",
     ),
   confidence: z
-    .number()
-    .min(0)
-    .max(100)
+    .nativeEnum(DraftReplyConfidence)
     .describe(
-      "Confidence score from 0 to 100 for this drafted reply. Use conservative values when uncertain. 90-100: clear user intent with high certainty. 70-89: good draft with minor uncertainty. 40-69: notable missing context or uncertainty. 0-39: likely incorrect or unsafe to draft automatically.",
+      "Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE. Use ALL_EMAILS when uncertain or context is missing, STANDARD for solid drafts with minor uncertainty, and HIGH_CONFIDENCE only when intent and response are clear.",
     ),
 });
 
 export type DraftReplyResult = {
   reply: string;
-  confidence: number;
+  confidence: DraftReplyConfidence;
 };
 
 export async function aiDraftReplyWithConfidence({
@@ -272,7 +271,7 @@ export async function aiDraftReplyWithConfidence({
 
   return {
     reply: normalizeDraftReplyFormatting(result.object.reply),
-    confidence: normalizeConfidence(result.object.confidence),
+    confidence: normalizeDraftReplyConfidence(result.object.confidence),
   };
 }
 
@@ -354,10 +353,14 @@ function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
   return punctuationRatio >= 0.6;
 }
 
-function normalizeConfidence(confidence: number | null | undefined): number {
-  const numericConfidence = Number(confidence);
-  if (!Number.isFinite(numericConfidence)) return 0;
-  return Math.min(100, Math.max(0, Math.round(numericConfidence)));
+function normalizeDraftReplyConfidence(
+  confidence: DraftReplyConfidence | null | undefined,
+): DraftReplyConfidence {
+  return (
+    (confidence && Object.values(DraftReplyConfidence).includes(confidence)
+      ? confidence
+      : null) ?? DraftReplyConfidence.ALL_EMAILS
+  );
 }
 
 function isLikelyListItem(line: string): boolean {
