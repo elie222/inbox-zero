@@ -103,15 +103,15 @@ async function getCollection<T>(
   let nextUrl: string | undefined = url;
 
   while (nextUrl && items.length < maxItems) {
-    const response = await getJson<GraphCollectionResponse<T>>(
-      nextUrl,
-      accessToken,
-    );
-    if (response.value) {
-      items.push(...response.value);
+    const currentUrl = nextUrl;
+    const page: GraphCollectionResponse<T> = await getJson<
+      GraphCollectionResponse<T>
+    >(currentUrl, accessToken);
+    if (page.value) {
+      items.push(...page.value);
     }
 
-    nextUrl = response["@odata.nextLink"];
+    nextUrl = page["@odata.nextLink"];
   }
 
   if (items.length > maxItems) {
