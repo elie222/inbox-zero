@@ -107,6 +107,19 @@ export async function handleSlackCallback(
       emailAccountId,
     });
 
+    await prisma.messagingChannel.updateMany({
+      where: {
+        provider: MessagingProvider.SLACK,
+        teamId: tokens.team.id,
+        isConnected: true,
+      },
+      data: {
+        accessToken: tokens.access_token,
+        botUserId: tokens.bot_user_id,
+        teamName: tokens.team.name,
+      },
+    });
+
     await syncSlackInstallation({
       teamId: tokens.team.id,
       teamName: tokens.team.name,

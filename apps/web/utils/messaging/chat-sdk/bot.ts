@@ -183,6 +183,9 @@ export async function ensureSlackTeamInstallation(
       isConnected: true,
       accessToken: { not: null },
     },
+    orderBy: {
+      updatedAt: "desc",
+    },
     select: {
       accessToken: true,
       botUserId: true,
