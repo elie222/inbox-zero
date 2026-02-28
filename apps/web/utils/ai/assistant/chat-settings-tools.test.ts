@@ -72,6 +72,7 @@ const baseAccountSnapshot = {
     nextRunAt: new Date("2026-02-21T09:00:00.000Z"),
     messagingChannelId: "channel-1",
     messagingChannel: {
+      provider: "SLACK",
       channelName: "inbox-updates",
       teamName: "Acme",
     },
@@ -79,6 +80,7 @@ const baseAccountSnapshot = {
   messagingChannels: [
     {
       id: "channel-1",
+      provider: "SLACK",
       channelName: "inbox-updates",
       teamName: "Acme",
       isConnected: true,
@@ -500,6 +502,7 @@ describe("chat settings tools", () => {
       ...baseAccountSnapshot.automationJob,
       messagingChannelId: "channel-stale",
       messagingChannel: {
+        provider: "SLACK",
         channelName: "legacy-channel",
         teamName: "Acme",
       },
@@ -536,6 +539,41 @@ describe("chat settings tools", () => {
         cronExpression: "0 9 * * 1-5",
         prompt: "Highlight urgent items.",
         messagingChannelId: "channel-stale",
+      },
+    });
+  });
+
+  it("keeps Teams scheduled check-ins labels when the selected channel is stale", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ...baseAccountSnapshot,
+      messagingChannels: [],
+    });
+    prisma.automationJob.findUnique.mockResolvedValue({
+      ...baseAccountSnapshot.automationJob,
+      messagingChannelId: "teams-stale",
+      messagingChannel: {
+        provider: "TEAMS",
+        channelName: "operations",
+        teamName: "Acme",
+      },
+    });
+
+    const toolInstance = getAssistantCapabilitiesTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await toolInstance.execute({});
+    const scheduledCheckInsCapability = result.capabilities.find(
+      (capability) => capability.path === "assistant.scheduledCheckIns",
+    );
+
+    expect(scheduledCheckInsCapability).toMatchObject({
+      value: {
+        messagingChannelId: "teams-stale",
+        messagingChannelName: "operations (Acme)",
       },
     });
   });

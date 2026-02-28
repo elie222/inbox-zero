@@ -115,9 +115,9 @@ export const saveAutomationJobAction = actionClient
       }
 
       const hasCredentials =
-        Boolean(channel.accessToken) ||
-        (channel.provider === MessagingProvider.TEAMS &&
-          Boolean(channel.refreshToken));
+        channel.provider === MessagingProvider.TEAMS
+          ? Boolean(channel.refreshToken)
+          : Boolean(channel.accessToken);
       if (!channel.isConnected || !hasCredentials) {
         throw new SafeError("Messaging channel is not connected");
       }
@@ -200,9 +200,9 @@ export const triggerTestCheckInAction = actionClient
 
     const channel = job.messagingChannel;
     const hasCredentials =
-      Boolean(channel.accessToken) ||
-      (channel.provider === MessagingProvider.TEAMS &&
-        Boolean(channel.refreshToken));
+      channel.provider === MessagingProvider.TEAMS
+        ? Boolean(channel.refreshToken)
+        : Boolean(channel.accessToken);
     const hasDestination =
       channel.provider === MessagingProvider.TEAMS
         ? Boolean(channel.channelId)
@@ -244,8 +244,14 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
       AND: [
         {
           OR: [
-            { accessToken: { not: null } },
-            { provider: MessagingProvider.TEAMS, refreshToken: { not: null } },
+            {
+              provider: MessagingProvider.SLACK,
+              accessToken: { not: null },
+            },
+            {
+              provider: MessagingProvider.TEAMS,
+              refreshToken: { not: null },
+            },
           ],
         },
         {

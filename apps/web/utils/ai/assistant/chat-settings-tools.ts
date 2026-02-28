@@ -309,6 +309,7 @@ const scheduledCheckInsAutomationJobSelect = {
   messagingChannelId: true,
   messagingChannel: {
     select: {
+      provider: true,
       channelName: true,
       teamName: true,
     },
@@ -1128,12 +1129,6 @@ function buildScheduledCheckInsSnapshot(
       }),
     }));
 
-  const selectedChannelProvider =
-    emailAccount.messagingChannels.find(
-      (channel) =>
-        channel.id === emailAccount.automationJob?.messagingChannelId,
-    )?.provider ?? MessagingProvider.SLACK;
-
   return {
     jobId: emailAccount.automationJob?.id ?? null,
     enabled: Boolean(emailAccount.automationJob?.enabled),
@@ -1146,7 +1141,7 @@ function buildScheduledCheckInsSnapshot(
     messagingChannelId: emailAccount.automationJob?.messagingChannelId ?? null,
     messagingChannelName: emailAccount.automationJob?.messagingChannel
       ? formatMessagingChannelLabel({
-          provider: selectedChannelProvider,
+          provider: emailAccount.automationJob.messagingChannel.provider,
           channelName: emailAccount.automationJob.messagingChannel.channelName,
           teamName: emailAccount.automationJob.messagingChannel.teamName,
         })

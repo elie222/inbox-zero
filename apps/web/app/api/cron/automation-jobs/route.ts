@@ -52,7 +52,10 @@ async function enqueueDueAutomationJobs(logger: Logger) {
         isConnected: true,
         provider: { in: [MessagingProvider.SLACK, MessagingProvider.TEAMS] },
         OR: [
-          { accessToken: { not: null } },
+          {
+            provider: MessagingProvider.SLACK,
+            accessToken: { not: null },
+          },
           {
             provider: MessagingProvider.TEAMS,
             refreshToken: { not: null },

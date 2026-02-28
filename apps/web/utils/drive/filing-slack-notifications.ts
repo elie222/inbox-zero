@@ -86,28 +86,31 @@ export async function sendFilingMessagingNotifications({
         }
         break;
       case MessagingProvider.TEAMS: {
-        const accessToken = await getTeamsAccessToken({ channel, logger: log });
+        deliveryPromises.push(
+          (async () => {
+            const accessToken = await getTeamsAccessToken({
+              channel,
+              logger: log,
+            });
 
-        if (filing.wasAsked) {
-          deliveryPromises.push(
-            sendDocumentAskToTeams({
-              accessToken,
-              targetId: channel.channelId,
-              filename: filing.filename,
-              reasoning: filing.reasoning,
-            }),
-          );
-        } else {
-          deliveryPromises.push(
-            sendDocumentFiledToTeams({
-              accessToken,
-              targetId: channel.channelId,
-              filename: filing.filename,
-              folderPath: filing.folderPath,
-              driveProvider: filing.driveConnection.provider,
-            }),
-          );
-        }
+            if (filing.wasAsked) {
+              await sendDocumentAskToTeams({
+                accessToken,
+                targetId: channel.channelId,
+                filename: filing.filename,
+                reasoning: filing.reasoning,
+              });
+            } else {
+              await sendDocumentFiledToTeams({
+                accessToken,
+                targetId: channel.channelId,
+                filename: filing.filename,
+                folderPath: filing.folderPath,
+                driveProvider: filing.driveConnection.provider,
+              });
+            }
+          })(),
+        );
         break;
       }
     }
