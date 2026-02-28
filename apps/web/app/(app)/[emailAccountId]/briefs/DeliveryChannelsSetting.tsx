@@ -255,7 +255,8 @@ function ChannelRow({
             </div>
             {!isLoadingTargets && channel.provider === "SLACK" && (
               <MutedText className="text-xs">
-                Create a private Slack channel, then type{" "}
+                Pick a channel to receive meeting briefs. Create a private Slack
+                channel, then type{" "}
                 <code className="bg-muted px-1 rounded">
                   /invite @InboxZero
                 </code>{" "}

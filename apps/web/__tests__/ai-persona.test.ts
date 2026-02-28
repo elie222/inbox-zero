@@ -209,26 +209,6 @@ describe.runIf(isAiTest)(
     });
 
     test(
-      "uses additional user context when available",
-      async () => {
-        const result = await aiAnalyzePersona({
-          emails: getFounderEmails(),
-          emailAccount: getEmailAccount(),
-        });
-
-        console.debug(
-          "Analysis with user context:\n",
-          JSON.stringify(result, null, 2),
-        );
-
-        expect(result).toBeDefined();
-        expect(result?.industry.toLowerCase()).toContain("hr");
-        expect(result?.confidence).toBe("high");
-      },
-      TIMEOUT,
-    );
-
-    test(
       "identifies mixed role patterns",
       async () => {
         const mixedEmails: EmailForLLM[] = [

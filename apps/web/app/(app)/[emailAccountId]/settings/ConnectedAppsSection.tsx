@@ -359,15 +359,22 @@ function ConnectedChannelRow({
           {(channel.provider === "SLACK" || channel.provider === "TEAMS") && (
             <div className="space-y-1">
               {selectionState.showCurrentChannel ? (
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground underline underline-offset-4"
-                  onClick={() => setSelectingTarget(true)}
-                >
-                  {channel.provider === "SLACK"
-                    ? `#${channel.channelName || channel.channelId}`
-                    : channel.channelName || channel.channelId}
-                </button>
+                <div className="space-y-0.5">
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline underline-offset-4"
+                    onClick={() => setSelectingTarget(true)}
+                  >
+                    {channel.provider === "SLACK"
+                      ? `#${channel.channelName || channel.channelId}`
+                      : channel.channelName || channel.channelId}
+                  </button>
+                  <p className="text-xs text-muted-foreground">
+                    {channel.provider === "SLACK"
+                      ? "Inbox Zero sends notifications here (meeting briefs, filed documents) and responds to @mentions in this channel."
+                      : "Inbox Zero sends notifications here (meeting briefs, filed documents)."}
+                  </p>
+                </div>
               ) : (
                 <Select
                   onValueChange={(value) => {
@@ -421,11 +428,12 @@ function ConnectedChannelRow({
 
               {selectionState.showInviteHint && channel.provider === "SLACK" && (
                 <div className="text-xs text-muted-foreground">
-                  Invite the bot with{" "}
+                  Pick a private channel for notifications and @mentions. Invite
+                  the bot with{" "}
                   <code className="rounded bg-muted px-1">
                     /invite @InboxZero
                   </code>{" "}
-                  in a private channel.
+                  first.
                 </div>
               )}
 
