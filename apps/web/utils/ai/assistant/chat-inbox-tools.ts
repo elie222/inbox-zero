@@ -475,13 +475,11 @@ export const manageInboxTool = ({
               (result) => result.unsubscribe.attempted,
             ).length;
 
-            if (successfulSenders.length) {
-              await emailProvider.bulkArchiveFromSenders(
-                successfulSenders,
-                email,
-                emailAccountId,
-              );
-            }
+            await emailProvider.bulkArchiveFromSenders(
+              normalizedFromEmails,
+              email,
+              emailAccountId,
+            );
 
             return {
               success: failedSenders.length === 0,

@@ -1388,7 +1388,7 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
-  it("does not archive sender messages when automatic unsubscribe fails", async () => {
+  it("archives sender messages even when automatic unsubscribe fails", async () => {
     const tools = await captureToolSet();
 
     const getMessagesFromSender = vi.fn().mockResolvedValue({
@@ -1435,7 +1435,11 @@ describe("aiProcessAssistantChat", () => {
       fromEmails: ["sender@example.com"],
     });
 
-    expect(bulkArchiveFromSenders).not.toHaveBeenCalled();
+    expect(bulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["sender@example.com"],
+      expect.any(String),
+      "email-account-id",
+    );
     expect(result).toEqual(
       expect.objectContaining({
         success: false,

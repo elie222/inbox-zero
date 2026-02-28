@@ -185,11 +185,12 @@ async function unsubscribeAndArchive({
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
 }) {
-  const unsubscribeResult = await unsubscribeSenderAction(emailAccountId, {
+  const unsubscribed = await performAutomaticUnsubscribe({
+    emailAccountId,
     newsletterEmail,
     unsubscribeLink,
   });
-  if (!didAutomaticUnsubscribeSucceed(unsubscribeResult)) return false;
+  if (!unsubscribed) return false;
 
   await mutate();
   await decrementUnsubscribeCreditAction();
@@ -357,14 +358,12 @@ export function useBulkUnsubscribe<T extends Row>({
             return;
           }
 
-          const unsubscribeResult = await unsubscribeSenderAction(
+          const unsubscribed = await performAutomaticUnsubscribe({
             emailAccountId,
-            {
-              newsletterEmail: item.name,
-              unsubscribeLink: item.unsubscribeLink,
-            },
-          );
-          if (!didAutomaticUnsubscribeSucceed(unsubscribeResult)) {
+            newsletterEmail: item.name,
+            unsubscribeLink: item.unsubscribeLink,
+          });
+          if (!unsubscribed) {
             throw new Error("Automatic unsubscribe did not succeed");
           }
 
@@ -893,84 +892,88 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
 }) {
   // perform actions using keyboard shortcuts
   // TODO make this available to command-K dialog too
-  // TODO limit the copy-paste. same logic appears twice in this file
   useEffect(() => {
     const down = async (e: KeyboardEvent) => {
-      const item = selectedRow;
-      if (!item) return;
+      try {
+        const item = selectedRow;
+        if (!item) return;
 
-      // to prevent when typing in an input such as Crisp support
-      if (document?.activeElement?.tagName !== "BODY") return;
+        // to prevent when typing in an input such as Crisp support
+        if (document?.activeElement?.tagName !== "BODY") return;
 
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        const index = newsletters?.findIndex((n) => n.name === item.name);
-        if (index === undefined) return;
-        const nextItem =
-          newsletters?.[index + (e.key === "ArrowDown" ? 1 : -1)];
-        if (!nextItem) return;
-        setSelectedRow(nextItem);
-        return;
-      }
-      if (e.key === "Enter") {
-        // open modal
-        e.preventDefault();
-        onOpenNewsletter(item);
-        return;
-      }
-
-      if (!hasUnsubscribeAccess) return;
-
-      if (e.key === "e") {
-        // auto archive
-        e.preventDefault();
-        onAutoArchive({
-          emailAccountId,
-          from: item.name,
-        });
-        await setNewsletterStatusAction(emailAccountId, {
-          newsletterEmail: item.name,
-          status: NewsletterStatus.AUTO_ARCHIVED,
-        });
-        await mutate();
-        await decrementUnsubscribeCreditAction();
-        await refetchPremium();
-        return;
-      }
-      if (e.key === "u") {
-        // unsubscribe
-        e.preventDefault();
-        const hasUnsubscribeLink = Boolean(cleanUnsubscribeLink(item.unsubscribeLink));
-        if (!hasUnsubscribeLink) {
-          await blockSender({
-            sender: item.name,
-            emailAccountId,
-          });
-          await mutate();
-          await refetchPremium();
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          const index = newsletters?.findIndex((n) => n.name === item.name);
+          if (index === undefined) return;
+          const nextItem =
+            newsletters?.[index + (e.key === "ArrowDown" ? 1 : -1)];
+          if (!nextItem) return;
+          setSelectedRow(nextItem);
+          return;
+        }
+        if (e.key === "Enter") {
+          // open modal
+          e.preventDefault();
+          onOpenNewsletter(item);
           return;
         }
 
-        const unsubscribeResult = await unsubscribeSenderAction(emailAccountId, {
-          newsletterEmail: item.name,
-          unsubscribeLink: item.unsubscribeLink,
-        });
-        if (!didAutomaticUnsubscribeSucceed(unsubscribeResult)) return;
+        if (!hasUnsubscribeAccess) return;
 
-        await mutate();
-        await decrementUnsubscribeCreditAction();
-        await refetchPremium();
-        return;
-      }
-      if (e.key === "a") {
-        // approve
-        e.preventDefault();
-        await setNewsletterStatusAction(emailAccountId, {
-          newsletterEmail: item.name,
-          status: NewsletterStatus.APPROVED,
-        });
-        await mutate();
-        return;
+        if (e.key === "e") {
+          // auto archive
+          e.preventDefault();
+          onAutoArchive({
+            emailAccountId,
+            from: item.name,
+          });
+          await setNewsletterStatusAction(emailAccountId, {
+            newsletterEmail: item.name,
+            status: NewsletterStatus.AUTO_ARCHIVED,
+          });
+          await mutate();
+          await decrementUnsubscribeCreditAction();
+          await refetchPremium();
+          return;
+        }
+        if (e.key === "u") {
+          // unsubscribe
+          e.preventDefault();
+          const hasUnsubscribeLink = Boolean(
+            cleanUnsubscribeLink(item.unsubscribeLink),
+          );
+          if (!hasUnsubscribeLink) {
+            await blockSender({
+              sender: item.name,
+              emailAccountId,
+            });
+            await mutate();
+            await refetchPremium();
+            return;
+          }
+
+          const unsubscribed = await unsubscribeAndArchive({
+            newsletterEmail: item.name,
+            unsubscribeLink: item.unsubscribeLink,
+            mutate,
+            refetchPremium,
+            emailAccountId,
+          });
+          if (!unsubscribed) return;
+          return;
+        }
+        if (e.key === "a") {
+          // approve
+          e.preventDefault();
+          await setNewsletterStatusAction(emailAccountId, {
+            newsletterEmail: item.name,
+            status: NewsletterStatus.APPROVED,
+          });
+          await mutate();
+          return;
+        }
+      } catch (error) {
+        captureException(error);
       }
     };
     document.addEventListener("keydown", down);
@@ -1016,4 +1019,21 @@ function didAutomaticUnsubscribeSucceed(
   }
 
   return result?.data?.unsubscribe.success === true;
+}
+
+async function performAutomaticUnsubscribe({
+  emailAccountId,
+  newsletterEmail,
+  unsubscribeLink,
+}: {
+  emailAccountId: string;
+  newsletterEmail: string;
+  unsubscribeLink?: string | null;
+}) {
+  const unsubscribeResult = await unsubscribeSenderAction(emailAccountId, {
+    newsletterEmail,
+    unsubscribeLink,
+  });
+
+  return didAutomaticUnsubscribeSucceed(unsubscribeResult);
 }
