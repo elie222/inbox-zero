@@ -6,6 +6,7 @@ import type { UserAIFields } from "./types";
 import { createAzure } from "@ai-sdk/azure";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createVertex } from "@ai-sdk/google-vertex";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 // Mock AI provider imports
 vi.mock("@ai-sdk/openai", () => ({
@@ -841,6 +842,13 @@ describe("Models", () => {
       expect(result.provider).toBe(Provider.OPENAI_COMPATIBLE);
       expect(result.modelName).toBe("llama-3.2-3b-instruct");
       expect(result.model).toBeDefined();
+      expect(createOpenAICompatible).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "openai-compatible",
+          baseURL: "http://localhost:1234/v1",
+          supportsStructuredOutputs: true,
+        }),
+      );
     });
 
     it("should configure OpenAI-compatible provider without an API key", () => {

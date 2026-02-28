@@ -236,6 +236,7 @@ function selectModel(
       const openaiCompatible = createOpenAICompatible({
         name: "openai-compatible",
         baseURL,
+        supportsStructuredOutputs: true,
         ...(openAiCompatibleApiKey ? { apiKey: openAiCompatibleApiKey } : {}),
       });
       return {
