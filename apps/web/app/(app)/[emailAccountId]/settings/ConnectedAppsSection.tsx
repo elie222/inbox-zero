@@ -298,13 +298,19 @@ function ConnectedChannelRow({
           {channel.provider === "SLACK" && (
             <div className="space-y-1">
               {selectionState.showCurrentChannel ? (
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground underline underline-offset-4"
-                  onClick={() => setSelectingTarget(true)}
-                >
-                  #{channel.channelName || channel.channelId}
-                </button>
+                <div className="space-y-0.5">
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline underline-offset-4"
+                    onClick={() => setSelectingTarget(true)}
+                  >
+                    #{channel.channelName || channel.channelId}
+                  </button>
+                  <p className="text-xs text-muted-foreground">
+                    Inbox Zero sends notifications here (meeting briefs, filed
+                    documents) and responds to @mentions in this channel.
+                  </p>
+                </div>
               ) : (
                 <Select
                   onValueChange={(value) => {
@@ -352,11 +358,12 @@ function ConnectedChannelRow({
 
               {selectionState.showInviteHint && (
                 <div className="text-xs text-muted-foreground">
-                  Invite the bot with{" "}
+                  Pick a private channel for notifications and @mentions. Invite
+                  the bot with{" "}
                   <code className="rounded bg-muted px-1">
                     /invite @InboxZero
                   </code>{" "}
-                  in a private channel.
+                  first.
                 </div>
               )}
 
