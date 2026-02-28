@@ -10,7 +10,7 @@ import {
   redirectWithError,
   redirectWithMessage,
 } from "@/utils/oauth/redirect";
-import { parseSignedOAuthState } from "@/utils/oauth/state";
+import { parseOAuthState } from "@/utils/oauth/state";
 import {
   acquireOAuthCodeLock,
   clearOAuthCode,
@@ -203,7 +203,7 @@ function parseAndValidateState(
   responseHeaders: Headers,
 ) {
   try {
-    const rawState = parseSignedOAuthState<{
+    const rawState = parseOAuthState<{
       emailAccountId: string;
       type: typeof TEAMS_OAUTH_STATE_TYPE;
     }>(receivedState);

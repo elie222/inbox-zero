@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import {
-  generateSignedOAuthState,
+  generateOAuthState,
   oauthStateCookieOptions,
 } from "@/utils/oauth/state";
 import {
@@ -30,7 +30,7 @@ export const GET = withEmailAccount("teams/auth-url", async (request) => {
     );
   }
 
-  const state = generateSignedOAuthState({
+  const state = generateOAuthState({
     emailAccountId,
     type: TEAMS_OAUTH_STATE_TYPE,
   });
