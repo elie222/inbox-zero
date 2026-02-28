@@ -56,10 +56,13 @@ export async function sendFilingMessagingNotifications({
     return;
   }
 
+  const askReasoning = filing.reasoning ?? "No filing context provided.";
+
   const deliveryPromises: Promise<void>[] = [];
 
   for (const channel of channels) {
-    if (!channel.channelId) continue;
+    const targetId = channel.channelId;
+    if (!targetId) continue;
 
     switch (channel.provider) {
       case MessagingProvider.SLACK:
@@ -68,16 +71,16 @@ export async function sendFilingMessagingNotifications({
           deliveryPromises.push(
             sendDocumentAskToSlack({
               accessToken: channel.accessToken,
-              channelId: channel.channelId,
+              channelId: targetId,
               filename: filing.filename,
-              reasoning: filing.reasoning,
+              reasoning: askReasoning,
             }),
           );
         } else {
           deliveryPromises.push(
             sendDocumentFiledToSlack({
               accessToken: channel.accessToken,
-              channelId: channel.channelId,
+              channelId: targetId,
               filename: filing.filename,
               folderPath: filing.folderPath,
               driveProvider: filing.driveConnection.provider,
@@ -96,14 +99,14 @@ export async function sendFilingMessagingNotifications({
             if (filing.wasAsked) {
               await sendDocumentAskToTeams({
                 accessToken,
-                targetId: channel.channelId,
+                targetId,
                 filename: filing.filename,
-                reasoning: filing.reasoning,
+                reasoning: askReasoning,
               });
             } else {
               await sendDocumentFiledToTeams({
                 accessToken,
-                targetId: channel.channelId,
+                targetId,
                 filename: filing.filename,
                 folderPath: filing.folderPath,
                 driveProvider: filing.driveConnection.provider,
