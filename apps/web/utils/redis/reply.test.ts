@@ -33,7 +33,7 @@ describe("saveReply", () => {
     );
   });
 
-  it("defaults unsupported confidence values to ALL_EMAILS", async () => {
+  it("returns null for unsupported confidence values", async () => {
     vi.mocked(redis.get).mockResolvedValue(
       JSON.stringify({
         reply: "Draft reply",
@@ -46,13 +46,10 @@ describe("saveReply", () => {
       messageId: "message-1",
     });
 
-    expect(result).toEqual({
-      reply: "Draft reply",
-      confidence: DraftReplyConfidence.ALL_EMAILS,
-    });
+    expect(result).toBeNull();
   });
 
-  it("falls back to legacy plain-string cache entries", async () => {
+  it("returns null for plain-string cache entries", async () => {
     vi.mocked(redis.get).mockResolvedValue("Legacy draft reply");
 
     const result = await getReplyWithConfidence({
@@ -60,9 +57,6 @@ describe("saveReply", () => {
       messageId: "message-1",
     });
 
-    expect(result).toEqual({
-      reply: "Legacy draft reply",
-      confidence: DraftReplyConfidence.ALL_EMAILS,
-    });
+    expect(result).toBeNull();
   });
 });
