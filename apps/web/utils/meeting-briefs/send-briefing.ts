@@ -89,7 +89,8 @@ export async function sendBriefing({
   }
 
   for (const channel of channels) {
-    if (!channel.channelId) continue;
+    const targetId = channel.channelId;
+    if (!targetId) continue;
 
     switch (channel.provider) {
       case MessagingProvider.SLACK:
@@ -97,7 +98,7 @@ export async function sendBriefing({
         deliveryPromises.push(
           sendBriefingViaSlack({
             accessToken: channel.accessToken,
-            channelId: channel.channelId,
+            channelId: targetId,
             meetingTitle: event.title,
             formattedTime,
             videoConferenceLink: event.videoConferenceLink ?? undefined,
@@ -110,7 +111,7 @@ export async function sendBriefing({
       case MessagingProvider.TEAMS:
         deliveryPromises.push(
           sendBriefingViaTeams({
-            channel,
+            channel: { ...channel, channelId: targetId },
             meetingTitle: event.title,
             formattedTime,
             videoConferenceLink: event.videoConferenceLink ?? undefined,
