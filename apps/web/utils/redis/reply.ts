@@ -1,5 +1,6 @@
 import { redis } from "@/utils/redis";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { normalizeDraftReplyConfidence } from "@/utils/ai/reply/draft-confidence";
 
 export type ReplyWithConfidence = {
   reply: string;
@@ -73,10 +74,15 @@ function parseCachedReply(
 
   try {
     const parsed = JSON.parse(cachedReply);
-    return parseReplyWithConfidenceFromObject(parsed);
-  } catch {
-    return null;
-  }
+    const parsedReply = parseReplyWithConfidenceFromObject(parsed);
+    if (parsedReply) return parsedReply;
+  } catch {}
+
+  // Legacy cache entries stored only the draft text.
+  return {
+    reply: cachedReply,
+    confidence: DraftReplyConfidence.ALL_EMAILS,
+  };
 }
 
 function parseReplyWithConfidenceFromObject(
@@ -91,18 +97,8 @@ function parseReplyWithConfidenceFromObject(
 
   if (typeof reply !== "string") return null;
 
-  if (!isDraftReplyConfidence(confidence)) return null;
-
-  return { reply, confidence };
-}
-
-function isDraftReplyConfidence(
-  confidence: unknown,
-): confidence is DraftReplyConfidence {
-  return (
-    typeof confidence === "string" &&
-    Object.values(DraftReplyConfidence).includes(
-      confidence as DraftReplyConfidence,
-    )
-  );
+  return {
+    reply,
+    confidence: normalizeDraftReplyConfidence(confidence),
+  };
 }

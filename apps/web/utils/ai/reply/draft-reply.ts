@@ -12,6 +12,7 @@ import {
   PROMPT_SECURITY_INSTRUCTIONS,
 } from "@/utils/ai/security";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { normalizeDraftReplyConfidence } from "@/utils/ai/reply/draft-confidence";
 
 const logger = createScopedLogger("DraftReply");
 
@@ -351,16 +352,6 @@ function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
   const punctuationRatio = punctuatedLines / lines.length;
 
   return punctuationRatio >= 0.6;
-}
-
-function normalizeDraftReplyConfidence(
-  confidence: DraftReplyConfidence | null | undefined,
-): DraftReplyConfidence {
-  return (
-    (confidence && Object.values(DraftReplyConfidence).includes(confidence)
-      ? confidence
-      : null) ?? DraftReplyConfidence.ALL_EMAILS
-  );
 }
 
 function isLikelyListItem(line: string): boolean {

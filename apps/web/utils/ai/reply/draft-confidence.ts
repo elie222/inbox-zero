@@ -36,6 +36,19 @@ export function getDraftReplyConfidenceOption(
   );
 }
 
+export function normalizeDraftReplyConfidence(
+  confidence: unknown,
+): DraftReplyConfidence {
+  return (
+    (typeof confidence === "string" &&
+    Object.values(DraftReplyConfidence).includes(
+      confidence as DraftReplyConfidence,
+    )
+      ? (confidence as DraftReplyConfidence)
+      : null) ?? DraftReplyConfidence.ALL_EMAILS
+  );
+}
+
 export function meetsDraftReplyConfidenceRequirement({
   draftConfidence,
   minimumConfidence,
