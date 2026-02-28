@@ -439,14 +439,9 @@ export const manageInboxTool = ({
         });
 
         if (isSenderAction) {
-          const fromEmails = parsedInput.fromEmails;
-          if (!fromEmails) {
-            return {
-              error:
-                "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
-            };
-          }
-          const normalizedFromEmails = normalizeSenderEmails(fromEmails);
+          const normalizedFromEmails = normalizeSenderEmails(
+            parsedInput.fromEmails ?? [],
+          );
           if (!normalizedFromEmails.length) {
             return {
               error:
