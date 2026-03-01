@@ -22,7 +22,7 @@ import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
-import type { EmailAccountWithAI } from "@/utils/llms/types";
+import type { EmailAccountForDrafting } from "@/utils/ai/choose-rule/choose-args";
 import type { Logger } from "@/utils/logger";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { captureException } from "@/utils/error";
@@ -33,7 +33,7 @@ export type SharedProcessHistoryOptions = {
   rules: RuleWithActions[];
   hasAutomationRules: boolean;
   hasAiAccess: boolean;
-  emailAccount: EmailAccountWithAI &
+  emailAccount: EmailAccountForDrafting &
     Pick<
       EmailAccount,
       "autoCategorizeSenders" | "filingEnabled" | "filingPrompt" | "email"

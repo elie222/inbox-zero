@@ -1,5 +1,6 @@
 import { containsCtaKeyword } from "@/utils/parse/cta";
 import {
+  cleanUnsubscribeLink,
   containsUnsubscribeKeyword,
   containsUnsubscribeUrlPattern,
 } from "@/utils/parse/unsubscribe";
@@ -107,10 +108,4 @@ export function isMarketingEmail(html: string) {
   }
 }
 
-export function cleanUnsubscribeLink(unsubscribeLink?: string) {
-  // remove < > from start and end of unsubscribeLink
-  let cleanedLink = unsubscribeLink;
-  if (cleanedLink?.startsWith("<")) cleanedLink = cleanedLink.slice(1);
-  if (cleanedLink?.endsWith(">")) cleanedLink = cleanedLink.slice(0, -1);
-  return cleanedLink;
-}
+export { cleanUnsubscribeLink };

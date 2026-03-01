@@ -1,6 +1,5 @@
 import { after } from "next/server";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
-import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   ActionType,
   ExecutedRuleStatus,
@@ -10,7 +9,10 @@ import {
 import type { Rule } from "@/generated/prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
-import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
+import {
+  getActionItemsWithAiArgs,
+  type EmailAccountForDrafting,
+} from "@/utils/ai/choose-rule/choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import prisma from "@/utils/prisma";
 import { withPrismaRetry } from "@/utils/prisma-retry";
@@ -80,7 +82,7 @@ export async function runRules({
   provider: EmailProvider;
   message: ParsedMessage;
   rules: RuleWithActions[];
-  emailAccount: EmailAccountWithAI;
+  emailAccount: EmailAccountForDrafting;
   isTest: boolean;
   modelType: ModelType;
   logger: Logger;
@@ -276,7 +278,7 @@ NOTE: When this rule matches, it should typically be the primary match.`,
 async function executeMatchedRule(
   rule: RuleWithActions,
   message: ParsedMessage,
-  emailAccount: EmailAccountWithAI,
+  emailAccount: EmailAccountForDrafting,
   client: EmailProvider,
   reason: string | undefined,
   matchReasons: MatchReason[] | undefined,

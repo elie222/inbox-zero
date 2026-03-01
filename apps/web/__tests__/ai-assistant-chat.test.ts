@@ -10,6 +10,7 @@ const {
   mockToolCallAgentStream,
   mockCreateEmailProvider,
   mockPosthogCaptureEvent,
+  mockUnsubscribeSenderAndMark,
   mockPrisma,
 } = vi.hoisted(() => ({
   envState: {
@@ -18,6 +19,7 @@ const {
   mockToolCallAgentStream: vi.fn(),
   mockCreateEmailProvider: vi.fn(),
   mockPosthogCaptureEvent: vi.fn(),
+  mockUnsubscribeSenderAndMark: vi.fn(),
   mockPrisma: {
     emailAccount: {
       findUnique: vi.fn(),
@@ -47,6 +49,10 @@ vi.mock("@/utils/email/provider", () => ({
 
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: mockPosthogCaptureEvent,
+}));
+
+vi.mock("@/utils/senders/unsubscribe", () => ({
+  unsubscribeSenderAndMark: mockUnsubscribeSenderAndMark,
 }));
 
 vi.mock("@/utils/prisma", () => ({
@@ -1270,7 +1276,17 @@ describe("aiProcessAssistantChat", () => {
       read: true,
     });
     expect(bulkMissingSenders).toEqual({
-      error: "fromEmails is required when action is bulk_archive_senders",
+      error:
+        "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
+    });
+
+    const unsubscribeMissingSenders = await tools.manageInbox.execute({
+      action: "unsubscribe_senders",
+      read: true,
+    });
+    expect(unsubscribeMissingSenders).toEqual({
+      error:
+        "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
     });
 
     const archiveEmptyThreadIds = await tools.manageInbox.execute({
@@ -1295,6 +1311,147 @@ describe("aiProcessAssistantChat", () => {
     });
 
     expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+  });
+
+  it("executes unsubscribe sender inbox action and archives sender messages", async () => {
+    const tools = await captureToolSet();
+
+    const getMessagesFromSender = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "message-1",
+          threadId: "thread-1",
+          snippet: "Weekly update",
+          historyId: "history-1",
+          inline: [],
+          headers: {
+            from: "Sender <sender@example.com>",
+            to: "user@example.com",
+            subject: "Weekly update",
+            date: new Date().toISOString(),
+            "list-unsubscribe": "<https://example.com/unsubscribe?id=1>",
+          },
+          textHtml:
+            '<html><body><a href="https://example.com/unsubscribe?id=1">Unsubscribe</a></body></html>',
+          subject: "Weekly update",
+          date: new Date().toISOString(),
+        },
+      ],
+      nextPageToken: undefined,
+    });
+    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(undefined);
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessagesFromSender,
+      bulkArchiveFromSenders,
+    });
+    mockUnsubscribeSenderAndMark.mockResolvedValue({
+      senderEmail: "sender@example.com",
+      status: "UNSUBSCRIBED",
+      unsubscribe: {
+        attempted: true,
+        success: true,
+        method: "post",
+      },
+    });
+
+    const result = await tools.manageInbox.execute({
+      action: "unsubscribe_senders",
+      fromEmails: ["sender@example.com"],
+    });
+
+    expect(getMessagesFromSender).toHaveBeenCalledWith({
+      senderEmail: "sender@example.com",
+      maxResults: 5,
+    });
+    expect(mockUnsubscribeSenderAndMark).toHaveBeenCalledWith(
+      expect.objectContaining({
+        newsletterEmail: "sender@example.com",
+        listUnsubscribeHeader: "<https://example.com/unsubscribe?id=1>",
+      }),
+    );
+    expect(bulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["sender@example.com"],
+      expect.any(String),
+      "email-account-id",
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        action: "unsubscribe_senders",
+        sendersCount: 1,
+        successCount: 1,
+        failedCount: 0,
+        autoUnsubscribeCount: 1,
+        autoUnsubscribeAttemptedCount: 1,
+      }),
+    );
+  });
+
+  it("archives sender messages even when automatic unsubscribe fails", async () => {
+    const tools = await captureToolSet();
+
+    const getMessagesFromSender = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "message-1",
+          threadId: "thread-1",
+          snippet: "Weekly update",
+          historyId: "history-1",
+          inline: [],
+          headers: {
+            from: "Sender <sender@example.com>",
+            to: "user@example.com",
+            subject: "Weekly update",
+            date: new Date().toISOString(),
+            "list-unsubscribe": "<https://example.com/unsubscribe?id=1>",
+          },
+          textHtml:
+            '<html><body><a href="https://example.com/unsubscribe?id=1">Unsubscribe</a></body></html>',
+          subject: "Weekly update",
+          date: new Date().toISOString(),
+        },
+      ],
+      nextPageToken: undefined,
+    });
+    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(undefined);
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessagesFromSender,
+      bulkArchiveFromSenders,
+    });
+    mockUnsubscribeSenderAndMark.mockResolvedValue({
+      senderEmail: "sender@example.com",
+      status: null,
+      unsubscribe: {
+        attempted: false,
+        success: false,
+        reason: "no_unsubscribe_url",
+      },
+    });
+
+    const result = await tools.manageInbox.execute({
+      action: "unsubscribe_senders",
+      fromEmails: ["sender@example.com"],
+    });
+
+    expect(bulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["sender@example.com"],
+      expect.any(String),
+      "email-account-id",
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: false,
+        action: "unsubscribe_senders",
+        sendersCount: 1,
+        successCount: 0,
+        failedCount: 1,
+        failedSenders: ["sender@example.com"],
+        autoUnsubscribeCount: 0,
+        autoUnsubscribeAttemptedCount: 0,
+      }),
+    );
   });
 
   it("executes searchInbox and manageInbox tools with resilient behavior", async () => {

@@ -8,6 +8,7 @@ import {
 import { getEmailAccount } from "@/__tests__/helpers";
 import { createScopedLogger } from "@/utils/logger";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
+import { DraftReplyConfidence } from "@/generated/prisma/enums";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
@@ -56,6 +57,9 @@ describe("Provider Edge Cases", () => {
     return {
       ...getEmailAccount(),
       autoCategorizeSenders: false,
+      filingEnabled: false,
+      filingPrompt: null,
+      draftReplyConfidence: DraftReplyConfidence.ALL_EMAILS,
     };
   }
 
