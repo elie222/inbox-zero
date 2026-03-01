@@ -13,58 +13,11 @@ if [[ "${FORCE_VERCEL_PREVIEW_BUILD:-}" == "1" ]] || [[ "${FORCE_VERCEL_PREVIEW_
 fi
 
 current_ref="${VERCEL_GIT_COMMIT_REF:-}"
-preview_ref_prefix="${VERCEL_PREVIEW_BUILD_REF_PREFIX:-preview/}"
-
-if [[ -z "${preview_ref_prefix}" ]]; then
-  preview_ref_prefix="preview/"
-fi
-
-if [[ -n "${current_ref}" ]] && [[ "${current_ref}" == "${preview_ref_prefix}"* ]]; then
-  echo "Branch ${current_ref} matches preview ref allowlist; continue build."
+if [[ "${current_ref}" == "main" ]] || [[ "${current_ref}" == "staging" ]]; then
+  echo "Preview deployment for ${current_ref} is allowed; continue build."
   exit 1
 fi
 
-if [[ -n "${VERCEL_GIT_PULL_REQUEST_ID:-}" ]]; then
-  if [[ "${ALLOW_VERCEL_PR_PREVIEW_BUILD:-}" == "1" ]] || [[ "${ALLOW_VERCEL_PR_PREVIEW_BUILD:-}" == "true" ]]; then
-    echo "ALLOW_VERCEL_PR_PREVIEW_BUILD is enabled; continue build."
-    exit 1
-  fi
-
-  echo "Pull request preview detected; skip build."
-  exit 0
-fi
-
-current_sha="${VERCEL_GIT_COMMIT_SHA:-HEAD}"
-previous_sha="${VERCEL_GIT_PREVIOUS_SHA:-}"
-
-if [[ -z "${previous_sha}" ]]; then
-  if git rev-parse --verify "${current_sha}^" >/dev/null 2>&1; then
-    previous_sha="${current_sha}^"
-  else
-    echo "No previous commit found; continue build."
-    exit 1
-  fi
-fi
-
-if ! git rev-parse --verify "${previous_sha}" >/dev/null 2>&1; then
-  echo "Previous commit ${previous_sha} is unavailable; continue build."
-  exit 1
-fi
-
-changed_files="$(git diff --name-only "${previous_sha}" "${current_sha}")"
-
-if [[ -z "${changed_files}" ]]; then
-  echo "No changed files detected; skip build."
-  exit 0
-fi
-
-non_docs_changes="$(printf '%s\n' "${changed_files}" | grep -Ev '(^docs/|\.md$|\.mdx$)' || true)"
-
-if [[ -n "${non_docs_changes}" ]]; then
-  echo "Non-doc changes detected; continue build."
-  printf '%s\n' "${non_docs_changes}"
-  exit 1
-fi
-
-echo "Only docs/markdown files changed; skip preview build."
+echo "Skipping preview build for branch ${current_ref:-unknown}."
+echo "Set FORCE_VERCEL_PREVIEW_BUILD=true to build manually."
 exit 0
