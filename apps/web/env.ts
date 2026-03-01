@@ -199,6 +199,8 @@ export const env = createEnv({
     SLACK_CLIENT_ID: z.string().optional(),
     SLACK_CLIENT_SECRET: z.string().optional(),
     SLACK_SIGNING_SECRET: z.string().optional(),
+
+    REPLAY_RECORDING_ENABLED: booleanString.optional().default(false),
   },
   client: {
     // stripe
