@@ -4,7 +4,11 @@ import { handleLabelRemovedEvent } from "./process-label-removed-event";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { createScopedLogger } from "@/utils/logger";
-import { GroupItemSource, SystemType } from "@/generated/prisma/enums";
+import {
+  GroupItemSource,
+  GroupItemType,
+  SystemType,
+} from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("test");
@@ -16,6 +20,9 @@ vi.mock("@/utils/prisma", () => ({
   default: {
     rule: {
       findFirst: vi.fn(),
+    },
+    groupItem: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
   },
 }));
@@ -217,6 +224,124 @@ describe("process-label-removed-event", () => {
 
       await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("undoSpamLearning", () => {
+    it("should undo spam learning when SPAM label is removed", async () => {
+      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+        id: "rule-1",
+        groupId: "group-1",
+      } as any);
+      vi.mocked(prisma.groupItem.deleteMany).mockResolvedValue({ count: 1 });
+
+      const historyItem = {
+        message: { id: "msg-1", threadId: "thread-1" },
+        labelIds: ["SPAM"],
+      } as gmail_v1.Schema$HistoryLabelRemoved;
+
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
+
+      expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
+        where: {
+          groupId: "group-1",
+          type: GroupItemType.FROM,
+          value: "sender@example.com",
+          source: GroupItemSource.LABEL_ADDED,
+        },
+      });
+    });
+
+    it("should not undo spam learning when no Cold Email rule exists", async () => {
+      vi.mocked(prisma.rule.findFirst).mockResolvedValue(null);
+
+      const historyItem = {
+        message: { id: "msg-1", threadId: "thread-1" },
+        labelIds: ["SPAM"],
+      } as gmail_v1.Schema$HistoryLabelRemoved;
+
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
+
+      expect(prisma.groupItem.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it("should not undo spam learning when Cold Email rule has no groupId", async () => {
+      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+        id: "rule-1",
+        groupId: null,
+      } as any);
+
+      const historyItem = {
+        message: { id: "msg-1", threadId: "thread-1" },
+        labelIds: ["SPAM"],
+      } as gmail_v1.Schema$HistoryLabelRemoved;
+
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
+
+      expect(prisma.groupItem.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it("should handle SPAM removal + custom label removal in same event", async () => {
+      // First call: undoSpamLearning looks up cold email rule
+      // Second call: learnFromRemovedLabel looks up rule for custom label
+      vi.mocked(prisma.rule.findFirst)
+        .mockResolvedValueOnce({
+          id: "rule-cold",
+          groupId: "group-cold",
+        } as any)
+        .mockResolvedValueOnce({
+          id: "rule-newsletter",
+          systemType: SystemType.NEWSLETTER,
+        } as any);
+      vi.mocked(prisma.groupItem.deleteMany).mockResolvedValue({ count: 1 });
+
+      const historyItem = {
+        message: { id: "msg-1", threadId: "thread-1" },
+        labelIds: ["SPAM", "label-2"],
+      } as gmail_v1.Schema$HistoryLabelRemoved;
+
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
+
+      // Should undo spam learning
+      expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
+        where: {
+          groupId: "group-cold",
+          type: GroupItemType.FROM,
+          value: "sender@example.com",
+          source: GroupItemSource.LABEL_ADDED,
+        },
+      });
+
+      // Should also learn from custom label removal
+      expect(saveLearnedPattern).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ruleId: "rule-newsletter",
+          exclude: true,
+          source: GroupItemSource.LABEL_REMOVED,
+        }),
+      );
+    });
+
+    it("should process SPAM-only removal (no custom labels)", async () => {
+      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+        id: "rule-1",
+        groupId: "group-1",
+      } as any);
+      vi.mocked(prisma.groupItem.deleteMany).mockResolvedValue({ count: 1 });
+
+      const historyItem = {
+        message: { id: "msg-1", threadId: "thread-1" },
+        labelIds: ["SPAM"],
+      } as gmail_v1.Schema$HistoryLabelRemoved;
+
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
+
+      // Should fetch message to get sender (not skip early)
+      expect(mockProvider.getMessage).toHaveBeenCalledWith("msg-1");
+      // Should call deleteMany for undo
+      expect(prisma.groupItem.deleteMany).toHaveBeenCalled();
+      // Should NOT call saveLearnedPattern (no custom labels to learn from)
       expect(saveLearnedPattern).not.toHaveBeenCalled();
     });
   });
