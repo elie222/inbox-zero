@@ -7,6 +7,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { env } from "@/env";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { toolCallAgentStream } from "@/utils/llms";
+import type { RecordingSessionHandle } from "@/utils/replay/recorder";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import prisma from "@/utils/prisma";
 import type { SystemType } from "@/generated/prisma/enums";
@@ -83,6 +84,7 @@ export async function aiProcessAssistantChat({
   inboxStats,
   responseSurface = "web",
   messagingPlatform,
+  recordingSession,
   logger,
 }: {
   messages: ModelMessage[];
@@ -94,9 +96,17 @@ export async function aiProcessAssistantChat({
   inboxStats?: { total: number; unread: number } | null;
   responseSurface?: "web" | "messaging";
   messagingPlatform?: MessagingPlatform;
+  recordingSession?: RecordingSessionHandle | null;
   logger: Logger;
 }) {
   let ruleReadState: RuleReadState | null = null;
+
+  if (recordingSession) {
+    await recordingSession.record("llm-request", {
+      label: "assistant-chat",
+      request: { messageCount: messages.length, context },
+    });
+  }
 
   const system = `You are the Inbox Zero assistant. You help users understand their inbox, take inbox actions, update account features, and manage automation rules.
 
@@ -361,6 +371,12 @@ Behavior anchors (minimal examples):
     messages: messagesWithCacheControl,
     onStepFinish: async ({ text, toolCalls }) => {
       logger.trace("Step finished", { text, toolCalls });
+      if (recordingSession) {
+        await recordingSession.record("chat-step", {
+          request: { toolCalls },
+          response: { text },
+        });
+      }
     },
     maxSteps: 10,
     tools: {
