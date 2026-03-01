@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   updateSlackChannelBody,
@@ -7,6 +8,7 @@ import {
   updateEmailDeliveryBody,
   disconnectChannelBody,
   linkSlackWorkspaceBody,
+  connectWhatsAppBody,
 } from "@/utils/actions/messaging-channels.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
@@ -24,7 +26,7 @@ export const updateSlackChannelAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, logger },
-      parsedInput: { channelId, targetId, targetName },
+      parsedInput: { channelId, targetId },
     }) => {
       const channel = await prisma.messagingChannel.findUnique({
         where: { id: channelId },
@@ -94,6 +96,10 @@ export const updateChannelFeaturesAction = actionClient
         throw new SafeError("Messaging channel is not connected");
       }
 
+      if (channel.provider === MessagingProvider.WHATSAPP) {
+        throw new SafeError("WhatsApp delivery settings are not supported yet");
+      }
+
       const enablingFeature =
         sendMeetingBriefs === true || sendDocumentFilings === true;
       if (enablingFeature && !channel.channelId) {
@@ -108,6 +114,107 @@ export const updateChannelFeaturesAction = actionClient
           ...(sendMeetingBriefs !== undefined && { sendMeetingBriefs }),
           ...(sendDocumentFilings !== undefined && { sendDocumentFilings }),
         },
+      });
+    },
+  );
+
+export const connectWhatsAppAction = actionClient
+  .metadata({ name: "connectWhatsApp" })
+  .inputSchema(connectWhatsAppBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: {
+        wabaId,
+        phoneNumberId,
+        accessToken,
+        authorizedSender,
+        displayName,
+      },
+    }) => {
+      const phoneNumberData = await getWhatsAppPhoneNumber({
+        phoneNumberId,
+        accessToken,
+      });
+
+      if (phoneNumberData.account.id !== wabaId) {
+        throw new SafeError(
+          "WhatsApp phone number does not belong to the provided business account",
+        );
+      }
+
+      const conflictingChannel = await prisma.messagingChannel.findFirst({
+        where: {
+          provider: MessagingProvider.WHATSAPP,
+          teamId: wabaId,
+          providerUserId: phoneNumberId,
+          isConnected: true,
+          emailAccountId: { not: emailAccountId },
+        },
+        select: { id: true },
+      });
+
+      if (conflictingChannel) {
+        throw new SafeError(
+          "This WhatsApp number is already connected to another email account",
+        );
+      }
+
+      const authorizedSenderId = normalizeWhatsAppSenderId(authorizedSender);
+      if (!authorizedSenderId) {
+        throw new SafeError(
+          "Enter a valid WhatsApp number for the authorized sender",
+        );
+      }
+
+      const fallbackName = phoneNumberData.display_phone_number || "WhatsApp";
+      const teamName = displayName?.trim() || phoneNumberData.verified_name;
+
+      try {
+        await prisma.messagingChannel.upsert({
+          where: {
+            emailAccountId_provider_teamId: {
+              emailAccountId,
+              provider: MessagingProvider.WHATSAPP,
+              teamId: wabaId,
+            },
+          },
+          update: {
+            teamName: teamName || fallbackName,
+            accessToken,
+            providerUserId: phoneNumberId,
+            botUserId: null,
+            authorizedSenderId,
+            isConnected: true,
+            channelId: null,
+            channelName: null,
+            sendMeetingBriefs: false,
+            sendDocumentFilings: false,
+          },
+          create: {
+            provider: MessagingProvider.WHATSAPP,
+            teamId: wabaId,
+            teamName: teamName || fallbackName,
+            accessToken,
+            providerUserId: phoneNumberId,
+            botUserId: null,
+            authorizedSenderId,
+            emailAccountId,
+            isConnected: true,
+          },
+        });
+      } catch (error) {
+        if (isUniqueConstraintError(error)) {
+          throw new SafeError(
+            "This WhatsApp number is already connected to another email account",
+          );
+        }
+        throw error;
+      }
+
+      logger.info("Connected WhatsApp channel", {
+        emailAccountId,
+        provider: MessagingProvider.WHATSAPP,
       });
     },
   );
@@ -240,3 +347,71 @@ export const linkSlackWorkspaceAction = actionClient
       logger.info("Slack workspace linked via org-mate token", { teamId });
     },
   );
+
+const whatsappPhoneNumberSchema = z.object({
+  id: z.string().min(1),
+  display_phone_number: z.string().optional(),
+  verified_name: z.string().optional(),
+  account: z.object({
+    id: z.string().min(1),
+  }),
+});
+
+const whatsappErrorSchema = z.object({
+  error: z
+    .object({
+      message: z.string().optional(),
+    })
+    .optional(),
+});
+
+async function getWhatsAppPhoneNumber({
+  phoneNumberId,
+  accessToken,
+}: {
+  phoneNumberId: string;
+  accessToken: string;
+}) {
+  const url = new URL(`https://graph.facebook.com/v22.0/${phoneNumberId}`);
+  url.searchParams.set(
+    "fields",
+    ["id", "display_phone_number", "verified_name", "account"].join(","),
+  );
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  const raw = await response.json();
+
+  if (!response.ok) {
+    const parsedError = whatsappErrorSchema.safeParse(raw);
+    const message = parsedError.success
+      ? parsedError.data.error?.message
+      : undefined;
+
+    throw new SafeError(message || "Unable to validate WhatsApp credentials");
+  }
+
+  const parsed = whatsappPhoneNumberSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new SafeError("Unexpected response while validating WhatsApp");
+  }
+
+  return parsed.data;
+}
+
+function normalizeWhatsAppSenderId(value: string): string | null {
+  const normalized = value.replaceAll(/\D/g, "");
+  if (normalized.length < 8 || normalized.length > 20) return null;
+  return normalized;
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2002"
+  );
+}

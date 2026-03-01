@@ -50,6 +50,7 @@
     "@inboxzero/loops": "workspace:*",
     "@inboxzero/resend": "workspace:*",
     "@inboxzero/slack": "workspace:*",
+    "@inboxzero/whatsapp": "workspace:*",
     "@inboxzero/tinybird": "workspace:*",
     "@inboxzero/tinybird-ai-analytics": "workspace:*",
     "@lemonsqueezy/lemonsqueezy.js": "4.0.0",
