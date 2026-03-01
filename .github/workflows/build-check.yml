@@ -47,6 +47,9 @@ jobs:
       DEFAULT_LLM_PROVIDER: "openai"
       INTERNAL_API_KEY: "secret"
       NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      TURBO_TELEMETRY_DISABLED: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -86,4 +89,4 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Build app
-        run: pnpm --filter inbox-zero-ai exec next build
+        run: pnpm turbo run build:ci --filter=./apps/web

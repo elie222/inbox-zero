@@ -186,6 +186,24 @@
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
+    "build:ci": {
+      "env": [
+        "VERCEL_ENV",
+        "VERCEL_URL",
+        "NODE_ENV",
+        "DATABASE_URL",
+        "AUTH_SECRET",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "GOOGLE_PUBSUB_TOPIC_NAME",
+        "EMAIL_ENCRYPT_SECRET",
+        "EMAIL_ENCRYPT_SALT",
+        "DEFAULT_LLM_PROVIDER",
+        "INTERNAL_API_KEY",
+        "NEXT_PUBLIC_BASE_URL"
+      ],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
     "test": {
       "env": ["RUN_AI_TESTS"]
     },
