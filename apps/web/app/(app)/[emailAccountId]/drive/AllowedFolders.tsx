@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FolderIcon, Loader2Icon, PlusIcon } from "lucide-react";
@@ -99,12 +99,32 @@ function AllowedFoldersContent({
   staleFolderCount: number;
   mutateFolders: () => void;
 }) {
-  const [isFolderBusy, setIsFolderBusy] = useState(false);
+  const [optimisticFolderIds, setOptimisticFolderIds] = useState<Set<string>>(
+    () => new Set(savedFolders.map((f) => f.folderId)),
+  );
+
+  const serverFolderIds = useMemo(
+    () => savedFolders.map((f) => f.folderId).join(","),
+    [savedFolders],
+  );
+  const prevServerFolderIds = useRef(serverFolderIds);
+
+  useEffect(() => {
+    if (serverFolderIds === prevServerFolderIds.current) return;
+    prevServerFolderIds.current = serverFolderIds;
+    setOptimisticFolderIds(new Set(savedFolders.map((f) => f.folderId)));
+  }, [savedFolders, serverFolderIds]);
 
   const handleFolderToggle = useCallback(
     async (folder: FolderItem, isChecked: boolean) => {
       const folderPath = folder.path || folder.name;
-      setIsFolderBusy(true);
+
+      setOptimisticFolderIds((prev) => {
+        const next = new Set(prev);
+        if (isChecked) next.add(folder.id);
+        else next.delete(folder.id);
+        return next;
+      });
 
       try {
         if (isChecked) {
@@ -116,6 +136,11 @@ function AllowedFoldersContent({
           });
 
           if (result?.serverError) {
+            setOptimisticFolderIds((prev) => {
+              const next = new Set(prev);
+              next.delete(folder.id);
+              return next;
+            });
             toastError({
               title: "Error adding folder",
               description: result.serverError,
@@ -129,6 +154,11 @@ function AllowedFoldersContent({
           });
 
           if (result?.serverError) {
+            setOptimisticFolderIds((prev) => {
+              const next = new Set(prev);
+              next.add(folder.id);
+              return next;
+            });
             toastError({
               title: "Error removing folder",
               description: result.serverError,
@@ -137,8 +167,17 @@ function AllowedFoldersContent({
             mutateFolders();
           }
         }
-      } finally {
-        setIsFolderBusy(false);
+      } catch {
+        setOptimisticFolderIds((prev) => {
+          const next = new Set(prev);
+          if (isChecked) next.delete(folder.id);
+          else next.add(folder.id);
+          return next;
+        });
+        toastError({
+          title: isChecked ? "Error adding folder" : "Error removing folder",
+          description: "Please try again.",
+        });
       }
     },
     [emailAccountId, mutateFolders],
@@ -172,10 +211,7 @@ function AllowedFoldersContent({
     return map;
   }, [availableFolders]);
 
-  const savedFolderIds = useMemo(
-    () => new Set(savedFolders.map((f) => f.folderId)),
-    [savedFolders],
-  );
+  const savedFolderIds = optimisticFolderIds;
   const hasFolders = rootFolders.length > 0;
 
   return (
@@ -210,7 +246,7 @@ function AllowedFoldersContent({
                     isLast={index === rootFolders.length - 1}
                     selectedFolderIds={savedFolderIds}
                     onToggle={handleFolderToggle}
-                    isDisabled={isFolderBusy}
+                    isDisabled={false}
                     level={0}
                     parentPath=""
                     knownChildren={folderChildrenMap.get(folder.id)}
