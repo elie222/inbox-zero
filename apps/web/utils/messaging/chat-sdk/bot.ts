@@ -47,6 +47,7 @@ import {
 } from "@/utils/messaging/pending-email-confirmation";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
+import { getEmailUrlForMessage } from "@/utils/url";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const MAX_CHAT_CONTEXT_MESSAGES = 12;
@@ -754,7 +755,10 @@ async function handlePendingEmailConfirmAction({
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: chat.emailAccountId },
-    select: { account: { select: { provider: true } } },
+    select: {
+      email: true,
+      account: { select: { provider: true } },
+    },
   });
   if (!emailAccount?.account?.provider) {
     await postPendingEmailActionFeedback({
@@ -790,7 +794,7 @@ async function handlePendingEmailConfirmAction({
   }
 
   try {
-    await confirmAssistantEmailActionForAccount({
+    const confirmation = await confirmAssistantEmailActionForAccount({
       chatId,
       chatMessageId: pendingAction.chatMessageId,
       toolCallId: pendingAction.toolCallId,
@@ -800,10 +804,16 @@ async function handlePendingEmailConfirmAction({
       logger,
     });
 
+    const successFeedback = buildPendingEmailSuccessFeedback({
+      confirmationResult: confirmation.confirmationResult,
+      accountEmail: emailAccount.email,
+      accountProvider: emailAccount.account.provider,
+    });
+
     await postPendingEmailActionFeedback({
       event,
       provider,
-      text: "Sent.",
+      text: successFeedback,
       logger,
     });
   } catch (error) {
@@ -967,6 +977,36 @@ function buildPendingEmailSummary({
   if (to) return `Confirm this ${actionLabel} to ${to}.`;
   if (subject) return `Confirm this ${actionLabel} with subject "${subject}".`;
   return `Confirm this ${actionLabel}.`;
+}
+
+function buildPendingEmailSuccessFeedback({
+  confirmationResult,
+  accountEmail,
+  accountProvider,
+}: {
+  confirmationResult?: {
+    messageId?: string | null;
+    threadId?: string | null;
+  } | null;
+  accountEmail?: string | null;
+  accountProvider?: string | null;
+}) {
+  const messageId = confirmationResult?.messageId || undefined;
+  const threadId = confirmationResult?.threadId || undefined;
+  const resolvedMessageId = messageId || threadId;
+  const resolvedThreadId = threadId || messageId;
+
+  if (!resolvedMessageId || !resolvedThreadId) return "Sent.";
+
+  const emailUrl = getEmailUrlForMessage(
+    resolvedMessageId,
+    resolvedThreadId,
+    accountEmail,
+    accountProvider || undefined,
+  );
+  const mailbox = accountProvider === "microsoft" ? "Outlook" : "Gmail";
+
+  return `Sent. Open in ${mailbox}: ${emailUrl}`;
 }
 
 function getSlackTeamIdFromActionRaw(raw: unknown): string | null {

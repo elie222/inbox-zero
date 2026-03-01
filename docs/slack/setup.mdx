@@ -63,6 +63,18 @@ Under **Event Subscriptions**:
 
 Slack will send a verification challenge to the URL; the app handles this automatically.
 
+### Enable Interactivity
+
+Under **Interactivity & Shortcuts**:
+
+1. Toggle **Interactivity** to ON
+2. Set **Request URL** to:
+   ```
+   https://<your-domain>/api/slack/events
+   ```
+
+Interactive actions (for example, assistant `Send` buttons) are posted to this URL. Without this setting, button clicks will not reach the app.
+
 ### Enable App Home
 
 Under **App Home**:

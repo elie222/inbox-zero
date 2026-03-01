@@ -42,3 +42,6 @@ settings:
       - app_mention
       - assistant_thread_started
       - assistant_thread_context_changed
+  interactivity:
+    is_enabled: true
+    request_url: https://YOUR_DOMAIN/api/slack/events
