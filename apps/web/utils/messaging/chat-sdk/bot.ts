@@ -28,10 +28,11 @@ import { getRecentChatMemories } from "@/utils/ai/assistant/get-recent-chat-memo
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { consumeMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code-consume";
+import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import {
-  getMessagingPlatformName,
-  type MessagingPlatform,
-} from "@/utils/messaging/platforms";
+  getMessagingDraftConfirmationAction,
+  PENDING_DRAFT_CONFIRMATION_MESSAGE,
+} from "@/utils/messaging/pending-email-confirmation";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -1225,11 +1226,11 @@ function normalizeMessagingAssistantText({
 
   normalized = normalized.replace(
     /click (?:the )?(?:confirmation|approve|send) button[^.]*\./gi,
-    "This draft is pending confirmation in Inbox Zero.",
+    PENDING_DRAFT_CONFIRMATION_MESSAGE,
   );
   normalized = normalized.replace(
     /(?:you can|please) click [^.]*button[^.]*\./gi,
-    "This draft is pending confirmation in Inbox Zero.",
+    PENDING_DRAFT_CONFIRMATION_MESSAGE,
   );
 
   if (
@@ -1237,8 +1238,7 @@ function normalizeMessagingAssistantText({
     /\b(draft|email)\b/i.test(normalized) &&
     !/open inbox zero/i.test(normalized)
   ) {
-    const platformName = getMessagingPlatformName(provider);
-    normalized = `${normalized}\n\nTo send it, open Inbox Zero in the web app and confirm the draft (there is no in-chat approval button in ${platformName} yet).`;
+    normalized = `${normalized}\n\nTo send it, ${getMessagingDraftConfirmationAction(provider)}.`;
   }
 
   return normalized;

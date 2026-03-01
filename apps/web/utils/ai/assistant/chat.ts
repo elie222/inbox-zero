@@ -42,6 +42,7 @@ import {
   getMessagingPlatformName,
   type MessagingPlatform,
 } from "@/utils/messaging/platforms";
+import { getMessagingDraftConfirmationAction } from "@/utils/messaging/pending-email-confirmation";
 
 export const maxDuration = 120;
 
@@ -579,5 +580,5 @@ function getSendEmailSurfacePolicy({
     : "messaging chat";
   return `- sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.
 - In ${platformName}, there is no confirmation button or modal for these actions right now.
-- Tell the user to open Inbox Zero in the web app to review and confirm the pending draft.`;
+- Tell the user to ${getMessagingDraftConfirmationAction(messagingPlatform)}.`;
 }

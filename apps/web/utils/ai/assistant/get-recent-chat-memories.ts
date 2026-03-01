@@ -21,7 +21,7 @@ export async function getRecentChatMemories({
       select: { content: true, createdAt: true },
     });
 
-    return memories.map((memory) => ({
+    return memories.reverse().map((memory) => ({
       content: memory.content,
       date: formatUtcDate(memory.createdAt),
     }));

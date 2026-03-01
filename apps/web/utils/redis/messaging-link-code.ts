@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
+import { createScopedLogger } from "@/utils/logger";
 import { redis } from "@/utils/redis";
 
 const MESSAGING_LINK_NONCE_TTL_SECONDS = 10 * 60;
+const logger = createScopedLogger("messaging-link-code");
 
 function getMessagingLinkNonceKey(nonce: string) {
   const nonceHash = createHash("sha256")
@@ -21,7 +23,8 @@ export async function consumeMessagingLinkNonce(
     });
 
     return result === "OK";
-  } catch {
+  } catch (error) {
+    logger.warn("Failed to consume messaging link nonce", { error });
     return false;
   }
 }
