@@ -19,6 +19,10 @@ export function SettingsTab() {
       <div className="space-y-2">
         <DraftReplies />
         <DraftConfidenceSetting />
+      </div>
+
+      <div className="space-y-2">
+        <SectionHeader>Updates</SectionHeader>
         <FollowUpRemindersSetting />
         <ProactiveUpdatesSetting />
         {env.NEXT_PUBLIC_DIGEST_ENABLED && <DigestSetting />}
