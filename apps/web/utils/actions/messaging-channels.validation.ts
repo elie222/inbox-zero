@@ -4,7 +4,6 @@ import { LINKABLE_MESSAGING_PROVIDERS } from "@/utils/messaging/chat-sdk/link-co
 export const updateSlackChannelBody = z.object({
   channelId: z.string().min(1),
   targetId: z.string().min(1),
-  targetName: z.string().min(1),
 });
 
 export const updateChannelFeaturesBody = z.object({

@@ -100,8 +100,7 @@ export async function aiProcessAssistantChat({
   recordingSession?: RecordingSessionHandle | null;
   logger: Logger;
 }) {
-  const emailSendToolsEnabled =
-    env.NEXT_PUBLIC_EMAIL_SEND_ENABLED && responseSurface === "web";
+  const emailSendToolsEnabled = env.NEXT_PUBLIC_EMAIL_SEND_ENABLED;
   let ruleReadState: RuleReadState | null = null;
 
   if (recordingSession) {

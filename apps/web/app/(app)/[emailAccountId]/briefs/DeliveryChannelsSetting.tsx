@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MailIcon, HashIcon, LockIcon, MessageSquareIcon } from "lucide-react";
+import {
+  MailIcon,
+  HashIcon,
+  LockIcon,
+  MessageCircleIcon,
+  MessageSquareIcon,
+  SendIcon,
+} from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -31,17 +38,31 @@ import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 
-const PROVIDER_CONFIG: Partial<
-  Record<
-    MessagingProvider,
-    {
-      name: string;
-      icon: typeof MessageSquareIcon;
-      targetPrefix: string;
-    }
-  >
+const PROVIDER_CONFIG: Record<
+  MessagingProvider,
+  {
+    name: string;
+    icon: typeof MessageSquareIcon;
+    targetPrefix?: string;
+    supportsBriefTargetSelection: boolean;
+  }
 > = {
-  SLACK: { name: "Slack", icon: HashIcon, targetPrefix: "#" },
+  SLACK: {
+    name: "Slack",
+    icon: HashIcon,
+    targetPrefix: "#",
+    supportsBriefTargetSelection: true,
+  },
+  TEAMS: {
+    name: "Teams",
+    icon: MessageCircleIcon,
+    supportsBriefTargetSelection: false,
+  },
+  TELEGRAM: {
+    name: "Telegram",
+    icon: SendIcon,
+    supportsBriefTargetSelection: false,
+  },
 };
 
 export function DeliveryChannelsSetting() {
@@ -144,16 +165,16 @@ function ChannelRow({
   onUpdate: () => void;
 }) {
   const config = PROVIDER_CONFIG[channel.provider];
-  const Icon = config?.icon ?? MessageSquareIcon;
+  const Icon = config.icon;
   const [selectingTarget, setSelectingTarget] = useState(!channel.channelId);
-  const isSlackProvider = channel.provider === "SLACK";
+  const supportsBriefTargetSelection = config.supportsBriefTargetSelection;
 
   const {
     data: targetsData,
     isLoading: isLoadingTargets,
     error: targetsError,
   } = useChannelTargets(
-    isSlackProvider && selectingTarget ? channel.id : null,
+    supportsBriefTargetSelection && selectingTarget ? channel.id : null,
     emailAccountId,
   );
 
@@ -194,13 +215,11 @@ function ChannelRow({
     <div className="flex items-center gap-3">
       <Icon className="h-5 w-5 text-muted-foreground" />
       <div className="flex-1">
-        {isSlackProvider ? (
+        {supportsBriefTargetSelection ? (
           !channel.channelId || selectingTarget ? (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-sm">
-                  {config?.name ?? channel.provider}
-                </span>
+                <span className="font-medium text-sm">{config.name}</span>
                 <Select
                   onValueChange={(value) => {
                     const target = privateTargets?.find((t) => t.id === value);
@@ -208,7 +227,6 @@ function ChannelRow({
                       executeTarget({
                         channelId: channel.id,
                         targetId: target.id,
-                        targetName: target.name,
                       });
                     }
                   }}
@@ -261,18 +279,16 @@ function ChannelRow({
               onClick={() => setSelectingTarget(true)}
               title="Change channel"
             >
-              {config?.name ?? channel.provider}{" "}
+              {config.name}{" "}
               <span className="text-muted-foreground font-normal">
-                &middot; {config?.targetPrefix}
+                &middot; {config.targetPrefix}
                 {channel.channelName}
               </span>
             </button>
           )
         ) : (
           <div className="space-y-1">
-            <span className="font-medium text-sm">
-              {config?.name ?? channel.provider}
-            </span>
+            <span className="font-medium text-sm">{config.name}</span>
             <MutedText className="text-xs">
               Brief delivery targets are currently supported for Slack.
             </MutedText>
@@ -280,7 +296,7 @@ function ChannelRow({
         )}
       </div>
 
-      {isSlackProvider && channel.channelId && !selectingTarget && (
+      {supportsBriefTargetSelection && channel.channelId && !selectingTarget && (
         <Toggle
           name={`briefs-${channel.id}`}
           enabled={channel.sendMeetingBriefs}

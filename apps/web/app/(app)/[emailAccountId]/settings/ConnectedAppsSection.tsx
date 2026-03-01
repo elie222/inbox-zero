@@ -413,7 +413,6 @@ function ConnectedChannelRow({
                     executeSetTarget({
                       channelId: channel.id,
                       targetId: target.id,
-                      targetName: target.name,
                     });
                   }}
                   disabled={
