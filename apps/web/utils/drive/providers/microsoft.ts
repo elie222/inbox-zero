@@ -72,10 +72,25 @@ export class OneDriveProvider implements DriveProvider {
     try {
       const item: DriveItem = await this.client
         .api(`/me/drive/items/${folderId}`)
-        .select("id,name,parentReference,webUrl")
+        .select(
+          "id,name,parentReference,webUrl,folder,specialFolder,package,remoteItem,deleted",
+        )
         .get();
 
-      if (!item.folder) {
+      if (item.deleted) {
+        this.logger.trace("Folder is deleted", { folderId });
+        return null;
+      }
+
+      const isFolderLike = !!(
+        item.folder ||
+        item.specialFolder ||
+        item.package ||
+        item.remoteItem?.folder ||
+        item.remoteItem?.package
+      );
+
+      if (!isFolderLike) {
         this.logger.warn("Item is not a folder", { folderId });
         return null;
       }

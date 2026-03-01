@@ -179,20 +179,31 @@ export function DriveSetup() {
 
   const handleStartFiling = useCallback(async () => {
     setUserPhase("starting");
+    try {
+      const result = await updateFilingEnabledAction(emailAccountId, {
+        filingEnabled: true,
+      });
 
-    const result = await updateFilingEnabledAction(emailAccountId, {
-      filingEnabled: true,
-    });
+      if (result?.serverError) {
+        toastError({
+          title: "Error starting auto-filing",
+          description: result.serverError,
+        });
+        setUserPhase("previewing");
+        return;
+      }
 
-    if (result?.serverError) {
+      toastSuccess({ description: "Auto-filing started!" });
+      await mutateEmail();
+    } catch (error) {
       toastError({
         title: "Error starting auto-filing",
-        description: result.serverError,
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred while starting auto-filing.",
       });
       setUserPhase("previewing");
-    } else {
-      toastSuccess({ description: "Auto-filing started!" });
-      mutateEmail();
     }
   }, [emailAccountId, mutateEmail]);
 
