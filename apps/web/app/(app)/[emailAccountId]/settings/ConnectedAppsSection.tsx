@@ -40,6 +40,7 @@ import { fetchWithAccount } from "@/utils/fetch";
 import { captureException } from "@/utils/error";
 import { getActionErrorMessage } from "@/utils/error";
 import type { GetSlackAuthUrlResponse } from "@/app/api/slack/auth-url/route";
+import type { GetTeamsAuthUrlResponse } from "@/app/api/teams/auth-url/route";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 
 const PROVIDER_CONFIG: Record<
@@ -47,6 +48,7 @@ const PROVIDER_CONFIG: Record<
   { name: string; icon: typeof MessageSquareIcon }
 > = {
   SLACK: { name: "Slack", icon: HashIcon },
+  TEAMS: { name: "Teams", icon: MessageSquareIcon },
 };
 
 export function ConnectedAppsSection({
@@ -61,6 +63,7 @@ export function ConnectedAppsSection({
     mutate: mutateChannels,
   } = useMessagingChannels(emailAccountId);
   const [connectingSlack, setConnectingSlack] = useState(false);
+  const [connectingTeams, setConnectingTeams] = useState(false);
   const [existingWorkspace, setExistingWorkspace] = useState<{
     teamId: string;
     teamName: string;
@@ -72,8 +75,13 @@ export function ConnectedAppsSection({
   const hasSlack = connectedChannels.some(
     (channel) => channel.provider === "SLACK",
   );
+  const hasTeams = connectedChannels.some(
+    (channel) => channel.provider === "TEAMS",
+  );
   const slackAvailable =
     channelsData?.availableProviders?.includes("SLACK") ?? false;
+  const teamsAvailable =
+    channelsData?.availableProviders?.includes("TEAMS") ?? false;
 
   const { execute: executeLinkSlack, status: linkStatus } = useAction(
     linkSlackWorkspaceAction.bind(null, emailAccountId),
@@ -99,7 +107,12 @@ export function ConnectedAppsSection({
     },
   );
 
-  if (!isLoading && !slackAvailable && connectedChannels.length === 0)
+  if (
+    !isLoading &&
+    !slackAvailable &&
+    !teamsAvailable &&
+    connectedChannels.length === 0
+  )
     return null;
 
   const handleConnectSlack = async () => {
@@ -140,6 +153,32 @@ export function ConnectedAppsSection({
     executeLinkSlack({ teamId: existingWorkspace.teamId });
   };
 
+  const handleConnectTeams = async () => {
+    setConnectingTeams(true);
+    try {
+      const res = await fetchWithAccount({
+        url: "/api/teams/auth-url",
+        emailAccountId,
+      });
+      if (!res.ok) {
+        throw new Error("Failed to get Teams auth URL");
+      }
+      const data: GetTeamsAuthUrlResponse = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No auth URL returned");
+      }
+    } catch (error) {
+      captureException(error, {
+        extra: { context: "Teams OAuth initiation" },
+      });
+      toastError({ description: "Failed to connect Teams" });
+      setConnectingTeams(false);
+    }
+  };
+
   return (
     <>
       <ItemSeparator />
@@ -148,42 +187,56 @@ export function ConnectedAppsSection({
           <ItemTitle>Connected Apps</ItemTitle>
         </ItemContent>
         <ItemActions>
-          {!hasSlack && slackAvailable ? (
-            existingWorkspace ? (
-              <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            {!hasSlack && slackAvailable ? (
+              existingWorkspace ? (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={linkStatus === "executing"}
+                    onClick={handleLinkSlack}
+                  >
+                    <SlackIcon className="mr-2 h-4 w-4" />
+                    {linkStatus === "executing"
+                      ? "Linking..."
+                      : `Link to ${existingWorkspace.teamName}`}
+                  </Button>
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline underline-offset-4"
+                    onClick={() => {
+                      if (authUrl) window.location.href = authUrl;
+                    }}
+                  >
+                    Install manually
+                  </button>
+                </div>
+              ) : (
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={linkStatus === "executing"}
-                  onClick={handleLinkSlack}
+                  disabled={connectingSlack || isLoading}
+                  onClick={handleConnectSlack}
                 >
                   <SlackIcon className="mr-2 h-4 w-4" />
-                  {linkStatus === "executing"
-                    ? "Linking..."
-                    : `Link to ${existingWorkspace.teamName}`}
+                  {connectingSlack ? "Connecting..." : "Connect Slack"}
                 </Button>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground underline underline-offset-4"
-                  onClick={() => {
-                    if (authUrl) window.location.href = authUrl;
-                  }}
-                >
-                  Install manually
-                </button>
-              </div>
-            ) : (
+              )
+            ) : null}
+
+            {!hasTeams && teamsAvailable ? (
               <Button
                 variant="outline"
                 size="sm"
-                disabled={connectingSlack || isLoading}
-                onClick={handleConnectSlack}
+                disabled={connectingTeams || isLoading}
+                onClick={handleConnectTeams}
               >
-                <SlackIcon className="mr-2 h-4 w-4" />
-                {connectingSlack ? "Connecting..." : "Connect Slack"}
+                <MessageSquareIcon className="mr-2 h-4 w-4" />
+                {connectingTeams ? "Connecting..." : "Connect Teams"}
               </Button>
-            )
-          ) : null}
+            ) : null}
+          </div>
         </ItemActions>
       </Item>
       <LoadingContent loading={isLoading} error={error} loadingComponent={null}>
@@ -227,18 +280,22 @@ function ConnectedChannelRow({
     setSelectingTarget(!channel.channelId);
   }, [channel.channelId]);
 
-  const selectingSlackTarget = channel.provider === "SLACK" && selectingTarget;
+  const selectingMessagingTarget =
+    (channel.provider === "SLACK" || channel.provider === "TEAMS") &&
+    selectingTarget;
   const {
     data: targetsData,
     isLoading: isLoadingTargets,
     error: targetsError,
     mutate: mutateTargets,
   } = useChannelTargets(
-    selectingSlackTarget ? channel.id : null,
+    selectingMessagingTarget ? channel.id : null,
     emailAccountId,
   );
-  const privateTargets =
-    targetsData?.targets.filter((target) => target.isPrivate) ?? [];
+  const selectableTargets =
+    channel.provider === "SLACK"
+      ? (targetsData?.targets.filter((target) => target.isPrivate) ?? [])
+      : (targetsData?.targets ?? []);
   const hasTargetLoadError = Boolean(targetsError || targetsData?.error);
   const selectionState = getSlackChannelSelectionState({
     channelId: channel.channelId,
@@ -251,7 +308,9 @@ function ConnectedChannelRow({
     disconnectChannelAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Slack disconnected" });
+        toastSuccess({
+          description: `${config?.name ?? "Messaging"} disconnected`,
+        });
         onUpdate();
       },
       onError: (error) => {
@@ -267,7 +326,9 @@ function ConnectedChannelRow({
     updateSlackChannelAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Slack channel updated" });
+        toastSuccess({
+          description: `${config?.name ?? "Messaging"} channel updated`,
+        });
         setSelectingTarget(false);
         onUpdate();
       },
@@ -295,7 +356,7 @@ function ConnectedChannelRow({
             )}
           </div>
 
-          {channel.provider === "SLACK" && (
+          {(channel.provider === "SLACK" || channel.provider === "TEAMS") && (
             <div className="space-y-1">
               {selectionState.showCurrentChannel ? (
                 <div className="space-y-0.5">
@@ -304,17 +365,20 @@ function ConnectedChannelRow({
                     className="text-xs text-muted-foreground underline underline-offset-4"
                     onClick={() => setSelectingTarget(true)}
                   >
-                    #{channel.channelName || channel.channelId}
+                    {channel.provider === "SLACK"
+                      ? `#${channel.channelName || channel.channelId}`
+                      : channel.channelName || channel.channelId}
                   </button>
                   <p className="text-xs text-muted-foreground">
-                    Inbox Zero sends notifications here (meeting briefs, filed
-                    documents) and responds to @mentions in this channel.
+                    {channel.provider === "SLACK"
+                      ? "Inbox Zero sends notifications here (meeting briefs, filed documents) and responds to @mentions in this channel."
+                      : "Inbox Zero sends notifications here (meeting briefs, filed documents)."}
                   </p>
                 </div>
               ) : (
                 <Select
                   onValueChange={(value) => {
-                    const target = privateTargets?.find((t) => t.id === value);
+                    const target = selectableTargets.find((t) => t.id === value);
                     if (!target) return;
 
                     executeSetTarget({
@@ -336,27 +400,33 @@ function ConnectedChannelRow({
                           ? "Failed to load channels"
                           : isLoadingTargets
                             ? "Loading channels..."
-                            : "Select private channel"
+                            : channel.provider === "SLACK"
+                              ? "Select private channel"
+                              : "Select channel"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {privateTargets?.map((target) => (
+                    {selectableTargets.map((target) => (
                       <SelectItem key={target.id} value={target.id}>
-                        <LockIcon className="mr-1 inline h-3 w-3" />
+                        {target.isPrivate && (
+                          <LockIcon className="mr-1 inline h-3 w-3" />
+                        )}
                         {target.name}
                       </SelectItem>
                     ))}
-                    {!isLoadingTargets && privateTargets.length === 0 && (
+                    {!isLoadingTargets && selectableTargets.length === 0 && (
                       <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                        No private channels found
+                        {channel.provider === "SLACK"
+                          ? "No private channels found"
+                          : "No channels found"}
                       </div>
                     )}
                   </SelectContent>
                 </Select>
               )}
 
-              {selectionState.showInviteHint && (
+              {selectionState.showInviteHint && channel.provider === "SLACK" && (
                 <div className="text-xs text-muted-foreground">
                   Pick a private channel for notifications and @mentions. Invite
                   the bot with{" "}
@@ -372,7 +442,9 @@ function ConnectedChannelRow({
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   {selectionState.showErrorHint && (
                     <>
-                      <span>Unable to load Slack channels.</span>
+                      <span>
+                        Unable to load {config?.name ?? "messaging"} channels.
+                      </span>
                       <button
                         type="button"
                         className="underline underline-offset-4"
@@ -425,7 +497,7 @@ export function useSlackNotifications(enabled: boolean) {
     const error = searchParams.get("error");
     const errorReason = searchParams.get("error_reason");
     const errorDetail = searchParams.get("error_detail");
-    const resolvedReason = resolveSlackErrorReason(errorReason, errorDetail);
+    const resolvedReason = resolveConnectionErrorReason(errorReason, errorDetail);
 
     if (!message && !error && !errorReason && !errorDetail) return;
 
@@ -434,18 +506,21 @@ export function useSlackNotifications(enabled: boolean) {
     if (message === "slack_connected") {
       toastSuccess({ description: "Slack connected" });
     }
+    if (message === "teams_connected") {
+      toastSuccess({ description: "Teams connected" });
+    }
     if (message === "processing") {
       toastInfo({
-        title: "Slack connection in progress",
+        title: "Connection in progress",
         description:
-          "Slack is still finalizing your connection. Please refresh in a moment.",
+          "Your messaging integration is still finalizing. Please refresh in a moment.",
       });
     }
 
     if (error === "connection_failed" || errorDetail) {
       toastError({
-        title: "Slack connection failed",
-        description: getSlackConnectionFailedDescription(resolvedReason),
+        title: "Connection failed",
+        description: getConnectionFailedDescription(resolvedReason),
       });
     }
 
@@ -465,7 +540,7 @@ export function useSlackNotifications(enabled: boolean) {
   }, [enabled, pathname, router, searchParams]);
 }
 
-function getSlackConnectionFailedDescription(
+function getConnectionFailedDescription(
   errorReason: string | null,
 ): string {
   if (errorReason === "oauth_invalid_team_for_non_distributed_app") {
@@ -473,7 +548,7 @@ function getSlackConnectionFailedDescription(
   }
 
   if (errorReason === "oauth_invalid_code") {
-    return "Slack returned an invalid or expired code. Please try connecting again.";
+    return "The provider returned an invalid or expired code. Please try connecting again.";
   }
 
   if (
@@ -482,13 +557,13 @@ function getSlackConnectionFailedDescription(
     errorReason === "invalid_state" ||
     errorReason === "invalid_state_format"
   ) {
-    return "Slack session validation failed. Please try connecting again.";
+    return "Session validation failed. Please try connecting again.";
   }
 
-  return "We couldn't complete the Slack connection. Please try again.";
+  return "We couldn't complete the connection. Please try again.";
 }
 
-function resolveSlackErrorReason(
+function resolveConnectionErrorReason(
   errorReason: string | null,
   errorDetail: string | null,
 ): string | null {

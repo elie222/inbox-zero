@@ -1,10 +1,13 @@
 import { z } from "zod";
 
-export const updateSlackChannelBody = z.object({
+export const updateMessagingChannelBody = z.object({
   channelId: z.string().min(1),
   targetId: z.string().min(1),
   targetName: z.string().min(1),
 });
+
+// Backward-compatible alias while call sites migrate.
+export const updateSlackChannelBody = updateMessagingChannelBody;
 
 export const updateChannelFeaturesBody = z.object({
   channelId: z.string().min(1),

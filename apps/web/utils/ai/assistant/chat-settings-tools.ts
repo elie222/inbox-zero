@@ -260,13 +260,24 @@ const accountSettingsSnapshotRawSelect = {
   },
   messagingChannels: {
     where: {
-      provider: MessagingProvider.SLACK,
+      provider: { in: [MessagingProvider.SLACK, MessagingProvider.TEAMS] },
       isConnected: true,
-      accessToken: { not: null },
-      OR: [{ providerUserId: { not: null } }, { channelId: { not: null } }],
+      OR: [
+        { accessToken: { not: null } },
+        {
+          provider: MessagingProvider.TEAMS,
+          refreshToken: { not: null },
+        },
+      ],
+      AND: [
+        {
+          OR: [{ providerUserId: { not: null } }, { channelId: { not: null } }],
+        },
+      ],
     },
     select: {
       id: true,
+      provider: true,
       channelName: true,
       teamName: true,
       isConnected: true,
@@ -298,6 +309,7 @@ const scheduledCheckInsAutomationJobSelect = {
   messagingChannelId: true,
   messagingChannel: {
     select: {
+      provider: true,
       channelName: true,
       teamName: true,
     },
@@ -1012,7 +1024,7 @@ function resolveScheduledCheckInsConfig({
 
   if (enabled && !messagingChannelId) {
     throw new Error(
-      "Provide a messagingChannelId when enabling scheduled check-ins. Ask the user to choose a Slack destination from availableChannels.",
+      "Provide a messagingChannelId when enabling scheduled check-ins. Ask the user to choose a destination from availableChannels.",
     );
   }
 
@@ -1024,7 +1036,7 @@ function resolveScheduledCheckInsConfig({
     )
   ) {
     throw new Error(
-      "Selected Slack channel is unavailable. Refresh capabilities and choose another channel.",
+      "Selected messaging channel is unavailable. Refresh capabilities and choose another channel.",
     );
   }
 
@@ -1102,11 +1114,16 @@ function buildScheduledCheckInsSnapshot(
     .filter(
       (channel) =>
         channel.isConnected &&
-        Boolean(channel.providerUserId || channel.channelId),
+        Boolean(
+          channel.provider === MessagingProvider.TEAMS
+            ? channel.channelId
+            : channel.providerUserId || channel.channelId,
+        ),
     )
     .map((channel) => ({
       id: channel.id,
-      label: formatSlackChannelLabel({
+      label: formatMessagingChannelLabel({
+        provider: channel.provider,
         channelName: channel.channelName,
         teamName: channel.teamName,
       }),
@@ -1123,7 +1140,8 @@ function buildScheduledCheckInsSnapshot(
     nextRunAt: emailAccount.automationJob?.nextRunAt.toISOString() ?? null,
     messagingChannelId: emailAccount.automationJob?.messagingChannelId ?? null,
     messagingChannelName: emailAccount.automationJob?.messagingChannel
-      ? formatSlackChannelLabel({
+      ? formatMessagingChannelLabel({
+          provider: emailAccount.automationJob.messagingChannel.provider,
           channelName: emailAccount.automationJob.messagingChannel.channelName,
           teamName: emailAccount.automationJob.messagingChannel.teamName,
         })
@@ -1132,16 +1150,24 @@ function buildScheduledCheckInsSnapshot(
   };
 }
 
-function formatSlackChannelLabel({
+function formatMessagingChannelLabel({
+  provider,
   channelName,
   teamName,
 }: {
+  provider: MessagingProvider;
   channelName: string | null;
   teamName: string | null;
 }) {
-  if (channelName && teamName) return `#${channelName} (${teamName})`;
-  if (channelName) return `#${channelName}`;
-  return teamName || "Slack destination";
+  if (provider === MessagingProvider.SLACK) {
+    if (channelName && teamName) return `#${channelName} (${teamName})`;
+    if (channelName) return `#${channelName}`;
+    return teamName || "Slack destination";
+  }
+
+  if (channelName && teamName) return `${channelName} (${teamName})`;
+  if (channelName) return channelName;
+  return teamName || "Teams destination";
 }
 
 function requiresScheduledCheckInsPremium({

@@ -40,6 +40,7 @@ const PROVIDER_CONFIG: Record<
   }
 > = {
   SLACK: { name: "Slack", icon: HashIcon, targetPrefix: "#" },
+  TEAMS: { name: "Teams", icon: MessageSquareIcon, targetPrefix: "" },
 };
 
 export function DeliveryChannelsSetting() {
@@ -74,9 +75,13 @@ export function DeliveryChannelsSetting() {
   const connectedChannels =
     channelsData?.channels.filter((c) => c.isConnected) ?? [];
 
-  const hasSlack = connectedChannels.some((c) => c.provider === "SLACK");
-  const slackAvailable =
-    channelsData?.availableProviders?.includes("SLACK") ?? false;
+  const hasMessagingChannel = connectedChannels.some(
+    (c) => c.provider === "SLACK" || c.provider === "TEAMS",
+  );
+  const hasMessagingProviderAvailable =
+    channelsData?.availableProviders?.some(
+      (provider) => provider === "SLACK" || provider === "TEAMS",
+    ) ?? false;
 
   return (
     <Card>
@@ -109,14 +114,16 @@ export function DeliveryChannelsSetting() {
             ))}
           </LoadingContent>
 
-          {!isLoadingChannels && !hasSlack && slackAvailable && (
+          {!isLoadingChannels &&
+            !hasMessagingChannel &&
+            hasMessagingProviderAvailable && (
             <MutedText className="text-xs">
-              Want to receive briefs in Slack?{" "}
+              Want to receive briefs in Slack or Teams?{" "}
               <Link
                 href={prefixPath(emailAccountId, "/settings")}
                 className="underline text-foreground"
               >
-                Connect Slack in Settings
+                Connect in Settings
               </Link>
             </MutedText>
           )}
@@ -151,13 +158,18 @@ function ChannelRow({
     error: targetsError,
   } = useChannelTargets(selectingTarget ? channel.id : null);
 
-  const privateTargets = targetsData?.targets.filter((t) => t.isPrivate);
+  const selectableTargets =
+    channel.provider === "SLACK"
+      ? targetsData?.targets.filter((t) => t.isPrivate)
+      : targetsData?.targets;
 
   const { execute: executeTarget } = useAction(
     updateSlackChannelAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Slack channel updated" });
+        toastSuccess({
+          description: `${config?.name ?? "Messaging"} channel updated`,
+        });
         setSelectingTarget(false);
         onUpdate();
       },
@@ -196,7 +208,7 @@ function ChannelRow({
               </span>
               <Select
                 onValueChange={(value) => {
-                  const target = privateTargets?.find((t) => t.id === value);
+                  const target = selectableTargets?.find((t) => t.id === value);
                   if (target) {
                     executeTarget({
                       channelId: channel.id,
@@ -214,29 +226,34 @@ function ChannelRow({
                         ? "Failed to load channels"
                         : isLoadingTargets
                           ? "Loading channels..."
-                          : "Select private channel"
+                          : channel.provider === "SLACK"
+                            ? "Select private channel"
+                            : "Select channel"
                     }
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {privateTargets?.map((target) => (
+                  {selectableTargets?.map((target) => (
                     <SelectItem key={target.id} value={target.id}>
-                      <LockIcon className="inline h-3 w-3 mr-1" />
+                      {target.isPrivate && (
+                        <LockIcon className="inline h-3 w-3 mr-1" />
+                      )}
                       {target.name}
                     </SelectItem>
                   ))}
                   {!isLoadingTargets &&
-                    privateTargets &&
-                    privateTargets.length === 0 && (
+                    selectableTargets &&
+                    selectableTargets.length === 0 && (
                       <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                        No private channels found. Create one and invite the bot
-                        first.
+                        {channel.provider === "SLACK"
+                          ? "No private channels found. Create one and invite the bot first."
+                          : "No channels found."}
                       </div>
                     )}
                 </SelectContent>
               </Select>
             </div>
-            {!isLoadingTargets && (
+            {!isLoadingTargets && channel.provider === "SLACK" && (
               <MutedText className="text-xs">
                 Pick a channel to receive meeting briefs. Create a private Slack
                 channel, then type{" "}
@@ -256,7 +273,7 @@ function ChannelRow({
           >
             {config?.name ?? channel.provider}{" "}
             <span className="text-muted-foreground font-normal">
-              &middot; {config?.targetPrefix}
+              &middot; {config?.targetPrefix || ""}
               {channel.channelName}
             </span>
           </button>

@@ -1443,6 +1443,7 @@ enum GroupItemSource {
 
 enum MessagingProvider {
   SLACK
+  TEAMS
 }
 
 enum AutomationJobRunStatus {

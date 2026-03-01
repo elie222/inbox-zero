@@ -12,6 +12,7 @@ import {
   AutomationJobConfigurationError,
   sendAutomationMessageToSlack,
 } from "@/utils/automation-jobs/slack";
+import { sendAutomationMessageToTeams } from "@/utils/automation-jobs/teams";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
 
@@ -155,8 +156,10 @@ export const POST = withError(
         return new Response("Messaging channel disconnected", { status: 200 });
       }
 
+      const messagingProvider = run.automationJob.messagingChannel.provider;
       if (
-        run.automationJob.messagingChannel.provider !== MessagingProvider.SLACK
+        messagingProvider !== MessagingProvider.SLACK &&
+        messagingProvider !== MessagingProvider.TEAMS
       ) {
         throw new AutomationJobConfigurationError(
           "Unsupported messaging provider for automation job",
@@ -184,11 +187,18 @@ export const POST = withError(
         logger: runLogger,
       });
 
-      const slackResult = await sendAutomationMessageToSlack({
-        channel: run.automationJob.messagingChannel,
-        text: outboundMessage,
-        logger: runLogger,
-      });
+      const messagingResult =
+        messagingProvider === MessagingProvider.SLACK
+          ? await sendAutomationMessageToSlack({
+              channel: run.automationJob.messagingChannel,
+              text: outboundMessage,
+              logger: runLogger,
+            })
+          : await sendAutomationMessageToTeams({
+              channel: run.automationJob.messagingChannel,
+              text: outboundMessage,
+              logger: runLogger,
+            });
 
       await prisma.automationJobRun.update({
         where: { id: automationJobRunId },
@@ -196,7 +206,7 @@ export const POST = withError(
           status: AutomationJobRunStatus.SENT,
           processedAt: new Date(),
           outboundMessage,
-          providerMessageId: slackResult.messageId,
+          providerMessageId: messagingResult.messageId,
           error: null,
         },
       });
