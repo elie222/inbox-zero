@@ -40,7 +40,6 @@ export const POST = withError(
 
     const { emailAccountId } = parseResult.data;
     const logger = request.logger.with({ emailAccountId });
-    const startTime = Date.now();
     const result = await processFollowUpRemindersForEmailAccountId({
       emailAccountId,
       logger,
@@ -48,7 +47,6 @@ export const POST = withError(
 
     logger.info("Finished follow-up reminder account task", {
       result,
-      processingTimeMs: Date.now() - startTime,
     });
 
     return NextResponse.json({ result });

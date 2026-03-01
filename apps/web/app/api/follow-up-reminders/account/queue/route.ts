@@ -30,8 +30,6 @@ export const POST = handleCallback<z.infer<typeof queuePayloadSchema>>(
       deliveryCount: metadata.deliveryCount,
     });
 
-    const startTime = Date.now();
-
     try {
       const result = await processFollowUpRemindersForEmailAccountId({
         emailAccountId,
@@ -40,7 +38,6 @@ export const POST = handleCallback<z.infer<typeof queuePayloadSchema>>(
 
       runLogger.info("Finished queued follow-up reminder account task", {
         result,
-        processingTimeMs: Date.now() - startTime,
       });
     } catch (error) {
       runLogger.error("Failed queued follow-up reminder account task", {

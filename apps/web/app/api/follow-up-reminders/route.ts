@@ -14,7 +14,7 @@ export const maxDuration = 800;
 const FOLLOW_UP_REMINDER_ACCOUNT_PATH = "/api/follow-up-reminders/account";
 const FOLLOW_UP_REMINDER_ACCOUNT_TOPIC = "follow-up-reminders-account";
 const INTERNAL_DISPATCH_CONCURRENCY = 10;
-const QUEUE_ENQUEUE_CONCURRENCY = 25;
+const QUEUE_ENQUEUE_CONCURRENCY = 10;
 
 export const GET = withError("follow-up-reminders", async (request) => {
   if (!hasCronSecret(request)) {
