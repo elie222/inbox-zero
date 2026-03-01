@@ -1,11 +1,318 @@
 ---
 title: 'LLM'
-description: 'Configure your default AI provider and API key'
+description: 'Configure your AI provider via environment variables'
 ---
 
-In your `.env` file, uncomment one of the LLM provider blocks and configure provider credentials (API key for most providers, service account credentials for Vertex AI):
+Configure your LLM providers by setting environment variables in your `.env` file (or passing them directly to the container — see [Docker setup](#docker-setup) below).
 
-You can also set `LLM_API_KEY` as a shared fallback so you don't need to set a provider-specific key for every provider.
+<Warning>
+  API keys require billing credits on the provider's platform. A ChatGPT Plus or Claude Pro subscription does **not** include API access.
+</Warning>
+
+---
+
+## Model Slots
+
+Inbox Zero routes tasks to different model "slots" based on complexity and cost. Each slot can be configured independently.
+
+| Slot | Env prefix | Used for | Falls back to |
+|---|---|---|---|
+| **DEFAULT** | `DEFAULT_LLM_*` | Most tasks: rule matching, categorisation, drafting | — |
+| **ECONOMY** | `ECONOMY_LLM_*` | High-volume, lower-complexity tasks | DEFAULT |
+| **CHAT** | `CHAT_LLM_*` | Interactive assistant and compose panel | DEFAULT |
+| **NANO** | `NANO_LLM_*` | Lightweight tasks; also activates when weekly spend limit is hit | ECONOMY → DEFAULT |
+
+For most providers, `DEFAULT_LLM_PROVIDER` and `DEFAULT_LLM_MODEL` are required. Ollama and OpenAI-compatible have their own model variables — see their sections below. All other slots are optional and fall back as shown above (NANO falls through ECONOMY first, then DEFAULT).
+
+---
+
+## Shared API Key
+
+Most providers accept `LLM_API_KEY` as a single shared key, so you don't need to set a provider-specific variable for every provider:
+
+```env
+LLM_API_KEY=your-api-key-here
+```
+
+Provider-specific key names (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) also work and take precedence over `LLM_API_KEY` if both are set.
+
+---
+
+## Provider Reference
+
+Uncomment one block in your `.env` and fill in the credentials.
+
+### OpenAI
+
+```env
+DEFAULT_LLM_PROVIDER=openai
+DEFAULT_LLM_MODEL=gpt-4o
+LLM_API_KEY=sk-...
+
+# Optional: prevent OpenAI from storing your inputs and outputs
+# OPENAI_ZERO_DATA_RETENTION=true
+```
+
+### Anthropic
+
+```env
+DEFAULT_LLM_PROVIDER=anthropic
+DEFAULT_LLM_MODEL=claude-sonnet-4-5-20250929
+LLM_API_KEY=sk-ant-...
+```
+
+### Azure OpenAI
+
+```env
+DEFAULT_LLM_PROVIDER=azure
+DEFAULT_LLM_MODEL=gpt-4o-mini
+LLM_API_KEY=<azure-api-key>
+AZURE_RESOURCE_NAME=<your-resource-name>
+AZURE_API_VERSION=2025-01-01-preview
+```
+
+### Google Gemini (AI Studio)
+
+```env
+DEFAULT_LLM_PROVIDER=google
+DEFAULT_LLM_MODEL=gemini-2.5-flash-preview-05-20
+LLM_API_KEY=<google-api-key>
+```
+
+### Google Vertex AI
+
+```env
+DEFAULT_LLM_PROVIDER=vertex
+DEFAULT_LLM_MODEL=gemini-2.5-flash
+GOOGLE_VERTEX_PROJECT=my-gcp-project
+GOOGLE_VERTEX_LOCATION=us-central1
+# Service account (choose one method):
+GOOGLE_VERTEX_CLIENT_EMAIL=sa@project.iam.gserviceaccount.com
+GOOGLE_VERTEX_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
+# Or a path to a credentials JSON file:
+# GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json
+```
+
+### Groq
+
+```env
+DEFAULT_LLM_PROVIDER=groq
+DEFAULT_LLM_MODEL=llama-3.3-70b-versatile
+LLM_API_KEY=gsk_...
+```
+
+### OpenRouter
+
+```env
+DEFAULT_LLM_PROVIDER=openrouter
+DEFAULT_LLM_MODEL=anthropic/claude-sonnet-4-5-20250929
+LLM_API_KEY=sk-or-...
+```
+
+### Vercel AI Gateway
+
+```env
+DEFAULT_LLM_PROVIDER=aigateway
+DEFAULT_LLM_MODEL=anthropic/claude-sonnet-4-5-20250929
+LLM_API_KEY=<gateway-key>
+```
+
+### AWS Bedrock
+
+```env
+DEFAULT_LLM_PROVIDER=bedrock
+DEFAULT_LLM_MODEL=anthropic.claude-sonnet-4-5-20250929-v1:0
+BEDROCK_ACCESS_KEY=AKIA...
+BEDROCK_SECRET_KEY=...
+BEDROCK_REGION=us-west-2
+```
+
+### Ollama (local)
+
+No API key is needed. `LLM_API_KEY` is ignored for this provider.
+
+```env
+DEFAULT_LLM_PROVIDER=ollama
+OLLAMA_MODEL=llama3
+OLLAMA_BASE_URL=http://localhost:11434/api
+```
+
+<Note>
+  Ollama uses its own `OLLAMA_MODEL` variable — it does not read `DEFAULT_LLM_MODEL`.
+  When running in Docker, `localhost` resolves to the container itself, not the host machine.
+  See [Reaching a local LLM from Docker](#reaching-a-local-llm-from-docker) below.
+</Note>
+
+### OpenAI-Compatible (LM Studio, vLLM, LiteLLM, etc.)
+
+Use this for any server that implements the OpenAI REST API. No API key is needed for
+unauthenticated local servers — set `LLM_API_KEY=none`.
+
+```env
+DEFAULT_LLM_PROVIDER=openai-compatible
+OPENAI_COMPATIBLE_MODEL=my-model-name
+OPENAI_COMPATIBLE_BASE_URL=http://192.168.1.100:1234/v1
+LLM_API_KEY=none
+```
+
+<Note>
+  `OPENAI_COMPATIBLE_MODEL` is the required variable for this provider. You can optionally
+  also set `DEFAULT_LLM_MODEL`, but it is not required — `OPENAI_COMPATIBLE_MODEL` is used
+  as the fallback if no other model is specified.
+</Note>
+
+---
+
+## Fallback Chains
+
+Each slot supports a comma-separated fallback chain. If the primary model fails — due to a
+network error, quota limit, or transient API error — the next entry is tried automatically.
+
+```env
+# Syntax: provider:model,provider:model,...
+DEFAULT_LLM_FALLBACKS=openai:gpt-4o-mini,anthropic:claude-sonnet-4-5-20250929
+ECONOMY_LLM_FALLBACKS=openrouter:google/gemini-2.5-flash-preview-05-20
+CHAT_LLM_FALLBACKS=openrouter:anthropic/claude-haiku-3-5-20241022
+```
+
+<Note>
+  Fallbacks are disabled for users who have configured a personal API key in the Settings UI.
+  They apply only to server-level defaults.
+</Note>
+
+---
+
+## Example Configurations
+
+### Per-slot cost optimisation
+
+```env
+DEFAULT_LLM_PROVIDER=openrouter
+DEFAULT_LLM_MODEL=anthropic/claude-sonnet-4-5-20250929
+ECONOMY_LLM_PROVIDER=openrouter
+ECONOMY_LLM_MODEL=google/gemini-2.5-flash-preview-05-20
+NANO_LLM_PROVIDER=openrouter
+NANO_LLM_MODEL=google/gemini-2.0-flash-lite
+LLM_API_KEY=sk-or-...
+```
+
+### Local LLM with cloud fallback
+
+Primary: local server. Fallback: OpenAI if the local server is unreachable.
+
+```env
+DEFAULT_LLM_PROVIDER=openai-compatible
+OPENAI_COMPATIBLE_MODEL=my-model-name
+OPENAI_COMPATIBLE_BASE_URL=http://192.168.1.100:1234/v1
+LLM_API_KEY=none
+
+OPENAI_API_KEY=sk-...
+DEFAULT_LLM_FALLBACKS=openai:gpt-4o-mini
+```
+
+### Spend-capped setup
+
+Switch to a cheaper nano model when the weekly AI spend limit is reached.
+
+```env
+DEFAULT_LLM_PROVIDER=openai
+DEFAULT_LLM_MODEL=gpt-4o
+LLM_API_KEY=sk-...
+
+NANO_LLM_PROVIDER=openai
+NANO_LLM_MODEL=gpt-4o-mini
+AI_NANO_WEEKLY_SPEND_LIMIT_USD=3
+```
+
+---
+
+## Docker Setup
+
+### Passing environment variables to the container
+
+Your `.env` file is read by Docker Compose to expand `${VARIABLE}` references in
+`docker-compose.yml`. The variable names inside the container — which the app actually
+reads — must be mapped explicitly.
+
+<Warning>
+  The most common self-hosting mistake is passing wrong variable names into the container.
+  This causes a silent empty value, and the app logs a "Cannot connect to API: " error
+  with no URL, which is difficult to diagnose.
+</Warning>
+
+The safest pattern is to use the same variable name on both sides:
+
+```yaml
+# docker-compose.yml — environment block
+environment:
+  # --- LLM: Primary ---
+  DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER}
+  DEFAULT_LLM_MODEL: ${DEFAULT_LLM_MODEL}
+
+  # For openai-compatible providers, all three of these are required:
+  OPENAI_COMPATIBLE_BASE_URL: ${OPENAI_COMPATIBLE_BASE_URL}
+  OPENAI_COMPATIBLE_MODEL: ${OPENAI_COMPATIBLE_MODEL}
+  LLM_API_KEY: ${LLM_API_KEY}
+
+  # --- LLM: Fallback ---
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+  DEFAULT_LLM_FALLBACKS: ${DEFAULT_LLM_FALLBACKS}
+```
+
+The variables the app reads are fixed. A common incorrect pattern to avoid:
+
+```yaml
+# WRONG — these names are not read by the app
+OPENAI_BASE_COMPATIBLE_URL: ${OPENAI_BASE_URL}   # wrong name, wrong source
+OPENAI_API_COMPATIBLE_KEY: ${OPENAI_API_KEY}     # wrong name, wrong source
+```
+
+### Reaching a local LLM from Docker
+
+Docker bridge-networked containers route traffic through the host's network stack, so a
+LAN or VPN IP reachable from the host is also reachable from the container. The exception
+is `localhost` and `127.0.0.1`, which resolve to the container itself.
+
+| LLM server location | Use in `OPENAI_COMPATIBLE_BASE_URL` / `OLLAMA_BASE_URL` |
+|---|---|
+| Same machine as Docker host (macOS / Windows) | `http://host.docker.internal:1234/v1` |
+| Same machine as Docker host (Linux) | `http://host.docker.internal:1234/v1` — requires `extra_hosts: ["host.docker.internal:host-gateway"]` in your compose service, or use the bridge gateway IP (typically `172.17.0.1`) |
+| Another machine on LAN | `http://192.168.1.100:1234/v1` |
+| WireGuard / VPN peer | Use the WireGuard peer IP directly |
+
+To confirm the container can reach your LLM server:
+
+```bash
+docker exec inbox-zero-web wget -q -O- http://<llm-host>:<port>/v1/models
+```
+
+### Verifying the active configuration
+
+When a request is processed, the app logs the resolved model:
+
+```
+[llms/model]: Using model {
+  "provider": "openai-compatible",
+  "model": "my-model-name",
+  "fallbackModels": ["openai:gpt-4o-mini"]
+}
+```
+
+If you immediately see:
+
+```
+[llms]: LLM object generation failed ... "Cannot connect to API: "
+```
+
+with a blank URL, the container is not receiving `OPENAI_COMPATIBLE_BASE_URL`. Verify
+the variable name in your `docker-compose.yml` environment block exactly matches the
+name shown above.
+
+---
+
+## Settings UI
+
+Users can also set a personal API key and preferred model in **Settings → AI** within the app. This is available for cloud providers:
 
 - [Anthropic](https://console.anthropic.com/settings/keys)
 - [OpenAI](https://platform.openai.com/api-keys)
@@ -16,8 +323,4 @@ You can also set `LLM_API_KEY` as a shared fallback so you don't need to set a p
 - [AWS Bedrock](https://aws.amazon.com/bedrock/)
 - [Groq](https://console.groq.com/)
 
-Users can also change the model in the app on the Settings page.
-
-<Warning>
-  API keys require billing credits on the provider's platform. A ChatGPT Plus or Claude Pro subscription does **not** include API access.
-</Warning>
+Note that per-user API keys override the server-wide defaults but come with trade-offs: each user must configure their own key, fallback chains are disabled, and there is no way to set different models per slot (economy / default / chat). For most self-hosted deployments, environment variables are the better approach.
