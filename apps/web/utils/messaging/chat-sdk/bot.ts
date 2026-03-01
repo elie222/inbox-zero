@@ -503,10 +503,15 @@ async function processMessagingAssistantMessage({
         chatId: chat.id,
         memories: await memoriesPromise,
         inboxStats,
+        responseSurface: "messaging",
+        messagingPlatform: context.provider,
         logger: threadLogger,
       });
 
-      const fullText = await result.text;
+      const fullText = normalizeMessagingAssistantText({
+        text: await result.text,
+        provider: context.provider,
+      });
 
       await prisma.chatMessage.create({
         data: {
@@ -1170,6 +1175,42 @@ function normalizeThreadIdForStorage(threadId: string): string {
 
 function stripLeadingSlackMention(text: string): string {
   return text.replace(/^@\S+\s*/, "").trim();
+}
+
+function normalizeMessagingAssistantText({
+  text,
+  provider,
+}: {
+  text: string;
+  provider: SupportedPlatform;
+}) {
+  let normalized = text;
+
+  normalized = normalized.replace(
+    /click (?:the )?(?:confirmation|approve|send) button[^.]*\./gi,
+    "This draft is pending confirmation in Inbox Zero.",
+  );
+  normalized = normalized.replace(
+    /(?:you can|please) click [^.]*button[^.]*\./gi,
+    "This draft is pending confirmation in Inbox Zero.",
+  );
+
+  if (
+    /\bpending\b/i.test(normalized) &&
+    /\b(draft|email)\b/i.test(normalized) &&
+    !/open inbox zero/i.test(normalized)
+  ) {
+    const platformName = getMessagingPlatformName(provider);
+    normalized = `${normalized}\n\nTo send it, open Inbox Zero in the web app and confirm the draft (there is no in-chat approval button in ${platformName} yet).`;
+  }
+
+  return normalized;
+}
+
+function getMessagingPlatformName(provider: SupportedPlatform) {
+  if (provider === "slack") return "Slack";
+  if (provider === "teams") return "Teams";
+  return "Telegram";
 }
 
 function toMessagingProvider(provider: "teams" | "telegram") {

@@ -77,6 +77,8 @@ export async function aiProcessAssistantChat({
   chatId,
   memories,
   inboxStats,
+  responseSurface = "web",
+  messagingPlatform,
   logger,
 }: {
   messages: ModelMessage[];
@@ -86,6 +88,8 @@ export async function aiProcessAssistantChat({
   chatId?: string;
   memories?: { content: string; date: string }[];
   inboxStats?: { total: number; unread: number } | null;
+  responseSurface?: "web" | "messaging";
+  messagingPlatform?: "slack" | "teams" | "telegram";
   logger: Logger;
 }) {
   let ruleReadState: RuleReadState | null = null;
@@ -112,10 +116,10 @@ Tool usage strategy (progressive disclosure):
 - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
 ${
   env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
-    ? `- When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
+    ? `${getSendEmailSurfacePolicy({ responseSurface, messagingPlatform })}
+- When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
 - When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.
 - Only send emails when the user clearly asks to send now.
-  - sendEmail, replyEmail, and forwardEmail prepare a pending action only. The user must click a confirmation button in the UI before any email is actually sent.
 - After these tools run, explicitly tell the user the email is pending confirmation. Do not say it was sent unless the confirmation result says it was sent.`
     : `- Email sending actions are disabled in this environment. sendEmail, replyEmail, and forwardEmail tools are unavailable.
 - If the user asks to send, reply, or forward, clearly explain that this environment cannot prepare or send those actions.
@@ -535,4 +539,30 @@ async function getExpectedFixContextSystemType({
   });
 
   return expectedRule?.systemType ?? null;
+}
+
+function getSendEmailSurfacePolicy({
+  responseSurface,
+  messagingPlatform,
+}: {
+  responseSurface: "web" | "messaging";
+  messagingPlatform?: "slack" | "teams" | "telegram";
+}) {
+  if (responseSurface === "web") {
+    return "- sendEmail, replyEmail, and forwardEmail prepare a pending action only. The user must click a confirmation button in the UI before any email is actually sent.";
+  }
+
+  const platformName = getMessagingPlatformName(messagingPlatform);
+  return `- sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.
+- In ${platformName}, there is no confirmation button or modal for these actions right now.
+- Tell the user to open Inbox Zero in the web app to review and confirm the pending draft.`;
+}
+
+function getMessagingPlatformName(
+  messagingPlatform?: "slack" | "teams" | "telegram",
+) {
+  if (messagingPlatform === "slack") return "Slack";
+  if (messagingPlatform === "teams") return "Teams";
+  if (messagingPlatform === "telegram") return "Telegram";
+  return "messaging chat";
 }

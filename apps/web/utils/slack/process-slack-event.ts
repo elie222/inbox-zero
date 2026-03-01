@@ -186,6 +186,8 @@ export async function processSlackEvent(
         chatId: chat.id,
         memories: await memoriesPromise,
         inboxStats,
+        responseSurface: "messaging",
+        messagingPlatform: "slack",
         logger: slackLogger,
       });
       fullText = await result.text;
