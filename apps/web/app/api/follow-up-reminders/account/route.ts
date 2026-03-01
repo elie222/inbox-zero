@@ -1,11 +1,12 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env } from "@/env";
 import { hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
-import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { withError } from "@/utils/middleware";
 import { processFollowUpRemindersForEmailAccountId } from "../process";
+
+export const maxDuration = 800;
 
 const bodySchema = z.object({
   emailAccountId: z.string().min(1),
@@ -39,26 +40,17 @@ export const POST = withError(
 
     const { emailAccountId } = parseResult.data;
     const logger = request.logger.with({ emailAccountId });
+    const startTime = Date.now();
+    const result = await processFollowUpRemindersForEmailAccountId({
+      emailAccountId,
+      logger,
+    });
 
-    after(() =>
-      runWithBackgroundLoggerFlush({
-        logger,
-        task: async () => {
-          const startTime = Date.now();
-          const result = await processFollowUpRemindersForEmailAccountId({
-            emailAccountId,
-            logger,
-          });
+    logger.info("Finished follow-up reminder account task", {
+      result,
+      processingTimeMs: Date.now() - startTime,
+    });
 
-          logger.info("Finished follow-up reminder account task", {
-            result,
-            processingTimeMs: Date.now() - startTime,
-          });
-        },
-        extra: { url: "/api/follow-up-reminders/account" },
-      }),
-    );
-
-    return NextResponse.json({ processing: true });
+    return NextResponse.json({ result });
   },
 );
