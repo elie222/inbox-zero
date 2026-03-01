@@ -577,7 +577,8 @@ function getSendEmailSurfacePolicy({
   const platformName = messagingPlatform
     ? getMessagingPlatformName(messagingPlatform)
     : "messaging chat";
+
   return `- sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.
-- In ${platformName}, there is no confirmation button or modal for these actions right now.
+- In ${platformName}, a Send confirmation button is provided in the thread.
 - Tell the user to ${getMessagingDraftConfirmationAction(messagingPlatform)}.`;
 }

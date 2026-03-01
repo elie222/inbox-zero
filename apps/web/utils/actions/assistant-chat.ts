@@ -57,87 +57,114 @@ export const confirmAssistantEmailAction = actionClient
     async ({
       ctx: { emailAccountId, provider, logger },
       parsedInput: { chatId, chatMessageId, toolCallId, actionType },
-    }) => {
-      const reservation = await reservePendingAssistantEmailAction({
+    }) =>
+      confirmAssistantEmailActionForAccount({
         chatId,
         chatMessageId,
         toolCallId,
         actionType,
         emailAccountId,
-        logger,
-      });
-
-      if (reservation.status === "confirmed") {
-        return {
-          success: true,
-          confirmationState: "confirmed" as const,
-          actionType,
-          confirmationResult: reservation.confirmationResult,
-        };
-      }
-
-      const emailProvider = await createEmailProvider({
-        emailAccountId,
         provider,
         logger,
-      });
-
-      let confirmationResult: AssistantEmailConfirmationResult;
-      try {
-        confirmationResult = await executeAssistantEmailAction({
-          output: reservation.output,
-          emailProvider,
-          emailAccountId,
-        });
-      } catch (error) {
-        await clearAssistantEmailPartProcessing({
-          chatMessageId: reservation.chatMessageId,
-          toolCallId,
-          actionType,
-          emailAccountId,
-        }).catch((processingError) => {
-          logger.error("Failed to clear processing state for email action", {
-            error: processingError,
-            actionType,
-          });
-        });
-
-        logger.error("Failed to confirm assistant email action", {
-          error,
-          actionType,
-        });
-        throw new SafeError(getAssistantEmailActionErrorMessage(actionType));
-      }
-
-      const updatedParts = updateAssistantEmailPartWithConfirmation({
-        parts: reservation.parts,
-        partIndex: reservation.partIndex,
-        confirmationResult,
-      });
-
-      try {
-        await persistConfirmedAssistantEmailPart({
-          chatMessageId: reservation.chatMessageId,
-          parts: updatedParts,
-        });
-      } catch (error) {
-        logger.error("Failed to persist confirmed assistant email action", {
-          error,
-          actionType,
-        });
-        throw new SafeError(
-          "Email was sent but confirmation state could not be saved. Please refresh and try again.",
-        );
-      }
-
-      return {
-        success: true,
-        confirmationState: "confirmed" as const,
-        actionType,
-        confirmationResult,
-      };
-    },
+      }),
   );
+
+export async function confirmAssistantEmailActionForAccount({
+  chatId,
+  chatMessageId,
+  toolCallId,
+  actionType,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  chatId: string;
+  chatMessageId: string;
+  toolCallId: string;
+  actionType: AssistantPendingEmailActionType;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) {
+  const reservation = await reservePendingAssistantEmailAction({
+    chatId,
+    chatMessageId,
+    toolCallId,
+    actionType,
+    emailAccountId,
+    logger,
+  });
+
+  if (reservation.status === "confirmed") {
+    return {
+      success: true,
+      confirmationState: "confirmed" as const,
+      actionType,
+      confirmationResult: reservation.confirmationResult,
+    };
+  }
+
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider,
+    logger,
+  });
+
+  let confirmationResult: AssistantEmailConfirmationResult;
+  try {
+    confirmationResult = await executeAssistantEmailAction({
+      output: reservation.output,
+      emailProvider,
+      emailAccountId,
+    });
+  } catch (error) {
+    await clearAssistantEmailPartProcessing({
+      chatMessageId: reservation.chatMessageId,
+      toolCallId,
+      actionType,
+      emailAccountId,
+    }).catch((processingError) => {
+      logger.error("Failed to clear processing state for email action", {
+        error: processingError,
+        actionType,
+      });
+    });
+
+    logger.error("Failed to confirm assistant email action", {
+      error,
+      actionType,
+    });
+    throw new SafeError(getAssistantEmailActionErrorMessage(actionType));
+  }
+
+  const updatedParts = updateAssistantEmailPartWithConfirmation({
+    parts: reservation.parts,
+    partIndex: reservation.partIndex,
+    confirmationResult,
+  });
+
+  try {
+    await persistConfirmedAssistantEmailPart({
+      chatMessageId: reservation.chatMessageId,
+      parts: updatedParts,
+    });
+  } catch (error) {
+    logger.error("Failed to persist confirmed assistant email action", {
+      error,
+      actionType,
+    });
+    throw new SafeError(
+      "Email was sent but confirmation state could not be saved. Please refresh and try again.",
+    );
+  }
+
+  return {
+    success: true,
+    confirmationState: "confirmed" as const,
+    actionType,
+    confirmationResult,
+  };
+}
 
 async function executeAssistantEmailAction({
   output,

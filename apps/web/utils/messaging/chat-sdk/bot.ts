@@ -12,10 +12,20 @@ import {
   type TelegramAdapter,
 } from "@chat-adapter/telegram";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { convertToModelMessages, type UIMessage } from "ai";
+import { createHash } from "node:crypto";
 import {
+  convertToModelMessages,
+  readUIMessageStream,
+  type UIMessage,
+} from "ai";
+import {
+  Actions,
+  Button,
+  Card,
+  CardText,
   Chat,
   ConsoleLogger,
+  type ActionEvent,
   type Adapter,
   type Message,
   type Thread,
@@ -23,6 +33,8 @@ import {
 import { env } from "@/env";
 import type { Prisma } from "@/generated/prisma/client";
 import { MessagingProvider } from "@/generated/prisma/enums";
+import { confirmAssistantEmailActionForAccount } from "@/utils/actions/assistant-chat";
+import type { AssistantPendingEmailActionType } from "@/utils/actions/assistant-chat.validation";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import { getRecentChatMemories } from "@/utils/ai/assistant/get-recent-chat-memories";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
@@ -41,6 +53,9 @@ const MAX_CHAT_CONTEXT_MESSAGES = 12;
 const CHAT_SDK_STATE_KEY_PREFIX = "inbox-zero:chat-sdk";
 const CONNECT_COMMAND_REGEX =
   /^\/?connect(?:@[A-Za-z0-9_]+)?\s+([A-Za-z0-9._-]+)\s*$/i;
+const PENDING_EMAIL_CONFIRM_ACTION_ID = "acpe";
+const LEGACY_PENDING_EMAIL_CONFIRM_ACTION_ID =
+  "assistant_confirm_pending_email";
 
 const SLACK_ASSISTANT_SUGGESTED_PROMPTS = [
   { title: "Inbox summary", message: "Summarize what needs attention today." },
@@ -106,6 +121,40 @@ type TeamsRawActivity = {
   conversation?: {
     id?: string;
   };
+};
+
+type PendingEmailToolPart = {
+  type: "tool-sendEmail" | "tool-replyEmail" | "tool-forwardEmail";
+  state: "output-available";
+  toolCallId: string;
+  output?: {
+    confirmationState?: string;
+    pendingAction?: {
+      to?: string;
+      subject?: string;
+    };
+  };
+};
+
+type LegacyPendingEmailActionPayload = {
+  actionType: AssistantPendingEmailActionType;
+  chatId: string;
+  chatMessageId: string;
+  toolCallId: string;
+};
+
+type PendingEmailActionResolution = {
+  actionType: AssistantPendingEmailActionType;
+  chatMessageId: string;
+  toolCallId: string;
+};
+
+type ParsedPendingEmailActionValue =
+  | { kind: "legacy"; payload: LegacyPendingEmailActionPayload }
+  | { kind: "token"; token: string };
+
+type SlackActionRawPayload = {
+  team?: { id?: string };
 };
 
 declare global {
@@ -367,6 +416,14 @@ function registerMessagingHandlers({
     });
   });
 
+  bot.onAction(
+    [PENDING_EMAIL_CONFIRM_ACTION_ID, LEGACY_PENDING_EMAIL_CONFIRM_ACTION_ID],
+    async (event) => {
+      const handlerLogger = getHandlerLogger();
+      await handlePendingEmailConfirmAction({ event, logger: handlerLogger });
+    },
+  );
+
   if (adapters.slack) {
     bot.onAssistantThreadStarted(async ({ channelId, threadTs }) => {
       try {
@@ -541,8 +598,20 @@ async function processMessagingAssistantMessage({
         logger: threadLogger,
       });
 
+      const assistantUiMessage = await collectAssistantUiMessage({
+        result,
+        originalMessages: [...existingMessages, newUserMessage],
+        assistantMessageId,
+      });
+
+      if (!assistantUiMessage) {
+        throw new Error(
+          "Missing assistant message in messaging response stream",
+        );
+      }
+
       const fullText = normalizeMessagingAssistantText({
-        text: await result.text,
+        text: getUiMessageText(assistantUiMessage),
         provider: context.provider,
       });
 
@@ -552,9 +621,7 @@ async function processMessagingAssistantMessage({
             id: assistantMessageId,
             chat: { connect: { id: chat.id } },
             role: "assistant",
-            parts: [
-              { type: "text", text: fullText },
-            ] as unknown as Prisma.InputJsonValue,
+            parts: (assistantUiMessage.parts || []) as Prisma.InputJsonValue,
           },
         });
       } catch (error) {
@@ -569,6 +636,20 @@ async function processMessagingAssistantMessage({
       }
 
       await thread.post({ markdown: fullText });
+
+      const pendingToolPart = getPendingEmailToolPart(
+        assistantUiMessage.parts || [],
+      );
+      if (pendingToolPart) {
+        await postPendingEmailCard({
+          thread,
+          chatMessageId: assistantMessageId,
+          part: pendingToolPart,
+          provider: context.provider,
+          logger: threadLogger,
+        });
+      }
+
       return true;
     } catch (error) {
       threadLogger.error("AI processing failed for messaging chat", { error });
@@ -588,6 +669,507 @@ async function processMessagingAssistantMessage({
       await clearProcessingReaction();
     }
   }
+}
+
+async function handlePendingEmailConfirmAction({
+  event,
+  logger,
+}: {
+  event: ActionEvent;
+  logger: Logger;
+}) {
+  const provider = getSupportedPlatform(event.thread.adapter.name);
+  if (!provider) return;
+
+  const parsedAction = parsePendingEmailActionValue(event.value);
+  const chatId = getMessagingChatIdForThread({
+    provider,
+    thread: event.thread,
+  });
+  if (!chatId) {
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "That action is invalid or expired. Ask me to prepare the email again.",
+      logger,
+    });
+    return;
+  }
+
+  if (
+    parsedAction?.kind === "legacy" &&
+    parsedAction.payload.chatId !== chatId
+  ) {
+    logger.warn(
+      "Messaging action chat mismatch for pending email confirmation",
+      {
+        provider,
+        expectedChatId: chatId,
+        payloadChatId: parsedAction.payload.chatId,
+      },
+    );
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "This action no longer matches this thread. Ask me to prepare it again.",
+      logger,
+    });
+    return;
+  }
+
+  const chat = await prisma.chat.findUnique({
+    where: { id: chatId },
+    select: { emailAccountId: true },
+  });
+  if (!chat) {
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "I couldn't find that draft anymore. Ask me to prepare it again.",
+      logger,
+    });
+    return;
+  }
+
+  const teamId = getTeamIdFromActionEvent({ provider, event });
+  const authorizedChannel = await prisma.messagingChannel.findFirst({
+    where: {
+      provider: toMessagingProvider(provider),
+      emailAccountId: chat.emailAccountId,
+      providerUserId: event.user.userId,
+      isConnected: true,
+      ...(teamId ? { teamId } : {}),
+    },
+    select: { id: true },
+  });
+  if (!authorizedChannel) {
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "You don't have permission to confirm this draft.",
+      logger,
+    });
+    return;
+  }
+
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: chat.emailAccountId },
+    select: { account: { select: { provider: true } } },
+  });
+  if (!emailAccount?.account?.provider) {
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "I couldn't access this email account right now. Please try again.",
+      logger,
+    });
+    return;
+  }
+
+  const pendingAction =
+    parsedAction?.kind === "legacy"
+      ? {
+          actionType: parsedAction.payload.actionType,
+          chatMessageId: parsedAction.payload.chatMessageId,
+          toolCallId: parsedAction.payload.toolCallId,
+        }
+      : await resolvePendingEmailActionFromToken({
+          chatId,
+          token:
+            parsedAction?.kind === "token" ? parsedAction.token : undefined,
+        });
+
+  if (!pendingAction) {
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "That action is invalid or expired. Ask me to prepare the email again.",
+      logger,
+    });
+    return;
+  }
+
+  try {
+    await confirmAssistantEmailActionForAccount({
+      chatId,
+      chatMessageId: pendingAction.chatMessageId,
+      toolCallId: pendingAction.toolCallId,
+      actionType: pendingAction.actionType,
+      emailAccountId: chat.emailAccountId,
+      provider: emailAccount.account.provider,
+      logger,
+    });
+
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "Sent.",
+      logger,
+    });
+  } catch (error) {
+    logger.warn("Messaging pending email confirmation failed", {
+      provider,
+      actionType: pendingAction.actionType,
+      error,
+    });
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "I couldn't send that draft. Please try again.",
+      logger,
+    });
+  }
+}
+
+async function postPendingEmailCard({
+  thread,
+  chatMessageId,
+  part,
+  provider,
+  logger,
+}: {
+  thread: Thread;
+  chatMessageId: string;
+  part: PendingEmailToolPart;
+  provider: SupportedPlatform;
+  logger: Logger;
+}) {
+  const actionType = pendingActionTypeFromToolPartType(part.type);
+  const value = createPendingEmailActionToken({
+    actionType,
+    chatMessageId,
+    toolCallId: part.toolCallId,
+  });
+
+  const subject = part.output?.pendingAction?.subject?.trim();
+  const to = part.output?.pendingAction?.to?.trim();
+  const summary = buildPendingEmailSummary({ actionType, to, subject });
+
+  try {
+    await thread.post(
+      Card({
+        title: "Ready to send",
+        children: [
+          CardText(summary),
+          Actions([
+            Button({
+              id: PENDING_EMAIL_CONFIRM_ACTION_ID,
+              label: "Send",
+              style: "primary",
+              value,
+            }),
+          ]),
+        ],
+      }),
+    );
+  } catch (error) {
+    logger.warn("Failed to post messaging pending email confirmation card", {
+      error,
+      provider,
+      actionType,
+    });
+  }
+}
+
+async function collectAssistantUiMessage({
+  result,
+  originalMessages,
+  assistantMessageId,
+}: {
+  result: Awaited<ReturnType<typeof aiProcessAssistantChat>>;
+  originalMessages: UIMessage[];
+  assistantMessageId: string;
+}) {
+  const stream = result.toUIMessageStream<UIMessage>({
+    originalMessages,
+    generateMessageId: () => assistantMessageId,
+  });
+
+  let assistantMessage: UIMessage | null = null;
+  for await (const message of readUIMessageStream<UIMessage>({ stream })) {
+    if (message.role === "assistant") assistantMessage = message;
+  }
+
+  return assistantMessage;
+}
+
+function getUiMessageText(message: UIMessage): string {
+  const text = (message.parts || [])
+    .flatMap((part) =>
+      part.type === "text" && typeof part.text === "string" ? [part.text] : [],
+    )
+    .join("\n")
+    .trim();
+
+  return text || "Done.";
+}
+
+function getPendingEmailToolPart(
+  parts: unknown[],
+): PendingEmailToolPart | null {
+  return getPendingEmailToolParts(parts)[0] ?? null;
+}
+
+function getPendingEmailToolParts(parts: unknown[]): PendingEmailToolPart[] {
+  const pendingParts: PendingEmailToolPart[] = [];
+
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index] as PendingEmailToolPart | undefined;
+    if (!part || part.state !== "output-available") continue;
+    if (
+      part.type !== "tool-sendEmail" &&
+      part.type !== "tool-replyEmail" &&
+      part.type !== "tool-forwardEmail"
+    ) {
+      continue;
+    }
+    if (part.output?.confirmationState !== "pending") continue;
+    if (!part.toolCallId) continue;
+
+    pendingParts.push(part);
+  }
+
+  return pendingParts;
+}
+
+function pendingActionTypeFromToolPartType(
+  type: PendingEmailToolPart["type"],
+): AssistantPendingEmailActionType {
+  switch (type) {
+    case "tool-sendEmail":
+      return "send_email";
+    case "tool-replyEmail":
+      return "reply_email";
+    default:
+      return "forward_email";
+  }
+}
+
+function buildPendingEmailSummary({
+  actionType,
+  to,
+  subject,
+}: {
+  actionType: AssistantPendingEmailActionType;
+  to?: string;
+  subject?: string;
+}) {
+  const actionLabel =
+    actionType === "send_email"
+      ? "new email"
+      : actionType === "reply_email"
+        ? "reply"
+        : "forward";
+
+  if (to && subject) {
+    return `Confirm this ${actionLabel} to ${to} with subject "${subject}".`;
+  }
+  if (to) return `Confirm this ${actionLabel} to ${to}.`;
+  if (subject) return `Confirm this ${actionLabel} with subject "${subject}".`;
+  return `Confirm this ${actionLabel}.`;
+}
+
+function getSlackTeamIdFromActionRaw(raw: unknown): string | null {
+  const teamId =
+    (raw as SlackActionRawPayload | null | undefined)?.team?.id ||
+    (raw as { team_id?: string } | null | undefined)?.team_id;
+  return teamId?.trim() || null;
+}
+
+async function postPendingEmailActionFeedback({
+  event,
+  provider,
+  text,
+  logger,
+}: {
+  event: ActionEvent;
+  provider: SupportedPlatform;
+  text: string;
+  logger: Logger;
+}) {
+  if (provider === "slack") {
+    try {
+      await event.thread.postEphemeral(event.user, text, {
+        fallbackToDM: false,
+      });
+      return;
+    } catch (error) {
+      logger.warn("Failed to post Slack ephemeral action feedback", { error });
+    }
+  }
+
+  try {
+    await event.thread.post(text);
+  } catch (error) {
+    logger.warn("Failed to post messaging action feedback", {
+      provider,
+      error,
+    });
+  }
+}
+
+function getSupportedPlatform(adapterName: string): SupportedPlatform | null {
+  if (adapterName === "slack") return "slack";
+  if (adapterName === "teams") return "teams";
+  if (adapterName === "telegram") return "telegram";
+  return null;
+}
+
+function getMessagingChatIdForThread({
+  provider,
+  thread,
+}: {
+  provider: SupportedPlatform;
+  thread: { id: string; channelId?: string | null };
+}): string | null {
+  if (provider === "slack") {
+    const slackAdapter = getMessagingChatSdkBot().adapters.slack;
+    if (!slackAdapter) return null;
+    const { channel, threadTs } = slackAdapter.decodeThreadId(thread.id);
+    return getSlackChatId({ channel, threadTs: threadTs || undefined });
+  }
+
+  return `${provider}-${normalizeThreadIdForStorage(thread.id)}`;
+}
+
+function parsePendingEmailActionValue(
+  value: string | undefined,
+): ParsedPendingEmailActionValue | null {
+  if (!value) return null;
+
+  const legacyPayload = decodeLegacyPendingEmailActionPayload(value);
+  if (legacyPayload) {
+    return { kind: "legacy", payload: legacyPayload };
+  }
+
+  const token = value.trim();
+  if (!token || token.length > 64) return null;
+  return { kind: "token", token };
+}
+
+function decodeLegacyPendingEmailActionPayload(
+  value: string,
+): LegacyPendingEmailActionPayload | null {
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    ) as Partial<LegacyPendingEmailActionPayload>;
+
+    if (!parsed.chatId || !parsed.chatMessageId || !parsed.toolCallId) {
+      return null;
+    }
+
+    if (
+      parsed.actionType !== "send_email" &&
+      parsed.actionType !== "reply_email" &&
+      parsed.actionType !== "forward_email"
+    ) {
+      return null;
+    }
+
+    return {
+      actionType: parsed.actionType,
+      chatId: parsed.chatId,
+      chatMessageId: parsed.chatMessageId,
+      toolCallId: parsed.toolCallId,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getTeamIdFromActionEvent({
+  provider,
+  event,
+}: {
+  provider: SupportedPlatform;
+  event: ActionEvent;
+}): string | null {
+  if (provider === "slack") return getSlackTeamIdFromActionRaw(event.raw);
+
+  if (provider === "teams") {
+    const rawEvent = event.raw as TeamsRawActivity | null | undefined;
+    const tenantId = rawEvent?.channelData?.tenant?.id?.trim();
+    if (tenantId) return tenantId;
+
+    const conversationId =
+      rawEvent?.conversation?.id?.trim() || event.thread.channelId?.trim();
+    return conversationId || null;
+  }
+
+  const chatId =
+    (event.raw as { message?: { chat?: { id?: number | string } } })?.message
+      ?.chat?.id ?? null;
+  if (chatId !== null) return String(chatId);
+
+  const telegramAdapter = getMessagingChatSdkBot().adapters.telegram;
+  if (!telegramAdapter) return null;
+
+  try {
+    return telegramAdapter.decodeThreadId(event.thread.id).chatId;
+  } catch {
+    return null;
+  }
+}
+
+function createPendingEmailActionToken({
+  actionType,
+  chatMessageId,
+  toolCallId,
+}: {
+  actionType: AssistantPendingEmailActionType;
+  chatMessageId: string;
+  toolCallId: string;
+}): string {
+  return createHash("sha256")
+    .update(`${actionType}:${chatMessageId}:${toolCallId}`)
+    .digest("base64url")
+    .slice(0, 16);
+}
+
+async function resolvePendingEmailActionFromToken({
+  chatId,
+  token,
+}: {
+  chatId: string;
+  token: string | undefined;
+}): Promise<PendingEmailActionResolution | null> {
+  if (!token) return null;
+
+  const chatMessages = await prisma.chatMessage.findMany({
+    where: { chatId, role: "assistant" },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      parts: true,
+    },
+  });
+
+  for (const chatMessage of chatMessages) {
+    const parts = Array.isArray(chatMessage.parts)
+      ? chatMessage.parts
+      : ([] as unknown[]);
+
+    for (const part of getPendingEmailToolParts(parts)) {
+      const actionType = pendingActionTypeFromToolPartType(part.type);
+      const candidateToken = createPendingEmailActionToken({
+        actionType,
+        chatMessageId: chatMessage.id,
+        toolCallId: part.toolCallId,
+      });
+
+      if (candidateToken !== token) continue;
+
+      return {
+        actionType,
+        chatMessageId: chatMessage.id,
+        toolCallId: part.toolCallId,
+      };
+    }
+  }
+
+  return null;
 }
 
 async function startSlackProcessingReaction({
@@ -1244,8 +1826,8 @@ function normalizeMessagingAssistantText({
   return normalized;
 }
 
-function toMessagingProvider(provider: "teams" | "telegram") {
-  return provider === "teams"
-    ? MessagingProvider.TEAMS
-    : MessagingProvider.TELEGRAM;
+function toMessagingProvider(provider: SupportedPlatform) {
+  if (provider === "slack") return MessagingProvider.SLACK;
+  if (provider === "teams") return MessagingProvider.TEAMS;
+  return MessagingProvider.TELEGRAM;
 }
