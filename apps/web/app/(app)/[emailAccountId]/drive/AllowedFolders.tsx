@@ -246,7 +246,6 @@ function AllowedFoldersContent({
                     isLast={index === rootFolders.length - 1}
                     selectedFolderIds={savedFolderIds}
                     onToggle={handleFolderToggle}
-                    isDisabled={false}
                     level={0}
                     parentPath=""
                     knownChildren={folderChildrenMap.get(folder.id)}
@@ -284,7 +283,6 @@ export function FolderNode({
   isLast,
   selectedFolderIds,
   onToggle,
-  isDisabled,
   level,
   parentPath,
   knownChildren,
@@ -293,7 +291,6 @@ export function FolderNode({
   isLast: boolean;
   selectedFolderIds: Set<string>;
   onToggle: (folder: FolderItem, isChecked: boolean) => void;
-  isDisabled: boolean;
   level: number;
   parentPath: string;
   knownChildren?: FolderItem[];
@@ -334,7 +331,6 @@ export function FolderNode({
             onCheckedChange={(checked) =>
               onToggle({ ...folder, path: currentPath }, checked === true)
             }
-            disabled={isDisabled}
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -357,7 +353,6 @@ export function FolderNode({
               isLast={index === subfolders.length - 1}
               selectedFolderIds={selectedFolderIds}
               onToggle={onToggle}
-              isDisabled={isDisabled}
               level={level + 1}
               parentPath={currentPath}
             />
