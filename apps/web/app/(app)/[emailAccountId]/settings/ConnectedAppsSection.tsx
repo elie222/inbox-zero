@@ -544,7 +544,13 @@ function getProviderDisplayName(provider: LinkableMessagingProvider): string {
   return "Telegram";
 }
 
-export function useSlackNotifications(enabled: boolean) {
+export function useSlackNotifications({
+  enabled,
+  onSlackConnected,
+}: {
+  enabled: boolean;
+  onSlackConnected?: (emailAccountId: string | null) => void;
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -565,6 +571,7 @@ export function useSlackNotifications(enabled: boolean) {
     handled.current = true;
 
     if (message === "slack_connected") {
+      onSlackConnected?.(searchParams.get("slack_email_account_id"));
       toastSuccess({
         title: "Slack connected",
         description:
@@ -592,14 +599,15 @@ export function useSlackNotifications(enabled: boolean) {
         key !== "message" &&
         key !== "error" &&
         key !== "error_reason" &&
-        key !== "error_detail"
+        key !== "error_detail" &&
+        key !== "slack_email_account_id"
       ) {
         preserved.set(key, value);
       }
     }
     const qs = preserved.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
-  }, [enabled, pathname, router, searchParams]);
+  }, [enabled, onSlackConnected, pathname, router, searchParams]);
 }
 
 function getSlackConnectionFailedDescription(

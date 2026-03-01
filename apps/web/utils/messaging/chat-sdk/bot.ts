@@ -400,6 +400,7 @@ async function processMessagingAssistantMessage({
     adapters,
     thread,
     message,
+    logger,
   });
   try {
     const context = await resolveMessagingContext({
@@ -543,10 +544,12 @@ async function startSlackProcessingReaction({
   adapters,
   thread,
   message,
+  logger,
 }: {
   adapters: MessagingAdapters;
   thread: Thread;
   message: Message;
+  logger: Logger;
 }): Promise<(() => Promise<void>) | null> {
   if (thread.adapter.name !== "slack") return null;
   if (message.author.isMe) return null;
@@ -554,17 +557,43 @@ async function startSlackProcessingReaction({
 
   try {
     await adapters.slack.addReaction(thread.id, message.id, "eyes");
-  } catch {
-    return null;
+    return async () => {
+      try {
+        await adapters.slack?.removeReaction(thread.id, message.id, "eyes");
+      } catch (error) {
+        logger.warn("Failed to remove Slack processing reaction", {
+          error,
+          threadId: thread.id,
+          messageId: message.id,
+        });
+      }
+    };
+  } catch (error) {
+    logger.warn("Failed to add Slack processing reaction", {
+      error,
+      threadId: thread.id,
+      messageId: message.id,
+    });
   }
 
-  return async () => {
-    try {
-      await adapters.slack?.removeReaction(thread.id, message.id, "eyes");
-    } catch {
-      // Best-effort cleanup only.
-    }
-  };
+  if (!thread.isDM) return null;
+
+  try {
+    const acknowledgementMessage = await thread.post("👀 Working on it...");
+    return async () => {
+      try {
+        await acknowledgementMessage.delete();
+      } catch {
+        // Best-effort cleanup only.
+      }
+    };
+  } catch (error) {
+    logger.warn("Failed to post Slack processing acknowledgement", {
+      error,
+      threadId: thread.id,
+    });
+    return null;
+  }
 }
 
 async function getRecentChatMemories({

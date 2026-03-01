@@ -68,6 +68,7 @@ export async function handleSlackCallback(
     callbackLogger = logger.with({ emailAccountId });
 
     const finalRedirectUrl = buildSettingsRedirectUrl(emailAccountId);
+    finalRedirectUrl.searchParams.set("slack_email_account_id", emailAccountId);
     const cachedResult = await getOAuthCodeResult(code);
     if (cachedResult) {
       callbackLogger.info(
