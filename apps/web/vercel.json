@@ -2,6 +2,17 @@
   "buildCommand": "cd ../.. && if [ \"$VERCEL_ENV\" = preview ] && [ \"$IS_OAUTH_PROXY_SERVER\" != true ]; then NEXT_PUBLIC_BASE_URL=https://$VERCEL_URL turbo run build --force --filter={apps/web}...; else turbo run build --filter={apps/web}...; fi",
   "installCommand": "cd ../.. && corepack enable && bash clone-marketing.sh && pnpm install --no-frozen-lockfile",
   "ignoreCommand": "bash scripts/vercel-ignore-build.sh",
+  "functions": {
+    "app/api/follow-up-reminders/account/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "follow-up-reminders-account",
+          "retryAfterSeconds": 60
+        }
+      ]
+    }
+  },
   "rewrites": [
     {
       "source": "/tools",
@@ -13,6 +24,22 @@
     }
   ],
   "crons": [
+    {
+      "path": "/api/cron/scheduled-actions",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/watch/all",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/meeting-briefs",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/follow-up-reminders",
+      "schedule": "0 * * * *"
+    },
     {
       "path": "/api/cron/automation-jobs",
       "schedule": "*/15 * * * *"
