@@ -1,0 +1,64 @@
+name: Build Check
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "**/*.mdx"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "**/*.mdx"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_OPTIONS: "--max_old_space_size=16384"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
+      AUTH_SECRET: "secret"
+      GOOGLE_CLIENT_ID: "client_id"
+      GOOGLE_CLIENT_SECRET: "client_secret"
+      GOOGLE_PUBSUB_TOPIC_NAME: "topic"
+      EMAIL_ENCRYPT_SECRET: "secret"
+      EMAIL_ENCRYPT_SALT: "salt"
+      DEFAULT_LLM_PROVIDER: "openai"
+      INTERNAL_API_KEY: "secret"
+      NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=\"$(pnpm store path --silent)\"" >> $GITHUB_ENV
+
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build app
+        run: pnpm --filter inbox-zero-ai exec next build
