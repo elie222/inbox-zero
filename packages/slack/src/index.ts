@@ -4,6 +4,7 @@ export { listChannels, getChannelInfo, type SlackChannel } from "./channels";
 export {
   sendMeetingBriefingToSlack,
   sendChannelConfirmation,
+  sendConnectionOnboardingDirectMessage,
   sendDocumentFiledToSlack,
   sendDocumentAskToSlack,
   type SlackBriefingParams,

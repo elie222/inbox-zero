@@ -15,6 +15,7 @@ import { MessagingProvider } from "@/generated/prisma/enums";
 import {
   createSlackClient,
   getChannelInfo,
+  sendConnectionOnboardingDirectMessage,
   sendChannelConfirmation,
   lookupSlackUserByEmail,
 } from "@inboxzero/slack";
@@ -239,6 +240,19 @@ export const linkSlackWorkspaceAction = actionClient
           isConnected: true,
         },
       });
+
+      try {
+        await sendConnectionOnboardingDirectMessage({
+          accessToken: orgMateChannel.accessToken,
+          userId: slackUser.id,
+        });
+      } catch (error) {
+        logger.warn("Failed to send Slack onboarding direct message", {
+          teamId,
+          userId: slackUser.id,
+          error,
+        });
+      }
 
       logger.info("Slack workspace linked via org-mate token", { teamId });
     },

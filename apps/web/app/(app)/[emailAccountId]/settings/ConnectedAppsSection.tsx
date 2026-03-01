@@ -565,7 +565,11 @@ export function useSlackNotifications(enabled: boolean) {
     handled.current = true;
 
     if (message === "slack_connected") {
-      toastSuccess({ description: "Slack connected" });
+      toastSuccess({
+        title: "Slack connected",
+        description:
+          "Next, choose a private channel in Connected Apps for meeting brief and attachment notifications.",
+      });
     }
     if (message === "processing") {
       toastInfo({
