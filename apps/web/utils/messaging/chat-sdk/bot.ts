@@ -396,136 +396,175 @@ async function processMessagingAssistantMessage({
   });
   if (linkCommandHandled) return true;
 
-  const context = await resolveMessagingContext({
+  const clearProcessingReaction = await startSlackProcessingReaction({
     adapters,
     thread,
     message,
-    logger,
   });
-
-  if (!context) return false;
-
-  const emailAccountUser = await getEmailAccountWithAi({
-    emailAccountId: context.emailAccountId,
-  });
-
-  if (!emailAccountUser) {
-    logger.error("Email account not found for messaging chat", {
-      emailAccountId: context.emailAccountId,
-      provider: context.provider,
-    });
-    return false;
-  }
-
-  const chat = await prisma.chat.upsert({
-    where: { id: context.chatId },
-    create: {
-      id: context.chatId,
-      emailAccountId: context.emailAccountId,
-    },
-    update: {},
-    select: {
-      id: true,
-      messages: {
-        orderBy: { createdAt: "desc" },
-        take: MAX_CHAT_CONTEXT_MESSAGES,
-      },
-    },
-  });
-
-  const existingMessages: UIMessage[] = [...chat.messages]
-    .reverse()
-    .map((chatMessage) => ({
-      id: chatMessage.id,
-      role: chatMessage.role as UIMessage["role"],
-      parts: chatMessage.parts as UIMessage["parts"],
-    }));
-
-  const userMessageId = `${context.provider}-${message.id}`;
-  const newUserMessage: UIMessage = {
-    id: userMessageId,
-    role: "user",
-    parts: [{ type: "text", text: context.messageText }],
-  };
-
-  await prisma.chatMessage.upsert({
-    where: { id: userMessageId },
-    create: {
-      id: userMessageId,
-      chat: { connect: { id: chat.id } },
-      role: "user",
-      parts: newUserMessage.parts as Prisma.InputJsonValue,
-    },
-    update: {},
-  });
-
-  const threadLogger = logger.with({
-    provider: context.provider,
-    emailAccountId: context.emailAccountId,
-    ...context.threadLogContext,
-  });
-
-  const inboxStatsPromise = getInboxStatsForChatContext({
-    emailAccountId: context.emailAccountId,
-    provider: emailAccountUser.account.provider,
-    logger: threadLogger,
-  });
-
-  const memoriesPromise = getRecentChatMemories({
-    emailAccountId: context.emailAccountId,
-    logger: threadLogger,
-  });
-
   try {
-    try {
-      await thread.startTyping(
-        context.provider === "slack" ? "Thinking..." : undefined,
-      );
-    } catch {
-      // Ignore typing indicator failures
+    const context = await resolveMessagingContext({
+      adapters,
+      thread,
+      message,
+      logger,
+    });
+
+    if (!context) return false;
+
+    const emailAccountUser = await getEmailAccountWithAi({
+      emailAccountId: context.emailAccountId,
+    });
+
+    if (!emailAccountUser) {
+      logger.error("Email account not found for messaging chat", {
+        emailAccountId: context.emailAccountId,
+        provider: context.provider,
+      });
+      return false;
     }
 
-    const inboxStats = await inboxStatsPromise;
-    const result = await aiProcessAssistantChat({
-      messages: await convertToModelMessages([
-        ...existingMessages,
-        newUserMessage,
-      ]),
+    const chat = await prisma.chat.upsert({
+      where: { id: context.chatId },
+      create: {
+        id: context.chatId,
+        emailAccountId: context.emailAccountId,
+      },
+      update: {},
+      select: {
+        id: true,
+        messages: {
+          orderBy: { createdAt: "desc" },
+          take: MAX_CHAT_CONTEXT_MESSAGES,
+        },
+      },
+    });
+
+    const existingMessages: UIMessage[] = [...chat.messages]
+      .reverse()
+      .map((chatMessage) => ({
+        id: chatMessage.id,
+        role: chatMessage.role as UIMessage["role"],
+        parts: chatMessage.parts as UIMessage["parts"],
+      }));
+
+    const userMessageId = `${context.provider}-${message.id}`;
+    const newUserMessage: UIMessage = {
+      id: userMessageId,
+      role: "user",
+      parts: [{ type: "text", text: context.messageText }],
+    };
+
+    await prisma.chatMessage.upsert({
+      where: { id: userMessageId },
+      create: {
+        id: userMessageId,
+        chat: { connect: { id: chat.id } },
+        role: "user",
+        parts: newUserMessage.parts as Prisma.InputJsonValue,
+      },
+      update: {},
+    });
+
+    const threadLogger = logger.with({
+      provider: context.provider,
       emailAccountId: context.emailAccountId,
-      user: emailAccountUser,
-      chatId: chat.id,
-      memories: await memoriesPromise,
-      inboxStats,
+      ...context.threadLogContext,
+    });
+
+    const inboxStatsPromise = getInboxStatsForChatContext({
+      emailAccountId: context.emailAccountId,
+      provider: emailAccountUser.account.provider,
       logger: threadLogger,
     });
 
-    const fullText = await result.text;
-
-    await prisma.chatMessage.create({
-      data: {
-        chat: { connect: { id: chat.id } },
-        role: "assistant",
-        parts: [
-          { type: "text", text: fullText },
-        ] as unknown as Prisma.InputJsonValue,
-      },
+    const memoriesPromise = getRecentChatMemories({
+      emailAccountId: context.emailAccountId,
+      logger: threadLogger,
     });
 
-    await thread.post({ markdown: fullText });
-    return true;
-  } catch (error) {
-    threadLogger.error("AI processing failed for messaging chat", { error });
-
     try {
-      await thread.post(
-        "Sorry, I ran into an error processing your message. Please try again.",
-      );
-    } catch {
-      // Ignore fallback post failures
-    }
+      try {
+        await thread.startTyping(
+          context.provider === "slack" ? "Thinking..." : undefined,
+        );
+      } catch {
+        // Ignore typing indicator failures
+      }
 
-    return true;
+      const inboxStats = await inboxStatsPromise;
+      const result = await aiProcessAssistantChat({
+        messages: await convertToModelMessages([
+          ...existingMessages,
+          newUserMessage,
+        ]),
+        emailAccountId: context.emailAccountId,
+        user: emailAccountUser,
+        chatId: chat.id,
+        memories: await memoriesPromise,
+        inboxStats,
+        logger: threadLogger,
+      });
+
+      const fullText = await result.text;
+
+      await prisma.chatMessage.create({
+        data: {
+          chat: { connect: { id: chat.id } },
+          role: "assistant",
+          parts: [
+            { type: "text", text: fullText },
+          ] as unknown as Prisma.InputJsonValue,
+        },
+      });
+
+      await thread.post({ markdown: fullText });
+      return true;
+    } catch (error) {
+      threadLogger.error("AI processing failed for messaging chat", { error });
+
+      try {
+        await thread.post(
+          "Sorry, I ran into an error processing your message. Please try again.",
+        );
+      } catch {
+        // Ignore fallback post failures
+      }
+
+      return true;
+    }
+  } finally {
+    if (clearProcessingReaction) {
+      await clearProcessingReaction();
+    }
   }
+}
+
+async function startSlackProcessingReaction({
+  adapters,
+  thread,
+  message,
+}: {
+  adapters: MessagingAdapters;
+  thread: Thread;
+  message: Message;
+}): Promise<(() => Promise<void>) | null> {
+  if (thread.adapter.name !== "slack") return null;
+  if (message.author.isMe) return null;
+  if (!adapters.slack) return null;
+
+  try {
+    await adapters.slack.addReaction(thread.id, message.id, "eyes");
+  } catch {
+    return null;
+  }
+
+  return async () => {
+    try {
+      await adapters.slack?.removeReaction(thread.id, message.id, "eyes");
+    } catch {
+      // Best-effort cleanup only.
+    }
+  };
 }
 
 async function getRecentChatMemories({
