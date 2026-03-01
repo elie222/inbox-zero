@@ -79,7 +79,9 @@ Examples of BAD personas (too vague):
 - "Tech Worker"
 - "Knowledge Worker"
 
-Focus on identifying the PRIMARY professional role based on email content, senders, and communication patterns.`;
+Focus on identifying the PRIMARY professional role based on email content, senders, and communication patterns.
+
+Return your response in JSON format.`;
 
   const prompt = `### Email Analysis Data
 
