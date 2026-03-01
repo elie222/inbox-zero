@@ -245,7 +245,8 @@ function ChannelRow({
               </div>
               {!isLoadingTargets && (
                 <MutedText className="text-xs">
-                  Create a private Slack channel, then type{" "}
+                  Pick a channel to receive meeting briefs. Create a private
+                  Slack channel, then type{" "}
                   <code className="bg-muted px-1 rounded">
                     /invite @InboxZero
                   </code>{" "}
@@ -253,17 +254,6 @@ function ChannelRow({
                 </MutedText>
               )}
             </div>
-            {!isLoadingTargets && (
-              <MutedText className="text-xs">
-                Pick a channel to receive meeting briefs. Create a private Slack
-                channel, then type{" "}
-                <code className="bg-muted px-1 rounded">
-                  /invite @InboxZero
-                </code>{" "}
-                in it. The channel will appear above once the bot is invited.
-              </MutedText>
-            )}
-          </div>
           ) : (
             <button
               type="button"
