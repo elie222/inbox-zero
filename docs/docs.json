@@ -87,7 +87,8 @@
           {
             "group": "Integrations",
             "pages": [
-              "slack/setup"
+              "slack/setup",
+              "teams/setup"
             ]
           },
           {

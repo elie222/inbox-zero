@@ -41,6 +41,7 @@ https://<your-domain>/api/slack/callback
 | `im:read` | Receive direct messages |
 | `im:write` | Send DM responses |
 | `im:history` | Read DM conversation history |
+| `assistant:write` | Enable Slack Assistant prompts and status indicators |
 | `reactions:write` | Add processing indicator reactions |
 | `users:read` | View workspace members |
 | `users:read.email` | Look up teammates by email for multi-user workspaces |
@@ -57,6 +58,8 @@ Under **Event Subscriptions**:
 3. Under **Subscribe to bot events**, add:
    - `message.im` — direct messages to the bot
    - `app_mention` — @mentions in channels
+   - `assistant_thread_started` — initialize Slack assistant thread prompts
+   - `assistant_thread_context_changed` — respond to assistant context switches
 
 Slack will send a verification challenge to the URL; the app handles this automatically.
 

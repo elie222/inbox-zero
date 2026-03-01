@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { markdownToSlackMrkdwn } from "@inboxzero/slack";
+import { markdownToSlackMrkdwn } from "./format";
 
 describe("markdownToSlackMrkdwn", () => {
   it("converts bold **text** to *text*", () => {

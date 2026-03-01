@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ChevronRightIcon,
   CreditCardIcon,
@@ -46,7 +46,19 @@ export default function SettingsPage() {
     null,
   );
 
-  useSlackNotifications(true);
+  const handleSlackConnected = useCallback(
+    (connectedEmailAccountId: string | null) => {
+      setExpandedAccountId(
+        connectedEmailAccountId ?? activeEmailAccountId ?? null,
+      );
+    },
+    [activeEmailAccountId],
+  );
+
+  useSlackNotifications({
+    enabled: true,
+    onSlackConnected: handleSlackConnected,
+  });
 
   const emailAccounts = useMemo(() => {
     const accounts = data?.emailAccounts ?? [];

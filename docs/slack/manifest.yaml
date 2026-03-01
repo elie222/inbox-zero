@@ -27,6 +27,7 @@ oauth_config:
       - im:read
       - im:write
       - im:history
+      - assistant:write
       - reactions:write
       - users:read
       - users:read.email
@@ -39,3 +40,5 @@ settings:
     bot_events:
       - message.im
       - app_mention
+      - assistant_thread_started
+      - assistant_thread_context_changed

@@ -200,6 +200,13 @@ export const env = createEnv({
     SLACK_CLIENT_SECRET: z.string().optional(),
     SLACK_SIGNING_SECRET: z.string().optional(),
 
+    // Chat SDK messaging adapters
+    TEAMS_BOT_APP_ID: z.string().optional(),
+    TEAMS_BOT_APP_PASSWORD: z.string().optional(),
+    TEAMS_BOT_APP_TENANT_ID: z.string().optional(),
+    TEAMS_BOT_APP_TYPE: z.enum(["MultiTenant", "SingleTenant"]).optional(),
+    TELEGRAM_BOT_TOKEN: z.string().optional(),
+    TELEGRAM_BOT_SECRET_TOKEN: z.string().optional(),
     REPLAY_RECORDING_ENABLED: booleanString.optional().default(false),
   },
   client: {

@@ -11,7 +11,6 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/loops/package.json packages/loops/package.json
 COPY packages/resend/package.json packages/resend/package.json
-COPY packages/slack/package.json packages/slack/package.json
 COPY packages/tinybird/package.json packages/tinybird/package.json
 COPY packages/tinybird-ai-analytics/package.json packages/tinybird-ai-analytics/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json

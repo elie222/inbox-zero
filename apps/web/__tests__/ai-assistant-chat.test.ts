@@ -166,6 +166,39 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.forwardEmail).toBeDefined();
   });
 
+  it("disables send-email tools for non-web chats", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      responseSurface: "messaging",
+      messagingPlatform: "slack",
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    expect(args.messages[0].content).toContain(
+      "Email sending actions are disabled in this environment",
+    );
+    expect(args.messages[0].content).toContain(
+      "sendEmail, replyEmail, and forwardEmail tools are unavailable",
+    );
+    expect(args.messages[0].content).not.toContain(
+      "must click a confirmation button in the UI",
+    );
+    expect(args.tools.sendEmail).toBeUndefined();
+    expect(args.tools.replyEmail).toBeUndefined();
+    expect(args.tools.forwardEmail).toBeUndefined();
+  });
+
   it("omits sendEmail tool when email sending is disabled", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: false,
