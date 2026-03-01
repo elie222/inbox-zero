@@ -22,7 +22,7 @@ Inbox Zero routes tasks to different model "slots" based on complexity and cost.
 | **CHAT** | `CHAT_LLM_*` | Interactive assistant and compose panel | DEFAULT |
 | **NANO** | `NANO_LLM_*` | Lightweight tasks; also activates when weekly spend limit is hit | ECONOMY → DEFAULT |
 
-Only `DEFAULT_LLM_PROVIDER` and `DEFAULT_LLM_MODEL` are required. All other slots are optional and silently fall back to DEFAULT if unset.
+Only `DEFAULT_LLM_PROVIDER` and `DEFAULT_LLM_MODEL` are required. All other slots are optional and fall back as shown above (NANO falls through ECONOMY first, then DEFAULT).
 
 ---
 
