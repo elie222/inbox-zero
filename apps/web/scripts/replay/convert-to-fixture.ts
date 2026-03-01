@@ -97,7 +97,10 @@ function stripPII(data: unknown, emailMap: Map<string, string>): unknown {
   if (typeof data === "string") {
     let result = data;
     for (const [original, replacement] of emailMap) {
-      result = result.replaceAll(original, replacement);
+      result = result.replaceAll(
+        new RegExp(escapeRegExp(original), "gi"),
+        replacement,
+      );
     }
     // Strip auth tokens
     if (
@@ -137,4 +140,11 @@ function stripPII(data: unknown, emailMap: Map<string, string>): unknown {
   return data;
 }
 
-main().catch(console.error);
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

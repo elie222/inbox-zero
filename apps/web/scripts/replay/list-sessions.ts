@@ -49,4 +49,7 @@ function getAge(startedAt: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

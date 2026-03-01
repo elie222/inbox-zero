@@ -17,10 +17,12 @@ export function createRecordingEmailProvider(
       return async (...args: unknown[]) => {
         const startTime = Date.now();
 
-        await session.record("email-api-call", {
-          method,
-          request: sanitizeArgs(method, args),
-        });
+        await session
+          .record("email-api-call", {
+            method,
+            request: sanitizeArgs(method, args),
+          })
+          .catch(() => {});
 
         try {
           const result = await (original as (...a: unknown[]) => unknown).apply(
@@ -29,24 +31,28 @@ export function createRecordingEmailProvider(
           );
           const duration = Date.now() - startTime;
 
-          await session.record("email-api-response", {
-            method,
-            request: null,
-            response: result,
-            duration,
-          });
+          session
+            .record("email-api-response", {
+              method,
+              request: null,
+              response: result,
+              duration,
+            })
+            .catch(() => {});
 
           return result;
         } catch (error) {
-          await session.record("email-api-response", {
-            method,
-            request: null,
-            response: {
-              error: true,
-              message: error instanceof Error ? error.message : String(error),
-            },
-            duration: Date.now() - startTime,
-          });
+          session
+            .record("email-api-response", {
+              method,
+              request: null,
+              response: {
+                error: true,
+                message: error instanceof Error ? error.message : String(error),
+              },
+              duration: Date.now() - startTime,
+            })
+            .catch(() => {});
           throw error;
         }
       };

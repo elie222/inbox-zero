@@ -27,19 +27,19 @@ pnpm replay:convert <session-id>    # Convert to fixture (strips PII)
 ### 4. Save as fixture
 
 ```bash
-pnpm replay:convert <session-id> __tests__/fixtures/replay/webhook/my-scenario.json
+pnpm replay:convert <session-id> apps/web/__tests__/fixtures/replay/webhook/my-scenario.json
 ```
 
 ### 5. Write a replay test
 
-See `__tests__/replay/` for examples of how to use `createReplayTestContext()`.
+See `apps/web/__tests__/replay/` for examples of how to use `createReplayTestContext()`.
 
 ## Fixture Format
 
 ```json
 {
   "metadata": {
-    "description": "Human-readable description of what this tests",
+    "description": "Human-readable description of what this test covers",
     "flow": "webhook" | "chat",
     "recordedAt": "ISO timestamp",
     "commitSha": "optional git SHA"
