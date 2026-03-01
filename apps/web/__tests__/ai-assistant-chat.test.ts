@@ -166,7 +166,7 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.forwardEmail).toBeDefined();
   });
 
-  it("uses messaging-safe email confirmation guidance for non-web chats", async () => {
+  it("disables send-email tools for non-web chats", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,
     });
@@ -186,14 +186,17 @@ describe("aiProcessAssistantChat", () => {
 
     const args = mockToolCallAgentStream.mock.calls[0][0];
     expect(args.messages[0].content).toContain(
-      "there is no confirmation button or modal for these actions right now",
+      "Email sending actions are disabled in this environment",
     );
     expect(args.messages[0].content).toContain(
-      "open Inbox Zero in the web app to review and confirm the pending draft",
+      "sendEmail, replyEmail, and forwardEmail tools are unavailable",
     );
     expect(args.messages[0].content).not.toContain(
       "must click a confirmation button in the UI",
     );
+    expect(args.tools.sendEmail).toBeUndefined();
+    expect(args.tools.replyEmail).toBeUndefined();
+    expect(args.tools.forwardEmail).toBeUndefined();
   });
 
   it("omits sendEmail tool when email sending is disabled", async () => {

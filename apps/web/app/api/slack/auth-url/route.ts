@@ -7,7 +7,7 @@ import {
   SLACK_STATE_COOKIE_NAME,
   SLACK_OAUTH_STATE_TYPE,
   SLACK_SCOPES,
-} from "@/utils/slack/constants";
+} from "@/utils/messaging/slack/constants";
 import {
   generateSignedOAuthState,
   oauthStateCookieOptions,

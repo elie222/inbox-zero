@@ -20,7 +20,7 @@ import {
 } from "@inboxzero/slack";
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
 import { env } from "@/env";
-import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/slack/send-onboarding-direct-message";
+import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/slack/send-onboarding-direct-message";
 
 export const updateSlackChannelAction = actionClient
   .metadata({ name: "updateSlackChannel" })

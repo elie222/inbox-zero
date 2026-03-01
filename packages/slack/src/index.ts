@@ -15,7 +15,6 @@ export {
   buildMeetingBriefingBlocks,
   type MeetingBriefingBlocksParams,
 } from "./messages/meeting-briefing";
-export { verifySlackSignature } from "./verify";
 export { markdownToSlackMrkdwn } from "./format";
 export { addReaction, removeReaction } from "./reactions";
 export { lookupSlackUserByEmail } from "./users";

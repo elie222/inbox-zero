@@ -9,7 +9,7 @@ import {
 } from "@/utils/oauth/redirect";
 import { SLACK_STATE_COOKIE_NAME } from "./constants";
 import prisma from "@/utils/prisma";
-import { parseOAuthState, parseSignedOAuthState } from "@/utils/oauth/state";
+import { parseSignedOAuthState } from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import {
@@ -19,7 +19,7 @@ import {
   setOAuthCodeResult,
 } from "@/utils/redis/oauth-code";
 import { syncSlackInstallation } from "@/utils/messaging/chat-sdk/bot";
-import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/slack/send-onboarding-direct-message";
+import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/slack/send-onboarding-direct-message";
 
 const slackOAuthStateSchema = z.object({
   emailAccountId: z.string().min(1).max(64),
@@ -51,7 +51,7 @@ export async function handleSlackCallback(
   let callbackLogger = logger;
 
   try {
-    const { code, redirectUrl, response, receivedState, allowUnsignedState } =
+    const { code, redirectUrl, response, receivedState } =
       validateOAuthCallback(request, logger);
     codeForCleanup = code;
     redirectHeaders = response.headers;
@@ -61,7 +61,6 @@ export async function handleSlackCallback(
       logger,
       redirectUrl,
       response.headers,
-      allowUnsignedState,
     );
 
     const { emailAccountId } = decodedState;
@@ -209,7 +208,6 @@ function validateOAuthCallback(
   redirectUrl: URL;
   response: NextResponse;
   receivedState: string;
-  allowUnsignedState: boolean;
 } {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
@@ -257,7 +255,6 @@ function validateOAuthCallback(
     redirectUrl,
     response,
     receivedState,
-    allowUnsignedState: storedState === receivedState,
   };
 }
 
@@ -266,7 +263,6 @@ function parseAndValidateSlackState(
   logger: Logger,
   redirectUrl: URL,
   responseHeaders: Headers,
-  allowUnsignedState: boolean,
 ) {
   let rawState: unknown;
   try {
@@ -275,22 +271,9 @@ function parseAndValidateSlackState(
       type: "slack";
     }>(receivedState);
   } catch (signedError) {
-    if (!allowUnsignedState) {
-      logger.error("Failed to decode signed state", { error: signedError });
-      redirectUrl.searchParams.set("error", "invalid_state_format");
-      throw new RedirectError(redirectUrl, responseHeaders);
-    }
-
-    try {
-      rawState = parseOAuthState<{
-        emailAccountId: string;
-        type: "slack";
-      }>(receivedState);
-    } catch (legacyError) {
-      logger.error("Failed to decode state", { error: legacyError });
-      redirectUrl.searchParams.set("error", "invalid_state_format");
-      throw new RedirectError(redirectUrl, responseHeaders);
-    }
+    logger.error("Failed to decode signed state", { error: signedError });
+    redirectUrl.searchParams.set("error", "invalid_state_format");
+    throw new RedirectError(redirectUrl, responseHeaders);
   }
 
   const validationResult = slackOAuthStateSchema.safeParse(rawState);
@@ -310,8 +293,7 @@ function extractEmailAccountIdFromState(state: string): string | null {
     const parsed = parseSignedOAuthState<{ emailAccountId?: string }>(state);
     return parsed.emailAccountId ?? null;
   } catch {
-    const parsed = parseOAuthState<{ emailAccountId?: string }>(state);
-    return parsed.emailAccountId ?? null;
+    return null;
   }
 }
 

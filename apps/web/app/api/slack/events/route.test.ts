@@ -8,9 +8,9 @@ const {
   extractSlackTeamIdFromWebhookMock,
   slackWebhookMock,
   withMessagingRequestLoggerMock,
-  verifySlackSignatureMock,
+  validateSlackWebhookRequestMock,
 } = vi.hoisted(() => ({
-  verifySlackSignatureMock: vi.fn(),
+  validateSlackWebhookRequestMock: vi.fn(),
   ensureSlackTeamInstallationMock: vi.fn(),
   extractSlackTeamIdFromWebhookMock: vi.fn(),
   slackWebhookMock: vi.fn(),
@@ -37,9 +37,9 @@ vi.mock("@/env", () => ({
   },
 }));
 
-vi.mock("@inboxzero/slack", () => ({
-  verifySlackSignature: (...args: unknown[]) =>
-    verifySlackSignatureMock(...args),
+vi.mock("@/utils/messaging/slack/verify-signature", () => ({
+  validateSlackWebhookRequest: (...args: unknown[]) =>
+    validateSlackWebhookRequestMock(...args),
 }));
 
 vi.mock("@/utils/messaging/chat-sdk/bot", () => ({
@@ -106,13 +106,17 @@ describe("Slack events route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    verifySlackSignatureMock.mockReturnValue(true);
+    validateSlackWebhookRequestMock.mockReturnValue({ valid: true });
     extractSlackTeamIdFromWebhookMock.mockReturnValue("T-TEAM");
     ensureSlackTeamInstallationMock.mockResolvedValue(undefined);
     slackWebhookMock.mockResolvedValue(NextResponse.json({ ok: true }));
   });
 
   it("rejects stale requests before seeding installation", async () => {
+    validateSlackWebhookRequestMock.mockReturnValueOnce({
+      valid: false,
+      reason: "stale_timestamp",
+    });
     const request = createRequest({ timestamp: "1" });
 
     const response = await POST(request as any, context);
@@ -120,13 +124,16 @@ describe("Slack events route", () => {
 
     expect(response.status).toBe(401);
     expect(body).toEqual({ error: "Request too old" });
-    expect(verifySlackSignatureMock).not.toHaveBeenCalled();
+    expect(validateSlackWebhookRequestMock).toHaveBeenCalledTimes(1);
     expect(ensureSlackTeamInstallationMock).not.toHaveBeenCalled();
     expect(slackWebhookMock).not.toHaveBeenCalled();
   });
 
   it("rejects invalid signature before seeding installation", async () => {
-    verifySlackSignatureMock.mockReturnValue(false);
+    validateSlackWebhookRequestMock.mockReturnValueOnce({
+      valid: false,
+      reason: "invalid_signature",
+    });
     const request = createRequest({});
 
     const response = await POST(request as any, context);
@@ -134,7 +141,7 @@ describe("Slack events route", () => {
 
     expect(response.status).toBe(401);
     expect(body).toEqual({ error: "Invalid signature" });
-    expect(verifySlackSignatureMock).toHaveBeenCalledTimes(1);
+    expect(validateSlackWebhookRequestMock).toHaveBeenCalledTimes(1);
     expect(ensureSlackTeamInstallationMock).not.toHaveBeenCalled();
     expect(slackWebhookMock).not.toHaveBeenCalled();
   });
@@ -150,7 +157,7 @@ describe("Slack events route", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true });
-    expect(verifySlackSignatureMock).toHaveBeenCalledTimes(1);
+    expect(validateSlackWebhookRequestMock).toHaveBeenCalledTimes(1);
     expect(ensureSlackTeamInstallationMock).toHaveBeenCalledWith(
       "T-TEAM",
       request.logger,

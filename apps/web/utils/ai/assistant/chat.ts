@@ -99,6 +99,8 @@ export async function aiProcessAssistantChat({
   recordingSession?: RecordingSessionHandle | null;
   logger: Logger;
 }) {
+  const emailSendToolsEnabled =
+    env.NEXT_PUBLIC_EMAIL_SEND_ENABLED && responseSurface === "web";
   let ruleReadState: RuleReadState | null = null;
 
   if (recordingSession) {
@@ -127,9 +129,9 @@ Tool usage strategy (progressive disclosure):
 - For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then provide a concise grouped summary and recommend a next action.
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
-- If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
+  - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
 ${
-  env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+  emailSendToolsEnabled
     ? `${getSendEmailSurfacePolicy({ responseSurface, messagingPlatform })}
 - When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
 - When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.
@@ -148,7 +150,7 @@ Tool call policy:
 - If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
 - Never invent thread IDs, label IDs, sender addresses, or existing rule names.
-${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? '- For forwarding, always use a real messageId from searchInbox or user-provided context.\n- For pending email actions, do not treat "prepared" as "sent".' : ""}
+${emailSendToolsEnabled ? '- For forwarding, always use a real messageId from searchInbox or user-provided context.\n- For pending email actions, do not treat "prepared" as "sent".' : ""}
 - "archive_threads" archives specific threads by ID. Use it when the user refers to specific emails shown in results.
 - "bulk_archive_senders" archives ALL emails from given senders server-side, not just the visible ones. Use it when the user asks to clean up by sender. Since it affects emails beyond what's shown, confirm the scope with the user before executing.
 - "unsubscribe_senders" attempts automatic unsubscribe using message unsubscribe headers/links, marks those senders as unsubscribed, and archives emails from those senders. Use it when the user explicitly asks to unsubscribe from senders. Since it affects all emails from those senders, confirm the scope with the user before executing.
@@ -206,7 +208,7 @@ Best practices:
 - You can use multiple conditions in a rule, but aim for simplicity.
 - When creating rules, in most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
 - If a rule can be handled fully with static conditions, do so, but this is rarely possible.
-${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? `- IMPORTANT: prefer "draft a reply" over "reply". Only if the user explicitly asks to reply, then use "reply". Clarify beforehand this is the intention. Drafting a reply is safer as it means the user can approve before sending.` : ""}
+${emailSendToolsEnabled ? `- IMPORTANT: prefer "draft a reply" over "reply". Only if the user explicitly asks to reply, then use "reply". Clarify beforehand this is the intention. Drafting a reply is safer as it means the user can approve before sending.` : ""}
 - Use short, concise rule names (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.
 
 Always explain the changes you made.
@@ -399,7 +401,7 @@ Behavior anchors (minimal examples):
       addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
       searchMemories: searchMemoriesTool(toolOptions),
       saveMemory: saveMemoryTool({ ...toolOptions, chatId }),
-      ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+      ...(emailSendToolsEnabled
         ? {
             sendEmail: sendEmailTool(toolOptions),
             replyEmail: replyEmailTool(toolOptions),
