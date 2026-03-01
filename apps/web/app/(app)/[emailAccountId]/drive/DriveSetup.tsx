@@ -786,7 +786,6 @@ function SetupFolderSelection({
                       isLast={index === rootFolders.length - 1}
                       selectedFolderIds={optimisticFolderIds}
                       onToggle={handleFolderToggle}
-                      isDisabled={false}
                       level={0}
                       parentPath=""
                       knownChildren={folderChildrenMap.get(folder.id)}
