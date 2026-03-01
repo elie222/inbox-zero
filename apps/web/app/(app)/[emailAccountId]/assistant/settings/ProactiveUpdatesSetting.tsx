@@ -291,12 +291,12 @@ export function ProactiveUpdatesSetting() {
                               setShowCustomPrompt((value) => !value)
                             }
                           >
-                            + Customize what's included
+                            + Add check-in instructions (optional)
                           </button>
                           {showCustomPrompt && (
                             <Textarea
                               id="scheduled-checkins-prompt"
-                              placeholder="Add custom instructions for what should be included."
+                              placeholder="Example: Only include emails that need a reply today or have a deadline in the next 2 days. Skip newsletters, receipts, and FYI updates."
                               value={prompt}
                               onChange={(event) =>
                                 setPrompt(event.target.value)
