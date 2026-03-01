@@ -14,6 +14,22 @@
   ],
   "crons": [
     {
+      "path": "/api/cron/scheduled-actions",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/watch/all",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/meeting-briefs",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/follow-up-reminders",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/cron/automation-jobs",
       "schedule": "*/15 * * * *"
     }
