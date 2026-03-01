@@ -6,6 +6,7 @@ import {
   ensureSlackTeamInstallation,
   extractSlackTeamIdFromWebhook,
   getMessagingChatSdkBot,
+  withMessagingRequestLogger,
 } from "@/utils/messaging/chat-sdk/bot";
 
 export const maxDuration = 120;
@@ -66,7 +67,11 @@ export const POST = withError("slack/events", async (request) => {
     body: rawBody,
   });
 
-  return bot.webhooks.slack(webhookRequest, {
-    waitUntil: (task) => after(() => task),
+  return withMessagingRequestLogger({
+    logger,
+    fn: () =>
+      bot.webhooks.slack(webhookRequest, {
+        waitUntil: (task) => after(() => task),
+      }),
   });
 });

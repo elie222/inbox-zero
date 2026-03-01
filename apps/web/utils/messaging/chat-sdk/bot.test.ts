@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { ensureSlackTeamInstallation } from "@/utils/messaging/chat-sdk/bot";
+import {
+  ensureSlackTeamInstallation,
+  stripLeadingSlackMention,
+} from "@/utils/messaging/chat-sdk/bot";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -41,6 +44,20 @@ describe("ensureSlackTeamInstallation", () => {
           updatedAt: "desc",
         },
       }),
+    );
+  });
+});
+
+describe("stripLeadingSlackMention", () => {
+  it("strips Slack app mention format", () => {
+    expect(stripLeadingSlackMention("<@U123ABC> summarize my inbox")).toBe(
+      "summarize my inbox",
+    );
+  });
+
+  it("keeps compatibility with plain @mention text", () => {
+    expect(stripLeadingSlackMention("@InboxZero summarize my inbox")).toBe(
+      "summarize my inbox",
     );
   });
 });

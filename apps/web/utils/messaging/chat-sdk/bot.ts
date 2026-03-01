@@ -11,6 +11,7 @@ import {
   type TelegramRawMessage,
   type TelegramAdapter,
 } from "@chat-adapter/telegram";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { convertToModelMessages, type UIMessage } from "ai";
 import {
   Chat,
@@ -23,15 +24,19 @@ import { env } from "@/env";
 import type { Prisma } from "@/generated/prisma/client";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
+import { getRecentChatMemories } from "@/utils/ai/assistant/get-recent-chat-memories";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
-import { formatUtcDate } from "@/utils/date";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { consumeMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code-consume";
+import {
+  getMessagingPlatformName,
+  type MessagingPlatform,
+} from "@/utils/messaging/platforms";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const MAX_CHAT_CONTEXT_MESSAGES = 12;
-const MAX_CHAT_MEMORIES = 20;
 const CHAT_SDK_STATE_KEY_PREFIX = "inbox-zero:chat-sdk";
 const CONNECT_COMMAND_REGEX =
   /^\/?connect(?:@[A-Za-z0-9_]+)?\s+([A-Za-z0-9._-]+)\s*$/i;
@@ -48,7 +53,7 @@ const SLACK_ASSISTANT_SUGGESTED_PROMPTS = [
   },
 ];
 
-type SupportedPlatform = "slack" | "teams" | "telegram";
+type SupportedPlatform = MessagingPlatform;
 
 type MessagingAdapters = {
   slack?: SlackAdapter;
@@ -106,12 +111,24 @@ declare global {
   var inboxZeroMessagingChatSdk: MessagingChatSdkContext | undefined;
 }
 
+const messagingRequestLoggerStore = new AsyncLocalStorage<Logger>();
+
 export function getMessagingChatSdkBot(): MessagingChatSdkContext {
   if (!global.inboxZeroMessagingChatSdk) {
     global.inboxZeroMessagingChatSdk = createMessagingChatSdkBot();
   }
 
   return global.inboxZeroMessagingChatSdk;
+}
+
+export function withMessagingRequestLogger<T>({
+  logger,
+  fn,
+}: {
+  logger: Logger;
+  fn: () => Promise<T>;
+}): Promise<T> {
+  return messagingRequestLoggerStore.run(logger, fn);
 }
 
 export function hasMessagingAdapter(platform: SupportedPlatform): boolean {
@@ -306,57 +323,46 @@ function registerMessagingHandlers({
   adapters: MessagingAdapters;
 }) {
   const logger = createScopedLogger("messaging-chat-sdk");
+  const getHandlerLogger = () =>
+    messagingRequestLoggerStore.getStore() ?? logger;
 
   bot.onNewMention(async (thread, message) => {
+    const handlerLogger = getHandlerLogger();
     const handled = await processMessagingAssistantMessage({
       adapters,
       thread,
       message,
-      logger,
+      logger: handlerLogger,
     });
 
     if (handled) {
-      try {
-        await thread.subscribe();
-      } catch (error) {
-        logger.warn("Failed to subscribe messaging thread", {
-          provider: thread.adapter.name,
-          threadId: thread.id,
-          error,
-        });
-      }
+      await subscribeMessagingThreadSafely({ thread, logger: handlerLogger });
     }
   });
 
   bot.onNewMessage(/[\s\S]+/, async (thread, message) => {
     if (!thread.isDM) return;
 
+    const handlerLogger = getHandlerLogger();
     const handled = await processMessagingAssistantMessage({
       adapters,
       thread,
       message,
-      logger,
+      logger: handlerLogger,
     });
 
     if (handled) {
-      try {
-        await thread.subscribe();
-      } catch (error) {
-        logger.warn("Failed to subscribe messaging thread", {
-          provider: thread.adapter.name,
-          threadId: thread.id,
-          error,
-        });
-      }
+      await subscribeMessagingThreadSafely({ thread, logger: handlerLogger });
     }
   });
 
   bot.onSubscribedMessage(async (thread, message) => {
+    const handlerLogger = getHandlerLogger();
     await processMessagingAssistantMessage({
       adapters,
       thread,
       message,
-      logger,
+      logger: handlerLogger,
     });
   });
 
@@ -374,6 +380,24 @@ function registerMessagingHandlers({
           error,
         });
       }
+    });
+  }
+}
+
+async function subscribeMessagingThreadSafely({
+  thread,
+  logger,
+}: {
+  thread: Thread;
+  logger: Logger;
+}) {
+  try {
+    await thread.subscribe();
+  } catch (error) {
+    logger.warn("Failed to subscribe messaging thread", {
+      provider: thread.adapter.name,
+      threadId: thread.id,
+      error,
     });
   }
 }
@@ -466,6 +490,13 @@ async function processMessagingAssistantMessage({
       update: {},
     });
 
+    const assistantMessageId = `${userMessageId}-assistant`;
+    const existingAssistantMessage = await prisma.chatMessage.findUnique({
+      where: { id: assistantMessageId },
+      select: { id: true },
+    });
+    if (existingAssistantMessage) return true;
+
     const threadLogger = logger.with({
       provider: context.provider,
       emailAccountId: context.emailAccountId,
@@ -481,6 +512,7 @@ async function processMessagingAssistantMessage({
     const memoriesPromise = getRecentChatMemories({
       emailAccountId: context.emailAccountId,
       logger: threadLogger,
+      logContext: "messaging chat",
     });
 
     try {
@@ -513,15 +545,27 @@ async function processMessagingAssistantMessage({
         provider: context.provider,
       });
 
-      await prisma.chatMessage.create({
-        data: {
-          chat: { connect: { id: chat.id } },
-          role: "assistant",
-          parts: [
-            { type: "text", text: fullText },
-          ] as unknown as Prisma.InputJsonValue,
-        },
-      });
+      try {
+        await prisma.chatMessage.create({
+          data: {
+            id: assistantMessageId,
+            chat: { connect: { id: chat.id } },
+            role: "assistant",
+            parts: [
+              { type: "text", text: fullText },
+            ] as unknown as Prisma.InputJsonValue,
+          },
+        });
+      } catch (error) {
+        if (isDuplicateError(error, "id")) {
+          threadLogger.info(
+            "Skipping duplicate messaging assistant response for retried event",
+            { assistantMessageId },
+          );
+          return true;
+        }
+        throw error;
+      }
 
       await thread.post({ markdown: fullText });
       return true;
@@ -598,31 +642,6 @@ async function startSlackProcessingReaction({
       threadId: thread.id,
     });
     return null;
-  }
-}
-
-async function getRecentChatMemories({
-  emailAccountId,
-  logger,
-}: {
-  emailAccountId: string;
-  logger: Logger;
-}): Promise<{ content: string; date: string }[]> {
-  try {
-    const memories = await prisma.chatMemory.findMany({
-      where: { emailAccountId },
-      orderBy: { createdAt: "desc" },
-      take: MAX_CHAT_MEMORIES,
-      select: { content: true, createdAt: true },
-    });
-
-    return memories.map((memory) => ({
-      content: memory.content,
-      date: formatUtcDate(memory.createdAt),
-    }));
-  } catch (error) {
-    logger.warn("Failed to load memories for messaging chat", { error });
-    return [];
   }
 }
 
@@ -1068,16 +1087,14 @@ async function sendUnauthorizedMessage({
   teamId: string;
   logger: Logger;
 }): Promise<void> {
-  try {
-    await thread.post(
+  await postMessagingThreadMessage({
+    thread,
+    logger,
+    message:
       "To use this bot, connect your Inbox Zero account to this workspace from your settings page.",
-    );
-  } catch (error) {
-    logger.error("Failed to send unauthorized messaging message", {
-      error,
-      teamId,
-    });
-  }
+    errorLogMessage: "Failed to send unauthorized messaging message",
+    logMeta: { teamId },
+  });
 
   logger.info("Unauthorized messaging user attempted bot access", { teamId });
 }
@@ -1093,16 +1110,13 @@ async function sendLinkRequiredMessage({
 }): Promise<void> {
   const providerName = provider === "teams" ? "Teams" : "Telegram";
 
-  try {
-    await thread.post(
-      `Your ${providerName} account is not linked yet. In Inbox Zero settings, generate a ${providerName} connect code and send \`/connect <code>\` in this DM.`,
-    );
-  } catch (error) {
-    logger.error("Failed to send link-required message", {
-      provider,
-      error,
-    });
-  }
+  await postMessagingThreadMessage({
+    thread,
+    logger,
+    message: `Your ${providerName} account is not linked yet. In Inbox Zero settings, generate a ${providerName} connect code and send \`/connect <code>\` in this DM.`,
+    errorLogMessage: "Failed to send link-required message",
+    logMeta: { provider },
+  });
 }
 
 async function sendDmRequiredMessage({
@@ -1116,16 +1130,13 @@ async function sendDmRequiredMessage({
 }): Promise<void> {
   const providerName = provider === "teams" ? "Teams" : "Telegram";
 
-  try {
-    await thread.post(
-      `For privacy, ${providerName} support only works in direct messages. Open a DM with the bot and try again.`,
-    );
-  } catch (error) {
-    logger.error("Failed to send DM-required message", {
-      provider,
-      error,
-    });
-  }
+  await postMessagingThreadMessage({
+    thread,
+    logger,
+    message: `For privacy, ${providerName} support only works in direct messages. Open a DM with the bot and try again.`,
+    errorLogMessage: "Failed to send DM-required message",
+    logMeta: { provider },
+  });
 }
 
 async function sendUnlinkedChannelMessage({
@@ -1135,12 +1146,35 @@ async function sendUnlinkedChannelMessage({
   thread: Thread;
   logger: Logger;
 }): Promise<void> {
-  try {
-    await thread.post(
+  await postMessagingThreadMessage({
+    thread,
+    logger,
+    message:
       "This channel isn't linked to an email account. Set one up in your Inbox Zero settings.",
-    );
+    errorLogMessage: "Failed to send unlinked channel message",
+  });
+}
+
+async function postMessagingThreadMessage({
+  thread,
+  logger,
+  message,
+  errorLogMessage,
+  logMeta,
+}: {
+  thread: Thread;
+  logger: Logger;
+  message: string;
+  errorLogMessage: string;
+  logMeta?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    await thread.post(message);
   } catch (error) {
-    logger.error("Failed to send unlinked channel message", { error });
+    logger.error(errorLogMessage, {
+      ...logMeta,
+      error,
+    });
   }
 }
 
@@ -1173,8 +1207,11 @@ function normalizeThreadIdForStorage(threadId: string): string {
   return threadId.replaceAll(":", "-");
 }
 
-function stripLeadingSlackMention(text: string): string {
-  return text.replace(/^@\S+\s*/, "").trim();
+export function stripLeadingSlackMention(text: string): string {
+  return text
+    .replace(/^<@[A-Z0-9]+>\s*/i, "")
+    .replace(/^@\S+\s*/, "")
+    .trim();
 }
 
 function normalizeMessagingAssistantText({
@@ -1205,12 +1242,6 @@ function normalizeMessagingAssistantText({
   }
 
   return normalized;
-}
-
-function getMessagingPlatformName(provider: SupportedPlatform) {
-  if (provider === "slack") return "Slack";
-  if (provider === "teams") return "Teams";
-  return "Telegram";
 }
 
 function toMessagingProvider(provider: "teams" | "telegram") {

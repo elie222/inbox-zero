@@ -19,7 +19,7 @@ import {
   setOAuthCodeResult,
 } from "@/utils/redis/oauth-code";
 import { syncSlackInstallation } from "@/utils/messaging/chat-sdk/bot";
-import { sendConnectionOnboardingDirectMessage } from "@inboxzero/slack";
+import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/slack/send-onboarding-direct-message";
 
 const slackOAuthStateSchema = z.object({
   emailAccountId: z.string().min(1).max(64),
@@ -130,18 +130,12 @@ export async function handleSlackCallback(
       logger: callbackLogger,
     });
 
-    try {
-      await sendConnectionOnboardingDirectMessage({
-        accessToken: tokens.access_token,
-        userId: tokens.authed_user.id,
-      });
-    } catch (error) {
-      callbackLogger.warn("Failed to send Slack onboarding direct message", {
-        teamId: tokens.team.id,
-        userId: tokens.authed_user.id,
-        error,
-      });
-    }
+    await sendSlackOnboardingDirectMessageWithLogging({
+      accessToken: tokens.access_token,
+      userId: tokens.authed_user.id,
+      teamId: tokens.team.id,
+      logger: callbackLogger,
+    });
 
     callbackLogger.info("Slack connected successfully", {
       teamId: tokens.team.id,

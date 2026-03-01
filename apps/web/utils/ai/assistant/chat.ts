@@ -37,6 +37,10 @@ import {
   updateInboxFeaturesTool,
 } from "./chat-inbox-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
+import {
+  getMessagingPlatformName,
+  type MessagingPlatform,
+} from "@/utils/messaging/platforms";
 
 export const maxDuration = 120;
 
@@ -89,7 +93,7 @@ export async function aiProcessAssistantChat({
   memories?: { content: string; date: string }[];
   inboxStats?: { total: number; unread: number } | null;
   responseSurface?: "web" | "messaging";
-  messagingPlatform?: "slack" | "teams" | "telegram";
+  messagingPlatform?: MessagingPlatform;
   logger: Logger;
 }) {
   let ruleReadState: RuleReadState | null = null;
@@ -546,23 +550,16 @@ function getSendEmailSurfacePolicy({
   messagingPlatform,
 }: {
   responseSurface: "web" | "messaging";
-  messagingPlatform?: "slack" | "teams" | "telegram";
+  messagingPlatform?: MessagingPlatform;
 }) {
   if (responseSurface === "web") {
     return "- sendEmail, replyEmail, and forwardEmail prepare a pending action only. The user must click a confirmation button in the UI before any email is actually sent.";
   }
 
-  const platformName = getMessagingPlatformName(messagingPlatform);
+  const platformName = messagingPlatform
+    ? getMessagingPlatformName(messagingPlatform)
+    : "messaging chat";
   return `- sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.
 - In ${platformName}, there is no confirmation button or modal for these actions right now.
 - Tell the user to open Inbox Zero in the web app to review and confirm the pending draft.`;
-}
-
-function getMessagingPlatformName(
-  messagingPlatform?: "slack" | "teams" | "telegram",
-) {
-  if (messagingPlatform === "slack") return "Slack";
-  if (messagingPlatform === "teams") return "Teams";
-  if (messagingPlatform === "telegram") return "Telegram";
-  return "messaging chat";
 }

@@ -7,12 +7,16 @@ const {
   ensureSlackTeamInstallationMock,
   extractSlackTeamIdFromWebhookMock,
   slackWebhookMock,
+  withMessagingRequestLoggerMock,
   verifySlackSignatureMock,
 } = vi.hoisted(() => ({
   verifySlackSignatureMock: vi.fn(),
   ensureSlackTeamInstallationMock: vi.fn(),
   extractSlackTeamIdFromWebhookMock: vi.fn(),
   slackWebhookMock: vi.fn(),
+  withMessagingRequestLoggerMock: vi.fn(
+    ({ fn }: { fn: () => Promise<Response> }) => fn(),
+  ),
 }));
 
 vi.mock("@/utils/middleware", () => ({
@@ -50,6 +54,10 @@ vi.mock("@/utils/messaging/chat-sdk/bot", () => ({
       },
     },
   }),
+  withMessagingRequestLogger: (args: {
+    logger: unknown;
+    fn: () => Promise<Response>;
+  }) => withMessagingRequestLoggerMock(args),
 }));
 
 import { POST } from "./route";
@@ -90,6 +98,10 @@ function createRequest({
   return request;
 }
 
+const context = { params: Promise.resolve({}) } as {
+  params: Promise<Record<string, string>>;
+};
+
 describe("Slack events route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -103,7 +115,7 @@ describe("Slack events route", () => {
   it("rejects stale requests before seeding installation", async () => {
     const request = createRequest({ timestamp: "1" });
 
-    const response = await POST(request as any);
+    const response = await POST(request as any, context);
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -117,7 +129,7 @@ describe("Slack events route", () => {
     verifySlackSignatureMock.mockReturnValue(false);
     const request = createRequest({});
 
-    const response = await POST(request as any);
+    const response = await POST(request as any, context);
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -133,7 +145,7 @@ describe("Slack events route", () => {
     );
     const request = createRequest({});
 
-    const response = await POST(request as any);
+    const response = await POST(request as any, context);
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -143,6 +155,11 @@ describe("Slack events route", () => {
       "T-TEAM",
       request.logger,
     );
+    expect(withMessagingRequestLoggerMock).toHaveBeenCalledTimes(1);
+    expect(withMessagingRequestLoggerMock).toHaveBeenCalledWith({
+      logger: request.logger,
+      fn: expect.any(Function),
+    });
     expect(slackWebhookMock).toHaveBeenCalledTimes(1);
     expect(request.logger.warn).toHaveBeenCalledWith(
       "Failed to seed Slack installation for Chat SDK",

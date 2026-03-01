@@ -14,10 +14,14 @@ function getMessagingLinkNonceKey(nonce: string) {
 export async function consumeMessagingLinkNonce(
   nonce: string,
 ): Promise<boolean> {
-  const result = await redis.set(getMessagingLinkNonceKey(nonce), "used", {
-    ex: MESSAGING_LINK_NONCE_TTL_SECONDS,
-    nx: true,
-  });
+  try {
+    const result = await redis.set(getMessagingLinkNonceKey(nonce), "used", {
+      ex: MESSAGING_LINK_NONCE_TTL_SECONDS,
+      nx: true,
+    });
 
-  return result === "OK";
+    return result === "OK";
+  } catch {
+    return false;
+  }
 }

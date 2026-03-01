@@ -12,9 +12,9 @@ vi.mock("@/utils/auth", () => ({
 
 const { mockEnv, generateMessagingLinkCodeMock } = vi.hoisted(() => ({
   mockEnv: {
-    TEAMS_BOT_APP_ID: "teams-app-id",
+    TEAMS_BOT_APP_ID: "teams-app-id" as string | undefined,
     TEAMS_BOT_APP_PASSWORD: "teams-app-password",
-    TELEGRAM_BOT_TOKEN: "telegram-bot-token",
+    TELEGRAM_BOT_TOKEN: "telegram-bot-token" as string | undefined,
   },
   generateMessagingLinkCodeMock: vi.fn(() => "test-link-code"),
 }));
@@ -25,8 +25,10 @@ vi.mock("@/env", () => ({
 
 vi.mock("@/utils/messaging/chat-sdk/link-code", () => ({
   LINKABLE_MESSAGING_PROVIDERS: ["TEAMS", "TELEGRAM"],
-  generateMessagingLinkCode: (...args: unknown[]) =>
-    generateMessagingLinkCodeMock(...args),
+  generateMessagingLinkCode: (args: {
+    emailAccountId: string;
+    provider: "TEAMS" | "TELEGRAM";
+  }) => generateMessagingLinkCodeMock(args),
 }));
 
 describe("createMessagingLinkCodeAction", () => {
