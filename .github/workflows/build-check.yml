@@ -6,16 +6,30 @@ permissions:
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "**/*.mdx"
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "tsconfig.json"
+      - ".github/workflows/build-check.yml"
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "**/*.mdx"
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "tsconfig.json"
+      - ".github/workflows/build-check.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -33,6 +47,9 @@ jobs:
       DEFAULT_LLM_PROVIDER: "openai"
       INTERNAL_API_KEY: "secret"
       NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      TURBO_TELEMETRY_DISABLED: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -63,5 +80,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - uses: actions/cache@v4
+        name: Setup Next.js cache
+        with:
+          path: apps/web/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/**/*.[jt]s', 'apps/web/**/*.[jt]sx', 'apps/web/**/*.[cm]js', 'apps/web/**/*.json', 'apps/web/**/*.css', 'apps/web/**/*.mdx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+
       - name: Build app
-        run: pnpm --filter inbox-zero-ai exec next build
+        run: pnpm turbo run build:ci --filter=./apps/web
