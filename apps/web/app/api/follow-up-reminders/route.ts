@@ -10,7 +10,6 @@ import { getEligibleFollowUpReminderEmailAccountIds } from "./process";
 
 export const maxDuration = 800;
 const FOLLOW_UP_REMINDER_ACCOUNT_PATH = "/api/follow-up-reminders/account";
-const MAX_CONCURRENT_DISPATCHES = 10;
 
 export const GET = withError("follow-up-reminders", async (request) => {
   if (!hasCronSecret(request)) {
@@ -75,37 +74,17 @@ async function dispatchFollowUpReminderAccounts(
 
   const url = `${getInternalApiUrl()}${FOLLOW_UP_REMINDER_ACCOUNT_PATH}`;
   const startTime = Date.now();
-  let dispatchedAccounts = 0;
-  let failedDispatches = 0;
-
-  for (
-    let index = 0;
-    index < emailAccountIds.length;
-    index += MAX_CONCURRENT_DISPATCHES
-  ) {
-    const batch = emailAccountIds.slice(
-      index,
-      index + MAX_CONCURRENT_DISPATCHES,
-    );
-
-    const batchDispatches = await Promise.all(
-      batch.map((emailAccountId) =>
-        dispatchFollowUpReminderAccount({
-          url,
-          emailAccountId,
-          logger,
-        }),
-      ),
-    );
-
-    for (const dispatched of batchDispatches) {
-      if (dispatched) {
-        dispatchedAccounts++;
-      } else {
-        failedDispatches++;
-      }
-    }
-  }
+  const dispatchResults = await Promise.all(
+    emailAccountIds.map((emailAccountId) =>
+      dispatchFollowUpReminderAccount({
+        url,
+        emailAccountId,
+        logger,
+      }),
+    ),
+  );
+  const dispatchedAccounts = dispatchResults.filter(Boolean).length;
+  const failedDispatches = dispatchResults.length - dispatchedAccounts;
 
   logger.info("Finished follow-up reminder dispatch", {
     dispatchedAccounts,
