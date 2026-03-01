@@ -12,15 +12,13 @@ import {
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { MessagingProvider } from "@/generated/prisma/enums";
-import {
-  createSlackClient,
-  getChannelInfo,
-  sendChannelConfirmation,
-  lookupSlackUserByEmail,
-} from "@inboxzero/slack";
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
 import { env } from "@/env";
-import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/slack/send-onboarding-direct-message";
+import { getChannelInfo } from "@/utils/messaging/providers/slack/channels";
+import { createSlackClient } from "@/utils/messaging/providers/slack/client";
+import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send";
+import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
+import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
 
 export const updateSlackChannelAction = actionClient
   .metadata({ name: "updateSlackChannel" })

@@ -7,7 +7,7 @@ import {
   getMessagingChatSdkBot,
   withMessagingRequestLogger,
 } from "@/utils/messaging/chat-sdk/bot";
-import { validateSlackWebhookRequest } from "@/utils/messaging/slack/verify-signature";
+import { validateSlackWebhookRequest } from "@/utils/messaging/providers/slack/verify-signature";
 
 export const maxDuration = 120;
 

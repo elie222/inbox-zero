@@ -37,7 +37,7 @@ vi.mock("@/env", () => ({
   },
 }));
 
-vi.mock("@/utils/messaging/slack/verify-signature", () => ({
+vi.mock("@/utils/messaging/providers/slack/verify-signature", () => ({
   validateSlackWebhookRequest: (...args: unknown[]) =>
     validateSlackWebhookRequestMock(...args),
 }));

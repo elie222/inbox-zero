@@ -19,7 +19,7 @@ import {
   setOAuthCodeResult,
 } from "@/utils/redis/oauth-code";
 import { syncSlackInstallation } from "@/utils/messaging/chat-sdk/bot";
-import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/slack/send-onboarding-direct-message";
+import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
 
 const slackOAuthStateSchema = z.object({
   emailAccountId: z.string().min(1).max(64),

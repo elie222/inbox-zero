@@ -144,9 +144,6 @@ importers:
       '@inboxzero/resend':
         specifier: workspace:*
         version: link:../../packages/resend
-      '@inboxzero/slack':
-        specifier: workspace:*
-        version: link:../../packages/slack
       '@inboxzero/tinybird':
         specifier: workspace:*
         version: link:../../packages/tinybird
@@ -261,6 +258,12 @@ importers:
       '@serwist/next':
         specifier: 9.5.5
         version: 9.5.5(next@16.1.6(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.58.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(webpack@5.101.3(esbuild@0.27.0))
+      '@slack/types':
+        specifier: 2.19.0
+        version: 2.19.0
+      '@slack/web-api':
+        specifier: 7.13.0
+        version: 7.13.0
       '@stripe/stripe-js':
         specifier: 8.7.0
         version: 8.7.0
@@ -749,25 +752,6 @@ importers:
       prettier:
         specifier: 3.7.4
         version: 3.7.4
-      tsconfig:
-        specifier: workspace:*
-        version: link:../tsconfig
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-
-  packages/slack:
-    dependencies:
-      '@slack/types':
-        specifier: 2.19.0
-        version: 2.19.0
-      '@slack/web-api':
-        specifier: 7.13.0
-        version: 7.13.0
-    devDependencies:
-      '@types/node':
-        specifier: 24.10.1
-        version: 24.10.1
       tsconfig:
         specifier: workspace:*
         version: link:../tsconfig

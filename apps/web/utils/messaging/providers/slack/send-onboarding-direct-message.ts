@@ -1,4 +1,4 @@
-import { sendConnectionOnboardingDirectMessage } from "@inboxzero/slack";
+import { sendConnectionOnboardingDirectMessage } from "./send";
 import type { Logger } from "@/utils/logger";
 
 export async function sendSlackOnboardingDirectMessageWithLogging({
