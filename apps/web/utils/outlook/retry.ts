@@ -11,6 +11,9 @@ interface ErrorInfo {
   responseBody?: string;
 }
 
+// Intentionally lower than Microsoft's common 30s throttle backoff so serverless
+// requests fail fast instead of sleeping into function timeout budgets.
+// Non-serverless callers can pass a higher maxBlockingDelayMs when needed.
 export const MAX_OUTLOOK_BLOCKING_RETRY_DELAY_MS = 10_000;
 
 /**
