@@ -11,6 +11,8 @@ interface ErrorInfo {
   responseBody?: string;
 }
 
+export const MAX_OUTLOOK_BLOCKING_RETRY_DELAY_MS = 10_000;
+
 /**
  * Retries a Microsoft Graph API operation when rate limits or temporary server errors are encountered
  * - Rate limits: 429, "TooManyRequests", "ApplicationThrottled", "MailboxConcurrency"
@@ -20,6 +22,7 @@ export async function withOutlookRetry<T>(
   operation: () => Promise<T>,
   logger: Logger,
   maxRetries = 5,
+  maxBlockingDelayMs = MAX_OUTLOOK_BLOCKING_RETRY_DELAY_MS,
 ): Promise<T> {
   return pRetry(operation, {
     retries: maxRetries,
@@ -52,14 +55,31 @@ export async function withOutlookRetry<T>(
         delaySeconds: Math.ceil(delayMs / 1000),
         attemptNumber: error.attemptNumber,
         maxRetries,
+        maxBlockingDelaySeconds: Math.ceil(maxBlockingDelayMs / 1000),
         status: errorInfo.status,
         code: errorInfo.code,
         isRateLimit,
         isServerError,
         isConflictError,
         isFetchError: isFetchError(errorInfo),
+        retryAfterHeader,
         responseBody: errorInfo.responseBody,
       });
+
+      if (delayMs > maxBlockingDelayMs) {
+        logger.warn("Aborting retry due to long backoff in serverless", {
+          delaySeconds: Math.ceil(delayMs / 1000),
+          maxBlockingDelaySeconds: Math.ceil(maxBlockingDelayMs / 1000),
+          attemptNumber: error.attemptNumber,
+          maxRetries,
+          status: errorInfo.status,
+          code: errorInfo.code,
+          isRateLimit,
+          isServerError,
+          isConflictError,
+        });
+        throw error;
+      }
 
       // Apply the custom delay
       if (delayMs > 0) {
