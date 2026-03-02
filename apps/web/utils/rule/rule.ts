@@ -11,6 +11,7 @@ import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 
 export function partialUpdateRule({
   ruleId,
@@ -208,17 +209,42 @@ export async function upsertSystemRule({
   } else {
     logger.info("Creating new system rule");
 
-    const rule = await prisma.rule.create({
-      data: {
-        ...data,
-        emailAccountId,
-        actions: { createMany: { data: actions } },
-      },
-      include: { actions: true, group: true },
-    });
+    try {
+      const rule = await prisma.rule.create({
+        data: {
+          ...data,
+          emailAccountId,
+          actions: { createMany: { data: actions } },
+        },
+        include: { actions: true, group: true },
+      });
 
-    await createRuleHistory({ rule, triggerType: "created" });
-    return rule;
+      await createRuleHistory({ rule, triggerType: "created" });
+      return rule;
+    } catch (error) {
+      if (!isDuplicateError(error, "name")) throw error;
+
+      logger.info("Rule already exists (race condition), updating instead");
+      const existing = await prisma.rule.findFirst({
+        where: { emailAccountId, name },
+      });
+      if (!existing) throw error;
+
+      const rule = await prisma.rule.update({
+        where: { id: existing.id },
+        data: {
+          ...data,
+          actions: {
+            deleteMany: {},
+            createMany: { data: actions },
+          },
+        },
+        include: { actions: true, group: true },
+      });
+
+      await createRuleHistory({ rule, triggerType: "updated" });
+      return rule;
+    }
   }
 }
 

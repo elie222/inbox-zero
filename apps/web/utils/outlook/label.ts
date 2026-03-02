@@ -3,6 +3,7 @@ import type { Logger } from "@/utils/logger";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { WELL_KNOWN_FOLDERS } from "./message";
 import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
+import { processThreadMessagesFallback } from "@/utils/outlook/thread-helpers";
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
 import {
   normalizeOutlookCategoryName,
@@ -460,59 +461,22 @@ export async function archiveThread({
     });
 
     try {
-      // Try to get messages by conversationId using a different endpoint
-      const messages = await client
-        .getClient()
-        .api("/me/messages")
-        .select("id")
-        .get();
-
-      // Filter messages by conversationId manually
-      const threadMessages = messages.value.filter(
-        (message: { conversationId: string }) =>
-          message.conversationId === threadId,
-      );
-
-      if (threadMessages.length > 0) {
-        // Move each message in the thread to the destination folder
-        const movePromises = threadMessages.map(
-          async (message: { id: string }) => {
-            try {
-              return await withOutlookRetry(
-                () =>
-                  client
-                    .getClient()
-                    .api(`/me/messages/${message.id}/move`)
-                    .post({
-                      destinationId: folderId,
-                    }),
-                logger,
-              );
-            } catch (moveError) {
-              // Log the error but don't fail the entire operation
-              logger.warn("Failed to move message to folder", {
-                folderId,
-                messageId: message.id,
-                threadId,
-                error:
-                  moveError instanceof Error ? moveError.message : moveError,
-              });
-              return null;
-            }
-          },
-        );
-
-        await Promise.allSettled(movePromises);
-      } else {
-        // If no messages found, try treating threadId as a messageId
-        await withOutlookRetry(
-          () =>
-            client.getClient().api(`/me/messages/${threadId}/move`).post({
-              destinationId: folderId,
-            }),
-          logger,
-        );
-      }
+      await processThreadMessagesFallback({
+        client,
+        threadId,
+        logger,
+        messageHandler: (messageId) =>
+          withOutlookRetry(
+            () =>
+              client
+                .getClient()
+                .api(`/me/messages/${messageId}/move`)
+                .post({ destinationId: folderId }),
+            logger,
+          ),
+        noMessagesMessage:
+          "No messages found for conversationId, skipping folder move",
+      });
 
       // Publish the archive action
       try {
@@ -584,42 +548,22 @@ export async function markReadThread({
     });
 
     try {
-      // Try to get messages by conversationId using a different endpoint
-      const messages = await client
-        .getClient()
-        .api("/me/messages")
-        .select("id")
-        .get();
-
-      // Filter messages by conversationId manually
-      const threadMessages = messages.value.filter(
-        (message: { conversationId: string }) =>
-          message.conversationId === threadId,
-      );
-
-      if (threadMessages.length > 0) {
-        // Update each message in the thread
-        await Promise.all(
-          threadMessages.map((message: { id: string }) =>
-            withOutlookRetry(
-              () =>
-                client.getClient().api(`/me/messages/${message.id}`).patch({
-                  isRead: read,
-                }),
-              logger,
-            ),
+      await processThreadMessagesFallback({
+        client,
+        threadId,
+        logger,
+        messageHandler: (messageId) =>
+          withOutlookRetry(
+            () =>
+              client
+                .getClient()
+                .api(`/me/messages/${messageId}`)
+                .patch({ isRead: read }),
+            logger,
           ),
-        );
-      } else {
-        // If no messages found, try treating threadId as a messageId
-        await withOutlookRetry(
-          () =>
-            client.getClient().api(`/me/messages/${threadId}`).patch({
-              isRead: read,
-            }),
-          logger,
-        );
-      }
+        noMessagesMessage:
+          "No messages found for conversationId, skipping mark read",
+      });
     } catch (directError) {
       logger.error("Failed to mark message as read", {
         threadId,
