@@ -45,6 +45,7 @@ import {
   getMessagingDraftConfirmationAction,
   PENDING_DRAFT_CONFIRMATION_MESSAGE,
 } from "@/utils/messaging/pending-email-confirmation";
+import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import { getEmailUrlForMessage } from "@/utils/url";
@@ -636,7 +637,12 @@ async function processMessagingAssistantMessage({
         throw error;
       }
 
-      await thread.post({ markdown: fullText });
+      await thread.post(
+        getMessagingAssistantPostPayload({
+          provider: context.provider,
+          text: fullText,
+        }),
+      );
 
       const pendingToolPart = getPendingEmailToolPart(
         assistantUiMessage.parts || [],
@@ -1622,27 +1628,14 @@ async function resolveLinkedProviderCandidate({
   provider: "teams" | "telegram";
   teamId: string;
 }): Promise<LinkedProviderCandidate> {
-  if (candidates.length === 1) return candidates[0];
-
-  const existingChat = await prisma.chat.findUnique({
-    where: { id: chatId },
-    select: { emailAccountId: true },
+  return selectCandidateFromExistingChat({
+    candidates,
+    chatId,
+    logger,
+    warningMessage:
+      "Multiple linked messaging accounts found; using first match",
+    warningMeta: { provider, teamId },
   });
-
-  if (existingChat) {
-    const existingCandidate = candidates.find(
-      (candidate) => candidate.emailAccountId === existingChat.emailAccountId,
-    );
-    if (existingCandidate) return existingCandidate;
-  }
-
-  logger.warn("Multiple linked messaging accounts found; using first match", {
-    provider,
-    teamId,
-    candidateCount: candidates.length,
-  });
-
-  return candidates[0];
 }
 
 async function resolveSlackMessagingChannel({
@@ -1680,21 +1673,46 @@ async function resolveSlackMessagingChannel({
 
   if (candidates.length === 1) return candidates[0];
 
+  return selectCandidateFromExistingChat({
+    candidates,
+    chatId: getSlackChatId({ channel, threadTs: chatThreadTs }),
+    logger,
+    warningMessage: "Multiple accounts in Slack DM, using first match",
+    warningMeta: { teamId },
+  });
+}
+
+async function selectCandidateFromExistingChat<
+  TCandidate extends { emailAccountId: string },
+>({
+  candidates,
+  chatId,
+  logger,
+  warningMessage,
+  warningMeta,
+}: {
+  candidates: TCandidate[];
+  chatId: string;
+  logger: Logger;
+  warningMessage: string;
+  warningMeta: Record<string, unknown>;
+}): Promise<TCandidate> {
+  if (candidates.length === 1) return candidates[0];
+
   const existingChat = await prisma.chat.findUnique({
-    where: { id: getSlackChatId({ channel, threadTs: chatThreadTs }) },
+    where: { id: chatId },
     select: { emailAccountId: true },
   });
 
   if (existingChat) {
-    const match = candidates.find(
+    const existingCandidate = candidates.find(
       (candidate) => candidate.emailAccountId === existingChat.emailAccountId,
     );
-
-    if (match) return match;
+    if (existingCandidate) return existingCandidate;
   }
 
-  logger.warn("Multiple accounts in Slack DM, using first match", {
-    teamId,
+  logger.warn(warningMessage, {
+    ...warningMeta,
     candidateCount: candidates.length,
   });
 
@@ -1863,20 +1881,21 @@ function normalizeMessagingAssistantText({
     normalized = `${normalized}\n\nTo send it, ${getMessagingDraftConfirmationAction(provider)}.`;
   }
 
-  if (provider === "telegram") {
-    normalized = normalizeTelegramMarkdownArtifacts(normalized);
-  }
-
   return normalized;
 }
 
-function normalizeTelegramMarkdownArtifacts(text: string) {
-  return text
-    .replace(/\\\n/g, "\n")
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/__(.*?)__/g, "$1")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\\([_*[\]()~`>#+\-=|{}.!])/g, "$1");
+function getMessagingAssistantPostPayload({
+  provider,
+  text,
+}: {
+  provider: SupportedPlatform;
+  text: string;
+}) {
+  if (provider === "telegram") {
+    return markdownToTelegramText(text);
+  }
+
+  return { markdown: text };
 }
 
 function toMessagingProvider(provider: SupportedPlatform) {
