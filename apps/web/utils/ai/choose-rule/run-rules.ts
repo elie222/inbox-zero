@@ -537,11 +537,12 @@ async function isSenderPatternAlreadyAnalyzed({
   emailAccountId: string;
   from: string;
 }) {
-  const existingCheck = await prisma.newsletter.findUnique({
+  const existingCheck = await prisma.newsletter.findFirst({
     where: {
-      email_emailAccountId: {
-        email: from,
-        emailAccountId,
+      emailAccountId,
+      email: {
+        equals: from,
+        mode: "insensitive",
       },
     },
     select: {
