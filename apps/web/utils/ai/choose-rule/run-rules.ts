@@ -540,17 +540,18 @@ async function isSenderPatternAlreadyAnalyzed({
   const existingCheck = await prisma.newsletter.findFirst({
     where: {
       emailAccountId,
+      patternAnalyzed: true,
       email: {
         equals: from,
         mode: "insensitive",
       },
     },
     select: {
-      patternAnalyzed: true,
+      id: true,
     },
   });
 
-  return !!existingCheck?.patternAnalyzed;
+  return !!existingCheck;
 }
 
 /**
