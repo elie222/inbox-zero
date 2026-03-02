@@ -27,6 +27,7 @@ import {
   ConsoleLogger,
   type ActionEvent,
   type Adapter,
+  type CardChild,
   type Message,
   type Thread,
 } from "chat";
@@ -865,7 +866,7 @@ async function postPendingEmailCard({
   const summary = buildPendingEmailSummary({ actionType, to, subject });
   const preview = buildPendingEmailPreview(part);
 
-  const cardChildren = [CardText(summary)];
+  const cardChildren: CardChild[] = [CardText(summary)];
   if (preview) {
     cardChildren.push(CardText(`Draft preview:\n${preview}`));
   }
