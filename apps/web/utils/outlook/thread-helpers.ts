@@ -30,11 +30,21 @@ export async function processThreadMessagesFallback({
   );
 
   if (threadMessages.length > 0) {
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       threadMessages.map((message: { id: string }) =>
         messageHandler(message.id),
       ),
     );
+
+    for (const [i, result] of results.entries()) {
+      if (result.status === "rejected") {
+        logger.warn("Failed to process message in thread fallback", {
+          threadId,
+          messageId: threadMessages[i].id,
+          error: result.reason,
+        });
+      }
+    }
   } else {
     logger.warn(noMessagesMessage, { threadId });
   }
