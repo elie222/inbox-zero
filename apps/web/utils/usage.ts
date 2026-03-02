@@ -17,6 +17,7 @@ const logger = createScopedLogger("usage");
 
 export async function saveAiUsage({
   email,
+  emailAccountId,
   provider,
   model,
   usage,
@@ -24,6 +25,7 @@ export async function saveAiUsage({
   hasUserApiKey,
 }: {
   email: string;
+  emailAccountId: string;
   provider: string;
   model: string;
   usage: LanguageModelUsage;
@@ -38,6 +40,7 @@ export async function saveAiUsage({
     return Promise.all([
       publishAiCall({
         userId: email,
+        emailAccountId,
         provider,
         model,
         totalTokens: usage.totalTokens ?? 0,

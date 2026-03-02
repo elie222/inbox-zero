@@ -125,6 +125,7 @@ export function createGenerateText({
       if (result.usage) {
         await saveAiUsage({
           email: emailAccount.email,
+          emailAccountId: emailAccount.id,
           usage: result.usage,
           provider: candidate.provider,
           model: candidate.modelName,
@@ -253,6 +254,7 @@ export function createGenerateObject({
       if (result.usage) {
         await saveAiUsage({
           email: emailAccount.email,
+          emailAccountId: emailAccount.id,
           usage: result.usage,
           provider: candidate.provider,
           model: candidate.modelName,
@@ -334,7 +336,7 @@ export async function chatCompletionStream({
   tools?: Record<string, Tool>;
   maxSteps?: number;
   userId?: string;
-  emailAccountId?: string;
+  emailAccountId: string;
   userEmail: string;
   usageLabel: string;
   providerOptions?: LLMProviderOptions;
@@ -377,6 +379,7 @@ export async function chatCompletionStream({
         onFinish: async (result) => {
           const usagePromise = saveAiUsage({
             email: userEmail,
+            emailAccountId,
             provider: candidate.provider,
             model: candidate.modelName,
             usage: result.usage,
@@ -462,7 +465,7 @@ export async function toolCallAgentStream({
   tools?: Record<string, Tool>;
   maxSteps?: number;
   userId?: string;
-  emailAccountId?: string;
+  emailAccountId: string;
   userEmail: string;
   usageLabel: string;
   providerOptions?: LLMProviderOptions;
@@ -526,6 +529,7 @@ export async function toolCallAgentStream({
       onFinish: async (result) => {
         const usagePromise = saveAiUsage({
           email: userEmail,
+          emailAccountId,
           provider: candidate.provider,
           model: candidate.modelName,
           usage: result.totalUsage,

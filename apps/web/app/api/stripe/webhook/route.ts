@@ -5,6 +5,7 @@ import { getStripe } from "@/ee/billing/stripe";
 import { withError } from "@/utils/middleware";
 import type { Logger } from "@/utils/logger";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
+import { syncAiGenerationOverageForUpcomingInvoice } from "@/ee/billing/stripe/ai-overage";
 import { env } from "@/env";
 import { trackStripeEvent } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
@@ -90,6 +91,7 @@ async function processEvent(event: Stripe.Event, logger: Logger) {
 
   return await Promise.allSettled([
     syncStripeDataToDb({ customerId, logger }),
+    syncAiGenerationOverageForUpcomingInvoice({ event, logger }),
     trackEvent(customerId, event),
     handleReferralCompletion(customerId, event, logger),
   ]);
