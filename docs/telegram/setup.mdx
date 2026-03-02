@@ -1,0 +1,82 @@
+---
+title: "Telegram Integration Setup"
+description: "Set up the Telegram bot for Inbox Zero assistant chat."
+---
+
+# Telegram Integration Setup
+
+This guide is for self-hosted deployments that want to enable Telegram chat with the Inbox Zero assistant.
+
+## What Telegram currently supports
+
+- AI assistant chat in **direct messages** with the Inbox Zero bot
+- Account linking with one-time `/connect <code>` commands
+
+Currently not supported on Telegram:
+
+- Channel/group-based meeting brief delivery
+- Channel/group-based attachment filing notifications
+
+Those channel notification features are Slack-only today.
+
+## 1. Create a Telegram bot with BotFather
+
+1. Open Telegram and start a chat with [@BotFather](https://t.me/BotFather)
+2. Send `/newbot`
+3. Choose a display name and bot username (must end with `bot`)
+4. Copy the bot token BotFather returns — this is your `TELEGRAM_BOT_TOKEN`
+
+## 2. Configure the webhook
+
+Set your bot's webhook to Inbox Zero:
+
+```bash
+curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
+  -d "url=https://<your-domain>/api/telegram/events" \
+  -d "secret_token=<TELEGRAM_BOT_SECRET_TOKEN>"
+```
+
+If you do not want to use a secret token, omit `secret_token` from the command.
+
+You can verify webhook status with:
+
+```bash
+curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getWebhookInfo"
+```
+
+## 3. Set environment variables
+
+Set these in `apps/web/.env` (or your deployment env):
+
+```bash
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_BOT_SECRET_TOKEN= # optional but recommended
+```
+
+If `TELEGRAM_BOT_TOKEN` is missing, the Telegram connect option is hidden in the UI and `/api/telegram/events` returns `503`.
+
+If `TELEGRAM_BOT_SECRET_TOKEN` is set, webhooks must include `x-telegram-bot-api-secret-token` with the same value or requests are rejected.
+
+## 4. Connect a user account from Inbox Zero
+
+Each Inbox Zero email account links to a Telegram user via a connect code:
+
+1. In Inbox Zero, go to **Settings** → **Connected Apps**
+2. Click **Connect Telegram**
+3. Copy the generated command: `/connect <code>`
+4. Open a direct message with your bot in Telegram
+5. Send the command
+
+After linking, the user can chat with the assistant in that DM.
+
+## 5. Validate end-to-end
+
+Quick checks:
+
+1. `POST /api/telegram/events` returns `200` for valid Telegram updates
+2. Sending `/connect <code>` in bot DM links the account
+3. A normal DM message gets an assistant response
+
+If linking fails, generate a new code — codes are one-time and expire after 10 minutes.
+
+For local development, Telegram must reach a public HTTPS URL (for example, via ngrok); `localhost` is not reachable from Telegram.

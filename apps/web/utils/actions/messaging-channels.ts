@@ -266,10 +266,43 @@ export const createMessagingLinkCodeAction = actionClient
       emailAccountId,
       provider,
     });
+    const botUrl =
+      provider === "TELEGRAM" ? await getTelegramBotUrl() : undefined;
 
     return {
       code,
       provider,
       expiresInSeconds: 10 * 60,
+      ...(botUrl ? { botUrl } : {}),
     };
   });
+
+async function getTelegramBotUrl() {
+  if (!env.TELEGRAM_BOT_TOKEN) return undefined;
+
+  try {
+    const response = await fetch(
+      `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`,
+      {
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) return undefined;
+
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      result?: {
+        username?: string;
+      };
+    };
+
+    if (!payload.ok) return undefined;
+
+    const username = payload.result?.username?.trim().replace(/^@+/, "");
+    if (!username) return undefined;
+
+    return `https://t.me/${username}`;
+  } catch {
+    return undefined;
+  }
+}

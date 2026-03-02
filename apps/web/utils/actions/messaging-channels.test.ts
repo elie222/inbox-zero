@@ -82,6 +82,40 @@ describe("createMessagingLinkCodeAction", () => {
     expect(generateMessagingLinkCodeMock).not.toHaveBeenCalled();
   });
 
+  it("returns a Telegram connect code and bot URL when Telegram is configured", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          ok: true,
+          result: { username: "inboxdevbot" },
+        }),
+      } as any),
+    );
+
+    const result = await createMessagingLinkCodeAction(
+      "email-account-1" as any,
+      {
+        provider: "TELEGRAM",
+      },
+    );
+
+    expect(result?.serverError).toBeUndefined();
+    expect(result?.data).toEqual({
+      code: "test-link-code",
+      provider: "TELEGRAM",
+      expiresInSeconds: 600,
+      botUrl: "https://t.me/inboxdevbot",
+    });
+    expect(generateMessagingLinkCodeMock).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      provider: "TELEGRAM",
+    });
+
+    vi.unstubAllGlobals();
+  });
+
   it("returns an error when Telegram is not configured", async () => {
     mockEnv.TELEGRAM_BOT_TOKEN = undefined;
 

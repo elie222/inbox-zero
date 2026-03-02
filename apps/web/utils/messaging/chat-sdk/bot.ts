@@ -1863,7 +1863,20 @@ function normalizeMessagingAssistantText({
     normalized = `${normalized}\n\nTo send it, ${getMessagingDraftConfirmationAction(provider)}.`;
   }
 
+  if (provider === "telegram") {
+    normalized = normalizeTelegramMarkdownArtifacts(normalized);
+  }
+
   return normalized;
+}
+
+function normalizeTelegramMarkdownArtifacts(text: string) {
+  return text
+    .replace(/\\\n/g, "\n")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\\([_*[\]()~`>#+\-=|{}.!])/g, "$1");
 }
 
 function toMessagingProvider(provider: SupportedPlatform) {

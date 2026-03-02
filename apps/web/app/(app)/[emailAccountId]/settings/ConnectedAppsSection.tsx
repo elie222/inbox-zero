@@ -83,6 +83,7 @@ export function ConnectedAppsSection({
   const [linkCodeDialog, setLinkCodeDialog] = useState<{
     provider: LinkableMessagingProvider;
     code: string;
+    botUrl?: string | null;
   } | null>(null);
 
   const connectedChannels =
@@ -135,6 +136,7 @@ export function ConnectedAppsSection({
         setLinkCodeDialog({
           provider: data.provider,
           code: data.code,
+          botUrl: data.botUrl || null,
         });
       },
       onError: (error) => {
@@ -287,6 +289,7 @@ export function ConnectedAppsSection({
         open={Boolean(linkCodeDialog)}
         provider={linkCodeDialog?.provider ?? null}
         code={linkCodeDialog?.code ?? null}
+        botUrl={linkCodeDialog?.botUrl ?? null}
         onOpenChange={(open) => {
           if (!open) setLinkCodeDialog(null);
         }}
@@ -312,6 +315,7 @@ function ConnectedChannelRow({
 }) {
   const config = PROVIDER_CONFIG[channel.provider];
   const Icon = config?.icon ?? MessageSquareIcon;
+  const isSlackChannel = channel.provider === "SLACK";
   const [selectingTarget, setSelectingTarget] = useState(!channel.channelId);
 
   useEffect(() => {
@@ -374,9 +378,13 @@ function ConnectedChannelRow({
   );
 
   return (
-    <div className="flex items-start justify-between rounded-md border bg-muted/30 px-3 py-2">
-      <div className="flex items-start gap-2 text-sm">
-        <Icon className="mt-0.5 h-4 w-4 text-muted-foreground" />
+    <div
+      className={`flex justify-between rounded-md border bg-muted/30 px-3 py-2 ${isSlackChannel ? "items-start" : "items-center"}`}
+    >
+      <div className={`flex gap-2 text-sm ${isSlackChannel ? "items-start" : "items-center"}`}>
+        <Icon
+          className={`h-4 w-4 text-muted-foreground ${isSlackChannel ? "mt-0.5" : ""}`}
+        />
         <div className="space-y-1">
           <div>
             {config?.name ?? channel.provider}
@@ -388,7 +396,7 @@ function ConnectedChannelRow({
             )}
           </div>
 
-          {channel.provider === "SLACK" && (
+          {isSlackChannel && (
             <div className="space-y-1">
               {selectionState.showCurrentChannel ? (
                 <div className="space-y-0.5">
@@ -507,11 +515,13 @@ function MessagingConnectCodeDialog({
   open,
   provider,
   code,
+  botUrl,
   onOpenChange,
 }: {
   open: boolean;
   provider: LinkableMessagingProvider | null;
   code: string | null;
+  botUrl?: string | null;
   onOpenChange: (open: boolean) => void;
 }) {
   if (!provider || !code) return null;
@@ -533,6 +543,15 @@ function MessagingConnectCodeDialog({
           <div className="text-xs text-muted-foreground">Command</div>
           <CopyInput value={command} />
         </div>
+        {provider === "TELEGRAM" && botUrl && (
+          <div className="pt-1">
+            <Button asChild size="sm">
+              <a href={botUrl} target="_blank" rel="noopener noreferrer">
+                Open Telegram bot
+              </a>
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

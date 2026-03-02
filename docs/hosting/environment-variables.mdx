@@ -25,6 +25,13 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `MICROSOFT_CLIENT_ID` | No | OAuth client ID from Azure Portal | — |
 | `MICROSOFT_CLIENT_SECRET` | No | OAuth client secret from Azure Portal | — |
 | `MICROSOFT_WEBHOOK_CLIENT_STATE` | No | Secret for Microsoft webhook verification. Generate with `openssl rand -hex 32` | — |
+| **Messaging Adapters** ||||
+| `TEAMS_BOT_APP_ID` | No | Microsoft Teams bot app ID | — |
+| `TEAMS_BOT_APP_PASSWORD` | No | Microsoft Teams bot app password/secret | — |
+| `TEAMS_BOT_APP_TENANT_ID` | No | Tenant ID for single-tenant Teams bot setups | — |
+| `TEAMS_BOT_APP_TYPE` | No | Teams bot app type (`MultiTenant` or `SingleTenant`) | — |
+| `TELEGRAM_BOT_TOKEN` | No | Telegram bot token from BotFather | — |
+| `TELEGRAM_BOT_SECRET_TOKEN` | No | Optional Telegram webhook secret token (sent in `x-telegram-bot-api-secret-token`) | — |
 | **Google PubSub** ||||
 | `GOOGLE_PUBSUB_TOPIC_NAME` | Yes | Full topic name (e.g., `projects/my-project/topics/gmail`) | — |
 | `GOOGLE_PUBSUB_VERIFICATION_TOKEN` | No | Token for webhook verification | — |
