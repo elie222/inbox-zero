@@ -104,7 +104,7 @@ describe("syncAiGenerationOverageForUpcomingInvoice", () => {
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: "premium-1" },
       data: expect.objectContaining({
-        stripeAiOverageLastInvoiceId: "in_123",
+        stripeAiOverageLastInvoiceId: null,
         stripeAiOverageLastUnits: 0,
       }),
     });
@@ -137,19 +137,18 @@ describe("syncAiGenerationOverageForUpcomingInvoice", () => {
     expect(mockInvoiceItemCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         customer: "cus_123",
-        invoice: "in_123",
         amount: 1000,
         currency: "usd",
       }),
       expect.objectContaining({
-        idempotencyKey: "ai-overage-in_123",
+        idempotencyKey: "ai-overage-cus_123-1700200000000",
       }),
     );
 
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: "premium-1" },
       data: expect.objectContaining({
-        stripeAiOverageLastInvoiceId: "in_123",
+        stripeAiOverageLastInvoiceId: null,
         stripeAiOverageLastUnits: 2,
       }),
     });
@@ -164,8 +163,8 @@ describe("syncAiGenerationOverageForUpcomingInvoice", () => {
       id: "premium-1",
       tier: "STARTER_MONTHLY",
       stripePriceId: "price_123",
-      stripeAiOverageLastInvoiceId: "in_123",
-      stripeAiOverageLastPeriodEnd: null,
+      stripeAiOverageLastInvoiceId: null,
+      stripeAiOverageLastPeriodEnd: new Date(1_700_200_000_000),
       users: [{ emailAccounts: [{ id: "acc-1" }] }],
     });
 
@@ -196,7 +195,7 @@ function upcomingInvoiceEvent(): Stripe.Event {
     request: { id: null, idempotency_key: null },
     data: {
       object: {
-        id: "in_123",
+        id: null,
         customer: "cus_123",
         period_start: 1_700_000_000,
         period_end: 1_700_200_000,

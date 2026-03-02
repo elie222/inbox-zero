@@ -39,12 +39,7 @@ export async function syncAiGenerationOverageForUpcomingInvoice({
   const periodStartMs = toMilliseconds(invoice.period_start);
   const periodEndMs = toMilliseconds(invoice.period_end);
 
-  if (
-    !invoiceId ||
-    !customerId ||
-    periodStartMs == null ||
-    periodEndMs == null
-  ) {
+  if (!customerId || periodStartMs == null || periodEndMs == null) {
     logger.warn("Skipping AI overage sync due to missing invoice fields", {
       eventId: event.id,
       hasInvoiceId: !!invoiceId,
@@ -81,8 +76,9 @@ export async function syncAiGenerationOverageForUpcomingInvoice({
   if (!overageConfig) return;
 
   const periodEnd = new Date(periodEndMs);
-  const alreadyProcessedInvoice =
-    premium.stripeAiOverageLastInvoiceId === invoiceId;
+  const alreadyProcessedInvoice = invoiceId
+    ? premium.stripeAiOverageLastInvoiceId === invoiceId
+    : false;
   const alreadyProcessedPeriod =
     premium.stripeAiOverageLastPeriodEnd?.getTime() === periodEnd.getTime();
 
@@ -102,7 +98,7 @@ export async function syncAiGenerationOverageForUpcomingInvoice({
   if (emailAccountIds.length === 0) {
     await saveCheckpoint({
       premiumId: premium.id,
-      invoiceId,
+      invoiceId: invoiceId ?? null,
       periodEnd,
       units: 0,
     });
@@ -122,7 +118,7 @@ export async function syncAiGenerationOverageForUpcomingInvoice({
   if (overageUnits <= 0) {
     await saveCheckpoint({
       premiumId: premium.id,
-      invoiceId,
+      invoiceId: invoiceId ?? null,
       periodEnd,
       units: 0,
     });
@@ -140,30 +136,33 @@ export async function syncAiGenerationOverageForUpcomingInvoice({
     overageUnits * overageConfig.overageUsdPer1000 * USD_TO_CENTS,
   );
 
-  await getStripe().invoiceItems.create(
-    {
-      customer: customerId,
-      invoice: invoiceId,
-      currency: "usd",
-      amount: amountCents,
-      description: `AI generation overage: ${extraGenerations} extra generations (${overageUnits} x ${BILLING_UNIT_GENERATIONS})`,
-      metadata: {
-        type: "ai_generation_overage",
-        premiumId: premium.id,
-        generationCount: String(generationCount),
-        includedGenerations: String(includedGenerations),
-        extraGenerations: String(extraGenerations),
-        overageUnits: String(overageUnits),
-      },
+  const invoiceItem = {
+    customer: customerId,
+    currency: "usd",
+    amount: amountCents,
+    description: `AI generation overage: ${extraGenerations} extra generations (${overageUnits} x ${BILLING_UNIT_GENERATIONS})`,
+    metadata: {
+      type: "ai_generation_overage",
+      premiumId: premium.id,
+      generationCount: String(generationCount),
+      includedGenerations: String(includedGenerations),
+      extraGenerations: String(extraGenerations),
+      overageUnits: String(overageUnits),
     },
-    {
-      idempotencyKey: `ai-overage-${invoiceId}`,
-    },
-  );
+    ...(invoiceId ? { invoice: invoiceId } : {}),
+  };
+
+  await getStripe().invoiceItems.create(invoiceItem, {
+    idempotencyKey: getOverageIdempotencyKey({
+      invoiceId,
+      customerId,
+      periodEndMs,
+    }),
+  });
 
   await saveCheckpoint({
     premiumId: premium.id,
-    invoiceId,
+    invoiceId: invoiceId ?? null,
     periodEnd,
     units: overageUnits,
   });
@@ -187,7 +186,7 @@ async function saveCheckpoint({
   units,
 }: {
   premiumId: string;
-  invoiceId: string;
+  invoiceId: string | null;
   periodEnd: Date;
   units: number;
 }) {
@@ -272,4 +271,17 @@ function normalizeId(
 function toMilliseconds(value: number | null | undefined): number | null {
   if (value == null) return null;
   return value * 1000;
+}
+
+function getOverageIdempotencyKey({
+  invoiceId,
+  customerId,
+  periodEndMs,
+}: {
+  invoiceId: string | null;
+  customerId: string;
+  periodEndMs: number;
+}) {
+  if (invoiceId) return `ai-overage-${invoiceId}`;
+  return `ai-overage-${customerId}-${periodEndMs}`;
 }
