@@ -1,8 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { createScopedLogger } from "@/utils/logger";
 import {
   extractErrorInfo,
   isRetryableError,
   calculateRetryDelay,
+  withOutlookRetry,
 } from "./retry";
 
 describe("extractErrorInfo", () => {
@@ -217,5 +219,27 @@ describe("calculateRetryDelay", () => {
     expect(calculateRetryDelay(false, false, false, 4)).toBe(8000); // 8s
     expect(calculateRetryDelay(false, false, false, 5)).toBe(16_000); // 16s max
     expect(calculateRetryDelay(false, false, false, 6)).toBe(16_000); // capped at 16s
+  });
+});
+
+describe("withOutlookRetry", () => {
+  it("aborts retries when backoff exceeds max blocking delay", async () => {
+    const operation = vi.fn().mockRejectedValue(
+      Object.assign(new Error("Throttled"), {
+        code: "ApplicationThrottled",
+        statusCode: 429,
+      }),
+    );
+
+    await expect(
+      withOutlookRetry(
+        operation,
+        createScopedLogger("test-outlook-retry"),
+        5,
+        1,
+      ),
+    ).rejects.toBeDefined();
+
+    expect(operation).toHaveBeenCalledTimes(1);
   });
 });
