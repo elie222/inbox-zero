@@ -612,25 +612,30 @@ export const copyRulesFromAccountAction = actionClientUser
           });
           replacedCount++;
         } else {
-          await prisma.rule.create({
-            data: {
-              emailAccountId: targetEmailAccountId,
-              name: sourceRule.name,
-              systemType: sourceRule.systemType,
-              instructions: sourceRule.instructions,
-              enabled: sourceRule.enabled,
-              runOnThreads: sourceRule.runOnThreads,
-              conditionalOperator: sourceRule.conditionalOperator,
-              from: sourceRule.from,
-              to: sourceRule.to,
-              subject: sourceRule.subject,
-              body: sourceRule.body,
-              // Drop groupId - it's account-specific
-              groupId: null,
-              actions: { createMany: { data: mappedActions } },
-            },
-          });
-          copiedCount++;
+          try {
+            await prisma.rule.create({
+              data: {
+                emailAccountId: targetEmailAccountId,
+                name: sourceRule.name,
+                systemType: sourceRule.systemType,
+                instructions: sourceRule.instructions,
+                enabled: sourceRule.enabled,
+                runOnThreads: sourceRule.runOnThreads,
+                conditionalOperator: sourceRule.conditionalOperator,
+                from: sourceRule.from,
+                to: sourceRule.to,
+                subject: sourceRule.subject,
+                body: sourceRule.body,
+                // Drop groupId - it's account-specific
+                groupId: null,
+                actions: { createMany: { data: mappedActions } },
+              },
+            });
+            copiedCount++;
+          } catch (error) {
+            if (!isDuplicateError(error, "name")) throw error;
+            logger.info("Rule already exists in target account, skipping");
+          }
         }
       }
 

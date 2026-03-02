@@ -464,7 +464,7 @@ export async function archiveThread({
       const messages = await client
         .getClient()
         .api("/me/messages")
-        .select("id")
+        .select("id,conversationId")
         .get();
 
       // Filter messages by conversationId manually
@@ -504,13 +504,9 @@ export async function archiveThread({
 
         await Promise.allSettled(movePromises);
       } else {
-        // If no messages found, try treating threadId as a messageId
-        await withOutlookRetry(
-          () =>
-            client.getClient().api(`/me/messages/${threadId}/move`).post({
-              destinationId: folderId,
-            }),
-          logger,
+        logger.warn(
+          "No messages found for conversationId, skipping folder move",
+          { threadId },
         );
       }
 
@@ -588,7 +584,7 @@ export async function markReadThread({
       const messages = await client
         .getClient()
         .api("/me/messages")
-        .select("id")
+        .select("id,conversationId")
         .get();
 
       // Filter messages by conversationId manually
@@ -611,13 +607,9 @@ export async function markReadThread({
           ),
         );
       } else {
-        // If no messages found, try treating threadId as a messageId
-        await withOutlookRetry(
-          () =>
-            client.getClient().api(`/me/messages/${threadId}`).patch({
-              isRead: read,
-            }),
-          logger,
+        logger.warn(
+          "No messages found for conversationId, skipping mark read",
+          { threadId },
         );
       }
     } catch (directError) {

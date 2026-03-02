@@ -52,7 +52,7 @@ export async function markSpam(
       const messages = await client
         .getClient()
         .api("/me/messages")
-        .select("id")
+        .select("id,conversationId")
         .get();
 
       // Filter messages by conversationId manually
@@ -91,13 +91,9 @@ export async function markSpam(
 
         await Promise.allSettled(movePromises);
       } else {
-        // If no messages found, try treating threadId as a messageId
-        await withOutlookRetry(
-          () =>
-            client.getClient().api(`/me/messages/${threadId}/move`).post({
-              destinationId: "junkemail",
-            }),
-          logger,
+        logger.warn(
+          "No messages found for conversationId, skipping spam move",
+          { threadId },
         );
       }
     } catch (directError) {
