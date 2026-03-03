@@ -4,7 +4,6 @@ import { withError } from "@/utils/middleware";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
-import { publishToQstashQueue } from "@/utils/upstash";
 import { getNextAutomationJobRunAt } from "@/utils/automation-jobs/cron";
 import {
   AutomationJobRunStatus,
@@ -12,10 +11,12 @@ import {
 } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { getPremiumUserFilter } from "@/utils/premium";
+import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
 
 export const maxDuration = 300;
 
 const BATCH_SIZE = 100;
+const AUTOMATION_JOBS_TOPIC = "automation-jobs-execute";
 
 export const GET = withError("cron/automation-jobs", async (request) => {
   if (!hasCronSecret(request)) {
@@ -95,11 +96,15 @@ async function enqueueDueAutomationJobs(logger: Logger) {
 
       claimed += 1;
 
-      await publishToQstashQueue({
-        queueName: "automation-jobs",
-        parallelism: 3,
-        path: "/api/automation-jobs/execute",
+      await enqueueBackgroundJob({
+        topic: AUTOMATION_JOBS_TOPIC,
         body: { automationJobRunId: runId },
+        qstash: {
+          queueName: "automation-jobs",
+          parallelism: 3,
+          path: "/api/automation-jobs/execute",
+        },
+        logger: jobLogger,
       });
 
       queued += 1;

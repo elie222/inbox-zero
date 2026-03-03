@@ -10,11 +10,12 @@ import {
 import { Frequency } from "@/generated/prisma/enums";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
-import { publishToQstashQueue } from "@/utils/upstash";
 import { getPremiumUserFilter } from "@/utils/premium";
 import type { SendSummaryEmailBody } from "../validation";
+import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
 
 export const maxDuration = 300;
+const RESEND_SUMMARY_TOPIC = "resend-summary";
 
 export const GET = withError("cron/resend/summary/all", async (request) => {
   if (!hasCronSecret(request)) {
@@ -61,15 +62,19 @@ async function sendSummaryAllUpdate(logger: Logger) {
 
   for (const emailAccount of emailAccounts) {
     try {
-      await publishToQstashQueue<SendSummaryEmailBody>({
-        queueName: "email-summary-all",
-        parallelism: 3, // Allow up to 3 concurrent jobs from this queue
-        path: "/api/resend/summary",
+      await enqueueBackgroundJob<SendSummaryEmailBody>({
+        topic: RESEND_SUMMARY_TOPIC,
         body: { emailAccountId: emailAccount.id },
-        headers: getCronSecretHeader(),
+        qstash: {
+          queueName: "email-summary-all",
+          parallelism: 3,
+          path: "/api/resend/summary",
+          headers: getCronSecretHeader(),
+        },
+        logger,
       });
     } catch (error) {
-      logger.error("Failed to publish to Qstash", {
+      logger.error("Failed to enqueue summary send", {
         emailAccountId: emailAccount.id,
         error,
       });
