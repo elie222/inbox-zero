@@ -504,8 +504,7 @@ function EmailActionResult({
 
         {isConfirmed && confirmationResult?.confirmedAt && (
           <div className="text-xs text-muted-foreground">
-            Confirmed{" "}
-            {formatShortDate(new Date(confirmationResult.confirmedAt))}
+            Sent at {formatShortDate(new Date(confirmationResult.confirmedAt))}
           </div>
         )}
 
@@ -577,8 +576,6 @@ function EmailActionResult({
                     <Loader2 className="mr-2 size-4 animate-spin" />
                     Sending...
                   </>
-                ) : isChatBusy ? (
-                  "Wait for response..."
                 ) : (
                   "Send"
                 )}
@@ -1312,9 +1309,10 @@ function htmlToText(html: string) {
   return html
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]*>/g, " ")
+    .replace(/<[^>]*>/g, "")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
+    .replace(/ {2,}/g, " ")
     .replace(/\s+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
