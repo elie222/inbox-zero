@@ -76,7 +76,7 @@ function CollapsibleToolCard({
   return (
     <Card className="p-4">
       <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger className="flex w-full items-center gap-2 text-sm">
+        <CollapsibleTrigger className="flex w-full items-center gap-2 text-left text-sm">
           <ChevronRightIcon
             className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "rotate-90" : ""}`}
           />
@@ -446,7 +446,6 @@ function EmailActionResult({
   });
   const cc = getPendingString(pendingAction, "cc");
   const bcc = getPendingString(pendingAction, "bcc");
-  const from = getPendingString(pendingAction, "from");
   const subject = getPendingOrOutputString({
     pendingAction,
     output,
@@ -481,7 +480,6 @@ function EmailActionResult({
   return (
     <CollapsibleToolCard summary={summary} initialOpen={!isConfirmed}>
       <div className="space-y-2 text-sm">
-        {from && <ToolDetailRow label="From" value={from} />}
         {to && <ToolDetailRow label="To" value={to} />}
         {cc && <ToolDetailRow label="CC" value={cc} />}
         {bcc && <ToolDetailRow label="BCC" value={bcc} />}
@@ -489,7 +487,10 @@ function EmailActionResult({
           <ToolDetailRow label="Subject" value={displaySubject} />
         )}
         {referenceFrom && actionType !== "send_email" && (
-          <ToolDetailRow label="Original From" value={referenceFrom} />
+          <ToolDetailRow
+            label={actionType === "reply_email" ? "In reply to" : "From"}
+            value={referenceFrom}
+          />
         )}
         {body && (
           <div className="space-y-1">
@@ -502,15 +503,8 @@ function EmailActionResult({
           </div>
         )}
 
-        {isConfirmed && confirmationResult?.confirmedAt && (
-          <div className="text-xs text-muted-foreground">
-            Confirmed{" "}
-            {formatShortDate(new Date(confirmationResult.confirmedAt))}
-          </div>
-        )}
-
         {(externalUrl || (requiresConfirmation && !isConfirmed)) && (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
             {externalUrl && (
               <ToolExternalLink href={externalUrl}>
                 Open in {provider === "microsoft" ? "Outlook" : "Gmail"}
@@ -577,8 +571,6 @@ function EmailActionResult({
                     <Loader2 className="mr-2 size-4 animate-spin" />
                     Sending...
                   </>
-                ) : isChatBusy ? (
-                  "Wait for response..."
                 ) : (
                   "Send"
                 )}
@@ -1315,6 +1307,8 @@ function htmlToText(html: string) {
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
+    .replace(/[<>]/g, "")
+    .replace(/ {2,}/g, " ")
     .replace(/\s+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

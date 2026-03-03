@@ -126,6 +126,7 @@ Tool usage strategy (progressive disclosure):
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
   - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
+- Never claim that chat-created pending email actions are saved in the user's Gmail/Outlook Drafts folder.
 ${
   emailSendToolsEnabled
     ? `${getSendEmailSurfacePolicy({ responseSurface, messagingPlatform })}
@@ -567,11 +568,12 @@ function getSendEmailSurfacePolicy({
   messagingPlatform?: MessagingPlatform;
 }) {
   if (responseSurface === "web") {
-    return "- sendEmail, replyEmail, and forwardEmail prepare a pending action only. The user must click a confirmation button in the UI before any email is actually sent.";
+    return "- sendEmail, replyEmail, and forwardEmail prepare a pending action only. The user must click a confirmation button in the UI before any email is actually sent.\n- These pending actions are app-side confirmations, not provider Drafts-folder saves.";
   }
 
   const threadContext = messagingPlatform ? "this thread" : "the thread";
 
   return `- sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.
+- These pending actions are app-side confirmations, not provider Drafts-folder saves.
 - A Send confirmation button is provided in ${threadContext}.`;
 }

@@ -153,6 +153,12 @@ describe("aiProcessAssistantChat", () => {
       "sendEmail, replyEmail, and forwardEmail prepare a pending action only.",
     );
     expect(args.messages[0].content).toContain(
+      "These pending actions are app-side confirmations, not provider Drafts-folder saves.",
+    );
+    expect(args.messages[0].content).toContain(
+      "Never claim that chat-created pending email actions are saved in the user's Gmail/Outlook Drafts folder.",
+    );
+    expect(args.messages[0].content).toContain(
       "After these tools run, explicitly tell the user the email is pending confirmation.",
     );
     expect(args.tools.getAccountOverview).toBeDefined();
@@ -191,6 +197,9 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     expect(args.messages[0].content).toContain(
       "sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.",
+    );
+    expect(args.messages[0].content).toContain(
+      "These pending actions are app-side confirmations, not provider Drafts-folder saves.",
     );
     expect(args.messages[0].content).toContain(
       "A Send confirmation button is provided in this thread.",
