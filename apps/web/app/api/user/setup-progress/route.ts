@@ -72,15 +72,27 @@ async function getSetupProgress({
   const teamInviteDismissed = emailAccount.user.dismissedHints.includes(
     `setup:teamInvite:${emailAccountId}`,
   );
+  const aiAssistantDismissed = emailAccount.user.dismissedHints.includes(
+    `setup:aiAssistant:${emailAccountId}`,
+  );
+  const bulkUnsubscribeDismissed = emailAccount.user.dismissedHints.includes(
+    `setup:bulkUnsubscribe:${emailAccountId}`,
+  );
+  const calendarConnectedDismissed = emailAccount.user.dismissedHints.includes(
+    `setup:calendarConnected:${emailAccountId}`,
+  );
+
   const teamInviteCompleted =
     hasTeamMembers || hasPendingInvitations || teamInviteDismissed;
 
   const showTeamInviteStep = hasNoOrg || isOwner;
 
   const steps = {
-    aiAssistant: emailAccount.rules.length > 0,
-    bulkUnsubscribe: emailAccount.newsletters.length > 0,
-    calendarConnected: emailAccount.calendarConnections.length > 0,
+    aiAssistant: emailAccount.rules.length > 0 || aiAssistantDismissed,
+    bulkUnsubscribe:
+      emailAccount.newsletters.length > 0 || bulkUnsubscribeDismissed,
+    calendarConnected:
+      emailAccount.calendarConnections.length > 0 || calendarConnectedDismissed,
   };
 
   const baseCompleted = Object.values(steps).filter(Boolean).length;
