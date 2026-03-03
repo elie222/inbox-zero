@@ -1794,7 +1794,8 @@ async function promptOllamaCreds(): Promise<{
       model: () =>
         p.text({
           message: "Ollama Model",
-          placeholder: "llama3.1",
+          placeholder: "qwen3.5:4b",
+          initialValue: "qwen3.5:4b",
           validate: (v) => (!v ? "Model name is required" : undefined),
         }),
     },
@@ -1822,7 +1823,8 @@ async function promptOpenAICompatibleCreds(): Promise<{
       model: () =>
         p.text({
           message: "Model Name",
-          placeholder: "llama-3.2-3b-instruct",
+          placeholder: "qwen3.5:4b",
+          initialValue: "qwen3.5:4b",
           validate: (v) => (!v ? "Model name is required" : undefined),
         }),
       apiKey: () =>
@@ -1896,7 +1898,6 @@ async function promptLlmCredentials(
   if (provider === "openai-compatible") {
     const creds = await promptOpenAICompatibleCreds();
     env.OPENAI_COMPATIBLE_BASE_URL = creds.baseUrl;
-    env.OPENAI_COMPATIBLE_MODEL = creds.model;
     if (creds.apiKey) env.LLM_API_KEY = creds.apiKey;
     env.DEFAULT_LLM_MODEL = creds.model;
     env.ECONOMY_LLM_PROVIDER = provider;
@@ -1904,7 +1905,6 @@ async function promptLlmCredentials(
   } else if (provider === "ollama") {
     const ollama = await promptOllamaCreds();
     env.OLLAMA_BASE_URL = ollama.baseUrl;
-    env.OLLAMA_MODEL = ollama.model;
     env.DEFAULT_LLM_MODEL = ollama.model;
     env.ECONOMY_LLM_PROVIDER = provider;
     env.ECONOMY_LLM_MODEL = ollama.model;

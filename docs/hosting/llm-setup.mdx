@@ -53,10 +53,10 @@ LLM_API_KEY=sk-...
 
 Provider-specific keys (for example `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) also work. See [Environment Variables](/hosting/environment-variables) for the full list.
 
-<Note>
-  `ollama` uses `OLLAMA_MODEL`, and `openai-compatible` uses `OPENAI_COMPATIBLE_MODEL` + `OPENAI_COMPATIBLE_BASE_URL`.
-</Note>
-
 ## App Settings
 
 The app also has **Settings → AI** for per-user keys/models, but self-hosted deployments usually keep configuration at the environment-variable level.
+
+## Provider-specific details
+
+- `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`.

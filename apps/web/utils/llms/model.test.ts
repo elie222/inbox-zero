@@ -120,6 +120,10 @@ describe("Models", () => {
     vi.mocked(env).GOOGLE_VERTEX_CLIENT_EMAIL = undefined;
     vi.mocked(env).GOOGLE_VERTEX_PRIVATE_KEY = undefined;
     vi.mocked(env).GOOGLE_APPLICATION_CREDENTIALS = undefined;
+    vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434/api";
+    vi.mocked(env).OLLAMA_MODEL = "llama3";
+    vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
+    vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
     vi.mocked(env).BEDROCK_ACCESS_KEY = "";
     vi.mocked(env).BEDROCK_SECRET_KEY = "";
   });
@@ -337,7 +341,7 @@ describe("Models", () => {
       expect(result.model).toBeDefined();
     });
 
-    it("should configure Ollama model correctly via env vars", () => {
+    it("should configure Ollama model via DEFAULT_LLM_MODEL", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
         aiProvider: null,
@@ -345,6 +349,25 @@ describe("Models", () => {
       };
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "ollama";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "llama3.2";
+      vi.mocked(env).OLLAMA_MODEL = undefined;
+      vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434/api";
+
+      const result = getModel(userAi);
+      expect(result.provider).toBe(Provider.OLLAMA);
+      expect(result.modelName).toBe("llama3.2");
+      expect(result.model).toBeDefined();
+    });
+
+    it("should configure Ollama model via legacy OLLAMA_MODEL", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "ollama";
+      vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
       vi.mocked(env).OLLAMA_MODEL = "llama3";
       vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434/api";
 
@@ -812,7 +835,7 @@ describe("Models", () => {
       });
     });
 
-    it("should skip Ollama fallback when OLLAMA_MODEL is not configured", () => {
+    it("should use explicit Ollama fallback model without OLLAMA_MODEL", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
         aiProvider: null,
@@ -824,10 +847,14 @@ describe("Models", () => {
 
       const result = getModel(userAi);
 
-      expect(result.fallbackModels).toEqual([]);
+      expect(result.fallbackModels).toHaveLength(1);
+      expect(result.fallbackModels[0]).toMatchObject({
+        provider: Provider.OLLAMA,
+        modelName: "llama3",
+      });
     });
 
-    it("should configure OpenAI-compatible provider via env vars", () => {
+    it("should configure OpenAI-compatible provider via DEFAULT_LLM_MODEL", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
         aiProvider: null,
@@ -835,8 +862,9 @@ describe("Models", () => {
       };
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai-compatible";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "llama-3.2-3b-instruct";
       vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
-      vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
+      vi.mocked(env).OPENAI_COMPATIBLE_MODEL = undefined;
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPENAI_COMPATIBLE);
@@ -851,7 +879,7 @@ describe("Models", () => {
       );
     });
 
-    it("should configure OpenAI-compatible provider without an API key", () => {
+    it("should configure OpenAI-compatible provider via legacy OPENAI_COMPATIBLE_MODEL", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
         aiProvider: null,
@@ -859,6 +887,7 @@ describe("Models", () => {
       };
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai-compatible";
+      vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
       vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
       vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
 
@@ -867,7 +896,7 @@ describe("Models", () => {
       expect(result.modelName).toBe("llama-3.2-3b-instruct");
     });
 
-    it("should skip OpenAI-compatible fallback when OPENAI_COMPATIBLE_MODEL is not set", () => {
+    it("should use explicit OpenAI-compatible fallback model without OPENAI_COMPATIBLE_MODEL", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
         aiProvider: null,
@@ -879,7 +908,11 @@ describe("Models", () => {
 
       const result = getModel(userAi);
 
-      expect(result.fallbackModels).toEqual([]);
+      expect(result.fallbackModels).toHaveLength(1);
+      expect(result.fallbackModels[0]).toMatchObject({
+        provider: Provider.OPENAI_COMPATIBLE,
+        modelName: "llama3",
+      });
     });
   });
 });

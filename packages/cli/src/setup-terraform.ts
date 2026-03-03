@@ -307,6 +307,14 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
     nonInteractive,
   });
 
+  const defaultLlmModel =
+    llmModel ||
+    (llmProvider === "ollama" ? llmSecrets.ollamaModel : undefined) ||
+    (llmProvider === "openai-compatible"
+      ? llmSecrets.openaiCompatibleModel
+      : undefined) ||
+    "";
+
   const configureMicrosoft =
     options.microsoftClientId ||
     options.microsoftClientSecret ||
@@ -361,7 +369,7 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
     googleClientSecret,
     googlePubsubTopicName,
     defaultLlmProvider: llmProvider,
-    defaultLlmModel: llmModel,
+    defaultLlmModel,
     microsoftClientId,
     microsoftClientSecret,
     ...llmSecrets,
@@ -574,16 +582,19 @@ async function getLlmSecrets(config: {
             }));
       const ollamaModel =
         config.options.ollamaModel ||
+        config.options.llmModel ||
         process.env.OLLAMA_MODEL ||
+        process.env.DEFAULT_LLM_MODEL ||
         (config.nonInteractive
-          ? ""
+          ? "qwen3.5:4b"
           : await promptRequiredText({
               message: "Ollama model:",
-              placeholder: "llama3",
+              placeholder: "qwen3.5:4b",
+              initialValue: "qwen3.5:4b",
             }));
       if (config.nonInteractive) {
         assertNonEmpty("OLLAMA_BASE_URL", ollamaBaseUrl);
-        assertNonEmpty("OLLAMA_MODEL", ollamaModel);
+        assertNonEmpty("DEFAULT_LLM_MODEL or OLLAMA_MODEL", ollamaModel);
       }
       return { ollamaBaseUrl, ollamaModel };
     }
@@ -599,12 +610,15 @@ async function getLlmSecrets(config: {
             }));
       const openaiCompatibleModel =
         config.options.openaiCompatibleModel ||
+        config.options.llmModel ||
         process.env.OPENAI_COMPATIBLE_MODEL ||
+        process.env.DEFAULT_LLM_MODEL ||
         (config.nonInteractive
-          ? ""
+          ? "qwen3.5:4b"
           : await promptRequiredText({
               message: "Model name:",
-              placeholder: "llama-3.2-3b-instruct",
+              placeholder: "qwen3.5:4b",
+              initialValue: "qwen3.5:4b",
             }));
       const openaiCompatibleApiKey =
         config.options.llmApiKey ||
@@ -617,7 +631,10 @@ async function getLlmSecrets(config: {
             }));
       if (config.nonInteractive) {
         assertNonEmpty("OPENAI_COMPATIBLE_BASE_URL", openaiCompatibleBaseUrl);
-        assertNonEmpty("OPENAI_COMPATIBLE_MODEL", openaiCompatibleModel);
+        assertNonEmpty(
+          "DEFAULT_LLM_MODEL or OPENAI_COMPATIBLE_MODEL",
+          openaiCompatibleModel,
+        );
       }
       return {
         openaiCompatibleBaseUrl,
