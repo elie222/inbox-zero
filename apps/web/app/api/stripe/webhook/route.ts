@@ -5,6 +5,7 @@ import { getStripe } from "@/ee/billing/stripe";
 import { withError } from "@/utils/middleware";
 import type { Logger } from "@/utils/logger";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
+import { syncAiGenerationOverageForUpcomingInvoice } from "@/ee/billing/stripe/ai-overage";
 import { env } from "@/env";
 import { trackStripeEvent } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
@@ -88,11 +89,31 @@ async function processEvent(event: Stripe.Event, logger: Logger) {
     throw new Error(`ID isn't string.\nEvent type: ${event.type}`);
   }
 
-  return await Promise.allSettled([
+  const syncResult = await Promise.allSettled([
     syncStripeDataToDb({ customerId, logger }),
+  ]);
+
+  const [stripeSync] = syncResult;
+
+  const tasks: Promise<unknown>[] = [
     trackEvent(customerId, event),
     handleReferralCompletion(customerId, event, logger),
-  ]);
+  ];
+
+  if (stripeSync.status === "fulfilled") {
+    tasks.push(syncAiGenerationOverageForUpcomingInvoice({ event, logger }));
+  } else {
+    logger.error(
+      "Skipping AI overage sync because Stripe customer sync failed",
+      {
+        customerId,
+        eventType: event.type,
+        error: stripeSync.reason,
+      },
+    );
+  }
+
+  return await Promise.allSettled(tasks);
 }
 
 async function handleReferralCompletion(
