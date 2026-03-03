@@ -55,6 +55,26 @@ describe("createLabel conflict handling", () => {
     expect(list).toHaveBeenCalledTimes(2);
   });
 
+  it("returns existing label when creation fails with Precondition check failed", async () => {
+    const list = vi
+      .fn()
+      .mockResolvedValue(
+        labelsResponse([{ id: "existing", name: "Calendar", type: "user" }]),
+      );
+    const create = vi
+      .fn()
+      .mockRejectedValue(new Error("Precondition check failed"));
+    const gmail = gmailClient({ create, list });
+
+    const label = await createLabel({
+      gmail,
+      name: "Calendar",
+    });
+
+    expect(label.id).toBe("existing");
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
   it("throws when conflict label still cannot be found", async () => {
     const list = vi.fn().mockResolvedValue(
       labelsResponse([

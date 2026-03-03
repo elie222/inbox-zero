@@ -192,6 +192,7 @@ export async function runRules({
   }
 
   const executedRules: RunRulesResult[] = [];
+  const queuedSenderPatternAnalyses = new Set<string>();
 
   for (const result of finalMatches) {
     const ruleToExecute = result.rule;
@@ -203,6 +204,7 @@ export async function runRules({
         result,
         message,
         emailAccountId: emailAccount.id,
+        queuedSenderPatternAnalyses,
         logger,
       });
     }
@@ -447,26 +449,53 @@ async function analyzeSenderPatternIfAiMatch({
   result,
   message,
   emailAccountId,
+  queuedSenderPatternAnalyses,
   logger,
 }: {
   isTest: boolean;
   result: { rule?: Rule | null; matchReasons?: MatchReason[] };
   message: ParsedMessage;
   emailAccountId: string;
+  queuedSenderPatternAnalyses: Set<string>;
   logger: Logger;
 }) {
   if (shouldAnalyzeSenderPattern({ isTest, result })) {
     const fromAddress = extractEmailAddress(message.headers.from);
     if (fromAddress) {
-      after(() =>
-        analyzeSenderPattern(
+      const normalizedFromAddress = fromAddress.toLowerCase();
+      const analysisKey = `${emailAccountId}:${normalizedFromAddress}`;
+
+      if (queuedSenderPatternAnalyses.has(analysisKey)) return;
+      queuedSenderPatternAnalyses.add(analysisKey);
+
+      after(async () => {
+        let senderAlreadyAnalyzed = false;
+        try {
+          senderAlreadyAnalyzed = await isSenderPatternAlreadyAnalyzed({
+            emailAccountId,
+            from: normalizedFromAddress,
+          });
+        } catch (error) {
+          logger.error("Failed to check sender pattern analyzed status", {
+            error,
+          });
+        }
+
+        if (senderAlreadyAnalyzed) {
+          logger.trace(
+            "Skipping sender pattern analysis; sender already analyzed",
+          );
+          return;
+        }
+
+        await analyzeSenderPattern(
           {
             emailAccountId,
-            from: fromAddress,
+            from: normalizedFromAddress,
           },
           logger,
-        ),
-      );
+        );
+      });
     }
   }
 }
@@ -499,6 +528,30 @@ function shouldAnalyzeSenderPattern({
   }
 
   return true;
+}
+
+async function isSenderPatternAlreadyAnalyzed({
+  emailAccountId,
+  from,
+}: {
+  emailAccountId: string;
+  from: string;
+}) {
+  const existingCheck = await prisma.newsletter.findFirst({
+    where: {
+      emailAccountId,
+      patternAnalyzed: true,
+      email: {
+        equals: from,
+        mode: "insensitive",
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return !!existingCheck;
 }
 
 /**

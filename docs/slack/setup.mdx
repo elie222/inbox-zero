@@ -106,21 +106,7 @@ WEBHOOK_URL=https://your-domain.ngrok-free.app
 
 This is used for the OAuth callback and events webhook URLs. `NEXT_PUBLIC_BASE_URL` stays as `http://localhost:3000` so other auth flows aren't affected.
 
-## 3. Run the Database Migration
-
-The `MessagingChannel` model and `meetingBriefsSendEmail` column are created by the migration at:
-
-```
-apps/web/prisma/migrations/20260208000000_add_messaging_channels/
-```
-
-Apply with:
-
-```bash
-pnpm prisma migrate deploy
-```
-
-## 4. Connect from the UI
+## 3. Connect from the UI
 
 1. Navigate to **Settings** > **Email Account** tab
 2. Click **Connect Slack** under Connected Apps

@@ -27,6 +27,7 @@ import {
   ConsoleLogger,
   type ActionEvent,
   type Adapter,
+  type CardChild,
   type Message,
   type Thread,
 } from "chat";
@@ -45,6 +46,7 @@ import {
   getMessagingDraftConfirmationAction,
   PENDING_DRAFT_CONFIRMATION_MESSAGE,
 } from "@/utils/messaging/pending-email-confirmation";
+import { buildPendingEmailPreview } from "@/utils/messaging/pending-email-preview";
 import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
@@ -134,6 +136,8 @@ type PendingEmailToolPart = {
     pendingAction?: {
       to?: string;
       subject?: string;
+      messageHtml?: string | null;
+      content?: string | null;
     };
   };
 };
@@ -860,22 +864,28 @@ async function postPendingEmailCard({
   const subject = part.output?.pendingAction?.subject?.trim();
   const to = part.output?.pendingAction?.to?.trim();
   const summary = buildPendingEmailSummary({ actionType, to, subject });
+  const preview = buildPendingEmailPreview(part);
+
+  const cardChildren: CardChild[] = [CardText(summary)];
+  if (preview) {
+    cardChildren.push(CardText(`Draft preview:\n${preview}`));
+  }
+  cardChildren.push(
+    Actions([
+      Button({
+        id: PENDING_EMAIL_CONFIRM_ACTION_ID,
+        label: "Send",
+        style: "primary",
+        value,
+      }),
+    ]),
+  );
 
   try {
     await thread.post(
       Card({
         title: "Ready to send",
-        children: [
-          CardText(summary),
-          Actions([
-            Button({
-              id: PENDING_EMAIL_CONFIRM_ACTION_ID,
-              label: "Send",
-              style: "primary",
-              value,
-            }),
-          ]),
-        ],
+        children: cardChildren,
       }),
     );
   } catch (error) {
