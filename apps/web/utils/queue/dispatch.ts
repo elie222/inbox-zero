@@ -19,18 +19,6 @@ export async function enqueueBackgroundJob<T>({
   };
   logger?: Logger;
 }) {
-  if (shouldUseQstashQueue()) {
-    await publishToQstashQueue({
-      queueName: qstash.queueName,
-      parallelism: qstash.parallelism,
-      path: qstash.path,
-      body,
-      headers: qstash.headers,
-    });
-
-    return "qstash";
-  }
-
   if (isVercelQueueDispatchEnabled()) {
     try {
       await send(topic, body);
@@ -51,7 +39,7 @@ export async function enqueueBackgroundJob<T>({
     headers: qstash.headers,
   });
 
-  return "internal-fallback";
+  return shouldUseQstashQueue() ? "qstash" : "internal-fallback";
 }
 
 function shouldUseQstashQueue() {
