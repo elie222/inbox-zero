@@ -654,10 +654,11 @@ async function processMessagingAssistantMessage({
         });
 
         if (!postedCard) {
+          const fallbackText = buildPendingEmailCardFallbackText(fullText);
           await thread.post(
             getMessagingAssistantPostPayload({
               provider: context.provider,
-              text: fullText,
+              text: fallbackText,
             }),
           );
         }
@@ -1917,6 +1918,21 @@ export function normalizeMessagingAssistantText({ text }: { text: string }) {
   );
 
   return normalized;
+}
+
+export function buildPendingEmailCardFallbackText(normalizedText: string) {
+  const failureGuidance =
+    "I couldn't show the Send button right now. Ask me to prepare the draft again.";
+
+  if (
+    normalizedText
+      .toLowerCase()
+      .includes("i couldn't show the send button right now")
+  ) {
+    return normalizedText;
+  }
+
+  return `${normalizedText}\n\n${failureGuidance}`;
 }
 
 function getMessagingAssistantPostPayload({

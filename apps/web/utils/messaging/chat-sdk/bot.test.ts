@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  buildPendingEmailCardFallbackText,
   buildPendingEmailSummary,
   ensureSlackTeamInstallation,
   normalizeMessagingAssistantText,
@@ -102,5 +103,21 @@ describe("buildPendingEmailSummary", () => {
     ).toBe(
       'Forward "Project update" from sender@example.com to recipient@example.com.',
     );
+  });
+});
+
+describe("buildPendingEmailCardFallbackText", () => {
+  it("adds actionable guidance when the confirmation card fails", () => {
+    expect(
+      buildPendingEmailCardFallbackText("This draft is pending confirmation."),
+    ).toBe(
+      "This draft is pending confirmation.\n\nI couldn't show the Send button right now. Ask me to prepare the draft again.",
+    );
+  });
+
+  it("does not duplicate fallback guidance when already present", () => {
+    const input =
+      "This draft is pending confirmation.\n\nI couldn't show the Send button right now. Ask me to prepare the draft again.";
+    expect(buildPendingEmailCardFallbackText(input)).toBe(input);
   });
 });
