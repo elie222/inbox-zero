@@ -169,6 +169,7 @@ describe("saveAiUsage", () => {
 
     await saveAiUsage({
       email: "user@example.com",
+      emailAccountId: "email-account-1",
       provider: "openai",
       model: "openai/gpt-5.1",
       usage,
@@ -179,6 +180,7 @@ describe("saveAiUsage", () => {
     expect(publishAiCall).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user@example.com",
+        emailAccountId: "email-account-1",
         cachedInputTokens: 300,
         reasoningTokens: 25,
         estimatedCost: calculateUsageCost({
@@ -219,6 +221,7 @@ describe("saveAiUsage", () => {
 
     await saveAiUsage({
       email: "user@example.com",
+      emailAccountId: "email-account-1",
       provider: "openrouter",
       model: "openai/gpt-5.1",
       usage,
@@ -229,6 +232,7 @@ describe("saveAiUsage", () => {
     expect(publishAiCall).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user@example.com",
+        emailAccountId: "email-account-1",
         cost: 0,
         estimatedCost,
         isUserApiKey: 1,

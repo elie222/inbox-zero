@@ -12,10 +12,10 @@ import { createGateway } from "@ai-sdk/gateway";
 import { createOllama } from "ollama-ai-provider-v2";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { env } from "@/env";
-import { SafeError } from "@/utils/error";
 import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
+import { SafeError } from "../error";
 
 // Thinking budgets for Google-family models (set low to minimize cost)
 const GOOGLE_THINKING_BUDGET = 50;
@@ -121,7 +121,9 @@ function selectModel(
       const baseOptions = providerOptions ?? {};
       const resourceName = env.AZURE_RESOURCE_NAME;
       if (!resourceName) {
-        throw new Error("AZURE_RESOURCE_NAME environment variable is not set");
+        throw new SafeError(
+          "AZURE_RESOURCE_NAME environment variable is not set",
+        );
       }
 
       return {
@@ -524,7 +526,9 @@ function getVertexConfig(): {
 } {
   const project = env.GOOGLE_VERTEX_PROJECT;
   if (!project) {
-    throw new Error("GOOGLE_VERTEX_PROJECT environment variable is not set");
+    throw new SafeError(
+      "GOOGLE_VERTEX_PROJECT environment variable is not set",
+    );
   }
 
   const location = env.GOOGLE_VERTEX_LOCATION;
