@@ -14,14 +14,27 @@ export async function forwardQueueMessageToInternalApi<T>({
   body: T;
   logger: Logger;
 }) {
-  const response = await fetch(`${getInternalApiUrl()}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
-    },
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${getInternalApiUrl()}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    logger.error(
+      "Failed to reach internal API while forwarding queue message",
+      {
+        path,
+        error,
+      },
+    );
+    throw error;
+  }
 
   if (response.ok) return;
 

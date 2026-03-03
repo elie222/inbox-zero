@@ -75,6 +75,10 @@ async function sendDigestAllUpdate(logger: Logger) {
       });
     } catch (error) {
       logger.error("Failed to enqueue digest send", {
+        emailAccountId: emailAccount.id,
+        error,
+      });
+      logger.trace("Failed digest enqueue for account email", {
         email: emailAccount.email,
         error,
       });
