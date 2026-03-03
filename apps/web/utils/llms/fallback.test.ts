@@ -292,6 +292,7 @@ describe("createGenerateText fallback chain", () => {
     const tracingOptions = mockWithTracing.mock.calls[0][2];
     expect(tracingOptions.posthogProperties).toEqual({
       label: "PostHog tracing",
+      $ai_span_name: "PostHog tracing",
       provider: "openai",
       model: "gpt-5-mini",
       emailAccountId: "email-account-1",

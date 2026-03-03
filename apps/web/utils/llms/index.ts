@@ -1080,6 +1080,7 @@ function withPosthogTracing({
     posthogPrivacyMode: true,
     posthogProperties: {
       label,
+      $ai_span_name: label,
       provider,
       model: modelName,
       emailAccountId,
