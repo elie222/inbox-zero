@@ -11,6 +11,42 @@
           "retryAfterSeconds": 60
         }
       ]
+    },
+    "app/api/ai/digest/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "ai-digest",
+          "retryAfterSeconds": 60
+        }
+      ]
+    },
+    "app/api/automation-jobs/execute/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "automation-jobs-execute",
+          "retryAfterSeconds": 60
+        }
+      ]
+    },
+    "app/api/resend/digest/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "resend-digest",
+          "retryAfterSeconds": 60
+        }
+      ]
+    },
+    "app/api/resend/summary/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "resend-summary",
+          "retryAfterSeconds": 60
+        }
+      ]
     }
   },
   "rewrites": [

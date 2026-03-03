@@ -8,6 +8,7 @@ import { getInternalApiUrl } from "@/utils/internal-api";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import type { Logger } from "@/utils/logger";
 import { runWithBoundedConcurrency } from "@/utils/async";
+import { isVercelQueueDispatchEnabled } from "@/utils/queue/vercel";
 import { getEligibleFollowUpReminderEmailAccountIds } from "./process";
 
 export const maxDuration = 800;
@@ -218,8 +219,4 @@ async function dispatchFollowUpReminderAccount({
     captureException(error);
     return false;
   }
-}
-
-function isVercelQueueDispatchEnabled() {
-  return process.env.VERCEL === "1";
 }
