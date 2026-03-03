@@ -47,7 +47,7 @@ Task tool call:
 
 **Subagent prompt must include:**
 1. The output of `git diff HEAD` (or `git diff --cached` if there are staged changes)
-2. The full review criteria from `.claude/commands/review.md` (categories, severity guide, project-specific checks)
+2. The full review criteria from `.claude/skills/review/SKILL.md` (categories, severity guide, project-specific checks)
 3. These instructions:
    - Categorize every issue as [BUG], [FIX], [AUTO], or [CONSIDER]
    - Auto-fix [AUTO] items directly (unused imports, dead code, console.log, typos)
@@ -71,7 +71,7 @@ If the subagent already auto-fixed [AUTO] items, verify they were applied.
 
 ## Step 4: Commit and create PR
 
-Follow the `.claude/commands/create-pr.md` workflow:
+Follow the `.claude/skills/create-pr/SKILL.md` workflow:
 
 1. Check state:
    ```bash
