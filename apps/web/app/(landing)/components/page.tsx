@@ -853,9 +853,15 @@ export default function Components() {
                 threadLookup={assistantToolThreadLookup}
               />
               <BasicToolInfo text="Updated inbox features" />
-              <ChatProvider>
-                <AssistantEmailActionStates />
-              </ChatProvider>
+              <Suspense
+                fallback={
+                  <BasicToolInfo text="Loading email action states..." />
+                }
+              >
+                <ChatProvider>
+                  <AssistantEmailActionStates />
+                </ChatProvider>
+              </Suspense>
               <BasicToolInfo text="Read rules and settings" />
               <BasicToolInfo text="Read learned patterns" />
               <UpdateAbout
