@@ -38,11 +38,7 @@ import {
   updateInboxFeaturesTool,
 } from "./chat-inbox-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
-import {
-  getMessagingPlatformName,
-  type MessagingPlatform,
-} from "@/utils/messaging/platforms";
-import { getMessagingDraftConfirmationAction } from "@/utils/messaging/pending-email-confirmation";
+import type { MessagingPlatform } from "@/utils/messaging/platforms";
 
 export const maxDuration = 120;
 
@@ -574,11 +570,8 @@ function getSendEmailSurfacePolicy({
     return "- sendEmail, replyEmail, and forwardEmail prepare a pending action only. The user must click a confirmation button in the UI before any email is actually sent.";
   }
 
-  const platformName = messagingPlatform
-    ? getMessagingPlatformName(messagingPlatform)
-    : "messaging chat";
+  const threadContext = messagingPlatform ? "this thread" : "the thread";
 
   return `- sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.
-- In ${platformName}, a Send confirmation button is provided in the thread.
-- Tell the user to ${getMessagingDraftConfirmationAction(messagingPlatform)}.`;
+- A Send confirmation button is provided in ${threadContext}.`;
 }

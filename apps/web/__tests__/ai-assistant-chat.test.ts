@@ -167,10 +167,10 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it.each([
-    ["slack", "Slack"],
-    ["teams", "Teams"],
-    ["telegram", "Telegram"],
-  ] as const)("keeps send-email tools for %s messaging chats when enabled", async (messagingPlatform, platformName) => {
+    ["slack"],
+    ["teams"],
+    ["telegram"],
+  ] as const)("keeps send-email tools for %s messaging chats when enabled", async (messagingPlatform) => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,
     });
@@ -193,10 +193,7 @@ describe("aiProcessAssistantChat", () => {
       "sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.",
     );
     expect(args.messages[0].content).toContain(
-      `In ${platformName}, a Send confirmation button is provided in the thread.`,
-    );
-    expect(args.messages[0].content).toContain(
-      `click the Send button in this ${platformName} thread`,
+      "A Send confirmation button is provided in this thread.",
     );
     expect(args.messages[0].content).not.toContain(
       "Email sending actions are disabled in this environment",

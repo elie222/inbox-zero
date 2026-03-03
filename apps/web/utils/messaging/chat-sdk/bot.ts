@@ -42,10 +42,7 @@ import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stat
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { consumeMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code-consume";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
-import {
-  getMessagingDraftConfirmationAction,
-  PENDING_DRAFT_CONFIRMATION_MESSAGE,
-} from "@/utils/messaging/pending-email-confirmation";
+import { PENDING_DRAFT_CONFIRMATION_MESSAGE } from "@/utils/messaging/pending-email-confirmation";
 import { buildPendingEmailPreview } from "@/utils/messaging/pending-email-preview";
 import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
 import { isDuplicateError } from "@/utils/prisma-helpers";
@@ -138,6 +135,10 @@ type PendingEmailToolPart = {
       subject?: string;
       messageHtml?: string | null;
       content?: string | null;
+    };
+    reference?: {
+      from?: string | null;
+      subject?: string | null;
     };
   };
 };
@@ -618,8 +619,10 @@ async function processMessagingAssistantMessage({
 
       const fullText = normalizeMessagingAssistantText({
         text: getUiMessageText(assistantUiMessage),
-        provider: context.provider,
       });
+      const pendingToolPart = getPendingEmailToolPart(
+        assistantUiMessage.parts || [],
+      );
 
       try {
         await prisma.chatMessage.create({
@@ -641,24 +644,30 @@ async function processMessagingAssistantMessage({
         throw error;
       }
 
-      await thread.post(
-        getMessagingAssistantPostPayload({
-          provider: context.provider,
-          text: fullText,
-        }),
-      );
-
-      const pendingToolPart = getPendingEmailToolPart(
-        assistantUiMessage.parts || [],
-      );
       if (pendingToolPart) {
-        await postPendingEmailCard({
+        const postedCard = await postPendingEmailCard({
           thread,
           chatMessageId: assistantMessageId,
           part: pendingToolPart,
           provider: context.provider,
           logger: threadLogger,
         });
+
+        if (!postedCard) {
+          await thread.post(
+            getMessagingAssistantPostPayload({
+              provider: context.provider,
+              text: fullText,
+            }),
+          );
+        }
+      } else {
+        await thread.post(
+          getMessagingAssistantPostPayload({
+            provider: context.provider,
+            text: fullText,
+          }),
+        );
       }
 
       return true;
@@ -853,7 +862,7 @@ async function postPendingEmailCard({
   part: PendingEmailToolPart;
   provider: SupportedPlatform;
   logger: Logger;
-}) {
+}): Promise<boolean> {
   const actionType = pendingActionTypeFromToolPartType(part.type);
   const value = createPendingEmailActionToken({
     actionType,
@@ -863,12 +872,20 @@ async function postPendingEmailCard({
 
   const subject = part.output?.pendingAction?.subject?.trim();
   const to = part.output?.pendingAction?.to?.trim();
-  const summary = buildPendingEmailSummary({ actionType, to, subject });
+  const referenceFrom = part.output?.reference?.from?.trim() || undefined;
+  const referenceSubject = part.output?.reference?.subject?.trim() || undefined;
+  const summary = buildPendingEmailSummary({
+    actionType,
+    to,
+    subject,
+    referenceFrom,
+    referenceSubject,
+  });
   const preview = buildPendingEmailPreview(part);
 
   const cardChildren: CardChild[] = [CardText(summary)];
   if (preview) {
-    cardChildren.push(CardText(`Draft preview:\n${preview}`));
+    cardChildren.push(CardText(preview));
   }
   cardChildren.push(
     Actions([
@@ -884,16 +901,18 @@ async function postPendingEmailCard({
   try {
     await thread.post(
       Card({
-        title: "Ready to send",
+        title: "Review draft",
         children: cardChildren,
       }),
     );
+    return true;
   } catch (error) {
     logger.warn("Failed to post messaging pending email confirmation card", {
       error,
       provider,
       actionType,
     });
+    return false;
   }
 }
 
@@ -971,28 +990,48 @@ function pendingActionTypeFromToolPartType(
   }
 }
 
-function buildPendingEmailSummary({
+export function buildPendingEmailSummary({
   actionType,
   to,
   subject,
+  referenceFrom,
+  referenceSubject,
 }: {
   actionType: AssistantPendingEmailActionType;
   to?: string;
   subject?: string;
+  referenceFrom?: string;
+  referenceSubject?: string;
 }) {
-  const actionLabel =
-    actionType === "send_email"
-      ? "new email"
-      : actionType === "reply_email"
-        ? "reply"
-        : "forward";
-
-  if (to && subject) {
-    return `Confirm this ${actionLabel} to ${to} with subject "${subject}".`;
+  if (actionType === "send_email") {
+    if (to && subject) return `New email to ${to}: "${subject}".`;
+    if (to) return `New email to ${to}.`;
+    if (subject) return `New email: "${subject}".`;
+    return "Review this email.";
   }
-  if (to) return `Confirm this ${actionLabel} to ${to}.`;
-  if (subject) return `Confirm this ${actionLabel} with subject "${subject}".`;
-  return `Confirm this ${actionLabel}.`;
+
+  if (actionType === "reply_email") {
+    if (referenceFrom && referenceSubject) {
+      return `Reply to ${referenceFrom} about "${referenceSubject}".`;
+    }
+    if (referenceFrom) return `Reply to ${referenceFrom}.`;
+    if (referenceSubject) return `Reply about "${referenceSubject}".`;
+    return "Review this reply.";
+  }
+
+  if (to && referenceFrom && referenceSubject) {
+    return `Forward "${referenceSubject}" from ${referenceFrom} to ${to}.`;
+  }
+  if (to && referenceSubject) return `Forward "${referenceSubject}" to ${to}.`;
+  if (to && referenceFrom)
+    return `Forward email from ${referenceFrom} to ${to}.`;
+  if (to) return `Forward to ${to}.`;
+  if (referenceFrom && referenceSubject) {
+    return `Forward "${referenceSubject}" from ${referenceFrom}.`;
+  }
+  if (referenceSubject) return `Forward "${referenceSubject}".`;
+  if (referenceFrom) return `Forward email from ${referenceFrom}.`;
+  return "Review this forward.";
 }
 
 function buildPendingEmailSuccessFeedback({
@@ -1865,31 +1904,17 @@ export function stripLeadingSlackMention(text: string): string {
     .trim();
 }
 
-function normalizeMessagingAssistantText({
-  text,
-  provider,
-}: {
-  text: string;
-  provider: SupportedPlatform;
-}) {
+export function normalizeMessagingAssistantText({ text }: { text: string }) {
   let normalized = text;
 
+  normalized = normalized.replace(
+    /(?:you can|please)\s+click [^.]*button[^.]*\./gi,
+    PENDING_DRAFT_CONFIRMATION_MESSAGE,
+  );
   normalized = normalized.replace(
     /click (?:the )?(?:confirmation|approve|send) button[^.]*\./gi,
     PENDING_DRAFT_CONFIRMATION_MESSAGE,
   );
-  normalized = normalized.replace(
-    /(?:you can|please) click [^.]*button[^.]*\./gi,
-    PENDING_DRAFT_CONFIRMATION_MESSAGE,
-  );
-
-  if (
-    /\bpending\b/i.test(normalized) &&
-    /\b(draft|email)\b/i.test(normalized) &&
-    !/open inbox zero/i.test(normalized)
-  ) {
-    normalized = `${normalized}\n\nTo send it, ${getMessagingDraftConfirmationAction(provider)}.`;
-  }
 
   return normalized;
 }

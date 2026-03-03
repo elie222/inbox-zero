@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  buildPendingEmailSummary,
   ensureSlackTeamInstallation,
+  normalizeMessagingAssistantText,
   stripLeadingSlackMention,
 } from "@/utils/messaging/chat-sdk/bot";
 
@@ -58,6 +60,47 @@ describe("stripLeadingSlackMention", () => {
   it("keeps compatibility with plain @mention text", () => {
     expect(stripLeadingSlackMention("@InboxZero summarize my inbox")).toBe(
       "summarize my inbox",
+    );
+  });
+});
+
+describe("normalizeMessagingAssistantText", () => {
+  it("replaces leading 'Please click' instructions cleanly", () => {
+    expect(
+      normalizeMessagingAssistantText({
+        text: "Please click the Send button in this Telegram thread.",
+      }),
+    ).toBe("This draft is pending confirmation.");
+  });
+
+  it("does not append redundant send-button guidance", () => {
+    const input =
+      "I prepared that reply for you. This draft is pending confirmation.";
+    expect(normalizeMessagingAssistantText({ text: input })).toBe(input);
+  });
+});
+
+describe("buildPendingEmailSummary", () => {
+  it("includes reply target context when available", () => {
+    expect(
+      buildPendingEmailSummary({
+        actionType: "reply_email",
+        referenceFrom: "sender@example.com",
+        referenceSubject: "Question",
+      }),
+    ).toBe('Reply to sender@example.com about "Question".');
+  });
+
+  it("formats forward summaries with source and destination", () => {
+    expect(
+      buildPendingEmailSummary({
+        actionType: "forward_email",
+        to: "recipient@example.com",
+        referenceFrom: "sender@example.com",
+        referenceSubject: "Project update",
+      }),
+    ).toBe(
+      'Forward "Project update" from sender@example.com to recipient@example.com.',
     );
   });
 });
