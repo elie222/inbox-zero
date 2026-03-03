@@ -4,6 +4,25 @@ import { createScopedLogger } from "@/utils/logger";
 import { hash } from "@/utils/hash";
 
 const logger = createScopedLogger("posthog");
+let posthogLlmClient: PostHog | undefined;
+
+export function getPosthogLlmClient() {
+  if (!env.NEXT_PUBLIC_POSTHOG_KEY) return;
+
+  if (!posthogLlmClient) {
+    const host = env.NEXT_PUBLIC_POSTHOG_API_HOST?.startsWith("http")
+      ? env.NEXT_PUBLIC_POSTHOG_API_HOST
+      : undefined;
+
+    posthogLlmClient = new PostHog(env.NEXT_PUBLIC_POSTHOG_KEY, {
+      ...(host ? { host } : {}),
+      flushAt: 1,
+      flushInterval: 0,
+    });
+  }
+
+  return posthogLlmClient;
+}
 
 async function getPosthogUserId(options: { email: string }) {
   const personsEndpoint = `https://app.posthog.com/api/projects/${env.POSTHOG_PROJECT_ID}/persons/`;
