@@ -2,6 +2,7 @@ import { send } from "@vercel/queue";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
+import { isVercelQueueDispatchEnabled } from "@/utils/queue/vercel";
 
 export async function enqueueBackgroundJob<T>({
   topic,
@@ -44,8 +45,4 @@ export async function enqueueBackgroundJob<T>({
 
 function shouldUseQstashQueue() {
   return !!env.QSTASH_TOKEN;
-}
-
-function isVercelQueueDispatchEnabled() {
-  return process.env.VERCEL === "1";
 }

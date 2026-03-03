@@ -2,6 +2,7 @@ import { handleCallback } from "@vercel/queue";
 import type { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { forwardQueueMessageToInternalApi } from "@/utils/queue/forward-to-internal-api";
+import { getQueueRetryBackoffSeconds } from "@/utils/queue/retry";
 
 type QueueMetadata = {
   messageId: string;
@@ -54,8 +55,11 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
     {
       visibilityTimeoutSeconds,
       retry: (_error, metadata) => {
-        const backoffSeconds = Math.min(300, 2 ** metadata.deliveryCount * 5);
-        return { afterSeconds: backoffSeconds };
+        return {
+          afterSeconds: getQueueRetryBackoffSeconds({
+            deliveryCount: metadata.deliveryCount,
+          }),
+        };
       },
     },
   );

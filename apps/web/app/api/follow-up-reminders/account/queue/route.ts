@@ -2,6 +2,7 @@ import { handleCallback } from "@vercel/queue";
 import { z } from "zod";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
+import { getQueueRetryBackoffSeconds } from "@/utils/queue/retry";
 import { processFollowUpRemindersForEmailAccountId } from "../../process";
 
 export const maxDuration = 800;
@@ -50,8 +51,11 @@ export const POST = handleCallback<z.infer<typeof queuePayloadSchema>>(
   {
     visibilityTimeoutSeconds: 780,
     retry: (_error, metadata) => {
-      const backoffSeconds = Math.min(300, 2 ** metadata.deliveryCount * 5);
-      return { afterSeconds: backoffSeconds };
+      return {
+        afterSeconds: getQueueRetryBackoffSeconds({
+          deliveryCount: metadata.deliveryCount,
+        }),
+      };
     },
   },
 );
