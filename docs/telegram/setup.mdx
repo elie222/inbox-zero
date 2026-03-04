@@ -51,13 +51,32 @@ Set these in `apps/web/.env` (or your deployment env):
 ```bash
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_BOT_SECRET_TOKEN= # optional but recommended
+TELEGRAM_BOT_PROFILE_PHOTO_URL= # optional https URL to a PNG/JPG
 ```
 
 If `TELEGRAM_BOT_TOKEN` is missing, the Telegram connect option is hidden in the UI and `/api/telegram/events` returns `503`.
 
 If `TELEGRAM_BOT_SECRET_TOKEN` is set, webhooks must include `x-telegram-bot-api-secret-token` with the same value or requests are rejected.
 
-## 4. Connect a user account from Inbox Zero
+`TELEGRAM_BOT_PROFILE_PHOTO_URL` is optional. When set, Inbox Zero checks whether the bot already has a profile photo and uploads this image only if no photo exists yet.
+
+## 4. Telegram bot commands and profile metadata
+
+When Telegram is configured, Inbox Zero automatically registers bot slash commands through `setMyCommands`:
+
+- `/connect`
+- `/switch`
+- `/help`
+- `/cleanup`
+- `/summary`
+- `/draftreply`
+- `/followups`
+
+Prompt-style commands (`/cleanup`, `/summary`, `/draftreply`, `/followups`) are mapped to common inbox-assistant prompts.
+
+If you prefer to manage bot metadata manually (for example, replacing an existing profile photo), you can still use [@BotFather](https://t.me/BotFather).
+
+## 5. Connect a user account from Inbox Zero
 
 Each Inbox Zero email account links to a Telegram user via a connect code:
 
@@ -69,7 +88,7 @@ Each Inbox Zero email account links to a Telegram user via a connect code:
 
 After linking, the user can chat with the assistant in that DM.
 
-## 5. Validate end-to-end
+## 6. Validate end-to-end
 
 Quick checks:
 
