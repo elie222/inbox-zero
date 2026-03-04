@@ -385,7 +385,11 @@ describe("Models", () => {
 
       expect(result.provider).toBe(Provider.AI_GATEWAY);
       expect(result.modelName).toBe("openai/gpt-5-mini");
-      expect(result.providerOptions?.openai?.reasoningEffort).toBe("low");
+      expect(result.providerOptions).toEqual({
+        openai: {
+          reasoningEffort: "low",
+        },
+      });
       expect(createGateway).toHaveBeenCalledWith({
         apiKey: "test-ai-gateway-key",
       });
@@ -405,7 +409,11 @@ describe("Models", () => {
 
       expect(result.provider).toBe(Provider.AI_GATEWAY);
       expect(result.modelName).toBe("azure/gpt-5-mini");
-      expect(result.providerOptions?.azure?.reasoningEffort).toBe("low");
+      expect(result.providerOptions).toEqual({
+        openai: {
+          reasoningEffort: "low",
+        },
+      });
     });
 
     it("should configure Ollama model via DEFAULT_LLM_MODEL", () => {
