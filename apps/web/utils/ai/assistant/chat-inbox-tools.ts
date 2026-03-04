@@ -161,44 +161,34 @@ export type GetAccountOverviewTool = InferUITool<
   ReturnType<typeof getAccountOverviewTool>
 >;
 
-const searchInboxInputSchema = z.object({
-  query: z
-    .string()
-    .trim()
-    .min(1)
-    .max(300)
-    .optional()
-    .describe(
-      "Inbox search query. Use concise keywords by default. For Google accounts, Gmail syntax like from:, to:, subject:, and in: is supported.",
-    ),
-  after: z.coerce
-    .date()
-    .optional()
-    .describe("Only include messages after this datetime (ISO format)."),
-  before: z.coerce
-    .date()
-    .optional()
-    .describe("Only include messages before this datetime (ISO format)."),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(50)
-    .default(20)
-    .describe("Maximum number of messages to return."),
-  pageToken: z
-    .string()
-    .optional()
-    .describe("Use the page token returned from a prior search to paginate."),
-  inboxOnly: z
-    .boolean()
-    .default(true)
-    .describe("If true, restrict results to inbox messages."),
-  unreadOnly: z
-    .boolean()
-    .default(false)
-    .describe("If true, only return unread messages."),
-});
+function getSearchQueryDescription(provider: string): string {
+  if (provider === "microsoft") {
+    return "Search query using KQL syntax. Supports: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
+  }
+  return "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.";
+}
+
+function searchInboxInputSchema(provider: string) {
+  return z.object({
+    query: z
+      .string()
+      .trim()
+      .min(1)
+      .max(500)
+      .describe(getSearchQueryDescription(provider)),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(50)
+      .default(20)
+      .describe("Maximum number of messages to return."),
+    pageToken: z
+      .string()
+      .optional()
+      .describe("Use the page token returned from a prior search to paginate."),
+  });
+}
 
 export const searchInboxTool = ({
   email,
@@ -214,16 +204,8 @@ export const searchInboxTool = ({
   tool({
     description:
       "Search inbox messages and return concise message metadata for triage and summarization.",
-    inputSchema: searchInboxInputSchema,
-    execute: async ({
-      query,
-      after,
-      before,
-      limit,
-      pageToken,
-      inboxOnly,
-      unreadOnly,
-    }) => {
+    inputSchema: searchInboxInputSchema(provider),
+    execute: async ({ query, limit, pageToken }) => {
       trackToolCall({ tool: "search_inbox", email, logger });
 
       try {
@@ -233,16 +215,11 @@ export const searchInboxTool = ({
           logger,
         });
 
-        const { messages, nextPageToken } =
-          await emailProvider.getMessagesWithPagination({
-            query: query?.trim(),
-            maxResults: limit,
-            pageToken,
-            after,
-            before,
-            inboxOnly,
-            unreadOnly,
-          });
+        const { messages, nextPageToken } = await emailProvider.searchMessages({
+          query,
+          maxResults: limit,
+          pageToken,
+        });
 
         let labels: Array<{ id: string; name: string }> = [];
         try {
@@ -253,22 +230,12 @@ export const searchInboxTool = ({
 
         const labelsById = createLabelLookupMap(labels);
 
-        const filteredMessages = messages
-          .filter((message) =>
-            shouldIncludeMessage({
-              message,
-              inboxOnly,
-              unreadOnly,
-            }),
-          )
-          .slice(0, limit);
-
-        const items = filteredMessages.map((message) =>
-          mapMessageForSearchResult(message, labelsById),
-        );
+        const items = messages
+          .slice(0, limit)
+          .map((message) => mapMessageForSearchResult(message, labelsById));
 
         return {
-          queryUsed: query?.trim() || null,
+          queryUsed: query,
           totalReturned: items.length,
           nextPageToken,
           summary: summarizeSearchResults(items),
@@ -918,28 +885,6 @@ function createPendingForwardEmailOutput(
       subject: message.subject || message.headers.subject,
     },
   };
-}
-
-function shouldIncludeMessage({
-  message,
-  inboxOnly,
-  unreadOnly,
-}: {
-  message: ParsedMessage;
-  inboxOnly: boolean;
-  unreadOnly: boolean;
-}) {
-  if (!message.labelIds?.length) return !unreadOnly;
-
-  const labelIds =
-    message.labelIds?.map((labelId) => labelId.toLowerCase()) || [];
-  const isInInbox = labelIds.includes("inbox");
-  const isUnread = labelIds.includes("unread");
-
-  if (inboxOnly && !isInInbox) return false;
-  if (unreadOnly && !isUnread) return false;
-
-  return true;
 }
 
 function mapMessageForSearchResult(

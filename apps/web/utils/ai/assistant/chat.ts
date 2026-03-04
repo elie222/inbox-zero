@@ -159,8 +159,7 @@ ${emailSendToolsEnabled ? '- For forwarding, always use a real messageId from se
 
 Provider context:
 - Current provider: ${user.account.provider}.
-- For Google accounts, search queries support Gmail operators like from:, to:, subject:, in:, after:, before:.
-- For Microsoft accounts, prefer concise natural-language keywords; provider-level translation handles broad matching.
+${user.account.provider === "microsoft" ? "- Use KQL syntax for search: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:." : "- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:."}
 
 A rule is comprised of:
 1. A condition

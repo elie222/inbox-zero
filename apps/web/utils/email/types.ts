@@ -203,6 +203,14 @@ export interface EmailProvider {
     messages: ParsedMessage[];
     nextPageToken?: string;
   }>;
+  searchMessages(options: {
+    query: string;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }>;
   getMessagesWithAttachments(options: {
     maxResults?: number;
     pageToken?: string;
