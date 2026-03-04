@@ -41,6 +41,7 @@ import {
   DEFAULT_AUTOMATION_JOB_CRON,
 } from "@/utils/automation-jobs/defaults";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
+import { formatAutomationMessagingChannelLabel } from "@/utils/automation-jobs/messaging-channel";
 import { BRAND_NAME } from "@/utils/branding";
 
 export function ProactiveUpdatesSetting() {
@@ -62,18 +63,15 @@ export function ProactiveUpdatesSetting() {
     mutate: mutateChannels,
   } = useMessagingChannels();
 
-  const connectedSlackChannels = useMemo(
+  const connectedMessagingChannels = useMemo(
     () =>
       channelsData?.channels.filter(
-        (channel) =>
-          channel.provider === "SLACK" &&
-          channel.isConnected &&
-          channel.hasSendDestination,
+        (channel) => channel.isConnected && channel.hasSendDestination,
       ) ?? [],
     [channelsData?.channels],
   );
 
-  const hasConnectedSlack = connectedSlackChannels.length > 0;
+  const hasConnectedMessagingChannel = connectedMessagingChannels.length > 0;
   const job = data?.job ?? null;
   const enabled = Boolean(job?.enabled);
 
@@ -97,17 +95,17 @@ export function ProactiveUpdatesSetting() {
   useEffect(() => {
     if (!open) return;
 
-    const hasSelectedConnectedChannel = connectedSlackChannels.some(
+    const hasSelectedConnectedChannel = connectedMessagingChannels.some(
       (channel) => channel.id === messagingChannelId,
     );
 
     if (hasSelectedConnectedChannel) return;
 
-    const fallbackChannelId = connectedSlackChannels[0]?.id ?? "";
+    const fallbackChannelId = connectedMessagingChannels[0]?.id ?? "";
     if (messagingChannelId === fallbackChannelId) return;
 
     setMessagingChannelId(fallbackChannelId);
-  }, [open, connectedSlackChannels, messagingChannelId]);
+  }, [open, connectedMessagingChannels, messagingChannelId]);
 
   const { execute: executeToggle, status: toggleStatus } = useAction(
     toggleAutomationJobAction.bind(null, emailAccountId),
@@ -142,7 +140,7 @@ export function ProactiveUpdatesSetting() {
     triggerTestCheckInAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Test check-in sent to Slack" });
+        toastSuccess({ description: "Test check-in sent" });
       },
       onError: createSettingActionErrorHandler({
         defaultMessage: "Failed to send test check-in",
@@ -152,10 +150,11 @@ export function ProactiveUpdatesSetting() {
 
   const handleToggle = useCallback(
     (nextEnabled: boolean) => {
-      if (!emailAccountId || (!hasConnectedSlack && nextEnabled)) return;
+      if (!emailAccountId || (!hasConnectedMessagingChannel && nextEnabled))
+        return;
       executeToggle({ enabled: nextEnabled });
     },
-    [emailAccountId, hasConnectedSlack, executeToggle],
+    [emailAccountId, hasConnectedMessagingChannel, executeToggle],
   );
 
   const selectedPreset = useMemo(() => {
@@ -186,15 +185,15 @@ export function ProactiveUpdatesSetting() {
   return (
     <SettingCard
       title="Scheduled check-ins"
-      description="Your AI checks in on Slack with updates you can act on."
+      description="Your AI checks in with updates you can act on."
       right={
         showLoading ? (
           <Skeleton className="h-5 w-24" />
         ) : (
           <div className="flex items-center gap-2">
-            {!hasConnectedSlack && (
+            {!hasConnectedMessagingChannel && (
               <Button asChild variant="outline" size="sm">
-                <Link href="/settings">Connect Slack</Link>
+                <Link href="/settings">Connect channel</Link>
               </Button>
             )}
 
@@ -212,26 +211,28 @@ export function ProactiveUpdatesSetting() {
                         <DialogTitle>Scheduled check-ins</DialogTitle>
                         <DialogDescription>
                           Get notified about important emails and take action
-                          directly from Slack.
+                          directly from your connected chat app.
                         </DialogDescription>
                       </DialogHeader>
 
                       <div className="mt-6 space-y-6">
                         <div className="space-y-2">
                           <Label htmlFor="scheduled-checkins-channel">
-                            Slack channel
+                            Messaging destination
                           </Label>
                           <Select
                             value={messagingChannelId}
                             onValueChange={setMessagingChannelId}
                           >
                             <SelectTrigger id="scheduled-checkins-channel">
-                              <SelectValue placeholder="Select a Slack channel" />
+                              <SelectValue placeholder="Select a destination" />
                             </SelectTrigger>
                             <SelectContent>
-                              {connectedSlackChannels.map((channel) => (
+                              {connectedMessagingChannels.map((channel) => (
                                 <SelectItem key={channel.id} value={channel.id}>
-                                  {formatSlackChannelLabel(channel)}
+                                  {formatAutomationMessagingChannelLabel(
+                                    channel,
+                                  )}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -362,7 +363,7 @@ export function ProactiveUpdatesSetting() {
               disabled={
                 toggleStatus === "executing" ||
                 !emailAccountId ||
-                (!hasConnectedSlack && !enabled)
+                (!hasConnectedMessagingChannel && !enabled)
               }
             />
           </div>
@@ -370,17 +371,6 @@ export function ProactiveUpdatesSetting() {
       }
     />
   );
-}
-
-function formatSlackChannelLabel(channel: {
-  channelName: string | null;
-  channelId: string | null;
-  teamName: string | null;
-}) {
-  if (channel.channelName) return `#${channel.channelName}`;
-  if (channel.channelId) return `Channel ${channel.channelId}`;
-  if (channel.teamName) return channel.teamName;
-  return "Slack workspace";
 }
 
 const SLACK_MESSAGES = [

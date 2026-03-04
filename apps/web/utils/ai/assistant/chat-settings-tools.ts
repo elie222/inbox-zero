@@ -8,6 +8,10 @@ import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
 import { DEFAULT_AUTOMATION_JOB_CRON } from "@/utils/automation-jobs/defaults";
 import {
+  formatAutomationMessagingChannelLabel,
+  SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
+} from "@/utils/automation-jobs/messaging-channel";
+import {
   getNextAutomationJobRunAt,
   validateAutomationCronExpression,
 } from "@/utils/automation-jobs/cron";
@@ -260,13 +264,27 @@ const accountSettingsSnapshotRawSelect = {
   },
   messagingChannels: {
     where: {
-      provider: MessagingProvider.SLACK,
       isConnected: true,
-      accessToken: { not: null },
-      OR: [{ providerUserId: { not: null } }, { channelId: { not: null } }],
+      provider: {
+        in: SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
+      },
+      OR: [
+        {
+          provider: MessagingProvider.SLACK,
+          accessToken: { not: null },
+          OR: [{ providerUserId: { not: null } }, { channelId: { not: null } }],
+        },
+        {
+          provider: {
+            in: [MessagingProvider.TEAMS, MessagingProvider.TELEGRAM],
+          },
+          providerUserId: { not: null },
+        },
+      ],
     },
     select: {
       id: true,
+      provider: true,
       channelName: true,
       teamName: true,
       isConnected: true,
@@ -298,8 +316,11 @@ const scheduledCheckInsAutomationJobSelect = {
   messagingChannelId: true,
   messagingChannel: {
     select: {
+      provider: true,
       channelName: true,
       teamName: true,
+      providerUserId: true,
+      channelId: true,
     },
   },
 } satisfies Prisma.AutomationJobSelect;
@@ -1012,7 +1033,7 @@ function resolveScheduledCheckInsConfig({
 
   if (enabled && !messagingChannelId) {
     throw new Error(
-      "Provide a messagingChannelId when enabling scheduled check-ins. Ask the user to choose a Slack destination from availableChannels.",
+      "Provide a messagingChannelId when enabling scheduled check-ins. Ask the user to choose a destination from availableChannels.",
     );
   }
 
@@ -1024,7 +1045,7 @@ function resolveScheduledCheckInsConfig({
     )
   ) {
     throw new Error(
-      "Selected Slack channel is unavailable. Refresh capabilities and choose another channel.",
+      "Selected messaging destination is unavailable. Refresh capabilities and choose another channel.",
     );
   }
 
@@ -1106,10 +1127,15 @@ function buildScheduledCheckInsSnapshot(
     )
     .map((channel) => ({
       id: channel.id,
-      label: formatSlackChannelLabel({
-        channelName: channel.channelName,
-        teamName: channel.teamName,
-      }),
+      label: formatAutomationMessagingChannelLabel(
+        {
+          provider: channel.provider,
+          channelName: channel.channelName,
+          channelId: channel.channelId,
+          teamName: channel.teamName,
+        },
+        { includeTeamNameWithChannel: true },
+      ),
     }));
 
   return {
@@ -1123,25 +1149,19 @@ function buildScheduledCheckInsSnapshot(
     nextRunAt: emailAccount.automationJob?.nextRunAt.toISOString() ?? null,
     messagingChannelId: emailAccount.automationJob?.messagingChannelId ?? null,
     messagingChannelName: emailAccount.automationJob?.messagingChannel
-      ? formatSlackChannelLabel({
-          channelName: emailAccount.automationJob.messagingChannel.channelName,
-          teamName: emailAccount.automationJob.messagingChannel.teamName,
-        })
+      ? formatAutomationMessagingChannelLabel(
+          {
+            provider: emailAccount.automationJob.messagingChannel.provider,
+            channelName:
+              emailAccount.automationJob.messagingChannel.channelName,
+            channelId: emailAccount.automationJob.messagingChannel.channelId,
+            teamName: emailAccount.automationJob.messagingChannel.teamName,
+          },
+          { includeTeamNameWithChannel: true },
+        )
       : null,
     availableChannels,
   };
-}
-
-function formatSlackChannelLabel({
-  channelName,
-  teamName,
-}: {
-  channelName: string | null;
-  teamName: string | null;
-}) {
-  if (channelName && teamName) return `#${channelName} (${teamName})`;
-  if (channelName) return `#${channelName}`;
-  return teamName || "Slack destination";
 }
 
 function requiresScheduledCheckInsPremium({

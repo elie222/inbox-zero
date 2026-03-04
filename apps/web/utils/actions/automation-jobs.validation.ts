@@ -14,3 +14,8 @@ export type SaveAutomationJobBody = z.infer<typeof saveAutomationJobBody>;
 
 export const triggerTestCheckInBody = z.object({});
 export type TriggerTestCheckInBody = z.infer<typeof triggerTestCheckInBody>;
+
+export const executeAutomationJobBody = z.object({
+  automationJobRunId: z.string().min(1, "Automation job run ID is required"),
+});
+export type ExecuteAutomationJobBody = z.infer<typeof executeAutomationJobBody>;
