@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === "true",
   },
-  serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
+  serverExternalPackages: ["@sentry/nextjs", "@sentry/node", "zlib-sync"],
   turbopack: {
     rules: {
       "*.svg": {
