@@ -43,12 +43,6 @@ type AiGatewayProviderOptions = {
   };
 };
 
-const AI_GATEWAY_MODEL_PREFIX = {
-  GOOGLE: "google",
-  OPENAI: "openai",
-  AZURE: "azure",
-} as const;
-
 export function getModel(
   userAi: UserAIFields,
   modelType: ModelType = "default",
@@ -698,9 +692,9 @@ function isGemini3Model(modelName: string): boolean {
 function getAiGatewayProviderOptions(
   modelName: string,
 ): AiGatewayProviderOptions {
-  const modelPrefix = getAiGatewayModelPrefix(modelName);
+  const normalizedModelName = modelName.toLowerCase();
 
-  if (modelPrefix === AI_GATEWAY_MODEL_PREFIX.GOOGLE) {
+  if (normalizedModelName.startsWith("google/")) {
     return {
       google: {
         thinkingConfig: {
@@ -711,8 +705,8 @@ function getAiGatewayProviderOptions(
   }
 
   if (
-    modelPrefix === AI_GATEWAY_MODEL_PREFIX.OPENAI ||
-    modelPrefix === AI_GATEWAY_MODEL_PREFIX.AZURE
+    normalizedModelName.startsWith("openai/") ||
+    normalizedModelName.startsWith("azure/")
   ) {
     return {
       // Azure OpenAI models use OpenAI provider options in AI Gateway.
@@ -724,12 +718,6 @@ function getAiGatewayProviderOptions(
 
   // Note: Anthropic thinking is disabled by default (not including the config)
   return {};
-}
-
-function getAiGatewayModelPrefix(modelName: string): string {
-  const separatorIndex = modelName.indexOf("/");
-  if (separatorIndex === -1) return "";
-  return modelName.slice(0, separatorIndex).toLowerCase();
 }
 
 function parseFallbackConfig(
