@@ -5,6 +5,7 @@ import { env } from "@/env";
 import type { UserAIFields } from "./types";
 import { createAzure } from "@ai-sdk/azure";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createGateway } from "@ai-sdk/gateway";
 import { createVertex } from "@ai-sdk/google-vertex";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
@@ -31,6 +32,10 @@ vi.mock("@ai-sdk/google", () => ({
 
 vi.mock("@ai-sdk/google-vertex", () => ({
   createVertex: vi.fn(() => (model: string) => ({ model })),
+}));
+
+vi.mock("@ai-sdk/gateway", () => ({
+  createGateway: vi.fn(() => (model: string) => ({ model })),
 }));
 
 vi.mock("@ai-sdk/groq", () => ({
@@ -80,6 +85,7 @@ vi.mock("@/env", () => ({
     ANTHROPIC_API_KEY: "test-anthropic-key",
     GROQ_API_KEY: "test-groq-key",
     OPENROUTER_API_KEY: "test-openrouter-key",
+    AI_GATEWAY_API_KEY: "test-ai-gateway-key",
     OLLAMA_BASE_URL: "http://localhost:11434/api",
     OLLAMA_MODEL: "llama3",
     OPENAI_COMPATIBLE_BASE_URL: "http://localhost:1234/v1",
@@ -120,6 +126,7 @@ describe("Models", () => {
     vi.mocked(env).GOOGLE_VERTEX_CLIENT_EMAIL = undefined;
     vi.mocked(env).GOOGLE_VERTEX_PRIVATE_KEY = undefined;
     vi.mocked(env).GOOGLE_APPLICATION_CREDENTIALS = undefined;
+    vi.mocked(env).AI_GATEWAY_API_KEY = "test-ai-gateway-key";
     vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434/api";
     vi.mocked(env).OLLAMA_MODEL = "llama3";
     vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
@@ -339,6 +346,74 @@ describe("Models", () => {
       expect(result.provider).toBe(Provider.OPENROUTER);
       expect(result.modelName).toBe("llama-3.3-70b-versatile");
       expect(result.model).toBeDefined();
+    });
+
+    it("should configure AI Gateway Google model with low thinking budget", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "aigateway";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "google/gemini-3-flash";
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.AI_GATEWAY);
+      expect(result.modelName).toBe("google/gemini-3-flash");
+      expect(result.providerOptions).toEqual({
+        google: {
+          thinkingConfig: {
+            thinkingBudget: 50,
+          },
+        },
+      });
+    });
+
+    it("should configure AI Gateway OpenAI model with low reasoning effort", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "aigateway";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "openai/gpt-5-mini";
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.AI_GATEWAY);
+      expect(result.modelName).toBe("openai/gpt-5-mini");
+      expect(result.providerOptions).toEqual({
+        openai: {
+          reasoningEffort: "low",
+        },
+      });
+      expect(createGateway).toHaveBeenCalledWith({
+        apiKey: "test-ai-gateway-key",
+      });
+    });
+
+    it("should configure AI Gateway Azure model with low reasoning effort", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "aigateway";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "azure/gpt-5-mini";
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.AI_GATEWAY);
+      expect(result.modelName).toBe("azure/gpt-5-mini");
+      expect(result.providerOptions).toEqual({
+        openai: {
+          reasoningEffort: "low",
+        },
+      });
     });
 
     it("should configure Ollama model via DEFAULT_LLM_MODEL", () => {

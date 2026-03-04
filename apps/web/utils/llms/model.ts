@@ -36,6 +36,13 @@ export type SelectModel = ResolvedModel & {
   hasUserApiKey: boolean;
 };
 
+type AiGatewayProviderOptions = {
+  google?: GoogleGenerativeAIProviderOptions;
+  openai?: {
+    reasoningEffort: "low";
+  };
+};
+
 export function getModel(
   userAi: UserAIFields,
   modelType: ModelType = "default",
@@ -206,15 +213,7 @@ function selectModel(
         provider: Provider.AI_GATEWAY,
         modelName,
         model: gateway(modelName),
-        providerOptions: {
-          // Disable/cap thinking for Google models (Gemini)
-          google: {
-            thinkingConfig: {
-              thinkingBudget: GOOGLE_THINKING_BUDGET,
-            },
-          } satisfies GoogleGenerativeAIProviderOptions,
-          // Note: Anthropic thinking is disabled by default (not including the config)
-        },
+        providerOptions: getAiGatewayProviderOptions(modelName),
       };
     }
     case "ollama": {
@@ -688,6 +687,37 @@ function getGoogleThinkingConfig(
 
 function isGemini3Model(modelName: string): boolean {
   return modelName.toLowerCase().startsWith("gemini-3");
+}
+
+function getAiGatewayProviderOptions(
+  modelName: string,
+): AiGatewayProviderOptions {
+  const normalizedModelName = modelName.toLowerCase();
+
+  if (normalizedModelName.startsWith("google/")) {
+    return {
+      google: {
+        thinkingConfig: {
+          thinkingBudget: GOOGLE_THINKING_BUDGET,
+        },
+      },
+    };
+  }
+
+  if (
+    normalizedModelName.startsWith("openai/") ||
+    normalizedModelName.startsWith("azure/")
+  ) {
+    return {
+      // Azure OpenAI models use OpenAI provider options in AI Gateway.
+      openai: {
+        reasoningEffort: "low",
+      },
+    };
+  }
+
+  // Note: Anthropic thinking is disabled by default (not including the config)
+  return {};
 }
 
 function parseFallbackConfig(
