@@ -63,7 +63,9 @@ export function formatAutomationMessagingChannelLabel(
   }
 
   if (channel.channelName) return `#${channel.channelName}`;
-  if (channel.channelId) return `Channel ${channel.channelId}`;
+  if (channel.channelId && channel.provider !== MessagingProvider.SLACK) {
+    return `Channel ${channel.channelId}`;
+  }
   if (channel.teamName) return channel.teamName;
 
   if (channel.provider === MessagingProvider.TEAMS) return "Teams destination";

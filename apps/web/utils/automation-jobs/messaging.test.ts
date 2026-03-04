@@ -117,6 +117,15 @@ describe("automation job messaging channel helpers", () => {
       formatAutomationMessagingChannelLabel({
         provider: MessagingProvider.SLACK,
         channelName: null,
+        channelId: "C123",
+        teamName: null,
+      }),
+    ).toBe("Slack workspace");
+
+    expect(
+      formatAutomationMessagingChannelLabel({
+        provider: MessagingProvider.SLACK,
+        channelName: null,
         channelId: null,
         teamName: null,
       }),
