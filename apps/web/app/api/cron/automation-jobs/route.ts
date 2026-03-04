@@ -94,8 +94,19 @@ async function enqueueDueAutomationJobs(logger: Logger) {
 
     try {
       if (!isAutomationMessagingChannelReady(job.messagingChannel)) {
+        const nextRunAt = await deferAutomationJobUntilNextRun({
+          automationJobId: job.id,
+          scheduledFor: job.nextRunAt,
+          cronExpression: job.cronExpression,
+          now,
+        });
+
         jobLogger.info(
           "Skipped automation job because messaging channel is not ready",
+          {
+            deferred: Boolean(nextRunAt),
+            nextRunAt,
+          },
         );
         skipped += 1;
         continue;
@@ -213,4 +224,35 @@ async function claimDueJobRun({
 
     throw error;
   }
+}
+
+async function deferAutomationJobUntilNextRun({
+  automationJobId,
+  scheduledFor,
+  cronExpression,
+  now,
+}: {
+  automationJobId: string;
+  scheduledFor: Date;
+  cronExpression: string;
+  now: Date;
+}) {
+  const baselineFromDate = scheduledFor > now ? scheduledFor : now;
+  const nextRunAt = getNextAutomationJobRunAt({
+    cronExpression,
+    fromDate: baselineFromDate,
+  });
+
+  const update = await prisma.automationJob.updateMany({
+    where: {
+      id: automationJobId,
+      enabled: true,
+      nextRunAt: scheduledFor,
+    },
+    data: { nextRunAt },
+  });
+
+  if (update.count === 0) return null;
+
+  return nextRunAt;
 }

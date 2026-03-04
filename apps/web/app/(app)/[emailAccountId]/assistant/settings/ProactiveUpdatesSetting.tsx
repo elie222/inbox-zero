@@ -382,7 +382,7 @@ function formatMessagingChannelLabel(channel: {
 
   if (channel.provider === "TEAMS") return "Teams destination";
   if (channel.provider === "TELEGRAM") return "Telegram destination";
-  return "Slack destination";
+  return "Slack workspace";
 }
 
 const SLACK_MESSAGES = [
