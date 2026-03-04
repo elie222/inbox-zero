@@ -12,6 +12,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
 import { learnFromOutlookCategoryReversal } from "./learn-label-removal";
 import prisma from "@/utils/prisma";
+import { withRateLimitRecording } from "@/utils/email/rate-limit";
 
 const logger = createScopedLogger("test");
 vi.spyOn(logger, "with").mockReturnValue(logger);
@@ -122,6 +123,14 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
       expect.any(Object),
     );
     expect(learnFromOutlookCategoryReversal).not.toHaveBeenCalled();
+    expect(withRateLimitRecording).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "account-123",
+        provider: "microsoft",
+        source: "outlook/webhook",
+      }),
+      expect.any(Function),
+    );
   });
 
   it("processes messages in SENT folder", async () => {
