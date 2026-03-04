@@ -161,45 +161,6 @@ export type GetAccountOverviewTool = InferUITool<
   ReturnType<typeof getAccountOverviewTool>
 >;
 
-const searchInboxInputSchema = z.object({
-  query: z
-    .string()
-    .trim()
-    .min(1)
-    .max(300)
-    .optional()
-    .describe(
-      "Inbox search query. Use provider-native syntax: Google supports Gmail operators (from:, to:, subject:, in:, after:, before:); Microsoft supports Outlook/Microsoft syntax (from:, subject:, participants:, quoted phrases).",
-    ),
-  after: z.coerce
-    .date()
-    .optional()
-    .describe("Only include messages after this datetime (ISO format)."),
-  before: z.coerce
-    .date()
-    .optional()
-    .describe("Only include messages before this datetime (ISO format)."),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(50)
-    .default(20)
-    .describe("Maximum number of messages to return."),
-  pageToken: z
-    .string()
-    .optional()
-    .describe("Use the page token returned from a prior search to paginate."),
-  inboxOnly: z
-    .boolean()
-    .default(true)
-    .describe("If true, restrict results to inbox messages."),
-  unreadOnly: z
-    .boolean()
-    .default(false)
-    .describe("If true, only return unread messages."),
-});
-
 export const searchInboxTool = ({
   email,
   emailAccountId,
@@ -214,7 +175,44 @@ export const searchInboxTool = ({
   tool({
     description:
       "Search inbox messages and return concise message metadata for triage and summarization.",
-    inputSchema: searchInboxInputSchema,
+    inputSchema: z.object({
+      query: z
+        .string()
+        .trim()
+        .min(1)
+        .max(300)
+        .optional()
+        .describe(getSearchInboxQueryDescription(provider)),
+      after: z.coerce
+        .date()
+        .optional()
+        .describe("Only include messages after this datetime (ISO format)."),
+      before: z.coerce
+        .date()
+        .optional()
+        .describe("Only include messages before this datetime (ISO format)."),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .default(20)
+        .describe("Maximum number of messages to return."),
+      pageToken: z
+        .string()
+        .optional()
+        .describe(
+          "Use the page token returned from a prior search to paginate.",
+        ),
+      inboxOnly: z
+        .boolean()
+        .default(true)
+        .describe("If true, restrict results to inbox messages."),
+      unreadOnly: z
+        .boolean()
+        .default(false)
+        .describe("If true, only return unread messages."),
+    }),
     execute: async ({
       query,
       after,
@@ -905,6 +903,17 @@ function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === "string") return error;
   return "";
+}
+
+function getSearchInboxQueryDescription(provider: string) {
+  const normalizedProvider = provider.toLowerCase();
+  if (normalizedProvider === "google") {
+    return "Inbox search query for Gmail. Use Gmail syntax like from:, to:, subject:, in:, after:, before:, or plain keywords.";
+  }
+  if (normalizedProvider === "microsoft") {
+    return "Inbox search query for Outlook. Use Outlook syntax like from:, subject:, participants:, quoted phrases, or plain keywords.";
+  }
+  return "Inbox search query. Use provider-native syntax or plain keywords.";
 }
 
 type PendingEmailActionType = "send_email" | "reply_email" | "forward_email";
