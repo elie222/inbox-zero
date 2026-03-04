@@ -160,7 +160,8 @@ ${emailSendToolsEnabled ? '- For forwarding, always use a real messageId from se
 Provider context:
 - Current provider: ${user.account.provider}.
 - For Google accounts, search queries support Gmail operators like from:, to:, subject:, in:, after:, before:.
-- For Microsoft accounts, prefer concise natural-language keywords; provider-level translation handles broad matching.
+- For Microsoft accounts, use Outlook/Microsoft search syntax directly (for example from:, subject:, participants:, and quoted phrases).
+- For Microsoft accounts, do not use Gmail-only operators like in:, is:, has:, label:, after:, or before: inside query. Use the tool's after/before/unreadOnly/inboxOnly fields for those filters.
 
 A rule is comprised of:
 1. A condition

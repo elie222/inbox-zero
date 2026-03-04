@@ -136,6 +136,12 @@ describe("aiProcessAssistantChat", () => {
       "Tool usage strategy (progressive disclosure):",
     );
     expect(args.messages[0].content).toContain("Provider context:");
+    expect(args.messages[0].content).toContain(
+      "For Google accounts, search queries support Gmail operators like from:, to:, subject:, in:, after:, before:.",
+    );
+    expect(args.messages[0].content).toContain(
+      "For Microsoft accounts, use Outlook/Microsoft search syntax directly",
+    );
     expect(args.messages[0].content).toContain("Inbox triage guidance:");
     expect(args.messages[0].content).toContain(
       "Conversation status behavior should be customized by updating conversation rules directly",
@@ -957,6 +963,60 @@ describe("aiProcessAssistantChat", () => {
     });
 
     expect(result.totalReturned).toBe(0);
+  });
+
+  it("returns provider-specific guidance for Outlook syntax errors", async () => {
+    const tools = await captureToolSet(true, "microsoft");
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessagesWithPagination: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            "Syntax error: character ':' is not valid at position 5 in 'after:2025-05-13'.",
+          ),
+        ),
+    });
+
+    const result = await tools.searchInbox.execute({
+      query: "after:2025-05-13",
+      after: undefined,
+      before: undefined,
+      limit: 20,
+      pageToken: undefined,
+      inboxOnly: true,
+      unreadOnly: false,
+    });
+
+    expect(result).toEqual({
+      error:
+        "Search query syntax isn't valid for Microsoft Outlook. Use Outlook syntax like from:, subject:, participants:, quoted phrases, or plain keywords. For dates, use the after/before fields.",
+    });
+  });
+
+  it("returns reconnect guidance for auth-related search failures", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessagesWithPagination: vi
+        .fn()
+        .mockRejectedValue(new Error("invalid_grant")),
+    });
+
+    const result = await tools.searchInbox.execute({
+      query: "in:inbox",
+      after: undefined,
+      before: undefined,
+      limit: 20,
+      pageToken: undefined,
+      inboxOnly: true,
+      unreadOnly: false,
+    });
+
+    expect(result).toEqual({
+      error:
+        "Search failed because account permissions are missing or expired. Please reconnect this email account and try again.",
+    });
   });
 
   it("sends email with allowlisted chat params only", async () => {

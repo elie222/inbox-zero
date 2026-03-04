@@ -169,7 +169,7 @@ const searchInboxInputSchema = z.object({
     .max(300)
     .optional()
     .describe(
-      "Inbox search query. Use concise keywords by default. For Google accounts, Gmail syntax like from:, to:, subject:, and in: is supported.",
+      "Inbox search query. Use provider-native syntax: Google supports Gmail operators (from:, to:, subject:, in:, after:, before:); Microsoft supports Outlook/Microsoft syntax (from:, subject:, participants:, quoted phrases).",
     ),
   after: z.coerce
     .date()
@@ -276,7 +276,9 @@ export const searchInboxTool = ({
         };
       } catch (error) {
         logger.error("Failed to search inbox", { error });
-        return { error: "Failed to search inbox" };
+        return {
+          error: getSearchInboxErrorMessage({ error, provider }),
+        };
       }
     },
   });
@@ -847,6 +849,62 @@ async function listLabelNames({
     logger.warn("Failed to load label names", { error });
     return [];
   }
+}
+
+function getSearchInboxErrorMessage({
+  error,
+  provider,
+}: {
+  error: unknown;
+  provider: string;
+}) {
+  const errorMessage = getErrorMessage(error);
+  const lowerCaseMessage = errorMessage.toLowerCase();
+
+  if (
+    lowerCaseMessage.includes("syntax error") ||
+    lowerCaseMessage.includes("unterminated string literal")
+  ) {
+    return `Search query syntax isn't valid for ${getProviderDisplayName(provider)}. ${getProviderSearchSyntaxHint(provider)}`;
+  }
+
+  if (lowerCaseMessage.includes("invalid pagetoken")) {
+    return "Search pagination expired. Please run the search again.";
+  }
+
+  if (
+    lowerCaseMessage.includes("insufficient authentication scopes") ||
+    lowerCaseMessage.includes("insufficient permissions") ||
+    lowerCaseMessage.includes("invalid_grant")
+  ) {
+    return "Search failed because account permissions are missing or expired. Please reconnect this email account and try again.";
+  }
+
+  return "Failed to search inbox due to a provider error. Please retry with a simpler query.";
+}
+
+function getProviderDisplayName(provider: string) {
+  const normalizedProvider = provider.toLowerCase();
+  if (normalizedProvider === "google") return "Gmail";
+  if (normalizedProvider === "microsoft") return "Microsoft Outlook";
+  return "your email provider";
+}
+
+function getProviderSearchSyntaxHint(provider: string) {
+  const normalizedProvider = provider.toLowerCase();
+  if (normalizedProvider === "google") {
+    return "Use Gmail syntax like from:, to:, subject:, in:, after:, before:, or plain keywords.";
+  }
+  if (normalizedProvider === "microsoft") {
+    return "Use Outlook syntax like from:, subject:, participants:, quoted phrases, or plain keywords. For dates, use the after/before fields.";
+  }
+  return "Use provider-native syntax or plain keywords.";
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string") return error;
+  return "";
 }
 
 type PendingEmailActionType = "send_email" | "reply_email" | "forward_email";

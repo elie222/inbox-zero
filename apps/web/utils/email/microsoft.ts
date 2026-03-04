@@ -998,31 +998,7 @@ export class OutlookProvider implements EmailProvider {
     this.logger.trace("getMessagesWithPagination query", {
       query: options.query,
     });
-
-    // IMPORTANT: This is intentionally lossy!
-    // Gmail-style prefixes like "subject:" can't be translated to Microsoft Graph because:
-    // 1. $filter with contains(subject, ...) can't be combined with $search or date filters
-    //    (causes "InefficientFilter" error)
-    // 2. $search doesn't support field-specific syntax like "subject:term"
-    //
-    // We strip the prefixes and use plain $search which searches subject AND body.
-    // This is broader than intended but still finds relevant messages.
-    // If subject-specific search is needed in the future, add a dedicated method
-    // that uses only $filter without $search or date filters.
-    function stripGmailPrefixes(query: string): string {
-      return query
-        .replace(/\b(subject|from|to|label):(?:"[^"]*"|\S+)/gi, (match) => {
-          // Extract the value without the prefix for searching
-          const colonIndex = match.indexOf(":");
-          const value = match.slice(colonIndex + 1);
-          // Remove quotes if present
-          return value.replace(/^"|"$/g, "");
-        })
-        .replace(/\s+/g, " ")
-        .trim();
-    }
-
-    const searchQuery = stripGmailPrefixes(options.query || "");
+    const searchQuery = options.query?.trim() || "";
 
     let inboxFolderId: string | undefined;
     if (options.inboxOnly) {
