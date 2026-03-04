@@ -11,6 +11,10 @@ import {
   type TelegramRawMessage,
   type TelegramAdapter,
 } from "@chat-adapter/telegram";
+import {
+  createDiscordAdapter,
+  type DiscordAdapter,
+} from "@chat-adapter/discord";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import {
@@ -41,7 +45,10 @@ import { getRecentChatMemories } from "@/utils/ai/assistant/get-recent-chat-memo
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { consumeMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code-consume";
-import type { MessagingPlatform } from "@/utils/messaging/platforms";
+import {
+  type MessagingPlatform,
+  getMessagingPlatformName,
+} from "@/utils/messaging/platforms";
 import { PENDING_DRAFT_CONFIRMATION_MESSAGE } from "@/utils/messaging/pending-email-confirmation";
 import { buildPendingEmailPreview } from "@/utils/messaging/pending-email-preview";
 import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
@@ -78,6 +85,7 @@ type MessagingAdapters = {
   slack?: SlackAdapter;
   teams?: TeamsAdapter;
   telegram?: TelegramAdapter;
+  discord?: DiscordAdapter;
 };
 
 type MessagingChatSdkContext = {
@@ -126,6 +134,13 @@ type TeamsRawActivity = {
   conversation?: {
     id?: string;
   };
+};
+
+type DiscordRawMessage = {
+  guild_id?: string;
+  channel_id?: string;
+  author?: { id?: string; username?: string };
+  attachments?: unknown[];
 };
 
 type PendingEmailToolPart = {
@@ -357,9 +372,20 @@ function createMessagingChatSdkBot(): MessagingChatSdkContext {
     typedAdapters.telegram = telegramAdapter;
   }
 
+  if (env.DISCORD_BOT_TOKEN && env.DISCORD_APP_ID && env.DISCORD_PUBLIC_KEY) {
+    const discordAdapter = createDiscordAdapter({
+      botToken: env.DISCORD_BOT_TOKEN,
+      applicationId: env.DISCORD_APP_ID,
+      publicKey: env.DISCORD_PUBLIC_KEY,
+    });
+
+    adapters.discord = discordAdapter;
+    typedAdapters.discord = discordAdapter;
+  }
+
   if (!Object.keys(adapters).length) {
     throw new Error(
-      "No messaging adapters configured. Configure Slack, Teams, or Telegram credentials.",
+      "No messaging adapters configured. Configure Slack, Teams, Telegram, or Discord credentials.",
     );
   }
 
@@ -1215,6 +1241,16 @@ function getTeamIdFromActionEvent({
     return conversationId || null;
   }
 
+  if (provider === "discord") {
+    const rawEvent = event.raw as DiscordRawMessage | null | undefined;
+    const guildId = rawEvent?.guild_id?.trim();
+    if (guildId) return guildId;
+
+    const channelId =
+      rawEvent?.channel_id?.trim() || event.thread.channelId?.trim();
+    return channelId || null;
+  }
+
   const chatId =
     (event.raw as { message?: { chat?: { id?: number | string } } })?.message
       ?.chat?.id ?? null;
@@ -1356,7 +1392,8 @@ async function handleMessagingLinkCommand({
   logger: Logger;
 }): Promise<boolean> {
   const provider = thread.adapter.name;
-  if (provider !== "teams" && provider !== "telegram") return false;
+  if (provider !== "teams" && provider !== "telegram" && provider !== "discord")
+    return false;
 
   const code = extractConnectCode(message.text);
   if (!code) return false;
@@ -1369,7 +1406,9 @@ async function handleMessagingLinkCommand({
   const identity =
     provider === "teams"
       ? resolveTeamsIdentity({ thread, message })
-      : resolveTelegramIdentity({ message });
+      : provider === "telegram"
+        ? resolveTelegramIdentity({ message })
+        : resolveDiscordIdentity({ thread, message });
 
   if (!identity) {
     await thread.post(
@@ -1378,7 +1417,12 @@ async function handleMessagingLinkCommand({
     return true;
   }
 
-  const linkProvider = provider === "teams" ? "TEAMS" : "TELEGRAM";
+  const linkProvider =
+    provider === "teams"
+      ? "TEAMS"
+      : provider === "discord"
+        ? "DISCORD"
+        : "TELEGRAM";
   const linkedCode = await consumeMessagingLinkCode({
     code,
     provider: linkProvider,
@@ -1473,6 +1517,13 @@ async function resolveMessagingContext({
         thread,
         logger,
       });
+    case "discord":
+      return resolveLinkedProviderMessagingContext({
+        provider: "discord",
+        identity: resolveDiscordIdentity({ thread, message }),
+        thread,
+        logger,
+      });
     default:
       return null;
   }
@@ -1560,7 +1611,7 @@ async function resolveLinkedProviderMessagingContext({
   thread,
   logger,
 }: {
-  provider: "teams" | "telegram";
+  provider: "teams" | "telegram" | "discord";
   identity: LinkedProviderIdentity | null;
   thread: Thread;
   logger: Logger;
@@ -1686,6 +1737,37 @@ function resolveTelegramIdentity({
   };
 }
 
+function resolveDiscordIdentity({
+  thread,
+  message,
+}: {
+  thread: Thread;
+  message: Message;
+}): LinkedProviderIdentity | null {
+  const messageText = message.text.trim();
+
+  const providerUserId = message.author.userId.trim();
+  if (!providerUserId) return null;
+
+  const rawMessage = message.raw as DiscordRawMessage;
+  const guildId = rawMessage?.guild_id?.trim();
+  const channelId = rawMessage?.channel_id?.trim() || thread.channelId?.trim();
+  const teamId = guildId || channelId;
+
+  if (!teamId) return null;
+
+  return {
+    hasUnsupportedAttachments: hasUnsupportedMessagingAttachment({
+      provider: "discord",
+      message,
+    }),
+    messageText,
+    providerUserId,
+    teamId,
+    teamName: null,
+  };
+}
+
 function getTelegramMessageText(message: Message): string {
   const plainText = message.text.trim();
   if (plainText) return plainText;
@@ -1698,7 +1780,7 @@ export function hasUnsupportedMessagingAttachment({
   provider,
   message,
 }: {
-  provider: "slack" | "telegram";
+  provider: "slack" | "telegram" | "discord";
   message: Pick<Message, "attachments" | "raw">;
 }): boolean {
   if (message.attachments.length > 0) return true;
@@ -1706,6 +1788,11 @@ export function hasUnsupportedMessagingAttachment({
   if (provider === "slack") {
     const rawEvent = message.raw as SlackEvent;
     return Boolean(rawEvent.files?.length);
+  }
+
+  if (provider === "discord") {
+    const rawMessage = message.raw as DiscordRawMessage;
+    return Boolean(rawMessage.attachments?.length);
   }
 
   const rawMessage = message.raw as TelegramRawMessage;
@@ -1741,7 +1828,7 @@ async function resolveLinkedProviderCandidate({
   candidates: LinkedProviderCandidate[];
   chatId: string;
   logger: Logger;
-  provider: "teams" | "telegram";
+  provider: "teams" | "telegram" | "discord";
   teamId: string;
 }): Promise<LinkedProviderCandidate> {
   return selectCandidateFromExistingChat({
@@ -1861,11 +1948,11 @@ async function sendLinkRequiredMessage({
   thread,
   logger,
 }: {
-  provider: "teams" | "telegram";
+  provider: "teams" | "telegram" | "discord";
   thread: Thread;
   logger: Logger;
 }): Promise<void> {
-  const providerName = provider === "teams" ? "Teams" : "Telegram";
+  const providerName = getMessagingPlatformName(provider);
 
   await postMessagingThreadMessage({
     thread,
@@ -1881,11 +1968,11 @@ async function sendDmRequiredMessage({
   thread,
   logger,
 }: {
-  provider: "teams" | "telegram";
+  provider: "teams" | "telegram" | "discord";
   thread: Thread;
   logger: Logger;
 }): Promise<void> {
-  const providerName = provider === "teams" ? "Teams" : "Telegram";
+  const providerName = getMessagingPlatformName(provider);
 
   await postMessagingThreadMessage({
     thread,
@@ -2018,5 +2105,6 @@ function getMessagingAssistantPostPayload({
 function toMessagingProvider(provider: SupportedPlatform) {
   if (provider === "slack") return MessagingProvider.SLACK;
   if (provider === "teams") return MessagingProvider.TEAMS;
+  if (provider === "discord") return MessagingProvider.DISCORD;
   return MessagingProvider.TELEGRAM;
 }

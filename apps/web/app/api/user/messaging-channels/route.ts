@@ -47,5 +47,7 @@ function getAvailableProviders(): MessagingProvider[] {
   if (env.TEAMS_BOT_APP_ID && env.TEAMS_BOT_APP_PASSWORD)
     providers.push("TEAMS");
   if (env.TELEGRAM_BOT_TOKEN) providers.push("TELEGRAM");
+  if (env.DISCORD_BOT_TOKEN && env.DISCORD_APP_ID && env.DISCORD_PUBLIC_KEY)
+    providers.push("DISCORD");
   return providers;
 }

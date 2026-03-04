@@ -1448,6 +1448,7 @@ enum MessagingProvider {
   SLACK
   TEAMS
   TELEGRAM
+  DISCORD
 }
 
 enum AutomationJobRunStatus {

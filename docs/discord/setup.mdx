@@ -1,0 +1,82 @@
+---
+title: "Discord Integration Setup"
+description: "Set up the Discord bot for Inbox Zero assistant chat."
+---
+
+# Discord Integration Setup
+
+This guide is for self-hosted deployments that want to enable Discord chat with the Inbox Zero assistant.
+
+## What Discord currently supports
+
+- AI assistant chat in **direct messages** with the Inbox Zero bot
+- Account linking with one-time `/connect <code>` commands
+
+Currently not supported on Discord:
+
+- Channel/server-based meeting brief delivery
+- Channel/server-based attachment filing notifications
+
+Those channel notification features are Slack-only today.
+
+## 1. Create a Discord application and bot
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
+2. Click **New Application** and give it a name
+3. Go to **Bot** in the left sidebar
+4. Copy the bot token — this is your `DISCORD_BOT_TOKEN`
+5. Under **Privileged Gateway Intents**, enable **Message Content Intent**
+6. Note the **Application ID** from the General Information page — this is your `DISCORD_APP_ID`
+7. Note the **Public Key** from the General Information page — this is your `DISCORD_PUBLIC_KEY`
+
+## 2. Configure the interactions endpoint
+
+In the Discord Developer Portal:
+
+1. Go to **General Information**
+2. Set the **Interactions Endpoint URL** to: `https://<your-domain>/api/discord/events`
+3. Discord will send a verification request — the endpoint must be live and responding before you can save
+
+## 3. Invite the bot to your server
+
+Generate an invite link:
+
+```
+https://discord.com/oauth2/authorize?client_id=<DISCORD_APP_ID>&scope=bot&permissions=2048
+```
+
+The `2048` permission grants "Send Messages". Click the link and select a server.
+
+## 4. Set environment variables
+
+Set these in `apps/web/.env` (or your deployment env):
+
+```bash
+DISCORD_BOT_TOKEN=
+DISCORD_APP_ID=
+DISCORD_PUBLIC_KEY=
+```
+
+If any of these are missing, the Discord connect option is hidden in the UI and `/api/discord/events` returns `503`.
+
+## 5. Connect a user account from Inbox Zero
+
+Each Inbox Zero email account links to a Discord user via a connect code:
+
+1. In Inbox Zero, go to **Settings** → **Connected Apps**
+2. Click **Connect Discord**
+3. Copy the generated command: `/connect <code>`
+4. Open a direct message with the bot in Discord
+5. Send the command
+
+After linking, the user can chat with the assistant in that DM.
+
+## 6. Validate end-to-end
+
+Quick checks:
+
+1. `POST /api/discord/events` returns `200` for valid Discord interactions
+2. Sending `/connect <code>` in bot DM links the account
+3. A normal DM message gets an assistant response
+
+If linking fails, generate a new code — codes are one-time and expire after 10 minutes.

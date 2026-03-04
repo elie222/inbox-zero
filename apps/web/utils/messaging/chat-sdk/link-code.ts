@@ -6,7 +6,11 @@ import {
 
 export const MESSAGING_LINK_CODE_MAX_AGE_MS = 10 * 60 * 1000;
 
-export const LINKABLE_MESSAGING_PROVIDERS = ["TEAMS", "TELEGRAM"] as const;
+export const LINKABLE_MESSAGING_PROVIDERS = [
+  "TEAMS",
+  "TELEGRAM",
+  "DISCORD",
+] as const;
 
 const messagingLinkCodePayloadSchema = z.object({
   type: z.literal("messaging-link"),
