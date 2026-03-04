@@ -68,6 +68,8 @@ async function enqueueDueAutomationJobs(logger: Logger) {
     take: BATCH_SIZE,
   });
 
+  logger.info("Found due automation jobs", { due: dueJobs.length });
+
   let claimed = 0;
   let queued = 0;
   let skipped = 0;
@@ -90,13 +92,14 @@ async function enqueueDueAutomationJobs(logger: Logger) {
       });
 
       if (!runId) {
+        jobLogger.info("Skipped automation job run claim");
         skipped += 1;
         continue;
       }
 
       claimed += 1;
 
-      await enqueueBackgroundJob({
+      const dispatchMode = await enqueueBackgroundJob({
         topic: AUTOMATION_JOBS_TOPIC,
         body: { automationJobRunId: runId },
         qstash: {
@@ -105,6 +108,11 @@ async function enqueueDueAutomationJobs(logger: Logger) {
           path: "/api/automation-jobs/execute",
         },
         logger: jobLogger,
+      });
+
+      jobLogger.info("Queued automation job run", {
+        automationJobRunId: runId,
+        dispatchMode,
       });
 
       queued += 1;
@@ -124,6 +132,14 @@ async function enqueueDueAutomationJobs(logger: Logger) {
       }
     }
   }
+
+  logger.info("Finished enqueueing due automation jobs", {
+    due: dueJobs.length,
+    claimed,
+    queued,
+    skipped,
+    failed,
+  });
 
   return {
     due: dueJobs.length,
