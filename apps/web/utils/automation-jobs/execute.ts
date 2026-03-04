@@ -80,11 +80,7 @@ export async function executeAutomationJobRun({
     return new Response("Run already processed", { status: 200 });
   }
 
-  const isStaleRun =
-    isStaleAutomationJobRun({ scheduledFor: run.scheduledFor }) ||
-    isStaleAutomationJobRun({ scheduledFor: run.createdAt });
-
-  if (isStaleRun) {
+  if (isStaleAutomationJobRun({ scheduledFor: run.scheduledFor })) {
     const skipped = await prisma.automationJobRun.updateMany({
       where: {
         id: automationJobRunId,

@@ -1166,7 +1166,7 @@ function formatMessagingChannelLabel({
   if (provider === MessagingProvider.TEAMS) return "Teams destination";
   if (provider === MessagingProvider.TELEGRAM) return "Telegram destination";
 
-  return "Slack destination";
+  return "Slack workspace";
 }
 
 function requiresScheduledCheckInsPremium({
