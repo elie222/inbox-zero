@@ -25,6 +25,11 @@ import {
   createAutomationJob,
 } from "@/utils/actions/automation-jobs.helpers";
 import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
+import {
+  isAutomationMessagingChannelReady,
+  isSupportedAutomationMessagingProvider,
+  SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
+} from "@/utils/automation-jobs/messaging-channel";
 
 const AUTOMATION_JOBS_TOPIC = "automation-jobs-execute";
 
@@ -108,16 +113,14 @@ export const saveAutomationJobAction = actionClient
         throw new SafeError("Messaging channel not found");
       }
 
-      if (channel.provider !== MessagingProvider.SLACK) {
-        throw new SafeError("Only Slack is supported");
+      if (!isSupportedAutomationMessagingProvider(channel.provider)) {
+        throw new SafeError("Messaging provider is not supported");
       }
 
-      if (!channel.isConnected || !channel.accessToken) {
-        throw new SafeError("Slack channel is not connected");
-      }
-
-      if (!channel.providerUserId && !channel.channelId) {
-        throw new SafeError("Select a Slack destination first");
+      const validationError =
+        getAutomationMessagingChannelValidationError(channel);
+      if (validationError) {
+        throw new SafeError(validationError);
       }
 
       const existingJob = await prisma.automationJob.findUnique({
@@ -188,13 +191,10 @@ export const triggerTestCheckInAction = actionClient
     }
 
     const channel = job.messagingChannel;
-    if (
-      channel.provider !== MessagingProvider.SLACK ||
-      !channel.isConnected ||
-      !channel.accessToken ||
-      (!channel.providerUserId && !channel.channelId)
-    ) {
-      throw new SafeError("Slack channel is not connected");
+    const validationError =
+      getAutomationMessagingChannelValidationError(channel);
+    if (validationError) {
+      throw new SafeError(validationError);
     }
 
     const run = await prisma.automationJobRun.create({
@@ -219,21 +219,62 @@ export const triggerTestCheckInAction = actionClient
   });
 
 async function getDefaultMessagingChannel(emailAccountId: string) {
-  const channel = await prisma.messagingChannel.findFirst({
+  const channels = await prisma.messagingChannel.findMany({
     where: {
       emailAccountId,
-      provider: MessagingProvider.SLACK,
       isConnected: true,
-      accessToken: { not: null },
-      OR: [{ providerUserId: { not: null } }, { channelId: { not: null } }],
+      provider: {
+        in: SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
+      },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      provider: true,
+      isConnected: true,
+      accessToken: true,
+      providerUserId: true,
+      channelId: true,
+    },
     orderBy: { updatedAt: "desc" },
   });
 
+  const channel = channels.find((candidate) =>
+    isAutomationMessagingChannelReady(candidate),
+  );
+
   if (!channel) {
-    throw new SafeError("Connect Slack before enabling proactive updates");
+    throw new SafeError(
+      "Connect a supported messaging channel before enabling proactive updates",
+    );
   }
 
   return channel;
+}
+
+function getAutomationMessagingChannelValidationError(channel: {
+  provider: MessagingProvider;
+  isConnected: boolean;
+  accessToken: string | null;
+  providerUserId: string | null;
+  channelId: string | null;
+}) {
+  if (!isSupportedAutomationMessagingProvider(channel.provider)) {
+    return "Messaging provider is not supported";
+  }
+
+  if (!channel.isConnected) return "Messaging channel is not connected";
+
+  if (channel.provider === MessagingProvider.SLACK && !channel.accessToken) {
+    return "Slack channel is not connected";
+  }
+
+  if (!channel.providerUserId && !channel.channelId) {
+    return "Select a messaging destination first";
+  }
+
+  if (!isAutomationMessagingChannelReady(channel)) {
+    return "Messaging channel is not connected";
+  }
+
+  return null;
 }

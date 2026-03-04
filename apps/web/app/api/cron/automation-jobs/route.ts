@@ -5,13 +5,14 @@ import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { getNextAutomationJobRunAt } from "@/utils/automation-jobs/cron";
-import {
-  AutomationJobRunStatus,
-  MessagingProvider,
-} from "@/generated/prisma/enums";
+import { AutomationJobRunStatus } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
+import {
+  isAutomationMessagingChannelReady,
+  SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
+} from "@/utils/automation-jobs/messaging-channel";
 
 export const maxDuration = 300;
 
@@ -51,8 +52,7 @@ async function enqueueDueAutomationJobs(logger: Logger) {
       nextRunAt: { lte: now },
       messagingChannel: {
         isConnected: true,
-        provider: MessagingProvider.SLACK,
-        accessToken: { not: null },
+        provider: { in: SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS },
         emailAccount: {
           ...getPremiumUserFilter(),
         },
@@ -63,6 +63,15 @@ async function enqueueDueAutomationJobs(logger: Logger) {
       emailAccountId: true,
       nextRunAt: true,
       cronExpression: true,
+      messagingChannel: {
+        select: {
+          provider: true,
+          isConnected: true,
+          accessToken: true,
+          providerUserId: true,
+          channelId: true,
+        },
+      },
     },
     orderBy: { nextRunAt: "asc" },
     take: BATCH_SIZE,
@@ -84,6 +93,14 @@ async function enqueueDueAutomationJobs(logger: Logger) {
     let runId: string | null = null;
 
     try {
+      if (!isAutomationMessagingChannelReady(job.messagingChannel)) {
+        jobLogger.info(
+          "Skipped automation job because messaging channel is not ready",
+        );
+        skipped += 1;
+        continue;
+      }
+
       runId = await claimDueJobRun({
         automationJobId: job.id,
         scheduledFor: job.nextRunAt,

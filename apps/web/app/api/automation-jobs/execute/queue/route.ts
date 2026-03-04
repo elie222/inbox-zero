@@ -4,6 +4,7 @@ import {
   executeAutomationJobBody,
   executeAutomationJobRun,
 } from "@/utils/automation-jobs/execute";
+import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { getQueueRetryBackoffSeconds } from "@/utils/queue/retry";
 
@@ -28,19 +29,25 @@ export const POST = handleCallback<z.infer<typeof executeAutomationJobBody>>(
       deliveryCount: metadata.deliveryCount,
     });
 
-    const response = await executeAutomationJobRun({
-      automationJobRunId: parseResult.data.automationJobRunId,
-      logger: runLogger,
-    });
+    try {
+      const response = await executeAutomationJobRun({
+        automationJobRunId: parseResult.data.automationJobRunId,
+        logger: runLogger,
+      });
 
-    if (response.status >= 500) {
-      throw new Error(
-        `Automation job queue execution failed with status ${response.status}`,
-      );
+      if (response.status >= 500) {
+        throw new Error(
+          `Automation job queue execution failed with status ${response.status}`,
+        );
+      }
+    } catch (error) {
+      runLogger.error("Failed queued automation job run", { error });
+      captureException(error);
+      throw error;
     }
   },
   {
-    visibilityTimeoutSeconds: 290,
+    visibilityTimeoutSeconds: 330,
     retry: (_error, metadata) => {
       return {
         afterSeconds: getQueueRetryBackoffSeconds({

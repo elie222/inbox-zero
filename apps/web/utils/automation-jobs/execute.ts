@@ -1,12 +1,6 @@
 import { z } from "zod";
-import {
-  AutomationJobRunStatus,
-  MessagingProvider,
-} from "@/generated/prisma/enums";
-import {
-  AutomationJobConfigurationError,
-  sendAutomationMessageToSlack,
-} from "@/utils/automation-jobs/slack";
+import { AutomationJobRunStatus } from "@/generated/prisma/enums";
+import { AutomationJobConfigurationError } from "@/utils/automation-jobs/slack";
 import { isStaleAutomationJobRun } from "@/utils/automation-jobs/stale";
 import { createEmailProvider } from "@/utils/email/provider";
 import { getAutomationJobMessage } from "@/utils/automation-jobs/message";
@@ -14,6 +8,7 @@ import type { Logger } from "@/utils/logger";
 import { isActivePremium } from "@/utils/premium";
 import prisma from "@/utils/prisma";
 import { getUserPremium } from "@/utils/user/get";
+import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 
 export const executeAutomationJobBody = z.object({
   automationJobRunId: z.string().min(1, "Automation job run ID is required"),
@@ -85,7 +80,11 @@ export async function executeAutomationJobRun({
     return new Response("Run already processed", { status: 200 });
   }
 
-  if (isStaleAutomationJobRun({ scheduledFor: run.scheduledFor })) {
+  const isStaleRun =
+    isStaleAutomationJobRun({ scheduledFor: run.scheduledFor }) ||
+    isStaleAutomationJobRun({ scheduledFor: run.createdAt });
+
+  if (isStaleRun) {
     const skipped = await prisma.automationJobRun.updateMany({
       where: {
         id: automationJobRunId,
@@ -165,14 +164,6 @@ export async function executeAutomationJobRun({
       return new Response("Messaging channel disconnected", { status: 200 });
     }
 
-    if (
-      run.automationJob.messagingChannel.provider !== MessagingProvider.SLACK
-    ) {
-      throw new AutomationJobConfigurationError(
-        "Unsupported messaging provider for automation job",
-      );
-    }
-
     const provider =
       run.automationJob.messagingChannel.emailAccount.account.provider;
     if (!provider) {
@@ -194,7 +185,7 @@ export async function executeAutomationJobRun({
       logger: runLogger,
     });
 
-    const slackResult = await sendAutomationMessageToSlack({
+    const messagingResult = await sendAutomationMessage({
       channel: run.automationJob.messagingChannel,
       text: outboundMessage,
       logger: runLogger,
@@ -206,7 +197,7 @@ export async function executeAutomationJobRun({
         status: AutomationJobRunStatus.SENT,
         processedAt: new Date(),
         outboundMessage,
-        providerMessageId: slackResult.messageId,
+        providerMessageId: messagingResult.messageId,
         error: null,
       },
     });
