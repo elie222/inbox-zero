@@ -867,11 +867,11 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
-  it("keeps unlabeled Google messages as pass-through", async () => {
+  it("returns messages from searchMessages", async () => {
     const tools = await captureToolSet(true, "google");
 
     mockCreateEmailProvider.mockResolvedValue({
-      getMessagesWithPagination: vi.fn().mockResolvedValue({
+      searchMessages: vi.fn().mockResolvedValue({
         messages: [
           {
             id: "message-1",
@@ -901,62 +901,12 @@ describe("aiProcessAssistantChat", () => {
     });
 
     const result = await tools.searchInbox.execute({
-      query: "today",
-      after: undefined,
-      before: undefined,
+      query: "in:inbox today",
       limit: 20,
       pageToken: undefined,
-      inboxOnly: true,
-      unreadOnly: false,
     });
 
     expect(result.totalReturned).toBe(1);
-  });
-
-  it("excludes unlabeled messages in unread-only searches", async () => {
-    const tools = await captureToolSet(true, "google");
-
-    mockCreateEmailProvider.mockResolvedValue({
-      getMessagesWithPagination: vi.fn().mockResolvedValue({
-        messages: [
-          {
-            id: "message-1",
-            threadId: "thread-1",
-            labelIds: undefined,
-            snippet: "Message without labels",
-            historyId: "hist-1",
-            inline: [],
-            headers: {
-              from: "sender1@example.com",
-              to: "user@example.com",
-              subject: "No labels",
-              date: new Date().toISOString(),
-            },
-            subject: "No labels",
-            date: new Date().toISOString(),
-            attachments: [],
-          },
-        ],
-        nextPageToken: undefined,
-      }),
-      getLabels: vi.fn().mockResolvedValue([]),
-      archiveThreadWithLabel: vi.fn(),
-      markReadThread: vi.fn(),
-      bulkArchiveFromSenders: vi.fn(),
-      sendEmailWithHtml: vi.fn(),
-    });
-
-    const result = await tools.searchInbox.execute({
-      query: "today",
-      after: undefined,
-      before: undefined,
-      limit: 20,
-      pageToken: undefined,
-      inboxOnly: true,
-      unreadOnly: true,
-    });
-
-    expect(result.totalReturned).toBe(0);
   });
 
   it("sends email with allowlisted chat params only", async () => {
@@ -1509,7 +1459,7 @@ describe("aiProcessAssistantChat", () => {
         if (threadId === "thread-2") throw new Error("archive failed");
       });
 
-    const getMessagesWithPagination = vi.fn().mockResolvedValue({
+    const searchMessages = vi.fn().mockResolvedValue({
       messages: [
         {
           id: "message-1",
@@ -1550,7 +1500,7 @@ describe("aiProcessAssistantChat", () => {
     });
 
     mockCreateEmailProvider.mockResolvedValue({
-      getMessagesWithPagination,
+      searchMessages,
       getLabels: vi.fn().mockRejectedValue(new Error("labels unavailable")),
       archiveThreadWithLabel,
       markReadThread: vi.fn(),
@@ -1560,20 +1510,14 @@ describe("aiProcessAssistantChat", () => {
 
     const searchResult = await tools.searchInbox.execute({
       query: "today",
-      after: undefined,
-      before: undefined,
       limit: 20,
       pageToken: undefined,
-      inboxOnly: true,
-      unreadOnly: false,
     });
 
     expect(mockCreateEmailProvider).toHaveBeenCalled();
-    expect(getMessagesWithPagination).toHaveBeenCalledWith(
+    expect(searchMessages).toHaveBeenCalledWith(
       expect.objectContaining({
         query: "today",
-        inboxOnly: true,
-        unreadOnly: false,
       }),
     );
     expect(searchResult.totalReturned).toBe(2);

@@ -115,6 +115,9 @@ export const createMockEmailProvider = (
   getMessagesWithPagination: vi
     .fn()
     .mockResolvedValue({ messages: [], nextPageToken: undefined }),
+  searchMessages: vi
+    .fn()
+    .mockResolvedValue({ messages: [], nextPageToken: undefined }),
   getMessagesFromSender: vi
     .fn()
     .mockResolvedValue({ messages: [], nextPageToken: undefined }),

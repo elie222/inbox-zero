@@ -197,6 +197,12 @@ export function createLocalBypassEmailProvider(logger?: Logger): EmailProvider {
         options.maxResults,
         options.pageToken,
       ),
+    searchMessages: async (options) =>
+      paginateMessages(
+        filterMessages(messages, { query: options.query }),
+        options.maxResults,
+        options.pageToken,
+      ),
     getMessagesWithAttachments: async ({ maxResults, pageToken }) =>
       paginateMessages(sortMessagesByDateDesc(messages), maxResults, pageToken),
     getMessagesFromSender: async ({
