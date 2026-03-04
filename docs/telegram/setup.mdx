@@ -7,18 +7,6 @@ description: "Set up the Telegram bot for Inbox Zero assistant chat."
 
 This guide is for self-hosted deployments that want to enable Telegram chat with the Inbox Zero assistant.
 
-## What Telegram currently supports
-
-- AI assistant chat in **direct messages** with the Inbox Zero bot
-- Account linking with one-time `/connect <code>` commands
-
-Currently not supported on Telegram:
-
-- Channel/group-based meeting brief delivery
-- Channel/group-based attachment filing notifications
-
-Those channel notification features are Slack-only today.
-
 ## 1. Create a Telegram bot with BotFather
 
 1. Open Telegram and start a chat with [@BotFather](https://t.me/BotFather)
@@ -59,13 +47,13 @@ If `TELEGRAM_BOT_SECRET_TOKEN` is set, webhooks must include `x-telegram-bot-api
 
 ## 4. Configure bot commands and optional profile photo (one-time)
 
-Run the setup script after configuring your environment:
+Run the setup script once after configuring your environment:
 
 ```bash
 pnpm --filter inbox-zero-ai exec tsx scripts/setup-telegram-bot.ts
 ```
 
-Local development shortcut:
+Local shortcut:
 
 ```bash
 pnpm --filter inbox-zero-ai telegram:setup
@@ -78,24 +66,7 @@ pnpm --filter inbox-zero-ai exec tsx scripts/setup-telegram-bot.ts \
   --profile-photo-url https://<your-domain>/telegram-bot.png
 ```
 
-This script is intended as a one-time/admin action. It:
-
-- registers slash commands through `setMyCommands`
-- sets a profile photo only when the bot does not already have one
-
-The configured commands are:
-
-- `/connect`
-- `/switch`
-- `/help`
-- `/cleanup`
-- `/summary`
-- `/draftreply`
-- `/followups`
-
-Prompt-style commands (`/cleanup`, `/summary`, `/draftreply`, `/followups`) are mapped to common inbox-assistant prompts.
-
-If you prefer to manage bot metadata manually (for example, replacing an existing profile photo), you can still use [@BotFather](https://t.me/BotFather).
+This command registers Telegram slash commands (`/connect`, `/switch`, `/help`, `/cleanup`, `/summary`, `/draftreply`, `/followups`) and sets a profile photo only if the bot does not already have one.
 
 ## 5. Connect a user account from Inbox Zero
 
@@ -111,7 +82,7 @@ After linking, the user can chat with the assistant in that DM.
 
 ## 6. Validate end-to-end
 
-Quick checks:
+Check:
 
 1. `POST /api/telegram/events` returns `200` for valid Telegram updates
 2. Sending `/connect <code>` in bot DM links the account
