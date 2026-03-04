@@ -1,4 +1,8 @@
-import { ActionType, type SystemType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  ExecutedRuleStatus,
+  type SystemType,
+} from "@/generated/prisma/enums";
 import { extractEmailAddress } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -43,6 +47,7 @@ export async function learnFromOutlookCategoryReversal({
       emailAccountId,
       messageId: message.id,
       threadId: message.threadId,
+      status: ExecutedRuleStatus.APPLIED,
       rule: { systemType: { not: null } },
       actionItems: { some: LABEL_OR_FOLDER_ACTION_FILTER },
     },
