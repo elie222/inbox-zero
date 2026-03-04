@@ -43,6 +43,12 @@ type AiGatewayProviderOptions = {
   };
 };
 
+const AI_GATEWAY_MODEL_PREFIX = {
+  GOOGLE: "google",
+  OPENAI: "openai",
+  AZURE: "azure",
+} as const;
+
 export function getModel(
   userAi: UserAIFields,
   modelType: ModelType = "default",
@@ -692,9 +698,9 @@ function isGemini3Model(modelName: string): boolean {
 function getAiGatewayProviderOptions(
   modelName: string,
 ): AiGatewayProviderOptions {
-  const providerName = getAiGatewayProviderName(modelName);
+  const modelPrefix = getAiGatewayModelPrefix(modelName);
 
-  if (providerName === Provider.GOOGLE) {
+  if (modelPrefix === AI_GATEWAY_MODEL_PREFIX.GOOGLE) {
     return {
       google: {
         thinkingConfig: {
@@ -704,7 +710,10 @@ function getAiGatewayProviderOptions(
     };
   }
 
-  if (providerName === Provider.OPEN_AI || providerName === Provider.AZURE) {
+  if (
+    modelPrefix === AI_GATEWAY_MODEL_PREFIX.OPENAI ||
+    modelPrefix === AI_GATEWAY_MODEL_PREFIX.AZURE
+  ) {
     return {
       // Azure OpenAI models use OpenAI provider options in AI Gateway.
       openai: {
@@ -717,7 +726,7 @@ function getAiGatewayProviderOptions(
   return {};
 }
 
-function getAiGatewayProviderName(modelName: string): string {
+function getAiGatewayModelPrefix(modelName: string): string {
   const separatorIndex = modelName.indexOf("/");
   if (separatorIndex === -1) return "";
   return modelName.slice(0, separatorIndex).toLowerCase();
