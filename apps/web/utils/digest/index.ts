@@ -1,9 +1,11 @@
-import { publishToQstashQueue } from "@/utils/upstash";
 import type { Logger } from "@/utils/logger";
 import { emailToContent } from "@/utils/mail";
 import type { DigestBody } from "@/app/api/ai/digest/validation";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
+import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
+
+const AI_DIGEST_TOPIC = "ai-digest";
 
 export async function enqueueDigestItem({
   email,
@@ -17,10 +19,8 @@ export async function enqueueDigestItem({
   logger: Logger;
 }) {
   try {
-    await publishToQstashQueue<DigestBody>({
-      queueName: "digest-item-summarize",
-      parallelism: 3, // Allow up to 3 concurrent jobs from this queue
-      path: "/api/ai/digest",
+    await enqueueBackgroundJob<DigestBody>({
+      topic: AI_DIGEST_TOPIC,
       body: {
         emailAccountId,
         actionId,
@@ -33,8 +33,14 @@ export async function enqueueDigestItem({
           content: emailToContent(email),
         },
       },
+      qstash: {
+        queueName: "digest-item-summarize",
+        parallelism: 3,
+        path: "/api/ai/digest",
+      },
+      logger,
     });
   } catch (error) {
-    logger.error("Failed to publish to Qstash", { error });
+    logger.error("Failed to enqueue digest item", { error });
   }
 }

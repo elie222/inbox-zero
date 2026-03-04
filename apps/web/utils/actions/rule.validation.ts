@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   ActionType,
   CategoryFilterType,
+  DraftReplyConfidence,
   LogicalOperator,
   SystemType,
 } from "@/generated/prisma/enums";
@@ -249,6 +250,13 @@ export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
 export const enableMultiRuleSelectionBody = z.object({ enable: z.boolean() });
 export type EnableMultiRuleSelectionBody = z.infer<
   typeof enableMultiRuleSelectionBody
+>;
+
+export const updateDraftReplyConfidenceBody = z.object({
+  confidence: z.nativeEnum(DraftReplyConfidence),
+});
+export type UpdateDraftReplyConfidenceBody = z.infer<
+  typeof updateDraftReplyConfidenceBody
 >;
 
 const categoryAction = z.enum([

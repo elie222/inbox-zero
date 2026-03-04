@@ -5,10 +5,11 @@ import { withError } from "@/utils/middleware";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
-import { publishToQstashQueue } from "@/utils/upstash";
 import { getPremiumUserFilter } from "@/utils/premium";
+import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
 
 export const maxDuration = 300;
+const RESEND_DIGEST_TOPIC = "resend-digest";
 
 export const GET = withError("cron/resend/digest/all", async (request) => {
   if (!hasCronSecret(request)) {
@@ -62,14 +63,22 @@ async function sendDigestAllUpdate(logger: Logger) {
 
   for (const emailAccount of emailAccounts) {
     try {
-      await publishToQstashQueue({
-        queueName: "email-digest-all",
-        parallelism: 3, // Allow up to 3 concurrent jobs from this queue
-        path: "/api/resend/digest",
+      await enqueueBackgroundJob({
+        topic: RESEND_DIGEST_TOPIC,
         body: { emailAccountId: emailAccount.id },
+        qstash: {
+          queueName: "email-digest-all",
+          parallelism: 3,
+          path: "/api/resend/digest",
+        },
+        logger,
       });
     } catch (error) {
-      logger.error("Failed to publish to Qstash", {
+      logger.error("Failed to enqueue digest send", {
+        emailAccountId: emailAccount.id,
+        error,
+      });
+      logger.trace("Failed digest enqueue for account email", {
         email: emailAccount.email,
         error,
       });

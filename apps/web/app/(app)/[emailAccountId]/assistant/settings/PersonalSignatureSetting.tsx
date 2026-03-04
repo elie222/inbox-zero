@@ -3,7 +3,6 @@
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess, toastInfo } from "@/components/Toast";
-import { getActionErrorMessage } from "@/utils/error";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,6 +11,7 @@ import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAction } from "next-safe-action/hooks";
 import { fetchSignaturesFromProviderAction } from "@/utils/actions/email-account";
 import { saveSignatureAction } from "@/utils/actions/user";
+import { createSettingActionErrorHandler } from "@/utils/actions/error-handling";
 import type { EmailSignature } from "@/utils/email/types";
 import {
   Select,
@@ -81,13 +81,9 @@ function SignatureDialog({
         });
         setOpen(false);
       },
-      onError: (error) => {
-        toastError({
-          description: getActionErrorMessage(error.error, {
-            prefix: "Failed to save signature",
-          }),
-        });
-      },
+      onError: createSettingActionErrorHandler({
+        prefix: "Failed to save signature",
+      }),
       onSettled: () => {
         mutate();
       },

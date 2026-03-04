@@ -6,6 +6,7 @@ import type { Logger } from "@/utils/logger";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
+import { recordWebhookEntry } from "@/utils/replay/recorder";
 
 export const maxDuration = 300;
 
@@ -53,6 +54,8 @@ async function processWebhookAsync(
   decodedData: { emailAddress: string; historyId: number },
   logger: Logger,
 ) {
+  await recordWebhookEntry("google", decodedData.emailAddress, decodedData);
+
   try {
     await processHistoryForUser(decodedData, {}, logger);
   } catch (error) {

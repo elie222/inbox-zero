@@ -24,7 +24,9 @@ import {
   assertCanEnableAutomationJobs,
   createAutomationJob,
 } from "@/utils/actions/automation-jobs.helpers";
-import { publishToQstashQueue } from "@/utils/upstash";
+import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
+
+const AUTOMATION_JOBS_TOPIC = "automation-jobs-execute";
 
 export const toggleAutomationJobAction = actionClient
   .metadata({ name: "toggleAutomationJob" })
@@ -158,7 +160,7 @@ export const saveAutomationJobAction = actionClient
 export const triggerTestCheckInAction = actionClient
   .metadata({ name: "triggerTestCheckIn" })
   .inputSchema(triggerTestCheckInBody)
-  .action(async ({ ctx: { emailAccountId, userId } }) => {
+  .action(async ({ ctx: { emailAccountId, userId, logger } }) => {
     await assertCanEnableAutomationJobs(userId);
 
     const job = await prisma.automationJob.findUnique({
@@ -204,11 +206,15 @@ export const triggerTestCheckInAction = actionClient
       select: { id: true },
     });
 
-    await publishToQstashQueue({
-      queueName: "automation-jobs",
-      parallelism: 3,
-      path: "/api/automation-jobs/execute",
+    await enqueueBackgroundJob({
+      topic: AUTOMATION_JOBS_TOPIC,
       body: { automationJobRunId: run.id },
+      qstash: {
+        queueName: "automation-jobs",
+        parallelism: 3,
+        path: "/api/automation-jobs/execute",
+      },
+      logger,
     });
   });
 

@@ -243,7 +243,11 @@ export async function createLabel({
   } catch (error) {
     const { errorMessage } = extractErrorInfo(error);
 
-    if (errorMessage?.includes("Label name exists or conflicts")) {
+    const isLabelExistsError =
+      errorMessage?.includes("Label name exists or conflicts") ||
+      errorMessage?.includes("Precondition check failed");
+
+    if (isLabelExistsError) {
       logger.warn("Label already exists", { name });
       const labels = await getLabels(gmail);
       const exactLabel = findLabelByName({

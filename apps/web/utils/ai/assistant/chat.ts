@@ -7,6 +7,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { env } from "@/env";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { toolCallAgentStream } from "@/utils/llms";
+import type { RecordingSessionHandle } from "@/utils/replay/recorder";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import prisma from "@/utils/prisma";
 import type { SystemType } from "@/generated/prisma/enums";
@@ -37,6 +38,7 @@ import {
   updateInboxFeaturesTool,
 } from "./chat-inbox-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
+import type { MessagingPlatform } from "@/utils/messaging/platforms";
 
 export const maxDuration = 120;
 
@@ -77,6 +79,9 @@ export async function aiProcessAssistantChat({
   chatId,
   memories,
   inboxStats,
+  responseSurface = "web",
+  messagingPlatform,
+  recordingSession,
   logger,
 }: {
   messages: ModelMessage[];
@@ -86,15 +91,26 @@ export async function aiProcessAssistantChat({
   chatId?: string;
   memories?: { content: string; date: string }[];
   inboxStats?: { total: number; unread: number } | null;
+  responseSurface?: "web" | "messaging";
+  messagingPlatform?: MessagingPlatform;
+  recordingSession?: RecordingSessionHandle | null;
   logger: Logger;
 }) {
+  const emailSendToolsEnabled = env.NEXT_PUBLIC_EMAIL_SEND_ENABLED;
   let ruleReadState: RuleReadState | null = null;
+
+  if (recordingSession) {
+    await recordingSession.record("llm-request", {
+      label: "assistant-chat",
+      request: { messageCount: messages.length, context },
+    });
+  }
 
   const system = `You are the Inbox Zero assistant. You help users understand their inbox, take inbox actions, update account features, and manage automation rules.
 
 Core responsibilities:
 1. Search and summarize inbox activity (especially what's new and what needs attention)
-2. Take inbox actions (archive, mark read, and bulk archive by sender)
+2. Take inbox actions (archive, mark read, bulk archive by sender, and sender unsubscribe)
 3. Update account features (meeting briefs and auto-file attachments)
 4. Create and update rules
 
@@ -109,13 +125,14 @@ Tool usage strategy (progressive disclosure):
 - For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then provide a concise grouped summary and recommend a next action.
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
-- If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
+  - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
+- Never claim that chat-created pending email actions are saved in the user's Gmail/Outlook Drafts folder.
 ${
-  env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
-    ? `- When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
+  emailSendToolsEnabled
+    ? `${getSendEmailSurfacePolicy({ responseSurface, messagingPlatform })}
+- When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
 - When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.
 - Only send emails when the user clearly asks to send now.
-  - sendEmail, replyEmail, and forwardEmail prepare a pending action only. The user must click a confirmation button in the UI before any email is actually sent.
 - After these tools run, explicitly tell the user the email is pending confirmation. Do not say it was sent unless the confirmation result says it was sent.`
     : `- Email sending actions are disabled in this environment. sendEmail, replyEmail, and forwardEmail tools are unavailable.
 - If the user asks to send, reply, or forward, clearly explain that this environment cannot prepare or send those actions.
@@ -130,9 +147,10 @@ Tool call policy:
 - If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
 - Never invent thread IDs, label IDs, sender addresses, or existing rule names.
-${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? '- For forwarding, always use a real messageId from searchInbox or user-provided context.\n- For pending email actions, do not treat "prepared" as "sent".' : ""}
+${emailSendToolsEnabled ? '- For forwarding, always use a real messageId from searchInbox or user-provided context.\n- For pending email actions, do not treat "prepared" as "sent".' : ""}
 - "archive_threads" archives specific threads by ID. Use it when the user refers to specific emails shown in results.
 - "bulk_archive_senders" archives ALL emails from given senders server-side, not just the visible ones. Use it when the user asks to clean up by sender. Since it affects emails beyond what's shown, confirm the scope with the user before executing.
+- "unsubscribe_senders" attempts automatic unsubscribe using message unsubscribe headers/links, marks those senders as unsubscribed, and archives emails from those senders. Use it when the user explicitly asks to unsubscribe from senders. Since it affects all emails from those senders, confirm the scope with the user before executing.
 - Choose the tool that matches what the user actually asked for. Do not default to bulk archive when the user is referring to specific emails.
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - For ambiguous destructive requests (for example archive vs mark read), ask a brief clarification question before writing.
@@ -141,8 +159,7 @@ ${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? '- For forwarding, always use a real mess
 
 Provider context:
 - Current provider: ${user.account.provider}.
-- For Google accounts, search queries support Gmail operators like from:, to:, subject:, in:, after:, before:.
-- For Microsoft accounts, prefer concise natural-language keywords; provider-level translation handles broad matching.
+${user.account.provider === "microsoft" ? "- Use KQL syntax for search: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:." : "- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:."}
 
 A rule is comprised of:
 1. A condition
@@ -187,7 +204,7 @@ Best practices:
 - You can use multiple conditions in a rule, but aim for simplicity.
 - When creating rules, in most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
 - If a rule can be handled fully with static conditions, do so, but this is rarely possible.
-${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? `- IMPORTANT: prefer "draft a reply" over "reply". Only if the user explicitly asks to reply, then use "reply". Clarify beforehand this is the intention. Drafting a reply is safer as it means the user can approve before sending.` : ""}
+${emailSendToolsEnabled ? `- IMPORTANT: prefer "draft a reply" over "reply". Only if the user explicitly asks to reply, then use "reply". Clarify beforehand this is the intention. Drafting a reply is safer as it means the user can approve before sending.` : ""}
 - Use short, concise rule names (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.
 
 Always explain the changes you made.
@@ -246,7 +263,8 @@ Behavior anchors (minimal examples):
   3. Group the results briefly and recommend one next action. Only present multiple options if the user asks for them or if scope is ambiguous and needs confirmation.
   4. If the user confirms archiving the specific listed emails (e.g., "archive those", "archive the ones you listed"), use "archive_threads" with the thread IDs from the search results.
   5. If the user explicitly asks for sender-level cleanup (e.g., "archive everything from those senders"), use "bulk_archive_senders". Warn the user that this will archive ALL emails from those senders, not just the ones shown.
-  6. For ongoing batch cleanup with bulk_archive_senders, search again to find the next batch. Once the user has confirmed a category, continue processing subsequent batches without re-asking.`;
+  6. If the user explicitly asks to unsubscribe from senders, use "unsubscribe_senders" with sender emails after confirming scope.
+  7. For ongoing batch cleanup with bulk_archive_senders, search again to find the next batch. Once the user has confirmed a category, continue processing subsequent batches without re-asking.`;
 
   const toolOptions = {
     email: user.email,
@@ -351,6 +369,12 @@ Behavior anchors (minimal examples):
     messages: messagesWithCacheControl,
     onStepFinish: async ({ text, toolCalls }) => {
       logger.trace("Step finished", { text, toolCalls });
+      if (recordingSession) {
+        await recordingSession.record("chat-step", {
+          request: { toolCalls },
+          response: { text },
+        });
+      }
     },
     maxSteps: 10,
     tools: {
@@ -373,7 +397,7 @@ Behavior anchors (minimal examples):
       addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
       searchMemories: searchMemoriesTool(toolOptions),
       saveMemory: saveMemoryTool({ ...toolOptions, chatId }),
-      ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+      ...(emailSendToolsEnabled
         ? {
             sendEmail: sendEmailTool(toolOptions),
             replyEmail: replyEmailTool(toolOptions),
@@ -533,4 +557,22 @@ async function getExpectedFixContextSystemType({
   });
 
   return expectedRule?.systemType ?? null;
+}
+
+function getSendEmailSurfacePolicy({
+  responseSurface,
+  messagingPlatform,
+}: {
+  responseSurface: "web" | "messaging";
+  messagingPlatform?: MessagingPlatform;
+}) {
+  if (responseSurface === "web") {
+    return "- sendEmail, replyEmail, and forwardEmail prepare a pending action only. The user must click a confirmation button in the UI before any email is actually sent.\n- These pending actions are app-side confirmations, not provider Drafts-folder saves.";
+  }
+
+  const threadContext = messagingPlatform ? "this thread" : "the thread";
+
+  return `- sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.
+- These pending actions are app-side confirmations, not provider Drafts-folder saves.
+- A Send confirmation button is provided in ${threadContext}.`;
 }

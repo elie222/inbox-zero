@@ -60,6 +60,10 @@ vi.mock("@/utils/error", async (importOriginal) => {
   };
 });
 
+vi.mock("@/utils/email/rate-limit", () => ({
+  withRateLimitRecording: vi.fn(async (_context, operation) => operation()),
+}));
+
 describe("Outlook processHistoryForUser - Folder Filtering", () => {
   const mockEmailAccount = {
     id: "account-123",

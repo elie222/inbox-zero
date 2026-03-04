@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MailIcon, HashIcon, LockIcon, MessageSquareIcon } from "lucide-react";
+import {
+  MailIcon,
+  HashIcon,
+  LockIcon,
+  MessageCircleIcon,
+  MessageSquareIcon,
+  SendIcon,
+} from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -36,10 +43,26 @@ const PROVIDER_CONFIG: Record<
   {
     name: string;
     icon: typeof MessageSquareIcon;
-    targetPrefix: string;
+    targetPrefix?: string;
+    supportsBriefTargetSelection: boolean;
   }
 > = {
-  SLACK: { name: "Slack", icon: HashIcon, targetPrefix: "#" },
+  SLACK: {
+    name: "Slack",
+    icon: HashIcon,
+    targetPrefix: "#",
+    supportsBriefTargetSelection: true,
+  },
+  TEAMS: {
+    name: "Teams",
+    icon: MessageCircleIcon,
+    supportsBriefTargetSelection: false,
+  },
+  TELEGRAM: {
+    name: "Telegram",
+    icon: SendIcon,
+    supportsBriefTargetSelection: false,
+  },
 };
 
 export function DeliveryChannelsSetting() {
@@ -142,14 +165,18 @@ function ChannelRow({
   onUpdate: () => void;
 }) {
   const config = PROVIDER_CONFIG[channel.provider];
-  const Icon = config?.icon ?? MessageSquareIcon;
+  const Icon = config.icon;
   const [selectingTarget, setSelectingTarget] = useState(!channel.channelId);
+  const supportsBriefTargetSelection = config.supportsBriefTargetSelection;
 
   const {
     data: targetsData,
     isLoading: isLoadingTargets,
     error: targetsError,
-  } = useChannelTargets(selectingTarget ? channel.id : null);
+  } = useChannelTargets(
+    supportsBriefTargetSelection && selectingTarget ? channel.id : null,
+    emailAccountId,
+  );
 
   const privateTargets = targetsData?.targets.filter((t) => t.isPrivate);
 
@@ -188,81 +215,88 @@ function ChannelRow({
     <div className="flex items-center gap-3">
       <Icon className="h-5 w-5 text-muted-foreground" />
       <div className="flex-1">
-        {!channel.channelId || selectingTarget ? (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">
-                {config?.name ?? channel.provider}
-              </span>
-              <Select
-                onValueChange={(value) => {
-                  const target = privateTargets?.find((t) => t.id === value);
-                  if (target) {
-                    executeTarget({
-                      channelId: channel.id,
-                      targetId: target.id,
-                      targetName: target.name,
-                    });
-                  }
-                }}
-                disabled={isLoadingTargets || !!targetsError}
-              >
-                <SelectTrigger className="h-8 w-48 text-xs">
-                  <SelectValue
-                    placeholder={
-                      targetsError
-                        ? "Failed to load channels"
-                        : isLoadingTargets
-                          ? "Loading channels..."
-                          : "Select private channel"
+        {supportsBriefTargetSelection ? (
+          !channel.channelId || selectingTarget ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm">{config.name}</span>
+                <Select
+                  onValueChange={(value) => {
+                    const target = privateTargets?.find((t) => t.id === value);
+                    if (target) {
+                      executeTarget({
+                        channelId: channel.id,
+                        targetId: target.id,
+                      });
                     }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {privateTargets?.map((target) => (
-                    <SelectItem key={target.id} value={target.id}>
-                      <LockIcon className="inline h-3 w-3 mr-1" />
-                      {target.name}
-                    </SelectItem>
-                  ))}
-                  {!isLoadingTargets &&
-                    privateTargets &&
-                    privateTargets.length === 0 && (
-                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                        No private channels found. Create one and invite the bot
-                        first.
-                      </div>
-                    )}
-                </SelectContent>
-              </Select>
+                  }}
+                  disabled={isLoadingTargets || !!targetsError}
+                >
+                  <SelectTrigger className="h-8 w-48 text-xs">
+                    <SelectValue
+                      placeholder={
+                        targetsError
+                          ? "Failed to load channels"
+                          : isLoadingTargets
+                            ? "Loading channels..."
+                            : "Select private channel"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {privateTargets?.map((target) => (
+                      <SelectItem key={target.id} value={target.id}>
+                        <LockIcon className="inline h-3 w-3 mr-1" />
+                        {target.name}
+                      </SelectItem>
+                    ))}
+                    {!isLoadingTargets &&
+                      privateTargets &&
+                      privateTargets.length === 0 && (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          No private channels found. Create one and invite the
+                          bot first.
+                        </div>
+                      )}
+                  </SelectContent>
+                </Select>
+              </div>
+              {!isLoadingTargets && (
+                <MutedText className="text-xs">
+                  Pick a channel to receive meeting briefs. Create a private
+                  Slack channel, then type{" "}
+                  <code className="bg-muted px-1 rounded">
+                    /invite @InboxZero
+                  </code>{" "}
+                  in it. The channel will appear above once the bot is invited.
+                </MutedText>
+              )}
             </div>
-            {!isLoadingTargets && (
-              <MutedText className="text-xs">
-                Create a private Slack channel, then type{" "}
-                <code className="bg-muted px-1 rounded">
-                  /invite @InboxZero
-                </code>{" "}
-                in it. The channel will appear above once the bot is invited.
-              </MutedText>
-            )}
-          </div>
+          ) : (
+            <button
+              type="button"
+              className="font-medium text-sm text-left hover:underline"
+              onClick={() => setSelectingTarget(true)}
+              title="Change channel"
+            >
+              {config.name}{" "}
+              <span className="text-muted-foreground font-normal">
+                &middot; {config.targetPrefix}
+                {channel.channelName}
+              </span>
+            </button>
+          )
         ) : (
-          <button
-            type="button"
-            className="font-medium text-sm text-left hover:underline"
-            onClick={() => setSelectingTarget(true)}
-            title="Change channel"
-          >
-            {config?.name ?? channel.provider}{" "}
-            <span className="text-muted-foreground font-normal">
-              &middot; {config?.targetPrefix}
-              {channel.channelName}
-            </span>
-          </button>
+          <div className="space-y-1">
+            <span className="font-medium text-sm">{config.name}</span>
+            <MutedText className="text-xs">
+              Brief delivery targets are currently supported for Slack.
+            </MutedText>
+          </div>
         )}
       </div>
 
-      {channel.channelId && !selectingTarget && (
+      {supportsBriefTargetSelection && channel.channelId && !selectingTarget && (
         <Toggle
           name={`briefs-${channel.id}`}
           enabled={channel.sendMeetingBriefs}

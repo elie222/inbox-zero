@@ -2,13 +2,14 @@ import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ModelType } from "@/utils/llms/model";
 import { ActionType } from "@/generated/prisma/enums";
+import type { DraftReplyConfidence } from "@/generated/prisma/enums";
 import type { Action } from "@/generated/prisma/client";
 import {
   type RuleWithActions,
   isDefined,
   type ParsedMessage,
 } from "@/utils/types";
-import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-draft";
+import { fetchMessagesAndGenerateDraftWithConfidenceThreshold } from "@/utils/reply-tracker/generate-draft";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import {
   type ActionArgResponse,
@@ -18,6 +19,9 @@ import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 
 const MODULE = "choose-args";
+export type EmailAccountForDrafting = EmailAccountWithAI & {
+  draftReplyConfidence: DraftReplyConfidence;
+};
 
 export async function getActionItemsWithAiArgs({
   message,
@@ -29,7 +33,7 @@ export async function getActionItemsWithAiArgs({
   isTest = false,
 }: {
   message: ParsedMessage;
-  emailAccount: EmailAccountWithAI;
+  emailAccount: EmailAccountForDrafting;
   selectedRule: RuleWithActions;
   client: EmailProvider;
   modelType: ModelType;
@@ -44,6 +48,7 @@ export async function getActionItemsWithAiArgs({
   );
 
   let draft: string | null = null;
+  let draftConfidence: DraftReplyConfidence | null = null;
 
   if (draftEmailActions.length) {
     try {
@@ -53,17 +58,24 @@ export async function getActionItemsWithAiArgs({
         isTest,
       });
 
-      draft = await fetchMessagesAndGenerateDraft(
-        emailAccount,
-        message.threadId,
-        client,
-        isTest ? message : undefined,
-        logger,
-      );
+      const draftResult =
+        await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+          emailAccount,
+          message.threadId,
+          client,
+          isTest ? message : undefined,
+          logger,
+          emailAccount.draftReplyConfidence,
+        );
+      draft = draftResult.draft;
+      draftConfidence = draftResult.confidence;
 
       log.info("Draft generated", {
         email: emailAccount.email,
         threadId: message.threadId,
+        draftConfidence,
+        minimumConfidence: emailAccount.draftReplyConfidence,
+        drafted: !!draft,
       });
     } catch (error) {
       log.error("Failed to generate draft", {
@@ -78,7 +90,9 @@ export async function getActionItemsWithAiArgs({
 
   const parameters = extractActionsNeedingAiGeneration(selectedRule.actions);
 
-  if (parameters.length === 0 && !draft) return selectedRule.actions;
+  if (parameters.length === 0 && !draft) {
+    return filterIncompleteDraftActions(selectedRule.actions);
+  }
 
   const result = await aiGenerateArgs({
     email: getEmailForLLM(message),
@@ -89,9 +103,23 @@ export async function getActionItemsWithAiArgs({
     logger,
   });
 
-  return combineActionsWithAiArgs(selectedRule.actions, result, draft);
-}
+  const combinedActions = combineActionsWithAiArgs(
+    selectedRule.actions,
+    result,
+    draft,
+  );
+  const filteredActions = filterIncompleteDraftActions(combinedActions);
 
+  if (filteredActions.length < combinedActions.length) {
+    log.info("Skipping draft action with no generated content", {
+      removedDraftActions: combinedActions.length - filteredActions.length,
+      draftConfidence,
+      minimumConfidence: emailAccount.draftReplyConfidence,
+    });
+  }
+
+  return filteredActions;
+}
 export function combineActionsWithAiArgs(
   actions: Action[],
   aiArgs: ActionArgResponse | undefined,
@@ -137,6 +165,13 @@ export function combineActionsWithAiArgs(
     }
 
     return updatedAction;
+  });
+}
+
+export function filterIncompleteDraftActions(actions: Action[]): Action[] {
+  return actions.filter((action) => {
+    if (action.type !== ActionType.DRAFT_EMAIL) return true;
+    return !!action.content?.trim();
   });
 }
 

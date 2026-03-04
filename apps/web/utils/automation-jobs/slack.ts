@@ -1,6 +1,6 @@
 import { MessagingProvider } from "@/generated/prisma/enums";
-import { createSlackClient } from "@inboxzero/slack";
 import type { Logger } from "@/utils/logger";
+import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
 type SlackMessagingChannel = {
   provider: MessagingProvider;

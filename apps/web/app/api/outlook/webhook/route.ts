@@ -8,6 +8,7 @@ import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
+import { recordWebhookEntry } from "@/utils/replay/recorder";
 
 export const maxDuration = 300;
 
@@ -94,6 +95,11 @@ async function processNotificationsAsync(
   for (const notification of notifications) {
     const { subscriptionId, resourceData } = notification;
     const logger = log.with({ subscriptionId, messageId: resourceData.id });
+
+    await recordWebhookEntry("microsoft", "pending", {
+      subscriptionId,
+      resourceData,
+    });
 
     logger.info("Processing notification", {
       changeType: notification.changeType,

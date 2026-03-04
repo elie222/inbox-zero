@@ -15,6 +15,8 @@ import {
   NoObjectGeneratedError,
   TypeValidationError,
 } from "ai";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
+import { withTracing } from "@posthog/ai/vercel";
 import { jsonrepair } from "jsonrepair";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -43,6 +45,7 @@ import {
 import { shouldForceNanoModel } from "@/utils/llms/model-usage-guard";
 import { Provider } from "@/utils/llms/config";
 import { createScopedLogger } from "@/utils/logger";
+import { getPosthogLlmClient } from "@/utils/posthog";
 import {
   extractLLMErrorInfo,
   isTransientNetworkError,
@@ -117,7 +120,15 @@ export function createGenerateText({
           ...options,
           ...commonOptions,
           providerOptions,
-          model: candidate.model,
+          model: withPosthogTracing({
+            model: candidate.model,
+            userEmail: emailAccount.email,
+            userId: emailAccount.userId,
+            emailAccountId: emailAccount.id,
+            label,
+            provider: candidate.provider,
+            modelName: candidate.modelName,
+          }),
         },
         ...restArgs,
       );
@@ -125,6 +136,7 @@ export function createGenerateText({
       if (result.usage) {
         await saveAiUsage({
           email: emailAccount.email,
+          emailAccountId: emailAccount.id,
           usage: result.usage,
           provider: candidate.provider,
           model: candidate.modelName,
@@ -245,7 +257,15 @@ export function createGenerateObject({
           ...options,
           ...commonOptions,
           providerOptions,
-          model: candidate.model,
+          model: withPosthogTracing({
+            model: candidate.model,
+            userEmail: emailAccount.email,
+            userId: emailAccount.userId,
+            emailAccountId: emailAccount.id,
+            label,
+            provider: candidate.provider,
+            modelName: candidate.modelName,
+          }),
         },
         ...restArgs,
       );
@@ -253,6 +273,7 @@ export function createGenerateObject({
       if (result.usage) {
         await saveAiUsage({
           email: emailAccount.email,
+          emailAccountId: emailAccount.id,
           usage: result.usage,
           provider: candidate.provider,
           model: candidate.modelName,
@@ -334,7 +355,7 @@ export async function chatCompletionStream({
   tools?: Record<string, Tool>;
   maxSteps?: number;
   userId?: string;
-  emailAccountId?: string;
+  emailAccountId: string;
   userEmail: string;
   usageLabel: string;
   providerOptions?: LLMProviderOptions;
@@ -363,10 +384,19 @@ export async function chatCompletionStream({
       label,
       emailAccountId,
     });
+    const model = withPosthogTracing({
+      model: candidate.model,
+      userEmail,
+      userId,
+      emailAccountId,
+      label,
+      provider: candidate.provider,
+      modelName: candidate.modelName,
+    });
 
     try {
       return streamText({
-        model: candidate.model,
+        model,
         messages,
         tools,
         stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
@@ -377,6 +407,7 @@ export async function chatCompletionStream({
         onFinish: async (result) => {
           const usagePromise = saveAiUsage({
             email: userEmail,
+            emailAccountId,
             provider: candidate.provider,
             model: candidate.modelName,
             usage: result.usage,
@@ -462,7 +493,7 @@ export async function toolCallAgentStream({
   tools?: Record<string, Tool>;
   maxSteps?: number;
   userId?: string;
-  emailAccountId?: string;
+  emailAccountId: string;
   userEmail: string;
   usageLabel: string;
   providerOptions?: LLMProviderOptions;
@@ -491,6 +522,15 @@ export async function toolCallAgentStream({
       label,
       emailAccountId,
     });
+    const model = withPosthogTracing({
+      model: candidate.model,
+      userEmail,
+      userId,
+      emailAccountId,
+      label,
+      provider: candidate.provider,
+      modelName: candidate.modelName,
+    });
     const {
       tools: candidateTools,
       excludedTools,
@@ -518,7 +558,7 @@ export async function toolCallAgentStream({
     }
 
     const agent = new ToolLoopAgent({
-      model: candidate.model,
+      model,
       tools: candidateTools,
       stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
       ...commonOptions,
@@ -526,6 +566,7 @@ export async function toolCallAgentStream({
       onFinish: async (result) => {
         const usagePromise = saveAiUsage({
           email: userEmail,
+          emailAccountId,
           provider: candidate.provider,
           model: candidate.modelName,
           usage: result.totalUsage,
@@ -1012,4 +1053,38 @@ function isJsonObject(
   value: JSONValue | undefined,
 ): value is Record<string, JSONValue> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function withPosthogTracing({
+  model,
+  userEmail,
+  userId,
+  emailAccountId,
+  label,
+  provider,
+  modelName,
+}: {
+  model: LanguageModelV3;
+  userEmail: string;
+  userId?: string;
+  emailAccountId?: string;
+  label: string;
+  provider: string;
+  modelName: string;
+}) {
+  const posthogClient = getPosthogLlmClient();
+  if (!posthogClient) return model;
+
+  return withTracing(model, posthogClient, {
+    posthogDistinctId: userEmail,
+    posthogPrivacyMode: true,
+    posthogProperties: {
+      label,
+      $ai_span_name: label,
+      provider,
+      model: modelName,
+      emailAccountId,
+      ...(userId ? { userId } : {}),
+    },
+  });
 }

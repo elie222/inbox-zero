@@ -30,42 +30,61 @@ import { internalDateToDate } from "@/utils/date";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
+const FOLLOW_UP_THREAD_SCAN_LIMIT = 50;
+
+const followUpReminderAccountSelect = {
+  id: true,
+  email: true,
+  about: true,
+  userId: true,
+  multiRuleSelectionEnabled: true,
+  timezone: true,
+  calendarBookingLink: true,
+  followUpAwaitingReplyDays: true,
+  followUpNeedsReplyDays: true,
+  followUpAutoDraftEnabled: true,
+  user: {
+    select: {
+      aiProvider: true,
+      aiModel: true,
+      aiApiKey: true,
+    },
+  },
+  account: {
+    select: {
+      provider: true,
+    },
+  },
+} as const;
+
+type FollowUpReminderAccount = EmailAccountWithAI & {
+  followUpAwaitingReplyDays: number | null;
+  followUpNeedsReplyDays: number | null;
+  followUpAutoDraftEnabled: boolean;
+};
+
+type FollowUpReminderAccountResult =
+  | "success"
+  | "error"
+  | "rate-limited"
+  | "not-eligible";
+
+export async function getEligibleFollowUpReminderEmailAccountIds() {
+  const emailAccounts = await prisma.emailAccount.findMany({
+    where: getFollowUpReminderEligibilityWhere(),
+    select: { id: true },
+  });
+
+  return emailAccounts.map((emailAccount) => emailAccount.id);
+}
 
 export async function processAllFollowUpReminders(logger: Logger) {
   logger.info("Processing follow-up reminders for all users");
+  const startTime = Date.now();
 
   const emailAccounts = await prisma.emailAccount.findMany({
-    where: {
-      OR: [
-        { followUpAwaitingReplyDays: { not: null } },
-        { followUpNeedsReplyDays: { not: null } },
-      ],
-      ...getPremiumUserFilter(),
-    },
-    select: {
-      id: true,
-      email: true,
-      about: true,
-      userId: true,
-      multiRuleSelectionEnabled: true,
-      timezone: true,
-      calendarBookingLink: true,
-      followUpAwaitingReplyDays: true,
-      followUpNeedsReplyDays: true,
-      followUpAutoDraftEnabled: true,
-      user: {
-        select: {
-          aiProvider: true,
-          aiModel: true,
-          aiApiKey: true,
-        },
-      },
-      account: {
-        select: {
-          provider: true,
-        },
-      },
-    },
+    where: getFollowUpReminderEligibilityWhere(),
+    select: followUpReminderAccountSelect,
   });
 
   logger.info("Found eligible accounts", { count: emailAccounts.length });
@@ -78,46 +97,22 @@ export async function processAllFollowUpReminders(logger: Logger) {
     const accountLogger = logger.with({
       emailAccountId: emailAccount.id,
     });
-    let recordedRetryAt: Date | undefined;
-    const provider = emailAccount.account?.provider;
+    const status = await processLoadedFollowUpReminderAccount({
+      emailAccount,
+      logger: accountLogger,
+    });
 
-    try {
-      await withRateLimitRecording(
-        {
-          emailAccountId: emailAccount.id,
-          provider,
-          logger: accountLogger,
-          source: "follow-up-reminders",
-          onRateLimitRecorded: (state) => {
-            recordedRetryAt = state?.retryAt;
-          },
-        },
-        async () =>
-          processAccountFollowUps({
-            emailAccount,
-            logger: accountLogger,
-          }),
-      );
+    if (status === "success") {
       successCount++;
-    } catch (error) {
-      const retryAtFromError = getRetryAtFromRateLimitError(error, provider);
-      const retryAt = recordedRetryAt || retryAtFromError;
+      continue;
+    }
 
-      if (retryAt) {
-        accountLogger.warn(
-          "Skipping follow-up reminders while provider rate limit is active",
-          {
-            retryAt: retryAt.toISOString(),
-          },
-        );
-        rateLimitedCount++;
-        continue;
-      }
+    if (status === "rate-limited") {
+      rateLimitedCount++;
+      continue;
+    }
 
-      accountLogger.error("Failed to process follow-up reminders for user", {
-        error,
-      });
-      captureException(error);
+    if (status === "error") {
       errorCount++;
     }
   }
@@ -127,6 +122,7 @@ export async function processAllFollowUpReminders(logger: Logger) {
     success: successCount,
     errors: errorCount,
     rateLimited: rateLimitedCount,
+    processingTimeMs: Date.now() - startTime,
   });
 
   return {
@@ -137,15 +133,38 @@ export async function processAllFollowUpReminders(logger: Logger) {
   };
 }
 
+export async function processFollowUpRemindersForEmailAccountId({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}): Promise<FollowUpReminderAccountResult> {
+  const accountLogger = logger.with({ emailAccountId });
+  const emailAccount = await prisma.emailAccount.findFirst({
+    where: {
+      id: emailAccountId,
+      ...getFollowUpReminderEligibilityWhere(),
+    },
+    select: followUpReminderAccountSelect,
+  });
+
+  if (!emailAccount) {
+    accountLogger.info("Skipping account that is no longer eligible");
+    return "not-eligible";
+  }
+
+  return processLoadedFollowUpReminderAccount({
+    emailAccount,
+    logger: accountLogger,
+  });
+}
+
 export async function processAccountFollowUps({
   emailAccount,
   logger,
 }: {
-  emailAccount: EmailAccountWithAI & {
-    followUpAwaitingReplyDays: number | null;
-    followUpNeedsReplyDays: number | null;
-    followUpAutoDraftEnabled: boolean;
-  };
+  emailAccount: FollowUpReminderAccount;
   logger: Logger;
 }) {
   const now = new Date();
@@ -281,7 +300,7 @@ async function processFollowUpsForType({
 
   const threads = await provider.getThreadsWithLabel({
     labelId,
-    maxResults: 100,
+    maxResults: FOLLOW_UP_THREAD_SCAN_LIMIT,
   });
 
   logger.info("Found threads with label", {
@@ -535,4 +554,64 @@ function hasFollowUpBeenProcessed({
   messageId: string;
 }): boolean {
   return processedLedger.get(threadId)?.has(messageId) ?? false;
+}
+
+async function processLoadedFollowUpReminderAccount({
+  emailAccount,
+  logger,
+}: {
+  emailAccount: FollowUpReminderAccount;
+  logger: Logger;
+}): Promise<Exclude<FollowUpReminderAccountResult, "not-eligible">> {
+  let recordedRetryAt: Date | undefined;
+  const provider = emailAccount.account?.provider;
+
+  try {
+    await withRateLimitRecording(
+      {
+        emailAccountId: emailAccount.id,
+        provider,
+        logger,
+        source: "follow-up-reminders",
+        onRateLimitRecorded: (state) => {
+          recordedRetryAt = state?.retryAt;
+        },
+      },
+      async () =>
+        processAccountFollowUps({
+          emailAccount,
+          logger,
+        }),
+    );
+    return "success";
+  } catch (error) {
+    const retryAtFromError = getRetryAtFromRateLimitError(error, provider);
+    const retryAt = recordedRetryAt || retryAtFromError;
+
+    if (retryAt) {
+      logger.warn(
+        "Skipping follow-up reminders while provider rate limit is active",
+        {
+          retryAt: retryAt.toISOString(),
+        },
+      );
+      return "rate-limited";
+    }
+
+    logger.error("Failed to process follow-up reminders for user", {
+      error,
+    });
+    captureException(error);
+    return "error";
+  }
+}
+
+function getFollowUpReminderEligibilityWhere() {
+  return {
+    OR: [
+      { followUpAwaitingReplyDays: { not: null } },
+      { followUpNeedsReplyDays: { not: null } },
+    ],
+    ...getPremiumUserFilter(),
+  };
 }

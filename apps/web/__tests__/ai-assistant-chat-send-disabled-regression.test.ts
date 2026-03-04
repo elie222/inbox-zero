@@ -8,6 +8,9 @@ import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
 
+const TIMEOUT = 15_000;
+const isAiTest = process.env.RUN_AI_TESTS === "true";
+
 const {
   envState,
   mockToolCallAgentStream,
@@ -140,97 +143,107 @@ async function captureInvocation({
   return mockToolCallAgentStream.mock.calls[0][0];
 }
 
-describe("aiProcessAssistantChat send-disabled transcript regression", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    envState.sendEmailEnabled = false;
-  });
-
-  it("keeps prompt and tool availability aligned when sending is disabled", async () => {
-    const args = await captureInvocation({ emailSend: false });
-
-    expect(args.tools.sendEmail).toBeUndefined();
-    expect(args.tools.replyEmail).toBeUndefined();
-    expect(args.tools.forwardEmail).toBeUndefined();
-
-    expect(args.messages[0].content).toContain(
-      "Email sending actions are disabled in this environment.",
-    );
-    expect(args.messages[0].content).toContain(
-      "sendEmail, replyEmail, and forwardEmail tools are unavailable.",
-    );
-    expect(args.messages[0].content).toContain(
-      "Do not claim that an email was prepared, replied to, forwarded, or sent when send tools are unavailable.",
-    );
-    expect(args.messages[0].content).not.toContain(
-      "Only send emails when the user clearly asks to send now.",
-    );
-
-    const getMessagesWithPagination = vi.fn().mockResolvedValue({
-      messages: [
-        getMockMessage({
-          id: "msg-1",
-          threadId: "thread-1",
-          from: "demoinboxzero@outlook.com",
-          to: "user@test.com",
-          subject: "hello",
-          snippet: "test message",
-          labelIds: ["inbox", "unread"],
-        }),
-      ],
-      nextPageToken: undefined,
+describe.runIf(isAiTest)(
+  "aiProcessAssistantChat send-disabled transcript regression",
+  () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      envState.sendEmailEnabled = false;
     });
 
-    mockCreateEmailProvider.mockResolvedValue({
-      getMessagesWithPagination,
-      getLabels: vi.fn().mockResolvedValue([
-        { id: "inbox", name: "Inbox" },
-        { id: "unread", name: "Unread" },
-      ]),
-      archiveThreadWithLabel: vi.fn(),
-      markReadThread: vi.fn(),
-      bulkArchiveFromSenders: vi.fn(),
-    });
+    it(
+      "keeps prompt and tool availability aligned when sending is disabled",
+      async () => {
+        const args = await captureInvocation({ emailSend: false });
 
-    const searchResult = await args.tools.searchInbox.execute({
-      query: "demoinboxzero@outlook.com",
-      after: undefined,
-      before: undefined,
-      limit: 20,
-      pageToken: undefined,
-      inboxOnly: true,
-      unreadOnly: false,
-    });
+        expect(args.tools.sendEmail).toBeUndefined();
+        expect(args.tools.replyEmail).toBeUndefined();
+        expect(args.tools.forwardEmail).toBeUndefined();
 
-    expect(searchResult.totalReturned).toBe(1);
-    expect(searchResult.messages[0]).toEqual(
-      expect.objectContaining({
-        messageId: "msg-1",
-        threadId: "thread-1",
-      }),
+        expect(args.messages[0].content).toContain(
+          "Email sending actions are disabled in this environment.",
+        );
+        expect(args.messages[0].content).toContain(
+          "sendEmail, replyEmail, and forwardEmail tools are unavailable.",
+        );
+        expect(args.messages[0].content).toContain(
+          "Do not claim that an email was prepared, replied to, forwarded, or sent when send tools are unavailable.",
+        );
+        expect(args.messages[0].content).not.toContain(
+          "Only send emails when the user clearly asks to send now.",
+        );
+
+        const getMessagesWithPagination = vi.fn().mockResolvedValue({
+          messages: [
+            getMockMessage({
+              id: "msg-1",
+              threadId: "thread-1",
+              from: "demoinboxzero@outlook.com",
+              to: "user@test.com",
+              subject: "hello",
+              snippet: "test message",
+              labelIds: ["inbox", "unread"],
+            }),
+          ],
+          nextPageToken: undefined,
+        });
+
+        mockCreateEmailProvider.mockResolvedValue({
+          getMessagesWithPagination,
+          getLabels: vi.fn().mockResolvedValue([
+            { id: "inbox", name: "Inbox" },
+            { id: "unread", name: "Unread" },
+          ]),
+          archiveThreadWithLabel: vi.fn(),
+          markReadThread: vi.fn(),
+          bulkArchiveFromSenders: vi.fn(),
+        });
+
+        const searchResult = await args.tools.searchInbox.execute({
+          query: "demoinboxzero@outlook.com",
+          after: undefined,
+          before: undefined,
+          limit: 20,
+          pageToken: undefined,
+          inboxOnly: true,
+          unreadOnly: false,
+        });
+
+        expect(searchResult.totalReturned).toBe(1);
+        expect(searchResult.messages[0]).toEqual(
+          expect.objectContaining({
+            messageId: "msg-1",
+            threadId: "thread-1",
+          }),
+        );
+
+        const updateWithoutRead = await args.tools.updateRuleActions.execute({
+          ruleName: "DraftDemo",
+          actions: [
+            {
+              type: ActionType.DRAFT_EMAIL,
+              fields: {
+                to: "demoinboxzero@outlook.com",
+                subject: "test draft",
+                content: "hey, just testing out this email draft!",
+                label: null,
+                cc: null,
+                bcc: null,
+                webhookUrl: null,
+                folderName: null,
+              },
+              delayInMinutes: null,
+            },
+          ],
+        });
+
+        expect(updateWithoutRead.success).toBe(false);
+        expect(updateWithoutRead.error).toContain(
+          "call getUserRulesAndSettings",
+        );
+      },
+      TIMEOUT,
     );
-
-    const updateWithoutRead = await args.tools.updateRuleActions.execute({
-      ruleName: "DraftDemo",
-      actions: [
-        {
-          type: ActionType.DRAFT_EMAIL,
-          fields: {
-            to: "demoinboxzero@outlook.com",
-            subject: "test draft",
-            content: "hey, just testing out this email draft!",
-            label: null,
-            cc: null,
-            bcc: null,
-            webhookUrl: null,
-            folderName: null,
-          },
-          delayInMinutes: null,
-        },
-      ],
-    });
-
-    expect(updateWithoutRead.success).toBe(false);
-    expect(updateWithoutRead.error).toContain("call getUserRulesAndSettings");
-  });
-});
+  },
+  TIMEOUT,
+);

@@ -4,7 +4,6 @@ import { withError } from "@/utils/middleware";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
-import { publishToQstashQueue } from "@/utils/upstash";
 import { getNextAutomationJobRunAt } from "@/utils/automation-jobs/cron";
 import {
   AutomationJobRunStatus,
@@ -12,10 +11,12 @@ import {
 } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { getPremiumUserFilter } from "@/utils/premium";
+import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
 
 export const maxDuration = 300;
 
 const BATCH_SIZE = 100;
+const AUTOMATION_JOBS_TOPIC = "automation-jobs-execute";
 
 export const GET = withError("cron/automation-jobs", async (request) => {
   if (!hasCronSecret(request)) {
@@ -67,6 +68,8 @@ async function enqueueDueAutomationJobs(logger: Logger) {
     take: BATCH_SIZE,
   });
 
+  logger.info("Found due automation jobs", { due: dueJobs.length });
+
   let claimed = 0;
   let queued = 0;
   let skipped = 0;
@@ -89,17 +92,27 @@ async function enqueueDueAutomationJobs(logger: Logger) {
       });
 
       if (!runId) {
+        jobLogger.info("Skipped automation job run claim");
         skipped += 1;
         continue;
       }
 
       claimed += 1;
 
-      await publishToQstashQueue({
-        queueName: "automation-jobs",
-        parallelism: 3,
-        path: "/api/automation-jobs/execute",
+      const dispatchMode = await enqueueBackgroundJob({
+        topic: AUTOMATION_JOBS_TOPIC,
         body: { automationJobRunId: runId },
+        qstash: {
+          queueName: "automation-jobs",
+          parallelism: 3,
+          path: "/api/automation-jobs/execute",
+        },
+        logger: jobLogger,
+      });
+
+      jobLogger.info("Queued automation job run", {
+        automationJobRunId: runId,
+        dispatchMode,
       });
 
       queued += 1;
@@ -119,6 +132,14 @@ async function enqueueDueAutomationJobs(logger: Logger) {
       }
     }
   }
+
+  logger.info("Finished enqueueing due automation jobs", {
+    due: dueJobs.length,
+    claimed,
+    queued,
+    skipped,
+    failed,
+  });
 
   return {
     due: dueJobs.length,

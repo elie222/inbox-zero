@@ -140,6 +140,7 @@ model EmailAccount {
   rulesPrompt               String? // @deprecated
   autoCategorizeSenders     Boolean           @default(false)
   multiRuleSelectionEnabled Boolean           @default(false)
+  draftReplyConfidence      DraftReplyConfidence @default(ALL_EMAILS)
 
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
@@ -359,6 +360,9 @@ model Premium {
   stripeTrialEnd           DateTime? // Timestamp for when the free trial period ends (if applicable). Important for managing trial-to-paid transitions.
   stripeCanceledAt         DateTime? // Timestamp for when the subscription was definitively marked as canceled in Stripe (might be immediate or after period end). Historical data.
   stripeEndedAt            DateTime? // Timestamp for when the subscription ended permanently for any reason (cancellation, final payment failure). Historical data.
+  stripeAiOverageLastInvoiceId String?
+  stripeAiOverageLastPeriodEnd DateTime?
+  stripeAiOverageLastUnits     Int?
 
   tier PremiumTier?
 
@@ -1295,6 +1299,12 @@ enum Frequency {
   // ANNUALLY
 }
 
+enum DraftReplyConfidence {
+  ALL_EMAILS
+  STANDARD
+  HIGH_CONFIDENCE
+}
+
 enum NewsletterStatus {
   APPROVED
   UNSUBSCRIBED
@@ -1436,6 +1446,8 @@ enum GroupItemSource {
 
 enum MessagingProvider {
   SLACK
+  TEAMS
+  TELEGRAM
 }
 
 enum AutomationJobRunStatus {

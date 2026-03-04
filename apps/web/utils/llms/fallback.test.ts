@@ -9,6 +9,8 @@ const {
   mockWithNetworkRetry,
   mockExtractLLMErrorInfo,
   mockIsTransientNetworkError,
+  mockWithTracing,
+  mockGetPosthogLlmClient,
 } = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
   mockSaveAiUsage: vi.fn(),
@@ -16,6 +18,8 @@ const {
   mockWithNetworkRetry: vi.fn(),
   mockExtractLLMErrorInfo: vi.fn(),
   mockIsTransientNetworkError: vi.fn(),
+  mockWithTracing: vi.fn(),
+  mockGetPosthogLlmClient: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -30,6 +34,14 @@ vi.mock("ai", async () => {
 
 vi.mock("@/utils/usage", () => ({
   saveAiUsage: mockSaveAiUsage,
+}));
+
+vi.mock("@/utils/posthog", () => ({
+  getPosthogLlmClient: mockGetPosthogLlmClient,
+}));
+
+vi.mock("@posthog/ai/vercel", () => ({
+  withTracing: mockWithTracing,
 }));
 
 vi.mock("./retry", async () => {
@@ -59,6 +71,8 @@ describe("createGenerateText fallback chain", () => {
       retryAfterMs: undefined,
     });
     mockIsTransientNetworkError.mockReturnValue(false);
+    mockGetPosthogLlmClient.mockReturnValue({ capture: vi.fn() });
+    mockWithTracing.mockImplementation((model) => model);
     mockSaveAiUsage.mockResolvedValue(undefined);
   });
 
@@ -229,5 +243,99 @@ describe("createGenerateText fallback chain", () => {
       generation_name: "explicit-generation",
       email_account_id: "explicit-email-account-id",
     });
+  });
+
+  it("adds direct PostHog tracing with privacy mode", async () => {
+    const model = { id: "openai-model" };
+    const tracedModel = { id: "posthog-traced-model" };
+    const modelOptions: SelectModel = {
+      provider: "openai",
+      modelName: "gpt-5-mini",
+      model: model as SelectModel["model"],
+      providerOptions: undefined,
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockWithTracing.mockReturnValue(tracedModel);
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+      toolCalls: [],
+    });
+
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "user-123",
+      },
+      label: "PostHog tracing",
+      modelOptions,
+    });
+
+    await generateText({
+      prompt: "sensitive prompt",
+      model: model as SelectModel["model"],
+    });
+
+    expect(mockWithTracing).toHaveBeenCalledTimes(1);
+    expect(mockWithTracing).toHaveBeenCalledWith(
+      model,
+      expect.any(Object),
+      expect.objectContaining({
+        posthogDistinctId: "user@example.com",
+        posthogPrivacyMode: true,
+      }),
+    );
+
+    const tracingOptions = mockWithTracing.mock.calls[0][2];
+    expect(tracingOptions.posthogProperties).toEqual({
+      label: "PostHog tracing",
+      $ai_span_name: "PostHog tracing",
+      provider: "openai",
+      model: "gpt-5-mini",
+      emailAccountId: "email-account-1",
+      userId: "user-123",
+    });
+    expect(tracingOptions.posthogProperties).not.toHaveProperty("prompt");
+    expect(mockGenerateText.mock.calls[0][0].model).toBe(tracedModel);
+  });
+
+  it("skips direct PostHog tracing when client is unavailable", async () => {
+    const model = { id: "openai-model" };
+    const modelOptions: SelectModel = {
+      provider: "openai",
+      modelName: "gpt-5-mini",
+      model: model as SelectModel["model"],
+      providerOptions: undefined,
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockGetPosthogLlmClient.mockReturnValue(undefined);
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+      toolCalls: [],
+    });
+
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "user-123",
+      },
+      label: "PostHog disabled",
+      modelOptions,
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: model as SelectModel["model"],
+    });
+
+    expect(mockWithTracing).not.toHaveBeenCalled();
+    expect(mockGenerateText.mock.calls[0][0].model).toBe(model);
   });
 });

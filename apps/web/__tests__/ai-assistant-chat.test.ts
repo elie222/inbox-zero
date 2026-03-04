@@ -10,6 +10,7 @@ const {
   mockToolCallAgentStream,
   mockCreateEmailProvider,
   mockPosthogCaptureEvent,
+  mockUnsubscribeSenderAndMark,
   mockPrisma,
 } = vi.hoisted(() => ({
   envState: {
@@ -18,6 +19,7 @@ const {
   mockToolCallAgentStream: vi.fn(),
   mockCreateEmailProvider: vi.fn(),
   mockPosthogCaptureEvent: vi.fn(),
+  mockUnsubscribeSenderAndMark: vi.fn(),
   mockPrisma: {
     emailAccount: {
       findUnique: vi.fn(),
@@ -47,6 +49,10 @@ vi.mock("@/utils/email/provider", () => ({
 
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: mockPosthogCaptureEvent,
+}));
+
+vi.mock("@/utils/senders/unsubscribe", () => ({
+  unsubscribeSenderAndMark: mockUnsubscribeSenderAndMark,
 }));
 
 vi.mock("@/utils/prisma", () => ({
@@ -147,6 +153,12 @@ describe("aiProcessAssistantChat", () => {
       "sendEmail, replyEmail, and forwardEmail prepare a pending action only.",
     );
     expect(args.messages[0].content).toContain(
+      "These pending actions are app-side confirmations, not provider Drafts-folder saves.",
+    );
+    expect(args.messages[0].content).toContain(
+      "Never claim that chat-created pending email actions are saved in the user's Gmail/Outlook Drafts folder.",
+    );
+    expect(args.messages[0].content).toContain(
       "After these tools run, explicitly tell the user the email is pending confirmation.",
     );
     expect(args.tools.getAccountOverview).toBeDefined();
@@ -157,6 +169,46 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.updateAssistantSettings).toBeDefined();
     expect(args.tools.updateInboxFeatures).toBeDefined();
     expect(args.tools.sendEmail).toBeDefined();
+    expect(args.tools.forwardEmail).toBeDefined();
+  });
+
+  it.each([
+    ["slack"],
+    ["teams"],
+    ["telegram"],
+  ] as const)("keeps send-email tools for %s messaging chats when enabled", async (messagingPlatform) => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      responseSurface: "messaging",
+      messagingPlatform,
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    expect(args.messages[0].content).toContain(
+      "sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.",
+    );
+    expect(args.messages[0].content).toContain(
+      "These pending actions are app-side confirmations, not provider Drafts-folder saves.",
+    );
+    expect(args.messages[0].content).toContain(
+      "A Send confirmation button is provided in this thread.",
+    );
+    expect(args.messages[0].content).not.toContain(
+      "Email sending actions are disabled in this environment",
+    );
+    expect(args.tools.sendEmail).toBeDefined();
+    expect(args.tools.replyEmail).toBeDefined();
     expect(args.tools.forwardEmail).toBeDefined();
   });
 
@@ -815,11 +867,11 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
-  it("keeps unlabeled Google messages as pass-through", async () => {
+  it("returns messages from searchMessages", async () => {
     const tools = await captureToolSet(true, "google");
 
     mockCreateEmailProvider.mockResolvedValue({
-      getMessagesWithPagination: vi.fn().mockResolvedValue({
+      searchMessages: vi.fn().mockResolvedValue({
         messages: [
           {
             id: "message-1",
@@ -849,62 +901,12 @@ describe("aiProcessAssistantChat", () => {
     });
 
     const result = await tools.searchInbox.execute({
-      query: "today",
-      after: undefined,
-      before: undefined,
+      query: "in:inbox today",
       limit: 20,
       pageToken: undefined,
-      inboxOnly: true,
-      unreadOnly: false,
     });
 
     expect(result.totalReturned).toBe(1);
-  });
-
-  it("excludes unlabeled messages in unread-only searches", async () => {
-    const tools = await captureToolSet(true, "google");
-
-    mockCreateEmailProvider.mockResolvedValue({
-      getMessagesWithPagination: vi.fn().mockResolvedValue({
-        messages: [
-          {
-            id: "message-1",
-            threadId: "thread-1",
-            labelIds: undefined,
-            snippet: "Message without labels",
-            historyId: "hist-1",
-            inline: [],
-            headers: {
-              from: "sender1@example.com",
-              to: "user@example.com",
-              subject: "No labels",
-              date: new Date().toISOString(),
-            },
-            subject: "No labels",
-            date: new Date().toISOString(),
-            attachments: [],
-          },
-        ],
-        nextPageToken: undefined,
-      }),
-      getLabels: vi.fn().mockResolvedValue([]),
-      archiveThreadWithLabel: vi.fn(),
-      markReadThread: vi.fn(),
-      bulkArchiveFromSenders: vi.fn(),
-      sendEmailWithHtml: vi.fn(),
-    });
-
-    const result = await tools.searchInbox.execute({
-      query: "today",
-      after: undefined,
-      before: undefined,
-      limit: 20,
-      pageToken: undefined,
-      inboxOnly: true,
-      unreadOnly: true,
-    });
-
-    expect(result.totalReturned).toBe(0);
   });
 
   it("sends email with allowlisted chat params only", async () => {
@@ -1270,7 +1272,17 @@ describe("aiProcessAssistantChat", () => {
       read: true,
     });
     expect(bulkMissingSenders).toEqual({
-      error: "fromEmails is required when action is bulk_archive_senders",
+      error:
+        "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
+    });
+
+    const unsubscribeMissingSenders = await tools.manageInbox.execute({
+      action: "unsubscribe_senders",
+      read: true,
+    });
+    expect(unsubscribeMissingSenders).toEqual({
+      error:
+        "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
     });
 
     const archiveEmptyThreadIds = await tools.manageInbox.execute({
@@ -1297,6 +1309,147 @@ describe("aiProcessAssistantChat", () => {
     expect(mockCreateEmailProvider).not.toHaveBeenCalled();
   });
 
+  it("executes unsubscribe sender inbox action and archives sender messages", async () => {
+    const tools = await captureToolSet();
+
+    const getMessagesFromSender = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "message-1",
+          threadId: "thread-1",
+          snippet: "Weekly update",
+          historyId: "history-1",
+          inline: [],
+          headers: {
+            from: "Sender <sender@example.com>",
+            to: "user@example.com",
+            subject: "Weekly update",
+            date: new Date().toISOString(),
+            "list-unsubscribe": "<https://example.com/unsubscribe?id=1>",
+          },
+          textHtml:
+            '<html><body><a href="https://example.com/unsubscribe?id=1">Unsubscribe</a></body></html>',
+          subject: "Weekly update",
+          date: new Date().toISOString(),
+        },
+      ],
+      nextPageToken: undefined,
+    });
+    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(undefined);
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessagesFromSender,
+      bulkArchiveFromSenders,
+    });
+    mockUnsubscribeSenderAndMark.mockResolvedValue({
+      senderEmail: "sender@example.com",
+      status: "UNSUBSCRIBED",
+      unsubscribe: {
+        attempted: true,
+        success: true,
+        method: "post",
+      },
+    });
+
+    const result = await tools.manageInbox.execute({
+      action: "unsubscribe_senders",
+      fromEmails: ["sender@example.com"],
+    });
+
+    expect(getMessagesFromSender).toHaveBeenCalledWith({
+      senderEmail: "sender@example.com",
+      maxResults: 5,
+    });
+    expect(mockUnsubscribeSenderAndMark).toHaveBeenCalledWith(
+      expect.objectContaining({
+        newsletterEmail: "sender@example.com",
+        listUnsubscribeHeader: "<https://example.com/unsubscribe?id=1>",
+      }),
+    );
+    expect(bulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["sender@example.com"],
+      expect.any(String),
+      "email-account-id",
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        action: "unsubscribe_senders",
+        sendersCount: 1,
+        successCount: 1,
+        failedCount: 0,
+        autoUnsubscribeCount: 1,
+        autoUnsubscribeAttemptedCount: 1,
+      }),
+    );
+  });
+
+  it("archives sender messages even when automatic unsubscribe fails", async () => {
+    const tools = await captureToolSet();
+
+    const getMessagesFromSender = vi.fn().mockResolvedValue({
+      messages: [
+        {
+          id: "message-1",
+          threadId: "thread-1",
+          snippet: "Weekly update",
+          historyId: "history-1",
+          inline: [],
+          headers: {
+            from: "Sender <sender@example.com>",
+            to: "user@example.com",
+            subject: "Weekly update",
+            date: new Date().toISOString(),
+            "list-unsubscribe": "<https://example.com/unsubscribe?id=1>",
+          },
+          textHtml:
+            '<html><body><a href="https://example.com/unsubscribe?id=1">Unsubscribe</a></body></html>',
+          subject: "Weekly update",
+          date: new Date().toISOString(),
+        },
+      ],
+      nextPageToken: undefined,
+    });
+    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(undefined);
+
+    mockCreateEmailProvider.mockResolvedValue({
+      getMessagesFromSender,
+      bulkArchiveFromSenders,
+    });
+    mockUnsubscribeSenderAndMark.mockResolvedValue({
+      senderEmail: "sender@example.com",
+      status: null,
+      unsubscribe: {
+        attempted: false,
+        success: false,
+        reason: "no_unsubscribe_url",
+      },
+    });
+
+    const result = await tools.manageInbox.execute({
+      action: "unsubscribe_senders",
+      fromEmails: ["sender@example.com"],
+    });
+
+    expect(bulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["sender@example.com"],
+      expect.any(String),
+      "email-account-id",
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: false,
+        action: "unsubscribe_senders",
+        sendersCount: 1,
+        successCount: 0,
+        failedCount: 1,
+        failedSenders: ["sender@example.com"],
+        autoUnsubscribeCount: 0,
+        autoUnsubscribeAttemptedCount: 0,
+      }),
+    );
+  });
+
   it("executes searchInbox and manageInbox tools with resilient behavior", async () => {
     const tools = await captureToolSet(true, "microsoft");
 
@@ -1306,7 +1459,7 @@ describe("aiProcessAssistantChat", () => {
         if (threadId === "thread-2") throw new Error("archive failed");
       });
 
-    const getMessagesWithPagination = vi.fn().mockResolvedValue({
+    const searchMessages = vi.fn().mockResolvedValue({
       messages: [
         {
           id: "message-1",
@@ -1347,7 +1500,7 @@ describe("aiProcessAssistantChat", () => {
     });
 
     mockCreateEmailProvider.mockResolvedValue({
-      getMessagesWithPagination,
+      searchMessages,
       getLabels: vi.fn().mockRejectedValue(new Error("labels unavailable")),
       archiveThreadWithLabel,
       markReadThread: vi.fn(),
@@ -1357,20 +1510,14 @@ describe("aiProcessAssistantChat", () => {
 
     const searchResult = await tools.searchInbox.execute({
       query: "today",
-      after: undefined,
-      before: undefined,
       limit: 20,
       pageToken: undefined,
-      inboxOnly: true,
-      unreadOnly: false,
     });
 
     expect(mockCreateEmailProvider).toHaveBeenCalled();
-    expect(getMessagesWithPagination).toHaveBeenCalledWith(
+    expect(searchMessages).toHaveBeenCalledWith(
       expect.objectContaining({
         query: "today",
-        inboxOnly: true,
-        unreadOnly: false,
       }),
     );
     expect(searchResult.totalReturned).toBe(2);

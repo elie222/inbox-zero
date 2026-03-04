@@ -139,6 +139,7 @@ export const env = createEnv({
     // Stripe
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    STRIPE_AI_GENERATION_OVERAGE_CONFIG: z.string().optional(),
 
     TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
@@ -199,6 +200,15 @@ export const env = createEnv({
     SLACK_CLIENT_ID: z.string().optional(),
     SLACK_CLIENT_SECRET: z.string().optional(),
     SLACK_SIGNING_SECRET: z.string().optional(),
+
+    // Chat SDK messaging adapters
+    TEAMS_BOT_APP_ID: z.string().optional(),
+    TEAMS_BOT_APP_PASSWORD: z.string().optional(),
+    TEAMS_BOT_APP_TENANT_ID: z.string().optional(),
+    TEAMS_BOT_APP_TYPE: z.enum(["MultiTenant", "SingleTenant"]).optional(),
+    TELEGRAM_BOT_TOKEN: z.string().optional(),
+    TELEGRAM_BOT_SECRET_TOKEN: z.string().optional(),
+    REPLAY_RECORDING_ENABLED: booleanString.optional().default(false),
   },
   client: {
     // stripe

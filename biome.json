@@ -120,7 +120,6 @@
         "**/__tests__/**",
         "**/*.test.*",
         "**/*.spec.*",
-        "apps/unsubscriber/**",
         "packages/**",
         "**/*.tsx",
         "**/scripts/**"

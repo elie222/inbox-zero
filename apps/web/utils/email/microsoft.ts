@@ -1078,6 +1078,27 @@ export class OutlookProvider implements EmailProvider {
     };
   }
 
+  async searchMessages(options: {
+    query: string;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
+    const response = await queryBatchMessages(
+      this.client,
+      {
+        searchQuery: options.query,
+        maxResults: options.maxResults || 20,
+        pageToken: options.pageToken,
+      },
+      this.logger,
+    );
+
+    return {
+      messages: response.messages || [],
+      nextPageToken: response.nextPageToken,
+    };
+  }
+
   async getMessagesWithAttachments(options: {
     maxResults?: number;
     pageToken?: string;

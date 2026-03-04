@@ -8,10 +8,10 @@ import MeetingBriefingEmail, {
   type BriefingContent,
   type InternalTeamMember,
 } from "@inboxzero/resend/emails/meeting-briefing";
-import { sendMeetingBriefingToSlack } from "@inboxzero/slack";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
+import { sendMeetingBriefingToSlack } from "@/utils/messaging/providers/slack/send";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { formatTimeInUserTimezone } from "@/utils/date";
 import prisma from "@/utils/prisma";

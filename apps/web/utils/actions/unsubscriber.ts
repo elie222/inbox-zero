@@ -1,9 +1,14 @@
 "use server";
 
-import prisma from "@/utils/prisma";
-import { setNewsletterStatusBody } from "@/utils/actions/unsubscriber.validation";
-import { extractEmailAddress } from "@/utils/email";
+import {
+  setNewsletterStatusBody,
+  unsubscribeSenderBody,
+} from "@/utils/actions/unsubscriber.validation";
 import { actionClient } from "@/utils/actions/safe-action";
+import {
+  setSenderStatus,
+  unsubscribeSenderAndMark,
+} from "@/utils/senders/unsubscribe";
 
 export const setNewsletterStatusAction = actionClient
   .metadata({ name: "setNewsletterStatus" })
@@ -13,18 +18,28 @@ export const setNewsletterStatusAction = actionClient
       parsedInput: { newsletterEmail, status },
       ctx: { emailAccountId },
     }) => {
-      const email = extractEmailAddress(newsletterEmail);
+      return setSenderStatus({
+        emailAccountId,
+        newsletterEmail,
+        status,
+      });
+    },
+  );
 
-      return await prisma.newsletter.upsert({
-        where: {
-          email_emailAccountId: { email, emailAccountId },
-        },
-        create: {
-          status,
-          email,
-          emailAccountId,
-        },
-        update: { status },
+export const unsubscribeSenderAction = actionClient
+  .metadata({ name: "unsubscribeSender" })
+  .inputSchema(unsubscribeSenderBody)
+  .action(
+    async ({
+      parsedInput: { newsletterEmail, unsubscribeLink, listUnsubscribeHeader },
+      ctx: { emailAccountId, logger },
+    }) => {
+      return unsubscribeSenderAndMark({
+        emailAccountId,
+        newsletterEmail,
+        unsubscribeLink,
+        listUnsubscribeHeader,
+        logger,
       });
     },
   );

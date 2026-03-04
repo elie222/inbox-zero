@@ -11,6 +11,8 @@ import {
   PLAIN_TEXT_OUTPUT_INSTRUCTION,
   PROMPT_SECURITY_INSTRUCTIONS,
 } from "@/utils/ai/security";
+import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { normalizeDraftReplyConfidence } from "@/utils/ai/reply/draft-confidence";
 
 const logger = createScopedLogger("DraftReply");
 
@@ -33,8 +35,6 @@ Don't suggest meeting times or mention availability unless specific calendar inf
 
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
-
-Return your response in JSON format.
 `;
 
 const defaultWritingStyle = `Keep it concise and friendly.
@@ -185,9 +185,19 @@ const draftSchema = z.object({
     .describe(
       "The complete email reply draft incorporating knowledge base information",
     ),
+  confidence: z
+    .nativeEnum(DraftReplyConfidence)
+    .describe(
+      "Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE. Use ALL_EMAILS when uncertain or context is missing, STANDARD for solid drafts with minor uncertainty, and HIGH_CONFIDENCE only when intent and response are clear.",
+    ),
 });
 
-export async function aiDraftReply({
+export type DraftReplyResult = {
+  reply: string;
+  confidence: DraftReplyConfidence;
+};
+
+export async function aiDraftReplyWithConfidence({
   messages,
   emailAccount,
   knowledgeBaseContent,
@@ -207,7 +217,7 @@ export async function aiDraftReply({
   writingStyle: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
-}) {
+}): Promise<DraftReplyResult> {
   logger.info("Drafting email reply", {
     messageCount: messages.length,
     hasKnowledge: !!knowledgeBaseContent,
@@ -260,7 +270,46 @@ export async function aiDraftReply({
     }
   }
 
-  return normalizeDraftReplyFormatting(result.object.reply);
+  return {
+    reply: normalizeDraftReplyFormatting(result.object.reply),
+    confidence: normalizeDraftReplyConfidence(result.object.confidence),
+  };
+}
+
+export async function aiDraftReply({
+  messages,
+  emailAccount,
+  knowledgeBaseContent,
+  emailHistorySummary,
+  emailHistoryContext,
+  calendarAvailability,
+  writingStyle,
+  mcpContext,
+  meetingContext,
+}: {
+  messages: (EmailForLLM & { to: string })[];
+  emailAccount: EmailAccountWithAI;
+  knowledgeBaseContent: string | null;
+  emailHistorySummary: string | null;
+  emailHistoryContext: ReplyContextCollectorResult | null;
+  calendarAvailability: CalendarAvailabilityContext | null;
+  writingStyle: string | null;
+  mcpContext: string | null;
+  meetingContext: string | null;
+}) {
+  const result = await aiDraftReplyWithConfidence({
+    messages,
+    emailAccount,
+    knowledgeBaseContent,
+    emailHistorySummary,
+    emailHistoryContext,
+    calendarAvailability,
+    writingStyle,
+    mcpContext,
+    meetingContext,
+  });
+
+  return result.reply;
 }
 
 function normalizeDraftReplyFormatting(reply: string): string {

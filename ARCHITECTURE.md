@@ -2,11 +2,10 @@
 
 The initial version of this document was created by Google Gemini 2.0 Flash Thinking Experimental 01-21.
 
-The Inbox Zero repository is structured as a monorepo, consisting of two main applications (`apps/web`, `apps/unsubscriber`) and several packages (`packages/*`). Only the `apps/web` is currently in use in production.
+The Inbox Zero repository is structured as a monorepo, consisting of one main application (`apps/web`) and several packages (`packages/*`).
 
 ```txt
 ├── apps/
-│ ├── unsubscriber/ // Unsubscribe Automation Service (Fastify, Playwright)
 │ └── web/ // Main Next.js Web Application (Frontend and Backend)
 ├── packages/ // Reusable libraries and configurations
 │ ├── eslint-config/
@@ -42,23 +41,9 @@ The Inbox Zero repository is structured as a monorepo, consisting of two main ap
   - Server-side rendering and data fetching.
   - Integration with payment processing (Lemon Squeezy) and analytics (Tinybird, PostHog).
 
-### 2. `apps/unsubscriber` - Unsubscribe Automation Service
+### 2. `packages` - Reusable Packages
 
-- **Framework:** Fastify (Node.js), Playwright
-- **Purpose:** A separate, lightweight service dedicated to handling automated unsubscription from emails. This service uses Playwright for browser automation and AI for analyzing unsubscribe pages.
-- **Key Files:**
-  - `src/server.ts`: Fastify server setup and API endpoint definition.
-  - `src/main.ts`: Core logic for analyzing unsubscribe pages and performing actions using Playwright and AI.
-  - `src/llm.ts`: Integration with different LLM providers (Google AI, OpenAI, Anthropic, Bedrock).
-- **Key Functionalities:**
-  - Exposes a REST API (`/unsubscribe` endpoint) to trigger the unsubscribe process.
-  - Utilizes Playwright to automate browser interactions for unsubscribing.
-  - Employs AI (Google Gemini by default) to analyze unsubscribe pages and determine the necessary actions.
-  - Handles fallback strategies for unsubscribing when AI analysis is insufficient.
-
-### 3. `packages` - Reusable Packages
-
-- **Purpose:** Contains reusable libraries, configurations, and utilities shared between the `web` and `unsubscriber` apps.
+- **Purpose:** Contains reusable libraries, configurations, and utilities shared by the web app.
 - **Key Packages:**
   - `eslint-config`: ESLint configurations for consistent code linting.
   - `loops`: Related to marketing email automation.
@@ -67,14 +52,14 @@ The Inbox Zero repository is structured as a monorepo, consisting of two main ap
   - `tinybird-ai-analytics`: Integration with Tinybird for AI usage analytics.
   - `tsconfig`: Shared TypeScript configurations.
 
-### 4. `prisma` - Database Layer
+### 3. `prisma` - Database Layer
 
 - **Purpose:** Manages the PostgreSQL database schema and migrations.
 - **Key Files:**
   - `schema.prisma`: Defines the database schema using Prisma Schema Language.
   - `migrations/`: Contains database migration files for schema updates.
 
-### 5. `sanity` - Content Management System
+### 4. `sanity` - Content Management System
 
 - **Purpose:** Integrates Sanity.io as a headless CMS for managing blog posts and potentially other content.
 - **Key Files:**
@@ -82,7 +67,7 @@ The Inbox Zero repository is structured as a monorepo, consisting of two main ap
   - `schemaTypes/`: Defines the schema types for Sanity content.
   - `lib/`: Contains utility functions for interacting with the Sanity API.
 
-### 6. `store` - State Management and Queues
+### 5. `store` - State Management and Queues
 
 - **Purpose:** Implements client-side state management using Jotai and defines queues for background task processing.
 - **Key Files:**
@@ -92,7 +77,7 @@ The Inbox Zero repository is structured as a monorepo, consisting of two main ap
   - `archive-sender-queue.ts`: Queue for bulk sender archiving.
   - `ai-categorize-sender-queue.ts`: Queue for AI-based sender categorization.
 
-### 7. `utils` - Utilities and Core Logic
+### 6. `utils` - Utilities and Core Logic
 
 - **Purpose:** Houses utility functions, shared logic, and server actions.
 - **Key Directories:**
@@ -104,7 +89,7 @@ The Inbox Zero repository is structured as a monorepo, consisting of two main ap
   - `rule/`: Rule-related utilities (prompt file parsing, rule fixing, etc.).
   - `scripts/`: Scripts for database migrations, data manipulation, and other maintenance tasks.
 
-### 8. `docker` - Docker Configuration
+### 7. `docker` - Docker Configuration
 
 - **Purpose:** Contains Dockerfile for containerizing the web application.
 - **Key Files:**
@@ -139,7 +124,7 @@ The application exposes the following API endpoints under `apps/web/app/api/`:
     - User initiates bulk unsubscribe process from the web UI (`apps/web/app/(app)/bulk-unsubscribe`).
     - Frontend fetches list of newsletters and senders from Tinybird analytics data (`packages/tinybird`).
     - User selects newsletters to unsubscribe from.
-    - Backend service (`apps/unsubscriber`) uses Playwright to automate unsubscribe process.
+    - Unsubscribe actions are handled inside the web application server actions and provider integrations.
     - Unsubscribe status is updated in the database.
 
 3.  **Email Analytics:**

@@ -15,6 +15,7 @@ import { env } from "@/env";
 import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
+import { SafeError } from "../error";
 
 // Thinking budgets for Google-family models (set low to minimize cost)
 const GOOGLE_THINKING_BUDGET = 50;
@@ -33,6 +34,14 @@ export type ResolvedModel = {
 export type SelectModel = ResolvedModel & {
   fallbackModels: ResolvedModel[];
   hasUserApiKey: boolean;
+};
+
+type AiGatewayProviderOptions = {
+  google?: GoogleGenerativeAIProviderOptions;
+  openai?: {
+    reasoningEffort: "low";
+    reasoningSummary: "concise";
+  };
 };
 
 export function getModel(
@@ -120,7 +129,9 @@ function selectModel(
       const baseOptions = providerOptions ?? {};
       const resourceName = env.AZURE_RESOURCE_NAME;
       if (!resourceName) {
-        throw new Error("AZURE_RESOURCE_NAME environment variable is not set");
+        throw new SafeError(
+          "AZURE_RESOURCE_NAME environment variable is not set",
+        );
       }
 
       return {
@@ -203,21 +214,15 @@ function selectModel(
         provider: Provider.AI_GATEWAY,
         modelName,
         model: gateway(modelName),
-        providerOptions: {
-          // Disable/cap thinking for Google models (Gemini)
-          google: {
-            thinkingConfig: {
-              thinkingBudget: GOOGLE_THINKING_BUDGET,
-            },
-          } satisfies GoogleGenerativeAIProviderOptions,
-          // Note: Anthropic thinking is disabled by default (not including the config)
-        },
+        providerOptions: getAiGatewayProviderOptions(modelName),
       };
     }
     case "ollama": {
-      const modelName = env.OLLAMA_MODEL;
+      const modelName = aiModel || env.OLLAMA_MODEL;
       if (!modelName)
-        throw new Error("OLLAMA_MODEL environment variable is not set");
+        throw new SafeError(
+          "DEFAULT_LLM_MODEL environment variable is not set",
+        );
       return {
         provider: Provider.OLLAMA,
         modelName,
@@ -227,8 +232,8 @@ function selectModel(
     case Provider.OPENAI_COMPATIBLE: {
       const modelName = aiModel || env.OPENAI_COMPATIBLE_MODEL;
       if (!modelName)
-        throw new Error(
-          "OPENAI_COMPATIBLE_MODEL environment variable is not set",
+        throw new SafeError(
+          "DEFAULT_LLM_MODEL environment variable is not set",
         );
       const baseURL =
         env.OPENAI_COMPATIBLE_BASE_URL || "http://localhost:1234/v1";
@@ -236,6 +241,7 @@ function selectModel(
       const openaiCompatible = createOpenAICompatible({
         name: "openai-compatible",
         baseURL,
+        supportsStructuredOutputs: true,
         ...(openAiCompatibleApiKey ? { apiKey: openAiCompatibleApiKey } : {}),
       });
       return {
@@ -520,7 +526,9 @@ function getVertexConfig(): {
 } {
   const project = env.GOOGLE_VERTEX_PROJECT;
   if (!project) {
-    throw new Error("GOOGLE_VERTEX_PROJECT environment variable is not set");
+    throw new SafeError(
+      "GOOGLE_VERTEX_PROJECT environment variable is not set",
+    );
   }
 
   const location = env.GOOGLE_VERTEX_LOCATION;
@@ -590,24 +598,6 @@ function getFallbackModels({
         provider: fallback.provider,
         modelType,
       });
-      continue;
-    }
-
-    if (fallback.provider === Provider.OLLAMA && !env.OLLAMA_MODEL) {
-      logger.warn("Skipping Ollama fallback without OLLAMA_MODEL", {
-        provider: fallback.provider,
-      });
-      continue;
-    }
-
-    if (
-      fallback.provider === Provider.OPENAI_COMPATIBLE &&
-      !env.OPENAI_COMPATIBLE_MODEL
-    ) {
-      logger.warn(
-        "Skipping OpenAI-compatible fallback without OPENAI_COMPATIBLE_MODEL",
-        { provider: fallback.provider },
-      );
       continue;
     }
 
@@ -698,6 +688,38 @@ function getGoogleThinkingConfig(
 
 function isGemini3Model(modelName: string): boolean {
   return modelName.toLowerCase().startsWith("gemini-3");
+}
+
+function getAiGatewayProviderOptions(
+  modelName: string,
+): AiGatewayProviderOptions {
+  const normalizedModelName = modelName.toLowerCase();
+
+  if (normalizedModelName.startsWith("google/")) {
+    return {
+      google: {
+        thinkingConfig: {
+          thinkingBudget: GOOGLE_THINKING_BUDGET,
+        },
+      },
+    };
+  }
+
+  if (
+    normalizedModelName.startsWith("openai/") ||
+    normalizedModelName.startsWith("azure/")
+  ) {
+    return {
+      // Azure OpenAI models use OpenAI provider options in AI Gateway.
+      openai: {
+        reasoningEffort: "low",
+        reasoningSummary: "concise",
+      },
+    };
+  }
+
+  // Note: Anthropic thinking is disabled by default (not including the config)
+  return {};
 }
 
 function parseFallbackConfig(

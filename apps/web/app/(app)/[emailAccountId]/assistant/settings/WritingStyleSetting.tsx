@@ -14,7 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastSuccess } from "@/components/Toast";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -24,8 +24,8 @@ import {
   saveWritingStyleBody,
 } from "@/utils/actions/user.validation";
 import { saveWritingStyleAction } from "@/utils/actions/user";
+import { createSettingActionErrorHandler } from "@/utils/actions/error-handling";
 import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
-import { getActionErrorMessage } from "@/utils/error";
 
 export function WritingStyleSetting() {
   const { data, isLoading, error } = useEmailAccountFull();
@@ -83,11 +83,7 @@ function WritingStyleDialog({
         });
         setOpen(false);
       },
-      onError: (error) => {
-        toastError({
-          description: getActionErrorMessage(error.error),
-        });
-      },
+      onError: createSettingActionErrorHandler({}),
       onSettled: () => {
         mutate();
       },

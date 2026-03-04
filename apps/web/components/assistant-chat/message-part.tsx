@@ -158,7 +158,8 @@ export function MessagePart({
     const { toolCallId, state } = part;
     if (state === "input-available") {
       if (
-        part.input.action === "bulk_archive_senders" &&
+        (part.input.action === "bulk_archive_senders" ||
+          part.input.action === "unsubscribe_senders") &&
         part.input.fromEmails?.length
       ) {
         return (
@@ -182,6 +183,8 @@ export function MessagePart({
           part.input.read === false
             ? "Marking emails as unread..."
             : "Marking emails as read...";
+      } else if (part.input.action === "unsubscribe_senders") {
+        actionText = "Unsubscribing senders...";
       }
 
       return <BasicToolInfo key={toolCallId} text={actionText} />;
@@ -197,7 +200,8 @@ export function MessagePart({
           input={part.input}
           output={output}
           threadIds={
-            part.input.action !== "bulk_archive_senders"
+            part.input.action === "archive_threads" ||
+            part.input.action === "mark_read_threads"
               ? part.input.threadIds
               : undefined
           }
