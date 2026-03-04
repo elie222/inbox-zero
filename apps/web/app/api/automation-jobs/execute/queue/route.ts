@@ -1,32 +1,32 @@
-import type { z } from "zod";
 import { handleCallback } from "@vercel/queue";
 import {
   executeAutomationJobBody,
-  executeAutomationJobRun,
-} from "@/utils/automation-jobs/execute";
+  type ExecuteAutomationJobBody,
+} from "@/utils/actions/automation-jobs.validation";
+import { executeAutomationJobRun } from "@/utils/automation-jobs/execute";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { getQueueRetryBackoffSeconds } from "@/utils/queue/retry";
 
 export const maxDuration = 300;
 
-const logger = createScopedLogger("automation-jobs/execute/queue");
-
-export const POST = handleCallback<z.infer<typeof executeAutomationJobBody>>(
+export const POST = handleCallback<ExecuteAutomationJobBody>(
   async (message, metadata) => {
+    const logger = createScopedLogger("automation-jobs/execute/queue").with({
+      queueMessageId: metadata.messageId,
+      deliveryCount: metadata.deliveryCount,
+    });
+
     const parseResult = executeAutomationJobBody.safeParse(message);
     if (!parseResult.success) {
       logger.error("Invalid automation jobs queue payload", {
         errors: parseResult.error.errors,
-        queueMessageId: metadata.messageId,
       });
       return;
     }
 
     const runLogger = logger.with({
       automationJobRunId: parseResult.data.automationJobRunId,
-      queueMessageId: metadata.messageId,
-      deliveryCount: metadata.deliveryCount,
     });
 
     try {

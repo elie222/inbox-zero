@@ -1,9 +1,7 @@
 import { withError } from "@/utils/middleware";
 import { withQstashOrInternal } from "@/utils/qstash";
-import {
-  executeAutomationJobBody,
-  executeAutomationJobRun,
-} from "@/utils/automation-jobs/execute";
+import { executeAutomationJobBody } from "@/utils/actions/automation-jobs.validation";
+import { executeAutomationJobRun } from "@/utils/automation-jobs/execute";
 
 export const maxDuration = 300;
 

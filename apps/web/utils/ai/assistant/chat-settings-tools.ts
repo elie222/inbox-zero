@@ -7,7 +7,10 @@ import { posthogCaptureEvent } from "@/utils/posthog";
 import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
 import { DEFAULT_AUTOMATION_JOB_CRON } from "@/utils/automation-jobs/defaults";
-import { SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS } from "@/utils/automation-jobs/messaging-channel";
+import {
+  formatAutomationMessagingChannelLabel,
+  SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
+} from "@/utils/automation-jobs/messaging-channel";
 import {
   getNextAutomationJobRunAt,
   validateAutomationCronExpression,
@@ -316,6 +319,8 @@ const scheduledCheckInsAutomationJobSelect = {
       provider: true,
       channelName: true,
       teamName: true,
+      providerUserId: true,
+      channelId: true,
     },
   },
 } satisfies Prisma.AutomationJobSelect;
@@ -1122,11 +1127,15 @@ function buildScheduledCheckInsSnapshot(
     )
     .map((channel) => ({
       id: channel.id,
-      label: formatMessagingChannelLabel({
-        provider: channel.provider,
-        channelName: channel.channelName,
-        teamName: channel.teamName,
-      }),
+      label: formatAutomationMessagingChannelLabel(
+        {
+          provider: channel.provider,
+          channelName: channel.channelName,
+          channelId: channel.channelId,
+          teamName: channel.teamName,
+        },
+        { includeTeamNameWithChannel: true },
+      ),
     }));
 
   return {
@@ -1140,33 +1149,19 @@ function buildScheduledCheckInsSnapshot(
     nextRunAt: emailAccount.automationJob?.nextRunAt.toISOString() ?? null,
     messagingChannelId: emailAccount.automationJob?.messagingChannelId ?? null,
     messagingChannelName: emailAccount.automationJob?.messagingChannel
-      ? formatMessagingChannelLabel({
-          provider: emailAccount.automationJob.messagingChannel.provider,
-          channelName: emailAccount.automationJob.messagingChannel.channelName,
-          teamName: emailAccount.automationJob.messagingChannel.teamName,
-        })
+      ? formatAutomationMessagingChannelLabel(
+          {
+            provider: emailAccount.automationJob.messagingChannel.provider,
+            channelName:
+              emailAccount.automationJob.messagingChannel.channelName,
+            channelId: emailAccount.automationJob.messagingChannel.channelId,
+            teamName: emailAccount.automationJob.messagingChannel.teamName,
+          },
+          { includeTeamNameWithChannel: true },
+        )
       : null,
     availableChannels,
   };
-}
-
-function formatMessagingChannelLabel({
-  provider,
-  channelName,
-  teamName,
-}: {
-  provider: MessagingProvider;
-  channelName: string | null;
-  teamName: string | null;
-}) {
-  if (channelName && teamName) return `#${channelName} (${teamName})`;
-  if (channelName) return `#${channelName}`;
-  if (teamName) return teamName;
-
-  if (provider === MessagingProvider.TEAMS) return "Teams destination";
-  if (provider === MessagingProvider.TELEGRAM) return "Telegram destination";
-
-  return "Slack destination";
 }
 
 function requiresScheduledCheckInsPremium({

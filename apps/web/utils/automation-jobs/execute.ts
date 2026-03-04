@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { AutomationJobRunStatus } from "@/generated/prisma/enums";
 import { AutomationJobConfigurationError } from "@/utils/automation-jobs/slack";
 import { isStaleAutomationJobRun } from "@/utils/automation-jobs/stale";
@@ -9,10 +8,6 @@ import { isActivePremium } from "@/utils/premium";
 import prisma from "@/utils/prisma";
 import { getUserPremium } from "@/utils/user/get";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
-
-export const executeAutomationJobBody = z.object({
-  automationJobRunId: z.string().min(1, "Automation job run ID is required"),
-});
 
 export async function executeAutomationJobRun({
   automationJobRunId,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import {
+  formatAutomationMessagingChannelLabel,
   hasAutomationMessagingDestination,
   isAutomationMessagingChannelReady,
   isSupportedAutomationMessagingProvider,
@@ -109,5 +110,57 @@ describe("automation job messaging channel helpers", () => {
         channelId: null,
       }),
     ).toBe(true);
+  });
+
+  it("formats channel labels with provider-specific fallbacks", () => {
+    expect(
+      formatAutomationMessagingChannelLabel({
+        provider: MessagingProvider.SLACK,
+        channelName: null,
+        channelId: null,
+        teamName: null,
+      }),
+    ).toBe("Slack workspace");
+
+    expect(
+      formatAutomationMessagingChannelLabel({
+        provider: MessagingProvider.TEAMS,
+        channelName: null,
+        channelId: null,
+        teamName: null,
+      }),
+    ).toBe("Teams destination");
+
+    expect(
+      formatAutomationMessagingChannelLabel({
+        provider: MessagingProvider.TELEGRAM,
+        channelName: null,
+        channelId: null,
+        teamName: null,
+      }),
+    ).toBe("Telegram destination");
+  });
+
+  it("supports showing team name alongside channel name", () => {
+    expect(
+      formatAutomationMessagingChannelLabel(
+        {
+          provider: MessagingProvider.SLACK,
+          channelName: "inbox-updates",
+          channelId: null,
+          teamName: "Acme",
+        },
+        { includeTeamNameWithChannel: true },
+      ),
+    ).toBe("#inbox-updates (Acme)");
+
+    expect(
+      formatAutomationMessagingChannelLabel({
+        provider: MessagingProvider.SLACK,
+        channelName: "inbox-updates",
+        channelId: null,
+        teamName: "Acme",
+      }),
+    ).toBe("#inbox-updates");
   });
 });

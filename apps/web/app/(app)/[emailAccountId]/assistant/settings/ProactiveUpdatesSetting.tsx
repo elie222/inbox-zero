@@ -41,6 +41,7 @@ import {
   DEFAULT_AUTOMATION_JOB_CRON,
 } from "@/utils/automation-jobs/defaults";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
+import { formatAutomationMessagingChannelLabel } from "@/utils/automation-jobs/messaging-channel";
 import { BRAND_NAME } from "@/utils/branding";
 
 export function ProactiveUpdatesSetting() {
@@ -229,7 +230,9 @@ export function ProactiveUpdatesSetting() {
                             <SelectContent>
                               {connectedMessagingChannels.map((channel) => (
                                 <SelectItem key={channel.id} value={channel.id}>
-                                  {formatMessagingChannelLabel(channel)}
+                                  {formatAutomationMessagingChannelLabel(
+                                    channel,
+                                  )}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -368,21 +371,6 @@ export function ProactiveUpdatesSetting() {
       }
     />
   );
-}
-
-function formatMessagingChannelLabel(channel: {
-  provider: "SLACK" | "TEAMS" | "TELEGRAM";
-  channelName: string | null;
-  channelId: string | null;
-  teamName: string | null;
-}) {
-  if (channel.channelName) return `#${channel.channelName}`;
-  if (channel.channelId) return `Channel ${channel.channelId}`;
-  if (channel.teamName) return channel.teamName;
-
-  if (channel.provider === "TEAMS") return "Teams destination";
-  if (channel.provider === "TELEGRAM") return "Telegram destination";
-  return "Slack destination";
 }
 
 const SLACK_MESSAGES = [

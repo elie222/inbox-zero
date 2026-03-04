@@ -46,3 +46,29 @@ export function isAutomationMessagingChannelReady(
 
   return true;
 }
+
+export function formatAutomationMessagingChannelLabel(
+  channel: Pick<AutomationMessagingChannel, "provider" | "channelId"> & {
+    channelName: string | null;
+    teamName: string | null;
+  },
+  options?: { includeTeamNameWithChannel?: boolean },
+) {
+  if (
+    options?.includeTeamNameWithChannel &&
+    channel.channelName &&
+    channel.teamName
+  ) {
+    return `#${channel.channelName} (${channel.teamName})`;
+  }
+
+  if (channel.channelName) return `#${channel.channelName}`;
+  if (channel.channelId) return `Channel ${channel.channelId}`;
+  if (channel.teamName) return channel.teamName;
+
+  if (channel.provider === MessagingProvider.TEAMS) return "Teams destination";
+  if (channel.provider === MessagingProvider.TELEGRAM)
+    return "Telegram destination";
+
+  return "Slack workspace";
+}
