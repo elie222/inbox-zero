@@ -57,6 +57,8 @@ const CONNECT_COMMAND_REGEX =
 const PENDING_EMAIL_CONFIRM_ACTION_ID = "acpe";
 const LEGACY_PENDING_EMAIL_CONFIRM_ACTION_ID =
   "assistant_confirm_pending_email";
+const UNSUPPORTED_MESSAGING_ATTACHMENT_MESSAGE =
+  "I can't access attachments sent in Slack or Telegram yet, so I can't send or forward files from here. I can still draft the email text if you share what to write.";
 
 const SLACK_ASSISTANT_SUGGESTED_PROMPTS = [
   { title: "Inbox summary", message: "Summarize what needs attention today." },
@@ -98,12 +100,14 @@ type LinkedProviderCandidate = {
 type ResolvedMessagingContext = {
   chatId: string;
   emailAccountId: string;
+  hasUnsupportedAttachments: boolean;
   messageText: string;
   provider: SupportedPlatform;
   threadLogContext: Record<string, unknown>;
 };
 
 type LinkedProviderIdentity = {
+  hasUnsupportedAttachments: boolean;
   messageText: string;
   providerUserId: string;
   teamId: string;
@@ -500,6 +504,24 @@ async function processMessagingAssistantMessage({
     });
 
     if (!context) return false;
+
+    if (context.hasUnsupportedAttachments) {
+      try {
+        await thread.post(
+          getMessagingAssistantPostPayload({
+            provider: context.provider,
+            text: UNSUPPORTED_MESSAGING_ATTACHMENT_MESSAGE,
+          }),
+        );
+      } catch (error) {
+        logger.warn("Failed to post unsupported attachment guidance", {
+          provider: context.provider,
+          error,
+        });
+      }
+
+      return true;
+    }
 
     const emailAccountUser = await getEmailAccountWithAi({
       emailAccountId: context.emailAccountId,
@@ -1516,11 +1538,16 @@ async function resolveSlackMessagingContext({
     messageText = stripLeadingSlackMention(messageText);
   }
 
-  if (!messageText) return null;
+  const hasUnsupportedAttachments = hasUnsupportedMessagingAttachment({
+    provider: "slack",
+    message,
+  });
+  if (!messageText && !hasUnsupportedAttachments) return null;
 
   return {
     provider: "slack",
     emailAccountId: messagingChannel.emailAccountId,
+    hasUnsupportedAttachments,
     messageText,
     chatId: getSlackChatId({ channel, threadTs: threadTs || undefined }),
     threadLogContext: { teamId, channel },
@@ -1539,6 +1566,7 @@ async function resolveLinkedProviderMessagingContext({
   logger: Logger;
 }): Promise<ResolvedMessagingContext | null> {
   if (!identity) return null;
+  if (!identity.messageText && !identity.hasUnsupportedAttachments) return null;
 
   if (!thread.isDM) {
     await sendDmRequiredMessage({ provider, thread, logger });
@@ -1590,6 +1618,7 @@ async function resolveLinkedProviderMessagingContext({
   return {
     provider,
     emailAccountId: linkedChannel.emailAccountId,
+    hasUnsupportedAttachments: identity.hasUnsupportedAttachments,
     messageText: identity.messageText,
     chatId,
     threadLogContext: {
@@ -1623,6 +1652,7 @@ function resolveTeamsIdentity({
   if (!teamId) return null;
 
   return {
+    hasUnsupportedAttachments: false,
     messageText,
     providerUserId,
     teamId,
@@ -1635,8 +1665,7 @@ function resolveTelegramIdentity({
 }: {
   message: Message;
 }): LinkedProviderIdentity | null {
-  const messageText = message.text.trim();
-  if (!messageText) return null;
+  const messageText = getTelegramMessageText(message);
 
   const providerUserId = message.author.userId.trim();
   if (!providerUserId) return null;
@@ -1646,11 +1675,48 @@ function resolveTelegramIdentity({
   const teamId = String(rawMessage.chat.id);
 
   return {
+    hasUnsupportedAttachments: hasUnsupportedMessagingAttachment({
+      provider: "telegram",
+      message,
+    }),
     messageText,
     providerUserId,
     teamId,
     teamName: getTelegramChatName(rawMessage),
   };
+}
+
+function getTelegramMessageText(message: Message): string {
+  const plainText = message.text.trim();
+  if (plainText) return plainText;
+
+  const rawMessage = message.raw as TelegramRawMessage;
+  return rawMessage.caption?.trim() || "";
+}
+
+export function hasUnsupportedMessagingAttachment({
+  provider,
+  message,
+}: {
+  provider: "slack" | "telegram";
+  message: Pick<Message, "attachments" | "raw">;
+}): boolean {
+  if (message.attachments.length > 0) return true;
+
+  if (provider === "slack") {
+    const rawEvent = message.raw as SlackEvent;
+    return Boolean(rawEvent.files?.length);
+  }
+
+  const rawMessage = message.raw as TelegramRawMessage;
+  return Boolean(
+    rawMessage.photo?.length ||
+      rawMessage.document ||
+      rawMessage.video ||
+      rawMessage.audio ||
+      rawMessage.voice ||
+      rawMessage.sticker,
+  );
 }
 
 function getTelegramChatName(rawMessage: TelegramRawMessage): string | null {

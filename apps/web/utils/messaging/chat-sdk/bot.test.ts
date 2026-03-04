@@ -4,6 +4,7 @@ import {
   buildPendingEmailCardFallbackText,
   buildPendingEmailSummary,
   ensureSlackTeamInstallation,
+  hasUnsupportedMessagingAttachment,
   normalizeMessagingAssistantText,
   stripLeadingSlackMention,
 } from "@/utils/messaging/chat-sdk/bot";
@@ -119,5 +120,56 @@ describe("buildPendingEmailCardFallbackText", () => {
     const input =
       "This draft is pending confirmation.\n\nI couldn't show the Send button right now. Ask me to prepare the draft again.";
     expect(buildPendingEmailCardFallbackText(input)).toBe(input);
+  });
+});
+
+describe("hasUnsupportedMessagingAttachment", () => {
+  it("returns true when Slack raw payload includes files", () => {
+    expect(
+      hasUnsupportedMessagingAttachment({
+        provider: "slack",
+        message: {
+          attachments: [],
+          raw: {
+            type: "message",
+            files: [{ id: "F123" }],
+          },
+        } as any,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when Telegram raw payload includes a document", () => {
+    expect(
+      hasUnsupportedMessagingAttachment({
+        provider: "telegram",
+        message: {
+          attachments: [],
+          raw: {
+            message_id: 1,
+            date: 1,
+            chat: { id: 1, type: "private", first_name: "Test" },
+            document: { file_id: "doc-1" },
+          },
+        } as any,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when no attachment metadata is present", () => {
+    expect(
+      hasUnsupportedMessagingAttachment({
+        provider: "telegram",
+        message: {
+          attachments: [],
+          raw: {
+            message_id: 1,
+            date: 1,
+            chat: { id: 1, type: "private", first_name: "Test" },
+            text: "hello",
+          },
+        } as any,
+      }),
+    ).toBe(false);
   });
 });
