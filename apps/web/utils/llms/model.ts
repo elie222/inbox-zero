@@ -40,6 +40,7 @@ type AiGatewayProviderOptions = {
   google?: GoogleGenerativeAIProviderOptions;
   openai?: {
     reasoningEffort: "low";
+    reasoningSummary: "concise";
   };
 };
 
@@ -712,6 +713,7 @@ function getAiGatewayProviderOptions(
       // Azure OpenAI models use OpenAI provider options in AI Gateway.
       openai: {
         reasoningEffort: "low",
+        reasoningSummary: "concise",
       },
     };
   }

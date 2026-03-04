@@ -388,6 +388,7 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         openai: {
           reasoningEffort: "low",
+          reasoningSummary: "concise",
         },
       });
       expect(createGateway).toHaveBeenCalledWith({
@@ -412,6 +413,7 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         openai: {
           reasoningEffort: "low",
+          reasoningSummary: "concise",
         },
       });
     });
