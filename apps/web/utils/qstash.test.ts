@@ -56,7 +56,7 @@ describe("withQstashOrInternal", () => {
     vi.clearAllMocks();
   });
 
-  it("uses QStash verification when configured even if internal key is present", async () => {
+  it("uses internal API key when provided even if QStash is configured", async () => {
     const {
       withQstashOrInternal,
       isValidInternalApiKey,
@@ -64,7 +64,6 @@ describe("withQstashOrInternal", () => {
     } = await loadMiddleware({
       qstashToken: "qstash-token",
       internalApiKeyValid: true,
-      verifyResponse: new Response("verified"),
     });
 
     const handler = vi.fn(() => new Response("ok"));
@@ -75,9 +74,9 @@ describe("withQstashOrInternal", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(handler).not.toHaveBeenCalled();
-    expect(isValidInternalApiKey).not.toHaveBeenCalled();
-    expect(verifySignatureAppRouter).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(isValidInternalApiKey).toHaveBeenCalledTimes(1);
+    expect(verifySignatureAppRouter).not.toHaveBeenCalled();
   });
 
   it("uses QStash signature verification when no internal key is provided", async () => {
