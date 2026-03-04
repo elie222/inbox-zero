@@ -1,12 +1,8 @@
+import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
+
 type TelegramBotCommand = {
   command: string;
   description: string;
-};
-
-type TelegramBotApiResponse<T> = {
-  ok: boolean;
-  result?: T;
-  description?: string;
 };
 
 type TelegramUser = {
@@ -111,7 +107,7 @@ async function setTelegramBotCommands({ botToken }: { botToken: string }) {
 
   await callTelegramBotApi({
     botToken,
-    method: "setMyCommands",
+    apiMethod: "setMyCommands",
     body,
   });
 }
@@ -150,7 +146,7 @@ async function setTelegramProfilePhotoIfMissing({
 
   await callTelegramBotApi({
     botToken,
-    method: "setMyProfilePhoto",
+    apiMethod: "setMyProfilePhoto",
     body,
   });
 }
@@ -162,12 +158,12 @@ async function hasTelegramProfilePhoto({
 }): Promise<boolean> {
   const me = await callTelegramBotApi<TelegramUser>({
     botToken,
-    method: "getMe",
+    apiMethod: "getMe",
   });
 
   const profilePhotos = await callTelegramBotApi<TelegramUserProfilePhotos>({
     botToken,
-    method: "getUserProfilePhotos",
+    apiMethod: "getUserProfilePhotos",
     body: new URLSearchParams({
       user_id: String(me.id),
       limit: "1",
@@ -175,42 +171,6 @@ async function hasTelegramProfilePhoto({
   });
 
   return profilePhotos.total_count > 0;
-}
-
-async function callTelegramBotApi<T>({
-  botToken,
-  method,
-  body,
-}: {
-  botToken: string;
-  method: string;
-  body?: BodyInit;
-}): Promise<T> {
-  const response = await fetch(
-    `https://api.telegram.org/bot${botToken}/${method}`,
-    {
-      method: "POST",
-      ...(body ? { body } : {}),
-      cache: "no-store",
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`Telegram ${method} request failed (${response.status})`);
-  }
-
-  const payload = (await response.json()) as TelegramBotApiResponse<T>;
-  if (!payload.ok) {
-    throw new Error(
-      payload.description || `Telegram ${method} returned a failed response`,
-    );
-  }
-
-  if (!("result" in payload)) {
-    throw new Error(`Telegram ${method} returned no result payload`);
-  }
-
-  return payload.result as T;
 }
 
 function parseTelegramSlashCommand(text: string): string | null {

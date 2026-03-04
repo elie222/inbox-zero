@@ -10,15 +10,21 @@ type SetupOptions = {
   profilePhotoUrl?: string;
 };
 
+type ScriptLogger = {
+  info: (message: string) => void;
+  error: (message: string, args?: Record<string, unknown>) => void;
+};
+
 async function main() {
   const options = parseSetupOptions(process.argv.slice(2));
+  const logger = await createLogger();
 
   await configureTelegramBotMetadata(options);
 
-  console.log("Telegram bot commands configured.");
+  logger.info("Telegram bot commands configured.");
 
   if (options.profilePhotoUrl) {
-    console.log("Telegram profile photo setup completed.");
+    logger.info("Telegram profile photo setup completed.");
   }
 }
 
@@ -30,7 +36,7 @@ function parseSetupOptions(args: string[]): SetupOptions {
     const arg = args[i];
 
     if (arg === "--help" || arg === "-h") {
-      printHelpAndExit();
+      return printHelpAndExit();
     }
 
     if (arg === "--bot-token") {
@@ -65,16 +71,39 @@ function parseSetupOptions(args: string[]): SetupOptions {
 }
 
 function printHelpAndExit(): never {
-  console.log("Usage: tsx scripts/setup-telegram-bot.ts [options]");
-  console.log();
-  console.log("Options:");
-  console.log("  --bot-token <token>          Telegram bot token");
-  console.log("  --profile-photo-url <url>    Optional profile photo URL");
-  console.log("  -h, --help                   Show this help message");
+  process.stdout.write("Usage: tsx scripts/setup-telegram-bot.ts [options]\n");
+  process.stdout.write("Options:\n");
+  process.stdout.write("  --bot-token <token>          Telegram bot token\n");
+  process.stdout.write(
+    "  --profile-photo-url <url>    Optional profile photo URL\n",
+  );
+  process.stdout.write(
+    "  -h, --help                   Show this help message\n",
+  );
   process.exit(0);
 }
 
+async function createLogger(): Promise<ScriptLogger> {
+  try {
+    const { createScopedLogger } = await import("@/utils/logger");
+    return createScopedLogger("scripts/setup-telegram-bot");
+  } catch {
+    return {
+      info: (message: string) => {
+        process.stdout.write(`${message}\n`);
+      },
+      error: (message: string, args?: Record<string, unknown>) => {
+        const details =
+          args && "error" in args && args.error ? ` ${String(args.error)}` : "";
+        process.stderr.write(`${message}${details}\n`);
+      },
+    };
+  }
+}
+
 main().catch((error) => {
-  console.error(error);
+  process.stderr.write(
+    `Failed to configure Telegram bot metadata: ${String(error)}\n`,
+  );
   process.exit(1);
 });
