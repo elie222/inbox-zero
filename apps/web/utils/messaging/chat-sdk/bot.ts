@@ -489,6 +489,13 @@ async function processMessagingAssistantMessage({
   });
   if (linkCommandHandled) return true;
 
+  const switchCommandHandled = await handleSwitchCommand({
+    thread,
+    message,
+    logger,
+  });
+  if (switchCommandHandled) return true;
+
   const clearProcessingReaction = await startSlackProcessingReaction({
     adapters,
     thread,
@@ -1440,6 +1447,121 @@ function extractConnectCode(text: string): string | null {
   return match[1] ?? null;
 }
 
+const SWITCH_COMMAND_REGEX = /^\/switch(?:@[A-Za-z0-9_]+)?(?:\s+(\d+))?\s*$/i;
+
+async function handleSwitchCommand({
+  thread,
+  message,
+  logger,
+}: {
+  thread: Thread;
+  message: Message;
+  logger: Logger;
+}): Promise<boolean> {
+  const provider = thread.adapter.name;
+  if (provider !== "teams" && provider !== "telegram") return false;
+
+  const trimmed = message.text.trim();
+  const match = SWITCH_COMMAND_REGEX.exec(trimmed);
+  if (!match) return false;
+
+  if (!thread.isDM) {
+    await sendDmRequiredMessage({ provider, thread, logger });
+    return true;
+  }
+
+  const identity =
+    provider === "teams"
+      ? resolveTeamsIdentity({ thread, message })
+      : resolveTelegramIdentity({ message });
+
+  if (!identity) {
+    await thread.post(
+      "Could not read your messaging identity. Please try again.",
+    );
+    return true;
+  }
+
+  const dbProvider = toMessagingProvider(provider);
+  const channels = await prisma.messagingChannel.findMany({
+    where: {
+      provider: dbProvider,
+      teamId: identity.teamId,
+      providerUserId: identity.providerUserId,
+      isConnected: true,
+    },
+    include: {
+      emailAccount: { select: { email: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (channels.length === 0) {
+    await sendLinkRequiredMessage({ provider, thread, logger });
+    return true;
+  }
+
+  const chatId = getMessagingChatIdForThread({ provider, thread });
+  if (!chatId) return false;
+
+  const existingChat = await prisma.chat.findUnique({
+    where: { id: chatId },
+    select: { emailAccountId: true },
+  });
+
+  if (channels.length === 1) {
+    const only = channels[0];
+    if (only.emailAccountId !== existingChat?.emailAccountId) {
+      await prisma.chat.upsert({
+        where: { id: chatId },
+        update: { emailAccountId: only.emailAccountId },
+        create: { id: chatId, emailAccountId: only.emailAccountId },
+      });
+    }
+    await thread.post(`Only one account connected: ${only.emailAccount.email}`);
+    return true;
+  }
+
+  const arg = match[1];
+
+  if (!arg) {
+    const list = channels
+      .map((ch, i) => {
+        const active =
+          ch.emailAccountId === existingChat?.emailAccountId ? " (active)" : "";
+        return `${i + 1}. ${ch.emailAccount.email}${active}`;
+      })
+      .join("\n");
+
+    await thread.post(
+      `Your connected accounts:\n${list}\n\nReply with /switch <number> to switch.`,
+    );
+    return true;
+  }
+
+  const index = Number.parseInt(arg, 10) - 1;
+  if (Number.isNaN(index) || index < 0 || index >= channels.length) {
+    await thread.post("Invalid number. Use /switch to see your options.");
+    return true;
+  }
+
+  const selected = channels[index];
+
+  if (selected.emailAccountId === existingChat?.emailAccountId) {
+    await thread.post(`Already using ${selected.emailAccount.email}.`);
+    return true;
+  }
+
+  await prisma.chat.upsert({
+    where: { id: chatId },
+    update: { emailAccountId: selected.emailAccountId },
+    create: { id: chatId, emailAccountId: selected.emailAccountId },
+  });
+
+  await thread.post(`Switched to ${selected.emailAccount.email}.`);
+  return true;
+}
+
 async function resolveMessagingContext({
   adapters,
   thread,
@@ -1586,6 +1708,7 @@ async function resolveLinkedProviderMessagingContext({
     select: {
       emailAccountId: true,
     },
+    orderBy: { updatedAt: "desc" },
   });
 
   const candidates =
@@ -1600,6 +1723,7 @@ async function resolveLinkedProviderMessagingContext({
           select: {
             emailAccountId: true,
           },
+          orderBy: { updatedAt: "desc" },
         });
 
   if (candidates.length === 0) {
