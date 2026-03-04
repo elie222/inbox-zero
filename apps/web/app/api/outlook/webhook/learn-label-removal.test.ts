@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
-import { GroupItemSource, SystemType } from "@/generated/prisma/enums";
+import {
+  ExecutedRuleStatus,
+  GroupItemSource,
+  SystemType,
+} from "@/generated/prisma/enums";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
 import { learnFromOutlookCategoryReversal } from "./learn-label-removal";
 
@@ -658,6 +662,29 @@ describe("learnFromOutlookCategoryReversal", () => {
       });
 
       expect(saveLearnedPattern).not.toHaveBeenCalled();
+    });
+
+    it("queries only applied executed rules", async () => {
+      const message = getMockParsedMessage({
+        id: "message-123",
+        threadId: "thread-123",
+        labelIds: ["INBOX"],
+        headers: { from: "sender@example.com" },
+      });
+
+      await learnFromOutlookCategoryReversal({
+        message,
+        emailAccountId: "email-account-123",
+        logger,
+      });
+
+      expect(prisma.executedRule.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: ExecutedRuleStatus.APPLIED,
+          }),
+        }),
+      );
     });
   });
 });
