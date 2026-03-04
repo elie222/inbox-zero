@@ -206,15 +206,7 @@ function selectModel(
         provider: Provider.AI_GATEWAY,
         modelName,
         model: gateway(modelName),
-        providerOptions: {
-          // Disable/cap thinking for Google models (Gemini)
-          google: {
-            thinkingConfig: {
-              thinkingBudget: GOOGLE_THINKING_BUDGET,
-            },
-          } satisfies GoogleGenerativeAIProviderOptions,
-          // Note: Anthropic thinking is disabled by default (not including the config)
-        },
+        providerOptions: getAiGatewayProviderOptions(modelName),
       };
     }
     case "ollama": {
@@ -688,6 +680,39 @@ function getGoogleThinkingConfig(
 
 function isGemini3Model(modelName: string): boolean {
   return modelName.toLowerCase().startsWith("gemini-3");
+}
+
+function getAiGatewayProviderOptions(modelName: string): Record<string, any> {
+  const providerOptions: Record<string, any> = {
+    // Disable/cap thinking for Google models (Gemini)
+    google: {
+      thinkingConfig: {
+        thinkingBudget: GOOGLE_THINKING_BUDGET,
+      },
+    } satisfies GoogleGenerativeAIProviderOptions,
+  };
+  const providerName = getAiGatewayProviderName(modelName);
+
+  if (providerName === Provider.OPEN_AI) {
+    providerOptions.openai = {
+      reasoningEffort: "low",
+    };
+  }
+
+  if (providerName === Provider.AZURE) {
+    providerOptions.azure = {
+      reasoningEffort: "low",
+    };
+  }
+
+  // Note: Anthropic thinking is disabled by default (not including the config)
+  return providerOptions;
+}
+
+function getAiGatewayProviderName(modelName: string): string {
+  const separatorIndex = modelName.indexOf("/");
+  if (separatorIndex === -1) return "";
+  return modelName.slice(0, separatorIndex).toLowerCase();
 }
 
 function parseFallbackConfig(
