@@ -1493,18 +1493,11 @@ async function handleSwitchCommand({
     include: {
       emailAccount: { select: { email: true } },
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { createdAt: "asc" },
   });
 
   if (channels.length === 0) {
     await sendLinkRequiredMessage({ provider, thread, logger });
-    return true;
-  }
-
-  if (channels.length === 1) {
-    await thread.post(
-      `Only one account connected: ${channels[0].emailAccount.email}`,
-    );
     return true;
   }
 
@@ -1515,6 +1508,19 @@ async function handleSwitchCommand({
     where: { id: chatId },
     select: { emailAccountId: true },
   });
+
+  if (channels.length === 1) {
+    const only = channels[0];
+    if (only.emailAccountId !== existingChat?.emailAccountId) {
+      await prisma.chat.upsert({
+        where: { id: chatId },
+        update: { emailAccountId: only.emailAccountId },
+        create: { id: chatId, emailAccountId: only.emailAccountId },
+      });
+    }
+    await thread.post(`Only one account connected: ${only.emailAccount.email}`);
+    return true;
+  }
 
   const arg = match[1];
 
@@ -1534,7 +1540,7 @@ async function handleSwitchCommand({
   }
 
   const index = Number.parseInt(arg, 10) - 1;
-  if (index < 0 || index >= channels.length) {
+  if (Number.isNaN(index) || index < 0 || index >= channels.length) {
     await thread.post("Invalid number. Use /switch to see your options.");
     return true;
   }
