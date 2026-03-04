@@ -46,7 +46,6 @@ import { PENDING_DRAFT_CONFIRMATION_MESSAGE } from "@/utils/messaging/pending-em
 import { buildPendingEmailPreview } from "@/utils/messaging/pending-email-preview";
 import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
 import {
-  ensureTelegramBotMetadataConfigured,
   expandTelegramPromptCommand,
   getTelegramHelpText,
   isTelegramHelpCommand,
@@ -183,10 +182,6 @@ const messagingRequestLoggerStore = new AsyncLocalStorage<Logger>();
 export function getMessagingChatSdkBot(): MessagingChatSdkContext {
   if (!global.inboxZeroMessagingChatSdk) {
     global.inboxZeroMessagingChatSdk = createMessagingChatSdkBot();
-  }
-
-  if (global.inboxZeroMessagingChatSdk.adapters.telegram) {
-    ensureTelegramBotMetadataConfigured();
   }
 
   return global.inboxZeroMessagingChatSdk;

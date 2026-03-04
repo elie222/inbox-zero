@@ -208,7 +208,6 @@ export const env = createEnv({
     TEAMS_BOT_APP_TYPE: z.enum(["MultiTenant", "SingleTenant"]).optional(),
     TELEGRAM_BOT_TOKEN: z.string().optional(),
     TELEGRAM_BOT_SECRET_TOKEN: z.string().optional(),
-    TELEGRAM_BOT_PROFILE_PHOTO_URL: z.string().url().optional(),
     REPLAY_RECORDING_ENABLED: booleanString.optional().default(false),
   },
   client: {

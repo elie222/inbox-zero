@@ -1,24 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   expandTelegramPromptCommand,
   getTelegramHelpText,
   isTelegramHelpCommand,
 } from "./bot-config";
-
-const { mockEnv } = vi.hoisted(() => ({
-  mockEnv: {
-    TELEGRAM_BOT_TOKEN: undefined,
-    TELEGRAM_BOT_PROFILE_PHOTO_URL: undefined,
-    NEXT_PUBLIC_AXIOM_TOKEN: undefined,
-    NEXT_PUBLIC_LOG_SCOPES: undefined,
-    ENABLE_DEBUG_LOGS: false,
-    NODE_ENV: "test",
-  },
-}));
-
-vi.mock("@/env", () => ({
-  env: mockEnv,
-}));
 
 describe("expandTelegramPromptCommand", () => {
   it("maps cleanup command to a concrete inbox prompt", () => {

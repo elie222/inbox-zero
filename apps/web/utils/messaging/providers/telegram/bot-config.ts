@@ -1,6 +1,3 @@
-import { env } from "@/env";
-import { createScopedLogger } from "@/utils/logger";
-
 type TelegramBotCommand = {
   command: string;
   description: string;
@@ -31,7 +28,7 @@ const TELEGRAM_PROMPT_COMMANDS: Record<string, string> = {
   followups: "Which emails should I follow up on this week?",
 } as const;
 
-const TELEGRAM_BOT_COMMANDS: TelegramBotCommand[] = [
+export const TELEGRAM_BOT_COMMANDS: TelegramBotCommand[] = [
   {
     command: "connect",
     description: "Link your Inbox Zero account with /connect <code>",
@@ -75,22 +72,6 @@ const TELEGRAM_HELP_TEXT = [
   "/followups - Show emails I should follow up on this week",
 ].join("\n");
 
-const logger = createScopedLogger("telegram-bot-setup");
-
-let telegramSetupPromise: Promise<void> | null = null;
-
-export function ensureTelegramBotMetadataConfigured() {
-  if (!env.TELEGRAM_BOT_TOKEN || telegramSetupPromise) return;
-
-  telegramSetupPromise = configureTelegramBotMetadata({
-    botToken: env.TELEGRAM_BOT_TOKEN,
-    profilePhotoUrl: env.TELEGRAM_BOT_PROFILE_PHOTO_URL,
-  }).catch((error) => {
-    telegramSetupPromise = null;
-    logger.warn("Failed to configure Telegram bot metadata", { error });
-  });
-}
-
 export function expandTelegramPromptCommand(text: string): string {
   const command = parseTelegramSlashCommand(text);
   if (!command) return text;
@@ -106,7 +87,7 @@ export function getTelegramHelpText(): string {
   return TELEGRAM_HELP_TEXT;
 }
 
-async function configureTelegramBotMetadata({
+export async function configureTelegramBotMetadata({
   botToken,
   profilePhotoUrl,
 }: {
@@ -117,14 +98,10 @@ async function configureTelegramBotMetadata({
 
   if (!profilePhotoUrl) return;
 
-  try {
-    await setTelegramProfilePhotoIfMissing({
-      botToken,
-      profilePhotoUrl,
-    });
-  } catch (error) {
-    logger.warn("Failed to set Telegram bot profile photo", { error });
-  }
+  await setTelegramProfilePhotoIfMissing({
+    botToken,
+    profilePhotoUrl,
+  });
 }
 
 async function setTelegramBotCommands({ botToken }: { botToken: string }) {

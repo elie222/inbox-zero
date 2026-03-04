@@ -51,18 +51,39 @@ Set these in `apps/web/.env` (or your deployment env):
 ```bash
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_BOT_SECRET_TOKEN= # optional but recommended
-TELEGRAM_BOT_PROFILE_PHOTO_URL= # optional https URL to a PNG/JPG
 ```
 
 If `TELEGRAM_BOT_TOKEN` is missing, the Telegram connect option is hidden in the UI and `/api/telegram/events` returns `503`.
 
 If `TELEGRAM_BOT_SECRET_TOKEN` is set, webhooks must include `x-telegram-bot-api-secret-token` with the same value or requests are rejected.
 
-`TELEGRAM_BOT_PROFILE_PHOTO_URL` is optional. When set, Inbox Zero checks whether the bot already has a profile photo and uploads this image only if no photo exists yet.
+## 4. Configure bot commands and optional profile photo (one-time)
 
-## 4. Telegram bot commands and profile metadata
+Run the setup script after configuring your environment:
 
-When Telegram is configured, Inbox Zero automatically registers bot slash commands through `setMyCommands`:
+```bash
+pnpm --filter inbox-zero-ai exec tsx scripts/setup-telegram-bot.ts
+```
+
+Local development shortcut:
+
+```bash
+pnpm --filter inbox-zero-ai telegram:setup
+```
+
+To also set a bot profile photo:
+
+```bash
+pnpm --filter inbox-zero-ai exec tsx scripts/setup-telegram-bot.ts \
+  --profile-photo-url https://<your-domain>/telegram-bot.png
+```
+
+This script is intended as a one-time/admin action. It:
+
+- registers slash commands through `setMyCommands`
+- sets a profile photo only when the bot does not already have one
+
+The configured commands are:
 
 - `/connect`
 - `/switch`
