@@ -73,7 +73,7 @@ export function CategoriesSetup({
     })),
   );
 
-  const suggestedLabels = usersRolesInfo[data?.role || ""]?.suggestedLabels;
+  const suggestedLabels = usersRolesInfo.Other.suggestedLabels;
 
   // Initialize categories when persona data loads
   useEffect(() => {
