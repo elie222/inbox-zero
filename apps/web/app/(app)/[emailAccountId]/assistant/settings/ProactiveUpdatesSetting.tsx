@@ -42,6 +42,7 @@ import {
 } from "@/utils/automation-jobs/defaults";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
 import { BRAND_NAME } from "@/utils/branding";
+import { getMessagingProviderName } from "@/utils/messaging/platforms";
 
 export function ProactiveUpdatesSetting() {
   const [open, setOpen] = useState(false);
@@ -217,7 +218,7 @@ export function ProactiveUpdatesSetting() {
                       <div className="mt-6 space-y-6">
                         <div className="space-y-2">
                           <Label htmlFor="scheduled-checkins-channel">
-                            Messaging destination
+                            Send to
                           </Label>
                           <Select
                             value={messagingChannelId}
@@ -376,13 +377,11 @@ function formatMessagingChannelLabel(channel: {
   channelId: string | null;
   teamName: string | null;
 }) {
-  if (channel.channelName) return `#${channel.channelName}`;
-  if (channel.channelId) return `Channel ${channel.channelId}`;
-  if (channel.teamName) return channel.teamName;
-
-  if (channel.provider === "TEAMS") return "Teams destination";
-  if (channel.provider === "TELEGRAM") return "Telegram destination";
-  return "Slack workspace";
+  const provider = getMessagingProviderName(channel.provider);
+  if (channel.channelName) return `${provider} · #${channel.channelName}`;
+  if (channel.channelId) return `${provider} · ${channel.channelId}`;
+  if (channel.teamName) return `${provider} · ${channel.teamName}`;
+  return provider;
 }
 
 const SLACK_MESSAGES = [

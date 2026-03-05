@@ -42,7 +42,6 @@ import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stat
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { consumeMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code-consume";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
-import { PENDING_DRAFT_CONFIRMATION_MESSAGE } from "@/utils/messaging/pending-email-confirmation";
 import { buildPendingEmailPreview } from "@/utils/messaging/pending-email-preview";
 import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
 import {
@@ -2140,11 +2139,11 @@ export function normalizeMessagingAssistantText({ text }: { text: string }) {
 
   normalized = normalized.replace(
     /(?:you can|please)\s+click [^.]*button[^.]*\./gi,
-    PENDING_DRAFT_CONFIRMATION_MESSAGE,
+    "This draft is pending confirmation.",
   );
   normalized = normalized.replace(
     /click (?:the )?(?:confirmation|approve|send) button[^.]*\./gi,
-    PENDING_DRAFT_CONFIRMATION_MESSAGE,
+    "This draft is pending confirmation.",
   );
 
   return normalized;
