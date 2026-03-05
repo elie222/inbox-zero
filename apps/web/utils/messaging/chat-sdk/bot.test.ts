@@ -124,7 +124,7 @@ describe("buildPendingEmailCardFallbackText", () => {
 });
 
 describe("hasUnsupportedMessagingAttachment", () => {
-  it("returns true when Slack raw payload includes files", () => {
+  it("returns true when Slack raw payload includes non-image files", () => {
     expect(
       hasUnsupportedMessagingAttachment({
         provider: "slack",
@@ -137,6 +137,21 @@ describe("hasUnsupportedMessagingAttachment", () => {
         } as any,
       }),
     ).toBe(true);
+  });
+
+  it("returns false when Slack raw payload includes only image files", () => {
+    expect(
+      hasUnsupportedMessagingAttachment({
+        provider: "slack",
+        message: {
+          attachments: [],
+          raw: {
+            type: "message",
+            files: [{ id: "F123", mimetype: "image/png" }],
+          },
+        } as any,
+      }),
+    ).toBe(false);
   });
 
   it("returns true when Telegram raw payload includes a document", () => {
@@ -171,5 +186,33 @@ describe("hasUnsupportedMessagingAttachment", () => {
         } as any,
       }),
     ).toBe(false);
+  });
+
+  it("returns false when Chat SDK attachments are all images", () => {
+    expect(
+      hasUnsupportedMessagingAttachment({
+        provider: "slack",
+        message: {
+          attachments: [
+            { type: "image", mimeType: "image/jpeg", name: "photo.jpg" },
+          ],
+          raw: { type: "message" },
+        } as any,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true when Chat SDK attachments include non-image types", () => {
+    expect(
+      hasUnsupportedMessagingAttachment({
+        provider: "slack",
+        message: {
+          attachments: [
+            { type: "file", mimeType: "application/pdf", name: "doc.pdf" },
+          ],
+          raw: { type: "message" },
+        } as any,
+      }),
+    ).toBe(true);
   });
 });

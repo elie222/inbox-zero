@@ -27,6 +27,7 @@ import {
   ConsoleLogger,
   type ActionEvent,
   type Adapter,
+  type Attachment,
   type CardChild,
   type Message,
   type Thread,
@@ -63,7 +64,7 @@ const PENDING_EMAIL_CONFIRM_ACTION_ID = "acpe";
 const LEGACY_PENDING_EMAIL_CONFIRM_ACTION_ID =
   "assistant_confirm_pending_email";
 const UNSUPPORTED_MESSAGING_ATTACHMENT_MESSAGE =
-  "I can't access attachments sent in Slack or Telegram yet, so I can't send or forward files from here. I can still draft the email text if you share what to write.";
+  "I can process images, but I can't access other file types (documents, videos, audio) sent here yet. I can still draft the email text if you share what to write.";
 
 const SLACK_ASSISTANT_SUGGESTED_PROMPTS = [
   { title: "Inbox summary", message: "Summarize what needs attention today." },
@@ -102,10 +103,18 @@ type LinkedProviderCandidate = {
   emailAccountId: string;
 };
 
+type ImagePart = {
+  type: "file";
+  url: string;
+  mediaType: string;
+  filename: string;
+};
+
 type ResolvedMessagingContext = {
   chatId: string;
   emailAccountId: string;
   hasUnsupportedAttachments: boolean;
+  imageParts: ImagePart[];
   messageText: string;
   provider: SupportedPlatform;
   threadLogContext: Record<string, unknown>;
@@ -539,7 +548,9 @@ async function processMessagingAssistantMessage({
         });
       }
 
-      return true;
+      if (!context.messageText && context.imageParts.length === 0) {
+        return true;
+      }
     }
 
     const emailAccountUser = await getEmailAccountWithAi({
@@ -579,10 +590,16 @@ async function processMessagingAssistantMessage({
       }));
 
     const userMessageId = `${context.provider}-${message.id}`;
+    const userParts: UIMessage["parts"] = [
+      ...context.imageParts,
+      ...(context.messageText
+        ? [{ type: "text" as const, text: context.messageText }]
+        : []),
+    ];
     const newUserMessage: UIMessage = {
       id: userMessageId,
       role: "user",
-      parts: [{ type: "text", text: context.messageText }],
+      parts: userParts,
     };
 
     await prisma.chatMessage.upsert({
@@ -1626,6 +1643,7 @@ async function resolveMessagingContext({
       return resolveLinkedProviderMessagingContext({
         provider: "teams",
         identity: resolveTeamsIdentity({ thread, message }),
+        message,
         thread,
         logger,
       });
@@ -1633,6 +1651,7 @@ async function resolveMessagingContext({
       return resolveLinkedProviderMessagingContext({
         provider: "telegram",
         identity: resolveTelegramIdentity({ message }),
+        message,
         thread,
         logger,
       });
@@ -1705,12 +1724,17 @@ async function resolveSlackMessagingContext({
     provider: "slack",
     message,
   });
-  if (!messageText && !hasUnsupportedAttachments) return null;
+  const imageParts = await extractImagePartsFromMessage({ message, logger });
+
+  if (!messageText && !hasUnsupportedAttachments && imageParts.length === 0) {
+    return null;
+  }
 
   return {
     provider: "slack",
     emailAccountId: messagingChannel.emailAccountId,
     hasUnsupportedAttachments,
+    imageParts,
     messageText,
     chatId: getSlackChatId({ channel, threadTs: threadTs || undefined }),
     threadLogContext: { teamId, channel },
@@ -1720,16 +1744,25 @@ async function resolveSlackMessagingContext({
 async function resolveLinkedProviderMessagingContext({
   provider,
   identity,
+  message,
   thread,
   logger,
 }: {
   provider: "teams" | "telegram";
   identity: LinkedProviderIdentity | null;
+  message: Message;
   thread: Thread;
   logger: Logger;
 }): Promise<ResolvedMessagingContext | null> {
   if (!identity) return null;
-  if (!identity.messageText && !identity.hasUnsupportedAttachments) return null;
+  const hasImageAttachments = message.attachments.some(isImageAttachment);
+  if (
+    !identity.messageText &&
+    !identity.hasUnsupportedAttachments &&
+    !hasImageAttachments
+  ) {
+    return null;
+  }
 
   if (!thread.isDM) {
     await sendDmRequiredMessage({ provider, thread, logger });
@@ -1780,10 +1813,13 @@ async function resolveLinkedProviderMessagingContext({
     teamId: identity.teamId,
   });
 
+  const imageParts = await extractImagePartsFromMessage({ message, logger });
+
   return {
     provider,
     emailAccountId: linkedChannel.emailAccountId,
     hasUnsupportedAttachments: identity.hasUnsupportedAttachments,
+    imageParts,
     messageText: identity.messageText,
     chatId,
     threadLogContext: {
@@ -1859,6 +1895,20 @@ function getTelegramMessageText(message: Message): string {
   return expandPromptCommand(rawMessage.caption?.trim() || "");
 }
 
+const SUPPORTED_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
+function isImageAttachment(attachment: Attachment): boolean {
+  if (attachment.type === "image") return true;
+  return (
+    !!attachment.mimeType && SUPPORTED_IMAGE_MIME_TYPES.has(attachment.mimeType)
+  );
+}
+
 export function hasUnsupportedMessagingAttachment({
   provider,
   message,
@@ -1866,22 +1916,84 @@ export function hasUnsupportedMessagingAttachment({
   provider: "slack" | "telegram";
   message: Pick<Message, "attachments" | "raw">;
 }): boolean {
-  if (message.attachments.length > 0) return true;
+  const hasNonImageChatAttachments = message.attachments.some(
+    (a) => !isImageAttachment(a),
+  );
+  if (hasNonImageChatAttachments) return true;
 
   if (provider === "slack") {
     const rawEvent = message.raw as SlackEvent;
-    return Boolean(rawEvent.files?.length);
+    const files = rawEvent.files || [];
+    return files.some(
+      (f: { mimetype?: string }) =>
+        !f.mimetype || !f.mimetype.startsWith("image/"),
+    );
   }
 
   const rawMessage = message.raw as TelegramRawMessage;
   return Boolean(
-    rawMessage.photo?.length ||
-      rawMessage.document ||
+    rawMessage.document ||
       rawMessage.video ||
       rawMessage.audio ||
       rawMessage.voice ||
       rawMessage.sticker,
   );
+}
+
+async function extractImagePartsFromMessage({
+  message,
+  logger,
+}: {
+  message: Pick<Message, "attachments">;
+  logger: Logger;
+}): Promise<ImagePart[]> {
+  const imageAttachments = message.attachments.filter(isImageAttachment);
+  if (imageAttachments.length === 0) return [];
+
+  const MAX_IMAGE_ATTACHMENTS = 5;
+  const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
+
+  const results: ImagePart[] = [];
+
+  for (const attachment of imageAttachments.slice(0, MAX_IMAGE_ATTACHMENTS)) {
+    try {
+      let buffer: Buffer | undefined;
+
+      if (attachment.data) {
+        buffer = Buffer.isBuffer(attachment.data)
+          ? attachment.data
+          : Buffer.from(await new Response(attachment.data).arrayBuffer());
+      } else if (attachment.fetchData) {
+        buffer = await attachment.fetchData();
+      } else if (attachment.url) {
+        const response = await fetch(attachment.url, {
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!response.ok) continue;
+        buffer = Buffer.from(await response.arrayBuffer());
+      }
+
+      if (!buffer || buffer.length > MAX_IMAGE_SIZE) continue;
+
+      const mimeType = attachment.mimeType || "image/jpeg";
+      const base64 = buffer.toString("base64");
+      const dataUrl = `data:${mimeType};base64,${base64}`;
+
+      results.push({
+        type: "file",
+        url: dataUrl,
+        mediaType: mimeType,
+        filename: attachment.name || "image",
+      });
+    } catch (error) {
+      logger.warn("Failed to fetch messaging image attachment", {
+        name: attachment.name,
+        error,
+      });
+    }
+  }
+
+  return results;
 }
 
 function getTelegramChatName(rawMessage: TelegramRawMessage): string | null {
