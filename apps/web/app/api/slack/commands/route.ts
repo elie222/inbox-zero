@@ -44,6 +44,10 @@ export const POST = withError("slack/commands", async (request) => {
   const teamId = params.get("team_id") ?? "";
   const responseUrl = params.get("response_url") ?? "";
 
+  if (!command || !userId || !teamId) {
+    return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
+  }
+
   if (command.replace(/^\//, "") === "help") {
     return NextResponse.json({
       response_type: "ephemeral",

@@ -92,10 +92,16 @@ export async function processSlackSlashCommand({
       command,
     });
 
-    await postToSlackResponseUrl(responseUrl, {
-      response_type: "ephemeral",
-      text: "Something went wrong processing your request. Please try again.",
-    });
+    try {
+      await postToSlackResponseUrl(responseUrl, {
+        response_type: "ephemeral",
+        text: "Something went wrong processing your request. Please try again.",
+      });
+    } catch (postError) {
+      logger.error("Failed to post error to Slack response_url", {
+        error: postError,
+      });
+    }
   }
 }
 
@@ -222,6 +228,11 @@ async function postToSlackResponseUrl(
   responseUrl: string,
   body: { response_type: "in_channel" | "ephemeral"; text: string },
 ): Promise<void> {
+  const url = new URL(responseUrl);
+  if (url.hostname !== "hooks.slack.com") {
+    throw new Error(`Unexpected Slack response_url domain: ${url.hostname}`);
+  }
+
   const response = await fetch(responseUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

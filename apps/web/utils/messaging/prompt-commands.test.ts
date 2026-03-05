@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  PROMPT_COMMANDS,
   expandPromptCommand,
   getHelpText,
   isHelpCommand,
@@ -60,5 +61,12 @@ describe("getHelpText", () => {
 
   it("uses platform-specific intro for Slack", () => {
     expect(getHelpText("slack")).toContain("from Slack");
+  });
+
+  it("includes a help line for every prompt command", () => {
+    const helpText = getHelpText("slack");
+    for (const key of Object.keys(PROMPT_COMMANDS)) {
+      expect(helpText).toContain(`/${key}`);
+    }
   });
 });
