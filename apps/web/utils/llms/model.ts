@@ -18,7 +18,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "../error";
 
 // Thinking budgets for Google-family models (set low to minimize cost)
-const GOOGLE_THINKING_BUDGET = 50;
+const GOOGLE_THINKING_BUDGET = 128;
 
 const logger = createScopedLogger("llms/model");
 
