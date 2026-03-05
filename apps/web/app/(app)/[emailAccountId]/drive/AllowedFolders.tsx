@@ -379,48 +379,6 @@ export function NoFoldersFound({
   driveConnectionId: string | null;
   onFolderCreated?: () => void;
 }) {
-  const { isOpen, onClose, onToggle } = useDialogState();
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    reset,
-  } = useForm<CreateDriveFolderBody>({
-    resolver: zodResolver(createDriveFolderBody),
-    defaultValues: { driveConnectionId: "" },
-  });
-
-  const onSubmit: SubmitHandler<CreateDriveFolderBody> = useCallback(
-    async (data) => {
-      if (!driveConnectionId) {
-        toastError({
-          title: "Error creating folder",
-          description: "No drive connection found",
-        });
-        return;
-      }
-
-      const result = await createDriveFolderAction(emailAccountId, {
-        ...data,
-        driveConnectionId,
-      });
-
-      if (result?.serverError) {
-        toastError({
-          title: "Error creating folder",
-          description: result.serverError,
-        });
-      } else {
-        toastSuccess({ description: "Folder created!" });
-        reset();
-        onClose();
-        onFolderCreated?.();
-      }
-    },
-    [emailAccountId, reset, onClose, onFolderCreated, driveConnectionId],
-  );
-
   return (
     <CardBasic className="mt-4 p-2">
       <Empty className="border-0 p-0">

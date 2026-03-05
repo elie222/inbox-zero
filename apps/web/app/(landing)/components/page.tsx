@@ -75,8 +75,13 @@ export default function Components() {
       <div className="space-y-8 py-8">
         <h1>A Storybook style page demoing components we use.</h1>
 
-        <div>
-          <TextLink href="/components/tools">Assistant Tools →</TextLink>
+        <div className="space-y-1">
+          <div>
+            <TextLink href="/components/tools">Assistant Tools →</TextLink>
+          </div>
+          <div>
+            <TextLink href="/components/chat">Chat Components →</TextLink>
+          </div>
         </div>
 
         <div className="space-y-6">

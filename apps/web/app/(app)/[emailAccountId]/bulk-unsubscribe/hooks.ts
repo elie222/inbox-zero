@@ -264,7 +264,9 @@ export function useUnsubscribe<T extends Row>({
         });
         await mutate();
       } else {
-        const hasUnsubscribeLink = Boolean(cleanUnsubscribeLink(item.unsubscribeLink));
+        const hasUnsubscribeLink = Boolean(
+          cleanUnsubscribeLink(item.unsubscribeLink),
+        );
         if (!hasUnsubscribeLink) {
           await blockSender({
             sender: item.name,
@@ -281,7 +283,9 @@ export function useUnsubscribe<T extends Row>({
             emailAccountId,
           });
           if (!unsubscribed) {
-            toast.error(`Could not automatically unsubscribe from ${item.name}`);
+            toast.error(
+              `Could not automatically unsubscribe from ${item.name}`,
+            );
           }
         }
       }

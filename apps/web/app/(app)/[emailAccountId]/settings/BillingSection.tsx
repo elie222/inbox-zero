@@ -24,9 +24,7 @@ export function BillingSection() {
         premium.stripeSubscriptionId) ? (
         <Item size="sm">
           <ItemContent>
-            <ItemTitle>
-              {getPlanDisplayName(premium.tier)} plan
-            </ItemTitle>
+            <ItemTitle>{getPlanDisplayName(premium.tier)} plan</ItemTitle>
           </ItemContent>
           <ItemActions>
             <ManageSubscription premium={premium} />

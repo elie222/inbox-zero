@@ -3,7 +3,9 @@ import { ThreadTrackerType } from "@/generated/prisma/enums";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 
-export type DebugFollowUpResponse = Awaited<ReturnType<typeof getFollowUpDebugData>>;
+export type DebugFollowUpResponse = Awaited<
+  ReturnType<typeof getFollowUpDebugData>
+>;
 
 export const GET = withEmailAccount("user/debug/follow-up", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
@@ -11,7 +13,11 @@ export const GET = withEmailAccount("user/debug/follow-up", async (request) => {
   return NextResponse.json(result);
 });
 
-async function getFollowUpDebugData({ emailAccountId }: { emailAccountId: string }) {
+async function getFollowUpDebugData({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
   const emailAccount = await prisma.emailAccount.findUniqueOrThrow({
     where: { id: emailAccountId },
     select: {
@@ -23,7 +29,10 @@ async function getFollowUpDebugData({ emailAccountId }: { emailAccountId: string
     },
   });
 
-  const followUpTypes = [ThreadTrackerType.AWAITING, ThreadTrackerType.NEEDS_REPLY];
+  const followUpTypes = [
+    ThreadTrackerType.AWAITING,
+    ThreadTrackerType.NEEDS_REPLY,
+  ];
 
   const [
     unresolvedTrackers,
@@ -95,7 +104,10 @@ async function getFollowUpDebugData({ emailAccountId }: { emailAccountId: string
       where: {
         emailAccountId,
         type: { in: followUpTypes },
-        OR: [{ followUpAppliedAt: { not: null } }, { followUpDraftId: { not: null } }],
+        OR: [
+          { followUpAppliedAt: { not: null } },
+          { followUpDraftId: { not: null } },
+        ],
       },
       select: {
         id: true,

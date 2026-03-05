@@ -265,10 +265,8 @@ function Checklist({
     "inbox-zero-extension-installed",
     false,
   );
-  const {
-    executeAsync: dismissSetupStep,
-    isExecuting: isDismissingStep,
-  } = useAction(dismissHintAction);
+  const { executeAsync: dismissSetupStep, isExecuting: isDismissingStep } =
+    useAction(dismissHintAction);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [dismissedSteps, setDismissedSteps] = useState<Record<string, boolean>>(
     {},
@@ -378,9 +376,7 @@ function Checklist({
           icon={<UsersIcon size={18} />}
           title="Invite team members"
           timeEstimate="2 minutes"
-          completed={
-            teamInvite.completed || dismissedSteps.teamInvite
-          }
+          completed={teamInvite.completed || dismissedSteps.teamInvite}
           actionText="Invite"
           onMarkDone={() => handleMarkStepDone("teamInvite")}
           markDoneDisabled={isDismissingStep}

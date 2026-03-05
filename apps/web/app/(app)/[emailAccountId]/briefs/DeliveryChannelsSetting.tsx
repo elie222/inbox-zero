@@ -7,7 +7,7 @@ import {
   HashIcon,
   LockIcon,
   MessageCircleIcon,
-  MessageSquareIcon,
+  type MessageSquareIcon,
   SendIcon,
 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
@@ -296,18 +296,20 @@ function ChannelRow({
         )}
       </div>
 
-      {supportsBriefTargetSelection && channel.channelId && !selectingTarget && (
-        <Toggle
-          name={`briefs-${channel.id}`}
-          enabled={channel.sendMeetingBriefs}
-          onChange={(sendMeetingBriefs) =>
-            executeFeatures({
-              channelId: channel.id,
-              sendMeetingBriefs,
-            })
-          }
-        />
-      )}
+      {supportsBriefTargetSelection &&
+        channel.channelId &&
+        !selectingTarget && (
+          <Toggle
+            name={`briefs-${channel.id}`}
+            enabled={channel.sendMeetingBriefs}
+            onChange={(sendMeetingBriefs) =>
+              executeFeatures({
+                channelId: channel.id,
+                sendMeetingBriefs,
+              })
+            }
+          />
+        )}
     </div>
   );
 }

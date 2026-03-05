@@ -6,7 +6,6 @@ import prisma from "@/utils/prisma";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { EmailProvider } from "@/utils/email/types";
 
-
 export const maxDuration = 30;
 
 export const GET = withEmailProvider(

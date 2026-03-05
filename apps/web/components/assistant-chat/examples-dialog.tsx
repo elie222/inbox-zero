@@ -10,11 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  ArrowLeftIcon,
-  PlusIcon,
-  CheckCircle2Icon,
-} from "lucide-react";
+import { ArrowLeftIcon, PlusIcon, CheckCircle2Icon } from "lucide-react";
 import { getPersonas } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import {
   convertLabelsToDisplay,

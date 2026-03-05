@@ -64,9 +64,7 @@ export function StepWho({
   useEffect(() => {
     if (defaultRole && scrollContainerRef.current) {
       // Find the button with the selected role
-      const selectedIndex = displayedRoleValues.findIndex(
-        (role) => role === defaultRole,
-      );
+      const selectedIndex = displayedRoleValues.indexOf(defaultRole);
       if (selectedIndex !== -1) {
         const buttons = scrollContainerRef.current.querySelectorAll(
           'button[type="button"]',

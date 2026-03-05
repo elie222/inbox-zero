@@ -3,8 +3,7 @@
 import useSWR, { type KeyedMutator } from "swr";
 import sortBy from "lodash/sortBy";
 import groupBy from "lodash/groupBy";
-import Link from "next/link";
-import { PlusIcon, ExternalLinkIcon, TrashIcon } from "lucide-react";
+import { PlusIcon, TrashIcon } from "lucide-react";
 import {
   useState,
   useCallback,
@@ -44,7 +43,6 @@ import { Badge } from "@/components/ui/badge";
 import { formatShortDate } from "@/utils/date";
 import { Tooltip } from "@/components/Tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { prefixPath } from "@/utils/path";
 import { Toggle } from "@/components/Toggle";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -57,7 +55,6 @@ export function ViewLearnedPatterns({ groupId }: { groupId: string }) {
 }
 
 function ViewGroupInner({ groupId }: { groupId: string }) {
-  const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
     `/api/user/group/${groupId}/items`,
   );

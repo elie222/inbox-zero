@@ -7,13 +7,17 @@ type SortableRule = {
   instructions?: string | null;
 };
 
-export function sortRulesForAutomation<T extends SortableRule>(rules: T[]): T[] {
+export function sortRulesForAutomation<T extends SortableRule>(
+  rules: T[],
+): T[] {
   return [...rules].sort((a, b) => {
-    const enabledCompare = Number(Boolean(b.enabled)) - Number(Boolean(a.enabled));
+    const enabledCompare =
+      Number(Boolean(b.enabled)) - Number(Boolean(a.enabled));
     if (enabledCompare !== 0) return enabledCompare;
 
     const systemOrderCompare =
-      getSystemRuleOrderIndex(a.systemType) - getSystemRuleOrderIndex(b.systemType);
+      getSystemRuleOrderIndex(a.systemType) -
+      getSystemRuleOrderIndex(b.systemType);
     if (systemOrderCompare !== 0) return systemOrderCompare;
 
     const nameCompare = a.name.localeCompare(b.name, undefined, {
@@ -21,9 +25,13 @@ export function sortRulesForAutomation<T extends SortableRule>(rules: T[]): T[] 
     });
     if (nameCompare !== 0) return nameCompare;
 
-    return (a.instructions ?? "").localeCompare(b.instructions ?? "", undefined, {
-      sensitivity: "base",
-    });
+    return (a.instructions ?? "").localeCompare(
+      b.instructions ?? "",
+      undefined,
+      {
+        sensitivity: "base",
+      },
+    );
   });
 }
 

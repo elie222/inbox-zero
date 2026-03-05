@@ -27,7 +27,6 @@ import {
 import {
   waitForExecutedRule,
   waitForMessageInInbox,
-  waitForReplyInInbox,
   waitForSentMessage,
   waitForThreadMessageCount,
 } from "./helpers/polling";

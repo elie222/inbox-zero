@@ -1,7 +1,4 @@
 import type { ReactNode } from "react";
-import { FileEdit, Mail, Search, Tag } from "lucide-react";
-import { FollowUpRemindersIllustration } from "@/components/feature-announcements/FollowUpRemindersIllustration";
-import { MeetingBriefsIllustration } from "@/components/feature-announcements/MeetingBriefsIllustration";
 
 const DETAIL_ICON_CLASS = "h-4 w-4 text-gray-600 dark:text-gray-400";
 

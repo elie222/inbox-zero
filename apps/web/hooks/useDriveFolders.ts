@@ -18,9 +18,9 @@ export function useDriveFolders(emailAccountId?: string) {
 
     attemptedCleanupKeyRef.current = staleFolderCleanupKey;
 
-    void cleanupStaleFilingFoldersAction(emailAccountId, {
+    cleanupStaleFilingFoldersAction(emailAccountId, {
       filingFolderIds: staleFolderDbIds,
-    });
+    }).catch(() => {});
   }, [emailAccountId, staleFolderCleanupKey, staleFolderDbIds]);
 
   return swrResult;

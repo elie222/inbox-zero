@@ -67,12 +67,18 @@ export default function DebugFollowUpPage() {
               {formatDate(data?.summary.lastTrackerActivityAt)}
             </p>
             <p className="mt-2 text-muted-foreground">
-              Last tracker activity is a proxy for follow-up processing activity.
+              Last tracker activity is a proxy for follow-up processing
+              activity.
             </p>
           </div>
 
           <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={handleCopy} disabled={!data}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopy}
+              disabled={!data}
+            >
               {copied ? (
                 <CheckIcon className="mr-2 h-4 w-4" />
               ) : (
@@ -93,7 +99,13 @@ export default function DebugFollowUpPage() {
   );
 }
 
-function DebugStat({ label, value }: { label: string; value: string | number }) {
+function DebugStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
   return (
     <div className="rounded-lg border p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
