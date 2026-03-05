@@ -53,7 +53,10 @@ export function Messages({
                     <MessagePart
                       key={`${message.id}-${partIndex}`}
                       part={part}
-                      isStreaming={status === "streaming"}
+                      isStreaming={
+                        status === "streaming" &&
+                        partIndex === message.parts.length - 1
+                      }
                       disableConfirm={disableConfirm}
                       messageId={message.id}
                       partIndex={partIndex}
