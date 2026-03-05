@@ -13,17 +13,6 @@ type TelegramUserProfilePhotos = {
   total_count: number;
 };
 
-const TELEGRAM_SLASH_COMMAND_REGEX =
-  /^\/([a-z0-9_]+)(?:@[A-Za-z0-9_]+)?(?:\s+.*)?$/i;
-const TELEGRAM_HELP_COMMAND_REGEX = /^\/help(?:@[A-Za-z0-9_]+)?\s*$/i;
-
-const TELEGRAM_PROMPT_COMMANDS: Record<string, string> = {
-  cleanup: "Help me clean up my inbox today.",
-  summary: "Summarize what needs attention in my inbox today.",
-  draftreply: "Draft a response to my most urgent unread email.",
-  followups: "Which emails should I follow up on this week?",
-} as const;
-
 export const TELEGRAM_BOT_COMMANDS: TelegramBotCommand[] = [
   {
     command: "connect",
@@ -54,34 +43,6 @@ export const TELEGRAM_BOT_COMMANDS: TelegramBotCommand[] = [
     description: "Show emails I should follow up on this week",
   },
 ];
-
-const TELEGRAM_HELP_TEXT = [
-  "I can help you manage your inbox from this Telegram DM.",
-  "",
-  "Commands:",
-  "/connect <code> - Link your Inbox Zero account",
-  "/switch - List linked accounts",
-  "/switch <number> - Switch active account",
-  "/cleanup - Help me clean up my inbox today",
-  "/summary - Summarize what needs attention today",
-  "/draftreply - Draft a response to my most urgent unread email",
-  "/followups - Show emails I should follow up on this week",
-].join("\n");
-
-export function expandTelegramPromptCommand(text: string): string {
-  const command = parseTelegramSlashCommand(text);
-  if (!command) return text;
-
-  return TELEGRAM_PROMPT_COMMANDS[command] ?? text;
-}
-
-export function isTelegramHelpCommand(text: string): boolean {
-  return TELEGRAM_HELP_COMMAND_REGEX.test(text.trim());
-}
-
-export function getTelegramHelpText(): string {
-  return TELEGRAM_HELP_TEXT;
-}
 
 export async function configureTelegramBotMetadata({
   botToken,
@@ -171,14 +132,4 @@ async function hasTelegramProfilePhoto({
   });
 
   return profilePhotos.total_count > 0;
-}
-
-function parseTelegramSlashCommand(text: string): string | null {
-  const trimmed = text.trim();
-  if (!trimmed) return null;
-
-  const match = TELEGRAM_SLASH_COMMAND_REGEX.exec(trimmed);
-  if (!match) return null;
-
-  return match[1]?.toLowerCase() ?? null;
 }

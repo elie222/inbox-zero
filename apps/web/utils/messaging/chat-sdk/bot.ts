@@ -46,10 +46,10 @@ import { PENDING_DRAFT_CONFIRMATION_MESSAGE } from "@/utils/messaging/pending-em
 import { buildPendingEmailPreview } from "@/utils/messaging/pending-email-preview";
 import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
 import {
-  expandTelegramPromptCommand,
-  getTelegramHelpText,
-  isTelegramHelpCommand,
-} from "@/utils/messaging/providers/telegram/bot-config";
+  expandPromptCommand,
+  getHelpText,
+  isHelpCommand,
+} from "@/utils/messaging/prompt-commands";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import { getEmailUrlForMessage } from "@/utils/url";
@@ -501,7 +501,7 @@ async function processMessagingAssistantMessage({
   });
   if (switchCommandHandled) return true;
 
-  const helpCommandHandled = await handleTelegramHelpCommand({
+  const helpCommandHandled = await handleHelpCommand({
     thread,
     message,
     logger,
@@ -1574,7 +1574,7 @@ async function handleSwitchCommand({
   return true;
 }
 
-async function handleTelegramHelpCommand({
+async function handleHelpCommand({
   thread,
   message,
   logger,
@@ -1583,20 +1583,21 @@ async function handleTelegramHelpCommand({
   message: Message;
   logger: Logger;
 }): Promise<boolean> {
-  if (thread.adapter.name !== "telegram") return false;
-  if (!isTelegramHelpCommand(message.text)) return false;
+  const provider = thread.adapter.name;
+  if (provider !== "telegram" && provider !== "teams") return false;
+  if (!isHelpCommand(message.text)) return false;
 
   if (!thread.isDM) {
-    await sendDmRequiredMessage({ provider: "telegram", thread, logger });
+    await sendDmRequiredMessage({ provider, thread, logger });
     return true;
   }
 
   await postMessagingThreadMessage({
     thread,
     logger,
-    message: getTelegramHelpText(),
-    errorLogMessage: "Failed to send Telegram help command response",
-    logMeta: { provider: "telegram" },
+    message: getHelpText(provider),
+    errorLogMessage: `Failed to send ${provider} help command response`,
+    logMeta: { provider },
   });
 
   return true;
@@ -1801,7 +1802,7 @@ function resolveTeamsIdentity({
   thread: Thread;
   message: Message;
 }): LinkedProviderIdentity | null {
-  const messageText = message.text.trim();
+  const messageText = expandPromptCommand(message.text.trim());
   if (!messageText) return null;
 
   const providerUserId = message.author.userId.trim();
@@ -1851,11 +1852,11 @@ function resolveTelegramIdentity({
 }
 
 function getTelegramMessageText(message: Message): string {
-  const plainText = expandTelegramPromptCommand(message.text.trim());
+  const plainText = expandPromptCommand(message.text.trim());
   if (plainText) return plainText;
 
   const rawMessage = message.raw as TelegramRawMessage;
-  return expandTelegramPromptCommand(rawMessage.caption?.trim() || "");
+  return expandPromptCommand(rawMessage.caption?.trim() || "");
 }
 
 export function hasUnsupportedMessagingAttachment({
