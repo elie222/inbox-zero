@@ -205,7 +205,7 @@ export function Chat({ open }: { open: boolean }) {
         placeholder="Ask me anything"
         onChange={(e) => setInput(e.currentTarget.value)}
         onPaste={handlePaste}
-        className="pl-12 pr-14"
+        className="pr-24"
       />
 
       <input
@@ -218,45 +218,47 @@ export function Chat({ open }: { open: boolean }) {
         tabIndex={-1}
       />
 
-      <Tooltip content="Attach images">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="absolute bottom-2 left-2 size-9 rounded-full text-muted-foreground hover:text-foreground"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={attachments.length >= MAX_FILES}
-        >
-          <PaperclipIcon className="size-4" />
-        </Button>
-      </Tooltip>
+      <div className="absolute bottom-2 right-2 flex items-center gap-1">
+        <Tooltip content="Attach images">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-9 rounded-full text-muted-foreground hover:text-foreground"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={attachments.length >= MAX_FILES}
+          >
+            <PaperclipIcon className="size-4" />
+          </Button>
+        </Tooltip>
 
-      <PromptInputSubmit
-        status={
-          status === "streaming"
-            ? "streaming"
-            : status === "submitted"
-              ? "submitted"
-              : "ready"
-        }
-        disabled={status === "ready" ? !hasContent : status === "error"}
-        className="absolute bottom-2 right-2 h-9 w-9 rounded-full bg-blue-500 text-white hover:bg-blue-600"
-        onClick={(e) => {
-          if (status === "streaming" || status === "submitted") {
-            e.preventDefault();
-            stop();
-            setMessages((messages) => messages);
+        <PromptInputSubmit
+          status={
+            status === "streaming"
+              ? "streaming"
+              : status === "submitted"
+                ? "submitted"
+                : "ready"
           }
-        }}
-      >
-        {status === "submitted" ? (
-          <Loader2 className="size-5 animate-spin" />
-        ) : status === "streaming" ? (
-          <SquareIcon className="size-4" />
-        ) : (
-          <ArrowUpIcon className="size-5" />
-        )}
-      </PromptInputSubmit>
+          disabled={status === "ready" ? !hasContent : status === "error"}
+          className="h-9 w-9 rounded-full bg-blue-500 text-white hover:bg-blue-600"
+          onClick={(e) => {
+            if (status === "streaming" || status === "submitted") {
+              e.preventDefault();
+              stop();
+              setMessages((messages) => messages);
+            }
+          }}
+        >
+          {status === "submitted" ? (
+            <Loader2 className="size-5 animate-spin" />
+          ) : status === "streaming" ? (
+            <SquareIcon className="size-4" />
+          ) : (
+            <ArrowUpIcon className="size-5" />
+          )}
+        </PromptInputSubmit>
+      </div>
     </PromptInput>
   );
 
