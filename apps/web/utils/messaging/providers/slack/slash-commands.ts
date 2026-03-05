@@ -122,7 +122,7 @@ async function runSlackSlashCommandAi({
   teamId: string;
   logger: Logger;
 }): Promise<string> {
-  const chatId = `slack-cmd-${userId}-${teamId}`;
+  const chatId = `slack-cmd-${userId}-${teamId}-${emailAccountId}`;
 
   const chat = await prisma.chat.upsert({
     where: { id: chatId },
