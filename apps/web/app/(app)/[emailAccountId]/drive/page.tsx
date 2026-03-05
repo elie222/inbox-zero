@@ -143,7 +143,10 @@ function IntegrationsPopover({ emailAccountId }: { emailAccountId: string }) {
 
   const availableProviders = data?.availableProviders ?? [];
 
-  if (isLoading || (allConnected.length === 0 && availableProviders.length === 0))
+  if (
+    isLoading ||
+    (allConnected.length === 0 && availableProviders.length === 0)
+  )
     return null;
 
   return (

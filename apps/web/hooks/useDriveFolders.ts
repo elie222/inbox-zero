@@ -18,8 +18,10 @@ export function useDriveFolders(emailAccountId?: string) {
 
     attemptedCleanupKeyRef.current = staleFolderCleanupKey;
 
-    void cleanupStaleFilingFoldersAction(emailAccountId, {
+    cleanupStaleFilingFoldersAction(emailAccountId, {
       filingFolderIds: staleFolderDbIds,
+    }).catch((error) => {
+      console.error("Failed to cleanup stale filing folders", error);
     });
   }, [emailAccountId, staleFolderCleanupKey, staleFolderDbIds]);
 

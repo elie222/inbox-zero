@@ -2,7 +2,7 @@
 
 import { useReducer, useRef, useState } from "react";
 import Link from "next/link";
-import { HistoryIcon, PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
+import { PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
 import type { ThreadsResponse } from "@/app/api/threads/route";

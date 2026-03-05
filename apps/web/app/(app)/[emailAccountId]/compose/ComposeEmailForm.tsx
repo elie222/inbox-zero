@@ -383,6 +383,8 @@ function getReplyToEmailPayload(
     ...(replyingToEmail?.references
       ? { references: replyingToEmail.references }
       : {}),
-    ...(replyingToEmail?.messageId ? { messageId: replyingToEmail.messageId } : {}),
+    ...(replyingToEmail?.messageId
+      ? { messageId: replyingToEmail.messageId }
+      : {}),
   };
 }

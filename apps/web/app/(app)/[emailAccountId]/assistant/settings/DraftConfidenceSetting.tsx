@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import type { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { updateDraftReplyConfidenceAction } from "@/utils/actions/rule";
 import {

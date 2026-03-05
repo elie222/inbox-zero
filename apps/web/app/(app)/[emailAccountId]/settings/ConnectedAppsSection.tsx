@@ -381,7 +381,9 @@ function ConnectedChannelRow({
     <div
       className={`flex justify-between rounded-md border bg-muted/30 px-3 py-2 ${isSlackChannel ? "items-start" : "items-center"}`}
     >
-      <div className={`flex gap-2 text-sm ${isSlackChannel ? "items-start" : "items-center"}`}>
+      <div
+        className={`flex gap-2 text-sm ${isSlackChannel ? "items-start" : "items-center"}`}
+      >
         <Icon
           className={`h-4 w-4 text-muted-foreground ${isSlackChannel ? "mt-0.5" : ""}`}
         />

@@ -206,21 +206,21 @@ On Mon, Jan 1, 2024 at 10:00 AM Sender <sender@example.com> wrote:
       { emoji: "👍", hex: "&#x1F44D;", name: "thumbs up" },
       { emoji: "💡", hex: "&#x1F4A1;", name: "light bulb" },
       { emoji: "📧", hex: "&#x1F4E7;", name: "email" },
-    ])(
-      "should return 1.0 when stored content has HTML entity $name ($hex) and Gmail has actual emoji",
-      ({ emoji, hex }) => {
-        const storedContent = `hey, 10am works for me! see you then ${hex}`;
-        const gmailMessage = createParsedMessage(
-          `hey, 10am works for me! see you then ${emoji}
+    ])("should return 1.0 when stored content has HTML entity $name ($hex) and Gmail has actual emoji", ({
+      emoji,
+      hex,
+    }) => {
+      const storedContent = `hey, 10am works for me! see you then ${hex}`;
+      const gmailMessage = createParsedMessage(
+        `hey, 10am works for me! see you then ${emoji}
 
 On Tue, 27 Jan 2026 at 2:59, Test User <test@example.com> wrote:
 > Previous message`,
-        );
+      );
 
-        const score = realCalculateSimilarity(storedContent, gmailMessage);
-        expect(score).toBe(1.0);
-      },
-    );
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBe(1.0);
+    });
 
     it.each([
       { emoji: "👋", decimal: "128075", name: "waving hand" },
@@ -233,16 +233,16 @@ On Tue, 27 Jan 2026 at 2:59, Test User <test@example.com> wrote:
       { emoji: "👍", decimal: "128077", name: "thumbs up" },
       { emoji: "💡", decimal: "128161", name: "light bulb" },
       { emoji: "📧", decimal: "128231", name: "email" },
-    ])(
-      "should decode decimal HTML entity for $name (&#$decimal;) to $emoji",
-      ({ emoji, decimal }) => {
-        const storedContent = `Hello &#${decimal}; world`;
-        const gmailMessage = createParsedMessage(`Hello ${emoji} world`);
+    ])("should decode decimal HTML entity for $name (&#$decimal;) to $emoji", ({
+      emoji,
+      decimal,
+    }) => {
+      const storedContent = `Hello &#${decimal}; world`;
+      const gmailMessage = createParsedMessage(`Hello ${emoji} world`);
 
-        const score = realCalculateSimilarity(storedContent, gmailMessage);
-        expect(score).toBe(1.0);
-      },
-    );
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBe(1.0);
+    });
 
     it("should not throw on invalid code points and leave them unchanged", () => {
       const storedContent = "Hello &#1114112; and &#xFFFFFFFF; world";

@@ -12,7 +12,12 @@ import {
   ApiKeysCreateButtonModal,
   ApiKeysDeactivateButton,
 } from "@/app/(app)/[emailAccountId]/settings/ApiKeysCreateForm";
-import { Item, ItemContent, ItemTitle, ItemActions } from "@/components/ui/item";
+import {
+  Item,
+  ItemContent,
+  ItemTitle,
+  ItemActions,
+} from "@/components/ui/item";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

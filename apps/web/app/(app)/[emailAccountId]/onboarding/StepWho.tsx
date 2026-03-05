@@ -64,6 +64,7 @@ export function StepWho({
   useEffect(() => {
     if (defaultRole && scrollContainerRef.current) {
       // Find the button with the selected role
+      // biome-ignore lint/complexity/useIndexOf: indexOf requires exact type match but defaultRole is `string` while array has a narrower union type
       const selectedIndex = displayedRoleValues.findIndex(
         (role) => role === defaultRole,
       );

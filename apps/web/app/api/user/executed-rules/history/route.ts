@@ -7,7 +7,6 @@ import type { Prisma } from "@/generated/prisma/client";
 
 const LIMIT = 50;
 
-
 export type GetExecutedRulesResponse = Awaited<
   ReturnType<typeof getExecutedRules>
 >;

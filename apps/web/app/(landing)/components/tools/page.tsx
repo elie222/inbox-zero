@@ -150,9 +150,7 @@ export default function ToolsPage() {
             />
             <BasicToolInfo text="Updated inbox features" />
             <Suspense
-              fallback={
-                <BasicToolInfo text="Loading email action states..." />
-              }
+              fallback={<BasicToolInfo text="Loading email action states..." />}
             >
               <ChatProvider>
                 <AssistantEmailActionStates />

@@ -35,7 +35,13 @@ export async function cleanupAIDraftsForAccount({
   });
 
   if (staleDrafts.length === 0) {
-    return { total: 0, deleted: 0, skippedModified: 0, alreadyGone: 0, errors: 0 };
+    return {
+      total: 0,
+      deleted: 0,
+      skippedModified: 0,
+      alreadyGone: 0,
+      errors: 0,
+    };
   }
 
   const provider = await createEmailProvider({
@@ -64,10 +70,7 @@ export async function cleanupAIDraftsForAccount({
         continue;
       }
 
-      const similarityScore = calculateSimilarity(
-        action.content,
-        draftDetails,
-      );
+      const similarityScore = calculateSimilarity(action.content, draftDetails);
 
       if (similarityScore !== 1.0) {
         skippedModified++;
@@ -98,5 +101,11 @@ export async function cleanupAIDraftsForAccount({
     errors,
   });
 
-  return { total: staleDrafts.length, deleted, skippedModified, alreadyGone, errors };
+  return {
+    total: staleDrafts.length,
+    deleted,
+    skippedModified,
+    alreadyGone,
+    errors,
+  };
 }

@@ -4,7 +4,6 @@ import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 
-
 const HEALTH_CHECK_WINDOW_MINUTES = 5;
 
 export const GET = withError("health", async (request) => {
