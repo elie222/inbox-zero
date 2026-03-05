@@ -5,12 +5,14 @@ import { XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Attachment } from "@/providers/ChatProvider";
 
+type PreviewableAttachment = Pick<Attachment, "name" | "url" | "contentType">;
+
 export function PreviewAttachment({
   attachment,
   onRemove,
   isUploading,
 }: {
-  attachment: Attachment;
+  attachment: PreviewableAttachment;
   onRemove?: () => void;
   isUploading?: boolean;
 }) {
