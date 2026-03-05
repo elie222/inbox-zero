@@ -177,7 +177,7 @@ export function Chat({ open }: { open: boolean }) {
           setLocalStorageInput("");
         }
       }}
-      className="relative rounded-2xl"
+      className="relative divide-y-0 rounded-2xl"
     >
       {(attachments.length > 0 || uploadQueue.length > 0) && (
         <div className="flex gap-2 overflow-x-auto p-2 pb-0">
