@@ -205,7 +205,7 @@ export function Chat({ open }: { open: boolean }) {
         placeholder="Ask me anything"
         onChange={(e) => setInput(e.currentTarget.value)}
         onPaste={handlePaste}
-        className="pr-14"
+        className="pl-12 pr-14"
       />
 
       <input
@@ -218,20 +218,18 @@ export function Chat({ open }: { open: boolean }) {
         tabIndex={-1}
       />
 
-      <div className="absolute bottom-2 left-2">
-        <Tooltip content="Attach images">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-9 rounded-full text-muted-foreground hover:text-foreground"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={attachments.length >= MAX_FILES}
-          >
-            <PaperclipIcon className="size-4" />
-          </Button>
-        </Tooltip>
-      </div>
+      <Tooltip content="Attach images">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute bottom-2 left-2 size-9 rounded-full text-muted-foreground hover:text-foreground"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={attachments.length >= MAX_FILES}
+        >
+          <PaperclipIcon className="size-4" />
+        </Button>
+      </Tooltip>
 
       <PromptInputSubmit
         status={
