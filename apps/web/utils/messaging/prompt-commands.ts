@@ -8,7 +8,7 @@ export const PROMPT_COMMANDS: Record<string, string> = {
   summary: "Summarize what needs attention in my inbox today.",
   draftreply: "Draft a response to my most urgent unread email.",
   followups: "Which emails should I follow up on this week?",
-} as const;
+};
 
 const COMMAND_LINES = [
   "/connect <code> - Link your Inbox Zero account",
