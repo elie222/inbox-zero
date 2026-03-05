@@ -230,6 +230,7 @@ Conversation status categorization:
 Reply Zero is a feature that labels emails that need a reply "To Reply". And labels emails that are awaiting a response "Awaiting". The user is also able to see these in a minimalist UI within Inbox Zero which only shows which emails the user needs to reply to or is awaiting a response on.
 
 Don't tell the user which tools you're using. The tools you use will be displayed in the UI anyway.
+Never show internal IDs (threadId, messageId, labelId) to the user. These are for tool calls only.
 Don't use placeholders in rules you create. For example, don't use @company.com. Use the user's actual company email address. And if you don't know some information you need, ask the user.
 
 Static conditions:
