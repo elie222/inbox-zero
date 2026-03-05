@@ -24,16 +24,32 @@ import { mapUiMessagesToChatMessageRows } from "@/app/api/chat/chat-message-pers
 export const maxDuration = 120;
 
 const textPartSchema = z.object({
+  type: z.literal("text"),
   text: z.string().min(1).max(3000),
-  type: z.enum(["text"]),
 });
+
+const filePartSchema = z.object({
+  type: z.literal("file"),
+  url: z.string().max(6_000_000).startsWith("data:"),
+  filename: z.string().optional(),
+  mediaType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]),
+});
+
+const messagePartSchema = z.discriminatedUnion("type", [
+  textPartSchema,
+  filePartSchema,
+]);
 
 const assistantInputSchema = z.object({
   id: z.string(),
   message: z.object({
     id: z.string(),
     role: z.enum(["user"]),
-    parts: z.array(textPartSchema),
+    parts: z
+      .array(messagePartSchema)
+      .refine((parts) => parts.filter((p) => p.type === "file").length <= 5, {
+        message: "Maximum 5 file attachments per message",
+      }),
   }),
   context: messageContextSchema.optional(),
 });

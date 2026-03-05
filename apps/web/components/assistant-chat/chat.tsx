@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowUpIcon,
   HistoryIcon,
   Loader2,
+  PaperclipIcon,
   PlusIcon,
   SquareIcon,
 } from "lucide-react";
 import { Messages } from "./messages";
+import { PreviewAttachment } from "./preview-attachment";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,6 +22,7 @@ import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { useChat } from "@/providers/ChatProvider";
+import type { Attachment } from "@/providers/ChatProvider";
 import {
   PromptInput,
   PromptInputTextarea,
@@ -31,6 +34,15 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { MessageContext } from "@/app/api/chat/validation";
 
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+const MAX_FILES = 5;
+const ACCEPTED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+
 export function Chat({ open }: { open: boolean }) {
   const {
     chat,
@@ -41,12 +53,16 @@ export function Chat({ open }: { open: boolean }) {
     setNewChat,
     context,
     setContext,
+    attachments,
+    setAttachments,
   } = useChat();
   const { messages, status, stop, regenerate, setMessages } = chat;
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
     "",
   );
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
   useEffect(() => {
     if (open && !chatId) {
@@ -67,27 +83,156 @@ export function Chat({ open }: { open: boolean }) {
     }
   }, []);
 
+  const readFileAsDataUrl = useCallback(
+    (file: File): Promise<Attachment | undefined> => {
+      return new Promise((resolve) => {
+        if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+          resolve(undefined);
+          return;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+          resolve(undefined);
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          resolve({
+            id: crypto.randomUUID(),
+            name: file.name,
+            url: reader.result as string,
+            contentType: file.type,
+          });
+        };
+        reader.onerror = () => resolve(undefined);
+        reader.readAsDataURL(file);
+      });
+    },
+    [],
+  );
+
+  const handleFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files || []);
+      if (files.length === 0) return;
+
+      const remaining = MAX_FILES - attachments.length;
+      const filesToProcess = files.slice(0, remaining);
+
+      setUploadQueue(filesToProcess.map((f) => f.name));
+
+      const results = await Promise.all(filesToProcess.map(readFileAsDataUrl));
+      const valid = results.filter((a): a is Attachment => a !== undefined);
+
+      setAttachments((prev) => [...prev, ...valid]);
+      setUploadQueue([]);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    [attachments.length, readFileAsDataUrl, setAttachments],
+  );
+
+  const handlePaste = useCallback(
+    async (event: React.ClipboardEvent) => {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles = Array.from(items)
+        .filter((item) => item.type.startsWith("image/"))
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => file !== null);
+
+      if (imageFiles.length === 0) return;
+
+      event.preventDefault();
+
+      const remaining = MAX_FILES - attachments.length;
+      const filesToProcess = imageFiles.slice(0, remaining);
+
+      setUploadQueue(filesToProcess.map((f) => f.name));
+
+      const results = await Promise.all(filesToProcess.map(readFileAsDataUrl));
+      const valid = results.filter((a): a is Attachment => a !== undefined);
+
+      setAttachments((prev) => [...prev, ...valid]);
+      setUploadQueue([]);
+    },
+    [attachments.length, readFileAsDataUrl, setAttachments],
+  );
+
   const { data: session } = useSession();
   const firstName = session?.user?.name?.split(" ")[0];
   const hasMessages = messages.length > 0;
+  const hasContent =
+    input.trim().length > 0 || attachments.length > 0 || !!context;
 
   const inputArea = (
     <PromptInput
       onSubmit={(e) => {
         e.preventDefault();
-        if (input.trim() && status === "ready") {
+        if (hasContent && status === "ready") {
           handleSubmit();
           setLocalStorageInput("");
         }
       }}
       className="relative rounded-2xl"
     >
+      {(attachments.length > 0 || uploadQueue.length > 0) && (
+        <div className="flex gap-2 overflow-x-auto p-2 pb-0">
+          {attachments.map((attachment) => (
+            <PreviewAttachment
+              key={attachment.id}
+              attachment={attachment}
+              onRemove={() =>
+                setAttachments((prev) => prev.filter((a) => a !== attachment))
+              }
+            />
+          ))}
+          {uploadQueue.map((name) => (
+            <PreviewAttachment
+              key={name}
+              attachment={{ name, url: "", contentType: "" }}
+              isUploading
+            />
+          ))}
+        </div>
+      )}
+
       <PromptInputTextarea
         value={input}
         placeholder="Ask me anything"
         onChange={(e) => setInput(e.currentTarget.value)}
+        onPaste={handlePaste}
         className="pr-14"
       />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
+        className="hidden"
+        onChange={handleFileChange}
+        tabIndex={-1}
+      />
+
+      <div className="absolute bottom-2 left-2">
+        <Tooltip content="Attach images">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-9 rounded-full text-muted-foreground hover:text-foreground"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={attachments.length >= MAX_FILES}
+          >
+            <PaperclipIcon className="size-4" />
+          </Button>
+        </Tooltip>
+      </div>
+
       <PromptInputSubmit
         status={
           status === "streaming"
@@ -96,9 +241,7 @@ export function Chat({ open }: { open: boolean }) {
               ? "submitted"
               : "ready"
         }
-        disabled={
-          status === "ready" ? !input.trim() && !context : status === "error"
-        }
+        disabled={status === "ready" ? !hasContent : status === "error"}
         className="absolute bottom-2 right-2 h-9 w-9 rounded-full bg-blue-500 text-white hover:bg-blue-600"
         onClick={(e) => {
           if (status === "streaming" || status === "submitted") {

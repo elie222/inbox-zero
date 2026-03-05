@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { Response } from "@/components/ai-elements/response";
 import {
@@ -74,6 +75,37 @@ export function MessagePart({
   if (part.type === "text") {
     if (!part.text) return null;
     return <Response key={key}>{part.text}</Response>;
+  }
+
+  if (part.type === "file") {
+    if (part.mediaType.startsWith("image")) {
+      return (
+        <a
+          key={key}
+          href={part.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block"
+        >
+          <Image
+            src={part.url}
+            alt={part.filename ?? "attachment"}
+            width={256}
+            height={256}
+            className="max-h-64 max-w-full rounded-lg border object-contain"
+            unoptimized
+          />
+        </a>
+      );
+    }
+    return (
+      <div
+        key={key}
+        className="inline-flex items-center gap-2 rounded-lg border bg-muted px-3 py-2 text-sm"
+      >
+        {part.filename ?? "File"}
+      </div>
+    );
   }
 
   // Tool handling

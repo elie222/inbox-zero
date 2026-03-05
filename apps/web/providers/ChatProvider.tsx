@@ -19,6 +19,13 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import type { MessageContext } from "@/app/api/chat/validation";
 
+export type Attachment = {
+  id: string;
+  name: string;
+  url: string;
+  contentType: string;
+};
+
 export type Chat = ReturnType<typeof useAiChat<ChatMessage>>;
 
 type ChatContextType = {
@@ -31,6 +38,8 @@ type ChatContextType = {
   handleSubmit: () => void;
   context: MessageContext | null;
   setContext: (context: MessageContext | null) => void;
+  attachments: Attachment[];
+  setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>;
 };
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -42,6 +51,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [input, setInput] = useState<string>("");
   const [chatId, setChatId] = useQueryState("chatId", parseAsString);
   const [context, setContext] = useState<MessageContext | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   const { data } = useChatMessages(chatId);
 
@@ -84,18 +94,30 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [chat.setMessages, data]);
 
   const handleSubmit = useCallback(() => {
-    chat.sendMessage({
-      role: "user",
-      parts: [
-        {
-          type: "text",
-          text: input.trim(),
-        },
-      ],
-    });
+    const text = input.trim();
+    if (!text && attachments.length === 0) return;
 
+    const fileParts = attachments.map((a) => ({
+      type: "file" as const,
+      url: a.url,
+      filename: a.name,
+      mediaType: a.contentType,
+    }));
+
+    const parts: Array<
+      | { type: "file"; url: string; filename: string; mediaType: string }
+      | { type: "text"; text: string }
+    > = [...fileParts];
+
+    if (text) {
+      parts.push({ type: "text", text });
+    }
+
+    chat.sendMessage({ role: "user", parts });
+
+    setAttachments([]);
     setInput("");
-  }, [chat.sendMessage, input]);
+  }, [chat.sendMessage, input, attachments]);
 
   return (
     <ChatContext.Provider
@@ -109,6 +131,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         handleSubmit,
         context,
         setContext,
+        attachments,
+        setAttachments,
       }}
     >
       {children}
