@@ -45,6 +45,11 @@ import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import { PENDING_DRAFT_CONFIRMATION_MESSAGE } from "@/utils/messaging/pending-email-confirmation";
 import { buildPendingEmailPreview } from "@/utils/messaging/pending-email-preview";
 import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
+import {
+  expandTelegramPromptCommand,
+  getTelegramHelpText,
+  isTelegramHelpCommand,
+} from "@/utils/messaging/providers/telegram/bot-config";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import { getEmailUrlForMessage } from "@/utils/url";
@@ -495,6 +500,13 @@ async function processMessagingAssistantMessage({
     logger,
   });
   if (switchCommandHandled) return true;
+
+  const helpCommandHandled = await handleTelegramHelpCommand({
+    thread,
+    message,
+    logger,
+  });
+  if (helpCommandHandled) return true;
 
   const clearProcessingReaction = await startSlackProcessingReaction({
     adapters,
@@ -1562,6 +1574,34 @@ async function handleSwitchCommand({
   return true;
 }
 
+async function handleTelegramHelpCommand({
+  thread,
+  message,
+  logger,
+}: {
+  thread: Thread;
+  message: Message;
+  logger: Logger;
+}): Promise<boolean> {
+  if (thread.adapter.name !== "telegram") return false;
+  if (!isTelegramHelpCommand(message.text)) return false;
+
+  if (!thread.isDM) {
+    await sendDmRequiredMessage({ provider: "telegram", thread, logger });
+    return true;
+  }
+
+  await postMessagingThreadMessage({
+    thread,
+    logger,
+    message: getTelegramHelpText(),
+    errorLogMessage: "Failed to send Telegram help command response",
+    logMeta: { provider: "telegram" },
+  });
+
+  return true;
+}
+
 async function resolveMessagingContext({
   adapters,
   thread,
@@ -1811,11 +1851,11 @@ function resolveTelegramIdentity({
 }
 
 function getTelegramMessageText(message: Message): string {
-  const plainText = message.text.trim();
+  const plainText = expandTelegramPromptCommand(message.text.trim());
   if (plainText) return plainText;
 
   const rawMessage = message.raw as TelegramRawMessage;
-  return rawMessage.caption?.trim() || "";
+  return expandTelegramPromptCommand(rawMessage.caption?.trim() || "");
 }
 
 export function hasUnsupportedMessagingAttachment({

@@ -19,6 +19,7 @@ import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send";
 import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
 import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
+import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
 
 export const updateSlackChannelAction = actionClient
   .metadata({ name: "updateSlackChannel" })
@@ -281,24 +282,13 @@ async function getTelegramBotUrl() {
   if (!env.TELEGRAM_BOT_TOKEN) return undefined;
 
   try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`,
-      {
-        cache: "no-store",
-      },
-    );
-    if (!response.ok) return undefined;
+    const result = await callTelegramBotApi<{ username?: string }>({
+      botToken: env.TELEGRAM_BOT_TOKEN,
+      apiMethod: "getMe",
+      requestMethod: "GET",
+    });
 
-    const payload = (await response.json()) as {
-      ok?: boolean;
-      result?: {
-        username?: string;
-      };
-    };
-
-    if (!payload.ok) return undefined;
-
-    const username = payload.result?.username?.trim().replace(/^@+/, "");
+    const username = result.username?.trim().replace(/^@+/, "");
     if (!username) return undefined;
 
     return `https://t.me/${username}`;
