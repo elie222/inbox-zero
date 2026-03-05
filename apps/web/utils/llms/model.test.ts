@@ -204,7 +204,7 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         google: {
           thinkingConfig: {
-            thinkingBudget: 50,
+            thinkingBudget: 128,
           },
         },
       });
@@ -250,7 +250,7 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         vertex: {
           thinkingConfig: {
-            thinkingBudget: 50,
+            thinkingBudget: 128,
           },
         },
       });
@@ -280,7 +280,7 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         vertex: {
           thinkingConfig: {
-            thinkingBudget: 50,
+            thinkingBudget: 128,
           },
         },
       });
@@ -365,7 +365,7 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         google: {
           thinkingConfig: {
-            thinkingBudget: 50,
+            thinkingBudget: 128,
           },
         },
       });
