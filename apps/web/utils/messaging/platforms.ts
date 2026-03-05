@@ -7,10 +7,8 @@ const PROVIDER_NAMES: Record<MessagingProvider, string> = {
   TELEGRAM: "Telegram",
 };
 
-export function getMessagingProviderName(provider: MessagingProvider): string {
-  return PROVIDER_NAMES[provider];
-}
-
-export function getMessagingPlatformName(platform: MessagingPlatform): string {
-  return PROVIDER_NAMES[platform.toUpperCase() as MessagingProvider];
+export function getMessagingProviderName(
+  provider: MessagingProvider | MessagingPlatform,
+): string {
+  return PROVIDER_NAMES[provider.toUpperCase() as MessagingProvider];
 }

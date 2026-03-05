@@ -1,5 +1,5 @@
 import {
-  getMessagingPlatformName,
+  getMessagingProviderName,
   type MessagingPlatform,
 } from "@/utils/messaging/platforms";
 
@@ -10,5 +10,5 @@ export function getMessagingDraftConfirmationAction(
   platform?: MessagingPlatform,
 ): string {
   if (!platform) return "click the Send button in this thread";
-  return `click the Send button in this ${getMessagingPlatformName(platform)} thread`;
+  return `click the Send button in this ${getMessagingProviderName(platform)} thread`;
 }
