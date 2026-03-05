@@ -1839,7 +1839,8 @@ function resolveTeamsIdentity({
   message: Message;
 }): LinkedProviderIdentity | null {
   const messageText = expandPromptCommand(message.text.trim());
-  if (!messageText) return null;
+  const hasAttachments = message.attachments.length > 0;
+  if (!messageText && !hasAttachments) return null;
 
   const providerUserId = message.author.userId.trim();
   if (!providerUserId) return null;
@@ -1853,7 +1854,9 @@ function resolveTeamsIdentity({
   if (!teamId) return null;
 
   return {
-    hasUnsupportedAttachments: false,
+    hasUnsupportedAttachments: hasAttachments
+      ? message.attachments.some((a) => !isImageAttachment(a))
+      : false,
     messageText,
     providerUserId,
     teamId,
