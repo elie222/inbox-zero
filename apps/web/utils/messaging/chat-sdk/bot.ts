@@ -43,6 +43,7 @@ import { createScopedLogger, type Logger } from "@/utils/logger";
 import { consumeMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code-consume";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import { buildPendingEmailPreview } from "@/utils/messaging/pending-email-preview";
+import { markdownToSlackMrkdwn } from "@/utils/messaging/providers/slack/format";
 import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
 import {
   expandPromptCommand,
@@ -2174,6 +2175,10 @@ function getMessagingAssistantPostPayload({
 }) {
   if (provider === "telegram") {
     return markdownToTelegramText(text);
+  }
+
+  if (provider === "slack") {
+    return { markdown: markdownToSlackMrkdwn(text) };
   }
 
   return { markdown: text };
