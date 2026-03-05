@@ -30,7 +30,12 @@ const textPartSchema = z.object({
 
 const filePartSchema = z.object({
   type: z.literal("file"),
-  url: z.string().max(6_000_000).startsWith("data:"),
+  url: z
+    .string()
+    .max(6_000_000)
+    .refine((url) => /^data:image\/(jpeg|png|webp|gif);base64,/.test(url), {
+      message: "URL must be a base64 data URL with an allowed image MIME type",
+    }),
   filename: z.string().optional(),
   mediaType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]),
 });

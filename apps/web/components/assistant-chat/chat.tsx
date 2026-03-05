@@ -111,11 +111,8 @@ export function Chat({ open }: { open: boolean }) {
     [],
   );
 
-  const handleFileChange = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(event.target.files || []);
-      if (files.length === 0) return;
-
+  const processIncomingFiles = useCallback(
+    async (files: File[]) => {
       const remaining = MAX_FILES - attachments.length;
       const filesToProcess = files.slice(0, remaining);
 
@@ -126,12 +123,22 @@ export function Chat({ open }: { open: boolean }) {
 
       setAttachments((prev) => [...prev, ...valid]);
       setUploadQueue([]);
+    },
+    [attachments.length, readFileAsDataUrl, setAttachments],
+  );
+
+  const handleFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files || []);
+      if (files.length === 0) return;
+
+      await processIncomingFiles(files);
 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     },
-    [attachments.length, readFileAsDataUrl, setAttachments],
+    [processIncomingFiles],
   );
 
   const handlePaste = useCallback(
@@ -147,19 +154,9 @@ export function Chat({ open }: { open: boolean }) {
       if (imageFiles.length === 0) return;
 
       event.preventDefault();
-
-      const remaining = MAX_FILES - attachments.length;
-      const filesToProcess = imageFiles.slice(0, remaining);
-
-      setUploadQueue(filesToProcess.map((f) => f.name));
-
-      const results = await Promise.all(filesToProcess.map(readFileAsDataUrl));
-      const valid = results.filter((a): a is Attachment => a !== undefined);
-
-      setAttachments((prev) => [...prev, ...valid]);
-      setUploadQueue([]);
+      await processIncomingFiles(imageFiles);
     },
-    [attachments.length, readFileAsDataUrl, setAttachments],
+    [processIncomingFiles],
   );
 
   const { data: session } = useSession();
