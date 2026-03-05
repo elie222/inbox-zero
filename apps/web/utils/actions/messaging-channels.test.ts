@@ -24,10 +24,10 @@ vi.mock("@/env", () => ({
 }));
 
 vi.mock("@/utils/messaging/chat-sdk/link-code", () => ({
-  LINKABLE_MESSAGING_PROVIDERS: ["TEAMS", "TELEGRAM"],
+  LINKABLE_MESSAGING_PROVIDERS: ["TEAMS", "TELEGRAM", "DISCORD"],
   generateMessagingLinkCode: (args: {
     emailAccountId: string;
-    provider: "TEAMS" | "TELEGRAM";
+    provider: "TEAMS" | "TELEGRAM" | "DISCORD";
   }) => generateMessagingLinkCodeMock(args),
 }));
 

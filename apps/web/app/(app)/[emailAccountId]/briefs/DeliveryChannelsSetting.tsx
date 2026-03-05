@@ -63,6 +63,11 @@ const PROVIDER_CONFIG: Record<
     icon: SendIcon,
     supportsBriefTargetSelection: false,
   },
+  DISCORD: {
+    name: "Discord",
+    icon: MessageSquareIcon,
+    supportsBriefTargetSelection: false,
+  },
 };
 
 export function DeliveryChannelsSetting() {

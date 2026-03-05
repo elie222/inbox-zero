@@ -43,6 +43,7 @@
     "@asteasolutions/zod-to-openapi": "8.4.0",
     "@better-auth/expo": "1.4.18",
     "@better-auth/sso": "1.4.18",
+    "@chat-adapter/discord": "4.16.0",
     "@chat-adapter/slack": "4.15.0",
     "@chat-adapter/state-ioredis": "4.15.0",
     "@chat-adapter/state-memory": "4.15.0",

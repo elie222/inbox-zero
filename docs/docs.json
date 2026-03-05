@@ -89,7 +89,8 @@
             "pages": [
               "slack/setup",
               "teams/setup",
-              "telegram/setup"
+              "telegram/setup",
+              "discord/setup"
             ]
           },
           {

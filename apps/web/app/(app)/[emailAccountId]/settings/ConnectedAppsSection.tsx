@@ -53,7 +53,7 @@ import { getActionErrorMessage } from "@/utils/error";
 import type { GetSlackAuthUrlResponse } from "@/app/api/slack/auth-url/route";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 
-type LinkableMessagingProvider = "TEAMS" | "TELEGRAM";
+type LinkableMessagingProvider = "TEAMS" | "TELEGRAM" | "DISCORD";
 
 const PROVIDER_CONFIG: Partial<
   Record<MessagingProvider, { name: string; icon: typeof MessageSquareIcon }>
@@ -61,6 +61,7 @@ const PROVIDER_CONFIG: Partial<
   SLACK: { name: "Slack", icon: HashIcon },
   TEAMS: { name: "Teams", icon: MessageCircleIcon },
   TELEGRAM: { name: "Telegram", icon: SendIcon },
+  DISCORD: { name: "Discord", icon: MessageSquareIcon },
 };
 
 export function ConnectedAppsSection({
@@ -97,12 +98,17 @@ export function ConnectedAppsSection({
   const hasTelegram = connectedChannels.some(
     (channel) => channel.provider === "TELEGRAM",
   );
+  const hasDiscord = connectedChannels.some(
+    (channel) => channel.provider === "DISCORD",
+  );
   const slackAvailable =
     channelsData?.availableProviders?.includes("SLACK") ?? false;
   const teamsAvailable =
     channelsData?.availableProviders?.includes("TEAMS") ?? false;
   const telegramAvailable =
     channelsData?.availableProviders?.includes("TELEGRAM") ?? false;
+  const discordAvailable =
+    channelsData?.availableProviders?.includes("DISCORD") ?? false;
 
   const { execute: executeLinkSlack, status: linkStatus } = useAction(
     linkSlackWorkspaceAction.bind(null, emailAccountId),
@@ -153,6 +159,7 @@ export function ConnectedAppsSection({
     !slackAvailable &&
     !teamsAvailable &&
     !telegramAvailable &&
+    !discordAvailable &&
     connectedChannels.length === 0
   )
     return null;
@@ -266,6 +273,18 @@ export function ConnectedAppsSection({
               >
                 <SendIcon className="mr-2 h-4 w-4" />
                 Connect Telegram
+              </Button>
+            )}
+
+            {!hasDiscord && discordAvailable && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={linkCodeStatus === "executing"}
+                onClick={() => handleCreateLinkCode("DISCORD")}
+              >
+                <MessageSquareIcon className="mr-2 h-4 w-4" />
+                Connect Discord
               </Button>
             )}
           </div>
@@ -554,6 +573,15 @@ function MessagingConnectCodeDialog({
             </Button>
           </div>
         )}
+        {provider === "DISCORD" && botUrl && (
+          <div className="pt-1">
+            <Button asChild size="sm">
+              <a href={botUrl} target="_blank" rel="noopener noreferrer">
+                Add bot to Discord server
+              </a>
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -561,6 +589,7 @@ function MessagingConnectCodeDialog({
 
 function getProviderDisplayName(provider: LinkableMessagingProvider): string {
   if (provider === "TEAMS") return "Teams";
+  if (provider === "DISCORD") return "Discord";
   return "Telegram";
 }
 

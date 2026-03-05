@@ -259,6 +259,14 @@ export const createMessagingLinkCodeAction = actionClient
       if (!env.TEAMS_BOT_APP_ID || !env.TEAMS_BOT_APP_PASSWORD) {
         throw new SafeError("Teams integration is not configured");
       }
+    } else if (provider === "DISCORD") {
+      if (
+        !env.DISCORD_BOT_TOKEN ||
+        !env.DISCORD_APP_ID ||
+        !env.DISCORD_PUBLIC_KEY
+      ) {
+        throw new SafeError("Discord integration is not configured");
+      }
     } else if (!env.TELEGRAM_BOT_TOKEN) {
       throw new SafeError("Telegram integration is not configured");
     }
@@ -268,7 +276,11 @@ export const createMessagingLinkCodeAction = actionClient
       provider,
     });
     const botUrl =
-      provider === "TELEGRAM" ? await getTelegramBotUrl() : undefined;
+      provider === "TELEGRAM"
+        ? await getTelegramBotUrl()
+        : provider === "DISCORD"
+          ? getDiscordBotInviteUrl()
+          : undefined;
 
     return {
       code,
@@ -295,4 +307,9 @@ async function getTelegramBotUrl() {
   } catch {
     return undefined;
   }
+}
+
+function getDiscordBotInviteUrl(): string | undefined {
+  if (!env.DISCORD_APP_ID) return undefined;
+  return `https://discord.com/oauth2/authorize?client_id=${env.DISCORD_APP_ID}&scope=bot&permissions=2048`;
 }
