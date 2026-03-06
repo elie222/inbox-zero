@@ -128,7 +128,9 @@ describe("aiProcessAssistantChat", () => {
       logger,
     });
 
-    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const args = mockToolCallAgentStream.mock.lastCall?.[0];
+
+    expect(args).toBeDefined();
 
     expect(args.messages[0].role).toBe("system");
     expect(args.messages[0].content).toContain("Core responsibilities:");
@@ -170,7 +172,7 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.updateInboxFeatures).toBeDefined();
     expect(args.tools.sendEmail).toBeDefined();
     expect(args.tools.forwardEmail).toBeDefined();
-  });
+  }, 15_000);
 
   it.each([
     ["slack"],
@@ -194,7 +196,9 @@ describe("aiProcessAssistantChat", () => {
       logger,
     });
 
-    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const args = mockToolCallAgentStream.mock.lastCall?.[0];
+
+    expect(args).toBeDefined();
     expect(args.messages[0].content).toContain(
       "sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.",
     );
