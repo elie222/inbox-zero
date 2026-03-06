@@ -14,6 +14,7 @@ import {
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
+import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
 import {
@@ -33,8 +34,22 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ItemCard, ItemSeparator } from "@/components/ui/item";
+import {
+  Item,
+  ItemCard,
+  ItemContent,
+  ItemSeparator,
+  ItemTitle,
+  ItemActions,
+} from "@/components/ui/item";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -219,16 +234,14 @@ function EmailAccountSettingsCard({
       {expanded && (
         <>
           <ConnectedAppsSection emailAccountId={emailAccount.id} />
-          <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
-          <ToggleAllRulesSection emailAccountId={emailAccount.id} />
-          <RuleImportExportSetting emailAccountId={emailAccount.id} />
-          <CopyRulesSection
+          <div className="px-4 py-3">
+            <ProactiveUpdatesSetting emailAccountId={emailAccount.id} />
+          </div>
+          <AdvancedSettingsSection
             emailAccountId={emailAccount.id}
             emailAccountEmail={emailAccount.email}
             allAccounts={allAccounts}
           />
-          <CleanupDraftsSection emailAccountId={emailAccount.id} />
-          <ResetAnalyticsSection emailAccountId={emailAccount.id} />
         </>
       )}
     </ItemCard>
@@ -258,6 +271,53 @@ function ProviderIcon({
     default:
       return <PlugIcon className={className} />;
   }
+}
+
+function AdvancedSettingsSection({
+  emailAccountId,
+  emailAccountEmail,
+  allAccounts,
+}: {
+  emailAccountId: string;
+  emailAccountEmail: string;
+  allAccounts: GetEmailAccountsResponse["emailAccounts"];
+}) {
+  return (
+    <>
+      <ItemSeparator />
+      <Item size="sm">
+        <ItemContent>
+          <ItemTitle>Advanced</ItemTitle>
+        </ItemContent>
+        <ItemActions>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                View
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Advanced Settings</DialogTitle>
+              </DialogHeader>
+              <ItemCard className="[&>[data-slot=item-separator]:first-child]:hidden">
+                <OrgAnalyticsConsentSection emailAccountId={emailAccountId} />
+                <ToggleAllRulesSection emailAccountId={emailAccountId} />
+                <RuleImportExportSetting emailAccountId={emailAccountId} />
+                <CopyRulesSection
+                  emailAccountId={emailAccountId}
+                  emailAccountEmail={emailAccountEmail}
+                  allAccounts={allAccounts}
+                />
+                <CleanupDraftsSection emailAccountId={emailAccountId} />
+                <ResetAnalyticsSection emailAccountId={emailAccountId} />
+              </ItemCard>
+            </DialogContent>
+          </Dialog>
+        </ItemActions>
+      </Item>
+    </>
+  );
 }
 
 function SettingsGroup({
