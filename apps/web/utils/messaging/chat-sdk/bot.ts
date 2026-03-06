@@ -757,13 +757,19 @@ async function handlePendingEmailConfirmAction({
   event: ActionEvent;
   logger: Logger;
 }) {
-  const provider = getSupportedPlatform(event.thread.adapter.name);
+  const thread = event.thread;
+  if (!thread) {
+    logger.warn("Missing thread for pending email confirmation action");
+    return;
+  }
+
+  const provider = getSupportedPlatform(thread.adapter.name);
   if (!provider) return;
 
   const parsedAction = parsePendingEmailActionValue(event.value);
   const chatId = getMessagingChatIdForThread({
     provider,
-    thread: event.thread,
+    thread,
   });
   if (!chatId) {
     await postPendingEmailActionFeedback({
@@ -1141,9 +1147,15 @@ async function postPendingEmailActionFeedback({
   text: string;
   logger: Logger;
 }) {
+  const thread = event.thread;
+  if (!thread) {
+    logger.warn("Missing thread for messaging action feedback", { provider });
+    return;
+  }
+
   if (provider === "slack") {
     try {
-      await event.thread.postEphemeral(event.user, text, {
+      await thread.postEphemeral(event.user, text, {
         fallbackToDM: false,
       });
       return;
@@ -1153,7 +1165,7 @@ async function postPendingEmailActionFeedback({
   }
 
   try {
-    await event.thread.post(text);
+    await thread.post(text);
   } catch (error) {
     logger.warn("Failed to post messaging action feedback", {
       provider,
@@ -1247,7 +1259,7 @@ function getTeamIdFromActionEvent({
     if (tenantId) return tenantId;
 
     const conversationId =
-      rawEvent?.conversation?.id?.trim() || event.thread.channelId?.trim();
+      rawEvent?.conversation?.id?.trim() || event.thread?.channelId?.trim();
     return conversationId || null;
   }
 
@@ -1258,6 +1270,7 @@ function getTeamIdFromActionEvent({
 
   const telegramAdapter = getMessagingChatSdkBot().adapters.telegram;
   if (!telegramAdapter) return null;
+  if (!event.thread) return null;
 
   try {
     return telegramAdapter.decodeThreadId(event.thread.id).chatId;
