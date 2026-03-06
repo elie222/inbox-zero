@@ -175,10 +175,13 @@ function EmailAccountSettingsCard({
 }) {
   const { data: channelsData } = useMessagingChannels(emailAccount.id);
 
-  const connectedProviders =
-    channelsData?.channels
-      .filter((ch) => ch.isConnected)
-      .map((ch) => ch.provider) ?? [];
+  const connectedProviders = Array.from(
+    new Set(
+      channelsData?.channels
+        .filter((ch) => ch.isConnected)
+        .map((ch) => ch.provider) ?? [],
+    ),
+  );
   const hasUnconnectedProvider = channelsData?.availableProviders?.some(
     (p) => !connectedProviders.includes(p),
   );
