@@ -20,26 +20,25 @@
     "docker:local:run": "./docker/scripts/run-local.sh"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.2",
-    "@clack/prompts": "1.0.0",
-    "@turbo/gen": "2.8.3",
+    "@biomejs/biome": "2.4.6",
+    "@clack/prompts": "1.1.0",
+    "@turbo/gen": "2.8.13",
     "commander": "14.0.3",
     "husky": "9.1.7",
-    "lint-staged": "16.2.7",
-    "prettier": "3.6.2",
+    "lint-staged": "16.3.2",
     "tsconfig-paths": "^4.2.0",
     "tsx": "4.21.0",
-    "turbo": "2.8.11",
-    "ultracite": "7.1.5"
+    "turbo": "2.8.13",
+    "ultracite": "7.2.5"
   },
-  "packageManager": "pnpm@10.29.2",
+  "packageManager": "pnpm@10.30.3",
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,jsonc,css,scss,md,mdx}": [
       "ultracite fix"
     ]
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0"
   },
   "pnpm": {
     "overrides": {

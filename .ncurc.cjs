@@ -21,11 +21,16 @@ module.exports = {
     "@tiptap/starter-kit",
     "@tiptap/suggestion",
     "tiptap-markdown",
+    "react-resizable-panels",
+    "recharts",
+    "@chronark/zod-bird",
 
     // v9+ breaks the shadcn/ui date picker component
     "react-day-picker",
 
     // v4 has breaking changes with Tinybird and other integrations
     "zod",
+
+    "@types/node",
   ],
 };

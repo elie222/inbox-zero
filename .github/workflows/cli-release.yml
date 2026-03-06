@@ -64,7 +64,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
       - name: Upgrade npm
@@ -175,4 +175,3 @@ jobs:
           git add Formula/inbox-zero.rb
           git diff --staged --quiet || git commit -m "chore: update Homebrew formula for ${{ steps.version.outputs.tag }}"
           git push origin HEAD:main
-

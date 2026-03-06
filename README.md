@@ -87,7 +87,7 @@ We offer a hosted version of Inbox Zero at [getinboxzero.com](https://www.getinb
 
 The fastest way to self-host Inbox Zero is with the CLI:
 
-> **Prerequisites**: [Docker](https://docs.docker.com/engine/install/) and [Node.js](https://nodejs.org/) v22+
+> **Prerequisites**: [Docker](https://docs.docker.com/engine/install/) and [Node.js](https://nodejs.org/) v24+
 
 ```bash
 npx @inbox-zero/cli setup      # One-time setup wizard
@@ -100,7 +100,7 @@ For complete self-hosting instructions, production deployment, OAuth setup, and 
 
 ### Local Development
 
-> **Prerequisites**: [Docker](https://docs.docker.com/engine/install/), [Node.js](https://nodejs.org/) v22+, and [pnpm](https://pnpm.io/) v10+
+> **Prerequisites**: [Docker](https://docs.docker.com/engine/install/), [Node.js](https://nodejs.org/) v24+, and [pnpm](https://pnpm.io/) v10+
 
 ```bash
 git clone https://github.com/elie222/inbox-zero.git
