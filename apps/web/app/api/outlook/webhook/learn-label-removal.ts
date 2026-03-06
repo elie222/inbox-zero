@@ -17,6 +17,7 @@ export async function learnFromOutlookLabelRemoval({
   const sender = extractEmailAddress(message.headers.from);
   if (!sender || !message.threadId) return;
 
+  const hasCurrentLabels = Array.isArray(message.labelIds);
   const currentLabels = new Set(message.labelIds || []);
   const currentFolderId = message.parentFolderId;
 
@@ -92,6 +93,8 @@ export async function learnFromOutlookLabelRemoval({
         if (!action.folderId || !currentFolderId) return false;
         return action.folderId !== currentFolderId;
       }
+
+      if (!hasCurrentLabels) return false;
 
       const resolvedLabelIds = resolveActionLabelIds({
         action,

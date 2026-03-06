@@ -175,6 +175,33 @@ describe("learnFromOutlookLabelRemoval", () => {
     expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 
+  it("does not treat missing label snapshot as label removal", async () => {
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+      {
+        rule: {
+          id: "rule-1",
+          systemType: SystemType.NEWSLETTER,
+        },
+        actionItems: [{ labelId: "label-newsletter", label: "Newsletter" }],
+      },
+    ] as any);
+
+    const message = getMockParsedMessage({
+      id: "message-123",
+      threadId: "thread-123",
+      labelIds: undefined,
+      headers: { from: "sender@example.com" },
+    });
+
+    await learnFromOutlookLabelRemoval({
+      message,
+      emailAccountId: "email-account-123",
+      logger,
+    });
+
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
   it("does not learn for non-learnable rule types", async () => {
     vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
       {
