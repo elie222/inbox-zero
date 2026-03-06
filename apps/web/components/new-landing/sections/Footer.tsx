@@ -88,6 +88,12 @@ export function Footer({ className, variant = "default" }: FooterProps) {
           </div>
           <div>
             <FooterList title="Use Cases" items={footerNavigation.useCases} />
+            <div className="mt-6">
+              <FooterList
+                title="Industries"
+                items={footerNavigation.industries}
+              />
+            </div>
           </div>
           <div>
             <FooterList title="Support" items={footerNavigation.support} />
