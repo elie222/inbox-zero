@@ -29,6 +29,12 @@ export const footerNavigation = {
     { name: "Customer Support", href: "/support" },
     { name: "E-commerce", href: "/ecommerce" },
   ],
+  industries: [
+    { name: "MSPs", href: "/msp" },
+    { name: "Property Management", href: "/property-management" },
+    { name: "Law Firms", href: "/law-firms" },
+    { name: "Accounting Firms", href: "/accounting-firms" },
+  ],
   compare: [
     { name: "vs Fyxer.ai", href: "/best-fyxer-alternative" },
     {
@@ -205,6 +211,13 @@ export function Footer() {
           </div>
           <div>
             <FooterList title="Use Cases" items={footerNavigation.useCases} />
+
+            <div className="mt-6">
+              <FooterList
+                title="Industries"
+                items={footerNavigation.industries}
+              />
+            </div>
 
             <div className="mt-6">
               <FooterList title="Compare" items={footerNavigation.compare} />
