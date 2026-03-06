@@ -189,7 +189,7 @@ export function ProactiveUpdatesSetting({
   return (
     <SettingCard
       title="Scheduled check-ins"
-      description="Your AI checks in with updates you can act on."
+      description="Get periodic updates sent to your connected chat app."
       right={
         showLoading ? (
           <Skeleton className="h-5 w-24" />
