@@ -3,7 +3,7 @@ import { cn } from "@/utils";
 
 interface WordRevealProps {
   children?: string;
-  words?: React.ReactNode[];
+  words?: readonly React.ReactNode[];
   duration?: number;
   delay?: number;
   spaceBetween?: string;
