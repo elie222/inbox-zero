@@ -36,6 +36,12 @@ import {
   ItemActions,
   ItemSeparator,
 } from "@/components/ui/item";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toastSuccess, toastError, toastInfo } from "@/components/Toast";
 import {
   useChannelTargets,
@@ -316,31 +322,21 @@ function ConnectedChannelRow({
   const config = PROVIDER_CONFIG[channel.provider];
   const Icon = config?.icon ?? MessageSquareIcon;
   const isSlackChannel = channel.provider === "SLACK";
-  const [selectingTarget, setSelectingTarget] = useState(!channel.channelId);
+  const [targetsLoaded, setTargetsLoaded] = useState(!channel.channelId);
 
-  useEffect(() => {
-    setSelectingTarget(!channel.channelId);
-  }, [channel.channelId]);
-
-  const selectingSlackTarget = channel.provider === "SLACK" && selectingTarget;
+  const shouldLoadTargets = channel.provider === "SLACK" && targetsLoaded;
   const {
     data: targetsData,
     isLoading: isLoadingTargets,
     error: targetsError,
     mutate: mutateTargets,
   } = useChannelTargets(
-    selectingSlackTarget ? channel.id : null,
+    shouldLoadTargets ? channel.id : null,
     emailAccountId,
   );
   const privateTargets =
     targetsData?.targets.filter((target) => target.isPrivate) ?? [];
   const hasTargetLoadError = Boolean(targetsError || targetsData?.error);
-  const selectionState = getSlackChannelSelectionState({
-    channelId: channel.channelId,
-    selectingTarget,
-    isLoadingTargets,
-    hasTargetLoadError,
-  });
 
   const { execute: executeDisconnect, status: disconnectStatus } = useAction(
     disconnectChannelAction.bind(null, emailAccountId),
@@ -365,7 +361,6 @@ function ConnectedChannelRow({
     {
       onSuccess: () => {
         toastSuccess({ description: "Slack channel updated" });
-        setSelectingTarget(false);
         onUpdate();
       },
       onError: (error) => {
@@ -378,137 +373,108 @@ function ConnectedChannelRow({
   );
 
   return (
-    <div
-      className={`flex justify-between rounded-md border bg-muted/30 px-3 py-2 ${isSlackChannel ? "items-start" : "items-center"}`}
-    >
-      <div
-        className={`flex gap-2 text-sm ${isSlackChannel ? "items-start" : "items-center"}`}
-      >
-        <Icon
-          className={`h-4 w-4 text-muted-foreground ${isSlackChannel ? "mt-0.5" : ""}`}
-        />
-        <div className="space-y-1">
-          <div>
-            {config?.name ?? channel.provider}
-            {channel.teamName && (
-              <span className="text-muted-foreground">
-                {" "}
-                &middot; {channel.teamName}
-              </span>
-            )}
-          </div>
+    <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+      <div className="flex items-center gap-2 text-sm">
+        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span>
+          {config?.name ?? channel.provider}
+          {channel.teamName && (
+            <span className="text-muted-foreground">
+              {" "}
+              &middot; {channel.teamName}
+            </span>
+          )}
+        </span>
 
-          {isSlackChannel && (
-            <div className="space-y-1">
-              {selectionState.showCurrentChannel ? (
-                <div className="space-y-0.5">
-                  <button
-                    type="button"
-                    className="text-xs text-muted-foreground underline underline-offset-4"
-                    onClick={() => setSelectingTarget(true)}
-                  >
-                    #{channel.channelName || channel.channelId}
-                  </button>
-                  <p className="text-xs text-muted-foreground">
-                    Inbox Zero sends notifications here (meeting briefs, filed
-                    documents) and responds to @mentions in this channel.
-                  </p>
-                </div>
-              ) : (
-                <Select
-                  onValueChange={(value) => {
-                    const target = privateTargets?.find((t) => t.id === value);
-                    if (!target) return;
+        {isSlackChannel && (
+          <Select
+            value={channel.channelId ?? ""}
+            onValueChange={(value) => {
+              const target = privateTargets?.find((t) => t.id === value);
+              if (!target) return;
 
-                    executeSetTarget({
-                      channelId: channel.id,
-                      targetId: target.id,
-                    });
-                  }}
-                  disabled={
-                    isLoadingTargets ||
-                    hasTargetLoadError ||
-                    setTargetStatus === "executing"
-                  }
-                >
-                  <SelectTrigger className="h-8 w-52 text-xs">
-                    <SelectValue
-                      placeholder={
-                        hasTargetLoadError
-                          ? "Failed to load channels"
-                          : isLoadingTargets
-                            ? "Loading channels..."
-                            : "Select private channel"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {privateTargets?.map((target) => (
-                      <SelectItem key={target.id} value={target.id}>
-                        <LockIcon className="mr-1 inline h-3 w-3" />
-                        {target.name}
-                      </SelectItem>
-                    ))}
-                    {!isLoadingTargets && privateTargets.length === 0 && (
-                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                        No private channels found
-                      </div>
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
-
-              {selectionState.showInviteHint && (
-                <div className="text-xs text-muted-foreground">
-                  Pick a private channel for notifications and @mentions. Invite
-                  the bot with{" "}
+              executeSetTarget({
+                channelId: channel.id,
+                targetId: target.id,
+              });
+            }}
+            disabled={
+              isLoadingTargets ||
+              hasTargetLoadError ||
+              setTargetStatus === "executing"
+            }
+            onOpenChange={(open) => {
+              if (open) setTargetsLoaded(true);
+            }}
+          >
+            <SelectTrigger className="h-7 w-auto gap-1 border-none bg-transparent px-1.5 text-xs text-muted-foreground shadow-none hover:bg-muted">
+              <SelectValue
+                placeholder={
+                  isLoadingTargets
+                    ? "Loading..."
+                    : hasTargetLoadError
+                      ? "Failed to load"
+                      : "Select channel"
+                }
+              >
+                {channel.channelName
+                  ? `#${channel.channelName}`
+                  : channel.channelId
+                    ? `#${channel.channelId}`
+                    : undefined}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {privateTargets?.map((target) => (
+                <SelectItem key={target.id} value={target.id}>
+                  <LockIcon className="mr-1 inline h-3 w-3" />
+                  {target.name}
+                </SelectItem>
+              ))}
+              {!isLoadingTargets && !hasTargetLoadError && (
+                <div className="border-t px-2 py-1.5 text-xs text-muted-foreground">
+                  {privateTargets.length === 0
+                    ? "No channels found. "
+                    : "Don't see your channel? "}
+                  Invite the bot with{" "}
                   <code className="rounded bg-muted px-1">
                     /invite @InboxZero
-                  </code>{" "}
-                  first.
+                  </code>
                 </div>
               )}
-
-              {(selectionState.showErrorHint ||
-                selectionState.showCancelSelection) && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {selectionState.showErrorHint && (
-                    <>
-                      <span>Unable to load Slack channels.</span>
-                      <button
-                        type="button"
-                        className="underline underline-offset-4"
-                        onClick={() => mutateTargets()}
-                      >
-                        Retry
-                      </button>
-                    </>
-                  )}
-                  {selectionState.showCancelSelection && (
-                    <button
-                      type="button"
-                      className="underline underline-offset-4"
-                      onClick={() => setSelectingTarget(false)}
-                    >
-                      Cancel
-                    </button>
-                  )}
+              {hasTargetLoadError && (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                  Failed to load channels.{" "}
+                  <button
+                    type="button"
+                    className="underline underline-offset-4"
+                    onClick={() => mutateTargets()}
+                  >
+                    Retry
+                  </button>
                 </div>
               )}
-            </div>
-          )}
-        </div>
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        disabled={disconnectStatus === "executing"}
-        onClick={() => executeDisconnect({ channelId: channel.id })}
-      >
-        <XIcon className="h-4 w-4" />
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 hover:bg-destructive/10 hover:text-destructive"
+              disabled={disconnectStatus === "executing"}
+              onClick={() => executeDisconnect({ channelId: channel.id })}
+            >
+              <XIcon className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Disconnect</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }
@@ -684,25 +650,3 @@ function resolveSlackErrorReason(
   return null;
 }
 
-export function getSlackChannelSelectionState({
-  channelId,
-  selectingTarget,
-  isLoadingTargets,
-  hasTargetLoadError,
-}: {
-  channelId: string | null;
-  selectingTarget: boolean;
-  isLoadingTargets: boolean;
-  hasTargetLoadError: boolean;
-}) {
-  const showChannelSelector = !channelId || selectingTarget;
-
-  return {
-    showChannelSelector,
-    showCurrentChannel: !showChannelSelector,
-    showInviteHint:
-      showChannelSelector && !isLoadingTargets && !hasTargetLoadError,
-    showErrorHint: showChannelSelector && hasTargetLoadError,
-    showCancelSelection: Boolean(channelId && selectingTarget),
-  };
-}
