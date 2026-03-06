@@ -71,6 +71,83 @@ describe("learnFromOutlookLabelRemoval", () => {
     );
   });
 
+  it("learns exclusion when a MOVE_FOLDER action no longer matches parent folder", async () => {
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+      {
+        rule: {
+          id: "rule-1",
+          systemType: SystemType.COLD_EMAIL,
+        },
+        actionItems: [
+          {
+            type: "MOVE_FOLDER",
+            folderId: "folder-cold-email",
+            labelId: null,
+            label: null,
+          },
+        ],
+      },
+    ] as any);
+
+    const message = getMockParsedMessage({
+      id: "message-123",
+      threadId: "thread-123",
+      parentFolderId: "inbox",
+      headers: { from: "sender@example.com" },
+    });
+
+    await learnFromOutlookLabelRemoval({
+      message,
+      emailAccountId: "email-account-123",
+      logger,
+    });
+
+    expect(saveLearnedPattern).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "email-account-123",
+        from: "sender@example.com",
+        ruleId: "rule-1",
+        exclude: true,
+        messageId: "message-123",
+        threadId: "thread-123",
+      }),
+    );
+  });
+
+  it("does not learn when MOVE_FOLDER target still matches parent folder", async () => {
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+      {
+        rule: {
+          id: "rule-1",
+          systemType: SystemType.COLD_EMAIL,
+        },
+        actionItems: [
+          {
+            type: "MOVE_FOLDER",
+            folderId: "folder-cold-email",
+            labelId: null,
+            label: null,
+          },
+        ],
+      },
+    ] as any);
+
+    const message = getMockParsedMessage({
+      id: "message-123",
+      threadId: "thread-123",
+      parentFolderId: "folder-cold-email",
+      headers: { from: "sender@example.com" },
+    });
+
+    await learnFromOutlookLabelRemoval({
+      message,
+      emailAccountId: "email-account-123",
+      logger,
+    });
+
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
   it("does not learn when label remains on message", async () => {
     vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
       {
@@ -86,6 +163,33 @@ describe("learnFromOutlookLabelRemoval", () => {
       id: "message-123",
       threadId: "thread-123",
       labelIds: ["INBOX", "label-newsletter"],
+      headers: { from: "sender@example.com" },
+    });
+
+    await learnFromOutlookLabelRemoval({
+      message,
+      emailAccountId: "email-account-123",
+      logger,
+    });
+
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
+  it("does not treat missing label snapshot as label removal", async () => {
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+      {
+        rule: {
+          id: "rule-1",
+          systemType: SystemType.NEWSLETTER,
+        },
+        actionItems: [{ labelId: "label-newsletter", label: "Newsletter" }],
+      },
+    ] as any);
+
+    const message = getMockParsedMessage({
+      id: "message-123",
+      threadId: "thread-123",
+      labelIds: undefined,
       headers: { from: "sender@example.com" },
     });
 
@@ -125,11 +229,29 @@ describe("learnFromOutlookLabelRemoval", () => {
     expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 
-  it("skips learning when label state is missing", async () => {
+  it("does not learn when neither labels nor folder state can prove removal", async () => {
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+      {
+        rule: {
+          id: "rule-1",
+          systemType: SystemType.NEWSLETTER,
+        },
+        actionItems: [
+          {
+            type: "MOVE_FOLDER",
+            folderId: "folder-cold-email",
+            labelId: null,
+            label: null,
+          },
+        ],
+      },
+    ] as any);
+
     const message = getMockParsedMessage({
       id: "message-123",
       threadId: "thread-123",
       labelIds: undefined,
+      parentFolderId: undefined,
       headers: { from: "sender@example.com" },
     });
 
@@ -139,7 +261,6 @@ describe("learnFromOutlookLabelRemoval", () => {
       logger,
     });
 
-    expect(prisma.executedRule.findMany).not.toHaveBeenCalled();
     expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 

@@ -17,12 +17,9 @@ export async function learnFromOutlookLabelRemoval({
   const sender = extractEmailAddress(message.headers.from);
   if (!sender || !message.threadId) return;
 
-  if (!message.labelIds || message.labelIds.length === 0) {
-    logger.info("Skipping label removal learning - missing label state");
-    return;
-  }
-
-  const currentLabels = new Set(message.labelIds);
+  const hasCurrentLabels = Array.isArray(message.labelIds);
+  const currentLabels = new Set(message.labelIds || []);
+  const currentFolderId = message.parentFolderId;
 
   const executedRules = await prisma.executedRule.findMany({
     where: {
@@ -32,8 +29,16 @@ export async function learnFromOutlookLabelRemoval({
       rule: { systemType: { not: null } },
       actionItems: {
         some: {
-          type: ActionType.LABEL,
-          OR: [{ labelId: { not: null } }, { label: { not: null } }],
+          OR: [
+            {
+              type: ActionType.LABEL,
+              OR: [{ labelId: { not: null } }, { label: { not: null } }],
+            },
+            {
+              type: ActionType.MOVE_FOLDER,
+              folderId: { not: null },
+            },
+          ],
         },
       },
     },
@@ -46,12 +51,22 @@ export async function learnFromOutlookLabelRemoval({
       },
       actionItems: {
         where: {
-          type: ActionType.LABEL,
-          OR: [{ labelId: { not: null } }, { label: { not: null } }],
+          OR: [
+            {
+              type: ActionType.LABEL,
+              OR: [{ labelId: { not: null } }, { label: { not: null } }],
+            },
+            {
+              type: ActionType.MOVE_FOLDER,
+              folderId: { not: null },
+            },
+          ],
         },
         select: {
+          type: true,
           labelId: true,
           label: true,
+          folderId: true,
         },
       },
     },
@@ -74,6 +89,13 @@ export async function learnFromOutlookLabelRemoval({
     if (!ruleId) continue;
 
     const hasRemovedLabel = executedRule.actionItems.some((action) => {
+      if (action.type === ActionType.MOVE_FOLDER) {
+        if (!action.folderId || !currentFolderId) return false;
+        return action.folderId !== currentFolderId;
+      }
+
+      if (!hasCurrentLabels) return false;
+
       const resolvedLabelIds = resolveActionLabelIds({
         action,
         ruleId,
@@ -118,7 +140,12 @@ export async function learnFromOutlookLabelRemoval({
 async function getResolvedLabelIdsByRuleAndName(
   executedRules: Array<{
     rule: { id: string; systemType: SystemType | null } | null;
-    actionItems: Array<{ labelId: string | null; label: string | null }>;
+    actionItems: Array<{
+      type: ActionType;
+      labelId: string | null;
+      label: string | null;
+      folderId: string | null;
+    }>;
   }>,
   emailAccountId: string,
 ) {
@@ -131,7 +158,11 @@ async function getResolvedLabelIdsByRuleAndName(
     ruleIds.add(ruleId);
 
     for (const action of executedRule.actionItems) {
-      if (!action.labelId && action.label) {
+      if (
+        action.type === ActionType.LABEL &&
+        !action.labelId &&
+        action.label
+      ) {
         unresolvedLabelNames.add(action.label);
       }
     }
@@ -181,7 +212,12 @@ function resolveActionLabelIds({
   ruleId,
   resolvedLabelIdsByRuleAndName,
 }: {
-  action: { labelId: string | null; label: string | null };
+  action: {
+    type: ActionType;
+    labelId: string | null;
+    label: string | null;
+    folderId: string | null;
+  };
   ruleId: string;
   resolvedLabelIdsByRuleAndName: Map<string, Map<string, Set<string>>>;
 }) {

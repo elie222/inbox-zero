@@ -52,6 +52,7 @@ export interface ParsedMessage {
   id: string;
   threadId: string;
   labelIds?: string[];
+  parentFolderId?: string;
   snippet: string;
   historyId: string;
   attachments?: Attachment[];
