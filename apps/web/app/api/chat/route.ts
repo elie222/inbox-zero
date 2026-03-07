@@ -234,6 +234,7 @@ export const POST = withEmailAccount("chat", async (request) => {
       chatId: chat.id,
       memories,
       inboxStats,
+      isFirstMessage: chat.messages.length === 0,
       recordingSession,
       logger: request.logger,
     });
