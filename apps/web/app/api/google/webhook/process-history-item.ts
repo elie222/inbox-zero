@@ -3,6 +3,7 @@ import type { ProcessHistoryOptions } from "@/app/api/google/webhook/types";
 import { HistoryEventType } from "@/app/api/google/webhook/types";
 import { createEmailProvider } from "@/utils/email/provider";
 import { handleLabelRemovedEvent } from "@/app/api/google/webhook/process-label-removed-event";
+import { handleLabelAddedEvent } from "@/app/api/google/webhook/process-label-added-event";
 import { processHistoryItem as processHistoryItemShared } from "@/utils/webhook/process-history-item";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import type { Logger } from "@/utils/logger";
@@ -50,7 +51,14 @@ export async function processHistoryItem(
     );
   } else if (type === HistoryEventType.LABEL_ADDED) {
     logger.info("Processing label added event for learning");
-    return;
+    return handleLabelAddedEvent(
+      item,
+      {
+        emailAccount,
+        provider,
+      },
+      logger,
+    );
   }
 
   // Lock before fetching to avoid extra API calls for duplicate webhooks

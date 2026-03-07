@@ -1442,6 +1442,7 @@ enum GroupItemSource {
   AI
   USER
   LABEL_REMOVED
+  LABEL_ADDED
 }
 
 enum MessagingProvider {
