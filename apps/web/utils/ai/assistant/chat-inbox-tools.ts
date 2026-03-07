@@ -32,10 +32,14 @@ const toRecipientFieldSchema = recipientListSchema.describe(
 );
 const ccRecipientFieldSchema = recipientListSchema
   .optional()
-  .describe("Optional CC recipient email list with valid email addresses.");
+  .describe(
+    "CC recipients. Only include if the user explicitly asks to CC someone. Do not add CC on your own.",
+  );
 const bccRecipientFieldSchema = recipientListSchema
   .optional()
-  .describe("Optional BCC recipient email list with valid email addresses.");
+  .describe(
+    "BCC recipients. Only include if the user explicitly asks to BCC someone. Do not add BCC on your own.",
+  );
 const recipientFieldsSchema = {
   to: toRecipientFieldSchema,
   cc: ccRecipientFieldSchema,
