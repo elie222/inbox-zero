@@ -400,7 +400,6 @@ function ConnectedChannelRow({
             }}
             disabled={
               isLoadingTargets ||
-              hasTargetLoadError ||
               setTargetStatus === "executing"
             }
             onOpenChange={(open) => {
