@@ -79,7 +79,6 @@ export async function aiProcessAssistantChat({
   chatId,
   memories,
   inboxStats,
-  isFirstMessage,
   responseSurface = "web",
   messagingPlatform,
   recordingSession,
@@ -92,7 +91,6 @@ export async function aiProcessAssistantChat({
   chatId?: string;
   memories?: { content: string; date: string }[];
   inboxStats?: { total: number; unread: number } | null;
-  isFirstMessage?: boolean;
   responseSurface?: "web" | "messaging";
   messagingPlatform?: MessagingPlatform;
   recordingSession?: RecordingSessionHandle | null;
@@ -304,6 +302,8 @@ Behavior anchors (minimal examples):
           logger,
         })
       : null;
+
+  const isFirstMessage = messages.filter((m) => m.role === "user").length <= 1;
 
   const inboxContextMessage =
     inboxStats && isFirstMessage
