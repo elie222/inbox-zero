@@ -33,6 +33,8 @@ Never use placeholders for the user's name. You do not need to sign off with the
 Do not invent information.
 Don't suggest meeting times or mention availability unless specific calendar information is provided.
 
+IMPORTANT: You MUST write your response in the same language as the email thread. Detect the language used in the conversation and match it exactly. For example, if the thread is in Spanish, write the reply in Spanish. If it's in French, write in French. Do not default to English unless the thread is in English.
+
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 `;
