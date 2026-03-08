@@ -37,6 +37,20 @@
               "essentials/reply-zero",
               "essentials/faq"
             ]
+          },
+          {
+            "group": "Automation",
+            "pages": [
+              "essentials/email-digest",
+              "essentials/delayed-actions",
+              "essentials/call-webhook"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "essentials/api-keys"
+            ]
           }
         ]
       },

@@ -1,0 +1,37 @@
+---
+title: 'Call Webhook'
+description: 'Integrate email processing with external services via webhooks.'
+icon: 'webhook'
+---
+
+The Call Webhook action lets you integrate email processing with other services. When a rule triggers, Inbox Zero sends the email data to your specified endpoint.
+
+## Configuration
+
+- **Method:** POST
+- **Content-Type:** application/json
+- **Headers:** Includes `X-Webhook-Secret` if configured in [settings](https://www.getinboxzero.com/settings)
+
+## Payload
+
+```typescript
+{
+  email: {
+    threadId: string;      // The thread ID (Gmail or Outlook)
+    messageId: string;     // The message ID (Gmail or Outlook)
+    subject: string;       // Email subject
+    from: string;         // Sender's email address
+    cc?: string;          // CC recipients (if any)
+    bcc?: string;         // BCC recipients (if any)
+    headerMessageId: string; // Original message ID header
+  },
+  executedRule: {
+    id: string;           // Execution ID
+    ruleId: string;       // Rule that triggered this webhook
+    reason: string;       // Why this rule was executed
+    createdAt: string;    // When the rule was executed
+  }
+}
+```
+
+Set up a webhook secret in [settings](https://www.getinboxzero.com/settings) to secure your endpoints. The secret is included in the `X-Webhook-Secret` header of every request.
