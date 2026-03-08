@@ -10,7 +10,7 @@ The Call Webhook action lets you integrate email processing with other services.
 
 - **Method:** POST
 - **Content-Type:** application/json
-- **Headers:** Includes `X-Webhook-Secret` if configured in [settings](https://www.getinboxzero.com/settings)
+- **Headers:** Always includes `X-Webhook-Secret` (empty string if no secret is configured in [settings](https://www.getinboxzero.com/settings))
 
 ## Payload
 
@@ -27,8 +27,9 @@ The Call Webhook action lets you integrate email processing with other services.
   },
   executedRule: {
     id: string;           // Execution ID
-    ruleId: string;       // Rule that triggered this webhook
-    reason: string;       // Why this rule was executed
+    ruleId: string | null; // Rule that triggered this webhook (null if rule was deleted)
+    reason: string | null; // Why this rule was executed
+    automated: boolean;   // Whether the rule ran automatically
     createdAt: string;    // When the rule was executed
   }
 }
