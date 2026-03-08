@@ -758,6 +758,7 @@ export function convertMessage(
     subject: message.subject || "",
     date: message.receivedDateTime || new Date().toISOString(),
     labelIds,
+    parentFolderId: message.parentFolderId || undefined,
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
