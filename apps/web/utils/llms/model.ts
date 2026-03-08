@@ -441,7 +441,9 @@ function selectDraftModel(userAi: UserAIFields, online = false): ResolvedModel {
         aiModel: env.DRAFT_LLM_MODEL,
         aiApiKey: apiKey,
       },
-      undefined,
+      env.DRAFT_LLM_PROVIDER === Provider.OPENROUTER
+        ? getOpenRouterProviderOptionsByType("draft", env.DRAFT_LLM_MODEL)
+        : undefined,
       online,
     );
   }
