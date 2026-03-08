@@ -23,6 +23,7 @@
           {
             "group": "Essentials",
             "pages": [
+              "essentials/ai-chat",
               "essentials/email-ai-personal-assistant",
               "essentials/bulk-email-unsubscriber",
               "essentials/bulk-archiver",
@@ -34,7 +35,6 @@
               "essentials/slack-integration",
               "essentials/cold-email-blocker",
               "essentials/reply-zero",
-              "essentials/smart-categories",
               "essentials/faq"
             ]
           }
