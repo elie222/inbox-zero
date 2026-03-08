@@ -25,8 +25,6 @@
             "pages": [
               "essentials/ai-chat",
               "essentials/email-ai-personal-assistant",
-              "essentials/bulk-email-unsubscriber",
-              "essentials/bulk-archiver",
               "essentials/email-analytics",
               "essentials/meeting-briefs",
               "essentials/auto-file-attachments",
@@ -35,6 +33,13 @@
               "essentials/cold-email-blocker",
               "essentials/reply-zero",
               "essentials/faq"
+            ]
+          },
+          {
+            "group": "Cleanup",
+            "pages": [
+              "essentials/bulk-email-unsubscriber",
+              "essentials/bulk-archiver"
             ]
           },
           {
