@@ -133,13 +133,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       throw new SafeError(errorDescription);
     }
 
-    assertMicrosoftLinkingConsent({
-      targetUserId,
-      tokenScope: tokens.scope,
-      hasRefreshToken: !!tokens.refresh_token,
-      logger,
-    });
-
     // Get user profile using the access token
     const profileResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: {
