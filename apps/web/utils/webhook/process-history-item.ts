@@ -2,8 +2,6 @@ import { after } from "next/server";
 import prisma from "@/utils/prisma";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
-import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
-import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import {
   isFilebotEmail,
   isFilebotNotificationMessage,
@@ -92,32 +90,6 @@ export async function processHistoryItem(
 
     if (hasExistingRule) {
       logger.info("Skipping. Rule already exists.");
-      return;
-    }
-
-    const isForAssistant = isAssistantEmail({
-      userEmail,
-      emailToCheck: parsedMessage.headers.to,
-    });
-
-    if (isForAssistant) {
-      logger.info("Passing through assistant email.");
-      return processAssistantEmail({
-        message: parsedMessage,
-        emailAccountId,
-        userEmail,
-        provider,
-        logger,
-      });
-    }
-
-    const isFromAssistant = isAssistantEmail({
-      userEmail,
-      emailToCheck: parsedMessage.headers.from,
-    });
-
-    if (isFromAssistant) {
-      logger.info("Skipping. Assistant email.");
       return;
     }
 

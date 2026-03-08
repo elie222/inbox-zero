@@ -7,7 +7,6 @@ import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import type { StoredDigestContent } from "@/app/api/resend/digest/validation";
 import { withError } from "@/utils/middleware";
-import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { env } from "@/env";
 import { withQstashOrInternal } from "@/utils/qstash";
 import {
@@ -34,16 +33,6 @@ export const POST = withError(
       // Don't summarize Digest emails (this will actually block all emails that we send, but that's okay)
       if (message.from === env.RESEND_FROM_EMAIL) {
         logger.info("Skipping digest item because it is from us");
-        return new NextResponse("OK", { status: 200 });
-      }
-
-      const isFromAssistant = isAssistantEmail({
-        userEmail: emailAccount.email,
-        emailToCheck: message.from,
-      });
-
-      if (isFromAssistant) {
-        logger.info("Skipping digest item because it is from the assistant");
         return new NextResponse("OK", { status: 200 });
       }
 

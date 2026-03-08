@@ -25,9 +25,6 @@ vi.mock("@/utils/prisma", () => ({
     },
   },
 }));
-vi.mock("@/utils/assistant/is-assistant-email", () => ({
-  isAssistantEmail: vi.fn().mockReturnValue(false),
-}));
 vi.mock("@/utils/cold-email/is-cold-email", () => ({
   runColdEmailBlocker: vi
     .fn()
@@ -38,9 +35,6 @@ vi.mock("@/utils/categorize/senders/categorize", () => ({
 }));
 vi.mock("@/utils/ai/choose-rule/run-rules", () => ({
   runRules: vi.fn(),
-}));
-vi.mock("@/utils/assistant/process-assistant-email", () => ({
-  processAssistantEmail: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/utils/reply-tracker/handle-outbound", () => ({
   handleOutboundMessage: vi.fn().mockResolvedValue(undefined),

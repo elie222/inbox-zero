@@ -307,10 +307,13 @@ function shouldEnable(rule: CreateOrUpdateRuleSchema, actions: RiskAction[]) {
   )
     return false;
 
-  // Don't automate sending or replying to emails
+  // Don't automate sending, replying, or forwarding emails
   if (
     rule.actions.find(
-      (a) => a.type === ActionType.REPLY || a.type === ActionType.SEND_EMAIL,
+      (a) =>
+        a.type === ActionType.REPLY ||
+        a.type === ActionType.SEND_EMAIL ||
+        a.type === ActionType.FORWARD,
     )
   )
     return false;

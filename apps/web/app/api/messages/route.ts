@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import { messageQuerySchema } from "@/app/api/messages/validation";
-import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { EmailProvider } from "@/utils/email/types";
 import { isGoogleProvider } from "@/utils/email/provider-types";
@@ -57,20 +56,6 @@ async function getMessages({
     const incomingMessages = messages.filter((message) => {
       const fromEmail = message.headers.from;
       const toEmail = message.headers.to;
-
-      // Don't include messages from/to the assistant
-      if (
-        isAssistantEmail({
-          userEmail: email,
-          emailToCheck: fromEmail,
-        }) ||
-        isAssistantEmail({
-          userEmail: email,
-          emailToCheck: toEmail,
-        })
-      ) {
-        return false;
-      }
 
       // Provider-specific filtering
       if (isGoogleProvider(emailProvider.name)) {
