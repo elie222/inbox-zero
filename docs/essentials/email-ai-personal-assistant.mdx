@@ -129,13 +129,7 @@ Everything outside the `{{...}}` placeholders will remain exactly as written.
 
 #### Apply to Threads
 
-When an email arrives, the AI looks at all your rules to decide which one fits best. The "Apply to Threads" setting determines which rules the AI can choose from.
-
-If this is disabled on a rule, that rule is only available for standalone emails - the first email in a new conversation. When someone replies (creating what's called a thread or email conversation), rules with this disabled won't even be considered as options.
-
-For example, say you have 8 rules total. If 5 of them have "Apply to Threads" disabled, then when a reply comes in, the AI only chooses from the 3 rules that have it enabled. But for a brand new email starting a conversation, the AI can pick from all 8 rules.
-
-This improves efficiency because certain types of emails, like newsletters or receipts, are typically standalone and not part of a thread. By automatically excluding these rules from threaded conversations, the AI has a more focused set of options to evaluate, leading to faster and more accurate rule matching.
+When "Apply to Threads" is disabled on a rule, that rule is skipped for replies and only runs on the first email in a conversation. This is useful for rules that target standalone emails like newsletters or receipts — disabling it means the AI evaluates fewer rules on threaded emails, improving speed and accuracy.
 
 ### Test Rules
 
