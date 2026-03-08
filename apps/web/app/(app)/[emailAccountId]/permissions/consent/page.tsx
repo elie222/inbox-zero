@@ -47,7 +47,7 @@ export default function PermissionsConsentPage() {
       {isMicrosoft && (
         <TypographyP className="mx-auto mt-3 max-w-prose text-center text-muted-foreground">
           If your organization restricts user consent, ask your Microsoft 365
-          admin to approve Inbox Zero and then reconnect your account.
+          admin to approve {BRAND_NAME} and then reconnect your account.
         </TypographyP>
       )}
       {!isMicrosoft && (

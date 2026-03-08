@@ -94,7 +94,7 @@ function ErrorAlert({ error }: { error: string }) {
       <AlertBasic
         variant="destructive"
         title="Permissions need to be refreshed"
-        description={`Please sign in again and approve every requested permission. If your Microsoft 365 organization requires admin approval, ask your admin to approve Inbox Zero first. If this error persists please contact support at ${SUPPORT_EMAIL}`}
+        description={`Please sign in again and approve every requested permission. If your Microsoft 365 organization requires admin approval, ask your admin to approve ${BRAND_NAME} first. If this error persists please contact support at ${SUPPORT_EMAIL}`}
       />
     );
   }

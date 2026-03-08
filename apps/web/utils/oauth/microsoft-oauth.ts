@@ -33,7 +33,7 @@ export function classifyMicrosoftOAuthError(
       errorCode: "admin_consent_required",
       aadstsCode,
       userMessage:
-        "Your Microsoft 365 organization requires admin approval before Inbox Zero can access this account. Ask your Microsoft 365 admin to grant consent for the app, then try again.",
+        "Your Microsoft 365 organization requires admin approval before this app can access this account. Ask your Microsoft 365 admin to grant consent for the app, then try again.",
     };
   }
 
@@ -74,7 +74,7 @@ export function classifyMicrosoftOAuthCallbackError(params: {
       errorCode: "consent_declined",
       aadstsCode,
       userMessage:
-        "Microsoft sign-in was canceled before Inbox Zero received the required permissions. Please try again and complete the consent screen.",
+        "Microsoft sign-in was canceled before this app received the required permissions. Please try again and complete the consent screen.",
     };
   }
 

@@ -2,9 +2,9 @@ vi.mock("server-only", () => ({}));
 
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import prisma from "@/utils/__mocks__/prisma";
 
 const {
-  mockLogger,
   mockValidateOAuthCallback,
   mockHandleAccountLinking,
   mockGetOAuthCodeResult,
@@ -13,12 +13,6 @@ const {
   mockClearOAuthCode,
   mockCaptureException,
 } = vi.hoisted(() => ({
-  mockLogger: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    trace: vi.fn(),
-  },
   mockValidateOAuthCallback: vi.fn(),
   mockHandleAccountLinking: vi.fn(),
   mockGetOAuthCodeResult: vi.fn(),
@@ -37,28 +31,25 @@ vi.mock("@/env", () => ({
   },
 }));
 
-vi.mock("@/utils/middleware", () => ({
-  withError:
-    (_name: string, handler: (request: NextRequest) => Promise<Response>) =>
-    async (request: NextRequest) => {
-      (request as NextRequest & { logger: typeof mockLogger }).logger =
-        mockLogger;
-      return handler(request);
-    },
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createScopedLogger } =
+    await vi.importActual<typeof import("@/utils/logger")>("@/utils/logger");
 
-vi.mock("@/utils/prisma", () => ({
-  default: {
-    account: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-    },
-    emailAccount: {
-      updateMany: vi.fn(),
-    },
-  },
-}));
+  return {
+    withError:
+      (_name: string, handler: (request: NextRequest) => Promise<Response>) =>
+      async (request: NextRequest) => {
+        (
+          request as NextRequest & {
+            logger: ReturnType<typeof createScopedLogger>;
+          }
+        ).logger = createScopedLogger("test/outlook-linking-callback");
+        return handler(request);
+      },
+  };
+});
+
+vi.mock("@/utils/prisma");
 
 vi.mock("@/utils/error", async (importActual) => {
   const actual = await importActual<typeof import("@/utils/error")>();
@@ -123,19 +114,29 @@ describe("outlook linking callback route", () => {
     });
     mockGetOAuthCodeResult.mockResolvedValue(null);
     mockAcquireOAuthCodeLock.mockResolvedValue(true);
+    prisma.account.findUnique.mockResolvedValue(null);
   });
 
   it("redirects with consent_incomplete when Microsoft linking lacks required consent", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          access_token: "access-token",
-          scope:
-            "openid profile email User.Read Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            access_token: "access-token",
+            scope:
+              "openid profile email User.Read Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "provider-account-id",
+            userPrincipalName: "user@example.com",
+          }),
         }),
-      }),
     );
 
     const response = await GET(
@@ -149,14 +150,6 @@ describe("outlook linking callback route", () => {
     expect(mockHandleAccountLinking).not.toHaveBeenCalled();
     expect(mockSetOAuthCodeResult).not.toHaveBeenCalled();
     expect(mockClearOAuthCode).toHaveBeenCalledWith("valid-auth-code");
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      "Microsoft linking returned incomplete consent",
-      expect.objectContaining({
-        targetUserId: "user-123",
-        hasRefreshToken: false,
-        missingScopes: ["offline_access"],
-      }),
-    );
   });
 
   it("redirects with admin_consent_required when Microsoft returns an AADSTS65001 callback error", async () => {
@@ -200,6 +193,13 @@ describe("outlook linking callback route", () => {
   });
 
   it("allows successful reconnects when Microsoft omits scope from the token response", async () => {
+    prisma.account.findUnique.mockResolvedValue({
+      id: "account-123",
+      userId: "user-123",
+      refresh_token: "stored-refresh-token",
+      user: { name: "Test User", email: "user@example.com" },
+      emailAccount: { id: "email-account-123" },
+    } as Awaited<ReturnType<typeof prisma.account.findUnique>>);
     mockHandleAccountLinking.mockResolvedValue({
       type: "update_tokens",
       existingAccountId: "account-123",

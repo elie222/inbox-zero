@@ -133,13 +133,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       throw new SafeError(errorDescription);
     }
 
-    assertMicrosoftLinkingConsent({
-      targetUserId,
-      tokenScope: tokens.scope,
-      hasRefreshToken: !!tokens.refresh_token,
-      logger,
-    });
-
     // Get user profile using the access token
     const profileResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: {
@@ -173,9 +166,18 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       select: {
         id: true,
         userId: true,
+        refresh_token: true,
         user: { select: { name: true, email: true } },
         emailAccount: true,
       },
+    });
+
+    assertMicrosoftLinkingConsent({
+      targetUserId,
+      tokenScope: tokens.scope,
+      hasRefreshToken: !!tokens.refresh_token,
+      hasStoredRefreshToken: !!existingAccount?.refresh_token,
+      logger,
     });
 
     const linkingResult = await handleAccountLinking({
@@ -395,6 +397,7 @@ function assertMicrosoftLinkingConsent(params: {
   targetUserId: string;
   tokenScope: string | null | undefined;
   hasRefreshToken: boolean;
+  hasStoredRefreshToken: boolean;
   logger: Logger;
 }) {
   const grantedScopes = parseMicrosoftScopes(params.tokenScope);
@@ -405,14 +408,19 @@ function assertMicrosoftLinkingConsent(params: {
   params.logger.info("Microsoft token exchange succeeded", {
     targetUserId: params.targetUserId,
     hasRefreshToken: params.hasRefreshToken,
+    hasStoredRefreshToken: params.hasStoredRefreshToken,
     grantedScopeCount: grantedScopes.length,
     missingScopes,
   });
 
-  if (!params.hasRefreshToken || missingScopes.length > 0) {
+  if (
+    (!params.hasRefreshToken && !params.hasStoredRefreshToken) ||
+    missingScopes.length > 0
+  ) {
     params.logger.warn("Microsoft linking returned incomplete consent", {
       targetUserId: params.targetUserId,
       hasRefreshToken: params.hasRefreshToken,
+      hasStoredRefreshToken: params.hasStoredRefreshToken,
       grantedScopes,
       missingScopes,
       tenantId: env.MICROSOFT_TENANT_ID,
