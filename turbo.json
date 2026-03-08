@@ -41,6 +41,8 @@
         "CHAT_OPENROUTER_PROVIDERS",
         "NANO_LLM_PROVIDER",
         "NANO_LLM_MODEL",
+        "DRAFT_LLM_PROVIDER",
+        "DRAFT_LLM_MODEL",
         "AI_NANO_WEEKLY_SPEND_LIMIT_USD",
 
         "LLM_API_KEY",
