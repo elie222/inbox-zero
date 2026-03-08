@@ -28,9 +28,9 @@ const scheduledCheckInsConfigSchema = z
   })
   .refine(
     (value) =>
-      value.enabled !== undefined ||
-      value.cronExpression !== undefined ||
-      value.messagingChannelId !== undefined ||
+      value.enabled != null ||
+      value.cronExpression != null ||
+      value.messagingChannelId != null ||
       value.prompt !== undefined,
     { message: "At least one scheduled check-ins field must be provided." },
   );
@@ -470,8 +470,12 @@ export const updateAssistantSettingsCompatTool = ({
         logger,
       });
 
+      const normalizedChanges = changes.map((c) => ({
+        ...c,
+        mode: c.mode ?? undefined,
+      }));
       const parsedInput = updateAssistantSettingsInputSchema.safeParse({
-        changes,
+        changes: normalizedChanges,
         dryRun,
       });
       if (!parsedInput.success) {
