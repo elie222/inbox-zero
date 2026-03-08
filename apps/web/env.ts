@@ -70,6 +70,9 @@ export const env = createEnv({
     CHAT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
     NANO_LLM_PROVIDER: llmProviderEnum.optional(),
     NANO_LLM_MODEL: z.string().optional(),
+    // Set this to override the model used for drafting replies
+    DRAFT_LLM_PROVIDER: llmProviderEnum.optional(),
+    DRAFT_LLM_MODEL: z.string().optional(),
     AI_NANO_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),
 
     LLM_API_KEY: z.string().optional(),

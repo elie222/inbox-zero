@@ -22,7 +22,7 @@ const GOOGLE_THINKING_BUDGET = 128;
 
 const logger = createScopedLogger("llms/model");
 
-export type ModelType = "default" | "economy" | "chat" | "nano";
+export type ModelType = "default" | "economy" | "chat" | "nano" | "draft";
 
 export type ResolvedModel = {
   provider: string;
@@ -84,6 +84,8 @@ function selectModelByType(
       return selectChatModel(userAi, online);
     case "nano":
       return selectNanoModel(userAi, online);
+    case "draft":
+      return selectDraftModel(userAi, online);
     default:
       return selectDefaultModel(userAi, online);
   }
@@ -423,6 +425,32 @@ function selectNanoModel(userAi: UserAIFields, online = false): ResolvedModel {
   return selectEconomyModel(userAi, online);
 }
 
+function selectDraftModel(userAi: UserAIFields, online = false): ResolvedModel {
+  if (env.DRAFT_LLM_PROVIDER && env.DRAFT_LLM_MODEL) {
+    const apiKey = getProviderApiKey(env.DRAFT_LLM_PROVIDER);
+    if (!apiKey) {
+      logger.warn("Draft LLM provider configured but API key not found", {
+        provider: env.DRAFT_LLM_PROVIDER,
+      });
+      return selectDefaultModel(userAi, online);
+    }
+
+    return selectModel(
+      {
+        aiProvider: env.DRAFT_LLM_PROVIDER,
+        aiModel: env.DRAFT_LLM_MODEL,
+        aiApiKey: apiKey,
+      },
+      env.DRAFT_LLM_PROVIDER === Provider.OPENROUTER
+        ? getOpenRouterProviderOptionsByType("draft", env.DRAFT_LLM_MODEL)
+        : undefined,
+      online,
+    );
+  }
+
+  return selectDefaultModel(userAi, online);
+}
+
 function selectDefaultModel(
   userAi: UserAIFields,
   online = false,
@@ -661,6 +689,7 @@ function getOpenRouterProviderOptionsByType(
     economy: env.ECONOMY_OPENROUTER_PROVIDERS,
     chat: env.CHAT_OPENROUTER_PROVIDERS,
     nano: env.ECONOMY_OPENROUTER_PROVIDERS,
+    draft: env.DEFAULT_OPENROUTER_PROVIDERS,
   };
 
   const providers = providersByType[modelType];

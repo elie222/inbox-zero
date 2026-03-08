@@ -214,7 +214,7 @@ export async function aiDraftReplyWithConfidence({
     meetingContext,
   });
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModel(emailAccount.user, "draft");
 
   const generateObject = createGenerateObject({
     emailAccount,
