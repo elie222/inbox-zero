@@ -47,10 +47,6 @@ export interface DriveProvider {
    */
   createFolder(name: string, parentId?: string): Promise<DriveFolder>;
 
-  // -------------------------------------------------------------------------
-  // Token Management
-  // -------------------------------------------------------------------------
-
   /**
    * Get the current access token (may trigger refresh if expired)
    */
@@ -65,10 +61,6 @@ export interface DriveProvider {
    * Get a specific folder by ID
    */
   getFolder(folderId: string): Promise<DriveFolder | null>;
-
-  // -------------------------------------------------------------------------
-  // Folder Operations
-  // -------------------------------------------------------------------------
 
   /**
    * List folders in a parent folder (or root if no parentId)
@@ -85,10 +77,6 @@ export interface DriveProvider {
    * For serialization/debugging
    */
   toJSON(): { name: string; type: string };
-
-  // -------------------------------------------------------------------------
-  // File Operations
-  // -------------------------------------------------------------------------
 
   /**
    * Upload a file to a folder

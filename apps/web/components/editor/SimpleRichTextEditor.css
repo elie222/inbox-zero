@@ -4,7 +4,7 @@
 .simple-rich-editor code {
   font-family: inherit; /* Override monospace font */
   @apply inline-block align-baseline rounded-md bg-blue-100 px-2 py-0.5 text-sm font-medium text-blue-900;
-  @apply border border-blue-200; /* Override monospace font */
+  @apply border border-blue-200;
 }
 
 /* Override prose code styles */
