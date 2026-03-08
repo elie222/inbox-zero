@@ -10,8 +10,8 @@ const senderStatsQuery = z.object({
 export type SenderStatsQuery = z.infer<typeof senderStatsQuery>;
 
 export interface SendersResponse {
-  mostActiveSenderEmails: { name: string; value: number }[];
   mostActiveSenderDomains: { name: string; value: number }[];
+  mostActiveSenderEmails: { name: string; value: number }[];
 }
 
 /**

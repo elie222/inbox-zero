@@ -7,26 +7,26 @@ export type DriveProviderType = "google" | "microsoft";
 export interface DriveFolder {
   id: string;
   name: string;
-  path?: string; // Full path for display (e.g., "/Projects/Acme Corp")
   parentId?: string;
+  path?: string; // Full path for display (e.g., "/Projects/Acme Corp")
   webUrl?: string; // Link to open in browser
 }
 
 export interface DriveFile {
-  id: string;
-  name: string;
-  mimeType: string;
-  size?: number;
-  folderId?: string;
-  webUrl?: string; // Link to open in browser
   createdAt?: Date;
+  folderId?: string;
+  id: string;
+  mimeType: string;
+  name: string;
+  size?: number;
+  webUrl?: string; // Link to open in browser
 }
 
 export interface UploadFileParams {
-  filename: string;
-  mimeType: string;
   content: Buffer;
+  filename: string;
   folderId: string;
+  mimeType: string;
 }
 
 // ============================================================================
@@ -42,12 +42,29 @@ export interface UploadFileParams {
  * the filing as rejected in our database - the file stays in their drive.
  */
 export interface DriveProvider {
-  readonly name: DriveProviderType;
+  /**
+   * Create a new folder
+   */
+  createFolder(name: string, parentId?: string): Promise<DriveFolder>;
+
+  // -------------------------------------------------------------------------
+  // Token Management
+  // -------------------------------------------------------------------------
 
   /**
-   * For serialization/debugging
+   * Get the current access token (may trigger refresh if expired)
    */
-  toJSON(): { name: string; type: string };
+  getAccessToken(): string;
+
+  /**
+   * Get file metadata by ID
+   */
+  getFile(fileId: string): Promise<DriveFile | null>;
+
+  /**
+   * Get a specific folder by ID
+   */
+  getFolder(folderId: string): Promise<DriveFolder | null>;
 
   // -------------------------------------------------------------------------
   // Folder Operations
@@ -59,14 +76,15 @@ export interface DriveProvider {
   listFolders(parentId?: string): Promise<DriveFolder[]>;
 
   /**
-   * Get a specific folder by ID
+   * Move a file to a different folder
    */
-  getFolder(folderId: string): Promise<DriveFolder | null>;
+  moveFile(fileId: string, targetFolderId: string): Promise<DriveFile>;
+  readonly name: DriveProviderType;
 
   /**
-   * Create a new folder
+   * For serialization/debugging
    */
-  createFolder(name: string, parentId?: string): Promise<DriveFolder>;
+  toJSON(): { name: string; type: string };
 
   // -------------------------------------------------------------------------
   // File Operations
@@ -76,25 +94,6 @@ export interface DriveProvider {
    * Upload a file to a folder
    */
   uploadFile(params: UploadFileParams): Promise<DriveFile>;
-
-  /**
-   * Get file metadata by ID
-   */
-  getFile(fileId: string): Promise<DriveFile | null>;
-
-  /**
-   * Move a file to a different folder
-   */
-  moveFile(fileId: string, targetFolderId: string): Promise<DriveFile>;
-
-  // -------------------------------------------------------------------------
-  // Token Management
-  // -------------------------------------------------------------------------
-
-  /**
-   * Get the current access token (may trigger refresh if expired)
-   */
-  getAccessToken(): string;
 }
 
 // ============================================================================
@@ -107,9 +106,9 @@ export interface DriveProvider {
  */
 export interface DriveTokens {
   accessToken: string;
-  refreshToken: string;
-  expiresAt: Date | null;
   email: string;
+  expiresAt: Date | null;
+  refreshToken: string;
 }
 
 /**
@@ -117,6 +116,6 @@ export interface DriveTokens {
  */
 export interface DriveOAuthState {
   emailAccountId: string;
-  type: "drive";
   nonce: string;
+  type: "drive";
 }

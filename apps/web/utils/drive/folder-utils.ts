@@ -3,8 +3,8 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
 interface FolderPathResult {
-  folder: DriveFolder;
   allFolders: { folder: DriveFolder; path: string }[];
+  folder: DriveFolder;
 }
 
 /**

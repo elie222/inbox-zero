@@ -5,10 +5,10 @@ import { parseOAuthState } from "@/utils/oauth/state";
 
 interface ValidateCallbackParams {
   code: string | null;
-  receivedState: string | null;
-  storedState: string | undefined;
-  stateCookieName: string;
   logger: Logger;
+  receivedState: string | null;
+  stateCookieName: string;
+  storedState: string | undefined;
 }
 
 type ValidationResult =

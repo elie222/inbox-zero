@@ -3,11 +3,11 @@ import { Loading } from "./Loading";
 import { ErrorDisplay } from "./ErrorDisplay";
 
 interface LoadingContentProps {
-  loading: boolean;
-  loadingComponent?: React.ReactNode;
+  children: React.ReactNode;
   error?: { info?: { error: string }; error?: string; status?: number };
   errorComponent?: React.ReactNode;
-  children: React.ReactNode;
+  loading: boolean;
+  loadingComponent?: React.ReactNode;
 }
 
 export function LoadingContent(props: LoadingContentProps) {

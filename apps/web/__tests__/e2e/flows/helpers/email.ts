@@ -8,18 +8,18 @@ import { getTestSubjectPrefix, getNextMessageSequence } from "../config";
 import { logStep, logAssertion } from "./logging";
 
 interface SendTestEmailOptions {
-  from: TestAccount;
-  to: TestAccount;
-  subject: string;
   body: string;
+  from: TestAccount;
   /** Whether to include E2E run ID prefix in subject */
   includePrefix?: boolean;
+  subject: string;
+  to: TestAccount;
 }
 
 interface SendTestEmailResult {
+  fullSubject: string;
   messageId: string;
   threadId: string;
-  fullSubject: string;
 }
 
 /**

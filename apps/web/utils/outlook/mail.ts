@@ -21,15 +21,15 @@ type GraphRecipient = {
 };
 
 interface OutlookMessageRequest {
-  subject: string;
+  bccRecipients?: GraphRecipient[];
   body: {
     contentType: string;
     content: string;
   };
-  toRecipients: GraphRecipient[];
   ccRecipients?: GraphRecipient[];
-  bccRecipients?: GraphRecipient[];
   replyTo?: GraphRecipient[];
+  subject: string;
+  toRecipients: GraphRecipient[];
 }
 
 type SentEmailResult = Pick<Message, "id" | "conversationId">;

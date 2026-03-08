@@ -8,9 +8,9 @@ import type { Logger } from "@/utils/logger";
 
 export interface GoogleCalendarConnectionParams {
   accessToken: string | null;
-  refreshToken: string | null;
-  expiresAt: number | null;
   emailAccountId: string;
+  expiresAt: number | null;
+  refreshToken: string | null;
 }
 
 export class GoogleCalendarEventProvider implements CalendarEventProvider {

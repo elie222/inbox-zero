@@ -290,11 +290,11 @@ export const GET = withError("google/linking/callback", async (request) => {
 
 interface GoogleTokens {
   access_token?: string | null;
-  refresh_token?: string | null;
   expiry_date?: number | null;
+  id_token?: string | null;
+  refresh_token?: string | null;
   scope?: string | null;
   token_type?: string | null;
-  id_token?: string | null;
 }
 
 async function updateGoogleAccountTokens(

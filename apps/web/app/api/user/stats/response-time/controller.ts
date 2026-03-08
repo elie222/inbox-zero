@@ -17,10 +17,10 @@ import type { ResponseTimeQuery } from "@/app/api/user/stats/response-time/valid
 const MAX_SENT_MESSAGES = 50;
 
 interface TrendEntry {
+  count: number;
+  medianResponseTime: number;
   period: string;
   periodDate: Date;
-  medianResponseTime: number;
-  count: number;
 }
 
 export type ResponseTimeResponse = {

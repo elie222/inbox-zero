@@ -11,8 +11,8 @@ function getCodeKey(code: string) {
 }
 
 interface OAuthCodeResult {
-  status: "success";
   params: Record<string, string>;
+  status: "success";
 }
 
 export async function acquireOAuthCodeLock(code: string): Promise<boolean> {

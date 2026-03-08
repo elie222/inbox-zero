@@ -16,8 +16,8 @@ export type GmailLabel = {
 export type GmailLabels = Record<string, GmailLabel>;
 
 interface Context {
-  userLabels: GmailLabels;
   labelsIsLoading: boolean;
+  userLabels: GmailLabels;
 }
 
 const GmailContext = createContext<Context>({

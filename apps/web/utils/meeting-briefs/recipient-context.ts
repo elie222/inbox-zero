@@ -11,10 +11,10 @@ const MAX_MEETINGS_PER_CATEGORY = 5;
 const MAX_DESCRIPTION_LENGTH = 500;
 
 export interface MeetingContext {
-  eventTitle: string;
-  eventTime: Date;
   eventDescription?: string;
   eventLocation?: string;
+  eventTime: Date;
+  eventTitle: string;
   isPast: boolean;
 }
 

@@ -8,34 +8,35 @@ export type EntryType =
   | "chat-step";
 
 export interface RecordingEntry {
-  type: EntryType;
-  timestamp: string;
-  sequence: number;
-  platform?: "google" | "microsoft";
+  duration?: number;
   label?: string;
   method?: string;
+  platform?: "google" | "microsoft";
   request: unknown;
   response?: unknown;
-  duration?: number;
+  sequence: number;
+  timestamp: string;
+  type: EntryType;
 }
 
 export type FlowType = "webhook" | "chat";
 
 export interface SessionMetadata {
-  flow: FlowType;
+  commitSha?: string;
   email: string;
   emailAccountId: string;
-  commitSha?: string;
+  flow: FlowType;
   startedAt: string;
 }
 
 export interface RecordingSession {
+  entries: RecordingEntry[];
   id: string;
   metadata: SessionMetadata;
-  entries: RecordingEntry[];
 }
 
 export interface ReplayFixture {
+  entries: RecordingEntry[];
   metadata: {
     description: string;
     flow: FlowType;
@@ -46,5 +47,4 @@ export interface ReplayFixture {
     emailAccount?: Record<string, unknown>;
     rules?: unknown[];
   };
-  entries: RecordingEntry[];
 }

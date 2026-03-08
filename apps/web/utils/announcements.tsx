@@ -3,21 +3,21 @@ import type { ReactNode } from "react";
 const DETAIL_ICON_CLASS = "h-4 w-4 text-gray-600 dark:text-gray-400";
 
 export interface AnnouncementDetail {
-  title: string;
   description: string;
   icon: ReactNode;
+  title: string;
 }
 
 export interface Announcement {
-  id: string;
-  title: string;
   description: string;
-  image: ReactNode;
-  link?: string;
-  learnMoreLink?: string;
-  publishedAt: string;
-  enabled?: boolean;
   details?: AnnouncementDetail[];
+  enabled?: boolean;
+  id: string;
+  image: ReactNode;
+  learnMoreLink?: string;
+  link?: string;
+  publishedAt: string;
+  title: string;
 }
 
 export const ANNOUNCEMENTS: Announcement[] = [

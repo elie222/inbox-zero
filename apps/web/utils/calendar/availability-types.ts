@@ -4,8 +4,6 @@ export type BusyPeriod = {
 };
 
 export interface CalendarAvailabilityProvider {
-  name: "google" | "microsoft";
-
   /**
    * Fetch busy periods for the given calendars
    */
@@ -18,4 +16,5 @@ export interface CalendarAvailabilityProvider {
     timeMin: string;
     timeMax: string;
   }): Promise<BusyPeriod[]>;
+  name: "google" | "microsoft";
 }

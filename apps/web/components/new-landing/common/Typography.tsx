@@ -71,11 +71,11 @@ export function Subheading({ children, className }: SubheadingProps) {
 }
 
 interface ParagraphProps {
+  as?: "p" | "h3" | "dt" | "dl";
   children: React.ReactNode;
   className?: string;
   color?: "default" | "light" | "dark" | "gray-700" | "gray-500" | "gray-900";
   size?: "default" | "xs" | "sm" | "md" | "lg";
-  as?: "p" | "h3" | "dt" | "dl";
 }
 
 export function Paragraph({

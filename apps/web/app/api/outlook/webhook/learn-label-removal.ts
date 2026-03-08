@@ -158,11 +158,7 @@ async function getResolvedLabelIdsByRuleAndName(
     ruleIds.add(ruleId);
 
     for (const action of executedRule.actionItems) {
-      if (
-        action.type === ActionType.LABEL &&
-        !action.labelId &&
-        action.label
-      ) {
+      if (action.type === ActionType.LABEL && !action.labelId && action.label) {
         unresolvedLabelNames.add(action.label);
       }
     }

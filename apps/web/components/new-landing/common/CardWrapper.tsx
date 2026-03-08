@@ -2,10 +2,10 @@ import { cva } from "class-variance-authority";
 
 interface CardWrapperProps {
   children: React.ReactNode;
+  className?: string;
   padding?: "none" | "xs" | "xs-2" | "sm" | "md";
   rounded?: "none" | "xs" | "sm" | "md" | "full";
   variant?: "default" | "dark-border";
-  className?: string;
 }
 
 export function CardWrapper({

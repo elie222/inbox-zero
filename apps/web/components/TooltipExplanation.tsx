@@ -26,8 +26,8 @@ const tooltipIconVariants = cva("cursor-pointer", {
 interface TooltipExplanationProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof tooltipIconVariants> {
-  text: string;
   side?: "top" | "right" | "bottom" | "left";
+  text: string;
 }
 
 export function TooltipExplanation({

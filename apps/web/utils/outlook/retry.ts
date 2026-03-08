@@ -5,10 +5,10 @@ import { isFetchError } from "@/utils/retry/is-fetch-error";
 import { getRetryAfterHeaderFromError } from "@/utils/retry/get-retry-after-header";
 
 interface ErrorInfo {
-  status?: number;
   code?: string;
   errorMessage: string;
   responseBody?: string;
+  status?: number;
 }
 
 // Intentionally lower than Microsoft's common 30s throttle backoff so serverless

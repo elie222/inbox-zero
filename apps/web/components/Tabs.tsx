@@ -5,17 +5,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface TabsProps {
-  tabs: Tab[];
-  selected: string;
   breakpoint?: "xs" | "sm" | "md" | "lg" | "xl";
   onClickTab?: (tab: Tab) => void;
+  selected: string;
   shallow?: boolean;
+  tabs: Tab[];
 }
 
 interface Tab {
+  href?: string;
   label: string;
   value: string;
-  href?: string;
 }
 
 export function Tabs(props: TabsProps) {

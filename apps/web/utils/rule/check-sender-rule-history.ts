@@ -6,10 +6,10 @@ import { extractEmailAddress } from "@/utils/email";
 import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 
 export interface SenderRuleHistory {
-  totalEmails: number;
-  ruleMatches: Map<string, { ruleName: string; count: number }>;
-  hasConsistentRule: boolean;
   consistentRuleName?: string;
+  hasConsistentRule: boolean;
+  ruleMatches: Map<string, { ruleName: string; count: number }>;
+  totalEmails: number;
 }
 
 /**

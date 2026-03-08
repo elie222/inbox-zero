@@ -3,12 +3,12 @@ import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
 import type { Logger } from "@/utils/logger";
 
 interface MergeAccountOptions {
+  email: string;
+  logger: Logger;
+  name: string | null;
   sourceAccountId: string;
   sourceUserId: string;
   targetUserId: string;
-  email: string;
-  name: string | null;
-  logger: Logger;
 }
 
 export async function mergeAccount({

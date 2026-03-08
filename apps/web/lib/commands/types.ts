@@ -8,13 +8,13 @@ export type CommandSection =
   | "settings";
 
 export interface Command {
-  id: string;
-  label: string;
+  action: () => void | Promise<void>;
   description?: string;
   icon?: LucideIcon;
+  id: string;
   keywords?: string[];
-  shortcut?: string;
-  section: CommandSection;
+  label: string;
   priority?: number;
-  action: () => void | Promise<void>;
+  section: CommandSection;
+  shortcut?: string;
 }

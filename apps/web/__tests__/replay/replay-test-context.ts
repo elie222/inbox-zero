@@ -8,21 +8,20 @@ import { createLLMReplay } from "./llm-replay";
 import { createEmailProviderReplay } from "./email-provider-replay";
 
 export interface ReplayTestContext {
-  emailProvider: EmailProvider;
-  emailAccount: EmailAccountWithAI;
-  fixture: ReplayFixture;
-
-  llmReplay: ReturnType<typeof createLLMReplay>;
-  emailProviderReplay: ReturnType<typeof createEmailProviderReplay>;
-
   captured: {
     emailApiCalls: Array<{ method: string; args: unknown[] }>;
     llmCalls: Array<{ label: string; prompt: unknown }>;
   };
-
-  getWebhookEntry(): RecordingEntry | undefined;
+  emailAccount: EmailAccountWithAI;
+  emailProvider: EmailProvider;
+  emailProviderReplay: ReturnType<typeof createEmailProviderReplay>;
+  fixture: ReplayFixture;
   getEmailEntries(): RecordingEntry[];
   getLLMEntries(): RecordingEntry[];
+
+  getWebhookEntry(): RecordingEntry | undefined;
+
+  llmReplay: ReturnType<typeof createLLMReplay>;
 }
 
 export function createReplayTestContext(

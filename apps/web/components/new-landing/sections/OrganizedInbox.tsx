@@ -9,8 +9,8 @@ import {
 import Image from "next/image";
 
 interface OrganizedInboxProps {
-  title: React.ReactNode;
   subtitle: React.ReactNode;
+  title: React.ReactNode;
 }
 
 export function OrganizedInbox({ title, subtitle }: OrganizedInboxProps) {

@@ -15,12 +15,12 @@ import {
 import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
 
 interface ResubscribeDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  senderName: string;
-  newsletterEmail: string;
   emailAccountId: string;
   mutate: () => Promise<void>;
+  newsletterEmail: string;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  senderName: string;
 }
 
 export function ResubscribeDialog({

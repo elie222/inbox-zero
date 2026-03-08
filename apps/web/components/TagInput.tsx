@@ -11,14 +11,14 @@ import { XIcon } from "lucide-react";
 import { cn } from "@/utils";
 
 interface TagInputProps {
-  value: string[];
+  className?: string;
+  error?: string | null;
+  id?: string;
+  label?: string;
   onChange: (value: string[]) => void;
   placeholder?: string;
   validate?: (value: string) => string | null;
-  className?: string;
-  id?: string;
-  label?: string;
-  error?: string | null;
+  value: string[];
 }
 
 export function TagInput({

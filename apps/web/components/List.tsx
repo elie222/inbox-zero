@@ -7,10 +7,10 @@ type ListItem = {
 };
 
 interface ListProps {
-  items: ListItem[];
   className?: string;
-  value?: string;
+  items: ListItem[];
   onSelect: (item: ListItem) => void;
+  value?: string;
 }
 
 export function List({ items, className, value, onSelect }: ListProps) {

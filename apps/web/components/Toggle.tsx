@@ -4,15 +4,15 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Switch } from "@/components/ui/switch";
 
 export interface ToggleProps {
-  name: string;
+  disabled?: boolean;
+  enabled: boolean;
+  error?: FieldError;
+  explainText?: string;
   label?: string;
   labelRight?: string;
-  tooltipText?: string;
-  enabled: boolean;
-  explainText?: string;
-  error?: FieldError;
+  name: string;
   onChange: (enabled: boolean) => void;
-  disabled?: boolean;
+  tooltipText?: string;
 }
 
 export const Toggle = (props: ToggleProps) => {

@@ -7,11 +7,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 interface ScrollableFadeContainerProps {
   children: ReactNode;
   className?: string;
-  height?: string;
-  showTopFade?: boolean;
-  showBottomFade?: boolean;
-  fadeHeight?: string;
   fadeFromClass?: string;
+  fadeHeight?: string;
+  height?: string;
+  showBottomFade?: boolean;
+  showTopFade?: boolean;
 }
 
 export const ScrollableFadeContainer = forwardRef<

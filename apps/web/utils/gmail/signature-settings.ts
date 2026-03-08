@@ -5,10 +5,10 @@ import { withGmailRetry } from "@/utils/gmail/retry";
 const logger = createScopedLogger("gmail-signature");
 
 export interface GmailSignature {
-  email: string;
-  signature: string;
-  isDefault: boolean;
   displayName?: string;
+  email: string;
+  isDefault: boolean;
+  signature: string;
 }
 
 /**

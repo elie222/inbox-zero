@@ -13,22 +13,22 @@ export type ResponseTimeEntry = Pick<
 >;
 
 export interface SummaryStats {
-  medianResponseTime: number;
   averageResponseTime: number;
-  within1Hour: number;
+  medianResponseTime: number;
   previousPeriodComparison: {
     medianResponseTime: number;
     percentChange: number;
   } | null;
+  within1Hour: number;
 }
 
 export interface DistributionStats {
-  lessThan1Hour: number;
-  oneToFourHours: number;
   fourTo24Hours: number;
+  lessThan1Hour: number;
+  moreThan7Days: number;
+  oneToFourHours: number;
   oneToThreeDays: number;
   threeToSevenDays: number;
-  moreThan7Days: number;
 }
 
 function calculateMedian(values: number[]): number {

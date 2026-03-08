@@ -8,9 +8,9 @@ import { landingPageAnalytics } from "@/hooks/useAnalytics";
 import { cn } from "@/utils";
 
 interface CallToActionProps {
-  text?: string;
-  className?: string;
   buttonSize?: "xl" | "lg";
+  className?: string;
+  text?: string;
 }
 
 export function CallToAction({

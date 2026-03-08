@@ -330,10 +330,7 @@ function ConnectedChannelRow({
     isLoading: isLoadingTargets,
     error: targetsError,
     mutate: mutateTargets,
-  } = useChannelTargets(
-    shouldLoadTargets ? channel.id : null,
-    emailAccountId,
-  );
+  } = useChannelTargets(shouldLoadTargets ? channel.id : null, emailAccountId);
   const privateTargets =
     targetsData?.targets.filter((target) => target.isPrivate) ?? [];
   const hasTargetLoadError = Boolean(targetsError || targetsData?.error);
@@ -398,10 +395,7 @@ function ConnectedChannelRow({
                 targetId: target.id,
               });
             }}
-            disabled={
-              isLoadingTargets ||
-              setTargetStatus === "executing"
-            }
+            disabled={isLoadingTargets || setTargetStatus === "executing"}
             onOpenChange={(open) => {
               if (open) setTargetsLoaded(true);
             }}
@@ -648,4 +642,3 @@ function resolveSlackErrorReason(
 
   return null;
 }
-

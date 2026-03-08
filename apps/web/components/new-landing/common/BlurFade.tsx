@@ -13,19 +13,19 @@ import { cn } from "@/utils";
 type MarginType = UseInViewOptions["margin"];
 
 interface BlurFadeProps {
+  as?: "div" | "span";
+  blur?: string;
   children: React.ReactNode;
   className?: string;
+  delay?: number;
+  duration?: number;
+  inView?: boolean;
+  inViewMargin?: MarginType;
   variant?: {
     hidden: { y: number };
     visible: { y: number };
   };
-  duration?: number;
-  delay?: number;
   yOffset?: number;
-  inView?: boolean;
-  inViewMargin?: MarginType;
-  blur?: string;
-  as?: "div" | "span";
 }
 
 export function BlurFade({

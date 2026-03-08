@@ -3,9 +3,9 @@ import type { Logger } from "@/utils/logger";
 
 interface ErrorHandlerParams {
   error: unknown;
+  logger: Logger;
   redirectUrl: URL;
   stateCookieName: string;
-  logger: Logger;
 }
 
 export function handleOAuthCallbackError({

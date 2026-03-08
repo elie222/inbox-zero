@@ -10,8 +10,8 @@ import { aiQueue } from "@/utils/queue/ai-queue";
 type CategorizationStatus = "pending" | "processing" | "completed";
 
 interface QueueItem {
-  status: CategorizationStatus;
   categoryId?: string;
+  status: CategorizationStatus;
 }
 
 const aiCategorizeSenderQueueAtom = atom<Map<string, QueueItem>>(new Map());

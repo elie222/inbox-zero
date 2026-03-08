@@ -29,10 +29,10 @@ export interface InternalTeamMember {
 }
 
 export interface MeetingBriefingData {
+  emailThreads: EmailThread[];
   event: CalendarEvent;
   externalGuests: ExternalGuest[];
   internalTeamMembers: InternalTeamMember[];
-  emailThreads: EmailThread[];
   pastMeetings: CalendarEvent[];
 }
 

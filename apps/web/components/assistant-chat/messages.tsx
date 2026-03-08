@@ -14,13 +14,13 @@ import { Message, MessageContent } from "@/components/ai-elements/message";
 import { Loader } from "@/components/ai-elements/loader";
 
 interface MessagesProps {
-  status: UseChatHelpers<ChatMessage>["status"];
-  messages: Array<ChatMessage>;
-  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
-  regenerate: UseChatHelpers<ChatMessage>["regenerate"];
-  isArtifactVisible: boolean;
-  setInput: (input: string) => void;
   footer?: ReactNode;
+  isArtifactVisible: boolean;
+  messages: Array<ChatMessage>;
+  regenerate: UseChatHelpers<ChatMessage>["regenerate"];
+  setInput: (input: string) => void;
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
+  status: UseChatHelpers<ChatMessage>["status"];
 }
 
 export function Messages({
