@@ -30,11 +30,11 @@ import {
 } from "@/components/new-landing/common/Badge";
 
 interface HeroProps {
-  title?: React.ReactNode;
-  subtitle?: React.ReactNode;
   badge?: React.ReactNode;
   badgeVariant?: BadgeVariant;
   children?: React.ReactNode;
+  subtitle?: React.ReactNode;
+  title?: React.ReactNode;
 }
 
 export function Hero({

@@ -12,9 +12,9 @@ type Video = {
 };
 
 interface PageHeaderProps {
+  description?: string;
   title: string;
   video?: Video;
-  description?: string;
 }
 
 export function PageHeader({ title, video, description }: PageHeaderProps) {

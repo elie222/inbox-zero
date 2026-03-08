@@ -1,8 +1,8 @@
 import { UnicornScene } from "@/components/new-landing/UnicornScene";
 
 interface BannerProps {
-  title: React.ReactNode;
   children: React.ReactNode;
+  title: React.ReactNode;
 }
 
 export function Banner({ title, children }: BannerProps) {

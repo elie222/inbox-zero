@@ -3,9 +3,9 @@ import type React from "react";
 
 interface PanelProps {
   children: React.ReactNode;
-  title?: string;
   classes?: string;
   full?: boolean;
+  title?: string;
   white?: boolean;
 }
 

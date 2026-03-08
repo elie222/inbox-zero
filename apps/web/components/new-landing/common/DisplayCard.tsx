@@ -2,13 +2,13 @@ import { Card } from "@/components/new-landing/common/Card";
 import { cn } from "@/utils";
 
 interface DisplayCardProps {
-  title: string;
+  cardHeaderClassName?: string;
+  centerContent?: boolean;
+  children: React.ReactNode;
+  className?: string;
   description: string;
   icon: React.ReactNode;
-  children: React.ReactNode;
-  centerContent?: boolean;
-  className?: string;
-  cardHeaderClassName?: string;
+  title: string;
 }
 
 export function DisplayCard({

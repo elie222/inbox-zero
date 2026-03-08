@@ -5,10 +5,10 @@ import { ClientOnly } from "@/components/ClientOnly";
 import { cn } from "@/utils";
 
 interface MuxVideoProps {
-  playbackId: string;
-  title: string;
   className?: string;
+  playbackId: string;
   thumbnailTime?: number;
+  title: string;
 }
 
 export function MuxVideo({

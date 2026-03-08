@@ -19,18 +19,18 @@ import type { Logger } from "@/utils/logger";
 // ============================================================================
 
 export interface ExtractionResult {
-  text: string;
   pageCount?: number;
+  text: string;
   truncated: boolean;
 }
 
 export interface ExtractionOptions {
+  /** Logger for debugging */
+  logger?: Logger;
   /** Maximum characters to extract (default: 10000) */
   maxLength?: number;
   /** Maximum pages to process for PDFs (default: 50) */
   maxPages?: number;
-  /** Logger for debugging */
-  logger?: Logger;
 }
 
 // Supported MIME types for extraction

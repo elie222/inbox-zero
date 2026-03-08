@@ -17,13 +17,13 @@ import { ConditionType } from "@/utils/config";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 
 interface RuleDialogProps {
-  ruleId?: string;
   duplicateRule?: RulesResponse[number];
+  editMode?: boolean;
+  initialRule?: Partial<CreateRuleBody>;
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  initialRule?: Partial<CreateRuleBody>;
-  editMode?: boolean;
+  ruleId?: string;
 }
 
 export function useRuleDialog() {

@@ -135,9 +135,9 @@ export async function withNetworkRetry<T>(
 }
 
 interface LLMErrorInfo {
-  retryable: boolean;
   isRateLimit: boolean;
   retryAfterMs?: number;
+  retryable: boolean;
 }
 
 /**

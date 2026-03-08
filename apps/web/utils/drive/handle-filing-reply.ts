@@ -15,12 +15,12 @@ import {
 } from "@/utils/filebot/is-filebot-email";
 
 interface ProcessFilingReplyArgs {
-  emailAccountId: string;
-  userEmail: string;
-  message: ParsedMessage;
-  emailProvider: EmailProvider;
   emailAccount: EmailAccountWithAI;
+  emailAccountId: string;
+  emailProvider: EmailProvider;
   logger: Logger;
+  message: ParsedMessage;
+  userEmail: string;
 }
 
 /**

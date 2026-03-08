@@ -2,8 +2,8 @@ import type { ParsedMessageHeaders } from "@/utils/types";
 import { extractEmailAddress, splitRecipientList } from "@/utils/email";
 
 export interface ReplyAllRecipients {
-  to: string;
   cc: string[];
+  to: string;
 }
 
 /**

@@ -2,15 +2,15 @@
 .tiptap-editor .tiptap-highlight,
 .simple-rich-editor .simple-editor-highlight,
 .simple-rich-editor code {
+  font-family: inherit; /* Override monospace font */
   @apply inline-block align-baseline rounded-md bg-blue-100 px-2 py-0.5 text-sm font-medium text-blue-900;
   @apply border border-blue-200;
-  font-family: inherit; /* Override monospace font */
 }
 
 /* Override prose code styles */
 .simple-rich-editor.prose :where(code):not(:where([class~="not-prose"] *)) {
-  @apply bg-blue-100 text-blue-900 border-blue-200;
   font-weight: 500;
+  @apply bg-blue-100 text-blue-900 border-blue-200;
 }
 
 .simple-rich-editor.prose
@@ -35,9 +35,9 @@
 
 /* Mention styles */
 .mention-label {
+  text-decoration: none;
   @apply inline-block rounded-md bg-indigo-100 px-1 py-0.5 text-sm font-medium text-indigo-900;
   @apply border border-indigo-200;
-  text-decoration: none;
 }
 
 .mention-label:hover {
@@ -53,6 +53,6 @@
 }
 
 .mention-suggestions {
-  max-width: 300px;
   min-width: 200px;
+  max-width: 300px;
 }

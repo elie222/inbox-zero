@@ -12,11 +12,11 @@ interface RetryLogContext {
 }
 
 interface ErrorInfo {
-  status?: number;
   code?: string;
-  reason?: string;
-  googleErrorStatus?: string;
   errorMessage: string;
+  googleErrorStatus?: string;
+  reason?: string;
+  status?: number;
 }
 
 /**

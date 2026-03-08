@@ -22,9 +22,9 @@ export async function getThread(
 }
 
 interface MinimalThread {
+  historyId: string;
   id: string;
   snippet: string;
-  historyId: string;
 }
 
 export async function getThreads(

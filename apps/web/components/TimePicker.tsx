@@ -5,13 +5,13 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/utils";
 
 interface TimePickerProps {
-  id?: string;
-  label?: string;
-  value: string;
-  onChange: (value: string) => void;
   className?: string;
   disabled?: boolean;
+  id?: string;
+  label?: string;
+  onChange: (value: string) => void;
   required?: boolean;
+  value: string;
 }
 
 export function TimePicker({

@@ -13,10 +13,10 @@ import {
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
 interface HeroVideoProps {
-  videoSrc: string;
-  thumbnailSrc: string;
-  thumbnailAlt?: string;
   className?: string;
+  thumbnailAlt?: string;
+  thumbnailSrc: string;
+  videoSrc: string;
 }
 
 export default function HeroVideoDialog({

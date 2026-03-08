@@ -340,9 +340,9 @@ export const GET = withError("outlook/linking/callback", async (request) => {
 
 interface MicrosoftTokens {
   access_token: string;
-  refresh_token?: string | null;
   expires_at?: number;
   expires_in?: string | number;
+  refresh_token?: string | null;
   scope?: string | null;
   token_type?: string | null;
 }

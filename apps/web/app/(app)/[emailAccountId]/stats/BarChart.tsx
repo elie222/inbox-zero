@@ -12,16 +12,16 @@ import {
 } from "recharts";
 
 interface BarChartProps {
-  data: { [key: string]: string | number }[];
+  activeCharts?: string[];
   config: ChartConfig;
+  data: { [key: string]: string | number }[];
   dataKeys?: string[];
-  xAxisKey?: string;
-  xAxisFormatter?: (value: string) => string;
-  yAxisFormatter?: (value: number) => string;
+  period?: "day" | "week" | "month" | "year";
   tooltipLabelFormatter?: (value: string | number) => string;
   tooltipValueFormatter?: (value: number) => string;
-  activeCharts?: string[];
-  period?: "day" | "week" | "month" | "year";
+  xAxisFormatter?: (value: string) => string;
+  xAxisKey?: string;
+  yAxisFormatter?: (value: number) => string;
 }
 
 export function BarChart({

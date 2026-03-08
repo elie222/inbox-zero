@@ -5,9 +5,9 @@ import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/utils";
 
 interface TableCellWithTooltipProps {
+  className?: string;
   text: string;
   tooltipContent: string;
-  className?: string;
   truncate?: boolean;
 }
 

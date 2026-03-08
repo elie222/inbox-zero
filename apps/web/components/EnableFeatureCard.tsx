@@ -9,15 +9,15 @@ import { SectionDescription, TypographyH3 } from "@/components/Typography";
 import { cn } from "@/utils";
 
 interface EnableFeatureCardProps {
-  title: string;
+  buttonText: string;
   description: React.ReactNode;
   extraDescription?: React.ReactNode;
-  imageSrc: string;
-  imageAlt: string;
-  buttonText: string;
-  href?: string;
   hideBorder?: boolean;
+  href?: string;
+  imageAlt: string;
+  imageSrc: string;
   onEnable?: () => Promise<void>;
+  title: string;
 }
 
 export function EnableFeatureCard({

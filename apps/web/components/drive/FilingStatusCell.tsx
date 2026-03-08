@@ -7,11 +7,11 @@ import { cn } from "@/utils";
 export type FilingStatus = "filing" | "pending" | "skipped" | "error" | "filed";
 
 interface FilingStatusCellProps {
-  status: FilingStatus;
-  skipReason?: string | null;
+  className?: string;
   error?: string | null;
   folderPath?: string | null;
-  className?: string;
+  skipReason?: string | null;
+  status: FilingStatus;
 }
 
 export function FilingStatusCell({

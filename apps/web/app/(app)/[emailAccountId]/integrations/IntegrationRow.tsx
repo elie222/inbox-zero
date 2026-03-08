@@ -294,10 +294,10 @@ export function IntegrationRow({
 }
 
 interface ToolsListProps {
+  onToggleTool: (toolId: string, isEnabled: boolean) => void;
   tools: NonNullable<
     GetIntegrationsResponse["integrations"][number]["connection"]
   >["tools"];
-  onToggleTool: (toolId: string, isEnabled: boolean) => void;
   toolsWarning?: string;
 }
 

@@ -4,9 +4,10 @@ import { useLocalStorage } from "usehooks-ts";
 import { Banner } from "@/components/Banner";
 
 export function BetaBanner() {
-  const [bannerVisible, setBannerVisible] = useLocalStorage<
-    boolean | undefined
-  >("mailBetaBannerVisibile", true);
+  const [bannerVisible] = useLocalStorage<boolean | undefined>(
+    "mailBetaBannerVisibile",
+    true,
+  );
 
   if (bannerVisible && typeof window !== "undefined")
     return (

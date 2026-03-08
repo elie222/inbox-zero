@@ -266,9 +266,7 @@ export function ProactiveUpdatesSetting({
                         <Button
                           variant="ghost"
                           size="xs"
-                          onClick={() =>
-                            setShowCronEditor((value) => !value)
-                          }
+                          onClick={() => setShowCronEditor((value) => !value)}
                         >
                           {showCronEditor ? "done" : "edit"}
                         </Button>
@@ -294,9 +292,7 @@ export function ProactiveUpdatesSetting({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() =>
-                          setShowCustomPrompt((value) => !value)
-                        }
+                        onClick={() => setShowCustomPrompt((value) => !value)}
                       >
                         + Add check-in instructions
                       </Button>
@@ -305,9 +301,7 @@ export function ProactiveUpdatesSetting({
                           id="scheduled-checkins-prompt"
                           placeholder="Example: Only include emails that need a reply today or have a deadline in the next 2 days. Skip newsletters, receipts, and FYI updates."
                           value={prompt}
-                          onChange={(event) =>
-                            setPrompt(event.target.value)
-                          }
+                          onChange={(event) => setPrompt(event.target.value)}
                         />
                       )}
                     </div>
@@ -337,13 +331,10 @@ export function ProactiveUpdatesSetting({
                         <Button
                           onClick={handleSave}
                           disabled={
-                            !messagingChannelId ||
-                            saveStatus === "executing"
+                            !messagingChannelId || saveStatus === "executing"
                           }
                         >
-                          {saveStatus === "executing"
-                            ? "Saving..."
-                            : "Save"}
+                          {saveStatus === "executing" ? "Saving..." : "Save"}
                         </Button>
                       </div>
                     </div>
@@ -381,4 +372,3 @@ function formatMessagingChannelLabel(channel: {
   if (channel.teamName) return `${provider} · ${channel.teamName}`;
   return provider;
 }
-

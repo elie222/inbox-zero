@@ -13,15 +13,15 @@ import { MutedText } from "@/components/Typography";
 
 interface PremiumData {
   lemonSqueezyRenewsAt?: Date | string | null;
-  stripeSubscriptionStatus?: string | null;
-  stripeSubscriptionId?: string | null;
   lemonSqueezySubscriptionId?: number | string | null;
+  stripeSubscriptionId?: string | null;
+  stripeSubscriptionStatus?: string | null;
   tier?: string | null;
 }
 
 interface PremiumExpiredCardProps {
-  premium: PremiumData | null | undefined;
   onDismiss?: () => void;
+  premium: PremiumData | null | undefined;
 }
 
 export function PremiumExpiredCardContent({

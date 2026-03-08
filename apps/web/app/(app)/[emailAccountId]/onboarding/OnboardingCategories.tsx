@@ -56,7 +56,7 @@ export function CategoriesSetup({
   provider: string;
   onNext: () => void;
 }) {
-  const { data, isLoading, error } = usePersona();
+  const { isLoading, error } = usePersona();
 
   // State for managing suggested and basic categories separately
   const [suggestedCategories, setSuggestedCategories] = React.useState<

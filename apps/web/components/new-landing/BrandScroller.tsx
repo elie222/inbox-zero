@@ -8,8 +8,8 @@ import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { cn } from "@/utils";
 
 interface BrandScrollerProps {
-  brandList?: Brand[];
   animate?: boolean;
+  brandList?: Brand[];
 }
 
 export const BrandScroller = ({

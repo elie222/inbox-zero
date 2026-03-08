@@ -1,6 +1,6 @@
 export interface Payload {
-  meta: Meta;
   data: Data;
+  meta: Meta;
 }
 
 export type EventName =
@@ -19,57 +19,57 @@ export type EventName =
   | "subscription_plan_changed";
 
 export interface Meta {
-  test_mode: boolean;
-  event_name: EventName;
   custom_data?: { user_id: string };
+  event_name: EventName;
+  test_mode: boolean;
 }
 
 export interface Data {
-  type: string;
-  id: string;
   attributes: Attributes;
-  relationships: Relationships;
+  id: string;
   links: Links9;
+  relationships: Relationships;
+  type: string;
 }
 
 export interface Attributes {
-  store_id: number;
-  customer_id: number;
-  order_id: number;
-  order_item_id: number;
-  product_id: number;
-  variant_id: number;
-  product_name: string;
-  variant_name: string;
-  user_name: string;
-  user_email: string;
-  status: string; // on_trial, active, cancelled, past_due, paused, paid
-  status_formatted: string;
+  billing_anchor: number;
+  cancelled: boolean;
   card_brand: string;
   card_last_four: string;
-  pause: any;
-  cancelled: boolean;
-  trial_ends_at?: string;
-  billing_anchor: number;
-  urls: Urls;
-  renews_at?: string;
-  ends_at?: string;
   created_at: string;
-  updated_at: string;
-  test_mode: boolean;
-  first_subscription_item?: FirstSubscriptionItem;
+  customer_id: number;
+  ends_at?: string;
   first_order_item?: FirstOrderItem;
+  first_subscription_item?: FirstSubscriptionItem;
+  order_id: number;
+  order_item_id: number;
+  pause: any;
+  product_id: number;
+  product_name: string;
+  renews_at?: string;
+  status: string; // on_trial, active, cancelled, past_due, paused, paid
+  status_formatted: string;
+  store_id: number;
+  test_mode: boolean;
   // in payment success
   total_usd?: number;
+  trial_ends_at?: string;
+  updated_at: string;
+  urls: Urls;
+  user_email: string;
+  user_name: string;
+  variant_id: number;
+  variant_name: string;
 }
 
 export interface FirstSubscriptionItem {
+  created_at: string;
   id: number;
-  subscription_id: number;
+  is_usage_based: boolean;
   price_id: number;
   quantity: number;
-  is_usage_based: boolean;
-  created_at: string;
+  subscription_id: number;
   updated_at: string;
 }
 
@@ -78,14 +78,14 @@ export interface Urls {
 }
 
 export interface Relationships {
-  store: Store;
   customer: Customer;
   order: Order;
   "order-item": OrderItem;
   product: Product;
-  variant: Variant;
-  "subscription-items": SubscriptionItems;
+  store: Store;
   "subscription-invoices": SubscriptionInvoices;
+  "subscription-items": SubscriptionItems;
+  variant: Variant;
 }
 
 export interface Store {
@@ -165,16 +165,16 @@ export interface Links9 {
 }
 
 export interface FirstOrderItem {
+  created_at: string;
   id: number;
   order_id: number;
-  product_id: number;
-  variant_id: number;
-  price_id: number;
-  product_name: string;
-  variant_name: string;
   price: number;
+  price_id: number;
+  product_id: number;
+  product_name: string;
   quantity: number;
-  created_at: string;
-  updated_at: string;
   test_mode: boolean;
+  updated_at: string;
+  variant_id: number;
+  variant_name: string;
 }

@@ -46,11 +46,11 @@ type SourceAccount = {
 };
 
 interface CopyRulesDialogProps {
-  open: boolean;
   onOpenChange: (open: boolean) => void;
-  targetAccountId: string;
-  targetAccountEmail: string;
+  open: boolean;
   sourceAccounts: SourceAccount[];
+  targetAccountEmail: string;
+  targetAccountId: string;
 }
 
 export function CopyRulesDialog({

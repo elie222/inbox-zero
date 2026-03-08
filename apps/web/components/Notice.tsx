@@ -2,8 +2,8 @@ import { cn } from "@/utils";
 
 interface NoticeProps {
   children: React.ReactNode;
-  variant?: "info" | "warning" | "success" | "error";
   className?: string;
+  variant?: "info" | "warning" | "success" | "error";
 }
 
 const variantStyles = {

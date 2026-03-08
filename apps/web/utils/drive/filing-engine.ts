@@ -22,10 +22,7 @@ import { sendFilingSlackNotifications } from "@/utils/drive/filing-slack-notific
 // ============================================================================
 
 export interface FilingResult {
-  success: boolean;
-  skipped?: boolean;
-  skipReason?: string;
-  filingId?: string; // Available for both filed and skipped items (for feedback)
+  error?: string;
   filing?: {
     id: string;
     filename: string;
@@ -35,19 +32,22 @@ export interface FilingResult {
     confidence: number | null;
     provider: string;
   };
-  error?: string;
+  filingId?: string; // Available for both filed and skipped items (for feedback)
+  skipped?: boolean;
+  skipReason?: string;
+  success: boolean;
 }
 
 export interface ProcessAttachmentOptions {
+  attachment: Attachment;
   emailAccount: EmailAccountWithAI & {
     filingEnabled: boolean;
     filingPrompt: string | null;
     email: string;
   };
-  message: ParsedMessage;
-  attachment: Attachment;
   emailProvider: EmailProvider;
   logger: Logger;
+  message: ParsedMessage;
   sendNotification?: boolean;
 }
 
@@ -338,11 +338,11 @@ export function getExtractableAttachments(
 // ============================================================================
 
 interface FolderWithConnection {
+  driveConnectionId: string;
+  driveProvider: string;
   id: string;
   name: string;
   path: string;
-  driveConnectionId: string;
-  driveProvider: string;
 }
 
 interface FolderTarget {

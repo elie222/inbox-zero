@@ -12,11 +12,11 @@ export function CardContent({ children, className }: CardContentProps) {
 }
 
 interface CardHeaderProps {
-  title?: string;
-  icon?: React.ReactNode;
   addon?: React.ReactNode;
-  description?: string;
   className?: string;
+  description?: string;
+  icon?: React.ReactNode;
+  title?: string;
 }
 
 export function CardHeader({
@@ -54,14 +54,14 @@ export function CardHeader({
 }
 
 interface CardProps {
-  children: React.ReactNode;
-  variant?: "default" | "extra-rounding" | "circle";
-  icon?: React.ReactNode;
   addon?: React.ReactNode;
-  title?: string;
-  description?: string;
-  className?: string;
   cardHeaderClassName?: string;
+  children: React.ReactNode;
+  className?: string;
+  description?: string;
+  icon?: React.ReactNode;
+  title?: string;
+  variant?: "default" | "extra-rounding" | "circle";
 }
 
 export function Card({

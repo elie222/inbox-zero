@@ -22,10 +22,10 @@ import { cn } from "@/utils";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 interface ExamplesDialogProps {
-  setInput: (input: string) => void;
   children: React.ReactNode;
-  open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  open?: boolean;
+  setInput: (input: string) => void;
 }
 
 export function ExamplesDialog({

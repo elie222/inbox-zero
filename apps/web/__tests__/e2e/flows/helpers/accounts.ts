@@ -19,11 +19,11 @@ import { CONVERSATION_STATUS_TYPES } from "@/utils/reply-tracker/conversation-st
 const testLogger = createScopedLogger("e2e-test");
 
 export interface TestAccount {
-  id: string;
   email: string;
-  userId: string;
-  provider: "google" | "microsoft";
   emailProvider: EmailProvider;
+  id: string;
+  provider: "google" | "microsoft";
+  userId: string;
 }
 
 let gmailAccount: TestAccount | null = null;
