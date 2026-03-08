@@ -31,12 +31,12 @@ const toRecipientFieldSchema = recipientListSchema.describe(
   'Recipient email list. Must include valid email addresses (for example "Name <person@domain.com>" or "person@domain.com"). If the user only gives a name, resolve the address first (for example using searchInbox).',
 );
 const ccRecipientFieldSchema = recipientListSchema
-  .optional()
+  .nullish()
   .describe(
     "CC recipients. Only include if the user explicitly asks to CC someone. Do not add CC on your own.",
   );
 const bccRecipientFieldSchema = recipientListSchema
-  .optional()
+  .nullish()
   .describe(
     "BCC recipients. Only include if the user explicitly asks to BCC someone. Do not add BCC on your own.",
   );
@@ -68,7 +68,7 @@ const forwardEmailToolInputSchema = z
   .object({
     messageId: z.string().trim().min(1),
     ...recipientFieldsSchema,
-    content: z.string().trim().max(5000).optional(),
+    content: z.string().trim().max(5000).nullish(),
   })
   .strict();
 
@@ -189,7 +189,7 @@ function searchInboxInputSchema(provider: string) {
       .describe("Maximum number of messages to return."),
     pageToken: z
       .string()
-      .optional()
+      .nullish()
       .describe("Use the page token returned from a prior search to paginate."),
   });
 }
@@ -335,22 +335,22 @@ const manageInboxInputSchema = z.object({
     ])
     .describe("Inbox action to run."),
   threadIds: threadIdsSchema
-    .optional()
+    .nullish()
     .describe(
       "Thread IDs to archive or mark read/unread. Provide IDs from searchInbox results.",
     ),
   labelId: z
     .string()
-    .optional()
+    .nullish()
     .describe(
       "Optional provider label/category ID to apply while archiving threads.",
     ),
   read: z
     .boolean()
-    .optional()
+    .nullish()
     .describe("For mark_read_threads: true for read, false for unread."),
   fromEmails: senderEmailsSchema
-    .optional()
+    .nullish()
     .describe("Sender email addresses to bulk archive or unsubscribe."),
 });
 
@@ -527,29 +527,29 @@ const updateInboxFeaturesInputSchema = z
   .object({
     meetingBriefsEnabled: z
       .boolean()
-      .optional()
+      .nullish()
       .describe("Enable or disable meeting briefs."),
     meetingBriefsMinutesBefore: z
       .number()
       .int()
       .min(1)
       .max(2880)
-      .optional()
+      .nullish()
       .describe(
         "Minutes before a meeting to send a brief (1-2880). Applies when meeting briefs are enabled.",
       ),
     meetingBriefsSendEmail: z
       .boolean()
-      .optional()
+      .nullish()
       .describe("Enable or disable email delivery for meeting briefs."),
     filingEnabled: z
       .boolean()
-      .optional()
+      .nullish()
       .describe("Enable or disable auto-file attachments."),
     filingPrompt: z
       .string()
       .max(6000)
-      .optional()
+      .nullish()
       .nullable()
       .describe(
         "Custom filing instructions. Set null to clear existing instructions.",

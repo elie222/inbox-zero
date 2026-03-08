@@ -21,10 +21,10 @@ const emptyInputSchema = z.object({}).describe("No parameters required");
 
 const scheduledCheckInsConfigSchema = z
   .object({
-    enabled: z.boolean().optional(),
-    cronExpression: z.string().trim().min(1).optional(),
-    messagingChannelId: z.string().cuid().optional(),
-    prompt: z.string().max(4000).nullable().optional(),
+    enabled: z.boolean().nullish(),
+    cronExpression: z.string().trim().min(1).nullish(),
+    messagingChannelId: z.string().cuid().nullish(),
+    prompt: z.string().max(4000).nullish(),
   })
   .refine(
     (value) =>
@@ -137,7 +137,7 @@ const updateAssistantSettingsCompatChangeSchema = z
       ),
     mode: z
       .enum(["append", "replace"])
-      .optional()
+      .nullish()
       .describe("Optional mode for appendable fields."),
   })
   .strict();
