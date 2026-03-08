@@ -23,19 +23,49 @@
           {
             "group": "Essentials",
             "pages": [
-              "essentials/email-ai-personal-assistant",
+              "essentials/ai-chat",
+              "essentials/email-ai-personal-assistant"
+            ]
+          },
+          {
+            "group": "Cleanup",
+            "pages": [
               "essentials/bulk-email-unsubscriber",
               "essentials/bulk-archiver",
-              "essentials/email-analytics",
+              "essentials/email-analytics"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
               "essentials/meeting-briefs",
               "essentials/auto-file-attachments",
               "essentials/inbox-zero-tabs-extension",
               "essentials/calendar-integration",
-              "essentials/slack-integration",
               "essentials/cold-email-blocker",
               "essentials/reply-zero",
-              "essentials/smart-categories",
               "essentials/faq"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "essentials/slack-integration",
+              "essentials/telegram-integration"
+            ]
+          },
+          {
+            "group": "Automation",
+            "pages": [
+              "essentials/email-digest",
+              "essentials/delayed-actions",
+              "essentials/call-webhook"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "essentials/api-keys"
             ]
           }
         ]
