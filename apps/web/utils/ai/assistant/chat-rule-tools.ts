@@ -658,16 +658,16 @@ export const updateLearnedPatternsTool = ({
           z.object({
             include: z
               .object({
-                from: z.string().optional(),
-                subject: z.string().optional(),
+                from: z.string().nullish(),
+                subject: z.string().nullish(),
               })
-              .optional(),
+              .nullish(),
             exclude: z
               .object({
-                from: z.string().optional(),
-                subject: z.string().optional(),
+                from: z.string().nullish(),
+                subject: z.string().nullish(),
               })
-              .optional(),
+              .nullish(),
           }),
         )
         .min(1, "At least one learned pattern is required"),

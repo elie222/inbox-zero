@@ -21,16 +21,16 @@ const emptyInputSchema = z.object({}).describe("No parameters required");
 
 const scheduledCheckInsConfigSchema = z
   .object({
-    enabled: z.boolean().optional(),
-    cronExpression: z.string().trim().min(1).optional(),
-    messagingChannelId: z.string().cuid().optional(),
-    prompt: z.string().max(4000).nullable().optional(),
+    enabled: z.boolean().nullish(),
+    cronExpression: z.string().trim().min(1).nullish(),
+    messagingChannelId: z.string().cuid().nullish(),
+    prompt: z.string().max(4000).nullish(),
   })
   .refine(
     (value) =>
-      value.enabled !== undefined ||
-      value.cronExpression !== undefined ||
-      value.messagingChannelId !== undefined ||
+      value.enabled != null ||
+      value.cronExpression != null ||
+      value.messagingChannelId != null ||
       value.prompt !== undefined,
     { message: "At least one scheduled check-ins field must be provided." },
   );
@@ -137,7 +137,7 @@ const updateAssistantSettingsCompatChangeSchema = z
       ),
     mode: z
       .enum(["append", "replace"])
-      .optional()
+      .nullish()
       .describe("Optional mode for appendable fields."),
   })
   .strict();
@@ -470,8 +470,12 @@ export const updateAssistantSettingsCompatTool = ({
         logger,
       });
 
+      const normalizedChanges = changes.map((c) => ({
+        ...c,
+        mode: c.mode ?? undefined,
+      }));
       const parsedInput = updateAssistantSettingsInputSchema.safeParse({
-        changes,
+        changes: normalizedChanges,
         dryRun,
       });
       if (!parsedInput.success) {

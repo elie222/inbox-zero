@@ -133,7 +133,8 @@ ${
 - When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
 - When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.
 - Only send emails when the user clearly asks to send now.
-- After these tools run, explicitly tell the user the email is pending confirmation. Do not say it was sent unless the confirmation result says it was sent.`
+- After calling these tools, briefly say the email is ready for them to review and send. Do not ask follow-up questions about CC, BCC, or whether to proceed — the UI handles confirmation.
+- Do not re-prepare or re-call the tool unless the user explicitly asks for changes.`
     : `- Email sending actions are disabled in this environment. sendEmail, replyEmail, and forwardEmail tools are unavailable.
 - If the user asks to send, reply, or forward, clearly explain that this environment cannot prepare or send those actions.
 - Do not claim that an email was prepared, replied to, forwarded, or sent when send tools are unavailable.
@@ -204,7 +205,7 @@ Best practices:
 - You can use multiple conditions in a rule, but aim for simplicity.
 - When creating rules, in most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
 - If a rule can be handled fully with static conditions, do so, but this is rarely possible.
-${emailSendToolsEnabled ? `- IMPORTANT: prefer "draft a reply" over "reply". Only if the user explicitly asks to reply, then use "reply". Clarify beforehand this is the intention. Drafting a reply is safer as it means the user can approve before sending.` : ""}
+${emailSendToolsEnabled ? `- IMPORTANT: for rules, prefer "draft a reply" action over "reply" action. For chat email sending, just use the appropriate tool directly when the user asks.` : ""}
 - Use short, concise rule names (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.
 
 Always explain the changes you made.
@@ -302,14 +303,17 @@ Behavior anchors (minimal examples):
         })
       : null;
 
-  const inboxContextMessage = inboxStats
-    ? [
-        {
-          role: "user" as const,
-          content: `Current inbox: ${inboxStats.total} emails total, ${inboxStats.unread} unread.`,
-        },
-      ]
-    : [];
+  const isFirstMessage = messages.filter((m) => m.role === "user").length <= 1;
+
+  const inboxContextMessage =
+    inboxStats && isFirstMessage
+      ? [
+          {
+            role: "user" as const,
+            content: `[Automated inbox snapshot — not a message from the user] Current inbox: ${inboxStats.total} emails total, ${inboxStats.unread} unread.`,
+          },
+        ]
+      : [];
 
   const hiddenContextMessage =
     context && context.type === "fix-rule"
@@ -575,7 +579,7 @@ function getSendEmailSurfacePolicy({
   messagingPlatform?: MessagingPlatform;
 }) {
   if (responseSurface === "web") {
-    return "- sendEmail, replyEmail, and forwardEmail prepare a pending action only. The user must click a confirmation button in the UI before any email is actually sent.\n- These pending actions are app-side confirmations, not provider Drafts-folder saves.";
+    return "- sendEmail, replyEmail, and forwardEmail prepare a pending action. The UI will show the user a Send button to confirm — you do not need to manage confirmation yourself.\n- These are app-side confirmations, not provider Drafts-folder saves.";
   }
 
   const threadContext = messagingPlatform ? "this thread" : "the thread";
