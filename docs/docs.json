@@ -32,10 +32,16 @@
               "essentials/auto-file-attachments",
               "essentials/inbox-zero-tabs-extension",
               "essentials/calendar-integration",
-              "essentials/slack-integration",
               "essentials/cold-email-blocker",
               "essentials/reply-zero",
               "essentials/faq"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "essentials/slack-integration",
+              "essentials/telegram-integration"
             ]
           },
           {
