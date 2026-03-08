@@ -28,10 +28,10 @@ import type { ThreadLookup } from "@/components/assistant-chat/tools";
 import { formatToolLabel } from "@/components/assistant-chat/tool-label";
 
 interface MessagePartProps {
-  part: ChatMessage["parts"][0];
-  isStreaming: boolean;
   disableConfirm: boolean;
+  isStreaming: boolean;
   messageId: string;
+  part: ChatMessage["parts"][0];
   partIndex: number;
   threadLookup: ThreadLookup;
 }
@@ -234,7 +234,7 @@ export function MessagePart({
           threadIds={
             part.input.action === "archive_threads" ||
             part.input.action === "mark_read_threads"
-              ? part.input.threadIds
+              ? (part.input.threadIds ?? undefined)
               : undefined
           }
           threadLookup={threadLookup}
@@ -505,7 +505,7 @@ export function MessagePart({
 
 function getInProgressManageInboxOutput(input: {
   action: string;
-  fromEmails?: string[];
+  fromEmails?: string[] | null;
 }) {
   return {
     action: input.action,

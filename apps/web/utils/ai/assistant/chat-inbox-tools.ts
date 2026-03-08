@@ -222,7 +222,7 @@ export const searchInboxTool = ({
         const { messages, nextPageToken } = await emailProvider.searchMessages({
           query,
           maxResults: limit,
-          pageToken,
+          pageToken: pageToken ?? undefined,
         });
 
         let labels: Array<{ id: string; name: string }> = [];
@@ -489,7 +489,7 @@ export const manageInboxTool = ({
               await emailProvider.archiveThreadWithLabel(
                 threadId,
                 email,
-                parsedInput.labelId,
+                parsedInput.labelId ?? undefined,
               );
             } else {
               await emailProvider.markReadThread(
@@ -603,16 +603,16 @@ export const updateInboxFeaturesTool = ({
         await prisma.emailAccount.update({
           where: { id: emailAccountId },
           data: {
-            ...(meetingBriefsEnabled !== undefined && {
+            ...(meetingBriefsEnabled != null && {
               meetingBriefingsEnabled: meetingBriefsEnabled,
             }),
-            ...(meetingBriefsMinutesBefore !== undefined && {
+            ...(meetingBriefsMinutesBefore != null && {
               meetingBriefingsMinutesBefore: meetingBriefsMinutesBefore,
             }),
-            ...(meetingBriefsSendEmail !== undefined && {
+            ...(meetingBriefsSendEmail != null && {
               meetingBriefsSendEmail,
             }),
-            ...(filingEnabled !== undefined && {
+            ...(filingEnabled != null && {
               filingEnabled,
             }),
             ...(filingPrompt !== undefined && {
