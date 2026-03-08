@@ -47,8 +47,12 @@ describe("handleOutboundReply", () => {
       threadId: "thread1",
     });
 
-    // Mock tracking enabled
-    prisma.rule.findFirst.mockResolvedValue({ id: "rule1" } as any);
+    // Mock all conversation status rules enabled
+    prisma.rule.findMany.mockResolvedValue([
+      { systemType: SystemType.AWAITING_REPLY },
+      { systemType: SystemType.TO_REPLY },
+      { systemType: SystemType.ACTIONED },
+    ] as any);
 
     // Mock thread messages - sortByInternalDate sorts asc by default (oldest first)
     // We mock getThreadMessages to return messages that our internal sortByInternalDate will sort
@@ -87,8 +91,8 @@ describe("handleOutboundReply", () => {
   it("should return early if outbound tracking is disabled", async () => {
     const message = getMockMessage({ id: "sent-msg-1", threadId: "thread1" });
 
-    // Mock tracking disabled
-    prisma.rule.findFirst.mockResolvedValue(null);
+    // Mock no enabled rules
+    prisma.rule.findMany.mockResolvedValue([]);
 
     await handleOutboundReply({
       emailAccount,
@@ -105,7 +109,9 @@ describe("handleOutboundReply", () => {
   it("should return early when outbound thread status is already processed", async () => {
     const message = getMockMessage({ id: "sent-msg-1", threadId: "thread1" });
 
-    prisma.rule.findFirst.mockResolvedValue({ id: "rule1" } as any);
+    prisma.rule.findMany.mockResolvedValue([
+      { systemType: SystemType.TO_REPLY },
+    ] as any);
     vi.mocked(acquireOutboundThreadStatusLock).mockResolvedValue(null);
 
     await handleOutboundReply({
@@ -121,10 +127,40 @@ describe("handleOutboundReply", () => {
     expect(clearOutboundThreadStatusLock).not.toHaveBeenCalled();
   });
 
+  it("should skip labeling when the determined status rule is disabled", async () => {
+    const message = getMockMessage({ id: "sent-msg-1", threadId: "thread1" });
+
+    // Only TO_REPLY is enabled — AWAITING_REPLY is not
+    prisma.rule.findMany.mockResolvedValue([
+      { systemType: SystemType.TO_REPLY },
+    ] as any);
+
+    provider.getThreadMessages.mockResolvedValue([message]);
+
+    // AI picks AWAITING_REPLY, but that rule is disabled
+    vi.mocked(aiDetermineThreadStatus).mockResolvedValue({
+      status: SystemType.AWAITING_REPLY,
+      rationale: "Waiting for response",
+    });
+
+    await handleOutboundReply({
+      emailAccount,
+      message: message as any,
+      provider: provider as any,
+      logger,
+    });
+
+    expect(aiDetermineThreadStatus).toHaveBeenCalled();
+    expect(applyThreadStatusLabel).not.toHaveBeenCalled();
+    expect(updateThreadTrackers).not.toHaveBeenCalled();
+  });
+
   it("should clear idempotency lock if processing exits early", async () => {
     const message = getMockMessage({ id: "sent-msg-1", threadId: "thread1" });
 
-    prisma.rule.findFirst.mockResolvedValue({ id: "rule1" } as any);
+    prisma.rule.findMany.mockResolvedValue([
+      { systemType: SystemType.TO_REPLY },
+    ] as any);
     provider.getThreadMessages.mockResolvedValue([]);
 
     await handleOutboundReply({

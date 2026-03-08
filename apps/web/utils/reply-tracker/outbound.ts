@@ -8,7 +8,10 @@ import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
 import { applyThreadStatusLabel } from "./label-helpers";
 import { updateThreadTrackers } from "@/utils/reply-tracker/handle-conversation-status";
-import { CONVERSATION_STATUS_TYPES } from "@/utils/reply-tracker/conversation-status-config";
+import {
+  CONVERSATION_STATUS_TYPES,
+  type ConversationStatus,
+} from "@/utils/reply-tracker/conversation-status-config";
 import {
   acquireOutboundThreadStatusLock,
   clearOutboundThreadStatusLock,
@@ -32,10 +35,10 @@ export async function handleOutboundReply({
     threadId: message.threadId,
   });
 
-  const isEnabled = await isOutboundTrackingEnabled({
+  const enabledStatuses = await getEnabledStatuses({
     emailAccountId: emailAccount.id,
   });
-  if (!isEnabled) {
+  if (!enabledStatuses.length) {
     logger.info("Outbound reply tracking disabled, skipping.");
     return;
   }
@@ -101,6 +104,14 @@ export async function handleOutboundReply({
 
     logger.info("AI determined thread status", { status: aiResult.status });
 
+    if (!enabledStatuses.includes(aiResult.status)) {
+      logger.info(
+        "Rule for determined status is disabled, skipping label application",
+        { status: aiResult.status },
+      );
+      return;
+    }
+
     await Promise.all([
       applyThreadStatusLabel({
         emailAccountId: emailAccount.id,
@@ -153,19 +164,22 @@ export async function handleOutboundReply({
   }
 }
 
-async function isOutboundTrackingEnabled({
+async function getEnabledStatuses({
   emailAccountId,
 }: {
   emailAccountId: string;
-}): Promise<boolean> {
-  const enabledRule = await prisma.rule.findFirst({
+}): Promise<ConversationStatus[]> {
+  const enabledRules = await prisma.rule.findMany({
     where: {
       emailAccountId,
       systemType: { in: CONVERSATION_STATUS_TYPES },
       enabled: true,
     },
+    select: { systemType: true },
   });
-  return !!enabledRule;
+  return enabledRules
+    .map((r) => r.systemType)
+    .filter((s): s is ConversationStatus => s != null);
 }
 
 function isMessageLatestInThread(
