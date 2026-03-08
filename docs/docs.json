@@ -24,8 +24,20 @@
             "group": "Essentials",
             "pages": [
               "essentials/ai-chat",
-              "essentials/email-ai-personal-assistant",
-              "essentials/email-analytics",
+              "essentials/email-ai-personal-assistant"
+            ]
+          },
+          {
+            "group": "Cleanup",
+            "pages": [
+              "essentials/bulk-email-unsubscriber",
+              "essentials/bulk-archiver",
+              "essentials/email-analytics"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
               "essentials/meeting-briefs",
               "essentials/auto-file-attachments",
               "essentials/inbox-zero-tabs-extension",
@@ -33,13 +45,6 @@
               "essentials/cold-email-blocker",
               "essentials/reply-zero",
               "essentials/faq"
-            ]
-          },
-          {
-            "group": "Cleanup",
-            "pages": [
-              "essentials/bulk-email-unsubscriber",
-              "essentials/bulk-archiver"
             ]
           },
           {
