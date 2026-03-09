@@ -117,9 +117,15 @@ export function isGmailQuotaExceededError(error: unknown): boolean {
   return (error as any)?.errors?.[0]?.reason === "quotaExceeded";
 }
 
-export function isIncorrectOpenAIAPIKeyError(error: APICallError): boolean {
-  return error.message.includes("Incorrect API key provided");
+export function isIncorrectAPIKeyError(error: APICallError): boolean {
+  return (
+    error.message.includes("Incorrect API key provided") ||
+    error.statusCode === 401
+  );
 }
+
+/** @deprecated Use isIncorrectAPIKeyError */
+export const isIncorrectOpenAIAPIKeyError = isIncorrectAPIKeyError;
 
 export function isInvalidOpenAIModelError(error: APICallError): boolean {
   return error.message.includes(
@@ -156,9 +162,12 @@ export function isInvalidAIModelError(error: APICallError): boolean {
   return false;
 }
 
-export function isOpenAIAPIKeyDeactivatedError(error: APICallError): boolean {
+export function isAPIKeyDeactivatedError(error: APICallError): boolean {
   return error.message.includes("this API key has been deactivated");
 }
+
+/** @deprecated Use isAPIKeyDeactivatedError */
+export const isOpenAIAPIKeyDeactivatedError = isAPIKeyDeactivatedError;
 
 export function isAnthropicInsufficientBalanceError(
   error: APICallError,
@@ -274,9 +283,9 @@ export function isKnownApiError(error: unknown): boolean {
     isGmailQuotaExceededError(error) ||
     isKnownOutlookError(error) ||
     (APICallError.isInstance(error) &&
-      (isIncorrectOpenAIAPIKeyError(error) ||
+      (isIncorrectAPIKeyError(error) ||
         isInvalidAIModelError(error) ||
-        isOpenAIAPIKeyDeactivatedError(error) ||
+        isAPIKeyDeactivatedError(error) ||
         isAnthropicInsufficientBalanceError(error))) ||
     (RetryError.isInstance(error) && isAiQuotaExceededError(error)) ||
     (error instanceof Error && isKnownAIErrorMessage(error.message))

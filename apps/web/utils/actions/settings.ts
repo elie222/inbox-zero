@@ -70,12 +70,15 @@ export const updateAiSettingsAction = actionClientUser
       await clearSpecificErrorMessages({
         userId,
         errorTypes: [
-          ErrorType.INCORRECT_OPENAI_API_KEY,
+          ErrorType.INCORRECT_API_KEY,
           ErrorType.INVALID_AI_MODEL,
-          ErrorType.OPENAI_API_KEY_DEACTIVATED,
+          ErrorType.API_KEY_DEACTIVATED,
           ErrorType.AI_QUOTA_ERROR,
-          ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
           ErrorType.INSUFFICIENT_CREDITS,
+          // Legacy keys for old stored errors
+          ErrorType.INCORRECT_OPENAI_API_KEY,
+          ErrorType.OPENAI_API_KEY_DEACTIVATED,
+          ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
         ],
         logger,
       });

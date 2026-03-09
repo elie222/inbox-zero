@@ -704,36 +704,32 @@ async function handleError(
 
     if (isIncorrectOpenAIAPIKeyError(error)) {
       return await notifyUser(
-        ErrorType.INCORRECT_OPENAI_API_KEY,
-        "Your OpenAI API key is invalid. Please update it in your settings.",
+        ErrorType.INCORRECT_API_KEY,
+        "Your AI API key is invalid. Please update it in your settings.",
       );
     }
 
     if (isInvalidAIModelError(error)) {
       await notifyUser(
         ErrorType.INVALID_AI_MODEL,
-        "The AI model you specified does not exist. Please check your settings.",
+        "The AI model you specified does not exist or is unavailable. Please check your settings.",
       );
       throw new SafeError(
-        "The AI model you specified does not exist. Please update your AI settings.",
+        "The AI model you specified does not exist or is unavailable. Please update your AI settings.",
       );
     }
 
     if (isOpenAIAPIKeyDeactivatedError(error)) {
       return await notifyUser(
-        ErrorType.OPENAI_API_KEY_DEACTIVATED,
-        "Your OpenAI API key has been deactivated. Please update it in your settings.",
+        ErrorType.API_KEY_DEACTIVATED,
+        "Your AI API key has been deactivated. Please update it in your settings.",
       );
     }
 
-    if (isAnthropicInsufficientBalanceError(error)) {
-      return await notifyUser(
-        ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
-        "Your Anthropic account has insufficient credits. Please add credits or update your settings.",
-      );
-    }
-
-    if (isInsufficientCreditsError(error) && hasUserApiKey) {
+    if (
+      isAnthropicInsufficientBalanceError(error) ||
+      (isInsufficientCreditsError(error) && hasUserApiKey)
+    ) {
       return await notifyUser(
         ErrorType.INSUFFICIENT_CREDITS,
         "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",
