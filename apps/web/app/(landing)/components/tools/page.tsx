@@ -392,8 +392,6 @@ function getAssistantReplyEmailOutput(state: EmailActionState) {
       threadId: "thread-3",
       from: "Support <support@example.com>",
       subject: "Ticket follow-up",
-      snippet:
-        "Hi there, checking in on your request. Let us know if you need anything else.",
     },
     ...(state === "confirmed"
       ? {
@@ -427,7 +425,6 @@ function getAssistantForwardEmailOutput(state: EmailActionState) {
       threadId: "thread-2",
       from: "Product Team <product@example.com>",
       subject: "Release notes",
-      snippet: "New changes shipped today including performance improvements and bug fixes.",
     },
     ...(state === "confirmed"
       ? {

@@ -23,7 +23,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallbackColor } from "@/components/ui/avatar";
 import {
   ChevronRightIcon,
-  ChevronDownIcon,
   EyeIcon,
   SparklesIcon,
   TrashIcon,
@@ -426,7 +425,6 @@ function EmailActionResult({
   const [confirmationResultOverride, setConfirmationResultOverride] =
     useState<EmailConfirmationResult | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [showOriginal, setShowOriginal] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const pendingAction = getOutputField<Record<string, unknown>>(
@@ -466,9 +464,7 @@ function EmailActionResult({
     output,
     key: "subject",
   });
-  const referenceFrom = getPendingString(reference, "from");
   const referenceSubject = getPendingString(reference, "subject");
-  const referenceSnippet = getPendingString(reference, "snippet");
   const displaySubject = subject || referenceSubject;
   const body = getActionBodyText({ actionType, pendingAction });
   const [editedBody, setEditedBody] = useState(body || "");
@@ -506,11 +502,13 @@ function EmailActionResult({
         return;
       }
 
+      const hasEdits = editedBody && editedBody !== body;
       const result = await confirmAssistantEmailAction(emailAccountId, {
         chatId,
         chatMessageId,
         toolCallId,
         actionType,
+        ...(hasEdits ? { contentOverride: editedBody } : {}),
       });
 
       if (result?.serverError) {
@@ -577,27 +575,6 @@ function EmailActionResult({
               {actionType !== "send_email" ? "Re: " : ""}
               {displaySubject}
             </span>
-          </div>
-        )}
-
-        {referenceSnippet && actionType !== "send_email" && (
-          <div className="border-b px-4">
-            <Collapsible open={showOriginal} onOpenChange={setShowOriginal}>
-              <CollapsibleTrigger className="flex w-full items-center gap-1 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
-                <ChevronDownIcon
-                  className={`size-4 transition-transform ${showOriginal ? "rotate-180" : ""}`}
-                />
-                Original message
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="mb-3 text-xs leading-relaxed text-muted-foreground">
-                  {referenceFrom && (
-                    <div className="mb-1 font-medium">{referenceFrom}</div>
-                  )}
-                  {referenceSnippet}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
           </div>
         )}
 
