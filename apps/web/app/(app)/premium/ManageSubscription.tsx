@@ -8,28 +8,6 @@ import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import { getBillingPortalUrlAction } from "@/utils/actions/premium";
 
-function useOpenBillingPortal() {
-  const [loading, setLoading] = useState(false);
-
-  const openBillingPortal = async () => {
-    setLoading(true);
-    const result = await getBillingPortalUrlAction({});
-    setLoading(false);
-    const url = result?.data?.url;
-    if (result?.serverError || !url) {
-      toastError({
-        description:
-          result?.serverError ||
-          "Error loading billing portal. Please contact support.",
-      });
-    } else {
-      window.location.href = url;
-    }
-  };
-
-  return { loading, openBillingPortal };
-}
-
 export function ManageSubscription({
   premium: { stripeSubscriptionId, lemonSqueezyCustomerId },
 }: {
@@ -70,27 +48,32 @@ export function ManageSubscription({
 }
 
 export function ViewInvoicesButton({
-  premium: { stripeSubscriptionId, lemonSqueezyCustomerId },
+  premium: { stripeCustomerId, lemonSqueezyCustomerId },
 }: {
   premium: {
-    stripeSubscriptionId: string | null | undefined;
+    stripeCustomerId: string | null | undefined;
     lemonSqueezyCustomerId: number | null | undefined;
   };
 }) {
   const { loading, openBillingPortal } = useOpenBillingPortal();
 
-  if (!stripeSubscriptionId && !lemonSqueezyCustomerId) return null;
+  if (!stripeCustomerId && !lemonSqueezyCustomerId) return null;
 
   return (
     <>
-      {stripeSubscriptionId && (
-        <Button variant="outline" size="sm" loading={loading} onClick={openBillingPortal}>
+      {stripeCustomerId && (
+        <Button
+          variant="outline"
+          size="sm"
+          loading={loading}
+          onClick={openBillingPortal}
+        >
           <ReceiptIcon className="mr-2 h-4 w-4" />
           View invoices
         </Button>
       )}
 
-      {lemonSqueezyCustomerId && !stripeSubscriptionId && (
+      {lemonSqueezyCustomerId && (
         <Button asChild variant="outline" size="sm">
           <Link
             href={`https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`}
@@ -103,4 +86,26 @@ export function ViewInvoicesButton({
       )}
     </>
   );
+}
+
+function useOpenBillingPortal() {
+  const [loading, setLoading] = useState(false);
+
+  const openBillingPortal = async () => {
+    setLoading(true);
+    const result = await getBillingPortalUrlAction({});
+    setLoading(false);
+    const url = result?.data?.url;
+    if (result?.serverError || !url) {
+      toastError({
+        description:
+          result?.serverError ||
+          "Error loading billing portal. Please contact support.",
+      });
+    } else {
+      window.location.href = url;
+    }
+  };
+
+  return { loading, openBillingPortal };
 }

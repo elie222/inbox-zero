@@ -24,7 +24,8 @@ export function BillingSection() {
       {premium &&
       (isPremium ||
         premium.lemonSqueezyCustomerId ||
-        premium.stripeSubscriptionId) ? (
+        premium.stripeSubscriptionId ||
+        premium.stripeCustomerId) ? (
         <Item size="sm">
           <ItemContent>
             <ItemTitle>{getPlanDisplayName(premium.tier)} plan</ItemTitle>
