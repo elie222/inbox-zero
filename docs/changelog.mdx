@@ -1,0 +1,120 @@
+---
+title: "Changelog"
+description: "Latest updates and improvements to Inbox Zero"
+---
+
+<Update label="March 9, 2026" description="v2.29">
+  ## Security Hardening
+  - Removed unused email processing paths
+  - Added SENT label verification to prevent spoofed header attacks
+  - Prevented forward rules from being auto-enabled (defense-in-depth)
+
+  ## AI Assistant Improvements
+  - Environment-level custom model for drafting
+  - Improved email draft scheduling prompt with calendar links and formatted times
+  - Reduced stats noise and fixed CC/BCC defaults in chat assistant
+  - Simplified confirmation flow for chat interactions
+
+  ## Outlook
+  - Fixed learning when MOVE_FOLDER classification is undone
+  - Fixed outbound reply labeling to respect disabled rules
+
+  ## UI
+  - Updated connected apps button to show all providers
+  - Improved channel selector error recovery
+
+  ## Documentation
+  - Simplified AI assistant introduction
+  - Added chat interface documentation
+</Update>
+
+<Update label="March 5, 2026" description="v2.28">
+  ## Messaging Platform Upgrades
+  - Added image attachment support for Slack, Telegram, and Teams
+  - Added slash commands for Teams and Slack
+  - Applied markdown-to-mrkdwn conversion for Slack responses
+  - Configured Telegram bot commands and profile metadata
+  - Fixed Telegram chat routing to wrong email account
+  - Improved handling of unsupported chat attachments
+
+  ## AI Chat
+  - Added image attachment support in chat
+  - Collapsed reasoning by default for cleaner UI
+  - Fixed AI assistant showing internal IDs in responses
+  - Simplified email search to query-only
+  - Improved markdown formatting in responses
+
+  ## Scheduled Check-ins
+  - Fixed stale and reschedule behavior
+  - Generalized messaging and queue handling
+
+  ## Infrastructure
+  - Fixed digest queue retry storm
+  - Hardened automation job queue execution
+  - Added enqueue diagnostics for automation jobs
+  - Increased Google thinking budget
+</Update>
+
+<Update label="March 3, 2026" description="v2.27">
+  ## AI & Billing
+  - Added AI generation overage billing and account attribution
+  - Added direct PostHog analytics tracing for LLM calls
+  - Unified local model defaults and fallback environment variables
+
+  ## Messaging
+  - Added draft preview before sending
+  - Improved pending draft confirmation UX
+  - Added missing assistant tool states
+
+  ## Infrastructure
+  - Added dual Vercel/Upstash job dispatch
+  - Fixed race conditions in label, rule, and Outlook operations
+  - Reduced redundant sender pattern analysis calls
+  - Async fanout for follow-up reminder cron
+  - Hourly watch and digest cron scheduling
+</Update>
+
+<Update label="March 1, 2026" description="v2.26">
+  ## Messaging Platform
+  - Migrated to Chat SDK with Teams and Telegram support
+  - Added unsubscribe capability from assistant chat
+  - Added draft confidence presets
+  - Clarified Slack channel purpose in UI
+
+  ## OneDrive & Drive
+  - Fixed issues with OneDrive folders
+
+  ## Assistant Settings
+  - Reorganized settings with new updates section
+  - Added scheduled check-in instruction copy
+
+  ## Infrastructure
+  - Added replay test infrastructure for webhook and chat flows
+  - Optimized CI build-check caching
+  - Reduced preview deploys for docs-only changes
+  - Enabled structured output mode for compatible LLM providers
+</Update>
+
+<Update label="February 26, 2026" description="v2.25">
+  ## New Features
+  - Added Vertex AI support for web app LLMs
+  - Added local development auth bypass with mock email data
+  - Improved onboarding role selection cards
+
+  ## AI Assistant
+  - Fixed Grok OpenRouter invalid args in tool loop
+  - Improved error handling and toast formatting
+  - Enforced recipient email validation
+  - Improved email action display in chat
+  - Handled stale message IDs in confirmation
+
+  ## Bug Fixes
+  - Prevented cross-provider account relink
+  - Optimized webhook label removal learning
+  - Fixed provider fallback in email URL utilities
+
+  ## Developer Experience
+  - Improved CLI setup with better defaults and port conflict handling
+  - Development environment setup improvements
+  - Streamlined documentation for LLM setup
+</Update>
