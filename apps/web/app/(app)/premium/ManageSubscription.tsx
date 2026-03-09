@@ -59,6 +59,8 @@ export function ViewInvoicesButton({
 
   if (!stripeCustomerId && !lemonSqueezyCustomerId) return null;
 
+  const hasBoth = !!(stripeCustomerId && lemonSqueezyCustomerId);
+
   return (
     <>
       {stripeCustomerId && (
@@ -69,7 +71,7 @@ export function ViewInvoicesButton({
           onClick={openBillingPortal}
         >
           <ReceiptIcon className="mr-2 h-4 w-4" />
-          View invoices
+          View{hasBoth ? " Stripe" : ""} invoices
         </Button>
       )}
 
@@ -80,7 +82,7 @@ export function ViewInvoicesButton({
             target="_blank"
           >
             <ReceiptIcon className="mr-2 h-4 w-4" />
-            View invoices
+            View{hasBoth ? " Lemon" : ""} invoices
           </Link>
         </Button>
       )}

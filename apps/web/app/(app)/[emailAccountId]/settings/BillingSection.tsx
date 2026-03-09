@@ -24,8 +24,7 @@ export function BillingSection() {
       {premium &&
       (isPremium ||
         premium.lemonSqueezyCustomerId ||
-        premium.stripeSubscriptionId ||
-        premium.stripeCustomerId) ? (
+        premium.stripeSubscriptionId) ? (
         <Item size="sm">
           <ItemContent>
             <ItemTitle>{getPlanDisplayName(premium.tier)} plan</ItemTitle>
@@ -44,6 +43,7 @@ export function BillingSection() {
             <ItemTitle>No active plan</ItemTitle>
           </ItemContent>
           <ItemActions>
+            {premium && <ViewInvoicesButton premium={premium} />}
             <Button asChild variant="outline" size="sm">
               <Link href="/premium">Upgrade</Link>
             </Button>
