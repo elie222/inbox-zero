@@ -213,29 +213,7 @@ Use simple language and avoid jargon in your reply.
 If you are unable to complete a requested action, say so and explain why.
 Keep responses concise by default.
 
-Formatting rules:
-- Always use markdown formatting. Structure multi-part answers with markdown headers (## for sections).
-- Use **bold** for key details (sender names, amounts, dates, action items).
-- When listing many emails, use a numbered list so the user can reference items by number.
-- When grouping emails (e.g. triage), use a markdown header (##) for each group and a numbered list under it.
-- Emojis are welcome when they improve tone or readability.
-- Do not present multi-option menus unless the user explicitly asks for options, or a safety-critical scope decision is required.
-- Prefer one recommended next step plus one direct confirmation question.
-- Ask at most one follow-up question at the end of a response.
-
-Inline email cards:
-- When presenting emails for triage or inbox summary, use <email> tags wrapped in an <emails> container to render an interactive inbox-style table.
-- Format:
-<emails>
-<email id="THREAD_ID" action="archive">Brief context</email>
-<email id="THREAD_ID" action="none">Brief context</email>
-</emails>
-- The id attribute must be a threadId from searchInbox results.
-- The action attribute controls which button to show: "archive" (or omitted) shows an Archive button, "none" hides the action button.
-- The inner text is your brief context or recommendation (e.g. "Subscription cancellation — confirm and outline next steps").
-- The UI automatically resolves the full email metadata (sender, subject, date) from the thread ID, so do NOT repeat those details in the tag content.
-- Use a separate <emails> block per category group, with a markdown header (##) before each block.
-- Only use <email> tags for triage and inbox summary flows, not for every search result.
+${getFormattingRules(responseSurface)}
 
 You can set general information about the user in their Personal Instructions (via the updateAbout tool) that will be passed as context when the AI is processing emails.
 
@@ -601,4 +579,39 @@ function getSendEmailSurfacePolicy({
   return `- sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.
 - These pending actions are app-side confirmations, not provider Drafts-folder saves.
 - A Send confirmation button is provided in ${threadContext}.`;
+}
+
+function getFormattingRules(responseSurface: "web" | "messaging") {
+  if (responseSurface === "messaging") {
+    return `Formatting rules:
+- Use **bold** for key details (sender names, amounts, dates, action items).
+- When listing many emails, use a numbered list so the user can reference items by number.
+- Emojis are welcome when they improve tone or readability.
+- Do not present multi-option menus unless the user explicitly asks for options, or a safety-critical scope decision is required.
+- Prefer one recommended next step plus one direct confirmation question.
+- Ask at most one follow-up question at the end of a response.`;
+  }
+
+  return `Formatting rules:
+- Always use markdown formatting. Structure multi-part answers with markdown headers (## for sections).
+- When listing many emails, use a numbered list so the user can reference items by number.
+- When grouping emails (e.g. triage), use a markdown header (##) for each group and a numbered list under it.
+- Emojis are welcome when they improve tone or readability.
+- Do not present multi-option menus unless the user explicitly asks for options, or a safety-critical scope decision is required.
+- Prefer one recommended next step plus one direct confirmation question.
+- Ask at most one follow-up question at the end of a response.
+
+Inline email cards:
+- When presenting emails for triage or inbox summary, use <email> tags wrapped in an <emails> container to render an interactive inbox-style table.
+- Format:
+<emails>
+<email id="THREAD_ID" action="archive">Brief context</email>
+<email id="THREAD_ID" action="none">Brief context</email>
+</emails>
+- The id attribute must be a threadId from searchInbox results.
+- The action attribute controls which button to show: "archive" (or omitted) shows an Archive button, "none" hides the action button.
+- The inner text is your brief context or recommendation (e.g. "Subscription cancellation — confirm and outline next steps").
+- The UI automatically resolves the full email metadata (sender, subject, date) from the thread ID, so do NOT repeat those details in the tag content.
+- Use a separate <emails> block per category group, with a markdown header (##) before each block.
+- Only use <email> tags for triage and inbox summary flows, not for every search result.`;
 }
