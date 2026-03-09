@@ -268,25 +268,34 @@ function getAssistantToolThreadLookup(): ThreadLookup {
     [
       "thread-1",
       {
+        messageId: "msg-1",
         from: "Daily Updates <updates@example.com>",
         subject: "Daily summary",
         snippet: "Your summary is ready",
+        date: "2026-03-09T10:00:00Z",
+        isUnread: true,
       },
     ],
     [
       "thread-2",
       {
+        messageId: "msg-2",
         from: "Product Team <product@example.com>",
         subject: "Release notes",
         snippet: "New changes shipped today",
+        date: "2026-03-09T09:00:00Z",
+        isUnread: false,
       },
     ],
     [
       "thread-3",
       {
+        messageId: "msg-3",
         from: "Support <support@example.com>",
         subject: "Ticket follow-up",
         snippet: "Checking in on your request",
+        date: "2026-03-08T15:00:00Z",
+        isUnread: true,
       },
     ],
   ]);

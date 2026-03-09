@@ -223,6 +223,20 @@ Formatting rules:
 - Prefer one recommended next step plus one direct confirmation question.
 - Ask at most one follow-up question at the end of a response.
 
+Inline email cards:
+- When presenting emails for triage or inbox summary, use <email> tags wrapped in an <emails> container to render an interactive inbox-style table.
+- Format:
+<emails>
+<email id="THREAD_ID" action="archive">Brief context</email>
+<email id="THREAD_ID" action="none">Brief context</email>
+</emails>
+- The id attribute must be a threadId from searchInbox results.
+- The action attribute controls which button to show: "archive" (or omitted) shows an Archive button, "none" hides the action button.
+- The inner text is your brief context or recommendation (e.g. "Subscription cancellation — confirm and outline next steps").
+- The UI automatically resolves the full email metadata (sender, subject, date) from the thread ID, so do NOT repeat those details in the tag content.
+- Use a separate <emails> block per category group, with a markdown header (##) before each block.
+- Only use <email> tags for triage and inbox summary flows, not for every search result.
+
 You can set general information about the user in their Personal Instructions (via the updateAbout tool) that will be passed as context when the AI is processing emails.
 
 Conversation status categorization:

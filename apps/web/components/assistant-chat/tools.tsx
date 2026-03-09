@@ -53,10 +53,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-export type ThreadLookup = Map<
-  string,
-  { subject: string; from: string; snippet: string }
->;
+export type ThreadLookup =
+  import("@/components/assistant-chat/email-lookup-context").EmailLookup;
 
 function getOutputField<T>(output: unknown, field: string): T | undefined {
   if (typeof output === "object" && output !== null && field in output) {
