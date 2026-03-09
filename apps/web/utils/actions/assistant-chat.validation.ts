@@ -103,6 +103,7 @@ export const confirmAssistantEmailActionBody = z.object({
   chatMessageId: z.string().trim().min(1),
   toolCallId: z.string().trim().min(1),
   actionType: assistantPendingEmailActionTypeSchema,
+  contentOverride: z.string().trim().min(1).optional(),
 });
 export type ConfirmAssistantEmailActionBody = z.infer<
   typeof confirmAssistantEmailActionBody

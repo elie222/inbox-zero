@@ -56,13 +56,20 @@ export const confirmAssistantEmailAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, provider, logger },
-      parsedInput: { chatId, chatMessageId, toolCallId, actionType },
+      parsedInput: {
+        chatId,
+        chatMessageId,
+        toolCallId,
+        actionType,
+        contentOverride,
+      },
     }) =>
       confirmAssistantEmailActionForAccount({
         chatId,
         chatMessageId,
         toolCallId,
         actionType,
+        contentOverride,
         emailAccountId,
         provider,
         logger,
@@ -74,6 +81,7 @@ export async function confirmAssistantEmailActionForAccount({
   chatMessageId,
   toolCallId,
   actionType,
+  contentOverride,
   emailAccountId,
   provider,
   logger,
@@ -82,6 +90,7 @@ export async function confirmAssistantEmailActionForAccount({
   chatMessageId: string;
   toolCallId: string;
   actionType: AssistantPendingEmailActionType;
+  contentOverride?: string;
   emailAccountId: string;
   provider: string;
   logger: Logger;
@@ -116,6 +125,7 @@ export async function confirmAssistantEmailActionForAccount({
       output: reservation.output,
       emailProvider,
       emailAccountId,
+      contentOverride,
     });
   } catch (error) {
     await clearAssistantEmailPartProcessing({
@@ -170,10 +180,12 @@ async function executeAssistantEmailAction({
   output,
   emailProvider,
   emailAccountId,
+  contentOverride,
 }: {
   output: AssistantPendingEmailToolOutput;
   emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
   emailAccountId: string;
+  contentOverride?: string;
 }): Promise<AssistantEmailConfirmationResult> {
   const confirmedAt = new Date().toISOString();
 
@@ -184,18 +196,21 @@ async function executeAssistantEmailAction({
         emailProvider,
         emailAccountId,
         confirmedAt,
+        contentOverride,
       });
     case "reply_email":
       return confirmPendingReplyEmailAction({
         output,
         emailProvider,
         confirmedAt,
+        contentOverride,
       });
     case "forward_email":
       return confirmPendingForwardEmailAction({
         output,
         emailProvider,
         confirmedAt,
+        contentOverride,
       });
   }
 }
@@ -205,22 +220,28 @@ async function confirmPendingSendEmailAction({
   emailProvider,
   emailAccountId,
   confirmedAt,
+  contentOverride,
 }: {
   output: PendingSendEmailToolOutput;
   emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
   emailAccountId: string;
   confirmedAt: string;
+  contentOverride?: string;
 }) {
   const from =
     output.pendingAction.from ||
     (await getFormattedSenderAddress({ emailAccountId }));
+
+  const messageHtml = contentOverride
+    ? plainTextToHtml(contentOverride)
+    : output.pendingAction.messageHtml;
 
   const result = await emailProvider.sendEmailWithHtml({
     to: output.pendingAction.to,
     cc: output.pendingAction.cc || undefined,
     bcc: output.pendingAction.bcc || undefined,
     subject: output.pendingAction.subject,
-    messageHtml: output.pendingAction.messageHtml,
+    messageHtml,
     ...(from ? { from } : {}),
   });
 
@@ -238,15 +259,20 @@ async function confirmPendingReplyEmailAction({
   output,
   emailProvider,
   confirmedAt,
+  contentOverride,
 }: {
   output: PendingReplyEmailToolOutput;
   emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
   confirmedAt: string;
+  contentOverride?: string;
 }) {
   const message = await emailProvider.getMessage(
     output.pendingAction.messageId,
   );
-  await emailProvider.replyToEmail(message, output.pendingAction.content);
+  await emailProvider.replyToEmail(
+    message,
+    contentOverride || output.pendingAction.content,
+  );
 
   const latestMessage = await getLatestMessageInThreadSafe(
     emailProvider,
@@ -267,10 +293,12 @@ async function confirmPendingForwardEmailAction({
   output,
   emailProvider,
   confirmedAt,
+  contentOverride,
 }: {
   output: PendingForwardEmailToolOutput;
   emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
   confirmedAt: string;
+  contentOverride?: string;
 }) {
   const message = await emailProvider.getMessage(
     output.pendingAction.messageId,
@@ -279,7 +307,7 @@ async function confirmPendingForwardEmailAction({
     to: output.pendingAction.to,
     cc: output.pendingAction.cc || undefined,
     bcc: output.pendingAction.bcc || undefined,
-    content: output.pendingAction.content || undefined,
+    content: contentOverride || output.pendingAction.content || undefined,
   });
 
   const latestMessage = await getLatestMessageInThreadSafe(
@@ -772,6 +800,14 @@ function parsePendingForwardEmailOutput(output: unknown) {
 function getOutputWithoutProcessingMetadata(output: Record<string, unknown>) {
   const { confirmationProcessingAt: _, ...rest } = output;
   return rest;
+}
+
+function plainTextToHtml(text: string) {
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return escaped.replace(/\n/g, "<br>");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
