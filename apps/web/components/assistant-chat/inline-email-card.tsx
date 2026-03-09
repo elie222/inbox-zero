@@ -67,27 +67,41 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
   return (
     <div className="my-2 overflow-hidden rounded-lg border bg-card shadow-sm">
       {threadIds.length > 0 && (
-        <div className="flex items-center justify-end gap-2 border-b px-3 py-1.5">
-          <Button
-            variant="outline"
-            size="xs"
-            loading={archiveAllState === "loading"}
-            disabled={archiveAllState === "done"}
-            onClick={handleArchiveAll}
-            Icon={archiveAllState === "done" ? CheckIcon : ArchiveIcon}
+        <div className="flex items-center justify-end gap-1 border-b px-3 py-1.5">
+          <Tooltip
+            content={
+              archiveAllState === "done" ? "All archived" : "Archive all"
+            }
           >
-            {archiveAllState === "done" ? "All archived" : "Archive all"}
-          </Button>
-          <Button
-            variant="outline"
-            size="xs"
-            loading={markReadState === "loading"}
-            disabled={markReadState === "done"}
-            onClick={handleMarkAllRead}
-            Icon={markReadState === "done" ? CheckIcon : MailOpenIcon}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              loading={archiveAllState === "loading"}
+              disabled={archiveAllState === "done"}
+              onClick={handleArchiveAll}
+              Icon={
+                archiveAllState === "done" ? CheckIcon : ArchiveIcon
+              }
+            />
+          </Tooltip>
+          <Tooltip
+            content={
+              markReadState === "done" ? "All marked read" : "Mark all read"
+            }
           >
-            {markReadState === "done" ? "All read" : "Mark all read"}
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              loading={markReadState === "loading"}
+              disabled={markReadState === "done"}
+              onClick={handleMarkAllRead}
+              Icon={
+                markReadState === "done" ? CheckIcon : MailOpenIcon
+              }
+            />
+          </Tooltip>
         </div>
       )}
       {children}
