@@ -115,8 +115,6 @@ export function InlineEmailCard({
     ? getEmailUrlForMessage(meta?.messageId ?? id, id, userEmail, provider)
     : null;
 
-  const providerName = provider === "microsoft" ? "Outlook" : "Gmail";
-
   async function handleArchive(e: React.MouseEvent) {
     e.stopPropagation();
     if (!id || actionState !== "idle") return;
@@ -205,7 +203,7 @@ export function InlineEmailCard({
           onKeyDown={(e) => e.stopPropagation()}
         >
           {externalUrl ? (
-            <Tooltip content={`Open in ${providerName}`}>
+            <Tooltip content="Open in email">
               <a
                 href={externalUrl}
                 target="_blank"
