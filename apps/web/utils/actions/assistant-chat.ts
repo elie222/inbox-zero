@@ -7,6 +7,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { convertNewlinesToBr, escapeHtml } from "@/utils/string";
 import {
   type AssistantEmailConfirmationResult,
   type AssistantPendingEmailActionType,
@@ -151,6 +152,7 @@ export async function confirmAssistantEmailActionForAccount({
     parts: reservation.parts,
     partIndex: reservation.partIndex,
     confirmationResult,
+    contentOverride,
   });
 
   try {
@@ -233,7 +235,7 @@ async function confirmPendingSendEmailAction({
     (await getFormattedSenderAddress({ emailAccountId }));
 
   const messageHtml = contentOverride
-    ? plainTextToHtml(contentOverride)
+    ? convertNewlinesToBr(escapeHtml(contentOverride))
     : output.pendingAction.messageHtml;
 
   const result = await emailProvider.sendEmailWithHtml({
@@ -366,10 +368,12 @@ function updateAssistantEmailPartWithConfirmation({
   parts,
   partIndex,
   confirmationResult,
+  contentOverride,
 }: {
   parts: unknown[];
   partIndex: number;
   confirmationResult: AssistantEmailConfirmationResult;
+  contentOverride?: string;
 }) {
   return updateAssistantEmailPartOutput({
     parts,
@@ -379,6 +383,12 @@ function updateAssistantEmailPartWithConfirmation({
       confirmationState: "confirmed",
       confirmationResult,
     },
+    pendingActionPatch: contentOverride
+      ? getPendingActionContentPatch(
+          confirmationResult.actionType,
+          contentOverride,
+        )
+      : undefined,
   });
 }
 
@@ -632,10 +642,12 @@ function updateAssistantEmailPartOutput({
   parts,
   partIndex,
   outputPatch,
+  pendingActionPatch,
 }: {
   parts: unknown[];
   partIndex: number;
   outputPatch: Record<string, unknown>;
+  pendingActionPatch?: Record<string, unknown>;
 }) {
   return parts.map((part, index) => {
     if (index !== partIndex || !isRecord(part)) return part;
@@ -643,12 +655,22 @@ function updateAssistantEmailPartOutput({
     const existingOutput = isRecord(part.output) ? part.output : {};
     const outputWithoutProcessing =
       getOutputWithoutProcessingMetadata(existingOutput);
+
+    const patchedOutput = {
+      ...outputWithoutProcessing,
+      ...outputPatch,
+    };
+
+    if (pendingActionPatch && isRecord(patchedOutput.pendingAction)) {
+      patchedOutput.pendingAction = {
+        ...patchedOutput.pendingAction,
+        ...pendingActionPatch,
+      };
+    }
+
     return {
       ...part,
-      output: {
-        ...outputWithoutProcessing,
-        ...outputPatch,
-      },
+      output: patchedOutput,
     };
   });
 }
@@ -802,12 +824,14 @@ function getOutputWithoutProcessingMetadata(output: Record<string, unknown>) {
   return rest;
 }
 
-function plainTextToHtml(text: string) {
-  const escaped = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  return escaped.replace(/\n/g, "<br>");
+function getPendingActionContentPatch(
+  actionType: AssistantPendingEmailActionType,
+  contentOverride: string,
+): Record<string, string> {
+  if (actionType === "send_email") {
+    return { messageHtml: convertNewlinesToBr(escapeHtml(contentOverride)) };
+  }
+  return { content: contentOverride };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
