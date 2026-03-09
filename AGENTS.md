@@ -10,6 +10,7 @@
 - Run specific AI test: `pnpm test-ai ai-categorize-senders`
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
 - Do not run `dev` or `build` unless explicitly asked
+- Run `pnpm install` before running tests or build if not already done
 - Before writing or updating tests, review `.claude/skills/testing/SKILL.md`.
 - When adding a new workspace package, add its `package.json` COPY line to `docker/Dockerfile.prod` and `docker/Dockerfile.local`.
 
