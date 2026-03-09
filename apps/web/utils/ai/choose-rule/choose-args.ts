@@ -295,11 +295,17 @@ export function getParameterFieldsForAction(
           );
         });
 
-        const description = `Generate this template: ${template}${
-          field === "content"
-            ? "\nMake sure to maintain the exact formatting."
-            : ""
-        }`;
+        const variableList = aiPrompts
+          .map((prompt, index) => `- var${index + 1}: ${prompt}`)
+          .join("\n");
+
+        const description = `Fill in the variable(s) for this template. Return ONLY the value for each variable, not the surrounding template text.
+
+Variables to fill:
+${variableList}
+
+Full template for context:
+${template}`;
 
         fields[field] = z.object(schemaFields).describe(description);
       }

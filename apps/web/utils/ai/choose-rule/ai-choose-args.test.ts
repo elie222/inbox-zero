@@ -59,7 +59,7 @@ describe("getParameterFieldsForAction", () => {
       (result.content as any)?._def?.description;
     expect(description).toContain("{{var1: write greeting}}");
     expect(description).toContain("{{var2: draft response}}");
-    expect(description).toContain("maintain the exact formatting");
+    expect(description).toContain("Return ONLY the value for each variable");
   });
 
   it("ignores fields without template variables", () => {
