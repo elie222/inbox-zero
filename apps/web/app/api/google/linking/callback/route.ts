@@ -15,7 +15,6 @@ import {
   clearOAuthCode,
 } from "@/utils/redis/oauth-code";
 import { isDuplicateError } from "@/utils/prisma-helpers";
-import { parseOAuthState } from "@/utils/oauth/state";
 import { SafeError } from "@/utils/error";
 
 export const GET = withError("google/linking/callback", async (request) => {
@@ -26,24 +25,10 @@ export const GET = withError("google/linking/callback", async (request) => {
     GOOGLE_LINKING_STATE_COOKIE_NAME,
   )?.value;
 
-  const receivedState = searchParams.get("state");
-
-  let isMobileFlow = false;
-  if (!storedState && receivedState) {
-    try {
-      const parsed = parseOAuthState<{ mobileRedirectUrl?: string }>(
-        receivedState,
-      );
-      if (parsed.mobileRedirectUrl) {
-        isMobileFlow = true;
-      }
-    } catch {}
-  }
-
   const validation = validateOAuthCallback({
     code: searchParams.get("code"),
-    receivedState,
-    storedState: isMobileFlow ? receivedState! : storedState,
+    receivedState: searchParams.get("state"),
+    storedState,
     stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
     logger,
   });
@@ -54,20 +39,12 @@ export const GET = withError("google/linking/callback", async (request) => {
 
   const { targetUserId, code } = validation;
 
-  // Check if the request came from the mobile app
-  const parsedState = parseOAuthState<{ mobileRedirectUrl?: string }>(
-    searchParams.get("state")!,
-  );
-  const mobileRedirectUrl = parsedState.mobileRedirectUrl;
-
   const cachedResult = await getOAuthCodeResult(code);
   if (cachedResult) {
     logger.info("OAuth code already processed, returning cached result", {
       targetUserId,
     });
-    const redirectUrl = mobileRedirectUrl
-      ? new URL(mobileRedirectUrl)
-      : new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
     for (const [key, value] of Object.entries(cachedResult.params)) {
       redirectUrl.searchParams.set(key, value);
     }
@@ -81,9 +58,7 @@ export const GET = withError("google/linking/callback", async (request) => {
     logger.info("OAuth code is being processed by another request", {
       targetUserId,
     });
-    const redirectUrl = mobileRedirectUrl
-      ? new URL(mobileRedirectUrl)
-      : new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
     const response = NextResponse.redirect(redirectUrl);
     response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
     return response;
@@ -231,9 +206,7 @@ export const GET = withError("google/linking/callback", async (request) => {
 
       await setOAuthCodeResult(code, { success: "account_created_and_linked" });
 
-      const successUrl = mobileRedirectUrl
-        ? new URL(mobileRedirectUrl)
-        : new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
       successUrl.searchParams.set("success", "account_created_and_linked");
       const successResponse = NextResponse.redirect(successUrl);
       successResponse.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
@@ -258,9 +231,7 @@ export const GET = withError("google/linking/callback", async (request) => {
 
       await setOAuthCodeResult(code, { success: "tokens_updated" });
 
-      const successUrl = mobileRedirectUrl
-        ? new URL(mobileRedirectUrl)
-        : new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
       successUrl.searchParams.set("success", "tokens_updated");
       const successResponse = NextResponse.redirect(successUrl);
       successResponse.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
@@ -298,9 +269,7 @@ export const GET = withError("google/linking/callback", async (request) => {
 
     await setOAuthCodeResult(code, { success: successMessage });
 
-    const successUrl = mobileRedirectUrl
-      ? new URL(mobileRedirectUrl)
-      : new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+    const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
     successUrl.searchParams.set("success", successMessage);
     const successResponse = NextResponse.redirect(successUrl);
     successResponse.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
@@ -309,9 +278,7 @@ export const GET = withError("google/linking/callback", async (request) => {
   } catch (error) {
     await clearOAuthCode(code);
 
-    const errorUrl = mobileRedirectUrl
-      ? new URL(mobileRedirectUrl)
-      : new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+    const errorUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
     return handleOAuthCallbackError({
       error,
       redirectUrl: errorUrl,

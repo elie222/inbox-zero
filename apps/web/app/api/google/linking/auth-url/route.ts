@@ -10,19 +10,10 @@ import {
 
 export type GetAuthLinkUrlResponse = { url: string };
 
-const getAuthUrl = ({
-  userId,
-  mobileRedirectUrl,
-}: {
-  userId: string;
-  mobileRedirectUrl?: string | null;
-}) => {
+const getAuthUrl = ({ userId }: { userId: string }) => {
   const googleAuth = getLinkingOAuth2Client();
 
-  const state = generateOAuthState({
-     userId,
-     ...(mobileRedirectUrl && { mobileRedirectUrl }),
-   });
+  const state = generateOAuthState({ userId });
 
   const url = googleAuth.generateAuthUrl({
     access_type: "offline",
@@ -36,9 +27,7 @@ const getAuthUrl = ({
 
 export const GET = withAuth("google/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
-  const mobileRedirectUrl =
-    new URL(request.url).searchParams.get("mobileRedirectUrl");
-  const { url: authUrl, state } = getAuthUrl({ userId, mobileRedirectUrl });
+  const { url: authUrl, state } = getAuthUrl({ userId });
 
   const response = NextResponse.json({ url: authUrl });
 
