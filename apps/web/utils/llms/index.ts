@@ -688,6 +688,7 @@ async function handleError(
 
   if (APICallError.isInstance(error)) {
     if (isIncorrectOpenAIAPIKeyError(error)) {
+      if (hasUserApiKey) markAsHandledUserKeyError(error);
       return await addUserErrorMessageWithNotification({
         userId,
         userEmail,
@@ -700,6 +701,7 @@ async function handleError(
     }
 
     if (isInvalidAIModelError(error)) {
+      if (hasUserApiKey) markAsHandledUserKeyError(error);
       await addUserErrorMessageWithNotification({
         userId,
         userEmail,
@@ -715,6 +717,7 @@ async function handleError(
     }
 
     if (isOpenAIAPIKeyDeactivatedError(error)) {
+      if (hasUserApiKey) markAsHandledUserKeyError(error);
       return await addUserErrorMessageWithNotification({
         userId,
         userEmail,
@@ -727,6 +730,7 @@ async function handleError(
     }
 
     if (isAnthropicInsufficientBalanceError(error)) {
+      if (hasUserApiKey) markAsHandledUserKeyError(error);
       return await addUserErrorMessageWithNotification({
         userId,
         userEmail,

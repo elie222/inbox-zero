@@ -138,6 +138,21 @@ export function isInvalidAIModelError(error: APICallError): boolean {
   if (error.statusCode === 404 && error.message.includes("not_found_error")) {
     return true;
   }
+  // Bedrock: error message is just the model ID (e.g., "model: anthropic.claude-...")
+  if (/^model:\s*\S+$/.test(error.message.trim())) {
+    return true;
+  }
+  // OpenRouter: model deprecated or unavailable
+  if (error.message.includes("testing period")) {
+    return true;
+  }
+  // Generic model-not-found patterns
+  if (
+    error.message.includes("model is not available") ||
+    error.message.includes("model not found")
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -160,6 +175,7 @@ export function isInsufficientCreditsError(error: APICallError): boolean {
 const HANDLED_USER_KEY_ERROR = "__handledUserKeyError";
 
 export function markAsHandledUserKeyError(error: unknown): void {
+  if (typeof error !== "object" || error === null) return;
   (error as Record<string, unknown>)[HANDLED_USER_KEY_ERROR] = true;
 }
 
@@ -234,6 +250,21 @@ export function isAICallError(error: unknown): error is APICallError {
   return APICallError.isInstance(error);
 }
 
+// Message-based fallback for AI errors that may lose their APICallError type
+// (e.g., when wrapped by middleware like PostHog AI)
+function isKnownAIErrorMessage(message: string): boolean {
+  const patterns = [
+    "Incorrect API key provided",
+    "does not exist or you do not have access to it",
+    "this API key has been deactivated",
+    "credit balance is too low",
+    "testing period",
+    "model is not available",
+    "model not found",
+  ];
+  return patterns.some((p) => message.includes(p));
+}
+
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (
@@ -247,7 +278,8 @@ export function isKnownApiError(error: unknown): boolean {
         isInvalidAIModelError(error) ||
         isOpenAIAPIKeyDeactivatedError(error) ||
         isAnthropicInsufficientBalanceError(error))) ||
-    (RetryError.isInstance(error) && isAiQuotaExceededError(error))
+    (RetryError.isInstance(error) && isAiQuotaExceededError(error)) ||
+    (error instanceof Error && isKnownAIErrorMessage(error.message))
   );
 }
 

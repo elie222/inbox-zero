@@ -18,6 +18,7 @@ import { actionClientUser } from "@/utils/actions/safe-action";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
+import { SafeError } from "@/utils/error";
 import { env } from "@/env";
 
 export const updateEmailSettingsAction = actionClient
@@ -52,13 +53,17 @@ export const updateAiSettingsAction = actionClientUser
         );
       }
 
-      await prisma.user.update({
+      const result = await prisma.user.updateMany({
         where: { id: userId },
         data:
           aiProvider === DEFAULT_PROVIDER
             ? { aiProvider: null, aiModel: null, aiApiKey: null }
             : { aiProvider, aiModel, aiApiKey },
       });
+
+      if (result.count === 0) {
+        throw new SafeError("User not found");
+      }
 
       // Clear AI-related error messages when user updates their settings
       // This allows them to be notified again if the new settings are also invalid

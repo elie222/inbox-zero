@@ -116,12 +116,17 @@ async function sendEmail({
     where: { id: emailAccountId },
     select: {
       email: true,
-      account: { select: { provider: true } },
+      account: { select: { provider: true, refresh_token: true } },
     },
   });
 
   if (!emailAccount) {
     throw new Error("Email account not found");
+  }
+
+  if (!emailAccount.account.refresh_token) {
+    logger.warn("Skipping digest: account has no refresh token");
+    return { success: false, message: "Account has no refresh token" };
   }
 
   const emailProvider = await createEmailProvider({
