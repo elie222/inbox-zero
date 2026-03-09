@@ -22,15 +22,15 @@ interface AwsPrerequisites {
 }
 
 interface GcloudPrerequisites {
-  authenticated: boolean;
   installed: boolean;
+  authenticated: boolean;
   projectId: string | null;
 }
 
 export interface AwsSetupOptions {
-  environment?: string;
   profile?: string;
   region?: string;
+  environment?: string;
   yes?: boolean; // Non-interactive mode with defaults
 }
 
