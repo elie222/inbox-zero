@@ -305,7 +305,6 @@ async function updateGoogleAccountTokens(
     where: { id: accountId },
     data: {
       access_token: tokens.access_token,
-      // Only update refresh_token if provider returned one (preserves existing token)
       ...(tokens.refresh_token != null && {
         refresh_token: tokens.refresh_token,
       }),

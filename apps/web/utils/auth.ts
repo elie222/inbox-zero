@@ -152,6 +152,10 @@ export const betterAuthConfig = betterAuth({
       idToken: "id_token",
     },
     storeStateStrategy: "cookie", // Required for oAuthProxy to encrypt state
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google", "microsoft"],
+    },
   },
   verification: {
     modelName: "VerificationToken",
@@ -502,7 +506,6 @@ async function handleLinkAccount(account: Account) {
 
       return;
     }
-
     const user = await prisma.user.findUnique({
       where: { id: account.userId },
       select: { email: true, name: true, image: true },
