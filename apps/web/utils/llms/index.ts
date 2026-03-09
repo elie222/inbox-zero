@@ -687,72 +687,57 @@ async function handleError(
   }
 
   if (APICallError.isInstance(error)) {
-    if (isIncorrectOpenAIAPIKeyError(error)) {
-      if (hasUserApiKey) markAsHandledUserKeyError(error);
-      return await addUserErrorMessageWithNotification({
-        userId,
-        userEmail,
-        emailAccountId,
-        errorType: ErrorType.INCORRECT_OPENAI_API_KEY,
-        errorMessage:
-          "Your OpenAI API key is invalid. Please update it in your settings.",
-        logger,
-      });
-    }
-
-    if (isInvalidAIModelError(error)) {
+    const notifyUser = async (
+      errorType: (typeof ErrorType)[keyof typeof ErrorType],
+      errorMessage: string,
+    ) => {
       if (hasUserApiKey) markAsHandledUserKeyError(error);
       await addUserErrorMessageWithNotification({
         userId,
         userEmail,
         emailAccountId,
-        errorType: ErrorType.INVALID_AI_MODEL,
-        errorMessage:
-          "The AI model you specified does not exist. Please check your settings.",
+        errorType,
+        errorMessage,
         logger,
       });
+    };
+
+    if (isIncorrectOpenAIAPIKeyError(error)) {
+      return await notifyUser(
+        ErrorType.INCORRECT_OPENAI_API_KEY,
+        "Your OpenAI API key is invalid. Please update it in your settings.",
+      );
+    }
+
+    if (isInvalidAIModelError(error)) {
+      await notifyUser(
+        ErrorType.INVALID_AI_MODEL,
+        "The AI model you specified does not exist. Please check your settings.",
+      );
       throw new SafeError(
         "The AI model you specified does not exist. Please update your AI settings.",
       );
     }
 
     if (isOpenAIAPIKeyDeactivatedError(error)) {
-      if (hasUserApiKey) markAsHandledUserKeyError(error);
-      return await addUserErrorMessageWithNotification({
-        userId,
-        userEmail,
-        emailAccountId,
-        errorType: ErrorType.OPENAI_API_KEY_DEACTIVATED,
-        errorMessage:
-          "Your OpenAI API key has been deactivated. Please update it in your settings.",
-        logger,
-      });
+      return await notifyUser(
+        ErrorType.OPENAI_API_KEY_DEACTIVATED,
+        "Your OpenAI API key has been deactivated. Please update it in your settings.",
+      );
     }
 
     if (isAnthropicInsufficientBalanceError(error)) {
-      if (hasUserApiKey) markAsHandledUserKeyError(error);
-      return await addUserErrorMessageWithNotification({
-        userId,
-        userEmail,
-        emailAccountId,
-        errorType: ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
-        errorMessage:
-          "Your Anthropic account has insufficient credits. Please add credits or update your settings.",
-        logger,
-      });
+      return await notifyUser(
+        ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
+        "Your Anthropic account has insufficient credits. Please add credits or update your settings.",
+      );
     }
 
     if (isInsufficientCreditsError(error) && hasUserApiKey) {
-      markAsHandledUserKeyError(error);
-      return await addUserErrorMessageWithNotification({
-        userId,
-        userEmail,
-        emailAccountId,
-        errorType: ErrorType.INSUFFICIENT_CREDITS,
-        errorMessage:
-          "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",
-        logger,
-      });
+      return await notifyUser(
+        ErrorType.INSUFFICIENT_CREDITS,
+        "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",
+      );
     }
   }
 }
