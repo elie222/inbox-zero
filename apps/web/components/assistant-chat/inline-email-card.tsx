@@ -24,16 +24,6 @@ import { useThread } from "@/hooks/useThread";
 
 type ActionState = "idle" | "loading" | "done";
 
-function collectThreadIds(children: ReactNode): string[] {
-  const ids: string[] = [];
-  Children.forEach(children, (child) => {
-    if (isValidElement<{ id?: string }>(child) && child.props.id) {
-      ids.push(child.props.id);
-    }
-  });
-  return ids;
-}
-
 export function InlineEmailList({ children }: { children?: ReactNode }) {
   const { emailAccountId } = useAccount();
   const [archiveAllState, setArchiveAllState] = useState<ActionState>("idle");
@@ -105,34 +95,6 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
   );
 }
 
-function EmailPreview({ threadId }: { threadId: string }) {
-  const { data, isLoading, error } = useThread({ id: threadId });
-
-  if (isLoading) {
-    return (
-      <div className="px-3 py-2 text-xs text-muted-foreground">Loading…</div>
-    );
-  }
-
-  if (error || !data?.thread?.messages?.length) {
-    return (
-      <div className="px-3 py-2 text-xs text-muted-foreground">
-        Could not load email content.
-      </div>
-    );
-  }
-
-  const lastMessage = data.thread.messages[data.thread.messages.length - 1];
-  const text =
-    lastMessage.textPlain || lastMessage.snippet || "No content available.";
-
-  return (
-    <div className="max-h-60 overflow-auto border-t bg-muted/20 px-6 py-3 text-xs whitespace-pre-wrap text-muted-foreground">
-      {text}
-    </div>
-  );
-}
-
 export function InlineEmailCard({
   id,
   action,
@@ -177,7 +139,7 @@ export function InlineEmailCard({
   }
 
   const isDone = actionState === "done";
-  const showArchive = id && action !== "none";
+  const showArchive = id && (!action || action === "archive");
 
   return (
     <div>
@@ -271,6 +233,44 @@ export function InlineEmailCard({
       </div>
 
       {expanded && id && <EmailPreview threadId={id} />}
+    </div>
+  );
+}
+
+function collectThreadIds(children: ReactNode): string[] {
+  const ids: string[] = [];
+  Children.forEach(children, (child) => {
+    if (isValidElement<{ id?: string }>(child) && child.props.id) {
+      ids.push(child.props.id);
+    }
+  });
+  return ids;
+}
+
+function EmailPreview({ threadId }: { threadId: string }) {
+  const { data, isLoading, error } = useThread({ id: threadId });
+
+  if (isLoading) {
+    return (
+      <div className="px-3 py-2 text-xs text-muted-foreground">Loading…</div>
+    );
+  }
+
+  if (error || !data?.thread?.messages?.length) {
+    return (
+      <div className="px-3 py-2 text-xs text-muted-foreground">
+        Could not load email content.
+      </div>
+    );
+  }
+
+  const lastMessage = data.thread.messages[data.thread.messages.length - 1];
+  const text =
+    lastMessage.textPlain || lastMessage.snippet || "No content available.";
+
+  return (
+    <div className="max-h-60 overflow-auto border-t bg-muted/20 px-6 py-3 text-xs whitespace-pre-wrap text-muted-foreground">
+      {text}
     </div>
   );
 }

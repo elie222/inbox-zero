@@ -231,7 +231,7 @@ Inline email cards:
 <email id="THREAD_ID" action="none">Brief context</email>
 </emails>
 - The id attribute must be a threadId from searchInbox results.
-- The action attribute controls which button to show: "archive" shows an Archive button, "none" or omitted shows no action button.
+- The action attribute controls which button to show: "archive" (or omitted) shows an Archive button, "none" hides the action button.
 - The inner text is your brief context or recommendation (e.g. "Subscription cancellation — confirm and outline next steps").
 - The UI automatically resolves the full email metadata (sender, subject, date) from the thread ID, so do NOT repeat those details in the tag content.
 - Use a separate <emails> block per category group, with a markdown header (##) before each block.
