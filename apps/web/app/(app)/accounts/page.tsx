@@ -242,6 +242,26 @@ function useAccountNotifications() {
           description:
             "Failed to receive authentication code. Please try again.",
         },
+        consent_declined: {
+          title: "Microsoft permissions were not granted",
+          description:
+            `Microsoft sign-in was canceled before ${BRAND_NAME} received the required permissions. Please try again and complete the consent screen.`,
+        },
+        admin_consent_required: {
+          title: "Admin approval required",
+          description:
+            "Your Microsoft 365 organization requires admin approval before Inbox Zero can access this account. Ask your Microsoft 365 admin to grant consent for the app, then try again.",
+        },
+        invalid_scope_configuration: {
+          title: "Microsoft app setup needs attention",
+          description:
+            "Microsoft rejected the requested permissions for this app. Ask your admin to verify the Inbox Zero app registration, delegated Microsoft Graph permissions, and redirect URLs, then try again.",
+        },
+        consent_incomplete: {
+          title: "More Microsoft permissions are required",
+          description:
+            `Microsoft connected the account, but did not grant all required permissions. Reconnect and approve every requested permission. If your organization restricts consent, ask your admin to approve ${BRAND_NAME} first.`,
+        },
         link_failed: {
           title: "Account linking failed",
           description:
@@ -277,6 +297,10 @@ function useAccountNotifications() {
         account_created_and_linked: {
           title: "Account added successfully!",
           description: "Your new account has been linked.",
+        },
+        tokens_updated: {
+          title: "Account reconnected successfully!",
+          description: "Your account permissions were refreshed.",
         },
       };
 

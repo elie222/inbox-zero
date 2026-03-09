@@ -89,7 +89,15 @@ export default async function AuthenticationPage(props: {
 }
 
 function ErrorAlert({ error }: { error: string }) {
-  if (error === "RequiresReconsent") return null;
+  if (error === "RequiresReconsent") {
+    return (
+      <AlertBasic
+        variant="destructive"
+        title="Permissions need to be refreshed"
+        description={`Please sign in again and approve every requested permission. If your Microsoft 365 organization requires admin approval, ask your admin to approve ${BRAND_NAME} first. If this error persists please contact support at ${SUPPORT_EMAIL}`}
+      />
+    );
+  }
 
   if (error === "OAuthAccountNotLinked") {
     return (
@@ -123,7 +131,7 @@ function ErrorAlert({ error }: { error: string }) {
       <AlertBasic
         variant="destructive"
         title="Error logging in"
-        description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${SUPPORT_EMAIL}`}
+        description={`There was an error logging in. Please try logging in again. If this error persists please contact support at ${SUPPORT_EMAIL}`}
       />
       <Suspense>
         <CrispChatLoggedOutVisible />

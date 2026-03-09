@@ -9,15 +9,25 @@ import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
 import {
+  classifyMicrosoftOAuthCallbackError,
+  extractAadstsCode,
+  getMissingMicrosoftScopes,
+  getSafeMicrosoftOAuthErrorDescription,
+  parseMicrosoftScopes,
+} from "@/utils/oauth/microsoft-oauth";
+import {
   acquireOAuthCodeLock,
   getOAuthCodeResult,
   setOAuthCodeResult,
   clearOAuthCode,
 } from "@/utils/redis/oauth-code";
 import { isDuplicateError } from "@/utils/prisma-helpers";
+import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
+import type { Logger } from "@/utils/logger";
 
 export const GET = withError("outlook/linking/callback", async (request) => {
   const logger = request.logger;
+  const linkingRedirectUri = `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/linking/callback`;
 
   if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET)
     throw new SafeError("Microsoft login not enabled");
@@ -26,6 +36,26 @@ export const GET = withError("outlook/linking/callback", async (request) => {
   const storedState = request.cookies.get(
     OUTLOOK_LINKING_STATE_COOKIE_NAME,
   )?.value;
+  const oauthError = searchParams.get("error");
+  const oauthErrorDescription = searchParams.get("error_description");
+  const receivedState = searchParams.get("state");
+
+  if (oauthError) {
+    const invalidStateResponse = validateMicrosoftOAuthErrorState({
+      receivedState,
+      storedState,
+      logger,
+    });
+    if (invalidStateResponse) {
+      return invalidStateResponse;
+    }
+
+    return handleMicrosoftOAuthAuthorizeError({
+      oauthError,
+      errorDescription: oauthErrorDescription,
+      logger,
+    });
+  }
 
   const validation = validateOAuthCallback({
     code: searchParams.get("code"),
@@ -80,7 +110,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
           client_secret: env.MICROSOFT_CLIENT_SECRET,
           code,
           grant_type: "authorization_code",
-          redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/linking/callback`,
+          redirect_uri: linkingRedirectUri,
         }),
       },
     );
@@ -88,17 +118,19 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     const tokens = await tokenResponse.json();
 
     if (!tokenResponse.ok) {
+      const errorDescription =
+        tokens.error_description || "Failed to exchange code for tokens";
+      const aadstsCode = extractAadstsCode(errorDescription);
       logger.error("Failed to exchange code for tokens", {
-        error: tokens.error_description,
+        error: errorDescription,
+        aadstsCode,
+        targetUserId,
+        tenantId: env.MICROSOFT_TENANT_ID,
+        redirectUri: linkingRedirectUri,
+        requestedScopes: OUTLOOK_SCOPES,
       });
-      captureException(
-        new Error(
-          tokens.error_description || "Failed to exchange code for tokens",
-        ),
-      );
-      throw new SafeError(
-        tokens.error_description || "Failed to exchange code for tokens",
-      );
+      captureException(new Error(errorDescription));
+      throw new SafeError(errorDescription);
     }
 
     // Get user profile using the access token
@@ -109,6 +141,10 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     });
 
     if (!profileResponse.ok) {
+      logger.error("Failed to fetch Microsoft user profile", {
+        targetUserId,
+        status: profileResponse.status,
+      });
       throw new SafeError("Failed to fetch user profile");
     }
 
@@ -130,9 +166,18 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       select: {
         id: true,
         userId: true,
+        refresh_token: true,
         user: { select: { name: true, email: true } },
         emailAccount: true,
       },
+    });
+
+    assertMicrosoftLinkingConsent({
+      targetUserId,
+      tokenScope: tokens.scope,
+      hasRefreshToken: !!tokens.refresh_token,
+      hasStoredRefreshToken: !!existingAccount?.refresh_token,
+      logger,
     });
 
     const linkingResult = await handleAccountLinking({
@@ -334,6 +379,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       redirectUrl: errorUrl,
       stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
       logger,
+      provider: "microsoft",
     });
   }
 });
@@ -345,6 +391,45 @@ interface MicrosoftTokens {
   refresh_token?: string | null;
   scope?: string | null;
   token_type?: string | null;
+}
+
+function assertMicrosoftLinkingConsent(params: {
+  targetUserId: string;
+  tokenScope: string | null | undefined;
+  hasRefreshToken: boolean;
+  hasStoredRefreshToken: boolean;
+  logger: Logger;
+}) {
+  const grantedScopes = parseMicrosoftScopes(params.tokenScope);
+  const missingScopes = params.tokenScope
+    ? getMissingMicrosoftScopes(params.tokenScope, OUTLOOK_SCOPES)
+    : [];
+
+  params.logger.info("Microsoft token exchange succeeded", {
+    targetUserId: params.targetUserId,
+    hasRefreshToken: params.hasRefreshToken,
+    hasStoredRefreshToken: params.hasStoredRefreshToken,
+    grantedScopeCount: grantedScopes.length,
+    missingScopes,
+  });
+
+  if (
+    (!params.hasRefreshToken && !params.hasStoredRefreshToken) ||
+    missingScopes.length > 0
+  ) {
+    params.logger.warn("Microsoft linking returned incomplete consent", {
+      targetUserId: params.targetUserId,
+      hasRefreshToken: params.hasRefreshToken,
+      hasStoredRefreshToken: params.hasStoredRefreshToken,
+      grantedScopes,
+      missingScopes,
+      tenantId: env.MICROSOFT_TENANT_ID,
+    });
+
+    throw new SafeError(
+      "Microsoft did not grant all required permissions. Please reconnect and approve every requested permission.",
+    );
+  }
 }
 
 function parseMicrosoftExpiresAt(tokens: MicrosoftTokens): Date | null {
@@ -388,4 +473,63 @@ async function updateMicrosoftAccountTokens(
       watchEmailsExpirationDate: new Date(0),
     },
   });
+}
+
+function handleMicrosoftOAuthAuthorizeError(params: {
+  oauthError: string;
+  errorDescription: string | null;
+  logger: Logger;
+}) {
+  const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+  const mappedError = classifyMicrosoftOAuthCallbackError({
+    oauthError: params.oauthError,
+    errorDescription: params.errorDescription,
+  });
+
+  params.logger.warn("Microsoft authorize callback returned an OAuth error", {
+    oauthError: params.oauthError,
+    aadstsCode: extractAadstsCode(params.errorDescription),
+  });
+
+  if (mappedError) {
+    redirectUrl.searchParams.set("error", mappedError.errorCode);
+    redirectUrl.searchParams.set("error_description", mappedError.userMessage);
+  } else {
+    redirectUrl.searchParams.set("error", "link_failed");
+    const safeErrorDescription = getSafeMicrosoftOAuthErrorDescription(
+      params.errorDescription,
+    );
+    if (safeErrorDescription) {
+      redirectUrl.searchParams.set("error_description", safeErrorDescription);
+    }
+  }
+
+  const response = NextResponse.redirect(redirectUrl);
+  response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
+  return response;
+}
+
+function validateMicrosoftOAuthErrorState(params: {
+  receivedState: string | null;
+  storedState: string | undefined;
+  logger: Logger;
+}) {
+  if (
+    params.storedState &&
+    params.receivedState &&
+    params.storedState === params.receivedState
+  ) {
+    return null;
+  }
+
+  params.logger.warn("Invalid state during Microsoft OAuth error callback", {
+    receivedState: params.receivedState,
+    hasStoredState: !!params.storedState,
+  });
+
+  const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+  redirectUrl.searchParams.set("error", "invalid_state");
+  const response = NextResponse.redirect(redirectUrl);
+  response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
+  return response;
 }

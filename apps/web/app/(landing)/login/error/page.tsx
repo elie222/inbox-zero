@@ -34,6 +34,11 @@ const errorMessages: Record<string, { title: string; description: string }> = {
     description:
       "Your sign-in link is no longer valid. This can happen if the login flow was opened twice, timed out, or already used. Please start sign-in again from the login page.",
   },
+  requiresreconsent: {
+    title: "Permissions need to be refreshed",
+    description:
+      `Please sign in again and approve every requested permission. If your Microsoft 365 organization requires admin approval, ask your admin to approve ${BRAND_NAME} first.`,
+  },
 };
 
 function LoginErrorContent() {
