@@ -67,7 +67,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
   return (
     <div className="my-2 overflow-hidden rounded-lg border bg-card shadow-sm">
       {threadIds.length > 0 && (
-        <div className="flex items-center gap-2 border-b px-3 py-1.5">
+        <div className="flex items-center justify-end gap-2 border-b px-3 py-1.5">
           <Button
             variant="outline"
             size="xs"
@@ -216,16 +216,22 @@ export function InlineEmailCard({
           ) : null}
 
           {showArchive ? (
-            <Button
-              variant="outline"
-              size="xs"
-              loading={actionState === "loading"}
-              disabled={isDone}
-              onClick={handleArchive}
-              Icon={isDone ? CheckIcon : ArchiveIcon}
-            >
-              {isDone ? "Archived" : "Archive"}
-            </Button>
+            isDone ? (
+              <span className="flex items-center gap-1 px-2 text-xs text-muted-foreground">
+                <CheckIcon className="size-3" />
+                Archived
+              </span>
+            ) : (
+              <Button
+                variant="outline"
+                size="xs"
+                loading={actionState === "loading"}
+                onClick={handleArchive}
+                Icon={ArchiveIcon}
+              >
+                Archive
+              </Button>
+            )
           ) : null}
         </div>
       </div>
@@ -254,10 +260,19 @@ function EmailPreview({ threadId }: { threadId: string }) {
     );
   }
 
-  if (error || !data?.thread?.messages?.length) {
+  if (error) {
+    console.error("EmailPreview error:", { threadId, error });
     return (
       <div className="px-3 py-2 text-xs text-muted-foreground">
-        Could not load email content.
+        Could not load email content: {error.message}
+      </div>
+    );
+  }
+
+  if (!data?.thread?.messages?.length) {
+    return (
+      <div className="px-3 py-2 text-xs text-muted-foreground">
+        No email content found.
       </div>
     );
   }

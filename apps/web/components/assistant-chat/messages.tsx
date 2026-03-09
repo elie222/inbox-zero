@@ -87,6 +87,8 @@ export function Messages({
               )}
           </div>
 
+          <div className="h-8 shrink-0" />
+
           {footer && (
             <div className="sticky bottom-0 z-10 pb-4 md:pb-6 pointer-events-none [&>*]:pointer-events-auto relative">
               <ConversationScrollButton wrapperClassName="absolute bottom-full left-1/2 -translate-x-1/2 mb-2" />
