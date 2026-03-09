@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { usePremium } from "@/components/PremiumAlert";
-import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
+import {
+  ManageSubscription,
+  ViewInvoicesButton,
+} from "@/app/(app)/premium/ManageSubscription";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +31,7 @@ export function BillingSection() {
           </ItemContent>
           <ItemActions>
             <ManageSubscription premium={premium} />
+            <ViewInvoicesButton premium={premium} />
             <Button asChild variant="outline" size="sm">
               <Link href="/premium">Change plan</Link>
             </Button>
@@ -39,6 +43,7 @@ export function BillingSection() {
             <ItemTitle>No active plan</ItemTitle>
           </ItemContent>
           <ItemActions>
+            {premium && <ViewInvoicesButton premium={premium} />}
             <Button asChild variant="outline" size="sm">
               <Link href="/premium">Upgrade</Link>
             </Button>

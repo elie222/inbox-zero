@@ -30,6 +30,7 @@ async function getUser({
           lemonSqueezyCustomerId: true,
           lemonSqueezySubscriptionId: true,
           lemonSqueezyRenewsAt: true,
+          stripeCustomerId: true,
           stripeSubscriptionId: true,
           stripeSubscriptionStatus: true,
           unsubscribeCredits: true,
