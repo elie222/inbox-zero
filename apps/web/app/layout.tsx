@@ -17,6 +17,7 @@ import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
 import { Toaster } from "@/components/Toast";
 import { Agentation } from "@/components/Agentation";
+import { BRAND_ICON_URL, BRAND_NAME, toAbsoluteUrl } from "@/utils/branding";
 
 const aeonikFont = localFont({
   src: "../styles/aeonik-medium.woff",
@@ -31,7 +32,7 @@ const geist = Geist({
   display: "swap",
 });
 
-const title = "Inbox Zero | Automate and clean your inbox";
+const title = `${BRAND_NAME} | Automate and clean your inbox`;
 const description =
   "Your AI executive assistant to reach inbox zero fast. Automate emails, bulk unsubscribe, block cold emails, and analytics. Open-source";
 
@@ -39,7 +40,7 @@ const description =
 const jsonLd: WithContext<WebApplication> = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  name: "Inbox Zero",
+  name: BRAND_NAME,
   url: env.NEXT_PUBLIC_BASE_URL,
   description,
   applicationCategory: "ProductivityApplication",
@@ -66,11 +67,11 @@ const jsonLd: WithContext<WebApplication> = {
   ],
   publisher: {
     "@type": "Organization",
-    name: "Inbox Zero",
+    name: BRAND_NAME,
     url: env.NEXT_PUBLIC_BASE_URL,
     logo: {
       "@type": "ImageObject",
-      url: `${env.NEXT_PUBLIC_BASE_URL}/icon.png`,
+      url: toAbsoluteUrl(BRAND_ICON_URL),
     },
     sameAs: [
       "https://x.com/inboxzero_ai",
@@ -85,7 +86,7 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    siteName: "Inbox Zero",
+    siteName: BRAND_NAME,
     type: "website",
     url: env.NEXT_PUBLIC_BASE_URL,
   },
@@ -102,11 +103,11 @@ export const metadata: Metadata = {
     follow: true,
   },
   // pwa
-  applicationName: "Inbox Zero",
+  applicationName: BRAND_NAME,
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Inbox Zero",
+    title: BRAND_NAME,
     startupImage,
   },
   formatDetection: {

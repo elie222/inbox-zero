@@ -14,6 +14,7 @@ import {
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
 import { importRulesAction } from "@/utils/actions/rule";
+import { formatUtcDate } from "@/utils/date";
 
 export function RuleImportExportSetting({
   emailAccountId,
@@ -59,7 +60,7 @@ export function RuleImportExportSetting({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `inbox-zero-rules-${new Date().toISOString().split("T")[0]}.json`;
+    a.download = `inbox-zero-rules-${formatUtcDate(new Date())}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

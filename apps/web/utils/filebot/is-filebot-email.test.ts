@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { isFilebotEmail, getFilebotEmail } from "./is-filebot-email";
+import {
+  isFilebotEmail,
+  getFilebotEmail,
+  isFilebotNotificationMessage,
+} from "./is-filebot-email";
 
 describe("isFilebotEmail", () => {
   it("should return true for valid filebot email", () => {
@@ -128,5 +132,39 @@ describe("getFilebotEmail", () => {
         userEmail: "notanemail",
       }),
     ).toThrow("Invalid email format");
+  });
+});
+
+describe("isFilebotNotificationMessage", () => {
+  it("should return true when reply-to uses the filebot address", () => {
+    const result = isFilebotNotificationMessage({
+      userEmail: "john@example.com",
+      from: "John <john@example.com>",
+      to: "john@example.com",
+      replyTo: "Inbox Zero Assistant <john+ai@example.com>",
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("should return true for assistant-formatted self-email without reply-to", () => {
+    const result = isFilebotNotificationMessage({
+      userEmail: "john@example.com",
+      from: "Inbox Zero Assistant <john@example.com>",
+      to: "john@example.com",
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("should return false for a normal outbound email", () => {
+    const result = isFilebotNotificationMessage({
+      userEmail: "john@example.com",
+      from: "John <john@example.com>",
+      to: "alice@example.com",
+      replyTo: "john@example.com",
+    });
+
+    expect(result).toBe(false);
   });
 });

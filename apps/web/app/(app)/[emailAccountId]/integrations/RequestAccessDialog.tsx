@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Copy } from "lucide-react";
 import { toastSuccess } from "@/components/Toast";
-import { env } from "@/env";
+import { BRAND_NAME, SUPPORT_EMAIL } from "@/utils/branding";
 
 interface RequestAccessDialogProps {
   integrationName?: string;
@@ -31,11 +31,11 @@ export function RequestAccessDialog({
     : `Request Access: ${integrationName} Integration`;
 
   const messageBody = isGenericRequest
-    ? "Hi,\n\nI would like to request a new integration for Inbox Zero.\n\nIntegration name:\n\nUse case:\n\nThank you!"
-    : `Hi,\n\nI'm interested in using the ${integrationName} integration with Inbox Zero.\n\nCould you please let me know when this integration will be available?\n\nThank you!`;
+    ? `Hi,\n\nI would like to request a new integration for ${BRAND_NAME}.\n\nIntegration name:\n\nUse case:\n\nThank you!`
+    : `Hi,\n\nI'm interested in using the ${integrationName} integration with ${BRAND_NAME}.\n\nCould you please let me know when this integration will be available?\n\nThank you!`;
 
   const handleCopyEmail = async () => {
-    await navigator.clipboard.writeText(env.NEXT_PUBLIC_SUPPORT_EMAIL);
+    await navigator.clipboard.writeText(SUPPORT_EMAIL);
     toastSuccess({ description: "Email copied to clipboard" });
   };
 
@@ -68,7 +68,7 @@ export function RequestAccessDialog({
             <div className="text-sm font-medium">Email</div>
             <div className="flex items-center gap-2 mt-1">
               <code className="flex-1 rounded bg-muted px-3 py-2 text-sm">
-                {env.NEXT_PUBLIC_SUPPORT_EMAIL}
+                {SUPPORT_EMAIL}
               </code>
               <Button size="sm" variant="outline" onClick={handleCopyEmail}>
                 <Copy className="h-4 w-4" />

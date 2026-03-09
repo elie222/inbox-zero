@@ -43,6 +43,7 @@ import { LabelCombobox } from "@/components/LabelCombobox";
 import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
 import { Card } from "@/components/ui/card";
 import { MutedText } from "@/components/Typography";
+import { BRAND_NAME } from "@/utils/branding";
 
 export function ActionSteps({
   actionFields,
@@ -540,8 +541,7 @@ function ActionCard({
     <>
       {isNotifySender ? (
         <MutedText className="px-1 h-full flex items-center">
-          Sends an automated notification from Inbox Zero informing the sender
-          their email was filtered as cold outreach.
+          {`Sends an automated notification from ${BRAND_NAME} informing the sender their email was filtered as cold outreach.`}
         </MutedText>
       ) : isDraftEmailWithoutManualContent ? (
         <MutedText className="px-1 h-full flex items-center">

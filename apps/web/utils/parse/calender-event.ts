@@ -1,14 +1,14 @@
 import type { ParsedMessage } from "@/utils/types";
 
 interface CalendarEventInfo {
-  isCalendarEvent: boolean;
+  endDate?: Date | null;
   eventDate?: Date | null;
   eventDateString?: string;
+  eventTitle?: string;
+  isCalendarEvent: boolean;
+  organizer?: string;
   recurringEvent?: boolean;
   startDate?: Date | null;
-  endDate?: Date | null;
-  eventTitle?: string;
-  organizer?: string;
 }
 
 export type CalendarEventStatus = {

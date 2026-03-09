@@ -12,7 +12,7 @@ import {
 import {
   ActionType,
   GroupItemType,
-  LogicalOperator,
+  type LogicalOperator,
 } from "@/generated/prisma/enums";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";
@@ -22,41 +22,46 @@ import {
   updateRuleConditionSchema,
 } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 
-type GetUserRulesAndSettingsOutput = {
-  about: string;
-  rules:
-    | Array<{
-        name: string;
-        conditions: {
-          aiInstructions: string | null;
-          static?: Partial<{
-            from: string | null;
-            to: string | null;
-            subject: string | null;
-          }>;
-          conditionalOperator?: LogicalOperator;
-        };
-        actions: Array<{
-          type: ActionType;
-          fields: Partial<{
-            label: string | null;
-            content: string | null;
-            to: string | null;
-            cc: string | null;
-            bcc: string | null;
-            subject: string | null;
-            webhookUrl: string | null;
-            folderName: string | null;
-          }>;
-        }>;
-        enabled: boolean;
-        runOnThreads: boolean;
-      }>
-    | undefined;
-};
+type GetUserRulesAndSettingsOutput =
+  | {
+      about: string;
+      rules:
+        | Array<{
+            name: string;
+            conditions: {
+              aiInstructions: string | null;
+              static?: Partial<{
+                from: string | null;
+                to: string | null;
+                subject: string | null;
+              }>;
+              conditionalOperator?: LogicalOperator;
+            };
+            actions: Array<{
+              type: ActionType;
+              fields: Partial<{
+                label: string | null;
+                content: string | null;
+                to: string | null;
+                cc: string | null;
+                bcc: string | null;
+                subject: string | null;
+                webhookUrl: string | null;
+                folderName: string | null;
+              }>;
+            }>;
+            enabled: boolean;
+            runOnThreads: boolean;
+          }>
+        | undefined;
+    }
+  | {
+      error: string;
+    };
 
 const RULE_READ_FRESHNESS_WINDOW_MS = 2 * 60 * 1000;
 
@@ -87,91 +92,97 @@ export const getUserRulesAndSettingsTool = ({
         email,
         logger,
       });
-
-      const emailAccount = await prisma.emailAccount.findUnique({
-        where: { id: emailAccountId },
-        select: {
-          about: true,
-          rules: {
-            select: {
-              name: true,
-              instructions: true,
-              updatedAt: true,
-              from: true,
-              to: true,
-              subject: true,
-              conditionalOperator: true,
-              enabled: true,
-              runOnThreads: true,
-              actions: {
-                select: {
-                  type: true,
-                  content: true,
-                  label: true,
-                  to: true,
-                  cc: true,
-                  bcc: true,
-                  subject: true,
-                  url: true,
-                  folderName: true,
+      try {
+        const emailAccount = await prisma.emailAccount.findUnique({
+          where: { id: emailAccountId },
+          select: {
+            about: true,
+            rules: {
+              select: {
+                name: true,
+                instructions: true,
+                updatedAt: true,
+                from: true,
+                to: true,
+                subject: true,
+                conditionalOperator: true,
+                enabled: true,
+                runOnThreads: true,
+                actions: {
+                  select: {
+                    type: true,
+                    content: true,
+                    label: true,
+                    to: true,
+                    cc: true,
+                    bcc: true,
+                    subject: true,
+                    url: true,
+                    folderName: true,
+                  },
                 },
               },
             },
           },
-        },
-      });
+        });
 
-      setRuleReadState?.({
-        readAt: Date.now(),
-        ruleUpdatedAtByName: new Map(
-          (emailAccount?.rules || []).map((rule) => [
-            rule.name,
-            rule.updatedAt.toISOString(),
-          ]),
-        ),
-      });
+        setRuleReadState?.({
+          readAt: Date.now(),
+          ruleUpdatedAtByName: new Map(
+            (emailAccount?.rules || []).map((rule) => [
+              rule.name,
+              rule.updatedAt.toISOString(),
+            ]),
+          ),
+        });
 
-      return {
-        about: emailAccount?.about || "Not set",
-        rules: emailAccount?.rules.map((rule) => {
-          const staticFilter = filterNullProperties({
-            from: rule.from,
-            to: rule.to,
-            subject: rule.subject,
-          });
+        return {
+          about: emailAccount?.about || "Not set",
+          rules: emailAccount?.rules.map((rule) => {
+            const staticFilter = filterNullProperties({
+              from: rule.from,
+              to: rule.to,
+              subject: rule.subject,
+            });
 
-          const staticConditions =
-            Object.keys(staticFilter).length > 0 ? staticFilter : undefined;
+            const staticConditions =
+              Object.keys(staticFilter).length > 0 ? staticFilter : undefined;
 
-          return {
-            name: rule.name,
-            conditions: {
-              aiInstructions: rule.instructions,
-              static: staticConditions,
-              // only need to show conditional operator if there are multiple conditions
-              conditionalOperator:
-                rule.instructions && staticConditions
-                  ? rule.conditionalOperator
-                  : undefined,
-            },
-            actions: rule.actions.map((action) => ({
-              type: action.type,
-              fields: filterNullProperties({
-                label: action.label,
-                content: action.content,
-                to: action.to,
-                cc: action.cc,
-                bcc: action.bcc,
-                subject: action.subject,
-                webhookUrl: action.url,
-                folderName: action.folderName,
-              }),
-            })),
-            enabled: rule.enabled,
-            runOnThreads: rule.runOnThreads,
-          };
-        }),
-      };
+            return {
+              name: rule.name,
+              conditions: {
+                aiInstructions: rule.instructions,
+                static: staticConditions,
+                // only need to show conditional operator if there are multiple conditions
+                conditionalOperator:
+                  rule.instructions && staticConditions
+                    ? rule.conditionalOperator
+                    : undefined,
+              },
+              actions: rule.actions.map((action) => ({
+                type: action.type,
+                fields: filterNullProperties({
+                  label: action.label,
+                  content: action.content,
+                  to: action.to,
+                  cc: action.cc,
+                  bcc: action.bcc,
+                  subject: action.subject,
+                  webhookUrl: action.url,
+                  folderName: action.folderName,
+                }),
+              })),
+              enabled: rule.enabled,
+              runOnThreads: rule.runOnThreads,
+            };
+          }),
+        };
+      } catch (error) {
+        logger.error("Failed to load rules and settings", { error });
+        return {
+          error: "Failed to load rules and settings",
+        };
+      }
     },
   });
 
@@ -197,34 +208,40 @@ export const getLearnedPatternsTool = ({
     }),
     execute: async ({ ruleName }) => {
       trackToolCall({ tool: "get_learned_patterns", email, logger });
-
-      const rule = await prisma.rule.findUnique({
-        where: { name_emailAccountId: { name: ruleName, emailAccountId } },
-        select: {
-          group: {
-            select: {
-              items: {
-                select: {
-                  type: true,
-                  value: true,
-                  exclude: true,
+      try {
+        const rule = await prisma.rule.findUnique({
+          where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+          select: {
+            group: {
+              select: {
+                items: {
+                  select: {
+                    type: true,
+                    value: true,
+                    exclude: true,
+                  },
                 },
               },
             },
           },
-        },
-      });
+        });
 
-      if (!rule) {
+        if (!rule) {
+          return {
+            error:
+              "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+          };
+        }
+
         return {
-          error:
-            "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+          patterns: rule.group?.items,
+        };
+      } catch (error) {
+        logger.error("Failed to load learned patterns", { error, ruleName });
+        return {
+          error: "Failed to load learned patterns",
         };
       }
-
-      return {
-        patterns: rule.group?.items,
-      };
     },
   });
 
@@ -312,94 +329,101 @@ export const updateRuleConditionsTool = ({
     inputSchema: updateRuleConditionSchema,
     execute: async ({ ruleName, condition }) => {
       trackToolCall({ tool: "update_rule_conditions", email, logger });
+      try {
+        const readValidationError = validateRuleWasReadRecently({
+          ruleName,
+          getRuleReadState,
+        });
 
-      const readValidationError = validateRuleWasReadRecently({
-        ruleName,
-        getRuleReadState,
-      });
+        if (readValidationError) {
+          return {
+            success: false,
+            error: readValidationError,
+          };
+        }
 
-      if (readValidationError) {
+        const rule = await prisma.rule.findUnique({
+          where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+          select: {
+            id: true,
+            name: true,
+            updatedAt: true,
+            instructions: true,
+            from: true,
+            to: true,
+            subject: true,
+            conditionalOperator: true,
+          },
+        });
+
+        if (!rule) {
+          return {
+            success: false,
+            error:
+              "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+          };
+        }
+
+        const staleReadError = validateRuleWasReadRecently({
+          ruleName,
+          getRuleReadState,
+          currentRuleUpdatedAt: rule.updatedAt,
+        });
+        if (staleReadError) {
+          return {
+            success: false,
+            error: staleReadError,
+          };
+        }
+
+        // Store original state
+        const originalConditions = {
+          aiInstructions: rule.instructions,
+          static: filterNullProperties({
+            from: rule.from,
+            to: rule.to,
+            subject: rule.subject,
+          }),
+          conditionalOperator: rule.conditionalOperator,
+        };
+
+        await partialUpdateRule({
+          ruleId: rule.id,
+          data: {
+            instructions: condition.aiInstructions,
+            from: condition.static?.from,
+            to: condition.static?.to,
+            subject: condition.static?.subject,
+            conditionalOperator: condition.conditionalOperator ?? undefined,
+          },
+        });
+
+        // Prepare updated state
+        const updatedConditions = {
+          aiInstructions: condition.aiInstructions,
+          static: condition.static
+            ? filterNullProperties({
+                from: condition.static.from,
+                to: condition.static.to,
+                subject: condition.static.subject,
+              })
+            : undefined,
+          conditionalOperator: condition.conditionalOperator,
+        };
+
+        return {
+          success: true,
+          ruleId: rule.id,
+          originalConditions,
+          updatedConditions,
+        };
+      } catch (error) {
+        logger.error("Failed to update rule conditions", { error, ruleName });
         return {
           success: false,
-          error: readValidationError,
+          error: "Failed to update rule conditions",
         };
       }
-
-      const rule = await prisma.rule.findUnique({
-        where: { name_emailAccountId: { name: ruleName, emailAccountId } },
-        select: {
-          id: true,
-          name: true,
-          updatedAt: true,
-          instructions: true,
-          from: true,
-          to: true,
-          subject: true,
-          conditionalOperator: true,
-        },
-      });
-
-      if (!rule) {
-        return {
-          success: false,
-          error:
-            "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-        };
-      }
-
-      const staleReadError = validateRuleWasReadRecently({
-        ruleName,
-        getRuleReadState,
-        currentRuleUpdatedAt: rule.updatedAt,
-      });
-      if (staleReadError) {
-        return {
-          success: false,
-          error: staleReadError,
-        };
-      }
-
-      // Store original state
-      const originalConditions = {
-        aiInstructions: rule.instructions,
-        static: filterNullProperties({
-          from: rule.from,
-          to: rule.to,
-          subject: rule.subject,
-        }),
-        conditionalOperator: rule.conditionalOperator,
-      };
-
-      await partialUpdateRule({
-        ruleId: rule.id,
-        data: {
-          instructions: condition.aiInstructions,
-          from: condition.static?.from,
-          to: condition.static?.to,
-          subject: condition.static?.subject,
-          conditionalOperator: condition.conditionalOperator ?? undefined,
-        },
-      });
-
-      // Prepare updated state
-      const updatedConditions = {
-        aiInstructions: condition.aiInstructions,
-        static: condition.static
-          ? filterNullProperties({
-              from: condition.static.from,
-              to: condition.static.to,
-              subject: condition.static.subject,
-            })
-          : undefined,
-        conditionalOperator: condition.conditionalOperator,
-      };
-
-      return {
-        success: true,
-        ruleId: rule.id,
-        originalConditions,
-        updatedConditions,
-      };
     },
   });
 
@@ -438,141 +462,160 @@ export const updateRuleActionsTool = ({
 }) =>
   tool({
     description:
-      "Update the actions of an existing rule. This replaces the existing actions.",
+      "Update the actions of an existing rule. This replaces the existing actions. SEND_EMAIL and FORWARD require an explicit recipient in fields.to; use REPLY for inbound auto-responses.",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
       actions: z.array(
-        z.object({
-          type: z.enum([
-            ActionType.ARCHIVE,
-            ActionType.LABEL,
-            ActionType.MOVE_FOLDER,
-            ActionType.DRAFT_EMAIL,
-            ActionType.FORWARD,
-            ActionType.REPLY,
-            ActionType.SEND_EMAIL,
-            ActionType.MARK_READ,
-            ActionType.MARK_SPAM,
-            ActionType.CALL_WEBHOOK,
-            ActionType.DIGEST,
-          ]),
-          fields: z.object({
-            label: z.string().nullish(),
-            content: z.string().nullish(),
-            webhookUrl: z.string().nullish(),
-            to: z.string().nullish(),
-            cc: z.string().nullish(),
-            bcc: z.string().nullish(),
-            subject: z.string().nullish(),
-            folderName: z.string().nullish(),
+        z
+          .object({
+            type: z.enum([
+              ActionType.ARCHIVE,
+              ActionType.LABEL,
+              ActionType.MOVE_FOLDER,
+              ActionType.DRAFT_EMAIL,
+              ActionType.FORWARD,
+              ActionType.REPLY,
+              ActionType.SEND_EMAIL,
+              ActionType.MARK_READ,
+              ActionType.MARK_SPAM,
+              ActionType.CALL_WEBHOOK,
+              ActionType.DIGEST,
+            ]),
+            fields: z.object({
+              label: z.string().nullish(),
+              content: z.string().nullish(),
+              webhookUrl: z.string().nullish(),
+              to: z.string().nullish(),
+              cc: z.string().nullish(),
+              bcc: z.string().nullish(),
+              subject: z.string().nullish(),
+              folderName: z.string().nullish(),
+            }),
+            delayInMinutes: delayInMinutesSchema,
+          })
+          .superRefine((action, ctx) => {
+            addMissingRecipientIssue({
+              actionType: action.type,
+              recipient: action.fields.to,
+              ctx,
+              path: ["fields", "to"],
+              sendEmailMessage:
+                "SEND_EMAIL requires fields.to. Use REPLY for automatic responses.",
+              forwardMessage: "FORWARD requires fields.to.",
+            });
           }),
-          delayInMinutes: delayInMinutesSchema,
-        }),
       ),
     }),
     execute: async ({ ruleName, actions }) => {
       trackToolCall({ tool: "update_rule_actions", email, logger });
+      try {
+        const readValidationError = validateRuleWasReadRecently({
+          ruleName,
+          getRuleReadState,
+        });
 
-      const readValidationError = validateRuleWasReadRecently({
-        ruleName,
-        getRuleReadState,
-      });
+        if (readValidationError) {
+          return {
+            success: false,
+            error: readValidationError,
+          };
+        }
 
-      if (readValidationError) {
-        return {
-          success: false,
-          error: readValidationError,
-        };
-      }
-
-      const rule = await prisma.rule.findUnique({
-        where: { name_emailAccountId: { name: ruleName, emailAccountId } },
-        select: {
-          id: true,
-          name: true,
-          updatedAt: true,
-          actions: {
-            select: {
-              type: true,
-              content: true,
-              label: true,
-              to: true,
-              cc: true,
-              bcc: true,
-              subject: true,
-              url: true,
-              folderName: true,
+        const rule = await prisma.rule.findUnique({
+          where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+          select: {
+            id: true,
+            name: true,
+            updatedAt: true,
+            actions: {
+              select: {
+                type: true,
+                content: true,
+                label: true,
+                to: true,
+                cc: true,
+                bcc: true,
+                subject: true,
+                url: true,
+                folderName: true,
+              },
             },
           },
-        },
-      });
+        });
 
-      if (!rule) {
-        return {
-          success: false,
-          error:
-            "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-        };
-      }
+        if (!rule) {
+          return {
+            success: false,
+            error:
+              "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+          };
+        }
 
-      const staleReadError = validateRuleWasReadRecently({
-        ruleName,
-        getRuleReadState,
-        currentRuleUpdatedAt: rule.updatedAt,
-      });
-      if (staleReadError) {
-        return {
-          success: false,
-          error: staleReadError,
-        };
-      }
+        const staleReadError = validateRuleWasReadRecently({
+          ruleName,
+          getRuleReadState,
+          currentRuleUpdatedAt: rule.updatedAt,
+        });
+        if (staleReadError) {
+          return {
+            success: false,
+            error: staleReadError,
+          };
+        }
 
-      // Store original actions
-      const originalActions = rule.actions.map((action) => ({
-        type: action.type,
-        fields: filterNullProperties({
-          label: action.label,
-          content: action.content,
-          to: action.to,
-          cc: action.cc,
-          bcc: action.bcc,
-          subject: action.subject,
-          webhookUrl: action.url,
-          ...(isMicrosoftProvider(provider) && {
-            folderName: action.folderName,
-          }),
-        }),
-      }));
-
-      await updateRuleActions({
-        ruleId: rule.id,
-        actions: actions.map((action) => ({
+        // Store original actions
+        const originalActions = rule.actions.map((action) => ({
           type: action.type,
-          fields: {
-            label: action.fields?.label ?? null,
-            to: action.fields?.to ?? null,
-            cc: action.fields?.cc ?? null,
-            bcc: action.fields?.bcc ?? null,
-            subject: action.fields?.subject ?? null,
-            content: action.fields?.content ?? null,
-            webhookUrl: action.fields?.webhookUrl ?? null,
+          fields: filterNullProperties({
+            label: action.label,
+            content: action.content,
+            to: action.to,
+            cc: action.cc,
+            bcc: action.bcc,
+            subject: action.subject,
+            webhookUrl: action.url,
             ...(isMicrosoftProvider(provider) && {
-              folderName: action.fields?.folderName ?? null,
+              folderName: action.folderName,
             }),
-          },
-          delayInMinutes: action.delayInMinutes ?? null,
-        })),
-        provider,
-        emailAccountId,
-        logger,
-      });
+          }),
+        }));
 
-      return {
-        success: true,
-        ruleId: rule.id,
-        originalActions,
-        updatedActions: actions,
-      };
+        await updateRuleActions({
+          ruleId: rule.id,
+          actions: actions.map((action) => ({
+            type: action.type,
+            fields: {
+              label: action.fields?.label ?? null,
+              to: action.fields?.to ?? null,
+              cc: action.fields?.cc ?? null,
+              bcc: action.fields?.bcc ?? null,
+              subject: action.fields?.subject ?? null,
+              content: action.fields?.content ?? null,
+              webhookUrl: action.fields?.webhookUrl ?? null,
+              ...(isMicrosoftProvider(provider) && {
+                folderName: action.fields?.folderName ?? null,
+              }),
+            },
+            delayInMinutes: action.delayInMinutes ?? null,
+          })),
+          provider,
+          emailAccountId,
+          logger,
+        });
+
+        return {
+          success: true,
+          ruleId: rule.id,
+          originalActions,
+          updatedActions: actions,
+        };
+      } catch (error) {
+        logger.error("Failed to update rule actions", { error, ruleName });
+        return {
+          success: false,
+          error: "Failed to update rule actions",
+        };
+      }
     },
   });
 
@@ -615,111 +658,118 @@ export const updateLearnedPatternsTool = ({
           z.object({
             include: z
               .object({
-                from: z.string().optional(),
-                subject: z.string().optional(),
+                from: z.string().nullish(),
+                subject: z.string().nullish(),
               })
-              .optional(),
+              .nullish(),
             exclude: z
               .object({
-                from: z.string().optional(),
-                subject: z.string().optional(),
+                from: z.string().nullish(),
+                subject: z.string().nullish(),
               })
-              .optional(),
+              .nullish(),
           }),
         )
         .min(1, "At least one learned pattern is required"),
     }),
     execute: async ({ ruleName, learnedPatterns }) => {
       trackToolCall({ tool: "update_learned_patterns", email, logger });
-
-      const readValidationError = validateRuleWasReadRecently({
-        ruleName,
-        getRuleReadState,
-      });
-
-      if (readValidationError) {
-        return {
-          success: false,
-          error: readValidationError,
-        };
-      }
-
-      const rule = await prisma.rule.findUnique({
-        where: { name_emailAccountId: { name: ruleName, emailAccountId } },
-        select: { id: true, name: true, updatedAt: true },
-      });
-
-      if (!rule) {
-        return {
-          success: false,
-          error:
-            "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-        };
-      }
-
-      const staleReadError = validateRuleWasReadRecently({
-        ruleName,
-        getRuleReadState,
-        currentRuleUpdatedAt: rule.updatedAt,
-      });
-      if (staleReadError) {
-        return {
-          success: false,
-          error: staleReadError,
-        };
-      }
-
-      // Convert the learned patterns format
-      const patternsToSave: Array<{
-        type: GroupItemType;
-        value: string;
-        exclude?: boolean;
-      }> = [];
-
-      for (const pattern of learnedPatterns) {
-        if (pattern.include?.from) {
-          patternsToSave.push({
-            type: GroupItemType.FROM,
-            value: pattern.include.from,
-            exclude: false,
-          });
-        }
-
-        if (pattern.include?.subject) {
-          patternsToSave.push({
-            type: GroupItemType.SUBJECT,
-            value: pattern.include.subject,
-            exclude: false,
-          });
-        }
-
-        if (pattern.exclude?.from) {
-          patternsToSave.push({
-            type: GroupItemType.FROM,
-            value: pattern.exclude.from,
-            exclude: true,
-          });
-        }
-
-        if (pattern.exclude?.subject) {
-          patternsToSave.push({
-            type: GroupItemType.SUBJECT,
-            value: pattern.exclude.subject,
-            exclude: true,
-          });
-        }
-      }
-
-      if (patternsToSave.length > 0) {
-        await saveLearnedPatterns({
-          emailAccountId,
-          ruleName: rule.name,
-          patterns: patternsToSave,
-          logger,
+      try {
+        const readValidationError = validateRuleWasReadRecently({
+          ruleName,
+          getRuleReadState,
         });
-      }
 
-      return { success: true, ruleId: rule.id };
+        if (readValidationError) {
+          return {
+            success: false,
+            error: readValidationError,
+          };
+        }
+
+        const rule = await prisma.rule.findUnique({
+          where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+          select: { id: true, name: true, updatedAt: true },
+        });
+
+        if (!rule) {
+          return {
+            success: false,
+            error:
+              "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+          };
+        }
+
+        const staleReadError = validateRuleWasReadRecently({
+          ruleName,
+          getRuleReadState,
+          currentRuleUpdatedAt: rule.updatedAt,
+        });
+        if (staleReadError) {
+          return {
+            success: false,
+            error: staleReadError,
+          };
+        }
+
+        // Convert the learned patterns format
+        const patternsToSave: Array<{
+          type: GroupItemType;
+          value: string;
+          exclude?: boolean;
+        }> = [];
+
+        for (const pattern of learnedPatterns) {
+          if (pattern.include?.from) {
+            patternsToSave.push({
+              type: GroupItemType.FROM,
+              value: pattern.include.from,
+              exclude: false,
+            });
+          }
+
+          if (pattern.include?.subject) {
+            patternsToSave.push({
+              type: GroupItemType.SUBJECT,
+              value: pattern.include.subject,
+              exclude: false,
+            });
+          }
+
+          if (pattern.exclude?.from) {
+            patternsToSave.push({
+              type: GroupItemType.FROM,
+              value: pattern.exclude.from,
+              exclude: true,
+            });
+          }
+
+          if (pattern.exclude?.subject) {
+            patternsToSave.push({
+              type: GroupItemType.SUBJECT,
+              value: pattern.exclude.subject,
+              exclude: true,
+            });
+          }
+        }
+
+        if (patternsToSave.length > 0) {
+          await saveLearnedPatterns({
+            emailAccountId,
+            ruleName: rule.name,
+            patterns: patternsToSave,
+            logger,
+          });
+        }
+
+        return { success: true, ruleId: rule.id };
+      } catch (error) {
+        logger.error("Failed to update learned patterns", { error, ruleName });
+        return {
+          success: false,
+          error: "Failed to update learned patterns",
+        };
+      }
     },
   });
 
@@ -738,27 +788,47 @@ export const updateAboutTool = ({
 }) =>
   tool({
     description:
-      "Update the user's about information. Read the user's about information first as this replaces the existing information.",
-    inputSchema: z.object({ about: z.string() }),
-    execute: async ({ about }) => {
+      "Update the user's personal instructions (about). Use mode 'append' to add a new preference without losing existing content. Use mode 'replace' to overwrite entirely (read existing content first).",
+    inputSchema: z.object({
+      about: z.string(),
+      mode: z
+        .enum(["replace", "append"])
+        .default("replace")
+        .describe(
+          "Use 'append' to add to existing instructions, 'replace' to overwrite entirely.",
+        ),
+    }),
+    execute: async ({ about, mode }) => {
       trackToolCall({ tool: "update_about", email, logger });
-      const existing = await prisma.emailAccount.findUnique({
-        where: { id: emailAccountId },
-        select: { about: true },
-      });
+      try {
+        const existing = await prisma.emailAccount.findUnique({
+          where: { id: emailAccountId },
+          select: { about: true },
+        });
 
-      if (!existing) return { error: "Account not found" };
+        if (!existing) return { error: "Account not found" };
 
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: { about },
-      });
+        const updatedAbout =
+          mode === "append" && existing.about
+            ? `${existing.about}\n${about}`
+            : about;
 
-      return {
-        success: true,
-        previousAbout: existing.about,
-        updatedAbout: about,
-      };
+        await prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data: { about: updatedAbout },
+        });
+
+        return {
+          success: true,
+          previousAbout: existing.about,
+          updatedAbout,
+        };
+      } catch (error) {
+        logger.error("Failed to update personal instructions", { error });
+        return {
+          error: "Failed to update personal instructions",
+        };
+      }
     },
   });
 

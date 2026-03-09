@@ -1,12 +1,20 @@
 import prisma from "@/utils/prisma";
 import { withPrismaRetry } from "@/utils/prisma-retry";
-import type { EmailProvider } from "@/utils/email/types";
+import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import { FOLLOW_UP_LABEL } from "@/utils/label";
 import type { Logger } from "@/utils/logger";
 
 export async function getOrCreateFollowUpLabel(
   provider: EmailProvider,
+  existingLabels?: EmailLabel[],
 ): Promise<{ id: string; name: string }> {
+  const existingFromLabels = existingLabels?.find(
+    (label) => label.name === FOLLOW_UP_LABEL,
+  );
+  if (existingFromLabels) {
+    return { id: existingFromLabels.id, name: existingFromLabels.name };
+  }
+
   const existingLabel = await provider.getLabelByName(FOLLOW_UP_LABEL);
   if (existingLabel) {
     return { id: existingLabel.id, name: existingLabel.name };

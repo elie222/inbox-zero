@@ -10,6 +10,7 @@
 - Run specific AI test: `pnpm test-ai ai-categorize-senders`
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
 - Do not run `dev` or `build` unless explicitly asked
+- Run `pnpm install` before running tests or build if not already done
 - Before writing or updating tests, review `.claude/skills/testing/SKILL.md`.
 - When adding a new workspace package, add its `package.json` COPY line to `docker/Dockerfile.prod` and `docker/Dockerfile.local`.
 
@@ -25,6 +26,7 @@
 - Co-locate test files next to source files (e.g., `utils/example.test.ts`). Only E2E and AI tests go in `__tests__/`.
 - Don't export types/interfaces only used within the same file
 - No re-export patterns. Import from the original source.
+- Prefer the `EmailProvider` abstraction; only use provider-type checks (`isGoogleProvider`, `isMicrosoftProvider`) at true provider boundary/integration code.
 - Infer types from Zod schemas using `z.infer<typeof schema>` instead of duplicating as separate interfaces
 - Avoid premature abstraction. Duplicating 2-3 times is fine; extract when a stable pattern emerges.
 - No barrel files. Import directly from source files.
@@ -32,6 +34,10 @@
 - Reusable components shared across pages go in `apps/web/components/`
 - One resource per API route file
 - Env vars: add to `.env.example`, `env.ts`, and `turbo.json`. Prefix client-side with `NEXT_PUBLIC_`.
+
+## Change Philosophy
+- Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.
+- Do not optimize for migration paths: refactor call sites directly, including larger coordinated changes when clarity improves.
 
 ## Component Guidelines
 - Use shadcn/ui components when available
@@ -46,3 +52,6 @@ See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates
 - Data fetching: SWR on the client. Call `mutate()` after mutations.
 - Forms: React Hook Form + `useAction` hook. Use `getActionErrorMessage(error.error)` for errors.
 - Loading states: use `LoadingContent` component.
+
+## Sub-Agent Review Gate
+- When a task is completed and ready for PR, invoke the `reviewer` sub-agent before opening the PR.

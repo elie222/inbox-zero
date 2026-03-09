@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { MessagingProvider } from "@/generated/prisma/enums";
-import { createSlackClient, listChannels } from "@inboxzero/slack";
+import { listChannels } from "@/utils/messaging/providers/slack/channels";
+import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
 export type GetChannelTargetsResponse = Awaited<ReturnType<typeof getData>>;
 

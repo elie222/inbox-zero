@@ -2,9 +2,9 @@ import { XMLParser } from "fast-xml-parser";
 import { env } from "@/env";
 
 export interface SSOProviderConfig {
-  issuer: string;
-  entryPoint: string;
   cert: string;
+  entryPoint: string;
+  issuer: string;
   spMetadata: string;
   // Security configuration options
   wantAssertionsSigned?: boolean; // Defaults to true for security; set false only if IdP doesn't support signed assertions

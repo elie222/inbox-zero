@@ -1,6 +1,6 @@
 interface GmailProps {
-  width?: string | number;
   height?: string | number;
+  width?: string | number;
 }
 
 export function Gmail({ width = "26", height = "23" }: GmailProps) {

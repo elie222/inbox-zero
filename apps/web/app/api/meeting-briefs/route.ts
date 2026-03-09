@@ -7,7 +7,6 @@ import type { Logger } from "@/utils/logger";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { processMeetingBriefings } from "@/utils/meeting-briefs/process";
 
-export const dynamic = "force-dynamic";
 export const maxDuration = 800;
 
 export const GET = withError("meeting-briefs", async (request) => {

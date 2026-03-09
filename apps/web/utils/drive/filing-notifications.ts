@@ -12,17 +12,17 @@ import { escapeHtml } from "@/utils/string";
 // ============================================================================
 
 interface SourceMessageInfo {
-  threadId: string;
   headerMessageId: string;
   references?: string;
+  threadId: string;
 }
 
 interface FilingNotificationParams {
   emailProvider: EmailProvider;
-  userEmail: string;
   filingId: string;
-  sourceMessage: SourceMessageInfo;
   logger: Logger;
+  sourceMessage: SourceMessageInfo;
+  userEmail: string;
 }
 
 // ============================================================================

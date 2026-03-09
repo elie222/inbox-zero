@@ -28,9 +28,7 @@ export function ResetAnalyticsSection({
       <Item size="sm">
         <ItemContent>
           <ItemTitle>Reset Analytics</ItemTitle>
-          <ItemDescription>
-            Permanently delete all analytics
-          </ItemDescription>
+          <ItemDescription>Permanently delete all analytics</ItemDescription>
         </ItemContent>
         <ItemActions>
           <Button

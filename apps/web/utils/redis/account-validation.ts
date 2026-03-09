@@ -36,7 +36,6 @@ export async function getEmailAccount({
 
   // Check Redis cache first
   const cachedResult = await redis.get<string>(key);
-
   if (cachedResult !== null) {
     return cachedResult;
   }

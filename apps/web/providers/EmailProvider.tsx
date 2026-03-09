@@ -24,8 +24,8 @@ export type EmailLabel = {
 export type EmailLabels = Record<string, EmailLabel>;
 
 interface Context {
-  userLabels: EmailLabels;
   labelsIsLoading: boolean;
+  userLabels: EmailLabels;
 }
 
 const EmailContext = createContext<Context>({

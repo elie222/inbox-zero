@@ -2,6 +2,7 @@
 
 import { CheckCircleIcon } from "lucide-react";
 import { userCount } from "@/utils/config";
+import { BRAND_NAME } from "@/utils/branding";
 
 export function WelcomeUpgradeHeader() {
   return (
@@ -15,7 +16,7 @@ export function WelcomeUpgradeHeader() {
             Start your 7-day FREE trial
           </h1>
           <p className="mt-2 text-lg text-gray-900 sm:text-xl">
-            Join {userCount} users that use Inbox Zero to be more productive!
+            {`Join ${userCount} users that use ${BRAND_NAME} to be more productive!`}
           </p>
         </div>
       </div>

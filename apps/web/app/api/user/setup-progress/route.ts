@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
+import { SafeError } from "@/utils/error";
 import { withEmailAccount } from "@/utils/middleware";
 
 export type GetSetupProgressResponse = Awaited<
@@ -9,8 +10,18 @@ export type GetSetupProgressResponse = Awaited<
 export const GET = withEmailAccount("user/setup-progress", async (request) => {
   const { emailAccountId } = request.auth;
 
-  const result = await getSetupProgress({ emailAccountId });
-  return NextResponse.json(result);
+  try {
+    const result = await getSetupProgress({ emailAccountId });
+    return NextResponse.json(result);
+  } catch (error) {
+    request.logger.error("Error fetching setup progress", {
+      error,
+    });
+    return NextResponse.json(
+      { error: "Failed to fetch setup progress" },
+      { status: 500 },
+    );
+  }
 });
 
 async function getSetupProgress({
@@ -27,6 +38,7 @@ async function getSetupProgress({
         take: 1,
       },
       calendarConnections: { select: { id: true }, take: 1 },
+      user: { select: { dismissedHints: true } },
       members: {
         take: 1,
         select: {
@@ -48,7 +60,7 @@ async function getSetupProgress({
   });
 
   if (!emailAccount) {
-    throw new Error("Email account not found");
+    throw new SafeError("Email account not found");
   }
 
   const membership = emailAccount.members[0];
@@ -57,14 +69,30 @@ async function getSetupProgress({
   const hasTeamMembers = (membership?.organization?._count.members ?? 0) > 1;
   const hasPendingInvitations =
     (membership?.organization?._count.invitations ?? 0) > 0;
-  const teamInviteCompleted = hasTeamMembers || hasPendingInvitations;
+  const teamInviteDismissed = emailAccount.user.dismissedHints.includes(
+    `setup:teamInvite:${emailAccountId}`,
+  );
+  const aiAssistantDismissed = emailAccount.user.dismissedHints.includes(
+    `setup:aiAssistant:${emailAccountId}`,
+  );
+  const bulkUnsubscribeDismissed = emailAccount.user.dismissedHints.includes(
+    `setup:bulkUnsubscribe:${emailAccountId}`,
+  );
+  const calendarConnectedDismissed = emailAccount.user.dismissedHints.includes(
+    `setup:calendarConnected:${emailAccountId}`,
+  );
+
+  const teamInviteCompleted =
+    hasTeamMembers || hasPendingInvitations || teamInviteDismissed;
 
   const showTeamInviteStep = hasNoOrg || isOwner;
 
   const steps = {
-    aiAssistant: emailAccount.rules.length > 0,
-    bulkUnsubscribe: emailAccount.newsletters.length > 0,
-    calendarConnected: emailAccount.calendarConnections.length > 0,
+    aiAssistant: emailAccount.rules.length > 0 || aiAssistantDismissed,
+    bulkUnsubscribe:
+      emailAccount.newsletters.length > 0 || bulkUnsubscribeDismissed,
+    calendarConnected:
+      emailAccount.calendarConnections.length > 0 || calendarConnectedDismissed,
   };
 
   const baseCompleted = Object.values(steps).filter(Boolean).length;

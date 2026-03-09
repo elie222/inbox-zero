@@ -1,4 +1,5 @@
 ---
+name: explain-changes
 description: Explain recent changes and provide a structured summary with security checks
 ---
 

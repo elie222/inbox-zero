@@ -22,6 +22,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       id: true,
       provider: true,
       teamName: true,
+      providerUserId: true,
       channelId: true,
       channelName: true,
       isConnected: true,
@@ -31,11 +32,20 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     orderBy: { createdAt: "desc" },
   });
 
-  return { channels, availableProviders: getAvailableProviders() };
+  return {
+    channels: channels.map(({ providerUserId, ...channel }) => ({
+      ...channel,
+      hasSendDestination: Boolean(providerUserId || channel.channelId),
+    })),
+    availableProviders: getAvailableProviders(),
+  };
 }
 
 function getAvailableProviders(): MessagingProvider[] {
   const providers: MessagingProvider[] = [];
   if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) providers.push("SLACK");
+  if (env.TEAMS_BOT_APP_ID && env.TEAMS_BOT_APP_PASSWORD)
+    providers.push("TEAMS");
+  if (env.TELEGRAM_BOT_TOKEN) providers.push("TELEGRAM");
   return providers;
 }

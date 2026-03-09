@@ -6,12 +6,12 @@ import { cleanupOrphanedAccount } from "@/utils/user/orphaned-account";
 
 interface AccountLinkingParams {
   existingAccountId: string | null;
-  hasEmailAccount: boolean;
   existingUserId: string | null;
-  targetUserId: string;
+  hasEmailAccount: boolean;
+  logger: Logger;
   provider: "google" | "microsoft";
   providerEmail: string;
-  logger: Logger;
+  targetUserId: string;
 }
 
 export async function handleAccountLinking({

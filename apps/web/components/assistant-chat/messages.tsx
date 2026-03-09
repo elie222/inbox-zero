@@ -1,6 +1,7 @@
-import { useMemo, type ReactNode } from "react";
+import { Fragment, useMemo, type ReactNode } from "react";
 import { Overview } from "./overview";
 import { MessagePart } from "./message-part";
+import { MessagingChannelHint } from "./messaging-channel-hint";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
@@ -13,13 +14,13 @@ import { Message, MessageContent } from "@/components/ai-elements/message";
 import { Loader } from "@/components/ai-elements/loader";
 
 interface MessagesProps {
-  status: UseChatHelpers<ChatMessage>["status"];
-  messages: Array<ChatMessage>;
-  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
-  regenerate: UseChatHelpers<ChatMessage>["regenerate"];
-  isArtifactVisible: boolean;
-  setInput: (input: string) => void;
   footer?: ReactNode;
+  isArtifactVisible: boolean;
+  messages: Array<ChatMessage>;
+  regenerate: UseChatHelpers<ChatMessage>["regenerate"];
+  setInput: (input: string) => void;
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
+  status: UseChatHelpers<ChatMessage>["status"];
 }
 
 export function Messages({
@@ -28,7 +29,12 @@ export function Messages({
   setInput,
   footer,
 }: MessagesProps) {
+  const disableConfirm = status === "streaming" || status === "submitted";
   const threadLookup = useMemo(() => buildThreadLookup(messages), [messages]);
+  const firstAssistantIndex = useMemo(
+    () => messages.findIndex((m) => m.role === "assistant"),
+    [messages],
+  );
 
   return (
     <Conversation className="flex min-w-0 flex-1">
@@ -36,24 +42,31 @@ export function Messages({
         className="mx-auto flex min-h-full flex-col max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-0 pb-0"
         scrollClassName="![scrollbar-gutter:auto] scrollbar-thin"
       >
-        <div className="flex flex-1 flex-col gap-6">
+        <div className="flex flex-1 flex-col gap-4">
           {messages.length === 0 && <Overview setInput={setInput} />}
 
-          {messages.map((message) => (
-            <Message from={message.role} key={message.id}>
-              <MessageContent variant="flat">
-                {message.parts?.map((part, index) => (
-                  <MessagePart
-                    key={`${message.id}-${index}`}
-                    part={part}
-                    isStreaming={status === "streaming"}
-                    messageId={message.id}
-                    partIndex={index}
-                    threadLookup={threadLookup}
-                  />
-                ))}
-              </MessageContent>
-            </Message>
+          {messages.map((message, index) => (
+            <Fragment key={message.id}>
+              <Message from={message.role}>
+                <MessageContent variant="flat">
+                  {message.parts?.map((part, partIndex) => (
+                    <MessagePart
+                      key={`${message.id}-${partIndex}`}
+                      part={part}
+                      isStreaming={
+                        status === "streaming" &&
+                        partIndex === message.parts.length - 1
+                      }
+                      disableConfirm={disableConfirm}
+                      messageId={message.id}
+                      partIndex={partIndex}
+                      threadLookup={threadLookup}
+                    />
+                  ))}
+                </MessageContent>
+              </Message>
+              {index === firstAssistantIndex && <MessagingChannelHint />}
+            </Fragment>
           ))}
 
           {status === "submitted" &&

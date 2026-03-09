@@ -144,6 +144,16 @@ const nextConfig: NextConfig = {
         permanent: false,
       },
       {
+        source: "/docs",
+        destination: "https://docs.getinboxzero.com",
+        permanent: true,
+      },
+      {
+        source: "/docs/:path*",
+        destination: "https://docs.getinboxzero.com/:path*",
+        permanent: true,
+      },
+      {
         source: "/request-access",
         destination: "/early-access",
         permanent: true,

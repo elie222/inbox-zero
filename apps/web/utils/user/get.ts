@@ -1,6 +1,8 @@
 import prisma from "@/utils/prisma";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Prisma } from "@/generated/prisma/client";
+import type { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { env } from "@/env";
 
 export type EmailAccountWithAIAndTokens = Prisma.EmailAccountGetPayload<{
   select: {
@@ -67,6 +69,44 @@ export async function getEmailAccountWithAi({
   });
 }
 
+export type EmailAccountForRuleExecution = EmailAccountWithAI & {
+  name: string | null;
+  draftReplyConfidence: DraftReplyConfidence;
+};
+
+export async function getEmailAccountForRuleExecution({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}): Promise<EmailAccountForRuleExecution | null> {
+  return prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      id: true,
+      userId: true,
+      email: true,
+      about: true,
+      multiRuleSelectionEnabled: true,
+      timezone: true,
+      calendarBookingLink: true,
+      name: true,
+      draftReplyConfidence: true,
+      user: {
+        select: {
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
+        },
+      },
+      account: {
+        select: {
+          provider: true,
+        },
+      },
+    },
+  });
+}
+
 export async function getEmailAccountWithAiAndTokens({
   emailAccountId,
 }: {
@@ -112,6 +152,10 @@ export async function getEmailAccountWithAiAndTokens({
 }
 
 export async function getUserPremium({ userId }: { userId: string }) {
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
+    return { lemonSqueezyRenewsAt: null, stripeSubscriptionStatus: "active" };
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { premium: true },

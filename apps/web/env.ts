@@ -5,6 +5,8 @@ import { booleanString } from "@/utils/zod";
 
 const llmProviderEnum = z.enum([
   "anthropic",
+  "azure",
+  "vertex",
   "google",
   "openai",
   "bedrock",
@@ -12,6 +14,7 @@ const llmProviderEnum = z.enum([
   "groq",
   "aigateway",
   "ollama",
+  "openai-compatible",
 ]);
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
@@ -32,8 +35,12 @@ export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
     DATABASE_URL: z.string().url(),
+    DATABASE_URL_UNPOOLED: z.string().url().optional(),
     PREVIEW_DATABASE_URL: z.string().url().optional(),
-    PREVIEW_DATABASE_URL_UNPOOLED: z.string().url().optional(),
+    PREVIEW_DATABASE_URL_UNPOOLED: z.preprocess(
+      (value) => value ?? process.env.DATABASE_URL_UNPOOLED,
+      z.string().url().optional(),
+    ),
 
     AUTH_SECRET: z.string().optional(),
     NEXTAUTH_SECRET: z.string().optional(),
@@ -49,39 +56,63 @@ export const env = createEnv({
       // custom is deprecated
       .enum([...llmProviderEnum.options, "custom"]),
     DEFAULT_LLM_MODEL: z.string().optional(),
+    DEFAULT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain; explicit model required (e.g., "openrouter:anthropic/claude-sonnet-4.5,openai:gpt-5.1")
     DEFAULT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for default model (e.g., "Google Vertex,Anthropic")
     // Set this to a cheaper model like Gemini Flash
     ECONOMY_LLM_PROVIDER: llmProviderEnum.optional(),
     ECONOMY_LLM_MODEL: z.string().optional(),
+    ECONOMY_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain for economy model; explicit model required
     ECONOMY_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for economy model (e.g., "Google Vertex,Anthropic")
     // Set this to a fast but strong model like Groq Kimi K2. Leaving blank will fallback to default which is also fine.
     CHAT_LLM_PROVIDER: llmProviderEnum.optional(),
     CHAT_LLM_MODEL: z.string().optional(),
+    CHAT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain for chat model; explicit model required
     CHAT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
+    NANO_LLM_PROVIDER: llmProviderEnum.optional(),
+    NANO_LLM_MODEL: z.string().optional(),
+    // Set this to override the model used for drafting replies
+    DRAFT_LLM_PROVIDER: llmProviderEnum.optional(),
+    DRAFT_LLM_MODEL: z.string().optional(),
+    AI_NANO_WEEKLY_SPEND_LIMIT_USD: z.coerce.number().positive().optional(),
 
-    OPENROUTER_BACKUP_MODEL: z
-      .string()
-      .optional()
-      .default("google/gemini-2.5-flash"),
-
+    LLM_API_KEY: z.string().optional(),
     OPENAI_API_KEY: z.string().optional(),
+    AZURE_API_KEY: z.string().optional(),
+    AZURE_RESOURCE_NAME: z.string().optional(),
+    AZURE_API_VERSION: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),
     BEDROCK_SECRET_KEY: z.string().optional(),
     BEDROCK_REGION: z.string().default("us-west-2"),
     GOOGLE_API_KEY: z.string().optional(),
+    GOOGLE_VERTEX_PROJECT: z.string().optional(),
+    GOOGLE_VERTEX_LOCATION: z.string().optional().default("us-central1"),
+    GOOGLE_VERTEX_CLIENT_EMAIL: z.string().optional(),
+    GOOGLE_VERTEX_PRIVATE_KEY: z.string().optional(),
+    GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
     GROQ_API_KEY: z.string().optional(),
     OPENROUTER_API_KEY: z.string().optional(),
     AI_GATEWAY_API_KEY: z.string().optional(),
     PERPLEXITY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
     OLLAMA_MODEL: z.string().optional(),
+    OPENAI_COMPATIBLE_BASE_URL: z.string().optional(),
+    OPENAI_COMPATIBLE_MODEL: z.string().optional(),
 
     OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
 
-    UPSTASH_REDIS_URL: z.string().optional(),
-    UPSTASH_REDIS_TOKEN: z.string().optional(),
-    REDIS_URL: z.string().optional(), // used for subscriptions
+    UPSTASH_REDIS_URL: z
+      .string()
+      .optional()
+      .transform((value) => value || process.env.KV_REST_API_URL),
+    UPSTASH_REDIS_TOKEN: z
+      .string()
+      .optional()
+      .transform((value) => value || process.env.KV_REST_API_TOKEN),
+    REDIS_URL: z
+      .string()
+      .optional()
+      .transform((value) => value || process.env.KV_URL), // used for subscriptions
 
     QSTASH_TOKEN: z.string().optional(),
     QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
@@ -98,6 +129,11 @@ export const env = createEnv({
 
     DISABLE_LOG_ZOD_ERRORS: booleanString.optional(),
     ENABLE_DEBUG_LOGS: booleanString.default(false),
+    DIGEST_MAX_SUMMARIES_PER_24H: z.coerce
+      .number()
+      .int()
+      .nonnegative()
+      .default(50),
 
     // Lemon Squeezy
     LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),
@@ -106,6 +142,7 @@ export const env = createEnv({
     // Stripe
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    STRIPE_AI_GENERATION_OVERAGE_CONFIG: z.string().optional(),
 
     TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
@@ -135,7 +172,6 @@ export const env = createEnv({
     INTERNAL_API_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),
     WHITELIST_FROM: z.string().optional(),
-    USE_BACKUP_MODEL: booleanString.optional().default(false),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
@@ -152,6 +188,7 @@ export const env = createEnv({
       ),
     // Mobile auth trusted origin, e.g. inboxzero://
     MOBILE_AUTH_ORIGIN: z.string().trim().min(1).optional(),
+    LOCAL_AUTH_BYPASS_ENABLED: booleanString.optional().default(false),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
@@ -166,6 +203,15 @@ export const env = createEnv({
     SLACK_CLIENT_ID: z.string().optional(),
     SLACK_CLIENT_SECRET: z.string().optional(),
     SLACK_SIGNING_SECRET: z.string().optional(),
+
+    // Chat SDK messaging adapters
+    TEAMS_BOT_APP_ID: z.string().optional(),
+    TEAMS_BOT_APP_PASSWORD: z.string().optional(),
+    TEAMS_BOT_APP_TENANT_ID: z.string().optional(),
+    TEAMS_BOT_APP_TYPE: z.enum(["MultiTenant", "SingleTenant"]).optional(),
+    TELEGRAM_BOT_TOKEN: z.string().optional(),
+    TELEGRAM_BOT_SECRET_TOKEN: z.string().optional(),
+    REPLAY_RECORDING_ENABLED: booleanString.optional().default(false),
   },
   client: {
     // stripe
@@ -195,6 +241,9 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_HERO_AB: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string(),
+    NEXT_PUBLIC_BRAND_NAME: z.string().trim().min(1).default("Inbox Zero"),
+    NEXT_PUBLIC_BRAND_LOGO_URL: z.string().optional(),
+    NEXT_PUBLIC_BRAND_ICON_URL: z.string().optional().default("/icon.png"),
     NEXT_PUBLIC_CONTACTS_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: booleanString.default(true),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
@@ -270,6 +319,9 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
       process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,
     NEXT_PUBLIC_BASE_URL: getBaseUrl(),
+    NEXT_PUBLIC_BRAND_NAME: process.env.NEXT_PUBLIC_BRAND_NAME,
+    NEXT_PUBLIC_BRAND_LOGO_URL: process.env.NEXT_PUBLIC_BRAND_LOGO_URL,
+    NEXT_PUBLIC_BRAND_ICON_URL: process.env.NEXT_PUBLIC_BRAND_ICON_URL,
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: process.env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
     NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS:

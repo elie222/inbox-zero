@@ -1,18 +1,29 @@
 import useSWR from "swr";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import type { GetChannelTargetsResponse } from "@/app/api/user/messaging-channels/[channelId]/targets/route";
-import { useAccount } from "@/providers/EmailAccountProvider";
 
-export function useMessagingChannels(emailAccountId?: string) {
-  const { emailAccountId: contextId } = useAccount();
-  const id = emailAccountId ?? contextId;
+export function useMessagingChannels(emailAccountId?: string | null) {
   return useSWR<GetMessagingChannelsResponse>(
-    id ? ["/api/user/messaging-channels", id] : null,
+    getAccountScopedKey("/api/user/messaging-channels", emailAccountId),
   );
 }
 
-export function useChannelTargets(channelId: string | null) {
+export function useChannelTargets(
+  channelId: string | null,
+  emailAccountId?: string | null,
+) {
   return useSWR<GetChannelTargetsResponse>(
-    channelId ? `/api/user/messaging-channels/${channelId}/targets` : null,
+    channelId
+      ? getAccountScopedKey(
+          `/api/user/messaging-channels/${channelId}/targets`,
+          emailAccountId,
+        )
+      : null,
   );
+}
+
+function getAccountScopedKey(path: string, emailAccountId?: string | null) {
+  if (emailAccountId === undefined) return path;
+
+  return emailAccountId ? ([path, emailAccountId] as const) : null;
 }

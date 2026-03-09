@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FolderIcon, Loader2Icon, PlusIcon } from "lucide-react";
@@ -41,6 +41,7 @@ import type {
   FolderItem,
   SavedFolder,
 } from "@/app/api/user/drive/folders/route";
+import { AlertBasic } from "@/components/Alert";
 import {
   Empty,
   EmptyContent,
@@ -63,7 +64,7 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
 
 export function AllowedFolders({ emailAccountId }: { emailAccountId: string }) {
-  const { data, isLoading, error, mutate } = useDriveFolders();
+  const { data, isLoading, error, mutate } = useDriveFolders(emailAccountId);
   const { data: connectionsData } = useDriveConnections();
   const driveConnectionId = connectionsData?.connections[0]?.id;
 
@@ -74,6 +75,7 @@ export function AllowedFolders({ emailAccountId }: { emailAccountId: string }) {
           emailAccountId={emailAccountId}
           availableFolders={data.availableFolders}
           savedFolders={data.savedFolders}
+          staleFolderCount={data.staleFolderDbIds.length}
           mutateFolders={mutate}
           driveConnectionId={driveConnectionId ?? null}
         />
@@ -87,20 +89,42 @@ function AllowedFoldersContent({
   driveConnectionId,
   availableFolders,
   savedFolders,
+  staleFolderCount,
   mutateFolders,
 }: {
   emailAccountId: string;
   driveConnectionId: string | null;
   availableFolders: FolderItem[];
   savedFolders: SavedFolder[];
+  staleFolderCount: number;
   mutateFolders: () => void;
 }) {
-  const [isFolderBusy, setIsFolderBusy] = useState(false);
+  const [optimisticFolderIds, setOptimisticFolderIds] = useState<Set<string>>(
+    () => new Set(savedFolders.map((f) => f.folderId)),
+  );
+
+  const serverFolderIds = useMemo(
+    () => savedFolders.map((f) => f.folderId).join(","),
+    [savedFolders],
+  );
+  const prevServerFolderIds = useRef(serverFolderIds);
+
+  useEffect(() => {
+    if (serverFolderIds === prevServerFolderIds.current) return;
+    prevServerFolderIds.current = serverFolderIds;
+    setOptimisticFolderIds(new Set(savedFolders.map((f) => f.folderId)));
+  }, [savedFolders, serverFolderIds]);
 
   const handleFolderToggle = useCallback(
     async (folder: FolderItem, isChecked: boolean) => {
       const folderPath = folder.path || folder.name;
-      setIsFolderBusy(true);
+
+      setOptimisticFolderIds((prev) => {
+        const next = new Set(prev);
+        if (isChecked) next.add(folder.id);
+        else next.delete(folder.id);
+        return next;
+      });
 
       try {
         if (isChecked) {
@@ -112,6 +136,11 @@ function AllowedFoldersContent({
           });
 
           if (result?.serverError) {
+            setOptimisticFolderIds((prev) => {
+              const next = new Set(prev);
+              next.delete(folder.id);
+              return next;
+            });
             toastError({
               title: "Error adding folder",
               description: result.serverError,
@@ -125,6 +154,11 @@ function AllowedFoldersContent({
           });
 
           if (result?.serverError) {
+            setOptimisticFolderIds((prev) => {
+              const next = new Set(prev);
+              next.add(folder.id);
+              return next;
+            });
             toastError({
               title: "Error removing folder",
               description: result.serverError,
@@ -133,8 +167,17 @@ function AllowedFoldersContent({
             mutateFolders();
           }
         }
-      } finally {
-        setIsFolderBusy(false);
+      } catch {
+        setOptimisticFolderIds((prev) => {
+          const next = new Set(prev);
+          if (isChecked) next.delete(folder.id);
+          else next.add(folder.id);
+          return next;
+        });
+        toastError({
+          title: isChecked ? "Error adding folder" : "Error removing folder",
+          description: "Please try again.",
+        });
       }
     },
     [emailAccountId, mutateFolders],
@@ -168,10 +211,7 @@ function AllowedFoldersContent({
     return map;
   }, [availableFolders]);
 
-  const savedFolderIds = useMemo(
-    () => new Set(savedFolders.map((f) => f.folderId)),
-    [savedFolders],
-  );
+  const savedFolderIds = optimisticFolderIds;
   const hasFolders = rootFolders.length > 0;
 
   return (
@@ -181,6 +221,14 @@ function AllowedFoldersContent({
         <CardDescription>AI can only file to these folders</CardDescription>
       </CardHeader>
       <CardContent>
+        {staleFolderCount > 0 && (
+          <AlertBasic
+            className="mb-4"
+            variant="blue"
+            title="Deleted folders detected"
+            description={`Removed ${staleFolderCount} deleted folder${staleFolderCount === 1 ? "" : "s"} from your saved list.`}
+          />
+        )}
         {hasFolders ? (
           <>
             <TreeProvider
@@ -198,7 +246,6 @@ function AllowedFoldersContent({
                     isLast={index === rootFolders.length - 1}
                     selectedFolderIds={savedFolderIds}
                     onToggle={handleFolderToggle}
-                    isDisabled={isFolderBusy}
                     level={0}
                     parentPath=""
                     knownChildren={folderChildrenMap.get(folder.id)}
@@ -236,7 +283,6 @@ export function FolderNode({
   isLast,
   selectedFolderIds,
   onToggle,
-  isDisabled,
   level,
   parentPath,
   knownChildren,
@@ -245,7 +291,6 @@ export function FolderNode({
   isLast: boolean;
   selectedFolderIds: Set<string>;
   onToggle: (folder: FolderItem, isChecked: boolean) => void;
-  isDisabled: boolean;
   level: number;
   parentPath: string;
   knownChildren?: FolderItem[];
@@ -286,7 +331,6 @@ export function FolderNode({
             onCheckedChange={(checked) =>
               onToggle({ ...folder, path: currentPath }, checked === true)
             }
-            disabled={isDisabled}
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -309,7 +353,6 @@ export function FolderNode({
               isLast={index === subfolders.length - 1}
               selectedFolderIds={selectedFolderIds}
               onToggle={onToggle}
-              isDisabled={isDisabled}
               level={level + 1}
               parentPath={currentPath}
             />
@@ -336,48 +379,6 @@ export function NoFoldersFound({
   driveConnectionId: string | null;
   onFolderCreated?: () => void;
 }) {
-  const { isOpen, onClose, onToggle } = useDialogState();
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    reset,
-  } = useForm<CreateDriveFolderBody>({
-    resolver: zodResolver(createDriveFolderBody),
-    defaultValues: { driveConnectionId: "" },
-  });
-
-  const onSubmit: SubmitHandler<CreateDriveFolderBody> = useCallback(
-    async (data) => {
-      if (!driveConnectionId) {
-        toastError({
-          title: "Error creating folder",
-          description: "No drive connection found",
-        });
-        return;
-      }
-
-      const result = await createDriveFolderAction(emailAccountId, {
-        ...data,
-        driveConnectionId,
-      });
-
-      if (result?.serverError) {
-        toastError({
-          title: "Error creating folder",
-          description: result.serverError,
-        });
-      } else {
-        toastSuccess({ description: "Folder created!" });
-        reset();
-        onClose();
-        onFolderCreated?.();
-      }
-    },
-    [emailAccountId, reset, onClose, onFolderCreated, driveConnectionId],
-  );
-
   return (
     <CardBasic className="mt-4 p-2">
       <Empty className="border-0 p-0">

@@ -7,6 +7,7 @@ import {
   SectionHeading,
   SectionSubtitle,
 } from "@/components/new-landing/common/Typography";
+import { BRAND_NAME } from "@/utils/branding";
 
 export function FinalCTA() {
   return (
@@ -18,7 +19,7 @@ export function FinalCTA() {
         <SectionHeading>
           Get back an hour a day.
           <br />
-          Start using Inbox Zero.
+          {`Start using ${BRAND_NAME}.`}
         </SectionHeading>
         <SectionSubtitle>
           Less time in your inbox. More time for what actually matters.

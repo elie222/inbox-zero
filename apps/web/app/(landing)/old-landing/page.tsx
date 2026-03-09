@@ -7,6 +7,7 @@ import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { PricingLazy } from "@/app/(app)/premium/PricingLazy";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { FinalCTA } from "@/app/(landing)/home/FinalCTA";
+import { BRAND_NAME } from "@/utils/branding";
 
 export const metadata: Metadata = { alternates: { canonical: "/old-landing" } };
 
@@ -30,7 +31,7 @@ function HeroHome() {
   return (
     <Hero
       title="Meet Your AI Email Assistant That Actually Works"
-      subtitle="Inbox Zero organizes your inbox, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again."
+      subtitle={`${BRAND_NAME} organizes your inbox, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again.`}
     >
       <HeroVideoPlayer />
     </Hero>

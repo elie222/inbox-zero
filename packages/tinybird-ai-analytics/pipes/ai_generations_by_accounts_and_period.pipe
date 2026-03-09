@@ -1,0 +1,16 @@
+NODE ai_generations_by_accounts_and_period
+DESCRIPTION >
+  Count AI generations for a comma-separated list of email account IDs in a billing period.
+
+SQL >
+  %
+    SELECT count() AS count
+    FROM aiCall
+    WHERE
+      emailAccountId IN (
+        SELECT arrayJoin(splitByChar(',', {{ String(emailAccountIdsCsv) }}))
+      )
+      AND timestamp >= {{ Int64(startTimestampMs) }}
+      AND timestamp < {{ Int64(endTimestampMs) }}
+
+TYPE endpoint

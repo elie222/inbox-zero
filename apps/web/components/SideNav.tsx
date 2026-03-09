@@ -20,6 +20,7 @@ import {
   InboxIcon,
   type LucideIcon,
   MailsIcon,
+  MessageSquareIcon,
   MessagesSquareIcon,
   PenIcon,
   PersonStandingIcon,
@@ -89,14 +90,14 @@ export const useNavigation = () => {
   const manageItems: NavItem[] = useMemo(
     () => [
       {
+        name: "Chat",
+        href: prefixPath(currentEmailAccountId, "/assistant"),
+        icon: MessageSquareIcon,
+      },
+      {
         name: "Assistant",
         href: prefixPath(currentEmailAccountId, "/automation"),
         icon: SparklesIcon,
-      },
-      {
-        name: "Calendars",
-        href: prefixPath(currentEmailAccountId, "/calendars"),
-        icon: CalendarIcon,
       },
     ],
     [currentEmailAccountId],
@@ -148,7 +149,12 @@ export const useNavigation = () => {
         name: "Attachments",
         href: prefixPath(currentEmailAccountId, "/drive"),
         icon: HardDriveIcon,
-        new: true,
+        new: false,
+      },
+      {
+        name: "Calendars",
+        href: prefixPath(currentEmailAccountId, "/calendars"),
+        icon: CalendarIcon,
       },
       ...(showIntegrations
         ? [
@@ -241,7 +247,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
     [showMailNav],
   );
 
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -299,14 +305,34 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         )}
 
         <SidebarMenuButton asChild>
-          <Link href="https://docs.getinboxzero.com" target="_blank">
+          <Link
+            href="https://docs.getinboxzero.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => {
+              if (isMobile) {
+                setOpenMobile((prev) =>
+                  prev.filter((name) => name !== "left-sidebar"),
+                );
+              }
+            }}
+          >
             <BookIcon className="size-4" />
             <span className="font-semibold">Help Center</span>
           </Link>
         </SidebarMenuButton>
 
         <SidebarMenuButton asChild>
-          <Link href="/settings">
+          <Link
+            href="/settings"
+            onClick={() => {
+              if (isMobile) {
+                setOpenMobile((prev) =>
+                  prev.filter((name) => name !== "left-sidebar"),
+                );
+              }
+            }}
+          >
             <SettingsIcon className="size-4" />
             <span className="font-semibold">Settings</span>
           </Link>

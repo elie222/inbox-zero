@@ -10,7 +10,6 @@ import { markQStashActionAsExecuting } from "@/utils/scheduled-actions/scheduler
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 
-export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const BATCH_SIZE = 100;

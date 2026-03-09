@@ -409,7 +409,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
       // Capture timestamp right before sending - now safe since inbound processing is done
       const replySentAt = Date.now();
 
-      const reply = await sendTestReply({
+      await sendTestReply({
         from: gmail,
         to: outlook,
         threadId: receivedMessage.threadId,

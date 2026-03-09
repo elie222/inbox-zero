@@ -20,8 +20,8 @@ import {
 export type BulkActionType = "archive" | "markRead";
 
 interface BulkArchiveSettingsModalProps {
-  selectedAction: BulkActionType;
   onActionChange: (action: BulkActionType) => void;
+  selectedAction: BulkActionType;
 }
 
 export function BulkArchiveSettingsModal({

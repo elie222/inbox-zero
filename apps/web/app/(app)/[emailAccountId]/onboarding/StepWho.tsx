@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ArrowRightIcon, SendIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
 import { saveOnboardingAnswersAction } from "@/utils/actions/onboarding";
-import { MutedText, PageHeading, TypographyP } from "@/components/Typography";
+import { PageHeading, TypographyP } from "@/components/Typography";
 import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import { USER_ROLES } from "@/utils/constants/user-roles";
 import { cn } from "@/utils";
@@ -44,6 +44,14 @@ export function StepWho({
   });
   const { watch, setValue } = form;
   const watchedRole = watch("role");
+  const displayedRoles = useMemo(
+    () => USER_ROLES.filter((role) => usersRolesInfo[role.value]),
+    [],
+  );
+  const displayedRoleValues = useMemo(
+    () => displayedRoles.map((role) => role.value),
+    [displayedRoles],
+  );
 
   // Initialize custom role if it's a custom value
   useEffect(() => {
@@ -56,8 +64,9 @@ export function StepWho({
   useEffect(() => {
     if (defaultRole && scrollContainerRef.current) {
       // Find the button with the selected role
-      const selectedIndex = USER_ROLES.findIndex(
-        (role) => role.value === defaultRole,
+      // biome-ignore lint/complexity/useIndexOf: indexOf requires exact type match but defaultRole is `string` while array has a narrower union type
+      const selectedIndex = displayedRoleValues.findIndex(
+        (role) => role === defaultRole,
       );
       if (selectedIndex !== -1) {
         const buttons = scrollContainerRef.current.querySelectorAll(
@@ -75,7 +84,7 @@ export function StepWho({
         }
       }
     }
-  }, [defaultRole]);
+  }, [defaultRole, displayedRoleValues]);
 
   return (
     <OnboardingWrapper>
@@ -86,12 +95,9 @@ export function StepWho({
       </div>
 
       <div className="text-center">
-        <PageHeading className="mt-4">
-          Let's understand how you use email
-        </PageHeading>
+        <PageHeading className="mt-4">What do you do?</PageHeading>
         <TypographyP className="mt-2">
-          Your role helps us design a smarter, clearer inbox with AI tailored
-          just for you.
+          This helps us set up your inbox the way you actually need it.
         </TypographyP>
       </div>
 
@@ -122,48 +128,48 @@ export function StepWho({
             onNext();
           })}
         >
-          <ScrollableFadeContainer
-            ref={scrollContainerRef}
-            className="grid gap-2 px-1 pt-6 pb-6"
-            fadeFromClass="from-slate-50"
-          >
-            {Object.entries(usersRolesInfo).map(([roleName, role]) => {
-              const Icon = role.icon;
-              const description = USER_ROLES.find(
-                (r) => r.value === roleName,
-              )?.description;
+          <div className="max-w-md w-full mx-auto">
+            <ScrollableFadeContainer
+              ref={scrollContainerRef}
+              className="grid gap-2 px-1 pt-6 pb-6"
+              fadeFromClass="from-slate-50"
+              height="h-[576px]"
+            >
+              {displayedRoles.map(({ value: roleName }) => {
+                const role = usersRolesInfo[roleName];
+                const Icon = role.icon;
 
-              return (
-                <button
-                  type="button"
-                  key={roleName}
-                  className={cn(
-                    "rounded-xl border bg-card p-4 text-card-foreground shadow-sm text-left flex items-center gap-4 transition-all",
-                    watchedRole === roleName &&
-                      "border-blue-600 ring-2 ring-blue-100",
-                  )}
-                  onClick={() => {
-                    setValue("role", roleName);
-                    if (roleName !== "Other") {
-                      setCustomRole("");
-                    }
-                  }}
-                >
-                  <IconCircle size="sm">
-                    <Icon className="size-4" />
-                  </IconCircle>
+                return (
+                  <button
+                    type="button"
+                    key={roleName}
+                    className={cn(
+                      "rounded-xl border bg-card p-4 text-card-foreground shadow-sm text-left flex items-center gap-4 transition-all",
+                      watchedRole === roleName &&
+                        "border-blue-600 ring-2 ring-blue-100",
+                    )}
+                    onClick={() => {
+                      setValue("role", roleName);
+                      if (roleName !== "Other") {
+                        setCustomRole("");
+                      }
+                    }}
+                  >
+                    <IconCircle size="sm">
+                      <Icon className="size-4" />
+                    </IconCircle>
 
-                  <div>
-                    <div className="font-medium">{roleName}</div>
-                    <MutedText>{description}</MutedText>
-                  </div>
-                </button>
-              );
-            })}
-          </ScrollableFadeContainer>
+                    <div>
+                      <div className="font-medium">{roleName}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </ScrollableFadeContainer>
+          </div>
 
           {watchedRole === "Other" && (
-            <div className="px-1 pb-6">
+            <div className="px-1 pb-6 max-w-md w-full mx-auto">
               <Input
                 name="customRole"
                 type="text"

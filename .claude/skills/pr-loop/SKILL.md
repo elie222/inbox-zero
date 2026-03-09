@@ -1,7 +1,7 @@
 ---
 name: pr-loop
 description: Review, commit, create PR, then auto-address review comments in a loop.
-argument-hint: [--wait 300] [--max 5]
+argument-hint: "[--wait 300] [--max 5]"
 disable-model-invocation: true
 ---
 
@@ -47,7 +47,7 @@ Task tool call:
 
 **Subagent prompt must include:**
 1. The output of `git diff HEAD` (or `git diff --cached` if there are staged changes)
-2. The full review criteria from `.claude/commands/review.md` (categories, severity guide, project-specific checks)
+2. The full review criteria from `.claude/skills/review/SKILL.md` (categories, severity guide, project-specific checks)
 3. These instructions:
    - Categorize every issue as [BUG], [FIX], [AUTO], or [CONSIDER]
    - Auto-fix [AUTO] items directly (unused imports, dead code, console.log, typos)
@@ -71,7 +71,7 @@ If the subagent already auto-fixed [AUTO] items, verify they were applied.
 
 ## Step 4: Commit and create PR
 
-Follow the `.claude/commands/create-pr.md` workflow:
+Follow the `.claude/skills/create-pr/SKILL.md` workflow:
 
 1. Check state:
    ```bash
@@ -138,7 +138,7 @@ Note: Conversation comments (from bots like Vercel, or general discussion) do NO
 
 Fetch code review comments:
 ```bash
-.claude/scripts/get-pr-review-comments.sh
+.claude/skills/scripts/get-pr-review-comments.sh
 ```
 
 Fetch conversation comments:

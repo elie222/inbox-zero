@@ -10,10 +10,11 @@ import {
   SectionHeading,
 } from "@/components/new-landing/common/Typography";
 import { env } from "@/env";
+import { BRAND_NAME } from "@/utils/branding";
 
 const faqs = [
   {
-    question: "Which email providers does Inbox Zero support?",
+    question: `Which email providers does ${BRAND_NAME} support?`,
     answer:
       "We support Gmail, Google Workspace, and Microsoft Outlook email accounts.",
   },
@@ -30,9 +31,8 @@ const faqs = [
     ),
   },
   {
-    question: "Will Inbox Zero replace my current email client?",
-    answer:
-      "No! Inbox Zero isn't an email client. It's used alongside your existing email client. You use Google or Outlook as normal.",
+    question: `Will ${BRAND_NAME} replace my current email client?`,
+    answer: `No! ${BRAND_NAME} isn't an email client. It's used alongside your existing email client. You use Google or Outlook as normal.`,
   },
   {
     question: "Is the code open-source?",
@@ -57,7 +57,7 @@ const faqs = [
     ),
   },
   {
-    question: "Can I try Inbox Zero for free?",
+    question: `Can I try ${BRAND_NAME} for free?`,
     answer:
       "Absolutely, we have a 7 day free trial on all of our plans so you can try it out right away, no credit card needed!",
   },

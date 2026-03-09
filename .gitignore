@@ -8,6 +8,8 @@ node_modules
 
 # testing
 /coverage
+/apps/web/test-results/
+/apps/web/playwright-report/
 
 # next.js
 /.next/
@@ -58,7 +60,6 @@ dist
 
 # Sanity
 .sanity
-apps/web/sanity.config.ts
 
 TODO.md
 
@@ -94,3 +95,7 @@ copilot/environments/**/manifest.yml
 # browser QA flow results
 qa/browser-flows/results/*
 !qa/browser-flows/results/README.md
+
+# local skills
+.claude/skills/local/
+.agents/skills/local/

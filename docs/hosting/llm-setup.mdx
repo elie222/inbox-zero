@@ -1,0 +1,62 @@
+---
+title: 'LLM'
+description: 'Configure your AI provider via environment variables'
+---
+
+For self-hosting, configure AI through environment variables in `apps/web/.env`.
+If you used `inbox-zero setup`, many of these values are configured automatically.
+
+Start here:
+
+- [Environment Variables](/hosting/environment-variables) (full reference)
+
+<Warning>
+  API keys require billing credits on the provider's platform. A ChatGPT Plus or Claude Pro subscription does **not** include API access.
+</Warning>
+
+## Providers
+
+Use one of these values for `*_LLM_PROVIDER`:
+
+| Provider | Value |
+|---|---|
+| [OpenAI](https://platform.openai.com/docs/overview) | `openai` |
+| [Anthropic](https://docs.anthropic.com/en/docs/welcome) | `anthropic` |
+| [Azure OpenAI](https://ai-sdk.dev/providers/ai-sdk-providers/azure) | `azure` |
+| [Google Gemini (AI Studio)](https://ai.google.dev/gemini-api/docs) | `google` |
+| [Google Vertex AI](https://ai-sdk.dev/providers/ai-sdk-providers/google-vertex) | `vertex` |
+| [OpenRouter](https://openrouter.ai/docs/quickstart) | `openrouter` |
+| [Groq](https://console.groq.com/docs/quickstart) | `groq` |
+| [Vercel AI Gateway](https://ai-sdk.dev/providers/ai-sdk-providers/ai-gateway) | `aigateway` |
+| [AWS Bedrock](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock) | `bedrock` |
+| [Ollama](https://ollama.com/) | `ollama` |
+| OpenAI-compatible (LM Studio, vLLM, LiteLLM, etc.) | `openai-compatible` |
+
+## Tiers
+
+For most self-hosted setups, configure these two tiers:
+
+- `DEFAULT_LLM_*` (required): primary model used for normal AI tasks.
+- `ECONOMY_LLM_*` (optional): lower-cost model for high-volume tasks. If unset, it falls back to `DEFAULT`.
+
+Minimal example:
+
+```env
+DEFAULT_LLM_PROVIDER=openai
+DEFAULT_LLM_MODEL=gpt-4o
+
+ECONOMY_LLM_PROVIDER=openai
+ECONOMY_LLM_MODEL=gpt-4o-mini
+
+LLM_API_KEY=sk-...
+```
+
+Provider-specific keys (for example `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) also work. See [Environment Variables](/hosting/environment-variables) for the full list.
+
+## App Settings
+
+The app also has **Settings → AI** for per-user keys/models, but self-hosted deployments usually keep configuration at the environment-variable level.
+
+## Provider-specific details
+
+- `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`.

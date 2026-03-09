@@ -9,12 +9,12 @@ type ButtonListItem = {
 };
 
 interface ButtonListProps {
-  title?: string;
+  columns?: number;
+  emptyMessage: string;
   items: ButtonListItem[];
   onSelect: (id: string) => void;
   selectedId?: string;
-  emptyMessage: string;
-  columns?: number;
+  title?: string;
 }
 
 export function ButtonList({

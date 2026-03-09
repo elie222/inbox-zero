@@ -11,6 +11,8 @@ import {
   PLAIN_TEXT_OUTPUT_INSTRUCTION,
   PROMPT_SECURITY_INSTRUCTIONS,
 } from "@/utils/ai/security";
+import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { normalizeDraftReplyConfidence } from "@/utils/ai/reply/draft-confidence";
 
 const logger = createScopedLogger("DraftReply");
 
@@ -24,6 +26,7 @@ Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
 IMPORTANT: ${PLAIN_TEXT_OUTPUT_INSTRUCTION}
 IMPORTANT: Format paragraphs using Unix newlines: use "\n\n" between paragraphs and "\n" for single line breaks.
+Write the reply in the same language as the latest message in the thread.
 
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
@@ -32,8 +35,6 @@ Don't suggest meeting times or mention availability unless specific calendar inf
 
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
-
-Return your response in JSON format.
 `;
 
 const defaultWritingStyle = `Keep it concise and friendly.
@@ -117,37 +118,10 @@ ${writingStyle}
 `
     : "";
 
-  const calendarContext = calendarAvailability?.noAvailability
-    ? `Calendar availability information:
-
-<calendar_availability>
-The user has NO available time slots in the requested timeframe (fully booked).
-</calendar_availability>
-
-IMPORTANT: The user is NOT available. Do NOT suggest specific times. You may acknowledge the request and suggest alternative approaches (e.g., "I'm fully booked tomorrow, but let's find another day that works" or share a booking link if available).
-`
-    : calendarAvailability?.suggestedTimes.length
-      ? `Calendar availability information:
-
-<calendar_availability>
-Suggested time slots:
-${calendarAvailability.suggestedTimes.map((slot) => `- ${slot.start} to ${slot.end}`).join("\n")}
-</calendar_availability>
-
-IMPORTANT: Use these available time slots when responding to meeting requests. Mention specific times the user is available.
-`
-      : "";
-
-  const bookingLinkContext = emailAccount.calendarBookingLink
-    ? `Calendar booking link:
-
-<booking_link>
-${emailAccount.calendarBookingLink}
-</booking_link>
-
-Only include this link if the sender explicitly requested a call or meeting. Do not proactively suggest calls.
-`
-    : "";
+  const schedulingContext = getSchedulingContext({
+    calendarBookingLink: emailAccount.calendarBookingLink,
+    calendarAvailability,
+  });
 
   const mcpToolsContext = mcpContext
     ? `Additional context fetched from external tools (such as CRM systems, task managers, or other integrations) that may help draft a response:
@@ -165,8 +139,7 @@ ${relevantKnowledge}
 ${historicalContext}
 ${precedentHistoryContext}
 ${writingStylePrompt}
-${calendarContext}
-${bookingLinkContext}
+${schedulingContext}
 ${mcpToolsContext}
 ${upcomingMeetingsContext}
 
@@ -184,9 +157,19 @@ const draftSchema = z.object({
     .describe(
       "The complete email reply draft incorporating knowledge base information",
     ),
+  confidence: z
+    .nativeEnum(DraftReplyConfidence)
+    .describe(
+      "Required value: ALL_EMAILS, STANDARD, or HIGH_CONFIDENCE. Use ALL_EMAILS when uncertain or context is missing, STANDARD for solid drafts with minor uncertainty, and HIGH_CONFIDENCE only when intent and response are clear.",
+    ),
 });
 
-export async function aiDraftReply({
+export type DraftReplyResult = {
+  reply: string;
+  confidence: DraftReplyConfidence;
+};
+
+export async function aiDraftReplyWithConfidence({
   messages,
   emailAccount,
   knowledgeBaseContent,
@@ -206,7 +189,7 @@ export async function aiDraftReply({
   writingStyle: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
-}) {
+}): Promise<DraftReplyResult> {
   logger.info("Drafting email reply", {
     messageCount: messages.length,
     hasKnowledge: !!knowledgeBaseContent,
@@ -231,7 +214,7 @@ export async function aiDraftReply({
     meetingContext,
   });
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModel(emailAccount.user, "draft");
 
   const generateObject = createGenerateObject({
     emailAccount,
@@ -259,7 +242,46 @@ export async function aiDraftReply({
     }
   }
 
-  return normalizeDraftReplyFormatting(result.object.reply);
+  return {
+    reply: normalizeDraftReplyFormatting(result.object.reply),
+    confidence: normalizeDraftReplyConfidence(result.object.confidence),
+  };
+}
+
+export async function aiDraftReply({
+  messages,
+  emailAccount,
+  knowledgeBaseContent,
+  emailHistorySummary,
+  emailHistoryContext,
+  calendarAvailability,
+  writingStyle,
+  mcpContext,
+  meetingContext,
+}: {
+  messages: (EmailForLLM & { to: string })[];
+  emailAccount: EmailAccountWithAI;
+  knowledgeBaseContent: string | null;
+  emailHistorySummary: string | null;
+  emailHistoryContext: ReplyContextCollectorResult | null;
+  calendarAvailability: CalendarAvailabilityContext | null;
+  writingStyle: string | null;
+  mcpContext: string | null;
+  meetingContext: string | null;
+}) {
+  const result = await aiDraftReplyWithConfidence({
+    messages,
+    emailAccount,
+    knowledgeBaseContent,
+    emailHistorySummary,
+    emailHistoryContext,
+    calendarAvailability,
+    writingStyle,
+    mcpContext,
+    meetingContext,
+  });
+
+  return result.reply;
 }
 
 function normalizeDraftReplyFormatting(reply: string): string {
@@ -310,3 +332,44 @@ function isLikelyListItem(line: string): boolean {
 
 // Matches any non-separator, non-whitespace character repeated 50+ times in a row
 const REPETITIVE_TEXT_PATTERN = /([^\s\-=_*.#~])\1{49,}/u;
+
+function getSchedulingContext({
+  calendarBookingLink,
+  calendarAvailability,
+}: {
+  calendarBookingLink: string | null;
+  calendarAvailability: CalendarAvailabilityContext | null;
+}): string {
+  const parts: string[] = [];
+
+  if (calendarBookingLink) {
+    parts.push(`<booking_link>
+${calendarBookingLink}
+</booking_link>
+
+When the sender has requested or is open to a call/meeting, share this booking link as the primary way to schedule.`);
+  }
+
+  if (calendarAvailability?.noAvailability) {
+    parts.push(`The user has no available time slots in the requested timeframe.
+Do not suggest specific times. Acknowledge the request and suggest alternatives (e.g., "I'm fully booked tomorrow, but let's find another day that works"${calendarBookingLink ? " or share the booking link" : ""}).`);
+  } else if (calendarAvailability?.suggestedTimes.length) {
+    const times = calendarAvailability.suggestedTimes
+      .map((slot) => `- ${slot.start} to ${slot.end}`)
+      .join("\n");
+
+    parts.push(`Available time slots:
+${times}
+
+${calendarBookingLink ? "Lead with the booking link, then optionally suggest a few of these times as alternatives." : "Use these time slots when responding to meeting requests."} Format suggested times as a bulleted list.`);
+  }
+
+  if (parts.length === 0) return "";
+
+  return `Scheduling context:
+
+<scheduling>
+${parts.join("\n\n")}
+</scheduling>
+`;
+}

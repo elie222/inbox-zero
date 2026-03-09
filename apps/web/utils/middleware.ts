@@ -10,16 +10,22 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
+import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
+import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import {
   EMAIL_ACCOUNT_HEADER,
   MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
   NO_REFRESH_TOKEN_ERROR_CODE,
 } from "@/utils/config";
+import { isAdmin } from "@/utils/admin";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
+import { startRequestTimer } from "@/utils/request-timing";
 
 const logger = createScopedLogger("middleware");
+const SLOW_MIDDLEWARE_STEP_MS = 2000;
+const SLOW_MIDDLEWARE_TOTAL_MS = 4000;
 
 export type NextHandler<T extends NextRequest = NextRequest> = (
   req: T,
@@ -48,6 +54,10 @@ export interface RequestWithEmailProvider extends RequestWithEmailAccount {
 
 export interface MiddlewareOptions {
   allowOrgAdmins?: boolean;
+  requestTiming?: {
+    runningWarnAfterMs?: number;
+    slowWarnAfterMs?: number;
+  };
 }
 
 // Higher-order middleware factory that handles common error logic
@@ -66,9 +76,19 @@ function withMiddleware<T extends NextRequest>(
       requestId,
       url: req.url,
     });
+    const requestTimer =
+      options?.requestTiming !== undefined
+        ? startRequestTimer({
+            logger: baseLogger,
+            requestName: `${scope || "api"} request`,
+            runningWarnAfterMs: options.requestTiming.runningWarnAfterMs,
+            slowWarnAfterMs: options.requestTiming.slowWarnAfterMs,
+          })
+        : undefined;
 
     const reqWithLogger = req as NextRequest & { logger?: Logger };
     reqWithLogger.logger = baseLogger;
+    let requestForError = reqWithLogger as NextRequest;
 
     try {
       // Apply middleware if provided
@@ -85,6 +105,7 @@ function withMiddleware<T extends NextRequest>(
         // Otherwise, continue with the enhanced request
         enhancedReq = middlewareResult;
       }
+      requestForError = enhancedReq;
 
       // Execute the handler with the (potentially) enhanced request
       const response = await handler(enhancedReq as T, context);
@@ -93,7 +114,7 @@ function withMiddleware<T extends NextRequest>(
 
       return response;
     } catch (error) {
-      flushLogger(reqWithLogger);
+      flushLogger(requestForError);
 
       // redirects work by throwing an error. allow these
       if (error instanceof Error && error.message === "NEXT_REDIRECT") {
@@ -124,7 +145,7 @@ function withMiddleware<T extends NextRequest>(
         }
       }
 
-      const reqLogger = getLogger(reqWithLogger);
+      const reqLogger = getLogger(requestForError);
 
       if (error instanceof ZodError) {
         if (!env.DISABLE_LOG_ZOD_ERRORS) {
@@ -136,11 +157,19 @@ function withMiddleware<T extends NextRequest>(
         );
       }
 
-      const apiError = checkCommonErrors(error, req.url, reqLogger);
+      const apiError = checkCommonErrors(error, requestForError.url, reqLogger);
       if (apiError) {
+        await recordRateLimitFromApiError({
+          apiErrorType: apiError.type,
+          error,
+          emailAccountId: getEmailAccountId(requestForError),
+          logger: reqLogger,
+          source: scope || new URL(requestForError.url).pathname,
+        });
+
         await logErrorToPosthog(
           "api",
-          req.url,
+          requestForError.url,
           apiError.type,
           "unknown",
           reqLogger,
@@ -179,12 +208,15 @@ function withMiddleware<T extends NextRequest>(
             : undefined,
         stack: error instanceof Error ? error.stack : undefined,
       });
-      captureException(error, { extra: { url: req.url } });
+      captureException(error, { extra: { url: requestForError.url } });
 
       return NextResponse.json(
         { error: "An unexpected error occurred" },
         { status: 500 },
       );
+    } finally {
+      requestTimer?.logSlowCompletion();
+      requestTimer?.stop();
     }
   };
 }
@@ -227,91 +259,117 @@ async function emailAccountMiddleware(
     );
   }
 
-  // If account ID is provided, validate and get the email account ID
-  const email = await getEmailAccount({ userId, emailAccountId });
+  const middlewareLogger = authReq.logger.with({ emailAccountId });
+  const middlewareStartTime = Date.now();
 
-  const emailAccountLogger = authReq.logger.with({ emailAccountId, email });
-
-  if (!email && options?.allowOrgAdmins) {
-    // Check if user is admin or owner and is in the same org as the target email account
-    const callerEmailAccount = await getCallerEmailAccount(
-      userId,
-      emailAccountId,
-    );
-
-    if (!callerEmailAccount) {
-      emailAccountLogger.error("Org admin access denied");
-      return NextResponse.json(
-        { error: "Insufficient permissions", isKnownError: true },
-        { status: 403 },
-      );
-    }
-
-    // Check if target member has consented to org admin analytics access
-    const targetMember = await prisma.member.findFirst({
-      where: {
-        emailAccountId,
-        organization: {
-          members: {
-            some: {
-              emailAccountId: callerEmailAccount.id,
-            },
-          },
-        },
-      },
-      select: { allowOrgAdminAnalytics: true },
+  try {
+    // If account ID is provided, validate and get the email account ID
+    const email = await runTimedMiddlewareStep({
+      logger: middlewareLogger,
+      step: "validate-email-account",
+      operation: () => getEmailAccount({ userId, emailAccountId }),
     });
 
-    if (!targetMember?.allowOrgAdminAnalytics) {
-      emailAccountLogger.error(
-        "Member has not enabled org admin analytics access",
-      );
-      return NextResponse.json(
-        {
-          error: "Analytics access not permitted by this member",
-          isKnownError: true,
-        },
-        { status: 403 },
-      );
-    }
+    const emailAccountLogger = middlewareLogger.with({ email });
 
-    const targetEmailAccount = await prisma.emailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: { email: true },
-    });
-
-    if (targetEmailAccount) {
-      const emailAccountReq = req.clone() as RequestWithEmailAccount;
-      emailAccountReq.auth = {
-        userId,
-        emailAccountId,
-        email: targetEmailAccount.email,
-      };
-      emailAccountReq.logger = emailAccountLogger.with({
-        isOrgAdmin: true,
-        email: targetEmailAccount.email,
+    if (!email && options?.allowOrgAdmins) {
+      // Check if user is admin or owner and is in the same org as the target email account
+      const callerEmailAccount = await runTimedMiddlewareStep({
+        logger: emailAccountLogger,
+        step: "resolve-org-admin-caller-account",
+        operation: () => getCallerEmailAccount(userId, emailAccountId),
       });
-      return emailAccountReq;
+
+      if (!callerEmailAccount) {
+        emailAccountLogger.error("Org admin access denied");
+        return NextResponse.json(
+          { error: "Insufficient permissions", isKnownError: true },
+          { status: 403 },
+        );
+      }
+
+      // Check if target member has consented to org admin analytics access
+      const targetMember = await runTimedMiddlewareStep({
+        logger: emailAccountLogger,
+        step: "check-org-admin-consent",
+        operation: () =>
+          prisma.member.findFirst({
+            where: {
+              emailAccountId,
+              organization: {
+                members: {
+                  some: {
+                    emailAccountId: callerEmailAccount.id,
+                  },
+                },
+              },
+            },
+            select: { allowOrgAdminAnalytics: true },
+          }),
+      });
+
+      if (!targetMember?.allowOrgAdminAnalytics) {
+        emailAccountLogger.error(
+          "Member has not enabled org admin analytics access",
+        );
+        return NextResponse.json(
+          {
+            error: "Analytics access not permitted by this member",
+            isKnownError: true,
+          },
+          { status: 403 },
+        );
+      }
+
+      const targetEmailAccount = await runTimedMiddlewareStep({
+        logger: emailAccountLogger,
+        step: "resolve-org-admin-target-account",
+        operation: () =>
+          prisma.emailAccount.findUnique({
+            where: { id: emailAccountId },
+            select: { email: true },
+          }),
+      });
+
+      if (targetEmailAccount) {
+        const emailAccountReq = req.clone() as RequestWithEmailAccount;
+        emailAccountReq.auth = {
+          userId,
+          emailAccountId,
+          email: targetEmailAccount.email,
+        };
+        emailAccountReq.logger = emailAccountLogger.with({
+          isOrgAdmin: true,
+          email: targetEmailAccount.email,
+        });
+        return emailAccountReq;
+      }
     }
+
+    if (!email) {
+      emailAccountLogger.error("Invalid email account ID");
+      return NextResponse.json(
+        { error: "Invalid account ID", isKnownError: true },
+        { status: 403 },
+      );
+    }
+
+    Sentry.setTag("emailAccountId", emailAccountId);
+    Sentry.setUser({ id: userId, email });
+
+    // Create a new request with email account info
+    const emailAccountReq = req.clone() as RequestWithEmailAccount;
+    emailAccountReq.auth = { userId, emailAccountId, email };
+    emailAccountReq.logger = emailAccountLogger;
+
+    return emailAccountReq;
+  } finally {
+    logSlowMiddlewareTotal({
+      logger: middlewareLogger,
+      middleware: "email-account",
+      startedAt: middlewareStartTime,
+    });
   }
-
-  if (!email) {
-    emailAccountLogger.error("Invalid email account ID");
-    return NextResponse.json(
-      { error: "Invalid account ID", isKnownError: true },
-      { status: 403 },
-    );
-  }
-
-  Sentry.setTag("emailAccountId", emailAccountId);
-  Sentry.setUser({ id: userId, email });
-
-  // Create a new request with email account info
-  const emailAccountReq = req.clone() as RequestWithEmailAccount;
-  emailAccountReq.auth = { userId, emailAccountId, email };
-  emailAccountReq.logger = emailAccountLogger;
-
-  return emailAccountReq;
 }
 
 async function emailProviderMiddleware(
@@ -322,20 +380,29 @@ async function emailProviderMiddleware(
   if (emailAccountReq instanceof Response) return emailAccountReq;
 
   const { userId, emailAccountId } = emailAccountReq.auth;
+  const reqWithAuth = req as RequestWithEmailAccount;
+  reqWithAuth.auth = emailAccountReq.auth;
+  reqWithAuth.logger = emailAccountReq.logger;
+  const middlewareStartTime = Date.now();
 
   try {
-    const emailAccount = await prisma.emailAccount.findUnique({
-      where: {
-        id: emailAccountId,
-        userId, // ensure it belongs to the user
-      },
-      include: {
-        account: {
-          select: {
-            provider: true,
+    const emailAccount = await runTimedMiddlewareStep({
+      logger: emailAccountReq.logger,
+      step: "load-email-account-provider",
+      operation: () =>
+        prisma.emailAccount.findUnique({
+          where: {
+            id: emailAccountId,
+            userId, // ensure it belongs to the user
           },
-        },
-      },
+          include: {
+            account: {
+              select: {
+                provider: true,
+              },
+            },
+          },
+        }),
     });
 
     if (!emailAccount) {
@@ -345,10 +412,15 @@ async function emailProviderMiddleware(
       );
     }
 
-    const provider = await createEmailProvider({
-      emailAccountId: emailAccount.id,
-      provider: emailAccount.account.provider,
+    const provider = await runTimedMiddlewareStep({
       logger: emailAccountReq.logger,
+      step: "create-email-provider",
+      operation: () =>
+        createEmailProvider({
+          emailAccountId: emailAccount.id,
+          provider: emailAccount.account.provider,
+          logger: emailAccountReq.logger,
+        }),
     });
 
     const providerReq = emailAccountReq.clone() as RequestWithEmailProvider;
@@ -364,8 +436,8 @@ async function emailProviderMiddleware(
       userId,
     });
 
-    // Re-throw SafeError so it gets handled with the user-friendly message
-    if (error instanceof SafeError) {
+    // Re-throw known errors so withMiddleware can apply shared error handling.
+    if (error instanceof SafeError || isProviderRateLimitModeError(error)) {
       throw error;
     }
 
@@ -373,7 +445,34 @@ async function emailProviderMiddleware(
       { error: "Failed to initialize email provider" },
       { status: 500 },
     );
+  } finally {
+    logSlowMiddlewareTotal({
+      logger: emailAccountReq.logger,
+      middleware: "email-provider",
+      startedAt: middlewareStartTime,
+    });
   }
+}
+
+async function adminMiddleware(
+  req: NextRequest,
+): Promise<RequestWithAuth | Response> {
+  const authReq = await authMiddleware(req);
+  if (authReq instanceof Response) return authReq;
+
+  const user = await prisma.user.findUnique({
+    where: { id: authReq.auth.userId },
+    select: { email: true },
+  });
+
+  if (!isAdmin({ email: user?.email })) {
+    return NextResponse.json(
+      { error: "Unauthorized", isKnownError: true },
+      { status: 403 },
+    );
+  }
+
+  return authReq;
 }
 
 // Public middlewares that build on the common infrastructure
@@ -424,6 +523,13 @@ export function withAuth(
   return withMiddleware(scopeOrHandler, authMiddleware);
 }
 
+export function withAdmin(
+  scope: string,
+  handler: NextHandler<RequestWithAuth>,
+): NextHandler {
+  return withMiddleware(handler, adminMiddleware, undefined, scope);
+}
+
 // withEmailAccount overloads
 export function withEmailAccount(
   scope: string,
@@ -458,23 +564,30 @@ export function withEmailAccount(
 export function withEmailProvider(
   scope: string,
   handler: NextHandler<RequestWithEmailProvider>,
+  options?: MiddlewareOptions,
 ): NextHandler;
 export function withEmailProvider(
   handler: NextHandler<RequestWithEmailProvider>,
+  options?: MiddlewareOptions,
 ): NextHandler;
 export function withEmailProvider(
   scopeOrHandler: string | NextHandler<RequestWithEmailProvider>,
-  handler?: NextHandler<RequestWithEmailProvider>,
+  handlerOrOptions?: NextHandler<RequestWithEmailProvider> | MiddlewareOptions,
+  options?: MiddlewareOptions,
 ): NextHandler {
   if (typeof scopeOrHandler === "string") {
     return withMiddleware(
-      handler!,
+      handlerOrOptions as NextHandler<RequestWithEmailProvider>,
       emailProviderMiddleware,
-      undefined,
+      options,
       scopeOrHandler,
     );
   }
-  return withMiddleware(scopeOrHandler, emailProviderMiddleware);
+  return withMiddleware(
+    scopeOrHandler,
+    emailProviderMiddleware,
+    handlerOrOptions as MiddlewareOptions,
+  );
 }
 
 function isErrorWithConfigAndHeaders(
@@ -493,12 +606,66 @@ function getLogger(req: NextRequest): Logger {
   return reqWithLogger.logger || logger;
 }
 
+function getEmailAccountId(req: NextRequest): string | undefined {
+  const authReq = req as Partial<RequestWithEmailAccount>;
+  return authReq.auth?.emailAccountId;
+}
+
 function flushLogger(req: NextRequest) {
   const reqWithLogger = req as RequestWithLogger;
   if (reqWithLogger.logger) {
     const loggerToFlush = reqWithLogger.logger;
     after(async () => {
       await flushLoggerSafely(loggerToFlush, { url: req.url });
+    });
+  }
+}
+
+async function runTimedMiddlewareStep<T>({
+  logger,
+  step,
+  operation,
+}: {
+  logger: Logger;
+  step: string;
+  operation: () => Promise<T>;
+}): Promise<T> {
+  const startedAt = Date.now();
+  const slowStepLogTimeout = setTimeout(() => {
+    logger.warn("Middleware step still running", {
+      step,
+      elapsedMs: Date.now() - startedAt,
+    });
+  }, SLOW_MIDDLEWARE_STEP_MS);
+
+  try {
+    return await operation();
+  } finally {
+    clearTimeout(slowStepLogTimeout);
+    const durationMs = Date.now() - startedAt;
+    if (durationMs > SLOW_MIDDLEWARE_STEP_MS) {
+      logger.warn("Middleware step completed slowly", {
+        step,
+        durationMs,
+      });
+    }
+  }
+}
+
+function logSlowMiddlewareTotal({
+  logger,
+  middleware,
+  startedAt,
+}: {
+  logger: Logger;
+  middleware: string;
+  startedAt: number;
+}) {
+  const durationMs = Date.now() - startedAt;
+  if (durationMs > SLOW_MIDDLEWARE_TOTAL_MS) {
+    logger.warn("Middleware completed slowly", {
+      middleware,
+      durationMs,
     });
   }
 }

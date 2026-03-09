@@ -26,11 +26,11 @@ import { FOLDER_SEPARATOR, type OutlookFolder } from "@/utils/outlook/folders";
 import type { FieldError } from "react-hook-form";
 
 interface FolderItemProps {
+  displayPath?: string;
   folder: OutlookFolder;
   level: number;
-  value: { name: string; id: string };
   onSelect: (folderId: string) => void;
-  displayPath?: string;
+  value: { name: string; id: string };
 }
 
 function FolderItem({
@@ -79,12 +79,12 @@ function FolderItem({
 }
 
 interface FolderSelectorProps {
+  error?: FieldError;
   folders: OutlookFolder[];
   isLoading: boolean;
-  value: { name: string; id: string };
   onChangeValue: (value: { name: string; id: string }) => void;
   placeholder?: string;
-  error?: FieldError;
+  value: { name: string; id: string };
 }
 
 export function FolderSelector({

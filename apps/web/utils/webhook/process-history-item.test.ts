@@ -8,6 +8,7 @@ import {
 import { getEmailAccount } from "@/__tests__/helpers";
 import { createScopedLogger } from "@/utils/logger";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
+import { DraftReplyConfidence } from "@/generated/prisma/enums";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
@@ -24,9 +25,6 @@ vi.mock("@/utils/prisma", () => ({
     },
   },
 }));
-vi.mock("@/utils/assistant/is-assistant-email", () => ({
-  isAssistantEmail: vi.fn().mockReturnValue(false),
-}));
 vi.mock("@/utils/cold-email/is-cold-email", () => ({
   runColdEmailBlocker: vi
     .fn()
@@ -37,9 +35,6 @@ vi.mock("@/utils/categorize/senders/categorize", () => ({
 }));
 vi.mock("@/utils/ai/choose-rule/run-rules", () => ({
   runRules: vi.fn(),
-}));
-vi.mock("@/utils/assistant/process-assistant-email", () => ({
-  processAssistantEmail: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/utils/reply-tracker/handle-outbound", () => ({
   handleOutboundMessage: vi.fn().mockResolvedValue(undefined),
@@ -56,6 +51,9 @@ describe("Provider Edge Cases", () => {
     return {
       ...getEmailAccount(),
       autoCategorizeSenders: false,
+      filingEnabled: false,
+      filingPrompt: null,
+      draftReplyConfidence: DraftReplyConfidence.ALL_EMAILS,
     };
   }
 
@@ -195,6 +193,31 @@ describe("Provider Edge Cases", () => {
       );
 
       expect(handleOutboundMessage).toHaveBeenCalled();
+    });
+
+    it("skips outbound handling for filebot notification messages", async () => {
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(
+          getMockParsedMessage({
+            labelIds: ["SENT"],
+            headers: {
+              from: "Inbox Zero Assistant <user@test.com>",
+              to: "user@test.com",
+              "reply-to": "Inbox Zero Assistant <user+ai@test.com>",
+              subject: "Filed your document",
+              date: "2024-01-01",
+            },
+          }),
+        ),
+        isSentMessage: vi.fn().mockReturnValue(true),
+      });
+
+      await processHistoryItem(
+        { messageId: "msg-123", threadId: "thread-123" },
+        { ...baseOptions, provider },
+      );
+
+      expect(handleOutboundMessage).not.toHaveBeenCalled();
     });
   });
 

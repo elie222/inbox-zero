@@ -3,8 +3,8 @@ import { cn } from "@/utils";
 import type { UserLabel } from "@/hooks/useLabels";
 
 interface MentionListProps {
-  items: (UserLabel & { isCreateNew?: boolean })[];
   command: (item: UserLabel & { isCreateNew?: boolean }) => void;
+  items: (UserLabel & { isCreateNew?: boolean })[];
 }
 
 export interface MentionListRef {

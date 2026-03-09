@@ -1,4 +1,6 @@
 ---
+name: create-pr
+description: Commit changes and open a pull request with safe metadata
 disable-model-invocation: true
 ---
 

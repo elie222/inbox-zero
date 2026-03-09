@@ -16,8 +16,11 @@ import {
   getLabelsBody,
   watchEmailsBody,
   getUserInfoBody,
+  disableAllRulesBody,
+  cleanupDraftsBody,
 } from "@/utils/actions/admin.validation";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
+import { cleanupAIDraftsForAccount } from "@/utils/ai/draft-cleanup";
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })
@@ -392,6 +395,97 @@ export const adminGetUserInfoAction = adminActionClient
         ruleCount: ea._count.rules,
         lastExecutedRuleAt: lastExecutedMap.get(ea.id) || null,
       })),
+    };
+  });
+
+export const adminDisableAllRulesAction = adminActionClient
+  .metadata({ name: "adminDisableAllRules" })
+  .inputSchema(disableAllRulesBody)
+  .action(async ({ parsedInput: { email }, ctx: { logger } }) => {
+    const emailAccounts = await prisma.emailAccount.findMany({
+      where: {
+        OR: [
+          { email: email.toLowerCase() },
+          { user: { email: email.toLowerCase() } },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (emailAccounts.length === 0) {
+      throw new SafeError("No email accounts found");
+    }
+
+    const emailAccountIds = emailAccounts.map((ea) => ea.id);
+
+    await prisma.$transaction([
+      prisma.rule.updateMany({
+        where: { emailAccountId: { in: emailAccountIds } },
+        data: { enabled: false },
+      }),
+      prisma.emailAccount.updateMany({
+        where: { id: { in: emailAccountIds } },
+        data: {
+          followUpAwaitingReplyDays: null,
+          followUpNeedsReplyDays: null,
+        },
+      }),
+    ]);
+
+    logger.info("Disabled all rules and follow-up for email accounts", {
+      emailAccountCount: emailAccounts.length,
+    });
+
+    return {
+      success: true,
+      emailAccountCount: emailAccounts.length,
+    };
+  });
+
+export const adminCleanupDraftsAction = adminActionClient
+  .metadata({ name: "adminCleanupDrafts" })
+  .inputSchema(cleanupDraftsBody)
+  .action(async ({ parsedInput: { email }, ctx: { logger } }) => {
+    const emailAccounts = await prisma.emailAccount.findMany({
+      where: {
+        OR: [
+          { email: email.toLowerCase() },
+          { user: { email: email.toLowerCase() } },
+        ],
+      },
+      select: {
+        id: true,
+        account: { select: { provider: true } },
+      },
+    });
+
+    if (emailAccounts.length === 0) {
+      throw new SafeError("No email accounts found");
+    }
+
+    let totalDeleted = 0;
+    let totalSkipped = 0;
+    let totalAlreadyGone = 0;
+    let totalErrors = 0;
+
+    for (const emailAccount of emailAccounts) {
+      const result = await cleanupAIDraftsForAccount({
+        emailAccountId: emailAccount.id,
+        provider: emailAccount.account.provider,
+        logger,
+      });
+
+      totalDeleted += result.deleted;
+      totalSkipped += result.skippedModified;
+      totalAlreadyGone += result.alreadyGone;
+      totalErrors += result.errors;
+    }
+
+    return {
+      deleted: totalDeleted,
+      skippedModified: totalSkipped,
+      alreadyGone: totalAlreadyGone,
+      errors: totalErrors,
     };
   });
 

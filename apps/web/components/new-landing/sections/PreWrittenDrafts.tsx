@@ -9,8 +9,8 @@ import {
 import Image from "next/image";
 
 interface PreWrittenDraftsProps {
-  title: React.ReactNode;
   subtitle: React.ReactNode;
+  title: React.ReactNode;
 }
 
 export function PreWrittenDrafts({ title, subtitle }: PreWrittenDraftsProps) {

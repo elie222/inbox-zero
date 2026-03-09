@@ -35,6 +35,13 @@ export const removeFilingFolderBody = z.object({
 });
 export type RemoveFilingFolderBody = z.infer<typeof removeFilingFolderBody>;
 
+export const cleanupStaleFilingFoldersBody = z.object({
+  filingFolderIds: z.array(z.string()).min(1),
+});
+export type CleanupStaleFilingFoldersBody = z.infer<
+  typeof cleanupStaleFilingFoldersBody
+>;
+
 export const submitPreviewFeedbackBody = z.object({
   filingId: z.string(),
   feedbackPositive: z.boolean(),

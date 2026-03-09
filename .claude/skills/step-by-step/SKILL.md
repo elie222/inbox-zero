@@ -1,4 +1,6 @@
 ---
+name: step-by-step
+description: Execute tasks one step at a time with user confirmation
 disable-model-invocation: true
 ---
 

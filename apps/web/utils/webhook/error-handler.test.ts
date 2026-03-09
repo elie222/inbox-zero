@@ -2,10 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { createScopedLogger } from "@/utils/logger";
 import { trackError } from "@/utils/posthog";
+import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/posthog", () => ({
   trackError: vi.fn(),
+}));
+vi.mock("@/utils/email/rate-limit", () => ({
+  recordRateLimitFromApiError: vi.fn().mockResolvedValue(null),
 }));
 
 describe("handleWebhookError", () => {
@@ -20,6 +24,10 @@ describe("handleWebhookError", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+
+  const mockRecordRateLimitFromApiError = vi.mocked(
+    recordRateLimitFromApiError,
+  );
 
   describe("Gmail errors", () => {
     it("tracks Gmail rate limit errors", async () => {
@@ -87,6 +95,13 @@ describe("handleWebhookError", () => {
           url: "/api/outlook/webhook",
         }),
       );
+      expect(mockRecordRateLimitFromApiError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          apiErrorType: "Outlook Rate Limit",
+          error,
+          emailAccountId: "acc-123",
+        }),
+      );
     });
 
     it("tracks Outlook ApplicationThrottled errors", async () => {
@@ -113,6 +128,27 @@ describe("handleWebhookError", () => {
         ...baseOptions,
         url: "/api/outlook/webhook",
       });
+
+      expect(trackError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          errorType: "Outlook Rate Limit",
+        }),
+      );
+    });
+
+    it("continues processing when rate-limit recording returns no state", async () => {
+      const error = Object.assign(new Error("Too many requests"), {
+        statusCode: 429,
+        code: "TooManyRequests",
+      });
+      mockRecordRateLimitFromApiError.mockResolvedValueOnce(null);
+
+      await expect(
+        handleWebhookError(error, {
+          ...baseOptions,
+          url: "/api/outlook/webhook",
+        }),
+      ).resolves.toBeUndefined();
 
       expect(trackError).toHaveBeenCalledWith(
         expect.objectContaining({

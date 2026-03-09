@@ -173,10 +173,10 @@ export function Pricing() {
 }
 
 interface PricingCardProps {
-  tier: PricingTier;
-  tierIndex: number;
   isAnnual: boolean;
   posthog: PostHog;
+  tier: PricingTier;
+  tierIndex: number;
 }
 
 function PricingCard({ tier, tierIndex, isAnnual, posthog }: PricingCardProps) {

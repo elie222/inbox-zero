@@ -1,4 +1,6 @@
 ---
+name: write-tests
+description: Write focused unit tests for backend and utility logic
 disable-model-invocation: true
 ---
 
@@ -139,4 +141,3 @@ If requested, run coverage to identify gaps:
 ```bash
 cd apps/web && pnpm test --run --coverage -- path/to/file.test.ts
 ```
-

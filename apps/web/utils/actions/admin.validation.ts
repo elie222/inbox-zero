@@ -25,3 +25,13 @@ export const getUserInfoBody = z.object({
   email: z.string().trim().email("Valid email address is required"),
 });
 export type GetUserInfoBody = z.infer<typeof getUserInfoBody>;
+
+export const disableAllRulesBody = z.object({
+  email: z.string().trim().email("Valid email address is required"),
+});
+export type DisableAllRulesBody = z.infer<typeof disableAllRulesBody>;
+
+export const cleanupDraftsBody = z.object({
+  email: z.string().trim().email("Valid email address is required"),
+});
+export type CleanupDraftsBody = z.infer<typeof cleanupDraftsBody>;

@@ -13,6 +13,7 @@ import {
   createOrganizationAndInviteAction,
 } from "@/utils/actions/organization";
 import { isValidEmail } from "@/utils/email";
+import { BRAND_NAME } from "@/utils/branding";
 
 export function StepInviteTeam({
   emailAccountId,
@@ -121,8 +122,7 @@ export function StepInviteTeam({
       <div className="text-center mt-4">
         <PageHeading>Invite your team</PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
-          Collaborate with your team on Inbox Zero. You can always add more
-          members later.
+          {`Collaborate with your team on ${BRAND_NAME}. You can always add more members later.`}
         </TypographyP>
 
         <TagInput

@@ -3,10 +3,10 @@ import { cn } from "@/utils";
 
 interface WordRevealProps {
   children?: string;
-  words?: React.ReactNode[];
-  duration?: number;
   delay?: number;
+  duration?: number;
   spaceBetween?: string;
+  words?: readonly React.ReactNode[];
 }
 
 export function WordReveal({

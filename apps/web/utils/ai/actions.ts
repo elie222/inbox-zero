@@ -373,7 +373,7 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
   const senderEmail = extractEmailAddress(email.headers.from);
   if (!senderEmail) {
     logger.error("Could not extract sender email for notify_sender action");
-    return;
+    return { success: false, errorCode: "MISSING_SENDER_EMAIL" };
   }
 
   const result = await sendColdEmailNotification({
@@ -385,11 +385,17 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
   });
 
   if (!result.success) {
+    const errorCode =
+      result.error === "Resend not configured"
+        ? "RESEND_NOT_CONFIGURED"
+        : "SEND_FAILED";
+
     // Best-effort: don't fail the whole rule run if notification can't be sent.
     logger.error("Cold email notification failed", {
-      senderEmail,
       error: result.error,
+      errorCode,
     });
+    logger.trace("Cold email notification failed sender", { senderEmail });
 
     captureException(
       new Error(result.error ?? "Cold email notification failed"),
@@ -399,8 +405,10 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
         sampleRate: 0.01,
       },
     );
-    return;
+    return { success: false, errorCode };
   }
+
+  return { success: true };
 };
 
 async function lazyUpdateActionLabelId({

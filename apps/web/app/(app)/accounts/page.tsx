@@ -31,6 +31,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { logOut } from "@/utils/user";
 import { getAndClearAuthErrorCookie } from "@/utils/auth-cookies";
 import { getActionErrorMessage } from "@/utils/error";
+import { BRAND_NAME } from "@/utils/branding";
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
@@ -174,31 +175,31 @@ function AccountOptionsDropdown({
           </Link>
         </DropdownMenuItem>
         <ConfirmDialog
-            trigger={
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e?.preventDefault();
-                  e?.stopPropagation?.();
-                }}
-                onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-2 text-destructive focus:text-destructive"
-                disabled={isExecuting}
-              >
-                <Trash2 className="size-4" />
-                Delete
-              </DropdownMenuItem>
-            }
-            title="Delete Account"
-            description={
-              emailAccount.isPrimary
-                ? `Are you sure you want to delete "${emailAccount.email}"? This is your primary account. You will be logged out and need to log in again. Your oldest remaining account will become your new primary account. All data for "${emailAccount.email}" will be permanently deleted from Inbox Zero.`
-                : `Are you sure you want to delete "${emailAccount.email}"? This will delete all data for it on Inbox Zero.`
-            }
-            confirmText="Delete"
-            onConfirm={() => {
-              execute({ emailAccountId: emailAccount.id });
-            }}
-          />
+          trigger={
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e?.preventDefault();
+                e?.stopPropagation?.();
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-2 text-destructive focus:text-destructive"
+              disabled={isExecuting}
+            >
+              <Trash2 className="size-4" />
+              Delete
+            </DropdownMenuItem>
+          }
+          title="Delete Account"
+          description={
+            emailAccount.isPrimary
+              ? `Are you sure you want to delete "${emailAccount.email}"? This is your primary account. You will be logged out and need to log in again. Your oldest remaining account will become your new primary account. All data for "${emailAccount.email}" will be permanently deleted from ${BRAND_NAME}.`
+              : `Are you sure you want to delete "${emailAccount.email}"? This will delete all data for it on ${BRAND_NAME}.`
+          }
+          confirmText="Delete"
+          onConfirm={() => {
+            execute({ emailAccountId: emailAccount.id });
+          }}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -221,13 +222,11 @@ function useAccountNotifications() {
       > = {
         account_not_found_for_merge: {
           title: "Account not found",
-          description:
-            "This account doesn't exist in Inbox Zero yet. Please select 'No, it's a new account' instead.",
+          description: `This account doesn't exist in ${BRAND_NAME} yet. Please select 'No, it's a new account' instead.`,
         },
         account_already_exists_use_merge: {
           title: "Account already exists",
-          description:
-            "This account already exists in Inbox Zero. Please select 'Yes, it's an existing Inbox Zero account' to merge.",
+          description: `This account already exists in ${BRAND_NAME}. Please select 'Yes, it's an existing ${BRAND_NAME} account' to merge.`,
         },
         already_linked_to_self: {
           title: "Account already linked",

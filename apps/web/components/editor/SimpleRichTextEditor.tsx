@@ -11,13 +11,13 @@ import type { EmailLabel } from "@/providers/EmailProvider";
 import "./SimpleRichTextEditor.css";
 
 interface SimpleRichTextEditorProps {
-  placeholder?: string;
   className?: string;
   defaultValue?: string;
-  minHeight?: number;
-  userLabels?: EmailLabel[];
-  onClearContents?: () => void;
   editable?: boolean;
+  minHeight?: number;
+  onClearContents?: () => void;
+  placeholder?: string;
+  userLabels?: EmailLabel[];
 }
 
 export interface SimpleRichTextEditorRef {

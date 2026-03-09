@@ -27,8 +27,8 @@ import { Team } from "@/components/new-landing/icons/Team";
 import Image from "next/image";
 
 interface StartedInMinutesProps {
-  title: React.ReactNode;
   subtitle: React.ReactNode;
+  title: React.ReactNode;
 }
 
 export function StartedInMinutes({ title, subtitle }: StartedInMinutesProps) {

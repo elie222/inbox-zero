@@ -15,24 +15,24 @@ export type Row = {
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
 export interface RowProps {
-  emailAccountId: string;
-  userEmail: string;
-  item: Newsletter;
-  readPercentage: number;
   archivedEmails: number;
   archivedPercentage: number;
-
-  onOpenNewsletter: (row: Newsletter) => void;
+  checked: boolean;
+  emailAccountId: string;
+  filter: NewsletterFilterType;
+  hasUnsubscribeAccess: boolean;
+  item: Newsletter;
   labels: EmailLabel[];
   // biome-ignore lint/suspicious/noExplicitAny: simplest
   mutate: () => Promise<any>;
-  selected: boolean;
-  onSelectRow: () => void;
   onDoubleClick: () => void;
-  hasUnsubscribeAccess: boolean;
-  refetchPremium: () => Promise<UserResponse | null | undefined>;
-  openPremiumModal: () => void;
-  checked: boolean;
+
+  onOpenNewsletter: (row: Newsletter) => void;
+  onSelectRow: () => void;
   onToggleSelect: (id: string, shiftKey?: boolean) => void;
-  filter: NewsletterFilterType;
+  openPremiumModal: () => void;
+  readPercentage: number;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
+  selected: boolean;
+  userEmail: string;
 }

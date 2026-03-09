@@ -4,28 +4,27 @@ export interface CalendarEventAttendee {
 }
 
 export interface CalendarEvent {
-  id: string;
-  title: string;
-  description?: string;
-  location?: string;
-  eventUrl?: string;
-  videoConferenceLink?: string;
-  startTime: Date;
-  endTime: Date;
   attendees: CalendarEventAttendee[];
+  description?: string;
+  endTime: Date;
+  eventUrl?: string;
+  id: string;
+  location?: string;
+  startTime: Date;
+  title: string;
+  videoConferenceLink?: string;
 }
 
 export interface CalendarEventProvider {
+  fetchEvents(options: {
+    timeMin?: Date;
+    timeMax?: Date;
+    maxResults?: number;
+  }): Promise<CalendarEvent[]>;
   fetchEventsWithAttendee(options: {
     attendeeEmail: string;
     timeMin: Date;
     timeMax: Date;
     maxResults: number;
-  }): Promise<CalendarEvent[]>;
-
-  fetchEvents(options: {
-    timeMin?: Date;
-    timeMax?: Date;
-    maxResults?: number;
   }): Promise<CalendarEvent[]>;
 }

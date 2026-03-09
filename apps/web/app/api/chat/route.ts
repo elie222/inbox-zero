@@ -9,6 +9,7 @@ import prisma from "@/utils/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
 import { captureException } from "@/utils/error";
+import { recordChatEntry } from "@/utils/replay/recorder";
 import { messageContextSchema } from "@/app/api/chat/validation";
 import {
   shouldCompact,
@@ -16,21 +17,44 @@ import {
   extractMemories,
   RECENT_MESSAGES_TO_KEEP,
 } from "@/utils/ai/assistant/compact";
-import { getModel } from "@/utils/llms/model";
+import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
+import { formatUtcDate } from "@/utils/date";
+import { mapUiMessagesToChatMessageRows } from "@/app/api/chat/chat-message-persistence";
 
 export const maxDuration = 120;
 
 const textPartSchema = z.object({
+  type: z.literal("text"),
   text: z.string().min(1).max(3000),
-  type: z.enum(["text"]),
 });
+
+const filePartSchema = z.object({
+  type: z.literal("file"),
+  url: z
+    .string()
+    .max(6_000_000)
+    .refine((url) => /^data:image\/(jpeg|png|webp|gif);base64,/.test(url), {
+      message: "URL must be a base64 data URL with an allowed image MIME type",
+    }),
+  filename: z.string().optional(),
+  mediaType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]),
+});
+
+const messagePartSchema = z.discriminatedUnion("type", [
+  textPartSchema,
+  filePartSchema,
+]);
 
 const assistantInputSchema = z.object({
   id: z.string(),
   message: z.object({
     id: z.string(),
     role: z.enum(["user"]),
-    parts: z.array(textPartSchema),
+    parts: z
+      .array(messagePartSchema)
+      .refine((parts) => parts.filter((p) => p.type === "file").length <= 5, {
+        message: "Maximum 5 file attachments per message",
+      }),
   }),
   context: messageContextSchema.optional(),
 });
@@ -41,6 +65,12 @@ export const POST = withEmailAccount("chat", async (request) => {
   const user = await getEmailAccountWithAi({ emailAccountId });
 
   if (!user) return NextResponse.json({ error: "Not authenticated" });
+
+  const inboxStatsPromise = getInboxStatsForChatContext({
+    emailAccountId,
+    provider: user.account.provider,
+    logger: request.logger,
+  });
 
   const json = await request.json();
   const { data, error } = assistantInputSchema.safeParse(json);
@@ -103,9 +133,7 @@ export const POST = withEmailAccount("chat", async (request) => {
     ];
   }
 
-  const { provider } = getModel(user.user, "chat");
-
-  if (shouldCompact(modelMessages, provider)) {
+  if (shouldCompact(modelMessages)) {
     try {
       const preCompactionMessages = modelMessages;
 
@@ -176,12 +204,37 @@ export const POST = withEmailAccount("chat", async (request) => {
     }
   }
 
+  let memories: { content: string; date: string }[] = [];
   try {
+    const recentMemories = await prisma.chatMemory.findMany({
+      where: { emailAccountId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: { content: true, createdAt: true },
+    });
+    memories = recentMemories.map((m) => ({
+      content: m.content,
+      date: formatUtcDate(m.createdAt),
+    }));
+  } catch (error) {
+    request.logger.warn("Failed to load memories for chat", { error });
+  }
+
+  try {
+    const [inboxStats, recordingSession] = await Promise.all([
+      inboxStatsPromise,
+      recordChatEntry(user.email, emailAccountId, data.message),
+    ]);
+
     const result = await aiProcessAssistantChat({
       messages: modelMessages,
       emailAccountId,
       user,
       context,
+      chatId: chat.id,
+      memories,
+      inboxStats,
+      recordingSession,
       logger: request.logger,
     });
 
@@ -245,11 +298,8 @@ async function saveChatMessages(
 ) {
   try {
     return prisma.chatMessage.createMany({
-      data: messages.map((message) => ({
-        chatId,
-        role: message.role,
-        parts: message.parts as Prisma.InputJsonValue,
-      })),
+      data: mapUiMessagesToChatMessageRows(messages, chatId),
+      skipDuplicates: true,
     });
   } catch (error) {
     logger.error("Failed to save chat messages", { error, chatId });

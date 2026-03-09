@@ -1,8 +1,8 @@
 import type { SVGProps } from "react";
 
 interface SparkleProps extends SVGProps<SVGSVGElement> {
-  size?: number;
   "aria-label"?: string;
+  size?: number;
 }
 
 export function Sparkle({

@@ -10,6 +10,8 @@ import { createRuleHistory } from "@/utils/rule/rule-history";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
+import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 
 export function partialUpdateRule({
   ruleId,
@@ -207,17 +209,42 @@ export async function upsertSystemRule({
   } else {
     logger.info("Creating new system rule");
 
-    const rule = await prisma.rule.create({
-      data: {
-        ...data,
-        emailAccountId,
-        actions: { createMany: { data: actions } },
-      },
-      include: { actions: true, group: true },
-    });
+    try {
+      const rule = await prisma.rule.create({
+        data: {
+          ...data,
+          emailAccountId,
+          actions: { createMany: { data: actions } },
+        },
+        include: { actions: true, group: true },
+      });
 
-    await createRuleHistory({ rule, triggerType: "created" });
-    return rule;
+      await createRuleHistory({ rule, triggerType: "created" });
+      return rule;
+    } catch (error) {
+      if (!isDuplicateError(error, "name")) throw error;
+
+      logger.info("Rule already exists (race condition), updating instead");
+      const existing = await prisma.rule.findFirst({
+        where: { emailAccountId, name },
+      });
+      if (!existing) throw error;
+
+      const rule = await prisma.rule.update({
+        where: { id: existing.id },
+        data: {
+          ...data,
+          actions: {
+            deleteMany: {},
+            createMany: { data: actions },
+          },
+        },
+        include: { actions: true, group: true },
+      });
+
+      await createRuleHistory({ rule, triggerType: "updated" });
+      return rule;
+    }
   }
 }
 
@@ -280,10 +307,13 @@ function shouldEnable(rule: CreateOrUpdateRuleSchema, actions: RiskAction[]) {
   )
     return false;
 
-  // Don't automate sending or replying to emails
+  // Don't automate sending, replying, or forwarding emails
   if (
     rule.actions.find(
-      (a) => a.type === ActionType.REPLY || a.type === ActionType.SEND_EMAIL,
+      (a) =>
+        a.type === ActionType.REPLY ||
+        a.type === ActionType.SEND_EMAIL ||
+        a.type === ActionType.FORWARD,
     )
   )
     return false;
@@ -306,6 +336,16 @@ async function mapActionFields(
 ) {
   const actionPromises = actions.map(
     async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
+      const to = a.fields?.to?.trim() || null;
+      const recipientMessage = getMissingRecipientMessage({
+        actionType: a.type,
+        recipient: to,
+        sendEmailMessage:
+          "SEND_EMAIL action requires a recipient in the to field. Use REPLY for automatic responses.",
+        forwardMessage: "FORWARD action requires a recipient in the to field.",
+      });
+      if (recipientMessage) throw new Error(recipientMessage);
+
       let label = a.fields?.label;
       let labelId: string | null = null;
       const folderName =
@@ -347,7 +387,7 @@ async function mapActionFields(
         type: a.type,
         label,
         labelId,
-        to: a.fields?.to,
+        to,
         cc: a.fields?.cc,
         bcc: a.fields?.bcc,
         subject: a.fields?.subject,

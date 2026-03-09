@@ -36,6 +36,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { MutedText } from "@/components/Typography";
+import { BRAND_NAME } from "@/utils/branding";
 
 export function ReplyTrackerEmails({
   trackers,
@@ -522,8 +523,7 @@ function useReplyTrackerKeyboardNav(
 function showReplyNotSupportedToast() {
   toastInfo({
     title: "Reply in your email client",
-    description:
-      "Please use your email client to reply. Replying from within Inbox Zero not yet supported for Microsoft accounts.",
+    description: `Please use your email client to reply. Replying from within ${BRAND_NAME} not yet supported for Microsoft accounts.`,
     duration: 5000,
   });
 }

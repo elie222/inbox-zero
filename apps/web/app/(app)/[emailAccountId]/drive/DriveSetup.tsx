@@ -65,6 +65,7 @@ import { DriveConnectionCard, getProviderInfo } from "./DriveConnectionCard";
 import type { AttachmentPreviewItem } from "@/app/api/user/drive/preview/attachments/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { getEmailUrlForMessage } from "@/utils/url";
+import { AlertBasic } from "@/components/Alert";
 
 type SetupPhase = "setup" | "loading-attachments" | "preview" | "starting";
 
@@ -83,7 +84,7 @@ export function DriveSetup() {
     data: foldersData,
     isLoading: foldersLoading,
     mutate: mutateFolders,
-  } = useDriveFolders();
+  } = useDriveFolders(emailAccountId);
   const { data: emailAccount, mutate: mutateEmail } = useEmailAccountFull();
 
   const connections = connectionsData?.connections || [];
@@ -178,20 +179,31 @@ export function DriveSetup() {
 
   const handleStartFiling = useCallback(async () => {
     setUserPhase("starting");
+    try {
+      const result = await updateFilingEnabledAction(emailAccountId, {
+        filingEnabled: true,
+      });
 
-    const result = await updateFilingEnabledAction(emailAccountId, {
-      filingEnabled: true,
-    });
+      if (result?.serverError) {
+        toastError({
+          title: "Error starting auto-filing",
+          description: result.serverError,
+        });
+        setUserPhase("previewing");
+        return;
+      }
 
-    if (result?.serverError) {
+      toastSuccess({ description: "Auto-filing started!" });
+      await mutateEmail();
+    } catch (error) {
       toastError({
         title: "Error starting auto-filing",
-        description: result.serverError,
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred while starting auto-filing.",
       });
       setUserPhase("previewing");
-    } else {
-      toastSuccess({ description: "Auto-filing started!" });
-      mutateEmail();
     }
   }, [emailAccountId, mutateEmail]);
 
@@ -222,6 +234,7 @@ export function DriveSetup() {
           emailAccountId={emailAccountId}
           availableFolders={foldersData?.availableFolders || []}
           savedFolders={foldersData?.savedFolders || []}
+          staleFolderCount={foldersData?.staleFolderDbIds.length || 0}
           connections={connections}
           mutateFolders={mutateFolders}
           isLoading={foldersLoading}
@@ -619,6 +632,7 @@ function SetupFolderSelection({
   emailAccountId,
   availableFolders,
   savedFolders,
+  staleFolderCount,
   connections,
   mutateFolders,
   isLoading,
@@ -626,6 +640,7 @@ function SetupFolderSelection({
   emailAccountId: string;
   availableFolders: FolderItem[];
   savedFolders: SavedFolder[];
+  staleFolderCount: number;
   connections: Array<{ id: string; provider: string }>;
   mutateFolders: () => void;
   isLoading: boolean;
@@ -743,6 +758,14 @@ function SetupFolderSelection({
           (We'll only ever put files in folders you select)
         </span>
       </MutedText>
+      {staleFolderCount > 0 && (
+        <AlertBasic
+          className="mt-4"
+          variant="blue"
+          title="Deleted folders detected"
+          description={`Removed ${staleFolderCount} deleted folder${staleFolderCount === 1 ? "" : "s"} from your saved list.`}
+        />
+      )}
 
       <LoadingContent loading={isLoading} error={undefined}>
         {rootFolders.length > 0 ? (
@@ -763,7 +786,6 @@ function SetupFolderSelection({
                       isLast={index === rootFolders.length - 1}
                       selectedFolderIds={optimisticFolderIds}
                       onToggle={handleFolderToggle}
-                      isDisabled={false}
                       level={0}
                       parentPath=""
                       knownChildren={folderChildrenMap.get(folder.id)}

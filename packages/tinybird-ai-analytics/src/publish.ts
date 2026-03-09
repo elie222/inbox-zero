@@ -3,11 +3,16 @@ import { getTinybird } from "./client";
 
 const tinybirdAiCall = z.object({
   userId: z.string(),
+  emailAccountId: z.string(),
   timestamp: z.number(), // date
   totalTokens: z.number().int(),
   completionTokens: z.number().int(),
   promptTokens: z.number().int(),
+  cachedInputTokens: z.number().int(),
+  reasoningTokens: z.number().int(),
   cost: z.number(),
+  estimatedCost: z.number(),
+  isUserApiKey: z.number().int(),
   model: z.string(),
   provider: z.string(),
   label: z.string().optional(),

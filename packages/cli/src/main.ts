@@ -19,6 +19,7 @@ import {
 import { runGoogleSetup } from "./setup-google";
 import { runAwsSetup } from "./setup-aws";
 import { runTerraformSetup } from "./setup-terraform";
+import { formatPortConfigNote, resolveSetupPorts } from "./setup-ports";
 import packageJson from "../package.json" with { type: "json" };
 
 // Detect if we're running from within the repo
@@ -136,7 +137,7 @@ async function main() {
     .description(
       "CLI tool for self-hosting Inbox Zero — AI email assistant.\n\n" +
         "Quick start:\n" +
-        "  inbox-zero setup      Configure Google OAuth, AI provider, and Docker\n" +
+        "  inbox-zero setup      Configure OAuth providers, AI provider, and Docker\n" +
         "  inbox-zero start      Start Inbox Zero\n" +
         "  inbox-zero config     View and update settings\n\n" +
         "Docs: https://docs.getinboxzero.com/self-hosting",
@@ -238,20 +239,23 @@ async function main() {
     .option("--redis-instance-class <class>", "Redis instance class")
     .option("--llm-provider <provider>", "Default LLM provider")
     .option("--llm-model <model>", "Default LLM model")
+    .option("--llm-api-key <key>", "Shared LLM API key")
     .option("--google-client-id <id>", "Google OAuth client ID")
     .option("--google-client-secret <secret>", "Google OAuth client secret")
     .option("--google-pubsub-topic-name <name>", "Google Pub/Sub topic name")
-    .option("--anthropic-api-key <key>", "Anthropic API key")
-    .option("--openai-api-key <key>", "OpenAI API key")
-    .option("--google-api-key <key>", "Google Gemini API key")
-    .option("--openrouter-api-key <key>", "OpenRouter API key")
-    .option("--groq-api-key <key>", "Groq API key")
-    .option("--ai-gateway-api-key <key>", "AI Gateway API key")
     .option("--bedrock-access-key <key>", "AWS access key for Bedrock")
     .option("--bedrock-secret-key <key>", "AWS secret key for Bedrock")
     .option("--bedrock-region <region>", "AWS region for Bedrock")
     .option("--ollama-base-url <url>", "Ollama base URL")
     .option("--ollama-model <model>", "Ollama model name")
+    .option(
+      "--openai-compatible-base-url <url>",
+      "OpenAI-compatible server base URL",
+    )
+    .option(
+      "--openai-compatible-model <model>",
+      "OpenAI-compatible server model name",
+    )
     .option("--microsoft-client-id <id>", "Microsoft OAuth client ID")
     .option(
       "--microsoft-client-secret <secret>",
@@ -283,6 +287,11 @@ function stripSetupAwsDoubleDash(argv: string[]) {
 
 async function runSetup(options: { name?: string }) {
   p.intro("Inbox Zero Setup");
+  p.note(
+    "Quick setup uses production defaults with Docker Compose infrastructure\n" +
+      "(Postgres + Redis) and runs the web app in Docker.",
+    "Quick Setup Includes",
+  );
 
   const mode = await p.select({
     message: "How would you like to set up?",
@@ -290,7 +299,7 @@ async function runSetup(options: { name?: string }) {
       {
         value: "quick",
         label: "Quick setup",
-        hint: "just the essentials, we handle the rest",
+        hint: "production defaults with Docker Postgres + Redis",
       },
       {
         value: "custom",
@@ -319,63 +328,151 @@ async function runSetupQuick(options: { name?: string }) {
   const configName = options.name;
 
   requireDocker();
-
-  // ── Step 1: Google OAuth ──
-
-  const callbackUrl = "http://localhost:3000/api/auth/callback/google";
-  const linkingCallbackUrl =
-    "http://localhost:3000/api/google/linking/callback";
+  const { webPort, postgresPort, redisPort, redisHttpPort, changedPorts } =
+    await resolveSetupPorts({ useDockerInfra: true });
+  const portConfigNote = formatPortConfigNote(changedPorts);
+  if (portConfigNote) {
+    p.note(portConfigNote, "Port Configuration");
+  }
 
   p.note(
-    "You need a Google OAuth app to connect your Gmail.\n\n" +
-      "First, set up the OAuth consent screen:\n" +
-      "1. Open: https://console.cloud.google.com/apis/credentials/consent\n" +
-      "2. User type:\n" +
-      '   - "Internal" — Google Workspace only, all org members can sign in\n' +
-      '   - "External" — works with any Google account (including personal Gmail)\n' +
-      "     You'll need to add yourself as a test user (step 5)\n" +
-      "3. Fill in the app name and your email\n" +
-      '4. Click "Save and Continue" through the scopes section\n' +
-      "5. If External: add your email as a test user\n" +
-      "6. Complete the wizard\n\n" +
-      "Then, create OAuth credentials:\n" +
-      "7. Open: https://console.cloud.google.com/apis/credentials\n" +
-      `8. Click "Create Credentials" → "OAuth client ID"\n` +
-      `9. Select "Web application"\n` +
-      `10. Under "Authorized redirect URIs" add:\n` +
-      `    ${callbackUrl}\n` +
-      `    ${linkingCallbackUrl}\n` +
-      "11. Copy the Client ID and Client Secret\n\n" +
-      "If External: you'll see a \"This app isn't verified\" warning when\n" +
-      'signing in. Click "Advanced" then "Go to [app name]" to proceed.\n\n' +
-      "Full guide: https://docs.getinboxzero.com/hosting/setup-guides",
-    "Step 1 of 4: Google OAuth",
+    "Choose the email provider(s) you want to enable now.\n" +
+      "You can add or change providers later with: inbox-zero config",
+    "Step 1: OAuth Providers",
   );
 
-  const googleClientId = await p.text({
-    message: "Google Client ID",
-    placeholder: "paste your Client ID here",
+  const oauthProviders = await p.multiselect({
+    message: "Which OAuth providers do you want to configure?",
+    options: [
+      { value: "google", label: "Google (Gmail)" },
+      { value: "microsoft", label: "Microsoft (Outlook)" },
+    ],
+    required: true,
   });
-  if (p.isCancel(googleClientId)) {
+
+  if (p.isCancel(oauthProviders)) {
     p.cancel("Setup cancelled.");
     process.exit(0);
   }
 
-  const googleClientSecret = await p.text({
-    message: "Google Client Secret",
-    placeholder: "paste your Client Secret here",
-  });
-  if (p.isCancel(googleClientSecret)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
+  const wantsGoogle = oauthProviders.includes("google");
+  const wantsMicrosoft = oauthProviders.includes("microsoft");
+
+  let googleClientId = "";
+  let googleClientSecret = "";
+  if (wantsGoogle) {
+    const callbackUrl = `http://localhost:${webPort}/api/auth/callback/google`;
+    const linkingCallbackUrl = `http://localhost:${webPort}/api/google/linking/callback`;
+
+    p.note(
+      "You need a Google OAuth app to connect your Gmail.\n\n" +
+        "First, set up the OAuth consent screen:\n" +
+        "1. Open: https://console.cloud.google.com/apis/credentials/consent\n" +
+        "2. User type:\n" +
+        '   - "Internal" — Google Workspace only, all org members can sign in\n' +
+        '   - "External" — works with any Google account (including personal Gmail)\n' +
+        "     You'll need to add yourself as a test user (step 5)\n" +
+        "3. Fill in the app name and your email\n" +
+        '4. Click "Save and Continue" through the scopes section\n' +
+        "5. If External: add your email as a test user\n" +
+        "6. Complete the wizard\n\n" +
+        "Then, create OAuth credentials:\n" +
+        "7. Open: https://console.cloud.google.com/apis/credentials\n" +
+        `8. Click "Create Credentials" → "OAuth client ID"\n` +
+        `9. Select "Web application"\n` +
+        `10. Under "Authorized redirect URIs" add:\n` +
+        `    ${callbackUrl}\n` +
+        `    ${linkingCallbackUrl}\n` +
+        "11. Copy the Client ID and Client Secret\n\n" +
+        "If External: you'll see a \"This app isn't verified\" warning when\n" +
+        'signing in. Click "Advanced" then "Go to [app name]" to proceed.\n\n' +
+        "Full guide: https://docs.getinboxzero.com/hosting/setup-guides",
+      "Google OAuth",
+    );
+
+    const googleClientIdResult = await p.text({
+      message: "Google Client ID",
+      placeholder: "paste your Client ID here",
+    });
+    if (p.isCancel(googleClientIdResult)) {
+      p.cancel("Setup cancelled.");
+      process.exit(0);
+    }
+    googleClientId = googleClientIdResult;
+
+    const googleClientSecretResult = await p.text({
+      message: "Google Client Secret",
+      placeholder: "paste your Client Secret here",
+    });
+    if (p.isCancel(googleClientSecretResult)) {
+      p.cancel("Setup cancelled.");
+      process.exit(0);
+    }
+    googleClientSecret = googleClientSecretResult;
   }
 
-  // ── Step 2: LLM Provider ──
+  let microsoftClientId = "";
+  let microsoftClientSecret = "";
+  let microsoftTenantId = "common";
+  if (wantsMicrosoft) {
+    const microsoftCallbackUrl = `http://localhost:${webPort}/api/auth/callback/microsoft`;
+    const microsoftLinkingCallbackUrl = `http://localhost:${webPort}/api/outlook/linking/callback`;
+    const microsoftCalendarCallbackUrl = `http://localhost:${webPort}/api/outlook/calendar/callback`;
 
-  p.note(
-    "Choose which AI service will process your emails.",
-    "Step 2 of 4: AI Provider",
-  );
+    p.note(
+      "You need a Microsoft app registration to connect Outlook.\n\n" +
+        "1. Open: https://portal.azure.com/\n" +
+        "2. Go to App registrations → New registration\n" +
+        '3. Set account type to "Accounts in any organizational directory and personal Microsoft accounts"\n' +
+        "4. Add redirect URIs:\n" +
+        `   ${microsoftCallbackUrl}\n` +
+        `   ${microsoftLinkingCallbackUrl}\n` +
+        `   ${microsoftCalendarCallbackUrl}\n` +
+        "5. Go to Certificates & secrets → New client secret\n" +
+        "6. Copy Application (client) ID and secret value\n\n" +
+        'Tenant ID tip: use "common" for most setups.\n' +
+        "Use a specific tenant ID only if your organization requires\n" +
+        "single-tenant sign-in.\n\n" +
+        "Full guide: https://docs.getinboxzero.com/hosting/setup-guides#microsoft-oauth-setup",
+      "Microsoft OAuth",
+    );
+
+    const microsoftOAuth = await p.group(
+      {
+        clientId: () =>
+          p.text({
+            message: "Microsoft Client ID",
+            placeholder: "paste your Client ID here",
+          }),
+        clientSecret: () =>
+          p.text({
+            message: "Microsoft Client Secret",
+            placeholder: "paste your Client Secret here",
+          }),
+        tenantId: () =>
+          p.text({
+            message:
+              'Microsoft Tenant ID (default: "common"; use specific tenant for single-tenant orgs)',
+            placeholder: "common",
+            initialValue: "common",
+          }),
+      },
+      {
+        onCancel: () => {
+          p.cancel("Setup cancelled.");
+          process.exit(0);
+        },
+      },
+    );
+
+    microsoftClientId = microsoftOAuth.clientId || "";
+    microsoftClientSecret = microsoftOAuth.clientSecret || "";
+    microsoftTenantId = microsoftOAuth.tenantId || "common";
+  }
+
+  // ── AI Provider ──
+
+  p.note("Choose which AI service will process your emails.", "AI Provider");
 
   const llmProvider = await p.select({
     message: "AI Provider",
@@ -387,47 +484,42 @@ async function runSetupQuick(options: { name?: string }) {
   const llmEnv: EnvConfig = { DEFAULT_LLM_PROVIDER: llmProvider };
   await promptLlmCredentials(llmProvider, llmEnv);
 
-  // ── Step 3: Google Pub/Sub ──
-
   // Generate token early so we can show it in the instructions
   const pubsubVerificationToken = generateSecret(32);
+  let pubsubTopic = "";
 
-  p.note(
-    "Google Pub/Sub enables real-time email notifications.\n\n" +
-      "1. Go to: https://console.cloud.google.com/cloudpubsub/topic/list\n" +
-      '2. Create a topic (e.g., "inbox-zero-emails")\n' +
-      "3. Grant Gmail publish access to your topic:\n" +
-      "   - Click your topic name to open it\n" +
-      '   - Go to the "Permissions" tab\n' +
-      '   - Click "Add Principal"\n' +
-      "   - Principal: gmail-api-push@system.gserviceaccount.com\n" +
-      '   - Role: "Pub/Sub Publisher"\n' +
-      '   - Click "Save"\n' +
-      "4. Create a push subscription:\n" +
-      '   - Click "Create Subscription"\n' +
-      '   - Delivery type: "Push"\n' +
-      "   - Endpoint URL:\n" +
-      `     https://yourdomain.com/api/google/webhook?token=${pubsubVerificationToken}\n` +
-      "     (replace yourdomain.com with your actual domain)\n\n" +
-      "Press Enter to skip — configure later with: inbox-zero config",
-    "Step 3 of 4: Google Pub/Sub (optional)",
-  );
+  if (wantsGoogle) {
+    p.note(
+      "Google Pub/Sub enables real-time email notifications.\n\n" +
+        "1. Go to: https://console.cloud.google.com/cloudpubsub/topic/list\n" +
+        '2. Create a topic (e.g., "inbox-zero-emails")\n' +
+        "3. Grant Gmail publish access to your topic:\n" +
+        "   - Add principal: gmail-api-push@system.gserviceaccount.com\n" +
+        '   - Role: "Pub/Sub Publisher"\n' +
+        "4. Create a push subscription using this endpoint:\n" +
+        `   https://yourdomain.com/api/google/webhook?token=${pubsubVerificationToken}\n` +
+        "5. Paste the topic name below (or press Enter to skip for now)\n\n" +
+        "Full guide: https://docs.getinboxzero.com/hosting/setup-guides#google-pubsub-setup",
+      "Google Pub/Sub (optional)",
+    );
 
-  const pubsubTopic = await p.text({
-    message: "Google Pub/Sub Topic Name",
-    placeholder: "projects/your-project-id/topics/inbox-zero-emails",
-    validate: (v) => {
-      if (!v) return undefined;
-      if (!v.startsWith("projects/") || !v.includes("/topics/")) {
-        return "Topic name must be in format: projects/PROJECT_ID/topics/TOPIC_NAME";
-      }
-      return undefined;
-    },
-  });
+    const pubsubTopicResult = await p.text({
+      message: "Google Pub/Sub Topic Name",
+      placeholder: "projects/your-project-id/topics/inbox-zero-emails",
+      validate: (v) => {
+        if (!v) return undefined;
+        if (!v.startsWith("projects/") || !v.includes("/topics/")) {
+          return "Topic name must be in format: projects/PROJECT_ID/topics/TOPIC_NAME";
+        }
+        return undefined;
+      },
+    });
 
-  if (p.isCancel(pubsubTopic)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
+    if (p.isCancel(pubsubTopicResult)) {
+      p.cancel("Setup cancelled.");
+      process.exit(0);
+    }
+    pubsubTopic = pubsubTopicResult;
   }
 
   // ── Generate config ──
@@ -470,6 +562,10 @@ async function runSetupQuick(options: { name?: string }) {
     POSTGRES_USER: "postgres",
     POSTGRES_PASSWORD: dbPassword,
     POSTGRES_DB: "inboxzero",
+    POSTGRES_PORT: postgresPort,
+    REDIS_PORT: redisPort,
+    REDIS_HTTP_PORT: redisHttpPort,
+    WEB_PORT: webPort,
     DATABASE_URL: `postgresql://postgres:${dbPassword}@db:5432/inboxzero`,
     UPSTASH_REDIS_TOKEN: redisToken,
     UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
@@ -483,14 +579,29 @@ async function runSetupQuick(options: { name?: string }) {
     CRON_SECRET: generateSecret(32),
     GOOGLE_PUBSUB_VERIFICATION_TOKEN: pubsubVerificationToken,
     // Google OAuth
-    GOOGLE_CLIENT_ID: googleClientId || "your-google-client-id",
-    GOOGLE_CLIENT_SECRET: googleClientSecret || "your-google-client-secret",
+    GOOGLE_CLIENT_ID: wantsGoogle
+      ? googleClientId || "your-google-client-id"
+      : "skipped",
+    GOOGLE_CLIENT_SECRET: wantsGoogle
+      ? googleClientSecret || "your-google-client-secret"
+      : "skipped",
     GOOGLE_PUBSUB_TOPIC_NAME:
       pubsubTopic || "projects/your-project-id/topics/inbox-zero-emails",
+    // Microsoft OAuth
+    MICROSOFT_CLIENT_ID: wantsMicrosoft
+      ? microsoftClientId || "your-microsoft-client-id"
+      : undefined,
+    MICROSOFT_CLIENT_SECRET: wantsMicrosoft
+      ? microsoftClientSecret || "your-microsoft-client-secret"
+      : undefined,
+    MICROSOFT_TENANT_ID: wantsMicrosoft ? microsoftTenantId : undefined,
+    MICROSOFT_WEBHOOK_CLIENT_STATE: wantsMicrosoft
+      ? generateSecret(32)
+      : undefined,
     // LLM
     ...llmEnv,
     // App
-    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+    NEXT_PUBLIC_BASE_URL: `http://localhost:${webPort}`,
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
   };
 
@@ -564,7 +675,7 @@ async function runSetupQuick(options: { name?: string }) {
     });
     if (p.isCancel(restart) || !restart) {
       p.note(
-        "Inbox Zero is still running at http://localhost:3000",
+        `Inbox Zero is still running at http://localhost:${webPort}`,
         "Already running",
       );
       p.outro("Setup complete!");
@@ -621,7 +732,7 @@ async function runSetupQuick(options: { name?: string }) {
   startSpinner.stop("Inbox Zero is running!");
 
   p.note(
-    "Open http://localhost:3000 to get started.\n\n" +
+    `Open http://localhost:${webPort} to get started.\n\n` +
       "Useful commands:\n" +
       "  inbox-zero config    — update settings (e.g. add Pub/Sub token)\n" +
       "  inbox-zero logs -f   — view live logs\n" +
@@ -646,14 +757,14 @@ async function runSetupAdvanced(options: { name?: string }) {
     message: "What environment are you setting up?",
     options: [
       {
+        value: "production",
+        label: "Production",
+        hint: "deployed or self-hosted (recommended)",
+      },
+      {
         value: "development",
         label: "Development",
         hint: "local dev with pnpm dev",
-      },
-      {
-        value: "production",
-        label: "Production",
-        hint: "deployed or self-hosted",
       },
     ],
   });
@@ -666,18 +777,24 @@ async function runSetupAdvanced(options: { name?: string }) {
   const isDevMode = envMode === "development";
 
   // Ask about infrastructure
+  p.note(
+    "Recommended for first-time self-hosting: use Docker Compose for Postgres/Redis.\n" +
+      "Then run everything in Docker unless you plan to run the web app from this repo with pnpm.",
+    "Infrastructure Recommendation",
+  );
+
   const infraChoice = await p.select({
     message: "How do you want to run PostgreSQL and Redis?",
     options: [
       {
         value: "docker",
         label: "Docker Compose",
-        hint: "spin up containers locally",
+        hint: "recommended for most self-hosted setups",
       },
       {
         value: "external",
         label: "External / Bring your own",
-        hint: "use existing database & Redis",
+        hint: "use existing managed Postgres + Redis",
       },
     ],
   });
@@ -692,28 +809,37 @@ async function runSetupAdvanced(options: { name?: string }) {
   // Ask if running full stack in Docker (only relevant for Docker infra)
   let runWebInDocker = false;
   if (useDockerInfra) {
-    const fullStackDocker = await p.select({
-      message: "Do you want to run the full stack in Docker?",
-      options: [
-        {
-          value: "no",
-          label: "No, just database & Redis",
-          hint: "I'll run Next.js separately with pnpm",
-        },
-        {
-          value: "yes",
-          label: "Yes, everything in Docker",
-          hint: "docker compose --profile all",
-        },
-      ],
-    });
+    if (!REPO_ROOT) {
+      runWebInDocker = true;
+      p.note(
+        "You're running setup outside the source repo, so the web app will run in Docker.\n" +
+          "If you want to run Next.js with pnpm, clone the repo and run setup there.",
+        "Web Runtime",
+      );
+    } else {
+      const fullStackDocker = await p.select({
+        message: "Do you want to run the full stack in Docker?",
+        options: [
+          {
+            value: "yes",
+            label: "Yes, everything in Docker",
+            hint: "recommended for production: docker compose --profile all",
+          },
+          {
+            value: "no",
+            label: "No, just database & Redis",
+            hint: "run Next.js separately with pnpm (repo mode only)",
+          },
+        ],
+      });
 
-    if (p.isCancel(fullStackDocker)) {
-      p.cancel("Setup cancelled.");
-      process.exit(0);
+      if (p.isCancel(fullStackDocker)) {
+        p.cancel("Setup cancelled.");
+        process.exit(0);
+      }
+
+      runWebInDocker = fullStackDocker === "yes";
     }
-
-    runWebInDocker = fullStackDocker === "yes";
   }
 
   if (useDockerInfra) {
@@ -746,11 +872,12 @@ async function runSetupAdvanced(options: { name?: string }) {
   }
 
   const env: EnvConfig = {};
-
-  // Default ports
-  const webPort = "3000";
-  const postgresPort = "5432";
-  const redisPort = "8079";
+  const { webPort, postgresPort, redisPort, redisHttpPort, changedPorts } =
+    await resolveSetupPorts({ useDockerInfra });
+  const portConfigNote = formatPortConfigNote(changedPorts);
+  if (portConfigNote) {
+    p.note(portConfigNote, "Port Configuration");
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // OAuth Providers
@@ -949,6 +1076,10 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       readExistingDbPassword(envFile) ||
       (isDevMode ? "password" : generateSecret(16));
     env.POSTGRES_DB = "inboxzero";
+    env.POSTGRES_PORT = postgresPort;
+    env.REDIS_PORT = redisPort;
+    env.REDIS_HTTP_PORT = redisHttpPort;
+    env.WEB_PORT = webPort;
     env.UPSTASH_REDIS_TOKEN = redisToken;
 
     if (runWebInDocker) {
@@ -961,7 +1092,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       // Web app runs on host: containers expose ports to localhost
       env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
-      env.UPSTASH_REDIS_URL = `http://localhost:${redisPort}`;
+      env.UPSTASH_REDIS_URL = `http://localhost:${redisHttpPort}`;
       env.INTERNAL_API_URL = `http://localhost:${webPort}`;
     }
   } else {
@@ -1179,12 +1310,7 @@ async function runStart(options: { detach: boolean }) {
       spinner.stop("Failed to start");
       if (portError) {
         p.log.error(portError);
-        p.log.info(
-          "Stop the conflicting process or change the port:\n" +
-            "  inbox-zero config set WEB_PORT <port>\n" +
-            "  inbox-zero config set POSTGRES_PORT <port>\n" +
-            "  inbox-zero config set REDIS_PORT <port>",
-        );
+        logPortConflictGuidance();
       } else {
         p.log.error(upResult.stderr || "Unknown error");
       }
@@ -1198,7 +1324,8 @@ async function runStart(options: { detach: boolean }) {
     if (existsSync(STANDALONE_ENV_FILE)) {
       try {
         const envContent = readFileSync(STANDALONE_ENV_FILE, "utf-8");
-        webPort = envContent.match(/WEB_PORT=(\d+)/)?.[1] || webPort;
+        const parsedEnv = parseEnvFile(envContent);
+        webPort = parsedEnv.WEB_PORT || webPort;
       } catch {
         // Use default port if env file can't be read
       }
@@ -1375,12 +1502,7 @@ async function runUpdate() {
       spinner.stop("Failed to restart");
       if (portError) {
         p.log.error(portError);
-        p.log.info(
-          "Stop the conflicting process or change the port:\n" +
-            "  inbox-zero config set WEB_PORT <port>\n" +
-            "  inbox-zero config set POSTGRES_PORT <port>\n" +
-            "  inbox-zero config set REDIS_PORT <port>",
-        );
+        logPortConflictGuidance();
       } else {
         p.log.error(upResult.stderr || "Unknown error");
       }
@@ -1423,12 +1545,7 @@ const CONFIG_CATEGORIES: Record<
     keys: [
       "DEFAULT_LLM_PROVIDER",
       "DEFAULT_LLM_MODEL",
-      "ANTHROPIC_API_KEY",
-      "OPENAI_API_KEY",
-      "GOOGLE_API_KEY",
-      "OPENROUTER_API_KEY",
-      "AI_GATEWAY_API_KEY",
-      "GROQ_API_KEY",
+      "LLM_API_KEY",
       "BEDROCK_ACCESS_KEY",
       "BEDROCK_SECRET_KEY",
       "BEDROCK_REGION",
@@ -1442,6 +1559,10 @@ const CONFIG_CATEGORIES: Record<
       "UPSTASH_REDIS_URL",
       "UPSTASH_REDIS_TOKEN",
     ],
+  },
+  "Local Ports": {
+    description: "Docker host port bindings",
+    keys: ["WEB_PORT", "POSTGRES_PORT", "REDIS_PORT", "REDIS_HTTP_PORT"],
   },
   "App Settings": {
     description: "Application URL and feature flags",
@@ -1612,6 +1733,11 @@ const LLM_PROVIDER_OPTIONS = [
   { value: "bedrock", label: "AWS Bedrock" },
   { value: "groq", label: "Groq" },
   { value: "ollama", label: "Ollama", hint: "self-hosted" },
+  {
+    value: "openai-compatible",
+    label: "OpenAI-Compatible",
+    hint: "self-hosted (LM Studio, vLLM, etc.)",
+  },
 ];
 
 const LLM_LINKS: Record<string, string> = {
@@ -1648,15 +1774,6 @@ const DEFAULT_MODELS: Record<string, { default: string; economy: string }> = {
   },
 };
 
-const API_KEY_ENV_VAR: Record<string, string> = {
-  anthropic: "ANTHROPIC_API_KEY",
-  openai: "OPENAI_API_KEY",
-  google: "GOOGLE_API_KEY",
-  openrouter: "OPENROUTER_API_KEY",
-  aigateway: "AI_GATEWAY_API_KEY",
-  groq: "GROQ_API_KEY",
-};
-
 function cancelSetup(): never {
   p.cancel("Setup cancelled.");
   process.exit(0);
@@ -1677,7 +1794,8 @@ async function promptOllamaCreds(): Promise<{
       model: () =>
         p.text({
           message: "Ollama Model",
-          placeholder: "llama3.1",
+          placeholder: "qwen3.5:4b",
+          initialValue: "qwen3.5:4b",
           validate: (v) => (!v ? "Model name is required" : undefined),
         }),
     },
@@ -1686,6 +1804,41 @@ async function promptOllamaCreds(): Promise<{
   return {
     baseUrl: creds.baseUrl || "http://localhost:11434",
     model: creds.model,
+  };
+}
+
+async function promptOpenAICompatibleCreds(): Promise<{
+  baseUrl: string;
+  model: string;
+  apiKey?: string;
+}> {
+  const creds = await p.group(
+    {
+      baseUrl: () =>
+        p.text({
+          message: "OpenAI-Compatible Base URL",
+          placeholder: "http://localhost:1234/v1",
+          initialValue: "http://localhost:1234/v1",
+        }),
+      model: () =>
+        p.text({
+          message: "Model Name",
+          placeholder: "qwen3.5:4b",
+          initialValue: "qwen3.5:4b",
+          validate: (v) => (!v ? "Model name is required" : undefined),
+        }),
+      apiKey: () =>
+        p.text({
+          message: "API Key (optional — press Enter to skip)",
+          placeholder: "leave blank if not required",
+        }),
+    },
+    { onCancel: cancelSetup },
+  );
+  return {
+    baseUrl: creds.baseUrl || "http://localhost:1234/v1",
+    model: creds.model,
+    apiKey: creds.apiKey || undefined,
   };
 }
 
@@ -1742,10 +1895,16 @@ async function promptLlmCredentials(
   provider: string,
   env: EnvConfig,
 ): Promise<void> {
-  if (provider === "ollama") {
+  if (provider === "openai-compatible") {
+    const creds = await promptOpenAICompatibleCreds();
+    env.OPENAI_COMPATIBLE_BASE_URL = creds.baseUrl;
+    if (creds.apiKey) env.LLM_API_KEY = creds.apiKey;
+    env.DEFAULT_LLM_MODEL = creds.model;
+    env.ECONOMY_LLM_PROVIDER = provider;
+    env.ECONOMY_LLM_MODEL = creds.model;
+  } else if (provider === "ollama") {
     const ollama = await promptOllamaCreds();
     env.OLLAMA_BASE_URL = ollama.baseUrl;
-    env.OLLAMA_MODEL = ollama.model;
     env.DEFAULT_LLM_MODEL = ollama.model;
     env.ECONOMY_LLM_PROVIDER = provider;
     env.ECONOMY_LLM_MODEL = ollama.model;
@@ -1760,7 +1919,7 @@ async function promptLlmCredentials(
       env.BEDROCK_SECRET_KEY = bedrock.secretKey;
       env.BEDROCK_REGION = bedrock.region;
     } else {
-      env[API_KEY_ENV_VAR[provider]] = await promptApiKey(provider);
+      env.LLM_API_KEY = await promptApiKey(provider);
     }
   }
 }
@@ -1809,6 +1968,16 @@ function runDockerCommand(
       resolve({ status: 1, stdout: "", stderr: err.message });
     });
   });
+}
+
+function logPortConflictGuidance() {
+  p.log.info(
+    "Stop the conflicting process or change the port:\n" +
+      "  inbox-zero config set WEB_PORT <port>\n" +
+      "  inbox-zero config set POSTGRES_PORT <port>\n" +
+      "  inbox-zero config set REDIS_PORT <port>\n" +
+      "  inbox-zero config set REDIS_HTTP_PORT <port>",
+  );
 }
 
 function readExistingDbPassword(envFile: string): string | undefined {

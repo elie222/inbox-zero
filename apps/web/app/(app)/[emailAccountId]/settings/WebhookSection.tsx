@@ -4,7 +4,12 @@ import { CopyInput } from "@/components/CopyInput";
 import { RegenerateSecretButton } from "@/app/(app)/[emailAccountId]/settings/WebhookGenerate";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
-import { Item, ItemContent, ItemTitle, ItemActions } from "@/components/ui/item";
+import {
+  Item,
+  ItemContent,
+  ItemTitle,
+  ItemActions,
+} from "@/components/ui/item";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

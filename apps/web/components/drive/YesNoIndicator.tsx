@@ -5,11 +5,11 @@ import { CheckIcon, XIcon } from "lucide-react";
 import { cn } from "@/utils";
 
 interface YesNoIndicatorProps {
-  value: boolean | null | undefined;
-  onClick?: (value: boolean) => void;
-  size?: "sm" | "md";
   /** When "wrong", the X button becomes a dropdown trigger (no onClick call, no stopPropagation) */
   dropdownTrigger?: "wrong";
+  onClick?: (value: boolean) => void;
+  size?: "sm" | "md";
+  value: boolean | null | undefined;
   /** Force the X button to show as active (red) even when value !== false */
   wrongActive?: boolean;
 }

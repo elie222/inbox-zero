@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   getEmailUrl,
   getEmailUrlForMessage,
+  getEmailSearchUrl,
   getGmailUrl,
   getGmailSearchUrl,
   getGmailBasicSearchUrl,
@@ -57,14 +58,18 @@ describe("getEmailUrl", () => {
       );
     });
 
-    it("throws for unknown provider (bug: should fall back to default)", () => {
-      // NOTE: This documents a potential bug - unknown providers cause an error
-      // instead of falling back to the "default" config.
-      // The getProviderConfig function only falls back when provider is undefined,
-      // not when the provider key doesn't exist in PROVIDER_CONFIG.
-      expect(() =>
-        getEmailUrl("msg123", "user@gmail.com", "unknown"),
-      ).toThrow();
+    it("falls back to default for unknown provider", () => {
+      const result = getEmailUrl("msg123", "user@gmail.com", "unknown");
+      expect(result).toBe(
+        "https://mail.google.com/mail/u/user@gmail.com/#all/msg123",
+      );
+    });
+
+    it("falls back to default for empty provider", () => {
+      const result = getEmailUrl("msg123", "user@gmail.com", "");
+      expect(result).toBe(
+        "https://mail.google.com/mail/u/user@gmail.com/#all/msg123",
+      );
     });
   });
 });
@@ -140,6 +145,52 @@ describe("getGmailSearchUrl", () => {
       "user@gmail.com",
     );
     expect(result).toContain("from=John%20Doe%20%3Cjohn%40example.com%3E");
+  });
+});
+
+describe("getEmailSearchUrl", () => {
+  it("builds Gmail sender search URL for Google provider", () => {
+    const result = getEmailSearchUrl(
+      "sender@example.com",
+      "user@gmail.com",
+      "google",
+    );
+    expect(result).toBe(
+      "https://mail.google.com/mail/u/user@gmail.com/#advanced-search/from=sender%40example.com",
+    );
+  });
+
+  it("builds Outlook sender search URL for Microsoft provider", () => {
+    const result = getEmailSearchUrl(
+      "sender@example.com",
+      "user@outlook.com",
+      "microsoft",
+    );
+    expect(result).toBe(
+      "https://outlook.live.com/mail/0/search/q/from%3Asender%40example.com",
+    );
+  });
+
+  it("falls back to default provider when provider is empty", () => {
+    const result = getEmailSearchUrl(
+      "sender@example.com",
+      "user@gmail.com",
+      "",
+    );
+    expect(result).toBe(
+      "https://mail.google.com/mail/u/user@gmail.com/#advanced-search/from=sender%40example.com",
+    );
+  });
+
+  it("falls back to default provider when provider is unknown", () => {
+    const result = getEmailSearchUrl(
+      "sender@example.com",
+      "user@gmail.com",
+      "unknown-provider",
+    );
+    expect(result).toBe(
+      "https://mail.google.com/mail/u/user@gmail.com/#advanced-search/from=sender%40example.com",
+    );
   });
 });
 

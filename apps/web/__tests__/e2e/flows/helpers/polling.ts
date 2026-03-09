@@ -16,9 +16,9 @@ import { getOrCreateFollowUpLabel } from "@/utils/follow-up/labels";
 import type { ThreadTrackerType } from "@/generated/prisma/enums";
 
 interface PollOptions {
-  timeout?: number;
-  interval?: number;
   description?: string;
+  interval?: number;
+  timeout?: number;
 }
 
 /**

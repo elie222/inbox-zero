@@ -5,12 +5,12 @@ import { cva } from "class-variance-authority";
 export type ButtonVariant = "primary" | "secondary" | "secondary-two";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  asChild?: boolean;
+  auto?: boolean;
   children: React.ReactNode;
-  variant?: ButtonVariant;
   className?: string;
   size?: "md" | "lg" | "xl";
-  auto?: boolean;
-  asChild?: boolean;
+  variant?: ButtonVariant;
 }
 
 export function Button({

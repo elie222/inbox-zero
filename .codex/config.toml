@@ -1,0 +1,6 @@
+[features]
+multi_agent = true
+
+[agents.reviewer]
+description = "Reviews completed diffs for security, DRY opportunities, simplification, and abstraction quality before PR."
+config_file = "agents/reviewer.toml"

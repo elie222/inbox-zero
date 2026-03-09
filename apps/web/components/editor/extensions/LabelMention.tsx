@@ -21,8 +21,8 @@ interface MarkdownNode {
 interface MarkdownItState {
   pos: number;
   posMax: number;
-  src: string;
   push: (type: string, tag: string, nesting: number) => MarkdownItToken;
+  src: string;
 }
 
 interface MarkdownItToken {

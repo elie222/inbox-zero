@@ -9,6 +9,11 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { cookies, headers } from "next/headers";
 import { env } from "@/env";
+import { localBypassAuthPlugin } from "@/utils/auth/local-bypass-plugin";
+import {
+  isLocalAuthBypassEnabled,
+  isLocalBypassUserEmail,
+} from "@/utils/auth/local-bypass-config";
 import { trackDubSignUp } from "@/utils/dub";
 import {
   isGoogleProvider,
@@ -19,6 +24,10 @@ import { captureException } from "@/utils/error";
 import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import { createScopedLogger } from "@/utils/logger";
+import {
+  hasGoogleOauthConfig,
+  hasMicrosoftOauthConfig,
+} from "@/utils/oauth/provider-config";
 import { createOutlookClient } from "@/utils/outlook/client";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import {
@@ -33,6 +42,40 @@ const logger = createScopedLogger("auth");
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
   : [];
+
+const socialProviders = {
+  ...(hasGoogleOauthConfig()
+    ? {
+        google: {
+          clientId: env.GOOGLE_CLIENT_ID,
+          clientSecret: env.GOOGLE_CLIENT_SECRET,
+          scope: [...GMAIL_SCOPES],
+          accessType: "offline" as const,
+          prompt: "select_account consent" as const,
+          disableIdTokenSignIn: true,
+          // For preview deployments, redirect through staging (which proxies back to preview URL)
+          ...(env.OAUTH_PROXY_URL && {
+            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
+          }),
+        },
+      }
+    : {}),
+  ...(hasMicrosoftOauthConfig()
+    ? {
+        microsoft: {
+          clientId: env.MICROSOFT_CLIENT_ID!,
+          clientSecret: env.MICROSOFT_CLIENT_SECRET!,
+          scope: [...OUTLOOK_SCOPES],
+          tenantId: env.MICROSOFT_TENANT_ID,
+          disableIdTokenSignIn: true,
+          // For preview deployments, redirect through staging (which proxies back to preview URL)
+          ...(env.OAUTH_PROXY_URL && {
+            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
+          }),
+        },
+      }
+    : {}),
+};
 
 export const betterAuthConfig = betterAuth({
   advanced: {
@@ -81,6 +124,7 @@ export const betterAuthConfig = betterAuth({
           }),
         ]
       : []),
+    ...(isLocalAuthBypassEnabled() ? [localBypassAuthPlugin()] : []),
     nextCookies(), // Must be last
   ],
   session: {
@@ -120,35 +164,13 @@ export const betterAuthConfig = betterAuth({
       expiresAt: "expires",
     },
   },
-  socialProviders: {
-    google: {
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
-      scope: [...GMAIL_SCOPES],
-      accessType: "offline",
-      prompt: "select_account consent",
-      disableIdTokenSignIn: true,
-      // For preview deployments, redirect through staging (which proxies back to preview URL)
-      ...(env.OAUTH_PROXY_URL && {
-        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
-      }),
-    },
-    microsoft: {
-      clientId: env.MICROSOFT_CLIENT_ID || "",
-      clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
-      scope: [...OUTLOOK_SCOPES],
-      tenantId: env.MICROSOFT_TENANT_ID,
-      disableIdTokenSignIn: true,
-      // For preview deployments, redirect through staging (which proxies back to preview URL)
-      ...(env.OAUTH_PROXY_URL && {
-        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
-      }),
-    },
-  },
+  socialProviders,
   databaseHooks: {
     user: {
       create: {
         after: async (user) => {
+          if (isLocalBypassUserEmail(user.email)) return;
+
           await postSignUp({
             id: user.id,
             email: user.email,
@@ -420,6 +442,70 @@ async function handleLinkAccount(account: Account) {
       throw new Error("Primary email not found for linked account.");
     }
 
+    const normalizedEmail = primaryEmail.trim().toLowerCase();
+
+    // Check if email already belongs to a different user
+    const existingEmailAccount = await prisma.emailAccount.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        userId: true,
+        accountId: true,
+        account: { select: { provider: true } },
+      },
+    });
+
+    if (
+      existingEmailAccount &&
+      existingEmailAccount.userId !== account.userId
+    ) {
+      logger.error("[linkAccount] Email already linked to a different user", {
+        email: primaryEmail,
+        existingUserId: existingEmailAccount.userId,
+        newUserId: account.userId,
+      });
+      throw new Error("email_already_linked");
+    }
+
+    const crossProviderRelink =
+      existingEmailAccount &&
+      existingEmailAccount.userId === account.userId &&
+      existingEmailAccount.accountId !== account.id &&
+      existingEmailAccount.account.provider !== account.providerId;
+
+    if (crossProviderRelink) {
+      logger.warn(
+        "[linkAccount] Skipping cross-provider EmailAccount reassignment",
+        {
+          userId: account.userId,
+          accountId: account.id,
+          currentProvider: existingEmailAccount.account.provider,
+          attemptedProvider: account.providerId,
+        },
+      );
+
+      await prisma.$transaction([
+        prisma.emailAccount.update({
+          where: { id: existingEmailAccount.id },
+          data: {
+            name: primaryName,
+            image: primaryPhotoUrl,
+          },
+        }),
+        prisma.account.update({
+          where: { id: account.id },
+          data: { disconnectedAt: null },
+        }),
+      ]);
+
+      await clearSpecificErrorMessages({
+        userId: account.userId,
+        errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
+        logger,
+      });
+
+      return;
+    }
     const user = await prisma.user.findUnique({
       where: { id: account.userId },
       select: { email: true, name: true, image: true },
@@ -441,11 +527,11 @@ async function handleLinkAccount(account: Account) {
 
     await prisma.$transaction([
       prisma.emailAccount.upsert({
-        where: { email: profileData?.email },
+        where: { email: normalizedEmail },
         update: data,
         create: {
           ...data,
-          email: primaryEmail,
+          email: normalizedEmail,
         },
       }),
       prisma.account.update({

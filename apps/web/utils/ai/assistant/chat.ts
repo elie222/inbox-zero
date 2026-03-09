@@ -1,4 +1,4 @@
-import type { ModelMessage } from "ai";
+import type { JSONValue, ModelMessage } from "ai";
 import type { Logger } from "@/utils/logger";
 import type { MessageContext } from "@/app/api/chat/validation";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -7,6 +7,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { env } from "@/env";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { toolCallAgentStream } from "@/utils/llms";
+import type { RecordingSessionHandle } from "@/utils/replay/recorder";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import prisma from "@/utils/prisma";
 import type { SystemType } from "@/generated/prisma/enums";
@@ -22,14 +23,22 @@ import {
   updateRuleConditionsTool,
 } from "./chat-rule-tools";
 import {
+  getAssistantCapabilitiesTool,
+  updateAssistantSettingsCompatTool,
+  updateAssistantSettingsTool,
+} from "./chat-settings-tools";
+import {
+  forwardEmailTool,
   getAccountOverviewTool,
   manageInboxTool,
+  readEmailTool,
+  replyEmailTool,
   searchInboxTool,
   sendEmailTool,
   updateInboxFeaturesTool,
 } from "./chat-inbox-tools";
-import { searchMemoriesTool } from "./chat-memory-tools";
-import { createEmailProvider } from "@/utils/email/provider";
+import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
+import type { MessagingPlatform } from "@/utils/messaging/platforms";
 
 export const maxDuration = 120;
 
@@ -47,34 +56,61 @@ export type {
   UpdateRuleConditionsTool,
 } from "./chat-rule-tools";
 export type {
+  GetAssistantCapabilitiesTool,
+  UpdateAssistantSettingsTool,
+} from "./chat-settings-tools";
+export type {
+  ForwardEmailTool,
   GetAccountOverviewTool,
   ManageInboxTool,
+  ReadEmailTool,
+  ReplyEmailTool,
   SearchInboxTool,
   SendEmailTool,
   UpdateInboxFeaturesTool,
 } from "./chat-inbox-tools";
-export type { SearchMemoriesTool } from "./chat-memory-tools";
+export type { SaveMemoryTool, SearchMemoriesTool } from "./chat-memory-tools";
 
 export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
   user,
   context,
+  chatId,
+  memories,
+  inboxStats,
+  responseSurface = "web",
+  messagingPlatform,
+  recordingSession,
   logger,
 }: {
   messages: ModelMessage[];
   emailAccountId: string;
   user: EmailAccountWithAI;
   context?: MessageContext;
+  chatId?: string;
+  memories?: { content: string; date: string }[];
+  inboxStats?: { total: number; unread: number } | null;
+  responseSurface?: "web" | "messaging";
+  messagingPlatform?: MessagingPlatform;
+  recordingSession?: RecordingSessionHandle | null;
   logger: Logger;
 }) {
+  const emailSendToolsEnabled = env.NEXT_PUBLIC_EMAIL_SEND_ENABLED;
   let ruleReadState: RuleReadState | null = null;
+
+  if (recordingSession) {
+    await recordingSession.record("llm-request", {
+      label: "assistant-chat",
+      request: { messageCount: messages.length, context },
+    });
+  }
 
   const system = `You are the Inbox Zero assistant. You help users understand their inbox, take inbox actions, update account features, and manage automation rules.
 
 Core responsibilities:
 1. Search and summarize inbox activity (especially what's new and what needs attention)
-2. Take inbox actions (archive, mark read, and bulk archive by sender)
+2. Take inbox actions (archive, mark read, bulk archive by sender, and sender unsubscribe)
 3. Update account features (meeting briefs and auto-file attachments)
 4. Create and update rules
 
@@ -82,16 +118,41 @@ Tool usage strategy (progressive disclosure):
 - Use the minimum number of tools needed.
 - Start with read-only context tools before write tools.
 - For write operations that affect many emails, first summarize what will change, then execute after clear user confirmation.
-- For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then identify senders for bulk cleanup using bulk_archive_senders. Never archive thread-by-thread for bulk cleanup.
+- When the user asks what settings can or cannot be changed, call getAssistantCapabilities.
+- For supported account-setting updates, prefer updateAssistantSettings.
+- For personal instructions updates, append to existing instructions by default unless the user explicitly asks to replace.
+- For scheduled check-ins and draft knowledge base management, call getAssistantCapabilities when capability or destination context is missing or stale; otherwise reuse recent capability context and proceed with updateAssistantSettings.
+- For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then provide a concise grouped summary and recommend a next action.
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
-- If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
+- When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
+  - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
+- Never claim that chat-created pending email actions are saved in the user's Gmail/Outlook Drafts folder.
+${
+  emailSendToolsEnabled
+    ? `${getSendEmailSurfacePolicy({ responseSurface, messagingPlatform })}
+- When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
+- When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.
 - Only send emails when the user clearly asks to send now.
+- After calling these tools, briefly say the email is ready for them to review and send. Do not ask follow-up questions about CC, BCC, or whether to proceed — the UI handles confirmation.
+- Do not re-prepare or re-call the tool unless the user explicitly asks for changes.`
+    : `- Email sending actions are disabled in this environment. sendEmail, replyEmail, and forwardEmail tools are unavailable.
+- If the user asks to send, reply, or forward, clearly explain that this environment cannot prepare or send those actions.
+- Do not claim that an email was prepared, replied to, forwarded, or sent when send tools are unavailable.
+- Do not create or modify rules as a substitute unless the user explicitly asks for automation.`
+}
 
 Tool call policy:
 - When a request can be completed with available tools, call the tool instead of only describing what you would do.
+- Never claim that you changed a setting, rule, inbox state, or memory unless the corresponding write tool call in this turn succeeded.
+- If no write tool ran in this turn, explicitly say that nothing was changed yet.
+- If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
 - Never invent thread IDs, label IDs, sender addresses, or existing rule names.
-- For bulk cleanup, prefer manageInbox with "bulk_archive_senders" over "archive_threads". Extract sender email addresses from searchInbox results and pass them to bulk_archive_senders — this archives ALL emails from those senders server-side, not just the ones visible in search results. Use "archive_threads" only for targeted actions on specific threads.
+${emailSendToolsEnabled ? '- For forwarding, always use a real messageId from searchInbox or user-provided context.\n- For pending email actions, do not treat "prepared" as "sent".' : ""}
+- "archive_threads" archives specific threads by ID. Use it when the user refers to specific emails shown in results.
+- "bulk_archive_senders" archives ALL emails from given senders server-side, not just the visible ones. Use it when the user asks to clean up by sender. Since it affects emails beyond what's shown, confirm the scope with the user before executing.
+- "unsubscribe_senders" attempts automatic unsubscribe using message unsubscribe headers/links, marks those senders as unsubscribed, and archives emails from those senders. Use it when the user explicitly asks to unsubscribe from senders. Since it affects all emails from those senders, confirm the scope with the user before executing.
+- Choose the tool that matches what the user actually asked for. Do not default to bulk archive when the user is referring to specific emails.
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - For ambiguous destructive requests (for example archive vs mark read), ask a brief clarification question before writing.
 - Before changing an existing rule, call getUserRulesAndSettings immediately before the write.
@@ -99,8 +160,7 @@ Tool call policy:
 
 Provider context:
 - Current provider: ${user.account.provider}.
-- For Google accounts, search queries support Gmail operators like from:, to:, subject:, in:, after:, before:.
-- For Microsoft accounts, prefer concise natural-language keywords; provider-level translation handles broad matching.
+${user.account.provider === "microsoft" ? "- Use KQL syntax for search: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:." : "- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:."}
 
 A rule is comprised of:
 1. A condition
@@ -133,7 +193,7 @@ Inbox triage guidance:
 - Group results into: must handle now, can wait, and can archive/mark read.
 - Prioritize messages labelled "To Reply" as must handle.
 - If labels are missing (new user), infer urgency from sender, subject, and snippet.
-- Suggest bulk archive by sender for low-priority repeated senders.
+- For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
 
 Rule matching logic:
 - All static conditions (from, to, subject) use AND logic - meaning all static conditions must match
@@ -145,12 +205,23 @@ Best practices:
 - You can use multiple conditions in a rule, but aim for simplicity.
 - When creating rules, in most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
 - If a rule can be handled fully with static conditions, do so, but this is rarely possible.
-${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? `- IMPORTANT: prefer "draft a reply" over "reply". Only if the user explicitly asks to reply, then use "reply". Clarify beforehand this is the intention. Drafting a reply is safer as it means the user can approve before sending.` : ""}
+${emailSendToolsEnabled ? `- IMPORTANT: for rules, prefer "draft a reply" action over "reply" action. For chat email sending, just use the appropriate tool directly when the user asks.` : ""}
 - Use short, concise rule names (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.
 
 Always explain the changes you made.
 Use simple language and avoid jargon in your reply.
 If you are unable to complete a requested action, say so and explain why.
+Keep responses concise by default.
+
+Formatting rules:
+- Always use markdown formatting. Structure multi-part answers with markdown headers (## for sections).
+- Use **bold** for key details (sender names, amounts, dates, action items).
+- When listing many emails, use a numbered list so the user can reference items by number.
+- When grouping emails (e.g. triage), use a markdown header (##) for each group and a numbered list under it.
+- Emojis are welcome when they improve tone or readability.
+- Do not present multi-option menus unless the user explicitly asks for options, or a safety-critical scope decision is required.
+- Prefer one recommended next step plus one direct confirmation question.
+- Ask at most one follow-up question at the end of a response.
 
 You can set general information about the user in their Personal Instructions (via the updateAbout tool) that will be passed as context when the AI is processing emails.
 
@@ -164,6 +235,7 @@ Conversation status categorization:
 Reply Zero is a feature that labels emails that need a reply "To Reply". And labels emails that are awaiting a response "Awaiting". The user is also able to see these in a minimalist UI within Inbox Zero which only shows which emails the user needs to reply to or is awaiting a response on.
 
 Don't tell the user which tools you're using. The tools you use will be displayed in the UI anyway.
+Never show internal IDs (threadId, messageId, labelId) to the user. These are for tool calls only.
 Don't use placeholders in rules you create. For example, don't use @company.com. Use the user's actual company email address. And if you don't know some information you need, ask the user.
 
 Static conditions:
@@ -183,23 +255,30 @@ Knowledge base:
 Conversation memory:
 - You can search memories from previous conversations using the searchMemories tool when you need context from past interactions.
 - Use this when the user references something discussed before or when past context would help.
+- You can save memories using the saveMemory tool when the user asks you to remember something or when you identify a durable preference worth retaining across conversations.
+- Do not claim you will "remember" something without actually calling saveMemory.
+- Keep memories concise and self-contained.
+- IMPORTANT: Memories are only used in chat conversations. They do NOT affect how incoming emails are processed. If the user wants to influence how future emails are handled (e.g., "emails from X are urgent", "never archive emails from my boss"), use updateAbout with mode "append" to add to their personal instructions, or create/update a rule. Use saveMemory only for chat preferences (e.g., "don't use bulk archive", "always show me emails before archiving").
 
 Behavior anchors (minimal examples):
 - For "Give me an update on what came in today", call searchInbox first with today's start in the user's timezone, then summarize into must-handle, can-wait, and can-archive.
 - For "Turn off meeting briefs and enable auto-file attachments", call updateInboxFeatures with meetingBriefsEnabled=false and filingEnabled=true.
 - For "If I'm CC'd on an email it shouldn't be marked To Reply", update the "To Reply" rule instructions with updateRuleConditions.
 - For "Archive emails older than 30 days", this is not possible as an automated rule, but you can do it as a one-time action: use searchInbox with a before: date filter, then archive the results with archive_threads.
+- For "what does that email say?" or "tell me about this email", use readEmail with the messageId from a prior searchInbox result to get the full body.
 - For "clean up my inbox" or retroactive bulk cleanup:
   1. Check the inbox stats in your context to understand the scale and read/unread ratio.
   2. Search inbox with limit 50 to sample messages. For Google accounts, use category filters (category:promotions, category:updates, category:social). For Microsoft accounts, use keyword queries (e.g. "newsletter", "promotion", "unsubscribe").
-  3. Extract unique sender email addresses from the results. Group them for the user (e.g. "I found 25 promotional senders").
-  4. After user confirms, call manageInbox with "bulk_archive_senders" passing all confirmed sender emails. This archives ALL emails from those senders, not just the ones in search results.
-  5. Search again to find the next batch of senders (previous senders' emails are now archived). Continue until the requested scope is covered.
-  6. Once the user has confirmed a category (e.g. "archive all promotions"), continue processing subsequent batches without re-asking for each one.`;
+  3. Group the results briefly and recommend one next action. Only present multiple options if the user asks for them or if scope is ambiguous and needs confirmation.
+  4. If the user confirms archiving the specific listed emails (e.g., "archive those", "archive the ones you listed"), use "archive_threads" with the thread IDs from the search results.
+  5. If the user explicitly asks for sender-level cleanup (e.g., "archive everything from those senders"), use "bulk_archive_senders". Warn the user that this will archive ALL emails from those senders, not just the ones shown.
+  6. If the user explicitly asks to unsubscribe from senders, use "unsubscribe_senders" with sender emails after confirming scope.
+  7. For ongoing batch cleanup with bulk_archive_senders, search again to find the next batch. Once the user has confirmed a category, continue processing subsequent batches without re-asking.`;
 
   const toolOptions = {
     email: user.email,
     emailAccountId,
+    userId: user.userId,
     provider: user.account.provider,
     logger,
     setRuleReadState: (state: RuleReadState) => {
@@ -224,41 +303,23 @@ Behavior anchors (minimal examples):
         })
       : null;
 
-  let inboxStats: { total: number; unread: number } | null = null;
-  try {
-    const emailProvider = await createEmailProvider({
-      emailAccountId,
-      provider: user.account.provider,
-      logger,
-    });
-    const statsPromise = emailProvider
-      .getInboxStats()
-      .catch((err) => {
-        logger.warn("getInboxStats failed", { error: err });
-        return null;
-      });
-    inboxStats = await Promise.race([
-      statsPromise,
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
-    ]);
-  } catch (error) {
-    logger.warn("Failed to fetch inbox stats for chat context", { error });
-  }
+  const isFirstMessage = messages.filter((m) => m.role === "user").length <= 1;
 
-  const inboxContextMessage = inboxStats
-    ? [
-        {
-          role: "system" as const,
-          content: `Current inbox: ${inboxStats.total} emails total, ${inboxStats.unread} unread.`,
-        },
-      ]
-    : [];
+  const inboxContextMessage =
+    inboxStats && isFirstMessage
+      ? [
+          {
+            role: "user" as const,
+            content: `[Automated inbox snapshot — not a message from the user] Current inbox: ${inboxStats.total} emails total, ${inboxStats.unread} unread.`,
+          },
+        ]
+      : [];
 
   const hiddenContextMessage =
     context && context.type === "fix-rule"
       ? [
           {
-            role: "system" as const,
+            role: "user" as const,
             content:
               "Hidden context for the user's request (do not repeat this to the user):\n\n" +
               `<email>\n${stringifyEmail(
@@ -284,34 +345,58 @@ Behavior anchors (minimal examples):
         ]
       : [];
 
-  const cacheControl = {
-    providerOptions: {
-      anthropic: { cacheControl: { type: "ephemeral" as const } },
-    },
-  };
+  const contextMessages = [
+    ...inboxContextMessage,
+    ...(memories && memories.length > 0
+      ? [
+          {
+            role: "user" as const,
+            content: `Memories from previous conversations:\n${memories.map((m) => `- [${m.date}] ${m.content}`).join("\n")}`,
+          },
+        ]
+      : []),
+    ...hiddenContextMessage,
+  ];
+
+  const { messages: cacheOptimizedMessages, stablePrefixEndIndex } =
+    buildCacheOptimizedMessages({
+      system,
+      conversationMessages: messages,
+      contextMessages,
+    });
+
+  const messagesWithCacheControl = addAnthropicCacheControl(
+    cacheOptimizedMessages,
+    stablePrefixEndIndex,
+  );
 
   const result = toolCallAgentStream({
     userAi: user.user,
+    userId: user.userId,
+    emailAccountId,
     userEmail: user.email,
     modelType: "chat",
     usageLabel: "assistant-chat",
-    messages: [
-      {
-        role: "system",
-        content: system,
-        ...cacheControl,
-      },
-      ...inboxContextMessage,
-      ...hiddenContextMessage,
-      ...messages,
-    ],
+    providerOptions: getChatProviderOptionsForCaching({ chatId }),
+    messages: messagesWithCacheControl,
     onStepFinish: async ({ text, toolCalls }) => {
       logger.trace("Step finished", { text, toolCalls });
+      if (recordingSession) {
+        await recordingSession.record("chat-step", {
+          request: { toolCalls },
+          response: { text },
+        });
+      }
     },
     maxSteps: 10,
     tools: {
+      getAssistantCapabilities: getAssistantCapabilitiesTool(toolOptions),
+      updateAssistantSettings: updateAssistantSettingsTool(toolOptions),
+      updateAssistantSettingsCompat:
+        updateAssistantSettingsCompatTool(toolOptions),
       getAccountOverview: getAccountOverviewTool(toolOptions),
       searchInbox: searchInboxTool(toolOptions),
+      readEmail: readEmailTool(toolOptions),
       manageInbox: manageInboxTool(toolOptions),
       updateInboxFeatures: updateInboxFeaturesTool(toolOptions),
       getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),
@@ -323,13 +408,99 @@ Behavior anchors (minimal examples):
       updateAbout: updateAboutTool(toolOptions),
       addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
       searchMemories: searchMemoriesTool(toolOptions),
-      ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
-        ? { sendEmail: sendEmailTool(toolOptions) }
+      saveMemory: saveMemoryTool({ ...toolOptions, chatId }),
+      ...(emailSendToolsEnabled
+        ? {
+            sendEmail: sendEmailTool(toolOptions),
+            replyEmail: replyEmailTool(toolOptions),
+            forwardEmail: forwardEmailTool(toolOptions),
+          }
         : {}),
     },
   });
 
   return result;
+}
+
+function buildCacheOptimizedMessages({
+  system,
+  conversationMessages,
+  contextMessages,
+}: {
+  system: string;
+  conversationMessages: ModelMessage[];
+  contextMessages: ModelMessage[];
+}) {
+  const systemMessage: ModelMessage = {
+    role: "system",
+    content: system,
+  };
+
+  if (!conversationMessages.length) {
+    return {
+      messages: [systemMessage, ...contextMessages],
+      stablePrefixEndIndex: 0,
+    };
+  }
+
+  const historyMessages = conversationMessages.slice(0, -1);
+  const latestMessage = conversationMessages.at(-1)!;
+
+  return {
+    messages: [
+      systemMessage,
+      ...historyMessages,
+      ...contextMessages,
+      latestMessage,
+    ],
+    stablePrefixEndIndex: historyMessages.length,
+  };
+}
+
+function addAnthropicCacheControl(
+  messages: ModelMessage[],
+  stablePrefixEndIndex: number,
+) {
+  const cacheControl: Record<string, JSONValue> = {
+    cacheControl: { type: "ephemeral" },
+  };
+
+  const cacheBreakpointIndexes = new Set([
+    0,
+    Math.max(0, Math.min(stablePrefixEndIndex, messages.length - 1)),
+  ]);
+
+  return messages.map((message, index) => {
+    if (!cacheBreakpointIndexes.has(index)) return message;
+
+    const messageWithOptions = message as ModelMessage & {
+      providerOptions?: Record<string, Record<string, JSONValue>>;
+    };
+
+    return {
+      ...messageWithOptions,
+      providerOptions: {
+        ...messageWithOptions.providerOptions,
+        anthropic: {
+          ...(messageWithOptions.providerOptions?.anthropic as Record<
+            string,
+            JSONValue
+          >),
+          ...cacheControl,
+        },
+      },
+    };
+  });
+}
+
+function getChatProviderOptionsForCaching({ chatId }: { chatId?: string }) {
+  if (!chatId) return undefined;
+
+  return {
+    openai: {
+      promptCacheKey: `assistant-chat:${chatId}`,
+    },
+  } satisfies Record<string, Record<string, JSONValue>>;
 }
 
 function isConversationStatusFixContext(
@@ -398,4 +569,22 @@ async function getExpectedFixContextSystemType({
   });
 
   return expectedRule?.systemType ?? null;
+}
+
+function getSendEmailSurfacePolicy({
+  responseSurface,
+  messagingPlatform,
+}: {
+  responseSurface: "web" | "messaging";
+  messagingPlatform?: MessagingPlatform;
+}) {
+  if (responseSurface === "web") {
+    return "- sendEmail, replyEmail, and forwardEmail prepare a pending action. The UI will show the user a Send button to confirm — you do not need to manage confirmation yourself.\n- These are app-side confirmations, not provider Drafts-folder saves.";
+  }
+
+  const threadContext = messagingPlatform ? "this thread" : "the thread";
+
+  return `- sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.
+- These pending actions are app-side confirmations, not provider Drafts-folder saves.
+- A Send confirmation button is provided in ${threadContext}.`;
 }

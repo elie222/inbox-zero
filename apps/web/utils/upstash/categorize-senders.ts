@@ -1,6 +1,5 @@
 import chunk from "lodash/chunk";
 import { deleteQueue, listQueues, publishToQstashQueue } from "@/utils/upstash";
-import { getInternalApiUrl } from "@/utils/internal-api";
 import type { AiCategorizeSenders } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -21,8 +20,6 @@ const getCategorizeSendersQueueName = ({
 export async function publishToAiCategorizeSendersQueue(
   body: AiCategorizeSenders,
 ) {
-  const url = `${getInternalApiUrl()}/api/user/categorize/senders/batch`;
-
   // Split senders into smaller chunks to process in batches
   const BATCH_SIZE = 50;
   const chunks = chunk(body.senders, BATCH_SIZE);
@@ -33,7 +30,6 @@ export async function publishToAiCategorizeSendersQueue(
   });
 
   logger.info("Publishing to AI categorize senders queue in chunks", {
-    url,
     queueName,
     totalSenders: body.senders.length,
     numberOfChunks: chunks.length,
@@ -45,7 +41,7 @@ export async function publishToAiCategorizeSendersQueue(
       publishToQstashQueue({
         queueName,
         parallelism: 3, // Allow up to 3 concurrent jobs from this queue
-        url,
+        path: "/api/user/categorize/senders/batch",
         body: {
           emailAccountId: body.emailAccountId,
           senders: senderChunk,

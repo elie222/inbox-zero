@@ -17,26 +17,31 @@ export type LabelsResponse = {
   labels: UnifiedLabel[];
 };
 
-export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 15;
 
-export const GET = withEmailProvider("labels", async (request) => {
-  const { emailProvider } = request;
+export const GET = withEmailProvider(
+  "labels",
+  async (request) => {
+    const { emailProvider } = request;
 
-  try {
-    const labels = await emailProvider.getLabels();
-    // Map to unified format
-    const unifiedLabels: UnifiedLabel[] = (labels || []).map((label) => ({
-      id: label.id,
-      name: label.name,
-      type: label.type,
-      color: label.color,
-      labelListVisibility: label.labelListVisibility,
-      messageListVisibility: label.messageListVisibility,
-    }));
-    return NextResponse.json({ labels: unifiedLabels });
-  } catch (error) {
-    request.logger.error("Error fetching labels", { error });
-    return NextResponse.json({ labels: [] }, { status: 500 });
-  }
-});
+    try {
+      const labels = await emailProvider.getLabels();
+      // Map to unified format
+      const unifiedLabels: UnifiedLabel[] = (labels || []).map((label) => ({
+        id: label.id,
+        name: label.name,
+        type: label.type,
+        color: label.color,
+        labelListVisibility: label.labelListVisibility,
+        messageListVisibility: label.messageListVisibility,
+      }));
+      return NextResponse.json({ labels: unifiedLabels });
+    } catch (error) {
+      request.logger.error("Error fetching labels", {
+        error,
+      });
+      return NextResponse.json({ labels: [] }, { status: 500 });
+    }
+  },
+  { requestTiming: {} },
+);

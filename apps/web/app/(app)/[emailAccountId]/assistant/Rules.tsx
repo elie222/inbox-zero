@@ -56,6 +56,7 @@ import {
   SYSTEM_RULE_ORDER,
   getDefaultActions,
 } from "@/utils/rule/consts";
+import { sortRulesForAutomation } from "@/utils/rule/sort";
 import {
   STEP_KEYS,
   getStepNumber,
@@ -126,9 +127,7 @@ export function Rules({
 
     const userRules = existingRules.filter((rule) => !rule.systemType);
 
-    return [...systemRulePlaceholders, ...userRules].sort(
-      (a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0),
-    );
+    return sortRulesForAutomation([...systemRulePlaceholders, ...userRules]);
   }, [data, emailAccountId, provider]);
 
   const hasRules = !!rules?.length;

@@ -2,13 +2,19 @@ import pRetry from "p-retry";
 import type { Logger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
 import { isFetchError } from "@/utils/retry/is-fetch-error";
+import { getRetryAfterHeaderFromError } from "@/utils/retry/get-retry-after-header";
 
 interface ErrorInfo {
-  status?: number;
   code?: string;
   errorMessage: string;
   responseBody?: string;
+  status?: number;
 }
+
+// Intentionally lower than Microsoft's common 30s throttle backoff so serverless
+// requests fail fast instead of sleeping into function timeout budgets.
+// Non-serverless callers can pass a higher maxBlockingDelayMs when needed.
+export const MAX_OUTLOOK_BLOCKING_RETRY_DELAY_MS = 10_000;
 
 /**
  * Retries a Microsoft Graph API operation when rate limits or temporary server errors are encountered
@@ -19,6 +25,7 @@ export async function withOutlookRetry<T>(
   operation: () => Promise<T>,
   logger: Logger,
   maxRetries = 5,
+  maxBlockingDelayMs = MAX_OUTLOOK_BLOCKING_RETRY_DELAY_MS,
 ): Promise<T> {
   return pRetry(operation, {
     retries: maxRetries,
@@ -37,20 +44,7 @@ export async function withOutlookRetry<T>(
         throw error;
       }
 
-      const err = error as Record<string, unknown>;
-      const retryAfterHeader =
-        (
-          (err?.response as Record<string, unknown>)?.headers as Record<
-            string,
-            string
-          >
-        )?.["retry-after"] ??
-        (
-          (err?.response as Record<string, unknown>)?.headers as Record<
-            string,
-            string
-          >
-        )?.["Retry-After"];
+      const retryAfterHeader = getRetryAfterHeaderFromError(error);
 
       const delayMs = calculateRetryDelay(
         isRateLimit,
@@ -64,14 +58,31 @@ export async function withOutlookRetry<T>(
         delaySeconds: Math.ceil(delayMs / 1000),
         attemptNumber: error.attemptNumber,
         maxRetries,
+        maxBlockingDelaySeconds: Math.ceil(maxBlockingDelayMs / 1000),
         status: errorInfo.status,
         code: errorInfo.code,
         isRateLimit,
         isServerError,
         isConflictError,
         isFetchError: isFetchError(errorInfo),
+        retryAfterHeader,
         responseBody: errorInfo.responseBody,
       });
+
+      if (delayMs > maxBlockingDelayMs) {
+        logger.warn("Aborting retry due to long backoff in serverless", {
+          delaySeconds: Math.ceil(delayMs / 1000),
+          maxBlockingDelaySeconds: Math.ceil(maxBlockingDelayMs / 1000),
+          attemptNumber: error.attemptNumber,
+          maxRetries,
+          status: errorInfo.status,
+          code: errorInfo.code,
+          isRateLimit,
+          isServerError,
+          isConflictError,
+        });
+        throw error;
+      }
 
       // Apply the custom delay
       if (delayMs > 0) {

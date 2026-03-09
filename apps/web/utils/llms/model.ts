@@ -1,32 +1,47 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createAzure } from "@ai-sdk/azure";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createVertex } from "@ai-sdk/google-vertex";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
 import { createOllama } from "ollama-ai-provider-v2";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { env } from "@/env";
 import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
+import { SafeError } from "../error";
 
-// Thinking budget for Google models (set low to minimize cost)
-const GOOGLE_THINKING_BUDGET = 0;
+// Thinking budgets for Google-family models (set low to minimize cost)
+const GOOGLE_THINKING_BUDGET = 128;
 
 const logger = createScopedLogger("llms/model");
 
-export type ModelType = "default" | "economy" | "chat";
+export type ModelType = "default" | "economy" | "chat" | "nano" | "draft";
 
-export type SelectModel = {
+export type ResolvedModel = {
   provider: string;
   modelName: string;
   model: LanguageModelV3;
   providerOptions?: Record<string, any>;
-  backupModel: LanguageModelV3 | null;
+};
+
+export type SelectModel = ResolvedModel & {
+  fallbackModels: ResolvedModel[];
   hasUserApiKey: boolean;
+};
+
+type AiGatewayProviderOptions = {
+  google?: GoogleGenerativeAIProviderOptions;
+  openai?: {
+    reasoningEffort: "low";
+    reasoningSummary: "concise";
+  };
 };
 
 export function getModel(
@@ -34,23 +49,32 @@ export function getModel(
   modelType: ModelType = "default",
   online = false,
 ): SelectModel {
-  const data = selectModelByType(userAi, modelType, online);
+  const primaryModel = selectModelByType(userAi, modelType, online);
+  const fallbackModels = getFallbackModels({
+    userAi,
+    modelType,
+    primaryModel,
+    online,
+  });
 
   logger.info("Using model", {
     modelType,
-    provider: data.provider,
-    model: data.modelName,
-    providerOptions: data.providerOptions,
+    provider: primaryModel.provider,
+    model: primaryModel.modelName,
+    providerOptions: primaryModel.providerOptions,
+    fallbackModels: fallbackModels.map(
+      (fallback) => `${fallback.provider}:${fallback.modelName}`,
+    ),
   });
 
-  return { ...data, hasUserApiKey: !!userAi.aiApiKey };
+  return { ...primaryModel, fallbackModels, hasUserApiKey: !!userAi.aiApiKey };
 }
 
 function selectModelByType(
   userAi: UserAIFields,
   modelType: ModelType,
   online = false,
-): Omit<SelectModel, "hasUserApiKey"> {
+): ResolvedModel {
   if (userAi.aiApiKey) return selectDefaultModel(userAi, online);
 
   switch (modelType) {
@@ -58,6 +82,10 @@ function selectModelByType(
       return selectEconomyModel(userAi, online);
     case "chat":
       return selectChatModel(userAi, online);
+    case "nano":
+      return selectNanoModel(userAi, online);
+    case "draft":
+      return selectDraftModel(userAi, online);
     default:
       return selectDefaultModel(userAi, online);
   }
@@ -75,7 +103,7 @@ function selectModel(
   },
   providerOptions?: Record<string, any>,
   online = false,
-): Omit<SelectModel, "hasUserApiKey"> {
+): ResolvedModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
       const modelName = aiModel || "gpt-5.1";
@@ -92,11 +120,34 @@ function selectModel(
       return {
         provider: Provider.OPEN_AI,
         modelName,
-        model: createOpenAI({ apiKey: aiApiKey || env.OPENAI_API_KEY })(
-          modelName,
-        ),
+        model: createOpenAI({
+          apiKey: resolveApiKey(aiApiKey, env.OPENAI_API_KEY),
+        })(modelName),
         providerOptions: openAiProviderOptions,
-        backupModel: getBackupModel(aiApiKey),
+      };
+    }
+    case Provider.AZURE: {
+      const modelName = aiModel || "gpt-5-mini";
+      const baseOptions = providerOptions ?? {};
+      const resourceName = env.AZURE_RESOURCE_NAME;
+      if (!resourceName) {
+        throw new SafeError(
+          "AZURE_RESOURCE_NAME environment variable is not set",
+        );
+      }
+
+      return {
+        provider: Provider.AZURE,
+        modelName,
+        model: createAzure({
+          apiKey: resolveApiKey(aiApiKey, env.AZURE_API_KEY),
+          resourceName,
+          apiVersion: env.AZURE_API_VERSION,
+        })(modelName),
+        providerOptions: {
+          ...baseOptions,
+          openai: { ...(baseOptions.openai ?? {}), reasoningEffort: "low" },
+        },
       };
     }
     case Provider.GOOGLE: {
@@ -105,16 +156,26 @@ function selectModel(
         provider: Provider.GOOGLE,
         modelName: mod,
         model: createGoogleGenerativeAI({
-          apiKey: aiApiKey || env.GOOGLE_API_KEY,
+          apiKey: resolveApiKey(aiApiKey, env.GOOGLE_API_KEY),
         })(mod),
         providerOptions: {
           google: {
-            thinkingConfig: {
-              thinkingBudget: GOOGLE_THINKING_BUDGET,
-            },
+            thinkingConfig: getGoogleThinkingConfig(mod),
           } satisfies GoogleGenerativeAIProviderOptions,
         },
-        backupModel: getBackupModel(aiApiKey),
+      };
+    }
+    case Provider.VERTEX: {
+      const modelName = aiModel || "gemini-3-flash";
+      return {
+        provider: Provider.VERTEX,
+        modelName,
+        model: createVertex(getVertexConfig())(modelName),
+        providerOptions: {
+          vertex: {
+            thinkingConfig: getGoogleThinkingConfig(modelName),
+          } satisfies GoogleGenerativeAIProviderOptions,
+        },
       };
     }
     case Provider.GROQ: {
@@ -122,8 +183,9 @@ function selectModel(
       return {
         provider: Provider.GROQ,
         modelName,
-        model: createGroq({ apiKey: aiApiKey || env.GROQ_API_KEY })(modelName),
-        backupModel: getBackupModel(aiApiKey),
+        model: createGroq({
+          apiKey: resolveApiKey(aiApiKey, env.GROQ_API_KEY),
+        })(modelName),
       };
     }
     case Provider.OPENROUTER: {
@@ -131,7 +193,7 @@ function selectModel(
       if (online) modelName += ":online";
 
       const openrouter = createOpenRouter({
-        apiKey: aiApiKey || env.OPENROUTER_API_KEY,
+        apiKey: resolveApiKey(aiApiKey, env.OPENROUTER_API_KEY),
         headers: {
           "HTTP-Referer": "https://www.getinboxzero.com",
           "X-Title": "Inbox Zero",
@@ -144,38 +206,50 @@ function selectModel(
         modelName,
         model: chatModel,
         providerOptions,
-        backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.AI_GATEWAY: {
       const modelName = aiModel || "google/gemini-3-flash";
-      const aiGatewayApiKey = aiApiKey || env.AI_GATEWAY_API_KEY;
+      const aiGatewayApiKey = resolveApiKey(aiApiKey, env.AI_GATEWAY_API_KEY);
       const gateway = createGateway({ apiKey: aiGatewayApiKey });
       return {
         provider: Provider.AI_GATEWAY,
         modelName,
         model: gateway(modelName),
-        providerOptions: {
-          // Disable/cap thinking for Google models (Gemini)
-          google: {
-            thinkingConfig: {
-              thinkingBudget: GOOGLE_THINKING_BUDGET,
-            },
-          } satisfies GoogleGenerativeAIProviderOptions,
-          // Note: Anthropic thinking is disabled by default (not including the config)
-        },
-        backupModel: getBackupModel(aiApiKey),
+        providerOptions: getAiGatewayProviderOptions(modelName),
       };
     }
     case "ollama": {
-      const modelName = env.OLLAMA_MODEL;
+      const modelName = aiModel || env.OLLAMA_MODEL;
       if (!modelName)
-        throw new Error("OLLAMA_MODEL environment variable is not set");
+        throw new SafeError(
+          "DEFAULT_LLM_MODEL environment variable is not set",
+        );
       return {
         provider: Provider.OLLAMA,
         modelName,
         model: createOllama({ baseURL: env.OLLAMA_BASE_URL })(modelName),
-        backupModel: null,
+      };
+    }
+    case Provider.OPENAI_COMPATIBLE: {
+      const modelName = aiModel || env.OPENAI_COMPATIBLE_MODEL;
+      if (!modelName)
+        throw new SafeError(
+          "DEFAULT_LLM_MODEL environment variable is not set",
+        );
+      const baseURL =
+        env.OPENAI_COMPATIBLE_BASE_URL || "http://localhost:1234/v1";
+      const openAiCompatibleApiKey = resolveApiKey(aiApiKey, undefined);
+      const openaiCompatible = createOpenAICompatible({
+        name: "openai-compatible",
+        baseURL,
+        supportsStructuredOutputs: true,
+        ...(openAiCompatibleApiKey ? { apiKey: openAiCompatibleApiKey } : {}),
+      });
+      return {
+        provider: Provider.OPENAI_COMPATIBLE,
+        modelName,
+        model: openaiCompatible(modelName),
       };
     }
 
@@ -195,7 +269,6 @@ function selectModel(
           }),
         })(modelName),
         // Note: Anthropic thinking is disabled by default (not including the config)
-        backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.ANTHROPIC: {
@@ -204,10 +277,9 @@ function selectModel(
         provider: Provider.ANTHROPIC,
         modelName,
         model: createAnthropic({
-          apiKey: aiApiKey || env.ANTHROPIC_API_KEY,
+          apiKey: resolveApiKey(aiApiKey, env.ANTHROPIC_API_KEY),
         })(modelName),
         // Note: Anthropic thinking is disabled by default (not including the config)
-        backupModel: getBackupModel(aiApiKey),
       };
     }
     default: {
@@ -222,16 +294,19 @@ function selectModel(
  */
 function createOpenRouterProviderOptions(
   providers: string,
+  modelName?: string | null,
 ): Record<string, any> {
   const order = providers
     .split(",")
     .map((p: string) => p.trim())
     .filter(Boolean);
 
+  const includeReasoning = shouldIncludeOpenRouterReasoning(modelName);
+
   return {
     openrouter: {
       provider: order.length > 0 ? { order } : undefined,
-      reasoning: { max_tokens: 20 },
+      ...(includeReasoning ? { reasoning: { max_tokens: 20 } } : {}),
     },
   };
 }
@@ -249,14 +324,14 @@ function createOpenRouterProviderOptions(
 function selectEconomyModel(
   userAi: UserAIFields,
   online = false,
-): Omit<SelectModel, "hasUserApiKey"> {
+): ResolvedModel {
   if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
     if (!apiKey) {
       logger.warn("Economy LLM provider configured but API key not found", {
         provider: env.ECONOMY_LLM_PROVIDER,
       });
-      return selectDefaultModel(userAi);
+      return selectDefaultModel(userAi, online);
     }
 
     // Configure OpenRouter provider options if using OpenRouter for economy
@@ -267,6 +342,7 @@ function selectEconomyModel(
     ) {
       providerOptions = createOpenRouterProviderOptions(
         env.ECONOMY_OPENROUTER_PROVIDERS,
+        env.ECONOMY_LLM_MODEL,
       );
     }
 
@@ -281,23 +357,20 @@ function selectEconomyModel(
     );
   }
 
-  return selectDefaultModel(userAi);
+  return selectDefaultModel(userAi, online);
 }
 
 /**
  * Selects the appropriate chat model for fast conversational tasks
  */
-function selectChatModel(
-  userAi: UserAIFields,
-  online = false,
-): Omit<SelectModel, "hasUserApiKey"> {
+function selectChatModel(userAi: UserAIFields, online = false): ResolvedModel {
   if (env.CHAT_LLM_PROVIDER && env.CHAT_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.CHAT_LLM_PROVIDER);
     if (!apiKey) {
       logger.warn("Chat LLM provider configured but API key not found", {
         provider: env.CHAT_LLM_PROVIDER,
       });
-      return selectDefaultModel(userAi);
+      return selectDefaultModel(userAi, online);
     }
 
     // Configure OpenRouter provider options if using OpenRouter for chat
@@ -308,6 +381,7 @@ function selectChatModel(
     ) {
       providerOptions = createOpenRouterProviderOptions(
         env.CHAT_OPENROUTER_PROVIDERS,
+        env.CHAT_LLM_MODEL,
       );
     }
 
@@ -322,13 +396,65 @@ function selectChatModel(
     );
   }
 
-  return selectDefaultModel(userAi);
+  return selectDefaultModel(userAi, online);
+}
+
+function selectNanoModel(userAi: UserAIFields, online = false): ResolvedModel {
+  if (env.NANO_LLM_PROVIDER && env.NANO_LLM_MODEL) {
+    const apiKey = getProviderApiKey(env.NANO_LLM_PROVIDER);
+    if (!apiKey) {
+      logger.warn("Nano LLM provider configured but API key not found", {
+        provider: env.NANO_LLM_PROVIDER,
+      });
+      return selectEconomyModel(userAi, online);
+    }
+
+    return selectModel(
+      {
+        aiProvider: env.NANO_LLM_PROVIDER,
+        aiModel: env.NANO_LLM_MODEL,
+        aiApiKey: apiKey,
+      },
+      env.NANO_LLM_PROVIDER === Provider.OPENROUTER
+        ? getOpenRouterProviderOptionsByType("nano", env.NANO_LLM_MODEL)
+        : undefined,
+      online,
+    );
+  }
+
+  return selectEconomyModel(userAi, online);
+}
+
+function selectDraftModel(userAi: UserAIFields, online = false): ResolvedModel {
+  if (env.DRAFT_LLM_PROVIDER && env.DRAFT_LLM_MODEL) {
+    const apiKey = getProviderApiKey(env.DRAFT_LLM_PROVIDER);
+    if (!apiKey) {
+      logger.warn("Draft LLM provider configured but API key not found", {
+        provider: env.DRAFT_LLM_PROVIDER,
+      });
+      return selectDefaultModel(userAi, online);
+    }
+
+    return selectModel(
+      {
+        aiProvider: env.DRAFT_LLM_PROVIDER,
+        aiModel: env.DRAFT_LLM_MODEL,
+        aiApiKey: apiKey,
+      },
+      env.DRAFT_LLM_PROVIDER === Provider.OPENROUTER
+        ? getOpenRouterProviderOptionsByType("draft", env.DRAFT_LLM_MODEL)
+        : undefined,
+      online,
+    );
+  }
+
+  return selectDefaultModel(userAi, online);
 }
 
 function selectDefaultModel(
   userAi: UserAIFields,
   online = false,
-): Omit<SelectModel, "hasUserApiKey"> {
+): ResolvedModel {
   let aiProvider: string;
   let aiModel: string | null = null;
   const aiApiKey = userAi.aiApiKey;
@@ -348,18 +474,25 @@ function selectDefaultModel(
   if (aiProvider === Provider.OPENROUTER) {
     const openRouterOptions = createOpenRouterProviderOptions(
       env.DEFAULT_OPENROUTER_PROVIDERS || "",
+      aiModel,
     );
 
-    // Preserve any custom options set earlier; always ensure reasoning exists.
+    // Preserve any custom options set earlier.
     const existingOpenRouterOptions = providerOptions.openrouter || {};
     providerOptions.openrouter = {
       ...openRouterOptions.openrouter,
       ...existingOpenRouterOptions,
-      reasoning: {
-        ...openRouterOptions.openrouter.reasoning,
-        ...(existingOpenRouterOptions.reasoning ?? {}),
-      },
     };
+
+    if (
+      openRouterOptions.openrouter.reasoning ||
+      existingOpenRouterOptions.reasoning
+    ) {
+      providerOptions.openrouter.reasoning = {
+        ...(openRouterOptions.openrouter.reasoning ?? {}),
+        ...(existingOpenRouterOptions.reasoning ?? {}),
+      };
+    }
   }
 
   return selectModel(
@@ -374,29 +507,274 @@ function selectDefaultModel(
 }
 
 function getProviderApiKey(provider: string) {
+  const azureApiKey = resolveApiKey(null, env.AZURE_API_KEY);
   const providerApiKeys: Record<string, string | undefined> = {
-    [Provider.ANTHROPIC]: env.ANTHROPIC_API_KEY,
+    [Provider.ANTHROPIC]: resolveApiKey(null, env.ANTHROPIC_API_KEY),
+    [Provider.AZURE]:
+      azureApiKey && env.AZURE_RESOURCE_NAME ? azureApiKey : undefined,
     [Provider.BEDROCK]:
       env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY
         ? "bedrock-credentials"
         : undefined,
-    [Provider.OPEN_AI]: env.OPENAI_API_KEY,
-    [Provider.GOOGLE]: env.GOOGLE_API_KEY,
-    [Provider.GROQ]: env.GROQ_API_KEY,
-    [Provider.OPENROUTER]: env.OPENROUTER_API_KEY,
-    [Provider.AI_GATEWAY]: env.AI_GATEWAY_API_KEY,
+    [Provider.OPEN_AI]: resolveApiKey(null, env.OPENAI_API_KEY),
+    [Provider.GOOGLE]: resolveApiKey(null, env.GOOGLE_API_KEY),
+    // Returns a placeholder so this provider can be selected in fallback chains.
+    // Authentication is handled by Google auth options or ADC at runtime.
+    [Provider.VERTEX]: env.GOOGLE_VERTEX_PROJECT
+      ? "vertex-credentials"
+      : undefined,
+    [Provider.GROQ]: resolveApiKey(null, env.GROQ_API_KEY),
+    [Provider.OPENROUTER]: resolveApiKey(null, env.OPENROUTER_API_KEY),
+    [Provider.AI_GATEWAY]: resolveApiKey(null, env.AI_GATEWAY_API_KEY),
     [Provider.OLLAMA]: "ollama-local",
+    // Returns a placeholder so the fallback chain doesn't skip this provider
+    // when no API key is configured (many OpenAI-compatible servers don't require one)
+    [Provider.OPENAI_COMPATIBLE]: env.LLM_API_KEY || "not-required",
   };
 
   return providerApiKeys[provider];
 }
 
-function getBackupModel(userApiKey: string | null): LanguageModelV3 | null {
-  // disable backup model if user is using their own api key
-  if (userApiKey) return null;
-  if (!env.OPENROUTER_BACKUP_MODEL) return null;
+function resolveApiKey(
+  aiApiKey: string | null | undefined,
+  providerApiKey: string | undefined,
+) {
+  return aiApiKey || providerApiKey || env.LLM_API_KEY;
+}
 
-  return createOpenRouter({
-    apiKey: env.OPENROUTER_API_KEY,
-  }).chat(env.OPENROUTER_BACKUP_MODEL);
+function getVertexConfig(): {
+  project: string;
+  location: string;
+  googleAuthOptions?: {
+    credentials: {
+      client_email: string;
+      private_key: string;
+    };
+  };
+} {
+  const project = env.GOOGLE_VERTEX_PROJECT;
+  if (!project) {
+    throw new SafeError(
+      "GOOGLE_VERTEX_PROJECT environment variable is not set",
+    );
+  }
+
+  const location = env.GOOGLE_VERTEX_LOCATION;
+  const clientEmail = env.GOOGLE_VERTEX_CLIENT_EMAIL;
+  const privateKey = normalizePrivateKey(env.GOOGLE_VERTEX_PRIVATE_KEY);
+
+  if (!clientEmail || !privateKey) {
+    return { project, location };
+  }
+
+  return {
+    project,
+    location,
+    googleAuthOptions: {
+      credentials: {
+        client_email: clientEmail,
+        private_key: privateKey,
+      },
+    },
+  };
+}
+
+function normalizePrivateKey(value: string | undefined): string | undefined {
+  return value?.replace(/\\n/g, "\n");
+}
+
+function getFallbackModels({
+  userAi,
+  modelType,
+  primaryModel,
+  online,
+}: {
+  userAi: UserAIFields;
+  modelType: ModelType;
+  primaryModel: ResolvedModel;
+  online: boolean;
+}): ResolvedModel[] {
+  // Keep user-selected API key behavior strict and predictable.
+  if (userAi.aiApiKey) return [];
+
+  const fallbackConfig = getFallbackConfig(modelType);
+  if (!fallbackConfig) return [];
+
+  const fallbackDefinitions = parseFallbackConfig(fallbackConfig);
+  if (!fallbackDefinitions.length) return [];
+
+  const fallbacks: ResolvedModel[] = [];
+
+  for (const fallback of fallbackDefinitions) {
+    if (!isSupportedProvider(fallback.provider)) {
+      logger.warn("Skipping unsupported fallback provider", {
+        provider: fallback.provider,
+      });
+      continue;
+    }
+
+    const apiKey = getProviderApiKey(fallback.provider);
+    if (!apiKey) {
+      logger.warn("Skipping fallback provider without configured credentials", {
+        provider: fallback.provider,
+      });
+      continue;
+    }
+
+    if (!fallback.modelName) {
+      logger.warn("Skipping fallback provider without explicit model", {
+        provider: fallback.provider,
+        modelType,
+      });
+      continue;
+    }
+
+    const providerOptions =
+      fallback.provider === Provider.OPENROUTER
+        ? getOpenRouterProviderOptionsByType(modelType, fallback.modelName)
+        : undefined;
+
+    const resolvedFallback = selectModel(
+      {
+        aiProvider: fallback.provider,
+        aiModel: fallback.modelName,
+        aiApiKey: apiKey,
+      },
+      providerOptions,
+      online,
+    );
+
+    const isDuplicateOfPrimary =
+      resolvedFallback.provider === primaryModel.provider &&
+      resolvedFallback.modelName === primaryModel.modelName;
+    const isDuplicateFallback = fallbacks.some(
+      (existing) =>
+        existing.provider === resolvedFallback.provider &&
+        existing.modelName === resolvedFallback.modelName,
+    );
+
+    if (isDuplicateOfPrimary || isDuplicateFallback) continue;
+
+    fallbacks.push(resolvedFallback);
+  }
+
+  return fallbacks;
+}
+
+function getFallbackConfig(modelType: ModelType): string | undefined {
+  return getConfiguredFallbacksByType(modelType);
+}
+
+function getConfiguredFallbacksByType(
+  modelType: ModelType,
+): string | undefined {
+  switch (modelType) {
+    case "economy":
+      return env.ECONOMY_LLM_FALLBACKS || env.DEFAULT_LLM_FALLBACKS;
+    case "chat":
+      return env.CHAT_LLM_FALLBACKS || env.DEFAULT_LLM_FALLBACKS;
+    case "nano":
+      return env.ECONOMY_LLM_FALLBACKS || env.DEFAULT_LLM_FALLBACKS;
+    default:
+      return env.DEFAULT_LLM_FALLBACKS;
+  }
+}
+
+function getOpenRouterProviderOptionsByType(
+  modelType: ModelType,
+  modelName?: string | null,
+): Record<string, any> | undefined {
+  const providersByType: Record<ModelType, string | undefined> = {
+    default: env.DEFAULT_OPENROUTER_PROVIDERS,
+    economy: env.ECONOMY_OPENROUTER_PROVIDERS,
+    chat: env.CHAT_OPENROUTER_PROVIDERS,
+    nano: env.ECONOMY_OPENROUTER_PROVIDERS,
+    draft: env.DEFAULT_OPENROUTER_PROVIDERS,
+  };
+
+  const providers = providersByType[modelType];
+  if (!providers) return;
+  return createOpenRouterProviderOptions(providers, modelName);
+}
+
+function shouldIncludeOpenRouterReasoning(modelName?: string | null): boolean {
+  return !isXaiGrokModel(modelName);
+}
+
+function isXaiGrokModel(modelName?: string | null): boolean {
+  return modelName?.toLowerCase().startsWith("x-ai/grok-") ?? false;
+}
+
+function getGoogleThinkingConfig(
+  modelName: string,
+): NonNullable<GoogleGenerativeAIProviderOptions["thinkingConfig"]> {
+  if (isGemini3Model(modelName)) {
+    return { thinkingLevel: "minimal" };
+  }
+
+  return { thinkingBudget: GOOGLE_THINKING_BUDGET };
+}
+
+function isGemini3Model(modelName: string): boolean {
+  return modelName.toLowerCase().startsWith("gemini-3");
+}
+
+function getAiGatewayProviderOptions(
+  modelName: string,
+): AiGatewayProviderOptions {
+  const normalizedModelName = modelName.toLowerCase();
+
+  if (normalizedModelName.startsWith("google/")) {
+    return {
+      google: {
+        thinkingConfig: {
+          thinkingBudget: GOOGLE_THINKING_BUDGET,
+        },
+      },
+    };
+  }
+
+  if (
+    normalizedModelName.startsWith("openai/") ||
+    normalizedModelName.startsWith("azure/")
+  ) {
+    return {
+      // Azure OpenAI models use OpenAI provider options in AI Gateway.
+      openai: {
+        reasoningEffort: "low",
+        reasoningSummary: "concise",
+      },
+    };
+  }
+
+  // Note: Anthropic thinking is disabled by default (not including the config)
+  return {};
+}
+
+function parseFallbackConfig(
+  fallbackConfig: string,
+): Array<{ provider: string; modelName: string | null }> {
+  return fallbackConfig
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const separatorIndex = entry.indexOf(":");
+      if (separatorIndex === -1) {
+        return {
+          provider: entry.toLowerCase(),
+          modelName: null,
+        };
+      }
+
+      return {
+        provider: entry.slice(0, separatorIndex).trim().toLowerCase(),
+        modelName: entry.slice(separatorIndex + 1).trim() || null,
+      };
+    })
+    .filter((entry) => !!entry.provider);
+}
+
+function isSupportedProvider(provider: string): boolean {
+  return Object.values(Provider).includes(provider);
 }

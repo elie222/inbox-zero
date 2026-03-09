@@ -2,9 +2,10 @@ import { after } from "next/server";
 import prisma from "@/utils/prisma";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
-import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
-import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
-import { isFilebotEmail } from "@/utils/filebot/is-filebot-email";
+import {
+  isFilebotEmail,
+  isFilebotNotificationMessage,
+} from "@/utils/filebot/is-filebot-email";
 import { processFilingReply } from "@/utils/drive/handle-filing-reply";
 import {
   processAttachment,
@@ -19,17 +20,18 @@ import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
-import type { EmailAccountWithAI } from "@/utils/llms/types";
+import type { EmailAccountForDrafting } from "@/utils/ai/choose-rule/choose-args";
 import type { Logger } from "@/utils/logger";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { captureException } from "@/utils/error";
+import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
   rules: RuleWithActions[];
   hasAutomationRules: boolean;
   hasAiAccess: boolean;
-  emailAccount: EmailAccountWithAI &
+  emailAccount: EmailAccountForDrafting &
     Pick<
       EmailAccount,
       "autoCategorizeSenders" | "filingEnabled" | "filingPrompt" | "email"
@@ -91,32 +93,6 @@ export async function processHistoryItem(
       return;
     }
 
-    const isForAssistant = isAssistantEmail({
-      userEmail,
-      emailToCheck: parsedMessage.headers.to,
-    });
-
-    if (isForAssistant) {
-      logger.info("Passing through assistant email.");
-      return processAssistantEmail({
-        message: parsedMessage,
-        emailAccountId,
-        userEmail,
-        provider,
-        logger,
-      });
-    }
-
-    const isFromAssistant = isAssistantEmail({
-      userEmail,
-      emailToCheck: parsedMessage.headers.from,
-    });
-
-    if (isFromAssistant) {
-      logger.info("Skipping. Assistant email.");
-      return;
-    }
-
     const isForFilebot = isFilebotEmail({
       userEmail,
       emailToCheck: parsedMessage.headers.to,
@@ -146,6 +122,18 @@ export async function processHistoryItem(
     });
 
     if (isOutbound) {
+      if (
+        isFilebotNotificationMessage({
+          userEmail,
+          from: parsedMessage.headers.from,
+          to: parsedMessage.headers.to,
+          replyTo: parsedMessage.headers["reply-to"],
+        })
+      ) {
+        logger.info("Skipping. Filebot notification message.");
+        return;
+      }
+
       await handleOutboundMessage({
         emailAccount,
         message: parsedMessage,
@@ -320,7 +308,15 @@ export async function processHistoryItem(
       }
     }
 
-    logger.error("Error processing message", { error });
+    await logErrorWithDedupe({
+      logger,
+      message: "Error processing message",
+      error,
+      dedupeKeyParts: {
+        scope: "webhook/process-history-item",
+        emailAccountId,
+      },
+    });
     throw error;
   }
 }

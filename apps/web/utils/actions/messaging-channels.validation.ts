@@ -1,9 +1,9 @@
 import { z } from "zod";
+import { LINKABLE_MESSAGING_PROVIDERS } from "@/utils/messaging/chat-sdk/link-code";
 
 export const updateSlackChannelBody = z.object({
   channelId: z.string().min(1),
   targetId: z.string().min(1),
-  targetName: z.string().min(1),
 });
 
 export const updateChannelFeaturesBody = z.object({
@@ -22,4 +22,8 @@ export const disconnectChannelBody = z.object({
 
 export const linkSlackWorkspaceBody = z.object({
   teamId: z.string().min(1),
+});
+
+export const createMessagingLinkCodeBody = z.object({
+  provider: z.enum(LINKABLE_MESSAGING_PROVIDERS),
 });

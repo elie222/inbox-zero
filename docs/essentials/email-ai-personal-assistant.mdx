@@ -4,15 +4,7 @@ description: 'Set up your assistant to manage your emails for you.'
 icon: 'sparkles'
 ---
 
-## Overview
-
-The AI Personal Assistant is like having a human assistant manage your inbox, but at a fraction of the cost. It transforms how you handle email by saving you significant time each day - you can breeze through your inbox with pre-drafted responses ready to go, turning what used to take hours into minutes.
-
-At its core, it provides automatic organization by labeling and archiving emails based on your rules, keeping your inbox clean and organized. It also drafts replies to emails that need your attention. The AI learns your unique tone and writing style, so instead of starting from scratch with every email, you'll find thoughtful responses that sound like you actually wrote them - maintaining your personal voice while saving you time.
-
-But the real power lies in its flexibility. Beyond these core features, you can create any custom rule to give your AI assistant a personalized role in managing your email. Want to automatically forward receipts to your accountant? Need to label all emails from team members or investors? Looking to set up complex workflows unique to your needs? The AI Personal Assistant adapts to whatever email management scenario you can imagine.
-
-We provide smart defaults to get you started immediately. Emails that need replies will automatically get draft responses, newsletters and marketing emails are properly categorized, and calendar-related emails are handled appropriately. These defaults work well for many users, but you're free to customize everything to match your specific workflow.
+The AI Personal Assistant automatically manages your inbox — labeling, archiving, and drafting replies based on rules you define. Set it up using the [AI Chat](/essentials/ai-chat) or configure rules manually below.
 
 ## Getting Started
 
@@ -42,14 +34,9 @@ You can create rules in two ways:
 
 For more precise control, create rules manually by clicking the `Manually add rule` button.
 
-### AI Chat Assistant
+### AI Chat
 
-Need help with your rules? Use the AI chat assistant to:
-- Improve existing rules
-- Add new rules based on your needs
-- Get suggestions for better email management
-
-![AI Rules](/images/ai-personal-assistant-prompt.png)
+You can also create and manage rules through the [AI Chat](/essentials/ai-chat) — just describe what you want in plain English.
 
 ## Rules
 
@@ -142,13 +129,7 @@ Everything outside the `{{...}}` placeholders will remain exactly as written.
 
 #### Apply to Threads
 
-When an email arrives, the AI looks at all your rules to decide which one fits best. The "Apply to Threads" setting determines which rules the AI can choose from.
-
-If this is disabled on a rule, that rule is only available for standalone emails - the first email in a new conversation. When someone replies (creating what's called a thread or email conversation), rules with this disabled won't even be considered as options.
-
-For example, say you have 8 rules total. If 5 of them have "Apply to Threads" disabled, then when a reply comes in, the AI only chooses from the 3 rules that have it enabled. But for a brand new email starting a conversation, the AI can pick from all 8 rules.
-
-This improves efficiency because certain types of emails, like newsletters or receipts, are typically standalone and not part of a thread. By automatically excluding these rules from threaded conversations, the AI has a more focused set of options to evaluate, leading to faster and more accurate rule matching.
+When "Apply to Threads" is disabled on a rule, that rule is skipped for replies and only runs on the first email in a conversation. This is useful for rules that target standalone emails like newsletters or receipts — disabling it means the AI evaluates fewer rules on threaded emails, improving speed and accuracy.
 
 ### Test Rules
 
@@ -172,107 +153,5 @@ If a rule isn't behaving as expected (e.g., incorrectly marking emails as "to re
 4. Explain why this email shouldn't match the rule
 5. The AI will adjust the rule accordingly
 
-Alternatively, use the AI chat assistant to describe the issue and get help fixing it.
+Alternatively, use the [AI Chat](/essentials/ai-chat) to describe the issue and get help fixing it.
 
-### Email Digest
-
-The digest feature helps you stay on top of important emails by sending you summaries at your preferred frequency. You can configure any rule to contribute to your daily or weekly digest, which collects and summarizes those emails for you.
-
-This is especially powerful for newsletters. If you receive 20 newsletters throughout the day, you can have them all included in a single digest that summarizes everything you received. Instead of reading each newsletter individually, you get one comprehensive summary of all the important updates.
-
-### Delayed Actions
-
-Delayed actions help you automatically clean up your inbox by archiving emails after a set period. This is perfect for low-priority emails that are only relevant for a short time - maybe a week or two - before they become noise in your inbox.
-
-For example, newsletters might be interesting for a week, but after that they're just clutter. With delayed actions, you can have them automatically archive after 7 days. Your inbox stays clean without any manual effort, and those emails are still searchable if you need them later.
-
-Delayed actions aren't limited to archiving. You can also use them for other automations like sending replies after a short delay - perhaps waiting 2 minutes before sending an automated response to make it feel more natural and less robotic.
-
-### Call Webhook Action
-
-> This is a developer feature for integrating with other services. If you're not a developer, you can skip this section!
-
-The `Call Webhook` action allows developers to integrate email processing with other services and applications. When triggered, we will send the email data to your specified webhook endpoint with the following configuration:
-
-- Method: POST
-- Content-Type: application/json
-- Headers: Includes `X-Webhook-Secret` if configured in settings
-- Body: JSON object containing the email data and rule that triggered the webhook
-
-The webhook payload has the following structure:
-
-```typescript
-{
-  email: {
-    threadId: string;      // The thread ID (Gmail or Outlook)
-    messageId: string;     // The message ID (Gmail or Outlook)
-    subject: string;       // Email subject
-    from: string;         // Sender's email address
-    cc?: string;          // CC recipients (if any)
-    bcc?: string;         // BCC recipients (if any)
-    headerMessageId: string; // Original message ID header
-  },
-  executedRule: {
-    id: string;           // Execution ID
-    ruleId: string;       // Rule that triggered this webhook
-    reason: string;       // Why this rule was executed
-    createdAt: string;    // When the rule was executed
-  }
-}
-```
-
-You can set up a webhook secret in the [settings page](https://www.getinboxzero.com/settings) to secure your webhook endpoints. This secret will be included in the `X-Webhook-Secret` header of every webhook request.
-
-### Use your own API key
-
-Inbox Zero covers AI costs for you, but if you wish, you can use your own API key.
-
-Go to the [settings page](https://www.getinboxzero.com/settings) to set it up.
-
-You can use the following LLM providers:
-
-* Anthropic
-* OpenAI
-* Google
-* Groq (Llama)
-* OpenRouter (access to any LLM of your choice)
-* Ollama (for self-hosted setups with 100% privacy)
-
-#### Anthropic
-
-To create an Anthropic API key, visit:
-https://console.anthropic.com/settings/keys
-
-#### OpenAI
-
-To create an OpenAI API key, visit:
-https://platform.openai.com/api-keys
-
-<iframe
-  width="560"
-  height="315"
-  src="https://www.youtube.com/embed/AQtB0j6Zmt0"
-  title="YouTube video player"
-  frameBorder="0"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-  allowFullScreen
-></iframe>
-
-#### Google
-
-To create a Google API key, visit:
-https://aistudio.google.com/app/apikey
-
-#### Groq
-
-To create a Groq API key, visit:
-https://console.groq.com/keys
-
-#### OpenRouter
-
-OpenRouter gives you access to a wide variety of LLMs through a single API. Visit:
-https://openrouter.ai/settings/keys
-
-#### Ollama (Self-Hosted)
-
-For complete privacy, you can run a local Ollama model with your self-hosted setup. This ensures your email data never leaves your infrastructure.

@@ -2,9 +2,9 @@ import { cn } from "@/utils";
 import Link from "next/link";
 
 interface AnchorProps {
-  href: string;
   children: React.ReactNode;
   className?: string;
+  href: string;
   newTab?: boolean;
 }
 

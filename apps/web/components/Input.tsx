@@ -7,28 +7,28 @@ import { cn } from "@/utils";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export interface InputProps {
-  name: string;
-  label?: string;
-  labelComponent?: React.ReactNode;
-  type: HTMLInputTypeAttribute;
-  placeholder?: string;
-  registerProps?: any; // TODO
-  explainText?: string;
-  tooltipText?: string;
   as?: React.ElementType;
   autosizeTextarea?: boolean;
-  rows?: number;
-  maxRows?: number;
-  min?: number;
-  step?: number;
-  max?: number;
+  className?: string;
   disabled?: boolean;
   error?: FieldError;
+  explainText?: string;
+  label?: string;
+  labelComponent?: React.ReactNode;
   leftText?: string;
-  rightText?: string;
-  className?: string;
+  max?: number;
+  maxRows?: number;
+  min?: number;
+  name: string;
   onClickAdd?: () => void;
   onClickRemove?: () => void;
+  placeholder?: string;
+  registerProps?: any; // TODO
+  rightText?: string;
+  rows?: number;
+  step?: number;
+  tooltipText?: string;
+  type: HTMLInputTypeAttribute;
 }
 
 export const Input = (props: InputProps) => {

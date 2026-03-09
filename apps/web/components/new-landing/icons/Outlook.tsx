@@ -1,6 +1,6 @@
 interface OutlookProps {
-  width?: string | number;
   height?: string | number;
+  width?: string | number;
 }
 
 export function Outlook({ width = "28", height = "27" }: OutlookProps) {

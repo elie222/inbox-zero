@@ -1,16 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ChevronRightIcon,
   CreditCardIcon,
   MailIcon,
+  MessageCircleIcon,
+  PlugIcon,
+  SendIcon,
   SlackIcon,
   SparklesIcon,
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
+import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
 import {
@@ -30,8 +34,22 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ItemCard, ItemSeparator } from "@/components/ui/item";
+import {
+  Item,
+  ItemCard,
+  ItemContent,
+  ItemSeparator,
+  ItemTitle,
+  ItemActions,
+} from "@/components/ui/item";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -45,7 +63,19 @@ export default function SettingsPage() {
     null,
   );
 
-  useSlackNotifications(true);
+  const handleSlackConnected = useCallback(
+    (connectedEmailAccountId: string | null) => {
+      setExpandedAccountId(
+        connectedEmailAccountId ?? activeEmailAccountId ?? null,
+      );
+    },
+    [activeEmailAccountId],
+  );
+
+  useSlackNotifications({
+    enabled: true,
+    onSlackConnected: handleSlackConnected,
+  });
 
   const emailAccounts = useMemo(() => {
     const accounts = data?.emailAccounts ?? [];
@@ -144,10 +174,17 @@ function EmailAccountSettingsCard({
   onToggle: () => void;
 }) {
   const { data: channelsData } = useMessagingChannels(emailAccount.id);
-  const hasSlack =
-    channelsData?.channels.some(
-      (ch) => ch.isConnected && ch.provider === "SLACK",
-    ) ?? false;
+
+  const connectedProviders = Array.from(
+    new Set(
+      channelsData?.channels
+        .filter((ch) => ch.isConnected)
+        .map((ch) => ch.provider) ?? [],
+    ),
+  );
+  const hasUnconnectedProvider = channelsData?.availableProviders?.some(
+    (p) => !connectedProviders.includes(p),
+  );
 
   return (
     <ItemCard>
@@ -165,13 +202,28 @@ function EmailAccountSettingsCard({
             {emailAccount.name?.charAt(0) || emailAccount.email?.charAt(0)}
           </AvatarFallback>
         </Avatar>
-        <span className="flex-1 text-sm font-medium">
-          {emailAccount.email}
-        </span>
-        {hasSlack && (
-          <Badge variant="secondary" className="gap-1 text-xs font-normal">
-            <SlackIcon className="size-3" />
-            Slack
+        <span className="flex-1 text-sm font-medium">{emailAccount.email}</span>
+        {connectedProviders.map((provider) => (
+          <Badge
+            key={provider}
+            variant="secondary"
+            className="gap-1 text-xs font-normal"
+          >
+            <ProviderIcon provider={provider} className="size-3" />
+            {PROVIDER_LABELS[provider] ?? provider}
+          </Badge>
+        ))}
+        {hasUnconnectedProvider && (
+          <Badge
+            variant="outline"
+            className="gap-1 text-xs font-normal cursor-pointer hover:bg-muted"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!expanded) onToggle();
+            }}
+          >
+            <PlugIcon className="size-3" />
+            Connect Apps
           </Badge>
         )}
         <ChevronRightIcon
@@ -185,19 +237,89 @@ function EmailAccountSettingsCard({
       {expanded && (
         <>
           <ConnectedAppsSection emailAccountId={emailAccount.id} />
-          <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
-          <ToggleAllRulesSection emailAccountId={emailAccount.id} />
-          <RuleImportExportSetting emailAccountId={emailAccount.id} />
-          <CopyRulesSection
+          <div className="px-4 py-3">
+            <ProactiveUpdatesSetting emailAccountId={emailAccount.id} />
+          </div>
+          <AdvancedSettingsSection
             emailAccountId={emailAccount.id}
             emailAccountEmail={emailAccount.email}
             allAccounts={allAccounts}
           />
-          <CleanupDraftsSection emailAccountId={emailAccount.id} />
-          <ResetAnalyticsSection emailAccountId={emailAccount.id} />
         </>
       )}
     </ItemCard>
+  );
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  SLACK: "Slack",
+  TEAMS: "Teams",
+  TELEGRAM: "Telegram",
+};
+
+function ProviderIcon({
+  provider,
+  className,
+}: {
+  provider: string;
+  className?: string;
+}) {
+  switch (provider) {
+    case "SLACK":
+      return <SlackIcon className={className} />;
+    case "TEAMS":
+      return <MessageCircleIcon className={className} />;
+    case "TELEGRAM":
+      return <SendIcon className={className} />;
+    default:
+      return <PlugIcon className={className} />;
+  }
+}
+
+function AdvancedSettingsSection({
+  emailAccountId,
+  emailAccountEmail,
+  allAccounts,
+}: {
+  emailAccountId: string;
+  emailAccountEmail: string;
+  allAccounts: GetEmailAccountsResponse["emailAccounts"];
+}) {
+  return (
+    <>
+      <ItemSeparator />
+      <Item size="sm">
+        <ItemContent>
+          <ItemTitle>Advanced</ItemTitle>
+        </ItemContent>
+        <ItemActions>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                View
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Advanced Settings</DialogTitle>
+              </DialogHeader>
+              <ItemCard className="[&>[data-slot=item-separator]:first-child]:hidden">
+                <OrgAnalyticsConsentSection emailAccountId={emailAccountId} />
+                <ToggleAllRulesSection emailAccountId={emailAccountId} />
+                <RuleImportExportSetting emailAccountId={emailAccountId} />
+                <CopyRulesSection
+                  emailAccountId={emailAccountId}
+                  emailAccountEmail={emailAccountEmail}
+                  allAccounts={allAccounts}
+                />
+                <CleanupDraftsSection emailAccountId={emailAccountId} />
+                <ResetAnalyticsSection emailAccountId={emailAccountId} />
+              </ItemCard>
+            </DialogContent>
+          </Dialog>
+        </ItemActions>
+      </Item>
+    </>
   );
 }
 

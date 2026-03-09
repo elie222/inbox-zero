@@ -1,6 +1,15 @@
 /** biome-ignore-all lint/style/noMagicNumbers: we're defining constants */
 import type { LanguageModelUsage } from "ai";
 import { saveUsage } from "@/utils/redis/usage";
+import { OPENROUTER_MODEL_PRICING } from "@/utils/llms/pricing.generated";
+import {
+  STATIC_MODEL_PRICING,
+  type ModelPricing,
+} from "@/utils/llms/supported-model-pricing";
+import {
+  getOpenRouterProviderPrefix,
+  stripOnlineModelSuffix,
+} from "@/utils/llms/model-id";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -8,175 +17,131 @@ const logger = createScopedLogger("usage");
 
 export async function saveAiUsage({
   email,
+  emailAccountId,
   provider,
   model,
   usage,
   label,
+  hasUserApiKey,
 }: {
   email: string;
+  emailAccountId: string;
   provider: string;
   model: string;
   usage: LanguageModelUsage;
   label: string;
+  hasUserApiKey?: boolean;
 }) {
-  const cost = calcuateCost(model, usage);
+  const estimatedCost = calculateUsageCost({ provider, model, usage });
+  const isUserApiKey = !!hasUserApiKey;
+  const platformCost = isUserApiKey ? 0 : estimatedCost;
 
   try {
     return Promise.all([
       publishAiCall({
         userId: email,
+        emailAccountId,
         provider,
         model,
         totalTokens: usage.totalTokens ?? 0,
         completionTokens: usage.outputTokens ?? 0,
         promptTokens: usage.inputTokens ?? 0,
-        cost,
+        cachedInputTokens: usage.cachedInputTokens ?? 0,
+        reasoningTokens: usage.reasoningTokens ?? 0,
+        cost: platformCost,
+        estimatedCost,
+        isUserApiKey: toTinybirdBoolean(isUserApiKey),
         timestamp: Date.now(),
         label,
       }),
-      saveUsage({ email, cost, usage }),
+      saveUsage({ email, cost: platformCost, usage }),
     ]);
   } catch (error) {
     logger.error("Failed to save usage", { error });
   }
 }
 
-const sonnet = {
-  input: 3 / 1_000_000,
-  output: 15 / 1_000_000,
-};
-const haiku = {
-  input: 1 / 1_000_000,
-  output: 5 / 1_000_000,
-};
+export function calculateUsageCost(options: {
+  provider: string;
+  model: string;
+  usage: LanguageModelUsage;
+}): number {
+  const { provider, model, usage } = options;
+  const pricing = getModelPricing({ provider, model });
+  if (!pricing) return 0;
 
-const gemini2_5flash = {
-  input: 0.15 / 1_000_000,
-  output: 0.6 / 1_000_000,
-};
-const gemini2_5pro = {
-  input: 1.25 / 1_000_000,
-  output: 10 / 1_000_000,
-};
+  const rawCachedInputTokens = usage.cachedInputTokens ?? 0;
+  const normalizedCachedInputTokens = Math.max(0, rawCachedInputTokens);
+  const inputTokens = Math.max(
+    0,
+    usage.inputTokens ?? normalizedCachedInputTokens,
+  );
+  const cachedInputTokens = Math.min(inputTokens, normalizedCachedInputTokens);
+  const uncachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
+  const outputTokens = Math.max(0, usage.outputTokens ?? 0);
+  const cachedInputTokenPrice = pricing.cachedInput ?? pricing.input;
 
-const gemini3_0flash = {
-  input: 0.5 / 1_000_000,
-  output: 3 / 1_000_000,
-};
+  return (
+    uncachedInputTokens * pricing.input +
+    cachedInputTokens * cachedInputTokenPrice +
+    outputTokens * pricing.output
+  );
+}
 
-const gemini3_0pro = {
-  input: 2 / 1_000_000,
-  output: 12 / 1_000_000,
-};
+function getModelPricing(options: {
+  provider: string;
+  model: string;
+}): ModelPricing | undefined {
+  const { provider, model } = options;
+  const providerId = provider.toLowerCase();
 
-const costs: Record<
-  string,
-  {
-    input: number;
-    output: number;
+  for (const candidate of buildModelLookupCandidates({
+    model,
+    provider: providerId,
+  })) {
+    if (providerId === "openrouter") {
+      const openRouterPricing = OPENROUTER_MODEL_PRICING[candidate];
+      if (openRouterPricing) return openRouterPricing;
+    }
+
+    const fallbackPricing = STATIC_MODEL_PRICING[candidate];
+    if (fallbackPricing) return fallbackPricing;
+
+    if (providerId !== "openrouter") {
+      const openRouterPricing = OPENROUTER_MODEL_PRICING[candidate];
+      if (openRouterPricing) return openRouterPricing;
+    }
   }
-> = {
-  // https://openai.com/pricing
-  "gpt-3.5-turbo-0125": {
-    input: 0.5 / 1_000_000,
-    output: 1.5 / 1_000_000,
-  },
-  "gpt-4o-mini": {
-    input: 0.15 / 1_000_000,
-    output: 0.6 / 1_000_000,
-  },
-  "gpt-4-turbo": {
-    input: 10 / 1_000_000,
-    output: 30 / 1_000_000,
-  },
-  "gpt-4o": {
-    input: 5 / 1_000_000,
-    output: 15 / 1_000_000,
-  },
-  "gpt-5-mini": {
-    input: 0.25 / 1_000_000,
-    output: 2 / 1_000_000,
-  },
-  "gpt-5.1": {
-    input: 1.25 / 1_000_000,
-    output: 10 / 1_000_000,
-  },
-  // https://www.anthropic.com/pricing#anthropic-api
-  "claude-3-5-sonnet-20240620": sonnet,
-  "claude-3-5-sonnet-20241022": sonnet,
-  "claude-3-7-sonnet-20250219": sonnet,
-  "claude-sonnet-4-5-20250929": sonnet,
-  "anthropic/claude-3.5-sonnet": sonnet,
-  "anthropic/claude-3.7-sonnet": sonnet,
-  "anthropic/claude-sonnet-4": sonnet,
-  "anthropic/claude-sonnet-4.5": sonnet,
-  "anthropic/claude-haiku-4.5": haiku,
-  // https://aws.amazon.com/bedrock/pricing/
-  "anthropic.claude-3-5-sonnet-20240620-v1:0": sonnet,
-  "anthropic.claude-3-5-sonnet-20241022-v2:0": sonnet,
-  "us.anthropic.claude-3-5-sonnet-20241022-v2:0": sonnet,
-  "us.anthropic.claude-3-7-sonnet-20250219-v1:0": sonnet,
-  "us.anthropic.claude-sonnet-4-20250514-v1:0": sonnet,
-  "global.anthropic.claude-sonnet-4-5-20250929-v1:0": sonnet,
-  "global.anthropic.claude-haiku-4-5-20251001-v1:0": haiku,
-  "anthropic.claude-3-5-haiku-20241022-v1:0": {
-    input: 0.8 / 1_000_000,
-    output: 4 / 1_000_000,
-  },
-  "us.anthropic.claude-3-5-haiku-20241022-v1:0": {
-    input: 0.8 / 1_000_000,
-    output: 4 / 1_000_000,
-  },
-  // https://ai.google.dev/pricing
-  "gemini-1.5-pro-latest": {
-    input: 1.25 / 1_000_000,
-    output: 5 / 1_000_000,
-  },
-  "gemini-1.5-flash-latest": {
-    input: 0.075 / 1_000_000,
-    output: 0.3 / 1_000_000,
-  },
-  "gemini-2.0-flash-lite": {
-    input: 0.075 / 1_000_000,
-    output: 0.3 / 1_000_000,
-  },
-  "gemini-2.0-flash": gemini2_5flash,
-  "gemini-2.5-flash": gemini2_5flash,
-  "gemini-3-flash": gemini3_0flash,
-  "gemini-3-flash-preview": gemini3_0flash,
-  "gemini-3-pro": gemini3_0pro,
-  "gemini-3-pro-preview": gemini3_0pro,
-  "google/gemini-2.0-flash-001": gemini2_5flash,
-  "google/gemini-2.5-flash-preview-05-20": gemini2_5flash,
-  "google/gemini-2.5-pro-preview-03-25": gemini2_5pro,
-  "google/gemini-2.5-pro-preview-06-05": gemini2_5pro,
-  "google/gemini-2.5-pro-preview": gemini2_5pro,
-  "google/gemini-2.5-pro": gemini2_5pro,
-  "google/gemini-3-flash": gemini3_0flash,
-  "google/gemini-3-flash-preview": gemini3_0flash,
-  "google/gemini-3-pro": gemini3_0pro,
-  "google/gemini-3-pro-preview": gemini3_0pro,
-  "meta-llama/llama-4-maverick": {
-    input: 0.2 / 1_000_000,
-    output: 0.85 / 1_000_000,
-  },
-  // Kimi K2 Groq via OpenRouter - https://openrouter.ai/moonshotai/kimi-k2
-  "moonshotai/kimi-k2": {
-    input: 1 / 1_000_000,
-    output: 3 / 1_000_000,
-  },
-  // https://groq.com/pricing
-  "llama-3.3-70b-versatile": {
-    input: 0.59 / 1_000_000,
-    output: 0.79 / 1_000_000,
-  },
-};
 
-// returns cost in cents
-function calcuateCost(model: string, usage: LanguageModelUsage): number {
-  if (!costs[model]) return 0;
+  return undefined;
+}
 
-  const { input, output } = costs[model];
+function buildModelLookupCandidates({
+  provider,
+  model,
+}: {
+  provider: string;
+  model: string;
+}): string[] {
+  const noOnlineSuffix = stripOnlineModelSuffix(model);
 
-  return (usage.inputTokens ?? 0) * input + (usage.outputTokens ?? 0) * output;
+  const candidates = [model, noOnlineSuffix];
+  const unprefixed = noOnlineSuffix.includes("/")
+    ? noOnlineSuffix.split("/").at(-1)
+    : null;
+
+  if (unprefixed) {
+    candidates.push(unprefixed);
+  } else {
+    const providerPrefix = getOpenRouterProviderPrefix(provider);
+    if (providerPrefix) {
+      candidates.push(`${providerPrefix}/${noOnlineSuffix}`);
+    }
+  }
+
+  return [...new Set(candidates)];
+}
+
+function toTinybirdBoolean(value: boolean): 0 | 1 {
+  return value ? 1 : 0;
 }

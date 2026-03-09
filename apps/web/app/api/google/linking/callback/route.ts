@@ -16,6 +16,7 @@ import {
 } from "@/utils/redis/oauth-code";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { parseOAuthState } from "@/utils/oauth/state";
+import { SafeError } from "@/utils/error";
 
 export const GET = withError("google/linking/callback", async (request) => {
   const logger = request.logger;
@@ -30,7 +31,9 @@ export const GET = withError("google/linking/callback", async (request) => {
   let isMobileFlow = false;
   if (!storedState && receivedState) {
     try {
-      const parsed = parseOAuthState<{ mobileRedirectUrl?: string }>(receivedState);
+      const parsed = parseOAuthState<{ mobileRedirectUrl?: string }>(
+        receivedState,
+      );
       if (parsed.mobileRedirectUrl) {
         isMobileFlow = true;
       }
@@ -93,7 +96,7 @@ export const GET = withError("google/linking/callback", async (request) => {
     const { id_token } = tokens;
 
     if (!id_token) {
-      throw new Error("Missing id_token from Google response");
+      throw new SafeError("Missing id_token from Google response");
     }
 
     let payload: {
@@ -109,7 +112,9 @@ export const GET = withError("google/linking/callback", async (request) => {
       });
       const verifiedPayload = ticket.getPayload();
       if (!verifiedPayload) {
-        throw new Error("Could not get payload from verified ID token ticket.");
+        throw new SafeError(
+          "Could not get payload from verified ID token ticket.",
+        );
       }
       payload = verifiedPayload;
     } catch (err) {
@@ -117,14 +122,14 @@ export const GET = withError("google/linking/callback", async (request) => {
       logger.error("ID token verification failed using googleAuth:", {
         error: err,
       });
-      throw new Error(`ID token verification failed: ${message}`);
+      throw new SafeError(`ID token verification failed: ${message}`);
     }
 
     const providerAccountId = payload.sub;
     const providerEmail = payload.email;
 
     if (!providerAccountId || !providerEmail) {
-      throw new Error(
+      throw new SafeError(
         "ID token missing required subject (sub) or email claim.",
       );
     }
@@ -318,11 +323,11 @@ export const GET = withError("google/linking/callback", async (request) => {
 
 interface GoogleTokens {
   access_token?: string | null;
-  refresh_token?: string | null;
   expiry_date?: number | null;
+  id_token?: string | null;
+  refresh_token?: string | null;
   scope?: string | null;
   token_type?: string | null;
-  id_token?: string | null;
 }
 
 async function updateGoogleAccountTokens(

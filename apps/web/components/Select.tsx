@@ -4,13 +4,13 @@ import { cn } from "@/utils";
 import { ErrorMessage, ExplainText, Label } from "@/components/Input";
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  name: string;
-  label?: string;
-  tooltipText?: string;
-  options: Array<{ label: string; value: string | number }>;
-  explainText?: string;
-  error?: FieldError;
   disabled?: boolean;
+  error?: FieldError;
+  explainText?: string;
+  label?: string;
+  name: string;
+  options: Array<{ label: string; value: string | number }>;
+  tooltipText?: string;
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(

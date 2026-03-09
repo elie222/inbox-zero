@@ -30,10 +30,10 @@ import {
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
 interface NavigationItem {
-  name: string;
   href: string;
   icon: LucideIcon;
   keywords?: string[];
+  name: string;
 }
 
 function useNavigationItems(): NavigationItem[] {

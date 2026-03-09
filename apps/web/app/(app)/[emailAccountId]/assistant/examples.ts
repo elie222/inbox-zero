@@ -1,4 +1,5 @@
 import { getEmailTerminology } from "@/utils/terminology";
+import { BRAND_NAME } from "@/utils/branding";
 
 export type Personas = ReturnType<typeof getPersonas>;
 
@@ -51,7 +52,7 @@ const examplePromptsBase = [
   ...commonPrompts,
   "Forward receipts to jane@accounting.com and label them @[Receipt]",
   "Forward pitch decks to john@investing.com and label them @[Pitch Deck]",
-  "Reply to cold emails by telling them to check out Inbox Zero. Then mark them as spam",
+  `Reply to cold emails by telling them to check out ${BRAND_NAME}. Then mark them as spam`,
   "Label high priority emails as @[High Priority]",
   "If a founder asks to set up a call, draft a reply with my calendar link: https://cal.com/example",
   "If someone asks to cancel a plan, draft a reply with the cancellation link: https://company.com/cancel",

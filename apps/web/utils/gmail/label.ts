@@ -6,13 +6,15 @@ import {
   PARENT_LABEL,
   type InboxZeroLabel,
 } from "@/utils/label";
+import { findLabelByName } from "@/utils/label/find-label-by-name";
+import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import {
   labelVisibility,
   messageVisibility,
   type LabelVisibility,
   type MessageVisibility,
 } from "@/utils/gmail/constants";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail/label");
@@ -241,10 +243,29 @@ export async function createLabel({
   } catch (error) {
     const { errorMessage } = extractErrorInfo(error);
 
-    if (errorMessage?.includes("Label name exists or conflicts")) {
+    const isLabelExistsError =
+      errorMessage?.includes("Label name exists or conflicts") ||
+      errorMessage?.includes("Precondition check failed");
+
+    if (isLabelExistsError) {
       logger.warn("Label already exists", { name });
-      const label = await getLabel({ gmail, name });
-      if (label) return label;
+      const labels = await getLabels(gmail);
+      const exactLabel = findLabelByName({
+        labels,
+        name,
+        getLabelName: (label) => label.name,
+        normalize: normalizeLabelName,
+      });
+      if (exactLabel) return exactLabel;
+
+      const conflictLabel = findLabelByName({
+        labels,
+        name,
+        getLabelName: (label) => label.name,
+        normalize: normalizeLabelForConflictLookup,
+      });
+      if (conflictLabel) return conflictLabel;
+
       throw new Error(`Label conflict but not found: ${name}`);
     }
 
@@ -274,20 +295,16 @@ async function ensureParentLabelsExist(gmail: gmail_v1.Gmail, name: string) {
   }
 }
 
-export async function getLabels(gmail: gmail_v1.Gmail) {
-  const response = await withGmailRetry(() =>
-    gmail.users.labels.list({ userId: "me" }),
+export async function getLabels(
+  gmail: gmail_v1.Gmail,
+  options?: { logger?: Logger },
+) {
+  const response = await withGmailRetry(
+    () => gmail.users.labels.list({ userId: "me" }),
+    5,
+    { logger: options?.logger },
   );
   return response.data.labels;
-}
-
-function normalizeLabel(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/[-_.]/g, " ") // replace hyphens, underscores, dots with spaces
-    .replace(/\s+/g, " ") // multiple spaces to single space
-    .replace(/^\/+|\/+$/g, "") // trim slashes
-    .trim();
 }
 
 export async function getLabel(options: {
@@ -296,12 +313,12 @@ export async function getLabel(options: {
 }) {
   const { gmail, name } = options;
   const labels = await getLabels(gmail);
-
-  const normalizedSearch = normalizeLabel(name);
-
-  return labels?.find(
-    (label) => label.name && normalizeLabel(label.name) === normalizedSearch,
-  );
+  return findLabelByName({
+    labels,
+    name,
+    getLabelName: (label) => label.name,
+    normalize: normalizeLabelName,
+  });
 }
 
 export async function getLabelById(options: {
@@ -361,4 +378,23 @@ export async function getOrCreateInboxZeroLabel({
     color,
   });
   return createdLabel;
+}
+
+function normalizeLabelForConflictLookup(name: string) {
+  const normalizedUnicode = name.normalize("NFKC");
+  const normalizedPath = normalizeSlashPath(normalizedUnicode);
+  return normalizeLabelName(stripInvisibleCharacters(normalizedPath));
+}
+
+function normalizeSlashPath(name: string) {
+  return name
+    .replace(/[\u2044\u2215\uFF0F]/g, "/")
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .join("/");
+}
+
+function stripInvisibleCharacters(name: string) {
+  return name.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "");
 }

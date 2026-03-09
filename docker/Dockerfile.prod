@@ -1,5 +1,5 @@
 
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -9,10 +9,8 @@ RUN npm install -g pnpm@10.22.0
 # Copy lockfiles/workspace manifests for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY apps/web/package.json apps/web/package.json
-COPY apps/unsubscriber/package.json apps/unsubscriber/package.json
 COPY packages/loops/package.json packages/loops/package.json
 COPY packages/resend/package.json packages/resend/package.json
-COPY packages/slack/package.json packages/slack/package.json
 COPY packages/tinybird/package.json packages/tinybird/package.json
 COPY packages/tinybird-ai-analytics/package.json packages/tinybird-ai-analytics/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
@@ -76,7 +74,7 @@ RUN npx prisma generate --schema=apps/web/prisma/schema.prisma \
  && cd ../.. \
  && rm -rf apps/web/.next/cache
 
-FROM node:22-alpine AS runner
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 

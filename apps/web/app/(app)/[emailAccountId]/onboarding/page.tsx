@@ -5,12 +5,13 @@ import { redirect } from "next/navigation";
 import { OnboardingContent } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
 import { registerUtmTracking } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
+import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
 
 export const maxDuration = 300;
 
 export const metadata: Metadata = {
-  title: "Onboarding | Inbox Zero",
-  description: "Learn how Inbox Zero works and get set up.",
+  title: getBrandTitle("Onboarding"),
+  description: `Learn how ${BRAND_NAME} works and get set up.`,
   alternates: { canonical: "/onboarding" },
 };
 

@@ -34,3 +34,10 @@ cd mnt/data
 tb push datasources
 tb push pipes
 ```
+
+## AI Cost Fields
+
+- `cost`: platform-billed estimated cost (user API key traffic is `0`)
+- `estimatedCost`: estimated cost regardless of who paid
+- `isUserApiKey`: `1` for user-provided API keys, `0` for platform keys
+- Legacy rows (before this schema change) have `NULL` for `estimatedCost` and `isUserApiKey`

@@ -15,12 +15,12 @@ import {
 } from "@/utils/filebot/is-filebot-email";
 
 interface ProcessFilingReplyArgs {
-  emailAccountId: string;
-  userEmail: string;
-  message: ParsedMessage;
-  emailProvider: EmailProvider;
   emailAccount: EmailAccountWithAI;
+  emailAccountId: string;
+  emailProvider: EmailProvider;
   logger: Logger;
+  message: ParsedMessage;
+  userEmail: string;
 }
 
 /**
@@ -41,7 +41,7 @@ export async function processFilingReply({
     messageId: message.id,
   });
 
-  if (!verifyUserSentEmail({ message, userEmail })) {
+  if (!verifyUserSentEmail({ message, userEmail, provider: emailProvider })) {
     logger.error("Unauthorized filing reply attempt", {
       from: message.headers.from,
     });
@@ -130,12 +130,20 @@ export async function processFilingReply({
 function verifyUserSentEmail({
   message,
   userEmail,
+  provider,
 }: {
   message: ParsedMessage;
   userEmail: string;
+  provider: EmailProvider;
 }): boolean {
-  const fromEmail = extractEmailAddress(message.headers.from)?.toLowerCase();
-  return fromEmail === userEmail.toLowerCase();
+  const fromMatch =
+    extractEmailAddress(message.headers.from)?.toLowerCase() ===
+    userEmail.toLowerCase();
+
+  // Check the SENT label to prevent spoofed From: header attacks
+  const hasSentLabel = provider.isSentMessage(message);
+
+  return fromMatch && hasSentLabel;
 }
 
 async function handleApprove(filingId: string): Promise<void> {

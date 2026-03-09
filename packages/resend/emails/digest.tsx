@@ -162,7 +162,7 @@ export default function DigestEmail(props: DigestEmailProps) {
                 <Text className="text-[16px] text-gray-700 mt-0 mb-0">
                   {categoryData.count}{" "}
                   <span className={`${colors.text} font-semibold`}>
-                    {(ruleNames?.[categoryKey] || categoryKey).toLowerCase()}
+                    {ruleNames?.[categoryKey] || categoryKey}
                   </span>
                   {" from "}
                   {categoryData.senders.map((sender, index) => {
@@ -218,7 +218,7 @@ export default function DigestEmail(props: DigestEmailProps) {
             <Text className="text-[16px] text-gray-700 mt-0 mb-0">
               {categoryData.count}{" "}
               <span className={`${colors.text} font-semibold`}>
-                {(ruleNames?.[categoryKey] || categoryKey).toLowerCase()}
+                {ruleNames?.[categoryKey] || categoryKey}
               </span>
               {" from "}
               {categoryData.senders.map((sender, index) => {
@@ -630,16 +630,16 @@ export const generateDigestSubject = (props: DigestEmailProps): string => {
 
   if (topCategories.length === 1) {
     const { name, count } = topCategories[0];
-    return `Summary of ${count} ${name.toLowerCase()} email${count === 1 ? "" : "s"}`;
+    return `Summary of ${count} ${name} email${count === 1 ? "" : "s"}`;
   }
 
   if (topCategories.length === 2) {
     const [first, second] = topCategories;
-    return `Summary of ${first.count} ${first.name.toLowerCase()} and ${second.count} ${second.name.toLowerCase()} emails`;
+    return `Summary of ${first.count} ${first.name} and ${second.count} ${second.name} emails`;
   }
 
   const [first, second, third] = topCategories;
-  return `Summary of ${first.count} ${first.name.toLowerCase()}, ${second.count} ${second.name.toLowerCase()} and ${third.count} ${third.name.toLowerCase()} emails`;
+  return `Summary of ${first.count} ${first.name}, ${second.count} ${second.name} and ${third.count} ${third.name} emails`;
 };
 
 const normalizeCategoryData = (

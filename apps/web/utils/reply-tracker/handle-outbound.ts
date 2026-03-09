@@ -6,6 +6,7 @@ import { captureException } from "@/utils/error";
 import { handleOutboundReply } from "./outbound";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
+import { logReplyTrackerError } from "./error-logging";
 
 export async function handleOutboundMessage({
   emailAccount,
@@ -33,26 +34,39 @@ export async function handleOutboundMessage({
     messageTo: message.headers.to,
     messageSubject: message.headers.subject,
   });
-
   await Promise.allSettled([
     trackSentDraftStatus({
       emailAccountId: emailAccount.id,
       message,
       provider,
       logger,
-    }).catch((error) => {
-      logger.error("Error tracking sent draft status", { error });
-      captureException(error, { emailAccountId: emailAccount.id });
-    }),
+    }).catch((error) =>
+      logReplyTrackerError({
+        logger,
+        emailAccountId: emailAccount.id,
+        scope: "handle-outbound",
+        message: "Error tracking sent draft status",
+        operation: "track-sent-draft-status",
+        error,
+        capture: true,
+      }),
+    ),
     handleOutboundReply({
       emailAccount,
       message,
       provider,
       logger,
-    }).catch((error) => {
-      logger.error("Error handling outbound reply", { error });
-      captureException(error, { emailAccountId: emailAccount.id });
-    }),
+    }).catch((error) =>
+      logReplyTrackerError({
+        logger,
+        emailAccountId: emailAccount.id,
+        scope: "handle-outbound",
+        message: "Error handling outbound reply",
+        operation: "handle-outbound-reply",
+        error,
+        capture: true,
+      }),
+    ),
   ]);
 
   try {

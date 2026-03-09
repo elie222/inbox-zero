@@ -14,12 +14,12 @@ import {
 } from "@/components/ui/alert-dialog";
 
 interface ConfirmDialogProps {
-  trigger: ReactNode;
-  title: string;
+  cancelText?: string;
+  confirmText?: string;
   description: string;
   onConfirm: () => Promise<void> | void;
-  confirmText?: string;
-  cancelText?: string;
+  title: string;
+  trigger: ReactNode;
 }
 
 export function ConfirmDialog({

@@ -15,8 +15,23 @@ async function getRules({ emailAccountId }: { emailAccountId: string }) {
   });
 }
 
-export const GET = withEmailAccount("user/rules", async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
-  const result = await getRules({ emailAccountId });
-  return NextResponse.json(result);
-});
+export const GET = withEmailAccount(
+  "user/rules",
+  async (request) => {
+    const emailAccountId = request.auth.emailAccountId;
+
+    try {
+      const result = await getRules({ emailAccountId });
+      return NextResponse.json(result);
+    } catch (error) {
+      request.logger.error("Error fetching rules", {
+        error,
+      });
+      return NextResponse.json(
+        { error: "Failed to fetch rules" },
+        { status: 500 },
+      );
+    }
+  },
+  { requestTiming: {} },
+);

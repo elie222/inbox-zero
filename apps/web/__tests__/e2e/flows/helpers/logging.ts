@@ -20,18 +20,18 @@ function getElapsedTime(): string {
 }
 
 interface WebhookPayload {
-  timestamp: Date;
-  provider: "google" | "microsoft";
   payload: unknown;
+  provider: "google" | "microsoft";
+  timestamp: Date;
 }
 
 interface ApiCall {
-  timestamp: Date;
-  method: string;
+  duration: number;
   endpoint: string;
+  method: string;
   request?: unknown;
   response?: unknown;
-  duration: number;
+  timestamp: Date;
 }
 
 // In-memory log storage for current test run

@@ -16,9 +16,9 @@ export type BadgeVariant =
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: BadgeVariant;
   icon?: React.ReactNode;
   size?: "sm" | "md";
+  variant?: BadgeVariant;
 }
 
 export function Badge({

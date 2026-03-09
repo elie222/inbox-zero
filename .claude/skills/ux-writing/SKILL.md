@@ -1,4 +1,6 @@
 ---
+name: ux-writing
+description: Improve UX copy for labels, actions, and error messages
 disable-model-invocation: true
 ---
 

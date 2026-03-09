@@ -71,10 +71,12 @@ export const POST = withError(
     } catch (error) {
       logger.error("Error sending digest email", { error });
       captureException(error, { emailAccountId });
-      return NextResponse.json(
-        { success: false, error: "Error sending digest email" },
-        { status: 500 },
-      );
+      // Return 200 to prevent queue retries — failed digests are already marked
+      // FAILED in the DB, and retrying won't help (expired tokens, timeouts, etc.)
+      return NextResponse.json({
+        success: false,
+        error: "Error sending digest email",
+      });
     }
   }),
 );

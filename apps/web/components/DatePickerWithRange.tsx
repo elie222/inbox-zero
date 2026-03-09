@@ -27,11 +27,11 @@ function getRelativeDateLabel(days: number) {
 
 interface DatePickerWithRangeProps
   extends React.HTMLAttributes<HTMLDivElement> {
+  dateDropdown: string;
   dateRange?: DateRange;
+  onSetDateDropdown: (option: { label: string; value: string }) => void;
   onSetDateRange: (dateRange?: DateRange) => void;
   selectOptions: { label: string; value: string }[];
-  dateDropdown: string;
-  onSetDateDropdown: (option: { label: string; value: string }) => void;
 }
 
 export function DatePickerWithRange({

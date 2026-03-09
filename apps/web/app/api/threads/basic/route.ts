@@ -6,8 +6,6 @@ export type GetThreadsResponse = {
   threads: ThreadsResponse["threads"];
 };
 
-export const dynamic = "force-dynamic";
-
 export const maxDuration = 30;
 
 export const GET = withEmailProvider("threads/basic", async (request) => {

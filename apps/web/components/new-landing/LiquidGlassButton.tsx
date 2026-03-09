@@ -2,8 +2,8 @@ import * as React from "react";
 
 interface LiquidGlassButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  className?: string;
   children?: React.ReactNode;
+  className?: string;
 }
 
 export function LiquidGlassButton({

@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/command";
 
 interface MultiSelectFilterProps<_TData, _TValue> {
-  title?: string;
+  maxDisplayedValues?: number;
   options: {
     label: string;
     value: string;
@@ -30,7 +30,7 @@ interface MultiSelectFilterProps<_TData, _TValue> {
   }[];
   selectedValues: Set<string>;
   setSelectedValues: (values: Set<string>) => void;
-  maxDisplayedValues?: number;
+  title?: string;
 }
 
 export function MultiSelectFilter<TData, TValue>({

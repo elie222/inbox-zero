@@ -1,4 +1,5 @@
 ---
+name: qa-run
 description: Run browser QA flows and write a JSON report
 ---
 
