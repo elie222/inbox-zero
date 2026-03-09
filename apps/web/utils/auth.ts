@@ -525,7 +525,7 @@ async function handleLinkAccount(account: Account) {
       image: primaryPhotoUrl,
     };
 
-    await prisma.$transaction([
+    const [upsertedEmailAccount] = await prisma.$transaction([
       prisma.emailAccount.upsert({
         where: { email: normalizedEmail },
         update: data,
@@ -533,6 +533,7 @@ async function handleLinkAccount(account: Account) {
           ...data,
           email: normalizedEmail,
         },
+        select: { id: true },
       }),
       prisma.account.update({
         where: { id: account.id },
@@ -545,6 +546,15 @@ async function handleLinkAccount(account: Account) {
       errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
       logger,
     });
+
+    if (env.AUTO_JOIN_ORGANIZATION_ENABLED) {
+      await autoJoinOrganization(upsertedEmailAccount.id).catch((error) => {
+        logger.error("[linkAccount] Error auto-joining organization", {
+          error,
+        });
+        captureException(error, { extra: { userId: account.userId } });
+      });
+    }
 
     // Handle premium account seats
     await updateAccountSeats({ userId: account.userId }).catch((error) => {
@@ -666,3 +676,40 @@ export async function saveTokens({
 
 export const auth = async () =>
   betterAuthConfig.api.getSession({ headers: await headers() });
+
+async function autoJoinOrganization(emailAccountId: string) {
+  const orgs = await prisma.organization.findMany({
+    select: { id: true },
+    take: 2,
+  });
+
+  if (orgs.length !== 1) {
+    if (orgs.length === 0) {
+      logger.warn("[autoJoinOrganization] No organization found to auto-join");
+    } else {
+      logger.warn(
+        "[autoJoinOrganization] Multiple organizations found, skipping auto-join",
+      );
+    }
+    return;
+  }
+
+  const organizationId = orgs[0].id;
+
+  const member = await prisma.member.upsert({
+    where: { emailAccountId },
+    update: {},
+    create: {
+      organizationId,
+      emailAccountId,
+      role: "member",
+    },
+    select: { id: true, createdAt: true },
+  });
+
+  logger.info("[autoJoinOrganization] Auto-joined user to organization", {
+    emailAccountId,
+    organizationId,
+    memberId: member.id,
+  });
+}
