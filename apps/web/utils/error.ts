@@ -259,21 +259,6 @@ export function isAICallError(error: unknown): error is APICallError {
   return APICallError.isInstance(error);
 }
 
-// Message-based fallback for AI errors that may lose their APICallError type
-// (e.g., when wrapped by middleware like PostHog AI)
-function isKnownAIErrorMessage(message: string): boolean {
-  const patterns = [
-    "Incorrect API key provided",
-    "does not exist or you do not have access to it",
-    "this API key has been deactivated",
-    "credit balance is too low",
-    "testing period",
-    "model is not available",
-    "model not found",
-  ];
-  return patterns.some((p) => message.includes(p));
-}
-
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   return (
@@ -514,4 +499,19 @@ function getValidationMessages(
   const all = [...formErrors, ...Object.values(fieldErrors).flat()];
 
   return all.length > 0 ? all.join(". ") : null;
+}
+
+// Message-based fallback for AI errors that may lose their APICallError type
+// (e.g., when wrapped by middleware like PostHog AI)
+function isKnownAIErrorMessage(message: string): boolean {
+  const patterns = [
+    "Incorrect API key provided",
+    "does not exist or you do not have access to it",
+    "this API key has been deactivated",
+    "credit balance is too low",
+    "testing period",
+    "model is not available",
+    "model not found",
+  ];
+  return patterns.some((p) => message.includes(p));
 }
