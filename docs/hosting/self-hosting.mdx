@@ -200,3 +200,27 @@ NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
 **Note**: Building from source requires significantly more resources (4GB+ RAM recommended) and takes longer than pulling the pre-built image.
 
 Having issues? See the [Troubleshooting](/hosting/troubleshooting) page for solutions to common problems.
+
+## Auto-Join Organization
+
+For self-hosted instances where all users should belong to a single organization, set:
+
+```env
+AUTO_JOIN_ORGANIZATION_ENABLED=true
+```
+
+New users will automatically join the organization when they sign in. This requires exactly one organization to exist — create one first via the app before enabling this.
+
+To retroactively add all existing users to your organization, run this SQL query:
+
+```sql
+INSERT INTO "Member" ("id", "emailAccountId", "organizationId", "role", "createdAt")
+SELECT gen_random_uuid(), ea.id, '<YOUR_ORG_ID>', 'member', now()
+FROM "EmailAccount" ea
+WHERE NOT EXISTS (
+  SELECT 1 FROM "Member" m WHERE m."emailAccountId" = ea.id
+)
+ON CONFLICT ("emailAccountId") DO NOTHING;
+```
+
+Replace `<YOUR_ORG_ID>` with your organization's ID from the `Organization` table.
