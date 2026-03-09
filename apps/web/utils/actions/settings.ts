@@ -18,6 +18,7 @@ import { actionClientUser } from "@/utils/actions/safe-action";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
+import { SafeError } from "@/utils/error";
 import { env } from "@/env";
 
 export const updateEmailSettingsAction = actionClient
@@ -52,7 +53,7 @@ export const updateAiSettingsAction = actionClientUser
         );
       }
 
-      await prisma.user.update({
+      const result = await prisma.user.updateMany({
         where: { id: userId },
         data:
           aiProvider === DEFAULT_PROVIDER
@@ -60,17 +61,24 @@ export const updateAiSettingsAction = actionClientUser
             : { aiProvider, aiModel, aiApiKey },
       });
 
+      if (result.count === 0) {
+        throw new SafeError("User not found");
+      }
+
       // Clear AI-related error messages when user updates their settings
       // This allows them to be notified again if the new settings are also invalid
       await clearSpecificErrorMessages({
         userId,
         errorTypes: [
-          ErrorType.INCORRECT_OPENAI_API_KEY,
+          ErrorType.INCORRECT_API_KEY,
           ErrorType.INVALID_AI_MODEL,
-          ErrorType.OPENAI_API_KEY_DEACTIVATED,
+          ErrorType.API_KEY_DEACTIVATED,
           ErrorType.AI_QUOTA_ERROR,
-          ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
           ErrorType.INSUFFICIENT_CREDITS,
+          // Legacy keys for old stored errors
+          ErrorType.INCORRECT_OPENAI_API_KEY,
+          ErrorType.OPENAI_API_KEY_DEACTIVATED,
+          ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
         ],
         logger,
       });

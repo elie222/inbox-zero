@@ -117,9 +117,15 @@ export function isGmailQuotaExceededError(error: unknown): boolean {
   return (error as any)?.errors?.[0]?.reason === "quotaExceeded";
 }
 
-export function isIncorrectOpenAIAPIKeyError(error: APICallError): boolean {
-  return error.message.includes("Incorrect API key provided");
+export function isIncorrectAPIKeyError(error: APICallError): boolean {
+  return (
+    error.message.includes("Incorrect API key provided") ||
+    error.statusCode === 401
+  );
 }
+
+/** @deprecated Use isIncorrectAPIKeyError */
+export const isIncorrectOpenAIAPIKeyError = isIncorrectAPIKeyError;
 
 export function isInvalidOpenAIModelError(error: APICallError): boolean {
   return error.message.includes(
@@ -138,12 +144,30 @@ export function isInvalidAIModelError(error: APICallError): boolean {
   if (error.statusCode === 404 && error.message.includes("not_found_error")) {
     return true;
   }
+  // Bedrock: error message is just the model ID (e.g., "model: anthropic.claude-...")
+  if (/^model:\s*\S+$/.test(error.message.trim())) {
+    return true;
+  }
+  // OpenRouter: model deprecated or unavailable
+  if (error.message.includes("testing period")) {
+    return true;
+  }
+  // Generic model-not-found patterns
+  if (
+    error.message.includes("model is not available") ||
+    error.message.includes("model not found")
+  ) {
+    return true;
+  }
   return false;
 }
 
-export function isOpenAIAPIKeyDeactivatedError(error: APICallError): boolean {
+export function isAPIKeyDeactivatedError(error: APICallError): boolean {
   return error.message.includes("this API key has been deactivated");
 }
+
+/** @deprecated Use isAPIKeyDeactivatedError */
+export const isOpenAIAPIKeyDeactivatedError = isAPIKeyDeactivatedError;
 
 export function isAnthropicInsufficientBalanceError(
   error: APICallError,
@@ -160,6 +184,7 @@ export function isInsufficientCreditsError(error: APICallError): boolean {
 const HANDLED_USER_KEY_ERROR = "__handledUserKeyError";
 
 export function markAsHandledUserKeyError(error: unknown): void {
+  if (typeof error !== "object" || error === null) return;
   (error as Record<string, unknown>)[HANDLED_USER_KEY_ERROR] = true;
 }
 
@@ -243,11 +268,12 @@ export function isKnownApiError(error: unknown): boolean {
     isGmailQuotaExceededError(error) ||
     isKnownOutlookError(error) ||
     (APICallError.isInstance(error) &&
-      (isIncorrectOpenAIAPIKeyError(error) ||
+      (isIncorrectAPIKeyError(error) ||
         isInvalidAIModelError(error) ||
-        isOpenAIAPIKeyDeactivatedError(error) ||
+        isAPIKeyDeactivatedError(error) ||
         isAnthropicInsufficientBalanceError(error))) ||
-    (RetryError.isInstance(error) && isAiQuotaExceededError(error))
+    (RetryError.isInstance(error) && isAiQuotaExceededError(error)) ||
+    (error instanceof Error && isKnownAIErrorMessage(error.message))
   );
 }
 
@@ -473,4 +499,19 @@ function getValidationMessages(
   const all = [...formErrors, ...Object.values(fieldErrors).flat()];
 
   return all.length > 0 ? all.join(". ") : null;
+}
+
+// Message-based fallback for AI errors that may lose their APICallError type
+// (e.g., when wrapped by middleware like PostHog AI)
+function isKnownAIErrorMessage(message: string): boolean {
+  const patterns = [
+    "Incorrect API key provided",
+    "does not exist or you do not have access to it",
+    "this API key has been deactivated",
+    "credit balance is too low",
+    "testing period",
+    "model is not available",
+    "model not found",
+  ];
+  return patterns.some((p) => message.includes(p));
 }

@@ -110,20 +110,23 @@ export async function clearSpecificErrorMessages({
 }
 
 export const ErrorType = {
-  INCORRECT_OPENAI_API_KEY: "Incorrect OpenAI API key",
+  INCORRECT_API_KEY: "Incorrect API key",
   INVALID_AI_MODEL: "Invalid AI model",
-  OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
+  API_KEY_DEACTIVATED: "API key deactivated",
   AI_QUOTA_ERROR: "AI quota error",
-  ANTHROPIC_INSUFFICIENT_BALANCE: "Anthropic insufficient balance",
   INSUFFICIENT_CREDITS: "Insufficient AI credits",
   ACCOUNT_DISCONNECTED: "Account disconnected",
+  // Legacy keys kept for clearing old stored errors
+  INCORRECT_OPENAI_API_KEY: "Incorrect OpenAI API key",
+  OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
+  ANTHROPIC_INSUFFICIENT_BALANCE: "Anthropic insufficient balance",
 };
 
 const errorTypeConfig: Record<
   (typeof ErrorType)[keyof typeof ErrorType],
   { label: string; actionUrl: string; actionLabel: string }
 > = {
-  [ErrorType.INCORRECT_OPENAI_API_KEY]: {
+  [ErrorType.INCORRECT_API_KEY]: {
     label: "API Key Issue",
     actionUrl: "/settings",
     actionLabel: "Update API Key",
@@ -133,18 +136,13 @@ const errorTypeConfig: Record<
     actionUrl: "/settings",
     actionLabel: "Update Settings",
   },
-  [ErrorType.OPENAI_API_KEY_DEACTIVATED]: {
+  [ErrorType.API_KEY_DEACTIVATED]: {
     label: "API Key Deactivated",
     actionUrl: "/settings",
     actionLabel: "Update API Key",
   },
   [ErrorType.AI_QUOTA_ERROR]: {
     label: "AI Rate Limited",
-    actionUrl: "/settings",
-    actionLabel: "Update Settings",
-  },
-  [ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE]: {
-    label: "Insufficient Credits",
     actionUrl: "/settings",
     actionLabel: "Update Settings",
   },
@@ -157,6 +155,22 @@ const errorTypeConfig: Record<
     label: "Account Disconnected",
     actionUrl: "/accounts",
     actionLabel: "Reconnect Account",
+  },
+  // Legacy keys — only needed so old stored errors can still render
+  [ErrorType.INCORRECT_OPENAI_API_KEY]: {
+    label: "API Key Issue",
+    actionUrl: "/settings",
+    actionLabel: "Update API Key",
+  },
+  [ErrorType.OPENAI_API_KEY_DEACTIVATED]: {
+    label: "API Key Deactivated",
+    actionUrl: "/settings",
+    actionLabel: "Update API Key",
+  },
+  [ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE]: {
+    label: "Insufficient Credits",
+    actionUrl: "/settings",
+    actionLabel: "Update Settings",
   },
 };
 
