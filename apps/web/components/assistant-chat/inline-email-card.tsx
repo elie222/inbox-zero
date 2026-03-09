@@ -261,7 +261,6 @@ function EmailPreview({ threadId }: { threadId: string }) {
   }
 
   if (error) {
-    console.error("EmailPreview error:", { threadId, error });
     return (
       <div className="px-3 py-2 text-xs text-muted-foreground">
         Could not load email content: {error.message}
