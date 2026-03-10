@@ -133,5 +133,14 @@ describe("calendar OAuth callback helpers", () => {
         "/acc_123/calendars",
       );
     });
+
+    it("rejects overlapping account ID prefixes", () => {
+      expect(
+        getCalendarRedirectPath(
+          "acc_123",
+          encodeURIComponent("/acc_1234/briefs"),
+        ),
+      ).toBe("/acc_123/calendars");
+    });
   });
 });
