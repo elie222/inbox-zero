@@ -304,6 +304,7 @@ describe("clearFollowUpLabel", () => {
       where: {
         emailAccountId: "account-1",
         threadId: "thread-1",
+        resolved: false,
         followUpAppliedAt: { not: null },
       },
       data: {
@@ -387,6 +388,7 @@ describe("clearFollowUpLabel", () => {
       where: {
         emailAccountId: "account-1",
         threadId: "thread-1",
+        resolved: false,
         followUpAppliedAt: { not: null },
       },
       data: {

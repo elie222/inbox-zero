@@ -174,13 +174,14 @@ export async function clearFollowUpLabel({
       );
     }
 
-    // Clear followUpAppliedAt on any unresolved trackers
+    // Clear followUpAppliedAt only on unresolved trackers (preserve resolved history)
     await withPrismaRetry(
       () =>
         prisma.threadTracker.updateMany({
           where: {
             emailAccountId,
             threadId,
+            resolved: false,
             followUpAppliedAt: { not: null },
           },
           data: {
