@@ -113,6 +113,7 @@ type ImagePart = {
 type ResolvedMessagingContext = {
   chatId: string;
   emailAccountId: string;
+  hasMultipleAccounts: boolean;
   hasUnsupportedAttachments: boolean;
   imageParts: ImagePart[];
   messageText: string;
@@ -675,8 +676,12 @@ async function processMessagingAssistantMessage({
         );
       }
 
-      const fullText = normalizeMessagingAssistantText({
-        text: getUiMessageText(assistantUiMessage),
+      const fullText = prependAccountIndicator({
+        text: normalizeMessagingAssistantText({
+          text: getUiMessageText(assistantUiMessage),
+        }),
+        email: emailAccountUser.email,
+        hasMultipleAccounts: context.hasMultipleAccounts,
       });
       const pendingToolPart = getPendingEmailToolPart(
         assistantUiMessage.parts || [],
@@ -1746,6 +1751,7 @@ async function resolveSlackMessagingContext({
   return {
     provider: "slack",
     emailAccountId: messagingChannel.emailAccountId,
+    hasMultipleAccounts: false,
     hasUnsupportedAttachments,
     imageParts,
     messageText,
@@ -1831,6 +1837,8 @@ async function resolveLinkedProviderMessagingContext({
   return {
     provider,
     emailAccountId: linkedChannel.emailAccountId,
+    hasMultipleAccounts:
+      new Set(candidates.map((c) => c.emailAccountId)).size > 1,
     hasUnsupportedAttachments: identity.hasUnsupportedAttachments,
     imageParts,
     messageText: identity.messageText,
@@ -2316,4 +2324,17 @@ function toMessagingProvider(provider: SupportedPlatform) {
   if (provider === "slack") return MessagingProvider.SLACK;
   if (provider === "teams") return MessagingProvider.TEAMS;
   return MessagingProvider.TELEGRAM;
+}
+
+function prependAccountIndicator({
+  text,
+  email,
+  hasMultipleAccounts,
+}: {
+  text: string;
+  email: string;
+  hasMultipleAccounts: boolean;
+}) {
+  if (!hasMultipleAccounts) return text;
+  return `[${email}]\n${text}`;
 }
