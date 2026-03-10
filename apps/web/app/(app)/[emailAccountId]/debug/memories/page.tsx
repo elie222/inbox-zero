@@ -1,28 +1,19 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { CopyIcon, CheckIcon } from "lucide-react";
+import Link from "next/link";
 import useSWR from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeading } from "@/components/Typography";
-import { Button } from "@/components/ui/button";
 import type { DebugMemoriesResponse } from "@/app/api/user/debug/memories/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export default function DebugMemoriesPage() {
   const { emailAccountId } = useAccount();
   const { data, isLoading, error } = useSWR<DebugMemoriesResponse>(
     emailAccountId ? ["/api/user/debug/memories", emailAccountId] : null,
   );
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = useCallback(() => {
-    if (!data) return;
-    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [data]);
 
   return (
     <PageWrapper>
@@ -41,9 +32,17 @@ export default function DebugMemoriesPage() {
             {data?.memories.map((memory) => (
               <div key={memory.id} className="rounded-lg border p-3">
                 <p className="text-sm">{memory.content}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {new Date(memory.createdAt).toLocaleString()}
-                </p>
+                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{new Date(memory.createdAt).toLocaleString()}</span>
+                  {memory.chatId && (
+                    <Link
+                      href={prefixPath(emailAccountId, "/assistant")}
+                      className="underline hover:text-foreground"
+                    >
+                      View chat
+                    </Link>
+                  )}
+                </div>
               </div>
             ))}
             {data?.memories.length === 0 && (
@@ -51,22 +50,6 @@ export default function DebugMemoriesPage() {
                 No memories stored yet.
               </p>
             )}
-          </div>
-
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopy}
-              disabled={!data}
-            >
-              {copied ? (
-                <CheckIcon className="mr-2 h-4 w-4" />
-              ) : (
-                <CopyIcon className="mr-2 h-4 w-4" />
-              )}
-              {copied ? "Copied" : "Copy JSON"}
-            </Button>
           </div>
         </div>
       </LoadingContent>
