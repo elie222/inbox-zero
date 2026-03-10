@@ -12,6 +12,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import { runWithBoundedConcurrency } from "@/utils/async";
+import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import {
   type AutomaticUnsubscribeResult,
@@ -325,34 +326,40 @@ const senderEmailsSchema = z
   .max(100)
   .transform((emails) => [...new Set(emails)]);
 
-const manageInboxInputSchema = z.object({
-  action: z
-    .enum([
-      "archive_threads",
-      "mark_read_threads",
-      "bulk_archive_senders",
-      "unsubscribe_senders",
-    ])
-    .describe("Inbox action to run."),
-  threadIds: threadIdsSchema
-    .nullish()
-    .describe(
-      "Thread IDs to archive or mark read/unread. Provide IDs from searchInbox results.",
-    ),
-  labelId: z
-    .string()
-    .nullish()
-    .describe(
-      "Optional provider label/category ID to apply while archiving threads.",
-    ),
-  read: z
-    .boolean()
-    .nullish()
-    .describe("For mark_read_threads: true for read, false for unread."),
-  fromEmails: senderEmailsSchema
-    .nullish()
-    .describe("Sender email addresses to bulk archive or unsubscribe."),
-});
+function getManageInboxLabelDescription(provider: string) {
+  return provider === "microsoft"
+    ? "Optional exact Outlook category name to apply while archiving threads."
+    : "Optional exact Gmail label name to apply while archiving threads.";
+}
+
+function manageInboxInputSchema(provider: string) {
+  return z.object({
+    action: z
+      .enum([
+        "archive_threads",
+        "mark_read_threads",
+        "bulk_archive_senders",
+        "unsubscribe_senders",
+      ])
+      .describe("Inbox action to run."),
+    threadIds: threadIdsSchema
+      .nullish()
+      .describe(
+        "Thread IDs to archive or mark read/unread. Provide IDs from searchInbox results.",
+      ),
+    label: z
+      .string()
+      .nullish()
+      .describe(getManageInboxLabelDescription(provider)),
+    read: z
+      .boolean()
+      .nullish()
+      .describe("For mark_read_threads: true for read, false for unread."),
+    fromEmails: senderEmailsSchema
+      .nullish()
+      .describe("Sender email addresses to bulk archive or unsubscribe."),
+  });
+}
 
 export const manageInboxTool = ({
   email,
@@ -364,15 +371,17 @@ export const manageInboxTool = ({
   emailAccountId: string;
   provider: string;
   logger: Logger;
-}) =>
-  tool({
+}) => {
+  const inputSchema = manageInboxInputSchema(provider);
+
+  return tool({
     description:
       "Run inbox actions: archive threads, mark threads read/unread, bulk archive by sender, or unsubscribe senders.",
-    inputSchema: manageInboxInputSchema,
+    inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
 
-      const parsedInputResult = manageInboxInputSchema.safeParse(input);
+      const parsedInputResult = inputSchema.safeParse(input);
       if (!parsedInputResult.success) {
         const errorMessage = getManageInboxValidationError(
           parsedInputResult.error,
@@ -482,6 +491,16 @@ export const manageInboxTool = ({
           };
         }
 
+        const resolvedArchiveLabel =
+          parsedInput.action === "archive_threads"
+            ? await resolveLabelNameAndId({
+                emailProvider,
+                label: parsedInput.label,
+              })
+            : null;
+        const resolvedArchiveLabelId =
+          resolvedArchiveLabel?.labelId ?? undefined;
+
         const threadActionResults = await runThreadActionsInParallel({
           threadIds,
           runAction: async (threadId) => {
@@ -489,7 +508,7 @@ export const manageInboxTool = ({
               await emailProvider.archiveThreadWithLabel(
                 threadId,
                 email,
-                parsedInput.labelId ?? undefined,
+                resolvedArchiveLabelId,
               );
             } else {
               await emailProvider.markReadThread(
@@ -520,6 +539,7 @@ export const manageInboxTool = ({
       }
     },
   });
+};
 
 export type ManageInboxTool = InferUITool<ReturnType<typeof manageInboxTool>>;
 

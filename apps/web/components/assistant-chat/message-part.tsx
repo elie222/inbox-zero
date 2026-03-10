@@ -13,6 +13,7 @@ import {
   BasicToolInfo,
   CreatedRuleToolCard,
   ForwardEmailResult,
+  getManageInboxActionLabel,
   ManageInboxResult,
   ReadEmailResult,
   ReplyEmailResult,
@@ -205,19 +206,12 @@ export function MessagePart({
         );
       }
 
-      let actionText = "Updating emails...";
-      if (part.input.action === "archive_threads") {
-        actionText = part.input.labelId
-          ? "Archiving and labeling emails..."
-          : "Archiving emails...";
-      } else if (part.input.action === "mark_read_threads") {
-        actionText =
-          part.input.read === false
-            ? "Marking emails as unread..."
-            : "Marking emails as read...";
-      } else if (part.input.action === "unsubscribe_senders") {
-        actionText = "Unsubscribing senders...";
-      }
+      const actionText = getManageInboxActionLabel({
+        action: part.input.action,
+        read: part.input.read ?? true,
+        labelApplied: Boolean(part.input.label),
+        inProgress: true,
+      });
 
       return <BasicToolInfo key={toolCallId} text={actionText} />;
     }

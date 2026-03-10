@@ -192,7 +192,7 @@ export function ManageInboxResult({
       : getOutputField<boolean>(output, "read");
   const labelApplied =
     input?.action === "archive_threads"
-      ? Boolean(input.labelId)
+      ? Boolean(input.label)
       : Boolean(getOutputField<string>(output, "labelId"));
   const actionLabel = getManageInboxActionLabel({
     action,
@@ -1230,7 +1230,7 @@ function parseManageInboxAction(
   return undefined;
 }
 
-function getManageInboxActionLabel({
+export function getManageInboxActionLabel({
   action,
   read,
   labelApplied,
