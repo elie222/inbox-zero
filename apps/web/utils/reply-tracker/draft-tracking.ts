@@ -291,9 +291,9 @@ export async function cleanupThreadAIDrafts({
       }
     }
 
-    // Also clean up follow-up drafts for this thread
-    // No excludeMessageId filter needed: follow-up drafts are created asynchronously
-    // by a cron job, not in the same request that processes incoming messages
+    // Also clean up follow-up drafts for this thread (safety net).
+    // clearFollowUpLabel already handles this synchronously, so this will
+    // typically find nothing. Kept as a fallback for non-standard code paths.
     const followUpTrackers = await prisma.threadTracker.findMany({
       where: {
         emailAccountId,
