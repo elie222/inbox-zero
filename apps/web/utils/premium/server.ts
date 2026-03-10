@@ -1,4 +1,3 @@
-import sumBy from "lodash/sumBy";
 import { after } from "next/server";
 import { updateSubscriptionItemQuantity } from "@/ee/billing/lemon/index";
 import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index";
@@ -7,6 +6,7 @@ import type { PremiumTier } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import { hasTierAccess, isPremium } from "@/utils/premium";
+import { calculatePremiumBillingQuantity } from "@/utils/premium/billing";
 import { SafeError } from "@/utils/error";
 import { env } from "@/env";
 
@@ -143,8 +143,13 @@ export async function syncPremiumSeats(premiumId: string) {
     return;
   }
 
-  const totalSeats = sumBy(premium.users, (user) => user._count.emailAccounts);
-  await updateAccountSeatsForPremium(premium, totalSeats);
+  const quantity = calculatePremiumBillingQuantity(
+    premium.users.map((user) => ({
+      emailAccountCount: user._count.emailAccounts,
+    })),
+  );
+
+  await updateAccountSeatsForPremium(premium, quantity);
 }
 
 export async function addUserToPremium({

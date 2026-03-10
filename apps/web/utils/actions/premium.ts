@@ -3,10 +3,10 @@
 import { z } from "zod";
 import { after } from "next/server";
 import uniq from "lodash/uniq";
-import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
+import { calculatePremiumBillingQuantity } from "@/utils/premium/billing";
 import {
   cancelPremiumLemon,
   syncPremiumSeats,
@@ -523,8 +523,14 @@ export const generateCheckoutSessionAction = actionClientUser
         });
       }
 
-      const quantity =
-        sumBy(user.premium?.users || [], (u) => u._count.emailAccounts) || 1;
+      const quantity = Math.max(
+        1,
+        calculatePremiumBillingQuantity(
+          (user.premium?.users || []).map((premiumUser) => ({
+            emailAccountCount: premiumUser._count.emailAccounts,
+          })),
+        ),
+      );
 
       // ALWAYS create a checkout with a stripeCustomerId
       const checkout = await stripe.checkout.sessions.create({
