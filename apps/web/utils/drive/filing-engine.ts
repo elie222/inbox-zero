@@ -326,13 +326,8 @@ export async function processAttachment({
  * get full content analysis, while other types (images, spreadsheets, etc.)
  * are filed based on filename and email metadata.
  */
-const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB
-const MAX_ATTACHMENTS_PER_MESSAGE = 10;
-
 export function getFilableAttachments(message: ParsedMessage): Attachment[] {
-  return (message.attachments || [])
-    .filter((a) => a.size <= MAX_ATTACHMENT_SIZE)
-    .slice(0, MAX_ATTACHMENTS_PER_MESSAGE);
+  return message.attachments || [];
 }
 
 // ============================================================================
