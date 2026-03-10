@@ -3,6 +3,7 @@ import { withPrismaRetry } from "@/utils/prisma-retry";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import { FOLLOW_UP_LABEL } from "@/utils/label";
 import type { Logger } from "@/utils/logger";
+import { captureException } from "@/utils/error";
 
 export async function getOrCreateFollowUpLabel(
   provider: EmailProvider,
@@ -124,14 +125,50 @@ export async function clearFollowUpLabel({
   if (!threadId) return;
 
   try {
-    const { count } = await withPrismaRetry(
+    const trackersToClean = await prisma.threadTracker.findMany({
+      where: {
+        emailAccountId,
+        threadId,
+        OR: [
+          { followUpAppliedAt: { not: null } },
+          { followUpDraftId: { not: null } },
+        ],
+      },
+      select: {
+        id: true,
+        followUpDraftId: true,
+      },
+    });
+
+    if (trackersToClean.length === 0) return;
+
+    const trackerIdsToClearDraftId: string[] = [];
+
+    for (const tracker of trackersToClean) {
+      if (!tracker.followUpDraftId) {
+        trackerIdsToClearDraftId.push(tracker.id);
+        continue;
+      }
+
+      try {
+        await provider.deleteDraft(tracker.followUpDraftId);
+        trackerIdsToClearDraftId.push(tracker.id);
+        logger.info("Deleted follow-up draft", {
+          trackerId: tracker.id,
+        });
+      } catch (error) {
+        logger.error("Failed to delete follow-up draft", {
+          trackerId: tracker.id,
+          error,
+        });
+      }
+    }
+
+    await withPrismaRetry(
       () =>
         prisma.threadTracker.updateMany({
           where: {
-            emailAccountId,
-            threadId,
-            followUpAppliedAt: { not: null },
-            resolved: false,
+            id: { in: trackersToClean.map((tracker) => tracker.id) },
           },
           data: {
             followUpAppliedAt: null,
@@ -140,18 +177,30 @@ export async function clearFollowUpLabel({
       { logger },
     );
 
-    if (count === 0) {
-      return;
+    if (trackerIdsToClearDraftId.length > 0) {
+      await withPrismaRetry(
+        () =>
+          prisma.threadTracker.updateMany({
+            where: {
+              id: { in: trackerIdsToClearDraftId },
+            },
+            data: {
+              followUpDraftId: null,
+            },
+          }),
+        { logger },
+      );
     }
 
     logger.info("Removing follow-up label", { threadId });
 
     await removeFollowUpLabel({ provider, threadId, logger });
 
-    logger.info("Removed follow-up label and cleared tracker", {
+    logger.info("Removed follow-up label and cleaned up trackers", {
       threadId,
     });
   } catch (error) {
-    logger.error("Failed to remove follow-up label", { threadId, error });
+    logger.error("Failed to clear follow-up label", { threadId, error });
+    captureException(error, { emailAccountId });
   }
 }
