@@ -123,10 +123,17 @@ export const saveAutomationJobAction = actionClient
         throw new SafeError(validationError);
       }
 
-      if (sendAsDm && !channel.providerUserId) {
-        throw new SafeError(
-          "Direct messages are not available for this channel",
-        );
+      if (sendAsDm) {
+        if (channel.provider !== MessagingProvider.SLACK) {
+          throw new SafeError(
+            "Direct message option is only available for Slack",
+          );
+        }
+        if (!channel.providerUserId) {
+          throw new SafeError(
+            "Direct messages are not available for this channel",
+          );
+        }
       }
 
       const existingJob = await prisma.automationJob.findUnique({

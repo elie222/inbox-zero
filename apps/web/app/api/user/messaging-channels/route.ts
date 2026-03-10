@@ -36,7 +36,9 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     channels: channels.map(({ providerUserId, ...channel }) => ({
       ...channel,
       hasSendDestination: Boolean(providerUserId || channel.channelId),
-      canSendAsDm: Boolean(providerUserId && channel.channelId),
+      canSendAsDm:
+        channel.provider === "SLACK" &&
+        Boolean(providerUserId && channel.channelId),
     })),
     availableProviders: getAvailableProviders(),
   };
