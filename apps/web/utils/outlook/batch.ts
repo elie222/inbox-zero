@@ -1,6 +1,7 @@
 import type { Logger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { getFolderIds } from "@/utils/outlook/message";
 import {
   publishBulkActionToTinybird,
   updateEmailMessagesForSender,
@@ -183,16 +184,31 @@ export async function moveMessagesForSenders({
 }): Promise<void> {
   if (senders.length === 0) return;
 
+  // Resolve the actual inbox folder ID for archive filtering
+  // parentFolderId on messages is the real folder ID (a GUID), not the well-known name
+  let inboxFolderId: string | undefined;
+  if (action === "archive") {
+    const folderIds = await getFolderIds(client, logger, {
+      includeDrafts: false,
+    });
+    inboxFolderId = folderIds.inbox;
+    if (!inboxFolderId) {
+      logger.error(
+        "Could not resolve inbox folder ID — aborting bulk archive to avoid archiving from all folders",
+      );
+      return;
+    }
+  }
+
   for (const sender of senders) {
     if (!sender) continue;
 
     const processedMessageIds = new Set<string>();
     const publishedThreadIds = new Set<string>();
     const fromFilter = `from/emailAddress/address eq '${escapeODataString(sender)}'`;
-    const filterExpression =
-      action === "archive"
-        ? `${fromFilter} and parentFolderId eq 'inbox'`
-        : fromFilter;
+    const filterExpression = inboxFolderId
+      ? `${fromFilter} and parentFolderId eq '${escapeODataString(inboxFolderId)}'`
+      : fromFilter;
 
     // Use @odata.nextLink directly for pagination instead of extracting $skiptoken
     // This is more reliable as Microsoft Graph may use different token formats
