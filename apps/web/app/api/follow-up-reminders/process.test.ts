@@ -162,6 +162,20 @@ function mockMessage(id: string, internalDate: string) {
   };
 }
 
+function mockAwaitingMessage(id: string, internalDate: string) {
+  return {
+    ...mockMessage(id, internalDate),
+    headers: {
+      from: "user@example.com",
+      to: "sender@example.com",
+      subject: "Test",
+      date: /^\d+$/.test(internalDate)
+        ? new Date(Number(internalDate)).toISOString()
+        : new Date(internalDate).toISOString(),
+    },
+  };
+}
+
 describe("processAccountFollowUps - dedup logic", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -247,7 +261,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         .mockResolvedValue([{ id: "thread-3", messages: [], snippet: "" }]),
       getLatestMessageInThread: vi
         .fn()
-        .mockResolvedValue(mockMessage("msg-3", OLD_DATE)),
+        .mockResolvedValue(mockAwaitingMessage("msg-3", OLD_DATE)),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
 
@@ -357,7 +371,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         ]),
       getLatestMessageInThread: vi
         .fn()
-        .mockResolvedValue(mockMessage("msg-repeat", OLD_DATE)),
+        .mockResolvedValue(mockAwaitingMessage("msg-repeat", OLD_DATE)),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
 
@@ -394,7 +408,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         ]),
       getLatestMessageInThread: vi
         .fn()
-        .mockResolvedValue(mockMessage("msg-replay", OLD_DATE)),
+        .mockResolvedValue(mockAwaitingMessage("msg-replay", OLD_DATE)),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
 
@@ -464,7 +478,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         ]),
       getLatestMessageInThread: vi
         .fn()
-        .mockResolvedValue(mockMessage("msg-window", twentyMinutesAgo)),
+        .mockResolvedValue(mockAwaitingMessage("msg-window", twentyMinutesAgo)),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
     vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
@@ -491,7 +505,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         .mockResolvedValue([{ id: "thread-5", messages: [], snippet: "" }]),
       getLatestMessageInThread: vi
         .fn()
-        .mockResolvedValue(mockMessage("msg-5", OLD_DATE)),
+        .mockResolvedValue(mockAwaitingMessage("msg-5", OLD_DATE)),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
     vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
@@ -507,6 +521,33 @@ describe("processAccountFollowUps - dedup logic", () => {
 
     expect(applyFollowUpLabel).toHaveBeenCalled();
     expect(prisma.threadTracker.create).toHaveBeenCalled();
+    expect(generateFollowUpDraft).not.toHaveBeenCalled();
+  });
+
+  it("skips auto-draft when the latest awaiting message is inbound", async () => {
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "thread-inbound", messages: [], snippet: "" },
+        ]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockMessage("msg-inbound", OLD_DATE)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-inbound",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(applyFollowUpLabel).toHaveBeenCalled();
     expect(generateFollowUpDraft).not.toHaveBeenCalled();
   });
 
@@ -569,7 +610,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         ]),
       getLatestMessageInThread: vi
         .fn()
-        .mockResolvedValue(mockMessage("msg-shared", OLD_DATE)),
+        .mockResolvedValue(mockAwaitingMessage("msg-shared", OLD_DATE)),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
     vi.mocked(getLabelsFromDb)
@@ -643,7 +684,7 @@ describe("processAccountFollowUps - dedup logic", () => {
       ]),
       getLatestMessageInThread: vi.fn().mockImplementation((threadId) => {
         const msgId = threadId === "thread-old" ? "msg-old" : "msg-new";
-        return Promise.resolve(mockMessage(msgId, OLD_DATE));
+        return Promise.resolve(mockAwaitingMessage(msgId, OLD_DATE));
       }),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
@@ -674,7 +715,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         .mockResolvedValue([{ id: "thread-6", messages: [], snippet: "" }]),
       getLatestMessageInThread: vi
         .fn()
-        .mockResolvedValue(mockMessage("msg-6-new", OLD_DATE)),
+        .mockResolvedValue(mockAwaitingMessage("msg-6-new", OLD_DATE)),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
 
@@ -719,7 +760,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         .mockResolvedValue([{ id: "thread-7", messages: [], snippet: "" }]),
       getLatestMessageInThread: vi
         .fn()
-        .mockResolvedValue(mockMessage("msg-7-new", OLD_DATE)),
+        .mockResolvedValue(mockAwaitingMessage("msg-7-new", OLD_DATE)),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
 
@@ -777,7 +818,7 @@ describe("processAccountFollowUps - dedup logic", () => {
         .mockResolvedValue([{ id: "thread-7", messages: [], snippet: "" }]),
       getLatestMessageInThread: vi
         .fn()
-        .mockResolvedValue(mockMessage("msg-7", OLD_DATE)),
+        .mockResolvedValue(mockAwaitingMessage("msg-7", OLD_DATE)),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
 

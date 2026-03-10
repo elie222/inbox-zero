@@ -27,6 +27,7 @@ import {
 } from "@/utils/reply-tracker/label-helpers";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { internalDateToDate } from "@/utils/date";
+import { extractEmailAddress } from "@/utils/email";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
@@ -449,20 +450,28 @@ async function processFollowUpsForType({
 
       let draftCreated = false;
       if (generateDraft) {
-        try {
-          await generateFollowUpDraft({
-            emailAccount,
-            threadId: thread.id,
-            trackerId: tracker.id,
-            provider,
-            logger: threadLogger,
-          });
-          draftCreated = true;
-        } catch (draftError) {
-          threadLogger.error("Draft generation failed, label still applied", {
-            error: draftError,
-          });
-          captureException(draftError);
+        if (isMessageFromUser(lastMessage, emailAccount.email)) {
+          try {
+            await generateFollowUpDraft({
+              emailAccount,
+              threadId: thread.id,
+              messageId: lastMessage.id,
+              trackerId: tracker.id,
+              provider,
+              logger: threadLogger,
+            });
+            draftCreated = true;
+          } catch (draftError) {
+            threadLogger.error("Draft generation failed, label still applied", {
+              error: draftError,
+            });
+            captureException(draftError);
+          }
+        } else {
+          threadLogger.info(
+            "Skipping follow-up draft because latest message was not sent by the user",
+            { messageId: lastMessage.id },
+          );
         }
       }
 
@@ -614,4 +623,14 @@ function getFollowUpReminderEligibilityWhere() {
     ],
     ...getPremiumUserFilter(),
   };
+}
+
+function isMessageFromUser(
+  message: { headers: { from: string } },
+  userEmail: string,
+) {
+  return (
+    extractEmailAddress(message.headers.from).toLowerCase() ===
+    userEmail.toLowerCase()
+  );
 }
