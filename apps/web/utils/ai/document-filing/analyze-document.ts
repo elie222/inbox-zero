@@ -127,7 +127,8 @@ function buildPrompt({
   attachment: AttachmentContext;
   folders: DriveFolder[];
 }): string {
-  const cleanedText = cleanExtractedText(attachment.content);
+  const hasContent = attachment.content.trim().length > 0;
+  const cleanedText = hasContent ? cleanExtractedText(attachment.content) : "";
   const truncatedText =
     cleanedText.length > 8000
       ? `${cleanedText.slice(0, 8000)}\n\n[... document truncated ...]`
@@ -143,6 +144,14 @@ function buildPrompt({
           .join("\n")
       : "No existing folders found.";
 
+  const contentSection = hasContent
+    ? `<document_content>
+${truncatedText}
+</document_content>`
+    : `<document_content>
+No text content available for this file type. Use the filename, email subject, and sender to decide where to file it.
+</document_content>`;
+
   return `Decide where to file this document:
 
 <document_metadata>
@@ -151,13 +160,11 @@ function buildPrompt({
 <email_sender>${email.sender}</email_sender>
 </document_metadata>
 
-<document_content>
-${truncatedText}
-</document_content>
+${contentSection}
 
 <existing_folders>
 ${foldersText}
 </existing_folders>
 
-Based on the user's filing preferences and the document content, decide where this document should be filed.`;
+Based on the user's filing preferences and the document metadata${hasContent ? " and content" : ""}, decide where this document should be filed.`;
 }
