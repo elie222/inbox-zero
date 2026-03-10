@@ -676,11 +676,10 @@ async function processMessagingAssistantMessage({
         );
       }
 
-      const rawText = normalizeMessagingAssistantText({
-        text: getUiMessageText(assistantUiMessage),
-      });
       const fullText = prependAccountIndicator({
-        text: rawText,
+        text: normalizeMessagingAssistantText({
+          text: getUiMessageText(assistantUiMessage),
+        }),
         email: emailAccountUser.email,
         hasMultipleAccounts: context.hasMultipleAccounts,
       });
@@ -1838,7 +1837,8 @@ async function resolveLinkedProviderMessagingContext({
   return {
     provider,
     emailAccountId: linkedChannel.emailAccountId,
-    hasMultipleAccounts: candidates.length > 1,
+    hasMultipleAccounts:
+      new Set(candidates.map((c) => c.emailAccountId)).size > 1,
     hasUnsupportedAttachments: identity.hasUnsupportedAttachments,
     imageParts,
     messageText: identity.messageText,
