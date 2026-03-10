@@ -754,12 +754,22 @@ export class OutlookProvider implements EmailProvider {
     const client = this.client.getClient();
 
     try {
+      const folderIds = await getFolderIds(this.client, this.logger, {
+        includeDrafts: false,
+      });
+      const inboxFolderId = folderIds.inbox;
+
       const escapedThreadId = escapeODataString(threadId);
+      const filterParts = [`conversationId eq '${escapedThreadId}'`];
+      if (inboxFolderId) {
+        filterParts.push(
+          `parentFolderId eq '${escapeODataString(inboxFolderId)}'`,
+        );
+      }
+
       const response = await client
         .api("/me/messages")
-        .filter(
-          `conversationId eq '${escapedThreadId}' and parentFolderId eq 'inbox'`,
-        )
+        .filter(filterParts.join(" and "))
         .select(MESSAGE_SELECT_FIELDS)
         .get();
 
@@ -1469,16 +1479,39 @@ export class OutlookProvider implements EmailProvider {
       if (type === "sent") {
         endpoint = "/me/mailFolders('sentitems')/messages";
       } else if (type === "all") {
-        // For "all" type, use default messages endpoint with folder filter
-        filters.push(
-          "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
-        );
+        // Resolve actual folder IDs — parentFolderId is a GUID, not a well-known name
+        const folderIds = await getFolderIds(this.client, this.logger, {
+          includeDrafts: false,
+        });
+        const folderClauses: string[] = [];
+        if (folderIds.inbox) {
+          folderClauses.push(
+            `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`,
+          );
+        }
+        if (folderIds.archive) {
+          folderClauses.push(
+            `parentFolderId eq '${escapeODataString(folderIds.archive)}'`,
+          );
+        }
+        if (folderClauses.length > 0) {
+          filters.push(`(${folderClauses.join(" or ")})`);
+        }
       } else if (labelId) {
-        // Use labelId as parentFolderId (should be lowercase for Outlook)
-        filters.push(`parentFolderId eq '${labelId.toLowerCase()}'`);
+        // labelId is already a folder ID (GUID), use directly
+        filters.push(
+          `parentFolderId eq '${escapeODataString(labelId.toLowerCase())}'`,
+        );
       } else {
-        // Default to inbox only
-        filters.push("parentFolderId eq 'inbox'");
+        // Default to inbox only — resolve the actual folder ID
+        const folderIds = await getFolderIds(this.client, this.logger, {
+          includeDrafts: false,
+        });
+        if (folderIds.inbox) {
+          filters.push(
+            `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`,
+          );
+        }
       }
 
       // Add other filters
