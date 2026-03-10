@@ -12,7 +12,7 @@ export default async function CalendarsPage() {
         title="Calendars"
         description="Powering AI scheduling and meeting briefs."
       />
-      <div className="mt-6 space-y-4">
+      <div className="mt-6 max-w-4xl space-y-4">
         <CalendarConnections />
         <CalendarSettings />
       </div>
