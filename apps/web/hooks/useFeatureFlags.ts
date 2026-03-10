@@ -67,3 +67,13 @@ export function useTestimonialsVariant() {
     "control"
   );
 }
+
+export type HeroLayoutVariant = "control" | "social-proof-first";
+
+export function useHeroLayoutVariant() {
+  return (
+    (useFeatureFlagVariantKey(
+      "hero-social-proof-position",
+    ) as HeroLayoutVariant) || "control"
+  );
+}
