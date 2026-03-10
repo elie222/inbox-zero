@@ -11,14 +11,21 @@ import {
 import { mapRulesToExtensionTabs } from "@/utils/rule/mapRulesToExtensionTabs";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 
+interface SyncResponse {
+  success: boolean;
+  summary?: { enabled: number; created: number; skipped: number };
+  error?: string;
+}
+
 declare global {
   interface Window {
     chrome?: {
       runtime?: {
+        lastError?: { message: string };
         sendMessage: (
           extensionId: string,
-          message: unknown,
-          callback: (response: unknown) => void,
+          message: { action: string; tabs?: unknown[]; accountIndex?: string },
+          callback: (response: SyncResponse) => void,
         ) => void;
       };
     };
@@ -26,8 +33,8 @@ declare global {
 }
 
 function sendMessageToExtension(
-  message: unknown,
-): Promise<{ success: boolean; summary?: { enabled: number; created: number; skipped: number }; error?: string }> {
+  message: { action: string; tabs?: unknown[]; accountIndex?: string },
+): Promise<SyncResponse> {
   return new Promise((resolve, reject) => {
     if (!window.chrome?.runtime?.sendMessage) {
       reject(new Error("not_chrome"));
@@ -38,11 +45,11 @@ function sendMessageToExtension(
         TABS_EXTENSION_ID,
         message,
         (response) => {
-          if (window.chrome?.runtime && "lastError" in window.chrome.runtime) {
+          if (window.chrome?.runtime?.lastError) {
             reject(new Error("extension_not_found"));
             return;
           }
-          resolve(response as { success: boolean; summary?: { enabled: number; created: number; skipped: number }; error?: string });
+          resolve(response);
         },
       );
     } catch {

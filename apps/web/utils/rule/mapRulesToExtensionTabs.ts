@@ -24,7 +24,7 @@ function labelToGmailSlug(label: string): string {
   return label
     .toLowerCase()
     .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
+    .replace(/[^a-z0-9/-]/g, "");
 }
 
 export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
