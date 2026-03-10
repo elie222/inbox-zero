@@ -1063,6 +1063,7 @@ model AutomationJob {
   enabled        Boolean @default(true)
   prompt         String? @db.Text
   cronExpression String // UTC cron expression
+  sendAsDm       Boolean @default(false)
 
   nextRunAt DateTime
 

@@ -86,7 +86,7 @@ export const saveAutomationJobAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, userId },
-      parsedInput: { cronExpression, messagingChannelId, prompt },
+      parsedInput: { cronExpression, messagingChannelId, prompt, sendAsDm },
     }) => {
       await assertCanEnableAutomationJobs(userId);
 
@@ -123,6 +123,12 @@ export const saveAutomationJobAction = actionClient
         throw new SafeError(validationError);
       }
 
+      if (sendAsDm && !channel.providerUserId) {
+        throw new SafeError(
+          "Direct messages are not available for this channel",
+        );
+      }
+
       const existingJob = await prisma.automationJob.findUnique({
         where: { emailAccountId },
         select: { id: true },
@@ -146,6 +152,7 @@ export const saveAutomationJobAction = actionClient
             prompt: normalizedPrompt,
             nextRunAt,
             messagingChannelId,
+            sendAsDm,
           },
         });
         return;
@@ -156,6 +163,7 @@ export const saveAutomationJobAction = actionClient
         cronExpression,
         prompt: normalizedPrompt,
         messagingChannelId,
+        sendAsDm,
       });
     },
   );
