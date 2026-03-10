@@ -80,7 +80,7 @@ export default function ToolsPage() {
               input={{
                 action: "archive_threads",
                 threadIds: ["thread-1", "thread-2", "thread-3"],
-                labelId: "label-newsletter",
+                label: "Newsletter",
               }}
               output={{
                 action: "archive_threads",

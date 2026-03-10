@@ -207,7 +207,7 @@ export function MessagePart({
 
       let actionText = "Updating emails...";
       if (part.input.action === "archive_threads") {
-        actionText = part.input.labelId
+        actionText = part.input.label
           ? "Archiving and labeling emails..."
           : "Archiving emails...";
       } else if (part.input.action === "mark_read_threads") {
