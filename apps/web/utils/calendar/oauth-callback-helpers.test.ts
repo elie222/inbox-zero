@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCalendarRedirectUrl,
   extractAadstsCode,
   getSafeOAuthErrorDescription,
+  getCalendarRedirectPath,
   mapCalendarOAuthError,
 } from "./oauth-callback-helpers";
 
@@ -83,6 +85,60 @@ describe("calendar OAuth callback helpers", () => {
 
     it("returns null when no AADSTS code is present", () => {
       expect(getSafeOAuthErrorDescription("Something else")).toBeNull();
+    });
+  });
+
+  describe("getCalendarRedirectPath", () => {
+    it("falls back to the calendars page when no return path is provided", () => {
+      expect(getCalendarRedirectPath("acc_123")).toBe("/acc_123/calendars");
+    });
+
+    it("uses a same-account onboarding return path", () => {
+      expect(
+        getCalendarRedirectPath(
+          "acc_123",
+          encodeURIComponent("/acc_123/onboarding-brief?step=2"),
+        ),
+      ).toBe("/acc_123/onboarding-brief?step=2");
+    });
+
+    it("ignores return paths for a different account", () => {
+      expect(
+        getCalendarRedirectPath(
+          "acc_123",
+          encodeURIComponent("/acc_456/briefs"),
+        ),
+      ).toBe("/acc_123/calendars");
+    });
+
+    it("ignores return paths that normalize into a different account", () => {
+      expect(
+        getCalendarRedirectPath(
+          "acc_123",
+          encodeURIComponent("/acc_123/../acc_456/briefs"),
+        ),
+      ).toBe("/acc_123/calendars");
+    });
+
+    it("ignores external return paths", () => {
+      expect(
+        getCalendarRedirectPath(
+          "acc_123",
+          encodeURIComponent("https://example.com/briefs"),
+        ),
+      ).toBe("/acc_123/calendars");
+    });
+  });
+
+  describe("buildCalendarRedirectUrl", () => {
+    it("preserves same-account return path query params", () => {
+      const redirectUrl = buildCalendarRedirectUrl(
+        "acc_123",
+        encodeURIComponent("/acc_123/onboarding-brief?step=2"),
+      );
+
+      expect(redirectUrl.pathname).toBe("/acc_123/onboarding-brief");
+      expect(redirectUrl.searchParams.get("step")).toBe("2");
     });
   });
 });

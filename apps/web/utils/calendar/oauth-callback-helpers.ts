@@ -2,9 +2,12 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { CALENDAR_STATE_COOKIE_NAME } from "@/utils/calendar/constants";
+import {
+  CALENDAR_ONBOARDING_RETURN_COOKIE,
+  CALENDAR_STATE_COOKIE_NAME,
+} from "@/utils/calendar/constants";
 import { parseOAuthState } from "@/utils/oauth/state";
-import { prefixPath } from "@/utils/path";
+import { isInternalPath, prefixPath } from "@/utils/path";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import type {
@@ -39,6 +42,7 @@ export async function validateOAuthCallback(
   const response = NextResponse.redirect(baseRedirectUrl);
 
   response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
+  response.cookies.delete(CALENDAR_ONBOARDING_RETURN_COOKIE);
 
   if (!storedState || !receivedState || storedState !== receivedState) {
     logger.warn("Invalid state during calendar callback", {
@@ -56,7 +60,10 @@ export async function validateOAuthCallback(
     response.headers,
   );
 
-  const redirectUrl = buildCalendarRedirectUrl(calendarState.emailAccountId);
+  const redirectUrl = buildCalendarRedirectUrl(
+    calendarState.emailAccountId,
+    request.cookies.get(CALENDAR_ONBOARDING_RETURN_COOKIE)?.value,
+  );
 
   if (oauthError) {
     const aadstsCode = extractAadstsCode(errorDescription);
@@ -122,11 +129,42 @@ export function parseAndValidateCalendarState(
 /**
  * Build redirect URL with emailAccountId
  */
-export function buildCalendarRedirectUrl(emailAccountId: string): URL {
+export function buildCalendarRedirectUrl(
+  emailAccountId: string,
+  onboardingReturnPath?: string,
+): URL {
   return new URL(
-    prefixPath(emailAccountId, "/calendars"),
+    getCalendarRedirectPath(emailAccountId, onboardingReturnPath),
     env.NEXT_PUBLIC_BASE_URL,
   );
+}
+
+export function getCalendarRedirectPath(
+  emailAccountId: string,
+  onboardingReturnPath?: string,
+): string {
+  const defaultPath = prefixPath(emailAccountId, "/calendars");
+  if (!onboardingReturnPath) return defaultPath;
+
+  let decodedPath: string;
+  try {
+    decodedPath = decodeURIComponent(onboardingReturnPath);
+  } catch {
+    return defaultPath;
+  }
+
+  if (!isInternalPath(decodedPath)) return defaultPath;
+
+  const normalizedUrl = new URL(decodedPath, env.NEXT_PUBLIC_BASE_URL);
+  const normalizedPath = normalizedUrl.pathname;
+  if (
+    normalizedPath !== `/${emailAccountId}` &&
+    !normalizedPath.startsWith(`/${emailAccountId}/`)
+  ) {
+    return defaultPath;
+  }
+
+  return `${normalizedPath}${normalizedUrl.search}${normalizedUrl.hash}`;
 }
 
 /**
