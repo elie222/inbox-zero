@@ -501,13 +501,22 @@ function EmailActionResult({
       }
 
       const hasEdits = editedBody && editedBody !== body;
-      const result = await confirmAssistantEmailAction(emailAccountId, {
+      const input = {
         chatId,
         chatMessageId,
         toolCallId,
         actionType,
         ...(hasEdits ? { contentOverride: editedBody } : {}),
-      });
+      };
+
+      let result = await confirmAssistantEmailAction(emailAccountId, input);
+
+      // Message may not be persisted yet if clicked right after
+      // streaming finished. Retry once after a short wait.
+      if (result?.serverError === "Chat message not found") {
+        await new Promise((r) => setTimeout(r, 2000));
+        result = await confirmAssistantEmailAction(emailAccountId, input);
+      }
 
       if (result?.serverError) {
         toastError({ description: result.serverError });
