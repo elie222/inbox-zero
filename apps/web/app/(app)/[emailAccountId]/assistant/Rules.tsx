@@ -45,6 +45,7 @@ import type { RulesResponse } from "@/app/api/user/rules/route";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
+import { SyncToExtensionButton } from "./SyncToExtensionButton";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -148,7 +149,10 @@ export function Rules({
                   <TableHead className="px-2 sm:px-4">Action</TableHead>
                   <TableHead className="w-fit whitespace-nowrap px-1">
                     {showAddRuleButton && (
-                      <div className="flex justify-end">
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="my-2">
+                          <SyncToExtensionButton rules={data || []} />
+                        </div>
                         <div className="my-2">
                           <Button size="sm" onClick={onCreateRule}>
                             <PlusIcon className="mr-2 hidden size-4 md:block" />
