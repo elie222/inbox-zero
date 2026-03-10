@@ -4,7 +4,6 @@ import type { Logger } from "@/utils/logger";
 import type { CalendarOAuthProvider } from "./oauth-types";
 import {
   validateOAuthCallback,
-  buildCalendarRedirectUrl,
   checkExistingConnection,
   createCalendarConnection,
 } from "./oauth-callback-helpers";
@@ -20,11 +19,7 @@ import {
   setOAuthCodeResult,
   clearOAuthCode,
 } from "@/utils/redis/oauth-code";
-import {
-  CALENDAR_STATE_COOKIE_NAME,
-  CALENDAR_ONBOARDING_RETURN_COOKIE,
-} from "./constants";
-import { isInternalPath } from "@/utils/path";
+import { CALENDAR_STATE_COOKIE_NAME } from "./constants";
 
 /**
  * Unified handler for calendar OAuth callbacks
@@ -38,24 +33,19 @@ export async function handleCalendarCallback(
 
   try {
     // Step 1: Validate OAuth callback parameters
-    const { code, response, calendarState } = await validateOAuthCallback(
-      request,
-      logger,
-    );
+    const {
+      code,
+      response,
+      calendarState,
+      redirectUrl: finalRedirectUrl,
+    } = await validateOAuthCallback(request, logger);
     redirectHeaders = response.headers;
-
-    // Clear the onboarding return cookie so it doesn't cause
-    // unwanted redirects on future visits to the calendars page
-    const onboardingReturnPath = request.cookies.get(
-      CALENDAR_ONBOARDING_RETURN_COOKIE,
-    )?.value;
-    response.cookies.delete(CALENDAR_ONBOARDING_RETURN_COOKIE);
 
     // Step 1.5: Check for duplicate OAuth code processing
     const cachedResult = await getOAuthCodeResult(code);
     if (cachedResult) {
       logger.info("OAuth code already processed, returning cached result");
-      const cachedRedirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
+      const cachedRedirectUrl = new URL(finalRedirectUrl);
       for (const [key, value] of Object.entries(cachedResult.params)) {
         cachedRedirectUrl.searchParams.set(key, value);
       }
@@ -70,7 +60,7 @@ export async function handleCalendarCallback(
     const acquiredLock = await acquireOAuthCodeLock(code);
     if (!acquiredLock) {
       logger.info("OAuth code is being processed by another request");
-      const lockRedirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
+      const lockRedirectUrl = new URL(finalRedirectUrl);
       response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
       return redirectWithMessage(
         lockRedirectUrl,
@@ -80,9 +70,6 @@ export async function handleCalendarCallback(
     }
 
     const { emailAccountId } = calendarState;
-
-    // Step 3: Update redirect URL to include emailAccountId
-    const finalRedirectUrl = buildCalendarRedirectUrl(emailAccountId);
 
     // Step 4: Verify user owns this email account
     await verifyEmailAccountAccess(
@@ -147,12 +134,8 @@ export async function handleCalendarCallback(
     // Cache the successful result
     await setOAuthCodeResult(code, { message: "calendar_connected" });
 
-    // If there's an onboarding return path, redirect there instead of calendars
-    const successRedirectUrl =
-      getOnboardingReturnUrl(onboardingReturnPath) ?? finalRedirectUrl;
-
     return redirectWithMessage(
-      successRedirectUrl,
+      finalRedirectUrl,
       "calendar_connected",
       redirectHeaders,
     );
@@ -188,16 +171,5 @@ export async function handleCalendarCallback(
       "connection_failed",
       redirectHeaders,
     );
-  }
-}
-
-function getOnboardingReturnUrl(cookieValue: string | undefined): URL | null {
-  if (!cookieValue) return null;
-  try {
-    const returnPath = decodeURIComponent(cookieValue);
-    if (!isInternalPath(returnPath)) return null;
-    return new URL(returnPath, env.NEXT_PUBLIC_BASE_URL);
-  } catch {
-    return null;
   }
 }
