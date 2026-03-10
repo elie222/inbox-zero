@@ -34,15 +34,26 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
     if (archiveAllState !== "idle" || threadIds.length === 0) return;
     setArchiveAllState("loading");
     try {
-      await Promise.all(
+      const results = await Promise.all(
         threadIds.map((threadId) =>
           archiveThreadAction(emailAccountId, { threadId }),
         ),
       );
-      toastSuccess({ description: `Archived ${threadIds.length} emails` });
-      setArchiveAllState("done");
+      const failedCount = results.filter((r) => r?.serverError).length;
+      if (failedCount === results.length) {
+        toastError({ description: "Failed to archive emails" });
+        setArchiveAllState("idle");
+      } else if (failedCount > 0) {
+        toastSuccess({
+          description: `Archived ${results.length - failedCount} of ${results.length} emails`,
+        });
+        setArchiveAllState("done");
+      } else {
+        toastSuccess({ description: `Archived ${threadIds.length} emails` });
+        setArchiveAllState("done");
+      }
     } catch {
-      toastError({ description: "Failed to archive some emails" });
+      toastError({ description: "Failed to archive emails" });
       setArchiveAllState("idle");
     }
   }
@@ -51,15 +62,26 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
     if (markReadState !== "idle" || threadIds.length === 0) return;
     setMarkReadState("loading");
     try {
-      await Promise.all(
+      const results = await Promise.all(
         threadIds.map((threadId) =>
           markReadThreadAction(emailAccountId, { threadId, read: true }),
         ),
       );
-      toastSuccess({ description: `Marked ${threadIds.length} as read` });
-      setMarkReadState("done");
+      const failedCount = results.filter((r) => r?.serverError).length;
+      if (failedCount === results.length) {
+        toastError({ description: "Failed to mark emails as read" });
+        setMarkReadState("idle");
+      } else if (failedCount > 0) {
+        toastSuccess({
+          description: `Marked ${results.length - failedCount} of ${results.length} as read`,
+        });
+        setMarkReadState("done");
+      } else {
+        toastSuccess({ description: `Marked ${threadIds.length} as read` });
+        setMarkReadState("done");
+      }
     } catch {
-      toastError({ description: "Failed to mark some emails as read" });
+      toastError({ description: "Failed to mark emails as read" });
       setMarkReadState("idle");
     }
   }
@@ -80,9 +102,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
               loading={archiveAllState === "loading"}
               disabled={archiveAllState === "done"}
               onClick={handleArchiveAll}
-              Icon={
-                archiveAllState === "done" ? CheckIcon : ArchiveIcon
-              }
+              Icon={archiveAllState === "done" ? CheckIcon : ArchiveIcon}
             />
           </Tooltip>
           <Tooltip
@@ -97,9 +117,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
               loading={markReadState === "loading"}
               disabled={markReadState === "done"}
               onClick={handleMarkAllRead}
-              Icon={
-                markReadState === "done" ? CheckIcon : MailOpenIcon
-              }
+              Icon={markReadState === "done" ? CheckIcon : MailOpenIcon}
             />
           </Tooltip>
         </div>
