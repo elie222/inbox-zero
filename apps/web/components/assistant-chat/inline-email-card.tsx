@@ -47,7 +47,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
         toastSuccess({
           description: `Archived ${results.length - failedCount} of ${results.length} emails`,
         });
-        setArchiveAllState("done");
+        setArchiveAllState("idle");
       } else {
         toastSuccess({ description: `Archived ${threadIds.length} emails` });
         setArchiveAllState("done");
@@ -75,7 +75,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
         toastSuccess({
           description: `Marked ${results.length - failedCount} of ${results.length} as read`,
         });
-        setMarkReadState("done");
+        setMarkReadState("idle");
       } else {
         toastSuccess({ description: `Marked ${threadIds.length} as read` });
         setMarkReadState("done");
