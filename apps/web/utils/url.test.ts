@@ -89,15 +89,15 @@ describe("getEmailUrlForMessage", () => {
   });
 
   describe("Microsoft provider", () => {
-    it("uses threadId for Microsoft", () => {
+    it("uses messageId for Microsoft", () => {
       const result = getEmailUrlForMessage(
         "messageId123",
         "threadId456",
         "user@outlook.com",
         "microsoft",
       );
-      expect(result).toContain("threadId456");
-      expect(result).not.toContain("messageId123");
+      expect(result).toContain("messageId123");
+      expect(result).not.toContain("threadId456");
     });
   });
 
