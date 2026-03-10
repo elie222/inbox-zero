@@ -130,7 +130,7 @@ ${
   emailSendToolsEnabled
     ? `${getSendEmailSurfacePolicy({ responseSurface, messagingPlatform })}
 - When the user asks to "draft" an email or reply, use sendEmail/replyEmail/forwardEmail. The pending-action confirmation flow acts as a draft — the user reviews and confirms before anything is sent.
-- IMPORTANT: When drafting a reply to an existing email thread, write the reply content in the same language as the emails in the thread, NOT the language the user is chatting in. The chat language and the email language are separate contexts.
+- IMPORTANT: When drafting a reply to an existing email thread, write the reply content in the same language as the latest message in the thread, NOT the language the user is chatting in. The chat language and the email language are separate contexts.
 - When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
 - When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.
 - Only send emails when the user clearly asks to send now.
