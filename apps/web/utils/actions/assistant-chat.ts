@@ -25,8 +25,6 @@ const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
 const CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
 const CONFIRMATION_PERSIST_MAX_ATTEMPTS = 3;
-const MESSAGE_LOOKUP_MAX_RETRIES = 5;
-const MESSAGE_LOOKUP_RETRY_DELAY_MS = 500;
 
 const ASSISTANT_EMAIL_ACTION_METADATA: Record<
   AssistantPendingEmailActionType,
@@ -753,70 +751,54 @@ async function findChatMessageForPendingAssistantEmailAction({
   emailAccountId: string;
   logger: Logger;
 }) {
-  for (let attempt = 0; attempt < MESSAGE_LOOKUP_MAX_RETRIES; attempt++) {
-    const chatMessage = await prisma.chatMessage.findFirst({
-      where: {
-        id: chatMessageId,
-        chat: { id: chatId, emailAccountId },
-      },
-      select: {
-        id: true,
-        chatId: true,
-        updatedAt: true,
-        parts: true,
-      },
+  const chatMessage = await prisma.chatMessage.findFirst({
+    where: {
+      id: chatMessageId,
+      chat: { id: chatId, emailAccountId },
+    },
+    select: {
+      id: true,
+      chatId: true,
+      updatedAt: true,
+      parts: true,
+    },
+  });
+
+  if (chatMessage) return chatMessage;
+
+  const fallbackCandidates = await prisma.chatMessage.findMany({
+    where: {
+      role: "assistant",
+      chat: { id: chatId, emailAccountId },
+    },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      chatId: true,
+      updatedAt: true,
+      parts: true,
+    },
+  });
+
+  for (const candidate of fallbackCandidates) {
+    const lookup = findPendingAssistantEmailPart({
+      parts: candidate.parts,
+      toolCallId,
+      actionType,
     });
+    if (!lookup) continue;
 
-    if (chatMessage) return chatMessage;
-
-    // Only try the expensive fallback scan on later attempts.
-    // Early retries handle the common case where the message
-    // simply hasn't been persisted yet.
-    if (attempt >= 3) {
-      const fallbackCandidates = await prisma.chatMessage.findMany({
-        where: {
-          role: "assistant",
-          chat: { id: chatId, emailAccountId },
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 10,
-        select: {
-          id: true,
-          chatId: true,
-          updatedAt: true,
-          parts: true,
-        },
-      });
-
-      for (const candidate of fallbackCandidates) {
-        const lookup = findPendingAssistantEmailPart({
-          parts: candidate.parts,
-          toolCallId,
-          actionType,
-        });
-        if (!lookup) continue;
-
-        logger.warn(
-          "Assistant email confirmation recovered using fallback message lookup",
-          {
-            chatId,
-            chatMessageId,
-            resolvedChatMessageId: candidate.id,
-            toolCallId,
-            actionType,
-          },
-        );
-        return candidate;
-      }
-    }
-
-    // Message may not be persisted yet (stream just finished).
-    // Wait briefly and retry before giving up.
-    if (attempt < MESSAGE_LOOKUP_MAX_RETRIES - 1) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, MESSAGE_LOOKUP_RETRY_DELAY_MS),
-      );
-    }
+    logger.warn(
+      "Assistant email confirmation recovered using fallback message lookup",
+      {
+        chatId,
+        chatMessageId,
+        resolvedChatMessageId: candidate.id,
+        toolCallId,
+        actionType,
+      },
+    );
+    return candidate;
   }
 
   return null;
