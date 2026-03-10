@@ -498,6 +498,8 @@ export const manageInboxTool = ({
                 label: parsedInput.label,
               })
             : null;
+        const resolvedArchiveLabelId =
+          resolvedArchiveLabel?.labelId ?? undefined;
 
         const threadActionResults = await runThreadActionsInParallel({
           threadIds,
@@ -506,7 +508,7 @@ export const manageInboxTool = ({
               await emailProvider.archiveThreadWithLabel(
                 threadId,
                 email,
-                resolvedArchiveLabel?.labelId,
+                resolvedArchiveLabelId,
               );
             } else {
               await emailProvider.markReadThread(
