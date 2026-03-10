@@ -1476,38 +1476,34 @@ export class OutlookProvider implements EmailProvider {
       const filters: string[] = [];
 
       // Route to appropriate endpoint based on type
+      // Resolve folder IDs once — parentFolderId on messages is a GUID, not a well-known name
       if (type === "sent") {
         endpoint = "/me/mailFolders('sentitems')/messages";
-      } else if (type === "all") {
-        // Resolve actual folder IDs — parentFolderId is a GUID, not a well-known name
-        const folderIds = await getFolderIds(this.client, this.logger, {
-          includeDrafts: false,
-        });
-        const folderClauses: string[] = [];
-        if (folderIds.inbox) {
-          folderClauses.push(
-            `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`,
-          );
-        }
-        if (folderIds.archive) {
-          folderClauses.push(
-            `parentFolderId eq '${escapeODataString(folderIds.archive)}'`,
-          );
-        }
-        if (folderClauses.length > 0) {
-          filters.push(`(${folderClauses.join(" or ")})`);
-        }
       } else if (labelId) {
         // labelId is already a folder ID (GUID), use directly
         filters.push(
           `parentFolderId eq '${escapeODataString(labelId.toLowerCase())}'`,
         );
       } else {
-        // Default to inbox only — resolve the actual folder ID
         const folderIds = await getFolderIds(this.client, this.logger, {
           includeDrafts: false,
         });
-        if (folderIds.inbox) {
+        if (type === "all") {
+          const folderClauses: string[] = [];
+          if (folderIds.inbox) {
+            folderClauses.push(
+              `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`,
+            );
+          }
+          if (folderIds.archive) {
+            folderClauses.push(
+              `parentFolderId eq '${escapeODataString(folderIds.archive)}'`,
+            );
+          }
+          if (folderClauses.length > 0) {
+            filters.push(`(${folderClauses.join(" or ")})`);
+          }
+        } else if (folderIds.inbox) {
           filters.push(
             `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`,
           );
