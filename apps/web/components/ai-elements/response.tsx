@@ -25,6 +25,7 @@ export const Response = memo(
       allowedTags={customAllowedTags}
       components={customComponents}
       literalTagContent={customLiteralContent}
+      normalizeHtmlIndentation
       {...props}
     />
   ),
