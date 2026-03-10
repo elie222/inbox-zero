@@ -135,6 +135,11 @@ export function Rules({
 
   return (
     <div className="space-y-6">
+      {hasRules && (
+        <div className="flex justify-end">
+          <SyncToExtensionButton rules={data || []} />
+        </div>
+      )}
       <Card>
         <LoadingContent loading={isLoading} error={error}>
           {hasRules ? (
@@ -149,10 +154,7 @@ export function Rules({
                   <TableHead className="px-2 sm:px-4">Action</TableHead>
                   <TableHead className="w-fit whitespace-nowrap px-1">
                     {showAddRuleButton && (
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="my-2">
-                          <SyncToExtensionButton rules={data || []} />
-                        </div>
+                      <div className="flex justify-end">
                         <div className="my-2">
                           <Button size="sm" onClick={onCreateRule}>
                             <PlusIcon className="mr-2 hidden size-4 md:block" />
