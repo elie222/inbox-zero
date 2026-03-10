@@ -24,7 +24,7 @@ const PROVIDER_CONFIG: Record<
       const encodedMessageId = encodeURIComponent(messageOrThreadId);
       return `${getOutlookBaseUrl()}/inbox/id/${encodedMessageId}`;
     },
-    selectId: (_messageId: string, threadId: string) => threadId,
+    selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, _emailAddress?: string | null) => {
       const query = encodeURIComponent(`from:${from}`);
       return `${getOutlookBaseUrl()}/search/q/${query}`;
