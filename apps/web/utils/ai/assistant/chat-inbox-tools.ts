@@ -506,7 +506,7 @@ export const manageInboxTool = ({
               await emailProvider.archiveThreadWithLabel(
                 threadId,
                 email,
-                resolvedArchiveLabel?.labelId ?? undefined,
+                resolvedArchiveLabel?.labelId,
               );
             } else {
               await emailProvider.markReadThread(
