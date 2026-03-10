@@ -401,6 +401,43 @@ describe("clearFollowUpLabel", () => {
     );
   });
 
+  it("only clears followUpDraftId for trackers whose deletion succeeded", async () => {
+    const mockProvider = createMockEmailProvider({
+      getLabelByName: vi
+        .fn()
+        .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
+      deleteDraft: vi
+        .fn()
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error("Network failure")),
+    });
+
+    prisma.threadTracker.findMany.mockResolvedValue([
+      { id: "tracker-1", followUpDraftId: "draft-abc" },
+      { id: "tracker-2", followUpDraftId: "draft-def" },
+    ]);
+    prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
+
+    await clearFollowUpLabel({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(mockProvider.deleteDraft).toHaveBeenNthCalledWith(1, "draft-abc");
+    expect(mockProvider.deleteDraft).toHaveBeenNthCalledWith(2, "draft-def");
+    // Only tracker-1 succeeded, so only its draftId is cleared
+    expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["tracker-1"] },
+      },
+      data: {
+        followUpDraftId: null,
+      },
+    });
+  });
+
   it("still removes label when trackers are already resolved", async () => {
     const mockProvider = createMockEmailProvider({
       getLabelByName: vi
