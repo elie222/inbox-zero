@@ -45,7 +45,6 @@ import type { RulesResponse } from "@/app/api/user/rules/route";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
-import { SyncToExtensionButton } from "./SyncToExtensionButton";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -135,11 +134,6 @@ export function Rules({
 
   return (
     <div className="space-y-6">
-      {hasRules && (
-        <div className="flex justify-end">
-          <SyncToExtensionButton rules={data || []} />
-        </div>
-      )}
       <Card>
         <LoadingContent loading={isLoading} error={error}>
           {hasRules ? (

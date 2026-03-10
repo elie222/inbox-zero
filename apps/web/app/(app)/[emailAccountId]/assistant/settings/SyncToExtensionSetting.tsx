@@ -1,15 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { DownloadIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  EXTENSION_URL,
-  TABS_EXTENSION_ID,
-} from "@/utils/config";
+import { EXTENSION_URL } from "@/utils/config";
+import { env } from "@/env";
 import { mapRulesToExtensionTabs } from "@/utils/rule/mapRulesToExtensionTabs";
-import type { RulesResponse } from "@/app/api/user/rules/route";
+import { useRules } from "@/hooks/useRules";
+import { SettingCard } from "@/components/SettingCard";
 
 interface SyncResponse {
   success: boolean;
@@ -42,7 +40,7 @@ function sendMessageToExtension(
     }
     try {
       window.chrome.runtime.sendMessage(
-        TABS_EXTENSION_ID,
+        env.NEXT_PUBLIC_TABS_EXTENSION_ID,
         message,
         (response) => {
           if (window.chrome?.runtime?.lastError) {
@@ -58,15 +56,12 @@ function sendMessageToExtension(
   });
 }
 
-export function SyncToExtensionButton({
-  rules,
-}: {
-  rules: RulesResponse;
-}) {
+export function SyncToExtensionSetting() {
+  const { data: rules } = useRules();
   const [isSyncing, setIsSyncing] = useState(false);
 
   async function handleSync() {
-    const tabs = mapRulesToExtensionTabs(rules);
+    const tabs = mapRulesToExtensionTabs(rules || []);
 
     if (tabs.length === 0) {
       toast.info("No rules with label actions to sync");
@@ -95,10 +90,7 @@ export function SyncToExtensionButton({
         toast.error("Failed to sync tabs to extension");
       }
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === "not_chrome"
-      ) {
+      if (error instanceof Error && error.message === "not_chrome") {
         toast.error("Syncing to extension requires a Chromium browser");
       } else {
         toast.error("Inbox Zero Tabs extension not found. Install it first.", {
@@ -114,9 +106,19 @@ export function SyncToExtensionButton({
   }
 
   return (
-    <Button size="sm" variant="outline" onClick={handleSync} disabled={isSyncing}>
-      <DownloadIcon className="mr-2 hidden size-4 md:block" />
-      {isSyncing ? "Syncing..." : "Sync to Extension"}
-    </Button>
+    <SettingCard
+      title="Sync to browser extension"
+      description="Sync your rules to the Inbox Zero Tabs browser extension. Each label rule becomes a tab in Gmail."
+      right={
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSync}
+          disabled={isSyncing}
+        >
+          {isSyncing ? "Syncing..." : "Sync"}
+        </Button>
+      }
+    />
   );
 }
