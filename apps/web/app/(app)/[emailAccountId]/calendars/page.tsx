@@ -14,6 +14,10 @@ export default async function CalendarsPage() {
 
   if (returnPathCookie?.value) {
     const returnPath = decodeURIComponent(returnPathCookie.value);
+
+    // Clear the cookie so it doesn't redirect again on future visits
+    cookieStore.delete(CALENDAR_ONBOARDING_RETURN_COOKIE);
+
     if (isInternalPath(returnPath)) {
       redirect(returnPath);
     }
