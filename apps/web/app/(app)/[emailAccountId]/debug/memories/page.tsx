@@ -36,7 +36,7 @@ export default function DebugMemoriesPage() {
                   <span>{new Date(memory.createdAt).toLocaleString()}</span>
                   {memory.chatId && (
                     <Link
-                      href={prefixPath(emailAccountId, "/assistant")}
+                      href={prefixPath(emailAccountId, `/assistant?chatId=${memory.chatId}`)}
                       className="underline hover:text-foreground"
                     >
                       View chat
