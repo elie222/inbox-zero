@@ -1476,19 +1476,22 @@ export class OutlookProvider implements EmailProvider {
       const filters: string[] = [];
 
       // Route to appropriate endpoint based on type
-      // Resolve folder IDs once — parentFolderId on messages is a GUID, not a well-known name
+      // parentFolderId on messages is a GUID, not a well-known name — always resolve
       if (type === "sent") {
         endpoint = "/me/mailFolders('sentitems')/messages";
-      } else if (labelId) {
-        // labelId is already a folder ID (GUID), use directly
-        filters.push(
-          `parentFolderId eq '${escapeODataString(labelId.toLowerCase())}'`,
-        );
       } else {
         const folderIds = await getFolderIds(this.client, this.logger, {
           includeDrafts: false,
         });
-        if (type === "all") {
+
+        if (labelId) {
+          // labelId may be a well-known label name (e.g. "INBOX") or an actual folder GUID
+          const resolvedFolderId =
+            resolveOutlookFolderId(labelId, folderIds) ?? labelId;
+          filters.push(
+            `parentFolderId eq '${escapeODataString(resolvedFolderId)}'`,
+          );
+        } else if (type === "all") {
           const folderClauses: string[] = [];
           if (folderIds.inbox) {
             folderClauses.push(
@@ -1994,4 +1997,22 @@ export class OutlookProvider implements EmailProvider {
       unread: folder.unreadItemCount ?? 0,
     };
   }
+}
+
+// Maps OutlookLabel names (e.g. "INBOX") to WELL_KNOWN_FOLDERS keys used in getFolderIds()
+const LABEL_TO_FOLDER_KEY: Record<string, string> = {
+  INBOX: "inbox",
+  SENT: "sentitems",
+  DRAFT: "drafts",
+  ARCHIVE: "archive",
+  TRASH: "deleteditems",
+  SPAM: "junkemail",
+};
+
+function resolveOutlookFolderId(
+  labelId: string,
+  folderIds: Record<string, string>,
+): string | undefined {
+  const folderKey = LABEL_TO_FOLDER_KEY[labelId.toUpperCase()];
+  return folderKey ? folderIds[folderKey] : undefined;
 }
