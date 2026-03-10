@@ -759,17 +759,17 @@ export class OutlookProvider implements EmailProvider {
       });
       const inboxFolderId = folderIds.inbox;
 
-      const escapedThreadId = escapeODataString(threadId);
-      const filterParts = [`conversationId eq '${escapedThreadId}'`];
-      if (inboxFolderId) {
-        filterParts.push(
-          `parentFolderId eq '${escapeODataString(inboxFolderId)}'`,
-        );
+      if (!inboxFolderId) {
+        throw new Error("Could not resolve inbox folder ID");
       }
+
+      const escapedThreadId = escapeODataString(threadId);
 
       const response = await client
         .api("/me/messages")
-        .filter(filterParts.join(" and "))
+        .filter(
+          `conversationId eq '${escapedThreadId}' and parentFolderId eq '${escapeODataString(inboxFolderId)}'`,
+        )
         .select(MESSAGE_SELECT_FIELDS)
         .get();
 

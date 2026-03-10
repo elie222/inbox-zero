@@ -193,9 +193,10 @@ export async function moveMessagesForSenders({
     });
     inboxFolderId = folderIds.inbox;
     if (!inboxFolderId) {
-      logger.warn(
-        "Could not resolve inbox folder ID — archiving all messages from senders without folder filter",
+      logger.error(
+        "Could not resolve inbox folder ID — aborting bulk archive to avoid archiving from all folders",
       );
+      return;
     }
   }
 
@@ -205,10 +206,9 @@ export async function moveMessagesForSenders({
     const processedMessageIds = new Set<string>();
     const publishedThreadIds = new Set<string>();
     const fromFilter = `from/emailAddress/address eq '${escapeODataString(sender)}'`;
-    const filterExpression =
-      action === "archive" && inboxFolderId
-        ? `${fromFilter} and parentFolderId eq '${escapeODataString(inboxFolderId)}'`
-        : fromFilter;
+    const filterExpression = inboxFolderId
+      ? `${fromFilter} and parentFolderId eq '${escapeODataString(inboxFolderId)}'`
+      : fromFilter;
 
     // Use @odata.nextLink directly for pagination instead of extracting $skiptoken
     // This is more reliable as Microsoft Graph may use different token formats
