@@ -79,6 +79,7 @@ const fetcher = async (
 
     const errorMessage =
       (errorData.message as string) ||
+      (errorData.error as string) ||
       "An error occurred while fetching the data.";
     const error: Error & { info?: Record<string, unknown>; status?: number } =
       new Error(errorMessage);
