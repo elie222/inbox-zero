@@ -125,15 +125,13 @@ export async function clearFollowUpLabel({
   if (!threadId) return;
 
   try {
-    const trackersToClean = await prisma.threadTracker.findMany({
+    // No resolved filter: trackers may already be resolved by handleOutboundReply
+    // before this function runs, but we still need to delete their drafts.
+    const trackersWithDrafts = await prisma.threadTracker.findMany({
       where: {
         emailAccountId,
         threadId,
-        resolved: false,
-        OR: [
-          { followUpAppliedAt: { not: null } },
-          { followUpDraftId: { not: null } },
-        ],
+        followUpDraftId: { not: null },
       },
       select: {
         id: true,
@@ -141,16 +139,18 @@ export async function clearFollowUpLabel({
       },
     });
 
-    if (trackersToClean.length === 0) return;
+    const deletedDraftTrackerIds: string[] = [];
 
-    for (const tracker of trackersToClean) {
+    for (const tracker of trackersWithDrafts) {
       if (tracker.followUpDraftId) {
         try {
           await provider.deleteDraft(tracker.followUpDraftId);
+          deletedDraftTrackerIds.push(tracker.id);
           logger.info("Deleted follow-up draft", {
             trackerId: tracker.id,
           });
         } catch (error) {
+          // Keep followUpDraftId so the fallback cleanup can retry
           logger.error("Failed to delete follow-up draft", {
             trackerId: tracker.id,
             error,
@@ -159,26 +159,43 @@ export async function clearFollowUpLabel({
       }
     }
 
+    if (deletedDraftTrackerIds.length > 0) {
+      await withPrismaRetry(
+        () =>
+          prisma.threadTracker.updateMany({
+            where: {
+              id: { in: deletedDraftTrackerIds },
+            },
+            data: {
+              followUpDraftId: null,
+            },
+          }),
+        { logger },
+      );
+    }
+
+    // Clear followUpAppliedAt on any unresolved trackers
     await withPrismaRetry(
       () =>
         prisma.threadTracker.updateMany({
           where: {
-            id: { in: trackersToClean.map((t) => t.id) },
+            emailAccountId,
+            threadId,
+            followUpAppliedAt: { not: null },
           },
           data: {
             followUpAppliedAt: null,
-            followUpDraftId: null,
           },
         }),
       { logger },
     );
 
-    logger.info("Removing follow-up label", { threadId });
-
+    // Always remove the label regardless of tracker state
     await removeFollowUpLabel({ provider, threadId, logger });
 
-    logger.info("Removed follow-up label and cleaned up trackers", {
+    logger.info("Cleared follow-up label and cleaned up trackers", {
       threadId,
+      draftsDeleted: deletedDraftTrackerIds.length,
     });
   } catch (error) {
     logger.error("Failed to clear follow-up label", { threadId, error });
