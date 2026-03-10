@@ -1230,7 +1230,7 @@ function parseManageInboxAction(
   return undefined;
 }
 
-function getManageInboxActionLabel({
+export function getManageInboxActionLabel({
   action,
   read,
   labelApplied,

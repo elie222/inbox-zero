@@ -248,6 +248,7 @@ describe("chat inbox tools", () => {
     });
 
     expect(getLabelByName).toHaveBeenCalledWith("To-Delete");
+    expect(getLabelByName).toHaveBeenCalledTimes(1);
     expect(archiveThreadWithLabel).toHaveBeenNthCalledWith(
       1,
       "thread-1",

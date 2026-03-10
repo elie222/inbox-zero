@@ -483,19 +483,22 @@ export const manageInboxTool = ({
           };
         }
 
+        const resolvedArchiveLabel =
+          parsedInput.action === "archive_threads"
+            ? await resolveLabelNameAndId({
+                emailProvider,
+                label: parsedInput.label,
+              })
+            : null;
+
         const threadActionResults = await runThreadActionsInParallel({
           threadIds,
           runAction: async (threadId) => {
             if (parsedInput.action === "archive_threads") {
-              const resolvedLabel = await resolveLabelNameAndId({
-                emailProvider,
-                label: parsedInput.label,
-              });
-
               await emailProvider.archiveThreadWithLabel(
                 threadId,
                 email,
-                resolvedLabel.labelId ?? undefined,
+                resolvedArchiveLabel?.labelId ?? undefined,
               );
             } else {
               await emailProvider.markReadThread(
