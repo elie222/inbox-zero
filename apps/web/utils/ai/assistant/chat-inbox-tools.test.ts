@@ -5,6 +5,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
   forwardEmailTool,
+  manageInboxTool,
   replyEmailTool,
   sendEmailTool,
 } from "./chat-inbox-tools";
@@ -218,5 +219,53 @@ describe("chat inbox tools", () => {
         "Invalid forwardEmail input: to must include valid email address(es)",
     });
     expect(createEmailProvider).not.toHaveBeenCalled();
+  });
+
+  it("resolves a label name before archiving threads", async () => {
+    const archiveThreadWithLabel = vi.fn().mockResolvedValue(undefined);
+    const getLabelByName = vi.fn().mockResolvedValue({
+      id: "Label_123",
+      name: "To-Delete",
+      type: "user",
+    });
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      archiveThreadWithLabel,
+      getLabelByName,
+    } as any);
+
+    const toolInstance = manageInboxTool({
+      email: "sender@example.com",
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      action: "archive_threads",
+      label: "To-Delete",
+      threadIds: ["thread-1", "thread-2"],
+    });
+
+    expect(getLabelByName).toHaveBeenCalledWith("To-Delete");
+    expect(archiveThreadWithLabel).toHaveBeenNthCalledWith(
+      1,
+      "thread-1",
+      "sender@example.com",
+      "Label_123",
+    );
+    expect(archiveThreadWithLabel).toHaveBeenNthCalledWith(
+      2,
+      "thread-2",
+      "sender@example.com",
+      "Label_123",
+    );
+    expect(result).toMatchObject({
+      action: "archive_threads",
+      success: true,
+      failedCount: 0,
+      successCount: 2,
+      requestedCount: 2,
+    });
   });
 });

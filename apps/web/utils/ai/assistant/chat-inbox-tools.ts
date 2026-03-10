@@ -12,6 +12,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import { runWithBoundedConcurrency } from "@/utils/async";
+import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import {
   type AutomaticUnsubscribeResult,
@@ -339,11 +340,11 @@ const manageInboxInputSchema = z.object({
     .describe(
       "Thread IDs to archive or mark read/unread. Provide IDs from searchInbox results.",
     ),
-  labelId: z
+  label: z
     .string()
     .nullish()
     .describe(
-      "Optional provider label/category ID to apply while archiving threads.",
+      "Optional exact label/category name to apply while archiving threads.",
     ),
   read: z
     .boolean()
@@ -486,10 +487,15 @@ export const manageInboxTool = ({
           threadIds,
           runAction: async (threadId) => {
             if (parsedInput.action === "archive_threads") {
+              const resolvedLabel = await resolveLabelNameAndId({
+                emailProvider,
+                label: parsedInput.label,
+              });
+
               await emailProvider.archiveThreadWithLabel(
                 threadId,
                 email,
-                parsedInput.labelId ?? undefined,
+                resolvedLabel.labelId ?? undefined,
               );
             } else {
               await emailProvider.markReadThread(
