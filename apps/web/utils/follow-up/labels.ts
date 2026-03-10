@@ -3,6 +3,7 @@ import { withPrismaRetry } from "@/utils/prisma-retry";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import { FOLLOW_UP_LABEL } from "@/utils/label";
 import type { Logger } from "@/utils/logger";
+import { captureException } from "@/utils/error";
 
 export async function getOrCreateFollowUpLabel(
   provider: EmailProvider,
@@ -124,34 +125,63 @@ export async function clearFollowUpLabel({
   if (!threadId) return;
 
   try {
-    const { count } = await withPrismaRetry(
+    const trackersToClean = await prisma.threadTracker.findMany({
+      where: {
+        emailAccountId,
+        threadId,
+        resolved: false,
+        OR: [
+          { followUpAppliedAt: { not: null } },
+          { followUpDraftId: { not: null } },
+        ],
+      },
+      select: {
+        id: true,
+        followUpDraftId: true,
+      },
+    });
+
+    if (trackersToClean.length === 0) return;
+
+    for (const tracker of trackersToClean) {
+      if (tracker.followUpDraftId) {
+        try {
+          await provider.deleteDraft(tracker.followUpDraftId);
+          logger.info("Deleted follow-up draft", {
+            trackerId: tracker.id,
+          });
+        } catch (error) {
+          logger.error("Failed to delete follow-up draft", {
+            trackerId: tracker.id,
+            error,
+          });
+        }
+      }
+    }
+
+    await withPrismaRetry(
       () =>
         prisma.threadTracker.updateMany({
           where: {
-            emailAccountId,
-            threadId,
-            followUpAppliedAt: { not: null },
-            resolved: false,
+            id: { in: trackersToClean.map((t) => t.id) },
           },
           data: {
             followUpAppliedAt: null,
+            followUpDraftId: null,
           },
         }),
       { logger },
     );
 
-    if (count === 0) {
-      return;
-    }
-
     logger.info("Removing follow-up label", { threadId });
 
     await removeFollowUpLabel({ provider, threadId, logger });
 
-    logger.info("Removed follow-up label and cleared tracker", {
+    logger.info("Removed follow-up label and cleaned up trackers", {
       threadId,
     });
   } catch (error) {
-    logger.error("Failed to remove follow-up label", { threadId, error });
+    logger.error("Failed to clear follow-up label", { threadId, error });
+    captureException(error, { emailAccountId });
   }
 }

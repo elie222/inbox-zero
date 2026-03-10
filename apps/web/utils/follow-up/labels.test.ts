@@ -270,13 +270,16 @@ describe("clearFollowUpLabel", () => {
     vi.clearAllMocks();
   });
 
-  it("removes label and clears tracker when thread has follow-up label in DB", async () => {
+  it("removes label and clears tracker when thread has follow-up applied", async () => {
     const mockProvider = createMockEmailProvider({
       getLabelByName: vi
         .fn()
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
     });
 
+    prisma.threadTracker.findMany.mockResolvedValue([
+      { id: "tracker-1", followUpDraftId: null },
+    ]);
     prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
 
     await clearFollowUpLabel({
@@ -286,26 +289,49 @@ describe("clearFollowUpLabel", () => {
       logger,
     });
 
-    expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
+    expect(prisma.threadTracker.findMany).toHaveBeenCalledWith({
       where: {
         emailAccountId: "account-1",
         threadId: "thread-1",
-        followUpAppliedAt: { not: null },
         resolved: false,
+        OR: [
+          { followUpAppliedAt: { not: null } },
+          { followUpDraftId: { not: null } },
+        ],
+      },
+      select: {
+        id: true,
+        followUpDraftId: true,
+      },
+    });
+    expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["tracker-1"] },
       },
       data: {
         followUpAppliedAt: null,
+        followUpDraftId: null,
       },
     });
+    expect(mockProvider.deleteDraft).not.toHaveBeenCalled();
     expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
       "thread-1",
       "label-123",
     );
   });
 
-  it("does nothing when no trackers updated", async () => {
-    const mockProvider = createMockEmailProvider();
-    prisma.threadTracker.updateMany.mockResolvedValue({ count: 0 });
+  it("deletes follow-up draft from provider when tracker has draftId", async () => {
+    const mockProvider = createMockEmailProvider({
+      getLabelByName: vi
+        .fn()
+        .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
+      deleteDraft: vi.fn().mockResolvedValue(undefined),
+    });
+
+    prisma.threadTracker.findMany.mockResolvedValue([
+      { id: "tracker-1", followUpDraftId: "draft-abc" },
+    ]);
+    prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
 
     await clearFollowUpLabel({
       emailAccountId: "account-1",
@@ -314,6 +340,62 @@ describe("clearFollowUpLabel", () => {
       logger,
     });
 
+    expect(mockProvider.deleteDraft).toHaveBeenCalledWith("draft-abc");
+    expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["tracker-1"] },
+      },
+      data: {
+        followUpAppliedAt: null,
+        followUpDraftId: null,
+      },
+    });
+    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
+      "thread-1",
+      "label-123",
+    );
+  });
+
+  it("continues cleanup even if draft deletion fails", async () => {
+    const mockProvider = createMockEmailProvider({
+      getLabelByName: vi
+        .fn()
+        .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
+      deleteDraft: vi.fn().mockRejectedValue(new Error("Draft not found")),
+    });
+
+    prisma.threadTracker.findMany.mockResolvedValue([
+      { id: "tracker-1", followUpDraftId: "draft-abc" },
+    ]);
+    prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
+
+    await clearFollowUpLabel({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(mockProvider.deleteDraft).toHaveBeenCalledWith("draft-abc");
+    expect(prisma.threadTracker.updateMany).toHaveBeenCalled();
+    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
+      "thread-1",
+      "label-123",
+    );
+  });
+
+  it("does nothing when no trackers found", async () => {
+    const mockProvider = createMockEmailProvider();
+    prisma.threadTracker.findMany.mockResolvedValue([]);
+
+    await clearFollowUpLabel({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(prisma.threadTracker.updateMany).not.toHaveBeenCalled();
     expect(mockProvider.removeThreadLabel).not.toHaveBeenCalled();
   });
 });
