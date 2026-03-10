@@ -20,7 +20,11 @@ import {
   setOAuthCodeResult,
   clearOAuthCode,
 } from "@/utils/redis/oauth-code";
-import { CALENDAR_STATE_COOKIE_NAME } from "./constants";
+import {
+  CALENDAR_STATE_COOKIE_NAME,
+  CALENDAR_ONBOARDING_RETURN_COOKIE,
+} from "./constants";
+import { isInternalPath } from "@/utils/path";
 
 /**
  * Unified handler for calendar OAuth callbacks
@@ -39,6 +43,13 @@ export async function handleCalendarCallback(
       logger,
     );
     redirectHeaders = response.headers;
+
+    // Clear the onboarding return cookie so it doesn't cause
+    // unwanted redirects on future visits to the calendars page
+    const onboardingReturnPath = request.cookies.get(
+      CALENDAR_ONBOARDING_RETURN_COOKIE,
+    )?.value;
+    response.cookies.delete(CALENDAR_ONBOARDING_RETURN_COOKIE);
 
     // Step 1.5: Check for duplicate OAuth code processing
     const cachedResult = await getOAuthCodeResult(code);
@@ -136,8 +147,12 @@ export async function handleCalendarCallback(
     // Cache the successful result
     await setOAuthCodeResult(code, { message: "calendar_connected" });
 
+    // If there's an onboarding return path, redirect there instead of calendars
+    const successRedirectUrl =
+      getOnboardingReturnUrl(onboardingReturnPath) ?? finalRedirectUrl;
+
     return redirectWithMessage(
-      finalRedirectUrl,
+      successRedirectUrl,
       "calendar_connected",
       redirectHeaders,
     );
@@ -173,5 +188,16 @@ export async function handleCalendarCallback(
       "connection_failed",
       redirectHeaders,
     );
+  }
+}
+
+function getOnboardingReturnUrl(cookieValue: string | undefined): URL | null {
+  if (!cookieValue) return null;
+  try {
+    const returnPath = decodeURIComponent(cookieValue);
+    if (!isInternalPath(returnPath)) return null;
+    return new URL(returnPath, env.NEXT_PUBLIC_BASE_URL);
+  } catch {
+    return null;
   }
 }
