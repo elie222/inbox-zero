@@ -193,7 +193,11 @@ export async function handleCalendarCallback(
 
 function getOnboardingReturnUrl(cookieValue: string | undefined): URL | null {
   if (!cookieValue) return null;
-  const returnPath = decodeURIComponent(cookieValue);
-  if (!isInternalPath(returnPath)) return null;
-  return new URL(returnPath, env.NEXT_PUBLIC_BASE_URL);
+  try {
+    const returnPath = decodeURIComponent(cookieValue);
+    if (!isInternalPath(returnPath)) return null;
+    return new URL(returnPath, env.NEXT_PUBLIC_BASE_URL);
+  } catch {
+    return null;
+  }
 }
