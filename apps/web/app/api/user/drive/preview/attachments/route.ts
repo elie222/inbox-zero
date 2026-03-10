@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailProvider } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
-import { getExtractableAttachments } from "@/utils/drive/filing-engine";
+import { getFilableAttachments } from "@/utils/drive/filing-engine";
 import { extractNameFromEmail, extractEmailAddress } from "@/utils/email";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
@@ -101,7 +101,7 @@ function extractAttachmentPreviews(
   const result: AttachmentPreviewItem[] = [];
 
   for (const message of messages) {
-    const extractable = getExtractableAttachments(message);
+    const extractable = getFilableAttachments(message);
     for (const attachment of extractable) {
       result.push({
         messageId: message.id,

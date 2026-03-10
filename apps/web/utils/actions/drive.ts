@@ -18,7 +18,7 @@ import { SafeError } from "@/utils/error";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
-  getExtractableAttachments,
+  getFilableAttachments,
   processAttachment,
 } from "@/utils/drive/filing-engine";
 import type { DriveProviderType } from "@/utils/drive/types";
@@ -309,13 +309,13 @@ export const fileAttachmentAction = actionClient
         throw new SafeError("Message not found");
       }
 
-      const extractableAttachments = getExtractableAttachments(message);
-      const attachment = extractableAttachments.find(
+      const filableAttachments = getFilableAttachments(message);
+      const attachment = filableAttachments.find(
         (a) => a.filename === filename,
       );
 
       if (!attachment) {
-        throw new SafeError("Attachment not found or not extractable");
+        throw new SafeError("Attachment not found");
       }
 
       logger.info("Processing attachment", { filename: attachment.filename });
