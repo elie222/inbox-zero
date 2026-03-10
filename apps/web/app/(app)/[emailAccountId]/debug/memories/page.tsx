@@ -29,7 +29,7 @@ export default function DebugMemoriesPage() {
           </div>
 
           <div className="space-y-2">
-            {data?.memories.map((memory) => (
+            {data?.memories?.map((memory) => (
               <div key={memory.id} className="rounded-lg border p-3">
                 <p className="text-sm">{memory.content}</p>
                 <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
@@ -45,7 +45,7 @@ export default function DebugMemoriesPage() {
                 </div>
               </div>
             ))}
-            {data?.memories.length === 0 && (
+            {data?.memories?.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 No memories stored yet.
               </p>
