@@ -19,7 +19,10 @@ import {
 } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@/generated/prisma/enums";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
-import { getStripePriceId } from "@/app/(app)/premium/config";
+import {
+  getIncludedEmailAccountsPerUserForStripePrice,
+  getStripePriceId,
+} from "@/app/(app)/premium/config";
 import {
   actionClientUser,
   adminActionClient,
@@ -525,11 +528,13 @@ export const generateCheckoutSessionAction = actionClientUser
 
       const quantity = Math.max(
         1,
-        calculatePremiumBillingQuantity(
-          (user.premium?.users || []).map((premiumUser) => ({
+        calculatePremiumBillingQuantity({
+          users: (user.premium?.users || []).map((premiumUser) => ({
             emailAccountCount: premiumUser._count.emailAccounts,
           })),
-        ),
+          includedEmailAccountsPerUser:
+            getIncludedEmailAccountsPerUserForStripePrice({ priceId }),
+        }),
       );
 
       // ALWAYS create a checkout with a stripeCustomerId

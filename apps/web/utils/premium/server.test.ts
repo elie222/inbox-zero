@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 
 const {
+  mockGetIncludedEmailAccountsPerUserForStripePrice,
   mockUpdateStripeSubscriptionItemQuantity,
   mockUpdateSubscriptionItemQuantity,
 } = vi.hoisted(() => ({
+  mockGetIncludedEmailAccountsPerUserForStripePrice: vi.fn(),
   mockUpdateStripeSubscriptionItemQuantity: vi.fn(),
   mockUpdateSubscriptionItemQuantity: vi.fn(),
 }));
@@ -20,6 +22,11 @@ vi.mock("@/env", () => ({
 }));
 
 vi.mock("@/utils/prisma");
+
+vi.mock("@/app/(app)/premium/config", () => ({
+  getIncludedEmailAccountsPerUserForStripePrice:
+    mockGetIncludedEmailAccountsPerUserForStripePrice,
+}));
 
 vi.mock("@/ee/billing/stripe/index", () => ({
   updateStripeSubscriptionItemQuantity:
@@ -41,8 +48,10 @@ describe("syncPremiumSeats", () => {
     vi.clearAllMocks();
   });
 
-  it("includes a second email account for the same user on Stripe subscriptions", async () => {
+  it("uses plan-configured included accounts for active Stripe prices", async () => {
+    mockGetIncludedEmailAccountsPerUserForStripePrice.mockReturnValue(2);
     prisma.premium.findUnique.mockResolvedValue({
+      stripePriceId: "price_current",
       stripeSubscriptionItemId: "si_123",
       lemonSqueezySubscriptionItemId: null,
       users: [{ _count: { emailAccounts: 2 } }],
@@ -56,18 +65,20 @@ describe("syncPremiumSeats", () => {
         quantity: 1,
       }),
     );
+    expect(
+      mockGetIncludedEmailAccountsPerUserForStripePrice,
+    ).toHaveBeenCalledWith({
+      priceId: "price_current",
+    });
     expect(mockUpdateSubscriptionItemQuantity).not.toHaveBeenCalled();
   });
 
-  it("keeps each shared premium user at a full seat", async () => {
+  it("keeps legacy quantities for subscriptions without a Stripe price config", async () => {
     prisma.premium.findUnique.mockResolvedValue({
+      stripePriceId: null,
       stripeSubscriptionItemId: "si_123",
       lemonSqueezySubscriptionItemId: null,
-      users: [
-        { _count: { emailAccounts: 1 } },
-        { _count: { emailAccounts: 1 } },
-        { _count: { emailAccounts: 1 } },
-      ],
+      users: [{ _count: { emailAccounts: 2 } }],
     });
 
     await syncPremiumSeats("premium-1");
@@ -75,8 +86,11 @@ describe("syncPremiumSeats", () => {
     expect(mockUpdateStripeSubscriptionItemQuantity).toHaveBeenCalledWith(
       expect.objectContaining({
         subscriptionItemId: "si_123",
-        quantity: 3,
+        quantity: 2,
       }),
     );
+    expect(
+      mockGetIncludedEmailAccountsPerUserForStripePrice,
+    ).not.toHaveBeenCalled();
   });
 });
