@@ -210,7 +210,7 @@ export function processQueue({
                 // when Gmail API returns a rate limit error, throw an error so it can be retried
                 if (result?.serverError) {
                   await sleep(exponentialBackoff(attemptCount, 1000));
-                  throw new Error(result.error);
+                  throw new Error(result.serverError);
                 }
                 onSuccess?.(threadId);
               },
