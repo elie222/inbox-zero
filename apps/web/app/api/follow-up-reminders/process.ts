@@ -27,7 +27,7 @@ import {
 } from "@/utils/reply-tracker/label-helpers";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { internalDateToDate } from "@/utils/date";
-import { extractEmailAddress } from "@/utils/email";
+import { isSameEmailAddress } from "@/utils/email";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
@@ -629,8 +629,5 @@ function isMessageFromUser(
   message: { headers: { from: string } },
   userEmail: string,
 ) {
-  return (
-    extractEmailAddress(message.headers.from).toLowerCase() ===
-    userEmail.toLowerCase()
-  );
+  return isSameEmailAddress(message.headers.from, userEmail);
 }

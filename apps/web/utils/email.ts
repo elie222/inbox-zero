@@ -69,6 +69,13 @@ export function extractEmailAddress(email: string): string {
   return "";
 }
 
+export function isSameEmailAddress(left: string, right: string) {
+  return (
+    extractEmailAddress(left).trim().toLowerCase() ===
+    extractEmailAddress(right).trim().toLowerCase()
+  );
+}
+
 export function isValidEmail(email: string): boolean {
   return emailSchema.safeParse(email).success;
 }

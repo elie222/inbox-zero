@@ -5,7 +5,7 @@ import { aiDraftFollowUp } from "@/utils/ai/reply/draft-follow-up";
 import { getWritingStyle } from "@/utils/user/get";
 import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { extractEmailAddress } from "@/utils/email";
+import { isSameEmailAddress } from "@/utils/email";
 import { escapeHtml } from "@/utils/string";
 import prisma from "@/utils/prisma";
 import { withPrismaRetry } from "@/utils/prisma-retry";
@@ -184,8 +184,5 @@ function isMessageFromUser(
   message: { headers: { from: string } },
   userEmail: string,
 ) {
-  return (
-    extractEmailAddress(message.headers.from).toLowerCase() ===
-    userEmail.toLowerCase()
-  );
+  return isSameEmailAddress(message.headers.from, userEmail);
 }
