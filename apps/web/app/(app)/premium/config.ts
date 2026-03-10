@@ -21,7 +21,7 @@ const pricing: Record<PremiumTier, number> = {
   BASIC_ANNUALLY: 8,
   PRO_MONTHLY: 16,
   PRO_ANNUALLY: 10,
-  STARTER_MONTHLY: 20,
+  STARTER_MONTHLY: 25,
   STARTER_ANNUALLY: 18,
   PLUS_MONTHLY: 35,
   PLUS_ANNUALLY: 28,
@@ -62,6 +62,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   STARTER_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
     oldPriceIds: [
+      "price_1T9FhCKGf8mwZWHn1olNzv6X",
       "price_1S5u73KGf8mwZWHn8VYFdALA",
       "price_1RMSnIKGf8mwZWHnlHP0212n",
       "price_1RfoILKGf8mwZWHnDiUMj6no",
