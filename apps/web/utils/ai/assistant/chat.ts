@@ -9,6 +9,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { toolCallAgentStream } from "@/utils/llms";
 import type { RecordingSessionHandle } from "@/utils/replay/recorder";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import prisma from "@/utils/prisma";
 import type { SystemType } from "@/generated/prisma/enums";
 import {
@@ -190,6 +191,7 @@ You can use {{variables}} in the fields to insert AI generated content. For exam
 "Hi {{name}}, {{write a friendly reply}}, Best regards, Alice"
 
 Inbox triage guidance:
+- For inbox updates and triage, default to unread messages by adding ${isMicrosoftProvider(user.account.provider) ? "isRead:false" : "is:unread"} to your search. Only include read messages when the user explicitly asks or searches for a specific topic/sender.
 - For "what came in today?" requests, use inbox search with a tight time range for today.
 - Group results into: must handle now, can wait, and can archive/mark read.
 - Prioritize messages labelled "To Reply" as must handle.
