@@ -6,6 +6,7 @@ import { MutedText } from "@/components/Typography";
 import {
   AddToKnowledgeBase,
   BasicToolInfo,
+  CreatedRuleToolCard,
   ForwardEmailResult,
   ManageInboxResult,
   ReadEmailResult,
@@ -15,6 +16,7 @@ import {
   type ThreadLookup,
   UpdateAbout,
 } from "@/components/assistant-chat/tools";
+import { ActionType } from "@/generated/prisma/enums";
 import { ChatProvider } from "@/providers/ChatProvider";
 
 export default function ToolsPage() {
@@ -158,6 +160,62 @@ export default function ToolsPage() {
             </Suspense>
             <BasicToolInfo text="Read rules and settings" />
             <BasicToolInfo text="Read learned patterns" />
+
+            <MutedText>Created rule cards:</MutedText>
+            <CreatedRuleToolCard
+              args={{
+                name: "Hiring",
+                condition: {
+                  aiInstructions:
+                    "Emails related to hiring, job applications, or candidate communication",
+                  static: null,
+                  conditionalOperator: null,
+                },
+                actions: [
+                  ruleAction(ActionType.FORWARD, { to: "jim@company.com" }),
+                  ruleAction(ActionType.LABEL, { label: "Recruiting" }),
+                ],
+              }}
+            />
+            <CreatedRuleToolCard
+              args={{
+                name: "Newsletter Archive",
+                condition: {
+                  aiInstructions: "Newsletter and marketing emails",
+                  static: {
+                    from: "newsletter@example.com",
+                    to: null,
+                    subject: null,
+                  },
+                  conditionalOperator: "OR",
+                },
+                actions: [
+                  ruleAction(ActionType.ARCHIVE),
+                  ruleAction(ActionType.LABEL, { label: "Newsletter" }),
+                  ruleAction(ActionType.MARK_READ),
+                ],
+              }}
+            />
+            <CreatedRuleToolCard
+              args={{
+                name: "Billing Alerts",
+                condition: {
+                  aiInstructions: null,
+                  static: {
+                    from: "billing@stripe.com",
+                    to: null,
+                    subject: "invoice",
+                  },
+                  conditionalOperator: null,
+                },
+                actions: [
+                  ruleAction(ActionType.LABEL, { label: "Billing" }),
+                  ruleAction(ActionType.FORWARD, {
+                    to: "finance@company.com",
+                  }),
+                ],
+              }}
+            />
             <UpdateAbout
               args={{
                 about:
@@ -447,5 +505,33 @@ function getAssistantForwardEmailOutput(state: EmailActionState) {
           },
         }
       : {}),
+  };
+}
+
+type RuleActionFields = {
+  label: string | null;
+  content: string | null;
+  to: string | null;
+  cc: string | null;
+  bcc: string | null;
+  subject: string | null;
+  webhookUrl: string | null;
+};
+
+const nullFields: RuleActionFields = {
+  label: null,
+  content: null,
+  to: null,
+  cc: null,
+  bcc: null,
+  subject: null,
+  webhookUrl: null,
+};
+
+function ruleAction(type: ActionType, fields?: Partial<RuleActionFields>) {
+  return {
+    type,
+    fields: { ...nullFields, ...fields },
+    delayInMinutes: null,
   };
 }
