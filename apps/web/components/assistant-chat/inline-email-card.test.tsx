@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import type { MouseEvent, ReactNode } from "react";
+import React, { type MouseEvent, type ReactNode } from "react";
 import {
   cleanup,
   fireEvent,
@@ -13,6 +13,8 @@ import {
   InlineEmailCard,
   InlineEmailList,
 } from "@/components/assistant-chat/inline-email-card";
+
+(globalThis as { React?: typeof React }).React = React;
 
 const mockUseAccount = vi.fn();
 const mockUseEmailLookup = vi.fn();
