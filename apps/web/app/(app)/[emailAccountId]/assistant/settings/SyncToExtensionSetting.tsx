@@ -204,11 +204,10 @@ export function SyncToExtensionSetting() {
             <DialogFooter>
               <Button
                 onClick={handleSync}
-                disabled={isSyncing || selectedTabs.length === 0}
+                loading={isSyncing}
+                disabled={selectedTabs.length === 0}
               >
-                {isSyncing
-                  ? "Syncing..."
-                  : `Sync ${selectedTabs.length} tab${selectedTabs.length === 1 ? "" : "s"}`}
+                {`Sync ${selectedTabs.length} tab${selectedTabs.length === 1 ? "" : "s"}`}
               </Button>
             </DialogFooter>
           </DialogContent>
