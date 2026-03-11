@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import type { ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Response } from "@/components/ai-elements/response";

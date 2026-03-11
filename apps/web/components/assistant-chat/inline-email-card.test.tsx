@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import type { MouseEvent, ReactNode } from "react";
+import React, { type MouseEvent, type ReactNode } from "react";
 import {
   cleanup,
   fireEvent,
