@@ -15,7 +15,7 @@ export const defaultCategory = {
     name: "Marketing",
     enabled: true,
     description:
-      "Promotional content, product launches, and marketing campaigns",
+      "Mass promotional emails, product launches, and marketing campaigns from companies",
   },
   RECEIPT: {
     name: "Receipt",

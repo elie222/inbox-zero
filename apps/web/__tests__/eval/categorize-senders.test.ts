@@ -10,185 +10,279 @@ import { defaultCategory } from "@/utils/categories";
 vi.mock("server-only", () => ({}));
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
-const TIMEOUT = 30_000;
+const TIMEOUT = 60_000;
 
 // Enabled categories: Newsletter, Marketing, Receipt, Notification, Other
+//
+// Each test case represents a SENDER being categorized based on their typical
+// email pattern (2-3 previous emails), not a single email classification.
+// Senders use generic addresses to force classification based on content.
 const testCases = [
-  // Clear-cut cases
+  // --- Newsletter senders ---
   {
-    sender: "newsletter@techcrunch.com",
+    sender: "hello@morningbrew.com",
     emails: [
       {
-        subject: "TechCrunch Daily: Top stories for today",
-        snippet: "Here are today's top stories in tech...",
+        subject:
+          "☕ Mar 10 — Markets rally on jobs data, OpenAI's new model, and more",
+        snippet:
+          "Good morning. US markets closed higher Friday after the February jobs report showed 275K new positions. Meanwhile, OpenAI quietly released a new reasoning model that outperforms GPT-4 on math benchmarks. In other news, Starbucks is testing a smaller store format in three cities.",
+      },
+      {
+        subject:
+          "☕ Mar 7 — TikTok deal timeline, new inflation data, weekend reads",
+        snippet:
+          "Good morning. Congress set a new deadline for ByteDance to divest TikTok's US operations. The latest CPI print came in at 2.8%, slightly below expectations. Plus, we've got your weekend reading list curated by our editors.",
+      },
+      {
+        subject:
+          "☕ Mar 5 — Apple's foldable timeline, startup layoffs tracker",
+        snippet:
+          "Good morning. Apple suppliers are reportedly gearing up for a foldable iPhone in 2027. We also built an interactive tracker of tech layoffs in Q1 2026. Here's your daily briefing.",
       },
     ],
     expected: "Newsletter",
   },
+  // Newsletter with a sponsor ad embedded — still a newsletter sender
   {
-    sender: "promo@shopify.com",
+    sender: "team@dense-discovery.com",
     emails: [
       {
-        subject: "Flash sale: 50% off all plans this weekend only!",
-        snippet: "Don't miss our biggest sale of the year",
+        subject: "Dense Discovery — Issue 284",
+        snippet:
+          "Welcome to this week's issue. I've been reflecting on how our relationship with technology is changing. Below you'll find links to thoughtful reads about design ethics, urban planning, and creative tools. This issue is brought to you by Notion — try their new AI features free for 30 days. Also featured: an interview with the designer behind the new Patagonia rebrand.",
       },
-    ],
-    expected: "Marketing",
-  },
-  {
-    sender: "noreply@stripe.com",
-    emails: [
       {
-        subject: "Payment receipt for $49.99",
-        snippet: "Your payment of $49.99 to Acme Corp has been processed",
+        subject: "Dense Discovery — Issue 283",
+        snippet:
+          "Hello friends. This week's theme: the tension between productivity culture and genuine creativity. We look at new research from Stanford, plus our usual roundup of apps, articles, and portfolio pieces worth your time.",
       },
-    ],
-    expected: "Receipt",
-  },
-  {
-    sender: "notifications@github.com",
-    emails: [
       {
-        subject: "[inbox-zero] Issue #42 was closed",
-        snippet: "mattpocock closed this issue",
-      },
-    ],
-    expected: "Notification",
-  },
-  // Boundary cases -- these test the edges between categories
-  {
-    sender: "noreply@amazon.com",
-    emails: [
-      {
-        subject: "Your Amazon.com order #112-3456789 confirmation",
-        snippet: "Thank you for your purchase. Your order total was $29.99",
-      },
-    ],
-    expected: "Receipt",
-    note: "Order confirmation with price is a receipt",
-  },
-  {
-    sender: "digest@medium.com",
-    emails: [
-      {
-        subject: "Daily Digest: Stories for you",
-        snippet: "Top stories picked for you based on your reading history",
+        subject: "Dense Discovery — Issue 282",
+        snippet:
+          "This week I've been exploring the concept of digital minimalism and how it relates to our design choices. Links to essays on architecture, typography trends, and tools for indie makers.",
       },
     ],
     expected: "Newsletter",
-    note: "Personalized digests are still newsletters",
   },
+
+  // --- Marketing senders ---
+  // SaaS product pushing upgrades and feature adoption
   {
-    sender: "sales@hubspot.com",
+    sender: "team@notion.so",
     emails: [
       {
-        subject: "Ready to upgrade? Get 30% off HubSpot Pro",
+        subject: "5 ways teams are using Notion AI to save 4 hours per week",
         snippet:
-          "Your free trial ends in 3 days. Upgrade now and save 30% on your first year",
+          "Hi there, we've been hearing amazing stories from teams who switched to Notion AI. Here are five real workflows that are saving teams hours every week — from automated meeting notes to AI-powered project briefs. Ready to try it? Start your free trial today and see the difference for yourself.",
       },
       {
-        subject: "See how Company X grew 200% with HubSpot",
+        subject: "What's new in Notion — February 2026",
         snippet:
-          "Book a demo to learn how our CRM can transform your sales pipeline",
+          "We shipped 12 new features this month including repeating database templates, a redesigned sidebar, and Notion AI improvements. Upgrade to Plus to unlock all features and get unlimited AI responses.",
+      },
+      {
+        subject: "Your workspace is growing — time to level up?",
+        snippet:
+          "Your team added 8 new members this month. Teams your size get the most out of Notion with the Business plan — advanced permissions, SAML SSO, and bulk PDF export. Compare plans and upgrade today.",
       },
     ],
     expected: "Marketing",
-    note: "Direct sales outreach with discounts and demos is marketing",
   },
+  // Win-back / re-engagement sender
   {
-    sender: "alerts@sentry.io",
+    sender: "noreply@figma.com",
     emails: [
       {
-        subject: "Alert: Error rate spike in production",
-        snippet: "Error rate increased by 300% in the last 5 minutes",
-      },
-    ],
-    expected: "Notification",
-    note: "System alerts are notifications",
-  },
-  // Newsletter vs Marketing boundary
-  {
-    sender: "weekly@substack.com",
-    emails: [
-      {
-        subject: "Issue #47: The state of frontend in 2026",
+        subject: "We miss you — here's what you've been missing",
         snippet:
-          "Welcome to this week's issue. Let's dive into the latest trends in frontend development.",
+          "It's been a while since you last opened Figma. Since then, we've launched multi-edit, auto layout 5.0, and an entirely new Dev Mode. Your old projects are still here waiting for you. Come back and see what's new — plus, we're offering 20% off annual plans for returning users.",
       },
       {
-        subject: "Issue #46: Why TypeScript won",
-        snippet: "This week we explore TypeScript's dominance.",
-      },
-    ],
-    expected: "Newsletter",
-    note: "Recurring issues with editorial content are newsletters, not marketing",
-  },
-  {
-    sender: "hello@canva.com",
-    emails: [
-      {
-        subject: "Unlock premium features — upgrade today",
-        snippet: "Get access to 100M+ photos, videos, and templates",
-      },
-      {
-        subject: "New: AI-powered design tools just launched",
-        snippet: "Try our new Magic Design feature free for 7 days",
+        subject: "Figma's biggest launch ever — Config 2026 recap",
+        snippet:
+          "You missed Config this year, but here's the highlight reel: Figma Slides is now GA, we redesigned the canvas engine from scratch, and there's a new free tier for individual designers. Watch the keynote on demand.",
       },
     ],
     expected: "Marketing",
-    note: "Upgrade prompts and feature launches from a SaaS are marketing",
   },
-  // Receipt vs Notification boundary
+
+  // --- Receipt senders ---
+  // Subscription billing
   {
-    sender: "noreply@uber.com",
+    sender: "noreply@vercel.com",
     emails: [
       {
-        subject: "Your trip receipt",
+        subject: "Your Vercel Pro subscription has been renewed",
         snippet:
-          "Trip with John on Mar 5. Total: $12.50. Payment: Visa ending in 4242",
+          "Hi, this is a confirmation that your Vercel Pro plan (Team: acme-corp) has been renewed for the next billing period. Amount charged: $20.00 to Visa ending in 4242. Next billing date: April 10, 2026.",
+      },
+      {
+        subject: "Invoice #INV-2026-0189 from Vercel",
+        snippet:
+          "Your invoice for February 2026 is available. Vercel Pro (Team) — $20.00. Bandwidth add-on (150GB) — $10.00. Total: $30.00. Paid via Visa ending in 4242. Download your invoice PDF from your billing dashboard.",
       },
     ],
     expected: "Receipt",
-    note: "Trip receipt with fare amount is a receipt",
   },
+  // Travel booking + payment confirmations
   {
-    sender: "noreply@linear.app",
+    sender: "noreply@airbnb.com",
     emails: [
       {
-        subject: "ENG-1234: Fix login timeout — status changed to Done",
-        snippet: "John marked ENG-1234 as Done",
+        subject: "Your reservation is confirmed — Tokyo, Apr 15-22",
+        snippet:
+          "Great news! Your stay at Shibuya Modern Loft with Yuki is confirmed. Check-in Apr 15 at 3:00 PM, Check-out Apr 22 at 11:00 AM. Total cost: $892.47 (7 nights × $112.50 + $105.97 fees). Charged to Mastercard ending in 8891.",
       },
       {
-        subject: "ENG-1230: Refactor auth module — assigned to you",
-        snippet: "You were assigned to ENG-1230",
+        subject: "Receipt for your stay in Lisbon",
+        snippet:
+          "Thanks for staying with Ana in Alfama. Here's your final receipt: 5 nights × $85.00 = $425.00, cleaning fee $40.00, service fee $65.80. Total charged: $530.80 to Mastercard ending in 8891.",
+      },
+    ],
+    expected: "Receipt",
+  },
+  // Refunds + purchases from same sender
+  {
+    sender: "noreply@apple.com",
+    emails: [
+      {
+        subject: "Your refund has been processed",
+        snippet:
+          "We've processed a refund of $14.99 for your purchase of Procreate Pocket (App Store). The refund has been credited to your Apple ID balance and should appear within 5-10 business days.",
+      },
+      {
+        subject: "Receipt from Apple",
+        snippet:
+          "Apple ID: elie@gmail.com. iCloud+ 200GB — $2.99/month. Billed Mar 1, 2026. Order ID: ML4928XTPZ. Payment: Visa ending in 4242.",
+      },
+      {
+        subject: "Receipt from Apple",
+        snippet:
+          "Apple ID: elie@gmail.com. 1Password — Families — $6.99/month. Billed Feb 1, 2026. Order ID: MK7712RQVN. Payment: Visa ending in 4242.",
+      },
+    ],
+    expected: "Receipt",
+  },
+
+  // --- Notification senders ---
+  // Code review and CI notifications
+  {
+    sender: "noreply@github.com",
+    emails: [
+      {
+        subject:
+          "Re: [acme/backend] fix: resolve race condition in queue processor (#847)",
+        snippet:
+          "@jsmith requested changes on this pull request. 1) The mutex lock in processQueue() could deadlock if the worker crashes mid-execution. 2) The test coverage for the retry logic is incomplete.",
+      },
+      {
+        subject: "[acme/backend] CI failed for branch fix/queue-processor",
+        snippet:
+          "2 checks failed: lint (node 20) — Process completed with exit code 1. test-integration — 3 failures in QueueProcessorTest.",
+      },
+      {
+        subject:
+          "[acme/api] New issue: Rate limiter not respecting per-org quotas (#903)",
+        snippet:
+          "Opened by @sarah-eng. When org-level rate limits are configured, the limiter still applies the global default. Steps to reproduce attached.",
       },
     ],
     expected: "Notification",
-    note: "Project management status updates are notifications",
   },
-  // Multiple emails provide stronger signal
+  // Infrastructure / ops alerts
   {
-    sender: "info@airline.com",
+    sender: "noreply@aws.amazon.com",
     emails: [
       {
-        subject: "Your booking confirmation #ABC123",
+        subject: "AWS Notification — Auto Scaling event in us-east-1",
         snippet:
-          "Flight NY → LA on Apr 15. Confirmation: ABC123. Total paid: $349",
+          "An Auto Scaling event has occurred for group prod-api-asg in us-east-1. Launching 3 new EC2 instances due to CloudWatch alarm HighCPUUtilization (threshold: 80%, current: 94.2%). Current group size: 8 instances.",
       },
       {
-        subject: "E-ticket receipt for booking #ABC123",
+        subject:
+          "AWS Health Event — Operational issue with Amazon RDS in us-east-1",
         snippet:
-          "Your e-ticket is attached. Payment of $349 charged to Visa ending 4242",
+          "We are investigating increased error rates for Amazon RDS in the US-EAST-1 Region. Affected resource: prod-db-primary (db.r6g.xlarge). We will provide an update within 30 minutes.",
       },
     ],
-    expected: "Receipt",
-    note: "Booking confirmations with payment details are receipts",
+    expected: "Notification",
   },
-  // Minimal context -- only sender address, no email history
+  // Shopify store notifications — this sender sends order alerts, not receipts
+  // (the merchant receives these, not the buyer)
   {
-    sender: "unknown@randomcompany.com",
-    emails: [],
+    sender: "noreply@shopify.com",
+    emails: [
+      {
+        subject: "You have a new order! — Order #4821",
+        snippet:
+          "You received a new order from Sarah M. 2× Organic Cotton Tee (Navy, M) — $34.00 each, 1× Canvas Tote Bag — $22.00. Total: $103.67. Fulfill by Mar 14 to meet standard shipping SLA.",
+      },
+      {
+        subject: "You have a new order! — Order #4819",
+        snippet:
+          "You received a new order from James R. 1× Linen Throw Pillow (Oat) — $45.00. Total: $50.99. This customer is a returning buyer (3rd order).",
+      },
+      {
+        subject: "Inventory alert: 2 products running low",
+        snippet:
+          "Organic Cotton Tee (Navy, M) has 3 units remaining. Canvas Tote Bag has 5 units remaining. Reorder soon to avoid stockouts. View inventory in your Shopify admin.",
+      },
+    ],
+    expected: "Notification",
+  },
+
+  // --- Hard boundary cases ---
+  // Bank/financial sender — periodic statements are notifications, not receipts
+  {
+    sender: "noreply@chase.com",
+    emails: [
+      {
+        subject: "Your February statement is ready",
+        snippet:
+          "Your Chase Sapphire Reserve statement for Feb 1-28, 2026 is now available. Statement balance: $3,247.82. Minimum payment: $35.00 due by March 25. You earned 4,892 Ultimate Rewards points this period.",
+      },
+      {
+        subject: "Fraud alert: Unusual activity on your card",
+        snippet:
+          "We detected a transaction that doesn't match your usual spending pattern: $487.00 at ELECTRONICS STORE in Miami, FL on Mar 8 at 11:42 PM. If you made this purchase, no action needed. If not, call us immediately at 1-800-935-9935.",
+      },
+    ],
+    expected: "Notification",
+  },
+  // A personal/business email with no category signals
+  {
+    sender: "mark@consultagency.co",
+    emails: [
+      {
+        subject: "Following up",
+        snippet:
+          "Hi, I wanted to circle back on our conversation from last week. Let me know if you had a chance to think about it and whether it makes sense to schedule a call. Happy to work around your schedule.",
+      },
+      {
+        subject: "Nice meeting you at the conference",
+        snippet:
+          "Great chatting yesterday. As promised, here's the deck I mentioned about our approach to developer relations. Would love to continue the conversation when you have time.",
+      },
+    ],
     expected: "Other",
+  },
+  // SaaS that mixes marketing and notifications — but this sender's pattern is updates
+  {
+    sender: "hello@company.io",
+    emails: [
+      {
+        subject: "Quick update",
+        snippet:
+          "Hey, just wanted to let you know that we've made some changes to our API rate limits. Nothing you need to do right now — existing integrations are unaffected. See the changelog for details.",
+      },
+      {
+        subject: "Scheduled maintenance — March 15",
+        snippet:
+          "We'll be performing scheduled maintenance on Saturday March 15 from 2:00-4:00 AM UTC. Expect brief downtime for the dashboard. API endpoints will not be affected.",
+      },
+    ],
+    expected: "Notification",
   },
 ];
 
