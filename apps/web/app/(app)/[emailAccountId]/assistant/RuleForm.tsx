@@ -52,6 +52,7 @@ import { isConversationStatusType } from "@/utils/reply-tracker/conversation-sta
 import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
+import { isMissingRuleError } from "@/app/(app)/[emailAccountId]/assistant/rule-fetch-error";
 
 export function Rule({
   ruleId,
@@ -61,6 +62,16 @@ export function Rule({
   alwaysEditMode?: boolean;
 }) {
   const { data, isLoading, error, mutate } = useRule(ruleId);
+  const isMissingRule = isMissingRuleError(error);
+
+  if (isMissingRule) {
+    return (
+      <AlertError
+        title="Rule not found"
+        description="This rule no longer exists. It may have been deleted."
+      />
+    );
+  }
 
   return (
     <LoadingContent loading={isLoading} error={error}>

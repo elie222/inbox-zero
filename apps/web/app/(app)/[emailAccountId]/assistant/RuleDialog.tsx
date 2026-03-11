@@ -15,6 +15,8 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import type { RulesResponse } from "@/app/api/user/rules/route";
+import { AlertError } from "@/components/Alert";
+import { isMissingRuleError } from "./rule-fetch-error";
 
 interface RuleDialogProps {
   duplicateRule?: RulesResponse[number];
@@ -53,6 +55,7 @@ export function RuleDialog({
   editMode = true,
 }: RuleDialogProps) {
   const { data, isLoading, error, mutate } = useRule(ruleId || "");
+  const isMissingRule = isMissingRuleError(error);
 
   const handleSuccess = () => {
     onSuccess?.();
@@ -71,23 +74,36 @@ export function RuleDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-        <DialogHeader className={ruleId ? "sr-only" : ""}>
-          <DialogTitle>{ruleId ? "Edit Rule" : "Create Rule"}</DialogTitle>
+        <DialogHeader className={ruleId && !isMissingRule ? "sr-only" : ""}>
+          <DialogTitle>
+            {isMissingRule
+              ? "Rule not found"
+              : ruleId
+                ? "Edit Rule"
+                : "Create Rule"}
+          </DialogTitle>
         </DialogHeader>
         <div>
           {ruleId ? (
-            <LoadingContent loading={isLoading} error={error}>
-              {data && (
-                <RuleForm
-                  rule={data.rule}
-                  alwaysEditMode={editMode}
-                  onSuccess={handleSuccess}
-                  isDialog={true}
-                  mutate={mutate}
-                  onCancel={onClose}
-                />
-              )}
-            </LoadingContent>
+            isMissingRule ? (
+              <AlertError
+                title="Rule not found"
+                description="This rule no longer exists. It may have been deleted."
+              />
+            ) : (
+              <LoadingContent loading={isLoading} error={error}>
+                {data && (
+                  <RuleForm
+                    rule={data.rule}
+                    alwaysEditMode={editMode}
+                    onSuccess={handleSuccess}
+                    isDialog={true}
+                    mutate={mutate}
+                    onCancel={onClose}
+                  />
+                )}
+              </LoadingContent>
+            )
           ) : (
             <RuleForm
               rule={{
