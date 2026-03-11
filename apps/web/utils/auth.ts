@@ -703,7 +703,7 @@ async function autoJoinOrganization(emailAccountId: string) {
       organizationId,
       emailAccountId,
       role: "member",
-      allowOrgAdminAnalytics: true,
+      allowOrgAdminAnalytics: env.AUTO_ENABLE_ORG_ANALYTICS,
     },
     select: { id: true, createdAt: true },
   });

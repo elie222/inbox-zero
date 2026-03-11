@@ -213,7 +213,7 @@ model Member {
   organizationId         String
   emailAccountId         String
   role                   String       @default("member") // "admin" | "member"
-  allowOrgAdminAnalytics Boolean      @default(true)
+  allowOrgAdminAnalytics Boolean      @default(false)
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
   organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

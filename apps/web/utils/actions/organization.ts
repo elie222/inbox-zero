@@ -59,7 +59,7 @@ export const createOrganizationAction = actionClient
         organizationId: organization.id,
         emailAccountId,
         role: "owner",
-        allowOrgAdminAnalytics: true,
+        allowOrgAdminAnalytics: env.AUTO_ENABLE_ORG_ANALYTICS,
       },
     });
 
@@ -258,7 +258,7 @@ async function acceptInvitation({
       emailAccountId,
       organizationId: invitation.organizationId,
       role: invitation.role ?? "member",
-      allowOrgAdminAnalytics: true,
+      allowOrgAdminAnalytics: env.AUTO_ENABLE_ORG_ANALYTICS,
     },
     select: { id: true },
   });
@@ -567,7 +567,7 @@ export const createOrganizationAndInviteAction = actionClient
           organizationId: organization.id,
           emailAccountId,
           role: "owner",
-          allowOrgAdminAnalytics: true,
+          allowOrgAdminAnalytics: env.AUTO_ENABLE_ORG_ANALYTICS,
         },
       });
 
