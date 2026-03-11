@@ -99,3 +99,6 @@ qa/browser-flows/results/*
 # local skills
 .claude/skills/local/
 .agents/skills/local/
+
+# eval reports
+eval-results/
