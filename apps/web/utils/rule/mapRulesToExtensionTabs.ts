@@ -1,9 +1,12 @@
 import type { RulesResponse } from "@/app/api/user/rules/route";
 
 // Keep in sync with inbox-zero-tabs-wxt/entrypoints/background.ts
-type SyncTab =
+export type SyncTab = {
+  displayLabel: string;
+} & (
   | { type: "enable_default"; tabId: string }
-  | { type: "add_custom"; label: string; icon: string; query: string };
+  | { type: "add_custom"; label: string; icon: string; query: string }
+);
 
 // Keep in sync with inbox-zero-tabs-wxt/config/tabs.ts defaultTabsConfig IDs
 const LABEL_TO_DEFAULT_TAB: Record<string, string> = {
@@ -43,13 +46,18 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
 
       const defaultTabId = LABEL_TO_DEFAULT_TAB[label];
       if (defaultTabId) {
-        tabs.push({ type: "enable_default", tabId: defaultTabId });
+        tabs.push({
+          type: "enable_default",
+          tabId: defaultTabId,
+          displayLabel: label,
+        });
       } else {
         tabs.push({
           type: "add_custom",
           label,
           icon: "🏷️",
           query: `in:inbox label:${labelToGmailSlug(label)}`,
+          displayLabel: label,
         });
       }
     }

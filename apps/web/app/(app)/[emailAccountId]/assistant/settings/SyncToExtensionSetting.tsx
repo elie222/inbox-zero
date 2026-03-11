@@ -1,11 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { EXTENSION_URL } from "@/utils/config";
 import { env } from "@/env";
-import { mapRulesToExtensionTabs } from "@/utils/rule/mapRulesToExtensionTabs";
+import {
+  mapRulesToExtensionTabs,
+  type SyncTab,
+} from "@/utils/rule/mapRulesToExtensionTabs";
 import { useRules } from "@/hooks/useRules";
 import { SettingCard } from "@/components/SettingCard";
 
@@ -22,7 +35,7 @@ declare global {
         lastError?: { message: string };
         sendMessage: (
           extensionId: string,
-          message: { action: string; tabs?: unknown[]; accountIndex?: string },
+          message: { action: string; tabs?: SyncTab[]; accountIndex?: string },
           callback: (response: SyncResponse) => void,
         ) => void;
       };
@@ -31,7 +44,7 @@ declare global {
 }
 
 function sendMessageToExtension(
-  message: { action: string; tabs?: unknown[]; accountIndex?: string },
+  message: { action: string; tabs?: SyncTab[]; accountIndex?: string },
 ): Promise<SyncResponse> {
   return new Promise((resolve, reject) => {
     if (!window.chrome?.runtime?.sendMessage) {
@@ -58,13 +71,41 @@ function sendMessageToExtension(
 
 export function SyncToExtensionSetting() {
   const { data: rules } = useRules();
+  const [open, setOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [deselected, setDeselected] = useState<Set<string>>(new Set());
+
+  const allTabs = useMemo(
+    () => mapRulesToExtensionTabs(rules || []),
+    [rules],
+  );
+
+  function getTabKey(tab: SyncTab) {
+    return tab.type === "enable_default" ? tab.tabId : tab.displayLabel;
+  }
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) setDeselected(new Set());
+    setOpen(nextOpen);
+  }
+
+  function toggleTab(tab: SyncTab) {
+    const key = getTabKey(tab);
+    setDeselected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const selectedTabs = allTabs.filter(
+    (tab) => !deselected.has(getTabKey(tab)),
+  );
 
   async function handleSync() {
-    const tabs = mapRulesToExtensionTabs(rules || []);
-
-    if (tabs.length === 0) {
-      toast.info("No rules with label actions to sync");
+    if (selectedTabs.length === 0) {
+      toast.info("No tabs selected");
       return;
     }
 
@@ -74,7 +115,7 @@ export function SyncToExtensionSetting() {
 
       const result = await sendMessageToExtension({
         action: "syncTabs",
-        tabs,
+        tabs: selectedTabs,
       });
 
       if (result.success && result.summary) {
@@ -89,6 +130,7 @@ export function SyncToExtensionSetting() {
       } else {
         toast.error("Failed to sync tabs to extension");
       }
+      setOpen(false);
     } catch (error) {
       if (error instanceof Error && error.message === "not_chrome") {
         toast.error("Syncing to extension requires a Chromium browser");
@@ -110,14 +152,66 @@ export function SyncToExtensionSetting() {
       title="Sync to browser extension"
       description="Sync your rules to the Inbox Zero Tabs browser extension. Each label rule becomes a tab in Gmail."
       right={
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSync}
-          disabled={isSyncing}
-        >
-          {isSyncing ? "Syncing..." : "Sync"}
-        </Button>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              Sync
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Sync tabs to extension</DialogTitle>
+              <DialogDescription>
+                Select which label rules to sync as Gmail tabs.
+              </DialogDescription>
+            </DialogHeader>
+
+            {allTabs.length === 0 ? (
+              <p className="py-4 text-sm text-muted-foreground">
+                No rules with label actions found.
+              </p>
+            ) : (
+              <div className="max-h-64 space-y-2 overflow-y-auto py-2">
+                {allTabs.map((tab) => {
+                  const key = getTabKey(tab);
+                  const checked = !deselected.has(key);
+                  return (
+                    <label
+                      key={key}
+                      className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggleTab(tab)}
+                      />
+                      <div className="flex-1 text-sm">
+                        <span className="font-medium">
+                          {tab.displayLabel}
+                        </span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {tab.type === "enable_default"
+                            ? "Enable built-in tab"
+                            : "Create custom tab"}
+                        </span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                onClick={handleSync}
+                disabled={isSyncing || selectedTabs.length === 0}
+              >
+                {isSyncing
+                  ? "Syncing..."
+                  : `Sync ${selectedTabs.length} tab${selectedTabs.length === 1 ? "" : "s"}`}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       }
     />
   );
