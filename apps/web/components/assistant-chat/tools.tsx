@@ -23,7 +23,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallbackColor } from "@/components/ui/avatar";
 import {
   ChevronRightIcon,
-  EyeIcon,
   SparklesIcon,
   TrashIcon,
   FileDiffIcon,
@@ -37,12 +36,18 @@ import {
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { confirmAssistantEmailAction } from "@/utils/actions/assistant-chat";
-import { deleteRuleAction } from "@/utils/actions/rule";
+import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
+import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useChat } from "@/providers/ChatProvider";
 import { ExpandableText } from "@/components/ExpandableText";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/Badge";
+import { getActionIcon } from "@/utils/action-display";
+import { getActionColor } from "@/components/PlanBadge";
+import type { ActionType } from "@/generated/prisma/enums";
 import { getEmailTerminology } from "@/utils/terminology";
 import { formatShortDate } from "@/utils/date";
 import { trimToNonEmptyString } from "@/utils/string";
@@ -700,69 +705,68 @@ export function CreatedRuleToolCard({
   args: CreateRuleTool["input"];
   ruleId?: string;
 }) {
-  const conditionsArray = [
-    args.condition.aiInstructions,
-    args.condition.static,
-  ].filter(Boolean);
+  const conditionParts: string[] = [];
+  if (args.condition.aiInstructions)
+    conditionParts.push(args.condition.aiInstructions);
+  if (args.condition.static) {
+    const s = args.condition.static;
+    if (s.from) conditionParts.push(`From: ${s.from}`);
+    if (s.to) conditionParts.push(`To: ${s.to}`);
+    if (s.subject) conditionParts.push(`Subject: ${s.subject}`);
+  }
+
+  const conditionText = conditionParts.join(
+    ` ${args.condition.conditionalOperator || "AND"} `,
+  );
 
   return (
     <ToolCard>
-      <ToolCardHeader
-        title={
-          <>
-            {ruleId ? "New rule created:" : "Creating rule:"} {args.name}
-          </>
-        }
-        actions={ruleId && <RuleActions ruleId={ruleId} />}
-      />
-
-      <div className="space-y-2">
-        <div className="rounded-md bg-muted p-2 text-sm">
-          {args.condition.aiInstructions && (
-            <div className="flex items-center">
-              <SparklesIcon className="mr-2 size-5" />
-              {args.condition.aiInstructions}
-            </div>
-          )}
-          {conditionsArray.length > 1 && (
-            <div className="my-2 font-mono text-xs">
-              {args.condition.conditionalOperator || "AND"}
-            </div>
-          )}
-          {args.condition.static && (
-            <div className="mt-1">
-              <span className="font-medium">Static Conditions:</span>
-              <ul className="mt-1 list-inside list-disc">
-                {args.condition.static.from && (
-                  <li>From: {args.condition.static.from}</li>
-                )}
-                {args.condition.static.to && (
-                  <li>To: {args.condition.static.to}</li>
-                )}
-                {args.condition.static.subject && (
-                  <li>Subject: {args.condition.static.subject}</li>
-                )}
-              </ul>
-            </div>
-          )}
-        </div>
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-base">{args.name}</h3>
+        {ruleId && <RuleActions ruleId={ruleId} />}
       </div>
 
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">Actions</h3>
-        <div className="space-y-2">
-          {args.actions.map((action, i) => (
-            <div key={i} className="rounded-md bg-muted p-2 text-sm">
-              <div className="font-medium capitalize">
-                {action.type.toLowerCase().replace("_", " ")}
-              </div>
-              {action.fields && renderActionFields(action.fields)}
-            </div>
-          ))}
+      <div className="border-t" />
+
+      <div className="flex gap-4 text-sm">
+        <span className="shrink-0 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          When
+        </span>
+        <p>{conditionText}</p>
+      </div>
+
+      <div className="flex gap-4 text-sm">
+        <span className="shrink-0 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Then
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {args.actions.map((action, i) => {
+            const Icon = getActionIcon(action.type as ActionType);
+            return (
+              <Badge
+                key={i}
+                color={getActionColor(action.type as ActionType)}
+                className="w-fit shrink-0"
+              >
+                <Icon className="mr-1.5 size-3" />
+                {formatActionLabel(action)}
+              </Badge>
+            );
+          })}
         </div>
       </div>
     </ToolCard>
   );
+}
+
+function formatActionLabel(action: CreateRuleTool["input"]["actions"][number]) {
+  const label =
+    action.fields?.to ||
+    action.fields?.label ||
+    action.fields?.subject ||
+    action.fields?.webhookUrl;
+  const typeName = action.type.toLowerCase().replace(/_/g, " ");
+  return label || typeName;
 }
 
 export function UpdatedRuleConditions({
@@ -824,18 +828,14 @@ export function UpdatedRuleConditions({
             {args.condition.conditionalOperator || "AND"}
           </div>
         )}
-        {args.condition.static && (
+        {staticConditions && (
           <div className="mt-1">
             <span className="font-medium">Static Conditions:</span>
             <ul className="mt-1 list-inside list-disc">
-              {args.condition.static.from && (
-                <li>From: {args.condition.static.from}</li>
-              )}
-              {args.condition.static.to && (
-                <li>To: {args.condition.static.to}</li>
-              )}
-              {args.condition.static.subject && (
-                <li>Subject: {args.condition.static.subject}</li>
+              {staticConditions.from && <li>From: {staticConditions.from}</li>}
+              {staticConditions.to && <li>To: {staticConditions.to}</li>}
+              {staticConditions.subject && (
+                <li>Subject: {staticConditions.subject}</li>
               )}
             </ul>
           </div>
@@ -1039,18 +1039,22 @@ export function AddToKnowledgeBase({
 function RuleActions({ ruleId }: { ruleId: string }) {
   const { emailAccountId } = useAccount();
   const ruleDialog = useDialogState<{ ruleId: string }>();
+  const [enabled, setEnabled] = useState(true);
+  const { executeAsync: toggleRule } = useAction(
+    toggleRuleAction.bind(null, emailAccountId),
+  );
 
   return (
     <>
       {/* Don't use tooltips as they force scroll to bottom */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
         <Button
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0"
           onClick={() => ruleDialog.onOpen({ ruleId })}
         >
-          <EyeIcon className="size-4" />
+          <PencilIcon className="size-4" />
         </Button>
         <Button
           variant="ghost"
@@ -1078,13 +1082,26 @@ function RuleActions({ ruleId }: { ruleId: string }) {
         >
           <TrashIcon className="size-4" />
         </Button>
+        <Switch
+          checked={enabled}
+          onCheckedChange={async (checked) => {
+            setEnabled(checked);
+            const result = await toggleRule({ ruleId, enabled: checked });
+            if (result?.serverError) {
+              setEnabled(!checked);
+              toastError({
+                description: `Failed to ${checked ? "enable" : "disable"} rule.`,
+              });
+            }
+          }}
+        />
       </div>
 
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
         isOpen={ruleDialog.isOpen}
         onClose={ruleDialog.onClose}
-        editMode={false}
+        editMode={true}
       />
     </>
   );
