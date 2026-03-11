@@ -25,6 +25,9 @@ import { formatShortDate } from "@/utils/date";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
+import { EmailAttachments } from "@/components/email-list/EmailAttachments";
+import { EmailDetails } from "@/components/email-list/EmailDetails";
+import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { useThread } from "@/hooks/useThread";
 
 type ActionState = "idle" | "loading" | "done";
@@ -325,12 +328,39 @@ function EmailPreview({ threadId }: { threadId: string }) {
   }
 
   const lastMessage = data.thread.messages[data.thread.messages.length - 1];
-  const text =
-    lastMessage.textPlain || lastMessage.snippet || "No content available.";
 
   return (
-    <div className="max-h-60 overflow-auto border-t bg-muted/20 px-6 py-3 text-xs whitespace-pre-wrap text-muted-foreground">
-      {text}
+    <div className="max-h-[32rem] overflow-auto border-t bg-muted/20 p-4">
+      <article className="rounded-lg bg-background p-4 shadow-sm">
+        <div className="mb-4">
+          <div className="text-sm font-semibold text-foreground">
+            {lastMessage.headers.subject || lastMessage.subject}
+          </div>
+          {data.thread.messages.length > 1 ? (
+            <div className="mt-1 text-xs text-muted-foreground">
+              Showing the latest message in this thread.
+            </div>
+          ) : null}
+        </div>
+
+        <EmailDetails message={lastMessage} />
+
+        {lastMessage.textHtml ? (
+          <HtmlEmail html={lastMessage.textHtml} />
+        ) : (
+          <PlainEmail
+            text={
+              lastMessage.textPlain ||
+              lastMessage.snippet ||
+              "No content available."
+            }
+          />
+        )}
+
+        {lastMessage.attachments?.length ? (
+          <EmailAttachments message={lastMessage} />
+        ) : null}
+      </article>
     </div>
   );
 }

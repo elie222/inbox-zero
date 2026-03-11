@@ -18,6 +18,7 @@ const mockUseAccount = vi.fn();
 const mockUseEmailLookup = vi.fn();
 const mockArchiveThreadAction = vi.fn();
 const mockMarkReadThreadAction = vi.fn();
+const mockUseThread = vi.fn();
 
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => mockUseAccount(),
@@ -59,11 +60,33 @@ vi.mock("@/components/ui/button", () => ({
 }));
 
 vi.mock("@/hooks/useThread", () => ({
-  useThread: () => ({
-    data: undefined,
-    isLoading: false,
-    error: null,
-  }),
+  useThread: (...args: unknown[]) => mockUseThread(...args),
+}));
+
+vi.mock("@/components/email-list/EmailDetails", () => ({
+  EmailDetails: ({
+    message,
+  }: {
+    message: { headers: { from: string; to: string } };
+  }) => (
+    <div>
+      <span>From:</span>
+      <span>{message.headers.from}</span>
+      <span>To:</span>
+      <span>{message.headers.to}</span>
+    </div>
+  ),
+}));
+
+vi.mock("@/components/email-list/EmailContents", () => ({
+  HtmlEmail: ({ html }: { html: string }) => (
+    <iframe title="Email content preview" srcDoc={html} />
+  ),
+  PlainEmail: ({ text }: { text: string }) => <pre>{text}</pre>,
+}));
+
+vi.mock("@/components/email-list/EmailAttachments", () => ({
+  EmailAttachments: () => <div>Attachments</div>,
 }));
 
 afterEach(() => {
@@ -120,6 +143,11 @@ describe("InlineEmailCard", () => {
 
     mockArchiveThreadAction.mockResolvedValue({});
     mockMarkReadThreadAction.mockResolvedValue({});
+    mockUseThread.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: null,
+    });
   });
 
   it("normalizes legacy prefixed ids for the Gmail link and archive action", async () => {
@@ -141,6 +169,51 @@ describe("InlineEmailCard", () => {
       });
     });
   });
+
+  it("renders the app email preview when expanded", () => {
+    mockUseThread.mockReturnValue({
+      data: {
+        thread: {
+          id: "thread-1",
+          messages: [
+            {
+              id: "message-1",
+              threadId: "thread-1",
+              subject: "Rendered Subject",
+              snippet: "Rendered snippet",
+              date: "2026-03-11T11:00:00.000Z",
+              historyId: "history-1",
+              inline: [],
+              headers: {
+                from: "Sender Two <sender-two@example.com>",
+                to: "user@example.com",
+                date: "2026-03-11T11:00:00.000Z",
+                subject: "Rendered Subject",
+              },
+              textPlain: "Rendered plain body",
+            },
+          ],
+        },
+      },
+      isLoading: false,
+      error: null,
+    });
+
+    render(
+      <InlineEmailCard threadid="thread-1" action="none">
+        Second
+      </InlineEmailCard>,
+    );
+
+    fireEvent.click(screen.getByText("Subject Two"));
+
+    expect(screen.getByText("Rendered Subject")).toBeTruthy();
+    expect(screen.getByText("From:")).toBeTruthy();
+    expect(
+      screen.getByText("Sender Two <sender-two@example.com>"),
+    ).toBeTruthy();
+    expect(screen.getByText("Rendered plain body")).toBeTruthy();
+  });
 });
 
 describe("InlineEmailList", () => {
@@ -156,6 +229,11 @@ describe("InlineEmailList", () => {
     mockUseEmailLookup.mockReturnValue(new Map());
     mockArchiveThreadAction.mockResolvedValue({});
     mockMarkReadThreadAction.mockResolvedValue({});
+    mockUseThread.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: null,
+    });
   });
 
   it("archives all cards using the dedicated threadid attribute", async () => {
