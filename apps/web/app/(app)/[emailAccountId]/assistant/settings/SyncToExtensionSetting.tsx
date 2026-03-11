@@ -53,7 +53,7 @@ function sendMessageToExtension(
     }
     try {
       window.chrome.runtime.sendMessage(
-        env.NEXT_PUBLIC_TABS_EXTENSION_ID,
+        EXTENSION_ID!,
         message,
         (response) => {
           if (window.chrome?.runtime?.lastError) {
@@ -69,13 +69,15 @@ function sendMessageToExtension(
   });
 }
 
+const EXTENSION_ID = env.NEXT_PUBLIC_TABS_EXTENSION_ID;
+
 export function SyncToExtensionSetting() {
   const { data: rules } = useRules();
   const [open, setOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [deselected, setDeselected] = useState<Set<string>>(new Set());
 
-  const allTabs = useMemo(
+  const allTabs =
     () => mapRulesToExtensionTabs(rules || []),
     [rules],
   );
@@ -146,6 +148,8 @@ export function SyncToExtensionSetting() {
       setIsSyncing(false);
     }
   }
+
+  if (!EXTENSION_ID) return null;
 
   return (
     <SettingCard
