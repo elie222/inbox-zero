@@ -710,9 +710,12 @@ export function CreatedRuleToolCard({
     conditionParts.push(args.condition.aiInstructions);
   if (args.condition.static) {
     const s = args.condition.static;
-    if (s.from) conditionParts.push(`From: ${s.from}`);
-    if (s.to) conditionParts.push(`To: ${s.to}`);
-    if (s.subject) conditionParts.push(`Subject: ${s.subject}`);
+    const staticParts = [
+      s.from && `From: ${s.from}`,
+      s.to && `To: ${s.to}`,
+      s.subject && `Subject: ${s.subject}`,
+    ].filter(Boolean);
+    if (staticParts.length > 0) conditionParts.push(staticParts.join(", "));
   }
 
   const conditionText = conditionParts.join(
@@ -757,16 +760,6 @@ export function CreatedRuleToolCard({
       </div>
     </ToolCard>
   );
-}
-
-function formatActionLabel(action: CreateRuleTool["input"]["actions"][number]) {
-  const label =
-    action.fields?.to ||
-    action.fields?.label ||
-    action.fields?.subject ||
-    action.fields?.webhookUrl;
-  const typeName = action.type.toLowerCase().replace(/_/g, " ");
-  return label || typeName;
 }
 
 export function UpdatedRuleConditions({
@@ -1086,8 +1079,15 @@ function RuleActions({ ruleId }: { ruleId: string }) {
           checked={enabled}
           onCheckedChange={async (checked) => {
             setEnabled(checked);
-            const result = await toggleRule({ ruleId, enabled: checked });
-            if (result?.serverError) {
+            try {
+              const result = await toggleRule({ ruleId, enabled: checked });
+              if (result?.serverError) {
+                setEnabled(!checked);
+                toastError({
+                  description: `Failed to ${checked ? "enable" : "disable"} rule.`,
+                });
+              }
+            } catch {
               setEnabled(!checked);
               toastError({
                 description: `Failed to ${checked ? "enable" : "disable"} rule.`,
@@ -1472,4 +1472,14 @@ function asString(value: unknown): string | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function formatActionLabel(action: CreateRuleTool["input"]["actions"][number]) {
+  const label =
+    action.fields?.to ||
+    action.fields?.label ||
+    action.fields?.subject ||
+    action.fields?.webhookUrl;
+  const typeName = action.type.toLowerCase().replace(/_/g, " ");
+  return label || typeName;
 }
