@@ -8,15 +8,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { RuleForm } from "./RuleForm";
-import { LoadingContent } from "@/components/LoadingContent";
-import { useRule } from "@/hooks/useRule";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { useDialogState } from "@/hooks/useDialogState";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import type { RulesResponse } from "@/app/api/user/rules/route";
-import { isMissingRuleError } from "./rule-fetch-error";
-import { RuleNotFoundState } from "./RuleNotFoundState";
+import { RuleLoader } from "./RuleLoader";
 
 interface RuleDialogProps {
   duplicateRule?: RulesResponse[number];
@@ -54,9 +51,6 @@ export function RuleDialog({
   initialRule,
   editMode = true,
 }: RuleDialogProps) {
-  const { data, isLoading, error, mutate } = useRule(ruleId || "");
-  const isMissingRule = isMissingRuleError(error);
-
   const handleSuccess = () => {
     onSuccess?.();
     onClose();
@@ -74,33 +68,23 @@ export function RuleDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-        <DialogHeader className={ruleId && !isMissingRule ? "sr-only" : ""}>
-          <DialogTitle>
-            {isMissingRule
-              ? "Rule not found"
-              : ruleId
-                ? "Edit Rule"
-                : "Create Rule"}
-          </DialogTitle>
+        <DialogHeader className={ruleId ? "sr-only" : ""}>
+          <DialogTitle>{ruleId ? "Edit Rule" : "Create Rule"}</DialogTitle>
         </DialogHeader>
         <div>
           {ruleId ? (
-            isMissingRule ? (
-              <RuleNotFoundState />
-            ) : (
-              <LoadingContent loading={isLoading} error={error}>
-                {data && (
-                  <RuleForm
-                    rule={data.rule}
-                    alwaysEditMode={editMode}
-                    onSuccess={handleSuccess}
-                    isDialog={true}
-                    mutate={mutate}
-                    onCancel={onClose}
-                  />
-                )}
-              </LoadingContent>
-            )
+            <RuleLoader ruleId={ruleId}>
+              {({ rule, mutate }) => (
+                <RuleForm
+                  rule={rule}
+                  alwaysEditMode={editMode}
+                  onSuccess={handleSuccess}
+                  isDialog={true}
+                  mutate={mutate}
+                  onCancel={onClose}
+                />
+              )}
+            </RuleLoader>
           ) : (
             <RuleForm
               rule={{
