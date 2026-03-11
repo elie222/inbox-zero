@@ -18,6 +18,7 @@ async function getRule({
     where: { id: ruleId, emailAccountId },
     include: {
       actions: true,
+      attachmentSources: true,
     },
   });
 
@@ -41,6 +42,7 @@ async function getRule({
       folderName: { value: action.folderName },
       folderId: { value: action.folderId },
     })),
+    attachmentSources: rule.attachmentSources,
     conditions: getConditions(rule),
   };
 

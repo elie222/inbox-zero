@@ -15,6 +15,8 @@ import { extractEmailAddress } from "@/utils/email";
 import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
+import { getReplyWithConfidence } from "@/utils/redis/reply";
 
 const MODULE = "ai-actions";
 
@@ -159,15 +161,39 @@ const draft: ActionFunction<{
   to?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, email, args, userEmail, executedRule }) => {
+}> = async ({
+  client,
+  email,
+  args,
+  userEmail,
+  userId,
+  emailAccountId,
+  executedRule,
+  logger,
+}) => {
   if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) return;
-
+  const cachedDraft = executedRule.ruleId
+    ? await getReplyWithConfidence({
+        emailAccountId,
+        messageId: email.id,
+        ruleId: executedRule.ruleId,
+      })
+    : null;
+  const attachments = cachedDraft?.attachments?.length
+    ? await resolveDraftAttachments({
+        emailAccountId,
+        userId,
+        selectedAttachments: cachedDraft.attachments,
+        logger,
+      })
+    : [];
   const draftArgs = {
     to: args.to ?? undefined,
     subject: args.subject ?? undefined,
     content: args.content ?? "",
     cc: args.cc ?? undefined,
     bcc: args.bcc ?? undefined,
+    attachments,
   };
 
   const result = await client.draftEmail(

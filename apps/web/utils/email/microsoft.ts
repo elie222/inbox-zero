@@ -1,6 +1,7 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
+import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import {
   getMessage,
   getMessages,
@@ -611,6 +612,7 @@ export class OutlookProvider implements EmailProvider {
       content: string;
       cc?: string;
       bcc?: string;
+      attachments?: MailAttachment[];
     },
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },

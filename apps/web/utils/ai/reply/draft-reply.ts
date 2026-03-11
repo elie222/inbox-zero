@@ -53,6 +53,7 @@ const getUserPrompt = ({
   writingStyle,
   mcpContext,
   meetingContext,
+  attachmentContext,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
@@ -63,6 +64,7 @@ const getUserPrompt = ({
   writingStyle: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
+  attachmentContext: string | null;
 }) => {
   const userAbout = emailAccount.about
     ? `Context about the user:
@@ -134,6 +136,16 @@ ${mcpContext}
     : "";
 
   const upcomingMeetingsContext = meetingContext || "";
+  const selectedAttachments = attachmentContext
+    ? `Selected PDF attachments that will be included with this draft:
+
+<selected_attachments>
+${attachmentContext}
+</selected_attachments>
+
+Mention attached documents only when useful and only if this section is present.
+`
+    : "";
 
   return `${userAbout}
 ${relevantKnowledge}
@@ -143,6 +155,7 @@ ${writingStylePrompt}
 ${schedulingContext}
 ${mcpToolsContext}
 ${upcomingMeetingsContext}
+${selectedAttachments}
 
 Here is the context of the email thread (from oldest to newest):
 ${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
@@ -180,6 +193,7 @@ export async function aiDraftReplyWithConfidence({
   writingStyle,
   mcpContext,
   meetingContext,
+  attachmentContext = null,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
@@ -190,6 +204,7 @@ export async function aiDraftReplyWithConfidence({
   writingStyle: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
+  attachmentContext?: string | null;
 }): Promise<DraftReplyResult> {
   logger.info("Drafting email reply", {
     messageCount: messages.length,
@@ -213,6 +228,7 @@ export async function aiDraftReplyWithConfidence({
     writingStyle: writingStyle || defaultWritingStyle,
     mcpContext,
     meetingContext,
+    attachmentContext,
   });
 
   const modelOptions = getModel(emailAccount.user, "draft");
@@ -259,6 +275,7 @@ export async function aiDraftReply({
   writingStyle,
   mcpContext,
   meetingContext,
+  attachmentContext = null,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
@@ -269,6 +286,7 @@ export async function aiDraftReply({
   writingStyle: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
+  attachmentContext?: string | null;
 }) {
   const result = await aiDraftReplyWithConfidence({
     messages,
@@ -280,6 +298,7 @@ export async function aiDraftReply({
     writingStyle,
     mcpContext,
     meetingContext,
+    attachmentContext,
   });
 
   return result.reply;

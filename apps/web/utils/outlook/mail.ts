@@ -336,6 +336,15 @@ export async function draftEmail(
     logger,
   );
 
+  if (args.attachments?.length) {
+    await addAttachmentsToDraft({
+      client,
+      draftId: replyDraft.id || updatedDraft.id || "",
+      attachments: args.attachments,
+      logger,
+    });
+  }
+
   // Restore the original message's unread status if it was unread before
   // createReplyAll automatically marks the original message as read
   if (wasUnread) {
@@ -461,4 +470,43 @@ function buildGraphRecipients(
     seen.add(key);
     return true;
   });
+}
+
+async function addAttachmentsToDraft({
+  client,
+  draftId,
+  attachments,
+  logger,
+}: {
+  client: OutlookClient;
+  draftId: string;
+  attachments: Attachment[];
+  logger: Logger;
+}) {
+  if (!draftId) return;
+
+  for (const attachment of attachments) {
+    const content = getAttachmentContentBuffer(attachment.content);
+    if (!content) continue;
+
+    await withOutlookRetry(
+      () =>
+        client
+          .getClient()
+          .api(`/me/messages/${draftId}/attachments`)
+          .post({
+            "@odata.type": "#microsoft.graph.fileAttachment",
+            name: attachment.filename || "attachment.pdf",
+            contentType: attachment.contentType || "application/octet-stream",
+            contentBytes: content.toString("base64"),
+          }),
+      logger,
+    );
+  }
+}
+
+function getAttachmentContentBuffer(content: Attachment["content"]) {
+  if (Buffer.isBuffer(content)) return content;
+  if (typeof content === "string") return Buffer.from(content);
+  return null;
 }

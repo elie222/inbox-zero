@@ -51,6 +51,9 @@ import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSect
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
 import { RuleLoader } from "@/app/(app)/[emailAccountId]/assistant/RuleLoader";
+import { AttachmentSourcesField } from "@/app/(app)/[emailAccountId]/assistant/AttachmentSourcesField";
+import { upsertRuleAttachmentSourcesAction } from "@/utils/actions/attachment-sources";
+import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 
 export function Rule({
   ruleId,
@@ -76,7 +79,16 @@ export function RuleForm({
   mutate,
   onCancel,
 }: {
-  rule: CreateRuleBody & { id?: string };
+  rule: CreateRuleBody & {
+    id?: string;
+    attachmentSources?: Array<{
+      driveConnectionId: string;
+      name: string;
+      sourceId: string;
+      sourcePath: string | null;
+      type: AttachmentSourceInput["type"];
+    }>;
+  };
   alwaysEditMode?: boolean;
   onSuccess?: () => void;
   isDialog?: boolean;
@@ -143,6 +155,17 @@ export function RuleForm({
   const router = useRouter();
 
   const posthog = usePostHog();
+  const [attachmentSources, setAttachmentSources] = useState<
+    AttachmentSourceInput[]
+  >(
+    rule.attachmentSources?.map((source) => ({
+      driveConnectionId: source.driveConnectionId,
+      name: source.name,
+      sourceId: source.sourceId,
+      sourcePath: source.sourcePath,
+      type: source.type,
+    })) || [],
+  );
 
   const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
@@ -193,7 +216,21 @@ export function RuleForm({
           });
           if (mutate) mutate();
         } else {
-          toastSuccess({ description: "Saved!" });
+          const attachmentSourceResult = await saveAttachmentSources({
+            emailAccountId,
+            ruleId: res.data.rule.id,
+            attachmentSources,
+          });
+
+          if (attachmentSourceResult === "partial") {
+            toastError({
+              description:
+                "Rule saved, but draft attachment sources could not be updated.",
+            });
+          } else {
+            toastSuccess({ description: "Saved!" });
+          }
+
           // Revalidate to get the real data from server
           if (mutate) mutate();
           posthog.capture("User updated AI rule", {
@@ -222,7 +259,21 @@ export function RuleForm({
             description: "There was an error creating the rule.",
           });
         } else {
-          toastSuccess({ description: "Created!" });
+          const attachmentSourceResult = await saveAttachmentSources({
+            emailAccountId,
+            ruleId: res.data.rule.id,
+            attachmentSources,
+          });
+
+          if (attachmentSourceResult === "partial") {
+            toastError({
+              description:
+                "Rule created, but draft attachment sources could not be saved.",
+            });
+          } else {
+            toastSuccess({ description: "Created!" });
+          }
+
           posthog.capture("User created AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
             actions: actionsToSubmit.map((action) => action.type),
@@ -240,7 +291,16 @@ export function RuleForm({
         }
       }
     },
-    [router, posthog, emailAccountId, isDialog, onSuccess, mutate, rule],
+    [
+      attachmentSources,
+      router,
+      posthog,
+      emailAccountId,
+      isDialog,
+      onSuccess,
+      mutate,
+      rule,
+    ],
   );
 
   const conditions = watch("conditions");
@@ -264,6 +324,9 @@ export function RuleForm({
 
   const conditionalOperator = watch("conditionalOperator");
   const terminology = getEmailTerminology(provider);
+  const hasDraftAction = watch("actions")?.some(
+    (action) => action.type === ActionType.DRAFT_EMAIL,
+  );
 
   const formErrors = useMemo(() => {
     return Object.values(formState.errors)
@@ -469,6 +532,13 @@ export function RuleForm({
           />
         </RuleSectionCard>
 
+        {(hasDraftAction || attachmentSources.length > 0) && (
+          <AttachmentSourcesField
+            value={attachmentSources}
+            onChange={setAttachmentSources}
+          />
+        )}
+
         <div className="flex justify-between items-center">
           <Dialog>
             <DialogTrigger asChild>
@@ -605,6 +675,27 @@ export function RuleForm({
       </form>
     </Form>
   );
+}
+
+async function saveAttachmentSources({
+  emailAccountId,
+  ruleId,
+  attachmentSources,
+}: {
+  emailAccountId: string;
+  ruleId: string;
+  attachmentSources: AttachmentSourceInput[];
+}) {
+  const result = await upsertRuleAttachmentSourcesAction(emailAccountId, {
+    ruleId,
+    sources: attachmentSources,
+  });
+
+  if (result?.serverError || result?.validationErrors) {
+    return "partial" as const;
+  }
+
+  return "ok" as const;
 }
 
 function ThreadsExplanation({ size }: { size: "sm" | "md" }) {
