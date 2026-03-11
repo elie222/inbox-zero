@@ -51,9 +51,13 @@ function sendMessageToExtension(
       reject(new Error("not_chrome"));
       return;
     }
+    if (!EXTENSION_ID) {
+      reject(new Error("not_chrome"));
+      return;
+    }
     try {
       window.chrome.runtime.sendMessage(
-        EXTENSION_ID!,
+        EXTENSION_ID,
         message,
         (response) => {
           if (window.chrome?.runtime?.lastError) {
