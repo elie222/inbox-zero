@@ -12,6 +12,8 @@ export type SyncTab = {
 const LABEL_TO_DEFAULT_TAB: Record<string, string> = {
   "To Reply": "to-reply",
   "Awaiting Reply": "awaiting-reply",
+  FYI: "fyi",
+  Actioned: "actioned",
   Newsletter: "newsletter",
   Marketing: "marketing",
   Calendar: "calendar",
@@ -19,9 +21,22 @@ const LABEL_TO_DEFAULT_TAB: Record<string, string> = {
   Notification: "notification",
   "Cold Email": "cold-email",
   "Follow-up": "follow-up",
-  FYI: "fyi",
-  Actioned: "actioned",
 };
+
+// Matches SYSTEM_RULE_ORDER from utils/rule/consts.ts, with Follow-up appended
+const LABEL_ORDER: string[] = [
+  "To Reply",
+  "Awaiting Reply",
+  "FYI",
+  "Actioned",
+  "Newsletter",
+  "Marketing",
+  "Calendar",
+  "Receipt",
+  "Notification",
+  "Cold Email",
+  "Follow-up",
+];
 
 function labelToGmailSlug(label: string): string {
   return label
@@ -62,6 +77,16 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
       }
     }
   }
+
+  tabs.sort((a, b) => {
+    const aIndex = LABEL_ORDER.indexOf(a.displayLabel);
+    const bIndex = LABEL_ORDER.indexOf(b.displayLabel);
+    // Known labels first in defined order, custom labels at end alphabetically
+    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+    return a.displayLabel.localeCompare(b.displayLabel);
+  });
 
   return tabs;
 }
