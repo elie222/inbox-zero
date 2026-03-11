@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
+import {
+  hasOrgAdminAnalyticsAccess,
+  isOrgAdminAnalyticsAutoEnabled,
+} from "@/utils/organizations/analytics";
 
 export type GetOrganizationMembershipResponse = Awaited<
   ReturnType<typeof getData>
@@ -17,6 +21,7 @@ export const GET = withEmailAccount(
 );
 
 async function getData({ emailAccountId }: { emailAccountId: string }) {
+  const isOrgAdminAnalyticsManagedByEnv = isOrgAdminAnalyticsAutoEnabled();
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: { email: true, name: true },
@@ -63,6 +68,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       memberCount: 0,
       pendingInvitationCount: 0,
       allowOrgAdminAnalytics: false,
+      isOrgAdminAnalyticsManagedByEnv,
       hasPendingInvitationToOrg: !!hasPendingInvitation,
       userName: emailAccount?.name ?? null,
     };
@@ -75,7 +81,10 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     isOwner: membership.role === "owner",
     memberCount: membership.organization._count.members,
     pendingInvitationCount: membership.organization._count.invitations,
-    allowOrgAdminAnalytics: membership.allowOrgAdminAnalytics,
+    allowOrgAdminAnalytics: hasOrgAdminAnalyticsAccess(
+      membership.allowOrgAdminAnalytics,
+    ),
+    isOrgAdminAnalyticsManagedByEnv,
     hasPendingInvitationToOrg: false,
     userName: emailAccount?.name ?? null,
   };

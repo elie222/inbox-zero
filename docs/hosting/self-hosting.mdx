@@ -224,3 +224,13 @@ ON CONFLICT ("emailAccountId") DO NOTHING;
 ```
 
 Replace `<YOUR_ORG_ID>` with your organization's ID from the `Organization` table.
+
+## Auto-Enable Organization Analytics
+
+If you want organization admins to see member analytics without each user manually opting in, set:
+
+```env
+AUTO_ENABLE_ORG_ANALYTICS=true
+```
+
+When enabled, organization analytics consent is treated as granted for every member. The org analytics banner is suppressed, the user setting becomes read-only, and org stats/admin views include all members automatically.

@@ -5,6 +5,7 @@ import {
   createOrganizationBody,
   inviteMemberBody,
   removeMemberBody,
+  updateMemberRoleBody,
   cancelInvitationBody,
   handleInvitationBody,
   updateAnalyticsConsentBody,
@@ -353,6 +354,61 @@ export const removeMemberAction = actionClientUser
     }
 
     await prisma.member.delete({ where: { id: memberId } });
+  });
+
+export const updateMemberRoleAction = actionClientUser
+  .metadata({ name: "updateMemberRole" })
+  .inputSchema(updateMemberRoleBody)
+  .action(async ({ ctx: { userId }, parsedInput: { memberId, role } }) => {
+    const targetMember = await prisma.member.findUnique({
+      where: { id: memberId },
+      select: {
+        id: true,
+        emailAccountId: true,
+        organizationId: true,
+        role: true,
+      },
+    });
+
+    if (!targetMember) {
+      throw new SafeError("Member not found.");
+    }
+
+    const callerMembership = await prisma.member.findFirst({
+      where: {
+        organizationId: targetMember.organizationId,
+        emailAccount: { userId },
+      },
+      select: { role: true, emailAccountId: true },
+    });
+
+    if (!callerMembership) {
+      throw new SafeError("You are not a member of this organization.");
+    }
+
+    if (!hasOrganizationAdminRole(callerMembership.role)) {
+      throw new SafeError(
+        "Only organization owners or admins can update member roles.",
+      );
+    }
+
+    if (targetMember.emailAccountId === callerMembership.emailAccountId) {
+      throw new SafeError("You cannot change your own role.");
+    }
+
+    if (targetMember.role === "owner") {
+      throw new SafeError("Organization owners cannot be reassigned.");
+    }
+
+    if (targetMember.role === role) {
+      return { id: targetMember.id, role: targetMember.role };
+    }
+
+    return prisma.member.update({
+      where: { id: memberId },
+      data: { role },
+      select: { id: true, role: true },
+    });
   });
 
 export const cancelInvitationAction = actionClientUser

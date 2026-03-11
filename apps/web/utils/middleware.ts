@@ -10,6 +10,7 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
+import { hasOrgAdminAnalyticsAccess } from "@/utils/organizations/analytics";
 import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import {
@@ -308,7 +309,10 @@ async function emailAccountMiddleware(
           }),
       });
 
-      if (!targetMember?.allowOrgAdminAnalytics) {
+      if (
+        !targetMember ||
+        !hasOrgAdminAnalyticsAccess(targetMember.allowOrgAdminAnalytics)
+      ) {
         emailAccountLogger.error(
           "Member has not enabled org admin analytics access",
         );

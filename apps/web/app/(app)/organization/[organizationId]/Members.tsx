@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -12,6 +12,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -31,6 +36,7 @@ import { InviteMemberModal } from "@/components/InviteMemberModal";
 import {
   cancelInvitationAction,
   removeMemberAction,
+  updateMemberRoleAction,
 } from "@/utils/actions/organization";
 import { toastSuccess, toastError } from "@/components/Toast";
 import type { OrganizationMembersResponse } from "@/app/api/organizations/[organizationId]/members/route";
@@ -43,12 +49,12 @@ type Member = OrganizationMembersResponse["members"][0];
 type PendingInvitation = OrganizationMembersResponse["pendingInvitations"][0];
 
 export function Members({ organizationId }: { organizationId: string }) {
-  const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } =
     useOrganizationMembers(organizationId);
   const { data: executedRulesData } = useExecutedRulesCount(organizationId);
   const { data: membership } = useOrganizationMembership();
   const isAdmin = hasOrganizationAdminRole(membership?.role ?? "");
+  const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
 
   // Create a Map for O(1) lookups instead of O(n) Array.find for each member
   const executedRulesCountMap = useMemo(() => {
@@ -64,11 +70,14 @@ export function Members({ organizationId }: { organizationId: string }) {
 
   const handleAction = useCallback(
     async (
+      memberId: string | null,
       action: () => Promise<{ serverError?: string } | undefined>,
       errorTitle: string,
       successMessage: string,
       errorMessage: string,
     ) => {
+      setPendingMemberId(memberId);
+
       try {
         const result = await action();
 
@@ -86,6 +95,8 @@ export function Members({ organizationId }: { organizationId: string }) {
           title: errorTitle,
           description: err instanceof Error ? err.message : errorMessage,
         });
+      } finally {
+        setPendingMemberId(null);
       }
     },
     [mutate],
@@ -94,6 +105,7 @@ export function Members({ organizationId }: { organizationId: string }) {
   const handleRemoveMember = useCallback(
     (memberId: string) =>
       handleAction(
+        memberId,
         () => removeMemberAction({ memberId }),
         "Error removing member",
         "Member removed successfully",
@@ -105,10 +117,23 @@ export function Members({ organizationId }: { organizationId: string }) {
   const handleCancelInvitation = useCallback(
     (invitationId: string) =>
       handleAction(
+        null,
         () => cancelInvitationAction({ invitationId }),
         "Error cancelling invitation",
         "Invitation cancelled successfully",
         "Failed to cancel invitation",
+      ),
+    [handleAction],
+  );
+
+  const handleUpdateRole = useCallback(
+    (memberId: string, role: "admin" | "member") =>
+      handleAction(
+        memberId,
+        () => updateMemberRoleAction({ memberId, role }),
+        "Error updating role",
+        `Role updated to ${capitalizeRole(role)}`,
+        "Failed to update role",
       ),
     [handleAction],
   );
@@ -137,8 +162,10 @@ export function Members({ organizationId }: { organizationId: string }) {
                 key={member.id}
                 member={member}
                 onRemove={handleRemoveMember}
+                onUpdateRole={handleUpdateRole}
                 executedRulesCount={executedRulesCount}
                 isAdmin={isAdmin}
+                isPending={pendingMemberId === member.id}
               />
             );
           })}
@@ -198,15 +225,20 @@ function CardWrapper({
 function MemberCard({
   member,
   onRemove,
+  onUpdateRole,
   executedRulesCount,
   isAdmin,
+  isPending,
 }: {
   member: Member;
   onRemove: (memberId: string) => void;
+  onUpdateRole: (memberId: string, role: "admin" | "member") => void;
   executedRulesCount?: number;
   isAdmin: boolean;
+  isPending: boolean;
 }) {
   const { emailAccountId } = useAccount();
+  const canChangeRole = member.role !== "owner";
 
   return (
     <CardWrapper
@@ -241,11 +273,37 @@ function MemberCard({
         member.emailAccount.id && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" disabled={isPending}>
                 <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {canChangeRole && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger disabled={isPending}>
+                    Role
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuRadioGroup
+                      value={member.role}
+                      onValueChange={(value) => {
+                        if (value === member.role) return;
+                        onUpdateRole(member.id, value as "admin" | "member");
+                      }}
+                    >
+                      <DropdownMenuRadioItem
+                        value="member"
+                        disabled={isPending}
+                      >
+                        Member
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="admin" disabled={isPending}>
+                        Admin
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
               <DropdownMenuItem onClick={() => onRemove(member.id)}>
                 <TrashIcon className="mr-2 size-4" />
                 Remove
@@ -274,7 +332,9 @@ function MemberCard({
       <div className="flex items-center space-x-3">
         <p className="font-medium">{member.emailAccount.name || "No name"}</p>
         <Badge
-          variant={member.role === "admin" ? "default" : "secondary"}
+          variant={
+            hasOrganizationAdminRole(member.role) ? "default" : "secondary"
+          }
           className="text-xs"
         >
           {capitalizeRole(member.role)}

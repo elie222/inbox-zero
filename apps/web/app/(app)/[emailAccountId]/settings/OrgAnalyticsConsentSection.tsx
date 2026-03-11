@@ -72,14 +72,16 @@ export function OrgAnalyticsConsentSection({
             <ItemContent>
               <ItemTitle>Organization Analytics</ItemTitle>
               <ItemDescription>
-                {`Allow organization admins${data.organizationName ? ` from ${data.organizationName}` : ""} to view your usage`}
+                {data.isOrgAdminAnalyticsManagedByEnv
+                  ? "Access is enabled for all organization members by deployment configuration."
+                  : `Allow organization admins${data.organizationName ? ` from ${data.organizationName}` : ""} to view your usage`}
               </ItemDescription>
             </ItemContent>
             <ItemActions>
               <Switch
                 checked={data.allowOrgAdminAnalytics}
                 onCheckedChange={handleToggle}
-                disabled={isExecuting}
+                disabled={isExecuting || data.isOrgAdminAnalyticsManagedByEnv}
               />
             </ItemActions>
           </Item>

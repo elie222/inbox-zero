@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
 import { fetchAndCheckIsMember } from "@/utils/organizations/access";
+import { hasOrgAdminAnalyticsAccess } from "@/utils/organizations/analytics";
 
 export type OrganizationMembersResponse = Awaited<
   ReturnType<typeof getOrganizationMembers>
@@ -76,5 +77,13 @@ async function getOrganizationMembers({
     }),
   ]);
 
-  return { members, pendingInvitations };
+  return {
+    members: members.map((member) => ({
+      ...member,
+      allowOrgAdminAnalytics: hasOrgAdminAnalyticsAccess(
+        member.allowOrgAdminAnalytics,
+      ),
+    })),
+    pendingInvitations,
+  };
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
 import { fetchAndCheckIsAdmin } from "@/utils/organizations/access";
+import { getOrgAdminAnalyticsMemberFilter } from "@/utils/organizations/analytics";
 
 export type GetExecutedRulesCountResponse = Awaited<
   ReturnType<typeof getExecutedRulesCount>
@@ -33,7 +34,7 @@ async function getExecutedRulesCount({
         members: {
           some: {
             organizationId,
-            allowOrgAdminAnalytics: true,
+            ...getOrgAdminAnalyticsMemberFilter(),
           },
         },
       },

@@ -3,6 +3,7 @@ import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
 import { fetchAndCheckIsAdmin } from "@/utils/organizations/access";
 import { Prisma } from "@/generated/prisma/client";
+import { getOrgAdminAnalyticsSqlClause } from "@/utils/organizations/analytics";
 import { type OrgStatsParams, orgStatsParams } from "../types";
 
 export type OrgTotalsResponse = Awaited<ReturnType<typeof getTotals>>;
@@ -69,6 +70,7 @@ async function getTotals({
     rulesDateConditions.length > 0
       ? Prisma.sql` AND ${Prisma.join(rulesDateConditions, " AND ")}`
       : Prisma.sql``;
+  const analyticsAccessClause = getOrgAdminAnalyticsSqlClause();
 
   const result = await prisma.$queryRaw<TotalsResult[]>`
     SELECT
@@ -76,18 +78,18 @@ async function getTotals({
         SELECT COUNT(*)
         FROM "EmailMessage" em
         JOIN "Member" m ON m."emailAccountId" = em."emailAccountId"
-        WHERE m."organizationId" = ${organizationId} AND m."allowOrgAdminAnalytics" = true AND em.sent = false${emailDateClause}
+        WHERE m."organizationId" = ${organizationId}${analyticsAccessClause} AND em.sent = false${emailDateClause}
       ) as total_emails,
       (
         SELECT COUNT(*)
         FROM "ExecutedRule" er
         JOIN "Member" m ON m."emailAccountId" = er."emailAccountId"
-        WHERE m."organizationId" = ${organizationId} AND m."allowOrgAdminAnalytics" = true${rulesDateClause}
+        WHERE m."organizationId" = ${organizationId}${analyticsAccessClause}${rulesDateClause}
       ) as total_rules,
       (
         SELECT COUNT(DISTINCT m."emailAccountId")
         FROM "Member" m
-        WHERE m."organizationId" = ${organizationId} AND m."allowOrgAdminAnalytics" = true
+        WHERE m."organizationId" = ${organizationId}${analyticsAccessClause}
       ) as active_members
   `;
 
