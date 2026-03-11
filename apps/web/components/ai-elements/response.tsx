@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/utils/index";
-import { type ComponentProps, memo } from "react";
+import React, { type ComponentProps, memo } from "react";
 import { Streamdown } from "streamdown";
 import {
   InlineEmailCard,
