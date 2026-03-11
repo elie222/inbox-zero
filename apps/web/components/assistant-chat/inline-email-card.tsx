@@ -397,7 +397,7 @@ function EmailPreview({ threadId }: { threadId: string }) {
       <article className="rounded-lg bg-background p-4 shadow-sm">
         <div className="mb-4">
           <div className="text-sm font-semibold text-foreground">
-            {lastMessage.headers.subject || lastMessage.subject}
+            {lastMessage.headers?.subject || lastMessage.subject}
           </div>
           {data.thread.messages.length > 1 ? (
             <div className="mt-1 text-xs text-muted-foreground">

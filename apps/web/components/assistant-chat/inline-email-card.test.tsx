@@ -69,13 +69,21 @@ vi.mock("@/components/email-list/EmailDetails", () => ({
   EmailDetails: ({
     message,
   }: {
-    message: { headers: { from: string; to: string } };
+    message: { headers?: { from?: string; to?: string } };
   }) => (
     <div>
-      <span>From:</span>
-      <span>{message.headers.from}</span>
-      <span>To:</span>
-      <span>{message.headers.to}</span>
+      {message.headers?.from ? (
+        <>
+          <span>From:</span>
+          <span>{message.headers.from}</span>
+        </>
+      ) : null}
+      {message.headers?.to ? (
+        <>
+          <span>To:</span>
+          <span>{message.headers.to}</span>
+        </>
+      ) : null}
     </div>
   ),
 }));
@@ -215,6 +223,41 @@ describe("InlineEmailCard", () => {
       screen.getByText("Sender Two <sender-two@example.com>"),
     ).toBeTruthy();
     expect(screen.getByText("Rendered plain body")).toBeTruthy();
+  });
+
+  it("renders the preview when message headers are missing", () => {
+    mockUseThread.mockReturnValue({
+      data: {
+        thread: {
+          id: "thread-1",
+          messages: [
+            {
+              id: "message-1",
+              threadId: "thread-1",
+              subject: "Fallback Subject",
+              snippet: "Fallback snippet",
+              date: "2026-03-11T11:00:00.000Z",
+              historyId: "history-1",
+              inline: [],
+              textPlain: "Fallback body",
+            },
+          ],
+        },
+      },
+      isLoading: false,
+      error: null,
+    });
+
+    render(
+      <InlineEmailCard threadid="thread-1" action="none">
+        Second
+      </InlineEmailCard>,
+    );
+
+    fireEvent.click(screen.getByText("Subject Two"));
+
+    expect(screen.getByText("Fallback Subject")).toBeTruthy();
+    expect(screen.getByText("Fallback body")).toBeTruthy();
   });
 });
 
