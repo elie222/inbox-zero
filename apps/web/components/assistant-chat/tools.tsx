@@ -11,6 +11,7 @@ import type {
   CreateRuleTool,
   ManageInboxTool,
 } from "@/utils/ai/assistant/chat";
+import { cn } from "@/utils";
 import { isDefined } from "@/utils/types";
 import {
   Card,
@@ -23,10 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallbackColor } from "@/components/ui/avatar";
 import {
   ChevronRightIcon,
-  EyeIcon,
-  SparklesIcon,
   TrashIcon,
-  FileDiffIcon,
   ExternalLinkIcon,
   Loader2,
   PencilIcon,
@@ -37,13 +35,18 @@ import {
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { confirmAssistantEmailAction } from "@/utils/actions/assistant-chat";
-import { deleteRuleAction } from "@/utils/actions/rule";
+import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
+import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useChat } from "@/providers/ChatProvider";
 import { ExpandableText } from "@/components/ExpandableText";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
-import { getEmailTerminology } from "@/utils/terminology";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/Badge";
+import { getActionDisplay, getActionIcon } from "@/utils/action-display";
+import { getActionColor } from "@/components/PlanBadge";
+import type { ActionType } from "@/generated/prisma/enums";
 import { formatShortDate } from "@/utils/date";
 import { trimToNonEmptyString } from "@/utils/string";
 import { getEmailSearchUrl, getEmailUrlForMessage } from "@/utils/url";
@@ -575,9 +578,7 @@ function EmailActionResult({
       <CardContent className="p-0">
         {displaySubject && (
           <div className="flex items-center gap-2 border-b px-4 py-2.5">
-            <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Subject
-            </span>
+            <FieldLabel>Subject</FieldLabel>
             <span className="truncate text-sm font-medium text-foreground">
               {actionType !== "send_email" ? "Re: " : ""}
               {displaySubject}
@@ -696,72 +697,39 @@ function EmailActionResult({
 export function CreatedRuleToolCard({
   args,
   ruleId,
+  preview,
 }: {
   args: CreateRuleTool["input"];
   ruleId?: string;
+  preview?: boolean;
 }) {
-  const conditionsArray = [
-    args.condition.aiInstructions,
-    args.condition.static,
-  ].filter(Boolean);
+  const conditionText = buildConditionText(args.condition);
 
   return (
-    <ToolCard>
-      <ToolCardHeader
-        title={
-          <>
-            {ruleId ? "New rule created:" : "Creating rule:"} {args.name}
-          </>
-        }
-        actions={ruleId && <RuleActions ruleId={ruleId} />}
-      />
-
-      <div className="space-y-2">
-        <div className="rounded-md bg-muted p-2 text-sm">
-          {args.condition.aiInstructions && (
-            <div className="flex items-center">
-              <SparklesIcon className="mr-2 size-5" />
-              {args.condition.aiInstructions}
-            </div>
-          )}
-          {conditionsArray.length > 1 && (
-            <div className="my-2 font-mono text-xs">
-              {args.condition.conditionalOperator || "AND"}
-            </div>
-          )}
-          {args.condition.static && (
-            <div className="mt-1">
-              <span className="font-medium">Static Conditions:</span>
-              <ul className="mt-1 list-inside list-disc">
-                {args.condition.static.from && (
-                  <li>From: {args.condition.static.from}</li>
-                )}
-                {args.condition.static.to && (
-                  <li>To: {args.condition.static.to}</li>
-                )}
-                {args.condition.static.subject && (
-                  <li>Subject: {args.condition.static.subject}</li>
-                )}
-              </ul>
-            </div>
-          )}
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-semibold">{args.name}</h3>
+          <Badge color="green" className="text-[10px]">
+            Created
+          </Badge>
         </div>
-      </div>
+        {ruleId && <RuleActions ruleId={ruleId} />}
+        {preview && <RuleActionsPreview />}
+      </CardHeader>
 
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">Actions</h3>
-        <div className="space-y-2">
-          {args.actions.map((action, i) => (
-            <div key={i} className="rounded-md bg-muted p-2 text-sm">
-              <div className="font-medium capitalize">
-                {action.type.toLowerCase().replace("_", " ")}
-              </div>
-              {action.fields && renderActionFields(action.fields)}
-            </div>
-          ))}
+      <CardContent className="space-y-3 px-4 py-3.5">
+        <div className="flex gap-4 text-sm">
+          <FieldLabel className="pt-0.5">When</FieldLabel>
+          <p>{conditionText}</p>
         </div>
-      </div>
-    </ToolCard>
+
+        <div className="flex gap-4 text-sm">
+          <FieldLabel className="pt-0.5">Then</FieldLabel>
+          <ActionBadgeList actions={args.actions} />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -770,87 +738,59 @@ export function UpdatedRuleConditions({
   ruleId,
   originalConditions,
   updatedConditions,
+  actions,
+  preview,
 }: {
   args: UpdateRuleConditionsTool["input"];
   ruleId: string;
   originalConditions?: UpdateRuleConditionsOutput["originalConditions"];
   updatedConditions?: UpdateRuleConditionsOutput["updatedConditions"];
+  actions?: Array<{ type: string; fields?: RuleActionFields | null }>;
+  preview?: boolean;
 }) {
-  const [showChanges, setShowChanges] = useState(false);
-
-  const staticConditions =
-    args.condition.static?.from ||
-    args.condition.static?.to ||
-    args.condition.static?.subject
-      ? args.condition.static
-      : null;
-
-  const conditionsArray = [
-    args.condition.aiInstructions,
-    staticConditions,
-  ].filter(Boolean);
-
   const hasChanges =
     originalConditions &&
     updatedConditions &&
     originalConditions.aiInstructions !== updatedConditions.aiInstructions;
 
+  const conditionText = buildConditionText(args.condition);
+
   return (
-    <ToolCard>
-      <ToolCardHeader
-        title={<>Updated Conditions</>}
-        actions={
-          <div className="flex items-center gap-1">
-            {hasChanges && (
-              <DiffToggleButton
-                showChanges={showChanges}
-                onToggle={() => setShowChanges(!showChanges)}
-              />
-            )}
-            <RuleActions ruleId={ruleId} />
-          </div>
-        }
-      />
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-semibold">{args.ruleName}</h3>
+          <Badge color="blue" className="text-[10px]">
+            Updated
+          </Badge>
+        </div>
+        {preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />}
+      </CardHeader>
 
-      <div className="rounded-md bg-muted p-2 text-sm">
-        {args.condition.aiInstructions && (
-          <div className="flex items-center">
-            <SparklesIcon className="mr-2 size-5" />
-            {args.condition.aiInstructions}
-          </div>
-        )}
-        {conditionsArray.length > 1 && (
-          <div className="my-2 font-mono text-xs">
-            {args.condition.conditionalOperator || "AND"}
-          </div>
-        )}
-        {args.condition.static && (
-          <div className="mt-1">
-            <span className="font-medium">Static Conditions:</span>
-            <ul className="mt-1 list-inside list-disc">
-              {args.condition.static.from && (
-                <li>From: {args.condition.static.from}</li>
-              )}
-              {args.condition.static.to && (
-                <li>To: {args.condition.static.to}</li>
-              )}
-              {args.condition.static.subject && (
-                <li>Subject: {args.condition.static.subject}</li>
-              )}
-            </ul>
-          </div>
-        )}
-      </div>
+      <CardContent className="space-y-3 px-4 py-3.5">
+        <div className="flex gap-4 text-sm">
+          <FieldLabel className="pt-0.5">When</FieldLabel>
+          <p>{conditionText}</p>
+        </div>
 
-      {hasChanges && (
-        <CollapsibleDiff
-          showChanges={showChanges}
-          title="Instructions:"
-          originalText={originalConditions?.aiInstructions || undefined}
-          updatedText={updatedConditions?.aiInstructions || undefined}
-        />
-      )}
-    </ToolCard>
+        {actions && actions.length > 0 && (
+          <div className="flex gap-4 text-sm">
+            <FieldLabel className="pt-0.5">Then</FieldLabel>
+            <ActionBadgeList actions={actions} />
+          </div>
+        )}
+
+        {hasChanges && (
+          <ViewChangesCollapsible>
+            <CollapsibleDiffContent
+              title="Instructions:"
+              originalText={originalConditions?.aiInstructions || undefined}
+              updatedText={updatedConditions?.aiInstructions || undefined}
+            />
+          </ViewChangesCollapsible>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -859,146 +799,129 @@ export function UpdatedRuleActions({
   ruleId,
   originalActions,
   updatedActions,
+  condition,
+  preview,
 }: {
   args: UpdateRuleActionsTool["input"];
   ruleId: string;
   originalActions?: UpdateRuleActionsOutput["originalActions"];
   updatedActions?: UpdateRuleActionsOutput["updatedActions"];
+  condition?: {
+    aiInstructions?: string | null;
+    static?: {
+      from?: string | null;
+      to?: string | null;
+      subject?: string | null;
+    } | null;
+    conditionalOperator?: string | null;
+  };
+  preview?: boolean;
 }) {
-  const { provider } = useAccount();
-  const [showChanges, setShowChanges] = useState(false);
-
-  // Check if actions have changed by comparing serialized versions
   const hasChanges =
     originalActions &&
     updatedActions &&
     JSON.stringify(originalActions) !== JSON.stringify(updatedActions);
 
-  const formatActions = <
-    T extends { type: string; fields: Record<string, string | null> },
-  >(
-    actions: T[],
-  ) => {
-    return actions
-      .map((action) => {
-        const parts = [`Type: ${action.type}`];
-        if (action.fields?.label)
-          parts.push(
-            `${getEmailTerminology(provider).label.action}: ${action.fields.label}`,
-          );
-        if (action.fields?.content)
-          parts.push(`Content: ${action.fields.content}`);
-        if (action.fields?.to) parts.push(`To: ${action.fields.to}`);
-        if (action.fields?.cc) parts.push(`CC: ${action.fields.cc}`);
-        if (action.fields?.bcc) parts.push(`BCC: ${action.fields.bcc}`);
-        if (action.fields?.subject)
-          parts.push(`Subject: ${action.fields.subject}`);
-        if (action.fields?.webhookUrl || action.fields?.url)
-          parts.push(
-            `Webhook: ${action.fields.webhookUrl || action.fields.url}`,
-          );
-        return parts.join(", ");
-      })
-      .join("\n");
-  };
+  const conditionText = condition ? buildConditionText(condition) : null;
 
   return (
-    <ToolCard>
-      <ToolCardHeader
-        title={<>Updated Actions</>}
-        actions={
-          <div className="flex items-center gap-1">
-            {hasChanges && (
-              <DiffToggleButton
-                showChanges={showChanges}
-                onToggle={() => setShowChanges(!showChanges)}
-              />
-            )}
-            <RuleActions ruleId={ruleId} />
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-semibold">{args.ruleName}</h3>
+          <Badge color="blue" className="text-[10px]">
+            Updated
+          </Badge>
+        </div>
+        {preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />}
+      </CardHeader>
+
+      <CardContent className="space-y-3 px-4 py-3.5">
+        {conditionText && (
+          <div className="flex gap-4 text-sm">
+            <FieldLabel className="pt-0.5">When</FieldLabel>
+            <p>{conditionText}</p>
           </div>
-        }
-      />
+        )}
 
-      <div className="space-y-2">
-        {args.actions.map((actionItem, i) => {
-          if (!actionItem) return null;
+        <div className="flex gap-4 text-sm">
+          <FieldLabel className="pt-0.5">Then</FieldLabel>
+          <ActionBadgeList actions={args.actions} />
+        </div>
 
-          return (
-            <div key={i} className="rounded-md bg-muted p-2 text-sm">
-              <div className="font-medium capitalize">
-                {actionItem.type.toLowerCase().replace("_", " ")}
-              </div>
-              {actionItem.fields && renderActionFields(actionItem.fields)}
-            </div>
-          );
-        })}
-      </div>
-
-      {hasChanges && (
-        <CollapsibleDiff
-          showChanges={showChanges}
-          title="Actions:"
-          originalText={formatActions(originalActions || [])}
-          updatedText={formatActions(updatedActions || [])}
-        />
-      )}
-    </ToolCard>
+        {hasChanges && (
+          <ViewChangesCollapsible>
+            <CollapsibleDiffContent
+              title="Actions:"
+              originalText={formatActionsForDiff(originalActions || [])}
+              updatedText={formatActionsForDiff(updatedActions || [])}
+            />
+          </ViewChangesCollapsible>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
 export function UpdatedLearnedPatterns({
   args,
   ruleId,
+  preview,
 }: {
   args: UpdateLearnedPatternsTool["input"];
   ruleId: string;
+  preview?: boolean;
 }) {
   return (
-    <ToolCard>
-      <ToolCardHeader
-        title={<>Updated Learned Patterns</>}
-        actions={<RuleActions ruleId={ruleId} />}
-      />
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-semibold">{args.ruleName}</h3>
+          <Badge color="purple" className="text-[10px]">
+            Updated Patterns
+          </Badge>
+        </div>
+        {preview ? (
+          <Tooltip content="Edit rule">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-muted-foreground"
+            >
+              <PencilIcon className="size-4" />
+            </Button>
+          </Tooltip>
+        ) : (
+          <LearnedPatternsActions ruleId={ruleId} />
+        )}
+      </CardHeader>
 
-      <div className="space-y-2">
+      <CardContent className="space-y-2 px-4 py-3.5">
         {args.learnedPatterns.map((pattern, i) => {
           if (!pattern) return null;
+          const includeParts = formatPatternParts(pattern.include);
+          const excludeParts = formatPatternParts(pattern.exclude);
+          if (!includeParts && !excludeParts) return null;
 
           return (
-            <div key={i} className="rounded-md bg-muted p-2 text-sm">
-              {pattern.include &&
-                Object.values(pattern.include).some(Boolean) && (
-                  <div className="mb-1">
-                    <span className="font-medium">Include:</span>
-                    <ul className="mt-1 list-inside list-disc">
-                      {pattern.include.from && (
-                        <li>From: {pattern.include.from}</li>
-                      )}
-                      {pattern.include.subject && (
-                        <li>Subject: {pattern.include.subject}</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              {pattern.exclude &&
-                Object.values(pattern.exclude).some(Boolean) && (
-                  <div>
-                    <span className="font-medium">Exclude:</span>
-                    <ul className="mt-1 list-inside list-disc">
-                      {pattern.exclude.from && (
-                        <li>From: {pattern.exclude.from}</li>
-                      )}
-                      {pattern.exclude.subject && (
-                        <li>Subject: {pattern.exclude.subject}</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
+            <div key={i} className="flex gap-4 text-sm">
+              {includeParts && (
+                <>
+                  <FieldLabel className="pt-0.5">Include</FieldLabel>
+                  <p>{includeParts}</p>
+                </>
+              )}
+              {excludeParts && (
+                <>
+                  <FieldLabel className="pt-0.5">Exclude</FieldLabel>
+                  <p>{excludeParts}</p>
+                </>
+              )}
             </div>
           );
         })}
-      </div>
-    </ToolCard>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1039,52 +962,132 @@ export function AddToKnowledgeBase({
 function RuleActions({ ruleId }: { ruleId: string }) {
   const { emailAccountId } = useAccount();
   const ruleDialog = useDialogState<{ ruleId: string }>();
+  const [enabled, setEnabled] = useState(true);
+  const { executeAsync: toggleRule } = useAction(
+    toggleRuleAction.bind(null, emailAccountId),
+  );
 
   return (
     <>
-      {/* Don't use tooltips as they force scroll to bottom */}
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={() => ruleDialog.onOpen({ ruleId })}
-        >
-          <EyeIcon className="size-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={async () => {
-            const yes = confirm("Are you sure you want to delete this rule?");
-            if (yes) {
-              try {
-                const result = await deleteRuleAction(emailAccountId, {
-                  id: ruleId,
-                });
-                if (result?.serverError) {
-                  toastError({ description: result.serverError });
-                } else {
-                  toastSuccess({
-                    description: "The rule has been deleted.",
+      <div className="flex items-center gap-1.5">
+        <Tooltip content="Edit rule">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-muted-foreground"
+            onClick={() => ruleDialog.onOpen({ ruleId })}
+          >
+            <PencilIcon className="size-4" />
+          </Button>
+        </Tooltip>
+        <Tooltip content="Delete rule">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-muted-foreground"
+            onClick={async () => {
+              const yes = confirm("Are you sure you want to delete this rule?");
+              if (yes) {
+                try {
+                  const result = await deleteRuleAction(emailAccountId, {
+                    id: ruleId,
                   });
+                  if (result?.serverError) {
+                    toastError({ description: result.serverError });
+                  } else {
+                    toastSuccess({
+                      description: "The rule has been deleted.",
+                    });
+                  }
+                } catch {
+                  toastError({ description: "Failed to delete rule." });
                 }
-              } catch {
-                toastError({ description: "Failed to delete rule." });
               }
+            }}
+          >
+            <TrashIcon className="size-4" />
+          </Button>
+        </Tooltip>
+        <Switch
+          checked={enabled}
+          onCheckedChange={async (checked) => {
+            setEnabled(checked);
+            try {
+              const result = await toggleRule({ ruleId, enabled: checked });
+              if (result?.serverError) {
+                setEnabled(!checked);
+                toastError({
+                  description: `Failed to ${checked ? "enable" : "disable"} rule.`,
+                });
+              }
+            } catch {
+              setEnabled(!checked);
+              toastError({
+                description: `Failed to ${checked ? "enable" : "disable"} rule.`,
+              });
             }
           }}
-        >
-          <TrashIcon className="size-4" />
-        </Button>
+        />
       </div>
 
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
         isOpen={ruleDialog.isOpen}
         onClose={ruleDialog.onClose}
-        editMode={false}
+        editMode={true}
+      />
+    </>
+  );
+}
+
+function RuleActionsPreview() {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Tooltip content="Edit rule">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-muted-foreground"
+        >
+          <PencilIcon className="size-4" />
+        </Button>
+      </Tooltip>
+      <Tooltip content="Delete rule">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-muted-foreground"
+        >
+          <TrashIcon className="size-4" />
+        </Button>
+      </Tooltip>
+      <Switch checked={true} />
+    </div>
+  );
+}
+
+function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
+  const { emailAccountId } = useAccount();
+  const ruleDialog = useDialogState<{ ruleId: string }>();
+
+  return (
+    <>
+      <Tooltip content="Edit rule">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-muted-foreground"
+          onClick={() => ruleDialog.onOpen({ ruleId })}
+        >
+          <PencilIcon className="size-4" />
+        </Button>
+      </Tooltip>
+
+      <RuleDialog
+        ruleId={ruleDialog.data?.ruleId}
+        isOpen={ruleDialog.isOpen}
+        onClose={ruleDialog.onClose}
+        editMode={true}
       />
     </>
   );
@@ -1109,102 +1112,44 @@ function ToolCardHeader({
   );
 }
 
-function DiffToggleButton({
-  showChanges,
-  onToggle,
-}: {
-  showChanges: boolean;
-  onToggle: () => void;
-}) {
+function ViewChangesCollapsible({ children }: { children: React.ReactNode }) {
   return (
-    <Tooltip content={showChanges ? "Hide Changes" : "Show Changes"}>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-8 w-8 p-0"
-        onClick={onToggle}
-      >
-        <FileDiffIcon className="size-4" />
-      </Button>
-    </Tooltip>
+    <Collapsible>
+      <CollapsibleTrigger className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <ChevronRightIcon className="size-4 transition-transform [[data-state=open]>&]:rotate-90" />
+        View changes
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-2">{children}</CollapsibleContent>
+    </Collapsible>
   );
 }
 
-function CollapsibleDiff({
-  showChanges,
+function CollapsibleDiffContent({
   title,
   originalText,
   updatedText,
 }: {
-  showChanges: boolean;
   title: string;
   originalText?: string;
   updatedText?: string;
 }) {
-  if (!showChanges) return null;
-
   return (
-    <div className="overflow-hidden">
-      <div className="space-y-2">
-        <div className="text-xs font-medium text-muted-foreground">{title}</div>
-        <div className="rounded-md border bg-muted/30 p-3 font-mono text-sm overflow-auto max-h-96">
-          {originalText && (
-            <div className="mb-2 rounded bg-red-50 px-2 py-1 text-red-800 dark:bg-red-950/30 dark:text-red-200 whitespace-pre-wrap break-words overflow-auto max-h-48">
-              <span className="mr-2 text-red-500">-</span>
-              {originalText}
-            </div>
-          )}
-          {updatedText && (
-            <div className="rounded bg-green-50 px-2 py-1 text-green-800 dark:bg-green-950/30 dark:text-green-200 whitespace-pre-wrap break-words overflow-auto max-h-48">
-              <span className="mr-2 text-green-500">+</span>
-              {updatedText}
-            </div>
-          )}
-        </div>
+    <div className="space-y-2">
+      <div className="text-xs font-medium text-muted-foreground">{title}</div>
+      <div className="max-h-96 overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-sm">
+        {originalText && (
+          <div className="mb-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-red-50 px-2 py-1 text-red-800 dark:bg-red-950/30 dark:text-red-200">
+            <span className="mr-2 text-red-500">-</span>
+            {originalText}
+          </div>
+        )}
+        {updatedText && (
+          <div className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-green-50 px-2 py-1 text-green-800 dark:bg-green-950/30 dark:text-green-200">
+            <span className="mr-2 text-green-500">+</span>
+            {updatedText}
+          </div>
+        )}
       </div>
-    </div>
-  );
-}
-
-// Helper function to render action fields
-function renderActionFields(fields: {
-  label?: string | null;
-  content?: string | null;
-  to?: string | null;
-  cc?: string | null;
-  bcc?: string | null;
-  subject?: string | null;
-  url?: string | null;
-  webhookUrl?: string | null;
-}) {
-  const fieldEntries = [];
-
-  // Only add fields that have actual values
-  if (fields.label) fieldEntries.push(["Label", fields.label]);
-  if (fields.subject) fieldEntries.push(["Subject", fields.subject]);
-  if (fields.to) fieldEntries.push(["To", fields.to]);
-  if (fields.cc) fieldEntries.push(["CC", fields.cc]);
-  if (fields.bcc) fieldEntries.push(["BCC", fields.bcc]);
-  if (fields.content) fieldEntries.push(["Content", fields.content]);
-  if (fields.url || fields.webhookUrl)
-    fieldEntries.push(["URL", fields.url || fields.webhookUrl]);
-
-  if (fieldEntries.length === 0) return null;
-
-  return (
-    <div className="mt-1">
-      <ul className="list-inside list-disc">
-        {fieldEntries.map(([key, value]) => (
-          <li key={key}>
-            {key}:{" "}
-            {key === "Content" ? (
-              <span className="font-mono text-xs">{value}</span>
-            ) : (
-              value
-            )}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
@@ -1453,6 +1398,120 @@ function asString(value: unknown): string | null {
   return trimToNonEmptyString(value) ?? null;
 }
 
+type RuleActionFields = {
+  label?: string | null;
+  content?: string | null;
+  to?: string | null;
+  cc?: string | null;
+  bcc?: string | null;
+  subject?: string | null;
+  webhookUrl?: string | null;
+};
+
+function ActionBadgeList({
+  actions,
+}: {
+  actions: Array<{ type: string; fields?: RuleActionFields | null }>;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {actions.map((action, i) => {
+        if (!action) return null;
+        const Icon = getActionIcon(action.type as ActionType);
+        return (
+          <Badge
+            key={i}
+            color={getActionColor(action.type as ActionType)}
+            className="w-fit shrink-0"
+          >
+            <Icon className="mr-1.5 size-3" />
+            {getActionDisplay(
+              {
+                type: action.type as ActionType,
+                label: action.fields?.label,
+                to: action.fields?.to,
+                content: action.fields?.content,
+              },
+              "",
+              [],
+            )}
+          </Badge>
+        );
+      })}
+    </div>
+  );
+}
+
+function formatPatternParts(
+  pattern: { from?: string | null; subject?: string | null } | null | undefined,
+): string | null {
+  if (!pattern) return null;
+  const parts = [
+    pattern.from && `From: ${pattern.from}`,
+    pattern.subject && `Subject: ${pattern.subject}`,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function buildConditionText(condition: {
+  aiInstructions?: string | null;
+  static?: {
+    from?: string | null;
+    to?: string | null;
+    subject?: string | null;
+  } | null;
+  conditionalOperator?: string | null;
+}): string {
+  const parts: string[] = [];
+  if (condition.aiInstructions) parts.push(condition.aiInstructions);
+  if (condition.static) {
+    const s = condition.static;
+    const staticParts = [
+      s.from && `From: ${s.from}`,
+      s.to && `To: ${s.to}`,
+      s.subject && `Subject: ${s.subject}`,
+    ].filter(Boolean);
+    if (staticParts.length > 0) parts.push(staticParts.join(", "));
+  }
+  return parts.join(` ${condition.conditionalOperator || "AND"} `);
+}
+
+function formatActionsForDiff(
+  actions: Array<{ type: string; fields: Record<string, string | null> }>,
+): string {
+  return actions
+    .map((action) => {
+      const parts = [action.type];
+      if (action.fields?.label) parts.push(`Label: ${action.fields.label}`);
+      if (action.fields?.to) parts.push(`To: ${action.fields.to}`);
+      if (action.fields?.content)
+        parts.push(`Content: ${action.fields.content}`);
+      if (action.fields?.webhookUrl)
+        parts.push(`Webhook: ${action.fields.webhookUrl}`);
+      return parts.join(", ");
+    })
+    .join("\n");
+}
+
+function FieldLabel({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
 }
