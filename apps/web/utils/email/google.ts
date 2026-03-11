@@ -1,4 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
+import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
 import {
@@ -770,6 +771,7 @@ export class GmailProvider implements EmailProvider {
       content: string;
       cc?: string;
       bcc?: string;
+      attachments?: MailAttachment[];
     },
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },

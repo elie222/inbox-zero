@@ -25,8 +25,11 @@ import {
 } from "@/utils/meeting-briefs/recipient-context";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { meetsDraftReplyConfidenceRequirement } from "@/utils/ai/reply/draft-confidence";
+import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
+import type { SelectedAttachment } from "@/utils/attachments/source-schema";
 
 export type DraftGenerationResult = {
+  attachments?: SelectedAttachment[];
   draft: string | null;
   confidence: DraftReplyConfidence;
 };
@@ -40,6 +43,7 @@ export async function fetchMessagesAndGenerateDraft(
   client: EmailProvider,
   testMessage: ParsedMessage | undefined,
   logger: Logger,
+  selectedRuleId?: string,
 ): Promise<string> {
   const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     emailAccount,
@@ -48,6 +52,7 @@ export async function fetchMessagesAndGenerateDraft(
     testMessage,
     logger,
     DraftReplyConfidence.ALL_EMAILS,
+    selectedRuleId,
   );
 
   if (result.draft == null) {
@@ -64,22 +69,28 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
   testMessage: ParsedMessage | undefined,
   logger: Logger,
   minimumConfidence: DraftReplyConfidence,
+  selectedRuleId?: string,
 ): Promise<DraftGenerationResult> {
   const { threadMessages, previousConversationMessages } = testMessage
     ? { threadMessages: [testMessage], previousConversationMessages: null }
     : await fetchThreadAndConversationMessages(threadId, client);
 
-  const { draft, confidence } = await generateDraftContent(
+  const { draft, confidence, attachments } = await generateDraftContent(
     emailAccount,
     threadMessages,
     previousConversationMessages,
     client,
     logger,
     minimumConfidence,
+    selectedRuleId,
   );
 
   if (draft == null) {
-    return { draft: null, confidence };
+    return {
+      draft: null,
+      confidence,
+      ...(selectedRuleId ? { attachments } : {}),
+    };
   }
 
   const emailAccountWithSignatures = await prisma.emailAccount.findUnique({
@@ -110,7 +121,11 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     finalResult = `${finalResult}\n\n${emailAccountWithSignatures.signature}`;
   }
 
-  return { draft: finalResult, confidence };
+  return {
+    draft: finalResult,
+    confidence,
+    ...(selectedRuleId ? { attachments } : {}),
+  };
 }
 
 /**
@@ -146,6 +161,7 @@ async function generateDraftContent(
   emailProvider: EmailProvider,
   logger: Logger,
   minimumConfidence: DraftReplyConfidence,
+  selectedRuleId?: string,
 ): Promise<DraftGenerationResult> {
   const lastMessage = threadMessages.at(-1);
 
@@ -154,6 +170,7 @@ async function generateDraftContent(
   const cachedReply = await getReplyWithConfidence({
     emailAccountId: emailAccount.id,
     messageId: lastMessage.id,
+    ruleId: selectedRuleId,
   });
 
   if (cachedReply) {
@@ -163,7 +180,11 @@ async function generateDraftContent(
     });
 
     if (meetsThreshold) {
-      return { draft: cachedReply.reply, confidence: cachedReply.confidence };
+      return {
+        draft: cachedReply.reply,
+        confidence: cachedReply.confidence,
+        ...(selectedRuleId ? { attachments: cachedReply.attachments } : {}),
+      };
     }
 
     logger.info("Skipping cached draft due to low confidence", {
@@ -196,6 +217,26 @@ async function generateDraftContent(
     messages[messages.length - 1],
     10_000,
   );
+  const attachmentSelectionPromise = selectedRuleId
+    ? selectDraftAttachmentsForRule({
+        emailAccount,
+        ruleId: selectedRuleId,
+        emailContent: lastMessageContent,
+        logger,
+      }).catch((error) => {
+        logger.error("Failed to select draft attachments", {
+          error,
+          ruleId: selectedRuleId,
+        });
+        return {
+          selectedAttachments: [],
+          attachmentContext: null,
+        };
+      })
+    : Promise.resolve({
+        selectedAttachments: [],
+        attachmentContext: null,
+      });
   const [
     knowledgeResult,
     emailHistoryContext,
@@ -203,6 +244,7 @@ async function generateDraftContent(
     writingStyle,
     mcpResult,
     upcomingMeetings,
+    attachmentSelection,
   ] = await Promise.all([
     aiExtractRelevantKnowledge({
       knowledgeBase,
@@ -231,6 +273,7 @@ async function generateDraftContent(
       ),
       logger,
     }),
+    attachmentSelectionPromise,
   ]);
 
   // 2b. Extract email history context
@@ -272,6 +315,7 @@ async function generateDraftContent(
       upcomingMeetings,
       emailAccount.timezone,
     ),
+    attachmentContext: attachmentSelection.attachmentContext,
   });
 
   if (
@@ -294,6 +338,12 @@ async function generateDraftContent(
           messageId: lastMessage.id,
           reply,
           confidence,
+          ...(selectedRuleId
+            ? {
+                attachments: attachmentSelection.selectedAttachments,
+                ruleId: selectedRuleId,
+              }
+            : {}),
         });
       } catch (error) {
         logger.error("Failed to cache low-confidence draft", {
@@ -304,7 +354,13 @@ async function generateDraftContent(
       }
     }
 
-    return { draft: null, confidence };
+    return {
+      draft: null,
+      confidence,
+      ...(selectedRuleId
+        ? { attachments: attachmentSelection.selectedAttachments }
+        : {}),
+    };
   }
 
   if (typeof reply === "string") {
@@ -313,8 +369,20 @@ async function generateDraftContent(
       messageId: lastMessage.id,
       reply,
       confidence,
+      ...(selectedRuleId
+        ? {
+            attachments: attachmentSelection.selectedAttachments,
+            ruleId: selectedRuleId,
+          }
+        : {}),
     });
   }
 
-  return { draft: reply, confidence };
+  return {
+    draft: reply,
+    confidence,
+    ...(selectedRuleId
+      ? { attachments: attachmentSelection.selectedAttachments }
+      : {}),
+  };
 }
