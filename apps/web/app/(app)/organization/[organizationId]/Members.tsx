@@ -88,7 +88,7 @@ export function Members({ organizationId }: { organizationId: string }) {
           });
         } else {
           toastSuccess({ description: successMessage });
-          mutate();
+          await mutate();
         }
       } catch (err) {
         toastError({

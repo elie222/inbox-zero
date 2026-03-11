@@ -290,46 +290,11 @@ export const removeMemberAction = actionClientUser
   .metadata({ name: "removeMember" })
   .inputSchema(removeMemberBody)
   .action(async ({ ctx: { userId }, parsedInput: { memberId } }) => {
-    const targetMember = await prisma.member.findUnique({
-      where: { id: memberId },
-      select: {
-        id: true,
-        emailAccountId: true,
-        organizationId: true,
-        role: true,
-      },
+    const { targetMember } = await authorizeMemberManagement({
+      memberId,
+      userId,
+      action: "remove",
     });
-
-    if (!targetMember) {
-      throw new SafeError("Member not found.");
-    }
-
-    const callerMembership = await prisma.member.findFirst({
-      where: {
-        organizationId: targetMember.organizationId,
-        emailAccount: { userId },
-      },
-      select: { role: true, emailAccountId: true },
-    });
-
-    if (!callerMembership) {
-      throw new SafeError("You are not a member of this organization.");
-    }
-
-    if (!hasOrganizationAdminRole(callerMembership.role)) {
-      throw new SafeError(
-        "Only organization owners or admins can remove members.",
-      );
-    }
-
-    // Prevent self-removal
-    if (targetMember.emailAccountId === callerMembership.emailAccountId) {
-      throw new SafeError("You cannot remove yourself from the organization.");
-    }
-
-    if (targetMember.role === "owner" && callerMembership.role !== "owner") {
-      throw new SafeError("Only owners can remove other owners.");
-    }
 
     if (targetMember.role === "owner") {
       const ownerCount = await prisma.member.count({
@@ -362,45 +327,11 @@ export const updateMemberRoleAction = actionClientUser
   .metadata({ name: "updateMemberRole" })
   .inputSchema(updateMemberRoleBody)
   .action(async ({ ctx: { userId }, parsedInput: { memberId, role } }) => {
-    const targetMember = await prisma.member.findUnique({
-      where: { id: memberId },
-      select: {
-        id: true,
-        emailAccountId: true,
-        organizationId: true,
-        role: true,
-      },
+    const { targetMember } = await authorizeMemberManagement({
+      memberId,
+      userId,
+      action: "updateRole",
     });
-
-    if (!targetMember) {
-      throw new SafeError("Member not found.");
-    }
-
-    const callerMembership = await prisma.member.findFirst({
-      where: {
-        organizationId: targetMember.organizationId,
-        emailAccount: { userId },
-      },
-      select: { role: true, emailAccountId: true },
-    });
-
-    if (!callerMembership) {
-      throw new SafeError("You are not a member of this organization.");
-    }
-
-    if (!hasOrganizationAdminRole(callerMembership.role)) {
-      throw new SafeError(
-        "Only organization owners or admins can update member roles.",
-      );
-    }
-
-    if (targetMember.emailAccountId === callerMembership.emailAccountId) {
-      throw new SafeError("You cannot change your own role.");
-    }
-
-    if (targetMember.role === "owner") {
-      throw new SafeError("Organization owners cannot be reassigned.");
-    }
 
     if (targetMember.role === role) {
       return { id: targetMember.id, role: targetMember.role };
@@ -647,4 +578,68 @@ async function generateUniqueSlug(baseSlug: string): Promise<string> {
   }
 
   return baseSlug + randomSuffix;
+}
+
+async function authorizeMemberManagement({
+  memberId,
+  userId,
+  action,
+}: {
+  memberId: string;
+  userId: string;
+  action: "remove" | "updateRole";
+}) {
+  const targetMember = await prisma.member.findUnique({
+    where: { id: memberId },
+    select: {
+      id: true,
+      emailAccountId: true,
+      organizationId: true,
+      role: true,
+    },
+  });
+
+  if (!targetMember) {
+    throw new SafeError("Member not found.");
+  }
+
+  const callerMembership = await prisma.member.findFirst({
+    where: {
+      organizationId: targetMember.organizationId,
+      emailAccount: { userId },
+    },
+    select: { role: true, emailAccountId: true },
+  });
+
+  if (!callerMembership) {
+    throw new SafeError("You are not a member of this organization.");
+  }
+
+  if (!hasOrganizationAdminRole(callerMembership.role)) {
+    throw new SafeError(
+      action === "remove"
+        ? "Only organization owners or admins can remove members."
+        : "Only organization owners or admins can update member roles.",
+    );
+  }
+
+  if (targetMember.emailAccountId === callerMembership.emailAccountId) {
+    throw new SafeError(
+      action === "remove"
+        ? "You cannot remove yourself from the organization."
+        : "You cannot change your own role.",
+    );
+  }
+
+  if (targetMember.role === "owner") {
+    if (action === "updateRole") {
+      throw new SafeError("Organization owners cannot be reassigned.");
+    }
+
+    if (callerMembership.role !== "owner") {
+      throw new SafeError("Only owners can remove other owners.");
+    }
+  }
+
+  return { targetMember, callerMembership };
 }
