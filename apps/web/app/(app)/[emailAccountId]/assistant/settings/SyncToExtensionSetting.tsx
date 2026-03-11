@@ -77,7 +77,7 @@ export function SyncToExtensionSetting() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [deselected, setDeselected] = useState<Set<string>>(new Set());
 
-  const allTabs =
+  const allTabs = useMemo(
     () => mapRulesToExtensionTabs(rules || []),
     [rules],
   );
