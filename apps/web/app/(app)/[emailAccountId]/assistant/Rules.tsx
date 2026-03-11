@@ -83,12 +83,6 @@ export function Rules({
   const { executeAsync: toggleRule } = useAction(
     toggleRuleAction.bind(null, emailAccountId),
   );
-  const { executeAsync: deleteRule } = useAction(
-    deleteRuleAction.bind(null, emailAccountId),
-    {
-      onSettled: () => mutate(),
-    },
-  );
 
   const rules: RulesResponse = useMemo(() => {
     const existingRules = data || [];
@@ -309,9 +303,10 @@ export function Rules({
                                   if (yes) {
                                     toast.promise(
                                       async () => {
-                                        const res = await deleteRule({
-                                          id: rule.id,
-                                        });
+                                        const res = await deleteRuleAction(
+                                          emailAccountId,
+                                          { id: rule.id },
+                                        );
 
                                         if (
                                           res?.serverError ||
@@ -323,6 +318,14 @@ export function Rules({
                                           );
                                         }
 
+                                        mutate(
+                                          (currentRules) =>
+                                            currentRules?.filter(
+                                              (currentRule) =>
+                                                currentRule.id !== rule.id,
+                                            ),
+                                          { revalidate: false },
+                                        );
                                         mutate();
                                       },
                                       {
