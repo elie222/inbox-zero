@@ -723,42 +723,42 @@ export function CreatedRuleToolCard({
   );
 
   return (
-    <ToolCard>
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-base">{args.name}</h3>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
+        <h3 className="text-base font-semibold">{args.name}</h3>
         {ruleId && <RuleActions ruleId={ruleId} />}
-      </div>
+      </CardHeader>
 
-      <div className="border-t" />
-
-      <div className="flex gap-4 text-sm">
-        <span className="shrink-0 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          When
-        </span>
-        <p>{conditionText}</p>
-      </div>
-
-      <div className="flex gap-4 text-sm">
-        <span className="shrink-0 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Then
-        </span>
-        <div className="flex flex-wrap gap-1.5">
-          {args.actions.map((action, i) => {
-            const Icon = getActionIcon(action.type as ActionType);
-            return (
-              <Badge
-                key={i}
-                color={getActionColor(action.type as ActionType)}
-                className="w-fit shrink-0"
-              >
-                <Icon className="mr-1.5 size-3" />
-                {formatActionLabel(action)}
-              </Badge>
-            );
-          })}
+      <CardContent className="space-y-3 px-4 py-3.5">
+        <div className="flex gap-4 text-sm">
+          <span className="shrink-0 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            When
+          </span>
+          <p>{conditionText}</p>
         </div>
-      </div>
-    </ToolCard>
+
+        <div className="flex gap-4 text-sm">
+          <span className="shrink-0 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Then
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {args.actions.map((action, i) => {
+              const Icon = getActionIcon(action.type as ActionType);
+              return (
+                <Badge
+                  key={i}
+                  color={getActionColor(action.type as ActionType)}
+                  className="w-fit shrink-0"
+                >
+                  <Icon className="mr-1.5 size-3" />
+                  {formatActionLabel(action)}
+                </Badge>
+              );
+            })}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
