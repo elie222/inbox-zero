@@ -77,6 +77,7 @@ vi.mock("@/env", () => ({
     AZURE_RESOURCE_NAME: "test-azure-resource",
     AZURE_API_VERSION: "2024-10-21",
     GOOGLE_API_KEY: "test-google-key",
+    GOOGLE_THINKING_BUDGET: undefined,
     GOOGLE_VERTEX_PROJECT: "test-vertex-project",
     GOOGLE_VERTEX_LOCATION: "us-central1",
     GOOGLE_VERTEX_CLIENT_EMAIL: undefined,
@@ -126,6 +127,7 @@ describe("Models", () => {
     vi.mocked(env).GOOGLE_VERTEX_CLIENT_EMAIL = undefined;
     vi.mocked(env).GOOGLE_VERTEX_PRIVATE_KEY = undefined;
     vi.mocked(env).GOOGLE_APPLICATION_CREDENTIALS = undefined;
+    vi.mocked(env).GOOGLE_THINKING_BUDGET = undefined;
     vi.mocked(env).AI_GATEWAY_API_KEY = "test-ai-gateway-key";
     vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434/api";
     vi.mocked(env).OLLAMA_MODEL = "llama3";
@@ -228,6 +230,40 @@ describe("Models", () => {
           },
         },
       });
+    });
+
+    it("should allow overriding Google thinking budget via env", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: "user-api-key",
+        aiProvider: Provider.GOOGLE,
+        aiModel: "gemini-2.5-flash",
+      };
+
+      vi.mocked(env).GOOGLE_THINKING_BUDGET = 32;
+
+      const result = getModel(userAi);
+
+      expect(result.providerOptions).toEqual({
+        google: {
+          thinkingConfig: {
+            thinkingBudget: 32,
+          },
+        },
+      });
+    });
+
+    it("should omit Google thinking budget when the env override is 0", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: "user-api-key",
+        aiProvider: Provider.GOOGLE,
+        aiModel: "gemini-2.5-flash-lite",
+      };
+
+      vi.mocked(env).GOOGLE_THINKING_BUDGET = 0;
+
+      const result = getModel(userAi);
+
+      expect(result.providerOptions).toBeUndefined();
     });
 
     it("should configure Vertex model correctly", () => {
@@ -348,7 +384,7 @@ describe("Models", () => {
       expect(result.model).toBeDefined();
     });
 
-    it("should configure AI Gateway Google model with low thinking budget", () => {
+    it("should configure AI Gateway Gemini 3 model with minimal thinking", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
         aiProvider: null,
@@ -365,7 +401,31 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         google: {
           thinkingConfig: {
-            thinkingBudget: 128,
+            thinkingLevel: "minimal",
+          },
+        },
+      });
+    });
+
+    it("should configure AI Gateway Gemini 2.5 model with the configured thinking budget", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "aigateway";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "google/gemini-2.5-flash";
+      vi.mocked(env).GOOGLE_THINKING_BUDGET = 48;
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.AI_GATEWAY);
+      expect(result.modelName).toBe("google/gemini-2.5-flash");
+      expect(result.providerOptions).toEqual({
+        google: {
+          thinkingConfig: {
+            thinkingBudget: 48,
           },
         },
       });
