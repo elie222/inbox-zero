@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import type { MouseEvent, ReactNode } from "react";
+import { createElement, type MouseEvent, type ReactNode } from "react";
 import {
   cleanup,
   fireEvent,
@@ -51,11 +51,12 @@ vi.mock("@/components/ui/button", () => ({
     children?: ReactNode;
     onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
     disabled?: boolean;
-  }) => (
-    <button type="button" onClick={onClick} disabled={disabled}>
-      {children || "icon-button"}
-    </button>
-  ),
+  }) =>
+    createElement(
+      "button",
+      { type: "button", onClick, disabled },
+      children || "icon-button",
+    ),
 }));
 
 vi.mock("@/hooks/useThread", () => ({
@@ -124,9 +125,11 @@ describe("InlineEmailCard", () => {
 
   it("normalizes legacy prefixed ids for the Gmail link and archive action", async () => {
     render(
-      <InlineEmailCard id="user-content-19cdca06580b38e9" action="archive">
-        Follow up
-      </InlineEmailCard>,
+      createElement(
+        InlineEmailCard,
+        { id: "user-content-19cdca06580b38e9", action: "archive" },
+        "Follow up",
+      ),
     );
 
     expect(screen.getByRole("link").getAttribute("href")).toBe(
@@ -160,14 +163,20 @@ describe("InlineEmailList", () => {
 
   it("archives all cards using the dedicated threadid attribute", async () => {
     render(
-      <InlineEmailList>
-        <InlineEmailCard threadid="thread-1" action="none">
-          First
-        </InlineEmailCard>
-        <InlineEmailCard threadid="thread-2" action="none">
-          Second
-        </InlineEmailCard>
-      </InlineEmailList>,
+      createElement(
+        InlineEmailList,
+        null,
+        createElement(
+          InlineEmailCard,
+          { threadid: "thread-1", action: "none" },
+          "First",
+        ),
+        createElement(
+          InlineEmailCard,
+          { threadid: "thread-2", action: "none" },
+          "Second",
+        ),
+      ),
     );
 
     fireEvent.click(screen.getAllByRole("button")[0]);
