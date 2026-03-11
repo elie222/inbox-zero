@@ -17,7 +17,6 @@ import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "../error";
 
-// Keep Gemini 2.x/2.5 thinking low by default to minimize cost.
 const DEFAULT_GOOGLE_THINKING_BUDGET = 128;
 
 const logger = createScopedLogger("llms/model");
