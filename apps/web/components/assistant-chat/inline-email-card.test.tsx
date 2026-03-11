@@ -263,4 +263,19 @@ describe("InlineEmailList", () => {
       threadId: "thread-2",
     });
   });
+
+  it("updates each row inline after archive all succeeds", async () => {
+    render(
+      <InlineEmailList>
+        <InlineEmailCard threadid="thread-1">First</InlineEmailCard>
+        <InlineEmailCard threadid="thread-2">Second</InlineEmailCard>
+      </InlineEmailList>,
+    );
+
+    fireEvent.click(screen.getAllByRole("button")[0]);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Archived").length).toBe(2);
+    });
+  });
 });

@@ -2,8 +2,10 @@
 
 import React, {
   Children,
+  createContext,
   isValidElement,
   useState,
+  useContext,
   type ReactNode,
 } from "react";
 import {
@@ -32,32 +34,75 @@ import { useThread } from "@/hooks/useThread";
 
 type ActionState = "idle" | "loading" | "done";
 
+type InlineEmailListState = {
+  archivedThreadIds: Set<string>;
+  readThreadIds: Set<string>;
+  markArchived: (threadIds: string[]) => void;
+  markRead: (threadIds: string[]) => void;
+};
+
+const InlineEmailListContext = createContext<InlineEmailListState | null>(null);
+
 export function InlineEmailList({ children }: { children?: ReactNode }) {
   const { emailAccountId } = useAccount();
   const [archiveAllState, setArchiveAllState] = useState<ActionState>("idle");
   const [markReadState, setMarkReadState] = useState<ActionState>("idle");
+  const [archivedThreadIds, setArchivedThreadIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [readThreadIds, setReadThreadIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const threadIds = collectThreadIds(children);
+  const remainingArchiveThreadIds = threadIds.filter(
+    (threadId) => !archivedThreadIds.has(threadId),
+  );
+  const remainingReadThreadIds = threadIds.filter(
+    (threadId) => !readThreadIds.has(threadId),
+  );
+  const archiveAllDone =
+    archiveAllState === "done" || remainingArchiveThreadIds.length === 0;
+  const markReadDone =
+    markReadState === "done" || remainingReadThreadIds.length === 0;
+
+  function markArchived(threadIds: string[]) {
+    setArchivedThreadIds((current) => addThreadIds(current, threadIds));
+  }
+
+  function markRead(threadIds: string[]) {
+    setReadThreadIds((current) => addThreadIds(current, threadIds));
+  }
 
   async function handleArchiveAll() {
-    if (archiveAllState !== "idle" || threadIds.length === 0) return;
+    if (archiveAllState !== "idle" || remainingArchiveThreadIds.length === 0) {
+      return;
+    }
     setArchiveAllState("loading");
     try {
       const results = await Promise.all(
-        threadIds.map((threadId) =>
+        remainingArchiveThreadIds.map((threadId) =>
           archiveThreadAction(emailAccountId, { threadId }),
         ),
+      );
+      const successfulThreadIds = getSuccessfulThreadIds(
+        remainingArchiveThreadIds,
+        results,
       );
       const failedCount = results.filter((r) => r?.serverError).length;
       if (failedCount === results.length) {
         toastError({ description: "Failed to archive emails" });
         setArchiveAllState("idle");
       } else if (failedCount > 0) {
+        markArchived(successfulThreadIds);
         toastSuccess({
           description: `Archived ${results.length - failedCount} of ${results.length} emails`,
         });
         setArchiveAllState("idle");
       } else {
-        toastSuccess({ description: `Archived ${threadIds.length} emails` });
+        markArchived(successfulThreadIds);
+        toastSuccess({
+          description: `Archived ${remainingArchiveThreadIds.length} emails`,
+        });
         setArchiveAllState("done");
       }
     } catch {
@@ -67,25 +112,35 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
   }
 
   async function handleMarkAllRead() {
-    if (markReadState !== "idle" || threadIds.length === 0) return;
+    if (markReadState !== "idle" || remainingReadThreadIds.length === 0) {
+      return;
+    }
     setMarkReadState("loading");
     try {
       const results = await Promise.all(
-        threadIds.map((threadId) =>
+        remainingReadThreadIds.map((threadId) =>
           markReadThreadAction(emailAccountId, { threadId, read: true }),
         ),
+      );
+      const successfulThreadIds = getSuccessfulThreadIds(
+        remainingReadThreadIds,
+        results,
       );
       const failedCount = results.filter((r) => r?.serverError).length;
       if (failedCount === results.length) {
         toastError({ description: "Failed to mark emails as read" });
         setMarkReadState("idle");
       } else if (failedCount > 0) {
+        markRead(successfulThreadIds);
         toastSuccess({
           description: `Marked ${results.length - failedCount} of ${results.length} as read`,
         });
         setMarkReadState("idle");
       } else {
-        toastSuccess({ description: `Marked ${threadIds.length} as read` });
+        markRead(successfulThreadIds);
+        toastSuccess({
+          description: `Marked ${remainingReadThreadIds.length} as read`,
+        });
         setMarkReadState("done");
       }
     } catch {
@@ -95,43 +150,46 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
   }
 
   return (
-    <div className="my-2 overflow-hidden rounded-lg border bg-card shadow-sm">
-      {threadIds.length > 0 && (
-        <div className="flex items-center justify-end gap-1 border-b px-3 py-1.5">
-          <Tooltip
-            content={
-              archiveAllState === "done" ? "All archived" : "Archive all"
-            }
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              loading={archiveAllState === "loading"}
-              disabled={archiveAllState === "done"}
-              onClick={handleArchiveAll}
-              Icon={archiveAllState === "done" ? CheckIcon : ArchiveIcon}
-            />
-          </Tooltip>
-          <Tooltip
-            content={
-              markReadState === "done" ? "All marked read" : "Mark all read"
-            }
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              loading={markReadState === "loading"}
-              disabled={markReadState === "done"}
-              onClick={handleMarkAllRead}
-              Icon={markReadState === "done" ? CheckIcon : MailOpenIcon}
-            />
-          </Tooltip>
-        </div>
-      )}
-      {children}
-    </div>
+    <InlineEmailListContext.Provider
+      value={{
+        archivedThreadIds,
+        readThreadIds,
+        markArchived,
+        markRead,
+      }}
+    >
+      <div className="my-2 overflow-hidden rounded-lg border bg-card shadow-sm">
+        {threadIds.length > 0 && (
+          <div className="flex items-center justify-end gap-1 border-b px-3 py-1.5">
+            <Tooltip content={archiveAllDone ? "All archived" : "Archive all"}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                loading={archiveAllState === "loading"}
+                disabled={archiveAllDone}
+                onClick={handleArchiveAll}
+                Icon={archiveAllDone ? CheckIcon : ArchiveIcon}
+              />
+            </Tooltip>
+            <Tooltip
+              content={markReadDone ? "All marked read" : "Mark all read"}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                loading={markReadState === "loading"}
+                disabled={markReadDone}
+                onClick={handleMarkAllRead}
+                Icon={markReadDone ? CheckIcon : MailOpenIcon}
+              />
+            </Tooltip>
+          </div>
+        )}
+        {children}
+      </div>
+    </InlineEmailListContext.Provider>
   );
 }
 
@@ -147,12 +205,16 @@ export function InlineEmailCard({
   children?: ReactNode;
 }) {
   const emailLookup = useEmailLookup();
+  const listState = useContext(InlineEmailListContext);
   const { emailAccountId, provider, userEmail } = useAccount();
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [expanded, setExpanded] = useState(false);
   const threadId = resolveInlineEmailThreadId({ id, threadid });
 
   const meta = threadId ? emailLookup.get(threadId) : undefined;
+  const isArchived = !!threadId && !!listState?.archivedThreadIds.has(threadId);
+  const isMarkedRead = !!threadId && !!listState?.readThreadIds.has(threadId);
+  const isUnread = !!meta?.isUnread && !isMarkedRead && !isArchived;
 
   const externalUrl = threadId
     ? getEmailUrlForMessage(
@@ -176,6 +238,7 @@ export function InlineEmailCard({
         setActionState("idle");
         return;
       }
+      listState?.markArchived([threadId]);
       toastSuccess({ description: "Archived" });
       setActionState("done");
     } catch {
@@ -184,7 +247,7 @@ export function InlineEmailCard({
     }
   }
 
-  const isDone = actionState === "done";
+  const isDone = actionState === "done" || isArchived;
   const showArchive = threadId && (!action || action === "archive");
 
   return (
@@ -214,19 +277,19 @@ export function InlineEmailCard({
         {meta ? (
           <>
             <div className="flex w-4 shrink-0 justify-center">
-              {meta.isUnread ? (
+              {isUnread ? (
                 <div className="size-2 rounded-full bg-blue-500" />
               ) : null}
             </div>
 
             <span
-              className={`w-40 shrink-0 truncate pr-3 text-xs ${meta.isUnread ? "font-semibold" : ""}`}
+              className={`w-40 shrink-0 truncate pr-3 text-xs ${isUnread ? "font-semibold" : ""}`}
             >
               {meta.from}
             </span>
 
             <span className="min-w-0 flex-1 truncate">
-              <span className={meta.isUnread ? "font-medium" : ""}>
+              <span className={isUnread ? "font-medium" : ""}>
                 {meta.subject}
               </span>
               {children ? (
@@ -378,4 +441,23 @@ function resolveInlineEmailThreadId({
     return id.slice("user-content-".length) || undefined;
   }
   return id;
+}
+
+function addThreadIds(current: Set<string>, threadIds: string[]) {
+  if (!threadIds.length) return current;
+
+  const next = new Set(current);
+
+  for (const threadId of threadIds) {
+    next.add(threadId);
+  }
+
+  return next;
+}
+
+function getSuccessfulThreadIds(
+  threadIds: string[],
+  results: Array<{ serverError?: string } | undefined>,
+) {
+  return threadIds.filter((_, index) => !results[index]?.serverError);
 }
