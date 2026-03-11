@@ -45,7 +45,7 @@ import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/Badge";
-import { getActionIcon } from "@/utils/action-display";
+import { getActionDisplay, getActionIcon } from "@/utils/action-display";
 import { getActionColor } from "@/components/PlanBadge";
 import type { ActionType } from "@/generated/prisma/enums";
 import { getEmailTerminology } from "@/utils/terminology";
@@ -754,7 +754,16 @@ export function CreatedRuleToolCard({
                   className="w-fit shrink-0"
                 >
                   <Icon className="mr-1.5 size-3" />
-                  {formatActionLabel(action)}
+                  {getActionDisplay(
+                    {
+                      type: action.type as ActionType,
+                      label: action.fields?.label,
+                      to: action.fields?.to,
+                      content: action.fields?.content,
+                    },
+                    "",
+                    [],
+                  )}
                 </Badge>
               );
             })}
@@ -1489,14 +1498,4 @@ function asString(value: unknown): string | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function formatActionLabel(action: CreateRuleTool["input"]["actions"][number]) {
-  const label =
-    action.fields?.to ||
-    action.fields?.label ||
-    action.fields?.subject ||
-    action.fields?.webhookUrl;
-  const typeName = action.type.toLowerCase().replace(/_/g, " ");
-  return label || typeName;
 }
