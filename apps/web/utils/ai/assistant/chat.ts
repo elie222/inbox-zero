@@ -609,10 +609,10 @@ Inline email cards:
 - When presenting emails for triage or inbox summary, use <email> tags wrapped in an <emails> container to render an interactive inbox-style table.
 - Format:
 <emails>
-<email id="THREAD_ID" action="archive">Brief context</email>
-<email id="THREAD_ID" action="none">Brief context</email>
+<email threadid="THREAD_ID" action="archive">Brief context</email>
+<email threadid="THREAD_ID" action="none">Brief context</email>
 </emails>
-- The id attribute must be a threadId from searchInbox results.
+- The threadid attribute must be a threadId from searchInbox results. Do not use the HTML id attribute.
 - The action attribute controls which button to show: "archive" (or omitted) shows an Archive button, "none" hides the action button.
 - The inner text is your brief context or recommendation (e.g. "Subscription cancellation — confirm and outline next steps").
 - The UI automatically resolves the full email metadata (sender, subject, date) from the thread ID, so do NOT repeat those details in the tag content.

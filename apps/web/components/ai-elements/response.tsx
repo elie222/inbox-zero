@@ -10,7 +10,7 @@ import {
 
 type ResponseProps = ComponentProps<typeof Streamdown>;
 
-const customAllowedTags = { emails: [], email: ["id", "action"] };
+const customAllowedTags = { emails: [], email: ["id", "threadid", "action"] };
 const customComponents = { emails: InlineEmailList, email: InlineEmailCard };
 const customLiteralContent = ["email"];
 

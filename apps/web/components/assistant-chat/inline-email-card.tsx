@@ -1,6 +1,11 @@
 "use client";
 
-import { Children, isValidElement, useState, type ReactNode } from "react";
+import React, {
+  Children,
+  isValidElement,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ArchiveIcon,
   CheckIcon,
@@ -129,10 +134,12 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
 
 export function InlineEmailCard({
   id,
+  threadid,
   action,
   children,
 }: {
   id?: string;
+  threadid?: string;
   action?: string;
   children?: ReactNode;
 }) {
@@ -140,20 +147,26 @@ export function InlineEmailCard({
   const { emailAccountId, provider, userEmail } = useAccount();
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [expanded, setExpanded] = useState(false);
+  const threadId = resolveInlineEmailThreadId({ id, threadid });
 
-  const meta = id ? emailLookup.get(id) : undefined;
+  const meta = threadId ? emailLookup.get(threadId) : undefined;
 
-  const externalUrl = id
-    ? getEmailUrlForMessage(meta?.messageId ?? id, id, userEmail, provider)
+  const externalUrl = threadId
+    ? getEmailUrlForMessage(
+        meta?.messageId ?? threadId,
+        threadId,
+        userEmail,
+        provider,
+      )
     : null;
 
   async function handleArchive(e: React.MouseEvent) {
     e.stopPropagation();
-    if (!id || actionState !== "idle") return;
+    if (!threadId || actionState !== "idle") return;
     setActionState("loading");
     try {
       const result = await archiveThreadAction(emailAccountId, {
-        threadId: id,
+        threadId,
       });
       if (result?.serverError) {
         toastError({ description: result.serverError });
@@ -169,23 +182,23 @@ export function InlineEmailCard({
   }
 
   const isDone = actionState === "done";
-  const showArchive = id && (!action || action === "archive");
+  const showArchive = threadId && (!action || action === "archive");
 
   return (
     <div>
       <div
-        role={id ? "button" : undefined}
-        tabIndex={id ? 0 : undefined}
-        className={`group flex items-center border-b border-border/40 px-3 py-2 text-sm last:border-b-0 ${id ? "cursor-pointer" : ""} ${isDone ? "bg-muted/30 line-through opacity-50" : "hover:bg-muted/50"}`}
-        onClick={() => id && setExpanded(!expanded)}
+        role={threadId ? "button" : undefined}
+        tabIndex={threadId ? 0 : undefined}
+        className={`group flex items-center border-b border-border/40 px-3 py-2 text-sm last:border-b-0 ${threadId ? "cursor-pointer" : ""} ${isDone ? "bg-muted/30 line-through opacity-50" : "hover:bg-muted/50"}`}
+        onClick={() => threadId && setExpanded(!expanded)}
         onKeyDown={(e) => {
-          if (id && (e.key === "Enter" || e.key === " ")) {
+          if (threadId && (e.key === "Enter" || e.key === " ")) {
             e.preventDefault();
             setExpanded(!expanded);
           }
         }}
       >
-        {id && (
+        {threadId && (
           <div className="mr-1 flex w-4 shrink-0 justify-center text-muted-foreground">
             {expanded ? (
               <ChevronDownIcon className="size-3.5" />
@@ -268,7 +281,7 @@ export function InlineEmailCard({
         </div>
       </div>
 
-      {expanded && id && <EmailPreview threadId={id} />}
+      {expanded && threadId && <EmailPreview threadId={threadId} />}
     </div>
   );
 }
@@ -276,8 +289,11 @@ export function InlineEmailCard({
 function collectThreadIds(children: ReactNode): string[] {
   const ids: string[] = [];
   Children.forEach(children, (child) => {
-    if (isValidElement<{ id?: string }>(child) && child.props.id) {
-      ids.push(child.props.id);
+    if (!isValidElement<{ id?: string; threadid?: string }>(child)) return;
+
+    const threadId = resolveInlineEmailThreadId(child.props);
+    if (threadId) {
+      ids.push(threadId);
     }
   });
   return ids;
@@ -317,4 +333,19 @@ function EmailPreview({ threadId }: { threadId: string }) {
       {text}
     </div>
   );
+}
+
+function resolveInlineEmailThreadId({
+  id,
+  threadid,
+}: {
+  id?: string;
+  threadid?: string;
+}) {
+  if (threadid) return threadid;
+  if (!id) return undefined;
+  if (id.startsWith("user-content-")) {
+    return id.slice("user-content-".length) || undefined;
+  }
+  return id;
 }
