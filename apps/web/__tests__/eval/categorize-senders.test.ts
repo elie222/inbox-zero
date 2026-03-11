@@ -14,8 +14,9 @@ const TIMEOUT = 60_000;
 
 // Enabled categories: Newsletter, Marketing, Receipt, Notification, Other
 //
-// Each test case represents a SENDER being categorized based on their typical
-// email pattern (2-3 previous emails), not a single email classification.
+// Each test case represents a SENDER being categorized based on previous emails.
+// Multi-email cases test pattern recognition; single-email cases test whether
+// models can categorize with minimal context or correctly defer to "Other".
 // Senders use generic addresses to force classification based on content.
 const testCases = [
   // --- Newsletter senders ---
@@ -283,6 +284,68 @@ const testCases = [
       },
     ],
     expected: "Notification",
+  },
+  // --- Single-email senders (less signal, model must decide with minimal context) ---
+  // Clear receipt even with one email — payment details are unambiguous
+  {
+    sender: "noreply@gumroad.com",
+    emails: [
+      {
+        subject: "You've purchased: Design System Checklist",
+        snippet:
+          "Thanks for your purchase! Design System Checklist by Sarah K. Amount: $24.00. Payment: Visa ending in 4242. Download your file here. If you have any issues, reply to this email.",
+      },
+    ],
+    expected: "Receipt",
+  },
+  // Clear notification even with one email — automated system event
+  {
+    sender: "noreply@railway.app",
+    emails: [
+      {
+        subject: "Deploy failed: acme-api (production)",
+        snippet:
+          "Deployment d3f8a2c failed for acme-api in production. Error: Build exited with code 1. Logs: npm ERR! Could not resolve dependency peer react@^18 required by react-dom@19.0.0. View full logs in your Railway dashboard.",
+      },
+    ],
+    expected: "Notification",
+  },
+  // Single email from a SaaS — onboarding/welcome. Promotional intent despite helpful tone.
+  {
+    sender: "hello@resend.com",
+    emails: [
+      {
+        subject: "Welcome to Resend — here's how to get started",
+        snippet:
+          "Thanks for signing up! Here's a quick guide: 1) Verify your domain in Settings. 2) Send your first email with our REST API or Node SDK. 3) Set up webhooks for delivery tracking. Need help? Reply to this email or check our docs. Pro tip: upgrade to the Pro plan for dedicated IPs and higher sending limits.",
+      },
+    ],
+    expected: "Marketing",
+  },
+  // Single email that's clearly a newsletter — first issue received
+  {
+    sender: "hello@tldr.tech",
+    emails: [
+      {
+        subject:
+          "TLDR 2026-03-10 — Google's new chip, open source LLM beats GPT-4, Stripe acquires Lemon Squeezy",
+        snippet:
+          "Here's your daily byte-sized summary of the most interesting stories in tech. Google unveiled its Willow chip delivering 3x the performance per watt. Meta released Llama 4 Scout, an open source model. Stripe confirmed the Lemon Squeezy acquisition for $100M. Sponsor: Try Cloudflare Workers AI — now with built-in vector search.",
+      },
+    ],
+    expected: "Newsletter",
+  },
+  // Vague teaser email — still marketing despite minimal content
+  {
+    sender: "info@newstartup.io",
+    emails: [
+      {
+        subject: "Thanks for your interest",
+        snippet:
+          "Hi there, thanks for stopping by. We're building something we think you'll love. Stay tuned for updates — we'll be in touch soon with more details.",
+      },
+    ],
+    expected: "Marketing",
   },
 ];
 
