@@ -171,7 +171,7 @@ export function SyncToExtensionSetting() {
                 No rules with label actions found.
               </p>
             ) : (
-              <div className="max-h-64 space-y-2 overflow-y-auto py-2">
+              <div className="space-y-2 py-2">
                 {allTabs.map((tab) => {
                   const key = getTabKey(tab);
                   const checked = !deselected.has(key);
@@ -184,16 +184,9 @@ export function SyncToExtensionSetting() {
                         checked={checked}
                         onCheckedChange={() => toggleTab(tab)}
                       />
-                      <div className="flex-1 text-sm">
-                        <span className="font-medium">
-                          {tab.displayLabel}
-                        </span>
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {tab.type === "enable_default"
-                            ? "Enable built-in tab"
-                            : "Create custom tab"}
-                        </span>
-                      </div>
+                      <span className="text-sm font-medium">
+                        {tab.displayLabel}
+                      </span>
                     </label>
                   );
                 })}
