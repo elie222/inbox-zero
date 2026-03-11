@@ -8,6 +8,8 @@ import { Response } from "@/components/ai-elements/response";
 const mockUseAccount = vi.fn();
 const mockUseEmailLookup = vi.fn();
 
+(globalThis as { React?: typeof React }).React = React;
+
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => mockUseAccount(),
 }));
