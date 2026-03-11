@@ -15,8 +15,8 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import type { RulesResponse } from "@/app/api/user/rules/route";
-import { AlertError } from "@/components/Alert";
 import { isMissingRuleError } from "./rule-fetch-error";
+import { RuleNotFoundState } from "./RuleNotFoundState";
 
 interface RuleDialogProps {
   duplicateRule?: RulesResponse[number];
@@ -86,10 +86,7 @@ export function RuleDialog({
         <div>
           {ruleId ? (
             isMissingRule ? (
-              <AlertError
-                title="Rule not found"
-                description="This rule no longer exists. It may have been deleted."
-              />
+              <RuleNotFoundState />
             ) : (
               <LoadingContent loading={isLoading} error={error}>
                 {data && (
