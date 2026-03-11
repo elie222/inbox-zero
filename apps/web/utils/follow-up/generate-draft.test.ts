@@ -4,6 +4,7 @@ import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
+import { aiDraftFollowUp } from "@/utils/ai/reply/draft-follow-up";
 
 vi.mock("server-only", () => ({}));
 
@@ -116,6 +117,7 @@ const createMockProvider = (
       messages: [],
       snippet: "Test",
     }),
+    deleteDraft: vi.fn().mockResolvedValue(undefined),
     draftEmail: vi.fn().mockResolvedValue({ draftId: "draft-123" }),
     ...overrides,
   }) as any;
@@ -162,16 +164,17 @@ describe("generateFollowUpDraft", () => {
     await generateFollowUpDraft({
       emailAccount: createMockEmailAccount(),
       threadId: "thread-1",
+      messageId: "user-msg",
       trackerId: "tracker-1",
       provider: mockProvider,
       logger: mockLogger,
     });
 
-    // Should use external message for drafting (reply to Bob)
+    // Should draft from the user's latest sent reply, not the older external email.
     expect(mockProvider.draftEmail).toHaveBeenCalledWith(
-      externalMessage,
+      userMessage,
       expect.objectContaining({
-        to: undefined, // No override needed, will reply to external sender
+        to: "bob@external.com",
         content: expect.any(String),
       }),
       "user@example.com",
@@ -203,6 +206,7 @@ describe("generateFollowUpDraft", () => {
     await generateFollowUpDraft({
       emailAccount: createMockEmailAccount(),
       threadId: "thread-1",
+      messageId: "user-msg",
       trackerId: "tracker-1",
       provider: mockProvider,
       logger: mockLogger,
@@ -254,6 +258,7 @@ describe("generateFollowUpDraft", () => {
     await generateFollowUpDraft({
       emailAccount: createMockEmailAccount(),
       threadId: "thread-1",
+      messageId: "user-msg-2",
       trackerId: "tracker-1",
       provider: mockProvider,
       logger: mockLogger,
@@ -282,6 +287,7 @@ describe("generateFollowUpDraft", () => {
     await generateFollowUpDraft({
       emailAccount: createMockEmailAccount(),
       threadId: "thread-1",
+      messageId: "msg-1",
       trackerId: "tracker-1",
       provider: mockProvider,
       logger: mockLogger,
@@ -299,12 +305,12 @@ describe("generateFollowUpDraft", () => {
       new Error("Record to update not found"),
     );
 
-    const externalMessage = createMockMessage({
-      id: "external-msg",
+    const userMessage = createMockMessage({
+      id: "user-msg",
       headers: {
-        from: "bob@external.com",
-        to: "user@example.com",
-        subject: "Original Question",
+        from: "user@example.com",
+        to: "bob@external.com",
+        subject: "Re: Original Question",
         date: "2024-01-01T00:00:00Z",
       },
     });
@@ -312,7 +318,7 @@ describe("generateFollowUpDraft", () => {
     const mockProvider = createMockProvider({
       getThread: vi.fn().mockResolvedValue({
         id: "thread-1",
-        messages: [externalMessage],
+        messages: [userMessage],
         snippet: "Test",
       }),
     });
@@ -323,6 +329,7 @@ describe("generateFollowUpDraft", () => {
     await generateFollowUpDraft({
       emailAccount: createMockEmailAccount(),
       threadId: "thread-1",
+      messageId: "user-msg",
       trackerId: "tracker-1",
       provider: mockProvider,
       logger,
@@ -344,11 +351,140 @@ describe("generateFollowUpDraft", () => {
     await generateFollowUpDraft({
       emailAccount: createMockEmailAccount(),
       threadId: "thread-1",
+      messageId: "msg-1",
       trackerId: "tracker-1",
       provider: mockProvider,
       logger: mockLogger,
     });
 
     expect(mockProvider.draftEmail).not.toHaveBeenCalled();
+  });
+
+  it("skips draft generation when the tracked message was not sent by the user", async () => {
+    const externalMessage = createMockMessage({
+      id: "external-msg",
+      headers: {
+        from: "bob@external.com",
+        to: "user@example.com",
+        subject: "Original Question",
+        date: "2024-01-01T00:00:00Z",
+      },
+    });
+
+    const mockProvider = createMockProvider({
+      getThread: vi.fn().mockResolvedValue({
+        id: "thread-1",
+        messages: [externalMessage],
+        snippet: "Test",
+      }),
+    });
+
+    await generateFollowUpDraft({
+      emailAccount: createMockEmailAccount(),
+      threadId: "thread-1",
+      messageId: "external-msg",
+      trackerId: "tracker-1",
+      provider: mockProvider,
+      logger: mockLogger,
+    });
+
+    expect(mockProvider.draftEmail).not.toHaveBeenCalled();
+  });
+
+  it("skips draft generation when the tracked message is no longer the latest in the thread", async () => {
+    const olderUserMessage = createMockMessage({
+      id: "user-msg-1",
+      internalDate: "1704067200000",
+      headers: {
+        from: "user@example.com",
+        to: "bob@external.com",
+        subject: "Initial Question",
+        date: "2024-01-01T00:00:00Z",
+      },
+    });
+    const newerUserMessage = createMockMessage({
+      id: "user-msg-2",
+      internalDate: "1704153600000",
+      headers: {
+        from: "user@example.com",
+        to: "bob@external.com",
+        subject: "Re: Initial Question",
+        date: "2024-01-02T00:00:00Z",
+      },
+    });
+
+    const mockProvider = createMockProvider({
+      getThread: vi.fn().mockResolvedValue({
+        id: "thread-1",
+        messages: [olderUserMessage, newerUserMessage],
+        snippet: "Test",
+      }),
+    });
+
+    await generateFollowUpDraft({
+      emailAccount: createMockEmailAccount(),
+      threadId: "thread-1",
+      messageId: "user-msg-1",
+      trackerId: "tracker-1",
+      provider: mockProvider,
+      logger: mockLogger,
+    });
+
+    expect(mockProvider.draftEmail).not.toHaveBeenCalled();
+  });
+
+  it("sorts thread messages before building LLM context", async () => {
+    const olderExternalMessage = createMockMessage({
+      id: "external-msg",
+      internalDate: "1704067200000",
+      headers: {
+        from: "bob@external.com",
+        to: "user@example.com",
+        subject: "Original Question",
+        date: "2024-01-01T00:00:00Z",
+      },
+    });
+    const newerUserMessage = createMockMessage({
+      id: "user-msg",
+      internalDate: "1704153600000",
+      headers: {
+        from: "user@example.com",
+        to: "bob@external.com",
+        subject: "Re: Original Question",
+        date: "2024-01-02T00:00:00Z",
+      },
+    });
+
+    const mockProvider = createMockProvider({
+      getThread: vi.fn().mockResolvedValue({
+        id: "thread-1",
+        messages: [newerUserMessage, olderExternalMessage],
+        snippet: "Test",
+      }),
+    });
+
+    await generateFollowUpDraft({
+      emailAccount: createMockEmailAccount(),
+      threadId: "thread-1",
+      messageId: "user-msg",
+      trackerId: "tracker-1",
+      provider: mockProvider,
+      logger: mockLogger,
+    });
+
+    expect(aiDraftFollowUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({ id: "external-msg" }),
+          expect.objectContaining({ id: "user-msg" }),
+        ]),
+      }),
+    );
+
+    const draftCall = vi.mocked(aiDraftFollowUp).mock.calls.at(-1);
+    expect(draftCall?.[0].messages.map((message) => message.id)).toEqual([
+      "external-msg",
+      "user-msg",
+    ]);
   });
 });
