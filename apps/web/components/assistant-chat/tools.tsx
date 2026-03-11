@@ -779,11 +779,13 @@ export function UpdatedRuleConditions({
   ruleId,
   originalConditions,
   updatedConditions,
+  preview,
 }: {
   args: UpdateRuleConditionsTool["input"];
   ruleId: string;
   originalConditions?: UpdateRuleConditionsOutput["originalConditions"];
   updatedConditions?: UpdateRuleConditionsOutput["updatedConditions"];
+  preview?: boolean;
 }) {
   const [showChanges, setShowChanges] = useState(false);
 
@@ -816,7 +818,7 @@ export function UpdatedRuleConditions({
                 onToggle={() => setShowChanges(!showChanges)}
               />
             )}
-            <RuleActions ruleId={ruleId} />
+            {preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />}
           </div>
         }
       />
@@ -954,15 +956,19 @@ export function UpdatedRuleActions({
 export function UpdatedLearnedPatterns({
   args,
   ruleId,
+  preview,
 }: {
   args: UpdateLearnedPatternsTool["input"];
   ruleId: string;
+  preview?: boolean;
 }) {
   return (
     <ToolCard>
       <ToolCardHeader
         title={<>Updated Learned Patterns</>}
-        actions={<RuleActions ruleId={ruleId} />}
+        actions={
+          preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
+        }
       />
 
       <div className="space-y-2">

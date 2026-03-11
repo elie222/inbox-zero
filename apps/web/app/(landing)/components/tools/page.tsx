@@ -7,6 +7,8 @@ import {
   AddToKnowledgeBase,
   BasicToolInfo,
   CreatedRuleToolCard,
+  UpdatedRuleConditions,
+  UpdatedLearnedPatterns,
   ForwardEmailResult,
   ManageInboxResult,
   ReadEmailResult,
@@ -219,6 +221,71 @@ export default function ToolsPage() {
                 ],
               }}
             />
+            <MutedText>Updated rule conditions (no diff):</MutedText>
+            <UpdatedRuleConditions
+              preview
+              ruleId="demo-rule"
+              args={{
+                ruleName: "Hiring",
+                condition: {
+                  aiInstructions:
+                    "Emails related to hiring, job applications, or candidate communication",
+                  static: { from: "hr@company.com", to: null, subject: null },
+                  conditionalOperator: "AND",
+                },
+              }}
+            />
+
+            <MutedText>Updated rule conditions (with diff):</MutedText>
+            <UpdatedRuleConditions
+              preview
+              ruleId="demo-rule"
+              args={{
+                ruleName: "Newsletter",
+                condition: {
+                  aiInstructions:
+                    "Emails that are newsletters, marketing, or promotional content",
+                  static: null,
+                  conditionalOperator: null,
+                },
+              }}
+              originalConditions={{
+                aiInstructions:
+                  "Emails that look like newsletters or marketing",
+                conditionalOperator: null,
+              }}
+              updatedConditions={{
+                aiInstructions:
+                  "Emails that are newsletters, marketing, or promotional content",
+                conditionalOperator: null,
+              }}
+            />
+
+            <MutedText>Updated learned patterns:</MutedText>
+            <UpdatedLearnedPatterns
+              preview
+              ruleId="demo-rule"
+              args={{
+                ruleName: "Newsletter",
+                learnedPatterns: [
+                  {
+                    include: {
+                      from: "@substack.com",
+                      subject: null,
+                    },
+                    exclude: null,
+                  },
+                  {
+                    include: null,
+                    exclude: {
+                      from: "team@company.com",
+                      subject: null,
+                    },
+                  },
+                ],
+              }}
+            />
+
             <UpdateAbout
               args={{
                 about:
