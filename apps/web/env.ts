@@ -279,6 +279,10 @@ export const env = createEnv({
     NEXT_PUBLIC_SMART_FILING_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_CLEANER_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_IS_RESEND_CONFIGURED: booleanString.optional(),
+    NEXT_PUBLIC_TABS_EXTENSION_ID: z
+      .string()
+      .optional()
+      .default("iencpoofingkkakccoknbleilcliokfk"),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -354,5 +358,6 @@ export const env = createEnv({
     NEXT_PUBLIC_CLEANER_ENABLED: process.env.NEXT_PUBLIC_CLEANER_ENABLED,
     NEXT_PUBLIC_IS_RESEND_CONFIGURED:
       process.env.NEXT_PUBLIC_IS_RESEND_CONFIGURED,
+    NEXT_PUBLIC_TABS_EXTENSION_ID: process.env.NEXT_PUBLIC_TABS_EXTENSION_ID,
   },
 });
