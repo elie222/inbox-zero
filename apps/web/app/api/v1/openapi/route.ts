@@ -13,6 +13,12 @@ import {
   responseTimeQuerySchema,
   responseTimeResponseSchema,
 } from "@/app/api/v1/stats/response-time/validation";
+import {
+  rulePathParamsSchema,
+  ruleRequestBodySchema,
+  ruleResponseSchema,
+  rulesResponseSchema,
+} from "@/app/api/v1/rules/validation";
 import { API_KEY_HEADER } from "@/utils/api-auth";
 import { env } from "@/env";
 import { BRAND_NAME } from "@/utils/branding";
@@ -65,6 +71,111 @@ registry.registerPath({
           schema: responseTimeResponseSchema,
         },
       },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/rules",
+  description: "List automation rules for the scoped inbox account.",
+  security: [{ ApiKeyAuth: [] }],
+  responses: {
+    200: {
+      description: "Successful response",
+      content: {
+        "application/json": {
+          schema: rulesResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/rules",
+  description: "Create an automation rule for the scoped inbox account.",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: ruleRequestBodySchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Successful response",
+      content: {
+        "application/json": {
+          schema: ruleResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/rules/{id}",
+  description: "Get a single automation rule for the scoped inbox account.",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    params: rulePathParamsSchema,
+  },
+  responses: {
+    200: {
+      description: "Successful response",
+      content: {
+        "application/json": {
+          schema: ruleResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "put",
+  path: "/rules/{id}",
+  description: "Replace an automation rule for the scoped inbox account.",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    params: rulePathParamsSchema,
+    body: {
+      content: {
+        "application/json": {
+          schema: ruleRequestBodySchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Successful response",
+      content: {
+        "application/json": {
+          schema: ruleResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/rules/{id}",
+  description: "Delete an automation rule for the scoped inbox account.",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    params: rulePathParamsSchema,
+  },
+  responses: {
+    204: {
+      description: "Rule deleted",
     },
   },
 });

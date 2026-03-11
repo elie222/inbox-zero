@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
-import { withError } from "@/utils/middleware";
-import { validateApiKeyAndGetEmailProvider } from "@/utils/api-auth";
+import { withStatsApiKey } from "@/utils/api-middleware";
 import { getEmailAccountId } from "@/app/api/v1/helpers";
 import { getStatsByPeriod } from "@/app/api/user/stats/by-period/controller";
 import { statsByPeriodQuerySchema } from "./validation";
 
-export const GET = withError("v1/stats/by-period", async (request) => {
-  const { userId, accountId } =
-    await validateApiKeyAndGetEmailProvider(request);
-
+export const GET = withStatsApiKey("v1/stats/by-period", async (request) => {
+  const {
+    userId,
+    accountId,
+    emailAccountId: scopedEmailAccountId,
+    authType,
+  } = request.apiAuth;
   const { searchParams } = new URL(request.url);
   const queryResult = statsByPeriodQuerySchema.safeParse(
     Object.fromEntries(searchParams),
@@ -23,11 +25,14 @@ export const GET = withError("v1/stats/by-period", async (request) => {
 
   const { period, fromDate, toDate, email } = queryResult.data;
 
-  const emailAccountId = await getEmailAccountId({
-    email,
-    accountId,
-    userId,
-  });
+  const emailAccountId =
+    authType === "account-scoped"
+      ? scopedEmailAccountId
+      : await getEmailAccountId({
+          email,
+          accountId,
+          userId,
+        });
 
   if (!emailAccountId) {
     return NextResponse.json(
