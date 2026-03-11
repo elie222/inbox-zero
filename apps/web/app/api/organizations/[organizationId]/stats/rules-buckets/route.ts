@@ -3,7 +3,6 @@ import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
 import { fetchAndCheckIsAdmin } from "@/utils/organizations/access";
 import { Prisma } from "@/generated/prisma/client";
-import { getOrgAdminAnalyticsSqlClause } from "@/utils/organizations/analytics";
 import { type OrgStatsParams, orgStatsParams } from "../types";
 
 const RULES_BUCKETS = [
@@ -62,13 +61,12 @@ async function getExecutedRulesBuckets({
     dateConditions.length > 0
       ? Prisma.sql` AND ${Prisma.join(dateConditions, " AND ")}`
       : Prisma.sql``;
-  const analyticsAccessClause = getOrgAdminAnalyticsSqlClause();
 
   const memberCounts = await prisma.$queryRaw<MemberRulesCount[]>`
     SELECT er."emailAccountId", COUNT(*) as rules_count
     FROM "ExecutedRule" er
     JOIN "Member" m ON m."emailAccountId" = er."emailAccountId"
-    WHERE m."organizationId" = ${organizationId}${analyticsAccessClause}${dateClause}
+    WHERE m."organizationId" = ${organizationId} AND m."allowOrgAdminAnalytics" = true${dateClause}
     GROUP BY er."emailAccountId"
   `;
 

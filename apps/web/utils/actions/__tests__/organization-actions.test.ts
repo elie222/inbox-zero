@@ -39,7 +39,12 @@ describe("organization actions", () => {
     });
     expect(prisma.organization.create).toHaveBeenCalled();
     expect(prisma.member.create).toHaveBeenCalledWith({
-      data: { organizationId: "org_1", emailAccountId: "ea_1", role: "owner" },
+      data: {
+        organizationId: "org_1",
+        emailAccountId: "ea_1",
+        role: "owner",
+        allowOrgAdminAnalytics: true,
+      },
     });
     expect(result?.data).toMatchObject({
       id: "org_1",

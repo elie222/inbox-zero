@@ -74,6 +74,7 @@ describe("createInvitationAction", () => {
       data: expect.objectContaining({
         emailAccountId: "ea_user",
         organizationId: "org_1",
+        allowOrgAdminAnalytics: true,
       }),
       select: { id: true },
     });

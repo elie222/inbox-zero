@@ -194,7 +194,6 @@ export const env = createEnv({
     MOBILE_AUTH_ORIGIN: z.string().trim().min(1).optional(),
     LOCAL_AUTH_BYPASS_ENABLED: booleanString.optional().default(false),
     AUTO_JOIN_ORGANIZATION_ENABLED: booleanString.optional().default(false),
-    AUTO_ENABLE_ORG_ANALYTICS: booleanString.optional().default(false),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),

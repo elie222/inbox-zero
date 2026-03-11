@@ -703,6 +703,7 @@ async function autoJoinOrganization(emailAccountId: string) {
       organizationId,
       emailAccountId,
       role: "member",
+      allowOrgAdminAnalytics: true,
     },
     select: { id: true, createdAt: true },
   });
