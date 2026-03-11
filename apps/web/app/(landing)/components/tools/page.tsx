@@ -163,6 +163,7 @@ export default function ToolsPage() {
 
             <MutedText>Created rule cards:</MutedText>
             <CreatedRuleToolCard
+              preview
               args={{
                 name: "Hiring",
                 condition: {
@@ -178,6 +179,7 @@ export default function ToolsPage() {
               }}
             />
             <CreatedRuleToolCard
+              preview
               args={{
                 name: "Newsletter Archive",
                 condition: {
@@ -197,6 +199,7 @@ export default function ToolsPage() {
               }}
             />
             <CreatedRuleToolCard
+              preview
               args={{
                 name: "Billing Alerts",
                 condition: {

@@ -701,9 +701,11 @@ function EmailActionResult({
 export function CreatedRuleToolCard({
   args,
   ruleId,
+  preview,
 }: {
   args: CreateRuleTool["input"];
   ruleId?: string;
+  preview?: boolean;
 }) {
   const conditionParts: string[] = [];
   if (args.condition.aiInstructions)
@@ -727,6 +729,7 @@ export function CreatedRuleToolCard({
       <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
         <h3 className="text-base font-semibold">{args.name}</h3>
         {ruleId && <RuleActions ruleId={ruleId} />}
+        {preview && <RuleActionsPreview />}
       </CardHeader>
 
       <CardContent className="space-y-3 px-4 py-3.5">
@@ -1104,6 +1107,20 @@ function RuleActions({ ruleId }: { ruleId: string }) {
         editMode={true}
       />
     </>
+  );
+}
+
+function RuleActionsPreview() {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+        <PencilIcon className="size-4" />
+      </Button>
+      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+        <TrashIcon className="size-4" />
+      </Button>
+      <Switch checked={true} />
+    </div>
   );
 }
 
