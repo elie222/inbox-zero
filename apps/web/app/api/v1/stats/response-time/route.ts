@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withStatsApiKey } from "@/utils/api-middleware";
-import { getEmailAccountId } from "@/app/api/v1/helpers";
+import { resolveStatsEmailAccountId } from "@/app/api/v1/helpers";
 import { getResponseTimeStats } from "@/app/api/user/stats/response-time/controller";
 import { responseTimeQuerySchema } from "./validation";
 
@@ -27,14 +27,13 @@ export const GET = withStatsApiKey(
 
     const { fromDate, toDate, email } = queryResult.data;
 
-    const emailAccountId =
-      authType === "account-scoped"
-        ? scopedEmailAccountId
-        : await getEmailAccountId({
-            email,
-            accountId,
-            userId,
-          });
+    const emailAccountId = await resolveStatsEmailAccountId({
+      authType,
+      scopedEmailAccountId,
+      email,
+      accountId,
+      userId,
+    });
 
     if (!emailAccountId) {
       return NextResponse.json(

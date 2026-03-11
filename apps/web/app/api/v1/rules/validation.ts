@@ -28,22 +28,24 @@ const conditionSchema = z
     },
   );
 
+const ruleActionTypeSchema = z.enum([
+  ActionType.LABEL,
+  ActionType.ARCHIVE,
+  ActionType.MARK_READ,
+  ActionType.DRAFT_EMAIL,
+  ActionType.REPLY,
+  ActionType.FORWARD,
+  ActionType.SEND_EMAIL,
+  ActionType.MARK_SPAM,
+  ActionType.DIGEST,
+  ActionType.CALL_WEBHOOK,
+  ActionType.MOVE_FOLDER,
+  ActionType.NOTIFY_SENDER,
+]);
+
 const actionSchema = z
   .object({
-    type: z.enum([
-      ActionType.LABEL,
-      ActionType.ARCHIVE,
-      ActionType.MARK_READ,
-      ActionType.DRAFT_EMAIL,
-      ActionType.REPLY,
-      ActionType.FORWARD,
-      ActionType.SEND_EMAIL,
-      ActionType.MARK_SPAM,
-      ActionType.DIGEST,
-      ActionType.CALL_WEBHOOK,
-      ActionType.MOVE_FOLDER,
-      ActionType.NOTIFY_SENDER,
-    ]),
+    type: ruleActionTypeSchema,
     fields: z
       .object({
         label: z.string().nullish(),
@@ -72,6 +74,30 @@ const actionSchema = z
         "SEND_EMAIL requires a recipient in fields.to. Use REPLY for auto-responses.",
       forwardMessage: "FORWARD requires a recipient in fields.to.",
     });
+    addMissingActionFieldIssue({
+      actionType: action.type,
+      requiredActionType: ActionType.LABEL,
+      fieldValue: action.fields?.label,
+      message: "LABEL requires a value in fields.label.",
+      path: ["fields", "label"],
+      ctx,
+    });
+    addMissingActionFieldIssue({
+      actionType: action.type,
+      requiredActionType: ActionType.CALL_WEBHOOK,
+      fieldValue: action.fields?.webhookUrl,
+      message: "CALL_WEBHOOK requires a value in fields.webhookUrl.",
+      path: ["fields", "webhookUrl"],
+      ctx,
+    });
+    addMissingActionFieldIssue({
+      actionType: action.type,
+      requiredActionType: ActionType.MOVE_FOLDER,
+      fieldValue: action.fields?.folderName,
+      message: "MOVE_FOLDER requires a value in fields.folderName.",
+      path: ["fields", "folderName"],
+      ctx,
+    });
   });
 
 export const rulePathParamsSchema = z.object({
@@ -86,7 +112,7 @@ export const ruleRequestBodySchema = z.object({
 });
 
 const ruleActionResponseSchema = z.object({
-  type: z.string(),
+  type: ruleActionTypeSchema,
   fields: z.object({
     label: z.string().nullable(),
     to: z.string().nullable(),
@@ -128,3 +154,28 @@ export const rulesResponseSchema = z.object({
 });
 
 export type RuleRequestBody = z.infer<typeof ruleRequestBodySchema>;
+
+function addMissingActionFieldIssue({
+  actionType,
+  requiredActionType,
+  fieldValue,
+  message,
+  path,
+  ctx,
+}: {
+  actionType: ActionType;
+  requiredActionType: ActionType;
+  fieldValue?: string | null;
+  message: string;
+  path: string[];
+  ctx: z.RefinementCtx;
+}) {
+  if (actionType !== requiredActionType) return;
+  if (fieldValue?.trim()) return;
+
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message,
+    path,
+  });
+}

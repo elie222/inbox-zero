@@ -12,6 +12,39 @@ export const API_KEY_SCOPES = [
 export const apiKeyScopeSchema = z.enum(API_KEY_SCOPES);
 export type ApiKeyScopeValue = z.infer<typeof apiKeyScopeSchema>;
 
+const API_KEY_SCOPE_METADATA: Record<
+  ApiKeyScopeValue,
+  {
+    label: string;
+    description: string;
+  }
+> = {
+  STATS_READ: {
+    label: "Read stats",
+    description: "Read aggregated inbox statistics for this inbox.",
+  },
+  RULES_READ: {
+    label: "Read rules",
+    description: "List and inspect automation rules for this inbox.",
+  },
+  RULES_WRITE: {
+    label: "Write rules",
+    description: "Create, update, and delete automation rules for this inbox.",
+  },
+  SETTINGS_READ: {
+    label: "Read settings",
+    description: "Read inbox settings for this inbox.",
+  },
+  SETTINGS_WRITE: {
+    label: "Write settings",
+    description: "Update inbox settings for this inbox.",
+  },
+  ASSISTANT_CHAT: {
+    label: "Assistant chat",
+    description: "Start assistant chat sessions for this inbox.",
+  },
+};
+
 export const API_KEY_SCOPE_OPTIONS: Array<{
   value: ApiKeyScopeValue;
   label: string;
@@ -19,18 +52,15 @@ export const API_KEY_SCOPE_OPTIONS: Array<{
 }> = [
   {
     value: "RULES_READ",
-    label: "Read rules",
-    description: "List and inspect automation rules for this inbox.",
+    ...API_KEY_SCOPE_METADATA.RULES_READ,
   },
   {
     value: "RULES_WRITE",
-    label: "Write rules",
-    description: "Create, update, and delete automation rules for this inbox.",
+    ...API_KEY_SCOPE_METADATA.RULES_WRITE,
   },
   {
     value: "STATS_READ",
-    label: "Read stats",
-    description: "Read aggregated inbox statistics for this inbox.",
+    ...API_KEY_SCOPE_METADATA.STATS_READ,
   },
 ];
 
@@ -57,8 +87,5 @@ export const apiKeyExpirySchema = z.enum(
 export type ApiKeyExpiryValue = z.infer<typeof apiKeyExpirySchema>;
 
 export function formatApiKeyScope(scope: ApiKeyScopeValue): string {
-  return (
-    API_KEY_SCOPE_OPTIONS.find((option) => option.value === scope)?.label ??
-    scope
-  );
+  return API_KEY_SCOPE_METADATA[scope]?.label ?? scope;
 }

@@ -49,9 +49,10 @@ export const POST = withAccountApiKey(
       select: apiRuleSelect,
     });
 
-    return NextResponse.json(
-      { rule: rule ? serializeRule(rule) : null },
-      { status: 201 },
-    );
+    if (!rule) {
+      throw new Error("Created rule could not be loaded");
+    }
+
+    return NextResponse.json({ rule: serializeRule(rule) }, { status: 201 });
   },
 );
