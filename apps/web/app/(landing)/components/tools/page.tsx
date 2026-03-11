@@ -2,12 +2,17 @@
 
 import { Suspense } from "react";
 import { Container } from "@/components/Container";
-import { MutedText } from "@/components/Typography";
+import {
+  PageHeading,
+  SectionHeader,
+  MutedText,
+} from "@/components/Typography";
 import {
   AddToKnowledgeBase,
   BasicToolInfo,
   CreatedRuleToolCard,
   UpdatedRuleConditions,
+  UpdatedRuleActions,
   UpdatedLearnedPatterns,
   ForwardEmailResult,
   ManageInboxResult,
@@ -26,11 +31,336 @@ export default function ToolsPage() {
 
   return (
     <Container>
-      <div className="space-y-8 py-8">
-        <h1>Assistant Tools</h1>
+      <div className="space-y-10 py-8">
+        <PageHeading>Assistant Tools</PageHeading>
 
-        <div className="mt-4 space-y-4">
-          <MutedText>Input states:</MutedText>
+        {/* Rule Cards */}
+        <section className="space-y-4">
+          <SectionHeader>Rule Cards</SectionHeader>
+
+          <MutedText>Created rules:</MutedText>
+          <CreatedRuleToolCard
+            preview
+            args={{
+              name: "Hiring",
+              condition: {
+                aiInstructions:
+                  "Emails related to hiring, job applications, or candidate communication",
+                static: null,
+                conditionalOperator: null,
+              },
+              actions: [
+                ruleAction(ActionType.FORWARD, { to: "jim@company.com" }),
+                ruleAction(ActionType.LABEL, { label: "Recruiting" }),
+              ],
+            }}
+          />
+          <CreatedRuleToolCard
+            preview
+            args={{
+              name: "Newsletter Archive",
+              condition: {
+                aiInstructions: "Newsletter and marketing emails",
+                static: {
+                  from: "newsletter@example.com",
+                  to: null,
+                  subject: null,
+                },
+                conditionalOperator: "OR",
+              },
+              actions: [
+                ruleAction(ActionType.ARCHIVE),
+                ruleAction(ActionType.LABEL, { label: "Newsletter" }),
+                ruleAction(ActionType.MARK_READ),
+              ],
+            }}
+          />
+          <CreatedRuleToolCard
+            preview
+            args={{
+              name: "Billing Alerts",
+              condition: {
+                aiInstructions: null,
+                static: {
+                  from: "billing@stripe.com",
+                  to: null,
+                  subject: "invoice",
+                },
+                conditionalOperator: null,
+              },
+              actions: [
+                ruleAction(ActionType.LABEL, { label: "Billing" }),
+                ruleAction(ActionType.FORWARD, {
+                  to: "finance@company.com",
+                }),
+              ],
+            }}
+          />
+
+          <MutedText>Updated conditions (no diff):</MutedText>
+          <UpdatedRuleConditions
+            preview
+            ruleId="demo-rule"
+            args={{
+              ruleName: "Hiring",
+              condition: {
+                aiInstructions:
+                  "Emails related to hiring, job applications, or candidate communication",
+                static: { from: "hr@company.com", to: null, subject: null },
+                conditionalOperator: "AND",
+              },
+            }}
+            actions={[
+              ruleAction(ActionType.FORWARD, { to: "jim@company.com" }),
+              ruleAction(ActionType.LABEL, { label: "Recruiting" }),
+            ]}
+          />
+
+          <MutedText>Updated conditions (with diff):</MutedText>
+          <UpdatedRuleConditions
+            preview
+            ruleId="demo-rule"
+            args={{
+              ruleName: "Newsletter",
+              condition: {
+                aiInstructions:
+                  "Emails that are newsletters, marketing, or promotional content",
+                static: null,
+                conditionalOperator: null,
+              },
+            }}
+            actions={[
+              ruleAction(ActionType.ARCHIVE),
+              ruleAction(ActionType.LABEL, { label: "Newsletter" }),
+              ruleAction(ActionType.MARK_READ),
+            ]}
+            originalConditions={{
+              aiInstructions:
+                "Emails that look like newsletters or marketing",
+              conditionalOperator: null,
+            }}
+            updatedConditions={{
+              aiInstructions:
+                "Emails that are newsletters, marketing, or promotional content",
+              conditionalOperator: null,
+            }}
+          />
+
+          <MutedText>Updated actions:</MutedText>
+          <UpdatedRuleActions
+            preview
+            ruleId="demo-rule"
+            args={{
+              ruleName: "Newsletter Archive",
+              actions: [
+                ruleAction(ActionType.ARCHIVE),
+                ruleAction(ActionType.LABEL, { label: "Newsletter" }),
+                ruleAction(ActionType.MARK_READ),
+              ] as any,
+            }}
+            condition={{
+              aiInstructions: "Newsletter and marketing emails",
+              static: {
+                from: "newsletter@example.com",
+              },
+              conditionalOperator: "OR",
+            }}
+          />
+          <UpdatedRuleActions
+            preview
+            ruleId="demo-rule"
+            args={{
+              ruleName: "Hiring",
+              actions: [
+                ruleAction(ActionType.FORWARD, { to: "jim@company.com" }),
+                ruleAction(ActionType.LABEL, { label: "Recruiting" }),
+              ] as any,
+            }}
+            condition={{
+              aiInstructions:
+                "Emails related to hiring, job applications, or candidate communication",
+            }}
+            originalActions={[
+              {
+                type: ActionType.LABEL,
+                fields: { label: "Recruiting" },
+              },
+            ]}
+            updatedActions={[
+              {
+                type: ActionType.FORWARD,
+                fields: { to: "jim@company.com" },
+                delayInMinutes: null,
+              },
+              {
+                type: ActionType.LABEL,
+                fields: { label: "Recruiting" },
+                delayInMinutes: null,
+              },
+            ]}
+          />
+
+          <MutedText>Updated learned patterns:</MutedText>
+          <UpdatedLearnedPatterns
+            preview
+            ruleId="demo-rule"
+            args={{
+              ruleName: "Newsletter",
+              learnedPatterns: [
+                {
+                  include: {
+                    from: "@substack.com",
+                    subject: null,
+                  },
+                  exclude: null,
+                },
+                {
+                  include: null,
+                  exclude: {
+                    from: "team@company.com",
+                    subject: null,
+                  },
+                },
+              ],
+            }}
+          />
+        </section>
+
+        {/* Email Actions */}
+        <section className="space-y-4">
+          <SectionHeader>Email Actions</SectionHeader>
+          <Suspense
+            fallback={<BasicToolInfo text="Loading email action states..." />}
+          >
+            <ChatProvider>
+              <AssistantEmailActionStates />
+            </ChatProvider>
+          </Suspense>
+        </section>
+
+        {/* Search & Read Results */}
+        <section className="space-y-4">
+          <SectionHeader>Search & Read Results</SectionHeader>
+          <SearchInboxResult output={getAssistantSearchInboxOutput()} />
+          <ReadEmailResult output={getAssistantReadEmailOutput()} />
+        </section>
+
+        {/* Manage Inbox Results */}
+        <section className="space-y-4">
+          <SectionHeader>Manage Inbox Results</SectionHeader>
+          <ManageInboxResult
+            input={{
+              action: "archive_threads",
+              threadIds: ["thread-1", "thread-2"],
+            }}
+            output={{
+              action: "archive_threads",
+              requestedCount: 2,
+              successCount: 2,
+              failedCount: 0,
+            }}
+            threadIds={["thread-1", "thread-2"]}
+            threadLookup={assistantToolThreadLookup}
+          />
+          <ManageInboxResult
+            input={{
+              action: "archive_threads",
+              threadIds: ["thread-1", "thread-2", "thread-3"],
+              label: "Newsletter",
+            }}
+            output={{
+              action: "archive_threads",
+              requestedCount: 3,
+              successCount: 2,
+              failedCount: 1,
+              failedThreadIds: ["thread-3"],
+            }}
+            threadIds={["thread-1", "thread-2", "thread-3"]}
+            threadLookup={assistantToolThreadLookup}
+          />
+          <ManageInboxResult
+            input={{
+              action: "mark_read_threads",
+              threadIds: ["thread-1", "thread-3"],
+              read: true,
+            }}
+            output={{
+              action: "mark_read_threads",
+              requestedCount: 2,
+              successCount: 2,
+              failedCount: 0,
+            }}
+            threadIds={["thread-1", "thread-3"]}
+            threadLookup={assistantToolThreadLookup}
+          />
+          <ManageInboxResult
+            input={{
+              action: "mark_read_threads",
+              threadIds: ["thread-2"],
+              read: false,
+            }}
+            output={{
+              action: "mark_read_threads",
+              requestedCount: 1,
+              successCount: 1,
+              failedCount: 0,
+            }}
+            threadIds={["thread-2"]}
+            threadLookup={assistantToolThreadLookup}
+          />
+          <ManageInboxResult
+            input={{
+              action: "bulk_archive_senders",
+              fromEmails: ["updates@example.com", "news@example.com"],
+            }}
+            output={{
+              action: "bulk_archive_senders",
+              sendersCount: 2,
+              senders: ["updates@example.com", "news@example.com"],
+            }}
+            threadLookup={assistantToolThreadLookup}
+          />
+          <ManageInboxResult
+            input={{
+              action: "unsubscribe_senders",
+              fromEmails: ["updates@example.com", "deals@example.com"],
+            }}
+            output={{
+              action: "unsubscribe_senders",
+              sendersCount: 2,
+              senders: ["updates@example.com", "deals@example.com"],
+              successCount: 2,
+              failedCount: 0,
+            }}
+            threadLookup={assistantToolThreadLookup}
+          />
+        </section>
+
+        {/* Settings & Knowledge */}
+        <section className="space-y-4">
+          <SectionHeader>Settings & Knowledge</SectionHeader>
+          <UpdateAbout
+            args={{
+              about:
+                "I prefer concise responses and want newsletters archived by default.",
+              mode: "replace",
+            }}
+          />
+          <Suspense>
+            <AddToKnowledgeBase
+              args={{
+                title: "Escalation preference",
+                content:
+                  "Escalate billing emails quickly and keep status updates short.",
+              }}
+            />
+          </Suspense>
+        </section>
+
+        {/* Basic Tool Info States */}
+        <section className="space-y-4">
+          <SectionHeader>Basic Tool Info States</SectionHeader>
+          <MutedText>Input states (loading indicators):</MutedText>
           <div className="grid gap-2 md:grid-cols-2">
             <BasicToolInfo text="Loading account overview..." />
             <BasicToolInfo text="Loading assistant capabilities..." />
@@ -59,253 +389,18 @@ export default function ToolsPage() {
             <BasicToolInfo text="Searching memories..." />
           </div>
 
-          <MutedText>Output states:</MutedText>
-          <div className="space-y-4">
+          <MutedText>Output states (completion messages):</MutedText>
+          <div className="grid gap-2 md:grid-cols-2">
             <BasicToolInfo text="Loaded account overview" />
             <BasicToolInfo text="Loaded assistant capabilities" />
             <BasicToolInfo text="Updated settings (2 changes)" />
-            <SearchInboxResult output={getAssistantSearchInboxOutput()} />
-            <ReadEmailResult output={getAssistantReadEmailOutput()} />
-            <ManageInboxResult
-              input={{
-                action: "archive_threads",
-                threadIds: ["thread-1", "thread-2"],
-              }}
-              output={{
-                action: "archive_threads",
-                requestedCount: 2,
-                successCount: 2,
-                failedCount: 0,
-              }}
-              threadIds={["thread-1", "thread-2"]}
-              threadLookup={assistantToolThreadLookup}
-            />
-            <ManageInboxResult
-              input={{
-                action: "archive_threads",
-                threadIds: ["thread-1", "thread-2", "thread-3"],
-                label: "Newsletter",
-              }}
-              output={{
-                action: "archive_threads",
-                requestedCount: 3,
-                successCount: 2,
-                failedCount: 1,
-                failedThreadIds: ["thread-3"],
-              }}
-              threadIds={["thread-1", "thread-2", "thread-3"]}
-              threadLookup={assistantToolThreadLookup}
-            />
-            <ManageInboxResult
-              input={{
-                action: "mark_read_threads",
-                threadIds: ["thread-1", "thread-3"],
-                read: true,
-              }}
-              output={{
-                action: "mark_read_threads",
-                requestedCount: 2,
-                successCount: 2,
-                failedCount: 0,
-              }}
-              threadIds={["thread-1", "thread-3"]}
-              threadLookup={assistantToolThreadLookup}
-            />
-            <ManageInboxResult
-              input={{
-                action: "mark_read_threads",
-                threadIds: ["thread-2"],
-                read: false,
-              }}
-              output={{
-                action: "mark_read_threads",
-                requestedCount: 1,
-                successCount: 1,
-                failedCount: 0,
-              }}
-              threadIds={["thread-2"]}
-              threadLookup={assistantToolThreadLookup}
-            />
-            <ManageInboxResult
-              input={{
-                action: "bulk_archive_senders",
-                fromEmails: ["updates@example.com", "news@example.com"],
-              }}
-              output={{
-                action: "bulk_archive_senders",
-                sendersCount: 2,
-                senders: ["updates@example.com", "news@example.com"],
-              }}
-              threadLookup={assistantToolThreadLookup}
-            />
-            <ManageInboxResult
-              input={{
-                action: "unsubscribe_senders",
-                fromEmails: ["updates@example.com", "deals@example.com"],
-              }}
-              output={{
-                action: "unsubscribe_senders",
-                sendersCount: 2,
-                senders: ["updates@example.com", "deals@example.com"],
-                successCount: 2,
-                failedCount: 0,
-              }}
-              threadLookup={assistantToolThreadLookup}
-            />
             <BasicToolInfo text="Updated inbox features" />
-            <Suspense
-              fallback={<BasicToolInfo text="Loading email action states..." />}
-            >
-              <ChatProvider>
-                <AssistantEmailActionStates />
-              </ChatProvider>
-            </Suspense>
             <BasicToolInfo text="Read rules and settings" />
             <BasicToolInfo text="Read learned patterns" />
-
-            <MutedText>Created rule cards:</MutedText>
-            <CreatedRuleToolCard
-              preview
-              args={{
-                name: "Hiring",
-                condition: {
-                  aiInstructions:
-                    "Emails related to hiring, job applications, or candidate communication",
-                  static: null,
-                  conditionalOperator: null,
-                },
-                actions: [
-                  ruleAction(ActionType.FORWARD, { to: "jim@company.com" }),
-                  ruleAction(ActionType.LABEL, { label: "Recruiting" }),
-                ],
-              }}
-            />
-            <CreatedRuleToolCard
-              preview
-              args={{
-                name: "Newsletter Archive",
-                condition: {
-                  aiInstructions: "Newsletter and marketing emails",
-                  static: {
-                    from: "newsletter@example.com",
-                    to: null,
-                    subject: null,
-                  },
-                  conditionalOperator: "OR",
-                },
-                actions: [
-                  ruleAction(ActionType.ARCHIVE),
-                  ruleAction(ActionType.LABEL, { label: "Newsletter" }),
-                  ruleAction(ActionType.MARK_READ),
-                ],
-              }}
-            />
-            <CreatedRuleToolCard
-              preview
-              args={{
-                name: "Billing Alerts",
-                condition: {
-                  aiInstructions: null,
-                  static: {
-                    from: "billing@stripe.com",
-                    to: null,
-                    subject: "invoice",
-                  },
-                  conditionalOperator: null,
-                },
-                actions: [
-                  ruleAction(ActionType.LABEL, { label: "Billing" }),
-                  ruleAction(ActionType.FORWARD, {
-                    to: "finance@company.com",
-                  }),
-                ],
-              }}
-            />
-            <MutedText>Updated rule conditions (no diff):</MutedText>
-            <UpdatedRuleConditions
-              preview
-              ruleId="demo-rule"
-              args={{
-                ruleName: "Hiring",
-                condition: {
-                  aiInstructions:
-                    "Emails related to hiring, job applications, or candidate communication",
-                  static: { from: "hr@company.com", to: null, subject: null },
-                  conditionalOperator: "AND",
-                },
-              }}
-            />
-
-            <MutedText>Updated rule conditions (with diff):</MutedText>
-            <UpdatedRuleConditions
-              preview
-              ruleId="demo-rule"
-              args={{
-                ruleName: "Newsletter",
-                condition: {
-                  aiInstructions:
-                    "Emails that are newsletters, marketing, or promotional content",
-                  static: null,
-                  conditionalOperator: null,
-                },
-              }}
-              originalConditions={{
-                aiInstructions:
-                  "Emails that look like newsletters or marketing",
-                conditionalOperator: null,
-              }}
-              updatedConditions={{
-                aiInstructions:
-                  "Emails that are newsletters, marketing, or promotional content",
-                conditionalOperator: null,
-              }}
-            />
-
-            <MutedText>Updated learned patterns:</MutedText>
-            <UpdatedLearnedPatterns
-              preview
-              ruleId="demo-rule"
-              args={{
-                ruleName: "Newsletter",
-                learnedPatterns: [
-                  {
-                    include: {
-                      from: "@substack.com",
-                      subject: null,
-                    },
-                    exclude: null,
-                  },
-                  {
-                    include: null,
-                    exclude: {
-                      from: "team@company.com",
-                      subject: null,
-                    },
-                  },
-                ],
-              }}
-            />
-
-            <UpdateAbout
-              args={{
-                about:
-                  "I prefer concise responses and want newsletters archived by default.",
-                mode: "replace",
-              }}
-            />
-            <Suspense>
-              <AddToKnowledgeBase
-                args={{
-                  title: "Escalation preference",
-                  content:
-                    "Escalate billing emails quickly and keep status updates short.",
-                }}
-              />
-            </Suspense>
             <BasicToolInfo text="Memory saved" />
             <BasicToolInfo text="Found 2 memories" />
           </div>
-        </div>
+        </section>
       </div>
     </Container>
   );
@@ -314,8 +409,6 @@ export default function ToolsPage() {
 function AssistantEmailActionStates() {
   return (
     <div className="space-y-4">
-      <MutedText>Email action states:</MutedText>
-
       <div className="space-y-3">
         <MutedText>Send — pending</MutedText>
         <SendEmailResult
