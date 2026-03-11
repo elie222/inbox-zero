@@ -288,13 +288,15 @@ export async function deleteRule({
   ruleId: string;
   groupId?: string | null;
 }) {
-  return Promise.all([
-    prisma.rule.delete({ where: { id: ruleId, emailAccountId } }),
-    // in the future, we can make this a cascade delete, but we need to change the schema for this to happen
-    groupId
-      ? prisma.group.delete({ where: { id: groupId, emailAccountId } })
-      : null,
-  ]);
+  if (groupId) {
+    const deletedGroups = await prisma.group.deleteMany({
+      where: { id: groupId, emailAccountId },
+    });
+
+    if (deletedGroups.count > 0) return;
+  }
+
+  await prisma.rule.delete({ where: { id: ruleId, emailAccountId } });
 }
 
 function shouldEnable(rule: CreateOrUpdateRuleSchema, actions: RiskAction[]) {
