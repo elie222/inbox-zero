@@ -5,6 +5,7 @@ import {
   createOrganizationBody,
   inviteMemberBody,
   removeMemberBody,
+  updateMemberRoleBody,
   cancelInvitationBody,
   handleInvitationBody,
   updateAnalyticsConsentBody,
@@ -12,7 +13,7 @@ import {
 } from "@/utils/actions/organization.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
-import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
+import { getAuthorizedOrganizationAdminMembership } from "@/utils/organizations/access";
 import { sendOrganizationInvitation } from "@/utils/organizations/invitations";
 import {
   claimPendingPremiumInvite,
@@ -58,6 +59,7 @@ export const createOrganizationAction = actionClient
         organizationId: organization.id,
         emailAccountId,
         role: "owner",
+        allowOrgAdminAnalytics: env.AUTO_ENABLE_ORG_ANALYTICS,
       },
     });
 
@@ -72,24 +74,20 @@ export const inviteMemberAction = actionClientUser
       ctx: { userId },
       parsedInput: { email, role, organizationId },
     }) => {
-      const inviterMember = await prisma.member.findFirst({
-        where: { organizationId, emailAccount: { userId } },
-        select: {
-          organizationId: true,
-          role: true,
-          emailAccountId: true,
-          emailAccount: { select: { name: true, email: true } },
-        },
+      const inviterMember = await getAuthorizedOrganizationAdminMembership({
+        organizationId,
+        userId,
+        unauthorizedMessage:
+          "Only organization owners or admins can invite members.",
       });
 
-      if (!inviterMember) {
-        throw new SafeError("You are not a member of this organization.");
-      }
+      const inviterEmailAccount = await prisma.emailAccount.findUnique({
+        where: { id: inviterMember.emailAccountId },
+        select: { name: true, email: true },
+      });
 
-      if (!hasOrganizationAdminRole(inviterMember.role)) {
-        throw new SafeError(
-          "Only organization owners or admins can invite members.",
-        );
+      if (!inviterEmailAccount) {
+        throw new SafeError("Email account not found.");
       }
 
       if (role === "owner" && inviterMember.role !== "owner") {
@@ -131,8 +129,7 @@ export const inviteMemberAction = actionClientUser
         await sendOrganizationInvitation({
           email,
           organizationName: org?.name || "Your organization",
-          inviterName:
-            inviterMember.emailAccount.name || inviterMember.emailAccount.email,
+          inviterName: inviterEmailAccount.name || inviterEmailAccount.email,
           invitationId: invitation.id,
         });
       } catch {
@@ -256,6 +253,7 @@ async function acceptInvitation({
       emailAccountId,
       organizationId: invitation.organizationId,
       role: invitation.role ?? "member",
+      allowOrgAdminAnalytics: env.AUTO_ENABLE_ORG_ANALYTICS,
     },
     select: { id: true },
   });
@@ -287,46 +285,11 @@ export const removeMemberAction = actionClientUser
   .metadata({ name: "removeMember" })
   .inputSchema(removeMemberBody)
   .action(async ({ ctx: { userId }, parsedInput: { memberId } }) => {
-    const targetMember = await prisma.member.findUnique({
-      where: { id: memberId },
-      select: {
-        id: true,
-        emailAccountId: true,
-        organizationId: true,
-        role: true,
-      },
+    const { targetMember } = await authorizeMemberManagement({
+      memberId,
+      userId,
+      action: "remove",
     });
-
-    if (!targetMember) {
-      throw new SafeError("Member not found.");
-    }
-
-    const callerMembership = await prisma.member.findFirst({
-      where: {
-        organizationId: targetMember.organizationId,
-        emailAccount: { userId },
-      },
-      select: { role: true, emailAccountId: true },
-    });
-
-    if (!callerMembership) {
-      throw new SafeError("You are not a member of this organization.");
-    }
-
-    if (!hasOrganizationAdminRole(callerMembership.role)) {
-      throw new SafeError(
-        "Only organization owners or admins can remove members.",
-      );
-    }
-
-    // Prevent self-removal
-    if (targetMember.emailAccountId === callerMembership.emailAccountId) {
-      throw new SafeError("You cannot remove yourself from the organization.");
-    }
-
-    if (targetMember.role === "owner" && callerMembership.role !== "owner") {
-      throw new SafeError("Only owners can remove other owners.");
-    }
 
     if (targetMember.role === "owner") {
       const ownerCount = await prisma.member.count({
@@ -355,6 +318,27 @@ export const removeMemberAction = actionClientUser
     await prisma.member.delete({ where: { id: memberId } });
   });
 
+export const updateMemberRoleAction = actionClientUser
+  .metadata({ name: "updateMemberRole" })
+  .inputSchema(updateMemberRoleBody)
+  .action(async ({ ctx: { userId }, parsedInput: { memberId, role } }) => {
+    const { targetMember } = await authorizeMemberManagement({
+      memberId,
+      userId,
+      action: "updateRole",
+    });
+
+    if (targetMember.role === role) {
+      return { id: targetMember.id, role: targetMember.role };
+    }
+
+    return prisma.member.update({
+      where: { id: memberId },
+      data: { role },
+      select: { id: true, role: true },
+    });
+  });
+
 export const cancelInvitationAction = actionClientUser
   .metadata({ name: "cancelInvitation" })
   .inputSchema(cancelInvitationBody)
@@ -377,23 +361,12 @@ export const cancelInvitationAction = actionClientUser
       throw new SafeError("Only pending invitations can be cancelled.");
     }
 
-    const callerMembership = await prisma.member.findFirst({
-      where: {
-        organizationId: invitation.organizationId,
-        emailAccount: { userId },
-      },
-      select: { role: true },
-    });
-
-    if (!callerMembership) {
-      throw new SafeError("You are not a member of this organization.");
-    }
-
-    if (!hasOrganizationAdminRole(callerMembership.role)) {
-      throw new SafeError(
+    await getAuthorizedOrganizationAdminMembership({
+      organizationId: invitation.organizationId,
+      userId,
+      unauthorizedMessage:
         "Only organization owners or admins can cancel invitations.",
-      );
-    }
+    });
 
     // Remove from premium pending invites
     const premium = await getOrganizationPremium(invitation.organizationId);
@@ -509,6 +482,7 @@ export const createOrganizationAndInviteAction = actionClient
           organizationId: organization.id,
           emailAccountId,
           role: "owner",
+          allowOrgAdminAnalytics: env.AUTO_ENABLE_ORG_ANALYTICS,
         },
       });
 
@@ -589,3 +563,67 @@ async function generateUniqueSlug(baseSlug: string): Promise<string> {
 
   return baseSlug + randomSuffix;
 }
+
+async function authorizeMemberManagement({
+  memberId,
+  userId,
+  action,
+}: {
+  memberId: string;
+  userId: string;
+  action: MemberManagementAction;
+}) {
+  const targetMember = await prisma.member.findUnique({
+    where: { id: memberId },
+    select: {
+      id: true,
+      emailAccountId: true,
+      organizationId: true,
+      role: true,
+    },
+  });
+
+  if (!targetMember) {
+    throw new SafeError("Member not found.");
+  }
+
+  const callerMembership = await getAuthorizedOrganizationAdminMembership({
+    organizationId: targetMember.organizationId,
+    userId,
+    unauthorizedMessage: memberManagementUnauthorizedMessages[action],
+  });
+
+  if (targetMember.emailAccountId === callerMembership.emailAccountId) {
+    throw new SafeError(memberManagementSelfActionMessages[action]);
+  }
+
+  if (targetMember.role === "owner") {
+    if (action === "updateRole") {
+      throw new SafeError("Organization owners cannot be reassigned.");
+    }
+
+    if (callerMembership.role !== "owner") {
+      throw new SafeError("Only owners can remove other owners.");
+    }
+  }
+
+  return { targetMember, callerMembership };
+}
+
+type MemberManagementAction = "remove" | "updateRole";
+
+const memberManagementUnauthorizedMessages: Record<
+  MemberManagementAction,
+  string
+> = {
+  remove: "Only organization owners or admins can remove members.",
+  updateRole: "Only organization owners or admins can update member roles.",
+};
+
+const memberManagementSelfActionMessages: Record<
+  MemberManagementAction,
+  string
+> = {
+  remove: "You cannot remove yourself from the organization.",
+  updateRole: "You cannot change your own role.",
+};

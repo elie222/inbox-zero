@@ -224,3 +224,13 @@ ON CONFLICT ("emailAccountId") DO NOTHING;
 ```
 
 Replace `<YOUR_ORG_ID>` with your organization's ID from the `Organization` table.
+
+## Default Organization Analytics Consent
+
+If you want newly created organization members to start with organization analytics enabled, set:
+
+```env
+AUTO_ENABLE_ORG_ANALYTICS=true
+```
+
+This only affects new memberships created after the setting is enabled. Existing members keep their current stored value.

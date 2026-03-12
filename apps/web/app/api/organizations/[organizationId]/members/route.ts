@@ -76,5 +76,8 @@ async function getOrganizationMembers({
     }),
   ]);
 
-  return { members, pendingInvitations };
+  return {
+    members,
+    pendingInvitations,
+  };
 }

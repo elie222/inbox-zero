@@ -308,7 +308,7 @@ async function emailAccountMiddleware(
           }),
       });
 
-      if (!targetMember?.allowOrgAdminAnalytics) {
+      if (!targetMember || !targetMember.allowOrgAdminAnalytics) {
         emailAccountLogger.error(
           "Member has not enabled org admin analytics access",
         );

@@ -2,15 +2,35 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createOrganizationAction } from "@/utils/actions/organization";
 
+const { mockEnv } = vi.hoisted(() => ({
+  mockEnv: {
+    AUTO_ENABLE_ORG_ANALYTICS: false,
+  },
+}));
+
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({ user: { id: "u1", email: "test@test.com" } })),
 }));
+vi.mock("@/env", async () => {
+  const actual = await vi.importActual<typeof import("@/env")>("@/env");
+
+  return {
+    ...actual,
+    env: {
+      ...actual.env,
+      get AUTO_ENABLE_ORG_ANALYTICS() {
+        return mockEnv.AUTO_ENABLE_ORG_ANALYTICS;
+      },
+    },
+  };
+});
 
 describe("organization actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.AUTO_ENABLE_ORG_ANALYTICS = false;
     (prisma.emailAccount.findUnique as any).mockResolvedValue({
       email: "test@test.com",
       account: { userId: "u1", provider: "google" },
@@ -39,12 +59,44 @@ describe("organization actions", () => {
     });
     expect(prisma.organization.create).toHaveBeenCalled();
     expect(prisma.member.create).toHaveBeenCalledWith({
-      data: { organizationId: "org_1", emailAccountId: "ea_1", role: "owner" },
+      data: {
+        organizationId: "org_1",
+        emailAccountId: "ea_1",
+        role: "owner",
+        allowOrgAdminAnalytics: false,
+      },
     });
     expect(result?.data).toMatchObject({
       id: "org_1",
       name: "Acme",
       slug: "acme",
+    });
+  });
+
+  it("enables org analytics for new owner memberships when configured", async () => {
+    mockEnv.AUTO_ENABLE_ORG_ANALYTICS = true;
+    prisma.member.findFirst.mockResolvedValue(null);
+    prisma.organization.findUnique.mockResolvedValue(null as any);
+    prisma.organization.create.mockResolvedValue({
+      id: "org_1",
+      name: "Acme",
+      slug: "acme",
+      createdAt: new Date(),
+    } as any);
+    prisma.member.create.mockResolvedValue({ id: "mem_1" } as any);
+
+    await createOrganizationAction(
+      "ea_1" as any,
+      { name: "Acme", slug: "acme" } as any,
+    );
+
+    expect(prisma.member.create).toHaveBeenCalledWith({
+      data: {
+        organizationId: "org_1",
+        emailAccountId: "ea_1",
+        role: "owner",
+        allowOrgAdminAnalytics: true,
+      },
     });
   });
 });
