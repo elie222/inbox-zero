@@ -56,6 +56,33 @@ describe("mergeInlineEmailActions", () => {
       },
     ]);
   });
+
+  it("caps merged thread IDs to the schema maximum", () => {
+    const existingThreadIds = Array.from({ length: 150 }, (_, index) => {
+      return `existing-${index}`;
+    });
+    const nextThreadIds = Array.from({ length: 150 }, (_, index) => {
+      return `next-${index}`;
+    });
+
+    const actions = mergeInlineEmailActions(
+      [
+        {
+          type: "archive_threads",
+          threadIds: existingThreadIds,
+        },
+      ],
+      {
+        type: "archive_threads",
+        threadIds: nextThreadIds,
+      },
+    );
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].threadIds).toHaveLength(200);
+    expect(actions[0].threadIds[0]).toBe("existing-0");
+    expect(actions[0].threadIds[199]).toBe("next-49");
+  });
 });
 
 describe("buildInlineEmailActionSystemMessage", () => {

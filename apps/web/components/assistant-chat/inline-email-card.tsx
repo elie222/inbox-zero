@@ -24,6 +24,7 @@ import {
   archiveThreadAction,
   markReadThreadAction,
 } from "@/utils/actions/mail";
+import { normalizeInlineEmailThreadIds } from "@/utils/ai/assistant/inline-email-actions";
 import { getEmailUrlForMessage } from "@/utils/url";
 import { formatShortDate } from "@/utils/date";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -58,7 +59,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
   const [readThreadIds, setReadThreadIds] = useState<Set<string>>(
     () => new Set(),
   );
-  const threadIds = uniqueThreadIds(collectThreadIds(children));
+  const threadIds = normalizeInlineEmailThreadIds(collectThreadIds(children));
   const remainingArchiveThreadIds = threadIds.filter(
     (threadId) => !archivedThreadIds.has(threadId),
   );
@@ -528,10 +529,6 @@ function getSuccessfulThreadIds(
   results: Array<{ serverError?: string } | undefined>,
 ) {
   return threadIds.filter((_, index) => !results[index]?.serverError);
-}
-
-function uniqueThreadIds(threadIds: string[]) {
-  return [...new Set(threadIds)];
 }
 
 function formatCompletedSummary({

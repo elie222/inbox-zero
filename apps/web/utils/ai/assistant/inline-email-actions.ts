@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const MAX_INLINE_EMAIL_THREAD_IDS = 200;
+
 export const inlineEmailActionTypeSchema = z.enum([
   "archive_threads",
   "mark_read_threads",
@@ -7,17 +9,23 @@ export const inlineEmailActionTypeSchema = z.enum([
 
 export const inlineEmailActionSchema = z.object({
   type: inlineEmailActionTypeSchema,
-  threadIds: z.array(z.string().min(1)).min(1).max(200),
+  threadIds: z.array(z.string().min(1)).min(1).max(MAX_INLINE_EMAIL_THREAD_IDS),
 });
 
 export type InlineEmailAction = z.infer<typeof inlineEmailActionSchema>;
 export type InlineEmailActionType = z.infer<typeof inlineEmailActionTypeSchema>;
 
+export function normalizeInlineEmailThreadIds(threadIds: string[]) {
+  return [
+    ...new Set(threadIds.filter((threadId) => threadId.trim().length)),
+  ].slice(0, MAX_INLINE_EMAIL_THREAD_IDS);
+}
+
 export function mergeInlineEmailActions(
   current: InlineEmailAction[],
   next: InlineEmailAction,
 ): InlineEmailAction[] {
-  const nextThreadIds = uniqueThreadIds(next.threadIds);
+  const nextThreadIds = normalizeInlineEmailThreadIds(next.threadIds);
   if (!nextThreadIds.length) return current;
 
   const actions = cloneInlineEmailActions(current);
@@ -25,7 +33,7 @@ export function mergeInlineEmailActions(
   const markReadAction = findOrCreateAction(actions, "mark_read_threads");
 
   if (next.type === "archive_threads") {
-    archiveAction.threadIds = uniqueThreadIds([
+    archiveAction.threadIds = normalizeInlineEmailThreadIds([
       ...archiveAction.threadIds,
       ...nextThreadIds,
     ]);
@@ -34,7 +42,7 @@ export function mergeInlineEmailActions(
     );
   } else {
     const archivedThreadIds = new Set(archiveAction.threadIds);
-    markReadAction.threadIds = uniqueThreadIds([
+    markReadAction.threadIds = normalizeInlineEmailThreadIds([
       ...markReadAction.threadIds,
       ...nextThreadIds.filter((threadId) => !archivedThreadIds.has(threadId)),
     ]);
@@ -91,8 +99,4 @@ function findOrCreateAction(
   actions.push(nextAction);
 
   return nextAction;
-}
-
-function uniqueThreadIds(threadIds: string[]) {
-  return [...new Set(threadIds.filter((threadId) => threadId.trim().length))];
 }
