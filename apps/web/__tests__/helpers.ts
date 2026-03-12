@@ -74,6 +74,7 @@ export function getEmail({
   replyTo,
   cc,
   date,
+  listUnsubscribe,
 }: Partial<EmailForLLM> = {}): EmailForLLM {
   return {
     id: "email-id",
@@ -84,6 +85,7 @@ export function getEmail({
     ...(replyTo && { replyTo }),
     ...(cc && { cc }),
     ...(date && { date }),
+    ...(listUnsubscribe && { listUnsubscribe }),
   };
 }
 

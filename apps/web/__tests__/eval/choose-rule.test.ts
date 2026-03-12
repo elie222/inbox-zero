@@ -197,6 +197,91 @@ const testCases = [
     }),
     expectedRule: ["Newsletter", "Notification"],
   },
+
+  // --- Marketing disguised as personal outreach ---
+  // These have List-Unsubscribe headers and personal tone, designed to test
+  // whether the AI correctly identifies them as marketing despite the friendly language.
+  {
+    email: getEmail({
+      from: "Lisa from MindfulPath <lisa@product.mindfulpath.com>",
+      subject: "Earn a $30 gift card by sharing your thoughts",
+      listUnsubscribe:
+        "<https://product.mindfulpath.com/unsubscribe?id=abc123>",
+      content: `Hey there,
+
+I'm Lisa, the Research Lead here at MindfulPath. I'm reaching out on behalf of our User Experience team that designs and improves our wellness app.
+
+We're so happy to have you as a member and would love to hear your thoughts about your experience so far. Your perspective as an active user is incredibly valuable to us, and we really want to make sure we're building features that matter to people like you.
+
+Our sessions are quick — no more than 20 minutes over video call — and as a thank you, we'll send you a $30 gift card. The chat will be with a member of our product team. As a growing company, hearing directly from our community is the best way for us to make sure we're heading in the right direction.
+
+We really hope you'll join us for a quick conversation. You can pick a time that works for you using the link below.
+
+Thank you so much!
+Lisa & the MindfulPath Team
+
+Facebook Instagram TikTok
+Questions? Contact Us
+Privacy Policy | Terms of use | FAQ
+You're receiving this email because you joined MindfulPath. To stop receiving these emails, unsubscribe here.
+©2026 MindfulPath Inc. All rights reserved`,
+    }),
+    expectedRule: "Marketing",
+  },
+  {
+    email: getEmail({
+      from: "Maya from ToolStack <maya@research.toolstack.io>",
+      subject: "Your feedback + a $25 gift card",
+      listUnsubscribe:
+        "<https://research.toolstack.io/unsubscribe?id=xyz789>",
+      content: `Hi there,
+
+I'm Maya from the ToolStack research team. We're reaching out to a small, hand-picked group of power users to learn about their experience with our platform. You were selected because you've been one of our most engaged users over the past quarter, and your insights would be particularly meaningful to our team.
+
+The session is a casual 15-minute video call where we'll walk through your typical workflow and discuss any pain points or feature requests you might have. Our product designers will be listening in so they can directly hear your perspective and incorporate it into our next development cycle.
+
+As a thank you for your time, every participant receives a $25 gift card — no strings attached.
+
+If you're interested, just grab a time on my calendar that works for you: https://cal.toolstack.io/maya/user-interview
+
+I really hope we get to chat!
+
+Best,
+Maya
+Product Research Lead, ToolStack
+
+Unsubscribe from research invitations
+ToolStack Inc. | 100 Innovation Blvd, Seattle, WA 98101`,
+    }),
+    expectedRule: "Marketing",
+  },
+  {
+    email: getEmail({
+      from: "Jordan at GreenLeaf <jordan@hello.greenleafgoods.com>",
+      subject: "Tell us what you think — get $10 off your next order",
+      listUnsubscribe:
+        "<https://hello.greenleafgoods.com/unsubscribe?id=def456>",
+      content: `Hey there,
+
+Thanks so much for being a GreenLeaf customer! I'm Jordan from our Customer Experience team, and I wanted to personally reach out to see how you've been enjoying our products.
+
+We've been working hard on some new formulations and packaging improvements, and honest feedback from customers like you is what drives those decisions. It would mean a lot to us if you could take a couple of minutes to share your thoughts.
+
+The survey is just 5 quick questions about your experience — what you love, what could be better, and any products you'd like to see from us in the future. As a small thank you, everyone who completes it gets a $10 discount code for their next order.
+
+Start the survey here: https://greenleaf.typeform.com/survey
+
+Thanks again for being part of the GreenLeaf community!
+
+Warm regards,
+Jordan
+Customer Experience Team, GreenLeaf
+
+You're receiving this because you purchased from GreenLeaf. Manage preferences or unsubscribe.
+GreenLeaf Goods LLC | 200 Elm Street, Portland, OR 97201`,
+    }),
+    expectedRule: "Marketing",
+  },
 ];
 
 describe.runIf(isAiTest)("Eval: Choose Rule", () => {
