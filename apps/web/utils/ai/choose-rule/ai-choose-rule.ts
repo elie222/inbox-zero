@@ -155,7 +155,11 @@ Example response format:
   "noMatchFound": false
 }`;
 
-  const prompt = buildEmailPrompt(email, "Select a rule to apply to");
+  const prompt = `Select a rule to apply to this email that was sent to me:
+
+<email>
+${stringifyEmail(email, 500)}
+</email>${listUnsubscribeNote(email)}`;
 
   const aiResponse = await generateObject({
     ...modelOptions,
@@ -261,7 +265,11 @@ Example response format (multiple rules):
   "reasoning": "This email requires a response and is from a team member"
 }`;
 
-  const prompt = buildEmailPrompt(email, "Select all rules that apply to");
+  const prompt = `Select all rules that apply to this email that was sent to me:
+
+<email>
+${stringifyEmail(email, 500)}
+</email>${listUnsubscribeNote(email)}`;
 
   const aiResponse = await generateObject({
     ...modelOptions,
@@ -301,9 +309,8 @@ Example response format (multiple rules):
 const METADATA_GUIDELINE =
   "- Consider email metadata (e.g. List-Unsubscribe headers) alongside content.";
 
-function buildEmailPrompt(email: EmailForLLM, action: string): string {
-  const note = email.listUnsubscribe
+function listUnsubscribeNote(email: EmailForLLM): string {
+  return email.listUnsubscribe
     ? "\nNote: This email has a List-Unsubscribe header."
     : "";
-  return `${action} this email that was sent to me:\n\n<email>\n${stringifyEmail(email, 500)}\n</email>${note}`;
 }
