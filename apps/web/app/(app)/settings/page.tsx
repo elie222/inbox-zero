@@ -7,7 +7,6 @@ import {
   CreditCardIcon,
   MailIcon,
   MessageCircleIcon,
-  PaletteIcon,
   PlugIcon,
   SendIcon,
   SlackIcon,
@@ -49,6 +48,7 @@ import {
   Item,
   ItemCard,
   ItemContent,
+  ItemDescription,
   ItemSeparator,
   ItemTitle,
   ItemActions,
@@ -157,16 +157,24 @@ export default function SettingsPage() {
           </ItemCard>
         </SettingsGroup>
 
-        <SettingsGroup
-          icon={<PaletteIcon className="size-5" />}
-          title="Appearance"
-        >
+        <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
           <ItemCard>
             <AppearanceSection />
+            <ItemSeparator />
+            <Item size="sm">
+              <ItemContent>
+                <ItemTitle>Beta Features</ItemTitle>
+                <ItemDescription>
+                  Try experimental features that are still in progress.
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/early-access">Open</Link>
+                </Button>
+              </ItemActions>
+            </Item>
           </ItemCard>
-        </SettingsGroup>
-
-        <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
           <ItemCard>
             <DeleteSection />
           </ItemCard>
