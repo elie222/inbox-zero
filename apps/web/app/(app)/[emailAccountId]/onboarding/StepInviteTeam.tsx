@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { ArrowRightIcon, UsersIcon } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
@@ -20,12 +21,15 @@ export function StepInviteTeam({
   organizationId,
   userName,
   onNext,
+  onSkip,
 }: {
   emailAccountId: string;
   organizationId?: string;
   userName?: string | null;
   onNext: () => void;
+  onSkip: () => void;
 }) {
+  const posthog = usePostHog();
   const [emails, setEmails] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -71,7 +75,17 @@ export function StepInviteTeam({
             description: `Failed to send ${errorCount} invitation${errorCount > 1 ? "s" : ""}`,
           });
         }
-        onNext();
+
+        if (successCount > 0) {
+          posthog.capture("onboarding_invite_team_submitted", {
+            variant: "onboarding",
+            inviteCount: emails.length,
+            successfulInvites: successCount,
+            failedInvites: errorCount,
+            hasExistingOrganization: Boolean(organizationId),
+          });
+          onNext();
+        }
       }
 
       return;
@@ -109,9 +123,16 @@ export function StepInviteTeam({
     }
 
     if (successCount > 0) {
+      posthog.capture("onboarding_invite_team_submitted", {
+        variant: "onboarding",
+        inviteCount: emails.length,
+        successfulInvites: successCount,
+        failedInvites: errorCount,
+        hasExistingOrganization: Boolean(organizationId),
+      });
       onNext();
     }
-  }, [emails, emailAccountId, organizationId, userName, onNext]);
+  }, [emails, emailAccountId, organizationId, userName, onNext, posthog]);
 
   return (
     <OnboardingWrapper className="py-0">
@@ -152,7 +173,14 @@ export function StepInviteTeam({
             type="button"
             variant="ghost"
             className="w-full"
-            onClick={onNext}
+            onClick={() => {
+              posthog.capture("onboarding_invite_team_skipped", {
+                variant: "onboarding",
+                inviteCount: emails.length,
+                hasExistingOrganization: Boolean(organizationId),
+              });
+              onSkip();
+            }}
             disabled={isSubmitting}
           >
             Skip

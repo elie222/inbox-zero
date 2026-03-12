@@ -35,8 +35,23 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
   useSignUpEvent();
 
   useEffect(() => {
-    analytics.onStart();
-  }, [analytics]);
+    const currentQuestion = survey.questions[questionIndex];
+
+    if (questionIndex === 0) {
+      analytics.onStart({
+        step: questionIndex + 1,
+        stepKey: currentQuestion.key,
+        totalSteps: survey.questions.length,
+      });
+    }
+
+    analytics.onStepViewed({
+      step: questionIndex + 1,
+      stepKey: currentQuestion.key,
+      totalSteps: survey.questions.length,
+      isOptional: Boolean(currentQuestion.skippable),
+    });
+  }, [analytics, questionIndex]);
 
   const {
     register,
@@ -53,13 +68,19 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       : (`$survey_response_${questionIndex}` as const);
 
   const isFinalQuestion = questionIndex === survey.questions.length - 1;
+  const currentQuestion = survey.questions[questionIndex];
 
   const submitPosthog = useCallback(
     (responses: Properties) => {
-      analytics.onComplete();
+      analytics.onComplete({
+        step: questionIndex + 1,
+        stepKey: currentQuestion.key,
+        totalSteps: survey.questions.length,
+        destination: isPremium ? "setup" : "welcome-upgrade",
+      });
       posthog.capture("survey sent", { ...responses, $survey_id: surveyId });
     },
-    [posthog, analytics],
+    [posthog, analytics, questionIndex, currentQuestion.key, isPremium],
   );
 
   const onSubmit: SubmitHandler<Inputs> = useCallback(
@@ -78,7 +99,14 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       newSeachParams.set("question", (questionIndex + 1).toString());
       newSeachParams.set(name, answer);
 
-      analytics.onNext(questionIndex + 1);
+      analytics.onNext({
+        step: questionIndex + 1,
+        stepKey: currentQuestion.key,
+        totalSteps: survey.questions.length,
+        nextStep: isFinalQuestion ? undefined : questionIndex + 2,
+        nextStepKey: survey.questions[questionIndex + 1]?.key,
+        isOptional: Boolean(currentQuestion.skippable),
+      });
 
       const responses = getResponses(newSeachParams);
       await saveOnboardingAnswersAction({
@@ -110,11 +138,13 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       setValue,
       isFinalQuestion,
       analytics,
+      currentQuestion.key,
+      currentQuestion.skippable,
       isPremium,
     ],
   );
 
-  const question = survey.questions[questionIndex];
+  const question = currentQuestion;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex justify-center">
