@@ -39,7 +39,7 @@ export function getAvailableActions(provider: string) {
     ...(isMicrosoftProvider(provider) ? [ActionType.MOVE_FOLDER] : []),
     ActionType.ARCHIVE,
     ActionType.MARK_READ,
-    ActionType.DRAFT_EMAIL,
+    ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED ? [] : [ActionType.DRAFT_EMAIL]),
     // Only include send-related actions when email sending is enabled
     ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
       ? [ActionType.REPLY, ActionType.FORWARD, ActionType.SEND_EMAIL]

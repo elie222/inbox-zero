@@ -24,6 +24,7 @@ import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useSignUpEvent } from "@/hooks/useSignupEvent";
 import { isDefined } from "@/utils/types";
+import { env } from "@/env";
 import { StepCompanySize } from "@/app/(app)/[emailAccountId]/onboarding/StepCompanySize";
 import { StepInviteTeam } from "@/app/(app)/[emailAccountId]/onboarding/StepInviteTeam";
 import { usePremium } from "@/components/PremiumAlert";
@@ -52,7 +53,9 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
     [STEP_KEYS.WELCOME]: () => <StepWelcome onNext={onNext} />,
     [STEP_KEYS.EMAILS_SORTED]: () => <StepEmailsSorted onNext={onNext} />,
-    [STEP_KEYS.DRAFT_REPLIES]: () => <StepDraftReplies onNext={onNext} />,
+    [STEP_KEYS.DRAFT_REPLIES]: env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
+      ? undefined
+      : () => <StepDraftReplies onNext={onNext} />,
     [STEP_KEYS.BULK_UNSUBSCRIBE]: () => <StepBulkUnsubscribe onNext={onNext} />,
     [STEP_KEYS.FEATURES]: () => <StepFeatures onNext={onNext} />,
     [STEP_KEYS.WHO]: () => (
@@ -70,7 +73,9 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
         onNext={onNext}
       />
     ),
-    [STEP_KEYS.DRAFT]: () => (
+    [STEP_KEYS.DRAFT]: env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
+      ? undefined
+      : () => (
       <StepDraft
         provider={provider}
         emailAccountId={emailAccountId}

@@ -13,6 +13,7 @@ import prisma from "@/utils/prisma";
 import { sendColdEmailNotification } from "@/utils/cold-email/send-notification";
 import { extractEmailAddress } from "@/utils/email";
 import { captureException } from "@/utils/error";
+import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 
 const MODULE = "ai-actions";
@@ -159,6 +160,8 @@ const draft: ActionFunction<{
   cc?: string | null;
   bcc?: string | null;
 }> = async ({ client, email, args, userEmail, executedRule }) => {
+  if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) return;
+
   const draftArgs = {
     to: args.to ?? undefined,
     subject: args.subject ?? undefined,

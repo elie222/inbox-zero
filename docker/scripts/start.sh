@@ -46,6 +46,10 @@ if [ -n "$NEXT_PUBLIC_CLEANER_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_CLEANER_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_CLEANER_ENABLED"
 fi
 
+if [ -n "$NEXT_PUBLIC_AUTO_DRAFT_DISABLED" ]; then
+    /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_AUTO_DRAFT_DISABLED_PLACEHOLDER" "$NEXT_PUBLIC_AUTO_DRAFT_DISABLED"
+fi
+
 if [ -n "$NEXT_PUBLIC_MEETING_BRIEFS_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_MEETING_BRIEFS_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_MEETING_BRIEFS_ENABLED"
 fi
