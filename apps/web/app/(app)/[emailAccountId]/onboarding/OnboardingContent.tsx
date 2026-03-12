@@ -28,7 +28,7 @@ import { StepCompanySize } from "@/app/(app)/[emailAccountId]/onboarding/StepCom
 import { StepInviteTeam } from "@/app/(app)/[emailAccountId]/onboarding/StepInviteTeam";
 import { usePremium } from "@/components/PremiumAlert";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
-import { Loading } from "@/components/Loading";
+import { LoadingContent } from "@/components/LoadingContent";
 import {
   STEP_KEYS,
   STEP_ORDER,
@@ -41,8 +41,11 @@ interface OnboardingContentProps {
 export function OnboardingContent({ step }: OnboardingContentProps) {
   const { emailAccountId, provider, isLoading } = useAccount();
   const { isPremium } = usePremium();
-  const { data: membership, isLoading: isMembershipLoading } =
-    useOrganizationMembership();
+  const {
+    data: membership,
+    isLoading: isMembershipLoading,
+    error: membershipError,
+  } = useOrganizationMembership();
 
   useSignUpEvent();
 
@@ -141,9 +144,12 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   const renderStep = steps[clampedStep - 1] || steps[0];
 
-  if ((isLoading && !provider) || isMembershipLoading) {
-    return <Loading />;
-  }
-
-  return renderStep ? renderStep() : null;
+  return (
+    <LoadingContent
+      loading={(isLoading && !provider) || isMembershipLoading}
+      error={membershipError}
+    >
+      {renderStep ? renderStep() : null}
+    </LoadingContent>
+  );
 }
