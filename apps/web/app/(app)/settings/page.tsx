@@ -7,14 +7,17 @@ import {
   CreditCardIcon,
   MailIcon,
   MessageCircleIcon,
+  PaletteIcon,
   PlugIcon,
   SendIcon,
   SlackIcon,
   SparklesIcon,
+  UserIcon,
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
+import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
 import {
@@ -154,9 +157,20 @@ export default function SettingsPage() {
           </ItemCard>
         </SettingsGroup>
 
-        <ItemCard>
-          <DeleteSection />
-        </ItemCard>
+        <SettingsGroup
+          icon={<PaletteIcon className="size-5" />}
+          title="Appearance"
+        >
+          <ItemCard>
+            <AppearanceSection />
+          </ItemCard>
+        </SettingsGroup>
+
+        <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
+          <ItemCard>
+            <DeleteSection />
+          </ItemCard>
+        </SettingsGroup>
       </div>
     </div>
   );
