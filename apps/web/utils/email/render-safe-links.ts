@@ -1,3 +1,4 @@
+import he from "he";
 import { escapeHtml } from "@/utils/string";
 
 export function renderEmailTextWithSafeLinks(text: string): string {
@@ -57,7 +58,7 @@ function findHtmlAnchorMatches(text: string) {
       end: match.index + match[0].length,
       raw: match[0],
       url: match[2] || "",
-      label: stripHtmlTags(match[3] || ""),
+      label: decodeHtmlEntities(stripHtmlTags(match[3] || "")),
     });
 
     match = regex.exec(text);
@@ -74,7 +75,7 @@ function findMarkdownLinkMatches(text: string) {
     start: number;
     url: string;
   }> = [];
-  const regex = /\[([^[\]]+)\]\(([^()\s]+)\)/g;
+  const regex = /\[([^[\]]+)\]\(((?:[^()\s]+|\([^()\s]*\))+)\)/g;
 
   let match = regex.exec(text);
   while (match) {
@@ -137,10 +138,14 @@ function stripHtmlTags(value: string) {
   return value.replace(/<[^>]+>/g, " ");
 }
 
+function decodeHtmlEntities(value: string) {
+  return he.decode(value);
+}
+
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
 function escapeTextSegment(value: string) {
-  return escapeHtml(value).replace(/\r\n/g, "\n").replace(/\n/g, "<br>");
+  return escapeHtml(value).replace(/\r\n/g, "\n");
 }

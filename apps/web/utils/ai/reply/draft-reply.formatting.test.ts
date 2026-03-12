@@ -212,7 +212,7 @@ describe("aiDraftReply formatting", () => {
       "Write the reply in the same language as the latest message in the thread.",
     );
     expect(callArgs.system).toContain(
-      "If a clickable link is necessary, use markdown links only",
+      "If a clickable link is necessary, use markdown links in the format [Label](https://example.com/path).",
     );
     expect(callArgs.prompt).toContain(
       "IMPORTANT: You are writing an email as user@example.com. Write the reply from their perspective.",

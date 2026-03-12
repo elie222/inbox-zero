@@ -34,4 +34,32 @@ describe("renderEmailTextWithSafeLinks", () => {
       "Open &lt;a href=&quot;javascript:alert(1)&quot;&gt;the portal&lt;/a&gt;.",
     );
   });
+
+  it("decodes html entities in anchor labels before escaping them", () => {
+    const result = renderEmailTextWithSafeLinks(
+      'Use <a href="https://example.com/login">Tom &amp; Jerry</a>.',
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/login">Tom &amp; Jerry (example.com)</a>',
+    );
+    expect(result).not.toContain("&amp;amp;");
+  });
+
+  it("renders markdown links whose URLs contain parentheses", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [the docs](https://example.com/path_(1)) for details.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/path_(1)">the docs (example.com)</a>',
+    );
+  });
+
+  it("preserves newlines as plain text until the provider formatter handles them", () => {
+    const result = renderEmailTextWithSafeLinks("Line one\nLine two");
+
+    expect(result).toBe("Line one\nLine two");
+    expect(result).not.toContain("<br>");
+  });
 });

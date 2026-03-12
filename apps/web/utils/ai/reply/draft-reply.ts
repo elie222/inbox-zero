@@ -7,14 +7,13 @@ import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
-import {
-  PLAIN_TEXT_OUTPUT_INSTRUCTION,
-  PROMPT_SECURITY_INSTRUCTIONS,
-} from "@/utils/ai/security";
+import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { normalizeDraftReplyConfidence } from "@/utils/ai/reply/draft-confidence";
 
 const logger = createScopedLogger("DraftReply");
+const DRAFT_OUTPUT_INSTRUCTION =
+  "Return plain text only. Do not use HTML tags. If a clickable link is necessary, use markdown links in the format [Label](https://example.com/path).";
 
 const systemPrompt = `You are an expert assistant that drafts email replies using knowledge base information.
 
@@ -24,8 +23,7 @@ Use context from the previous emails and the provided knowledge base to make it 
 IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't add anything to the conversation to repeat back to them what they just said.
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
-IMPORTANT: ${PLAIN_TEXT_OUTPUT_INSTRUCTION}
-If a clickable link is necessary, use markdown links only in the format [Label](https://example.com/path). Never use HTML tags for links.
+${DRAFT_OUTPUT_INSTRUCTION}
 IMPORTANT: Format paragraphs using Unix newlines: use "\n\n" between paragraphs and "\n" for single line breaks.
 Write the reply in the same language as the latest message in the thread.
 
