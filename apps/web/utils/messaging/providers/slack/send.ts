@@ -122,6 +122,10 @@ export async function sendDocumentAskToSlack({
  */
 export const SLACK_DM_CHANNEL_SENTINEL = "DM";
 
+export function isSlackDmChannel(channelId: string | null): boolean {
+  return channelId === SLACK_DM_CHANNEL_SENTINEL;
+}
+
 export async function resolveSlackDestination({
   accessToken,
   channelId,
@@ -131,9 +135,9 @@ export async function resolveSlackDestination({
   channelId: string | null;
   providerUserId: string | null;
 }): Promise<string | null> {
-  if (channelId && channelId !== SLACK_DM_CHANNEL_SENTINEL) return channelId;
+  if (channelId && !isSlackDmChannel(channelId)) return channelId;
 
-  if (channelId === SLACK_DM_CHANNEL_SENTINEL && providerUserId) {
+  if (isSlackDmChannel(channelId) && providerUserId) {
     const client = createSlackClient(accessToken);
     const response = await client.conversations.open({
       users: providerUserId,
