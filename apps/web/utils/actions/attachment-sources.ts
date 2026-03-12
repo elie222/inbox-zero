@@ -80,22 +80,19 @@ export const upsertRuleAttachmentSourcesAction = actionClient
       const sourcesToCreate = sources.filter(
         (source) => !existingSourceByKey.has(getSourceKey(source)),
       );
-      const sourcesToUpdate = sources
-        .map((source) => ({
-          next: source,
-          existing: existingSourceByKey.get(getSourceKey(source)),
-        }))
-        .filter(
-          (
-            source,
-          ): source is {
-            next: (typeof sources)[number];
-            existing: (typeof existingSources)[number];
-          } =>
-            Boolean(source.existing) &&
-            (source.existing.name !== source.next.name ||
-              source.existing.sourcePath !== (source.next.sourcePath ?? null)),
-        );
+      const sourcesToUpdate = sources.flatMap((source) => {
+        const existing = existingSourceByKey.get(getSourceKey(source));
+
+        if (
+          !existing ||
+          (existing.name === source.name &&
+            existing.sourcePath === (source.sourcePath ?? null))
+        ) {
+          return [];
+        }
+
+        return [{ next: source, existing }];
+      });
 
       await prisma.$transaction(async (tx) => {
         if (sourceIdsToDelete.length > 0) {
