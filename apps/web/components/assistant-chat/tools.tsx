@@ -98,10 +98,10 @@ function CollapsibleToolCard({
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger className="w-full text-left">
           <CardHeader className={cn("px-4 py-3.5", open && "border-b")}>
-            <div className="flex items-start gap-3">
+            <div className="flex items-center gap-3">
               <ChevronRightIcon
                 className={cn(
-                  "mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                  "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
                   open && "rotate-90",
                 )}
               />
