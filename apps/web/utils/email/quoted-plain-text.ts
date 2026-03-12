@@ -7,12 +7,18 @@ export function buildQuotedPlainText({
   quotedHeader: string;
   quotedContent?: string;
 }) {
-  return `${textContent || ""}\n\n${quotedHeader}\n\n${quotedContent || ""}`.trim();
+  const parts = [textContent, quotedHeader, quotedContent].filter(
+    (part): part is string => part !== undefined,
+  );
+
+  return parts.join("\n\n");
 }
 
 export function quotePlainTextContent(content?: string) {
+  if (!content) return undefined;
+
   return content
-    ?.split("\n")
+    .split("\n")
     .map((line) => `> ${line}`)
     .join("\n");
 }
