@@ -206,7 +206,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
       {collapsed ? (
         <button
           type="button"
-          className="my-2 flex w-full items-center justify-between gap-3 overflow-hidden rounded-lg border bg-card px-3 py-2 text-left shadow-sm transition-colors hover:bg-muted/30"
+          className="mb-4 mt-2 flex w-full items-center justify-between gap-3 overflow-hidden rounded-lg border bg-card px-3 py-2 text-left shadow-sm transition-colors hover:bg-muted/30"
           onClick={() => setCollapsed(false)}
         >
           <div className="min-w-0">
@@ -222,7 +222,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
           <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
         </button>
       ) : (
-        <div className="my-2 overflow-hidden rounded-lg border bg-card shadow-sm">
+        <div className="mb-4 mt-2 overflow-hidden rounded-lg border bg-card shadow-sm">
           {threadIds.length > 0 && (
             <div className="flex items-center justify-end gap-1 border-b px-3 py-1.5">
               <Tooltip
