@@ -23,9 +23,7 @@ export default function DebugMemoriesPage() {
         <div className="mt-6 space-y-6">
           <div className="rounded-lg border p-3 sm:w-fit">
             <p className="text-xs text-muted-foreground">Total Memories</p>
-            <p className="mt-1 text-lg font-medium">
-              {data?.totalCount ?? 0}
-            </p>
+            <p className="mt-1 text-lg font-medium">{data?.totalCount ?? 0}</p>
           </div>
 
           <div className="space-y-2">
@@ -36,7 +34,10 @@ export default function DebugMemoriesPage() {
                   <span>{new Date(memory.createdAt).toLocaleString()}</span>
                   {memory.chatId && (
                     <Link
-                      href={prefixPath(emailAccountId, `/assistant?chatId=${memory.chatId}`)}
+                      href={prefixPath(
+                        emailAccountId,
+                        `/assistant?chatId=${memory.chatId}`,
+                      )}
                       className="underline hover:text-foreground"
                     >
                       View chat

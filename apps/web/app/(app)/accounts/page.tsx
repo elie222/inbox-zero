@@ -244,8 +244,7 @@ function useAccountNotifications() {
         },
         consent_declined: {
           title: "Microsoft permissions were not granted",
-          description:
-            `Microsoft sign-in was canceled before ${BRAND_NAME} received the required permissions. Please try again and complete the consent screen.`,
+          description: `Microsoft sign-in was canceled before ${BRAND_NAME} received the required permissions. Please try again and complete the consent screen.`,
         },
         admin_consent_required: {
           title: "Admin approval required",
@@ -259,8 +258,7 @@ function useAccountNotifications() {
         },
         consent_incomplete: {
           title: "More Microsoft permissions are required",
-          description:
-            `Microsoft connected the account, but did not grant all required permissions. Reconnect and approve every requested permission. If your organization restricts consent, ask your admin to approve ${BRAND_NAME} first.`,
+          description: `Microsoft connected the account, but did not grant all required permissions. Reconnect and approve every requested permission. If your organization restricts consent, ask your admin to approve ${BRAND_NAME} first.`,
         },
         link_failed: {
           title: "Account linking failed",
