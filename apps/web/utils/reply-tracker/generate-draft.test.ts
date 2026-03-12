@@ -271,6 +271,39 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
 
     expect(result).toBe("");
   });
+
+  it("converts AI link markup into provider-ready draft content for the reply-tracker flow", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply:
+        "Thanks for reaching out.\n\nUse [the login page](https://example.com/login) or email [support](mailto:help@example.com).",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+      includeReferralSignature: false,
+      signature: null,
+    } as any);
+
+    const result = await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      mockLogger,
+    );
+
+    expect(result).toContain("Thanks for reaching out.");
+    expect(result).toContain(
+      '<a href="https://example.com/login">the login page (example.com)</a>',
+    );
+    expect(result).toContain(
+      '<a href="mailto:help@example.com">support (help@example.com)</a>',
+    );
+    expect(result).not.toContain("[the login page](https://example.com/login)");
+    expect(result).not.toContain("[support](mailto:help@example.com)");
+    expect(result).toContain(
+      '\n\nUse <a href="https://example.com/login">the login page (example.com)</a>',
+    );
+  });
 });
 
 describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
