@@ -7,6 +7,7 @@ import type { ParsedMessage } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
 
@@ -80,12 +81,12 @@ import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
 import prisma from "@/utils/prisma";
 import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
 
-const mockLogger = {
-  info: vi.fn(),
-  error: vi.fn(),
-  warn: vi.fn(),
-  debug: vi.fn(),
-} as any;
+const logger = createScopedLogger("reply-tracker/generate-draft-test");
+
+type EmailAccountSignatureSettings = {
+  includeReferralSignature: boolean;
+  signature: string | null;
+};
 
 const createMockEmailAccount = (): EmailAccountWithAI =>
   ({
@@ -126,7 +127,15 @@ const createMockClient = (): EmailProvider =>
   ({
     getThreadMessages: vi.fn(),
     getPreviousConversationMessages: vi.fn().mockResolvedValue([]),
-  }) as any;
+  }) as EmailProvider;
+
+const createMockEmailAccountSettings = (
+  overrides: Partial<EmailAccountSignatureSettings> = {},
+): EmailAccountSignatureSettings => ({
+  includeReferralSignature: false,
+  signature: null,
+  ...overrides,
+});
 
 describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
   beforeEach(() => {
@@ -142,10 +151,12 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
       reply: maliciousAiOutput,
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
-    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
-      includeReferralSignature: true,
-      signature: userSignature,
-    } as any);
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings({
+        includeReferralSignature: true,
+        signature: userSignature,
+      }),
+    );
 
     const emailAccount = createMockEmailAccount();
     const testMessage = createMockMessage();
@@ -156,7 +167,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
       "thread-1",
       client,
       testMessage,
-      mockLogger,
+      logger,
     );
 
     // AI content should be escaped - hidden div should NOT be renderable
@@ -182,17 +193,16 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
       reply: maliciousAiOutput,
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
-    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
-      includeReferralSignature: false,
-      signature: null,
-    } as any);
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
 
     const result = await fetchMessagesAndGenerateDraft(
       createMockEmailAccount(),
       "thread-1",
       createMockClient(),
       createMockMessage(),
-      mockLogger,
+      logger,
     );
 
     // Hidden span should be escaped
@@ -207,17 +217,16 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
       reply: maliciousAiOutput,
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
-    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
-      includeReferralSignature: false,
-      signature: null,
-    } as any);
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
 
     const result = await fetchMessagesAndGenerateDraft(
       createMockEmailAccount(),
       "thread-1",
       createMockClient(),
       createMockMessage(),
-      mockLogger,
+      logger,
     );
 
     // Script tags should be escaped
@@ -234,17 +243,16 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
       reply: normalAiOutput,
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
-    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
-      includeReferralSignature: false,
-      signature: null,
-    } as any);
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
 
     const result = await fetchMessagesAndGenerateDraft(
       createMockEmailAccount(),
       "thread-1",
       createMockClient(),
       createMockMessage(),
-      mockLogger,
+      logger,
     );
 
     // Normal text should be unchanged
@@ -256,17 +264,16 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
       reply: "",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
-    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
-      includeReferralSignature: false,
-      signature: null,
-    } as any);
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
 
     const result = await fetchMessagesAndGenerateDraft(
       createMockEmailAccount(),
       "thread-1",
       createMockClient(),
       createMockMessage(),
-      mockLogger,
+      logger,
     );
 
     expect(result).toBe("");
@@ -278,17 +285,16 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
         "Thanks for reaching out.\n\nUse [the login page](https://example.com/login) or email [support](mailto:help@example.com).",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
-    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
-      includeReferralSignature: false,
-      signature: null,
-    } as any);
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
 
     const result = await fetchMessagesAndGenerateDraft(
       createMockEmailAccount(),
       "thread-1",
       createMockClient(),
       createMockMessage(),
-      mockLogger,
+      logger,
     );
 
     expect(result).toContain("Thanks for reaching out.");
@@ -316,10 +322,9 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
       reply: "Draft reply",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
-    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
-      includeReferralSignature: false,
-      signature: null,
-    } as any);
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
 
     const olderMessage: ParsedMessage = {
       ...createMockMessage(),
@@ -351,7 +356,7 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
       "thread-1",
       client,
       undefined,
-      mockLogger,
+      logger,
     );
 
     const [draftArgs] = vi.mocked(aiDraftReplyWithConfidence).mock.calls[0]!;
@@ -378,7 +383,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       "thread-1",
       createMockClient(),
       createMockMessage(),
-      mockLogger,
+      logger,
       DraftReplyConfidence.STANDARD,
     );
 
@@ -398,17 +403,16 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       reply: "Fresh draft",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
-    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
-      includeReferralSignature: false,
-      signature: null,
-    } as any);
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
 
     const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
       createMockEmailAccount(),
       "thread-1",
       createMockClient(),
       createMockMessage(),
-      mockLogger,
+      logger,
       DraftReplyConfidence.STANDARD,
     );
 
@@ -435,7 +439,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       "thread-1",
       createMockClient(),
       createMockMessage(),
-      mockLogger,
+      logger,
       DraftReplyConfidence.STANDARD,
     );
 
