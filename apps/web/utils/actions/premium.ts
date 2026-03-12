@@ -545,8 +545,7 @@ export const generateCheckoutSessionAction = actionClientUser
         trackStripeCheckoutCreated(user.email, {
           billingProvider: "stripe",
           quantity,
-          tier: tier,
-          paymentMethodCollection: "always",
+          tier,
         }),
       );
 
