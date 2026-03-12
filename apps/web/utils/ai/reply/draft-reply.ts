@@ -13,7 +13,7 @@ import { normalizeDraftReplyConfidence } from "@/utils/ai/reply/draft-confidence
 
 const logger = createScopedLogger("DraftReply");
 const DRAFT_OUTPUT_INSTRUCTION =
-  "Return plain text only. Do not use HTML tags. If a clickable link is necessary, use markdown links in the format [Label](https://example.com/path).";
+  "Return plain text only. Do not use HTML tags. If a clickable link is necessary, use markdown links in the format [Label](https://example.com/path) or [Label](mailto:name@example.com).";
 
 const systemPrompt = `You are an expert assistant that drafts email replies using knowledge base information.
 
