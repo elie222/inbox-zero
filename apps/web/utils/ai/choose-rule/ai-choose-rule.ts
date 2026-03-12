@@ -138,6 +138,7 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
   - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
   - When multiple rules match, choose the more specific one that best matches the email's content.
   - Rules about requiring replies should be prioritized when the email clearly needs a response.
+  - Consider email metadata (e.g. List-Unsubscribe headers) alongside content. Marketing emails often use a personal tone, first names, and phrases like "hand-picked" or "we'd love your feedback" to appear conversational.
   </guidelines>
 </instructions>
 
@@ -235,6 +236,7 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
   - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
   - Do not be greedy - only select rules that add meaningful context.
   - Be concise in your reasoning - avoid repetitive explanations.
+  - Consider email metadata (e.g. List-Unsubscribe headers) alongside content. Marketing emails often use a personal tone, first names, and phrases like "hand-picked" or "we'd love your feedback" to appear conversational.
   </guidelines>
 </instructions>
 
