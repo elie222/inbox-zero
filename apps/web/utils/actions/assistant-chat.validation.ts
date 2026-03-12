@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { messageContextSchema } from "@/app/api/chat/validation";
+import { inlineEmailActionSchema } from "@/utils/ai/assistant/inline-email-actions";
 
 export const assistantPendingEmailActionTypeSchema = z.enum([
   "send_email",
@@ -108,3 +110,42 @@ export const confirmAssistantEmailActionBody = z.object({
 export type ConfirmAssistantEmailActionBody = z.infer<
   typeof confirmAssistantEmailActionBody
 >;
+
+const assistantChatTextPartSchema = z.object({
+  type: z.literal("text"),
+  text: z.string().min(1).max(3000),
+});
+
+const assistantChatFilePartSchema = z.object({
+  type: z.literal("file"),
+  url: z
+    .string()
+    .max(6_000_000)
+    .refine((url) => /^data:image\/(jpeg|png|webp|gif);base64,/.test(url), {
+      message: "URL must be a base64 data URL with an allowed image MIME type",
+    }),
+  filename: z.string().optional(),
+  mediaType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]),
+});
+
+const assistantChatMessagePartSchema = z.discriminatedUnion("type", [
+  assistantChatTextPartSchema,
+  assistantChatFilePartSchema,
+]);
+
+export const assistantInputSchema = z.object({
+  id: z.string().trim().min(1),
+  message: z.object({
+    id: z.string().trim().min(1),
+    role: z.enum(["user"]),
+    parts: z
+      .array(assistantChatMessagePartSchema)
+      .refine((parts) => parts.filter((p) => p.type === "file").length <= 5, {
+        message: "Maximum 5 file attachments per message",
+      }),
+  }),
+  context: messageContextSchema.optional(),
+  inlineActions: z.array(inlineEmailActionSchema).max(20).optional(),
+});
+
+export type AssistantInput = z.infer<typeof assistantInputSchema>;

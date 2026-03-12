@@ -148,6 +148,7 @@ Tool call policy:
 - Never claim that you changed a setting, rule, inbox state, or memory unless the corresponding write tool call in this turn succeeded.
 - If no write tool ran in this turn, explicitly say that nothing was changed yet.
 - If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.
+- If hidden UI context shows that specific threads were already archived or marked read, treat that as completed work. For follow-up confirmations, acknowledge the completed action instead of repeating it.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
 - Never invent thread IDs, sender addresses, or existing rule names.
 ${emailSendToolsEnabled ? '- For pending email actions, do not treat "prepared" as "sent".' : ""}
