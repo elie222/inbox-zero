@@ -9,16 +9,32 @@ export const inlineEmailActionTypeSchema = z.enum([
 
 export const inlineEmailActionSchema = z.object({
   type: inlineEmailActionTypeSchema,
-  threadIds: z.array(z.string().min(1)).min(1).max(MAX_INLINE_EMAIL_THREAD_IDS),
+  threadIds: z
+    .array(z.string().trim().min(1))
+    .min(1)
+    .max(MAX_INLINE_EMAIL_THREAD_IDS),
 });
 
 export type InlineEmailAction = z.infer<typeof inlineEmailActionSchema>;
 export type InlineEmailActionType = z.infer<typeof inlineEmailActionTypeSchema>;
 
 export function normalizeInlineEmailThreadIds(threadIds: string[]) {
-  return [
-    ...new Set(threadIds.filter((threadId) => threadId.trim().length)),
-  ].slice(0, MAX_INLINE_EMAIL_THREAD_IDS);
+  const normalizedThreadIds: string[] = [];
+  const seenThreadIds = new Set<string>();
+
+  for (let index = threadIds.length - 1; index >= 0; index -= 1) {
+    const threadId = threadIds[index]?.trim();
+    if (!threadId || seenThreadIds.has(threadId)) continue;
+
+    seenThreadIds.add(threadId);
+    normalizedThreadIds.push(threadId);
+
+    if (normalizedThreadIds.length === MAX_INLINE_EMAIL_THREAD_IDS) {
+      break;
+    }
+  }
+
+  return normalizedThreadIds.reverse();
 }
 
 export function mergeInlineEmailActions(

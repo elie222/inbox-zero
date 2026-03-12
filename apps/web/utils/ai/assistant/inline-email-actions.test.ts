@@ -80,11 +80,11 @@ describe("mergeInlineEmailActions", () => {
 
     expect(actions).toHaveLength(1);
     expect(actions[0].threadIds).toHaveLength(200);
-    expect(actions[0].threadIds[0]).toBe("existing-0");
-    expect(actions[0].threadIds[199]).toBe("next-49");
+    expect(actions[0].threadIds[0]).toBe("existing-100");
+    expect(actions[0].threadIds[199]).toBe("next-149");
   });
 
-  it("keeps uncapped mark-read thread IDs when archive is already full", () => {
+  it("prioritizes newer archive thread IDs when the archive list is full", () => {
     const existingArchiveThreadIds = Array.from({ length: 200 }, (_, index) => {
       return `archive-${index}`;
     });
@@ -106,16 +106,11 @@ describe("mergeInlineEmailActions", () => {
       },
     );
 
-    expect(actions).toEqual([
-      {
-        type: "archive_threads",
-        threadIds: existingArchiveThreadIds,
-      },
-      {
-        type: "mark_read_threads",
-        threadIds: ["mark-read-1"],
-      },
-    ]);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].type).toBe("archive_threads");
+    expect(actions[0].threadIds).toHaveLength(200);
+    expect(actions[0].threadIds).toContain("mark-read-1");
+    expect(actions[0].threadIds).not.toContain("archive-0");
   });
 });
 
