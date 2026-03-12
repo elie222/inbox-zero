@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { convertEmailHtmlToText } from "@/utils/mail";
-import { createReplyContent } from "@/utils/gmail/reply";
 import type { ParsedMessage } from "@/utils/types";
 
 vi.mock("server-only", () => ({}));
 
-import { convertTextToHtmlParagraphs } from "@/utils/gmail/mail";
+import {
+  buildReplyMessageText,
+  convertTextToHtmlParagraphs,
+} from "@/utils/gmail/mail";
 
 describe("convertTextToHtmlParagraphs", () => {
   it("preserves paragraph spacing with double newlines", () => {
@@ -64,18 +65,19 @@ describe("convertTextToHtmlParagraphs", () => {
       textHtml: "<div>Original message content</div>",
     };
 
-    const { html } = createReplyContent({
+    const plainText = buildReplyMessageText({
       textContent:
         'Use <a href="https://example.com/login">the login page (example.com)</a>\n\n<p>Best regards,<br>John</p>',
       message,
     });
 
-    const plainText = convertEmailHtmlToText({ htmlText: html });
-
     expect(plainText).toContain(
       "Use the login page (example.com) [https://example.com/login]",
     );
     expect(plainText).toContain("Best regards,\nJohn");
+    expect(plainText).toContain(
+      "\n\nOn Thu, 6 Feb 2025 at 23:23, John Doe <john@example.com> wrote:\n\n",
+    );
     expect(plainText).toContain("John Doe <john@example.com> wrote:");
     expect(plainText).toContain("> Original message content");
     expect(plainText).not.toContain("<a href=");

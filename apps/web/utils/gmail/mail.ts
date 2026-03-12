@@ -11,7 +11,7 @@ import {
   forwardEmailText,
 } from "@/utils/gmail/forward";
 import type { ParsedMessage } from "@/utils/types";
-import { createReplyContent } from "@/utils/gmail/reply";
+import { createReplyContent, formatEmailDate } from "@/utils/gmail/reply";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { withGmailRetry } from "@/utils/gmail/retry";
@@ -23,6 +23,11 @@ import {
 import { formatReplySubject } from "@/utils/email/subject";
 import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import { convertNewlinesToBr } from "@/utils/string";
+import {
+  buildQuotedPlainText,
+  quotePlainTextContent,
+} from "@/utils/email/quoted-plain-text";
 
 const logger = createScopedLogger("gmail/mail");
 
@@ -164,7 +169,10 @@ export async function replyToEmail(
     textContent: reply,
     message,
   });
-  const messageText = convertEmailHtmlToText({ htmlText: html });
+  const messageText = buildReplyMessageText({
+    textContent: reply,
+    message,
+  });
 
   // Only replying to the original sender
   const raw = await createRawMailMessage({
@@ -275,7 +283,10 @@ export async function draftEmail(
     textContent: args.content,
     message: originalEmail,
   });
-  const messageText = convertEmailHtmlToText({ htmlText: html });
+  const messageText = buildReplyMessageText({
+    textContent: args.content,
+    message: originalEmail,
+  });
 
   const recipients = buildReplyAllRecipients(
     originalEmail.headers,
@@ -350,4 +361,33 @@ export function convertTextToHtmlParagraphs(text?: string | null): string {
     .join("");
 
   return `<html><body>${htmlContent}</body></html>`;
+}
+
+export function buildReplyMessageText({
+  textContent,
+  message,
+}: {
+  textContent?: string;
+  message: Pick<ParsedMessage, "headers" | "textPlain">;
+}) {
+  const quotedDate = formatEmailDate(new Date(message.headers.date));
+  const quotedHeader = `On ${quotedDate}, ${message.headers.from} wrote:`;
+  const quotedContent = quotePlainTextContent(message.textPlain);
+
+  return buildQuotedPlainText({
+    textContent: renderReplyBodyAsPlainText(textContent),
+    quotedHeader,
+    quotedContent,
+  });
+}
+
+function renderReplyBodyAsPlainText(textContent?: string) {
+  if (!textContent) return "";
+
+  return convertEmailHtmlToText({
+    htmlText: convertNewlinesToBr(textContent),
+  })
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
