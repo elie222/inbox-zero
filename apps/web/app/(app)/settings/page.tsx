@@ -174,7 +174,8 @@ export default function SettingsPage() {
                 </Button>
               </ItemActions>
             </Item>
-            <ItemSeparator />
+          </ItemCard>
+          <ItemCard>
             <DeleteSection />
           </ItemCard>
         </SettingsGroup>
