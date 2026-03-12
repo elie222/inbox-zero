@@ -7,11 +7,15 @@ permissions:
 # To enable: Set repository variable AI_EVALS_ENABLED=true
 
 on:
-  # Manual trigger with optional test filter
+  # Manual trigger with optional test filter and multi-model support
   workflow_dispatch:
     inputs:
       test_filter:
-        description: "Test file filter (e.g., ai-choose-rule)"
+        description: "Test file filter (e.g., ai-choose-rule, eval-categorize)"
+        required: false
+        default: ""
+      eval_models:
+        description: "Model matrix: empty for default, 'all' for cross-model comparison"
         required: false
         default: ""
 
@@ -22,6 +26,7 @@ on:
       - "apps/web/utils/llms/**"
       - "apps/web/__tests__/ai-*.test.ts"
       - "apps/web/__tests__/ai/**"
+      - "apps/web/__tests__/eval/**"
 
   # On push to main when AI files change
   push:
@@ -31,6 +36,7 @@ on:
       - "apps/web/utils/llms/**"
       - "apps/web/__tests__/ai-*.test.ts"
       - "apps/web/__tests__/ai/**"
+      - "apps/web/__tests__/eval/**"
 
 jobs:
   ai-evals:
@@ -71,6 +77,8 @@ jobs:
         env:
           TEST_FILTER: ${{ github.event.inputs.test_filter || '' }}
           RUN_AI_TESTS: "true"
+          EVAL_MODELS: ${{ github.event.inputs.eval_models || '' }}
+          EVAL_REPORT_PATH: "eval-results/report.md"
           # LLM Configuration - using OpenRouter
           DEFAULT_LLM_PROVIDER: openrouter
           DEFAULT_LLM_MODEL: anthropic/claude-sonnet-4.5
@@ -88,3 +96,10 @@ jobs:
           INTERNAL_API_KEY: "test"
           NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
         run: pnpm -F inbox-zero-ai test-ai "$TEST_FILTER"
+
+      - name: Upload eval report
+        if: always() && hashFiles('eval-results/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: eval-results/

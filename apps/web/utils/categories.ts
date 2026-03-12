@@ -8,13 +8,14 @@ export const defaultCategory = {
   NEWSLETTER: {
     name: "Newsletter",
     enabled: true,
-    description: "Newsletters",
+    description:
+      "Recurring editorial content, digests, and informational updates sent on a regular schedule",
   },
   MARKETING: {
     name: "Marketing",
     enabled: true,
     description:
-      "Promotional content, product launches, and marketing campaigns",
+      "Mass promotional emails, product launches, and marketing campaigns from companies",
   },
   RECEIPT: {
     name: "Receipt",
