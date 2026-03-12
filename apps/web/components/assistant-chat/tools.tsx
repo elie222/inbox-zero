@@ -40,6 +40,11 @@ import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useChat } from "@/providers/ChatProvider";
 import { ExpandableText } from "@/components/ExpandableText";
+import {
+  EmailLookupProvider,
+  type EmailLookup,
+} from "@/components/assistant-chat/email-lookup-context";
+import { InlineEmailCard } from "@/components/assistant-chat/inline-email-card";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { Switch } from "@/components/ui/switch";
@@ -56,8 +61,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-export type ThreadLookup =
-  import("@/components/assistant-chat/email-lookup-context").EmailLookup;
+export type ThreadLookup = EmailLookup;
 
 function getOutputField<T>(output: unknown, field: string): T | undefined {
   if (typeof output === "object" && output !== null && field in output) {
@@ -75,27 +79,52 @@ export function BasicToolInfo({ text }: { text: string }) {
 }
 
 function CollapsibleToolCard({
-  summary,
+  title,
+  badge,
+  description,
   children,
   initialOpen = false,
 }: {
-  summary: string;
+  title: React.ReactNode;
+  badge?: React.ReactNode;
+  description?: React.ReactNode;
   children: React.ReactNode;
   initialOpen?: boolean;
 }) {
   const [open, setOpen] = useState(initialOpen);
 
   return (
-    <Card className="p-4">
+    <Card className="overflow-hidden">
       <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger className="flex w-full items-center gap-2 text-left text-sm">
-          <ChevronRightIcon
-            className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "rotate-90" : ""}`}
-          />
-          {summary}
+        <CollapsibleTrigger className="w-full text-left">
+          <CardHeader className={cn("px-4 py-3.5", open && "border-b")}>
+            <div className="flex items-start gap-3">
+              <ChevronRightIcon
+                className={cn(
+                  "mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                  open && "rotate-90",
+                )}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-semibold leading-tight">
+                    {title}
+                  </h3>
+                  {badge}
+                </div>
+                {description && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {description}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardHeader>
         </CollapsibleTrigger>
-        <CollapsibleContent className="mt-3 space-y-2">
-          {children}
+        <CollapsibleContent>
+          <CardContent className="space-y-3 px-4 py-3.5">
+            {children}
+          </CardContent>
         </CollapsibleContent>
       </Collapsible>
     </Card>
@@ -103,16 +132,11 @@ function CollapsibleToolCard({
 }
 
 export function SearchInboxResult({ output }: { output: unknown }) {
-  const totalReturned = getOutputField<number>(output, "totalReturned") || 0;
   const queryUsed = getOutputField<string | null>(output, "queryUsed");
-  const summary = getOutputField<{
-    total: number;
-    unread: number;
-    byCategory: Record<string, number>;
-  }>(output, "summary");
   const messages = getOutputField<
     Array<{
       messageId: string;
+      threadId: string;
       subject: string;
       from: string;
       snippet: string;
@@ -122,48 +146,14 @@ export function SearchInboxResult({ output }: { output: unknown }) {
   >(output, "messages");
 
   return (
-    <CollapsibleToolCard summary={`Searched inbox (${totalReturned} messages)`}>
+    <CollapsibleToolCard title="Search Inbox">
       {queryUsed && (
-        <div className="text-xs text-muted-foreground">
-          Query: <span className="font-mono">{queryUsed}</span>
-        </div>
+        <ToolDetailRow
+          label="Query"
+          value={<span className="font-mono text-xs">{queryUsed}</span>}
+        />
       )}
-
-      {summary && summary.unread > 0 && (
-        <div className="text-xs text-muted-foreground">
-          {summary.unread} unread
-        </div>
-      )}
-
-      {messages && messages.length > 0 && (
-        <div className="max-h-96 space-y-1 overflow-y-auto">
-          {messages.map((msg) => (
-            <div
-              key={msg.messageId}
-              className="rounded-md bg-muted px-3 py-2 text-sm"
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <span
-                  className={`truncate ${msg.isUnread ? "font-semibold" : ""}`}
-                >
-                  {msg.from}
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {formatShortDate(new Date(msg.date), { lowercase: true })}
-                </span>
-              </div>
-              <div className="truncate text-muted-foreground">
-                {msg.subject}
-              </div>
-              {msg.snippet && (
-                <div className="mt-0.5 truncate text-xs text-muted-foreground/70">
-                  {msg.snippet}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      {messages && messages.length > 0 && <ToolEmailRows emails={messages} />}
     </CollapsibleToolCard>
   );
 }
@@ -210,49 +200,62 @@ export function ManageInboxResult({
     : (successCount ?? requestedCount);
   const countLabel = isSenderAction ? "sender" : "item";
 
-  const summaryText =
-    typeof completedCount === "number"
-      ? `${actionLabel} (${completedCount} ${countLabel}${completedCount === 1 ? "" : "s"})`
-      : actionLabel;
-
   const resolvedThreads = threadIds
-    ?.map((id) => threadLookup.get(id))
-    .filter(isDefined);
+    ? threadIds
+        .map((threadId) => {
+          const thread = threadLookup.get(threadId);
+          if (!thread) return undefined;
+          return { threadId, ...thread };
+        })
+        .filter(isDefined)
+    : undefined;
 
   return (
-    <CollapsibleToolCard summary={summaryText} initialOpen={isInProgress}>
-      <div className="space-y-1 text-sm">
-        {isInProgress && (
-          <div className="text-xs text-muted-foreground">
-            Processing senders now...
+    <CollapsibleToolCard
+      title={actionLabel}
+      badge={
+        typeof completedCount === "number" ? (
+          <Badge
+            color={failedCount ? "yellow" : isInProgress ? "blue" : "green"}
+            className="text-[10px]"
+          >
+            {completedCount} {countLabel}
+            {completedCount === 1 ? "" : "s"}
+          </Badge>
+        ) : undefined
+      }
+      initialOpen={isInProgress}
+    >
+      {isInProgress && (
+        <ToolPanel className="border-blue-200 bg-blue-50/60 text-blue-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-200">
+          <div className="text-sm">Processing senders now.</div>
+        </ToolPanel>
+      )}
+
+      {typeof failedCount === "number" && failedCount > 0 && (
+        <ToolPanel className="border-red-200 bg-red-50/60 text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-200">
+          <div className="text-sm">
+            Failed on {failedCount} {countLabel}
+            {failedCount === 1 ? "" : "s"}.
           </div>
-        )}
+        </ToolPanel>
+      )}
 
-        {typeof failedCount === "number" && failedCount > 0 && (
-          <div className="text-xs text-red-500">Failed: {failedCount}</div>
-        )}
+      {resolvedThreads && resolvedThreads.length > 0 && (
+        <ToolEmailRows emails={resolvedThreads} />
+      )}
 
-        {resolvedThreads && resolvedThreads.length > 0 && (
-          <div className="space-y-1">
-            {resolvedThreads.map((thread, i) => (
-              <div key={i} className="rounded-md bg-muted px-3 py-2 text-sm">
-                <div className="truncate">{thread.from}</div>
-                <div className="truncate text-muted-foreground">
-                  {thread.subject}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {senders && senders.length > 0 && (
-          <div className="space-y-1">
+      {senders && senders.length > 0 && (
+        <ToolSection label="Senders">
+          <div className="space-y-2">
             {senders.map((sender) => (
-              <div
+              <ToolPanel
                 key={sender}
-                className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-1.5 text-xs"
+                className="flex items-center justify-between gap-3"
               >
-                <span className="truncate">{sender}</span>
+                <span className="min-w-0 truncate text-sm text-foreground">
+                  {sender}
+                </span>
                 <a
                   href={getEmailSearchUrl(sender, userEmail, provider)}
                   target="_blank"
@@ -264,11 +267,11 @@ export function ManageInboxResult({
                 >
                   <ExternalLinkIcon className="size-3.5" />
                 </a>
-              </div>
+              </ToolPanel>
             ))}
           </div>
-        )}
-      </div>
+        </ToolSection>
+      )}
     </CollapsibleToolCard>
   );
 }
@@ -293,43 +296,39 @@ export function ReadEmailResult({ output }: { output: unknown }) {
   const content = getOutputField<string>(output, "content");
   const messageId = getOutputField<string>(output, "messageId");
   const threadId = getOutputField<string>(output, "threadId");
-  const attachments = getOutputField<Array<unknown>>(output, "attachments");
   const externalUrl = getExternalMessageUrl({
     messageId,
     threadId,
     userEmail,
     provider,
   });
+  const formattedDate = date
+    ? formatShortDate(new Date(date), { lowercase: true })
+    : null;
 
   return (
-    <CollapsibleToolCard
-      summary={`Read email${subject ? `: ${subject}` : ""}`}
-      initialOpen={false}
-    >
-      <div className="space-y-2 text-sm">
-        {from && <ToolDetailRow label="From" value={from} />}
-        {to && <ToolDetailRow label="To" value={to} />}
-        {date && (
-          <ToolDetailRow
-            label="Date"
-            value={formatShortDate(new Date(date), { lowercase: true })}
-          />
-        )}
-        {Array.isArray(attachments) && attachments.length > 0 && (
-          <ToolDetailRow
-            label="Attachments"
-            value={`${attachments.length} file${attachments.length === 1 ? "" : "s"}`}
-          />
-        )}
-        {content && (
+    <CollapsibleToolCard title="Read Email" initialOpen={false}>
+      <div className="space-y-3 text-sm">
+        {(subject || from || to || formattedDate) && (
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground">
-              Content
-            </div>
-            <div className="rounded-md bg-muted p-2 text-xs">
-              <ExpandableText text={content} />
+            {subject && (
+              <div className="text-sm font-medium leading-snug text-foreground">
+                {subject}
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {from && <InlineMetadataItem label="From" value={from} />}
+              {to && <InlineMetadataItem label="To" value={to} />}
+              {formattedDate && (
+                <InlineMetadataItem label="Date" value={formattedDate} />
+              )}
             </div>
           </div>
+        )}
+        {content && (
+          <ToolPanel className="text-sm leading-relaxed">
+            <ExpandableText text={content} />
+          </ToolPanel>
         )}
         {externalUrl && (
           <ToolExternalLink href={externalUrl}>
@@ -465,6 +464,9 @@ function EmailActionResult({
     output,
     key: "subject",
   });
+  const referenceFrom = getPendingString(reference, "from");
+  const recipient =
+    to || (actionType === "reply_email" ? referenceFrom : undefined);
   const referenceSubject = getPendingString(reference, "subject");
   const displaySubject = subject || referenceSubject;
   const body = getActionBodyText({ actionType, pendingAction });
@@ -486,7 +488,7 @@ function EmailActionResult({
   });
 
   const actionLabel = getEmailActionLabel(actionType);
-  const recipientInitial = to ? to.charAt(0).toUpperCase() : "?";
+  const recipientInitial = recipient ? recipient.charAt(0).toUpperCase() : "?";
   const providerName = provider === "microsoft" ? "Outlook" : "Gmail";
 
   const handleCopy = () => {
@@ -556,7 +558,7 @@ function EmailActionResult({
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold leading-tight">
             {sentLabel ? `${sentLabel} ` : ""}
-            {to}
+            {recipient}
           </div>
           {cc && (
             <div className="mt-0.5 text-xs text-muted-foreground">CC: {cc}</div>
@@ -707,16 +709,15 @@ export function CreatedRuleToolCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold">{args.name}</h3>
-          <Badge color="green" className="text-[10px]">
-            Created
-          </Badge>
-        </div>
-        {ruleId && <RuleActions ruleId={ruleId} />}
-        {preview && <RuleActionsPreview />}
-      </CardHeader>
+      <RuleToolCardHeader
+        title={args.name}
+        actions={
+          <>
+            {ruleId && <RuleActions ruleId={ruleId} />}
+            {preview && <RuleActionsPreview />}
+          </>
+        }
+      />
 
       <CardContent className="space-y-3 px-4 py-3.5">
         <div className="flex gap-4 text-sm">
@@ -757,15 +758,12 @@ export function UpdatedRuleConditions({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold">{args.ruleName}</h3>
-          <Badge color="blue" className="text-[10px]">
-            Updated
-          </Badge>
-        </div>
-        {preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />}
-      </CardHeader>
+      <RuleToolCardHeader
+        title={args.ruleName}
+        actions={
+          preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
+        }
+      />
 
       <CardContent className="space-y-3 px-4 py-3.5">
         <div className="flex gap-4 text-sm">
@@ -826,15 +824,12 @@ export function UpdatedRuleActions({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold">{args.ruleName}</h3>
-          <Badge color="blue" className="text-[10px]">
-            Updated
-          </Badge>
-        </div>
-        {preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />}
-      </CardHeader>
+      <RuleToolCardHeader
+        title={args.ruleName}
+        actions={
+          preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
+        }
+      />
 
       <CardContent className="space-y-3 px-4 py-3.5">
         {conditionText && (
@@ -872,31 +867,25 @@ export function UpdatedLearnedPatterns({
   ruleId: string;
   preview?: boolean;
 }) {
+  const actions = preview ? (
+    <Tooltip content="Edit rule">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0 text-muted-foreground"
+      >
+        <PencilIcon className="size-4" />
+      </Button>
+    </Tooltip>
+  ) : (
+    <LearnedPatternsActions ruleId={ruleId} />
+  );
+
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold">{args.ruleName}</h3>
-          <Badge color="purple" className="text-[10px]">
-            Updated Patterns
-          </Badge>
-        </div>
-        {preview ? (
-          <Tooltip content="Edit rule">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-muted-foreground"
-            >
-              <PencilIcon className="size-4" />
-            </Button>
-          </Tooltip>
-        ) : (
-          <LearnedPatternsActions ruleId={ruleId} />
-        )}
-      </CardHeader>
+      <RuleToolCardHeader title={args.ruleName} actions={actions} />
 
-      <CardContent className="space-y-2 px-4 py-3.5">
+      <CardContent className="space-y-3 px-4 py-3.5">
         {args.learnedPatterns.map((pattern, i) => {
           if (!pattern) return null;
           const includeParts = formatPatternParts(pattern.include);
@@ -904,20 +893,14 @@ export function UpdatedLearnedPatterns({
           if (!includeParts && !excludeParts) return null;
 
           return (
-            <div key={i} className="flex gap-4 text-sm">
+            <ToolPanel key={i} className="space-y-2">
               {includeParts && (
-                <>
-                  <FieldLabel className="pt-0.5">Include</FieldLabel>
-                  <p>{includeParts}</p>
-                </>
+                <ToolDetailRow label="Include" value={includeParts} />
               )}
               {excludeParts && (
-                <>
-                  <FieldLabel className="pt-0.5">Exclude</FieldLabel>
-                  <p>{excludeParts}</p>
-                </>
+                <ToolDetailRow label="Exclude" value={excludeParts} />
               )}
-            </div>
+            </ToolPanel>
           );
         })}
       </CardContent>
@@ -927,10 +910,9 @@ export function UpdatedLearnedPatterns({
 
 export function UpdateAbout({ args }: { args: UpdateAboutTool["input"] }) {
   return (
-    <ToolCard>
-      <ToolCardHeader title={<>Updated About Information</>} />
-      <div className="rounded-md bg-muted p-3 text-sm">{args.about}</div>
-    </ToolCard>
+    <ExpandedToolCard title="Updated About Information">
+      <ToolPanel className="text-sm leading-relaxed">{args.about}</ToolPanel>
+    </ExpandedToolCard>
   );
 }
 
@@ -942,20 +924,28 @@ export function AddToKnowledgeBase({
   const [_, setTab] = useQueryState("tab");
 
   return (
-    <ToolCard>
-      <ToolCardHeader
-        title={<>Added to Knowledge Base</>}
-        actions={
-          <Button variant="link" onClick={() => setTab("rules")}>
+    <ExpandedToolCard
+      title="Added to Knowledge Base"
+      actions={
+        <div className="self-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setTab("rules")}
+          >
             View Knowledge Base
           </Button>
-        }
-      />
-      <div className="rounded-md bg-muted p-3 text-sm">
-        <div className="font-medium">{args.title}</div>
-        <ExpandableText text={args.content} />
-      </div>
-    </ToolCard>
+        </div>
+      }
+    >
+      <ToolDetailRow label="Title" value={args.title} />
+      <ToolSection label="Content">
+        <ToolPanel className="text-sm leading-relaxed">
+          <ExpandableText text={args.content} />
+        </ToolPanel>
+      </ToolSection>
+    </ExpandedToolCard>
   );
 }
 
@@ -1067,7 +1057,6 @@ function RuleActionsPreview() {
 }
 
 function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
-  const { emailAccountId } = useAccount();
   const ruleDialog = useDialogState<{ ruleId: string }>();
 
   return (
@@ -1097,18 +1086,54 @@ function ToolCard({ children }: { children: React.ReactNode }) {
   return <Card className="space-y-3 p-4">{children}</Card>;
 }
 
-function ToolCardHeader({
+function RuleToolCardHeader({
   title,
   actions,
 }: {
-  title: React.ReactNode;
-  actions?: React.ReactNode;
+  title: string;
+  actions: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between">
-      <h3 className="font-title text-lg">{title}</h3>
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
+      <h3 className="text-base font-semibold">{title}</h3>
       {actions}
-    </div>
+    </CardHeader>
+  );
+}
+
+function ExpandedToolCard({
+  title,
+  badge,
+  description,
+  actions,
+  children,
+}: {
+  title: React.ReactNode;
+  badge?: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 px-4 py-3.5">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold leading-tight">{title}</h3>
+            {badge}
+          </div>
+          {description && (
+            <div className="mt-1 text-xs text-muted-foreground">
+              {description}
+            </div>
+          )}
+        </div>
+        {actions}
+      </CardHeader>
+      <CardContent className="space-y-3 border-t px-4 py-3.5">
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1211,10 +1236,46 @@ export function getManageInboxActionLabel({
   return "Updated emails";
 }
 
-function ToolDetailRow({ label, value }: { label: string; value: string }) {
+function ToolSection({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="text-xs text-muted-foreground">
-      <span className="font-medium">{label}:</span> {value}
+    <div className="space-y-2">
+      <FieldLabel>{label}</FieldLabel>
+      {children}
+    </div>
+  );
+}
+
+function ToolPanel({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("rounded-md border bg-muted/20 p-3", className)}>
+      {children}
+    </div>
+  );
+}
+
+function ToolDetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex gap-4 text-sm">
+      <FieldLabel className="w-20 pt-0.5">{label}</FieldLabel>
+      <div className="min-w-0 flex-1 text-foreground">{value}</div>
     </div>
   );
 }
@@ -1236,6 +1297,23 @@ function ToolExternalLink({
       {children}
       <ExternalLinkIcon className="size-3.5" />
     </a>
+  );
+}
+
+function InlineMetadataItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+        {label}
+      </span>
+      <span className="text-foreground/80">{value}</span>
+    </span>
   );
 }
 
@@ -1296,34 +1374,6 @@ function getActionBodyText({
   }
 
   return getPendingString(pendingAction, "content");
-}
-
-function getEmailActionSummary({
-  actionType,
-  isConfirmed,
-  isProcessing,
-  to,
-}: {
-  actionType: PendingEmailActionType;
-  isConfirmed: boolean;
-  isProcessing: boolean;
-  to?: string | null;
-}) {
-  if (isProcessing) {
-    if (actionType === "send_email") return "Sending email...";
-    if (actionType === "reply_email") return "Sending reply...";
-    return "Forwarding email...";
-  }
-
-  if (!isConfirmed) {
-    if (actionType === "send_email") return "Email ready to send";
-    if (actionType === "reply_email") return "Reply ready to send";
-    return "Forward ready to send";
-  }
-
-  if (actionType === "send_email") return `Sent email${to ? ` to ${to}` : ""}`;
-  if (actionType === "reply_email") return "Sent reply";
-  return `Forwarded email${to ? ` to ${to}` : ""}`;
 }
 
 function getEmailActionLabel(actionType: PendingEmailActionType) {
@@ -1455,6 +1505,53 @@ function formatPatternParts(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+type ToolEmailRow = {
+  threadId: string;
+  messageId: string;
+  from: string;
+  subject: string;
+  snippet?: string;
+  date: string;
+  isUnread: boolean;
+};
+
+function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
+  const seenThreadIds = new Set<string>();
+  const uniqueEmails = emails.filter((email) => {
+    if (seenThreadIds.has(email.threadId)) return false;
+    seenThreadIds.add(email.threadId);
+    return true;
+  });
+
+  const lookup: EmailLookup = new Map(
+    uniqueEmails.map((email) => [
+      email.threadId,
+      {
+        messageId: email.messageId,
+        from: email.from,
+        subject: email.subject,
+        snippet: email.snippet || "",
+        date: email.date,
+        isUnread: email.isUnread,
+      },
+    ]),
+  );
+
+  return (
+    <EmailLookupProvider value={lookup}>
+      <div className="overflow-hidden rounded-md border bg-background">
+        {uniqueEmails.map((email) => (
+          <InlineEmailCard
+            key={email.threadId}
+            threadid={email.threadId}
+            action="none"
+          />
+        ))}
+      </div>
+    </EmailLookupProvider>
+  );
 }
 
 function buildConditionText(condition: {
