@@ -1,4 +1,5 @@
 import { PostHog } from "posthog-node";
+import type { Properties } from "posthog-js";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 import { hash } from "@/utils/hash";
@@ -169,14 +170,14 @@ export async function trackStripeCustomerCreated(
 
 export async function trackStripeCheckoutCreated(
   email: string,
-  properties?: Record<string, any>,
+  properties?: Properties,
 ) {
   return posthogCaptureEvent(email, "Stripe checkout created", properties);
 }
 
 export async function trackStripeCheckoutCompleted(
   email: string,
-  properties?: Record<string, any>,
+  properties?: Properties,
 ) {
   return posthogCaptureEvent(email, "Stripe checkout completed", properties);
 }
@@ -237,7 +238,7 @@ export async function trackSubscriptionTrialStarted(
 
 export async function trackBillingTrialStarted(
   email: string,
-  attributes: Record<string, any>,
+  attributes: Properties,
 ) {
   return posthogCaptureEvent(email, "billing_trial_started", {
     ...attributes,

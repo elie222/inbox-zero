@@ -37,6 +37,19 @@ export function StepInviteTeam({
     setEmails(newEmails.map((e) => e.toLowerCase()));
   }, []);
 
+  const captureInviteSubmitted = useCallback(
+    (successfulInvites: number, failedInvites: number) => {
+      posthog.capture("onboarding_invite_team_submitted", {
+        variant: "onboarding",
+        inviteCount: emails.length,
+        successfulInvites,
+        failedInvites,
+        hasExistingOrganization: Boolean(organizationId),
+      });
+    },
+    [posthog, emails.length, organizationId],
+  );
+
   const handleInviteAndContinue = useCallback(async () => {
     if (emails.length === 0) {
       return;
@@ -76,13 +89,7 @@ export function StepInviteTeam({
           });
         }
 
-        posthog.capture("onboarding_invite_team_submitted", {
-          variant: "onboarding",
-          inviteCount: emails.length,
-          successfulInvites: successCount,
-          failedInvites: errorCount,
-          hasExistingOrganization: Boolean(organizationId),
-        });
+        captureInviteSubmitted(successCount, errorCount);
         onNext();
       }
 
@@ -120,15 +127,9 @@ export function StepInviteTeam({
       });
     }
 
-    posthog.capture("onboarding_invite_team_submitted", {
-      variant: "onboarding",
-      inviteCount: emails.length,
-      successfulInvites: successCount,
-      failedInvites: errorCount,
-      hasExistingOrganization: Boolean(organizationId),
-    });
+    captureInviteSubmitted(successCount, errorCount);
     onNext();
-  }, [emails, emailAccountId, organizationId, userName, onNext, posthog]);
+  }, [emails, emailAccountId, organizationId, userName, onNext, posthog, captureInviteSubmitted]);
 
   return (
     <OnboardingWrapper className="py-0">

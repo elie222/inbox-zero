@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
@@ -31,13 +31,15 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
   const { isPremium } = usePremium();
 
   const analytics = useOnboardingAnalytics("welcome");
+  const hasTrackedStart = useRef(false);
 
   useSignUpEvent();
 
   useEffect(() => {
     const currentQuestion = survey.questions[questionIndex];
 
-    if (questionIndex === 0) {
+    if (questionIndex === 0 && !hasTrackedStart.current) {
+      hasTrackedStart.current = true;
       analytics.onStart({
         step: questionIndex + 1,
         stepKey: currentQuestion.key,
