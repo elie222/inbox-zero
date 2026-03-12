@@ -126,10 +126,10 @@ export default function Pricing(props: PricingProps) {
 
         <div
           className={cn(
-            "isolate mx-auto mt-10 grid max-w-7xl grid-cols-1 gap-y-8 gap-4 lg:mx-0 lg:max-w-none",
+            "isolate mx-auto mt-10 grid grid-cols-1 gap-y-8 gap-4",
             (props.displayTiers || tiers).length === 2
-              ? "lg:grid-cols-2"
-              : "lg:grid-cols-3",
+              ? "max-w-3xl lg:grid-cols-2"
+              : "max-w-7xl lg:mx-0 lg:max-w-none lg:grid-cols-3",
           )}
         >
           {(props.displayTiers || tiers).map((tier) => {
