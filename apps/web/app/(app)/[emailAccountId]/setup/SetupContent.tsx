@@ -15,7 +15,6 @@ import {
   MessageSquareIcon,
   InboxIcon,
 } from "lucide-react";
-import { useLocalStorage } from "usehooks-ts";
 import {
   MutedText,
   PageHeading,
@@ -41,7 +40,8 @@ type DismissibleSetupStep =
   | "aiAssistant"
   | "bulkUnsubscribe"
   | "calendarConnected"
-  | "teamInvite";
+  | "teamInvite"
+  | "tabsExtension";
 
 type DismissedSetupSteps = Partial<Record<DismissibleSetupStep, boolean>>;
 
@@ -253,6 +253,7 @@ function Checklist({
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
   isCalendarConnected,
+  isTabsExtensionCompleted,
   teamInvite,
   dismissedSteps,
   onDismissStepLocally,
@@ -265,6 +266,7 @@ function Checklist({
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
+  isTabsExtensionCompleted: boolean;
   teamInvite: {
     completed: boolean;
     organizationId: string | undefined;
@@ -276,18 +278,10 @@ function Checklist({
   ) => void;
   onSetupProgressChanged: () => void;
 }) {
-  const [isExtensionInstalled, setIsExtensionInstalled] = useLocalStorage(
-    "inbox-zero-extension-installed",
-    false,
-  );
   const { executeAsync: dismissSetupStep, isExecuting: isDismissingStep } =
     useAction(dismissHintAction);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const progressPercentage = (completedCount / totalSteps) * 100;
-
-  const handleMarkExtensionDone = () => {
-    setIsExtensionInstalled(true);
-  };
 
   const handleMarkStepDone = useCallback(
     async (stepKey: DismissibleSetupStep) => {
@@ -415,9 +409,10 @@ function Checklist({
           icon={<ChromeIcon size={18} />}
           title={`Optional: Install the ${BRAND_NAME} Tabs extension`}
           timeEstimate="1 minute"
-          completed={isExtensionInstalled}
+          completed={isTabsExtensionCompleted || dismissedSteps.tabsExtension}
           actionText="Install"
-          onMarkDone={handleMarkExtensionDone}
+          onMarkDone={() => handleMarkStepDone("tabsExtension")}
+          markDoneDisabled={isDismissingStep}
           showMarkDone={true}
         />
       )}
@@ -438,6 +433,7 @@ export function SetupContent() {
           isAiAssistantConfigured={data.steps.aiAssistant}
           isBulkUnsubscribeConfigured={data.steps.bulkUnsubscribe}
           isCalendarConnected={data.steps.calendarConnected}
+          isTabsExtensionCompleted={data.tabsExtensionCompleted}
           completedCount={data.completed}
           totalSteps={data.total}
           isSetupComplete={data.isComplete}
@@ -457,6 +453,7 @@ function SetupPageContent({
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
   isCalendarConnected,
+  isTabsExtensionCompleted,
   completedCount,
   totalSteps,
   isSetupComplete,
@@ -468,6 +465,7 @@ function SetupPageContent({
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
+  isTabsExtensionCompleted: boolean;
   completedCount: number;
   totalSteps: number;
   isSetupComplete: boolean;
@@ -512,6 +510,7 @@ function SetupPageContent({
           isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
           isAiAssistantConfigured={isAiAssistantConfigured}
           isCalendarConnected={isCalendarConnected}
+          isTabsExtensionCompleted={isTabsExtensionCompleted}
           completedCount={adjustedCompletedCount}
           totalSteps={totalSteps}
           teamInvite={teamInvite}
