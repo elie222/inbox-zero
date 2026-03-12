@@ -25,6 +25,7 @@ IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't a
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
 IMPORTANT: ${PLAIN_TEXT_OUTPUT_INSTRUCTION}
+If a clickable link is necessary, use markdown links only in the format [Label](https://example.com/path). Never use HTML tags for links.
 IMPORTANT: Format paragraphs using Unix newlines: use "\n\n" between paragraphs and "\n" for single line breaks.
 Write the reply in the same language as the latest message in the thread.
 

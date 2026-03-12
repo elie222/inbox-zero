@@ -1,5 +1,4 @@
 import type { ParsedMessage } from "@/utils/types";
-import { escapeHtml } from "@/utils/string";
 import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { extractEmailAddress, extractEmailAddresses } from "@/utils/email";
@@ -13,6 +12,7 @@ import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
 import type { EmailProvider } from "@/utils/email/types";
+import { renderEmailTextWithSafeLinks } from "@/utils/email/render-safe-links";
 import { aiCollectReplyContext } from "@/utils/ai/reply/reply-context-collector";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
@@ -90,10 +90,9 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     },
   });
 
-  // Escape AI-generated content to prevent prompt injection attacks
-  // (e.g., hidden divs with sensitive data that could be leaked)
-  // Signatures and other trusted HTML are added AFTER escaping
-  let finalResult = escapeHtml(draft);
+  // Escape untrusted AI output, but preserve sanitized links so drafts can
+  // include clickable URLs without allowing arbitrary HTML rendering.
+  let finalResult = renderEmailTextWithSafeLinks(draft);
 
   if (
     !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&
