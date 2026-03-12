@@ -454,6 +454,9 @@ function EmailActionResult({
     output,
     key: "subject",
   });
+  const referenceFrom = getPendingString(reference, "from");
+  const recipient =
+    to || (actionType === "reply_email" ? referenceFrom : undefined);
   const referenceSubject = getPendingString(reference, "subject");
   const displaySubject = subject || referenceSubject;
   const body = getActionBodyText({ actionType, pendingAction });
@@ -475,7 +478,7 @@ function EmailActionResult({
   });
 
   const actionLabel = getEmailActionLabel(actionType);
-  const recipientInitial = to ? to.charAt(0).toUpperCase() : "?";
+  const recipientInitial = recipient ? recipient.charAt(0).toUpperCase() : "?";
   const providerName = provider === "microsoft" ? "Outlook" : "Gmail";
 
   const handleCopy = () => {
@@ -545,7 +548,7 @@ function EmailActionResult({
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold leading-tight">
             {sentLabel ? `${sentLabel} ` : ""}
-            {to}
+            {recipient}
           </div>
           {cc && (
             <div className="mt-0.5 text-xs text-muted-foreground">CC: {cc}</div>
