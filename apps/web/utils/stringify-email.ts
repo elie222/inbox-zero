@@ -11,8 +11,6 @@ export function stringifyEmail(email: EmailForLLM, maxLength: number) {
     email.date && `<date>${email.date.toISOString()}</date>`,
     `<subject>${email.subject}</subject>`,
     `<body>${truncate(removeExcessiveWhitespace(email.content), maxLength)}</body>`,
-    email.listUnsubscribe &&
-      `<listUnsubscribe>${email.listUnsubscribe}</listUnsubscribe>`,
   ];
 
   if (email.attachments && email.attachments.length > 0) {

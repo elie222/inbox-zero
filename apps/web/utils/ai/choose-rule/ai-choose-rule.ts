@@ -158,7 +158,7 @@ Example response format:
 
 <email>
 ${stringifyEmail(email, 500)}
-</email>`;
+</email>${email.listUnsubscribe ? "\nNote: This email has a List-Unsubscribe header (indicates mass/automated email)." : ""}`;
 
   const aiResponse = await generateObject({
     ...modelOptions,
@@ -267,7 +267,7 @@ Example response format (multiple rules):
 
 <email>
 ${stringifyEmail(email, 500)}
-</email>`;
+</email>${email.listUnsubscribe ? "\nNote: This email has a List-Unsubscribe header (indicates mass/automated email)." : ""}`;
 
   const aiResponse = await generateObject({
     ...modelOptions,
