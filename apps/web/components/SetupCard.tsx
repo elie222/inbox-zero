@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import Image from "next/image";
 import { Card, CardFooter } from "@/components/ui/card";
 import { SectionDescription, TypographyH3 } from "@/components/Typography";
@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/utils";
 
 type FeatureItem = {
   icon: ReactNode;
@@ -45,14 +46,18 @@ export function SetupCard(props: SetupContentProps) {
 export function SetupDialog({
   open,
   onOpenChange,
+  dialogContentProps,
   ...props
 }: SetupContentProps & {
   open: boolean;
   onOpenChange?: (open: boolean) => void;
+  dialogContentProps?: Omit<ComponentProps<typeof DialogContent>, "children">;
 }) {
+  const { className, ...contentProps } = dialogContentProps ?? {};
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className={cn("max-w-lg", className)} {...contentProps}>
         <DialogHeader className="sr-only">
           <DialogTitle>{props.title}</DialogTitle>
           <DialogDescription>{props.description}</DialogDescription>
