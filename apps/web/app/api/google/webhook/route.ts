@@ -7,6 +7,7 @@ import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
 import { recordWebhookEntry } from "@/utils/replay/recorder";
+import { coordinateWebhook } from "@/app/api/google/webhook/webhook-coordinator";
 
 export const maxDuration = 300;
 
@@ -54,12 +55,43 @@ async function processWebhookAsync(
   decodedData: { emailAddress: string; historyId: number },
   logger: Logger,
 ) {
+  const email = decodedData.emailAddress.toLowerCase();
   await recordWebhookEntry("google", decodedData.emailAddress, decodedData);
 
+  const result = await coordinateWebhook({
+    email,
+    historyId: decodedData.historyId,
+    logger,
+  });
+
+  switch (result.status) {
+    case "no-account":
+      logger.info(
+        "gmail-webhook no account found, processing without coordination",
+      );
+      await processUncoordinated(decodedData, logger);
+      break;
+    case "coordination-failed":
+      logger.warn("gmail-webhook coordination failed, falling back");
+      await processUncoordinated(decodedData, logger);
+      break;
+    case "lease-contention":
+      logger.info("gmail-webhook lease contention", {
+        pendingHistoryId: decodedData.historyId,
+      });
+      break;
+    case "processed":
+      break;
+  }
+}
+
+async function processUncoordinated(
+  decodedData: { emailAddress: string; historyId: number },
+  logger: Logger,
+) {
   try {
     await processHistoryForUser(decodedData, {}, logger);
   } catch (error) {
-    // Look up email account to get emailAccountId for error tracking
     const emailAccount = await getWebhookEmailAccount(
       { email: decodedData.emailAddress.toLowerCase() },
       logger,
