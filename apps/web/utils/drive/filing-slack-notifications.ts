@@ -58,6 +58,9 @@ export async function sendFilingSlackNotifications({
           accessToken: channel.accessToken,
           channelId: channel.channelId,
           providerUserId: channel.providerUserId,
+        }).catch((error: unknown) => {
+          log.error("Slack destination resolution failed", { error });
+          return null;
         });
         if (!destination) continue;
 
