@@ -315,9 +315,11 @@ export function ReadEmailResult({ output }: { output: unknown }) {
               </div>
             )}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              {from && <span>From {from}</span>}
-              {to && <span>To {to}</span>}
-              {formattedDate && <span>{formattedDate}</span>}
+              {from && <InlineMetadataItem label="From" value={from} />}
+              {to && <InlineMetadataItem label="To" value={to} />}
+              {formattedDate && (
+                <InlineMetadataItem label="Date" value={formattedDate} />
+              )}
             </div>
           </div>
         )}
@@ -1279,6 +1281,23 @@ function ToolExternalLink({
       {children}
       <ExternalLinkIcon className="size-3.5" />
     </a>
+  );
+}
+
+function InlineMetadataItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+        {label}
+      </span>
+      <span className="text-foreground/80">{value}</span>
+    </span>
   );
 }
 
