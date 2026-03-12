@@ -166,36 +166,4 @@ describe("email formatting", () => {
       "First paragraph.<br><br>Second paragraph.<br><br>Third paragraph.",
     );
   });
-
-  it("formats mixed HTML content into a plain-text reply body", () => {
-    const textContent =
-      'Use <a href="https://example.com/login">the login page (example.com)</a>\n\n<p>Best regards,<br>John</p>';
-    const message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> = {
-      headers: {
-        date: "Thu, 6 Feb 2025 23:23:47 +0200",
-        from: "John Doe <john@example.com>",
-        subject: "Test Email",
-        to: "jane@example.com",
-        "message-id": "<123@example.com>",
-      },
-      textPlain: "Original message content",
-      textHtml: "<div>Original message content</div>",
-    };
-
-    const { text } = createReplyContent({
-      textContent,
-      message,
-    });
-
-    expect(text).toBe(
-      `Use the login page (example.com) [https://example.com/login]
-
-Best regards,
-John
-
-On Thu, 6 Feb 2025 at 21:23, John Doe <john@example.com> wrote:
-
-> Original message content`,
-    );
-  });
 });

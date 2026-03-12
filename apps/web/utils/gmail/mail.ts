@@ -160,10 +160,11 @@ export async function replyToEmail(
 ) {
   ensureEmailSendingEnabled();
 
-  const { text, html } = createReplyContent({
+  const { html } = createReplyContent({
     textContent: reply,
     message,
   });
+  const messageText = convertEmailHtmlToText({ htmlText: html });
 
   // Only replying to the original sender
   const raw = await createRawMailMessage({
@@ -171,7 +172,7 @@ export async function replyToEmail(
     from,
     replyTo: options?.replyTo,
     subject: formatReplySubject(message.headers.subject),
-    messageText: text,
+    messageText,
     messageHtml: html,
     replyToEmail: {
       threadId: message.threadId,
@@ -270,10 +271,11 @@ export async function draftEmail(
   },
   userEmail: string,
 ) {
-  const { text, html } = createReplyContent({
+  const { html } = createReplyContent({
     textContent: args.content,
     message: originalEmail,
   });
+  const messageText = convertEmailHtmlToText({ htmlText: html });
 
   const recipients = buildReplyAllRecipients(
     originalEmail.headers,
@@ -293,7 +295,7 @@ export async function draftEmail(
     bcc: formatCcList(bccList),
     subject: args.subject || originalEmail.headers.subject,
     messageHtml: html,
-    messageText: text,
+    messageText,
     attachments: args.attachments,
     replyToEmail: {
       threadId: originalEmail.threadId,

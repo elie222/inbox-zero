@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { convertEmailHtmlToText } from "@/utils/mail";
+import { createReplyContent } from "@/utils/gmail/reply";
+import type { ParsedMessage } from "@/utils/types";
 
 vi.mock("server-only", () => ({}));
 
@@ -46,5 +49,35 @@ describe("convertTextToHtmlParagraphs", () => {
     const input = "Just one line";
     const result = convertTextToHtmlParagraphs(input);
     expect(result).toBe("<html><body><p>Just one line</p></body></html>");
+  });
+
+  it("builds a plain-text alternative from rendered reply html", () => {
+    const message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> = {
+      headers: {
+        date: "Thu, 6 Feb 2025 23:23:47 +0200",
+        from: "John Doe <john@example.com>",
+        subject: "Test Email",
+        to: "jane@example.com",
+        "message-id": "<123@example.com>",
+      },
+      textPlain: "Original message content",
+      textHtml: "<div>Original message content</div>",
+    };
+
+    const { html } = createReplyContent({
+      textContent:
+        'Use <a href="https://example.com/login">the login page (example.com)</a>\n\n<p>Best regards,<br>John</p>',
+      message,
+    });
+
+    const plainText = convertEmailHtmlToText({ htmlText: html });
+
+    expect(plainText).toContain(
+      "Use the login page (example.com) [https://example.com/login]",
+    );
+    expect(plainText).toContain("Best regards,\nJohn");
+    expect(plainText).toContain("John Doe <john@example.com> wrote:");
+    expect(plainText).toContain("> Original message content");
+    expect(plainText).not.toContain("<a href=");
   });
 });

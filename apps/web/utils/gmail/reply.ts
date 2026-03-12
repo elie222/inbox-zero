@@ -1,4 +1,3 @@
-import he from "he";
 import type { ParsedMessage } from "@/utils/types";
 import { convertNewlinesToBr, escapeHtml } from "@/utils/string";
 
@@ -26,9 +25,8 @@ export const createReplyContent = ({
     ?.split("\n")
     .map((line) => `> ${line}`)
     .join("\n");
-  const plainTextReply = renderPlainTextReplyBody(textContent, htmlContent);
   const plainText =
-    `${plainTextReply}\n\n${quotedHeader}\n\n${quotedContent || ""}`.trim();
+    `${textContent || ""}\n\n${quotedHeader}\n\n${quotedContent || ""}`.trim();
 
   const messageContent =
     message.textHtml ||
@@ -71,55 +69,4 @@ export function formatEmailDate(date: Date): string {
 
   // Format: "Thu, 6 Feb 2025 at 23:23"
   return `${weekday}, ${day} ${month} ${year} at ${hour}:${minute.toString().padStart(2, "0")}`;
-}
-
-function renderPlainTextReplyBody(textContent?: string, htmlContent?: string) {
-  const content = normalizePlainText(
-    replaceMarkdownLinksWithPlainText(htmlContent || textContent || ""),
-  );
-  if (!content) return "";
-
-  if (!containsHtml(content)) return he.decode(content);
-
-  const htmlText = content
-    .replace(
-      /<a\s+[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi,
-      (_match, _quote, href: string, label: string) => {
-        const plainLabel = normalizePlainText(stripHtmlTags(label));
-        if (!plainLabel) return href;
-        return plainLabel.includes(href)
-          ? plainLabel
-          : `${plainLabel} [${href}]`;
-      },
-    )
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(?:blockquote|div|h[1-6]|li|p|tr)>/gi, "\n")
-    .replace(/<li\b[^>]*>/gi, "- ")
-    .replace(/<[^>]+>/g, "");
-
-  return normalizePlainText(he.decode(htmlText));
-}
-
-function replaceMarkdownLinksWithPlainText(value: string) {
-  return value.replace(
-    /\[([^[\]]+)\]\(((?:[^()\s]+|\([^()\s]*\))+)\)/g,
-    (_match, label: string, url: string) =>
-      label.includes(url) ? label : `${label} [${url}]`,
-  );
-}
-
-function containsHtml(value: string) {
-  return /<\/?[a-z][^>]*>/i.test(value);
-}
-
-function stripHtmlTags(value: string) {
-  return value.replace(/<[^>]+>/g, " ");
-}
-
-function normalizePlainText(value: string) {
-  return value
-    .replace(/\r\n/g, "\n")
-    .replace(/[^\S\n]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
 }

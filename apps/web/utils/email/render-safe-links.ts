@@ -75,19 +75,21 @@ function findMarkdownLinkMatches(text: string) {
     start: number;
     url: string;
   }> = [];
-  const regex = /\[([^[\]]+)\]\(((?:[^()\s]+|\([^()\s]*\))+)\)/g;
+  let index = 0;
 
-  let match = regex.exec(text);
-  while (match) {
+  while (index < text.length) {
+    const match = findNextMarkdownLinkMatch(text, index);
+    if (!match) break;
+
     matches.push({
-      start: match.index,
-      end: match.index + match[0].length,
-      raw: match[0],
-      url: match[2] || "",
-      label: match[1] || "",
+      start: match.start,
+      end: match.end,
+      raw: match.raw,
+      url: match.url,
+      label: match.label,
     });
 
-    match = regex.exec(text);
+    index = match.end;
   }
 
   return matches;
@@ -136,6 +138,54 @@ function getSafeEmailLinkUrl(url: string) {
 
 function stripHtmlTags(value: string) {
   return value.replace(/<[^>]+>/g, " ");
+}
+
+function findNextMarkdownLinkMatch(text: string, startIndex: number) {
+  for (let index = startIndex; index < text.length; index++) {
+    if (text[index] !== "[") continue;
+
+    const labelEnd = text.indexOf("](", index + 1);
+    if (labelEnd === -1) return null;
+
+    const label = text.slice(index + 1, labelEnd);
+    if (!label || label.includes("[") || label.includes("]")) continue;
+
+    const urlEnd = findMarkdownLinkUrlEnd(text, labelEnd + 2);
+    if (urlEnd === -1) continue;
+
+    return {
+      start: index,
+      end: urlEnd + 1,
+      raw: text.slice(index, urlEnd + 1),
+      url: text.slice(labelEnd + 2, urlEnd),
+      label,
+    };
+  }
+
+  return null;
+}
+
+function findMarkdownLinkUrlEnd(text: string, startIndex: number) {
+  let depth = 0;
+
+  for (let index = startIndex; index < text.length; index++) {
+    const character = text[index];
+
+    if (!character) break;
+    if (/\s/.test(character)) return -1;
+
+    if (character === "(") {
+      depth++;
+      continue;
+    }
+
+    if (character !== ")") continue;
+
+    if (depth === 0) return index;
+    depth--;
+  }
+
+  return -1;
 }
 
 function decodeHtmlEntities(value: string) {
