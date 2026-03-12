@@ -33,12 +33,18 @@ export function mergeInlineEmailActions(
   const markReadAction = findOrCreateAction(actions, "mark_read_threads");
 
   if (next.type === "archive_threads") {
-    archiveAction.threadIds = normalizeInlineEmailThreadIds([
+    const mergedArchiveThreadIds = normalizeInlineEmailThreadIds([
       ...archiveAction.threadIds,
       ...nextThreadIds,
     ]);
+    const archivedNextThreadIds = new Set(
+      mergedArchiveThreadIds.filter((threadId) =>
+        nextThreadIds.includes(threadId),
+      ),
+    );
+    archiveAction.threadIds = mergedArchiveThreadIds;
     markReadAction.threadIds = markReadAction.threadIds.filter(
-      (threadId) => !nextThreadIds.includes(threadId),
+      (threadId) => !archivedNextThreadIds.has(threadId),
     );
   } else {
     const archivedThreadIds = new Set(archiveAction.threadIds);

@@ -83,6 +83,40 @@ describe("mergeInlineEmailActions", () => {
     expect(actions[0].threadIds[0]).toBe("existing-0");
     expect(actions[0].threadIds[199]).toBe("next-49");
   });
+
+  it("keeps uncapped mark-read thread IDs when archive is already full", () => {
+    const existingArchiveThreadIds = Array.from({ length: 200 }, (_, index) => {
+      return `archive-${index}`;
+    });
+
+    const actions = mergeInlineEmailActions(
+      [
+        {
+          type: "archive_threads",
+          threadIds: existingArchiveThreadIds,
+        },
+        {
+          type: "mark_read_threads",
+          threadIds: ["mark-read-1"],
+        },
+      ],
+      {
+        type: "archive_threads",
+        threadIds: ["mark-read-1"],
+      },
+    );
+
+    expect(actions).toEqual([
+      {
+        type: "archive_threads",
+        threadIds: existingArchiveThreadIds,
+      },
+      {
+        type: "mark_read_threads",
+        threadIds: ["mark-read-1"],
+      },
+    ]);
+  });
 });
 
 describe("buildInlineEmailActionSystemMessage", () => {

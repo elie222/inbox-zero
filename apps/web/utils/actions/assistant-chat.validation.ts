@@ -134,9 +134,9 @@ const assistantChatMessagePartSchema = z.discriminatedUnion("type", [
 ]);
 
 export const assistantInputSchema = z.object({
-  id: z.string(),
+  id: z.string().trim().min(1),
   message: z.object({
-    id: z.string(),
+    id: z.string().trim().min(1),
     role: z.enum(["user"]),
     parts: z
       .array(assistantChatMessagePartSchema)
