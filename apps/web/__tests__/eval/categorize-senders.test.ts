@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, afterAll } from "vitest";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
-import { evalReporter } from "@/__tests__/eval/reporter";
+import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { defaultCategory } from "@/utils/categories";
 
@@ -350,7 +350,7 @@ const testCases = [
 ];
 
 describe.runIf(isAiTest)("Eval: Categorize Senders", () => {
-  evalReporter.reset();
+  const evalReporter = createEvalReporter();
 
   describeEvalMatrix("categorize", (model, emailAccount) => {
     for (const tc of testCases) {

@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, afterAll } from "vitest";
 import { SystemType } from "@/generated/prisma/enums";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
-import { evalReporter } from "@/__tests__/eval/reporter";
+import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/ai/choose-rule/run-rules";
 import { getRuleConfig } from "@/utils/rule/consts";
@@ -200,7 +200,7 @@ const testCases = [
 ];
 
 describe.runIf(isAiTest)("Eval: Choose Rule", () => {
-  evalReporter.reset();
+  const evalReporter = createEvalReporter();
 
   describeEvalMatrix("choose-rule", (model, emailAccount) => {
     for (const tc of testCases) {

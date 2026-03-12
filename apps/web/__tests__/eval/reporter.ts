@@ -18,11 +18,7 @@ const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 
 class EvalReporter {
-  private records: EvalRecord[] = [];
-
-  reset(): void {
-    this.records = [];
-  }
+  private readonly records: EvalRecord[] = [];
 
   record(result: EvalRecord): void {
     this.records.push(result);
@@ -201,4 +197,6 @@ class EvalReporter {
   }
 }
 
-export const evalReporter = new EvalReporter();
+export function createEvalReporter(): EvalReporter {
+  return new EvalReporter();
+}
