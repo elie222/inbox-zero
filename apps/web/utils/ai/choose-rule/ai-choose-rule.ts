@@ -299,7 +299,7 @@ Example response format (multiple rules):
 }
 
 const METADATA_GUIDELINE =
-  "- Consider email metadata (e.g. List-Unsubscribe headers) alongside content. Marketing and promotional emails often mimic a personal, conversational tone.";
+  "- Consider email metadata (e.g. List-Unsubscribe headers) alongside content.";
 
 function buildEmailPrompt(email: EmailForLLM, action: string): string {
   const note = email.listUnsubscribe
