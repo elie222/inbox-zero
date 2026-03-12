@@ -21,7 +21,6 @@ import {
   PageHeading,
   SectionDescription,
 } from "@/components/Typography";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { prefixPath } from "@/utils/path";
 import { useSetupProgress } from "@/hooks/useSetupProgress";
@@ -37,6 +36,14 @@ import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { BRAND_NAME } from "@/utils/branding";
 import { dismissHintAction } from "@/utils/actions/hints";
 import { toastError } from "@/components/Toast";
+
+type DismissibleSetupStep =
+  | "aiAssistant"
+  | "bulkUnsubscribe"
+  | "calendarConnected"
+  | "teamInvite";
+
+type DismissedSetupSteps = Partial<Record<DismissibleSetupStep, boolean>>;
 
 function FeatureCard({
   emailAccountId,
@@ -137,7 +144,7 @@ const StepItem = ({
   linkProps,
   onMarkDone,
   showMarkDone,
-  markDoneText = "Done",
+  markDoneText = "Mark Done",
   markDoneDisabled,
   onActionClick,
 }: {
@@ -159,10 +166,6 @@ const StepItem = ({
     e.stopPropagation();
     onMarkDone?.();
   };
-  const markDoneAriaLabel =
-    markDoneText === "Done"
-      ? `Mark done: ${title}`
-      : `${markDoneText}: ${title}`;
 
   return (
     <div
@@ -195,13 +198,8 @@ const StepItem = ({
 
         <div className="flex items-center gap-2">
           {completed ? (
-            <Link
-              href={href}
-              {...linkProps}
-              aria-label={`Open ${title}`}
-              title={`Open ${title}`}
-            >
-              <div className="flex size-7 items-center justify-center rounded-full bg-green-100 transition-colors hover:bg-green-200 dark:bg-green-900/50 dark:hover:bg-green-900/75">
+            <Link href={href} {...linkProps}>
+              <div className="flex size-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
                 <CheckIcon
                   size={14}
                   className="text-green-600 dark:text-green-400"
@@ -229,17 +227,15 @@ const StepItem = ({
               )}
 
               {showMarkDone && (
-                <Button
+                <button
+                  type="button"
                   onClick={handleMarkDone}
                   disabled={markDoneDisabled}
-                  aria-label={markDoneAriaLabel}
-                  variant="outline"
-                  size="xs"
-                  Icon={CheckIcon}
-                  className="border-slate-200 bg-slate-50 text-slate-600 hover:border-green-200 hover:bg-green-50 hover:text-green-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-green-900 dark:hover:bg-green-900/40 dark:hover:text-green-400"
+                  title={markDoneText}
+                  className="flex size-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-green-100 hover:text-green-600 dark:bg-slate-800 dark:text-slate-500 dark:hover:bg-green-900/50 dark:hover:text-green-400"
                 >
-                  {markDoneText}
-                </Button>
+                  <CheckIcon size={14} />
+                </button>
               )}
             </>
           )}
@@ -258,6 +254,8 @@ function Checklist({
   isAiAssistantConfigured,
   isCalendarConnected,
   teamInvite,
+  dismissedSteps,
+  onDismissStepLocally,
   onSetupProgressChanged,
 }: {
   emailAccountId: string;
@@ -271,6 +269,11 @@ function Checklist({
     completed: boolean;
     organizationId: string | undefined;
   } | null;
+  dismissedSteps: DismissedSetupSteps;
+  onDismissStepLocally: (
+    stepKey: DismissibleSetupStep,
+    dismissed?: boolean,
+  ) => void;
   onSetupProgressChanged: () => void;
 }) {
   const [isExtensionInstalled, setIsExtensionInstalled] = useLocalStorage(
@@ -280,9 +283,6 @@ function Checklist({
   const { executeAsync: dismissSetupStep, isExecuting: isDismissingStep } =
     useAction(dismissHintAction);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [dismissedSteps, setDismissedSteps] = useState<Record<string, boolean>>(
-    {},
-  );
   const progressPercentage = (completedCount / totalSteps) * 100;
 
   const handleMarkExtensionDone = () => {
@@ -290,19 +290,19 @@ function Checklist({
   };
 
   const handleMarkStepDone = useCallback(
-    async (stepKey: string) => {
+    async (stepKey: DismissibleSetupStep) => {
       if (isDismissingStep || dismissedSteps[stepKey]) {
         return;
       }
 
-      setDismissedSteps((prev) => ({ ...prev, [stepKey]: true }));
+      onDismissStepLocally(stepKey);
 
       const result = await dismissSetupStep({
         hintId: `setup:${stepKey}:${emailAccountId}`,
       });
 
       if (result?.serverError || result?.validationErrors) {
-        setDismissedSteps((prev) => ({ ...prev, [stepKey]: false }));
+        onDismissStepLocally(stepKey, false);
         toastError({ description: "Failed to skip this step" });
         return;
       }
@@ -311,9 +311,10 @@ function Checklist({
     },
     [
       dismissSetupStep,
+      dismissedSteps,
       emailAccountId,
       isDismissingStep,
-      dismissedSteps,
+      onDismissStepLocally,
       onSetupProgressChanged,
     ],
   );
@@ -476,12 +477,25 @@ function SetupPageContent({
   } | null;
   onSetupProgressChanged: () => void;
 }) {
+  const [dismissedSteps, setDismissedSteps] = useState<DismissedSetupSteps>({});
+  const adjustedCompletedCount = getAdjustedCompletedCount({
+    completedCount,
+    dismissedSteps,
+    isAiAssistantConfigured,
+    isBulkUnsubscribeConfigured,
+    isCalendarConnected,
+    teamInvite,
+    totalSteps,
+  });
+  const isSetupCompleteWithDismissals =
+    isSetupComplete || adjustedCompletedCount >= totalSteps;
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
       <div className="mb-4 sm:mb-8">
         <PageHeading className="text-center">{`Welcome to ${BRAND_NAME}`}</PageHeading>
         <SectionDescription className="mt-2 text-center text-base">
-          {isSetupComplete
+          {isSetupCompleteWithDismissals
             ? "What would you like to do?"
             : `Complete these steps to get the most out of ${BRAND_NAME}`}
         </SectionDescription>
@@ -489,7 +503,7 @@ function SetupPageContent({
 
       {/* <StatsCardGrid /> */}
 
-      {isSetupComplete ? (
+      {isSetupCompleteWithDismissals ? (
         <FeatureGrid emailAccountId={emailAccountId} provider={provider} />
       ) : (
         <Checklist
@@ -498,12 +512,57 @@ function SetupPageContent({
           isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
           isAiAssistantConfigured={isAiAssistantConfigured}
           isCalendarConnected={isCalendarConnected}
-          completedCount={completedCount}
+          completedCount={adjustedCompletedCount}
           totalSteps={totalSteps}
           teamInvite={teamInvite}
+          dismissedSteps={dismissedSteps}
+          onDismissStepLocally={(stepKey, dismissed = true) => {
+            setDismissedSteps((prev) => ({ ...prev, [stepKey]: dismissed }));
+          }}
           onSetupProgressChanged={onSetupProgressChanged}
         />
       )}
     </div>
   );
+}
+
+function getAdjustedCompletedCount({
+  completedCount,
+  dismissedSteps,
+  isAiAssistantConfigured,
+  isBulkUnsubscribeConfigured,
+  isCalendarConnected,
+  teamInvite,
+  totalSteps,
+}: {
+  completedCount: number;
+  dismissedSteps: DismissedSetupSteps;
+  isAiAssistantConfigured: boolean;
+  isBulkUnsubscribeConfigured: boolean;
+  isCalendarConnected: boolean;
+  teamInvite: {
+    completed: boolean;
+    organizationId: string | undefined;
+  } | null;
+  totalSteps: number;
+}) {
+  let adjustedCompletedCount = completedCount;
+
+  if (!isAiAssistantConfigured && dismissedSteps.aiAssistant) {
+    adjustedCompletedCount += 1;
+  }
+
+  if (!isBulkUnsubscribeConfigured && dismissedSteps.bulkUnsubscribe) {
+    adjustedCompletedCount += 1;
+  }
+
+  if (!isCalendarConnected && dismissedSteps.calendarConnected) {
+    adjustedCompletedCount += 1;
+  }
+
+  if (teamInvite && !teamInvite.completed && dismissedSteps.teamInvite) {
+    adjustedCompletedCount += 1;
+  }
+
+  return Math.min(adjustedCompletedCount, totalSteps);
 }
