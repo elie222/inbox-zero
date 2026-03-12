@@ -153,7 +153,7 @@ export function Members({ organizationId }: { organizationId: string }) {
           )}
         </div>
 
-        <div className="space-y-4 mt-4">
+        <div className="space-y-2 mt-4">
           {data?.members.map((member) => {
             const executedRulesCount = executedRulesCountMap.get(
               member.emailAccount.id,
@@ -188,7 +188,7 @@ export function Members({ organizationId }: { organizationId: string }) {
             <TypographyH3>
               Pending Invitations ({data.pendingInvitations.length})
             </TypographyH3>
-            <div className="space-y-4">
+            <div className="space-y-2">
               {data.pendingInvitations.map((invitation) => (
                 <PendingInvitationCard
                   key={invitation.id}
