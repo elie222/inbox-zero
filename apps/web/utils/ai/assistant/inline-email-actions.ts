@@ -92,7 +92,9 @@ export function buildInlineEmailActionSystemMessage(
     "Hidden UI state update from the user since the last visible message:",
     ...actionLines,
     "",
-    "These actions already succeeded in the UI. Do not ask the user to repeat them. If these threads come up again, reflect their updated state.",
+    "These actions already succeeded in the UI. Treat them as authoritative current inbox state for this turn.",
+    'If the user follows up with a short confirmation or acknowledgement about these same threads (for example "yes", "sure", "do it", or "thanks"), do not call manageInbox again for them.',
+    "Acknowledge that the action already happened in the UI and continue from the updated state.",
   ].join("\n");
 }
 
