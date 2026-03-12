@@ -39,6 +39,7 @@ export function StepInviteTeam({
 
   const captureInviteSubmitted = useCallback(
     (successfulInvites: number, failedInvites: number) => {
+      if (successfulInvites === 0) return;
       posthog.capture("onboarding_invite_team_submitted", {
         variant: "onboarding",
         inviteCount: emails.length,

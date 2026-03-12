@@ -17,12 +17,12 @@ export const GET = withAuth("stripe/success", async (request) => {
     },
   });
 
+  if (!user?.premium?.stripeCustomerId) redirect("/premium");
+
   after(async () => {
     if (!user?.email) return;
     trackStripeCheckoutCompleted(user.email, { source: "success_redirect" });
   });
-
-  if (!user?.premium?.stripeCustomerId) redirect("/premium");
 
   await syncStripeDataToDb({
     customerId: user.premium.stripeCustomerId,

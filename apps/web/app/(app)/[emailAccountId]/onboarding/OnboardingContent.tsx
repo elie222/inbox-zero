@@ -108,7 +108,8 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   const hasTrackedStart = useRef(false);
 
   useEffect(() => {
-    if (!currentStepKey) return;
+    // Wait for membership data before firing — totalSteps can be wrong while loading
+    if (isMembershipLoading || !currentStepKey) return;
 
     if (clampedStep === 1 && !hasTrackedStart.current) {
       hasTrackedStart.current = true;
@@ -125,7 +126,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
       totalSteps,
       isOptional: currentStepKey === STEP_KEYS.INVITE_TEAM,
     });
-  }, [analytics, clampedStep, currentStepKey, totalSteps]);
+  }, [analytics, clampedStep, currentStepKey, isMembershipLoading, totalSteps]);
 
   const onNext = useCallback(async () => {
     if (!currentStepKey) return;
