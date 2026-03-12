@@ -8,7 +8,7 @@ export function buildQuotedPlainText({
   quotedContent?: string;
 }) {
   const parts = [textContent, quotedHeader, quotedContent].filter(
-    (part): part is string => part !== undefined,
+    (part): part is string => part !== undefined && part !== "",
   );
 
   return parts.join("\n\n");

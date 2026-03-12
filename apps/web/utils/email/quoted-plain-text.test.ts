@@ -17,8 +17,9 @@ describe("buildQuotedPlainText", () => {
     );
   });
 
-  it("omits separators for missing sections", () => {
+  it("omits separators for missing or empty sections", () => {
     const plainText = buildQuotedPlainText({
+      textContent: "",
       quotedHeader: "On Thu, 6 Feb 2025 at 23:23, John Doe wrote:",
     });
 
