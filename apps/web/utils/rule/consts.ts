@@ -327,7 +327,7 @@ export function getActionTypesForCategoryAction({
     }
   }
 
-  if (draftReply) {
+  if (draftReply && !env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) {
     actionTypes.push({ type: ActionType.DRAFT_EMAIL });
   }
 

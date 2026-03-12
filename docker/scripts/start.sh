@@ -46,9 +46,9 @@ if [ -n "$NEXT_PUBLIC_CLEANER_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_CLEANER_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_CLEANER_ENABLED"
 fi
 
-if [ -n "$NEXT_PUBLIC_AUTO_DRAFT_DISABLED" ]; then
-    /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_AUTO_DRAFT_DISABLED_PLACEHOLDER" "$NEXT_PUBLIC_AUTO_DRAFT_DISABLED"
-fi
+# Always replace — the placeholder is a non-empty string that would be coerced
+# to true by booleanString, incorrectly disabling drafting by default
+/app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_AUTO_DRAFT_DISABLED_PLACEHOLDER" "${NEXT_PUBLIC_AUTO_DRAFT_DISABLED:-false}"
 
 if [ -n "$NEXT_PUBLIC_MEETING_BRIEFS_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_MEETING_BRIEFS_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_MEETING_BRIEFS_ENABLED"
