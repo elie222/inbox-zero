@@ -5,15 +5,11 @@ import { getStripe } from "@/ee/billing/stripe";
 import { withError } from "@/utils/middleware";
 import type { Logger } from "@/utils/logger";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
-import {
-  getStripeCheckoutCompletedProperties,
-  getStripeTrialStartedProperties,
-} from "@/ee/billing/stripe/posthog-events";
+import { getStripeTrialStartedProperties } from "@/ee/billing/stripe/posthog-events";
 import { syncAiGenerationOverageForUpcomingInvoice } from "@/ee/billing/stripe/ai-overage";
 import { env } from "@/env";
 import {
   trackBillingTrialStarted,
-  trackStripeCheckoutCompleted,
   trackStripeEvent,
   trackSubscriptionTrialStarted,
   trackTrialStarted,
@@ -202,11 +198,6 @@ async function trackBillingMilestones(
     } else {
       tasks.push(trackSubscriptionTrialStarted(distinctId, trialProperties));
     }
-  }
-
-  const checkoutProperties = getStripeCheckoutCompletedProperties(event);
-  if (checkoutProperties) {
-    tasks.push(trackStripeCheckoutCompleted(distinctId, checkoutProperties));
   }
 
   if (tasks.length) {

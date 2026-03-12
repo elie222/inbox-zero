@@ -1,9 +1,6 @@
 import type Stripe from "stripe";
 import { describe, expect, it } from "vitest";
-import {
-  getStripeCheckoutCompletedProperties,
-  getStripeTrialStartedProperties,
-} from "./posthog-events";
+import { getStripeTrialStartedProperties } from "./posthog-events";
 
 describe("getStripeTrialStartedProperties", () => {
   it("returns properties for created trialing subscriptions", () => {
@@ -85,42 +82,6 @@ describe("getStripeTrialStartedProperties", () => {
   });
 });
 
-describe("getStripeCheckoutCompletedProperties", () => {
-  it("returns properties for checkout.session.completed events", () => {
-    const event = checkoutEvent("checkout.session.completed");
-
-    expect(getStripeCheckoutCompletedProperties(event)).toEqual({
-      billingProvider: "stripe",
-      billingEventId: "evt_test",
-      billingEventType: "checkout.session.completed",
-      checkoutSessionId: "cs_test",
-      checkoutMode: "subscription",
-      checkoutPaymentStatus: "paid",
-      subscriptionId: "sub_trial",
-    });
-  });
-
-  it("returns null for async_payment_succeeded to avoid double-counting", () => {
-    const event = checkoutEvent("checkout.session.async_payment_succeeded");
-
-    expect(getStripeCheckoutCompletedProperties(event)).toBeNull();
-  });
-
-  it("returns null for unrelated Stripe events", () => {
-    const event = subscriptionEvent({
-      type: "customer.subscription.created",
-      data: {
-        object: {
-          id: "sub_trial",
-          status: "trialing",
-          trial_end: 1_700_000_000,
-        },
-      },
-    });
-
-    expect(getStripeCheckoutCompletedProperties(event)).toBeNull();
-  });
-});
 
 describe("getStripeTrialStartedProperties - subscription.updated guards", () => {
   it("returns null when previousAttributes does not include status (unrelated update)", () => {
@@ -164,26 +125,5 @@ function subscriptionEvent(
       previous_attributes: {},
     },
     ...overrides,
-  } as Stripe.Event;
-}
-
-function checkoutEvent(type: Stripe.Event.Type): Stripe.Event {
-  return {
-    id: "evt_test",
-    type,
-    object: "event",
-    api_version: "2025-03-31.basil",
-    created: 1,
-    livemode: false,
-    pending_webhooks: 0,
-    request: { id: null, idempotency_key: null },
-    data: {
-      object: {
-        id: "cs_test",
-        payment_status: "paid",
-        mode: "subscription",
-        subscription: "sub_trial",
-      },
-    },
   } as Stripe.Event;
 }

@@ -20,30 +20,6 @@ export function getStripeTrialStartedProperties(
   };
 }
 
-export function getStripeCheckoutCompletedProperties(
-  event: Stripe.Event,
-): Record<string, unknown> | null {
-  if (!isStripeCheckoutCompletedEvent(event)) return null;
-
-  const session = event.data.object as Stripe.Checkout.Session;
-
-  return {
-    billingProvider: "stripe",
-    billingEventId: event.id,
-    billingEventType: event.type,
-    checkoutSessionId: session.id,
-    checkoutMode: session.mode ?? null,
-    checkoutPaymentStatus: session.payment_status ?? null,
-    subscriptionId:
-      typeof session.subscription === "string"
-        ? session.subscription
-        : session.subscription?.id ?? null,
-  };
-}
-
-function isStripeCheckoutCompletedEvent(event: Stripe.Event) {
-  return event.type === "checkout.session.completed";
-}
 
 function getTrialStartingSubscription(event: Stripe.Event): Stripe.Subscription | null {
   if (event.type === "customer.subscription.created") {
