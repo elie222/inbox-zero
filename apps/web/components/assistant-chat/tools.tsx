@@ -132,7 +132,6 @@ function CollapsibleToolCard({
 }
 
 export function SearchInboxResult({ output }: { output: unknown }) {
-  const totalReturned = getOutputField<number>(output, "totalReturned") || 0;
   const queryUsed = getOutputField<string | null>(output, "queryUsed");
   const messages = getOutputField<
     Array<{
@@ -147,21 +146,13 @@ export function SearchInboxResult({ output }: { output: unknown }) {
   >(output, "messages");
 
   return (
-    <CollapsibleToolCard
-      title="Inbox Search"
-      badge={
-        <Badge color="blue" className="text-[10px]">
-          {totalReturned} result{totalReturned === 1 ? "" : "s"}
-        </Badge>
-      }
-      description={
-        queryUsed ? (
-          <>
-            Query: <span className="font-mono text-[11px]">{queryUsed}</span>
-          </>
-        ) : undefined
-      }
-    >
+    <CollapsibleToolCard title="Search Inbox">
+      {queryUsed && (
+        <ToolDetailRow
+          label="Query"
+          value={<span className="font-mono text-xs">{queryUsed}</span>}
+        />
+      )}
       {messages && messages.length > 0 && <ToolEmailRows emails={messages} />}
     </CollapsibleToolCard>
   );
@@ -311,11 +302,7 @@ export function ReadEmailResult({ output }: { output: unknown }) {
   });
 
   return (
-    <CollapsibleToolCard
-      title="Read Email"
-      description={from ? <>From {from}</> : undefined}
-      initialOpen={false}
-    >
+    <CollapsibleToolCard title="Read Email" initialOpen={false}>
       <div className="space-y-3 text-sm">
         {subject && <ToolDetailRow label="Subject" value={subject} />}
         {from && <ToolDetailRow label="From" value={from} />}
