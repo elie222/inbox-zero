@@ -42,10 +42,7 @@ export function getStripeCheckoutCompletedProperties(
 }
 
 function isStripeCheckoutCompletedEvent(event: Stripe.Event) {
-  return (
-    event.type === "checkout.session.completed" ||
-    event.type === "checkout.session.async_payment_succeeded"
-  );
+  return event.type === "checkout.session.completed";
 }
 
 function getTrialStartingSubscription(event: Stripe.Event): Stripe.Subscription | null {
@@ -65,9 +62,12 @@ function getTrialStartingSubscription(event: Stripe.Event): Stripe.Subscription 
       | Partial<Stripe.Subscription>
       | undefined;
 
+    // Only fire when the status field was explicitly part of this update,
+    // and transitioned from a non-trialing state into trialing.
     if (
       subscription.status === "trialing" &&
-      previousAttributes?.status !== "trialing"
+      previousAttributes?.status !== undefined &&
+      previousAttributes.status !== "trialing"
     ) {
       return subscription;
     }

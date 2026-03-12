@@ -86,7 +86,7 @@ describe("getStripeTrialStartedProperties", () => {
 });
 
 describe("getStripeCheckoutCompletedProperties", () => {
-  it("returns properties for checkout completion events", () => {
+  it("returns properties for checkout.session.completed events", () => {
     const event = checkoutEvent("checkout.session.completed");
 
     expect(getStripeCheckoutCompletedProperties(event)).toEqual({
@@ -98,6 +98,12 @@ describe("getStripeCheckoutCompletedProperties", () => {
       checkoutPaymentStatus: "paid",
       subscriptionId: "sub_trial",
     });
+  });
+
+  it("returns null for async_payment_succeeded to avoid double-counting", () => {
+    const event = checkoutEvent("checkout.session.async_payment_succeeded");
+
+    expect(getStripeCheckoutCompletedProperties(event)).toBeNull();
   });
 
   it("returns null for unrelated Stripe events", () => {
@@ -113,6 +119,27 @@ describe("getStripeCheckoutCompletedProperties", () => {
     });
 
     expect(getStripeCheckoutCompletedProperties(event)).toBeNull();
+  });
+});
+
+describe("getStripeTrialStartedProperties - subscription.updated guards", () => {
+  it("returns null when previousAttributes does not include status (unrelated update)", () => {
+    const event = subscriptionEvent({
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_trial",
+          status: "trialing",
+          trial_end: 1_700_000_000,
+        },
+        previous_attributes: {
+          // status not changed in this update
+          current_period_end: 1_700_000_000,
+        },
+      },
+    });
+
+    expect(getStripeTrialStartedProperties(event)).toBeNull();
   });
 });
 

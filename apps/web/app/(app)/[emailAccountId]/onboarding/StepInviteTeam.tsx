@@ -76,16 +76,14 @@ export function StepInviteTeam({
           });
         }
 
-        if (successCount > 0) {
-          posthog.capture("onboarding_invite_team_submitted", {
-            variant: "onboarding",
-            inviteCount: emails.length,
-            successfulInvites: successCount,
-            failedInvites: errorCount,
-            hasExistingOrganization: Boolean(organizationId),
-          });
-          onNext();
-        }
+        posthog.capture("onboarding_invite_team_submitted", {
+          variant: "onboarding",
+          inviteCount: emails.length,
+          successfulInvites: successCount,
+          failedInvites: errorCount,
+          hasExistingOrganization: Boolean(organizationId),
+        });
+        onNext();
       }
 
       return;
@@ -122,16 +120,14 @@ export function StepInviteTeam({
       });
     }
 
-    if (successCount > 0) {
-      posthog.capture("onboarding_invite_team_submitted", {
-        variant: "onboarding",
-        inviteCount: emails.length,
-        successfulInvites: successCount,
-        failedInvites: errorCount,
-        hasExistingOrganization: Boolean(organizationId),
-      });
-      onNext();
-    }
+    posthog.capture("onboarding_invite_team_submitted", {
+      variant: "onboarding",
+      inviteCount: emails.length,
+      successfulInvites: successCount,
+      failedInvites: errorCount,
+      hasExistingOrganization: Boolean(organizationId),
+    });
+    onNext();
   }, [emails, emailAccountId, organizationId, userName, onNext, posthog]);
 
   return (

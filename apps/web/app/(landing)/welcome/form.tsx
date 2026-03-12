@@ -99,14 +99,20 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       newSeachParams.set("question", (questionIndex + 1).toString());
       newSeachParams.set(name, answer);
 
-      analytics.onNext({
+      const stepProperties = {
         step: questionIndex + 1,
         stepKey: currentQuestion.key,
         totalSteps: survey.questions.length,
         nextStep: isFinalQuestion ? undefined : questionIndex + 2,
         nextStepKey: survey.questions[questionIndex + 1]?.key,
         isOptional: Boolean(currentQuestion.skippable),
-      });
+      };
+
+      if (!answer && currentQuestion.skippable) {
+        analytics.onSkip(stepProperties);
+      } else {
+        analytics.onNext(stepProperties);
+      }
 
       const responses = getResponses(newSeachParams);
       await saveOnboardingAnswersAction({

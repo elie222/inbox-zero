@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
 import { StepWelcome } from "@/app/(app)/[emailAccountId]/onboarding/StepWelcome";
@@ -105,11 +105,13 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   const router = useRouter();
   const analytics = useOnboardingAnalytics("onboarding");
+  const hasTrackedStart = useRef(false);
 
   useEffect(() => {
     if (!currentStepKey) return;
 
-    if (clampedStep === 1) {
+    if (clampedStep === 1 && !hasTrackedStart.current) {
+      hasTrackedStart.current = true;
       analytics.onStart({
         step: clampedStep,
         stepKey: currentStepKey,
@@ -180,15 +182,19 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
       isOptional: true,
     });
 
-    void onNext();
+    // Navigate directly — do not call onNext() which would also fire completion analytics.
+    router.push(
+      prefixPath(emailAccountId, `/onboarding?step=${clampedStep + 1}`),
+    );
   }, [
     analytics,
+    router,
+    emailAccountId,
     clampedStep,
     currentStepKey,
     totalSteps,
     nextStepKey,
     steps.length,
-    onNext,
   ]);
 
   // Trigger persona analysis on mount (first step only)

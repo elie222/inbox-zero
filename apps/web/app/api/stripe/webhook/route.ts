@@ -109,7 +109,7 @@ async function processEvent(event: Stripe.Event, logger: Logger) {
 
   const tasks: Promise<unknown>[] = [
     trackEvent(email, event),
-    trackBillingMilestones(email, event),
+    trackBillingMilestones(email, event, customerId),
     handleReferralCompletion(customerId, event, logger),
   ];
 
@@ -187,25 +187,26 @@ async function trackEvent(email: string | undefined, event: Stripe.Event) {
 async function trackBillingMilestones(
   email: string | undefined,
   event: Stripe.Event,
+  customerId: string,
 ) {
-  if (!email) return;
+  const distinctId = email ?? customerId;
 
   const tasks: Promise<unknown>[] = [];
 
   const trialProperties = getStripeTrialStartedProperties(event);
   if (trialProperties) {
-    tasks.push(trackBillingTrialStarted(email, trialProperties));
+    tasks.push(trackBillingTrialStarted(distinctId, trialProperties));
 
     if (event.type === "customer.subscription.created") {
-      tasks.push(trackTrialStarted(email, trialProperties));
+      tasks.push(trackTrialStarted(distinctId, trialProperties));
     } else {
-      tasks.push(trackSubscriptionTrialStarted(email, trialProperties));
+      tasks.push(trackSubscriptionTrialStarted(distinctId, trialProperties));
     }
   }
 
   const checkoutProperties = getStripeCheckoutCompletedProperties(event);
   if (checkoutProperties) {
-    tasks.push(trackStripeCheckoutCompleted(email, checkoutProperties));
+    tasks.push(trackStripeCheckoutCompleted(distinctId, checkoutProperties));
   }
 
   if (tasks.length) {
