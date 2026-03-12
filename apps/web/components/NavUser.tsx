@@ -27,7 +27,7 @@ import { logOut } from "@/utils/user";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useTheme } from "next-themes";
 import { ProfileImage } from "@/components/ProfileImage";
-import { SidebarMenuButton } from "@/components/ui/sidebar";
+import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EXTENSION_URL } from "@/utils/config";
 import { useUser } from "@/hooks/useUser";
@@ -35,6 +35,7 @@ import { env } from "@/env";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
+  const { isMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
   const { data: user } = useUser();
 
@@ -78,8 +79,8 @@ export function NavUser() {
         </SidebarMenuButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        className="min-w-52 origin-top-right rounded-md"
-        side="bottom"
+        className="min-w-52 rounded-md md:w-[--radix-dropdown-menu-trigger-width]"
+        side={isMobile ? "bottom" : "right"}
         align="end"
         sideOffset={4}
       >
