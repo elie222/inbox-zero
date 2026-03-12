@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
+import { formatEmailDate } from "@/utils/gmail/reply";
 
 vi.mock("server-only", () => ({}));
 
@@ -75,9 +76,8 @@ describe("convertTextToHtmlParagraphs", () => {
       "Use the login page (example.com) [https://example.com/login]",
     );
     expect(plainText).toContain("Best regards,\nJohn");
-    expect(plainText).toContain(
-      "\n\nOn Thu, 6 Feb 2025 at 23:23, John Doe <john@example.com> wrote:\n\n",
-    );
+    const quotedHeader = `\n\nOn ${formatEmailDate(new Date(message.headers.date))}, John Doe <john@example.com> wrote:\n\n`;
+    expect(plainText).toContain(quotedHeader);
     expect(plainText).toContain("John Doe <john@example.com> wrote:");
     expect(plainText).toContain("> Original message content");
     expect(plainText).not.toContain("<a href=");
