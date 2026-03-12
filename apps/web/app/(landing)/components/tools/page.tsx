@@ -2,11 +2,7 @@
 
 import { Suspense } from "react";
 import { Container } from "@/components/Container";
-import {
-  PageHeading,
-  SectionHeader,
-  MutedText,
-} from "@/components/Typography";
+import { PageHeading, SectionHeader, MutedText } from "@/components/Typography";
 import {
   AddToKnowledgeBase,
   BasicToolInfo,
@@ -135,8 +131,7 @@ export default function ToolsPage() {
               ruleAction(ActionType.MARK_READ),
             ]}
             originalConditions={{
-              aiInstructions:
-                "Emails that look like newsletters or marketing",
+              aiInstructions: "Emails that look like newsletters or marketing",
               conditionalOperator: null,
             }}
             updatedConditions={{
@@ -538,6 +533,7 @@ function getAssistantSearchInboxOutput() {
     messages: [
       {
         messageId: "message-1",
+        threadId: "thread-1",
         subject: "Daily summary",
         from: "Daily Updates <updates@example.com>",
         snippet: "Your summary is ready",
@@ -546,6 +542,7 @@ function getAssistantSearchInboxOutput() {
       },
       {
         messageId: "message-2",
+        threadId: "thread-2",
         subject: "Release notes",
         from: "Product Team <product@example.com>",
         snippet: "New changes shipped today",
@@ -554,6 +551,7 @@ function getAssistantSearchInboxOutput() {
       },
       {
         messageId: "message-3",
+        threadId: "thread-3",
         subject: "Ticket follow-up",
         from: "Support <support@example.com>",
         snippet: "Checking in on your request",
