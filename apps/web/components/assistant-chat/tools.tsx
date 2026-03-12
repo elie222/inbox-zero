@@ -300,25 +300,31 @@ export function ReadEmailResult({ output }: { output: unknown }) {
     userEmail,
     provider,
   });
+  const formattedDate = date
+    ? formatShortDate(new Date(date), { lowercase: true })
+    : null;
 
   return (
     <CollapsibleToolCard title="Read Email" initialOpen={false}>
       <div className="space-y-3 text-sm">
-        {subject && <ToolDetailRow label="Subject" value={subject} />}
-        {from && <ToolDetailRow label="From" value={from} />}
-        {to && <ToolDetailRow label="To" value={to} />}
-        {date && (
-          <ToolDetailRow
-            label="Date"
-            value={formatShortDate(new Date(date), { lowercase: true })}
-          />
+        {(subject || from || to || formattedDate) && (
+          <div className="space-y-1">
+            {subject && (
+              <div className="text-sm font-medium leading-snug text-foreground">
+                {subject}
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {from && <span>From {from}</span>}
+              {to && <span>To {to}</span>}
+              {formattedDate && <span>{formattedDate}</span>}
+            </div>
+          </div>
         )}
         {content && (
-          <ToolSection label="Content">
-            <ToolPanel className="text-sm leading-relaxed">
-              <ExpandableText text={content} />
-            </ToolPanel>
-          </ToolSection>
+          <ToolPanel className="text-sm leading-relaxed">
+            <ExpandableText text={content} />
+          </ToolPanel>
         )}
         {externalUrl && (
           <ToolExternalLink href={externalUrl}>
