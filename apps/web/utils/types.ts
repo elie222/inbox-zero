@@ -127,6 +127,7 @@ export type EmailForLLM = {
   subject: string;
   content: string;
   date?: Date;
+  listUnsubscribe?: string;
   attachments?: Array<{
     filename: string;
     mimeType: string;

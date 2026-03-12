@@ -80,6 +80,7 @@ Match when:
 EXCLUDE:
 - All automated notifications (LinkedIn, GitHub, Slack, Figma, Jira, Facebook, social media platforms, marketing)
 - System emails (order confirmations, receipts, calendar invites)
+- Emails with List-Unsubscribe headers or unsubscribe links are a strong signal of mass/automated emails
 
 NOTE: When this rule matches, it should typically be the primary match.`;
 

@@ -16,6 +16,7 @@ export function getEmailForLLM(
     subject: message.headers.subject,
     content: emailToContent(message, contentOptions),
     date: internalDateToDate(message.internalDate),
+    listUnsubscribe: message.headers["list-unsubscribe"] || undefined,
     attachments: message.attachments?.map((attachment) => ({
       filename: attachment.filename,
       mimeType: attachment.mimeType,

@@ -138,6 +138,7 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
   - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
   - When multiple rules match, choose the more specific one that best matches the email's content.
   - Rules about requiring replies should be prioritized when the email clearly needs a response.
+  ${METADATA_GUIDELINE}
   </guidelines>
 </instructions>
 
@@ -158,7 +159,7 @@ Example response format:
 
 <email>
 ${stringifyEmail(email, 500)}
-</email>`;
+</email>${email.listUnsubscribe ? "\nNote: This email has a List-Unsubscribe header." : ""}`;
 
   const aiResponse = await generateObject({
     ...modelOptions,
@@ -235,6 +236,7 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
   - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
   - Do not be greedy - only select rules that add meaningful context.
   - Be concise in your reasoning - avoid repetitive explanations.
+  ${METADATA_GUIDELINE}
   </guidelines>
 </instructions>
 
@@ -267,7 +269,7 @@ Example response format (multiple rules):
 
 <email>
 ${stringifyEmail(email, 500)}
-</email>`;
+</email>${email.listUnsubscribe ? "\nNote: This email has a List-Unsubscribe header." : ""}`;
 
   const aiResponse = await generateObject({
     ...modelOptions,
@@ -303,3 +305,6 @@ ${stringifyEmail(email, 500)}
     reasoning: aiResponse.object?.reasoning ?? "",
   };
 }
+
+const METADATA_GUIDELINE =
+  "- Consider email metadata (e.g. List-Unsubscribe headers) alongside content.";
