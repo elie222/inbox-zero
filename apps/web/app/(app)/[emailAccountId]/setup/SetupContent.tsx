@@ -21,6 +21,7 @@ import {
   PageHeading,
   SectionDescription,
 } from "@/components/Typography";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { prefixPath } from "@/utils/path";
 import { useSetupProgress } from "@/hooks/useSetupProgress";
@@ -136,7 +137,7 @@ const StepItem = ({
   linkProps,
   onMarkDone,
   showMarkDone,
-  markDoneText = "Mark Done",
+  markDoneText = "Done",
   markDoneDisabled,
   onActionClick,
 }: {
@@ -158,6 +159,10 @@ const StepItem = ({
     e.stopPropagation();
     onMarkDone?.();
   };
+  const markDoneAriaLabel =
+    markDoneText === "Done"
+      ? `Mark done: ${title}`
+      : `${markDoneText}: ${title}`;
 
   return (
     <div
@@ -190,8 +195,13 @@ const StepItem = ({
 
         <div className="flex items-center gap-2">
           {completed ? (
-            <Link href={href} {...linkProps}>
-              <div className="flex size-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+            <Link
+              href={href}
+              {...linkProps}
+              aria-label={`Open ${title}`}
+              title={`Open ${title}`}
+            >
+              <div className="flex size-7 items-center justify-center rounded-full bg-green-100 transition-colors hover:bg-green-200 dark:bg-green-900/50 dark:hover:bg-green-900/75">
                 <CheckIcon
                   size={14}
                   className="text-green-600 dark:text-green-400"
@@ -219,15 +229,17 @@ const StepItem = ({
               )}
 
               {showMarkDone && (
-                <button
-                  type="button"
+                <Button
                   onClick={handleMarkDone}
                   disabled={markDoneDisabled}
-                  title={markDoneText}
-                  className="flex size-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-green-100 hover:text-green-600 dark:bg-slate-800 dark:text-slate-500 dark:hover:bg-green-900/50 dark:hover:text-green-400"
+                  aria-label={markDoneAriaLabel}
+                  variant="outline"
+                  size="xs"
+                  Icon={CheckIcon}
+                  className="border-slate-200 bg-slate-50 text-slate-600 hover:border-green-200 hover:bg-green-50 hover:text-green-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-green-900 dark:hover:bg-green-900/40 dark:hover:text-green-400"
                 >
-                  <CheckIcon size={14} />
-                </button>
+                  {markDoneText}
+                </Button>
               )}
             </>
           )}
