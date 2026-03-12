@@ -576,7 +576,7 @@ async function authorizeMemberManagement({
 }: {
   memberId: string;
   userId: string;
-  action: "remove" | "updateRole";
+  action: MemberManagementAction;
 }) {
   const targetMember = await prisma.member.findUnique({
     where: { id: memberId },
@@ -595,18 +595,11 @@ async function authorizeMemberManagement({
   const callerMembership = await getAuthorizedOrganizationAdminMembership({
     organizationId: targetMember.organizationId,
     userId,
-    unauthorizedMessage:
-      action === "remove"
-        ? "Only organization owners or admins can remove members."
-        : "Only organization owners or admins can update member roles.",
+    unauthorizedMessage: getMemberManagementUnauthorizedMessage(action),
   });
 
   if (targetMember.emailAccountId === callerMembership.emailAccountId) {
-    throw new SafeError(
-      action === "remove"
-        ? "You cannot remove yourself from the organization."
-        : "You cannot change your own role.",
-    );
+    throw new SafeError(getMemberManagementSelfActionMessage(action));
   }
 
   if (targetMember.role === "owner") {
@@ -648,4 +641,26 @@ async function getAuthorizedOrganizationAdminMembership({
   }
 
   return callerMembership;
+}
+
+type MemberManagementAction = "remove" | "updateRole";
+
+function getMemberManagementUnauthorizedMessage(
+  action: MemberManagementAction,
+) {
+  switch (action) {
+    case "remove":
+      return "Only organization owners or admins can remove members.";
+    case "updateRole":
+      return "Only organization owners or admins can update member roles.";
+  }
+}
+
+function getMemberManagementSelfActionMessage(action: MemberManagementAction) {
+  switch (action) {
+    case "remove":
+      return "You cannot remove yourself from the organization.";
+    case "updateRole":
+      return "You cannot change your own role.";
+  }
 }
