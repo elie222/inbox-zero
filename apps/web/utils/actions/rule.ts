@@ -39,6 +39,7 @@ import {
   getActionTypesForCategoryAction,
 } from "@/utils/rule/consts";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
+import { env } from "@/env";
 import { prefixPath } from "@/utils/path";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -180,6 +181,8 @@ export const enableDraftRepliesAction = actionClient
       ctx: { emailAccountId, provider, logger },
       parsedInput: { enable },
     }) => {
+      if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED && enable) return;
+
       let rule = await prisma.rule.findUnique({
         where: {
           emailAccountId_systemType: {

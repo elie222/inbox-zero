@@ -291,11 +291,15 @@ export function RuleForm({
             },
           ]
         : []),
-      {
-        label: "Draft reply",
-        value: ActionType.DRAFT_EMAIL,
-        icon: getActionIcon(ActionType.DRAFT_EMAIL),
-      },
+      ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
+        ? []
+        : [
+            {
+              label: "Draft reply",
+              value: ActionType.DRAFT_EMAIL,
+              icon: getActionIcon(ActionType.DRAFT_EMAIL),
+            },
+          ]),
       {
         label: "Archive",
         value: ActionType.ARCHIVE,

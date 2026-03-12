@@ -194,7 +194,8 @@
         "NEXT_PUBLIC_INTEGRATIONS_ENABLED",
         "NEXT_PUBLIC_SMART_FILING_ENABLED",
         "NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED",
-        "NEXT_PUBLIC_CLEANER_ENABLED"
+        "NEXT_PUBLIC_CLEANER_ENABLED",
+        "NEXT_PUBLIC_AUTO_DRAFT_DISABLED"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
@@ -258,7 +259,8 @@
         "NEXT_PUBLIC_INTEGRATIONS_ENABLED",
         "NEXT_PUBLIC_SMART_FILING_ENABLED",
         "NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED",
-        "NEXT_PUBLIC_CLEANER_ENABLED"
+        "NEXT_PUBLIC_CLEANER_ENABLED",
+        "NEXT_PUBLIC_AUTO_DRAFT_DISABLED"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
