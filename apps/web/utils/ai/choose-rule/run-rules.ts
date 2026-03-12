@@ -69,6 +69,20 @@ export type RunRulesResult = {
 
 export const CONVERSATION_TRACKING_META_RULE_ID = "conversation-tracking-meta";
 
+export const CONVERSATION_TRACKING_INSTRUCTIONS = `Conversations and communication with real people. This covers all conversation states: emails you need to reply to, emails you're awaiting replies on, FYI updates from people, and resolved discussions.
+
+Match when:
+- Questions or requests for information/action
+- Updates or FYI information from real people
+- Follow-ups on ongoing conversations
+- Conversations that have been resolved or concluded
+
+EXCLUDE:
+- All automated notifications (LinkedIn, GitHub, Slack, Figma, Jira, Facebook, social media platforms, marketing)
+- System emails (order confirmations, receipts, calendar invites)
+
+NOTE: When this rule matches, it should typically be the primary match.`;
+
 export async function runRules({
   provider,
   message,
@@ -252,19 +266,7 @@ function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
       ...template,
       id: CONVERSATION_TRACKING_META_RULE_ID,
       name: "Conversations",
-      instructions: `Conversations and communication with real people. This covers all conversation states: emails you need to reply to, emails you're awaiting replies on, FYI updates from people, and resolved discussions.
-
-Match when:
-- Questions or requests for information/action
-- Updates or FYI information from real people
-- Follow-ups on ongoing conversations
-- Conversations that have been resolved or concluded
-
-EXCLUDE:
-- All automated notifications (LinkedIn, GitHub, Slack, Figma, Jira, Facebook, social media platforms, marketing)
-- System emails (order confirmations, receipts, calendar invites)
-
-NOTE: When this rule matches, it should typically be the primary match.`,
+      instructions: CONVERSATION_TRACKING_INSTRUCTIONS,
       enabled: true,
       runOnThreads: true,
       systemType: null,
