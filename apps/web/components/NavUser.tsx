@@ -7,7 +7,6 @@ import {
   ShieldCheckIcon,
   RibbonIcon,
   LogOutIcon,
-  PaletteIcon,
   ChromeIcon,
   Building2Icon,
   CrownIcon,
@@ -25,7 +24,6 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { logOut } from "@/utils/user";
 import { isGoogleProvider } from "@/utils/email/provider-types";
-import { useTheme } from "next-themes";
 import { ProfileImage } from "@/components/ProfileImage";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -35,7 +33,6 @@ import { env } from "@/env";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
-  const { theme, setTheme } = useTheme();
   const { data: user } = useUser();
 
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
@@ -176,17 +173,6 @@ export function NavUser() {
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
-
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault();
-            setTheme(theme === "dark" ? "light" : "dark");
-          }}
-        >
-          <PaletteIcon className="mr-2 size-4" />
-          {theme === "dark" ? "Light mode" : "Dark mode"}
-        </DropdownMenuItem>
 
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => logOut(window.location.origin)}>
