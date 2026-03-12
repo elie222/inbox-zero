@@ -577,21 +577,20 @@ preview: ${candidate.preview || "No preview available"}
   );
 
   return result.object.attachments
-    .map((selection) => {
+    .flatMap((selection) => {
       const candidate = candidateMap.get(selection.candidateId);
-      if (!candidate) return null;
+      if (!candidate) return [];
 
-      return {
-        driveConnectionId: candidate.driveConnectionId,
-        fileId: candidate.document.fileId,
-        filename: candidate.document.name,
-        mimeType: candidate.document.mimeType,
-        reason: selection.reason,
-      };
+      return [
+        {
+          driveConnectionId: candidate.driveConnectionId,
+          fileId: candidate.document.fileId,
+          filename: candidate.document.name,
+          mimeType: candidate.document.mimeType,
+          reason: selection.reason,
+        } satisfies SelectedAttachment,
+      ];
     })
-    .filter((attachment): attachment is SelectedAttachment =>
-      Boolean(attachment),
-    )
     .slice(0, MAX_ATTACHMENTS);
 }
 
@@ -664,7 +663,15 @@ async function getDriveProvider({
 
 async function hasDraftAttachmentAccess(userId: string) {
   const premium = await getUserPremium({ userId });
-  const tier = getUserTier(premium);
+  const tier = getUserTier(
+    premium
+      ? {
+          tier: "tier" in premium ? premium.tier : null,
+          lemonSqueezyRenewsAt: premium.lemonSqueezyRenewsAt,
+          stripeSubscriptionStatus: premium.stripeSubscriptionStatus,
+        }
+      : null,
+  );
 
   return hasTierAccess({
     tier,
