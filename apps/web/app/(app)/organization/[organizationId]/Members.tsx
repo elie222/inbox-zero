@@ -17,6 +17,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -30,6 +31,7 @@ import {
   MoreHorizontal,
   BarChart3,
   BarChartIcon,
+  ShieldIcon,
   XIcon,
 } from "lucide-react";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
@@ -278,9 +280,26 @@ function MemberCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {member.allowOrgAdminAnalytics && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href={`/${member.emailAccount.id}/stats`}>
+                      <BarChart3 className="mr-2 size-4" />
+                      Analytics
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href={`/${member.emailAccount.id}/usage`}>
+                      <BarChartIcon className="mr-2 size-4" />
+                      Usage
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
               {canChangeRole && (
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger disabled={isPending}>
+                    <ShieldIcon className="mr-2 size-4" />
                     Role
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
@@ -304,26 +323,14 @@ function MemberCard({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}
-              <DropdownMenuItem onClick={() => onRemove(member.id)}>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => onRemove(member.id)}
+                className="text-red-600 hover:!bg-red-50 hover:!text-red-600"
+              >
                 <TrashIcon className="mr-2 size-4" />
                 Remove
               </DropdownMenuItem>
-              {member.allowOrgAdminAnalytics && (
-                <>
-                  <DropdownMenuItem asChild>
-                    <Link href={`/${member.emailAccount.id}/stats`}>
-                      <BarChart3 className="mr-2 size-4" />
-                      Analytics
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href={`/${member.emailAccount.id}/usage`}>
-                      <BarChartIcon className="mr-2 size-4" />
-                      Usage
-                    </Link>
-                  </DropdownMenuItem>
-                </>
-              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )
