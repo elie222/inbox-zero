@@ -366,23 +366,12 @@ export const cancelInvitationAction = actionClientUser
       throw new SafeError("Only pending invitations can be cancelled.");
     }
 
-    const callerMembership = await prisma.member.findFirst({
-      where: {
-        organizationId: invitation.organizationId,
-        emailAccount: { userId },
-      },
-      select: { role: true },
-    });
-
-    if (!callerMembership) {
-      throw new SafeError("You are not a member of this organization.");
-    }
-
-    if (!hasOrganizationAdminRole(callerMembership.role)) {
-      throw new SafeError(
+    await getAuthorizedOrganizationAdminMembership({
+      organizationId: invitation.organizationId,
+      userId,
+      unauthorizedMessage:
         "Only organization owners or admins can cancel invitations.",
-      );
-    }
+    });
 
     // Remove from premium pending invites
     const premium = await getOrganizationPremium(invitation.organizationId);
@@ -603,25 +592,14 @@ async function authorizeMemberManagement({
     throw new SafeError("Member not found.");
   }
 
-  const callerMembership = await prisma.member.findFirst({
-    where: {
-      organizationId: targetMember.organizationId,
-      emailAccount: { userId },
-    },
-    select: { role: true, emailAccountId: true },
-  });
-
-  if (!callerMembership) {
-    throw new SafeError("You are not a member of this organization.");
-  }
-
-  if (!hasOrganizationAdminRole(callerMembership.role)) {
-    throw new SafeError(
+  const callerMembership = await getAuthorizedOrganizationAdminMembership({
+    organizationId: targetMember.organizationId,
+    userId,
+    unauthorizedMessage:
       action === "remove"
         ? "Only organization owners or admins can remove members."
         : "Only organization owners or admins can update member roles.",
-    );
-  }
+  });
 
   if (targetMember.emailAccountId === callerMembership.emailAccountId) {
     throw new SafeError(
@@ -642,4 +620,32 @@ async function authorizeMemberManagement({
   }
 
   return { targetMember, callerMembership };
+}
+
+async function getAuthorizedOrganizationAdminMembership({
+  organizationId,
+  userId,
+  unauthorizedMessage,
+}: {
+  organizationId: string;
+  userId: string;
+  unauthorizedMessage: string;
+}) {
+  const callerMembership = await prisma.member.findFirst({
+    where: {
+      organizationId,
+      emailAccount: { userId },
+    },
+    select: { role: true, emailAccountId: true },
+  });
+
+  if (!callerMembership) {
+    throw new SafeError("You are not a member of this organization.");
+  }
+
+  if (!hasOrganizationAdminRole(callerMembership.role)) {
+    throw new SafeError(unauthorizedMessage);
+  }
+
+  return callerMembership;
 }
