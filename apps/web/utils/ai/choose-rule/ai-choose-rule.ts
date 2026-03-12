@@ -159,7 +159,7 @@ Example response format:
 
 <email>
 ${stringifyEmail(email, 500)}
-</email>${listUnsubscribeNote(email)}`;
+</email>${email.listUnsubscribe ? "\nNote: This email has a List-Unsubscribe header." : ""}`;
 
   const aiResponse = await generateObject({
     ...modelOptions,
@@ -269,7 +269,7 @@ Example response format (multiple rules):
 
 <email>
 ${stringifyEmail(email, 500)}
-</email>${listUnsubscribeNote(email)}`;
+</email>${email.listUnsubscribe ? "\nNote: This email has a List-Unsubscribe header." : ""}`;
 
   const aiResponse = await generateObject({
     ...modelOptions,
@@ -308,9 +308,3 @@ ${stringifyEmail(email, 500)}
 
 const METADATA_GUIDELINE =
   "- Consider email metadata (e.g. List-Unsubscribe headers) alongside content.";
-
-function listUnsubscribeNote(email: EmailForLLM): string {
-  return email.listUnsubscribe
-    ? "\nNote: This email has a List-Unsubscribe header."
-    : "";
-}
