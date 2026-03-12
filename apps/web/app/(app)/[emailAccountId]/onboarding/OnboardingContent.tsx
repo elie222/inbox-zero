@@ -28,6 +28,7 @@ import { StepCompanySize } from "@/app/(app)/[emailAccountId]/onboarding/StepCom
 import { StepInviteTeam } from "@/app/(app)/[emailAccountId]/onboarding/StepInviteTeam";
 import { usePremium } from "@/components/PremiumAlert";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
+import { Loading } from "@/components/Loading";
 import {
   STEP_KEYS,
   STEP_ORDER,
@@ -140,14 +141,8 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   const renderStep = steps[clampedStep - 1] || steps[0];
 
-  // Show loading if provider is needed but not loaded yet
-  if (isLoading && !provider) {
-    return null;
-  }
-
-  // Wait for membership data to load before determining steps
-  if (isMembershipLoading) {
-    return null;
+  if ((isLoading && !provider) || isMembershipLoading) {
+    return <Loading />;
   }
 
   return renderStep ? renderStep() : null;
