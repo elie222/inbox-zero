@@ -37,7 +37,7 @@ import { Referrals } from "@/components/ReferralDialog";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
-  const { isMobile, setOpenMobile, state } = useSidebar();
+  const { closeMobileSidebar, isMobile, state } = useSidebar();
   const { data: user } = useUser();
   const [isReferralDialogOpen, setIsReferralDialogOpen] = useState(false);
 
@@ -48,12 +48,6 @@ export function NavUser() {
     ) || [];
   const hasOrganization = currentEmailAccountMembers.length > 0;
   const organizationName = currentEmailAccountMembers[0]?.organization?.name;
-
-  const closeMobileSidebar = () => {
-    if (isMobile) {
-      setOpenMobile((prev) => prev.filter((name) => name !== "left-sidebar"));
-    }
-  };
 
   const isExpandedSidebar = state.includes("left-sidebar");
 
@@ -98,7 +92,10 @@ export function NavUser() {
         >
           <DropdownMenuGroup>
             <DropdownMenuItem asChild>
-              <Link href="/settings" onClick={closeMobileSidebar}>
+              <Link
+                href="/settings"
+                onClick={() => closeMobileSidebar("left-sidebar")}
+              >
                 <SettingsIcon className="mr-2 size-4" />
                 Settings
               </Link>
@@ -110,7 +107,7 @@ export function NavUser() {
                     currentEmailAccountId,
                     "/organization/create",
                   )}
-                  onClick={closeMobileSidebar}
+                  onClick={() => closeMobileSidebar("left-sidebar")}
                 >
                   <Building2Icon className="mr-2 size-4" />
                   Create organization
@@ -121,7 +118,7 @@ export function NavUser() {
               <DropdownMenuItem asChild>
                 <Link
                   href={prefixPath(currentEmailAccountId, "/organization")}
-                  onClick={closeMobileSidebar}
+                  onClick={() => closeMobileSidebar("left-sidebar")}
                 >
                   <Building2Icon className="mr-2 size-4" />
                   My Organization
@@ -134,7 +131,7 @@ export function NavUser() {
                   href={EXTENSION_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={closeMobileSidebar}
+                  onClick={() => closeMobileSidebar("left-sidebar")}
                 >
                   <ChromeIcon className="mr-2 size-4" />
                   Install extension
@@ -151,7 +148,7 @@ export function NavUser() {
                 <DropdownMenuItem asChild>
                   <Link
                     href={prefixPath(currentEmailAccountId, "/reply-zero")}
-                    onClick={closeMobileSidebar}
+                    onClick={() => closeMobileSidebar("left-sidebar")}
                   >
                     <MessageCircleReplyIcon className="mr-2 size-4" />
                     Reply Zero
@@ -163,7 +160,7 @@ export function NavUser() {
                       currentEmailAccountId,
                       "/cold-email-blocker",
                     )}
-                    onClick={closeMobileSidebar}
+                    onClick={() => closeMobileSidebar("left-sidebar")}
                   >
                     <ShieldCheckIcon className="mr-2 size-4" />
                     Cold Email Blocker
@@ -178,7 +175,10 @@ export function NavUser() {
           <DropdownMenuGroup>
             {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
               <DropdownMenuItem asChild>
-                <Link href="/premium" onClick={closeMobileSidebar}>
+                <Link
+                  href="/premium"
+                  onClick={() => closeMobileSidebar("left-sidebar")}
+                >
                   <CrownIcon className="mr-2 size-4" />
                   Premium
                 </Link>
@@ -189,7 +189,7 @@ export function NavUser() {
                 href="https://docs.getinboxzero.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={closeMobileSidebar}
+                onClick={() => closeMobileSidebar("left-sidebar")}
               >
                 <CircleHelpIcon className="mr-2 size-4" />
                 Help Center
@@ -200,7 +200,7 @@ export function NavUser() {
                 href="/feature-requests"
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={closeMobileSidebar}
+                onClick={() => closeMobileSidebar("left-sidebar")}
               >
                 <LightbulbIcon className="mr-2 size-4" />
                 Feature Requests
@@ -209,7 +209,7 @@ export function NavUser() {
             {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
               <DropdownMenuItem
                 onSelect={() => {
-                  closeMobileSidebar();
+                  closeMobileSidebar("left-sidebar");
                   setIsReferralDialogOpen(true);
                 }}
               >
@@ -222,7 +222,7 @@ export function NavUser() {
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={() => {
-              closeMobileSidebar();
+              closeMobileSidebar("left-sidebar");
               logOut(window.location.origin);
             }}
           >
