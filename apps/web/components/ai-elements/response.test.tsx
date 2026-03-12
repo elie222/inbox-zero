@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import React, { type ReactNode } from "react";
+import React, { createElement, type ReactNode } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Response } from "@/components/ai-elements/response";
@@ -28,9 +28,8 @@ vi.mock("@/components/Tooltip", () => ({
 }));
 
 vi.mock("@/components/ui/button", () => ({
-  Button: ({ children }: { children?: ReactNode }) => (
-    <button type="button">{children || "icon-button"}</button>
-  ),
+  Button: ({ children }: { children?: ReactNode }) =>
+    createElement("button", { type: "button" }, children || "icon-button"),
 }));
 
 vi.mock("@/utils/actions/mail", () => ({
@@ -79,11 +78,11 @@ describe("Response", () => {
 
   it("passes the threadid attribute through to inline email cards", () => {
     render(
-      <Response>
-        {
-          '\n<emails>\n<email threadid="thread-1" action="none">Review</email>\n</emails>\n'
-        }
-      </Response>,
+      createElement(
+        Response,
+        null,
+        '\n<emails>\n<email threadid="thread-1" action="none">Review</email>\n</emails>\n',
+      ),
     );
 
     expect(screen.getByRole("link").getAttribute("href")).toBe(

@@ -85,6 +85,10 @@ export const env = createEnv({
     BEDROCK_SECRET_KEY: z.string().optional(),
     BEDROCK_REGION: z.string().default("us-west-2"),
     GOOGLE_API_KEY: z.string().optional(),
+    GOOGLE_THINKING_BUDGET: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.coerce.number().int().nonnegative().optional(),
+    ),
     GOOGLE_VERTEX_PROJECT: z.string().optional(),
     GOOGLE_VERTEX_LOCATION: z.string().optional().default("us-central1"),
     GOOGLE_VERTEX_CLIENT_EMAIL: z.string().optional(),
