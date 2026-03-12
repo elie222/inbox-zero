@@ -16,7 +16,7 @@ const TIMEOUT = 60_000;
 //
 // Each test case represents a SENDER being categorized based on previous emails.
 // Multi-email cases test pattern recognition; single-email cases test whether
-// models can categorize with minimal context or correctly defer to "Other".
+// models can categorize with minimal context or safely abstain when signal is missing.
 // Senders use generic addresses to force classification based on content.
 const testCases = [
   // --- Newsletter senders ---
@@ -268,6 +268,12 @@ const testCases = [
     ],
     expected: "Other",
   },
+  // No prior email context should not force a category
+  {
+    sender: "unknown@example.com",
+    emails: [],
+    expected: null,
+  },
   // SaaS that mixes marketing and notifications — but this sender's pattern is updates
   {
     sender: "hello@company.io",
@@ -354,8 +360,9 @@ describe.runIf(isAiTest)("Eval: Categorize Senders", () => {
 
   describeEvalMatrix("categorize", (model, emailAccount) => {
     for (const tc of testCases) {
+      const expectedLabel = tc.expected ?? "none";
       test(
-        `${tc.sender} → ${tc.expected}`,
+        `${tc.sender} → ${expectedLabel}`,
         async () => {
           const result = await aiCategorizeSender({
             emailAccount,
@@ -365,16 +372,17 @@ describe.runIf(isAiTest)("Eval: Categorize Senders", () => {
           });
 
           const actual = result?.category ?? "none";
-          const pass = actual === tc.expected;
+          const expected = tc.expected ?? "none";
+          const pass = actual === expected;
           evalReporter.record({
-            testName: `${tc.sender} → ${tc.expected}`,
+            testName: `${tc.sender} → ${expectedLabel}`,
             model: model.label,
             pass,
-            expected: tc.expected,
+            expected: expectedLabel,
             actual,
           });
 
-          expect(result?.category).toBe(tc.expected);
+          expect(actual).toBe(expected);
         },
         TIMEOUT,
       );
