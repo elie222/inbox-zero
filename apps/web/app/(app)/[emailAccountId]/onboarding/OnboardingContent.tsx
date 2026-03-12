@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
 import { StepWelcome } from "@/app/(app)/[emailAccountId]/onboarding/StepWelcome";
@@ -87,32 +87,70 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
             organizationId={membership?.organizationId ?? undefined}
             userName={membership?.userName}
             onNext={onNext}
+            onSkip={onSkipInviteTeam}
           />
         )
       : undefined,
     [STEP_KEYS.INBOX_PROCESSED]: () => <StepInboxProcessed onNext={onNext} />,
   };
 
-  const steps = STEP_ORDER.map((key) => stepMap[key]).filter(isDefined);
+  const visibleStepKeys = STEP_ORDER.filter((key) => isDefined(stepMap[key]));
+  const steps = visibleStepKeys.map((key) => stepMap[key]).filter(isDefined);
 
   const { data, mutate } = usePersona();
   const clampedStep = Math.min(Math.max(step, 1), steps.length);
+  const totalSteps = visibleStepKeys.length;
+  const currentStepKey = visibleStepKeys[clampedStep - 1];
+  const nextStepKey = visibleStepKeys[clampedStep];
 
   const router = useRouter();
   const analytics = useOnboardingAnalytics("onboarding");
+  const hasTrackedStart = useRef(false);
 
   useEffect(() => {
-    analytics.onStart();
-  }, [analytics]);
+    // Wait for membership data before firing — totalSteps can be wrong while loading
+    if (isMembershipLoading || !currentStepKey) return;
+
+    if (clampedStep === 1 && !hasTrackedStart.current) {
+      hasTrackedStart.current = true;
+      analytics.onStart({
+        step: clampedStep,
+        stepKey: currentStepKey,
+        totalSteps,
+      });
+    }
+
+    analytics.onStepViewed({
+      step: clampedStep,
+      stepKey: currentStepKey,
+      totalSteps,
+      isOptional: currentStepKey === STEP_KEYS.INVITE_TEAM,
+    });
+  }, [analytics, clampedStep, currentStepKey, isMembershipLoading, totalSteps]);
 
   const onNext = useCallback(async () => {
-    analytics.onNext(clampedStep);
+    if (!currentStepKey) return;
+
+    analytics.onNext({
+      step: clampedStep,
+      stepKey: currentStepKey,
+      totalSteps,
+      nextStep: clampedStep < steps.length ? clampedStep + 1 : undefined,
+      nextStepKey,
+      isOptional: currentStepKey === STEP_KEYS.INVITE_TEAM,
+    });
+
     if (clampedStep < steps.length) {
       router.push(
         prefixPath(emailAccountId, `/onboarding?step=${clampedStep + 1}`),
       );
     } else {
-      analytics.onComplete();
+      analytics.onComplete({
+        step: clampedStep,
+        stepKey: currentStepKey,
+        totalSteps,
+        destination: isPremium ? "setup" : "welcome-upgrade",
+      });
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
       await completedOnboardingAction();
       if (isPremium) {
@@ -121,7 +159,44 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
         router.push("/welcome-upgrade");
       }
     }
-  }, [router, emailAccountId, analytics, clampedStep, steps.length, isPremium]);
+  }, [
+    router,
+    emailAccountId,
+    analytics,
+    clampedStep,
+    currentStepKey,
+    totalSteps,
+    nextStepKey,
+    steps.length,
+    isPremium,
+  ]);
+
+  const onSkipInviteTeam = useCallback(() => {
+    if (!currentStepKey) return;
+
+    analytics.onSkip({
+      step: clampedStep,
+      stepKey: currentStepKey,
+      totalSteps,
+      nextStep: clampedStep < steps.length ? clampedStep + 1 : undefined,
+      nextStepKey,
+      isOptional: true,
+    });
+
+    // Navigate directly — do not call onNext() which would also fire completion analytics.
+    router.push(
+      prefixPath(emailAccountId, `/onboarding?step=${clampedStep + 1}`),
+    );
+  }, [
+    analytics,
+    router,
+    emailAccountId,
+    clampedStep,
+    currentStepKey,
+    totalSteps,
+    nextStepKey,
+    steps.length,
+  ]);
 
   // Trigger persona analysis on mount (first step only)
   useEffect(() => {

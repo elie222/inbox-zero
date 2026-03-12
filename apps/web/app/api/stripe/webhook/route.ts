@@ -5,9 +5,15 @@ import { getStripe } from "@/ee/billing/stripe";
 import { withError } from "@/utils/middleware";
 import type { Logger } from "@/utils/logger";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
+import { getStripeTrialStartedProperties } from "@/ee/billing/stripe/posthog-events";
 import { syncAiGenerationOverageForUpcomingInvoice } from "@/ee/billing/stripe/ai-overage";
 import { env } from "@/env";
-import { trackStripeEvent } from "@/utils/posthog";
+import {
+  trackBillingTrialStarted,
+  trackStripeEvent,
+  trackSubscriptionTrialStarted,
+  trackTrialStarted,
+} from "@/utils/posthog";
 import prisma from "@/utils/prisma";
 import { completeReferralAndGrantReward } from "@/utils/referral/referral-tracking";
 import { captureException } from "@/utils/error";
@@ -95,8 +101,11 @@ async function processEvent(event: Stripe.Event, logger: Logger) {
 
   const [stripeSync] = syncResult;
 
+  const email = await getCustomerEmail(customerId);
+
   const tasks: Promise<unknown>[] = [
-    trackEvent(customerId, event),
+    trackEvent(email, event),
+    trackBillingMilestones(email, event, customerId),
     handleReferralCompletion(customerId, event, logger),
   ];
 
@@ -162,16 +171,45 @@ async function handleReferralCompletion(
   }
 }
 
-async function trackEvent(customerId: string, event: Stripe.Event) {
-  const user = await prisma.premium.findUnique({
-    where: { stripeCustomerId: customerId },
-    select: { users: { select: { email: true } } },
-  });
-
-  return trackStripeEvent(user?.users[0]?.email ?? "Unknown", {
+async function trackEvent(email: string | undefined, event: Stripe.Event) {
+  return trackStripeEvent(email ?? "Unknown", {
     ...event.data.object,
     id: event.id,
     type: event.type,
     object: event.data.object, // for legacy
   });
+}
+
+async function trackBillingMilestones(
+  email: string | undefined,
+  event: Stripe.Event,
+  customerId: string,
+) {
+  const distinctId = email ?? customerId;
+
+  const tasks: Promise<unknown>[] = [];
+
+  const trialProperties = getStripeTrialStartedProperties(event);
+  if (trialProperties) {
+    tasks.push(trackBillingTrialStarted(distinctId, trialProperties));
+
+    if (event.type === "customer.subscription.created") {
+      tasks.push(trackTrialStarted(distinctId, trialProperties));
+    } else {
+      tasks.push(trackSubscriptionTrialStarted(distinctId, trialProperties));
+    }
+  }
+
+  if (tasks.length) {
+    await Promise.allSettled(tasks);
+  }
+}
+
+async function getCustomerEmail(customerId: string) {
+  const premium = await prisma.premium.findUnique({
+    where: { stripeCustomerId: customerId },
+    select: { users: { select: { email: true } } },
+  });
+
+  return premium?.users[0]?.email;
 }

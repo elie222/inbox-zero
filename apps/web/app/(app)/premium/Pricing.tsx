@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { CheckIcon, SparklesIcon } from "lucide-react";
 import Link from "next/link";
+import { usePostHog } from "posthog-js/react";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
@@ -38,9 +39,16 @@ export type PricingProps = {
 };
 
 export default function Pricing(props: PricingProps) {
+  const posthog = usePostHog();
   const { premium, isLoading, error, data } = usePremium();
+  const hasTrackedPricingView = useRef(false);
 
   const isLoggedIn = !!data?.id;
+  const pricingSource = props.showSkipUpgrade ? "welcome_upgrade" : "app_premium";
+  const displayedTiers = props.displayTiers || tiers;
+  const hasExistingSubscription = Boolean(
+    premium?.stripeSubscriptionId || premium?.lemonSqueezyCustomerId,
+  );
 
   const [frequency, setFrequency] = useState(frequencies[1]);
 
@@ -63,6 +71,27 @@ export default function Pricing(props: PricingProps) {
   );
 
   const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading || hasTrackedPricingView.current) return;
+
+    hasTrackedPricingView.current = true;
+    posthog.capture("pricing_page_viewed", {
+      source: pricingSource,
+      isLoggedIn,
+      hasExistingSubscription,
+      showSkipUpgrade: Boolean(props.showSkipUpgrade),
+      displayedTiers: displayedTiers.map((tier) => tier.name),
+    });
+  }, [
+    displayedTiers,
+    hasExistingSubscription,
+    isLoading,
+    isLoggedIn,
+    posthog,
+    pricingSource,
+    props.showSkipUpgrade,
+  ]);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -127,12 +156,12 @@ export default function Pricing(props: PricingProps) {
         <div
           className={cn(
             "isolate mx-auto mt-10 grid grid-cols-1 gap-y-8 gap-4",
-            (props.displayTiers || tiers).length === 2
+            displayedTiers.length === 2
               ? "max-w-3xl lg:grid-cols-2"
               : "max-w-7xl lg:mx-0 lg:max-w-none lg:grid-cols-3",
           )}
         >
-          {(props.displayTiers || tiers).map((tier) => {
+          {displayedTiers.map((tier) => {
             return (
               <PriceTier
                 key={tier.name}
@@ -144,6 +173,7 @@ export default function Pricing(props: PricingProps) {
                 isLoggedIn={isLoggedIn}
                 router={router}
                 userId={data?.id}
+                pricingSource={pricingSource}
               />
             );
           })}
@@ -162,6 +192,7 @@ function PriceTier({
   isLoggedIn,
   router,
   userId,
+  pricingSource,
 }: {
   tier: Tier;
   userPremiumTier: PremiumTier | null;
@@ -171,10 +202,16 @@ function PriceTier({
   isLoggedIn: boolean;
   router: ReturnType<typeof useRouter>;
   userId: string | null | undefined;
+  pricingSource: "welcome_upgrade" | "app_premium";
 }) {
+  const posthog = usePostHog();
   const [loading, setLoading] = useState(false);
 
   const isCurrentPlan = tier.tiers[frequency.value] === userPremiumTier;
+  const hasActiveStripeSubscription =
+    !!stripeSubscriptionId &&
+    !!stripeSubscriptionStatus &&
+    ["active", "trialing"].includes(stripeSubscriptionStatus);
 
   function getCTAText() {
     if (isCurrentPlan) return "Current plan";
@@ -254,6 +291,20 @@ function PriceTier({
         type="button"
         disabled={loading}
         onClick={async () => {
+          const upgradeToTier = tier.tiers[frequency.value];
+
+          posthog.capture("pricing_cta_clicked", {
+            source: pricingSource,
+            tier: tier.name,
+            billingTier: upgradeToTier ?? null,
+            frequency: frequency.value,
+            cta: getCTAText(),
+            isCurrentPlan,
+            isLoggedIn,
+            hasExternalCta: Boolean(tier.ctaLink),
+            hasActiveStripeSubscription,
+          });
+
           // Handle enterprise tier differently - redirect to sales page
           if (tier.ctaLink) {
             window.location.href = tier.ctaLink;
@@ -272,14 +323,6 @@ function PriceTier({
               toast.info("You are already on this plan");
               return;
             }
-
-            const upgradeToTier = tier.tiers[frequency.value];
-
-            // Only use billing portal if subscription is active or trialing
-            const hasActiveStripeSubscription =
-              stripeSubscriptionId &&
-              stripeSubscriptionStatus &&
-              ["active", "trialing"].includes(stripeSubscriptionStatus);
 
             let result:
               | Awaited<ReturnType<typeof getBillingPortalUrlAction>>
