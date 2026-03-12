@@ -58,11 +58,20 @@ async function processWebhookAsync(
   const email = decodedData.emailAddress.toLowerCase();
   await recordWebhookEntry("google", decodedData.emailAddress, decodedData);
 
-  const result = await coordinateWebhook({
-    email,
-    historyId: decodedData.historyId,
-    logger,
-  });
+  let result: Awaited<ReturnType<typeof coordinateWebhook>>;
+  try {
+    result = await coordinateWebhook({
+      email,
+      historyId: decodedData.historyId,
+      logger,
+    });
+  } catch (error) {
+    logger.error("gmail-webhook coordinator threw unexpectedly", {
+      error: error instanceof Error ? error.message : error,
+    });
+    await processUncoordinated(decodedData, logger);
+    return;
+  }
 
   switch (result.status) {
     case "no-account":
