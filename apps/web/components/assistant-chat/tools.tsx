@@ -201,12 +201,14 @@ export function ManageInboxResult({
   const countLabel = isSenderAction ? "sender" : "item";
 
   const resolvedThreads = threadIds
-    ?.map((threadId) => {
-      const thread = threadLookup.get(threadId);
-      if (!thread) return undefined;
-      return { threadId, ...thread };
-    })
-    .filter(isDefined);
+    ? threadIds
+        .map((threadId) => {
+          const thread = threadLookup.get(threadId);
+          if (!thread) return undefined;
+          return { threadId, ...thread };
+        })
+        .filter(isDefined)
+    : undefined;
 
   return (
     <CollapsibleToolCard
@@ -707,13 +709,15 @@ export function CreatedRuleToolCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold">{args.name}</h3>
-        </div>
-        {ruleId && <RuleActions ruleId={ruleId} />}
-        {preview && <RuleActionsPreview />}
-      </CardHeader>
+      <RuleToolCardHeader
+        title={args.name}
+        actions={
+          <>
+            {ruleId && <RuleActions ruleId={ruleId} />}
+            {preview && <RuleActionsPreview />}
+          </>
+        }
+      />
 
       <CardContent className="space-y-3 px-4 py-3.5">
         <div className="flex gap-4 text-sm">
@@ -754,12 +758,12 @@ export function UpdatedRuleConditions({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold">{args.ruleName}</h3>
-        </div>
-        {preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />}
-      </CardHeader>
+      <RuleToolCardHeader
+        title={args.ruleName}
+        actions={
+          preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
+        }
+      />
 
       <CardContent className="space-y-3 px-4 py-3.5">
         <div className="flex gap-4 text-sm">
@@ -820,12 +824,12 @@ export function UpdatedRuleActions({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold">{args.ruleName}</h3>
-        </div>
-        {preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />}
-      </CardHeader>
+      <RuleToolCardHeader
+        title={args.ruleName}
+        actions={
+          preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
+        }
+      />
 
       <CardContent className="space-y-3 px-4 py-3.5">
         {conditionText && (
@@ -863,26 +867,23 @@ export function UpdatedLearnedPatterns({
   ruleId: string;
   preview?: boolean;
 }) {
+  const actions = preview ? (
+    <Tooltip content="Edit rule">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0 text-muted-foreground"
+      >
+        <PencilIcon className="size-4" />
+      </Button>
+    </Tooltip>
+  ) : (
+    <LearnedPatternsActions ruleId={ruleId} />
+  );
+
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold">{args.ruleName}</h3>
-        </div>
-        {preview ? (
-          <Tooltip content="Edit rule">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-muted-foreground"
-            >
-              <PencilIcon className="size-4" />
-            </Button>
-          </Tooltip>
-        ) : (
-          <LearnedPatternsActions ruleId={ruleId} />
-        )}
-      </CardHeader>
+      <RuleToolCardHeader title={args.ruleName} actions={actions} />
 
       <CardContent className="space-y-3 px-4 py-3.5">
         {args.learnedPatterns.map((pattern, i) => {
@@ -1083,6 +1084,21 @@ function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
 
 function ToolCard({ children }: { children: React.ReactNode }) {
   return <Card className="space-y-3 p-4">{children}</Card>;
+}
+
+function RuleToolCardHeader({
+  title,
+  actions,
+}: {
+  title: string;
+  actions: React.ReactNode;
+}) {
+  return (
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
+      <h3 className="text-base font-semibold">{title}</h3>
+      {actions}
+    </CardHeader>
+  );
 }
 
 function ExpandedToolCard({
@@ -1502,8 +1518,15 @@ type ToolEmailRow = {
 };
 
 function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
+  const seenThreadIds = new Set<string>();
+  const uniqueEmails = emails.filter((email) => {
+    if (seenThreadIds.has(email.threadId)) return false;
+    seenThreadIds.add(email.threadId);
+    return true;
+  });
+
   const lookup: EmailLookup = new Map(
-    emails.map((email) => [
+    uniqueEmails.map((email) => [
       email.threadId,
       {
         messageId: email.messageId,
@@ -1519,7 +1542,7 @@ function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
   return (
     <EmailLookupProvider value={lookup}>
       <div className="overflow-hidden rounded-md border bg-background">
-        {emails.map((email) => (
+        {uniqueEmails.map((email) => (
           <InlineEmailCard
             key={email.threadId}
             threadid={email.threadId}
