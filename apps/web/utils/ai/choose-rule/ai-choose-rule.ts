@@ -138,7 +138,7 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
   - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
   - When multiple rules match, choose the more specific one that best matches the email's content.
   - Rules about requiring replies should be prioritized when the email clearly needs a response.
-  - Consider email metadata (e.g. List-Unsubscribe headers) alongside content. Marketing and promotional emails often mimic a personal, conversational tone.
+  ${METADATA_GUIDELINE}
   </guidelines>
 </instructions>
 
@@ -155,11 +155,7 @@ Example response format:
   "noMatchFound": false
 }`;
 
-  const prompt = `Select a rule to apply to this email that was sent to me:
-
-<email>
-${stringifyEmail(email, 500)}
-</email>${email.listUnsubscribe ? "\nNote: This email has a List-Unsubscribe header." : ""}`;
+  const prompt = buildEmailPrompt(email, "Select a rule to apply to");
 
   const aiResponse = await generateObject({
     ...modelOptions,
@@ -236,7 +232,7 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
   - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
   - Do not be greedy - only select rules that add meaningful context.
   - Be concise in your reasoning - avoid repetitive explanations.
-  - Consider email metadata (e.g. List-Unsubscribe headers) alongside content. Marketing and promotional emails often mimic a personal, conversational tone.
+  ${METADATA_GUIDELINE}
   </guidelines>
 </instructions>
 
@@ -265,11 +261,7 @@ Example response format (multiple rules):
   "reasoning": "This email requires a response and is from a team member"
 }`;
 
-  const prompt = `Select all rules that apply to this email that was sent to me:
-
-<email>
-${stringifyEmail(email, 500)}
-</email>${email.listUnsubscribe ? "\nNote: This email has a List-Unsubscribe header." : ""}`;
+  const prompt = buildEmailPrompt(email, "Select all rules that apply to");
 
   const aiResponse = await generateObject({
     ...modelOptions,
@@ -304,4 +296,14 @@ ${stringifyEmail(email, 500)}
     noMatchFound: aiResponse.object?.noMatchFound ?? false,
     reasoning: aiResponse.object?.reasoning ?? "",
   };
+}
+
+const METADATA_GUIDELINE =
+  "- Consider email metadata (e.g. List-Unsubscribe headers) alongside content. Marketing and promotional emails often mimic a personal, conversational tone.";
+
+function buildEmailPrompt(email: EmailForLLM, action: string): string {
+  const note = email.listUnsubscribe
+    ? "\nNote: This email has a List-Unsubscribe header."
+    : "";
+  return `${action} this email that was sent to me:\n\n<email>\n${stringifyEmail(email, 500)}\n</email>${note}`;
 }
