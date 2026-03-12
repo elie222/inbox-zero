@@ -181,12 +181,8 @@ export async function executeAutomationJobRun({
       logger: runLogger,
     });
 
-    const channelForSending = run.automationJob.sendAsDm
-      ? { ...run.automationJob.messagingChannel, channelId: null }
-      : run.automationJob.messagingChannel;
-
     const messagingResult = await sendAutomationMessage({
-      channel: channelForSending,
+      channel: run.automationJob.messagingChannel,
       text: outboundMessage,
       logger: runLogger,
     });

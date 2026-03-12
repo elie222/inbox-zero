@@ -1,12 +1,14 @@
 import { MessagingProvider } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
+import { resolveSlackDestination } from "@/utils/messaging/providers/slack/send";
 
 type SlackMessagingChannel = {
   provider: MessagingProvider;
   accessToken: string | null;
   providerUserId: string | null;
   channelId: string | null;
+  sendAsDm: boolean;
 };
 
 export class AutomationJobConfigurationError extends Error {
@@ -53,11 +55,12 @@ export async function sendAutomationMessageToSlack({
 
   slackLogger.info("Sending Slack automation message");
 
-  const destinationChannelId =
-    channel.channelId ??
-    (channel.providerUserId
-      ? await resolveDirectMessageChannelId(client, channel.providerUserId)
-      : null);
+  const destinationChannelId = await resolveSlackDestination({
+    accessToken: channel.accessToken,
+    channelId: channel.channelId,
+    providerUserId: channel.providerUserId,
+    sendAsDm: channel.sendAsDm,
+  });
 
   if (!destinationChannelId) {
     const error = new AutomationJobConfigurationError(
@@ -112,14 +115,6 @@ export async function sendAutomationMessageToSlack({
     });
     throw error;
   }
-}
-
-async function resolveDirectMessageChannelId(
-  client: ReturnType<typeof createSlackClient>,
-  providerUserId: string,
-) {
-  const response = await client.conversations.open({ users: providerUserId });
-  return response.channel?.id ?? null;
 }
 
 function isSlackError(

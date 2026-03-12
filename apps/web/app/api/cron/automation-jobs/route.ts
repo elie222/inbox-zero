@@ -70,6 +70,7 @@ async function enqueueDueAutomationJobs(logger: Logger) {
           accessToken: true,
           providerUserId: true,
           channelId: true,
+          sendAsDm: true,
         },
       },
     },

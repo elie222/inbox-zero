@@ -21,13 +21,11 @@ export async function createAutomationJob({
   cronExpression,
   messagingChannelId,
   prompt,
-  sendAsDm,
 }: {
   emailAccountId: string;
   cronExpression: string;
   messagingChannelId: string;
   prompt?: string | null;
-  sendAsDm?: boolean;
 }) {
   const nextRunAt = getNextAutomationJobRunAt({
     cronExpression,
@@ -40,7 +38,6 @@ export async function createAutomationJob({
       name: getDefaultAutomationJobName(),
       cronExpression,
       prompt: prompt ?? null,
-      sendAsDm: sendAsDm ?? false,
       nextRunAt,
       messagingChannelId,
       emailAccountId,

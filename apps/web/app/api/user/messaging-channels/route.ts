@@ -28,6 +28,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       isConnected: true,
       sendMeetingBriefs: true,
       sendDocumentFilings: true,
+      sendAsDm: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -36,9 +37,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     channels: channels.map(({ providerUserId, ...channel }) => ({
       ...channel,
       hasSendDestination: Boolean(providerUserId || channel.channelId),
-      canSendAsDm:
-        channel.provider === "SLACK" &&
-        Boolean(providerUserId && channel.channelId),
+      canSendAsDm: channel.provider === "SLACK" && Boolean(providerUserId),
     })),
     availableProviders: getAvailableProviders(),
   };

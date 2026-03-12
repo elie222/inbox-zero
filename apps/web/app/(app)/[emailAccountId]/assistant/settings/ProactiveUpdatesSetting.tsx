@@ -54,7 +54,6 @@ export function ProactiveUpdatesSetting({
   );
   const [messagingChannelId, setMessagingChannelId] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [sendAsDm, setSendAsDm] = useState(false);
   const [showCronEditor, setShowCronEditor] = useState(false);
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
   const isDialogFormInitializedRef = useRef(false);
@@ -90,7 +89,6 @@ export function ProactiveUpdatesSetting({
 
     setCronExpression(job?.cronExpression ?? DEFAULT_AUTOMATION_JOB_CRON);
     setPrompt(job?.prompt ?? "");
-    setSendAsDm(job?.sendAsDm ?? false);
     setShowCustomPrompt(Boolean(job?.prompt?.trim()));
     setShowCronEditor(false);
     setMessagingChannelId(job?.messagingChannelId ?? "");
@@ -183,23 +181,8 @@ export function ProactiveUpdatesSetting({
       cronExpression,
       messagingChannelId,
       prompt,
-      sendAsDm,
     });
-  }, [cronExpression, messagingChannelId, prompt, sendAsDm, executeSave]);
-
-  const selectedChannel = useMemo(
-    () =>
-      connectedMessagingChannels.find(
-        (channel) => channel.id === messagingChannelId,
-      ),
-    [connectedMessagingChannels, messagingChannelId],
-  );
-
-  const canSendAsDm = selectedChannel?.canSendAsDm ?? false;
-
-  useEffect(() => {
-    if (!canSendAsDm && sendAsDm) setSendAsDm(false);
-  }, [canSendAsDm, sendAsDm]);
+  }, [cronExpression, messagingChannelId, prompt, executeSave]);
 
   const showLoading = isLoading || isLoadingChannels;
 
@@ -254,36 +237,6 @@ export function ProactiveUpdatesSetting({
                           ))}
                         </SelectContent>
                       </Select>
-                      {canSendAsDm && (
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className={cn(
-                              "flex-1",
-                              !sendAsDm &&
-                                "border-primary ring-1 ring-primary",
-                            )}
-                            onClick={() => setSendAsDm(false)}
-                          >
-                            Channel
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className={cn(
-                              "flex-1",
-                              sendAsDm &&
-                                "border-primary ring-1 ring-primary",
-                            )}
-                            onClick={() => setSendAsDm(true)}
-                          >
-                            Direct message
-                          </Button>
-                        </div>
-                      )}
                     </div>
 
                     <div className="space-y-3">

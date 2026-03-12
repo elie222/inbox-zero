@@ -19,7 +19,6 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       prompt: true,
       cronExpression: true,
       messagingChannelId: true,
-      sendAsDm: true,
       nextRunAt: true,
     },
   });

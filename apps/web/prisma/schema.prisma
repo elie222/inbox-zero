@@ -1043,6 +1043,7 @@ model MessagingChannel {
   // Feature toggles
   sendMeetingBriefs   Boolean @default(false)
   sendDocumentFilings Boolean @default(false)
+  sendAsDm            Boolean @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -1063,7 +1064,6 @@ model AutomationJob {
   enabled        Boolean @default(true)
   prompt         String? @db.Text
   cronExpression String // UTC cron expression
-  sendAsDm       Boolean @default(false)
 
   nextRunAt DateTime
 

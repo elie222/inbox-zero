@@ -116,6 +116,30 @@ export async function sendDocumentAskToSlack({
   });
 }
 
+export async function resolveSlackDestination({
+  accessToken,
+  channelId,
+  providerUserId,
+  sendAsDm,
+}: {
+  accessToken: string;
+  channelId: string | null;
+  providerUserId: string | null;
+  sendAsDm: boolean;
+}): Promise<string | null> {
+  if (!sendAsDm && channelId) return channelId;
+
+  if (providerUserId) {
+    const client = createSlackClient(accessToken);
+    const response = await client.conversations.open({
+      users: providerUserId,
+    });
+    return response.channel?.id ?? null;
+  }
+
+  return channelId;
+}
+
 type Blocks = (KnownBlock | Block)[];
 
 async function postMessageWithJoin(

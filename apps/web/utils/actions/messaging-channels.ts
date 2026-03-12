@@ -45,6 +45,20 @@ export const updateSlackChannelAction = actionClient
         throw new SafeError("Messaging channel has no access token");
       }
 
+      if (targetId === "dm") {
+        if (!channel.providerUserId) {
+          throw new SafeError(
+            "Direct messages are not available for this channel",
+          );
+        }
+
+        await prisma.messagingChannel.update({
+          where: { id: channelId },
+          data: { sendAsDm: true },
+        });
+        return;
+      }
+
       const client = createSlackClient(channel.accessToken);
       const channelInfo = await getChannelInfo(client, targetId);
 
@@ -63,6 +77,7 @@ export const updateSlackChannelAction = actionClient
         data: {
           channelId: targetId,
           channelName: channelInfo.name,
+          sendAsDm: false,
         },
       });
 
@@ -99,9 +114,9 @@ export const updateChannelFeaturesAction = actionClient
 
       const enablingFeature =
         sendMeetingBriefs === true || sendDocumentFilings === true;
-      if (enablingFeature && !channel.channelId) {
+      if (enablingFeature && !channel.channelId && !channel.sendAsDm) {
         throw new SafeError(
-          "Please select a target channel before enabling features",
+          "Please select a target channel or enable direct messages before enabling features",
         );
       }
 
