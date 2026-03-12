@@ -1,7 +1,8 @@
-import { describe, expect, test, vi } from "vitest";
+import { afterAll, describe, expect, test, vi } from "vitest";
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
 import { getEmail } from "@/__tests__/helpers";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
+import { createEvalReporter } from "@/__tests__/eval/reporter";
 
 // pnpm test-ai eval/draft-reply
 
@@ -29,8 +30,14 @@ function assertNoSpecificTimes(reply: string, context: string) {
   ).toBe(false);
 }
 
+function hasSpecificTimes(reply: string): boolean {
+  return TIME_SLOT_PATTERN.test(reply) || SPECIFIC_TIME_PATTERN.test(reply);
+}
+
 describe.runIf(isAiTest)("draft-reply eval", () => {
-  describeEvalMatrix("draft quality", (_evalModel, emailAccount) => {
+  const evalReporter = createEvalReporter();
+
+  describeEvalMatrix("draft quality", (model, emailAccount) => {
     describe("scheduling aggressiveness (should not offer times)", () => {
       test(
         "marketing email with booking CTA — should not offer specific times",
@@ -68,6 +75,16 @@ Lisa & the MindfulPath Team`,
             writingStyle: null,
             mcpContext: null,
             meetingContext: null,
+          });
+
+          const testName = "marketing email with booking CTA";
+          const pass = !hasSpecificTimes(result.reply);
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "no specific times",
+            actual: pass ? "clean draft" : "contains time suggestions",
           });
 
           assertNoSpecificTimes(
@@ -112,6 +129,16 @@ Solutions Engineer, DataBridge`,
             writingStyle: null,
             mcpContext: null,
             meetingContext: null,
+          });
+
+          const testName = "booking link email";
+          const pass = !hasSpecificTimes(result.reply);
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "no specific times",
+            actual: pass ? "clean draft" : "contains time suggestions",
           });
 
           assertNoSpecificTimes(
@@ -162,6 +189,16 @@ Priya`,
             meetingContext: null,
           });
 
+          const testName = "genuine scheduling request";
+          const pass = result.reply.length > 10;
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "substantive draft",
+            actual: pass ? "has content" : "empty/too short",
+          });
+
           expect(
             result.reply.length,
             "Draft should have content for a genuine scheduling request",
@@ -204,6 +241,16 @@ Carlos`,
             meetingContext: null,
           });
 
+          const testName = "non-scheduling question";
+          const pass = !hasSpecificTimes(result.reply);
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "no specific times",
+            actual: pass ? "clean draft" : "contains time suggestions",
+          });
+
           assertNoSpecificTimes(
             result.reply,
             "Non-scheduling question should not contain time suggestions",
@@ -212,5 +259,9 @@ Carlos`,
         TIMEOUT,
       );
     });
+  });
+
+  afterAll(() => {
+    evalReporter.printReport();
   });
 });
