@@ -37,7 +37,7 @@ import { Referrals } from "@/components/ReferralDialog";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile, state } = useSidebar();
   const { data: user } = useUser();
   const [isReferralDialogOpen, setIsReferralDialogOpen] = useState(false);
 
@@ -54,6 +54,8 @@ export function NavUser() {
       setOpenMobile((prev) => prev.filter((name) => name !== "left-sidebar"));
     }
   };
+
+  const isExpandedSidebar = state.includes("left-sidebar");
 
   return (
     <>
@@ -89,9 +91,9 @@ export function NavUser() {
           </SidebarMenuButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          className="min-w-52 rounded-md md:w-[--radix-dropdown-menu-trigger-width]"
-          side={isMobile ? "bottom" : "right"}
-          align="end"
+          className="min-w-52 rounded-md md:data-[side=top]:w-[--radix-dropdown-menu-trigger-width]"
+          side={isMobile ? "bottom" : isExpandedSidebar ? "top" : "right"}
+          align={isExpandedSidebar ? "start" : "end"}
           sideOffset={4}
         >
           <DropdownMenuGroup>
