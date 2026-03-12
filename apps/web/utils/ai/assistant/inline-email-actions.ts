@@ -93,7 +93,7 @@ export function buildInlineEmailActionSystemMessage(
     ...actionLines,
     "",
     "These actions already succeeded in the UI. Treat them as authoritative current inbox state for this turn.",
-    'If the user follows up with a short confirmation or acknowledgement about these same threads (for example "yes", "sure", "do it", or "thanks"), do not call manageInbox again for them.',
+    'If the user follows up with a short confirmation or acknowledgement about these same threads (for example "yes", "sure", "do it", or "thanks"), do not repeat the same archive or mark-read action that already happened in the UI unless they clearly request a different inbox action.',
     "Acknowledge that the action already happened in the UI and continue from the updated state.",
   ].join("\n");
 }
