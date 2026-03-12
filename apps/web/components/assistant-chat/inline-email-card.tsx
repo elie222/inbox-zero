@@ -3,6 +3,7 @@
 import React, {
   Children,
   createContext,
+  useEffect,
   isValidElement,
   useState,
   useContext,
@@ -17,6 +18,7 @@ import {
   MailOpenIcon,
 } from "lucide-react";
 import { useEmailLookup } from "@/components/assistant-chat/email-lookup-context";
+import { useInlineEmailActionContext } from "@/components/assistant-chat/inline-email-action-context";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   archiveThreadAction,
@@ -45,15 +47,18 @@ const InlineEmailListContext = createContext<InlineEmailListState | null>(null);
 
 export function InlineEmailList({ children }: { children?: ReactNode }) {
   const { emailAccountId } = useAccount();
+  const inlineEmailActionContext = useInlineEmailActionContext();
   const [archiveAllState, setArchiveAllState] = useState<ActionState>("idle");
   const [markReadState, setMarkReadState] = useState<ActionState>("idle");
+  const [collapsed, setCollapsed] = useState(false);
+  const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
   const [archivedThreadIds, setArchivedThreadIds] = useState<Set<string>>(
     () => new Set(),
   );
   const [readThreadIds, setReadThreadIds] = useState<Set<string>>(
     () => new Set(),
   );
-  const threadIds = collectThreadIds(children);
+  const threadIds = uniqueThreadIds(collectThreadIds(children));
   const remainingArchiveThreadIds = threadIds.filter(
     (threadId) => !archivedThreadIds.has(threadId),
   );
@@ -64,6 +69,29 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
     archiveAllState === "done" || remainingArchiveThreadIds.length === 0;
   const markReadDone =
     markReadState === "done" || remainingReadThreadIds.length === 0;
+  const allHandled =
+    threadIds.length > 0 &&
+    threadIds.every(
+      (threadId) =>
+        archivedThreadIds.has(threadId) || readThreadIds.has(threadId),
+    );
+
+  useEffect(() => {
+    if (!allHandled) {
+      setCollapsed(false);
+      setHasAutoCollapsed(false);
+      return;
+    }
+
+    if (hasAutoCollapsed) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setCollapsed(true);
+      setHasAutoCollapsed(true);
+    }, 800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [allHandled, hasAutoCollapsed]);
 
   function markArchived(threadIds: string[]) {
     setArchivedThreadIds((current) => addThreadIds(current, threadIds));
@@ -94,12 +122,20 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
         setArchiveAllState("idle");
       } else if (failedCount > 0) {
         markArchived(successfulThreadIds);
+        inlineEmailActionContext?.queueAction(
+          "archive_threads",
+          successfulThreadIds,
+        );
         toastSuccess({
           description: `Archived ${results.length - failedCount} of ${results.length} emails`,
         });
         setArchiveAllState("idle");
       } else {
         markArchived(successfulThreadIds);
+        inlineEmailActionContext?.queueAction(
+          "archive_threads",
+          successfulThreadIds,
+        );
         toastSuccess({
           description: `Archived ${remainingArchiveThreadIds.length} emails`,
         });
@@ -132,12 +168,20 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
         setMarkReadState("idle");
       } else if (failedCount > 0) {
         markRead(successfulThreadIds);
+        inlineEmailActionContext?.queueAction(
+          "mark_read_threads",
+          successfulThreadIds,
+        );
         toastSuccess({
           description: `Marked ${results.length - failedCount} of ${results.length} as read`,
         });
         setMarkReadState("idle");
       } else {
         markRead(successfulThreadIds);
+        inlineEmailActionContext?.queueAction(
+          "mark_read_threads",
+          successfulThreadIds,
+        );
         toastSuccess({
           description: `Marked ${remainingReadThreadIds.length} as read`,
         });
@@ -158,37 +202,59 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
         markRead,
       }}
     >
-      <div className="my-2 overflow-hidden rounded-lg border bg-card shadow-sm">
-        {threadIds.length > 0 && (
-          <div className="flex items-center justify-end gap-1 border-b px-3 py-1.5">
-            <Tooltip content={archiveAllDone ? "All archived" : "Archive all"}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7"
-                loading={archiveAllState === "loading"}
-                disabled={archiveAllDone}
-                onClick={handleArchiveAll}
-                Icon={archiveAllDone ? CheckIcon : ArchiveIcon}
-              />
-            </Tooltip>
-            <Tooltip
-              content={markReadDone ? "All marked read" : "Mark all read"}
-            >
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7"
-                loading={markReadState === "loading"}
-                disabled={markReadDone}
-                onClick={handleMarkAllRead}
-                Icon={markReadDone ? CheckIcon : MailOpenIcon}
-              />
-            </Tooltip>
+      {collapsed ? (
+        <button
+          type="button"
+          className="my-2 flex w-full items-center justify-between gap-3 overflow-hidden rounded-lg border bg-card px-3 py-2 text-left shadow-sm transition-colors hover:bg-muted/30"
+          onClick={() => setCollapsed(false)}
+        >
+          <div className="min-w-0">
+            <div className="text-sm font-medium">Completed emails</div>
+            <div className="text-xs text-muted-foreground">
+              {formatCompletedSummary({
+                threadIds,
+                archivedThreadIds,
+                readThreadIds,
+              })}
+            </div>
           </div>
-        )}
-        {children}
-      </div>
+          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+        </button>
+      ) : (
+        <div className="my-2 overflow-hidden rounded-lg border bg-card shadow-sm">
+          {threadIds.length > 0 && (
+            <div className="flex items-center justify-end gap-1 border-b px-3 py-1.5">
+              <Tooltip
+                content={archiveAllDone ? "All archived" : "Archive all"}
+              >
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  loading={archiveAllState === "loading"}
+                  disabled={archiveAllDone}
+                  onClick={handleArchiveAll}
+                  Icon={archiveAllDone ? CheckIcon : ArchiveIcon}
+                />
+              </Tooltip>
+              <Tooltip
+                content={markReadDone ? "All marked read" : "Mark all read"}
+              >
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  loading={markReadState === "loading"}
+                  disabled={markReadDone}
+                  onClick={handleMarkAllRead}
+                  Icon={markReadDone ? CheckIcon : MailOpenIcon}
+                />
+              </Tooltip>
+            </div>
+          )}
+          {children}
+        </div>
+      )}
     </InlineEmailListContext.Provider>
   );
 }
@@ -206,6 +272,7 @@ export function InlineEmailCard({
 }) {
   const emailLookup = useEmailLookup();
   const listState = useContext(InlineEmailListContext);
+  const inlineEmailActionContext = useInlineEmailActionContext();
   const { emailAccountId, provider, userEmail } = useAccount();
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [expanded, setExpanded] = useState(false);
@@ -239,6 +306,7 @@ export function InlineEmailCard({
         return;
       }
       listState?.markArchived([threadId]);
+      inlineEmailActionContext?.queueAction("archive_threads", [threadId]);
       toastSuccess({ description: "Archived" });
       setActionState("done");
     } catch {
@@ -460,4 +528,38 @@ function getSuccessfulThreadIds(
   results: Array<{ serverError?: string } | undefined>,
 ) {
   return threadIds.filter((_, index) => !results[index]?.serverError);
+}
+
+function uniqueThreadIds(threadIds: string[]) {
+  return [...new Set(threadIds)];
+}
+
+function formatCompletedSummary({
+  threadIds,
+  archivedThreadIds,
+  readThreadIds,
+}: {
+  threadIds: string[];
+  archivedThreadIds: Set<string>;
+  readThreadIds: Set<string>;
+}) {
+  const archivedCount = threadIds.filter((threadId) =>
+    archivedThreadIds.has(threadId),
+  ).length;
+  const readOnlyCount = threadIds.filter(
+    (threadId) =>
+      !archivedThreadIds.has(threadId) && readThreadIds.has(threadId),
+  ).length;
+
+  const parts: string[] = [];
+
+  if (archivedCount > 0) {
+    parts.push(`${archivedCount} archived`);
+  }
+
+  if (readOnlyCount > 0) {
+    parts.push(`${readOnlyCount} marked read`);
+  }
+
+  return parts.join(", ");
 }

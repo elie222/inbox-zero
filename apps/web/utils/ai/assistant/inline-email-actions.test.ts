@@ -1,0 +1,83 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildInlineEmailActionSystemMessage,
+  mergeInlineEmailActions,
+} from "./inline-email-actions";
+
+describe("mergeInlineEmailActions", () => {
+  it("dedupes thread IDs and lets archive override mark-read state", () => {
+    const actions = mergeInlineEmailActions(
+      [
+        {
+          type: "mark_read_threads",
+          threadIds: ["thread-1", "thread-2", "thread-2"],
+        },
+      ],
+      {
+        type: "archive_threads",
+        threadIds: ["thread-2", "thread-3"],
+      },
+    );
+
+    expect(actions).toEqual([
+      {
+        type: "mark_read_threads",
+        threadIds: ["thread-1"],
+      },
+      {
+        type: "archive_threads",
+        threadIds: ["thread-2", "thread-3"],
+      },
+    ]);
+  });
+
+  it("does not add mark-read state for threads that are already archived", () => {
+    const actions = mergeInlineEmailActions(
+      [
+        {
+          type: "archive_threads",
+          threadIds: ["thread-1"],
+        },
+      ],
+      {
+        type: "mark_read_threads",
+        threadIds: ["thread-1", "thread-2"],
+      },
+    );
+
+    expect(actions).toEqual([
+      {
+        type: "archive_threads",
+        threadIds: ["thread-1"],
+      },
+      {
+        type: "mark_read_threads",
+        threadIds: ["thread-2"],
+      },
+    ]);
+  });
+});
+
+describe("buildInlineEmailActionSystemMessage", () => {
+  it("builds a single hidden context block for the assistant", () => {
+    const message = buildInlineEmailActionSystemMessage([
+      {
+        type: "mark_read_threads",
+        threadIds: ["thread-1", "thread-2"],
+      },
+      {
+        type: "archive_threads",
+        threadIds: ["thread-2", "thread-3"],
+      },
+    ]);
+
+    expect(message).toContain(
+      "Hidden UI state update from the user since the last visible message:",
+    );
+    expect(message).toContain("Archived threads (2): thread-2, thread-3");
+    expect(message).toContain("Marked read threads (1): thread-1");
+    expect(message).toContain(
+      "These actions already succeeded in the UI. Do not ask the user to repeat them.",
+    );
+  });
+});

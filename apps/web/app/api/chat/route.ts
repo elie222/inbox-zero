@@ -20,6 +20,10 @@ import {
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import { formatUtcDate } from "@/utils/date";
 import { mapUiMessagesToChatMessageRows } from "@/app/api/chat/chat-message-persistence";
+import {
+  buildInlineEmailActionSystemMessage,
+  inlineEmailActionSchema,
+} from "@/utils/ai/assistant/inline-email-actions";
 
 export const maxDuration = 120;
 
@@ -57,6 +61,7 @@ const assistantInputSchema = z.object({
       }),
   }),
   context: messageContextSchema.optional(),
+  inlineActions: z.array(inlineEmailActionSchema).max(20).optional(),
 });
 
 export const POST = withEmailAccount("chat", async (request) => {
@@ -99,7 +104,10 @@ export const POST = withEmailAccount("chat", async (request) => {
     );
   }
 
-  const { message, context } = data;
+  const { message, context, inlineActions } = data;
+
+  const hiddenInlineActionMessage =
+    buildHiddenInlineActionMessage(inlineActions);
 
   await saveChatMessage({
     chat: { connect: { id: chat.id } },
@@ -118,6 +126,7 @@ export const POST = withEmailAccount("chat", async (request) => {
 
   const uiMessages = [
     ...convertToUIMessages({ ...chat, messages: messagesForModel }),
+    ...(hiddenInlineActionMessage ? [hiddenInlineActionMessage] : []),
     message,
   ];
 
@@ -306,4 +315,17 @@ async function saveChatMessages(
     captureException(error, { extra: { chatId } });
     throw error;
   }
+}
+
+function buildHiddenInlineActionMessage(
+  inlineActions?: z.infer<typeof inlineEmailActionSchema>[] | null,
+) {
+  const text = buildInlineEmailActionSystemMessage(inlineActions);
+  if (!text) return null;
+
+  return {
+    id: crypto.randomUUID(),
+    role: "system" as const,
+    parts: [{ type: "text" as const, text }],
+  } satisfies UIMessage;
 }

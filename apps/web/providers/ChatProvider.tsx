@@ -8,6 +8,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { useSWRConfig } from "swr";
@@ -18,6 +19,12 @@ import { useChatMessages } from "@/hooks/useChatMessages";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import type { MessageContext } from "@/app/api/chat/validation";
+import { InlineEmailActionProvider } from "@/components/assistant-chat/inline-email-action-context";
+import {
+  mergeInlineEmailActions,
+  type InlineEmailAction,
+  type InlineEmailActionType,
+} from "@/utils/ai/assistant/inline-email-actions";
 
 export type Attachment = {
   id: string;
@@ -52,12 +59,25 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [chatId, setChatId] = useQueryState("chatId", parseAsString);
   const [context, setContext] = useState<MessageContext | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [inlineActions, setInlineActions] = useState<InlineEmailAction[]>([]);
+  const inlineActionsRef = useRef(inlineActions);
+  const pendingInlineActionsRef = useRef<InlineEmailAction[] | null>(null);
+  const previousChatIdRef = useRef(chatId);
 
   const { data } = useChatMessages(chatId);
 
   const setNewChat = useCallback(() => {
     setChatId(generateUUID());
   }, [setChatId]);
+
+  const queueInlineAction = useCallback(
+    (type: InlineEmailActionType, threadIds: string[]) => {
+      setInlineActions((current) =>
+        mergeInlineEmailActions(current, { type, threadIds }),
+      );
+    },
+    [],
+  );
 
   const chat = useAiChat<ChatMessage>({
     id: chatId ?? undefined,
@@ -72,6 +92,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             id,
             message: messages.at(-1),
             context: context ?? undefined,
+            inlineActions: pendingInlineActionsRef.current ?? undefined,
             ...body,
           },
         };
@@ -81,9 +102,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     experimental_throttle: 100,
     generateId: generateUUID,
     onFinish: () => {
+      pendingInlineActionsRef.current = null;
       mutate("/api/user/rules");
     },
     onError: (error) => {
+      const pendingInlineActions = pendingInlineActionsRef.current;
+      if (pendingInlineActions?.length) {
+        setInlineActions((current) =>
+          pendingInlineActions.reduce(
+            (merged, action) => mergeInlineEmailActions(merged, action),
+            current,
+          ),
+        );
+        pendingInlineActionsRef.current = null;
+      }
+
       console.error(error);
       captureException(error);
     },
@@ -92,6 +125,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     chat.setMessages(data ? convertToUIMessages(data) : []);
   }, [chat.setMessages, data]);
+
+  useEffect(() => {
+    inlineActionsRef.current = inlineActions;
+  }, [inlineActions]);
+
+  useEffect(() => {
+    if (previousChatIdRef.current === chatId) return;
+
+    previousChatIdRef.current = chatId;
+    pendingInlineActionsRef.current = null;
+    setInlineActions([]);
+  }, [chatId]);
 
   const handleSubmit = useCallback(() => {
     const text = input.trim();
@@ -111,6 +156,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     if (text) {
       parts.push({ type: "text", text });
+    }
+
+    pendingInlineActionsRef.current = inlineActionsRef.current.length
+      ? inlineActionsRef.current
+      : null;
+
+    if (pendingInlineActionsRef.current) {
+      setInlineActions([]);
     }
 
     chat.sendMessage({ role: "user", parts });
@@ -135,7 +188,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setAttachments,
       }}
     >
-      {children}
+      <InlineEmailActionProvider value={{ queueAction: queueInlineAction }}>
+        {children}
+      </InlineEmailActionProvider>
     </ChatContext.Provider>
   );
 }

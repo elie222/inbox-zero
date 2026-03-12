@@ -2,6 +2,7 @@
 
 import React, { createElement, type MouseEvent, type ReactNode } from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -21,6 +22,7 @@ const mockUseEmailLookup = vi.fn();
 const mockArchiveThreadAction = vi.fn();
 const mockMarkReadThreadAction = vi.fn();
 const mockUseThread = vi.fn();
+const mockQueueAction = vi.fn();
 
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => mockUseAccount(),
@@ -28,6 +30,12 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 
 vi.mock("@/components/assistant-chat/email-lookup-context", () => ({
   useEmailLookup: () => mockUseEmailLookup(),
+}));
+
+vi.mock("@/components/assistant-chat/inline-email-action-context", () => ({
+  useInlineEmailActionContext: () => ({
+    queueAction: (...args: unknown[]) => mockQueueAction(...args),
+  }),
 }));
 
 vi.mock("@/utils/actions/mail", () => ({
@@ -154,6 +162,7 @@ describe("InlineEmailCard", () => {
 
     mockArchiveThreadAction.mockResolvedValue({});
     mockMarkReadThreadAction.mockResolvedValue({});
+    mockQueueAction.mockReset();
     mockUseThread.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -181,6 +190,10 @@ describe("InlineEmailCard", () => {
         threadId: "19cdca06580b38e9",
       });
     });
+
+    expect(mockQueueAction).toHaveBeenCalledWith("archive_threads", [
+      "19cdca06580b38e9",
+    ]);
   });
 
   it("renders the app email preview when expanded", () => {
@@ -277,6 +290,7 @@ describe("InlineEmailList", () => {
     mockUseEmailLookup.mockReturnValue(new Map());
     mockArchiveThreadAction.mockResolvedValue({});
     mockMarkReadThreadAction.mockResolvedValue({});
+    mockQueueAction.mockReset();
     mockUseThread.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -314,6 +328,10 @@ describe("InlineEmailList", () => {
     expect(mockArchiveThreadAction).toHaveBeenNthCalledWith(2, "account-1", {
       threadId: "thread-2",
     });
+    expect(mockQueueAction).toHaveBeenCalledWith("archive_threads", [
+      "thread-1",
+      "thread-2",
+    ]);
   });
 
   it("updates each row inline after archive all succeeds", async () => {
@@ -329,5 +347,75 @@ describe("InlineEmailList", () => {
     await waitFor(() => {
       expect(screen.getAllByText("Archived").length).toBe(2);
     });
+  });
+
+  it("collapses fully archived sections into a compact summary", async () => {
+    vi.useFakeTimers();
+
+    try {
+      render(
+        <InlineEmailList>
+          <InlineEmailCard threadid="thread-1">First</InlineEmailCard>
+          <InlineEmailCard threadid="thread-2">Second</InlineEmailCard>
+        </InlineEmailList>,
+      );
+
+      fireEvent.click(screen.getAllByRole("button")[0]);
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(mockQueueAction).toHaveBeenCalledWith("archive_threads", [
+        "thread-1",
+        "thread-2",
+      ]);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(800);
+      });
+
+      expect(screen.getByText("Completed emails")).toBeTruthy();
+      expect(screen.getByText("2 archived")).toBeTruthy();
+      expect(screen.queryByText("First")).toBeNull();
+      expect(screen.queryByText("Second")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("collapses fully marked-read sections into a compact summary", async () => {
+    vi.useFakeTimers();
+
+    try {
+      render(
+        <InlineEmailList>
+          <InlineEmailCard threadid="thread-1">First</InlineEmailCard>
+          <InlineEmailCard threadid="thread-2">Second</InlineEmailCard>
+        </InlineEmailList>,
+      );
+
+      fireEvent.click(screen.getAllByRole("button")[1]);
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(mockQueueAction).toHaveBeenCalledWith("mark_read_threads", [
+        "thread-1",
+        "thread-2",
+      ]);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(800);
+      });
+
+      expect(screen.getByText("Completed emails")).toBeTruthy();
+      expect(screen.getByText("2 marked read")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
