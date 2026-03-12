@@ -139,14 +139,14 @@ describe("adminGetUserInfoAction", () => {
         emailAccounts: 1,
       },
     } as any);
-    prisma.executedRule.groupBy.mockResolvedValue([
+    vi.mocked(prisma.executedRule.groupBy).mockResolvedValue([
       {
         emailAccountId: "ea-1",
         _max: {
           createdAt: lastExecutedRuleAt,
         },
       },
-    ] as any);
+    ] as never);
 
     const result = await adminGetUserInfoAction({
       email: "owner@example.com",
@@ -283,7 +283,7 @@ describe("adminGetUserInfoAction", () => {
         emailAccounts: 1,
       },
     } as any);
-    prisma.executedRule.groupBy.mockResolvedValue([]);
+    vi.mocked(prisma.executedRule.groupBy).mockResolvedValue([] as never);
 
     const result = await adminGetUserInfoAction({
       email: "owner@example.com",

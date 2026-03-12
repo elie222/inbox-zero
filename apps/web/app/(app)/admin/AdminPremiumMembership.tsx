@@ -35,7 +35,7 @@ export function AdminPremiumMembershipSection({
       },
       onError: ({ error }) => {
         toastError({
-          description: getActionErrorMessage(error.error, {
+          description: getActionErrorMessage(error, {
             prefix: "Failed to remove user from premium",
           }),
         });
