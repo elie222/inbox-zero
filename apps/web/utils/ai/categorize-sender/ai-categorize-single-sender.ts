@@ -41,7 +41,7 @@ ${formatCategoriesForPrompt(categories)}
 1. Analyze the sender's name and email address for clues about their category.
 2. Review the content of previous emails to gain more context about the account's relationship with us.
 3. If the category is clear, assign it.
-4. If you're not certain or multiple categories seem possible, use "Other".
+4. If you're not certain or multiple categories seem possible, choose the best matching category from the list above.
 5. You must pick exactly one category from the list above.
 6. Return your response in JSON format.
 </instructions>`;

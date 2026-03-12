@@ -134,7 +134,7 @@ function buildJudgePrompt(options: {
     options.output,
   ];
 
-  if (options.expected) {
+  if (options.expected != null) {
     parts.push("", "## Expected Output", options.expected);
   }
 

@@ -33,18 +33,15 @@ class EvalReporter {
     }
   }
 
-  getRecords(): EvalRecord[] {
-    return [...this.records];
-  }
-
   private writeReport(filePath: string): void {
     const dir = path.dirname(filePath);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(filePath, this.generateMarkdown());
-    fs.writeFileSync(
-      filePath.replace(/\.md$/, ".json"),
-      JSON.stringify(this.records, null, 2),
-    );
+
+    const jsonPath = filePath.endsWith(".md")
+      ? filePath.replace(/\.md$/, ".json")
+      : `${filePath}.json`;
+    fs.writeFileSync(jsonPath, JSON.stringify(this.records, null, 2));
   }
 
   private generateConsoleReport(): string {
