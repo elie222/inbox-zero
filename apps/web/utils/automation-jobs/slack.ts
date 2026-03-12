@@ -8,7 +8,6 @@ type SlackMessagingChannel = {
   accessToken: string | null;
   providerUserId: string | null;
   channelId: string | null;
-  sendAsDm: boolean;
 };
 
 export class AutomationJobConfigurationError extends Error {
@@ -59,7 +58,6 @@ export async function sendAutomationMessageToSlack({
     accessToken: channel.accessToken,
     channelId: channel.channelId,
     providerUserId: channel.providerUserId,
-    sendAsDm: channel.sendAsDm,
   });
 
   if (!destinationChannelId) {

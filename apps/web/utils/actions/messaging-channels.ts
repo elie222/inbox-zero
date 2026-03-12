@@ -16,7 +16,10 @@ import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code"
 import { env } from "@/env";
 import { getChannelInfo } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
-import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send";
+import {
+  sendChannelConfirmation,
+  SLACK_DM_CHANNEL_SENTINEL,
+} from "@/utils/messaging/providers/slack/send";
 import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
 import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
 import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
@@ -54,7 +57,7 @@ export const updateSlackChannelAction = actionClient
 
         await prisma.messagingChannel.update({
           where: { id: channelId },
-          data: { sendAsDm: true },
+          data: { channelId: SLACK_DM_CHANNEL_SENTINEL, channelName: null },
         });
         return;
       }
@@ -77,7 +80,6 @@ export const updateSlackChannelAction = actionClient
         data: {
           channelId: targetId,
           channelName: channelInfo.name,
-          sendAsDm: false,
         },
       });
 
@@ -114,9 +116,9 @@ export const updateChannelFeaturesAction = actionClient
 
       const enablingFeature =
         sendMeetingBriefs === true || sendDocumentFilings === true;
-      if (enablingFeature && !channel.channelId && !channel.sendAsDm) {
+      if (enablingFeature && !channel.channelId) {
         throw new SafeError(
-          "Please select a target channel or enable direct messages before enabling features",
+          "Please select a target channel before enabling features",
         );
       }
 

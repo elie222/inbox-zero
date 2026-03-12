@@ -14,7 +14,7 @@ export async function sendAutomationMessage({
 }: {
   channel: Pick<
     AutomationMessagingChannel,
-    "provider" | "accessToken" | "providerUserId" | "channelId" | "sendAsDm"
+    "provider" | "accessToken" | "providerUserId" | "channelId"
   >;
   text: string;
   logger: Logger;

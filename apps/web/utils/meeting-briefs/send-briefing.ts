@@ -61,17 +61,13 @@ export async function sendBriefing({
       emailAccountId,
       isConnected: true,
       sendMeetingBriefs: true,
-      OR: [
-        { channelId: { not: null } },
-        { sendAsDm: true, providerUserId: { not: null } },
-      ],
+      channelId: { not: null },
     },
     select: {
       provider: true,
       accessToken: true,
       channelId: true,
       providerUserId: true,
-      sendAsDm: true,
     },
   });
 
@@ -101,7 +97,6 @@ export async function sendBriefing({
             accessToken: channel.accessToken,
             channelId: channel.channelId,
             providerUserId: channel.providerUserId,
-            sendAsDm: channel.sendAsDm,
             meetingTitle: event.title,
             formattedTime,
             videoConferenceLink: event.videoConferenceLink ?? undefined,
@@ -205,7 +200,6 @@ async function sendBriefingViaSlack({
   accessToken,
   channelId,
   providerUserId,
-  sendAsDm,
   meetingTitle,
   formattedTime,
   videoConferenceLink,
@@ -216,7 +210,6 @@ async function sendBriefingViaSlack({
   accessToken: string;
   channelId: string | null;
   providerUserId: string | null;
-  sendAsDm: boolean;
   meetingTitle: string;
   formattedTime: string;
   videoConferenceLink?: string;
@@ -228,7 +221,6 @@ async function sendBriefingViaSlack({
     accessToken,
     channelId,
     providerUserId,
-    sendAsDm,
   });
 
   if (!destination) {

@@ -3,6 +3,7 @@ import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { env } from "@/env";
 import type { MessagingProvider } from "@/generated/prisma/enums";
+import { SLACK_DM_CHANNEL_SENTINEL } from "@/utils/messaging/providers/slack/send";
 
 export type GetMessagingChannelsResponse = Awaited<ReturnType<typeof getData>>;
 
@@ -28,17 +29,22 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       isConnected: true,
       sendMeetingBriefs: true,
       sendDocumentFilings: true,
-      sendAsDm: true,
     },
     orderBy: { createdAt: "desc" },
   });
 
   return {
-    channels: channels.map(({ providerUserId, ...channel }) => ({
-      ...channel,
-      hasSendDestination: Boolean(providerUserId || channel.channelId),
-      canSendAsDm: channel.provider === "SLACK" && Boolean(providerUserId),
-    })),
+    channels: channels.map(({ providerUserId, ...channel }) => {
+      const isDm = channel.channelId === SLACK_DM_CHANNEL_SENTINEL;
+      return {
+        ...channel,
+        hasSendDestination: isDm
+          ? Boolean(providerUserId)
+          : Boolean(providerUserId || channel.channelId),
+        canSendAsDm: channel.provider === "SLACK" && Boolean(providerUserId),
+        isDm,
+      };
+    }),
     availableProviders: getAvailableProviders(),
   };
 }

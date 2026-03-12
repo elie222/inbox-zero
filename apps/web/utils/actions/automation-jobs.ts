@@ -106,7 +106,6 @@ export const saveAutomationJobAction = actionClient
           accessToken: true,
           providerUserId: true,
           channelId: true,
-          sendAsDm: true,
         },
       });
 
@@ -179,7 +178,6 @@ export const triggerTestCheckInAction = actionClient
             accessToken: true,
             providerUserId: true,
             channelId: true,
-            sendAsDm: true,
           },
         },
       },
@@ -236,7 +234,6 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
       accessToken: true,
       providerUserId: true,
       channelId: true,
-      sendAsDm: true,
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -260,7 +257,6 @@ function getAutomationMessagingChannelValidationError(channel: {
   accessToken: string | null;
   providerUserId: string | null;
   channelId: string | null;
-  sendAsDm: boolean;
 }) {
   if (!isSupportedAutomationMessagingProvider(channel.provider)) {
     return "Messaging provider is not supported";

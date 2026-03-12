@@ -75,7 +75,6 @@ describe("automation job messaging channel helpers", () => {
         accessToken: "xoxb-token",
         providerUserId: "U123",
         channelId: null,
-        sendAsDm: false,
       }),
     ).toBe(true);
 
@@ -86,7 +85,6 @@ describe("automation job messaging channel helpers", () => {
         accessToken: null,
         providerUserId: "U123",
         channelId: null,
-        sendAsDm: false,
       }),
     ).toBe(false);
   });
@@ -99,7 +97,6 @@ describe("automation job messaging channel helpers", () => {
         accessToken: null,
         providerUserId: "29:teams-user",
         channelId: null,
-        sendAsDm: false,
       }),
     ).toBe(true);
 
@@ -110,7 +107,6 @@ describe("automation job messaging channel helpers", () => {
         accessToken: null,
         providerUserId: "12345",
         channelId: null,
-        sendAsDm: false,
       }),
     ).toBe(true);
   });

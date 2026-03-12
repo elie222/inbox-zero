@@ -23,17 +23,13 @@ export async function sendFilingSlackNotifications({
       emailAccountId,
       isConnected: true,
       sendDocumentFilings: true,
-      OR: [
-        { channelId: { not: null } },
-        { sendAsDm: true, providerUserId: { not: null } },
-      ],
+      channelId: { not: null },
     },
     select: {
       provider: true,
       accessToken: true,
       channelId: true,
       providerUserId: true,
-      sendAsDm: true,
     },
   });
 
@@ -62,7 +58,6 @@ export async function sendFilingSlackNotifications({
           accessToken: channel.accessToken,
           channelId: channel.channelId,
           providerUserId: channel.providerUserId,
-          sendAsDm: channel.sendAsDm,
         });
         if (!destination) continue;
 

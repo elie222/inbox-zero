@@ -315,8 +315,8 @@ function ConnectedChannelRow({
     teamName: string | null;
     channelId: string | null;
     channelName: string | null;
-    sendAsDm: boolean;
     canSendAsDm: boolean;
+    isDm: boolean;
   };
   emailAccountId: string;
   onUpdate: () => void;
@@ -387,7 +387,7 @@ function ConnectedChannelRow({
 
         {isSlackChannel && (
           <Select
-            value={channel.sendAsDm ? "dm" : (channel.channelId ?? "")}
+            value={channel.isDm ? "dm" : (channel.channelId ?? "")}
             onValueChange={(value) => {
               if (value === "dm") {
                 executeSetTarget({
@@ -420,7 +420,7 @@ function ConnectedChannelRow({
                       : "Select channel"
                 }
               >
-                {channel.sendAsDm
+                {channel.isDm
                   ? "Direct message"
                   : channel.channelName
                     ? `#${channel.channelName}`

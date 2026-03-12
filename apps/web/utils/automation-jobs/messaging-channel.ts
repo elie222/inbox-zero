@@ -12,7 +12,6 @@ export type AutomationMessagingChannel = {
   accessToken: string | null;
   providerUserId: string | null;
   channelId: string | null;
-  sendAsDm: boolean;
 };
 
 export function isSupportedAutomationMessagingProvider(
