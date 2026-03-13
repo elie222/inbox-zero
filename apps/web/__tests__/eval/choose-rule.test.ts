@@ -277,9 +277,9 @@ You're receiving this email because you joined MindfulPath. To stop receiving th
   },
   {
     email: getEmail({
-      from: "Maya from ToolStack <maya@research.toolstack.io>",
+      from: "Maya from ToolStack <maya@research.example>",
       subject: "Your feedback + a $25 gift card",
-      listUnsubscribe: "<https://research.toolstack.io/unsubscribe?id=xyz789>",
+      listUnsubscribe: "<https://research.example/unsubscribe?id=xyz789>",
       content: `Hi there,
 
 I'm Maya from the ToolStack research team. We're reaching out to a small, hand-picked group of power users to learn about their experience with our platform. You were selected because you've been one of our most engaged users over the past quarter, and your insights would be particularly meaningful to our team.
@@ -288,7 +288,7 @@ The session is a casual 15-minute video call where we'll walk through your typic
 
 As a thank you for your time, every participant receives a $25 gift card — no strings attached.
 
-If you're interested, just grab a time on my calendar that works for you: https://cal.toolstack.io/maya/user-interview
+If you're interested, just grab a time on my calendar that works for you: https://cal.example/maya/user-interview
 
 I really hope we get to chat!
 

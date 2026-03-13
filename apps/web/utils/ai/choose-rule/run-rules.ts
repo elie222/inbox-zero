@@ -83,9 +83,8 @@ EXCLUDE:
 - Emails with List-Unsubscribe headers or unsubscribe links are a strong signal of mass/automated emails
 
 IMPORTANT:
-- This rule is ONLY for human-to-human communication.
-- If the email is automated or system-generated and another rule is a better fit, do not use this rule.
-- Keep this rule as the primary match for genuine human conversations.`;
+- Only use this rule for human-to-human communication. If an email is automated or system-generated and another rule is a better fit, do not use this rule.
+- When this rule matches, it should typically be the primary match.`;
 
 export async function runRules({
   provider,
