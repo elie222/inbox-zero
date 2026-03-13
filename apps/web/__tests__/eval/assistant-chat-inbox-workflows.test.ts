@@ -20,6 +20,18 @@ const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 const evalReporter = createEvalReporter();
 const logger = createScopedLogger("eval-assistant-chat-inbox-workflows");
+const inboxWorkflowProviders = [
+  {
+    provider: "google",
+    label: "google",
+    unreadFilter: "is:unread",
+  },
+  {
+    provider: "microsoft",
+    label: "microsoft",
+    unreadFilter: "isread:false",
+  },
+] as const;
 const writeToolNames = new Set([
   "manageInbox",
   "createRule",
@@ -28,6 +40,7 @@ const writeToolNames = new Set([
   "updateLearnedPatterns",
   "updateAbout",
   "updateAssistantSettings",
+  "updateAssistantSettingsCompat",
   "updateInboxFeatures",
   "sendEmail",
   "replyEmail",
@@ -180,9 +193,9 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
   describeEvalMatrix(
     "assistant-chat inbox workflows",
     (model, emailAccount) => {
-      test(
-        "handles inbox update requests with read-only triage search first",
-        async () => {
+      test.each(inboxWorkflowProviders)(
+        "handles inbox update requests with read-only triage search first [$label]",
+        async ({ provider, label, unreadFilter }) => {
           mockSearchMessages.mockResolvedValueOnce({
             messages: [
               getMockMessage({
@@ -206,7 +219,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
           });
 
           const { toolCalls, actual } = await runAssistantChat({
-            emailAccount,
+            emailAccount: cloneEmailAccountForProvider(emailAccount, provider),
             inboxStats: { total: 240, unread: 18 },
             messages: [
               {
@@ -221,11 +234,11 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
           const pass =
             !!searchCall &&
             hasSearchBeforeFirstWrite(toolCalls) &&
-            hasUnreadFilter(searchCall.query) &&
+            hasProviderUnreadFilter(searchCall.query, unreadFilter) &&
             hasNoWriteToolCalls(toolCalls);
 
           evalReporter.record({
-            testName: "inbox update uses triage search first",
+            testName: `inbox update uses triage search first (${label})`,
             model: model.label,
             pass,
             actual,
@@ -236,9 +249,9 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
         TIMEOUT,
       );
 
-      test(
-        "uses read-only inbox search for reply triage requests",
-        async () => {
+      test.each(inboxWorkflowProviders)(
+        "uses read-only inbox search for reply triage requests [$label]",
+        async ({ provider, label }) => {
           mockSearchMessages.mockResolvedValueOnce({
             messages: [
               getMockMessage({
@@ -262,7 +275,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
           });
 
           const { toolCalls, actual } = await runAssistantChat({
-            emailAccount,
+            emailAccount: cloneEmailAccountForProvider(emailAccount, provider),
             messages: [
               {
                 role: "user",
@@ -276,11 +289,11 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
           const pass =
             !!searchCall &&
             hasSearchBeforeFirstWrite(toolCalls) &&
-            hasReplyTriageFocus(searchCall.query) &&
+            hasReplyTriageFocus(searchCall.query, provider) &&
             hasNoWriteToolCalls(toolCalls);
 
           evalReporter.record({
-            testName: "reply triage stays read-only",
+            testName: `reply triage stays read-only (${label})`,
             model: model.label,
             pass,
             actual,
@@ -291,9 +304,9 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
         TIMEOUT,
       );
 
-      test(
-        "does not bulk archive sender cleanup before the user confirms",
-        async () => {
+      test.each(inboxWorkflowProviders)(
+        "does not bulk archive sender cleanup before the user confirms [$label]",
+        async ({ provider, label }) => {
           mockSearchMessages.mockResolvedValueOnce({
             messages: [
               getMockMessage({
@@ -317,7 +330,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
           });
 
           const { toolCalls, actual } = await runAssistantChat({
-            emailAccount,
+            emailAccount: cloneEmailAccountForProvider(emailAccount, provider),
             inboxStats: { total: 480, unread: 22 },
             messages: [
               {
@@ -339,7 +352,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
             hasNoWriteToolCalls(toolCalls);
 
           evalReporter.record({
-            testName: "sender cleanup requires confirmation before write",
+            testName: `sender cleanup requires confirmation before write (${label})`,
             model: model.label,
             pass,
             actual,
@@ -350,9 +363,9 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
         TIMEOUT,
       );
 
-      test(
-        "uses inbox search for direct email lookup requests",
-        async () => {
+      test.each(inboxWorkflowProviders)(
+        "uses inbox search for direct email lookup requests [$label]",
+        async ({ provider, label }) => {
           mockSearchMessages.mockResolvedValueOnce({
             messages: [
               getMockMessage({
@@ -376,7 +389,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
           });
 
           const { toolCalls, actual } = await runAssistantChat({
-            emailAccount,
+            emailAccount: cloneEmailAccountForProvider(emailAccount, provider),
             messages: [
               {
                 role: "user",
@@ -395,7 +408,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
             hasNoWriteToolCalls(toolCalls);
 
           evalReporter.record({
-            testName: "direct email lookup uses search",
+            testName: `direct email lookup uses search (${label})`,
             model: model.label,
             pass,
             actual,
@@ -498,16 +511,17 @@ function hasNoWriteToolCalls(
   return !toolCalls.some((toolCall) => isWriteToolName(toolCall.toolName));
 }
 
-function hasUnreadFilter(query: string) {
+function hasProviderUnreadFilter(query: string, unreadFilter: string) {
   const normalizedQuery = query.toLowerCase();
-  return (
-    normalizedQuery.includes("is:unread") ||
-    normalizedQuery.includes("isread:false")
-  );
+  return normalizedQuery.includes(unreadFilter);
 }
 
-function hasReplyTriageFocus(query: string) {
+function hasReplyTriageFocus(query: string, provider: "google" | "microsoft") {
   const normalizedQuery = query.toLowerCase();
+  if (provider === "microsoft") {
+    return normalizedQuery.includes("isread:false");
+  }
+
   return ["to reply", 'label:"to reply"', "label:to", "reply", "respond"].some(
     (term) => normalizedQuery.includes(term),
   );
@@ -575,5 +589,22 @@ function getMessageById(messageId: string) {
     }),
   ];
 
-  return messages.find((message) => message.id === messageId) ?? messages[0];
+  const message = messages.find((candidate) => candidate.id === messageId);
+  if (!message) {
+    throw new Error(`Unexpected messageId: ${messageId}`);
+  }
+  return message;
+}
+
+function cloneEmailAccountForProvider(
+  emailAccount: ReturnType<typeof getEmailAccount>,
+  provider: "google" | "microsoft",
+) {
+  return {
+    ...emailAccount,
+    account: {
+      ...emailAccount.account,
+      provider,
+    },
+  };
 }
