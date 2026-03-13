@@ -6,6 +6,8 @@ description: Complete fullstack workflow combining GET API routes, server action
 
 Complete guide for building features from API to UI, combining GET API routes, data fetching, form handling, and server actions.
 
+For server action client details (`actionClient` vs `actionClientUser` vs `adminActionClient`), see [server-actions.md](server-actions.md).
+
 ## Overview
 
 When building a new feature, follow this pattern:

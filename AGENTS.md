@@ -16,6 +16,8 @@
 - When adding a new workspace package, add its `package.json` COPY line to `docker/Dockerfile.prod` and `docker/Dockerfile.local`.
 
 ## Code Style
+- Install packages in `apps/web`, not root: `cd apps/web && pnpm add ...`
+- Lodash: import specific functions (`import groupBy from "lodash/groupBy"`)
 - TypeScript with strict null checks
 - Path aliases: `@/` for imports from project root
 - NextJS app router with (app) directory, tailwindcss
