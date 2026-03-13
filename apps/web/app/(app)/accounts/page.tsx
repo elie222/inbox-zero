@@ -320,6 +320,13 @@ function getAccountErrorMessage(
       toastDescription:
         "The authentication request was invalid. Please try again.",
     },
+    invalid_state_format: {
+      title: "Invalid response from provider",
+      description:
+        "We couldn't validate the account authorization response. Please try linking the account again. If the problem continues, contact support.",
+      toastDescription:
+        "We couldn't validate the account authorization response. Please try linking the account again.",
+    },
     missing_code: {
       title: "Authentication failed",
       description: "Failed to receive authentication code. Please try again.",
