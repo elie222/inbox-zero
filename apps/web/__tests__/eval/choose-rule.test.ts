@@ -1,6 +1,9 @@
 import { describe, test, expect, vi, afterAll } from "vitest";
 import { SystemType } from "@/generated/prisma/enums";
-import { describeEvalMatrix } from "@/__tests__/eval/models";
+import {
+  describeEvalMatrix,
+  shouldRunEvalTests,
+} from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/ai/choose-rule/run-rules";
@@ -12,7 +15,7 @@ import { getEmail, getRule } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
-const isAiTest = process.env.RUN_AI_TESTS === "true";
+const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 
 // Default system rules — mirrors what aiChooseRule actually receives in production.
@@ -232,8 +235,7 @@ You're receiving this email because you joined MindfulPath. To stop receiving th
     email: getEmail({
       from: "Maya from ToolStack <maya@research.toolstack.io>",
       subject: "Your feedback + a $25 gift card",
-      listUnsubscribe:
-        "<https://research.toolstack.io/unsubscribe?id=xyz789>",
+      listUnsubscribe: "<https://research.toolstack.io/unsubscribe?id=xyz789>",
       content: `Hi there,
 
 I'm Maya from the ToolStack research team. We're reaching out to a small, hand-picked group of power users to learn about their experience with our platform. You were selected because you've been one of our most engaged users over the past quarter, and your insights would be particularly meaningful to our team.
@@ -284,7 +286,7 @@ GreenLeaf Goods LLC | 200 Elm Street, Portland, OR 97201`,
   },
 ];
 
-describe.runIf(isAiTest)("Eval: Choose Rule", () => {
+describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
   const evalReporter = createEvalReporter();
 
   describeEvalMatrix("choose-rule", (model, emailAccount) => {

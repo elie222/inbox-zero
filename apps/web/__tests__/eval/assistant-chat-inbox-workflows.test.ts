@@ -1,6 +1,9 @@
 import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
-import { describeEvalMatrix } from "@/__tests__/eval/models";
+import {
+  describeEvalMatrix,
+  shouldRunEvalTests,
+} from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { getMockMessage } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
@@ -13,19 +16,7 @@ import type { getEmailAccount } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
-const isAiTest = process.env.RUN_AI_TESTS === "true";
-const hasAnyEvalApiKey = Boolean(
-  process.env.OPENROUTER_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    process.env.ANTHROPIC_API_KEY ||
-    process.env.GOOGLE_API_KEY,
-);
-const hasDefaultEvalApiKey = Boolean(process.env.OPENROUTER_API_KEY);
-const shouldRunEval = isAiTest
-  ? process.env.EVAL_MODELS
-    ? hasAnyEvalApiKey
-    : hasDefaultEvalApiKey
-  : false;
+const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 const evalReporter = createEvalReporter();
 const logger = createScopedLogger("eval-assistant-chat-inbox-workflows");

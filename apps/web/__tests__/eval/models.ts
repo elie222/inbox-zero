@@ -1,11 +1,12 @@
 import { describe } from "vitest";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { Provider } from "@/utils/llms/config";
 
 export interface EvalModel {
-  provider: string;
-  model: string;
   label: string;
+  model: string;
+  provider: string;
 }
 
 const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
@@ -88,6 +89,20 @@ export function getEmailAccountForModel(
   };
 }
 
+export function shouldRunEvalTests(): boolean {
+  if (process.env.RUN_AI_TESTS !== "true") return false;
+
+  const models = getEvalModels();
+  if (models.length > 0) {
+    return models.every((model) => hasConfiguredProvider(model.provider));
+  }
+
+  const defaultProvider = process.env.DEFAULT_LLM_PROVIDER;
+  return defaultProvider
+    ? hasConfiguredProvider(defaultProvider)
+    : hasAnyConfiguredProvider();
+}
+
 /**
  * Runs a describe block for each model in the eval matrix.
  *
@@ -136,4 +151,59 @@ function getApiKeyForProvider(provider: string): string | null {
     groq: process.env.GROQ_API_KEY,
   };
   return keys[provider] ?? null;
+}
+
+function hasConfiguredProvider(provider: string): boolean {
+  if (process.env.LLM_API_KEY) return true;
+
+  switch (provider) {
+    case Provider.OPENROUTER:
+      return Boolean(process.env.OPENROUTER_API_KEY);
+    case Provider.OPEN_AI:
+      return Boolean(process.env.OPENAI_API_KEY);
+    case Provider.AZURE:
+      return Boolean(
+        process.env.AZURE_API_KEY && process.env.AZURE_RESOURCE_NAME,
+      );
+    case Provider.ANTHROPIC:
+      return Boolean(process.env.ANTHROPIC_API_KEY);
+    case Provider.GOOGLE:
+      return Boolean(process.env.GOOGLE_API_KEY);
+    case Provider.VERTEX:
+      return Boolean(process.env.GOOGLE_VERTEX_PROJECT);
+    case Provider.GROQ:
+      return Boolean(process.env.GROQ_API_KEY);
+    case Provider.BEDROCK:
+      return Boolean(
+        process.env.BEDROCK_ACCESS_KEY &&
+          process.env.BEDROCK_SECRET_KEY &&
+          process.env.BEDROCK_REGION,
+      );
+    case Provider.AI_GATEWAY:
+      return Boolean(process.env.AI_GATEWAY_API_KEY);
+    case Provider.OLLAMA:
+    case Provider.OPENAI_COMPATIBLE:
+      return true;
+    default:
+      return hasAnyConfiguredProvider();
+  }
+}
+
+function hasAnyConfiguredProvider(): boolean {
+  return Boolean(
+    process.env.LLM_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      process.env.AZURE_API_KEY ||
+      process.env.ANTHROPIC_API_KEY ||
+      process.env.GOOGLE_API_KEY ||
+      process.env.GOOGLE_VERTEX_PROJECT ||
+      process.env.GROQ_API_KEY ||
+      process.env.OPENROUTER_API_KEY ||
+      process.env.AI_GATEWAY_API_KEY ||
+      (process.env.BEDROCK_ACCESS_KEY &&
+        process.env.BEDROCK_SECRET_KEY &&
+        process.env.BEDROCK_REGION) ||
+      process.env.OLLAMA_BASE_URL ||
+      process.env.OPENAI_COMPATIBLE_BASE_URL,
+  );
 }
