@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import type { getEmailAccount } from "@/__tests__/helpers";
+import prisma from "@/utils/__mocks__/prisma";
 import {
   ActionType,
   GroupItemType,
@@ -52,7 +53,6 @@ const {
   mockPosthogCaptureEvent,
   mockRedis,
   mockUnsubscribeSenderAndMark,
-  mockPrisma,
 } = vi.hoisted(() => ({
   mockCreateRule: vi.fn(),
   mockPartialUpdateRule: vi.fn(),
@@ -71,23 +71,6 @@ const {
     lrange: vi.fn().mockResolvedValue([]),
   },
   mockUnsubscribeSenderAndMark: vi.fn(),
-  mockPrisma: {
-    emailAccount: {
-      findUnique: vi.fn(),
-      update: vi.fn(),
-    },
-    rule: {
-      findUnique: vi.fn(),
-    },
-    knowledge: {
-      create: vi.fn(),
-    },
-    chatMemory: {
-      create: vi.fn(),
-      findFirst: vi.fn().mockResolvedValue(null),
-      findMany: vi.fn().mockResolvedValue([]),
-    },
-  },
 }));
 
 vi.mock("@/utils/rule/rule", () => ({
@@ -117,9 +100,7 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
   unsubscribeSenderAndMark: mockUnsubscribeSenderAndMark,
 }));
 
-vi.mock("@/utils/prisma", () => ({
-  default: mockPrisma,
-}));
+vi.mock("@/utils/prisma");
 
 vi.mock("@/env", () => ({
   env: {
@@ -138,26 +119,24 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
     mockUpdateRuleActions.mockResolvedValue({ id: "updated-rule-id" });
     mockSaveLearnedPatterns.mockResolvedValue({ success: true });
 
-    mockPrisma.emailAccount.findUnique.mockImplementation(
-      async ({ select }) => {
-        if (select?.rules) {
-          return {
-            about: "My name is Test User, and I manage a company inbox.",
-            rules: defaultRuleRows,
-          };
-        }
-
+    prisma.emailAccount.findUnique.mockImplementation(async ({ select }) => {
+      if (select?.rules) {
         return {
           about: "My name is Test User, and I manage a company inbox.",
+          rules: defaultRuleRows,
         };
-      },
-    );
+      }
 
-    mockPrisma.emailAccount.update.mockResolvedValue({
+      return {
+        about: "My name is Test User, and I manage a company inbox.",
+      };
+    });
+
+    prisma.emailAccount.update.mockResolvedValue({
       about: "My name is Test User, and I manage a company inbox.",
     });
 
-    mockPrisma.rule.findUnique.mockImplementation(async ({ where, select }) => {
+    prisma.rule.findUnique.mockImplementation(async ({ where, select }) => {
       const ruleName = where?.name_emailAccountId?.name;
       if (ruleName === "Notification") {
         if (select?.group) {
@@ -205,7 +184,11 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
           ],
         });
 
-        const updateCall = getUpdateLearnedPatternsCall(toolCalls);
+        const updateCall = getLastUpdateLearnedPatternsCall(toolCalls);
+        const updateCallIndex = getLastToolCallIndex(
+          toolCalls,
+          "updateLearnedPatterns",
+        );
 
         const pass =
           !!updateCall &&
@@ -213,12 +196,17 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
           !toolCalls.some(
             (toolCall) => toolCall.toolName === "updateRuleConditions",
           ) &&
+          hasRuleReadBeforeUpdate(toolCalls, updateCallIndex) &&
           updateCall.ruleName === "Notification" &&
           hasIncludedFrom(
             updateCall.learnedPatterns,
             "@vendor-updates.example",
           ) &&
-          hasIncludedFrom(updateCall.learnedPatterns, "@store-alerts.example");
+          hasIncludedFrom(
+            updateCall.learnedPatterns,
+            "@store-alerts.example",
+          ) &&
+          mockSaveLearnedPatterns.mock.calls.length > 0;
 
         evalReporter.record({
           testName: "extend existing notification rule",
@@ -227,6 +215,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
           actual,
         });
 
+        expect(mockSaveLearnedPatterns).toHaveBeenCalled();
         expect(pass).toBe(true);
       },
       TIMEOUT,
@@ -246,7 +235,11 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
           ],
         });
 
-        const updateCall = getUpdateLearnedPatternsCall(toolCalls);
+        const updateCall = getLastUpdateLearnedPatternsCall(toolCalls);
+        const updateCallIndex = getLastToolCallIndex(
+          toolCalls,
+          "updateLearnedPatterns",
+        );
 
         const pass =
           !!updateCall &&
@@ -254,11 +247,13 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
           !toolCalls.some(
             (toolCall) => toolCall.toolName === "updateRuleConditions",
           ) &&
+          hasRuleReadBeforeUpdate(toolCalls, updateCallIndex) &&
           updateCall.ruleName === "Notification" &&
           hasExcludedFrom(
             updateCall.learnedPatterns,
             "support@tickets.example",
-          );
+          ) &&
+          mockSaveLearnedPatterns.mock.calls.length > 0;
 
         evalReporter.record({
           testName: "exclude sender from existing notification rule",
@@ -267,6 +262,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
           actual,
         });
 
+        expect(mockSaveLearnedPatterns).toHaveBeenCalled();
         expect(pass).toBe(true);
       },
       TIMEOUT,
@@ -336,12 +332,12 @@ type UpdateLearnedPatternsInput = {
   }>;
 };
 
-function getUpdateLearnedPatternsCall(
+function getLastUpdateLearnedPatternsCall(
   toolCalls: Array<{ toolName: string; input: unknown }>,
 ) {
-  const toolCall = toolCalls.find(
-    (candidate) => candidate.toolName === "updateLearnedPatterns",
-  );
+  const toolCall = [...toolCalls]
+    .reverse()
+    .find((candidate) => candidate.toolName === "updateLearnedPatterns");
 
   return isUpdateLearnedPatternsInput(toolCall?.input) ? toolCall.input : null;
 }
@@ -385,6 +381,27 @@ function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {
   }
 
   return toolCall.toolName;
+}
+
+function getLastToolCallIndex(
+  toolCalls: Array<{ toolName: string; input: unknown }>,
+  toolName: string,
+) {
+  return toolCalls.findLastIndex((toolCall) => toolCall.toolName === toolName);
+}
+
+function hasRuleReadBeforeUpdate(
+  toolCalls: Array<{ toolName: string; input: unknown }>,
+  updateCallIndex: number,
+) {
+  if (updateCallIndex < 0) return false;
+
+  return (
+    getLastToolCallIndex(
+      toolCalls.slice(0, updateCallIndex),
+      "getUserRulesAndSettings",
+    ) >= 0
+  );
 }
 
 function getDefaultRuleRows() {

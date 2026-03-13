@@ -40,6 +40,7 @@ import {
 } from "./chat-inbox-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
+import { PROMPT_TO_RULES_BEST_PRACTICES } from "@/utils/ai/rule/prompt-to-rules-guidance";
 
 export const maxDuration = 120;
 
@@ -204,15 +205,9 @@ Rule matching logic:
 - Top level conditions (AI instructions, static) can use either AND or OR logic, controlled by the "conditionalOperator" setting
 
 Best practices:
-- Prefer learned patterns over static sender lists when updating an existing categorization rule for recurring senders.
-- Use static conditions for exact deterministic matching, but keep them short and specific. Do not turn a static from/to field into a long catch-all sender list.
-- IMPORTANT: if the user names many senders that clearly belong to an existing rule (for example Notification, Newsletter, Marketing, Receipt), update that existing rule instead of creating a new overlapping rule.
-- IMPORTANT: treat singular/plural variants or near-synonyms as duplicates when they serve the same purpose. Do not create semantic duplicates like "Notification" and "Notifications".
-- IMPORTANT: do not create new rules unless absolutely necessary. Avoid duplicate rules, so make sure to check if the rule already exists.
-- You can use multiple conditions in a rule, but aim for simplicity.
-- When creating rules, in most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
-- If a rule can be handled fully with static conditions, do so, but this is rarely possible.
-- Do not solve rule overlap by appending long sender exclusion lists to AI instructions. Prefer learned pattern includes/excludes or a more specific existing rule.
+${PROMPT_TO_RULES_BEST_PRACTICES}
+- IMPORTANT: if the user names many senders that clearly belong to one of the existing fetched rules, update the best matching existing rule from that list instead of creating a new overlapping rule.
+- IMPORTANT: do not create semantic duplicates like "Notification" and "Notifications" when those names refer to the same existing rule.
 ${emailSendToolsEnabled ? `- IMPORTANT: for rules, prefer "draft a reply" action over "reply" action. For chat email sending, just use the appropriate tool directly when the user asks.` : ""}
 - Use short, concise rule names (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.
 
