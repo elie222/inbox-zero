@@ -177,16 +177,20 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
             ],
           });
 
-          const createOrGetCall = getLastManageLabelsCreateOrGetCall(toolCalls);
-          const labelThreadsCall = getLastLabelThreadsCall(toolCalls);
-          const createOrGetIndex = getLastToolCallIndex(
+          const createOrGetMatch = getLastMatchingToolCall(
             toolCalls,
             "manageLabels",
+            isManageLabelsCreateOrGetInput,
           );
-          const labelThreadsIndex = getLastToolCallIndex(
+          const labelThreadsMatch = getLastMatchingToolCall(
             toolCalls,
             "manageInbox",
+            isManageInboxLabelThreadsInput,
           );
+          const createOrGetCall = createOrGetMatch?.input ?? null;
+          const labelThreadsCall = labelThreadsMatch?.input ?? null;
+          const createOrGetIndex = createOrGetMatch?.index ?? -1;
+          const labelThreadsIndex = labelThreadsMatch?.index ?? -1;
           const pass =
             !!createOrGetCall &&
             !!labelThreadsCall &&
@@ -281,35 +285,10 @@ type ManageInboxLabelThreadsInput = {
 function getLastManageLabelsCall(
   toolCalls: Array<{ toolName: string; input: unknown }>,
 ) {
-  const toolCall = [...toolCalls]
-    .reverse()
-    .find((candidate) => candidate.toolName === "manageLabels");
-
-  return isManageLabelsInput(toolCall?.input) ? toolCall.input : null;
-}
-
-function getLastManageLabelsCreateOrGetCall(
-  toolCalls: Array<{ toolName: string; input: unknown }>,
-) {
-  const toolCall = [...toolCalls]
-    .reverse()
-    .find((candidate) => candidate.toolName === "manageLabels");
-
-  return isManageLabelsCreateOrGetInput(toolCall?.input)
-    ? toolCall.input
-    : null;
-}
-
-function getLastLabelThreadsCall(
-  toolCalls: Array<{ toolName: string; input: unknown }>,
-) {
-  const toolCall = [...toolCalls]
-    .reverse()
-    .find((candidate) => candidate.toolName === "manageInbox");
-
-  return isManageInboxLabelThreadsInput(toolCall?.input)
-    ? toolCall.input
-    : null;
+  return (
+    getLastMatchingToolCall(toolCalls, "manageLabels", isManageLabelsInput)
+      ?.input ?? null
+  );
 }
 
 function isManageLabelsInput(
@@ -377,9 +356,21 @@ function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {
   return toolCall.toolName;
 }
 
-function getLastToolCallIndex(
+function getLastMatchingToolCall<TInput>(
   toolCalls: Array<{ toolName: string; input: unknown }>,
   toolName: string,
+  matches: (input: unknown) => input is TInput,
 ) {
-  return toolCalls.findLastIndex((toolCall) => toolCall.toolName === toolName);
+  for (let index = toolCalls.length - 1; index >= 0; index--) {
+    const toolCall = toolCalls[index];
+    if (toolCall.toolName !== toolName) continue;
+    if (!matches(toolCall.input)) continue;
+
+    return {
+      index,
+      input: toolCall.input,
+    };
+  }
+
+  return null;
 }
