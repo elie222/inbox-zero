@@ -3,8 +3,8 @@ import { generateObject } from "ai";
 import { getModel } from "@/utils/llms/model";
 
 export interface JudgeCriterion {
-  name: string;
   description: string;
+  name: string;
 }
 
 export interface JudgeResult {

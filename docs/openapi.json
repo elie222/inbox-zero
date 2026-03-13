@@ -27,7 +27,101 @@
         "name": "API-Key"
       }
     },
-    "schemas": {},
+    "schemas": {
+      "ActionType": {
+        "type": "string",
+        "enum": [
+          "LABEL",
+          "ARCHIVE",
+          "MARK_READ",
+          "DRAFT_EMAIL",
+          "REPLY",
+          "FORWARD",
+          "SEND_EMAIL",
+          "MARK_SPAM",
+          "DIGEST",
+          "CALL_WEBHOOK",
+          "MOVE_FOLDER",
+          "NOTIFY_SENDER"
+        ]
+      },
+      "RuleCondition": {
+        "type": "object",
+        "properties": {
+          "conditionalOperator": {
+            "type": "string",
+            "enum": ["AND", "OR"],
+            "nullable": true
+          },
+          "aiInstructions": {
+            "type": "string",
+            "nullable": true
+          },
+          "static": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "from": { "type": "string", "nullable": true },
+              "to": { "type": "string", "nullable": true },
+              "subject": { "type": "string", "nullable": true }
+            }
+          }
+        }
+      },
+      "RuleActionFields": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string", "nullable": true },
+          "to": { "type": "string", "nullable": true },
+          "cc": { "type": "string", "nullable": true },
+          "bcc": { "type": "string", "nullable": true },
+          "subject": { "type": "string", "nullable": true },
+          "content": { "type": "string", "nullable": true },
+          "webhookUrl": { "type": "string", "nullable": true },
+          "folderName": { "type": "string", "nullable": true }
+        }
+      },
+      "RuleAction": {
+        "type": "object",
+        "properties": {
+          "type": { "$ref": "#/components/schemas/ActionType" },
+          "fields": { "$ref": "#/components/schemas/RuleActionFields" },
+          "delayInMinutes": { "type": "number", "nullable": true }
+        },
+        "required": ["type"]
+      },
+      "Rule": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "enabled": { "type": "boolean" },
+          "runOnThreads": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "condition": { "$ref": "#/components/schemas/RuleCondition" },
+          "actions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/RuleAction" }
+          }
+        },
+        "required": ["id", "name", "enabled", "runOnThreads", "createdAt", "updatedAt", "condition", "actions"]
+      },
+      "RuleRequestBody": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "runOnThreads": { "type": "boolean", "default": true },
+          "condition": { "$ref": "#/components/schemas/RuleCondition" },
+          "actions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/RuleAction" },
+            "minItems": 1
+          }
+        },
+        "required": ["name", "condition", "actions"]
+      }
+    },
     "parameters": {}
   },
   "paths": {
@@ -295,6 +389,142 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/rules": {
+      "get": {
+        "description": "List automation rules for the scoped inbox account.",
+        "security": [{ "ApiKeyAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rules": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Rule" }
+                    }
+                  },
+                  "required": ["rules"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Create an automation rule for the scoped inbox account.",
+        "security": [{ "ApiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RuleRequestBody" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rule": { "$ref": "#/components/schemas/Rule" }
+                  },
+                  "required": ["rule"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rules/{id}": {
+      "get": {
+        "description": "Get a single automation rule for the scoped inbox account.",
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string" },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rule": { "$ref": "#/components/schemas/Rule" }
+                  },
+                  "required": ["rule"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Replace an automation rule for the scoped inbox account.",
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string" },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RuleRequestBody" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rule": { "$ref": "#/components/schemas/Rule" }
+                  },
+                  "required": ["rule"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Delete an automation rule for the scoped inbox account.",
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string" },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Rule deleted"
           }
         }
       }

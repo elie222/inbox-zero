@@ -82,7 +82,6 @@ describe("getStripeTrialStartedProperties", () => {
   });
 });
 
-
 describe("getStripeTrialStartedProperties - subscription.updated guards", () => {
   it("returns null when previousAttributes does not include status (unrelated update)", () => {
     const event = subscriptionEvent({
@@ -104,9 +103,7 @@ describe("getStripeTrialStartedProperties - subscription.updated guards", () => 
   });
 });
 
-function subscriptionEvent(
-  overrides: Partial<Stripe.Event>,
-): Stripe.Event {
+function subscriptionEvent(overrides: Partial<Stripe.Event>): Stripe.Event {
   return {
     id: "evt_test",
     type: "customer.subscription.created",

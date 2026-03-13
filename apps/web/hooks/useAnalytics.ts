@@ -19,7 +19,9 @@ export function useOnboardingAnalytics(variant: "onboarding" | "welcome") {
     const getProperties = (
       properties?: number | OnboardingAnalyticsProps,
     ): OnboardingAnalyticsProps =>
-      typeof properties === "number" ? { step: properties } : properties ?? {};
+      typeof properties === "number"
+        ? { step: properties }
+        : (properties ?? {});
 
     return {
       onStart: (properties?: number | OnboardingAnalyticsProps) => {

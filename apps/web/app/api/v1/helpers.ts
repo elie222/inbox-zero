@@ -1,4 +1,5 @@
 import prisma from "@/utils/prisma";
+import type { StatsApiKeyPrincipal } from "@/utils/api-auth";
 
 /**
  * Gets the email account ID from the provided email or looks it up using the account ID
@@ -34,4 +35,26 @@ export async function getEmailAccountId({
   });
 
   return emailAccount?.id;
+}
+
+export async function resolveStatsEmailAccountId({
+  authType,
+  scopedEmailAccountId,
+  email,
+  accountId,
+  userId,
+}: {
+  authType: StatsApiKeyPrincipal["authType"];
+  scopedEmailAccountId: string;
+  email?: string;
+  accountId?: string;
+  userId: string;
+}) {
+  if (authType === "account-scoped") return scopedEmailAccountId;
+
+  return getEmailAccountId({
+    email,
+    accountId,
+    userId,
+  });
 }

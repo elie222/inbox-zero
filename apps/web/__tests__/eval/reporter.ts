@@ -3,13 +3,13 @@ import * as path from "node:path";
 import type { JudgeResult } from "@/__tests__/eval/judge";
 
 export interface EvalRecord {
-  testName: string;
-  model: string;
-  pass: boolean;
-  expected?: string;
   actual?: string;
   criteria?: JudgeResult[];
   durationMs?: number;
+  expected?: string;
+  model: string;
+  pass: boolean;
+  testName: string;
 }
 
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;

@@ -20,8 +20,9 @@ export function getStripeTrialStartedProperties(
   };
 }
 
-
-function getTrialStartingSubscription(event: Stripe.Event): Stripe.Subscription | null {
+function getTrialStartingSubscription(
+  event: Stripe.Event,
+): Stripe.Subscription | null {
   if (event.type === "customer.subscription.created") {
     const subscription = event.data.object as Stripe.Subscription;
 

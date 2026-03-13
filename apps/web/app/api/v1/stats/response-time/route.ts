@@ -1,48 +1,55 @@
 import { NextResponse } from "next/server";
-import { withError } from "@/utils/middleware";
-import { validateApiKeyAndGetEmailProvider } from "@/utils/api-auth";
-import { getEmailAccountId } from "@/app/api/v1/helpers";
+import { withStatsApiKey } from "@/utils/api-middleware";
+import { resolveStatsEmailAccountId } from "@/app/api/v1/helpers";
 import { getResponseTimeStats } from "@/app/api/user/stats/response-time/controller";
 import { responseTimeQuerySchema } from "./validation";
 
-export const GET = withError("v1/stats/response-time", async (request) => {
-  const { emailProvider, userId, accountId } =
-    await validateApiKeyAndGetEmailProvider(request);
-
-  const { searchParams } = new URL(request.url);
-  const queryResult = responseTimeQuerySchema.safeParse(
-    Object.fromEntries(searchParams),
-  );
-
-  if (!queryResult.success) {
-    return NextResponse.json(
-      { error: "Invalid query parameters" },
-      { status: 400 },
+export const GET = withStatsApiKey(
+  "v1/stats/response-time",
+  async (request) => {
+    const {
+      userId,
+      accountId,
+      emailAccountId: scopedEmailAccountId,
+      authType,
+    } = request.apiAuth;
+    const { searchParams } = new URL(request.url);
+    const queryResult = responseTimeQuerySchema.safeParse(
+      Object.fromEntries(searchParams),
     );
-  }
 
-  const { fromDate, toDate, email } = queryResult.data;
+    if (!queryResult.success) {
+      return NextResponse.json(
+        { error: "Invalid query parameters" },
+        { status: 400 },
+      );
+    }
 
-  const emailAccountId = await getEmailAccountId({
-    email,
-    accountId,
-    userId,
-  });
+    const { fromDate, toDate, email } = queryResult.data;
 
-  if (!emailAccountId) {
-    return NextResponse.json(
-      { error: "Email account not found" },
-      { status: 400 },
-    );
-  }
+    const emailAccountId = await resolveStatsEmailAccountId({
+      authType,
+      scopedEmailAccountId,
+      email,
+      accountId,
+      userId,
+    });
 
-  const result = await getResponseTimeStats({
-    fromDate,
-    toDate,
-    emailAccountId,
-    emailProvider,
-    logger: request.logger,
-  });
+    if (!emailAccountId) {
+      return NextResponse.json(
+        { error: "Email account not found" },
+        { status: 400 },
+      );
+    }
 
-  return NextResponse.json(result);
-});
+    const result = await getResponseTimeStats({
+      fromDate,
+      toDate,
+      emailAccountId,
+      emailProvider: request.emailProvider,
+      logger: request.logger,
+    });
+
+    return NextResponse.json(result);
+  },
+);

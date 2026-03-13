@@ -3,89 +3,205 @@ import prisma from "@/utils/prisma";
 import { hashApiKey } from "@/utils/api-key";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 import type { RequestWithLogger } from "@/utils/middleware";
+import type { ApiKeyScopeValue } from "@/utils/api-key-scopes";
 
 export const API_KEY_HEADER = "API-Key";
+type ApiKeyAuthType = "account-scoped" | "legacy";
 
-/**
- * Validates an API key from the request headers and returns the associated user
- * @param request The Next.js request object
- * @returns The user object or null if the API key is invalid or missing
- * @throws SafeError if the API key is invalid or missing
- */
-export async function validateApiKey(request: NextRequest) {
+export type AccountApiKeyPrincipal = {
+  apiKeyId: string;
+  userId: string;
+  emailAccountId: string;
+  email: string;
+  provider: string;
+  accountId: string;
+  scopes: ApiKeyScopeValue[];
+};
+
+export type StatsApiKeyPrincipal = {
+  apiKeyId: string;
+  userId: string;
+  accountId: string;
+  emailAccountId: string;
+  provider: string;
+  scopes: ApiKeyScopeValue[];
+  authType: ApiKeyAuthType;
+};
+
+export async function validateApiKey(
+  request: NextRequest,
+  options?: {
+    requiredScopes?: ApiKeyScopeValue[];
+    allowLegacy?: boolean;
+  },
+) {
   const apiKey = request.headers.get(API_KEY_HEADER);
 
   if (!apiKey) throw new SafeError("Missing API key", 401);
 
-  const user = await getUserFromApiKey(apiKey);
+  const storedApiKey = await getStoredApiKey(apiKey);
 
-  if (!user) throw new SafeError("Invalid API key", 401);
+  if (!storedApiKey || isExpired(storedApiKey.expiresAt)) {
+    throw new SafeError("Invalid API key", 401);
+  }
 
-  return { user };
+  if (options?.requiredScopes?.length) {
+    const hasAllScopes = options.requiredScopes.every((scope) =>
+      storedApiKey.scopes.includes(scope),
+    );
+
+    if (!hasAllScopes) {
+      if (!options.allowLegacy || storedApiKey.emailAccountId) {
+        throw new SafeError("API key does not have required permissions", 403);
+      }
+    }
+  }
+
+  await prisma.apiKey
+    .update({
+      where: { id: storedApiKey.id },
+      data: { lastUsedAt: new Date() },
+    })
+    .catch(() => undefined);
+
+  return { apiKey: storedApiKey };
+}
+
+export async function getUserFromApiKey(secretKey: string) {
+  const storedApiKey = await getStoredApiKey(secretKey);
+
+  if (!storedApiKey || isExpired(storedApiKey.expiresAt)) return null;
+
+  return {
+    id: storedApiKey.userId,
+    emailAccountId: storedApiKey.emailAccountId,
+    scopes: storedApiKey.scopes,
+  };
+}
+
+export async function validateAccountApiKey(
+  request: NextRequest,
+  requiredScopes: ApiKeyScopeValue[],
+): Promise<AccountApiKeyPrincipal> {
+  const { apiKey } = await validateApiKey(request, { requiredScopes });
+
+  if (!apiKey.emailAccountId || !apiKey.emailAccount) {
+    throw new SafeError("Account-scoped API key required", 403);
+  }
+
+  return {
+    apiKeyId: apiKey.id,
+    userId: apiKey.userId,
+    emailAccountId: apiKey.emailAccount.id,
+    email: apiKey.emailAccount.email,
+    provider: apiKey.emailAccount.account.provider,
+    accountId: apiKey.emailAccount.account.id,
+    scopes: apiKey.scopes,
+  };
 }
 
 /**
- * Gets a user from an API key
- * @param secretKey The API key to validate
- * @returns The user object or null if the API key is invalid
+ * Validates an API key and gets an email provider for the associated account.
+ * Account-scoped keys require STATS_READ. Legacy user-scoped keys are still
+ * accepted for existing read-only stats routes until they are migrated.
  */
-export async function getUserFromApiKey(secretKey: string) {
+export async function validateApiKeyAndGetEmailProvider(
+  request: RequestWithLogger,
+): Promise<StatsApiKeyPrincipal & { emailProvider: EmailProvider }> {
+  const { apiKey } = await validateApiKey(request, {
+    requiredScopes: ["STATS_READ"],
+    allowLegacy: true,
+  });
+
+  if (apiKey.emailAccount) {
+    const emailProvider = await createEmailProvider({
+      emailAccountId: apiKey.emailAccount.id,
+      provider: apiKey.emailAccount.account.provider,
+      logger: request.logger,
+    });
+
+    return {
+      apiKeyId: apiKey.id,
+      emailProvider,
+      userId: apiKey.userId,
+      accountId: apiKey.emailAccount.account.id,
+      emailAccountId: apiKey.emailAccount.id,
+      provider: apiKey.emailAccount.account.provider,
+      scopes: apiKey.scopes,
+      authType: "account-scoped",
+    };
+  }
+
+  const legacyAccount = apiKey.user.accounts[0];
+  const legacyEmailAccountId = legacyAccount?.emailAccount?.id;
+
+  if (!legacyAccount || !legacyEmailAccountId) {
+    throw new SafeError("Missing account", 401);
+  }
+
+  const emailProvider = await createEmailProvider({
+    emailAccountId: legacyEmailAccountId,
+    provider: legacyAccount.provider,
+    logger: request.logger,
+  });
+
+  return {
+    apiKeyId: apiKey.id,
+    emailProvider,
+    userId: apiKey.userId,
+    accountId: legacyAccount.id,
+    emailAccountId: legacyEmailAccountId,
+    provider: legacyAccount.provider,
+    scopes: apiKey.scopes,
+    authType: "legacy",
+  };
+}
+
+async function getStoredApiKey(secretKey: string) {
   const hashedKey = hashApiKey(secretKey);
 
-  const result = await prisma.apiKey.findUnique({
+  return prisma.apiKey.findUnique({
     where: { hashedKey, isActive: true },
     select: {
-      user: {
+      id: true,
+      userId: true,
+      emailAccountId: true,
+      expiresAt: true,
+      scopes: true,
+      emailAccount: {
         select: {
           id: true,
+          email: true,
+          account: {
+            select: {
+              id: true,
+              provider: true,
+            },
+          },
+        },
+      },
+      user: {
+        select: {
           accounts: {
             select: {
               id: true,
-              access_token: true,
-              refresh_token: true,
-              expires_at: true,
               provider: true,
+              emailAccount: {
+                select: {
+                  id: true,
+                },
+              },
             },
             take: 1,
           },
         },
       },
-      isActive: true,
     },
   });
-
-  return result?.user || null;
 }
 
-/**
- * Validates an API key and gets a Gmail client for the user
- * @param request The Next.js request object
- * @returns The Gmail client and user ID
- * @throws SafeError if authentication fails
- */
-export async function validateApiKeyAndGetEmailProvider(
-  request: RequestWithLogger,
-) {
-  const { user } = await validateApiKey(request);
-
-  // TODO: support API For multiple accounts
-  const account = user.accounts[0];
-
-  if (!account) throw new SafeError("Missing account", 401);
-
-  if (!account.access_token || !account.refresh_token || !account.expires_at)
-    throw new SafeError("Missing access token", 401);
-
-  const emailProvider = await createEmailProvider({
-    emailAccountId: account.id,
-    provider: account.provider,
-    logger: request.logger,
-  });
-
-  return {
-    emailProvider,
-    userId: user.id,
-    accountId: account.id,
-  };
+function isExpired(expiresAt: Date | null): boolean {
+  return !!expiresAt && expiresAt <= new Date();
 }
