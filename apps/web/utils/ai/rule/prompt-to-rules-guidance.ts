@@ -1,16 +1,8 @@
-export const PROMPT_TO_RULES_SHARED_BEST_PRACTICES = `- Use static conditions for exact deterministic matching, but keep them short and specific.
-- Do not turn a static from/to field into a long catch-all sender list.
-- IMPORTANT: do not create new rules unless absolutely necessary.
-- IMPORTANT: if two candidate rules are near-duplicates or overlap heavily, consolidate them instead of creating both.
-- You can use multiple conditions in a rule, but aim for simplicity.
-- In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
-- If a rule can be handled fully with static conditions, do so, but this is rarely possible.
-- Do not solve rule overlap by appending long sender exclusion lists to AI instructions. Prefer a clearer rule boundary instead.`;
-
 export const PROMPT_TO_RULES_SHARED_GUIDANCE = `IMPORTANT: If a user provides a snippet, use that full snippet in the rule. Don't include placeholders unless it's clear one is needed.
 
-Best practices:
-${PROMPT_TO_RULES_SHARED_BEST_PRACTICES}
+You can use multiple conditions in a rule, but aim for simplicity.
+In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
+If a rule can be handled fully with static conditions, do so, but this is rarely possible.
 
 Output policy:
 - Return a JSON object only. No prose and no markdown.
