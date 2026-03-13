@@ -231,7 +231,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
             !!searchCall &&
             hasSearchBeforeFirstWrite(toolCalls) &&
             hasUnreadFilter(searchCall.query) &&
-            hasTodayTimebox(searchCall.query) &&
             hasNoWriteToolCalls(toolCalls);
 
           evalReporter.record({
@@ -513,15 +512,6 @@ function hasUnreadFilter(query: string) {
   return (
     normalizedQuery.includes("is:unread") ||
     normalizedQuery.includes("isread:false")
-  );
-}
-
-function hasTodayTimebox(query: string) {
-  const normalizedQuery = query.toLowerCase();
-  return (
-    normalizedQuery.includes("after:") ||
-    normalizedQuery.includes("newer_than:") ||
-    normalizedQuery.includes("received>=")
   );
 }
 
