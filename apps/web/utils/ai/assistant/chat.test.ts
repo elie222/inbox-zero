@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("assistant chat prompt contract", () => {
-  it("reuses the shared rule best-practices guidance", () => {
+  it("interpolates the shared rule best-practices guidance into the chat prompt", () => {
     const chatSource = readFileSync(
       new URL("./chat.ts", import.meta.url),
       "utf8",
@@ -12,12 +12,12 @@ describe("assistant chat prompt contract", () => {
       "utf8",
     );
 
-    expect(chatSource).toContain("PROMPT_TO_RULES_BEST_PRACTICES");
+    expect(chatSource).toMatch(/\$\{PROMPT_TO_RULES_SHARED_BEST_PRACTICES\}/);
     expect(guidanceSource).toContain(
-      "Prefer learned patterns over static sender lists when updating an existing categorization rule for recurring senders.",
+      "Use static conditions for exact deterministic matching, but keep them short and specific.",
     );
     expect(guidanceSource).toContain(
-      "Do not solve rule overlap by appending long sender exclusion lists to AI instructions.",
+      'In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.',
     );
   });
 

@@ -1,16 +1,12 @@
-export const PROMPT_TO_RULES_BEST_PRACTICES = `- Prefer learned patterns over static sender lists when updating an existing categorization rule for recurring senders.
-- Use static conditions for exact deterministic matching, but keep them short and specific. Do not turn a static from/to field into a long catch-all sender list.
-- IMPORTANT: treat singular/plural variants or near-synonyms as duplicates when they serve the same purpose.
-- IMPORTANT: do not create new rules unless absolutely necessary. Avoid duplicate rules, so make sure to check if the rule already exists.
+export const PROMPT_TO_RULES_SHARED_BEST_PRACTICES = `- Use static conditions for exact deterministic matching, but keep them short and specific.
 - You can use multiple conditions in a rule, but aim for simplicity.
 - In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
-- If a rule can be handled fully with static conditions, do so, but this is rarely possible.
-- Do not solve rule overlap by appending long sender exclusion lists to AI instructions. Prefer learned pattern includes/excludes or a more specific existing rule.`;
+- If a rule can be handled fully with static conditions, do so, but this is rarely possible.`;
 
 export const PROMPT_TO_RULES_SHARED_GUIDANCE = `IMPORTANT: If a user provides a snippet, use that full snippet in the rule. Don't include placeholders unless it's clear one is needed.
 
 Best practices:
-${PROMPT_TO_RULES_BEST_PRACTICES}
+${PROMPT_TO_RULES_SHARED_BEST_PRACTICES}
 
 Output policy:
 - Return a JSON object only. No prose and no markdown.
