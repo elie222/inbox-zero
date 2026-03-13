@@ -40,7 +40,6 @@ import {
 } from "./chat-inbox-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
-import { PROMPT_TO_RULES_SHARED_BEST_PRACTICES } from "@/utils/ai/rule/prompt-to-rules-guidance";
 
 export const maxDuration = 120;
 
@@ -205,11 +204,11 @@ Rule matching logic:
 - Top level conditions (AI instructions, static) can use either AND or OR logic, controlled by the "conditionalOperator" setting
 
 Best practices:
-${PROMPT_TO_RULES_SHARED_BEST_PRACTICES}
+- Use static conditions for exact deterministic matching, but keep them short and specific.
 - Prefer learned patterns over static sender lists when updating an existing categorization rule for recurring senders.
 - Do not turn a static from/to field into a long catch-all sender list.
 - IMPORTANT: if the user names many senders that clearly belong to one of the existing fetched rules, update the best matching existing rule from that list instead of creating a new overlapping rule.
-- IMPORTANT: treat singular/plural variants or near-synonyms as duplicates when they serve the same purpose.
+- IMPORTANT: treat obvious singular/plural variants as the same rule only when the fetched names clearly refer to the exact same category. If multiple fetched rules are similar, ask the user which one to update instead of assuming.
 - IMPORTANT: do not create new rules unless absolutely necessary. Avoid duplicate rules, so make sure to check if the rule already exists.
 - Do not solve rule overlap by appending long sender exclusion lists to AI instructions. Prefer learned pattern includes/excludes or a more specific existing rule.
 - IMPORTANT: do not create semantic duplicates like "Notification" and "Notifications" when those names refer to the same existing rule.
