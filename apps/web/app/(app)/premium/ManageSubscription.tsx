@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCardIcon, ReceiptIcon } from "lucide-react";
+import { CreditCardIcon } from "lucide-react";
 import Link from "next/link";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
@@ -65,24 +65,22 @@ export function ViewInvoicesButton({
     <>
       {stripeCustomerId && (
         <Button
-          variant="outline"
+          variant="link"
           size="sm"
           loading={loading}
           onClick={openBillingPortal}
         >
-          <ReceiptIcon className="mr-2 h-4 w-4" />
-          View{hasBoth ? " Stripe" : ""} invoices
+          {hasBoth ? "Stripe invoices" : "Invoices"}
         </Button>
       )}
 
       {lemonSqueezyCustomerId && (
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="link" size="sm">
           <Link
             href={`https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`}
             target="_blank"
           >
-            <ReceiptIcon className="mr-2 h-4 w-4" />
-            View{hasBoth ? " Lemon" : ""} invoices
+            {hasBoth ? "Lemon invoices" : "Invoices"}
           </Link>
         </Button>
       )}
