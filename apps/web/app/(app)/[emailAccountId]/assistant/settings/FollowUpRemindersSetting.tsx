@@ -36,6 +36,7 @@ import { getEmailTerminology } from "@/utils/terminology";
 import { getGmailBasicSearchUrl } from "@/utils/url";
 import { FOLLOW_UP_LABEL } from "@/utils/label";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { env } from "@/env";
 
 export function FollowUpRemindersSetting() {
   const isFeatureEnabled = useFollowUpRemindersEnabled();
@@ -141,6 +142,7 @@ function FollowUpSettingsDialog({
 }) {
   const { provider } = useAccount();
   const terminology = getEmailTerminology(provider);
+  const autoDraftDisabled = env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED;
 
   const {
     register,
@@ -152,7 +154,9 @@ function FollowUpSettingsDialog({
     defaultValues: {
       followUpAwaitingReplyDays: followUpAwaitingReplyDays?.toString() ?? "",
       followUpNeedsReplyDays: followUpNeedsReplyDays?.toString() ?? "",
-      followUpAutoDraftEnabled,
+      followUpAutoDraftEnabled: autoDraftDisabled
+        ? false
+        : followUpAutoDraftEnabled,
     },
   });
 
@@ -203,7 +207,9 @@ function FollowUpSettingsDialog({
       followUpNeedsReplyDays: formData.followUpNeedsReplyDays
         ? Number(formData.followUpNeedsReplyDays)
         : null,
-      followUpAutoDraftEnabled: formData.followUpAutoDraftEnabled,
+      followUpAutoDraftEnabled: autoDraftDisabled
+        ? false
+        : formData.followUpAutoDraftEnabled,
     });
   };
 
@@ -244,24 +250,26 @@ function FollowUpSettingsDialog({
           rightText="days"
         />
 
-        <div className="flex items-center justify-between">
-          <div>
-            <label
-              htmlFor="followUpAutoDraftEnabled"
-              className="block text-sm font-medium text-foreground"
-            >
-              Auto-generate drafts
-            </label>
-            <p className="text-muted-foreground text-sm">
-              Draft a nudge when you haven't heard back.
-            </p>
+        {!autoDraftDisabled && (
+          <div className="flex items-center justify-between">
+            <div>
+              <label
+                htmlFor="followUpAutoDraftEnabled"
+                className="block text-sm font-medium text-foreground"
+              >
+                Auto-generate drafts
+              </label>
+              <p className="text-muted-foreground text-sm">
+                Draft a nudge when you haven't heard back.
+              </p>
+            </div>
+            <Toggle
+              name="followUpAutoDraftEnabled"
+              enabled={autoDraftValue}
+              onChange={(value) => setValue("followUpAutoDraftEnabled", value)}
+            />
           </div>
-          <Toggle
-            name="followUpAutoDraftEnabled"
-            enabled={autoDraftValue}
-            onChange={(value) => setValue("followUpAutoDraftEnabled", value)}
-          />
-        </div>
+        )}
 
         <div className="flex items-center gap-2">
           <Button type="submit" size="sm" loading={isExecuting}>

@@ -75,6 +75,7 @@ import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 import { moveMessagesForSenders } from "@/utils/outlook/batch";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { env } from "@/env";
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -614,6 +615,13 @@ export class OutlookProvider implements EmailProvider {
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }> {
+    if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) {
+      this.logger.info(
+        "Skipping Outlook draft because auto-drafting is disabled",
+      );
+      return { draftId: "" };
+    }
+
     this.logger.info("Creating Outlook draft", {
       hasExecutedRule: Boolean(executedRule),
       contentLength: args.content?.length,

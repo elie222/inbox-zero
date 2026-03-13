@@ -33,6 +33,11 @@ export async function generateFollowUpDraft({
   provider: EmailProvider;
   logger: Logger;
 }): Promise<void> {
+  if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) {
+    logger.info("Skipping follow-up draft because auto-drafting is disabled");
+    return;
+  }
+
   logger.info("Generating follow-up draft", { threadId, messageId });
 
   try {

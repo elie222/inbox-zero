@@ -4,9 +4,31 @@ import { OutlookProvider } from "./microsoft";
 
 vi.mock("server-only", () => ({}));
 
+const { envMock, outlookMailMock } = vi.hoisted(() => ({
+  envMock: {
+    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
+    EMAIL_ENCRYPT_SECRET: "test-encrypt-secret",
+    EMAIL_ENCRYPT_SALT: "test-encrypt-salt",
+  },
+  outlookMailMock: {
+    draftEmail: vi.fn().mockResolvedValue({ id: "draft-1" }),
+    forwardEmail: vi.fn(),
+    replyToEmail: vi.fn(),
+    sendEmailWithPlainText: vi.fn(),
+    sendEmailWithHtml: vi.fn(),
+  },
+}));
+
+vi.mock("@/env", () => ({
+  env: envMock,
+}));
+
+vi.mock("@/utils/outlook/mail", () => outlookMailMock);
+
 describe("OutlookProvider.getLatestMessageInThread", () => {
   afterEach(() => {
     vi.useRealTimers();
+    envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
   });
 
   it("uses converted date fallback when receivedDateTime is missing", async () => {
@@ -52,6 +74,38 @@ describe("OutlookProvider.getLatestMessageInThread", () => {
     const latest = await provider.getLatestMessageInThread("thread-1");
 
     expect(latest).toBeNull();
+  });
+
+  it("no-ops draftEmail when auto-drafting is disabled", async () => {
+    envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = true;
+    const provider = new OutlookProvider(createMockOutlookClient([]));
+
+    const result = await provider.draftEmail(
+      {
+        id: "message-1",
+        threadId: "thread-1",
+        labelIds: [],
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        headers: {
+          subject: "Subject",
+          from: "sender@example.com",
+          to: "recipient@example.com",
+          date: "Mon, 01 Jan 2026 00:00:00 +0000",
+        },
+        subject: "Subject",
+        date: "Mon, 01 Jan 2026 00:00:00 +0000",
+        internalDate: "1000",
+        textPlain: "",
+        textHtml: "",
+      },
+      { content: "Follow up" },
+      "user@example.com",
+    );
+
+    expect(result).toEqual({ draftId: "" });
+    expect(outlookMailMock.draftEmail).not.toHaveBeenCalled();
   });
 });
 
