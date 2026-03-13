@@ -269,4 +269,106 @@ describe("chat inbox tools", () => {
       requestedCount: 2,
     });
   });
+
+  it("labels threads using label_threads with labelId", async () => {
+    const getThreadMessages = vi.fn().mockImplementation(async (threadId) => [
+      {
+        id: `${threadId}-message-1`,
+        threadId,
+      },
+      {
+        id: `${threadId}-message-2`,
+        threadId,
+      },
+    ]);
+    const labelMessage = vi.fn().mockResolvedValue(undefined);
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getThreadMessages,
+      labelMessage,
+    } as any);
+
+    const toolInstance = manageInboxTool({
+      email: "sender@example.com",
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      action: "label_threads",
+      labelId: "Label_123",
+      labelName: "Finance",
+      threadIds: ["thread-1", "thread-2"],
+    });
+
+    expect(getThreadMessages).toHaveBeenNthCalledWith(1, "thread-1");
+    expect(getThreadMessages).toHaveBeenNthCalledWith(2, "thread-2");
+    expect(labelMessage).toHaveBeenNthCalledWith(1, {
+      messageId: "thread-1-message-1",
+      labelId: "Label_123",
+      labelName: "Finance",
+    });
+    expect(labelMessage).toHaveBeenNthCalledWith(2, {
+      messageId: "thread-1-message-2",
+      labelId: "Label_123",
+      labelName: "Finance",
+    });
+    expect(labelMessage).toHaveBeenNthCalledWith(3, {
+      messageId: "thread-2-message-1",
+      labelId: "Label_123",
+      labelName: "Finance",
+    });
+    expect(labelMessage).toHaveBeenNthCalledWith(4, {
+      messageId: "thread-2-message-2",
+      labelId: "Label_123",
+      labelName: "Finance",
+    });
+    expect(result).toMatchObject({
+      action: "label_threads",
+      success: true,
+      failedCount: 0,
+      successCount: 2,
+      requestedCount: 2,
+    });
+  });
+
+  it("marks a thread labeling action as failed when any message label call fails", async () => {
+    const getThreadMessages = vi.fn().mockResolvedValue([
+      { id: "thread-1-message-1", threadId: "thread-1" },
+      { id: "thread-1-message-2", threadId: "thread-1" },
+    ]);
+    const labelMessage = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("label failed"));
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getThreadMessages,
+      labelMessage,
+    } as any);
+
+    const toolInstance = manageInboxTool({
+      email: "sender@example.com",
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      action: "label_threads",
+      labelId: "Label_123",
+      labelName: "Finance",
+      threadIds: ["thread-1"],
+    });
+
+    expect(result).toMatchObject({
+      action: "label_threads",
+      success: false,
+      failedCount: 1,
+      successCount: 0,
+      requestedCount: 1,
+      failedThreadIds: ["thread-1"],
+    });
+  });
 });

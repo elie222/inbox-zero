@@ -38,6 +38,7 @@ import {
   sendEmailTool,
   updateInboxFeaturesTool,
 } from "./chat-inbox-tools";
+import { manageLabelsTool } from "./chat-label-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 
@@ -70,6 +71,7 @@ export type {
   SendEmailTool,
   UpdateInboxFeaturesTool,
 } from "./chat-inbox-tools";
+export type { ManageLabelsTool } from "./chat-label-tools";
 export type { SaveMemoryTool, SearchMemoriesTool } from "./chat-memory-tools";
 
 export async function aiProcessAssistantChat({
@@ -127,6 +129,8 @@ Tool usage strategy (progressive disclosure):
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
   - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
+- When the user wants to inspect existing labels or create/reuse a label by name, use manageLabels.
+- When the user wants to apply a label to specific threads, first get or create the label with manageLabels, then call manageInbox with action "label_threads" using the returned labelId.
 ${
   emailSendToolsEnabled
     ? `${getSendEmailSurfacePolicy({ responseSurface, messagingPlatform })}
@@ -399,6 +403,7 @@ Behavior anchors (minimal examples):
       getAccountOverview: getAccountOverviewTool(toolOptions),
       searchInbox: searchInboxTool(toolOptions),
       readEmail: readEmailTool(toolOptions),
+      manageLabels: manageLabelsTool(toolOptions),
       manageInbox: manageInboxTool(toolOptions),
       updateInboxFeatures: updateInboxFeaturesTool(toolOptions),
       getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),
