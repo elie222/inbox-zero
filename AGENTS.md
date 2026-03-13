@@ -56,6 +56,3 @@ See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates
 - Data fetching: SWR on the client. Call `mutate()` after mutations.
 - Forms: React Hook Form + `useAction` hook. Use `getActionErrorMessage(error.error)` for errors.
 - Loading states: use `LoadingContent` component.
-
-## Sub-Agent Review Gate
-- When a task is completed and ready for PR, invoke the `reviewer` sub-agent (`.claude/agents/reviewer.md`) before opening the PR.
