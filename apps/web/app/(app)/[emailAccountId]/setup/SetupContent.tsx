@@ -277,7 +277,7 @@ function Checklist({
     completed: boolean;
     organizationId: string | undefined;
   } | null;
-  onSetupProgressChanged: () => void;
+  onSetupProgressChanged: (stepKey: DismissibleSetupStep) => void;
 }) {
   const { executeAsync: dismissSetupStep, isExecuting: isDismissingStep } =
     useAction(dismissHintAction);
@@ -305,7 +305,7 @@ function Checklist({
           return;
         }
 
-        onSetupProgressChanged();
+        onSetupProgressChanged(stepKey);
       } finally {
         setPendingStep(null);
       }
@@ -433,6 +433,18 @@ export function SetupContent() {
   const { data, isLoading, error, mutate } = useSetupProgress();
   const searchParams = useSearchParams();
   const forceSetupMode = searchParams.get("forceSetup") === "1";
+  const handleSetupProgressChanged = useCallback(
+    (stepKey: DismissibleSetupStep) => {
+      mutate(
+        (currentData) =>
+          currentData
+            ? getUpdatedSetupProgress(currentData, stepKey)
+            : currentData,
+        { revalidate: true },
+      );
+    },
+    [mutate],
+  );
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -449,9 +461,7 @@ export function SetupContent() {
           isSetupComplete={data.isComplete}
           forceSetupMode={forceSetupMode}
           teamInvite={data.teamInvite}
-          onSetupProgressChanged={() => {
-            mutate();
-          }}
+          onSetupProgressChanged={handleSetupProgressChanged}
         />
       )}
     </LoadingContent>
@@ -486,7 +496,7 @@ function SetupPageContent({
     completed: boolean;
     organizationId: string | undefined;
   } | null;
-  onSetupProgressChanged: () => void;
+  onSetupProgressChanged: (stepKey: DismissibleSetupStep) => void;
 }) {
   const shouldShowSetupChecklist = forceSetupMode || !isSetupComplete;
 
@@ -521,4 +531,57 @@ function SetupPageContent({
       )}
     </div>
   );
+}
+
+function getUpdatedSetupProgress(
+  currentData: NonNullable<ReturnType<typeof useSetupProgress>["data"]>,
+  stepKey: DismissibleSetupStep,
+) {
+  if (stepKey === "tabsExtension") {
+    return currentData.tabsExtensionCompleted
+      ? currentData
+      : { ...currentData, tabsExtensionCompleted: true };
+  }
+
+  const nextSteps = { ...currentData.steps };
+  let completedIncrement = 0;
+
+  if (stepKey === "teamInvite") {
+    if (!currentData.teamInvite || currentData.teamInvite.completed) {
+      return currentData;
+    }
+
+    completedIncrement = 1;
+
+    return {
+      ...currentData,
+      completed: Math.min(
+        currentData.completed + completedIncrement,
+        currentData.total,
+      ),
+      isComplete:
+        currentData.completed + completedIncrement >= currentData.total,
+      teamInvite: {
+        ...currentData.teamInvite,
+        completed: true,
+      },
+    };
+  }
+
+  if (nextSteps[stepKey]) {
+    return currentData;
+  }
+
+  nextSteps[stepKey] = true;
+  completedIncrement = 1;
+
+  return {
+    ...currentData,
+    steps: nextSteps,
+    completed: Math.min(
+      currentData.completed + completedIncrement,
+      currentData.total,
+    ),
+    isComplete: currentData.completed + completedIncrement >= currentData.total,
+  };
 }
