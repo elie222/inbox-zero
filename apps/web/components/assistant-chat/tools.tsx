@@ -1179,6 +1179,7 @@ function CollapsibleDiffContent({
 
 type ManageInboxAction =
   | "archive_threads"
+  | "label_threads"
   | "mark_read_threads"
   | "bulk_archive_senders"
   | "unsubscribe_senders";
@@ -1188,6 +1189,7 @@ function parseManageInboxAction(
 ): ManageInboxAction | undefined {
   if (
     action === "archive_threads" ||
+    action === "label_threads" ||
     action === "mark_read_threads" ||
     action === "bulk_archive_senders" ||
     action === "unsubscribe_senders"
@@ -1222,6 +1224,9 @@ export function getManageInboxActionLabel({
         : "Archiving emails";
     }
     return labelApplied ? "Archived and labeled emails" : "Archived emails";
+  }
+  if (action === "label_threads") {
+    return inProgress ? "Labeling emails" : "Labeled emails";
   }
   if (action === "mark_read_threads") {
     if (inProgress) {

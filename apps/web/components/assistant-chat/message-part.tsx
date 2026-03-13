@@ -209,7 +209,7 @@ export function MessagePart({
       const actionText = getManageInboxActionLabel({
         action: part.input.action,
         read: part.input.read ?? true,
-        labelApplied: Boolean(part.input.label),
+        labelApplied: Boolean(part.input.label || part.input.labelId),
         inProgress: true,
       });
 
@@ -227,6 +227,7 @@ export function MessagePart({
           output={output}
           threadIds={
             part.input.action === "archive_threads" ||
+            part.input.action === "label_threads" ||
             part.input.action === "mark_read_threads"
               ? (part.input.threadIds ?? undefined)
               : undefined
