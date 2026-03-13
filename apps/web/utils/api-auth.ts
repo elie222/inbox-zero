@@ -8,7 +8,7 @@ import type { RequestWithLogger } from "@/utils/middleware";
 import type { ApiKeyScopeValue } from "@/utils/api-key-scopes";
 
 export const API_KEY_HEADER = "API-Key";
-export type ApiKeyAuthType = "account-scoped" | "legacy";
+type ApiKeyAuthType = "account-scoped" | "legacy";
 
 export type AccountApiKeyPrincipal = {
   apiKeyId: string;

@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { OpenApiGeneratorV3 } from "@asteasolutions/zod-to-openapi";
 import {
@@ -22,15 +22,14 @@ import {
 import { API_KEY_HEADER } from "@/utils/api-auth";
 import { env } from "@/env";
 import { BRAND_NAME } from "@/utils/branding";
+import { SafeError } from "@/utils/error";
+import { withError } from "@/utils/middleware";
 
 extendZodWithOpenApi(z);
 
-export async function GET(request: NextRequest) {
+export const GET = withError("v1/openapi", async (request) => {
   if (!env.EXTERNAL_API_ENABLED) {
-    return NextResponse.json(
-      { error: "External API is not enabled" },
-      { status: 403 },
-    );
+    throw new SafeError("External API is not enabled");
   }
 
   const { searchParams } = new URL(request.url);
@@ -60,7 +59,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse(JSON.stringify(docs), {
     headers: { "Content-Type": "application/json" },
   });
-}
+});
 
 function createRegistry() {
   const registry = new OpenAPIRegistry();

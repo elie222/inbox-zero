@@ -16,11 +16,11 @@ import {
 } from "@/utils/middleware";
 import { env } from "@/env";
 
-export interface RequestWithAccountApiKey extends RequestWithLogger {
+interface RequestWithAccountApiKey extends RequestWithLogger {
   apiAuth: AccountApiKeyPrincipal & { authType: "account-scoped" };
 }
 
-export interface RequestWithStatsApiKey extends RequestWithLogger {
+interface RequestWithStatsApiKey extends RequestWithLogger {
   apiAuth: StatsApiKeyPrincipal;
   emailProvider: EmailProvider;
 }
@@ -199,6 +199,6 @@ function getApiLogUrl(url: string) {
 
 function assertExternalApiEnabled() {
   if (!env.EXTERNAL_API_ENABLED) {
-    throw new SafeError("External API is not enabled", 403);
+    throw new SafeError("External API is not enabled");
   }
 }
