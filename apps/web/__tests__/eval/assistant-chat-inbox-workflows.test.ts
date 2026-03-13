@@ -1,0 +1,598 @@
+import type { ModelMessage } from "ai";
+import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { describeEvalMatrix } from "@/__tests__/eval/models";
+import { createEvalReporter } from "@/__tests__/eval/reporter";
+import { getMockMessage } from "@/__tests__/helpers";
+import prisma from "@/utils/__mocks__/prisma";
+import { createScopedLogger } from "@/utils/logger";
+import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
+import type { getEmailAccount } from "@/__tests__/helpers";
+
+// pnpm test-ai eval/assistant-chat-inbox-workflows
+// Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-inbox-workflows
+
+vi.mock("server-only", () => ({}));
+
+const isAiTest = process.env.RUN_AI_TESTS === "true";
+const hasAnyEvalApiKey = Boolean(
+  process.env.OPENROUTER_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    process.env.ANTHROPIC_API_KEY ||
+    process.env.GOOGLE_API_KEY,
+);
+const hasDefaultEvalApiKey = Boolean(process.env.OPENROUTER_API_KEY);
+const shouldRunEval = isAiTest
+  ? process.env.EVAL_MODELS
+    ? hasAnyEvalApiKey
+    : hasDefaultEvalApiKey
+  : false;
+const TIMEOUT = 60_000;
+const evalReporter = createEvalReporter();
+const logger = createScopedLogger("eval-assistant-chat-inbox-workflows");
+const writeToolNames = new Set([
+  "manageInbox",
+  "createRule",
+  "updateRuleConditions",
+  "updateRuleActions",
+  "updateLearnedPatterns",
+  "updateAbout",
+  "updateAssistantSettings",
+  "updateInboxFeatures",
+  "sendEmail",
+  "replyEmail",
+  "forwardEmail",
+  "saveMemory",
+  "addToKnowledgeBase",
+]);
+
+const {
+  mockCreateRule,
+  mockPartialUpdateRule,
+  mockUpdateRuleActions,
+  mockSaveLearnedPatterns,
+  mockCreateEmailProvider,
+  mockPosthogCaptureEvent,
+  mockRedis,
+  mockUnsubscribeSenderAndMark,
+  mockSearchMessages,
+  mockGetMessage,
+  mockArchiveThreadWithLabel,
+  mockMarkReadThread,
+  mockBulkArchiveFromSenders,
+} = vi.hoisted(() => ({
+  mockCreateRule: vi.fn(),
+  mockPartialUpdateRule: vi.fn(),
+  mockUpdateRuleActions: vi.fn(),
+  mockSaveLearnedPatterns: vi.fn(),
+  mockCreateEmailProvider: vi.fn(),
+  mockPosthogCaptureEvent: vi.fn(),
+  mockRedis: {
+    set: vi.fn(),
+    rpush: vi.fn(),
+    hincrby: vi.fn(),
+    expire: vi.fn(),
+    keys: vi.fn().mockResolvedValue([]),
+    get: vi.fn().mockResolvedValue(null),
+    llen: vi.fn().mockResolvedValue(0),
+    lrange: vi.fn().mockResolvedValue([]),
+  },
+  mockUnsubscribeSenderAndMark: vi.fn(),
+  mockSearchMessages: vi.fn(),
+  mockGetMessage: vi.fn(),
+  mockArchiveThreadWithLabel: vi.fn(),
+  mockMarkReadThread: vi.fn(),
+  mockBulkArchiveFromSenders: vi.fn(),
+}));
+
+vi.mock("@/utils/rule/rule", () => ({
+  createRule: mockCreateRule,
+  partialUpdateRule: mockPartialUpdateRule,
+  updateRuleActions: mockUpdateRuleActions,
+}));
+
+vi.mock("@/utils/rule/learned-patterns", () => ({
+  saveLearnedPatterns: mockSaveLearnedPatterns,
+}));
+
+vi.mock("@/utils/email/provider", () => ({
+  createEmailProvider: mockCreateEmailProvider,
+}));
+
+vi.mock("@/utils/posthog", () => ({
+  posthogCaptureEvent: mockPosthogCaptureEvent,
+  getPosthogLlmClient: () => null,
+}));
+
+vi.mock("@/utils/redis", () => ({
+  redis: mockRedis,
+}));
+
+vi.mock("@/utils/senders/unsubscribe", () => ({
+  unsubscribeSenderAndMark: mockUnsubscribeSenderAndMark,
+}));
+
+vi.mock("@/utils/prisma");
+
+vi.mock("@/env", () => ({
+  env: {
+    NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
+    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
+    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+  },
+}));
+
+describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockCreateRule.mockResolvedValue({ id: "created-rule-id" });
+    mockPartialUpdateRule.mockResolvedValue({ id: "updated-rule-id" });
+    mockUpdateRuleActions.mockResolvedValue({ id: "updated-rule-id" });
+    mockSaveLearnedPatterns.mockResolvedValue({ success: true });
+
+    prisma.emailAccount.findUnique.mockImplementation(async ({ select }) => {
+      if (select?.rules) {
+        return {
+          about: "My name is Test User, and I manage a company inbox.",
+          rules: [],
+        };
+      }
+
+      if (select?.email) {
+        return {
+          email: "user@test.com",
+          timezone: "America/Los_Angeles",
+          meetingBriefingsEnabled: false,
+          meetingBriefingsMinutesBefore: 15,
+          meetingBriefsSendEmail: false,
+          filingEnabled: false,
+          filingPrompt: null,
+          filingFolders: [],
+          driveConnections: [],
+        };
+      }
+
+      return {
+        about: "My name is Test User, and I manage a company inbox.",
+      };
+    });
+
+    prisma.emailAccount.update.mockResolvedValue({
+      about: "My name is Test User, and I manage a company inbox.",
+    });
+
+    prisma.rule.findUnique.mockResolvedValue(null);
+
+    mockSearchMessages.mockResolvedValue({
+      messages: getDefaultSearchMessages(),
+      nextPageToken: undefined,
+    });
+
+    mockGetMessage.mockImplementation(async (messageId: string) =>
+      getMessageById(messageId),
+    );
+
+    mockCreateEmailProvider.mockResolvedValue({
+      searchMessages: mockSearchMessages,
+      getLabels: vi.fn().mockResolvedValue(getDefaultLabels()),
+      getMessage: mockGetMessage,
+      archiveThreadWithLabel: mockArchiveThreadWithLabel,
+      markReadThread: mockMarkReadThread,
+      bulkArchiveFromSenders: mockBulkArchiveFromSenders,
+      getMessagesWithPagination: vi.fn().mockResolvedValue({
+        messages: [],
+        nextPageToken: undefined,
+      }),
+    });
+  });
+
+  describeEvalMatrix(
+    "assistant-chat inbox workflows",
+    (model, emailAccount) => {
+      test(
+        "handles inbox update requests with read-only triage search first",
+        async () => {
+          mockSearchMessages.mockResolvedValueOnce({
+            messages: [
+              getMockMessage({
+                id: "msg-triage-1",
+                threadId: "thread-triage-1",
+                from: "founder@client.example",
+                subject: "Need approval today",
+                snippet: "Can you confirm the rollout before 3pm?",
+                labelIds: ["UNREAD", "Label_To Reply"],
+              }),
+              getMockMessage({
+                id: "msg-triage-2",
+                threadId: "thread-triage-2",
+                from: "updates@vendor.example",
+                subject: "Weekly platform digest",
+                snippet: "Here is this week's product update.",
+                labelIds: ["UNREAD"],
+              }),
+            ],
+            nextPageToken: undefined,
+          });
+
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount,
+            inboxStats: { total: 240, unread: 18 },
+            messages: [
+              {
+                role: "user",
+                content: "Help me handle my inbox today.",
+              },
+            ],
+          });
+
+          const searchCall = getFirstSearchInboxCall(toolCalls);
+
+          const pass =
+            !!searchCall &&
+            hasSearchBeforeFirstWrite(toolCalls) &&
+            hasUnreadFilter(searchCall.query) &&
+            hasTodayTimebox(searchCall.query) &&
+            hasNoWriteToolCalls(toolCalls);
+
+          evalReporter.record({
+            testName: "inbox update uses triage search first",
+            model: model.label,
+            pass,
+            actual,
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "uses read-only inbox search for reply triage requests",
+        async () => {
+          mockSearchMessages.mockResolvedValueOnce({
+            messages: [
+              getMockMessage({
+                id: "msg-reply-1",
+                threadId: "thread-reply-1",
+                from: "ops@partner.example",
+                subject: "Question on the revised plan",
+                snippet: "Can you send your answer today?",
+                labelIds: ["UNREAD", "Label_To Reply"],
+              }),
+              getMockMessage({
+                id: "msg-reply-2",
+                threadId: "thread-reply-2",
+                from: "digest@briefings.example",
+                subject: "Morning roundup",
+                snippet: "Here are the top stories for today.",
+                labelIds: ["UNREAD"],
+              }),
+            ],
+            nextPageToken: undefined,
+          });
+
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount,
+            messages: [
+              {
+                role: "user",
+                content: "Do I need to reply to any mail?",
+              },
+            ],
+          });
+
+          const searchCall = getFirstSearchInboxCall(toolCalls);
+
+          const pass =
+            !!searchCall &&
+            hasSearchBeforeFirstWrite(toolCalls) &&
+            hasReplyTriageFocus(searchCall.query) &&
+            hasNoWriteToolCalls(toolCalls);
+
+          evalReporter.record({
+            testName: "reply triage stays read-only",
+            model: model.label,
+            pass,
+            actual,
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "does not bulk archive sender cleanup before the user confirms",
+        async () => {
+          mockSearchMessages.mockResolvedValueOnce({
+            messages: [
+              getMockMessage({
+                id: "msg-cleanup-1",
+                threadId: "thread-cleanup-1",
+                from: "alerts@sitebuilder.example",
+                subject: "Your weekly site report",
+                snippet: "Traffic highlights and plugin notices.",
+                labelIds: ["UNREAD"],
+              }),
+              getMockMessage({
+                id: "msg-cleanup-2",
+                threadId: "thread-cleanup-2",
+                from: "alerts@sitebuilder.example",
+                subject: "Comment moderation summary",
+                snippet: "You have 12 new comments awaiting review.",
+                labelIds: [],
+              }),
+            ],
+            nextPageToken: undefined,
+          });
+
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount,
+            inboxStats: { total: 480, unread: 22 },
+            messages: [
+              {
+                role: "user",
+                content: "Delete all SiteBuilder emails from my inbox.",
+              },
+            ],
+          });
+
+          const searchCall = getFirstSearchInboxCall(toolCalls);
+
+          const pass =
+            !!searchCall &&
+            hasSearchBeforeFirstWrite(toolCalls) &&
+            queryContainsAny(searchCall.query, ["sitebuilder"]) &&
+            !toolCalls.some(
+              (toolCall) => toolCall.toolName === "manageInbox",
+            ) &&
+            hasNoWriteToolCalls(toolCalls);
+
+          evalReporter.record({
+            testName: "sender cleanup requires confirmation before write",
+            model: model.label,
+            pass,
+            actual,
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "uses inbox search for direct email lookup requests",
+        async () => {
+          mockSearchMessages.mockResolvedValueOnce({
+            messages: [
+              getMockMessage({
+                id: "msg-search-1",
+                threadId: "thread-search-1",
+                from: "support@smtprelay.example",
+                subject: "SMTP relay API setup guide",
+                snippet: "Here are the connection details for your API client.",
+                labelIds: ["UNREAD"],
+              }),
+              getMockMessage({
+                id: "msg-search-2",
+                threadId: "thread-search-2",
+                from: "billing@smtprelay.example",
+                subject: "Receipt for your SMTP relay subscription",
+                snippet: "Your monthly invoice is attached.",
+                labelIds: [],
+              }),
+            ],
+            nextPageToken: undefined,
+          });
+
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount,
+            messages: [
+              {
+                role: "user",
+                content:
+                  "Find me an email related to setting up the SMTP relay API.",
+              },
+            ],
+          });
+
+          const searchCall = getFirstSearchInboxCall(toolCalls);
+
+          const pass =
+            !!searchCall &&
+            hasSearchBeforeFirstWrite(toolCalls) &&
+            queryContainsAny(searchCall.query, ["smtp", "relay", "api"]) &&
+            hasNoWriteToolCalls(toolCalls);
+
+          evalReporter.record({
+            testName: "direct email lookup uses search",
+            model: model.label,
+            pass,
+            actual,
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
+    },
+  );
+
+  afterAll(() => {
+    evalReporter.printReport();
+  });
+});
+
+async function runAssistantChat({
+  emailAccount,
+  messages,
+  inboxStats,
+}: {
+  emailAccount: ReturnType<typeof getEmailAccount>;
+  messages: ModelMessage[];
+  inboxStats?: { total: number; unread: number } | null;
+}) {
+  const recordedToolCalls: Array<{ toolName: string; input: unknown }> = [];
+  const recordingSession = {
+    record: vi.fn(
+      async (type: string, data: { request?: { toolCalls?: any[] } }) => {
+        if (type !== "chat-step") return;
+
+        for (const toolCall of data.request?.toolCalls || []) {
+          recordedToolCalls.push({
+            toolName: toolCall.toolName,
+            input: toolCall.input,
+          });
+        }
+      },
+    ),
+  };
+
+  const result = await aiProcessAssistantChat({
+    messages,
+    emailAccountId: emailAccount.id,
+    user: emailAccount,
+    inboxStats,
+    logger,
+    recordingSession,
+  });
+
+  await result.consumeStream();
+
+  const actual =
+    recordedToolCalls.length > 0
+      ? recordedToolCalls.map(summarizeToolCall).join(" | ")
+      : "no tool calls";
+
+  return {
+    toolCalls: recordedToolCalls,
+    actual,
+  };
+}
+
+type SearchInboxInput = {
+  query: string;
+  limit?: number;
+  pageToken?: string | null;
+};
+
+function getFirstSearchInboxCall(
+  toolCalls: Array<{ toolName: string; input: unknown }>,
+) {
+  const toolCall = toolCalls.find(
+    (candidate) => candidate.toolName === "searchInbox",
+  );
+
+  return isSearchInboxInput(toolCall?.input) ? toolCall.input : null;
+}
+
+function isSearchInboxInput(input: unknown): input is SearchInboxInput {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as { query?: unknown };
+
+  return typeof value.query === "string";
+}
+
+function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {
+  if (isSearchInboxInput(toolCall.input)) {
+    return `${toolCall.toolName}(query=${toolCall.input.query}, limit=${toolCall.input.limit ?? "default"})`;
+  }
+
+  return toolCall.toolName;
+}
+
+function hasNoWriteToolCalls(
+  toolCalls: Array<{ toolName: string; input: unknown }>,
+) {
+  return !toolCalls.some((toolCall) => isWriteToolName(toolCall.toolName));
+}
+
+function hasUnreadFilter(query: string) {
+  const normalizedQuery = query.toLowerCase();
+  return (
+    normalizedQuery.includes("is:unread") ||
+    normalizedQuery.includes("isread:false")
+  );
+}
+
+function hasTodayTimebox(query: string) {
+  const normalizedQuery = query.toLowerCase();
+  return (
+    normalizedQuery.includes("after:") ||
+    normalizedQuery.includes("newer_than:") ||
+    normalizedQuery.includes("received>=")
+  );
+}
+
+function hasReplyTriageFocus(query: string) {
+  const normalizedQuery = query.toLowerCase();
+  return ["to reply", 'label:"to reply"', "label:to", "reply", "respond"].some(
+    (term) => normalizedQuery.includes(term),
+  );
+}
+
+function queryContainsAny(query: string, terms: string[]) {
+  const normalizedQuery = query.toLowerCase();
+  return terms.some((term) => normalizedQuery.includes(term));
+}
+
+function hasSearchBeforeFirstWrite(
+  toolCalls: Array<{ toolName: string; input: unknown }>,
+) {
+  const firstSearchIndex = toolCalls.findIndex(
+    (toolCall) => toolCall.toolName === "searchInbox",
+  );
+
+  if (firstSearchIndex < 0) return false;
+
+  const firstWriteIndex = toolCalls.findIndex((toolCall) =>
+    isWriteToolName(toolCall.toolName),
+  );
+
+  return firstWriteIndex < 0 || firstSearchIndex < firstWriteIndex;
+}
+
+function isWriteToolName(toolName: string) {
+  return writeToolNames.has(toolName);
+}
+
+function getDefaultLabels() {
+  return [
+    { id: "INBOX", name: "INBOX" },
+    { id: "UNREAD", name: "UNREAD" },
+    { id: "Label_To Reply", name: "To Reply" },
+    { id: "Label_FYI", name: "FYI" },
+  ];
+}
+
+function getDefaultSearchMessages() {
+  return [
+    getMockMessage({
+      id: "msg-default-1",
+      threadId: "thread-default-1",
+      from: "updates@product.example",
+      subject: "Weekly summary",
+      snippet: "A quick summary of this week's updates.",
+      labelIds: ["UNREAD"],
+    }),
+  ];
+}
+
+function getMessageById(messageId: string) {
+  const messages = [
+    ...getDefaultSearchMessages(),
+    getMockMessage({
+      id: "msg-search-1",
+      threadId: "thread-search-1",
+      from: "support@smtprelay.example",
+      subject: "SMTP relay API setup guide",
+      snippet: "Here are the connection details for your API client.",
+      textPlain:
+        "Use the API key from the dashboard and connect on port 587 with TLS enabled.",
+      labelIds: ["UNREAD"],
+    }),
+  ];
+
+  return messages.find((message) => message.id === messageId) ?? messages[0];
+}

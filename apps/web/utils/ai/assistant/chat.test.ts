@@ -30,4 +30,11 @@ describe("assistant chat prompt contract", () => {
       "prefer updateLearnedPatterns over editing static from/to fields.",
     );
   });
+
+  it("preserves inbox-today guidance for update requests", () => {
+    const source = readFileSync(new URL("./chat.ts", import.meta.url), "utf8");
+
+    expect(source).toContain("Help me handle my inbox today");
+    expect(source).toContain("today's start in the user's timezone");
+  });
 });
