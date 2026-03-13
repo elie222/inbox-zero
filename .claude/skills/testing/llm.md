@@ -80,7 +80,7 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
        input: getTestData(),
        user: getUser(),
      });
-     expect(result).toMatchExpectedFormat();
+     expect(result).toBeDefined();
    });
 
    test("handles errors gracefully", async () => {

@@ -16,7 +16,7 @@ vi.mock("server-only", () => ({}));
 
 ### Prisma Mock
 ```ts
-import { beforeEach } from "vitest";
+import { describe, it, vi, beforeEach } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 
 vi.mock("@/utils/prisma");
