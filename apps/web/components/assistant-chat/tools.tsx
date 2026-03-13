@@ -11,6 +11,7 @@ import type {
   CreateRuleTool,
   ManageInboxTool,
 } from "@/utils/ai/assistant/chat";
+import { cn } from "@/utils";
 import { isDefined } from "@/utils/types";
 import {
   Card,
@@ -23,10 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallbackColor } from "@/components/ui/avatar";
 import {
   ChevronRightIcon,
-  EyeIcon,
-  SparklesIcon,
   TrashIcon,
-  FileDiffIcon,
   ExternalLinkIcon,
   Loader2,
   PencilIcon,
@@ -37,13 +35,23 @@ import {
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { confirmAssistantEmailAction } from "@/utils/actions/assistant-chat";
-import { deleteRuleAction } from "@/utils/actions/rule";
+import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
+import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useChat } from "@/providers/ChatProvider";
 import { ExpandableText } from "@/components/ExpandableText";
+import {
+  EmailLookupProvider,
+  type EmailLookup,
+} from "@/components/assistant-chat/email-lookup-context";
+import { InlineEmailCard } from "@/components/assistant-chat/inline-email-card";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
-import { getEmailTerminology } from "@/utils/terminology";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/Badge";
+import { getActionDisplay, getActionIcon } from "@/utils/action-display";
+import { getActionColor } from "@/components/PlanBadge";
+import type { ActionType } from "@/generated/prisma/enums";
 import { formatShortDate } from "@/utils/date";
 import { trimToNonEmptyString } from "@/utils/string";
 import { getEmailSearchUrl, getEmailUrlForMessage } from "@/utils/url";
@@ -53,8 +61,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-export type ThreadLookup =
-  import("@/components/assistant-chat/email-lookup-context").EmailLookup;
+export type ThreadLookup = EmailLookup;
 
 function getOutputField<T>(output: unknown, field: string): T | undefined {
   if (typeof output === "object" && output !== null && field in output) {
@@ -72,27 +79,50 @@ export function BasicToolInfo({ text }: { text: string }) {
 }
 
 function CollapsibleToolCard({
-  summary,
+  title,
+  badge,
+  description,
   children,
   initialOpen = false,
 }: {
-  summary: string;
+  title: React.ReactNode;
+  badge?: React.ReactNode;
+  description?: React.ReactNode;
   children: React.ReactNode;
   initialOpen?: boolean;
 }) {
   const [open, setOpen] = useState(initialOpen);
 
   return (
-    <Card className="p-4">
+    <Card className="overflow-hidden">
       <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger className="flex w-full items-center gap-2 text-left text-sm">
-          <ChevronRightIcon
-            className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "rotate-90" : ""}`}
-          />
-          {summary}
+        <CollapsibleTrigger className="w-full text-left">
+          <CardHeader className={cn("px-4 py-3.5", open && "border-b")}>
+            <div className="flex items-center gap-3">
+              <ChevronRightIcon
+                className={cn(
+                  "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                  open && "rotate-90",
+                )}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-medium leading-snug">{title}</h3>
+                  {badge}
+                </div>
+                {description && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {description}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardHeader>
         </CollapsibleTrigger>
-        <CollapsibleContent className="mt-3 space-y-2">
-          {children}
+        <CollapsibleContent>
+          <CardContent className="space-y-3 px-4 py-3.5">
+            {children}
+          </CardContent>
         </CollapsibleContent>
       </Collapsible>
     </Card>
@@ -100,16 +130,11 @@ function CollapsibleToolCard({
 }
 
 export function SearchInboxResult({ output }: { output: unknown }) {
-  const totalReturned = getOutputField<number>(output, "totalReturned") || 0;
   const queryUsed = getOutputField<string | null>(output, "queryUsed");
-  const summary = getOutputField<{
-    total: number;
-    unread: number;
-    byCategory: Record<string, number>;
-  }>(output, "summary");
   const messages = getOutputField<
     Array<{
       messageId: string;
+      threadId: string;
       subject: string;
       from: string;
       snippet: string;
@@ -119,48 +144,14 @@ export function SearchInboxResult({ output }: { output: unknown }) {
   >(output, "messages");
 
   return (
-    <CollapsibleToolCard summary={`Searched inbox (${totalReturned} messages)`}>
+    <CollapsibleToolCard title="Search Inbox">
       {queryUsed && (
-        <div className="text-xs text-muted-foreground">
-          Query: <span className="font-mono">{queryUsed}</span>
-        </div>
+        <ToolDetailRow
+          label="Query"
+          value={<span className="font-mono text-xs">{queryUsed}</span>}
+        />
       )}
-
-      {summary && summary.unread > 0 && (
-        <div className="text-xs text-muted-foreground">
-          {summary.unread} unread
-        </div>
-      )}
-
-      {messages && messages.length > 0 && (
-        <div className="max-h-96 space-y-1 overflow-y-auto">
-          {messages.map((msg) => (
-            <div
-              key={msg.messageId}
-              className="rounded-md bg-muted px-3 py-2 text-sm"
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <span
-                  className={`truncate ${msg.isUnread ? "font-semibold" : ""}`}
-                >
-                  {msg.from}
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {formatShortDate(new Date(msg.date), { lowercase: true })}
-                </span>
-              </div>
-              <div className="truncate text-muted-foreground">
-                {msg.subject}
-              </div>
-              {msg.snippet && (
-                <div className="mt-0.5 truncate text-xs text-muted-foreground/70">
-                  {msg.snippet}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      {messages && messages.length > 0 && <ToolEmailRows emails={messages} />}
     </CollapsibleToolCard>
   );
 }
@@ -207,49 +198,62 @@ export function ManageInboxResult({
     : (successCount ?? requestedCount);
   const countLabel = isSenderAction ? "sender" : "item";
 
-  const summaryText =
-    typeof completedCount === "number"
-      ? `${actionLabel} (${completedCount} ${countLabel}${completedCount === 1 ? "" : "s"})`
-      : actionLabel;
-
   const resolvedThreads = threadIds
-    ?.map((id) => threadLookup.get(id))
-    .filter(isDefined);
+    ? threadIds
+        .map((threadId) => {
+          const thread = threadLookup.get(threadId);
+          if (!thread) return undefined;
+          return { threadId, ...thread };
+        })
+        .filter(isDefined)
+    : undefined;
 
   return (
-    <CollapsibleToolCard summary={summaryText} initialOpen={isInProgress}>
-      <div className="space-y-1 text-sm">
-        {isInProgress && (
-          <div className="text-xs text-muted-foreground">
-            Processing senders now...
+    <CollapsibleToolCard
+      title={actionLabel}
+      badge={
+        typeof completedCount === "number" ? (
+          <Badge
+            color={failedCount ? "yellow" : isInProgress ? "blue" : "green"}
+            className="text-[10px]"
+          >
+            {completedCount} {countLabel}
+            {completedCount === 1 ? "" : "s"}
+          </Badge>
+        ) : undefined
+      }
+      initialOpen={isInProgress}
+    >
+      {isInProgress && (
+        <ToolPanel className="border-blue-200 bg-blue-50/60 text-blue-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-200">
+          <div className="text-sm">Processing senders now.</div>
+        </ToolPanel>
+      )}
+
+      {typeof failedCount === "number" && failedCount > 0 && (
+        <ToolPanel className="border-red-200 bg-red-50/60 text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-200">
+          <div className="text-sm">
+            Failed on {failedCount} {countLabel}
+            {failedCount === 1 ? "" : "s"}.
           </div>
-        )}
+        </ToolPanel>
+      )}
 
-        {typeof failedCount === "number" && failedCount > 0 && (
-          <div className="text-xs text-red-500">Failed: {failedCount}</div>
-        )}
+      {resolvedThreads && resolvedThreads.length > 0 && (
+        <ToolEmailRows emails={resolvedThreads} />
+      )}
 
-        {resolvedThreads && resolvedThreads.length > 0 && (
-          <div className="space-y-1">
-            {resolvedThreads.map((thread, i) => (
-              <div key={i} className="rounded-md bg-muted px-3 py-2 text-sm">
-                <div className="truncate">{thread.from}</div>
-                <div className="truncate text-muted-foreground">
-                  {thread.subject}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {senders && senders.length > 0 && (
-          <div className="space-y-1">
+      {senders && senders.length > 0 && (
+        <ToolSection label="Senders">
+          <div className="space-y-2">
             {senders.map((sender) => (
-              <div
+              <ToolPanel
                 key={sender}
-                className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-1.5 text-xs"
+                className="flex items-center justify-between gap-3"
               >
-                <span className="truncate">{sender}</span>
+                <span className="min-w-0 truncate text-sm text-foreground">
+                  {sender}
+                </span>
                 <a
                   href={getEmailSearchUrl(sender, userEmail, provider)}
                   target="_blank"
@@ -261,11 +265,11 @@ export function ManageInboxResult({
                 >
                   <ExternalLinkIcon className="size-3.5" />
                 </a>
-              </div>
+              </ToolPanel>
             ))}
           </div>
-        )}
-      </div>
+        </ToolSection>
+      )}
     </CollapsibleToolCard>
   );
 }
@@ -290,43 +294,39 @@ export function ReadEmailResult({ output }: { output: unknown }) {
   const content = getOutputField<string>(output, "content");
   const messageId = getOutputField<string>(output, "messageId");
   const threadId = getOutputField<string>(output, "threadId");
-  const attachments = getOutputField<Array<unknown>>(output, "attachments");
   const externalUrl = getExternalMessageUrl({
     messageId,
     threadId,
     userEmail,
     provider,
   });
+  const formattedDate = date
+    ? formatShortDate(new Date(date), { lowercase: true })
+    : null;
 
   return (
-    <CollapsibleToolCard
-      summary={`Read email${subject ? `: ${subject}` : ""}`}
-      initialOpen={false}
-    >
-      <div className="space-y-2 text-sm">
-        {from && <ToolDetailRow label="From" value={from} />}
-        {to && <ToolDetailRow label="To" value={to} />}
-        {date && (
-          <ToolDetailRow
-            label="Date"
-            value={formatShortDate(new Date(date), { lowercase: true })}
-          />
-        )}
-        {Array.isArray(attachments) && attachments.length > 0 && (
-          <ToolDetailRow
-            label="Attachments"
-            value={`${attachments.length} file${attachments.length === 1 ? "" : "s"}`}
-          />
-        )}
-        {content && (
+    <CollapsibleToolCard title="Read Email" initialOpen={false}>
+      <div className="space-y-3 text-sm">
+        {(subject || from || to || formattedDate) && (
           <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground">
-              Content
-            </div>
-            <div className="rounded-md bg-muted p-2 text-xs">
-              <ExpandableText text={content} />
+            {subject && (
+              <div className="text-sm font-medium leading-snug text-foreground">
+                {subject}
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {from && <InlineMetadataItem label="From" value={from} />}
+              {to && <InlineMetadataItem label="To" value={to} />}
+              {formattedDate && (
+                <InlineMetadataItem label="Date" value={formattedDate} />
+              )}
             </div>
           </div>
+        )}
+        {content && (
+          <ToolPanel className="text-sm leading-relaxed">
+            <ExpandableText text={content} />
+          </ToolPanel>
         )}
         {externalUrl && (
           <ToolExternalLink href={externalUrl}>
@@ -462,6 +462,9 @@ function EmailActionResult({
     output,
     key: "subject",
   });
+  const referenceFrom = getPendingString(reference, "from");
+  const recipient =
+    to || (actionType === "reply_email" ? referenceFrom : undefined);
   const referenceSubject = getPendingString(reference, "subject");
   const displaySubject = subject || referenceSubject;
   const body = getActionBodyText({ actionType, pendingAction });
@@ -483,7 +486,7 @@ function EmailActionResult({
   });
 
   const actionLabel = getEmailActionLabel(actionType);
-  const recipientInitial = to ? to.charAt(0).toUpperCase() : "?";
+  const recipientInitial = recipient ? recipient.charAt(0).toUpperCase() : "?";
   const providerName = provider === "microsoft" ? "Outlook" : "Gmail";
 
   const handleCopy = () => {
@@ -553,7 +556,7 @@ function EmailActionResult({
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold leading-tight">
             {sentLabel ? `${sentLabel} ` : ""}
-            {to}
+            {recipient}
           </div>
           {cc && (
             <div className="mt-0.5 text-xs text-muted-foreground">CC: {cc}</div>
@@ -575,9 +578,7 @@ function EmailActionResult({
       <CardContent className="p-0">
         {displaySubject && (
           <div className="flex items-center gap-2 border-b px-4 py-2.5">
-            <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Subject
-            </span>
+            <FieldLabel>Subject</FieldLabel>
             <span className="truncate text-sm font-medium text-foreground">
               {actionType !== "send_email" ? "Re: " : ""}
               {displaySubject}
@@ -696,72 +697,38 @@ function EmailActionResult({
 export function CreatedRuleToolCard({
   args,
   ruleId,
+  preview,
 }: {
   args: CreateRuleTool["input"];
   ruleId?: string;
+  preview?: boolean;
 }) {
-  const conditionsArray = [
-    args.condition.aiInstructions,
-    args.condition.static,
-  ].filter(Boolean);
+  const conditionText = buildConditionText(args.condition);
 
   return (
-    <ToolCard>
-      <ToolCardHeader
-        title={
+    <Card>
+      <RuleToolCardHeader
+        title={args.name}
+        actions={
           <>
-            {ruleId ? "New rule created:" : "Creating rule:"} {args.name}
+            {ruleId && <RuleActions ruleId={ruleId} />}
+            {preview && <RuleActionsPreview />}
           </>
         }
-        actions={ruleId && <RuleActions ruleId={ruleId} />}
       />
 
-      <div className="space-y-2">
-        <div className="rounded-md bg-muted p-2 text-sm">
-          {args.condition.aiInstructions && (
-            <div className="flex items-center">
-              <SparklesIcon className="mr-2 size-5" />
-              {args.condition.aiInstructions}
-            </div>
-          )}
-          {conditionsArray.length > 1 && (
-            <div className="my-2 font-mono text-xs">
-              {args.condition.conditionalOperator || "AND"}
-            </div>
-          )}
-          {args.condition.static && (
-            <div className="mt-1">
-              <span className="font-medium">Static Conditions:</span>
-              <ul className="mt-1 list-inside list-disc">
-                {args.condition.static.from && (
-                  <li>From: {args.condition.static.from}</li>
-                )}
-                {args.condition.static.to && (
-                  <li>To: {args.condition.static.to}</li>
-                )}
-                {args.condition.static.subject && (
-                  <li>Subject: {args.condition.static.subject}</li>
-                )}
-              </ul>
-            </div>
-          )}
+      <CardContent className="space-y-3 px-4 py-3.5">
+        <div className="flex gap-4 text-sm">
+          <FieldLabel className="pt-0.5">When</FieldLabel>
+          <p>{conditionText}</p>
         </div>
-      </div>
 
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">Actions</h3>
-        <div className="space-y-2">
-          {args.actions.map((action, i) => (
-            <div key={i} className="rounded-md bg-muted p-2 text-sm">
-              <div className="font-medium capitalize">
-                {action.type.toLowerCase().replace("_", " ")}
-              </div>
-              {action.fields && renderActionFields(action.fields)}
-            </div>
-          ))}
+        <div className="flex gap-4 text-sm">
+          <FieldLabel className="pt-0.5">Then</FieldLabel>
+          <ActionBadgeList actions={args.actions} />
         </div>
-      </div>
-    </ToolCard>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -770,87 +737,56 @@ export function UpdatedRuleConditions({
   ruleId,
   originalConditions,
   updatedConditions,
+  actions,
+  preview,
 }: {
   args: UpdateRuleConditionsTool["input"];
   ruleId: string;
   originalConditions?: UpdateRuleConditionsOutput["originalConditions"];
   updatedConditions?: UpdateRuleConditionsOutput["updatedConditions"];
+  actions?: Array<{ type: string; fields?: RuleActionFields | null }>;
+  preview?: boolean;
 }) {
-  const [showChanges, setShowChanges] = useState(false);
-
-  const staticConditions =
-    args.condition.static?.from ||
-    args.condition.static?.to ||
-    args.condition.static?.subject
-      ? args.condition.static
-      : null;
-
-  const conditionsArray = [
-    args.condition.aiInstructions,
-    staticConditions,
-  ].filter(Boolean);
-
   const hasChanges =
     originalConditions &&
     updatedConditions &&
     originalConditions.aiInstructions !== updatedConditions.aiInstructions;
 
+  const conditionText = buildConditionText(args.condition);
+
   return (
-    <ToolCard>
-      <ToolCardHeader
-        title={<>Updated Conditions</>}
+    <Card>
+      <RuleToolCardHeader
+        title={args.ruleName}
         actions={
-          <div className="flex items-center gap-1">
-            {hasChanges && (
-              <DiffToggleButton
-                showChanges={showChanges}
-                onToggle={() => setShowChanges(!showChanges)}
-              />
-            )}
-            <RuleActions ruleId={ruleId} />
-          </div>
+          preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
         }
       />
 
-      <div className="rounded-md bg-muted p-2 text-sm">
-        {args.condition.aiInstructions && (
-          <div className="flex items-center">
-            <SparklesIcon className="mr-2 size-5" />
-            {args.condition.aiInstructions}
-          </div>
-        )}
-        {conditionsArray.length > 1 && (
-          <div className="my-2 font-mono text-xs">
-            {args.condition.conditionalOperator || "AND"}
-          </div>
-        )}
-        {args.condition.static && (
-          <div className="mt-1">
-            <span className="font-medium">Static Conditions:</span>
-            <ul className="mt-1 list-inside list-disc">
-              {args.condition.static.from && (
-                <li>From: {args.condition.static.from}</li>
-              )}
-              {args.condition.static.to && (
-                <li>To: {args.condition.static.to}</li>
-              )}
-              {args.condition.static.subject && (
-                <li>Subject: {args.condition.static.subject}</li>
-              )}
-            </ul>
-          </div>
-        )}
-      </div>
+      <CardContent className="space-y-3 px-4 py-3.5">
+        <div className="flex gap-4 text-sm">
+          <FieldLabel className="pt-0.5">When</FieldLabel>
+          <p>{conditionText}</p>
+        </div>
 
-      {hasChanges && (
-        <CollapsibleDiff
-          showChanges={showChanges}
-          title="Instructions:"
-          originalText={originalConditions?.aiInstructions || undefined}
-          updatedText={updatedConditions?.aiInstructions || undefined}
-        />
-      )}
-    </ToolCard>
+        {actions && actions.length > 0 && (
+          <div className="flex gap-4 text-sm">
+            <FieldLabel className="pt-0.5">Then</FieldLabel>
+            <ActionBadgeList actions={actions} />
+          </div>
+        )}
+
+        {hasChanges && (
+          <ViewChangesCollapsible>
+            <CollapsibleDiffContent
+              title="Instructions:"
+              originalText={originalConditions?.aiInstructions || undefined}
+              updatedText={updatedConditions?.aiInstructions || undefined}
+            />
+          </ViewChangesCollapsible>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -859,155 +795,122 @@ export function UpdatedRuleActions({
   ruleId,
   originalActions,
   updatedActions,
+  condition,
+  preview,
 }: {
   args: UpdateRuleActionsTool["input"];
   ruleId: string;
   originalActions?: UpdateRuleActionsOutput["originalActions"];
   updatedActions?: UpdateRuleActionsOutput["updatedActions"];
+  condition?: {
+    aiInstructions?: string | null;
+    static?: {
+      from?: string | null;
+      to?: string | null;
+      subject?: string | null;
+    } | null;
+    conditionalOperator?: string | null;
+  };
+  preview?: boolean;
 }) {
-  const { provider } = useAccount();
-  const [showChanges, setShowChanges] = useState(false);
-
-  // Check if actions have changed by comparing serialized versions
   const hasChanges =
     originalActions &&
     updatedActions &&
     JSON.stringify(originalActions) !== JSON.stringify(updatedActions);
 
-  const formatActions = <
-    T extends { type: string; fields: Record<string, string | null> },
-  >(
-    actions: T[],
-  ) => {
-    return actions
-      .map((action) => {
-        const parts = [`Type: ${action.type}`];
-        if (action.fields?.label)
-          parts.push(
-            `${getEmailTerminology(provider).label.action}: ${action.fields.label}`,
-          );
-        if (action.fields?.content)
-          parts.push(`Content: ${action.fields.content}`);
-        if (action.fields?.to) parts.push(`To: ${action.fields.to}`);
-        if (action.fields?.cc) parts.push(`CC: ${action.fields.cc}`);
-        if (action.fields?.bcc) parts.push(`BCC: ${action.fields.bcc}`);
-        if (action.fields?.subject)
-          parts.push(`Subject: ${action.fields.subject}`);
-        if (action.fields?.webhookUrl || action.fields?.url)
-          parts.push(
-            `Webhook: ${action.fields.webhookUrl || action.fields.url}`,
-          );
-        return parts.join(", ");
-      })
-      .join("\n");
-  };
+  const conditionText = condition ? buildConditionText(condition) : null;
 
   return (
-    <ToolCard>
-      <ToolCardHeader
-        title={<>Updated Actions</>}
+    <Card>
+      <RuleToolCardHeader
+        title={args.ruleName}
         actions={
-          <div className="flex items-center gap-1">
-            {hasChanges && (
-              <DiffToggleButton
-                showChanges={showChanges}
-                onToggle={() => setShowChanges(!showChanges)}
-              />
-            )}
-            <RuleActions ruleId={ruleId} />
-          </div>
+          preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
         }
       />
 
-      <div className="space-y-2">
-        {args.actions.map((actionItem, i) => {
-          if (!actionItem) return null;
+      <CardContent className="space-y-3 px-4 py-3.5">
+        {conditionText && (
+          <div className="flex gap-4 text-sm">
+            <FieldLabel className="pt-0.5">When</FieldLabel>
+            <p>{conditionText}</p>
+          </div>
+        )}
 
-          return (
-            <div key={i} className="rounded-md bg-muted p-2 text-sm">
-              <div className="font-medium capitalize">
-                {actionItem.type.toLowerCase().replace("_", " ")}
-              </div>
-              {actionItem.fields && renderActionFields(actionItem.fields)}
-            </div>
-          );
-        })}
-      </div>
+        <div className="flex gap-4 text-sm">
+          <FieldLabel className="pt-0.5">Then</FieldLabel>
+          <ActionBadgeList actions={args.actions} />
+        </div>
 
-      {hasChanges && (
-        <CollapsibleDiff
-          showChanges={showChanges}
-          title="Actions:"
-          originalText={formatActions(originalActions || [])}
-          updatedText={formatActions(updatedActions || [])}
-        />
-      )}
-    </ToolCard>
+        {hasChanges && (
+          <ViewChangesCollapsible>
+            <CollapsibleDiffContent
+              title="Actions:"
+              originalText={formatActionsForDiff(originalActions || [])}
+              updatedText={formatActionsForDiff(updatedActions || [])}
+            />
+          </ViewChangesCollapsible>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
 export function UpdatedLearnedPatterns({
   args,
   ruleId,
+  preview,
 }: {
   args: UpdateLearnedPatternsTool["input"];
   ruleId: string;
+  preview?: boolean;
 }) {
-  return (
-    <ToolCard>
-      <ToolCardHeader
-        title={<>Updated Learned Patterns</>}
-        actions={<RuleActions ruleId={ruleId} />}
-      />
+  const actions = preview ? (
+    <Tooltip content="Edit rule">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0 text-muted-foreground"
+      >
+        <PencilIcon className="size-4" />
+      </Button>
+    </Tooltip>
+  ) : (
+    <LearnedPatternsActions ruleId={ruleId} />
+  );
 
-      <div className="space-y-2">
+  return (
+    <Card>
+      <RuleToolCardHeader title={args.ruleName} actions={actions} />
+
+      <CardContent className="space-y-3 px-4 py-3.5">
         {args.learnedPatterns.map((pattern, i) => {
           if (!pattern) return null;
+          const includeParts = formatPatternParts(pattern.include);
+          const excludeParts = formatPatternParts(pattern.exclude);
+          if (!includeParts && !excludeParts) return null;
 
           return (
-            <div key={i} className="rounded-md bg-muted p-2 text-sm">
-              {pattern.include &&
-                Object.values(pattern.include).some(Boolean) && (
-                  <div className="mb-1">
-                    <span className="font-medium">Include:</span>
-                    <ul className="mt-1 list-inside list-disc">
-                      {pattern.include.from && (
-                        <li>From: {pattern.include.from}</li>
-                      )}
-                      {pattern.include.subject && (
-                        <li>Subject: {pattern.include.subject}</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              {pattern.exclude &&
-                Object.values(pattern.exclude).some(Boolean) && (
-                  <div>
-                    <span className="font-medium">Exclude:</span>
-                    <ul className="mt-1 list-inside list-disc">
-                      {pattern.exclude.from && (
-                        <li>From: {pattern.exclude.from}</li>
-                      )}
-                      {pattern.exclude.subject && (
-                        <li>Subject: {pattern.exclude.subject}</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-            </div>
+            <ToolPanel key={i} className="space-y-2">
+              {includeParts && (
+                <ToolDetailRow label="Include" value={includeParts} />
+              )}
+              {excludeParts && (
+                <ToolDetailRow label="Exclude" value={excludeParts} />
+              )}
+            </ToolPanel>
           );
         })}
-      </div>
-    </ToolCard>
+      </CardContent>
+    </Card>
   );
 }
 
 export function UpdateAbout({ args }: { args: UpdateAboutTool["input"] }) {
   return (
-    <ToolCard>
-      <ToolCardHeader title={<>Updated About Information</>} />
-      <div className="rounded-md bg-muted p-3 text-sm">{args.about}</div>
-    </ToolCard>
+    <ExpandedToolCard title="Updated About Information">
+      <ToolPanel className="text-sm leading-relaxed">{args.about}</ToolPanel>
+    </ExpandedToolCard>
   );
 }
 
@@ -1019,72 +922,159 @@ export function AddToKnowledgeBase({
   const [_, setTab] = useQueryState("tab");
 
   return (
-    <ToolCard>
-      <ToolCardHeader
-        title={<>Added to Knowledge Base</>}
-        actions={
-          <Button variant="link" onClick={() => setTab("rules")}>
+    <ExpandedToolCard
+      title="Added to Knowledge Base"
+      actions={
+        <div className="self-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setTab("rules")}
+          >
             View Knowledge Base
           </Button>
-        }
-      />
-      <div className="rounded-md bg-muted p-3 text-sm">
-        <div className="font-medium">{args.title}</div>
-        <ExpandableText text={args.content} />
-      </div>
-    </ToolCard>
+        </div>
+      }
+    >
+      <ToolDetailRow label="Title" value={args.title} />
+      <ToolSection label="Content">
+        <ToolPanel className="text-sm leading-relaxed">
+          <ExpandableText text={args.content} />
+        </ToolPanel>
+      </ToolSection>
+    </ExpandedToolCard>
   );
 }
 
 function RuleActions({ ruleId }: { ruleId: string }) {
   const { emailAccountId } = useAccount();
   const ruleDialog = useDialogState<{ ruleId: string }>();
+  const [enabled, setEnabled] = useState(true);
+  const { executeAsync: toggleRule } = useAction(
+    toggleRuleAction.bind(null, emailAccountId),
+  );
 
   return (
     <>
-      {/* Don't use tooltips as they force scroll to bottom */}
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={() => ruleDialog.onOpen({ ruleId })}
-        >
-          <EyeIcon className="size-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={async () => {
-            const yes = confirm("Are you sure you want to delete this rule?");
-            if (yes) {
-              try {
-                const result = await deleteRuleAction(emailAccountId, {
-                  id: ruleId,
-                });
-                if (result?.serverError) {
-                  toastError({ description: result.serverError });
-                } else {
-                  toastSuccess({
-                    description: "The rule has been deleted.",
+      <div className="flex items-center gap-1.5">
+        <Tooltip content="Edit rule">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-muted-foreground"
+            onClick={() => ruleDialog.onOpen({ ruleId })}
+          >
+            <PencilIcon className="size-4" />
+          </Button>
+        </Tooltip>
+        <Tooltip content="Delete rule">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-muted-foreground"
+            onClick={async () => {
+              const yes = confirm("Are you sure you want to delete this rule?");
+              if (yes) {
+                try {
+                  const result = await deleteRuleAction(emailAccountId, {
+                    id: ruleId,
                   });
+                  if (result?.serverError) {
+                    toastError({ description: result.serverError });
+                  } else {
+                    toastSuccess({
+                      description: "The rule has been deleted.",
+                    });
+                  }
+                } catch {
+                  toastError({ description: "Failed to delete rule." });
                 }
-              } catch {
-                toastError({ description: "Failed to delete rule." });
               }
+            }}
+          >
+            <TrashIcon className="size-4" />
+          </Button>
+        </Tooltip>
+        <Switch
+          checked={enabled}
+          onCheckedChange={async (checked) => {
+            setEnabled(checked);
+            try {
+              const result = await toggleRule({ ruleId, enabled: checked });
+              if (result?.serverError) {
+                setEnabled(!checked);
+                toastError({
+                  description: `Failed to ${checked ? "enable" : "disable"} rule.`,
+                });
+              }
+            } catch {
+              setEnabled(!checked);
+              toastError({
+                description: `Failed to ${checked ? "enable" : "disable"} rule.`,
+              });
             }
           }}
-        >
-          <TrashIcon className="size-4" />
-        </Button>
+        />
       </div>
 
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
         isOpen={ruleDialog.isOpen}
         onClose={ruleDialog.onClose}
-        editMode={false}
+        editMode={true}
+      />
+    </>
+  );
+}
+
+function RuleActionsPreview() {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Tooltip content="Edit rule">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-muted-foreground"
+        >
+          <PencilIcon className="size-4" />
+        </Button>
+      </Tooltip>
+      <Tooltip content="Delete rule">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-muted-foreground"
+        >
+          <TrashIcon className="size-4" />
+        </Button>
+      </Tooltip>
+      <Switch checked={true} />
+    </div>
+  );
+}
+
+function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
+  const ruleDialog = useDialogState<{ ruleId: string }>();
+
+  return (
+    <>
+      <Tooltip content="Edit rule">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-muted-foreground"
+          onClick={() => ruleDialog.onOpen({ ruleId })}
+        >
+          <PencilIcon className="size-4" />
+        </Button>
+      </Tooltip>
+
+      <RuleDialog
+        ruleId={ruleDialog.data?.ruleId}
+        isOpen={ruleDialog.isOpen}
+        onClose={ruleDialog.onClose}
+        editMode={true}
       />
     </>
   );
@@ -1094,117 +1084,95 @@ function ToolCard({ children }: { children: React.ReactNode }) {
   return <Card className="space-y-3 p-4">{children}</Card>;
 }
 
-function ToolCardHeader({
+function RuleToolCardHeader({
   title,
   actions,
 }: {
-  title: React.ReactNode;
-  actions?: React.ReactNode;
+  title: string;
+  actions: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between">
-      <h3 className="font-title text-lg">{title}</h3>
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b px-4 py-3.5">
+      <h3 className="text-base font-semibold">{title}</h3>
       {actions}
-    </div>
+    </CardHeader>
   );
 }
 
-function DiffToggleButton({
-  showChanges,
-  onToggle,
+function ExpandedToolCard({
+  title,
+  badge,
+  description,
+  actions,
+  children,
 }: {
-  showChanges: boolean;
-  onToggle: () => void;
+  title: React.ReactNode;
+  badge?: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
 }) {
   return (
-    <Tooltip content={showChanges ? "Hide Changes" : "Show Changes"}>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-8 w-8 p-0"
-        onClick={onToggle}
-      >
-        <FileDiffIcon className="size-4" />
-      </Button>
-    </Tooltip>
+    <Card className="overflow-hidden">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 px-4 py-3.5">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold leading-tight">{title}</h3>
+            {badge}
+          </div>
+          {description && (
+            <div className="mt-1 text-xs text-muted-foreground">
+              {description}
+            </div>
+          )}
+        </div>
+        {actions}
+      </CardHeader>
+      <CardContent className="space-y-3 border-t px-4 py-3.5">
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
-function CollapsibleDiff({
-  showChanges,
+function ViewChangesCollapsible({ children }: { children: React.ReactNode }) {
+  return (
+    <Collapsible>
+      <CollapsibleTrigger className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <ChevronRightIcon className="size-4 transition-transform [[data-state=open]>&]:rotate-90" />
+        View changes
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-2">{children}</CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function CollapsibleDiffContent({
   title,
   originalText,
   updatedText,
 }: {
-  showChanges: boolean;
   title: string;
   originalText?: string;
   updatedText?: string;
 }) {
-  if (!showChanges) return null;
-
   return (
-    <div className="overflow-hidden">
-      <div className="space-y-2">
-        <div className="text-xs font-medium text-muted-foreground">{title}</div>
-        <div className="rounded-md border bg-muted/30 p-3 font-mono text-sm overflow-auto max-h-96">
-          {originalText && (
-            <div className="mb-2 rounded bg-red-50 px-2 py-1 text-red-800 dark:bg-red-950/30 dark:text-red-200 whitespace-pre-wrap break-words overflow-auto max-h-48">
-              <span className="mr-2 text-red-500">-</span>
-              {originalText}
-            </div>
-          )}
-          {updatedText && (
-            <div className="rounded bg-green-50 px-2 py-1 text-green-800 dark:bg-green-950/30 dark:text-green-200 whitespace-pre-wrap break-words overflow-auto max-h-48">
-              <span className="mr-2 text-green-500">+</span>
-              {updatedText}
-            </div>
-          )}
-        </div>
+    <div className="space-y-2">
+      <div className="text-xs font-medium text-muted-foreground">{title}</div>
+      <div className="max-h-96 overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-sm">
+        {originalText && (
+          <div className="mb-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-red-50 px-2 py-1 text-red-800 dark:bg-red-950/30 dark:text-red-200">
+            <span className="mr-2 text-red-500">-</span>
+            {originalText}
+          </div>
+        )}
+        {updatedText && (
+          <div className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-green-50 px-2 py-1 text-green-800 dark:bg-green-950/30 dark:text-green-200">
+            <span className="mr-2 text-green-500">+</span>
+            {updatedText}
+          </div>
+        )}
       </div>
-    </div>
-  );
-}
-
-// Helper function to render action fields
-function renderActionFields(fields: {
-  label?: string | null;
-  content?: string | null;
-  to?: string | null;
-  cc?: string | null;
-  bcc?: string | null;
-  subject?: string | null;
-  url?: string | null;
-  webhookUrl?: string | null;
-}) {
-  const fieldEntries = [];
-
-  // Only add fields that have actual values
-  if (fields.label) fieldEntries.push(["Label", fields.label]);
-  if (fields.subject) fieldEntries.push(["Subject", fields.subject]);
-  if (fields.to) fieldEntries.push(["To", fields.to]);
-  if (fields.cc) fieldEntries.push(["CC", fields.cc]);
-  if (fields.bcc) fieldEntries.push(["BCC", fields.bcc]);
-  if (fields.content) fieldEntries.push(["Content", fields.content]);
-  if (fields.url || fields.webhookUrl)
-    fieldEntries.push(["URL", fields.url || fields.webhookUrl]);
-
-  if (fieldEntries.length === 0) return null;
-
-  return (
-    <div className="mt-1">
-      <ul className="list-inside list-disc">
-        {fieldEntries.map(([key, value]) => (
-          <li key={key}>
-            {key}:{" "}
-            {key === "Content" ? (
-              <span className="font-mono text-xs">{value}</span>
-            ) : (
-              value
-            )}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
@@ -1266,10 +1234,46 @@ export function getManageInboxActionLabel({
   return "Updated emails";
 }
 
-function ToolDetailRow({ label, value }: { label: string; value: string }) {
+function ToolSection({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="text-xs text-muted-foreground">
-      <span className="font-medium">{label}:</span> {value}
+    <div className="space-y-2">
+      <FieldLabel>{label}</FieldLabel>
+      {children}
+    </div>
+  );
+}
+
+function ToolPanel({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("rounded-md border bg-muted/20 p-3", className)}>
+      {children}
+    </div>
+  );
+}
+
+function ToolDetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex gap-4 text-sm">
+      <FieldLabel className="w-20 pt-0.5">{label}</FieldLabel>
+      <div className="min-w-0 flex-1 text-foreground">{value}</div>
     </div>
   );
 }
@@ -1291,6 +1295,23 @@ function ToolExternalLink({
       {children}
       <ExternalLinkIcon className="size-3.5" />
     </a>
+  );
+}
+
+function InlineMetadataItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+        {label}
+      </span>
+      <span className="text-foreground/80">{value}</span>
+    </span>
   );
 }
 
@@ -1351,34 +1372,6 @@ function getActionBodyText({
   }
 
   return getPendingString(pendingAction, "content");
-}
-
-function getEmailActionSummary({
-  actionType,
-  isConfirmed,
-  isProcessing,
-  to,
-}: {
-  actionType: PendingEmailActionType;
-  isConfirmed: boolean;
-  isProcessing: boolean;
-  to?: string | null;
-}) {
-  if (isProcessing) {
-    if (actionType === "send_email") return "Sending email...";
-    if (actionType === "reply_email") return "Sending reply...";
-    return "Forwarding email...";
-  }
-
-  if (!isConfirmed) {
-    if (actionType === "send_email") return "Email ready to send";
-    if (actionType === "reply_email") return "Reply ready to send";
-    return "Forward ready to send";
-  }
-
-  if (actionType === "send_email") return `Sent email${to ? ` to ${to}` : ""}`;
-  if (actionType === "reply_email") return "Sent reply";
-  return `Forwarded email${to ? ` to ${to}` : ""}`;
 }
 
 function getEmailActionLabel(actionType: PendingEmailActionType) {
@@ -1453,6 +1446,167 @@ function asString(value: unknown): string | null {
   return trimToNonEmptyString(value) ?? null;
 }
 
+type RuleActionFields = {
+  label?: string | null;
+  content?: string | null;
+  to?: string | null;
+  cc?: string | null;
+  bcc?: string | null;
+  subject?: string | null;
+  webhookUrl?: string | null;
+};
+
+function ActionBadgeList({
+  actions,
+}: {
+  actions: Array<{ type: string; fields?: RuleActionFields | null }>;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {actions.map((action, i) => {
+        if (!action) return null;
+        const Icon = getActionIcon(action.type as ActionType);
+        return (
+          <Badge
+            key={i}
+            color={getActionColor(action.type as ActionType)}
+            className="w-fit shrink-0"
+          >
+            <Icon className="mr-1.5 size-3" />
+            {getActionDisplay(
+              {
+                type: action.type as ActionType,
+                label: action.fields?.label,
+                to: action.fields?.to,
+                content: action.fields?.content,
+              },
+              "",
+              [],
+            )}
+          </Badge>
+        );
+      })}
+    </div>
+  );
+}
+
+function formatPatternParts(
+  pattern: { from?: string | null; subject?: string | null } | null | undefined,
+): string | null {
+  if (!pattern) return null;
+  const parts = [
+    pattern.from && `From: ${pattern.from}`,
+    pattern.subject && `Subject: ${pattern.subject}`,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+type ToolEmailRow = {
+  threadId: string;
+  messageId: string;
+  from: string;
+  subject: string;
+  snippet?: string;
+  date: string;
+  isUnread: boolean;
+};
+
+function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
+  const seenThreadIds = new Set<string>();
+  const uniqueEmails = emails.filter((email) => {
+    if (seenThreadIds.has(email.threadId)) return false;
+    seenThreadIds.add(email.threadId);
+    return true;
+  });
+
+  const lookup: EmailLookup = new Map(
+    uniqueEmails.map((email) => [
+      email.threadId,
+      {
+        messageId: email.messageId,
+        from: email.from,
+        subject: email.subject,
+        snippet: email.snippet || "",
+        date: email.date,
+        isUnread: email.isUnread,
+      },
+    ]),
+  );
+
+  return (
+    <EmailLookupProvider value={lookup}>
+      <div className="overflow-hidden rounded-md border bg-background">
+        {uniqueEmails.map((email) => (
+          <InlineEmailCard
+            key={email.threadId}
+            threadid={email.threadId}
+            action="none"
+          />
+        ))}
+      </div>
+    </EmailLookupProvider>
+  );
+}
+
+function buildConditionText(condition: {
+  aiInstructions?: string | null;
+  static?: {
+    from?: string | null;
+    to?: string | null;
+    subject?: string | null;
+  } | null;
+  conditionalOperator?: string | null;
+}): string {
+  const parts: string[] = [];
+  if (condition.aiInstructions) parts.push(condition.aiInstructions);
+  if (condition.static) {
+    const s = condition.static;
+    const staticParts = [
+      s.from && `From: ${s.from}`,
+      s.to && `To: ${s.to}`,
+      s.subject && `Subject: ${s.subject}`,
+    ].filter(Boolean);
+    if (staticParts.length > 0) parts.push(staticParts.join(", "));
+  }
+  return parts.join(` ${condition.conditionalOperator || "AND"} `);
+}
+
+function formatActionsForDiff(
+  actions: Array<{ type: string; fields: Record<string, string | null> }>,
+): string {
+  return actions
+    .map((action) => {
+      const parts = [action.type];
+      if (action.fields?.label) parts.push(`Label: ${action.fields.label}`);
+      if (action.fields?.to) parts.push(`To: ${action.fields.to}`);
+      if (action.fields?.content)
+        parts.push(`Content: ${action.fields.content}`);
+      if (action.fields?.webhookUrl)
+        parts.push(`Webhook: ${action.fields.webhookUrl}`);
+      return parts.join(", ");
+    })
+    .join("\n");
+}
+
+function FieldLabel({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
 }

@@ -17,8 +17,7 @@ import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "../error";
 
-// Thinking budgets for Google-family models (set low to minimize cost)
-const GOOGLE_THINKING_BUDGET = 128;
+const DEFAULT_GOOGLE_THINKING_BUDGET = 128;
 
 const logger = createScopedLogger("llms/model");
 
@@ -152,30 +151,28 @@ function selectModel(
     }
     case Provider.GOOGLE: {
       const mod = aiModel || "gemini-2.0-flash";
+      const googleProviderOptions = getGoogleProviderOptions(mod);
       return {
         provider: Provider.GOOGLE,
         modelName: mod,
         model: createGoogleGenerativeAI({
           apiKey: resolveApiKey(aiApiKey, env.GOOGLE_API_KEY),
         })(mod),
-        providerOptions: {
-          google: {
-            thinkingConfig: getGoogleThinkingConfig(mod),
-          } satisfies GoogleGenerativeAIProviderOptions,
-        },
+        providerOptions: googleProviderOptions
+          ? { google: googleProviderOptions }
+          : undefined,
       };
     }
     case Provider.VERTEX: {
       const modelName = aiModel || "gemini-3-flash";
+      const googleProviderOptions = getGoogleProviderOptions(modelName);
       return {
         provider: Provider.VERTEX,
         modelName,
         model: createVertex(getVertexConfig())(modelName),
-        providerOptions: {
-          vertex: {
-            thinkingConfig: getGoogleThinkingConfig(modelName),
-          } satisfies GoogleGenerativeAIProviderOptions,
-        },
+        providerOptions: googleProviderOptions
+          ? { vertex: googleProviderOptions }
+          : undefined,
       };
     }
     case Provider.GROQ: {
@@ -705,18 +702,36 @@ function isXaiGrokModel(modelName?: string | null): boolean {
   return modelName?.toLowerCase().startsWith("x-ai/grok-") ?? false;
 }
 
+function getGoogleProviderOptions(
+  modelName: string,
+): GoogleGenerativeAIProviderOptions | undefined {
+  const thinkingConfig = getGoogleThinkingConfig(modelName);
+  if (!thinkingConfig) return;
+
+  return { thinkingConfig };
+}
+
 function getGoogleThinkingConfig(
   modelName: string,
-): NonNullable<GoogleGenerativeAIProviderOptions["thinkingConfig"]> {
+): GoogleGenerativeAIProviderOptions["thinkingConfig"] | undefined {
   if (isGemini3Model(modelName)) {
     return { thinkingLevel: "minimal" };
   }
 
-  return { thinkingBudget: GOOGLE_THINKING_BUDGET };
+  const thinkingBudget = getGoogleThinkingBudget();
+  if (thinkingBudget === undefined) return;
+
+  return { thinkingBudget };
+}
+
+function getGoogleThinkingBudget(): number | undefined {
+  if (env.GOOGLE_THINKING_BUDGET === 0) return;
+
+  return env.GOOGLE_THINKING_BUDGET ?? DEFAULT_GOOGLE_THINKING_BUDGET;
 }
 
 function isGemini3Model(modelName: string): boolean {
-  return modelName.toLowerCase().startsWith("gemini-3");
+  return normalizeGoogleModelName(modelName).startsWith("gemini-3");
 }
 
 function getAiGatewayProviderOptions(
@@ -725,12 +740,9 @@ function getAiGatewayProviderOptions(
   const normalizedModelName = modelName.toLowerCase();
 
   if (normalizedModelName.startsWith("google/")) {
+    const googleProviderOptions = getGoogleProviderOptions(modelName);
     return {
-      google: {
-        thinkingConfig: {
-          thinkingBudget: GOOGLE_THINKING_BUDGET,
-        },
-      },
+      ...(googleProviderOptions ? { google: googleProviderOptions } : {}),
     };
   }
 
@@ -749,6 +761,10 @@ function getAiGatewayProviderOptions(
 
   // Note: Anthropic thinking is disabled by default (not including the config)
   return {};
+}
+
+function normalizeGoogleModelName(modelName: string): string {
+  return modelName.toLowerCase().replace(/^google\//, "");
 }
 
 function parseFallbackConfig(

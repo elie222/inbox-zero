@@ -8,7 +8,8 @@ export const defaultCategory = {
   NEWSLETTER: {
     name: "Newsletter",
     enabled: true,
-    description: "Newsletters",
+    description:
+      "Recurring editorial content, digests, and informational updates sent on a regular schedule",
   },
   MARKETING: {
     name: "Marketing",

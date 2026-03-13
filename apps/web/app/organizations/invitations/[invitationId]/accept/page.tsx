@@ -14,6 +14,7 @@ import { Loading } from "@/components/Loading";
 import { useUser } from "@/hooks/useUser";
 import { handleInvitationAction } from "@/utils/actions/organization";
 import { setInvitationCookie, clearInvitationCookie } from "@/utils/cookies";
+import { WELCOME_PATH } from "@/utils/config";
 
 export default function AcceptInvitationPage() {
   const params = useParams();
@@ -128,7 +129,7 @@ export default function AcceptInvitationPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => router.push("/welcome")} className="w-full">
+            <Button onClick={() => router.push(WELCOME_PATH)} className="w-full">
               Continue
             </Button>
           </CardContent>

@@ -267,7 +267,7 @@ export function getDefaultActions(
     });
   }
 
-  if (config.draftReply) {
+  if (config.draftReply && !env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) {
     actions.push({
       id: `placeholder-action-draft-${systemType}`,
       type: ActionType.DRAFT_EMAIL,
@@ -327,7 +327,7 @@ export function getActionTypesForCategoryAction({
     }
   }
 
-  if (draftReply) {
+  if (draftReply && !env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) {
     actionTypes.push({ type: ActionType.DRAFT_EMAIL });
   }
 

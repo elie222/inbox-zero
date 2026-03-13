@@ -1,4 +1,5 @@
 import { PostHog } from "posthog-node";
+import type { Properties } from "posthog-js";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 import { hash } from "@/utils/hash";
@@ -167,12 +168,18 @@ export async function trackStripeCustomerCreated(
   );
 }
 
-export async function trackStripeCheckoutCreated(email: string) {
-  return posthogCaptureEvent(email, "Stripe checkout created");
+export async function trackStripeCheckoutCreated(
+  email: string,
+  properties?: Properties,
+) {
+  return posthogCaptureEvent(email, "Stripe checkout created", properties);
 }
 
-export async function trackStripeCheckoutCompleted(email: string) {
-  return posthogCaptureEvent(email, "Stripe checkout completed");
+export async function trackStripeCheckoutCompleted(
+  email: string,
+  properties?: Properties,
+) {
+  return posthogCaptureEvent(email, "Stripe checkout completed", properties);
 }
 
 export async function trackError({
@@ -220,6 +227,20 @@ export async function trackSubscriptionTrialStarted(
   attributes: any,
 ) {
   return posthogCaptureEvent(email, "Premium subscription trial started", {
+    ...attributes,
+    $set: {
+      premium: true,
+      premiumTier: "subscription",
+      premiumStatus: "on_trial",
+    },
+  });
+}
+
+export async function trackBillingTrialStarted(
+  email: string,
+  attributes: Properties,
+) {
+  return posthogCaptureEvent(email, "billing_trial_started", {
     ...attributes,
     $set: {
       premium: true,

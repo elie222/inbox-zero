@@ -11,7 +11,7 @@ import {
   forwardEmailText,
 } from "@/utils/gmail/forward";
 import type { ParsedMessage } from "@/utils/types";
-import { createReplyContent } from "@/utils/gmail/reply";
+import { createReplyContent, formatEmailDate } from "@/utils/gmail/reply";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { withGmailRetry } from "@/utils/gmail/retry";
@@ -23,6 +23,11 @@ import {
 import { formatReplySubject } from "@/utils/email/subject";
 import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import { convertNewlinesToBr } from "@/utils/string";
+import {
+  buildQuotedPlainText,
+  quotePlainTextContent,
+} from "@/utils/email/quoted-plain-text";
 
 const logger = createScopedLogger("gmail/mail");
 
@@ -160,7 +165,11 @@ export async function replyToEmail(
 ) {
   ensureEmailSendingEnabled();
 
-  const { text, html } = createReplyContent({
+  const { html } = createReplyContent({
+    textContent: reply,
+    message,
+  });
+  const messageText = buildReplyMessageText({
     textContent: reply,
     message,
   });
@@ -171,7 +180,7 @@ export async function replyToEmail(
     from,
     replyTo: options?.replyTo,
     subject: formatReplySubject(message.headers.subject),
-    messageText: text,
+    messageText,
     messageHtml: html,
     replyToEmail: {
       threadId: message.threadId,
@@ -270,7 +279,11 @@ export async function draftEmail(
   },
   userEmail: string,
 ) {
-  const { text, html } = createReplyContent({
+  const { html } = createReplyContent({
+    textContent: args.content,
+    message: originalEmail,
+  });
+  const messageText = buildReplyMessageText({
     textContent: args.content,
     message: originalEmail,
   });
@@ -293,7 +306,7 @@ export async function draftEmail(
     bcc: formatCcList(bccList),
     subject: args.subject || originalEmail.headers.subject,
     messageHtml: html,
-    messageText: text,
+    messageText,
     attachments: args.attachments,
     replyToEmail: {
       threadId: originalEmail.threadId,
@@ -348,4 +361,33 @@ export function convertTextToHtmlParagraphs(text?: string | null): string {
     .join("");
 
   return `<html><body>${htmlContent}</body></html>`;
+}
+
+export function buildReplyMessageText({
+  textContent,
+  message,
+}: {
+  textContent?: string;
+  message: Pick<ParsedMessage, "headers" | "textPlain">;
+}) {
+  const quotedDate = formatEmailDate(new Date(message.headers.date));
+  const quotedHeader = `On ${quotedDate}, ${message.headers.from} wrote:`;
+  const quotedContent = quotePlainTextContent(message.textPlain);
+
+  return buildQuotedPlainText({
+    textContent: renderReplyBodyAsPlainText(textContent),
+    quotedHeader,
+    quotedContent,
+  });
+}
+
+function renderReplyBodyAsPlainText(textContent?: string) {
+  if (!textContent) return "";
+
+  return convertEmailHtmlToText({
+    htmlText: convertNewlinesToBr(textContent),
+  })
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }

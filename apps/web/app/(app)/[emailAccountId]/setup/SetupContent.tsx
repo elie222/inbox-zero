@@ -3,6 +3,7 @@
 import { cn } from "@/utils";
 import { useCallback, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import {
   ArchiveIcon,
@@ -14,8 +15,8 @@ import {
   UsersIcon,
   MessageSquareIcon,
   InboxIcon,
+  Loader2Icon,
 } from "lucide-react";
-import { useLocalStorage } from "usehooks-ts";
 import {
   MutedText,
   PageHeading,
@@ -36,6 +37,13 @@ import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { BRAND_NAME } from "@/utils/branding";
 import { dismissHintAction } from "@/utils/actions/hints";
 import { toastError } from "@/components/Toast";
+
+type DismissibleSetupStep =
+  | "aiAssistant"
+  | "bulkUnsubscribe"
+  | "calendarConnected"
+  | "teamInvite"
+  | "tabsExtension";
 
 function FeatureCard({
   emailAccountId,
@@ -138,6 +146,7 @@ const StepItem = ({
   showMarkDone,
   markDoneText = "Mark Done",
   markDoneDisabled,
+  markDonePending,
   onActionClick,
 }: {
   href: string;
@@ -151,6 +160,7 @@ const StepItem = ({
   showMarkDone?: boolean;
   markDoneText?: string;
   markDoneDisabled?: boolean;
+  markDonePending?: boolean;
   onActionClick?: () => void;
 }) => {
   const handleMarkDone = (e: React.MouseEvent) => {
@@ -164,7 +174,11 @@ const StepItem = ({
       className={`border-b border-border last:border-0 ${completed ? "opacity-60" : ""}`}
     >
       <div className="flex items-center justify-between gap-8 p-4">
-        <div className="flex max-w-lg items-center">
+        <Link
+          href={href}
+          {...linkProps}
+          className="flex max-w-lg min-w-0 flex-1 items-center rounded-md -m-2 p-2 transition-colors hover:bg-muted/40"
+        >
           <div
             className={cn(
               "p-px rounded-lg shadow-sm bg-gradient-to-b mr-3 flex flex-shrink-0 items-center justify-center",
@@ -186,18 +200,16 @@ const StepItem = ({
               {timeEstimate}
             </p>
           </div>
-        </div>
+        </Link>
 
         <div className="flex items-center gap-2">
           {completed ? (
-            <Link href={href} {...linkProps}>
-              <div className="flex size-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
-                <CheckIcon
-                  size={14}
-                  className="text-green-600 dark:text-green-400"
-                />
-              </div>
-            </Link>
+            <div className="flex size-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+              <CheckIcon
+                size={14}
+                className="text-green-600 dark:text-green-400"
+              />
+            </div>
           ) : (
             <>
               {onActionClick ? (
@@ -226,7 +238,11 @@ const StepItem = ({
                   title={markDoneText}
                   className="flex size-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-green-100 hover:text-green-600 dark:bg-slate-800 dark:text-slate-500 dark:hover:bg-green-900/50 dark:hover:text-green-400"
                 >
-                  <CheckIcon size={14} />
+                  {markDonePending ? (
+                    <Loader2Icon size={14} className="animate-spin" />
+                  ) : (
+                    <CheckIcon size={14} />
+                  )}
                 </button>
               )}
             </>
@@ -245,6 +261,7 @@ function Checklist({
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
   isCalendarConnected,
+  isTabsExtensionCompleted,
   teamInvite,
   onSetupProgressChanged,
 }: {
@@ -255,53 +272,48 @@ function Checklist({
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
+  isTabsExtensionCompleted: boolean;
   teamInvite: {
     completed: boolean;
     organizationId: string | undefined;
   } | null;
-  onSetupProgressChanged: () => void;
+  onSetupProgressChanged: (stepKey: DismissibleSetupStep) => void;
 }) {
-  const [isExtensionInstalled, setIsExtensionInstalled] = useLocalStorage(
-    "inbox-zero-extension-installed",
-    false,
-  );
   const { executeAsync: dismissSetupStep, isExecuting: isDismissingStep } =
     useAction(dismissHintAction);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [dismissedSteps, setDismissedSteps] = useState<Record<string, boolean>>(
-    {},
+  const [pendingStep, setPendingStep] = useState<DismissibleSetupStep | null>(
+    null,
   );
   const progressPercentage = (completedCount / totalSteps) * 100;
 
-  const handleMarkExtensionDone = () => {
-    setIsExtensionInstalled(true);
-  };
-
   const handleMarkStepDone = useCallback(
-    async (stepKey: string) => {
-      if (isDismissingStep || dismissedSteps[stepKey]) {
+    async (stepKey: DismissibleSetupStep) => {
+      if (isDismissingStep) {
         return;
       }
 
-      setDismissedSteps((prev) => ({ ...prev, [stepKey]: true }));
+      setPendingStep(stepKey);
 
-      const result = await dismissSetupStep({
-        hintId: `setup:${stepKey}:${emailAccountId}`,
-      });
+      try {
+        const result = await dismissSetupStep({
+          hintId: `setup:${stepKey}:${emailAccountId}`,
+        });
 
-      if (result?.serverError || result?.validationErrors) {
-        setDismissedSteps((prev) => ({ ...prev, [stepKey]: false }));
-        toastError({ description: "Failed to skip this step" });
-        return;
+        if (result?.serverError || result?.validationErrors) {
+          toastError({ description: "Failed to skip this step" });
+          return;
+        }
+
+        onSetupProgressChanged(stepKey);
+      } finally {
+        setPendingStep(null);
       }
-
-      onSetupProgressChanged();
     },
     [
       dismissSetupStep,
       emailAccountId,
       isDismissingStep,
-      dismissedSteps,
       onSetupProgressChanged,
     ],
   );
@@ -337,11 +349,12 @@ function Checklist({
         icon={<BotIcon size={18} />}
         title="Set up your Personal Assistant"
         timeEstimate="5 minutes"
-        completed={isAiAssistantConfigured || dismissedSteps.aiAssistant}
+        completed={isAiAssistantConfigured}
         actionText="Set up"
         onMarkDone={() => handleMarkStepDone("aiAssistant")}
         showMarkDone
         markDoneDisabled={isDismissingStep}
+        markDonePending={pendingStep === "aiAssistant"}
       />
 
       <StepItem
@@ -349,13 +362,12 @@ function Checklist({
         icon={<ArchiveIcon size={18} />}
         title="Unsubscribe from a newsletter you don't read"
         timeEstimate="2 minutes"
-        completed={
-          isBulkUnsubscribeConfigured || dismissedSteps.bulkUnsubscribe
-        }
+        completed={isBulkUnsubscribeConfigured}
         actionText="View"
         onMarkDone={() => handleMarkStepDone("bulkUnsubscribe")}
         showMarkDone
         markDoneDisabled={isDismissingStep}
+        markDonePending={pendingStep === "bulkUnsubscribe"}
       />
 
       <StepItem
@@ -363,11 +375,12 @@ function Checklist({
         icon={<CalendarIcon size={18} />}
         title="Connect your calendar"
         timeEstimate="2 minutes"
-        completed={isCalendarConnected || dismissedSteps.calendarConnected}
+        completed={isCalendarConnected}
         actionText="Connect"
         onMarkDone={() => handleMarkStepDone("calendarConnected")}
         showMarkDone
         markDoneDisabled={isDismissingStep}
+        markDonePending={pendingStep === "calendarConnected"}
       />
 
       {teamInvite && (
@@ -376,10 +389,11 @@ function Checklist({
           icon={<UsersIcon size={18} />}
           title="Invite team members"
           timeEstimate="2 minutes"
-          completed={teamInvite.completed || dismissedSteps.teamInvite}
+          completed={teamInvite.completed}
           actionText="Invite"
           onMarkDone={() => handleMarkStepDone("teamInvite")}
           markDoneDisabled={isDismissingStep}
+          markDonePending={pendingStep === "teamInvite"}
           showMarkDone
           markDoneText="Skip"
           onActionClick={handleOpenInviteModal}
@@ -402,9 +416,11 @@ function Checklist({
           icon={<ChromeIcon size={18} />}
           title={`Optional: Install the ${BRAND_NAME} Tabs extension`}
           timeEstimate="1 minute"
-          completed={isExtensionInstalled}
+          completed={isTabsExtensionCompleted}
           actionText="Install"
-          onMarkDone={handleMarkExtensionDone}
+          onMarkDone={() => handleMarkStepDone("tabsExtension")}
+          markDoneDisabled={isDismissingStep}
+          markDonePending={pendingStep === "tabsExtension"}
           showMarkDone={true}
         />
       )}
@@ -415,6 +431,20 @@ function Checklist({
 export function SetupContent() {
   const { emailAccountId, provider } = useAccount();
   const { data, isLoading, error, mutate } = useSetupProgress();
+  const searchParams = useSearchParams();
+  const forceSetupMode = searchParams.get("forceSetup") === "1";
+  const handleSetupProgressChanged = useCallback(
+    (stepKey: DismissibleSetupStep) => {
+      mutate(
+        (currentData) =>
+          currentData
+            ? getUpdatedSetupProgress(currentData, stepKey)
+            : currentData,
+        { revalidate: true },
+      );
+    },
+    [mutate],
+  );
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -425,13 +455,13 @@ export function SetupContent() {
           isAiAssistantConfigured={data.steps.aiAssistant}
           isBulkUnsubscribeConfigured={data.steps.bulkUnsubscribe}
           isCalendarConnected={data.steps.calendarConnected}
+          isTabsExtensionCompleted={data.tabsExtensionCompleted}
           completedCount={data.completed}
           totalSteps={data.total}
           isSetupComplete={data.isComplete}
+          forceSetupMode={forceSetupMode}
           teamInvite={data.teamInvite}
-          onSetupProgressChanged={() => {
-            mutate();
-          }}
+          onSetupProgressChanged={handleSetupProgressChanged}
         />
       )}
     </LoadingContent>
@@ -444,9 +474,11 @@ function SetupPageContent({
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
   isCalendarConnected,
+  isTabsExtensionCompleted,
   completedCount,
   totalSteps,
   isSetupComplete,
+  forceSetupMode,
   teamInvite,
   onSetupProgressChanged,
 }: {
@@ -455,43 +487,101 @@ function SetupPageContent({
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
+  isTabsExtensionCompleted: boolean;
   completedCount: number;
   totalSteps: number;
   isSetupComplete: boolean;
+  forceSetupMode: boolean;
   teamInvite: {
     completed: boolean;
     organizationId: string | undefined;
   } | null;
-  onSetupProgressChanged: () => void;
+  onSetupProgressChanged: (stepKey: DismissibleSetupStep) => void;
 }) {
+  const shouldShowSetupChecklist = forceSetupMode || !isSetupComplete;
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
       <div className="mb-4 sm:mb-8">
         <PageHeading className="text-center">{`Welcome to ${BRAND_NAME}`}</PageHeading>
         <SectionDescription className="mt-2 text-center text-base">
-          {isSetupComplete
-            ? "What would you like to do?"
-            : `Complete these steps to get the most out of ${BRAND_NAME}`}
+          {shouldShowSetupChecklist
+            ? `Complete these steps to get the most out of ${BRAND_NAME}`
+            : "What would you like to do?"}
         </SectionDescription>
       </div>
 
       {/* <StatsCardGrid /> */}
 
-      {isSetupComplete ? (
-        <FeatureGrid emailAccountId={emailAccountId} provider={provider} />
-      ) : (
+      {shouldShowSetupChecklist ? (
         <Checklist
           emailAccountId={emailAccountId}
           provider={provider}
           isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
           isAiAssistantConfigured={isAiAssistantConfigured}
           isCalendarConnected={isCalendarConnected}
+          isTabsExtensionCompleted={isTabsExtensionCompleted}
           completedCount={completedCount}
           totalSteps={totalSteps}
           teamInvite={teamInvite}
           onSetupProgressChanged={onSetupProgressChanged}
         />
+      ) : (
+        <FeatureGrid emailAccountId={emailAccountId} provider={provider} />
       )}
     </div>
   );
+}
+
+function getUpdatedSetupProgress(
+  currentData: NonNullable<ReturnType<typeof useSetupProgress>["data"]>,
+  stepKey: DismissibleSetupStep,
+) {
+  if (stepKey === "tabsExtension") {
+    return currentData.tabsExtensionCompleted
+      ? currentData
+      : { ...currentData, tabsExtensionCompleted: true };
+  }
+
+  const nextSteps = { ...currentData.steps };
+  let completedIncrement = 0;
+
+  if (stepKey === "teamInvite") {
+    if (!currentData.teamInvite || currentData.teamInvite.completed) {
+      return currentData;
+    }
+
+    completedIncrement = 1;
+
+    return {
+      ...currentData,
+      completed: Math.min(
+        currentData.completed + completedIncrement,
+        currentData.total,
+      ),
+      isComplete:
+        currentData.completed + completedIncrement >= currentData.total,
+      teamInvite: {
+        ...currentData.teamInvite,
+        completed: true,
+      },
+    };
+  }
+
+  if (nextSteps[stepKey]) {
+    return currentData;
+  }
+
+  nextSteps[stepKey] = true;
+  completedIncrement = 1;
+
+  return {
+    ...currentData,
+    steps: nextSteps,
+    completed: Math.min(
+      currentData.completed + completedIncrement,
+      currentData.total,
+    ),
+    isComplete: currentData.completed + completedIncrement >= currentData.total,
+  };
 }

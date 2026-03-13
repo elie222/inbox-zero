@@ -3,8 +3,10 @@
 import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
 import { Trash2, MoreVertical, Settings } from "lucide-react";
-import { useEffect } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { AlertError } from "@/components/Alert";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
@@ -32,14 +34,26 @@ import { logOut } from "@/utils/user";
 import { getAndClearAuthErrorCookie } from "@/utils/auth-cookies";
 import { getActionErrorMessage } from "@/utils/error";
 import { BRAND_NAME } from "@/utils/branding";
+import {
+  CALENDAR_SCOPES,
+  SCOPES as MICROSOFT_EMAIL_SCOPES,
+} from "@/utils/outlook/scopes";
+import { MICROSOFT_DRIVE_SCOPES } from "@/utils/drive/scopes";
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
-  useAccountNotifications();
+  const notification = useAccountNotifications();
 
   return (
     <PageWrapper>
       <PageHeader title="Accounts" />
+      {notification ? (
+        <AlertError
+          className="mt-4"
+          title={notification.title}
+          description={notification.description}
+        />
+      ) : null}
 
       <LoadingContent loading={isLoading} error={error}>
         <div className="grid grid-cols-1 gap-4 py-6 lg:grid-cols-2 xl:grid-cols-3">
@@ -209,6 +223,9 @@ function useAccountNotifications() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const [notification, setNotification] = useState<AccountNotification | null>(
+    null,
+  );
 
   useEffect(() => {
     const authErrorCookie = getAndClearAuthErrorCookie();
@@ -216,73 +233,19 @@ function useAccountNotifications() {
     const successParam = searchParams.get("success");
 
     if (errorParam) {
-      const errorMessages: Record<
-        string,
-        { title: string; description: string }
-      > = {
-        account_not_found_for_merge: {
-          title: "Account not found",
-          description: `This account doesn't exist in ${BRAND_NAME} yet. Please select 'No, it's a new account' instead.`,
-        },
-        account_already_exists_use_merge: {
-          title: "Account already exists",
-          description: `This account already exists in ${BRAND_NAME}. Please select 'Yes, it's an existing ${BRAND_NAME} account' to merge.`,
-        },
-        already_linked_to_self: {
-          title: "Account already linked",
-          description: "This account is already linked to your profile.",
-        },
-        invalid_state: {
-          title: "Invalid request",
-          description:
-            "The authentication request was invalid. Please try again.",
-        },
-        missing_code: {
-          title: "Authentication failed",
-          description:
-            "Failed to receive authentication code. Please try again.",
-        },
-        consent_declined: {
-          title: "Microsoft permissions were not granted",
-          description:
-            `Microsoft sign-in was canceled before ${BRAND_NAME} received the required permissions. Please try again and complete the consent screen.`,
-        },
-        admin_consent_required: {
-          title: "Admin approval required",
-          description:
-            "Your Microsoft 365 organization requires admin approval before Inbox Zero can access this account. Ask your Microsoft 365 admin to grant consent for the app, then try again.",
-        },
-        invalid_scope_configuration: {
-          title: "Microsoft app setup needs attention",
-          description:
-            "Microsoft rejected the requested permissions for this app. Ask your admin to verify the Inbox Zero app registration, delegated Microsoft Graph permissions, and redirect URLs, then try again.",
-        },
-        consent_incomplete: {
-          title: "More Microsoft permissions are required",
-          description:
-            `Microsoft connected the account, but did not grant all required permissions. Reconnect and approve every requested permission. If your organization restricts consent, ask your admin to approve ${BRAND_NAME} first.`,
-        },
-        link_failed: {
-          title: "Account linking failed",
-          description:
-            searchParams.get("error_description") ||
-            "Failed to link account. Please try again.",
-        },
-      };
-
-      const errorMessage = errorMessages[errorParam] || {
-        title: "Error",
-        description:
-          searchParams.get("error_description") ||
-          "An error occurred. Please try again.",
-      };
+      const errorMessage = getAccountErrorMessage(
+        errorParam,
+        searchParams.get("error_description"),
+      );
+      setNotification(errorMessage);
 
       toastError({
         title: errorMessage.title,
-        description: errorMessage.description,
+        description: errorMessage.toastDescription,
       });
 
       router.replace(pathname);
+      return;
     }
 
     if (successParam) {
@@ -314,7 +277,151 @@ function useAccountNotifications() {
         description: successMessage.description,
       });
 
+      setNotification(null);
       router.replace(pathname);
     }
   }, [searchParams, router, pathname]);
+
+  return notification;
+}
+
+type AccountNotification = {
+  title: string;
+  description: ReactNode;
+  toastDescription: string;
+};
+
+function getAccountErrorMessage(
+  errorParam: string,
+  errorDescription: string | null,
+): AccountNotification {
+  const defaultDescription =
+    errorDescription || "An error occurred. Please try again.";
+
+  const errorMessages: Record<string, AccountNotification> = {
+    account_not_found_for_merge: {
+      title: "Account not found",
+      description: `This account doesn't exist in ${BRAND_NAME} yet. Please select 'No, it's a new account' instead.`,
+      toastDescription: `This account doesn't exist in ${BRAND_NAME} yet. Please select 'No, it's a new account' instead.`,
+    },
+    account_already_exists_use_merge: {
+      title: "Account already exists",
+      description: `This account already exists in ${BRAND_NAME}. Please select 'Yes, it's an existing ${BRAND_NAME} account' to merge.`,
+      toastDescription: `This account already exists in ${BRAND_NAME}. Please select 'Yes, it's an existing ${BRAND_NAME} account' to merge.`,
+    },
+    already_linked_to_self: {
+      title: "Account already linked",
+      description: "This account is already linked to your profile.",
+      toastDescription: "This account is already linked to your profile.",
+    },
+    invalid_state: {
+      title: "Invalid request",
+      description: "The authentication request was invalid. Please try again.",
+      toastDescription:
+        "The authentication request was invalid. Please try again.",
+    },
+    invalid_state_format: {
+      title: "Invalid response from provider",
+      description:
+        "We couldn't validate the account authorization response. Please try linking the account again. If the problem continues, contact support.",
+      toastDescription:
+        "We couldn't validate the account authorization response. Please try linking the account again.",
+    },
+    missing_code: {
+      title: "Authentication failed",
+      description: "Failed to receive authentication code. Please try again.",
+      toastDescription:
+        "Failed to receive authentication code. Please try again.",
+    },
+    consent_declined: {
+      title: "Microsoft permissions were not granted",
+      description: `Microsoft sign-in was canceled before ${BRAND_NAME} received the required permissions. Please try again and complete the consent screen.`,
+      toastDescription: `Microsoft sign-in was canceled before ${BRAND_NAME} received the required permissions. Please try again and complete the consent screen.`,
+    },
+    admin_consent_required: {
+      title: "Admin approval required",
+      description: buildMicrosoftPermissionHelp(
+        "Your Microsoft 365 organization requires admin approval before Inbox Zero can access this account.",
+      ),
+      toastDescription:
+        "Your Microsoft 365 organization requires admin approval before Inbox Zero can access this account. Ask your Microsoft 365 admin to approve Inbox Zero, then try again.",
+    },
+    invalid_scope_configuration: {
+      title: "Microsoft app setup needs attention",
+      description: buildMicrosoftPermissionHelp(
+        "Microsoft rejected the requested permissions for this app.",
+      ),
+      toastDescription:
+        "Microsoft rejected the requested permissions for this app. Ask your admin to verify the delegated Microsoft Graph permissions and redirect URLs, then try again.",
+    },
+    consent_incomplete: {
+      title: "More Microsoft permissions are required",
+      description: buildMicrosoftPermissionHelp(
+        `Microsoft connected the account, but did not grant all required permissions to ${BRAND_NAME}.`,
+      ),
+      toastDescription: `Microsoft connected the account, but did not grant all required permissions. Reconnect and approve every requested permission. If your organization restricts consent, ask your admin to approve ${BRAND_NAME} first.`,
+    },
+    link_failed: {
+      title: "Account linking failed",
+      description:
+        errorDescription || "Failed to link account. Please try again.",
+      toastDescription:
+        errorDescription || "Failed to link account. Please try again.",
+    },
+  };
+
+  return (
+    errorMessages[errorParam] || {
+      title: "Error",
+      description: defaultDescription,
+      toastDescription: defaultDescription,
+    }
+  );
+}
+
+function buildMicrosoftPermissionHelp(summary: string) {
+  return (
+    <div className="space-y-3">
+      <p>
+        {summary} This usually means your Microsoft 365 organization allowed
+        sign-in, but did not return all of the permissions Inbox Zero needs to
+        finish connecting the account.
+      </p>
+      <p>
+        Ask your Microsoft 365 admin to approve Inbox Zero for the Microsoft
+        Graph permissions below, then try again.
+      </p>
+      <div>
+        <p className="font-medium">Email and inbox connection</p>
+        <PermissionList scopes={MICROSOFT_EMAIL_SCOPES} />
+      </div>
+      <div>
+        <p className="font-medium">
+          Additional permissions if you later connect other Microsoft features
+        </p>
+        <div className="space-y-2">
+          <div>
+            <p className="font-medium">Calendar</p>
+            <PermissionList scopes={CALENDAR_SCOPES} />
+          </div>
+          <div>
+            <p className="font-medium">Docs and OneDrive</p>
+            <PermissionList scopes={MICROSOFT_DRIVE_SCOPES} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PermissionList({ scopes }: { scopes: readonly string[] }) {
+  return (
+    <ul className="mt-1 list-disc space-y-1 pl-5">
+      {scopes.map((scope) => (
+        <li key={scope}>
+          <code>{scope}</code>
+        </li>
+      ))}
+    </ul>
+  );
 }

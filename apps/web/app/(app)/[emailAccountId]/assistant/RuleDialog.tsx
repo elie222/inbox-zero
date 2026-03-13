@@ -8,13 +8,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { RuleForm } from "./RuleForm";
-import { LoadingContent } from "@/components/LoadingContent";
-import { useRule } from "@/hooks/useRule";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { useDialogState } from "@/hooks/useDialogState";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import type { RulesResponse } from "@/app/api/user/rules/route";
+import { RuleLoader } from "./RuleLoader";
 
 interface RuleDialogProps {
   duplicateRule?: RulesResponse[number];
@@ -52,8 +51,6 @@ export function RuleDialog({
   initialRule,
   editMode = true,
 }: RuleDialogProps) {
-  const { data, isLoading, error, mutate } = useRule(ruleId || "");
-
   const handleSuccess = () => {
     onSuccess?.();
     onClose();
@@ -76,10 +73,10 @@ export function RuleDialog({
         </DialogHeader>
         <div>
           {ruleId ? (
-            <LoadingContent loading={isLoading} error={error}>
-              {data && (
+            <RuleLoader ruleId={ruleId}>
+              {({ rule, mutate }) => (
                 <RuleForm
-                  rule={data.rule}
+                  rule={rule}
                   alwaysEditMode={editMode}
                   onSuccess={handleSuccess}
                   isDialog={true}
@@ -87,7 +84,7 @@ export function RuleDialog({
                   onCancel={onClose}
                 />
               )}
-            </LoadingContent>
+            </RuleLoader>
           ) : (
             <RuleForm
               rule={{

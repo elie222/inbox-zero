@@ -9,7 +9,6 @@ import {
   ArchiveIcon,
   ArrowLeftIcon,
   BarChartBigIcon,
-  BookIcon,
   BrushIcon,
   CalendarIcon,
   ChevronDownIcon,
@@ -26,7 +25,6 @@ import {
   PersonStandingIcon,
   RatioIcon,
   SendIcon,
-  SettingsIcon,
   SparklesIcon,
   TagIcon,
   Users2Icon,
@@ -58,15 +56,12 @@ import {
   useIntegrationsEnabled,
   useMeetingBriefsEnabled,
 } from "@/hooks/useFeatureFlags";
-import { ClientOnly } from "@/components/ClientOnly";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
-import { ReferralDialog } from "@/components/ReferralDialog";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
-import { env } from "@/env";
 
 type NavItem = {
   name: string;
@@ -247,7 +242,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
     [showMailNav],
   );
 
-  const { state, isMobile, setOpenMobile } = useSidebar();
+  const { state } = useSidebar();
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -298,46 +293,6 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <PremiumCard isCollapsed={!state.includes("left-sidebar")} />
 
       <SidebarFooter className="pb-4">
-        {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
-          <ClientOnly>
-            <ReferralDialog />
-          </ClientOnly>
-        )}
-
-        <SidebarMenuButton asChild>
-          <Link
-            href="https://docs.getinboxzero.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => {
-              if (isMobile) {
-                setOpenMobile((prev) =>
-                  prev.filter((name) => name !== "left-sidebar"),
-                );
-              }
-            }}
-          >
-            <BookIcon className="size-4" />
-            <span className="font-semibold">Help Center</span>
-          </Link>
-        </SidebarMenuButton>
-
-        <SidebarMenuButton asChild>
-          <Link
-            href="/settings"
-            onClick={() => {
-              if (isMobile) {
-                setOpenMobile((prev) =>
-                  prev.filter((name) => name !== "left-sidebar"),
-                );
-              }
-            }}
-          >
-            <SettingsIcon className="size-4" />
-            <span className="font-semibold">Settings</span>
-          </Link>
-        </SidebarMenuButton>
-
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
 
         <NavUser />

@@ -8,9 +8,9 @@ import {
 interface ErrorHandlerParams {
   error: unknown;
   logger: Logger;
+  provider?: "google" | "microsoft";
   redirectUrl: URL;
   stateCookieName: string;
-  provider?: "google" | "microsoft";
 }
 
 export function handleOAuthCallbackError({

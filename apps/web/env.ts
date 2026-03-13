@@ -85,6 +85,10 @@ export const env = createEnv({
     BEDROCK_SECRET_KEY: z.string().optional(),
     BEDROCK_REGION: z.string().default("us-west-2"),
     GOOGLE_API_KEY: z.string().optional(),
+    GOOGLE_THINKING_BUDGET: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.coerce.number().int().nonnegative().optional(),
+    ),
     GOOGLE_VERTEX_PROJECT: z.string().optional(),
     GOOGLE_VERTEX_LOCATION: z.string().optional().default("us-central1"),
     GOOGLE_VERTEX_CLIENT_EMAIL: z.string().optional(),
@@ -190,6 +194,7 @@ export const env = createEnv({
     MOBILE_AUTH_ORIGIN: z.string().trim().min(1).optional(),
     LOCAL_AUTH_BYPASS_ENABLED: booleanString.optional().default(false),
     AUTO_JOIN_ORGANIZATION_ENABLED: booleanString.optional().default(false),
+    AUTO_ENABLE_ORG_ANALYTICS: booleanString.optional().default(false),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
@@ -280,6 +285,7 @@ export const env = createEnv({
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_SMART_FILING_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_CLEANER_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: booleanString.optional(),
     NEXT_PUBLIC_IS_RESEND_CONFIGURED: booleanString.optional(),
     NEXT_PUBLIC_TABS_EXTENSION_ID: z
       .string()
@@ -358,6 +364,8 @@ export const env = createEnv({
     NEXT_PUBLIC_SMART_FILING_ENABLED:
       process.env.NEXT_PUBLIC_SMART_FILING_ENABLED,
     NEXT_PUBLIC_CLEANER_ENABLED: process.env.NEXT_PUBLIC_CLEANER_ENABLED,
+    NEXT_PUBLIC_AUTO_DRAFT_DISABLED:
+      process.env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED,
     NEXT_PUBLIC_IS_RESEND_CONFIGURED:
       process.env.NEXT_PUBLIC_IS_RESEND_CONFIGURED,
     NEXT_PUBLIC_TABS_EXTENSION_ID: process.env.NEXT_PUBLIC_TABS_EXTENSION_ID,

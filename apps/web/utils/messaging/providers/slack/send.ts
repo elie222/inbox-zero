@@ -116,6 +116,38 @@ export async function sendDocumentAskToSlack({
   });
 }
 
+/**
+ * Sentinel value for `channelId` that indicates messages should be sent
+ * as a direct message to the `providerUserId` instead of a channel.
+ */
+export const SLACK_DM_CHANNEL_SENTINEL = "DM";
+
+export function isSlackDmChannel(channelId: string | null): boolean {
+  return channelId === SLACK_DM_CHANNEL_SENTINEL;
+}
+
+export async function resolveSlackDestination({
+  accessToken,
+  channelId,
+  providerUserId,
+}: {
+  accessToken: string;
+  channelId: string | null;
+  providerUserId: string | null;
+}): Promise<string | null> {
+  if (channelId && !isSlackDmChannel(channelId)) return channelId;
+
+  if (isSlackDmChannel(channelId) && providerUserId) {
+    const client = createSlackClient(accessToken);
+    const response = await client.conversations.open({
+      users: providerUserId,
+    });
+    return response.channel?.id ?? null;
+  }
+
+  return null;
+}
+
 type Blocks = (KnownBlock | Block)[];
 
 async function postMessageWithJoin(

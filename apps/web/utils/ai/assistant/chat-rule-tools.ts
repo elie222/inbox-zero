@@ -2,6 +2,7 @@ import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
+import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
@@ -472,7 +473,9 @@ export const updateRuleActionsTool = ({
               ActionType.ARCHIVE,
               ActionType.LABEL,
               ActionType.MOVE_FOLDER,
-              ActionType.DRAFT_EMAIL,
+              ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
+                ? []
+                : [ActionType.DRAFT_EMAIL]),
               ActionType.FORWARD,
               ActionType.REPLY,
               ActionType.SEND_EMAIL,

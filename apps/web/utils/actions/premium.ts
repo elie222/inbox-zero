@@ -541,7 +541,13 @@ export const generateCheckoutSessionAction = actionClientUser
         },
       });
 
-      after(() => trackStripeCheckoutCreated(user.email));
+      after(() =>
+        trackStripeCheckoutCreated(user.email, {
+          billingProvider: "stripe",
+          quantity,
+          tier,
+        }),
+      );
 
       return { url: checkout.url };
     },

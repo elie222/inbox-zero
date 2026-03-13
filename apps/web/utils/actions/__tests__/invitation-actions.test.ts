@@ -5,15 +5,35 @@ import {
   inviteMemberAction,
 } from "@/utils/actions/organization";
 
+const { mockEnv } = vi.hoisted(() => ({
+  mockEnv: {
+    AUTO_ENABLE_ORG_ANALYTICS: false,
+  },
+}));
+
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({ user: { id: "u1", email: "test@test.com" } })),
 }));
+vi.mock("@/env", async () => {
+  const actual = await vi.importActual<typeof import("@/env")>("@/env");
+
+  return {
+    ...actual,
+    env: {
+      ...actual.env,
+      get AUTO_ENABLE_ORG_ANALYTICS() {
+        return mockEnv.AUTO_ENABLE_ORG_ANALYTICS;
+      },
+    },
+  };
+});
 
 describe("createInvitationAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.AUTO_ENABLE_ORG_ANALYTICS = false;
     (prisma.emailAccount.findUnique as any).mockResolvedValue({
       email: "test@test.com",
       account: { userId: "u1", provider: "google" },
@@ -74,6 +94,7 @@ describe("createInvitationAction", () => {
       data: expect.objectContaining({
         emailAccountId: "ea_user",
         organizationId: "org_1",
+        allowOrgAdminAnalytics: false,
       }),
       select: { id: true },
     });

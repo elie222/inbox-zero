@@ -1,8 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import {
-  aiCategorizeSenders,
-  REQUEST_MORE_INFORMATION_CATEGORY,
-} from "@/utils/ai/categorize-sender/ai-categorize-senders";
+import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { defaultCategory } from "@/utils/categories";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { getEmailAccount } from "@/__tests__/helpers";
@@ -135,9 +132,7 @@ describe.runIf(isAiTest)("AI Sender Categorization", () => {
           });
 
           if (expectedCategory === "Unknown") {
-            expect([REQUEST_MORE_INFORMATION_CATEGORY, "Unknown"]).toContain(
-              result?.category,
-            );
+            expect(result).toBeNull();
           } else {
             expect(result?.category).toBe(expectedCategory);
           }
@@ -161,9 +156,7 @@ describe.runIf(isAiTest)("AI Sender Categorization", () => {
           categories: getEnabledCategories(),
         });
 
-        expect([REQUEST_MORE_INFORMATION_CATEGORY, "Unknown"]).toContain(
-          result?.category,
-        );
+        expect(result).toBeNull();
       },
       TIMEOUT,
     );
@@ -202,6 +195,11 @@ describe.runIf(isAiTest)("AI Sender Categorization", () => {
           const singleResult = singleResults.find(
             (r) => r.sender === emailAddress,
           );
+
+          if (expectedCategory === "Unknown") {
+            expect(singleResult?.category).toBeUndefined();
+            continue;
+          }
 
           // Both should either have a category or both be undefined
           if (bulkResult?.category || singleResult?.category) {

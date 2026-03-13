@@ -64,7 +64,6 @@ description: Project structure and file organization guidelines
 │   │   ├── next.config.mjs
 │   │   ├── package.json
 │   │   └── ... (config files)
-│   └── unsubscriber/    # Automates unsubscribes using browser automation. Not currently in use
 ├── packages
     ├── tinybird/
     ├── loops/

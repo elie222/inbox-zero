@@ -11,7 +11,10 @@ import MeetingBriefingEmail, {
 import { MessagingProvider } from "@/generated/prisma/enums";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
-import { sendMeetingBriefingToSlack } from "@/utils/messaging/providers/slack/send";
+import {
+  resolveSlackDestination,
+  sendMeetingBriefingToSlack,
+} from "@/utils/messaging/providers/slack/send";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { formatTimeInUserTimezone } from "@/utils/date";
 import prisma from "@/utils/prisma";
@@ -64,6 +67,7 @@ export async function sendBriefing({
       provider: true,
       accessToken: true,
       channelId: true,
+      providerUserId: true,
     },
   });
 
@@ -84,7 +88,7 @@ export async function sendBriefing({
   }
 
   for (const channel of channels) {
-    if (!channel.accessToken || !channel.channelId) continue;
+    if (!channel.accessToken) continue;
 
     switch (channel.provider) {
       case MessagingProvider.SLACK:
@@ -92,6 +96,7 @@ export async function sendBriefing({
           sendBriefingViaSlack({
             accessToken: channel.accessToken,
             channelId: channel.channelId,
+            providerUserId: channel.providerUserId,
             meetingTitle: event.title,
             formattedTime,
             videoConferenceLink: event.videoConferenceLink ?? undefined,
@@ -194,6 +199,7 @@ async function sendBriefingViaEmail({
 async function sendBriefingViaSlack({
   accessToken,
   channelId,
+  providerUserId,
   meetingTitle,
   formattedTime,
   videoConferenceLink,
@@ -202,7 +208,8 @@ async function sendBriefingViaSlack({
   logger,
 }: {
   accessToken: string;
-  channelId: string;
+  channelId: string | null;
+  providerUserId: string | null;
   meetingTitle: string;
   formattedTime: string;
   videoConferenceLink?: string;
@@ -210,10 +217,21 @@ async function sendBriefingViaSlack({
   briefingContent: BriefingContent;
   logger: Logger;
 }): Promise<void> {
+  const destination = await resolveSlackDestination({
+    accessToken,
+    channelId,
+    providerUserId,
+  });
+
+  if (!destination) {
+    logger.warn("No Slack destination resolved for briefing");
+    return;
+  }
+
   logger.info("Sending briefing to Slack");
   await sendMeetingBriefingToSlack({
     accessToken,
-    channelId,
+    channelId: destination,
     meetingTitle,
     formattedTime,
     videoConferenceLink,

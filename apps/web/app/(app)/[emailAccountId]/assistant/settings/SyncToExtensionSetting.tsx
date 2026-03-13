@@ -23,9 +23,9 @@ import { useRules } from "@/hooks/useRules";
 import { SettingCard } from "@/components/SettingCard";
 
 interface SyncResponse {
+  error?: string;
   success: boolean;
   summary?: { enabled: number; created: number; skipped: number };
-  error?: string;
 }
 
 declare global {
@@ -43,9 +43,11 @@ declare global {
   }
 }
 
-function sendMessageToExtension(
-  message: { action: string; tabs?: SyncTab[]; accountIndex?: string },
-): Promise<SyncResponse> {
+function sendMessageToExtension(message: {
+  action: string;
+  tabs?: SyncTab[];
+  accountIndex?: string;
+}): Promise<SyncResponse> {
   return new Promise((resolve, reject) => {
     if (!window.chrome?.runtime?.sendMessage) {
       reject(new Error("not_chrome"));
@@ -56,17 +58,13 @@ function sendMessageToExtension(
       return;
     }
     try {
-      window.chrome.runtime.sendMessage(
-        EXTENSION_ID,
-        message,
-        (response) => {
-          if (window.chrome?.runtime?.lastError) {
-            reject(new Error("extension_not_found"));
-            return;
-          }
-          resolve(response);
-        },
-      );
+      window.chrome.runtime.sendMessage(EXTENSION_ID, message, (response) => {
+        if (window.chrome?.runtime?.lastError) {
+          reject(new Error("extension_not_found"));
+          return;
+        }
+        resolve(response);
+      });
     } catch {
       reject(new Error("extension_not_found"));
     }
@@ -81,10 +79,7 @@ export function SyncToExtensionSetting() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [deselected, setDeselected] = useState<Set<string>>(new Set());
 
-  const allTabs = useMemo(
-    () => mapRulesToExtensionTabs(rules || []),
-    [rules],
-  );
+  const allTabs = useMemo(() => mapRulesToExtensionTabs(rules || []), [rules]);
 
   function getTabKey(tab: SyncTab) {
     return tab.type === "enable_default" ? tab.tabId : tab.displayLabel;
@@ -105,9 +100,7 @@ export function SyncToExtensionSetting() {
     });
   }
 
-  const selectedTabs = allTabs.filter(
-    (tab) => !deselected.has(getTabKey(tab)),
-  );
+  const selectedTabs = allTabs.filter((tab) => !deselected.has(getTabKey(tab)));
 
   async function handleSync() {
     if (selectedTabs.length === 0) {
@@ -182,20 +175,25 @@ export function SyncToExtensionSetting() {
               <div className="space-y-2 py-2">
                 {allTabs.map((tab) => {
                   const key = getTabKey(tab);
+                  const checkboxId = `sync-tab-${encodeURIComponent(key)}`;
                   const checked = !deselected.has(key);
                   return (
-                    <label
+                    <div
                       key={key}
-                      className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted"
+                      className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted"
                     >
                       <Checkbox
+                        id={checkboxId}
                         checked={checked}
                         onCheckedChange={() => toggleTab(tab)}
                       />
-                      <span className="text-sm font-medium">
+                      <label
+                        htmlFor={checkboxId}
+                        className="cursor-pointer text-sm font-medium"
+                      >
                         {tab.displayLabel}
-                      </span>
-                    </label>
+                      </label>
+                    </div>
                   );
                 })}
               </div>

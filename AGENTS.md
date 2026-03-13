@@ -4,6 +4,7 @@
 - Development: `pnpm dev`
 - Build: `pnpm build`
 - Lint: `pnpm lint`
+- Format: Biome (`pnpm check` / `pnpm fix` via ultracite)
 - Run all tests: `pnpm test`
 - Run AI tests: `pnpm test-ai`
 - Run single test: `pnpm test __tests__/test-file.test.ts`
@@ -15,12 +16,15 @@
 - When adding a new workspace package, add its `package.json` COPY line to `docker/Dockerfile.prod` and `docker/Dockerfile.local`.
 
 ## Code Style
+- Install packages in `apps/web`, not root: `cd apps/web && pnpm add ...`
+- Lodash: import specific functions (`import groupBy from "lodash/groupBy"`)
 - TypeScript with strict null checks
 - Path aliases: `@/` for imports from project root
 - NextJS app router with (app) directory, tailwindcss
 - Only add comments for "why", not "what". Prefer self-documenting code.
 - Logging: avoid duplicating logger context fields from higher in the call chain. Use `logger.trace()` for PII fields (from, to, subject, etc.).
 - Tests should use the real logger implementation (do not mock `@/utils/logger`).
+- Avoid low-value tests that mostly restate implementation details; prefer tests that catch a real behavioral regression.
 - Helper functions go at the bottom of files, not the top
 - All imports at the top of files, no mid-file dynamic imports
 - Co-locate test files next to source files (e.g., `utils/example.test.ts`). Only E2E and AI tests go in `__tests__/`.
@@ -34,6 +38,7 @@
 - Reusable components shared across pages go in `apps/web/components/`
 - One resource per API route file
 - Env vars: add to `.env.example`, `env.ts`, and `turbo.json`. Prefix client-side with `NEXT_PUBLIC_`.
+- Never use dynamic Prisma transactions (`prisma.$transaction(async (tx) => ...)`).
 
 ## Change Philosophy
 - Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.
@@ -52,6 +57,3 @@ See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates
 - Data fetching: SWR on the client. Call `mutate()` after mutations.
 - Forms: React Hook Form + `useAction` hook. Use `getActionErrorMessage(error.error)` for errors.
 - Loading states: use `LoadingContent` component.
-
-## Sub-Agent Review Gate
-- When a task is completed and ready for PR, invoke the `reviewer` sub-agent before opening the PR.

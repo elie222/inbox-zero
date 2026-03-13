@@ -11,10 +11,12 @@ import {
   SendIcon,
   SlackIcon,
   SparklesIcon,
+  UserIcon,
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
+import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
 import {
@@ -46,6 +48,7 @@ import {
   Item,
   ItemCard,
   ItemContent,
+  ItemDescription,
   ItemSeparator,
   ItemTitle,
   ItemActions,
@@ -154,9 +157,28 @@ export default function SettingsPage() {
           </ItemCard>
         </SettingsGroup>
 
-        <ItemCard>
-          <DeleteSection />
-        </ItemCard>
+        <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
+          <ItemCard>
+            <AppearanceSection />
+            <ItemSeparator />
+            <Item size="sm">
+              <ItemContent>
+                <ItemTitle>Beta Features</ItemTitle>
+                <ItemDescription>
+                  Try experimental features that are still in progress.
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/early-access">Open</Link>
+                </Button>
+              </ItemActions>
+            </Item>
+          </ItemCard>
+          <ItemCard>
+            <DeleteSection />
+          </ItemCard>
+        </SettingsGroup>
       </div>
     </div>
   );

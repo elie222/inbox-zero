@@ -1,5 +1,4 @@
 import { convertToModelMessages, type UIMessage } from "ai";
-import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { NextResponse } from "next/server";
@@ -10,7 +9,6 @@ import type { Prisma } from "@/generated/prisma/client";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
 import { captureException } from "@/utils/error";
 import { recordChatEntry } from "@/utils/replay/recorder";
-import { messageContextSchema } from "@/app/api/chat/validation";
 import {
   shouldCompact,
   compactMessages,
@@ -20,44 +18,13 @@ import {
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import { formatUtcDate } from "@/utils/date";
 import { mapUiMessagesToChatMessageRows } from "@/app/api/chat/chat-message-persistence";
+import {
+  type AssistantInput,
+  assistantInputSchema,
+} from "@/utils/actions/assistant-chat.validation";
+import { buildInlineEmailActionSystemMessage } from "@/utils/ai/assistant/inline-email-actions";
 
 export const maxDuration = 120;
-
-const textPartSchema = z.object({
-  type: z.literal("text"),
-  text: z.string().min(1).max(3000),
-});
-
-const filePartSchema = z.object({
-  type: z.literal("file"),
-  url: z
-    .string()
-    .max(6_000_000)
-    .refine((url) => /^data:image\/(jpeg|png|webp|gif);base64,/.test(url), {
-      message: "URL must be a base64 data URL with an allowed image MIME type",
-    }),
-  filename: z.string().optional(),
-  mediaType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]),
-});
-
-const messagePartSchema = z.discriminatedUnion("type", [
-  textPartSchema,
-  filePartSchema,
-]);
-
-const assistantInputSchema = z.object({
-  id: z.string(),
-  message: z.object({
-    id: z.string(),
-    role: z.enum(["user"]),
-    parts: z
-      .array(messagePartSchema)
-      .refine((parts) => parts.filter((p) => p.type === "file").length <= 5, {
-        message: "Maximum 5 file attachments per message",
-      }),
-  }),
-  context: messageContextSchema.optional(),
-});
 
 export const POST = withEmailAccount("chat", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
@@ -99,7 +66,10 @@ export const POST = withEmailAccount("chat", async (request) => {
     );
   }
 
-  const { message, context } = data;
+  const { message, context, inlineActions } = data;
+
+  const hiddenInlineActionMessage =
+    buildHiddenInlineActionMessage(inlineActions);
 
   await saveChatMessage({
     chat: { connect: { id: chat.id } },
@@ -118,6 +88,7 @@ export const POST = withEmailAccount("chat", async (request) => {
 
   const uiMessages = [
     ...convertToUIMessages({ ...chat, messages: messagesForModel }),
+    ...(hiddenInlineActionMessage ? [hiddenInlineActionMessage] : []),
     message,
   ];
 
@@ -306,4 +277,17 @@ async function saveChatMessages(
     captureException(error, { extra: { chatId } });
     throw error;
   }
+}
+
+function buildHiddenInlineActionMessage(
+  inlineActions?: AssistantInput["inlineActions"],
+) {
+  const text = buildInlineEmailActionSystemMessage(inlineActions);
+  if (!text) return null;
+
+  return {
+    id: crypto.randomUUID(),
+    role: "system" as const,
+    parts: [{ type: "text" as const, text }],
+  } satisfies UIMessage;
 }

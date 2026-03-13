@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { ArrowRightIcon, UsersIcon } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
@@ -20,18 +21,35 @@ export function StepInviteTeam({
   organizationId,
   userName,
   onNext,
+  onSkip,
 }: {
   emailAccountId: string;
   organizationId?: string;
   userName?: string | null;
   onNext: () => void;
+  onSkip: () => void;
 }) {
+  const posthog = usePostHog();
   const [emails, setEmails] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleEmailsChange = useCallback((newEmails: string[]) => {
     setEmails(newEmails.map((e) => e.toLowerCase()));
   }, []);
+
+  const captureInviteSubmitted = useCallback(
+    (successfulInvites: number, failedInvites: number) => {
+      if (successfulInvites === 0) return;
+      posthog.capture("onboarding_invite_team_submitted", {
+        variant: "onboarding",
+        inviteCount: emails.length,
+        successfulInvites,
+        failedInvites,
+        hasExistingOrganization: Boolean(organizationId),
+      });
+    },
+    [posthog, emails.length, organizationId],
+  );
 
   const handleInviteAndContinue = useCallback(async () => {
     if (emails.length === 0) {
@@ -71,6 +89,8 @@ export function StepInviteTeam({
             description: `Failed to send ${errorCount} invitation${errorCount > 1 ? "s" : ""}`,
           });
         }
+
+        captureInviteSubmitted(successCount, errorCount);
         onNext();
       }
 
@@ -108,10 +128,9 @@ export function StepInviteTeam({
       });
     }
 
-    if (successCount > 0) {
-      onNext();
-    }
-  }, [emails, emailAccountId, organizationId, userName, onNext]);
+    captureInviteSubmitted(successCount, errorCount);
+    onNext();
+  }, [emails, emailAccountId, organizationId, userName, onNext, posthog, captureInviteSubmitted]);
 
   return (
     <OnboardingWrapper className="py-0">
@@ -152,7 +171,14 @@ export function StepInviteTeam({
             type="button"
             variant="ghost"
             className="w-full"
-            onClick={onNext}
+            onClick={() => {
+              posthog.capture("onboarding_invite_team_skipped", {
+                variant: "onboarding",
+                inviteCount: emails.length,
+                hasExistingOrganization: Boolean(organizationId),
+              });
+              onSkip();
+            }}
             disabled={isSubmitting}
           >
             Skip

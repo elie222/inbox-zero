@@ -9,21 +9,20 @@ export const GET = withAuth("stripe/success", async (request) => {
   const userId = request.auth.userId;
   const logger = request.logger;
 
-  after(async () => {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true },
-    });
-    if (!user) return;
-    trackStripeCheckoutCompleted(user.email);
-  });
-
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { premium: { select: { stripeCustomerId: true } } },
+    select: {
+      email: true,
+      premium: { select: { stripeCustomerId: true } },
+    },
   });
 
   if (!user?.premium?.stripeCustomerId) redirect("/premium");
+
+  after(async () => {
+    if (!user?.email) return;
+    trackStripeCheckoutCompleted(user.email, { source: "success_redirect" });
+  });
 
   await syncStripeDataToDb({
     customerId: user.premium.stripeCustomerId,

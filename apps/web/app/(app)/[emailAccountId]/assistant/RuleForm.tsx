@@ -28,14 +28,12 @@ import {
   createRuleBody,
 } from "@/utils/actions/rule.validation";
 import { Toggle } from "@/components/Toggle";
-import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { useLabels } from "@/hooks/useLabels";
 import { AlertError } from "@/components/Alert";
 import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
-import { useRule } from "@/hooks/useRule";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
@@ -52,6 +50,7 @@ import { isConversationStatusType } from "@/utils/reply-tracker/conversation-sta
 import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
+import { RuleLoader } from "@/app/(app)/[emailAccountId]/assistant/RuleLoader";
 
 export function Rule({
   ruleId,
@@ -60,18 +59,12 @@ export function Rule({
   ruleId: string;
   alwaysEditMode?: boolean;
 }) {
-  const { data, isLoading, error, mutate } = useRule(ruleId);
-
   return (
-    <LoadingContent loading={isLoading} error={error}>
-      {data && (
-        <RuleForm
-          rule={data.rule}
-          alwaysEditMode={alwaysEditMode}
-          mutate={mutate}
-        />
+    <RuleLoader ruleId={ruleId}>
+      {({ rule, mutate }) => (
+        <RuleForm rule={rule} alwaysEditMode={alwaysEditMode} mutate={mutate} />
       )}
-    </LoadingContent>
+    </RuleLoader>
   );
 }
 
@@ -298,11 +291,15 @@ export function RuleForm({
             },
           ]
         : []),
-      {
-        label: "Draft reply",
-        value: ActionType.DRAFT_EMAIL,
-        icon: getActionIcon(ActionType.DRAFT_EMAIL),
-      },
+      ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
+        ? []
+        : [
+            {
+              label: "Draft reply",
+              value: ActionType.DRAFT_EMAIL,
+              icon: getActionIcon(ActionType.DRAFT_EMAIL),
+            },
+          ]),
       {
         label: "Archive",
         value: ActionType.ARCHIVE,

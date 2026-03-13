@@ -16,7 +16,10 @@ import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code"
 import { env } from "@/env";
 import { getChannelInfo } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
-import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send";
+import {
+  sendChannelConfirmation,
+  SLACK_DM_CHANNEL_SENTINEL,
+} from "@/utils/messaging/providers/slack/send";
 import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
 import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
 import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
@@ -43,6 +46,20 @@ export const updateSlackChannelAction = actionClient
 
       if (!channel.accessToken) {
         throw new SafeError("Messaging channel has no access token");
+      }
+
+      if (targetId === "dm") {
+        if (!channel.providerUserId) {
+          throw new SafeError(
+            "Direct messages are not available for this channel",
+          );
+        }
+
+        await prisma.messagingChannel.update({
+          where: { id: channelId },
+          data: { channelId: SLACK_DM_CHANNEL_SENTINEL, channelName: null },
+        });
+        return;
       }
 
       const client = createSlackClient(channel.accessToken);
