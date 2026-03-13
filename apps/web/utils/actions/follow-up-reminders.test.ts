@@ -74,4 +74,32 @@ describe("updateFollowUpSettingsAction", () => {
       },
     });
   });
+
+  it("persists follow-up auto-draft preference after drafting is re-enabled", async () => {
+    envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = true;
+
+    await updateFollowUpSettingsAction("account-1", {
+      followUpAwaitingReplyDays: 3,
+      followUpNeedsReplyDays: 5,
+      followUpAutoDraftEnabled: false,
+    });
+
+    envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
+
+    await updateFollowUpSettingsAction("account-1", {
+      followUpAwaitingReplyDays: 3,
+      followUpNeedsReplyDays: 5,
+      followUpAutoDraftEnabled: true,
+    });
+
+    expect(prisma.emailAccount.update).toHaveBeenCalledTimes(2);
+    expect(prisma.emailAccount.update).toHaveBeenNthCalledWith(2, {
+      where: { id: "account-1" },
+      data: {
+        followUpAwaitingReplyDays: 3,
+        followUpNeedsReplyDays: 5,
+        followUpAutoDraftEnabled: true,
+      },
+    });
+  });
 });
