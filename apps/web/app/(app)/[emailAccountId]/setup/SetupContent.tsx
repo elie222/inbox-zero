@@ -14,6 +14,7 @@ import {
   UsersIcon,
   MessageSquareIcon,
   InboxIcon,
+  Loader2Icon,
 } from "lucide-react";
 import {
   MutedText,
@@ -42,8 +43,6 @@ type DismissibleSetupStep =
   | "calendarConnected"
   | "teamInvite"
   | "tabsExtension";
-
-type DismissedSetupSteps = Partial<Record<DismissibleSetupStep, boolean>>;
 
 function FeatureCard({
   emailAccountId,
@@ -146,6 +145,7 @@ const StepItem = ({
   showMarkDone,
   markDoneText = "Mark Done",
   markDoneDisabled,
+  markDonePending,
   onActionClick,
 }: {
   href: string;
@@ -159,6 +159,7 @@ const StepItem = ({
   showMarkDone?: boolean;
   markDoneText?: string;
   markDoneDisabled?: boolean;
+  markDonePending?: boolean;
   onActionClick?: () => void;
 }) => {
   const handleMarkDone = (e: React.MouseEvent) => {
@@ -234,7 +235,11 @@ const StepItem = ({
                   title={markDoneText}
                   className="flex size-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-green-100 hover:text-green-600 dark:bg-slate-800 dark:text-slate-500 dark:hover:bg-green-900/50 dark:hover:text-green-400"
                 >
-                  <CheckIcon size={14} />
+                  {markDonePending ? (
+                    <Loader2Icon size={14} className="animate-spin" />
+                  ) : (
+                    <CheckIcon size={14} />
+                  )}
                 </button>
               )}
             </>
@@ -255,8 +260,6 @@ function Checklist({
   isCalendarConnected,
   isTabsExtensionCompleted,
   teamInvite,
-  dismissedSteps,
-  onDismissStepLocally,
   onSetupProgressChanged,
 }: {
   emailAccountId: string;
@@ -271,44 +274,43 @@ function Checklist({
     completed: boolean;
     organizationId: string | undefined;
   } | null;
-  dismissedSteps: DismissedSetupSteps;
-  onDismissStepLocally: (
-    stepKey: DismissibleSetupStep,
-    dismissed?: boolean,
-  ) => void;
   onSetupProgressChanged: () => void;
 }) {
   const { executeAsync: dismissSetupStep, isExecuting: isDismissingStep } =
     useAction(dismissHintAction);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [pendingStep, setPendingStep] = useState<DismissibleSetupStep | null>(
+    null,
+  );
   const progressPercentage = (completedCount / totalSteps) * 100;
 
   const handleMarkStepDone = useCallback(
     async (stepKey: DismissibleSetupStep) => {
-      if (isDismissingStep || dismissedSteps[stepKey]) {
+      if (isDismissingStep) {
         return;
       }
 
-      onDismissStepLocally(stepKey);
+      setPendingStep(stepKey);
 
-      const result = await dismissSetupStep({
-        hintId: `setup:${stepKey}:${emailAccountId}`,
-      });
+      try {
+        const result = await dismissSetupStep({
+          hintId: `setup:${stepKey}:${emailAccountId}`,
+        });
 
-      if (result?.serverError || result?.validationErrors) {
-        onDismissStepLocally(stepKey, false);
-        toastError({ description: "Failed to skip this step" });
-        return;
+        if (result?.serverError || result?.validationErrors) {
+          toastError({ description: "Failed to skip this step" });
+          return;
+        }
+
+        onSetupProgressChanged();
+      } finally {
+        setPendingStep(null);
       }
-
-      onSetupProgressChanged();
     },
     [
       dismissSetupStep,
-      dismissedSteps,
       emailAccountId,
       isDismissingStep,
-      onDismissStepLocally,
       onSetupProgressChanged,
     ],
   );
@@ -344,11 +346,12 @@ function Checklist({
         icon={<BotIcon size={18} />}
         title="Set up your Personal Assistant"
         timeEstimate="5 minutes"
-        completed={isAiAssistantConfigured || dismissedSteps.aiAssistant}
+        completed={isAiAssistantConfigured}
         actionText="Set up"
         onMarkDone={() => handleMarkStepDone("aiAssistant")}
         showMarkDone
         markDoneDisabled={isDismissingStep}
+        markDonePending={pendingStep === "aiAssistant"}
       />
 
       <StepItem
@@ -356,13 +359,12 @@ function Checklist({
         icon={<ArchiveIcon size={18} />}
         title="Unsubscribe from a newsletter you don't read"
         timeEstimate="2 minutes"
-        completed={
-          isBulkUnsubscribeConfigured || dismissedSteps.bulkUnsubscribe
-        }
+        completed={isBulkUnsubscribeConfigured}
         actionText="View"
         onMarkDone={() => handleMarkStepDone("bulkUnsubscribe")}
         showMarkDone
         markDoneDisabled={isDismissingStep}
+        markDonePending={pendingStep === "bulkUnsubscribe"}
       />
 
       <StepItem
@@ -370,11 +372,12 @@ function Checklist({
         icon={<CalendarIcon size={18} />}
         title="Connect your calendar"
         timeEstimate="2 minutes"
-        completed={isCalendarConnected || dismissedSteps.calendarConnected}
+        completed={isCalendarConnected}
         actionText="Connect"
         onMarkDone={() => handleMarkStepDone("calendarConnected")}
         showMarkDone
         markDoneDisabled={isDismissingStep}
+        markDonePending={pendingStep === "calendarConnected"}
       />
 
       {teamInvite && (
@@ -383,10 +386,11 @@ function Checklist({
           icon={<UsersIcon size={18} />}
           title="Invite team members"
           timeEstimate="2 minutes"
-          completed={teamInvite.completed || dismissedSteps.teamInvite}
+          completed={teamInvite.completed}
           actionText="Invite"
           onMarkDone={() => handleMarkStepDone("teamInvite")}
           markDoneDisabled={isDismissingStep}
+          markDonePending={pendingStep === "teamInvite"}
           showMarkDone
           markDoneText="Skip"
           onActionClick={handleOpenInviteModal}
@@ -409,10 +413,11 @@ function Checklist({
           icon={<ChromeIcon size={18} />}
           title={`Optional: Install the ${BRAND_NAME} Tabs extension`}
           timeEstimate="1 minute"
-          completed={isTabsExtensionCompleted || dismissedSteps.tabsExtension}
+          completed={isTabsExtensionCompleted}
           actionText="Install"
           onMarkDone={() => handleMarkStepDone("tabsExtension")}
           markDoneDisabled={isDismissingStep}
+          markDonePending={pendingStep === "tabsExtension"}
           showMarkDone={true}
         />
       )}
@@ -475,25 +480,12 @@ function SetupPageContent({
   } | null;
   onSetupProgressChanged: () => void;
 }) {
-  const [dismissedSteps, setDismissedSteps] = useState<DismissedSetupSteps>({});
-  const adjustedCompletedCount = getAdjustedCompletedCount({
-    completedCount,
-    dismissedSteps,
-    isAiAssistantConfigured,
-    isBulkUnsubscribeConfigured,
-    isCalendarConnected,
-    teamInvite,
-    totalSteps,
-  });
-  const isSetupCompleteWithDismissals =
-    isSetupComplete || adjustedCompletedCount >= totalSteps;
-
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
       <div className="mb-4 sm:mb-8">
         <PageHeading className="text-center">{`Welcome to ${BRAND_NAME}`}</PageHeading>
         <SectionDescription className="mt-2 text-center text-base">
-          {isSetupCompleteWithDismissals
+          {isSetupComplete
             ? "What would you like to do?"
             : `Complete these steps to get the most out of ${BRAND_NAME}`}
         </SectionDescription>
@@ -501,7 +493,7 @@ function SetupPageContent({
 
       {/* <StatsCardGrid /> */}
 
-      {isSetupCompleteWithDismissals ? (
+      {isSetupComplete ? (
         <FeatureGrid emailAccountId={emailAccountId} provider={provider} />
       ) : (
         <Checklist
@@ -511,57 +503,12 @@ function SetupPageContent({
           isAiAssistantConfigured={isAiAssistantConfigured}
           isCalendarConnected={isCalendarConnected}
           isTabsExtensionCompleted={isTabsExtensionCompleted}
-          completedCount={adjustedCompletedCount}
+          completedCount={completedCount}
           totalSteps={totalSteps}
           teamInvite={teamInvite}
-          dismissedSteps={dismissedSteps}
-          onDismissStepLocally={(stepKey, dismissed = true) => {
-            setDismissedSteps((prev) => ({ ...prev, [stepKey]: dismissed }));
-          }}
           onSetupProgressChanged={onSetupProgressChanged}
         />
       )}
     </div>
   );
-}
-
-function getAdjustedCompletedCount({
-  completedCount,
-  dismissedSteps,
-  isAiAssistantConfigured,
-  isBulkUnsubscribeConfigured,
-  isCalendarConnected,
-  teamInvite,
-  totalSteps,
-}: {
-  completedCount: number;
-  dismissedSteps: DismissedSetupSteps;
-  isAiAssistantConfigured: boolean;
-  isBulkUnsubscribeConfigured: boolean;
-  isCalendarConnected: boolean;
-  teamInvite: {
-    completed: boolean;
-    organizationId: string | undefined;
-  } | null;
-  totalSteps: number;
-}) {
-  let adjustedCompletedCount = completedCount;
-
-  if (!isAiAssistantConfigured && dismissedSteps.aiAssistant) {
-    adjustedCompletedCount += 1;
-  }
-
-  if (!isBulkUnsubscribeConfigured && dismissedSteps.bulkUnsubscribe) {
-    adjustedCompletedCount += 1;
-  }
-
-  if (!isCalendarConnected && dismissedSteps.calendarConnected) {
-    adjustedCompletedCount += 1;
-  }
-
-  if (teamInvite && !teamInvite.completed && dismissedSteps.teamInvite) {
-    adjustedCompletedCount += 1;
-  }
-
-  return Math.min(adjustedCompletedCount, totalSteps);
 }
