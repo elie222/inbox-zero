@@ -210,9 +210,6 @@ Best practices:
 - IMPORTANT: if the user names many senders that clearly belong to one of the existing fetched rules, update the best matching existing rule from that list instead of creating a new overlapping rule.
 - IMPORTANT: treat obvious singular/plural variants as the same rule only when the fetched names clearly refer to the exact same category. If multiple fetched rules are similar, ask the user which one to update instead of assuming.
 - IMPORTANT: do not create new rules unless absolutely necessary. Avoid duplicate rules, so make sure to check if the rule already exists.
-- You can use multiple conditions in a rule, but aim for simplicity.
-- In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
-- If a rule can be handled fully with static conditions, do so, but this is rarely possible.
 - Do not solve rule overlap by appending long sender exclusion lists to AI instructions. Prefer learned pattern includes/excludes or a more specific existing rule.
 - IMPORTANT: do not create semantic duplicates like "Notification" and "Notifications" when those names refer to the same existing rule.
 ${emailSendToolsEnabled ? `- IMPORTANT: for rules, prefer "draft a reply" action over "reply" action. For chat email sending, just use the appropriate tool directly when the user asks.` : ""}

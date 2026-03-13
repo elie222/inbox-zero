@@ -11,9 +11,6 @@ describe("assistant chat prompt contract", () => {
     expect(source).toContain(
       "Prefer learned patterns over static sender lists when updating an existing categorization rule for recurring senders.",
     );
-    expect(source).toContain(
-      'In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.',
-    );
   });
 
   it("preserves chat-specific guidance for existing fetched rules and excludes", () => {
