@@ -1143,7 +1143,7 @@ async function resolveThreadLabel({
   if (existingLabel) {
     return {
       labelId: existingLabel.id,
-      labelName: labelName ?? existingLabel.name,
+      labelName: existingLabel.name,
     };
   }
 

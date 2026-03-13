@@ -17,6 +17,7 @@ vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
+const TEST_EMAIL = "user@test.com";
 const logger = createScopedLogger("chat-inbox-tools-test");
 
 describe("chat inbox tools", () => {
@@ -27,11 +28,11 @@ describe("chat inbox tools", () => {
   it("adds formatted from header when sending an email", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       name: "Test User",
-      email: "sender@example.com",
+      email: TEST_EMAIL,
     } as any);
 
     const toolInstance = sendEmailTool({
-      email: "sender@example.com",
+      email: TEST_EMAIL,
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
@@ -53,14 +54,14 @@ describe("chat inbox tools", () => {
         to: "recipient@example.com",
         subject: "Hello",
         messageHtml: "<p>Hi there</p>",
-        from: "Test User <sender@example.com>",
+        from: `Test User <${TEST_EMAIL}>`,
       },
     });
   });
 
   it("rejects sendEmail input when recipient has no email address", async () => {
     const toolInstance = sendEmailTool({
-      email: "sender@example.com",
+      email: TEST_EMAIL,
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
@@ -81,7 +82,7 @@ describe("chat inbox tools", () => {
   it("prepares threaded reply flow without sending immediately", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       name: "Test User",
-      email: "sender@example.com",
+      email: TEST_EMAIL,
     } as any);
 
     const message: ParsedMessage = {
@@ -92,7 +93,7 @@ describe("chat inbox tools", () => {
       inline: [],
       headers: {
         from: "contact@example.com",
-        to: "sender@example.com",
+        to: TEST_EMAIL,
         subject: "Question",
         date: "2026-02-18T00:00:00.000Z",
       },
@@ -109,7 +110,7 @@ describe("chat inbox tools", () => {
     } as any);
 
     const toolInstance = replyEmailTool({
-      email: "sender@example.com",
+      email: TEST_EMAIL,
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
@@ -141,7 +142,7 @@ describe("chat inbox tools", () => {
   it("prepares forward flow without sending immediately", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       name: "Test User",
-      email: "sender@example.com",
+      email: TEST_EMAIL,
     } as any);
 
     const message: ParsedMessage = {
@@ -152,7 +153,7 @@ describe("chat inbox tools", () => {
       inline: [],
       headers: {
         from: "contact@example.com",
-        to: "sender@example.com",
+        to: TEST_EMAIL,
         subject: "Question",
         date: "2026-02-18T00:00:00.000Z",
       },
@@ -169,7 +170,7 @@ describe("chat inbox tools", () => {
     } as any);
 
     const toolInstance = forwardEmailTool({
-      email: "sender@example.com",
+      email: TEST_EMAIL,
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
@@ -202,7 +203,7 @@ describe("chat inbox tools", () => {
 
   it("rejects forwardEmail input when recipient has no email address", async () => {
     const toolInstance = forwardEmailTool({
-      email: "sender@example.com",
+      email: TEST_EMAIL,
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
@@ -235,7 +236,7 @@ describe("chat inbox tools", () => {
     } as any);
 
     const toolInstance = manageInboxTool({
-      email: "sender@example.com",
+      email: TEST_EMAIL,
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
@@ -252,13 +253,13 @@ describe("chat inbox tools", () => {
     expect(archiveThreadWithLabel).toHaveBeenNthCalledWith(
       1,
       "thread-1",
-      "sender@example.com",
+      TEST_EMAIL,
       "Label_123",
     );
     expect(archiveThreadWithLabel).toHaveBeenNthCalledWith(
       2,
       "thread-2",
-      "sender@example.com",
+      TEST_EMAIL,
       "Label_123",
     );
     expect(result).toMatchObject({
@@ -270,7 +271,7 @@ describe("chat inbox tools", () => {
     });
   });
 
-  it("labels threads using label_threads with labelId", async () => {
+  it("prefers the provider label name when labelId resolves", async () => {
     const getThreadMessages = vi.fn().mockImplementation(async (threadId) => [
       {
         id: `${threadId}-message-1`,
@@ -295,7 +296,7 @@ describe("chat inbox tools", () => {
     } as any);
 
     const toolInstance = manageInboxTool({
-      email: "sender@example.com",
+      email: TEST_EMAIL,
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
@@ -304,7 +305,7 @@ describe("chat inbox tools", () => {
     const result = await (toolInstance.execute as any)({
       action: "label_threads",
       labelId: "Label_123",
-      labelName: "Finance",
+      labelName: "Old Finance",
       threadIds: ["thread-1", "thread-2"],
     });
 
@@ -361,7 +362,7 @@ describe("chat inbox tools", () => {
     } as any);
 
     const toolInstance = manageInboxTool({
-      email: "sender@example.com",
+      email: TEST_EMAIL,
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
@@ -404,7 +405,7 @@ describe("chat inbox tools", () => {
     } as any);
 
     const toolInstance = manageInboxTool({
-      email: "sender@example.com",
+      email: TEST_EMAIL,
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
@@ -446,7 +447,7 @@ describe("chat inbox tools", () => {
     } as any);
 
     const toolInstance = manageInboxTool({
-      email: "sender@example.com",
+      email: TEST_EMAIL,
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
