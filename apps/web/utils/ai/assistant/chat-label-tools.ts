@@ -2,6 +2,7 @@ import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
+import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
 const listLabelsInputSchema = z
@@ -147,8 +148,4 @@ async function trackToolCall({
 }) {
   logger.trace("Tracking tool call", { tool, email });
   return posthogCaptureEvent(email, "AI Assistant Chat Tool Call", { tool });
-}
-
-function normalizeLabelName(name: string) {
-  return name.trim().replace(/\s+/g, " ").toLowerCase();
 }

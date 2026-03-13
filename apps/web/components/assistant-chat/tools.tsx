@@ -56,6 +56,10 @@ import { formatShortDate } from "@/utils/date";
 import { trimToNonEmptyString } from "@/utils/string";
 import { getEmailSearchUrl, getEmailUrlForMessage } from "@/utils/url";
 import {
+  isManageInboxAction,
+  type ManageInboxAction,
+} from "@/utils/ai/assistant/manage-inbox-actions";
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -1177,27 +1181,10 @@ function CollapsibleDiffContent({
   );
 }
 
-type ManageInboxAction =
-  | "archive_threads"
-  | "label_threads"
-  | "mark_read_threads"
-  | "bulk_archive_senders"
-  | "unsubscribe_senders";
-
 function parseManageInboxAction(
   action: string | undefined,
 ): ManageInboxAction | undefined {
-  if (
-    action === "archive_threads" ||
-    action === "label_threads" ||
-    action === "mark_read_threads" ||
-    action === "bulk_archive_senders" ||
-    action === "unsubscribe_senders"
-  ) {
-    return action;
-  }
-
-  return undefined;
+  return isManageInboxAction(action) ? action : undefined;
 }
 
 export function getManageInboxActionLabel({

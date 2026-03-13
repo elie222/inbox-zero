@@ -27,6 +27,7 @@ import {
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
 import { formatToolLabel } from "@/components/assistant-chat/tool-label";
+import { requiresThreadIds } from "@/utils/ai/assistant/manage-inbox-actions";
 
 interface MessagePartProps {
   disableConfirm: boolean;
@@ -209,7 +210,10 @@ export function MessagePart({
       const actionText = getManageInboxActionLabel({
         action: part.input.action,
         read: part.input.read ?? true,
-        labelApplied: Boolean(part.input.label || part.input.labelId),
+        labelApplied:
+          part.input.action === "archive_threads"
+            ? Boolean(part.input.label)
+            : Boolean(part.input.label || part.input.labelId),
         inProgress: true,
       });
 
@@ -226,9 +230,7 @@ export function MessagePart({
           input={part.input}
           output={output}
           threadIds={
-            part.input.action === "archive_threads" ||
-            part.input.action === "label_threads" ||
-            part.input.action === "mark_read_threads"
+            requiresThreadIds(part.input.action)
               ? (part.input.threadIds ?? undefined)
               : undefined
           }

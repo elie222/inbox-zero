@@ -16,10 +16,10 @@ describe("chat label tools", () => {
     vi.clearAllMocks();
   });
 
-  it("lists labels with an optional query filter", async () => {
+  it("lists labels with shared normalization-aware query filtering", async () => {
     vi.mocked(createEmailProvider).mockResolvedValue({
       getLabels: vi.fn().mockResolvedValue([
-        { id: "label-1", name: "Finance", type: "user" },
+        { id: "label-1", name: "Work-Items_/2026.Report", type: "user" },
         { id: "label-2", name: "Receipts", type: "user" },
       ]),
     } as any);
@@ -33,7 +33,7 @@ describe("chat label tools", () => {
 
     const result = await (toolInstance.execute as any)({
       action: "list",
-      query: "fin",
+      query: "work items /2026 report",
     });
 
     expect(result).toEqual({
@@ -41,17 +41,21 @@ describe("chat label tools", () => {
       totalCount: 1,
       returnedCount: 1,
       truncated: false,
-      labels: [{ id: "label-1", name: "Finance", type: "user" }],
+      labels: [
+        { id: "label-1", name: "Work-Items_/2026.Report", type: "user" },
+      ],
     });
   });
 
-  it("returns an existing exact label before creating a new one", async () => {
+  it("returns an existing normalized label before creating a new one", async () => {
     const getLabels = vi
       .fn()
-      .mockResolvedValue([{ id: "label-1", name: "Finance", type: "user" }]);
+      .mockResolvedValue([
+        { id: "label-1", name: "Work-Items_/2026.Report", type: "user" },
+      ]);
     const createLabel = vi.fn().mockResolvedValue({
       id: "label-2",
-      name: "Finance",
+      name: "Work-Items_/2026.Report",
       type: "user",
     });
 
@@ -69,13 +73,17 @@ describe("chat label tools", () => {
 
     const existingResult = await (toolInstance.execute as any)({
       action: "createOrGet",
-      name: " finance ",
+      name: " work items /2026 report ",
     });
 
     expect(existingResult).toEqual({
       action: "createOrGet",
       created: false,
-      label: { id: "label-1", name: "Finance", type: "user" },
+      label: {
+        id: "label-1",
+        name: "Work-Items_/2026.Report",
+        type: "user",
+      },
     });
     expect(createLabel).not.toHaveBeenCalled();
 
@@ -83,14 +91,18 @@ describe("chat label tools", () => {
 
     const createdResult = await (toolInstance.execute as any)({
       action: "createOrGet",
-      name: "Finance",
+      name: "Work-Items_/2026.Report",
     });
 
-    expect(createLabel).toHaveBeenCalledWith("Finance");
+    expect(createLabel).toHaveBeenCalledWith("Work-Items_/2026.Report");
     expect(createdResult).toEqual({
       action: "createOrGet",
       created: true,
-      label: { id: "label-2", name: "Finance", type: "user" },
+      label: {
+        id: "label-2",
+        name: "Work-Items_/2026.Report",
+        type: "user",
+      },
     });
   });
 });
