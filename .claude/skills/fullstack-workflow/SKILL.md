@@ -6,8 +6,6 @@ description: Complete fullstack workflow combining GET API routes, server action
 
 Complete guide for building features from API to UI, combining GET API routes, data fetching, form handling, and server actions.
 
-For server action client details (`actionClient` vs `actionClientUser` vs `adminActionClient`), see [server-actions.md](server-actions.md).
-
 ## Overview
 
 When building a new feature, follow this pattern:
@@ -48,7 +46,17 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
 
 ## 2. Server Action
 
-For mutations. Use `next-safe-action` with proper validation:
+For mutations. Use `next-safe-action` with proper validation.
+
+**Action clients** (defined in `utils/actions/safe-action.ts`):
+
+| Client | Context | Use when |
+|--------|---------|----------|
+| `actionClientUser` | `ctx.userId` | Only need authenticated user |
+| `actionClient` | `ctx.emailAccountId`, `ctx.userId` | Need user + email account (most mutations) |
+| `adminActionClient` | `ctx.userId` | Admin-only actions |
+
+Always use `.metadata({ name: "actionName" })` for Sentry instrumentation. Use `SafeError` for expected errors.
 
 **Validation Schema** (`apps/web/utils/actions/example.validation.ts`):
 ```typescript
