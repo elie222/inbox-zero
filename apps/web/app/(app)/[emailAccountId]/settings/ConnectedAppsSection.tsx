@@ -315,6 +315,8 @@ function ConnectedChannelRow({
     teamName: string | null;
     channelId: string | null;
     channelName: string | null;
+    canSendAsDm: boolean;
+    isDm: boolean;
   };
   emailAccountId: string;
   onUpdate: () => void;
@@ -385,8 +387,16 @@ function ConnectedChannelRow({
 
         {isSlackChannel && (
           <Select
-            value={channel.channelId ?? ""}
+            value={channel.isDm ? "dm" : (channel.channelId ?? "")}
             onValueChange={(value) => {
+              if (value === "dm") {
+                executeSetTarget({
+                  channelId: channel.id,
+                  targetId: "dm",
+                });
+                return;
+              }
+
               const target = privateTargets?.find((t) => t.id === value);
               if (!target) return;
 
@@ -410,14 +420,22 @@ function ConnectedChannelRow({
                       : "Select channel"
                 }
               >
-                {channel.channelName
-                  ? `#${channel.channelName}`
-                  : channel.channelId
-                    ? `#${channel.channelId}`
-                    : undefined}
+                {channel.isDm
+                  ? "Direct message"
+                  : channel.channelName
+                    ? `#${channel.channelName}`
+                    : channel.channelId
+                      ? `#${channel.channelId}`
+                      : undefined}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
+              {channel.canSendAsDm && (
+                <SelectItem value="dm">
+                  <MessageSquareIcon className="mr-1 inline h-3 w-3" />
+                  Direct message
+                </SelectItem>
+              )}
               {privateTargets?.map((target) => (
                 <SelectItem key={target.id} value={target.id}>
                   <LockIcon className="mr-1 inline h-3 w-3" />

@@ -1,6 +1,7 @@
 import prisma from "@/utils/prisma";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import {
+  resolveSlackDestination,
   sendDocumentFiledToSlack,
   sendDocumentAskToSlack,
 } from "@/utils/messaging/providers/slack/send";
@@ -28,6 +29,7 @@ export async function sendFilingSlackNotifications({
       provider: true,
       accessToken: true,
       channelId: true,
+      providerUserId: true,
     },
   });
 
@@ -48,15 +50,25 @@ export async function sendFilingSlackNotifications({
   const deliveryPromises: Promise<void>[] = [];
 
   for (const channel of channels) {
-    if (!channel.accessToken || !channel.channelId) continue;
+    if (!channel.accessToken) continue;
 
     switch (channel.provider) {
-      case MessagingProvider.SLACK:
+      case MessagingProvider.SLACK: {
+        const destination = await resolveSlackDestination({
+          accessToken: channel.accessToken,
+          channelId: channel.channelId,
+          providerUserId: channel.providerUserId,
+        }).catch((error: unknown) => {
+          log.error("Slack destination resolution failed", { error });
+          return null;
+        });
+        if (!destination) continue;
+
         if (filing.wasAsked) {
           deliveryPromises.push(
             sendDocumentAskToSlack({
               accessToken: channel.accessToken,
-              channelId: channel.channelId,
+              channelId: destination,
               filename: filing.filename,
               reasoning: filing.reasoning,
             }),
@@ -65,7 +77,7 @@ export async function sendFilingSlackNotifications({
           deliveryPromises.push(
             sendDocumentFiledToSlack({
               accessToken: channel.accessToken,
-              channelId: channel.channelId,
+              channelId: destination,
               filename: filing.filename,
               folderPath: filing.folderPath,
               driveProvider: filing.driveConnection.provider,
@@ -73,6 +85,7 @@ export async function sendFilingSlackNotifications({
           );
         }
         break;
+      }
     }
   }
 
