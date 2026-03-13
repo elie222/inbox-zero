@@ -3,6 +3,7 @@
 import { cn } from "@/utils";
 import { useCallback, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import {
   ArchiveIcon,
@@ -173,7 +174,11 @@ const StepItem = ({
       className={`border-b border-border last:border-0 ${completed ? "opacity-60" : ""}`}
     >
       <div className="flex items-center justify-between gap-8 p-4">
-        <div className="flex max-w-lg items-center">
+        <Link
+          href={href}
+          {...linkProps}
+          className="flex max-w-lg min-w-0 flex-1 items-center rounded-md -m-2 p-2 transition-colors hover:bg-muted/40"
+        >
           <div
             className={cn(
               "p-px rounded-lg shadow-sm bg-gradient-to-b mr-3 flex flex-shrink-0 items-center justify-center",
@@ -195,18 +200,16 @@ const StepItem = ({
               {timeEstimate}
             </p>
           </div>
-        </div>
+        </Link>
 
         <div className="flex items-center gap-2">
           {completed ? (
-            <Link href={href} {...linkProps}>
-              <div className="flex size-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
-                <CheckIcon
-                  size={14}
-                  className="text-green-600 dark:text-green-400"
-                />
-              </div>
-            </Link>
+            <div className="flex size-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+              <CheckIcon
+                size={14}
+                className="text-green-600 dark:text-green-400"
+              />
+            </div>
           ) : (
             <>
               {onActionClick ? (
@@ -428,6 +431,8 @@ function Checklist({
 export function SetupContent() {
   const { emailAccountId, provider } = useAccount();
   const { data, isLoading, error, mutate } = useSetupProgress();
+  const searchParams = useSearchParams();
+  const forceSetupMode = searchParams.get("forceSetup") === "1";
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -442,6 +447,7 @@ export function SetupContent() {
           completedCount={data.completed}
           totalSteps={data.total}
           isSetupComplete={data.isComplete}
+          forceSetupMode={forceSetupMode}
           teamInvite={data.teamInvite}
           onSetupProgressChanged={() => {
             mutate();
@@ -462,6 +468,7 @@ function SetupPageContent({
   completedCount,
   totalSteps,
   isSetupComplete,
+  forceSetupMode,
   teamInvite,
   onSetupProgressChanged,
 }: {
@@ -474,28 +481,29 @@ function SetupPageContent({
   completedCount: number;
   totalSteps: number;
   isSetupComplete: boolean;
+  forceSetupMode: boolean;
   teamInvite: {
     completed: boolean;
     organizationId: string | undefined;
   } | null;
   onSetupProgressChanged: () => void;
 }) {
+  const shouldShowSetupChecklist = forceSetupMode || !isSetupComplete;
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
       <div className="mb-4 sm:mb-8">
         <PageHeading className="text-center">{`Welcome to ${BRAND_NAME}`}</PageHeading>
         <SectionDescription className="mt-2 text-center text-base">
-          {isSetupComplete
-            ? "What would you like to do?"
-            : `Complete these steps to get the most out of ${BRAND_NAME}`}
+          {shouldShowSetupChecklist
+            ? `Complete these steps to get the most out of ${BRAND_NAME}`
+            : "What would you like to do?"}
         </SectionDescription>
       </div>
 
       {/* <StatsCardGrid /> */}
 
-      {isSetupComplete ? (
-        <FeatureGrid emailAccountId={emailAccountId} provider={provider} />
-      ) : (
+      {shouldShowSetupChecklist ? (
         <Checklist
           emailAccountId={emailAccountId}
           provider={provider}
@@ -508,6 +516,8 @@ function SetupPageContent({
           teamInvite={teamInvite}
           onSetupProgressChanged={onSetupProgressChanged}
         />
+      ) : (
+        <FeatureGrid emailAccountId={emailAccountId} provider={provider} />
       )}
     </div>
   );
