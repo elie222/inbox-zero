@@ -1,6 +1,9 @@
 import { describe, test, expect, vi, afterAll } from "vitest";
 import { SystemType } from "@/generated/prisma/enums";
-import { describeEvalMatrix } from "@/__tests__/eval/models";
+import {
+  describeEvalMatrix,
+  shouldRunEvalTests,
+} from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/ai/choose-rule/run-rules";
@@ -12,7 +15,7 @@ import { getEmail, getRule } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
-const isAiTest = process.env.RUN_AI_TESTS === "true";
+const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 
 // Default system rules — mirrors what aiChooseRule actually receives in production.
@@ -330,7 +333,7 @@ GreenLeaf Goods LLC | 200 Elm Street, Portland, OR 97201`,
   },
 ];
 
-describe.runIf(isAiTest)("Eval: Choose Rule", () => {
+describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
   const evalReporter = createEvalReporter();
 
   describeEvalMatrix("choose-rule", (model, emailAccount) => {

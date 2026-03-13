@@ -1,12 +1,15 @@
 import { afterAll, describe, expect, test, vi } from "vitest";
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
 import { getEmail } from "@/__tests__/helpers";
-import { describeEvalMatrix } from "@/__tests__/eval/models";
+import {
+  describeEvalMatrix,
+  shouldRunEvalTests,
+} from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 
 // pnpm test-ai eval/draft-reply
 
-const isAiTest = process.env.RUN_AI_TESTS === "true";
+const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 90_000;
 
 vi.mock("server-only", () => ({}));
@@ -34,7 +37,7 @@ function hasSpecificTimes(reply: string): boolean {
   return TIME_SLOT_PATTERN.test(reply) || SPECIFIC_TIME_PATTERN.test(reply);
 }
 
-describe.runIf(isAiTest)("draft-reply eval", () => {
+describe.runIf(shouldRunEval)("draft-reply eval", () => {
   const evalReporter = createEvalReporter();
 
   describeEvalMatrix("draft quality", (model, emailAccount) => {

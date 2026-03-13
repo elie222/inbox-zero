@@ -1,5 +1,8 @@
 import { describe, test, expect, vi, afterAll } from "vitest";
-import { describeEvalMatrix } from "@/__tests__/eval/models";
+import {
+  describeEvalMatrix,
+  shouldRunEvalTests,
+} from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { defaultCategory } from "@/utils/categories";
@@ -9,7 +12,7 @@ import { defaultCategory } from "@/utils/categories";
 
 vi.mock("server-only", () => ({}));
 
-const isAiTest = process.env.RUN_AI_TESTS === "true";
+const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 
 // Enabled categories: Newsletter, Marketing, Receipt, Notification, Other
@@ -355,7 +358,7 @@ const testCases = [
   },
 ];
 
-describe.runIf(isAiTest)("Eval: Categorize Senders", () => {
+describe.runIf(shouldRunEval)("Eval: Categorize Senders", () => {
   const evalReporter = createEvalReporter();
 
   describeEvalMatrix("categorize", (model, emailAccount) => {
