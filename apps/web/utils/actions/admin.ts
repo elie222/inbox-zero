@@ -635,83 +635,87 @@ async function removeUserFromPremiumForAdmin({
   premiumId: string;
   userId: string;
 }) {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      return await prisma.$transaction(
-        async (tx) => {
-          const premium = await tx.premium.findUnique({
-            where: { id: premiumId },
-            select: {
-              _count: {
-                select: {
-                  users: true,
-                },
-              },
-              users: {
-                where: { id: userId },
-                select: {
-                  id: true,
-                  email: true,
-                  _count: {
-                    select: {
-                      emailAccounts: true,
-                    },
-                  },
-                },
-              },
-            },
-          });
+  const [result] = await prisma.$queryRaw<
+    {
+      premium_exists: boolean;
+      user_exists: boolean;
+      user_count: number;
+      removed_user_id: string | null;
+      removed_user_email: string | null;
+      seats_freed: number;
+    }[]
+  >(Prisma.sql`
+    WITH premium_lock AS (
+      SELECT pg_advisory_xact_lock(hashtext(${premiumId}))
+    ),
+    premium_state AS (
+      SELECT
+        EXISTS(SELECT 1 FROM "Premium" WHERE "id" = ${premiumId}) AS premium_exists,
+        EXISTS(
+          SELECT 1
+          FROM "User"
+          WHERE "id" = ${userId}
+            AND "premiumId" = ${premiumId}
+        ) AS user_exists,
+        (
+          SELECT COUNT(*)::int
+          FROM "User"
+          WHERE "premiumId" = ${premiumId}
+        ) AS user_count
+      FROM premium_lock
+    ),
+    updated_user AS (
+      UPDATE "User"
+      SET
+        "premiumId" = NULL,
+        "premiumAdminId" = CASE
+          WHEN "premiumAdminId" = ${premiumId} THEN NULL
+          ELSE "premiumAdminId"
+        END
+      WHERE "id" = ${userId}
+        AND "premiumId" = ${premiumId}
+        AND (SELECT user_count FROM premium_state) > 1
+      RETURNING
+        "id" AS removed_user_id,
+        "email" AS removed_user_email
+    ),
+    user_seats AS (
+      SELECT COUNT(*)::int AS seats_freed
+      FROM "EmailAccount"
+      WHERE "userId" = ${userId}
+    )
+    SELECT
+      premium_state.premium_exists,
+      premium_state.user_exists,
+      premium_state.user_count,
+      updated_user.removed_user_id,
+      updated_user.removed_user_email,
+      user_seats.seats_freed
+    FROM premium_state
+    CROSS JOIN user_seats
+    LEFT JOIN updated_user ON true
+  `);
 
-          if (!premium) {
-            throw new SafeError("Premium not found");
-          }
-
-          const premiumUser = premium.users[0];
-
-          if (!premiumUser) {
-            throw new SafeError("User is not on this premium");
-          }
-
-          if (premium._count.users === 1) {
-            throw new SafeError("Cannot remove the last user from a premium");
-          }
-
-          await tx.premium.update({
-            where: { id: premiumId },
-            data: {
-              users: { disconnect: { id: userId } },
-              admins: { disconnect: { id: userId } },
-            },
-          });
-
-          return {
-            premiumId,
-            removedUserId: premiumUser.id,
-            removedUserEmail: premiumUser.email,
-            seatsFreed: premiumUser._count.emailAccounts,
-          };
-        },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
-    } catch (error) {
-      // Retry one serializable conflict so concurrent removals settle on the
-      // current membership state instead of leaking a write-skew race.
-      if (isTransactionConflict(error) && attempt === 0) {
-        continue;
-      }
-
-      throw error;
-    }
+  if (!result?.premium_exists) {
+    throw new SafeError("Premium not found");
   }
 
-  throw new SafeError("Failed to remove user from premium");
-}
+  if (!result.user_exists) {
+    throw new SafeError("User is not on this premium");
+  }
 
-function isTransactionConflict(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "P2034"
-  );
+  if (result.user_count === 1) {
+    throw new SafeError("Cannot remove the last user from a premium");
+  }
+
+  if (!result.removed_user_id || !result.removed_user_email) {
+    throw new SafeError("Failed to remove user from premium");
+  }
+
+  return {
+    premiumId,
+    removedUserId: result.removed_user_id,
+    removedUserEmail: result.removed_user_email,
+    seatsFreed: result.seats_freed,
+  };
 }
