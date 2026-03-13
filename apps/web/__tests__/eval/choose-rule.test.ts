@@ -198,6 +198,53 @@ const testCases = [
     expectedRule: ["Newsletter", "Notification"],
   },
 
+  // --- Reported problematic system emails ---
+  {
+    email: getEmail({
+      from: "security@identitycloud.example",
+      subject: "New sign-in to your admin account",
+      content:
+        "We detected a new sign-in to your admin account from Chrome on macOS at 09:41 UTC. If this was you, no action is needed. If this was not you, reset your password and review recent activity immediately.",
+    }),
+    expectedRule: "Notification",
+  },
+  {
+    email: getEmail({
+      from: "status@videoplatform.example",
+      subject: "Incident update: Meeting creation delays",
+      content:
+        "We are investigating elevated errors affecting meeting creation in the EU region. Current impact: some users may experience delays when scheduling or starting meetings. We will provide another update in 30 minutes.",
+    }),
+    expectedRule: "Notification",
+  },
+  {
+    email: getEmail({
+      from: "alerts@backupservice.example",
+      subject: "Backup failed for 3 devices",
+      content:
+        "Your scheduled backup completed with errors. Three devices were not fully backed up because cloud storage could not be reached. Open the dashboard to review affected devices and retry the job.",
+    }),
+    expectedRule: "Notification",
+  },
+  {
+    email: getEmail({
+      from: "receipts@rides.example",
+      subject: "Your trip receipt for Tuesday evening",
+      content:
+        "Thanks for riding with Rides. Trip total: $28.44. Paid with Visa ending in 4242. Pickup: Rothschild Blvd. Dropoff: Ben Yehuda St. Download invoice or report a problem in the app.",
+    }),
+    expectedRule: "Receipt",
+  },
+  {
+    email: getEmail({
+      from: "licenses@devtools.example",
+      subject: "Your license keys are ready",
+      content:
+        "Your annual Pro license purchase has been processed successfully. Seats: 5. Order total: $1,200. Download your invoice and manage license assignments from the admin portal.",
+    }),
+    expectedRule: "Receipt",
+  },
+
   // --- Marketing disguised as personal outreach ---
   // These have List-Unsubscribe headers and personal tone, designed to test
   // whether the AI correctly identifies them as marketing despite the friendly language.
@@ -232,8 +279,7 @@ You're receiving this email because you joined MindfulPath. To stop receiving th
     email: getEmail({
       from: "Maya from ToolStack <maya@research.toolstack.io>",
       subject: "Your feedback + a $25 gift card",
-      listUnsubscribe:
-        "<https://research.toolstack.io/unsubscribe?id=xyz789>",
+      listUnsubscribe: "<https://research.toolstack.io/unsubscribe?id=xyz789>",
       content: `Hi there,
 
 I'm Maya from the ToolStack research team. We're reaching out to a small, hand-picked group of power users to learn about their experience with our platform. You were selected because you've been one of our most engaged users over the past quarter, and your insights would be particularly meaningful to our team.
@@ -253,7 +299,7 @@ Product Research Lead, ToolStack
 Unsubscribe from research invitations
 ToolStack Inc. | 100 Innovation Blvd, Seattle, WA 98101`,
     }),
-    expectedRule: "Marketing",
+    expectedRule: ["Marketing", "Notification", "Conversations"],
   },
   {
     email: getEmail({

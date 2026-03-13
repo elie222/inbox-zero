@@ -82,7 +82,10 @@ EXCLUDE:
 - System emails (order confirmations, receipts, calendar invites)
 - Emails with List-Unsubscribe headers or unsubscribe links are a strong signal of mass/automated emails
 
-NOTE: When this rule matches, it should typically be the primary match.`;
+IMPORTANT:
+- This rule is ONLY for human-to-human communication.
+- If the email is automated or system-generated and another rule is a better fit, do not use this rule.
+- Keep this rule as the primary match for genuine human conversations.`;
 
 export async function runRules({
   provider,
