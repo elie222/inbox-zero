@@ -42,9 +42,9 @@ export const updateFollowUpSettingsAction = actionClient
         data: {
           followUpAwaitingReplyDays,
           followUpNeedsReplyDays,
-          followUpAutoDraftEnabled: env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
-            ? false
-            : followUpAutoDraftEnabled,
+          ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
+            ? {}
+            : { followUpAutoDraftEnabled }),
         },
       });
     },
