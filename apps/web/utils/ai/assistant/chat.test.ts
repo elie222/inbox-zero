@@ -17,7 +17,7 @@ describe("assistant chat prompt contract", () => {
       "Use static conditions for exact deterministic matching, but keep them short and specific.",
     );
     expect(guidanceSource).toContain(
-      'In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.',
+      "if two candidate rules are near-duplicates or overlap heavily, consolidate them instead of creating both.",
     );
   });
 
@@ -26,6 +26,9 @@ describe("assistant chat prompt contract", () => {
 
     expect(source).toContain(
       "update the best matching existing rule from that list instead of creating a new overlapping rule.",
+    );
+    expect(source).toContain(
+      "If multiple fetched rules are similar, ask the user which one to update instead of assuming.",
     );
     expect(source).toContain(
       "Pipe-separated sender lists are a last resort for a small explicit set.",
