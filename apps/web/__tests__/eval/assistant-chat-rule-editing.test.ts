@@ -9,6 +9,11 @@ import {
   LogicalOperator,
 } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
+import {
+  getDefaultActions,
+  getRuleConfig,
+  SYSTEM_RULE_ORDER,
+} from "@/utils/rule/consts";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 
 // pnpm test-ai eval/assistant-chat-rule-editing
@@ -33,6 +38,10 @@ const TIMEOUT = 60_000;
 const evalReporter = createEvalReporter();
 const logger = createScopedLogger("eval-assistant-chat-rule-editing");
 const notificationRuleUpdatedAt = new Date("2026-03-13T00:00:00.000Z");
+const defaultRuleRows = getDefaultRuleRows();
+const defaultRuleRowsByName = new Map(
+  defaultRuleRows.map((rule) => [rule.name, rule]),
+);
 
 const {
   mockCreateRule,
@@ -134,7 +143,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
         if (select?.rules) {
           return {
             about: "My name is Test User, and I manage a company inbox.",
-            rules: getRuleRows(),
+            rules: defaultRuleRows,
           };
         }
 
@@ -164,73 +173,9 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
             },
           };
         }
-
-        return {
-          id: "notification-rule-id",
-          name: "Notification",
-          updatedAt: notificationRuleUpdatedAt,
-          instructions:
-            "Notifications: Alerts, status updates, or system messages",
-          from: null,
-          to: null,
-          subject: null,
-          conditionalOperator: LogicalOperator.AND,
-          actions: [
-            {
-              type: ActionType.LABEL,
-              content: null,
-              label: "Notification",
-              to: null,
-              cc: null,
-              bcc: null,
-              subject: null,
-              url: null,
-              folderName: null,
-            },
-            {
-              type: ActionType.ARCHIVE,
-              content: null,
-              label: null,
-              to: null,
-              cc: null,
-              bcc: null,
-              subject: null,
-              url: null,
-              folderName: null,
-            },
-          ],
-        };
       }
 
-      if (ruleName === "Newsletter") {
-        return {
-          id: "newsletter-rule-id",
-          name: "Newsletter",
-          updatedAt: notificationRuleUpdatedAt,
-          instructions:
-            "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
-          from: null,
-          to: null,
-          subject: null,
-          conditionalOperator: LogicalOperator.AND,
-        };
-      }
-
-      if (ruleName === "Marketing") {
-        return {
-          id: "marketing-rule-id",
-          name: "Marketing",
-          updatedAt: notificationRuleUpdatedAt,
-          instructions:
-            "Marketing: Promotional emails about products, services, sales, or offers",
-          from: null,
-          to: null,
-          subject: null,
-          conditionalOperator: LogicalOperator.AND,
-        };
-      }
-
-      return null;
+      return ruleName ? (defaultRuleRowsByName.get(ruleName) ?? null) : null;
     });
 
     mockCreateEmailProvider.mockResolvedValue({
@@ -238,11 +183,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
         messages: [],
         nextPageToken: undefined,
       }),
-      getLabels: vi.fn().mockResolvedValue([
-        { id: "Label_Notification", name: "Notification" },
-        { id: "Label_Newsletter", name: "Newsletter" },
-        { id: "Label_Marketing", name: "Marketing" },
-      ]),
+      getLabels: vi.fn().mockResolvedValue(getDefaultLabels()),
       archiveThreadWithLabel: vi.fn(),
       markReadThread: vi.fn(),
       bulkArchiveFromSenders: vi.fn(),
@@ -336,96 +277,6 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
     evalReporter.printReport();
   });
 });
-
-function getRuleRows() {
-  return [
-    {
-      name: "Notification",
-      instructions: "Notifications: Alerts, status updates, or system messages",
-      updatedAt: notificationRuleUpdatedAt,
-      from: null,
-      to: null,
-      subject: null,
-      conditionalOperator: LogicalOperator.AND,
-      enabled: true,
-      runOnThreads: false,
-      actions: [
-        {
-          type: ActionType.LABEL,
-          content: null,
-          label: "Notification",
-          to: null,
-          cc: null,
-          bcc: null,
-          subject: null,
-          url: null,
-          folderName: null,
-        },
-        {
-          type: ActionType.ARCHIVE,
-          content: null,
-          label: null,
-          to: null,
-          cc: null,
-          bcc: null,
-          subject: null,
-          url: null,
-          folderName: null,
-        },
-      ],
-    },
-    {
-      name: "Newsletter",
-      instructions:
-        "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
-      updatedAt: notificationRuleUpdatedAt,
-      from: null,
-      to: null,
-      subject: null,
-      conditionalOperator: LogicalOperator.AND,
-      enabled: true,
-      runOnThreads: false,
-      actions: [
-        {
-          type: ActionType.LABEL,
-          content: null,
-          label: "Newsletter",
-          to: null,
-          cc: null,
-          bcc: null,
-          subject: null,
-          url: null,
-          folderName: null,
-        },
-      ],
-    },
-    {
-      name: "Marketing",
-      instructions:
-        "Marketing: Promotional emails about products, services, sales, or offers",
-      updatedAt: notificationRuleUpdatedAt,
-      from: null,
-      to: null,
-      subject: null,
-      conditionalOperator: LogicalOperator.AND,
-      enabled: true,
-      runOnThreads: false,
-      actions: [
-        {
-          type: ActionType.LABEL,
-          content: null,
-          label: "Marketing",
-          to: null,
-          cc: null,
-          bcc: null,
-          subject: null,
-          url: null,
-          folderName: null,
-        },
-      ],
-    },
-  ];
-}
 
 async function runAssistantChat({
   emailAccount,
@@ -534,4 +385,46 @@ function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {
   }
 
   return toolCall.toolName;
+}
+
+function getDefaultRuleRows() {
+  return SYSTEM_RULE_ORDER.map((systemType) => {
+    const config = getRuleConfig(systemType);
+
+    return {
+      id: `${systemType.toLowerCase()}-rule-id`,
+      name: config.name,
+      instructions: config.instructions,
+      updatedAt: notificationRuleUpdatedAt,
+      from: null,
+      to: null,
+      subject: null,
+      conditionalOperator: LogicalOperator.AND,
+      enabled: true,
+      runOnThreads: config.runOnThreads,
+      systemType,
+      actions: getDefaultActions(systemType, "google").map((action) => ({
+        type: action.type,
+        content: action.content,
+        label: action.label,
+        to: action.to,
+        cc: action.cc,
+        bcc: action.bcc,
+        subject: action.subject,
+        url: action.url,
+        folderName: action.folderName,
+      })),
+    };
+  });
+}
+
+function getDefaultLabels() {
+  return defaultRuleRows.flatMap((rule) =>
+    rule.actions
+      .filter((action) => action.type === ActionType.LABEL && action.label)
+      .map((action) => ({
+        id: `Label_${action.label}`,
+        name: action.label!,
+      })),
+  );
 }
