@@ -157,6 +157,7 @@ export const env = createEnv({
 
     POSTHOG_API_SECRET: z.string().optional(),
     POSTHOG_PROJECT_ID: z.string().optional(),
+    POSTHOG_LLM_EVALS_APPROVED_EMAILS: z.string().optional(),
 
     RESEND_API_KEY: z.string().optional(),
     RESEND_AUDIENCE_ID: z.string().optional(),
