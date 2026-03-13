@@ -4,7 +4,7 @@ import {
   adminGetUserInfoAction,
   adminRemoveUserFromPremiumAction,
 } from "@/utils/actions/admin";
-import { removeUserFromPremium } from "@/utils/premium/server";
+import { syncPremiumSeats } from "@/utils/premium/server";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -39,6 +39,7 @@ vi.mock("@/utils/ai/draft-cleanup", () => ({
 }));
 vi.mock("@/utils/premium/server", () => ({
   removeUserFromPremium: vi.fn(),
+  syncPremiumSeats: vi.fn(),
 }));
 
 describe("adminGetUserInfoAction", () => {
@@ -55,6 +56,7 @@ describe("adminGetUserInfoAction", () => {
 
     prisma.user.findUnique.mockResolvedValue({
       id: "user-1",
+      email: "owner@example.com",
       createdAt,
       lastLogin,
       premium: {
@@ -154,6 +156,7 @@ describe("adminGetUserInfoAction", () => {
 
     expect(result?.data).toMatchObject({
       id: "user-1",
+      email: "owner@example.com",
       emailAccountCount: 1,
       premium: {
         id: "premium-1",
@@ -224,6 +227,7 @@ describe("adminGetUserInfoAction", () => {
 
     prisma.user.findUnique.mockResolvedValue({
       id: "user-1",
+      email: "owner@example.com",
       createdAt,
       lastLogin: null,
       premium: null,
@@ -301,24 +305,24 @@ describe("adminGetUserInfoAction", () => {
         },
       ],
     });
+    expect(result?.data?.email).toBe("owner@example.com");
   });
 });
 
 describe("adminRemoveUserFromPremiumAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) =>
+      callback(prisma),
+    );
   });
 
   it("removes a user from a shared premium", async () => {
     prisma.premium.findUnique.mockResolvedValue({
+      _count: {
+        users: 2,
+      },
       users: [
-        {
-          id: "user-1",
-          email: "owner@example.com",
-          _count: {
-            emailAccounts: 1,
-          },
-        },
         {
           id: "user-2",
           email: "member@example.com",
@@ -328,16 +332,21 @@ describe("adminRemoveUserFromPremiumAction", () => {
         },
       ],
     } as any);
+    prisma.premium.update.mockResolvedValue({} as any);
 
     const result = await adminRemoveUserFromPremiumAction({
       premiumId: "premium-1",
       userId: "user-2",
     });
 
-    expect(removeUserFromPremium).toHaveBeenCalledWith({
-      premiumId: "premium-1",
-      visitorId: "user-2",
+    expect(prisma.premium.update).toHaveBeenCalledWith({
+      where: { id: "premium-1" },
+      data: {
+        users: { disconnect: { id: "user-2" } },
+        admins: { disconnect: { id: "user-2" } },
+      },
     });
+    expect(syncPremiumSeats).toHaveBeenCalledWith("premium-1");
     expect(result?.data).toEqual({
       premiumId: "premium-1",
       removedUserId: "user-2",
@@ -348,6 +357,9 @@ describe("adminRemoveUserFromPremiumAction", () => {
 
   it("prevents removing the last user from a premium", async () => {
     prisma.premium.findUnique.mockResolvedValue({
+      _count: {
+        users: 1,
+      },
       users: [
         {
           id: "user-2",
@@ -367,20 +379,16 @@ describe("adminRemoveUserFromPremiumAction", () => {
     expect(result?.serverError).toBe(
       "Cannot remove the last user from a premium",
     );
-    expect(removeUserFromPremium).not.toHaveBeenCalled();
+    expect(prisma.premium.update).not.toHaveBeenCalled();
+    expect(syncPremiumSeats).not.toHaveBeenCalled();
   });
 
   it("rejects removal when the user is not attached to the premium", async () => {
     prisma.premium.findUnique.mockResolvedValue({
-      users: [
-        {
-          id: "user-1",
-          email: "owner@example.com",
-          _count: {
-            emailAccounts: 1,
-          },
-        },
-      ],
+      _count: {
+        users: 2,
+      },
+      users: [],
     } as any);
 
     const result = await adminRemoveUserFromPremiumAction({
@@ -389,6 +397,46 @@ describe("adminRemoveUserFromPremiumAction", () => {
     });
 
     expect(result?.serverError).toBe("User is not on this premium");
-    expect(removeUserFromPremium).not.toHaveBeenCalled();
+    expect(prisma.premium.update).not.toHaveBeenCalled();
+    expect(syncPremiumSeats).not.toHaveBeenCalled();
+  });
+
+  it("retries transaction conflicts and clears admin membership in the same update", async () => {
+    const conflict = Object.assign(new Error("write conflict"), {
+      code: "P2034",
+    });
+    vi.mocked(prisma.$transaction)
+      .mockRejectedValueOnce(conflict)
+      .mockImplementationOnce(async (callback: any) => callback(prisma));
+    prisma.premium.findUnique.mockResolvedValue({
+      _count: {
+        users: 2,
+      },
+      users: [
+        {
+          id: "user-2",
+          email: "member@example.com",
+          _count: {
+            emailAccounts: 2,
+          },
+        },
+      ],
+    } as any);
+    prisma.premium.update.mockResolvedValue({} as any);
+
+    const result = await adminRemoveUserFromPremiumAction({
+      premiumId: "premium-1",
+      userId: "user-2",
+    });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(prisma.premium.update).toHaveBeenCalledWith({
+      where: { id: "premium-1" },
+      data: {
+        users: { disconnect: { id: "user-2" } },
+        admins: { disconnect: { id: "user-2" } },
+      },
+    });
+    expect(result?.data?.removedUserId).toBe("user-2");
   });
 });

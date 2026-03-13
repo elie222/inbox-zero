@@ -170,7 +170,10 @@ export async function removeUserFromPremium({
 }) {
   await prisma.premium.update({
     where: { id: premiumId },
-    data: { users: { disconnect: { id: visitorId } } },
+    data: {
+      users: { disconnect: { id: visitorId } },
+      admins: { disconnect: { id: visitorId } },
+    },
   });
   await syncPremiumSeats(premiumId);
 }

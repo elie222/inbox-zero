@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import type Stripe from "stripe";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { deleteUser } from "@/utils/user/delete";
 import prisma from "@/utils/prisma";
 import { adminActionClient } from "@/utils/actions/safe-action";
@@ -11,7 +11,7 @@ import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { getStripe } from "@/ee/billing/stripe";
 import { createEmailProvider } from "@/utils/email/provider";
 import { hash } from "@/utils/hash";
-import { removeUserFromPremium } from "@/utils/premium/server";
+import { syncPremiumSeats } from "@/utils/premium/server";
 import {
   hashEmailBody,
   convertGmailUrlBody,
@@ -375,6 +375,7 @@ export const adminGetUserInfoAction = adminActionClient
 
     return {
       id: user.id,
+      email: user.email,
       createdAt: user.createdAt,
       lastLogin: user.lastLogin,
       emailAccountCount: user._count.emailAccounts,
@@ -395,48 +396,13 @@ export const adminRemoveUserFromPremiumAction = adminActionClient
   .metadata({ name: "adminRemoveUserFromPremium" })
   .inputSchema(removeUserFromPremiumBody)
   .action(async ({ parsedInput: { premiumId, userId } }) => {
-    const premium = await prisma.premium.findUnique({
-      where: { id: premiumId },
-      select: {
-        users: {
-          select: {
-            id: true,
-            email: true,
-            _count: {
-              select: {
-                emailAccounts: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!premium) {
-      throw new SafeError("Premium not found");
-    }
-
-    const premiumUser = premium.users.find((user) => user.id === userId);
-
-    if (!premiumUser) {
-      throw new SafeError("User is not on this premium");
-    }
-
-    if (premium.users.length === 1) {
-      throw new SafeError("Cannot remove the last user from a premium");
-    }
-
-    await removeUserFromPremium({
+    const result = await removeUserFromPremiumForAdmin({
       premiumId,
-      visitorId: userId,
+      userId,
     });
+    await syncPremiumSeats(premiumId);
 
-    return {
-      premiumId,
-      removedUserId: premiumUser.id,
-      removedUserEmail: premiumUser.email,
-      seatsFreed: premiumUser._count.emailAccounts,
-    };
+    return result;
   });
 
 export const adminDisableAllRulesAction = adminActionClient
@@ -584,6 +550,7 @@ async function findUserWithDetails(email?: string, userId?: string) {
     where: email ? { email } : { id: userId },
     select: {
       id: true,
+      email: true,
       createdAt: true,
       lastLogin: true,
       premium: {
@@ -659,4 +626,92 @@ function formatAdminPremium(premium: AdminPremiumRecord | null | undefined) {
     pendingInvites: premium.pendingInvites,
     users,
   };
+}
+
+async function removeUserFromPremiumForAdmin({
+  premiumId,
+  userId,
+}: {
+  premiumId: string;
+  userId: string;
+}) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await prisma.$transaction(
+        async (tx) => {
+          const premium = await tx.premium.findUnique({
+            where: { id: premiumId },
+            select: {
+              _count: {
+                select: {
+                  users: true,
+                },
+              },
+              users: {
+                where: { id: userId },
+                select: {
+                  id: true,
+                  email: true,
+                  _count: {
+                    select: {
+                      emailAccounts: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          if (!premium) {
+            throw new SafeError("Premium not found");
+          }
+
+          const premiumUser = premium.users[0];
+
+          if (!premiumUser) {
+            throw new SafeError("User is not on this premium");
+          }
+
+          if (premium._count.users === 1) {
+            throw new SafeError("Cannot remove the last user from a premium");
+          }
+
+          await tx.premium.update({
+            where: { id: premiumId },
+            data: {
+              users: { disconnect: { id: userId } },
+              admins: { disconnect: { id: userId } },
+            },
+          });
+
+          return {
+            premiumId,
+            removedUserId: premiumUser.id,
+            removedUserEmail: premiumUser.email,
+            seatsFreed: premiumUser._count.emailAccounts,
+          };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      // Retry one serializable conflict so concurrent removals settle on the
+      // current membership state instead of leaking a write-skew race.
+      if (isTransactionConflict(error) && attempt === 0) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new SafeError("Failed to remove user from premium");
+}
+
+function isTransactionConflict(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2034"
+  );
 }

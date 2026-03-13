@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { AdminLabelValueRow } from "@/app/(app)/admin/AdminLabelValueRow";
 import {
   adminRemoveUserFromPremiumAction,
   type AdminPremiumMembership,
@@ -46,8 +47,11 @@ export function AdminPremiumMembershipSection({
   const handleRemoveUser = useCallback(
     async (userId: string) => {
       setRemovingUserId(userId);
-      await executeAsync({ premiumId: premium.id, userId });
-      setRemovingUserId(null);
+      try {
+        await executeAsync({ premiumId: premium.id, userId });
+      } finally {
+        setRemovingUserId(null);
+      }
     },
     [executeAsync, premium.id],
   );
@@ -56,13 +60,19 @@ export function AdminPremiumMembershipSection({
     <div className="space-y-4 rounded-md border p-4">
       <div className="space-y-3">
         <p className="font-medium">Premium Membership</p>
-        <DetailRow label="Premium ID" value={premium.id} />
-        <DetailRow
+        <AdminLabelValueRow label="Premium ID" value={premium.id} />
+        <AdminLabelValueRow
           label="Seat Allowance"
           value={formatSeatAllowance(premium.emailAccountsAccess)}
         />
-        <DetailRow label="Seats Used" value={String(premium.seatsUsed)} />
-        <DetailRow label="Members" value={String(premium.users.length)} />
+        <AdminLabelValueRow
+          label="Seats Used"
+          value={String(premium.seatsUsed)}
+        />
+        <AdminLabelValueRow
+          label="Members"
+          value={String(premium.users.length)}
+        />
       </div>
 
       <div className="space-y-2">
@@ -167,15 +177,6 @@ export function AdminPremiumMembershipSection({
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="break-all text-right">{value}</span>
     </div>
   );
 }
