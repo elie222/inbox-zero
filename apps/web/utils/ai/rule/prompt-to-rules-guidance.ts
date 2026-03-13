@@ -1,5 +1,6 @@
 export const PROMPT_TO_RULES_SHARED_GUIDANCE = `IMPORTANT: If a user provides a snippet, use that full snippet in the rule. Don't include placeholders unless it's clear one is needed.
 
+Use static conditions for exact deterministic matching, but keep them short and specific.
 You can use multiple conditions in a rule, but aim for simplicity.
 In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
 If a rule can be handled fully with static conditions, do so, but this is rarely possible.
