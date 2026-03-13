@@ -7,6 +7,8 @@ import {
 import prisma from "@/utils/prisma";
 import { generateSecureToken, hashApiKey } from "@/utils/api-key";
 import { actionClient } from "@/utils/actions/safe-action";
+import { SafeError } from "@/utils/error";
+import { env } from "@/env";
 import type { ApiKeyExpiryValue } from "@/utils/api-key-scopes";
 
 export const createApiKeyAction = actionClient
@@ -17,6 +19,9 @@ export const createApiKeyAction = actionClient
       ctx: { userId, emailAccountId },
       parsedInput: { name, scopes, expiresIn },
     }) => {
+      if (!env.EXTERNAL_API_ENABLED) {
+        throw new SafeError("External API is not enabled");
+      }
       const secretKey = generateSecureToken();
       const hashedKey = hashApiKey(secretKey);
 

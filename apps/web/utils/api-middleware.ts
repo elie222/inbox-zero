@@ -14,6 +14,7 @@ import {
   type NextHandler,
   type RequestWithLogger,
 } from "@/utils/middleware";
+import { env } from "@/env";
 
 export interface RequestWithAccountApiKey extends RequestWithLogger {
   apiAuth: AccountApiKeyPrincipal & { authType: "account-scoped" };
@@ -30,6 +31,8 @@ export function withAccountApiKey(
   handler: NextHandler<RequestWithAccountApiKey>,
 ): NextHandler {
   return withError(scope, async (request, context) => {
+    assertExternalApiEnabled();
+
     let logger = request.logger.with(
       getApiBaseLogFields(request, requiredScopes),
     );
@@ -66,6 +69,8 @@ export function withStatsApiKey(
   handler: NextHandler<RequestWithStatsApiKey>,
 ): NextHandler {
   return withError(scope, async (request, context) => {
+    assertExternalApiEnabled();
+
     let logger = request.logger.with(
       getApiBaseLogFields(request, ["STATS_READ"]),
     );
@@ -190,4 +195,10 @@ function getApiLogUrl(url: string) {
   const parsedUrl = new URL(url);
 
   return `${parsedUrl.origin}${parsedUrl.pathname}`;
+}
+
+function assertExternalApiEnabled() {
+  if (!env.EXTERNAL_API_ENABLED) {
+    throw new SafeError("External API is not enabled", 403);
+  }
 }

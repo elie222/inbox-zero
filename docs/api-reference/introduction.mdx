@@ -17,10 +17,16 @@ To begin using the Inbox Zero API, you'll need to obtain an API key. Here's how:
 1. Log in to your Inbox Zero account
 2. Navigate to the [Settings](https://www.getinboxzero.com/settings) page and scroll down to the `API Keys` section
 3. Click on the `Create New Secret Key` button
+4. Select the permissions (scopes) you need for your key
+5. Choose an expiry period
 
 <img src="/images/settings-api-key.png" alt="Create New Secret Key" />
 
-Your API key is essential for authenticating your requests to the API. Keep it secure and do not share it publicly.
+API keys are scoped to a specific inbox account and only grant access to the permissions you select. Keep your key secure and do not share it publicly.
+
+### Self-Hosting
+
+If you are self-hosting Inbox Zero, set the `EXTERNAL_API_ENABLED=true` environment variable to enable the API.
 
 ## Base URL
 
