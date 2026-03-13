@@ -4,6 +4,7 @@
 - Development: `pnpm dev`
 - Build: `pnpm build`
 - Lint: `pnpm lint`
+- Format: Biome (`pnpm check` / `pnpm fix` via ultracite)
 - Run all tests: `pnpm test`
 - Run AI tests: `pnpm test-ai`
 - Run single test: `pnpm test __tests__/test-file.test.ts`
@@ -55,4 +56,4 @@ See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates
 - Loading states: use `LoadingContent` component.
 
 ## Sub-Agent Review Gate
-- When a task is completed and ready for PR, invoke the `reviewer` sub-agent before opening the PR.
+- When a task is completed and ready for PR, invoke the `reviewer` sub-agent (`.claude/agents/reviewer.md`) before opening the PR.
