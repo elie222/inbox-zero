@@ -213,7 +213,7 @@ export function MessagePart({
         labelApplied:
           part.input.action === "archive_threads"
             ? Boolean(part.input.label)
-            : Boolean(part.input.label || part.input.labelId),
+            : Boolean(part.input.label || part.input.labelName),
         inProgress: true,
       });
 

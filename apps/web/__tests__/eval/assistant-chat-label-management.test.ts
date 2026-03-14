@@ -205,7 +205,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
             labelThreadsCall.threadIds.length === 2 &&
             labelThreadsCall.threadIds.includes("thread-1") &&
             labelThreadsCall.threadIds.includes("thread-2") &&
-            labelThreadsCall.labelId === getExpectedLabelId("Finance") &&
+            labelThreadsCall.labelName === "Finance" &&
             labelThreadsCall.action === "label_threads" &&
             createOrGetIndex >= 0 &&
             labelThreadsIndex > createOrGetIndex;
@@ -260,7 +260,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
       );
 
       test(
-        "reuses an existing label before labeling a single explicit thread",
+        "applies an existing label to a single explicit thread",
         async () => {
           const { toolCalls, actual } = await runAssistantChat({
             emailAccount,
@@ -273,29 +273,22 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
             ],
           });
 
-          const createOrGetMatch = getLastMatchingToolCall(
-            toolCalls,
-            "createOrGetLabel",
-            isCreateOrGetLabelInput,
-          );
           const labelThreadsMatch = getLastMatchingToolCall(
             toolCalls,
             "manageInbox",
             isManageInboxLabelThreadsInput,
           );
-          const createOrGetCall = createOrGetMatch?.input ?? null;
           const labelThreadsCall = labelThreadsMatch?.input ?? null;
-          const createOrGetIndex = createOrGetMatch?.index ?? -1;
-          const labelThreadsIndex = labelThreadsMatch?.index ?? -1;
           const pass =
-            !!createOrGetCall &&
             !!labelThreadsCall &&
-            createOrGetCall.name === "Travel" &&
             labelThreadsCall.threadIds.length === 1 &&
             labelThreadsCall.threadIds[0] === "thread-1" &&
-            labelThreadsCall.labelId === getExpectedLabelId("Travel") &&
-            createOrGetIndex >= 0 &&
-            labelThreadsIndex > createOrGetIndex &&
+            labelThreadsCall.labelName === "Travel" &&
+            !toolCalls.some(
+              (toolCall) =>
+                toolCall.toolName === "createOrGetLabel" &&
+                isCreateOrGetLabelInput(toolCall.input),
+            ) &&
             !toolCalls.some(
               (toolCall) =>
                 toolCall.toolName === "listLabels" &&
@@ -303,7 +296,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
             );
 
           evalReporter.record({
-            testName: "reuse existing label then label thread",
+            testName: "apply existing label to one thread",
             model: model.label,
             pass,
             actual,
@@ -315,7 +308,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
       );
 
       test(
-        "reuses an existing label before labeling multiple explicit threads",
+        "applies an existing label to multiple explicit threads",
         async () => {
           const { toolCalls, actual } = await runAssistantChat({
             emailAccount,
@@ -328,33 +321,31 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
             ],
           });
 
-          const createOrGetMatch = getLastMatchingToolCall(
-            toolCalls,
-            "createOrGetLabel",
-            isCreateOrGetLabelInput,
-          );
           const labelThreadsMatch = getLastMatchingToolCall(
             toolCalls,
             "manageInbox",
             isManageInboxLabelThreadsInput,
           );
-          const createOrGetCall = createOrGetMatch?.input ?? null;
           const labelThreadsCall = labelThreadsMatch?.input ?? null;
-          const createOrGetIndex = createOrGetMatch?.index ?? -1;
-          const labelThreadsIndex = labelThreadsMatch?.index ?? -1;
           const pass =
-            !!createOrGetCall &&
             !!labelThreadsCall &&
-            createOrGetCall.name === "Travel" &&
             labelThreadsCall.threadIds.length === 2 &&
             labelThreadsCall.threadIds.includes("thread-1") &&
             labelThreadsCall.threadIds.includes("thread-2") &&
-            labelThreadsCall.labelId === getExpectedLabelId("Travel") &&
-            createOrGetIndex >= 0 &&
-            labelThreadsIndex > createOrGetIndex;
+            labelThreadsCall.labelName === "Travel" &&
+            !toolCalls.some(
+              (toolCall) =>
+                toolCall.toolName === "createOrGetLabel" &&
+                isCreateOrGetLabelInput(toolCall.input),
+            ) &&
+            !toolCalls.some(
+              (toolCall) =>
+                toolCall.toolName === "listLabels" &&
+                isListLabelsInput(toolCall.input),
+            );
 
           evalReporter.record({
-            testName: "reuse existing label then label threads",
+            testName: "apply existing label to multiple threads",
             model: model.label,
             pass,
             actual,
@@ -422,7 +413,7 @@ type CreateOrGetLabelInput = {
 
 type ManageInboxLabelThreadsInput = {
   action: "label_threads";
-  labelId: string;
+  labelName: string;
   threadIds: string[];
 };
 
@@ -449,13 +440,13 @@ function isManageInboxLabelThreadsInput(
 
   const value = input as {
     action?: unknown;
-    labelId?: unknown;
+    labelName?: unknown;
     threadIds?: unknown;
   };
 
   return (
     value.action === "label_threads" &&
-    typeof value.labelId === "string" &&
+    typeof value.labelName === "string" &&
     Array.isArray(value.threadIds)
   );
 }
@@ -496,8 +487,4 @@ function getLastMatchingToolCall<TInput>(
   }
 
   return null;
-}
-
-function getExpectedLabelId(name: string) {
-  return `Label_${name.replace(/\s+/g, "_")}`;
 }

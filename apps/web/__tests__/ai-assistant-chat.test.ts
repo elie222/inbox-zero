@@ -1262,7 +1262,6 @@ describe("aiProcessAssistantChat", () => {
 
     const archiveMissingThreads = await tools.manageInbox.execute({
       action: "archive_threads",
-      labelId: undefined,
       read: true,
     });
     expect(archiveMissingThreads).toEqual({
@@ -1291,7 +1290,6 @@ describe("aiProcessAssistantChat", () => {
     const archiveEmptyThreadIds = await tools.manageInbox.execute({
       action: "archive_threads",
       threadIds: [],
-      labelId: undefined,
       read: true,
     });
     expect(archiveEmptyThreadIds).toEqual({
@@ -1299,12 +1297,12 @@ describe("aiProcessAssistantChat", () => {
         "Invalid manageInbox input: threadIds must include at least one thread ID",
     });
 
-    const labelMissingLabelId = await tools.manageInbox.execute({
+    const labelMissingLabelName = await tools.manageInbox.execute({
       action: "label_threads",
       threadIds: ["thread-1"],
     });
-    expect(labelMissingLabelId).toEqual({
-      error: "labelId is required when action is label_threads",
+    expect(labelMissingLabelName).toEqual({
+      error: "labelName is required when action is label_threads",
     });
 
     const bulkEmptySenders = await tools.manageInbox.execute({
@@ -1542,7 +1540,6 @@ describe("aiProcessAssistantChat", () => {
     const manageResult = await tools.manageInbox.execute({
       action: "archive_threads",
       threadIds: ["thread-1", "thread-2"],
-      labelId: undefined,
     });
 
     expect(archiveThreadWithLabel).toHaveBeenCalledTimes(2);

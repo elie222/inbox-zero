@@ -271,7 +271,7 @@ describe("chat inbox tools", () => {
     });
   });
 
-  it("prefers the provider label name when labelId resolves", async () => {
+  it("resolves labelName to the provider label before labeling threads", async () => {
     const getThreadMessages = vi.fn().mockImplementation(async (threadId) => [
       {
         id: `${threadId}-message-1`,
@@ -282,16 +282,18 @@ describe("chat inbox tools", () => {
         threadId,
       },
     ]);
-    const getLabelById = vi.fn().mockResolvedValue({
-      id: "Label_123",
-      name: "Finance",
-      type: "user",
-    });
+    const getLabels = vi.fn().mockResolvedValue([
+      {
+        id: "Label_123",
+        name: "Finance",
+        type: "user",
+      },
+    ]);
     const labelMessage = vi.fn().mockResolvedValue(undefined);
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       getThreadMessages,
-      getLabelById,
+      getLabels,
       labelMessage,
     } as any);
 
@@ -304,11 +306,11 @@ describe("chat inbox tools", () => {
 
     const result = await (toolInstance.execute as any)({
       action: "label_threads",
-      labelId: "Label_123",
-      labelName: "Old Finance",
+      labelName: " finance ",
       threadIds: ["thread-1", "thread-2"],
     });
 
+    expect(getLabels).toHaveBeenCalledTimes(1);
     expect(getThreadMessages).toHaveBeenNthCalledWith(1, "thread-1");
     expect(getThreadMessages).toHaveBeenNthCalledWith(2, "thread-2");
     expect(labelMessage).toHaveBeenNthCalledWith(1, {
@@ -342,65 +344,14 @@ describe("chat inbox tools", () => {
     });
   });
 
-  it("re-resolves a missing labelId from labelName before labeling threads", async () => {
-    const getThreadMessages = vi
-      .fn()
-      .mockResolvedValue([{ id: "thread-1-message-1", threadId: "thread-1" }]);
-    const getLabelById = vi.fn().mockResolvedValue(null);
-    const getLabelByName = vi.fn().mockResolvedValue({
-      id: "Label_456",
-      name: "Finance",
-      type: "user",
-    });
-    const labelMessage = vi.fn().mockResolvedValue(undefined);
-
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      getThreadMessages,
-      getLabelById,
-      getLabelByName,
-      labelMessage,
-    } as any);
-
-    const toolInstance = manageInboxTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      provider: "google",
-      logger,
-    });
-
-    const result = await (toolInstance.execute as any)({
-      action: "label_threads",
-      labelId: "Deleted_Label",
-      labelName: "Finance",
-      threadIds: ["thread-1"],
-    });
-
-    expect(getLabelById).toHaveBeenCalledWith("Deleted_Label");
-    expect(getLabelByName).toHaveBeenCalledWith("Finance");
-    expect(labelMessage).toHaveBeenCalledWith({
-      messageId: "thread-1-message-1",
-      labelId: "Label_456",
-      labelName: "Finance",
-    });
-    expect(result).toMatchObject({
-      action: "label_threads",
-      success: true,
-      failedCount: 0,
-      successCount: 1,
-      requestedCount: 1,
-      labelId: "Label_456",
-      labelName: "Finance",
-    });
-  });
-
-  it("returns a descriptive error when label_threads receives a deleted labelId without labelName", async () => {
+  it("returns a descriptive error when label_threads receives an unknown labelName", async () => {
     const getThreadMessages = vi.fn();
-    const getLabelById = vi.fn().mockResolvedValue(null);
+    const getLabels = vi.fn().mockResolvedValue([]);
     const labelMessage = vi.fn();
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       getThreadMessages,
-      getLabelById,
+      getLabels,
       labelMessage,
     } as any);
 
@@ -413,14 +364,15 @@ describe("chat inbox tools", () => {
 
     const result = await (toolInstance.execute as any)({
       action: "label_threads",
-      labelId: "Deleted_Label",
+      labelName: "Finance",
       threadIds: ["thread-1"],
     });
 
     expect(result).toEqual({
       error:
-        "The selected label no longer exists. Use createOrGetLabel first or provide labelName so it can be recreated.",
+        'Label "Finance" does not exist. Use createOrGetLabel first if you want to create it.',
     });
+    expect(getLabels).toHaveBeenCalledTimes(1);
     expect(getThreadMessages).not.toHaveBeenCalled();
     expect(labelMessage).not.toHaveBeenCalled();
   });
@@ -430,11 +382,13 @@ describe("chat inbox tools", () => {
       { id: "thread-1-message-1", threadId: "thread-1" },
       { id: "thread-1-message-2", threadId: "thread-1" },
     ]);
-    const getLabelById = vi.fn().mockResolvedValue({
-      id: "Label_123",
-      name: "Finance",
-      type: "user",
-    });
+    const getLabels = vi.fn().mockResolvedValue([
+      {
+        id: "Label_123",
+        name: "Finance",
+        type: "user",
+      },
+    ]);
     const labelMessage = vi
       .fn()
       .mockResolvedValueOnce(undefined)
@@ -442,7 +396,7 @@ describe("chat inbox tools", () => {
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       getThreadMessages,
-      getLabelById,
+      getLabels,
       labelMessage,
     } as any);
 
@@ -455,7 +409,6 @@ describe("chat inbox tools", () => {
 
     const result = await (toolInstance.execute as any)({
       action: "label_threads",
-      labelId: "Label_123",
       labelName: "Finance",
       threadIds: ["thread-1"],
     });

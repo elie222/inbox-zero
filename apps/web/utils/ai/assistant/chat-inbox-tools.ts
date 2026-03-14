@@ -13,6 +13,8 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
+import { findLabelByName } from "@/utils/label/find-label-by-name";
+import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import {
   manageInboxActions,
@@ -337,12 +339,6 @@ function getManageInboxLabelDescription(provider: string) {
     : "Optional exact Gmail label name to apply while archiving threads.";
 }
 
-function getManageInboxLabelIdDescription(provider: string) {
-  return provider === "microsoft"
-    ? "Label/category ID to apply to the selected threads. Use createOrGetLabel when you know the exact name, or listLabels to inspect existing labels first."
-    : "Label ID to apply to the selected threads. Use createOrGetLabel when you know the exact name, or listLabels to inspect existing labels first.";
-}
-
 function manageInboxInputSchema(provider: string) {
   return z.object({
     action: z.enum(manageInboxActions).describe("Inbox action to run."),
@@ -355,19 +351,15 @@ function manageInboxInputSchema(provider: string) {
       .string()
       .nullish()
       .describe(getManageInboxLabelDescription(provider)),
-    labelId: z
-      .string()
-      .trim()
-      .min(1)
-      .nullish()
-      .describe(getManageInboxLabelIdDescription(provider)),
     labelName: z
       .string()
       .trim()
       .min(1)
       .nullish()
       .describe(
-        "Optional label name paired with labelId for clearer confirmations and fallback handling.",
+        provider === "microsoft"
+          ? "Exact Outlook category name to apply to the selected threads."
+          : "Exact Gmail label name to apply to the selected threads.",
       ),
     read: z
       .boolean()
@@ -430,9 +422,9 @@ export const manageInboxTool = ({
         };
       }
 
-      if (parsedInput.action === "label_threads" && !parsedInput.labelId) {
+      if (parsedInput.action === "label_threads" && !parsedInput.labelName) {
         return {
-          error: "labelId is required when action is label_threads",
+          error: "labelName is required when action is label_threads",
         };
       }
 
@@ -533,13 +525,12 @@ export const manageInboxTool = ({
           try {
             resolvedThreadLabel = await resolveThreadLabel({
               emailProvider,
-              labelId: parsedInput.labelId!,
-              labelName: parsedInput.labelName ?? null,
+              labelName: parsedInput.labelName!,
             });
           } catch (error) {
             logger.warn("Failed to resolve label for thread action", {
               error,
-              labelId: parsedInput.labelId,
+              labelName: parsedInput.labelName,
             });
             return {
               error:
@@ -1131,40 +1122,28 @@ async function applyLabelToThread({
 
 async function resolveThreadLabel({
   emailProvider,
-  labelId,
   labelName,
 }: {
   emailProvider: EmailProvider;
-  labelId: string;
-  labelName: string | null;
+  labelName: string;
 }) {
-  const existingLabel = await emailProvider.getLabelById(labelId);
+  const labels = await emailProvider.getLabels();
+  const existingLabel = findLabelByName({
+    labels,
+    name: labelName,
+    getLabelName: (label) => label.name,
+    normalize: normalizeLabelName,
+  });
 
-  if (existingLabel) {
-    return {
-      labelId: existingLabel.id,
-      labelName: existingLabel.name,
-    };
-  }
-
-  if (!labelName) {
+  if (!existingLabel) {
     throw new Error(
-      "The selected label no longer exists. Use createOrGetLabel first or provide labelName so it can be recreated.",
+      `Label "${labelName}" does not exist. Use createOrGetLabel first if you want to create it.`,
     );
   }
 
-  const resolvedLabel = await resolveLabelNameAndId({
-    emailProvider,
-    label: labelName,
-  });
-
-  if (!resolvedLabel.labelId) {
-    throw new Error(`Failed to resolve label "${labelName}"`);
-  }
-
   return {
-    labelId: resolvedLabel.labelId,
-    labelName: resolvedLabel.label ?? labelName,
+    labelId: existingLabel.id,
+    labelName: existingLabel.name,
   };
 }
 
