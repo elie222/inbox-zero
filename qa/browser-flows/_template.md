@@ -1,6 +1,8 @@
 ---
 id: flow-id
 title: "Short flow title"
+group: assistant # Organize by feature area (e.g., assistant, api, rules, email, integrations)
+priority: high # high = run every QA pass, low = run only when explicitly included
 resources:
   - assistant-settings
 ---

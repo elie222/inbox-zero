@@ -29,8 +29,10 @@ import {
 import { useApiKeys } from "@/hooks/useApiKeys";
 import { LoadingContent } from "@/components/LoadingContent";
 import { formatApiKeyScope } from "@/utils/api-key-scopes";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function ApiKeysSection() {
+  const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useApiKeys();
 
   const keyCount = data?.apiKeys.length ?? 0;
@@ -90,6 +92,7 @@ export function ApiKeysSection() {
                         <TableCell>
                           <ApiKeysDeactivateButton
                             id={apiKey.id}
+                            emailAccountId={emailAccountId}
                             mutate={mutate}
                           />
                         </TableCell>
