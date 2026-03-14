@@ -164,6 +164,7 @@ export async function selectDraftAttachmentsForRule({
     candidates,
     emailAccount,
     emailContent,
+    logger,
   });
 
   if (!selectedAttachments.length) {
@@ -235,14 +236,22 @@ export async function resolveDraftAttachments({
     });
     if (!provider) continue;
 
-    const downloaded = await provider.downloadFile(selectedAttachment.fileId);
-    if (!downloaded || downloaded.file.mimeType !== PDF_MIME_TYPE) continue;
+    try {
+      const downloaded = await provider.downloadFile(selectedAttachment.fileId);
+      if (!downloaded || downloaded.file.mimeType !== PDF_MIME_TYPE) continue;
 
-    resolvedAttachments.push({
-      filename: downloaded.file.name,
-      content: downloaded.content,
-      contentType: downloaded.file.mimeType,
-    });
+      resolvedAttachments.push({
+        filename: downloaded.file.name,
+        content: downloaded.content,
+        contentType: downloaded.file.mimeType,
+      });
+    } catch (error) {
+      logger.warn("Failed to download draft attachment", {
+        driveConnectionId: selectedAttachment.driveConnectionId,
+        fileId: selectedAttachment.fileId,
+        error,
+      });
+    }
   }
 
   return resolvedAttachments;
@@ -531,27 +540,37 @@ async function aiSelectRelevantAttachments({
   candidates,
   emailAccount,
   emailContent,
+  logger,
 }: {
   candidates: CandidateDocument[];
   emailAccount: EmailAccountWithAI;
   emailContent: string;
+  logger: Logger;
 }): Promise<SelectedAttachment[]> {
   const modelOptions = getModel(emailAccount.user, "economy");
-  const generateObject = createGenerateObject({
-    emailAccount,
-    label: "Draft attachment selection",
-    modelOptions,
+  logger.info("Selecting draft attachments", {
+    candidateCount: candidates.length,
+    emailAccountId: emailAccount.id,
   });
 
-  const result = await generateObject({
-    ...modelOptions,
-    system: `You select approved PDF attachments for draft email replies.
+  try {
+    // createGenerateObject already wraps model retries/fallbacks; keep
+    // attachment selection non-fatal if the LLM still fails after that.
+    const generateObject = createGenerateObject({
+      emailAccount,
+      label: "Draft attachment selection",
+      modelOptions,
+    });
+
+    const result = await generateObject({
+      ...modelOptions,
+      system: `You select approved PDF attachments for draft email replies.
 
 Choose only files that would materially help answer the email.
 Return an empty list when no candidate is clearly relevant.
 Prefer the fewest helpful attachments. Never select more than ${MAX_ATTACHMENTS} files.
 Do not invent candidate IDs or use files outside the provided list.`,
-    prompt: `Inbound email:
+      prompt: `Inbound email:
 
 <email>
 ${emailContent}
@@ -569,29 +588,45 @@ preview: ${candidate.preview || "No preview available"}
 </candidate>`,
   )
   .join("\n\n")}`,
-    schema: attachmentSelectionSchema,
-  });
+      schema: attachmentSelectionSchema,
+    });
 
-  const candidateMap = new Map(
-    candidates.map((candidate) => [candidate.candidateId, candidate]),
-  );
+    const candidateMap = new Map(
+      candidates.map((candidate) => [candidate.candidateId, candidate]),
+    );
 
-  return result.object.attachments
-    .flatMap((selection) => {
-      const candidate = candidateMap.get(selection.candidateId);
-      if (!candidate) return [];
+    const selectedAttachments = result.object.attachments
+      .flatMap((selection) => {
+        const candidate = candidateMap.get(selection.candidateId);
+        if (!candidate) return [];
 
-      return [
-        {
-          driveConnectionId: candidate.driveConnectionId,
-          fileId: candidate.document.fileId,
-          filename: candidate.document.name,
-          mimeType: candidate.document.mimeType,
-          reason: selection.reason,
-        } satisfies SelectedAttachment,
-      ];
-    })
-    .slice(0, MAX_ATTACHMENTS);
+        return [
+          {
+            driveConnectionId: candidate.driveConnectionId,
+            fileId: candidate.document.fileId,
+            filename: candidate.document.name,
+            mimeType: candidate.document.mimeType,
+            reason: selection.reason,
+          } satisfies SelectedAttachment,
+        ];
+      })
+      .slice(0, MAX_ATTACHMENTS);
+
+    logger.info("Selected draft attachments", {
+      candidateCount: candidates.length,
+      emailAccountId: emailAccount.id,
+      selectedCount: selectedAttachments.length,
+    });
+
+    return selectedAttachments;
+  } catch (error) {
+    logger.warn("Failed to select draft attachments", {
+      candidateCount: candidates.length,
+      emailAccountId: emailAccount.id,
+      error,
+    });
+    return [];
+  }
 }
 
 function buildAttachmentContext(

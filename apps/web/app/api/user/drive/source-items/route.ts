@@ -3,10 +3,14 @@ import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { SafeError } from "@/utils/error";
+import {
+  buildDriveSourceItems,
+  type DriveSourceItem,
+} from "@/utils/drive/source-items";
 import type { Logger } from "@/utils/logger";
 
 export type GetDriveSourceItemsResponse = Awaited<ReturnType<typeof getData>>;
-export type DriveSourceItem = GetDriveSourceItemsResponse["items"][number];
+export type { DriveSourceItem } from "@/utils/drive/source-items";
 
 export const GET = withEmailAccount(async (request) => {
   const { emailAccountId } = request.auth;
@@ -40,16 +44,7 @@ async function getData({
     },
   });
 
-  const items: Array<{
-    id: string;
-    name: string;
-    path: string;
-    driveConnectionId: string;
-    provider: string;
-    type: "folder" | "file";
-    parentId?: string;
-    mimeType?: string;
-  }> = [];
+  const items: DriveSourceItem[] = [];
 
   const connectionErrors: Array<{ provider: string; error: unknown }> = [];
 
@@ -61,30 +56,14 @@ async function getData({
         provider.listFiles(undefined, { mimeTypes: ["application/pdf"] }),
       ]);
 
-      for (const folder of folders) {
-        items.push({
-          id: folder.id,
-          name: folder.name,
-          path: folder.path || folder.name,
+      items.push(
+        ...buildDriveSourceItems({
           driveConnectionId: connection.id,
           provider: connection.provider,
-          type: "folder",
-          parentId: folder.parentId,
-        });
-      }
-
-      for (const file of files) {
-        items.push({
-          id: file.id,
-          name: file.name,
-          path: file.name,
-          driveConnectionId: connection.id,
-          provider: connection.provider,
-          type: "file",
-          parentId: file.folderId,
-          mimeType: file.mimeType,
-        });
-      }
+          folders,
+          files,
+        }),
+      );
     } catch (error) {
       logger.warn("Error fetching source items from drive", {
         connectionId: connection.id,

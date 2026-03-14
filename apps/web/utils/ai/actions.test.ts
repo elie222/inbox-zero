@@ -13,10 +13,39 @@ vi.mock("@/utils/redis/reply", () => ({
 
 vi.mock("@/utils/attachments/draft-attachments", () => ({
   resolveDraftAttachments: vi.fn().mockResolvedValue([]),
+  selectDraftAttachmentsForRule: vi.fn().mockResolvedValue({
+    selectedAttachments: [],
+    attachmentContext: null,
+  }),
 }));
 
-import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
+vi.mock("@/utils/user/get", () => ({
+  getEmailAccountWithAi: vi.fn().mockResolvedValue({
+    id: "account-1",
+    email: "user@example.com",
+    userId: "user-1",
+    timezone: "UTC",
+    about: null,
+    multiRuleSelectionEnabled: false,
+    calendarBookingLink: null,
+    name: null,
+    user: {
+      aiProvider: "openai",
+      aiModel: "gpt-4",
+      aiApiKey: null,
+    },
+    account: {
+      provider: "google",
+    },
+  }),
+}));
+
+import {
+  resolveDraftAttachments,
+  selectDraftAttachmentsForRule,
+} from "@/utils/attachments/draft-attachments";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
 describe("runActionFunction", () => {
   const logger = createScopedLogger("test");
@@ -120,5 +149,69 @@ describe("runActionFunction", () => {
       "user@example.com",
       expect.objectContaining({ id: "executed-rule-1" }),
     );
+  });
+
+  it("reselects draft attachments when the rule cache is missing", async () => {
+    const client = createMockEmailProvider();
+    const selectedAttachments = [
+      {
+        driveConnectionId: "drive-1",
+        fileId: "file-1",
+        filename: "lease.pdf",
+        mimeType: "application/pdf",
+        reason: "Matched the requested property",
+      },
+    ];
+
+    vi.mocked(getReplyWithConfidence).mockResolvedValue(null);
+    vi.mocked(selectDraftAttachmentsForRule).mockResolvedValue({
+      selectedAttachments,
+      attachmentContext: null,
+    });
+    vi.mocked(resolveDraftAttachments).mockResolvedValue([
+      {
+        filename: "lease.pdf",
+        content: Buffer.from("pdf"),
+        contentType: "application/pdf",
+      },
+    ]);
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.DRAFT_EMAIL,
+        content: "Attached the requested PDF.",
+      },
+      userEmail: "user@example.com",
+      userId: "user-1",
+      emailAccountId: "account-1",
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(getEmailAccountWithAi).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+    });
+
+    expect(selectDraftAttachmentsForRule).toHaveBeenCalledWith({
+      emailAccount: expect.objectContaining({ id: "account-1" }),
+      ruleId: "rule-1",
+      emailContent: expect.stringContaining("Please send the lease packet."),
+      logger: expect.anything(),
+    });
+
+    expect(resolveDraftAttachments).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      userId: "user-1",
+      selectedAttachments,
+      logger: expect.anything(),
+    });
   });
 });

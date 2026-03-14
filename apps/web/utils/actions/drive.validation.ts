@@ -68,3 +68,7 @@ export const fileAttachmentBody = z.object({
   filename: z.string(),
 });
 export type FileAttachmentBody = z.infer<typeof fileAttachmentBody>;
+
+export const getDriveSourceChildrenQuerySchema = z.object({
+  driveConnectionId: z.string(),
+});

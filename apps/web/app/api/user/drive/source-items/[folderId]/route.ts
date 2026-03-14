@@ -4,10 +4,13 @@ import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { SafeError } from "@/utils/error";
+import { getDriveSourceChildrenQuerySchema } from "@/utils/actions/drive.validation";
+import { buildDriveSourceItems } from "@/utils/drive/source-items";
 import type { Logger } from "@/utils/logger";
 
-const querySchema = z.object({ driveConnectionId: z.string() });
-export type GetDriveSourceChildrenQuery = z.infer<typeof querySchema>;
+export type GetDriveSourceChildrenQuery = z.infer<
+  typeof getDriveSourceChildrenQuerySchema
+>;
 
 export type GetDriveSourceChildrenResponse = Awaited<
   ReturnType<typeof getData>
@@ -18,7 +21,7 @@ export const GET = withEmailAccount(async (request, context) => {
   const { folderId } = await context.params;
   const { searchParams } = new URL(request.url);
 
-  const { driveConnectionId } = querySchema.parse({
+  const { driveConnectionId } = getDriveSourceChildrenQuerySchema.parse({
     driveConnectionId: searchParams.get("driveConnectionId"),
   });
 
@@ -60,26 +63,11 @@ async function getData({
   ]);
 
   return {
-    items: [
-      ...folders.map((folder) => ({
-        id: folder.id,
-        name: folder.name,
-        path: folder.path || folder.name,
-        driveConnectionId: driveConnection.id,
-        provider: driveConnection.provider,
-        type: "folder" as const,
-        parentId: folder.parentId,
-      })),
-      ...files.map((file) => ({
-        id: file.id,
-        name: file.name,
-        path: file.name,
-        driveConnectionId: driveConnection.id,
-        provider: driveConnection.provider,
-        type: "file" as const,
-        parentId: file.folderId,
-        mimeType: file.mimeType,
-      })),
-    ],
+    items: buildDriveSourceItems({
+      driveConnectionId: driveConnection.id,
+      provider: driveConnection.provider,
+      folders,
+      files,
+    }),
   };
 }
