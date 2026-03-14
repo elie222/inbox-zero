@@ -19,7 +19,7 @@ export const createApiKeyAction = actionClient
       ctx: { userId, emailAccountId },
       parsedInput: { name, scopes, expiresIn },
     }) => {
-      if (!env.EXTERNAL_API_ENABLED) {
+      if (!env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) {
         throw new SafeError("External API is not enabled");
       }
       const secretKey = generateSecureToken();

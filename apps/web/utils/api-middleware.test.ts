@@ -5,7 +5,7 @@ import { withAccountApiKey, withStatsApiKey } from "./api-middleware";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/env", () => ({
-  env: { EXTERNAL_API_ENABLED: true },
+  env: { NEXT_PUBLIC_EXTERNAL_API_ENABLED: true },
 }));
 vi.mock("@/utils/api-auth", () => ({
   validateAccountApiKey: vi.fn(),

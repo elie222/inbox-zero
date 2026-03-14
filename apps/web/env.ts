@@ -218,8 +218,6 @@ export const env = createEnv({
     TELEGRAM_BOT_TOKEN: z.string().optional(),
     TELEGRAM_BOT_SECRET_TOKEN: z.string().optional(),
     REPLAY_RECORDING_ENABLED: booleanString.optional().default(false),
-
-    EXTERNAL_API_ENABLED: booleanString.optional().default(false),
   },
   client: {
     // stripe

@@ -15,7 +15,7 @@ Verify the full API key lifecycle: create a key via the UI, call an API endpoint
 ## Preconditions
 
 - Signed into Inbox Zero as a test account.
-- `EXTERNAL_API_ENABLED=true` and `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true` are set in `.env`.
+- `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true` is set in `.env`.
 - At least one email account connected.
 
 ## Steps
