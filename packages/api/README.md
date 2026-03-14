@@ -21,7 +21,6 @@ npm install -g @inbox-zero/api
 ## Quick Start
 
 ```bash
-inbox-zero-api config set base-url https://www.getinboxzero.com
 inbox-zero-api config set api-key iz_your_api_key
 
 inbox-zero-api rules list
@@ -38,8 +37,8 @@ Configuration is loaded in this order:
 
 Supported environment variables:
 
-- `INBOX_ZERO_BASE_URL`
 - `INBOX_ZERO_API_KEY`
+- `INBOX_ZERO_BASE_URL` for self-hosted or custom API deployments
 
 ## Commands
 
@@ -52,6 +51,8 @@ inbox-zero-api config list
 inbox-zero-api config get base-url
 inbox-zero-api config set api-key iz_your_api_key
 ```
+
+`base-url` is optional. It defaults to `https://www.getinboxzero.com` and only needs to be set for self-hosted or nonstandard deployments.
 
 ### `inbox-zero-api openapi`
 
