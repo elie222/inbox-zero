@@ -15,8 +15,13 @@ import { extractEmailAddress } from "@/utils/email";
 import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
-import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
+import {
+  resolveDraftAttachments,
+  selectDraftAttachmentsForRule,
+} from "@/utils/attachments/draft-attachments";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
+import type { SelectedAttachment } from "@/utils/attachments/source-schema";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const MODULE = "ai-actions";
 
@@ -172,21 +177,29 @@ const draft: ActionFunction<{
   logger,
 }) => {
   if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) return;
-  const cachedDraft = executedRule.ruleId
-    ? await getReplyWithConfidence({
-        emailAccountId,
-        messageId: email.id,
-        ruleId: executedRule.ruleId,
-      })
-    : null;
-  const attachments = cachedDraft?.attachments?.length
+  const selectedAttachments = await getDraftSelectedAttachments({
+    email,
+    emailAccountId,
+    executedRule,
+    logger,
+  });
+  const attachments = selectedAttachments.length
     ? await resolveDraftAttachments({
         emailAccountId,
         userId,
-        selectedAttachments: cachedDraft.attachments,
+        selectedAttachments,
         logger,
       })
     : [];
+
+  if (selectedAttachments.length > 0 && attachments.length === 0) {
+    logger.warn("Selected draft attachments could not be resolved", {
+      messageId: email.id,
+      ruleId: executedRule.ruleId,
+      selectedAttachmentCount: selectedAttachments.length,
+    });
+  }
+
   const draftArgs = {
     to: args.to ?? undefined,
     subject: args.subject ?? undefined,
@@ -473,6 +486,91 @@ async function lazyUpdateActionLabelId({
       error,
     });
   }
+}
+
+async function getDraftSelectedAttachments({
+  email,
+  emailAccountId,
+  executedRule,
+  logger,
+}: {
+  email: EmailForAction;
+  emailAccountId: string;
+  executedRule: ExecutedRule;
+  logger: Logger;
+}): Promise<SelectedAttachment[]> {
+  if (!executedRule.ruleId) return [];
+
+  const cachedDraft = await getReplyWithConfidence({
+    emailAccountId,
+    messageId: email.id,
+    ruleId: executedRule.ruleId,
+  });
+
+  if (cachedDraft) {
+    return cachedDraft.attachments ?? [];
+  }
+
+  // TODO: persist selected draft attachments alongside executed actions so a
+  // Redis miss does not require re-selection during draft execution.
+  logger.warn("Draft attachment cache missing, reselecting attachments", {
+    messageId: email.id,
+    ruleId: executedRule.ruleId,
+  });
+
+  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+  if (!emailAccount) {
+    logger.warn("Unable to load email account for draft attachment fallback", {
+      emailAccountId,
+      messageId: email.id,
+      ruleId: executedRule.ruleId,
+    });
+    return [];
+  }
+
+  try {
+    const selection = await selectDraftAttachmentsForRule({
+      emailAccount,
+      ruleId: executedRule.ruleId,
+      emailContent: buildAttachmentSelectionEmailContent(email),
+      logger,
+    });
+
+    return selection.selectedAttachments;
+  } catch (error) {
+    logger.warn("Failed to reselect draft attachments", {
+      error,
+      messageId: email.id,
+      ruleId: executedRule.ruleId,
+    });
+    return [];
+  }
+}
+
+function buildAttachmentSelectionEmailContent(email: EmailForAction) {
+  const body = email.textPlain || email.snippet || email.textHtml || "";
+  const inboundAttachments = email.attachments ?? [];
+
+  const attachmentList =
+    inboundAttachments.length > 0
+      ? inboundAttachments
+          .map(
+            (attachment) =>
+              `${attachment.filename} (${attachment.mimeType || "unknown"})`,
+          )
+          .join(", ")
+      : null;
+
+  return [
+    `<from>${email.headers.from}</from>`,
+    `<to>${email.headers.to}</to>`,
+    email.headers.cc ? `<cc>${email.headers.cc}</cc>` : null,
+    `<subject>${email.headers.subject}</subject>`,
+    `<body>${body}</body>`,
+    attachmentList ? `<attachments>${attachmentList}</attachments>` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 async function lazyUpdateActionFolderId({
