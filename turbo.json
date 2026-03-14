@@ -1,7 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["**/.env.*local"],
-  "globalPassThroughEnv": ["PORT", "CONDUCTOR_PORT"],
+  "globalPassThroughEnv": ["PORT", "CONDUCTOR_PORT", "NEXT_PUBLIC_BASE_URL"],
   "tasks": {
     "build": {
       "env": [

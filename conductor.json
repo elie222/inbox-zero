@@ -1,5 +1,5 @@
 {
   "scripts": {
-    "run": "PORT=$CONDUCTOR_PORT pnpm dev"
+    "run": "PORT=${PORT:-$CONDUCTOR_PORT}; NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-http://localhost:$PORT}; export PORT NEXT_PUBLIC_BASE_URL; pnpm dev"
   }
 }
