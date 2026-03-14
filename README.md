@@ -116,6 +116,8 @@ Open http://localhost:3000
 
 See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for more details including devcontainer setup.
 
+For a quick sanity check after setup, run `pnpm lint` and `pnpm test`.
+
 ## Contributing
 
 View open tasks in [GitHub Issues](https://github.com/elie222/inbox-zero/issues) and join our [Discord](https://www.getinboxzero.com/discord) to discuss what's being worked on.
