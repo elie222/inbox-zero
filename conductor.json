@@ -1,5 +1,5 @@
 {
   "scripts": {
-    "run": "pnpm dev"
+    "run": "PORT=$CONDUCTOR_PORT pnpm dev"
   }
 }
