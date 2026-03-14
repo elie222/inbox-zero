@@ -13,8 +13,6 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
-import { findLabelByName } from "@/utils/label/find-label-by-name";
-import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import {
   manageInboxActions,
@@ -25,6 +23,7 @@ import {
   type AutomaticUnsubscribeResult,
   unsubscribeSenderAndMark,
 } from "@/utils/senders/unsubscribe";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 const recipientListSchema = z
@@ -174,7 +173,7 @@ export type GetAccountOverviewTool = InferUITool<
 >;
 
 function getSearchQueryDescription(provider: string): string {
-  if (provider === "microsoft") {
+  if (isMicrosoftProvider(provider)) {
     return "Search query using KQL syntax. Supports: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
   }
   return "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.";
@@ -334,7 +333,7 @@ const senderEmailsSchema = z
   .transform((emails) => [...new Set(emails)]);
 
 function getManageInboxLabelDescription(provider: string) {
-  return provider === "microsoft"
+  return isMicrosoftProvider(provider)
     ? "Optional exact Outlook category name to apply while archiving threads."
     : "Optional exact Gmail label name to apply while archiving threads.";
 }
@@ -357,7 +356,7 @@ function manageInboxInputSchema(provider: string) {
       .min(1)
       .nullish()
       .describe(
-        provider === "microsoft"
+        isMicrosoftProvider(provider)
           ? "Exact Outlook category name to apply to the selected threads."
           : "Exact Gmail label name to apply to the selected threads.",
       ),
@@ -1127,13 +1126,7 @@ async function resolveThreadLabel({
   emailProvider: EmailProvider;
   labelName: string;
 }) {
-  const labels = await emailProvider.getLabels();
-  const existingLabel = findLabelByName({
-    labels,
-    name: labelName,
-    getLabelName: (label) => label.name,
-    normalize: normalizeLabelName,
-  });
+  const existingLabel = await emailProvider.getLabelByName(labelName);
 
   if (!existingLabel) {
     throw new Error(
