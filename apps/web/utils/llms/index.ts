@@ -45,7 +45,7 @@ import {
 import { shouldForceNanoModel } from "@/utils/llms/model-usage-guard";
 import { Provider } from "@/utils/llms/config";
 import { createScopedLogger } from "@/utils/logger";
-import { getPosthogLlmClient } from "@/utils/posthog";
+import { getPosthogLlmClient, isPosthogLlmEvalApproved } from "@/utils/posthog";
 import {
   extractLLMErrorInfo,
   isTransientNetworkError,
@@ -1059,16 +1059,18 @@ function withPosthogTracing({
 }) {
   const posthogClient = getPosthogLlmClient();
   if (!posthogClient) return model;
+  const llmEvalsEnabled = isPosthogLlmEvalApproved(userEmail);
 
   return withTracing(model, posthogClient, {
     posthogDistinctId: userEmail,
-    posthogPrivacyMode: true,
+    posthogPrivacyMode: !llmEvalsEnabled,
     posthogProperties: {
       label,
       $ai_span_name: label,
       provider,
       model: modelName,
       emailAccountId,
+      llmEvalsEnabled,
       ...(userId ? { userId } : {}),
     },
   });

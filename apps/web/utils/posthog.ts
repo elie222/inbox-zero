@@ -25,6 +25,15 @@ export function getPosthogLlmClient() {
   return posthogLlmClient;
 }
 
+export function isPosthogLlmEvalApproved(email: string) {
+  if (env.NODE_ENV !== "development") return false;
+
+  const approvedEmails = getPosthogLlmEvalApprovedEmails();
+  if (!approvedEmails.length) return false;
+
+  return approvedEmails.includes(email.trim().toLowerCase());
+}
+
 async function getPosthogUserId(options: { email: string }) {
   const personsEndpoint = `https://app.posthog.com/api/projects/${env.POSTHOG_PROJECT_ID}/persons/`;
 
@@ -335,4 +344,12 @@ export async function trackStripeEvent(email: string, data: any) {
 
 export async function trackUserDeleted(userId: string) {
   return posthogCaptureEvent("anonymous", "User deleted", { userId }, false);
+}
+
+function getPosthogLlmEvalApprovedEmails() {
+  return (
+    env.POSTHOG_LLM_EVALS_APPROVED_EMAILS?.split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean) ?? []
+  );
 }
