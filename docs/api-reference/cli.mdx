@@ -29,15 +29,16 @@ The CLI reads configuration in this order:
 
 Supported environment variables:
 
-- `INBOX_ZERO_BASE_URL`
 - `INBOX_ZERO_API_KEY`
+- `INBOX_ZERO_BASE_URL` for self-hosted or custom API deployments
 
 Example:
 
 ```bash
-inbox-zero-api config set base-url https://www.getinboxzero.com
 inbox-zero-api config set api-key iz_your_api_key
 ```
+
+`base-url` is optional. The CLI defaults to `https://www.getinboxzero.com` and only needs an override for self-hosted or custom deployments.
 
 ## Common commands
 

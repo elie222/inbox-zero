@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 
 export const CONFIG_PATH = resolve(homedir(), ".inbox-zero-api", "config.json");
+export const DEFAULT_BASE_URL = "https://www.getinboxzero.com";
 
 export type ApiCliConfig = {
   apiKey?: string;
@@ -53,13 +54,10 @@ export function resolveRuntimeConfig(
   const apiKey =
     options.apiKey || env.INBOX_ZERO_API_KEY || storedConfig.apiKey;
   const baseUrl =
-    options.baseUrl || env.INBOX_ZERO_BASE_URL || storedConfig.baseUrl;
-
-  if (!baseUrl) {
-    throw new Error(
-      "Missing base URL. Set --base-url, INBOX_ZERO_BASE_URL, or configure it with `inbox-zero-api config set base-url ...`.",
-    );
-  }
+    options.baseUrl ||
+    env.INBOX_ZERO_BASE_URL ||
+    storedConfig.baseUrl ||
+    DEFAULT_BASE_URL;
 
   if (!apiKey) {
     throw new Error(

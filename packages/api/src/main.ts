@@ -5,6 +5,7 @@ import packageJson from "../package.json" with { type: "json" };
 import { ApiClient } from "./client";
 import {
   CONFIG_PATH,
+  DEFAULT_BASE_URL,
   loadConfig,
   resolveRuntimeConfig,
   updateConfig,
@@ -75,7 +76,10 @@ async function main() {
     )
     .version(packageJson.version, "-v, --version")
     .option("-k, --api-key <key>", "Inbox Zero API key")
-    .option("-b, --base-url <url>", "Inbox Zero base URL or API base URL");
+    .option(
+      "-b, --base-url <url>",
+      "Optional override for self-hosted or custom API deployments",
+    );
 
   addConfigCommands();
   addOpenApiCommand();
@@ -99,7 +103,7 @@ function addConfigCommands() {
         configPath: CONFIG_PATH,
         values: {
           apiKey: current.apiKey ? "(configured)" : "(not configured)",
-          baseUrl: current.baseUrl || "(not configured)",
+          baseUrl: current.baseUrl || `${DEFAULT_BASE_URL} (default)`,
         },
       });
     });
@@ -115,7 +119,7 @@ function addConfigCommands() {
         return;
       }
 
-      process.stdout.write(`${value || "(not configured)"}\n`);
+      process.stdout.write(`${value || DEFAULT_BASE_URL}\n`);
     });
 
   config
