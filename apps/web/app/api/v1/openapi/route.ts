@@ -28,7 +28,7 @@ import { withError } from "@/utils/middleware";
 extendZodWithOpenApi(z);
 
 export const GET = withError("v1/openapi", async (request) => {
-  if (!env.EXTERNAL_API_ENABLED) {
+  if (!env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) {
     throw new SafeError("External API is not enabled");
   }
 

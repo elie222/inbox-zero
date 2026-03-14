@@ -152,8 +152,12 @@ export default function SettingsPage() {
         >
           <ItemCard>
             <WebhookSection />
-            <ItemSeparator />
-            <ApiKeysSection />
+            {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && (
+              <>
+                <ItemSeparator />
+                <ApiKeysSection />
+              </>
+            )}
           </ItemCard>
         </SettingsGroup>
 

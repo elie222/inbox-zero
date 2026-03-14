@@ -218,8 +218,6 @@ export const env = createEnv({
     TELEGRAM_BOT_TOKEN: z.string().optional(),
     TELEGRAM_BOT_SECRET_TOKEN: z.string().optional(),
     REPLAY_RECORDING_ENABLED: booleanString.optional().default(false),
-
-    EXTERNAL_API_ENABLED: booleanString.optional().default(false),
   },
   client: {
     // stripe
@@ -285,6 +283,7 @@ export const env = createEnv({
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_SMART_FILING_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_CLEANER_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_EXTERNAL_API_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: booleanString.optional(),
     NEXT_PUBLIC_IS_RESEND_CONFIGURED: booleanString.optional(),
     NEXT_PUBLIC_TABS_EXTENSION_ID: z
@@ -364,6 +363,8 @@ export const env = createEnv({
     NEXT_PUBLIC_SMART_FILING_ENABLED:
       process.env.NEXT_PUBLIC_SMART_FILING_ENABLED,
     NEXT_PUBLIC_CLEANER_ENABLED: process.env.NEXT_PUBLIC_CLEANER_ENABLED,
+    NEXT_PUBLIC_EXTERNAL_API_ENABLED:
+      process.env.NEXT_PUBLIC_EXTERNAL_API_ENABLED,
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED:
       process.env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED,
     NEXT_PUBLIC_IS_RESEND_CONFIGURED:
