@@ -26,6 +26,14 @@ export const getUserInfoBody = z.object({
 });
 export type GetUserInfoBody = z.infer<typeof getUserInfoBody>;
 
+export const removeUserFromPremiumBody = z.object({
+  premiumId: z.string().min(1, "Premium ID is required"),
+  userId: z.string().min(1, "User ID is required"),
+});
+export type RemoveUserFromPremiumBody = z.infer<
+  typeof removeUserFromPremiumBody
+>;
+
 export const disableAllRulesBody = z.object({
   email: z.string().trim().email("Valid email address is required"),
 });

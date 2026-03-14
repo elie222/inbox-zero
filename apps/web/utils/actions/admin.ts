@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import type Stripe from "stripe";
+import { Prisma } from "@/generated/prisma/client";
 import { deleteUser } from "@/utils/user/delete";
 import prisma from "@/utils/prisma";
 import { adminActionClient } from "@/utils/actions/safe-action";
@@ -10,12 +11,14 @@ import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { getStripe } from "@/ee/billing/stripe";
 import { createEmailProvider } from "@/utils/email/provider";
 import { hash } from "@/utils/hash";
+import { syncPremiumSeats } from "@/utils/premium/server";
 import {
   hashEmailBody,
   convertGmailUrlBody,
   getLabelsBody,
   watchEmailsBody,
   getUserInfoBody,
+  removeUserFromPremiumBody,
   disableAllRulesBody,
   cleanupDraftsBody,
 } from "@/utils/actions/admin.validation";
@@ -353,6 +356,8 @@ export const adminGetUserInfoAction = adminActionClient
       throw new SafeError("User not found");
     }
 
+    const premium = formatAdminPremium(user.premium || user.premiumAdmin);
+
     // Get last executed rule date per email account
     const emailAccountIds = user.emailAccounts.map((ea) => ea.id);
     const lastExecutedRules =
@@ -370,22 +375,11 @@ export const adminGetUserInfoAction = adminActionClient
 
     return {
       id: user.id,
+      email: user.email,
       createdAt: user.createdAt,
       lastLogin: user.lastLogin,
       emailAccountCount: user._count.emailAccounts,
-      premium: user.premium
-        ? {
-            tier: user.premium.tier,
-            renewsAt:
-              user.premium.stripeRenewsAt ||
-              user.premium.lemonSqueezyRenewsAt ||
-              null,
-            subscriptionStatus:
-              user.premium.stripeSubscriptionStatus ||
-              user.premium.lemonSubscriptionStatus ||
-              null,
-          }
-        : null,
+      premium,
       emailAccounts: user.emailAccounts.map((ea) => ({
         email: ea.email,
         createdAt: ea.createdAt,
@@ -396,6 +390,19 @@ export const adminGetUserInfoAction = adminActionClient
         lastExecutedRuleAt: lastExecutedMap.get(ea.id) || null,
       })),
     };
+  });
+
+export const adminRemoveUserFromPremiumAction = adminActionClient
+  .metadata({ name: "adminRemoveUserFromPremium" })
+  .inputSchema(removeUserFromPremiumBody)
+  .action(async ({ parsedInput: { premiumId, userId } }) => {
+    const result = await removeUserFromPremiumForAdmin({
+      premiumId,
+      userId,
+    });
+    await syncPremiumSeats(premiumId);
+
+    return result;
   });
 
 export const adminDisableAllRulesAction = adminActionClient
@@ -489,21 +496,68 @@ export const adminCleanupDraftsAction = adminActionClient
     };
   });
 
+const adminPremiumSelect = {
+  id: true,
+  tier: true,
+  emailAccountsAccess: true,
+  lemonSqueezyRenewsAt: true,
+  stripeRenewsAt: true,
+  stripeSubscriptionStatus: true,
+  lemonSubscriptionStatus: true,
+  pendingInvites: true,
+  admins: {
+    select: {
+      id: true,
+      email: true,
+      name: true,
+    },
+  },
+  users: {
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      emailAccounts: {
+        select: {
+          id: true,
+          email: true,
+          account: {
+            select: {
+              provider: true,
+              disconnectedAt: true,
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          emailAccounts: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.PremiumSelect;
+
+type AdminPremiumRecord = Prisma.PremiumGetPayload<{
+  select: typeof adminPremiumSelect;
+}>;
+export type AdminPremiumMembership = NonNullable<
+  ReturnType<typeof formatAdminPremium>
+>;
+
 async function findUserWithDetails(email?: string, userId?: string) {
   return prisma.user.findUnique({
     where: email ? { email } : { id: userId },
     select: {
       id: true,
+      email: true,
       createdAt: true,
       lastLogin: true,
       premium: {
-        select: {
-          tier: true,
-          lemonSqueezyRenewsAt: true,
-          stripeRenewsAt: true,
-          stripeSubscriptionStatus: true,
-          lemonSubscriptionStatus: true,
-        },
+        select: adminPremiumSelect,
+      },
+      premiumAdmin: {
+        select: adminPremiumSelect,
       },
       emailAccounts: {
         select: {
@@ -531,4 +585,137 @@ async function findUserWithDetails(email?: string, userId?: string) {
       },
     },
   });
+}
+
+function formatAdminPremium(premium: AdminPremiumRecord | null | undefined) {
+  if (!premium) return null;
+
+  const admins = [...premium.admins].sort((a, b) =>
+    a.email.localeCompare(b.email),
+  );
+  const users = [...premium.users]
+    .map((premiumUser) => ({
+      id: premiumUser.id,
+      email: premiumUser.email,
+      name: premiumUser.name,
+      isAdmin: admins.some((admin) => admin.id === premiumUser.id),
+      emailAccountCount: premiumUser._count.emailAccounts,
+      emailAccounts: premiumUser.emailAccounts.map((emailAccount) => ({
+        id: emailAccount.id,
+        email: emailAccount.email,
+        provider: emailAccount.account.provider,
+        disconnected: !!emailAccount.account.disconnectedAt,
+      })),
+    }))
+    .sort((a, b) => a.email.localeCompare(b.email));
+
+  return {
+    id: premium.id,
+    tier: premium.tier,
+    renewsAt: premium.stripeRenewsAt || premium.lemonSqueezyRenewsAt || null,
+    subscriptionStatus:
+      premium.stripeSubscriptionStatus ||
+      premium.lemonSubscriptionStatus ||
+      null,
+    emailAccountsAccess: premium.emailAccountsAccess ?? null,
+    seatsUsed: users.reduce(
+      (total, premiumUser) => total + premiumUser.emailAccountCount,
+      0,
+    ),
+    admins,
+    pendingInvites: premium.pendingInvites,
+    users,
+  };
+}
+
+async function removeUserFromPremiumForAdmin({
+  premiumId,
+  userId,
+}: {
+  premiumId: string;
+  userId: string;
+}) {
+  const [result] = await prisma.$queryRaw<
+    {
+      premium_exists: boolean;
+      user_exists: boolean;
+      user_count: number;
+      removed_user_id: string | null;
+      removed_user_email: string | null;
+      seats_freed: number;
+    }[]
+  >(Prisma.sql`
+    WITH premium_lock AS (
+      SELECT pg_advisory_xact_lock(hashtext(${premiumId}))
+    ),
+    premium_state AS (
+      SELECT
+        EXISTS(SELECT 1 FROM "Premium" WHERE "id" = ${premiumId}) AS premium_exists,
+        EXISTS(
+          SELECT 1
+          FROM "User"
+          WHERE "id" = ${userId}
+            AND "premiumId" = ${premiumId}
+        ) AS user_exists,
+        (
+          SELECT COUNT(*)::int
+          FROM "User"
+          WHERE "premiumId" = ${premiumId}
+        ) AS user_count
+      FROM premium_lock
+    ),
+    updated_user AS (
+      UPDATE "User"
+      SET
+        "premiumId" = NULL,
+        "premiumAdminId" = CASE
+          WHEN "premiumAdminId" = ${premiumId} THEN NULL
+          ELSE "premiumAdminId"
+        END
+      WHERE "id" = ${userId}
+        AND "premiumId" = ${premiumId}
+        AND (SELECT user_count FROM premium_state) > 1
+      RETURNING
+        "id" AS removed_user_id,
+        "email" AS removed_user_email
+    ),
+    user_seats AS (
+      SELECT COUNT(*)::int AS seats_freed
+      FROM "EmailAccount"
+      WHERE "userId" = ${userId}
+    )
+    SELECT
+      premium_state.premium_exists,
+      premium_state.user_exists,
+      premium_state.user_count,
+      updated_user.removed_user_id,
+      updated_user.removed_user_email,
+      user_seats.seats_freed
+    FROM premium_state
+    CROSS JOIN user_seats
+    LEFT JOIN updated_user ON true
+  `);
+
+  if (!result?.premium_exists) {
+    throw new SafeError("Premium not found");
+  }
+
+  if (!result.user_exists) {
+    throw new SafeError("User is not on this premium");
+  }
+
+  if (result.user_count === 1) {
+    throw new SafeError("Cannot remove the last user from a premium");
+  }
+
+  if (!result.removed_user_id || !result.removed_user_email) {
+    throw new SafeError("Failed to remove user from premium");
+  }
+
+  return {
+    premiumId,
+    removedUserId: result.removed_user_id,
+    removedUserEmail: result.removed_user_email,
+    seatsFreed: result.seats_freed,
+  };
 }
