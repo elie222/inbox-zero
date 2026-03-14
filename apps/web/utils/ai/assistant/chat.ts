@@ -38,6 +38,7 @@ import {
   sendEmailTool,
   updateInboxFeaturesTool,
 } from "./chat-inbox-tools";
+import { createOrGetLabelTool, listLabelsTool } from "./chat-label-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 
@@ -60,6 +61,10 @@ export type {
   GetAssistantCapabilitiesTool,
   UpdateAssistantSettingsTool,
 } from "./chat-settings-tools";
+export type {
+  CreateOrGetLabelTool,
+  ListLabelsTool,
+} from "./chat-label-tools";
 export type {
   ForwardEmailTool,
   GetAccountOverviewTool,
@@ -127,6 +132,9 @@ Tool usage strategy (progressive disclosure):
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
   - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
+- If the user asks to create a label or explicitly wants to ensure a label exists, call createOrGetLabel for that exact name. Do not call listLabels first.
+- When the user wants to inspect existing labels, call listLabels.
+- When the user wants to apply an existing named label to specific threads, call manageInbox with action "label_threads" using the exact labelName. Do not call createOrGetLabel first unless the user asks to create the label or ensure it exists.
 ${
   emailSendToolsEnabled
     ? `${getSendEmailSurfacePolicy({ responseSurface, messagingPlatform })}
@@ -150,6 +158,7 @@ Tool call policy:
 - If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.
 - If hidden UI context shows that specific threads were already archived or marked read, treat that as completed work. For follow-up confirmations, acknowledge the completed action instead of repeating it.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
+- If the user already provided explicit thread IDs, use them directly instead of calling searchInbox again.
 - Never invent thread IDs, sender addresses, or existing rule names.
 ${emailSendToolsEnabled ? '- For pending email actions, do not treat "prepared" as "sent".' : ""}
 - "archive_threads" archives specific threads by ID. Use it when the user refers to specific emails shown in results.
@@ -399,6 +408,8 @@ Behavior anchors (minimal examples):
       getAccountOverview: getAccountOverviewTool(toolOptions),
       searchInbox: searchInboxTool(toolOptions),
       readEmail: readEmailTool(toolOptions),
+      listLabels: listLabelsTool(toolOptions),
+      createOrGetLabel: createOrGetLabelTool(toolOptions),
       manageInbox: manageInboxTool(toolOptions),
       updateInboxFeatures: updateInboxFeaturesTool(toolOptions),
       getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),
