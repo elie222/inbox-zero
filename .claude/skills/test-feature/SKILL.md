@@ -26,9 +26,9 @@ Before testing, make sure the local environment is ready. These steps are idempo
    ln -sf ~/.inbox-zero/.env.test apps/web/.env.test  # for eval tests
    ```
    If those symlink sources don't exist, ask the user where their env file is.
-3. **Check feature flags**: If the feature being tested requires specific env vars (like `NEXT_PUBLIC_EXTERNAL_API_ENABLED`), verify they're set. If not, enable them — don't just report "feature not enabled" as if the test passed. The goal is to test the actual feature, not to verify that a feature flag blocks access.
+3. **Enable required feature flags**: Check `.env.example` for any env vars the feature needs (e.g. `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true`). If any are missing from `apps/web/.env`, add them now. **IMPORTANT**: `NEXT_PUBLIC_*` vars are baked in at build time — if you add one to `.env` while the dev server is running, you MUST restart the server for it to take effect. Do this BEFORE testing, not after. Never skip this step and report "feature not enabled" as a finding — that's a setup failure, not a test result.
 4. **Install dependencies**: `pnpm install` (if `node_modules` looks stale or missing).
-5. **Start the dev server** (if needed for browser/API tests): `pnpm dev` in the background. Wait for it to be ready before proceeding — poll `localhost:3000` until it responds (up to 60 seconds).
+5. **Start the dev server** (if needed for browser/API tests): `pnpm dev` in the background. Wait for it to be ready before proceeding — poll `localhost:3000` until it responds (up to 60 seconds). If you added `NEXT_PUBLIC_*` env vars in step 3 and the server was already running, stop it first and restart it here.
 
 ## Step 1: Plan the test
 
@@ -105,9 +105,9 @@ This runs entirely in the background — the user doesn't need to do anything.
 3. **State file**: After signing in, save with `agent-browser state save ./auth.json` and reload later with `agent-browser --state ./auth.json`. Note: state files can expire.
 
 ### API testing
-- If testing an API, get an API key from the UI first (Settings → API Keys) and screenshot the process
-- Make real API calls and verify responses
-- Check both success and error cases
+- Get a real API key from the UI first (Settings → API Keys) — screenshot the process. **Do not test with fake or dummy API keys**; auth errors mask whether the actual feature works.
+- Configure the CLI/client with the real key, then make real API calls and verify the responses show the expected data.
+- Check both success and error cases.
 
 ### Eval testing
 - If the right approach is an eval test, check `__tests__/eval/` for existing tests that cover similar ground

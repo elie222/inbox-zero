@@ -22,15 +22,17 @@ import {
 import { API_KEY_HEADER } from "@/utils/api-auth";
 import { env } from "@/env";
 import { BRAND_NAME } from "@/utils/branding";
-import { SafeError } from "@/utils/error";
 import { withError } from "@/utils/middleware";
-
-extendZodWithOpenApi(z);
 
 export const GET = withError("v1/openapi", async (request) => {
   if (!env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) {
-    throw new SafeError("External API is not enabled");
+    return NextResponse.json(
+      { error: "External API is not enabled" },
+      { status: 403 },
+    );
   }
+
+  extendZodWithOpenApi(z);
 
   const { searchParams } = new URL(request.url);
   const customHost = searchParams.get("host");
