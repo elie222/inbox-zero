@@ -205,8 +205,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
             labelThreadsCall.threadIds.length === 2 &&
             labelThreadsCall.threadIds.includes("thread-1") &&
             labelThreadsCall.threadIds.includes("thread-2") &&
-            typeof labelThreadsCall.labelId === "string" &&
-            labelThreadsCall.labelId.length > 0 &&
+            labelThreadsCall.labelId === getExpectedLabelId("Finance") &&
             labelThreadsCall.action === "label_threads" &&
             createOrGetIndex >= 0 &&
             labelThreadsIndex > createOrGetIndex;
@@ -286,14 +285,17 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
           );
           const createOrGetCall = createOrGetMatch?.input ?? null;
           const labelThreadsCall = labelThreadsMatch?.input ?? null;
+          const createOrGetIndex = createOrGetMatch?.index ?? -1;
+          const labelThreadsIndex = labelThreadsMatch?.index ?? -1;
           const pass =
             !!createOrGetCall &&
             !!labelThreadsCall &&
             createOrGetCall.name === "Travel" &&
             labelThreadsCall.threadIds.length === 1 &&
             labelThreadsCall.threadIds[0] === "thread-1" &&
-            typeof labelThreadsCall.labelId === "string" &&
-            labelThreadsCall.labelId.length > 0 &&
+            labelThreadsCall.labelId === getExpectedLabelId("Travel") &&
+            createOrGetIndex >= 0 &&
+            labelThreadsIndex > createOrGetIndex &&
             !toolCalls.some(
               (toolCall) =>
                 toolCall.toolName === "listLabels" &&
@@ -347,8 +349,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
             labelThreadsCall.threadIds.length === 2 &&
             labelThreadsCall.threadIds.includes("thread-1") &&
             labelThreadsCall.threadIds.includes("thread-2") &&
-            typeof labelThreadsCall.labelId === "string" &&
-            labelThreadsCall.labelId.length > 0 &&
+            labelThreadsCall.labelId === getExpectedLabelId("Travel") &&
             createOrGetIndex >= 0 &&
             labelThreadsIndex > createOrGetIndex;
 
@@ -495,4 +496,8 @@ function getLastMatchingToolCall<TInput>(
   }
 
   return null;
+}
+
+function getExpectedLabelId(name: string) {
+  return `Label_${name.replace(/\s+/g, "_")}`;
 }
