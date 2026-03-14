@@ -16,7 +16,7 @@ describe("chat label tools", () => {
     vi.clearAllMocks();
   });
 
-  it("lists labels with shared normalization-aware query filtering", async () => {
+  it("lists all labels without filtering or limiting", async () => {
     vi.mocked(createEmailProvider).mockResolvedValue({
       getLabels: vi.fn().mockResolvedValue([
         { id: "label-1", name: "Work-Items_/2026.Report", type: "user" },
@@ -33,16 +33,13 @@ describe("chat label tools", () => {
 
     const result = await (toolInstance.execute as any)({
       action: "list",
-      query: "work items /2026 report",
     });
 
     expect(result).toEqual({
       action: "list",
-      totalCount: 1,
-      returnedCount: 1,
-      truncated: false,
       labels: [
         { id: "label-1", name: "Work-Items_/2026.Report", type: "user" },
+        { id: "label-2", name: "Receipts", type: "user" },
       ],
     });
   });

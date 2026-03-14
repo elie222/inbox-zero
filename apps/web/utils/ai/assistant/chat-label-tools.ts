@@ -5,25 +5,6 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
-const listLabelsInputSchema = z
-  .object({
-    query: z
-      .string()
-      .trim()
-      .min(1)
-      .max(200)
-      .nullish()
-      .describe("Optional label name filter."),
-    limit: z
-      .number()
-      .int()
-      .min(1)
-      .max(200)
-      .default(50)
-      .describe("Maximum number of labels to return."),
-  })
-  .strict();
-
 const createOrGetLabelInputSchema = z
   .object({
     name: z
@@ -50,11 +31,9 @@ export const manageLabelsTool = ({
     description:
       "Manage the user's label catalog. Use list to inspect existing labels. Use createOrGet to reuse an existing label by exact name or create it if missing.",
     inputSchema: z.discriminatedUnion("action", [
-      z
-        .object({
-          action: z.literal("list"),
-        })
-        .merge(listLabelsInputSchema),
+      z.object({
+        action: z.literal("list"),
+      }),
       z
         .object({
           action: z.literal("createOrGet"),
@@ -73,20 +52,10 @@ export const manageLabelsTool = ({
 
         if (input.action === "list") {
           const labels = await emailProvider.getLabels();
-          const query = input.query ? normalizeLabelName(input.query) : null;
-          const filteredLabels = query
-            ? labels.filter((label) =>
-                normalizeLabelName(label.name).includes(query),
-              )
-            : labels;
-          const limitedLabels = filteredLabels.slice(0, input.limit);
 
           return {
             action: "list" as const,
-            totalCount: filteredLabels.length,
-            returnedCount: limitedLabels.length,
-            truncated: filteredLabels.length > limitedLabels.length,
-            labels: limitedLabels.map((label) => ({
+            labels: labels.map((label) => ({
               id: label.id,
               name: label.name,
               type: label.type,
