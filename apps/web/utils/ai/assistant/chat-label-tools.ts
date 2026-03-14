@@ -5,16 +5,14 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
-const createOrGetLabelInputSchema = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(1)
-      .max(200)
-      .describe("Exact label name to reuse or create."),
-  })
-  .strict();
+const createOrGetLabelInputSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .describe("Exact label name to reuse or create."),
+});
 
 export const manageLabelsTool = ({
   email,
