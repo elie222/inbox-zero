@@ -235,7 +235,7 @@ describe.runIf(shouldRunEval)(
         );
 
         test(
-          "uses updateAbout in append mode for personal instruction updates",
+          "uses updatePersonalInstructions in append mode for personal instruction updates",
           async () => {
             const { toolCalls, actual } = await runAssistantChat({
               emailAccount,
@@ -250,7 +250,7 @@ describe.runIf(shouldRunEval)(
 
             const aboutCall = getLastMatchingToolCall(
               toolCalls,
-              "updateAbout",
+              "updatePersonalInstructions",
               isUpdateAboutInput,
             )?.input;
 
@@ -260,7 +260,8 @@ describe.runIf(shouldRunEval)(
               aboutCall.mode === "append";
 
             evalReporter.record({
-              testName: "personal instructions use updateAbout append",
+              testName:
+                "personal instructions use updatePersonalInstructions append",
               model: model.label,
               pass,
               actual,

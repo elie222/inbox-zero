@@ -38,7 +38,7 @@ const writeToolNames = new Set([
   "updateRuleConditions",
   "updateRuleActions",
   "updateLearnedPatterns",
-  "updateAbout",
+  "updatePersonalInstructions",
   "updateAssistantSettings",
   "updateAssistantSettingsCompat",
   "updateInboxFeatures",

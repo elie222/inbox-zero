@@ -42,7 +42,7 @@ export type ChatTools = {
   updateRuleConditions: UpdateRuleConditionsTool;
   updateRuleActions: UpdateRuleActionsTool;
   updateLearnedPatterns: UpdateLearnedPatternsTool;
-  updateAbout: UpdateAboutTool;
+  updatePersonalInstructions: UpdateAboutTool;
   addToKnowledgeBase: AddToKnowledgeBaseTool;
   saveMemory: SaveMemoryTool;
   searchMemories: SearchMemoriesTool;
