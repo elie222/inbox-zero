@@ -1,0 +1,45 @@
+{
+  "name": "@inbox-zero/api",
+  "version": "0.1.0",
+  "description": "CLI tool for managing Inbox Zero through the external API",
+  "type": "module",
+  "bin": {
+    "inbox-zero-api": "bin/inbox-zero-api.js"
+  },
+  "scripts": {
+    "build": "bun build src/main.ts --outfile bin/inbox-zero-api.js --target node",
+    "prepublishOnly": "bun run build",
+    "dev": "bun run src/main.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "commander": "14.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elie222/inbox-zero.git",
+    "directory": "packages/api"
+  },
+  "keywords": [
+    "inbox-zero",
+    "api",
+    "cli",
+    "automation"
+  ],
+  "license": "SEE LICENSE IN ../../LICENSE"
+}
