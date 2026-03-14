@@ -501,7 +501,7 @@ reason: Matched the requested property packet
       "thread-1",
       createMockClient(),
       createMockMessage(),
-      mockLogger,
+      logger,
       DraftReplyConfidence.ALL_EMAILS,
       "rule-1",
     );
@@ -510,7 +510,7 @@ reason: Matched the requested property packet
       emailAccount: expect.objectContaining({ id: "test-account-id" }),
       ruleId: "rule-1",
       emailContent: expect.any(String),
-      logger: mockLogger,
+      logger,
     });
 
     expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
