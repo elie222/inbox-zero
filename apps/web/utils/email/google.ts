@@ -76,6 +76,7 @@ import type {
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
+import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 
 /**
  * Build a raw RFC 2822 message and encode it as base64url for Gmail API
@@ -774,6 +775,10 @@ export class GmailProvider implements EmailProvider {
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }> {
+    if (shouldSkipAutoDraft({ logger: this.logger, source: "google" })) {
+      return { draftId: "" };
+    }
+
     this.logger.info("Creating Gmail draft", {
       hasExecutedRule: Boolean(executedRule),
       contentLength: args.content?.length,

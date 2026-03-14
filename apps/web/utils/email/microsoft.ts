@@ -75,6 +75,7 @@ import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 import { moveMessagesForSenders } from "@/utils/outlook/batch";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -614,6 +615,10 @@ export class OutlookProvider implements EmailProvider {
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }> {
+    if (shouldSkipAutoDraft({ logger: this.logger, source: "microsoft" })) {
+      return { draftId: "" };
+    }
+
     this.logger.info("Creating Outlook draft", {
       hasExecutedRule: Boolean(executedRule),
       contentLength: args.content?.length,
