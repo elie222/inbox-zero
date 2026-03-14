@@ -50,14 +50,10 @@ export class OneDriveProvider implements DriveProvider {
         ? `/me/drive/items/${parentId}/children`
         : "/me/drive/root/children";
 
-      const response = await this.client
-        .api(endpoint)
-        .filter("folder ne null") // Only get folders, not files
-        .select("id,name,parentReference,webUrl")
-        .top(200) // Increase limit for better visibility
-        .get();
-
-      const items: DriveItem[] = response.value || [];
+      const items = await this.paginateChildren(endpoint, {
+        filter: "folder ne null",
+        select: "id,name,parentReference,webUrl",
+      });
 
       return items.map((item) => this.convertToFolder(item));
     } catch (error) {
@@ -180,7 +176,9 @@ export class OneDriveProvider implements DriveProvider {
     try {
       const item: DriveItem = await this.client
         .api(`/me/drive/items/${fileId}`)
-        .select("id,name,file,size,parentReference,webUrl,createdDateTime")
+        .select(
+          "id,name,file,size,parentReference,webUrl,createdDateTime,lastModifiedDateTime",
+        )
         .get();
 
       if (!item.file) {
@@ -197,6 +195,60 @@ export class OneDriveProvider implements DriveProvider {
       this.logger.error("Error getting file", { error, fileId });
       throw error;
     }
+  }
+
+  async listFiles(
+    parentId?: string,
+    options?: { mimeTypes?: string[] },
+  ): Promise<DriveFile[]> {
+    this.logger.trace("Listing files", {
+      parentId,
+      mimeTypes: options?.mimeTypes,
+    });
+
+    const endpoint = parentId
+      ? `/me/drive/items/${parentId}/children`
+      : "/me/drive/root/children";
+
+    const items = await this.paginateChildren(endpoint, {
+      select:
+        "id,name,file,size,parentReference,webUrl,createdDateTime,lastModifiedDateTime",
+    });
+
+    return items
+      .filter((item) => !!item.file?.mimeType)
+      .filter((item) =>
+        options?.mimeTypes?.length
+          ? options.mimeTypes.includes(item.file?.mimeType || "")
+          : true,
+      )
+      .map((item) => this.convertToFile(item));
+  }
+
+  async downloadFile(
+    fileId: string,
+  ): Promise<{ content: Buffer; file: DriveFile } | null> {
+    const file = await this.getFile(fileId);
+    if (!file) return null;
+
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/content`,
+      {
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+        },
+      },
+    );
+
+    if (response.status === 404) return null;
+    if (!response.ok) {
+      throw new Error(`Failed to download drive file: ${response.status}`);
+    }
+
+    return {
+      file,
+      content: Buffer.from(await response.arrayBuffer()),
+    };
   }
 
   async moveFile(fileId: string, targetFolderId: string): Promise<DriveFile> {
@@ -249,6 +301,36 @@ export class OneDriveProvider implements DriveProvider {
       createdAt: item.createdDateTime
         ? new Date(item.createdDateTime)
         : undefined,
+      modifiedAt: item.lastModifiedDateTime
+        ? new Date(item.lastModifiedDateTime)
+        : undefined,
     };
+  }
+
+  private async paginateChildren(
+    endpoint: string,
+    options: {
+      filter?: string;
+      select: string;
+    },
+  ) {
+    const items: DriveItem[] = [];
+    let nextUrl: string | undefined;
+
+    do {
+      const request = nextUrl
+        ? this.client.api(nextUrl)
+        : this.client.api(endpoint).select(options.select).top(200);
+
+      if (!nextUrl && options.filter) {
+        request.filter(options.filter);
+      }
+
+      const response = await request.get();
+      items.push(...(response.value || []));
+      nextUrl = response["@odata.nextLink"] || undefined;
+    } while (nextUrl);
+
+    return items;
   }
 }

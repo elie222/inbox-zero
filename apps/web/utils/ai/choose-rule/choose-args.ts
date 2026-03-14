@@ -66,6 +66,7 @@ export async function getActionItemsWithAiArgs({
           isTest ? message : undefined,
           logger,
           emailAccount.draftReplyConfidence,
+          selectedRule.id,
         );
       draft = draftResult.draft;
       draftConfidence = draftResult.confidence;

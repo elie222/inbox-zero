@@ -3,6 +3,7 @@ import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
 import type { OutlookFolder } from "@/utils/outlook/folders";
 import type { Logger } from "@/utils/logger";
+import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 
 export interface EmailThread {
   historyId?: string;
@@ -94,6 +95,7 @@ export interface EmailProvider {
       content: string;
       cc?: string;
       bcc?: string;
+      attachments?: MailAttachment[];
     },
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
