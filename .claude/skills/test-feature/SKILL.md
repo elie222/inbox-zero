@@ -20,8 +20,12 @@ The user may point you to an existing worktree, branch, or PR to test against. I
 Before testing, make sure the local environment is ready. These steps are idempotent — skip any that are already done.
 
 1. **Check if the dev server is running**: `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000` — if you get a response, skip to Step 1.
-2. **Ensure `.env` exists**: If `apps/web/.env` is missing (common in worktrees), try symlinking from a shared location or copying from `.env.example`. Ask the user where their env file is if you can't find one.
-   For eval tests, also ensure `.env.test` exists.
+2. **Ensure `.env` exists**: If `apps/web/.env` is missing (common in worktrees), try symlinking from a shared location:
+   ```bash
+   ln -sf ~/.inbox-zero/.env apps/web/.env
+   ln -sf ~/.inbox-zero/.env.test apps/web/.env.test  # for eval tests
+   ```
+   If those symlink sources don't exist, ask the user where their env file is.
 3. **Check feature flags**: If the feature being tested requires specific env vars (like `NEXT_PUBLIC_EXTERNAL_API_ENABLED`), verify they're set. If not, enable them — don't just report "feature not enabled" as if the test passed. The goal is to test the actual feature, not to verify that a feature flag blocks access.
 4. **Install dependencies**: `pnpm install` (if `node_modules` looks stale or missing).
 5. **Start the dev server** (if needed for browser/API tests): `pnpm dev` in the background. Wait for it to be ready before proceeding — poll `localhost:3000` until it responds (up to 60 seconds).
