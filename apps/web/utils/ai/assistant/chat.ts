@@ -129,6 +129,7 @@ Tool usage strategy (progressive disclosure):
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
   - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
+- If the user gives an exact label name they want to use, call manageLabels with action "createOrGet" for that name instead of listing labels first.
 - When the user wants to apply a label to specific threads, first get or create the label with manageLabels, then call manageInbox with action "label_threads" using the returned labelId.
 ${
   emailSendToolsEnabled

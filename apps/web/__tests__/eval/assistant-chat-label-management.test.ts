@@ -215,6 +215,147 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
         },
         TIMEOUT,
       );
+
+      test(
+        "creates a label without running inbox actions when the user only asks for the label",
+        async () => {
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount,
+            messages: [
+              {
+                role: "user",
+                content:
+                  "Create a label named Finance, but do not apply it to any emails yet.",
+              },
+            ],
+          });
+
+          const createOrGetMatch = getLastMatchingToolCall(
+            toolCalls,
+            "manageLabels",
+            isManageLabelsCreateOrGetInput,
+          );
+          const createOrGetCall = createOrGetMatch?.input ?? null;
+          const pass =
+            !!createOrGetCall &&
+            createOrGetCall.name === "Finance" &&
+            !toolCalls.some((toolCall) => toolCall.toolName === "manageInbox");
+
+          evalReporter.record({
+            testName: "create label only",
+            model: model.label,
+            pass,
+            actual,
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "reuses an existing label before labeling a single explicit thread",
+        async () => {
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount,
+            messages: [
+              {
+                role: "user",
+                content:
+                  "Use my existing Travel label on thread-1. Do not create a new label.",
+              },
+            ],
+          });
+
+          const createOrGetMatch = getLastMatchingToolCall(
+            toolCalls,
+            "manageLabels",
+            isManageLabelsCreateOrGetInput,
+          );
+          const labelThreadsMatch = getLastMatchingToolCall(
+            toolCalls,
+            "manageInbox",
+            isManageInboxLabelThreadsInput,
+          );
+          const createOrGetCall = createOrGetMatch?.input ?? null;
+          const labelThreadsCall = labelThreadsMatch?.input ?? null;
+          const pass =
+            !!createOrGetCall &&
+            !!labelThreadsCall &&
+            createOrGetCall.name === "Travel" &&
+            labelThreadsCall.threadIds.length === 1 &&
+            labelThreadsCall.threadIds[0] === "thread-1" &&
+            typeof labelThreadsCall.labelId === "string" &&
+            labelThreadsCall.labelId.length > 0 &&
+            !toolCalls.some(
+              (toolCall) =>
+                toolCall.toolName === "manageLabels" &&
+                isManageLabelsListInput(toolCall.input),
+            );
+
+          evalReporter.record({
+            testName: "reuse existing label then label thread",
+            model: model.label,
+            pass,
+            actual,
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "reuses an existing label before labeling multiple explicit threads",
+        async () => {
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount,
+            messages: [
+              {
+                role: "user",
+                content:
+                  "Label thread-1 and thread-2 with my Travel label. It already exists.",
+              },
+            ],
+          });
+
+          const createOrGetMatch = getLastMatchingToolCall(
+            toolCalls,
+            "manageLabels",
+            isManageLabelsCreateOrGetInput,
+          );
+          const labelThreadsMatch = getLastMatchingToolCall(
+            toolCalls,
+            "manageInbox",
+            isManageInboxLabelThreadsInput,
+          );
+          const createOrGetCall = createOrGetMatch?.input ?? null;
+          const labelThreadsCall = labelThreadsMatch?.input ?? null;
+          const createOrGetIndex = createOrGetMatch?.index ?? -1;
+          const labelThreadsIndex = labelThreadsMatch?.index ?? -1;
+          const pass =
+            !!createOrGetCall &&
+            !!labelThreadsCall &&
+            createOrGetCall.name === "Travel" &&
+            labelThreadsCall.threadIds.length === 2 &&
+            labelThreadsCall.threadIds.includes("thread-1") &&
+            labelThreadsCall.threadIds.includes("thread-2") &&
+            typeof labelThreadsCall.labelId === "string" &&
+            labelThreadsCall.labelId.length > 0 &&
+            createOrGetIndex >= 0 &&
+            labelThreadsIndex > createOrGetIndex;
+
+          evalReporter.record({
+            testName: "reuse existing label then label threads",
+            model: model.label,
+            pass,
+            actual,
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
     },
   );
 
