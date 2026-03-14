@@ -19,7 +19,7 @@ import {
   ReplyEmailResult,
   SearchInboxResult,
   SendEmailResult,
-  UpdateAbout,
+  UpdatePersonalInstructions,
   UpdatedLearnedPatterns,
   UpdatedRuleActions,
   UpdatedRuleConditions,
@@ -420,17 +420,22 @@ export function MessagePart({
     }
   }
 
-  if (part.type === "tool-updateAbout") {
+  if (part.type === "tool-updatePersonalInstructions") {
     const { toolCallId, state } = part;
     if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Updating about..." />;
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text="Updating personal instructions..."
+        />
+      );
     }
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
-      return <UpdateAbout key={toolCallId} args={part.input} />;
+      return <UpdatePersonalInstructions key={toolCallId} args={part.input} />;
     }
   }
 

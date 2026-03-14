@@ -910,9 +910,13 @@ export function UpdatedLearnedPatterns({
   );
 }
 
-export function UpdateAbout({ args }: { args: UpdateAboutTool["input"] }) {
+export function UpdatePersonalInstructions({
+  args,
+}: {
+  args: UpdateAboutTool["input"];
+}) {
   return (
-    <ExpandedToolCard title="Updated About Information">
+    <ExpandedToolCard title="Updated Personal Instructions">
       <ToolPanel className="text-sm leading-relaxed">{args.about}</ToolPanel>
     </ExpandedToolCard>
   );
