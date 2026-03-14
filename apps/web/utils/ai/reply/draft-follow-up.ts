@@ -24,7 +24,7 @@ Write a friendly follow-up that:
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
 
-IMPORTANT: You MUST write your response in the same language as the email thread. Detect the language used in the conversation and match it exactly. For example, if the thread is in Spanish, write the follow-up in Spanish. If it's in French, write in French. Do not default to English unless the thread is in English.
+Write the follow-up in the same language as the email thread.
 
 Examples of good follow-up phrases (in English): "Just checking in on this", "Wanted to follow up on my previous email", "Circling back on this"
 
