@@ -19,7 +19,7 @@ The user may point you to an existing worktree, branch, or PR to test against. I
 
 Before testing, make sure the local environment is ready. These steps are idempotent — skip any that are already done.
 
-1. **Check if the dev server is running**: `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000` — if you get a response, skip to Step 1.
+1. **Check if the dev server is running**: `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000` — if you get a response, skip to step 5 (but still check steps 2-4).
 2. **Ensure `.env` exists**: If `apps/web/.env` is missing (common in worktrees), try symlinking from a shared location:
    ```bash
    ln -sf ~/.inbox-zero/.env apps/web/.env

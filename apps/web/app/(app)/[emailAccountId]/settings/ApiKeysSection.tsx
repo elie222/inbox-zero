@@ -49,7 +49,7 @@ export function ApiKeysSection() {
               View keys{keyCount > 0 ? ` (${keyCount})` : ""}
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>API Keys</DialogTitle>
             </DialogHeader>
