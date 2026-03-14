@@ -2,7 +2,6 @@
 
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
-import { useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -40,6 +39,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAccounts } from "@/hooks/useAccounts";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function ApiKeysCreateButtonModal({ mutate }: { mutate: () => void }) {
   return (
@@ -71,8 +72,15 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
   >(DEFAULT_API_KEY_SCOPES);
   const [expiresIn, setExpiresIn] =
     useState<CreateApiKeyBody["expiresIn"]>("90");
-  const params = useParams<{ emailAccountId?: string }>();
-  const emailAccountId = params.emailAccountId || "";
+  const { emailAccountId: activeEmailAccountId } = useAccount();
+  const { data: accountsData } = useAccounts();
+  const emailAccounts = accountsData?.emailAccounts ?? [];
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    null,
+  );
+
+  const emailAccountId =
+    selectedAccountId ?? (activeEmailAccountId || emailAccounts[0]?.id || "");
 
   const { execute, isExecuting } = useAction(
     createApiKeyAction.bind(null, emailAccountId),
@@ -131,11 +139,29 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
 
   return !secretKey ? (
     <form onSubmit={onSubmit} className="space-y-4">
+      {emailAccounts.length > 1 && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Email account</p>
+          <Select value={emailAccountId} onValueChange={setSelectedAccountId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select an account" />
+            </SelectTrigger>
+            <SelectContent>
+              {emailAccounts.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  {account.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <Input
         type="text"
         name="name"
         label="Name (optional)"
-        placeholder="Rules automation"
+        placeholder="My API key"
         registerProps={register("name")}
         error={errors.name}
       />
@@ -186,7 +212,7 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
       </div>
 
       <SectionDescription>
-        This key will only work for the current inbox account.
+        This key will only work for the selected inbox account.
       </SectionDescription>
 
       <Button
@@ -209,13 +235,13 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
 
 export function ApiKeysDeactivateButton({
   id,
+  emailAccountId,
   mutate,
 }: {
   id: string;
+  emailAccountId: string;
   mutate: () => void;
 }) {
-  const params = useParams<{ emailAccountId?: string }>();
-  const emailAccountId = params.emailAccountId || "";
 
   const { execute, isExecuting } = useAction(
     deactivateApiKeyAction.bind(null, emailAccountId),

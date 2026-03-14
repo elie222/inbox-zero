@@ -198,7 +198,7 @@ function getApiLogUrl(url: string) {
 }
 
 function assertExternalApiEnabled() {
-  if (!env.EXTERNAL_API_ENABLED) {
+  if (!env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) {
     throw new SafeError("External API is not enabled");
   }
 }
