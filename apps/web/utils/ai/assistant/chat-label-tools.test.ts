@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createScopedLogger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
-import { manageLabelsTool } from "./chat-label-tools";
+import { createOrGetLabelTool, listLabelsTool } from "./chat-label-tools";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/email/provider");
@@ -10,6 +10,7 @@ vi.mock("@/utils/posthog", () => ({
 }));
 
 const logger = createScopedLogger("chat-label-tools-test");
+const TEST_EMAIL = "user@test.com";
 
 describe("chat label tools", () => {
   beforeEach(() => {
@@ -24,19 +25,16 @@ describe("chat label tools", () => {
       ]),
     } as any);
 
-    const toolInstance = manageLabelsTool({
-      email: "sender@example.com",
+    const toolInstance = listLabelsTool({
+      email: TEST_EMAIL,
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
     });
 
-    const result = await (toolInstance.execute as any)({
-      action: "list",
-    });
+    const result = await (toolInstance.execute as any)({});
 
     expect(result).toEqual({
-      action: "list",
       labels: [
         { id: "label-1", name: "Work-Items_/2026.Report", type: "user" },
         { id: "label-2", name: "Receipts", type: "user" },
@@ -61,20 +59,18 @@ describe("chat label tools", () => {
       createLabel,
     } as any);
 
-    const toolInstance = manageLabelsTool({
-      email: "sender@example.com",
+    const toolInstance = createOrGetLabelTool({
+      email: TEST_EMAIL,
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
     });
 
     const existingResult = await (toolInstance.execute as any)({
-      action: "createOrGet",
       name: " work items /2026 report ",
     });
 
     expect(existingResult).toEqual({
-      action: "createOrGet",
       created: false,
       label: {
         id: "label-1",
@@ -87,13 +83,11 @@ describe("chat label tools", () => {
     getLabels.mockResolvedValueOnce([]);
 
     const createdResult = await (toolInstance.execute as any)({
-      action: "createOrGet",
       name: "Work-Items_/2026.Report",
     });
 
     expect(createLabel).toHaveBeenCalledWith("Work-Items_/2026.Report");
     expect(createdResult).toEqual({
-      action: "createOrGet",
       created: true,
       label: {
         id: "label-2",

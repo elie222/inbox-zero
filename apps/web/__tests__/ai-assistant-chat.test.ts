@@ -164,7 +164,8 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.getAssistantCapabilities).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
     expect(args.tools.readEmail).toBeDefined();
-    expect(args.tools.manageLabels).toBeDefined();
+    expect(args.tools.listLabels).toBeDefined();
+    expect(args.tools.createOrGetLabel).toBeDefined();
     expect(args.tools.manageInbox).toBeDefined();
     expect(args.tools.updateAssistantSettings).toBeDefined();
     expect(args.tools.updateInboxFeatures).toBeDefined();

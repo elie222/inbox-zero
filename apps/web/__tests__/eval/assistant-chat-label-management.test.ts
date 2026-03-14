@@ -92,6 +92,10 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
     } as any);
 
     mockCreateEmailProvider.mockResolvedValue({
+      searchMessages: vi.fn().mockResolvedValue({
+        messages: [],
+        nextPageToken: undefined,
+      }),
       getMessagesWithPagination: vi.fn().mockResolvedValue({
         messages: [],
         nextPageToken: undefined,
@@ -140,14 +144,17 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
             ],
           });
 
-          const manageLabelsCall = getLastManageLabelsCall(toolCalls);
+          const listLabelsCall = getLastMatchingToolCall(
+            toolCalls,
+            "listLabels",
+            isListLabelsInput,
+          );
           const pass =
-            !!manageLabelsCall &&
-            manageLabelsCall.action === "list" &&
+            !!listLabelsCall &&
             !toolCalls.some(
               (toolCall) =>
-                toolCall.toolName === "manageLabels" &&
-                isManageLabelsCreateOrGetInput(toolCall.input),
+                toolCall.toolName === "createOrGetLabel" &&
+                isCreateOrGetLabelInput(toolCall.input),
             ) &&
             !toolCalls.some((toolCall) => toolCall.toolName === "manageInbox");
 
@@ -179,8 +186,8 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
 
           const createOrGetMatch = getLastMatchingToolCall(
             toolCalls,
-            "manageLabels",
-            isManageLabelsCreateOrGetInput,
+            "createOrGetLabel",
+            isCreateOrGetLabelInput,
           );
           const labelThreadsMatch = getLastMatchingToolCall(
             toolCalls,
@@ -232,8 +239,8 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
 
           const createOrGetMatch = getLastMatchingToolCall(
             toolCalls,
-            "manageLabels",
-            isManageLabelsCreateOrGetInput,
+            "createOrGetLabel",
+            isCreateOrGetLabelInput,
           );
           const createOrGetCall = createOrGetMatch?.input ?? null;
           const pass =
@@ -269,8 +276,8 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
 
           const createOrGetMatch = getLastMatchingToolCall(
             toolCalls,
-            "manageLabels",
-            isManageLabelsCreateOrGetInput,
+            "createOrGetLabel",
+            isCreateOrGetLabelInput,
           );
           const labelThreadsMatch = getLastMatchingToolCall(
             toolCalls,
@@ -289,8 +296,8 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
             labelThreadsCall.labelId.length > 0 &&
             !toolCalls.some(
               (toolCall) =>
-                toolCall.toolName === "manageLabels" &&
-                isManageLabelsListInput(toolCall.input),
+                toolCall.toolName === "listLabels" &&
+                isListLabelsInput(toolCall.input),
             );
 
           evalReporter.record({
@@ -321,8 +328,8 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
 
           const createOrGetMatch = getLastMatchingToolCall(
             toolCalls,
-            "manageLabels",
-            isManageLabelsCreateOrGetInput,
+            "createOrGetLabel",
+            isCreateOrGetLabelInput,
           );
           const labelThreadsMatch = getLastMatchingToolCall(
             toolCalls,
@@ -408,12 +415,7 @@ async function runAssistantChat({
   };
 }
 
-type ManageLabelsListInput = {
-  action: "list";
-};
-
-type ManageLabelsCreateOrGetInput = {
-  action: "createOrGet";
+type CreateOrGetLabelInput = {
   name: string;
 };
 
@@ -423,42 +425,18 @@ type ManageInboxLabelThreadsInput = {
   threadIds: string[];
 };
 
-function getLastManageLabelsCall(
-  toolCalls: Array<{ toolName: string; input: unknown }>,
-) {
+function isListLabelsInput(input: unknown): input is Record<string, never> {
   return (
-    getLastMatchingToolCall(toolCalls, "manageLabels", isManageLabelsInput)
-      ?.input ?? null
+    !!input && typeof input === "object" && Object.keys(input).length === 0
   );
 }
 
-function isManageLabelsInput(
+function isCreateOrGetLabelInput(
   input: unknown,
-): input is ManageLabelsListInput | ManageLabelsCreateOrGetInput {
-  return (
-    isManageLabelsListInput(input) || isManageLabelsCreateOrGetInput(input)
-  );
-}
-
-function isManageLabelsListInput(
-  input: unknown,
-): input is ManageLabelsListInput {
+): input is CreateOrGetLabelInput {
   return (
     !!input &&
     typeof input === "object" &&
-    "action" in input &&
-    (input as { action?: unknown }).action === "list"
-  );
-}
-
-function isManageLabelsCreateOrGetInput(
-  input: unknown,
-): input is ManageLabelsCreateOrGetInput {
-  return (
-    !!input &&
-    typeof input === "object" &&
-    "action" in input &&
-    (input as { action?: unknown }).action === "createOrGet" &&
     typeof (input as { name?: unknown }).name === "string"
   );
 }
@@ -482,12 +460,15 @@ function isManageInboxLabelThreadsInput(
 }
 
 function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {
-  if (isManageLabelsCreateOrGetInput(toolCall.input)) {
-    return `${toolCall.toolName}(createOrGet:${toolCall.input.name})`;
+  if (
+    toolCall.toolName === "createOrGetLabel" &&
+    isCreateOrGetLabelInput(toolCall.input)
+  ) {
+    return `${toolCall.toolName}(${toolCall.input.name})`;
   }
 
-  if (isManageLabelsListInput(toolCall.input)) {
-    return `${toolCall.toolName}(list)`;
+  if (toolCall.toolName === "listLabels" && isListLabelsInput(toolCall.input)) {
+    return `${toolCall.toolName}()`;
   }
 
   if (isManageInboxLabelThreadsInput(toolCall.input)) {

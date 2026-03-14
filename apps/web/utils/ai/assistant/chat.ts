@@ -38,7 +38,7 @@ import {
   sendEmailTool,
   updateInboxFeaturesTool,
 } from "./chat-inbox-tools";
-import { manageLabelsTool } from "./chat-label-tools";
+import { createOrGetLabelTool, listLabelsTool } from "./chat-label-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 
@@ -62,6 +62,10 @@ export type {
   UpdateAssistantSettingsTool,
 } from "./chat-settings-tools";
 export type {
+  CreateOrGetLabelTool,
+  ListLabelsTool,
+} from "./chat-label-tools";
+export type {
   ForwardEmailTool,
   GetAccountOverviewTool,
   ManageInboxTool,
@@ -71,7 +75,6 @@ export type {
   SendEmailTool,
   UpdateInboxFeaturesTool,
 } from "./chat-inbox-tools";
-export type { ManageLabelsTool } from "./chat-label-tools";
 export type { SaveMemoryTool, SearchMemoriesTool } from "./chat-memory-tools";
 
 export async function aiProcessAssistantChat({
@@ -129,8 +132,9 @@ Tool usage strategy (progressive disclosure):
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
   - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
-- If the user gives an exact label name they want to use, call manageLabels with action "createOrGet" for that name instead of listing labels first.
-- When the user wants to apply a label to specific threads, first get or create the label with manageLabels, then call manageInbox with action "label_threads" using the returned labelId.
+- If the user gives an exact label name they want to use, call createOrGetLabel for that name. Do not call listLabels first.
+- When the user wants to inspect existing labels, call listLabels.
+- When the user wants to apply a label to specific threads, first get or create the label with createOrGetLabel, then call manageInbox with action "label_threads" using the returned labelId.
 ${
   emailSendToolsEnabled
     ? `${getSendEmailSurfacePolicy({ responseSurface, messagingPlatform })}
@@ -154,6 +158,7 @@ Tool call policy:
 - If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.
 - If hidden UI context shows that specific threads were already archived or marked read, treat that as completed work. For follow-up confirmations, acknowledge the completed action instead of repeating it.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
+- If the user already provided explicit thread IDs, use them directly instead of calling searchInbox again.
 - Never invent thread IDs, sender addresses, or existing rule names.
 ${emailSendToolsEnabled ? '- For pending email actions, do not treat "prepared" as "sent".' : ""}
 - "archive_threads" archives specific threads by ID. Use it when the user refers to specific emails shown in results.
@@ -403,7 +408,8 @@ Behavior anchors (minimal examples):
       getAccountOverview: getAccountOverviewTool(toolOptions),
       searchInbox: searchInboxTool(toolOptions),
       readEmail: readEmailTool(toolOptions),
-      manageLabels: manageLabelsTool(toolOptions),
+      listLabels: listLabelsTool(toolOptions),
+      createOrGetLabel: createOrGetLabelTool(toolOptions),
       manageInbox: manageInboxTool(toolOptions),
       updateInboxFeatures: updateInboxFeaturesTool(toolOptions),
       getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),

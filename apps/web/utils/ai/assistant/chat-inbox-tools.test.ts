@@ -419,7 +419,7 @@ describe("chat inbox tools", () => {
 
     expect(result).toEqual({
       error:
-        "The selected label no longer exists. Use manageLabels first or provide labelName so it can be recreated.",
+        "The selected label no longer exists. Use createOrGetLabel first or provide labelName so it can be recreated.",
     });
     expect(getThreadMessages).not.toHaveBeenCalled();
     expect(labelMessage).not.toHaveBeenCalled();

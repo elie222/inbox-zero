@@ -339,8 +339,8 @@ function getManageInboxLabelDescription(provider: string) {
 
 function getManageInboxLabelIdDescription(provider: string) {
   return provider === "microsoft"
-    ? "Label/category ID to apply to the selected threads. Use manageLabels to fetch or create it first."
-    : "Label ID to apply to the selected threads. Use manageLabels to fetch or create it first.";
+    ? "Label/category ID to apply to the selected threads. Use createOrGetLabel when you know the exact name, or listLabels to inspect existing labels first."
+    : "Label ID to apply to the selected threads. Use createOrGetLabel when you know the exact name, or listLabels to inspect existing labels first.";
 }
 
 function manageInboxInputSchema(provider: string) {
@@ -349,7 +349,7 @@ function manageInboxInputSchema(provider: string) {
     threadIds: threadIdsSchema
       .nullish()
       .describe(
-        "Thread IDs to archive, label, or mark read/unread. Provide IDs from searchInbox results.",
+        "Thread IDs to archive, label, or mark read/unread. Use IDs from searchInbox results or explicit thread IDs the user already provided.",
       ),
     label: z
       .string()
@@ -1149,7 +1149,7 @@ async function resolveThreadLabel({
 
   if (!labelName) {
     throw new Error(
-      "The selected label no longer exists. Use manageLabels first or provide labelName so it can be recreated.",
+      "The selected label no longer exists. Use createOrGetLabel first or provide labelName so it can be recreated.",
     );
   }
 
