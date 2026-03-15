@@ -56,6 +56,10 @@ export type RuleResponse = {
   rule: Rule;
 };
 
+export type NullableRuleResponse = {
+  rule: Rule | null;
+};
+
 export type StatsByPeriodResponse = {
   result: Array<{
     startOfPeriod: string;

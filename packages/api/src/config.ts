@@ -35,9 +35,12 @@ export function saveConfig(
   configPath = CONFIG_PATH,
 ): void {
   const configDir = dirname(configPath);
+  const configDirExists = existsSync(configDir);
 
   mkdirSync(configDir, { recursive: true, mode: 0o700 });
-  chmodSync(configDir, 0o700);
+  if (!configDirExists || configPath === CONFIG_PATH) {
+    chmodSync(configDir, 0o700);
+  }
   writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, {
     mode: 0o600,
   });
