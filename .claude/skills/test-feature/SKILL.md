@@ -67,13 +67,42 @@ Use the `agent-browser` skill for all browser interactions. The core loop is: op
 
 #### Browser authentication
 
-The app requires OAuth login. agent-browser can't complete OAuth in headless mode, so you need the user's real browser session. Options (in order of preference):
+The app requires OAuth login. agent-browser can't complete OAuth, so you need a Chrome profile with an existing logged-in session.
 
-1. **Connect to user's Chrome via CDP**: Ask the user to launch Chrome with `--remote-debugging-port=9222` (or check if it's already running). Then use `agent-browser --cdp 9222`. This reuses their existing logged-in session.
-2. **Headed mode with profile**: Use `agent-browser --headed --profile <path>` to open a visible Chrome window. The user signs in once and the profile persists for future runs.
+**Preferred approach: headless Chrome with a saved profile**
+
+The user should have a dedicated Chrome profile directory with a logged-in session (stored outside the repo, e.g. `~/.chrome-debug-inbox-zero`). Check the user's auto-memory for the profile path. Then launch Chrome headless and connect:
+
+```bash
+# 1. Check if CDP is already running
+curl -s http://127.0.0.1:9222/json/version
+
+# 2. If not, launch Chrome headless with the saved profile
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --headless=new \
+  --remote-debugging-port=9222 \
+  --user-data-dir="$HOME/.chrome-debug-<name>" &>/dev/null &
+sleep 3
+
+# 3. Connect agent-browser
+agent-browser close
+curl -s -X PUT "http://127.0.0.1:9222/json/new?about:blank" > /dev/null
+sleep 2
+agent-browser --cdp 9222 open http://localhost:3000/automation
+```
+
+This runs entirely in the background — the user doesn't need to do anything.
+
+**Important caveats:**
+- Chrome won't allow two instances with the same `--user-data-dir` — kill any existing debug Chrome before launching.
+- If auth cookies have expired, the user needs to launch Chrome **headed** (without `--headless=new`) once to re-login via OAuth, then you can go back to headless.
+- Google OAuth blocks agent-browser's built-in Chromium ("This browser or app may not be secure") — must use real Chrome.
+- `agent-browser` may attach to `chrome://` internal pages — close those via `agent-browser close` before connecting.
+
+**Fallback options:**
+1. **Connect to user's running Chrome via CDP**: If the user already has Chrome open with `--remote-debugging-port=9222`, just use `agent-browser --cdp 9222`.
+2. **Headed mode with profile**: Use `agent-browser --headed --profile <path>` to open a visible Chrome window.
 3. **State file**: After signing in, save with `agent-browser state save ./auth.json` and reload later with `agent-browser --state ./auth.json`. Note: state files can expire.
-
-If the session hangs or API calls fail in the browser, the auth is likely stale — have the user sign in again.
 
 ### API testing
 - If testing an API, get an API key from the UI first (Settings → API Keys) and screenshot the process
