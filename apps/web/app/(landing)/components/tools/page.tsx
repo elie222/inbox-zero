@@ -335,11 +335,7 @@ export default function ToolsPage() {
         <section className="space-y-4">
           <SectionHeader>Settings & Knowledge</SectionHeader>
           <UpdatePersonalInstructions
-            args={{
-              about:
-                "I prefer concise responses and want newsletters archived by default.",
-              mode: "replace",
-            }}
+            text="I prefer concise responses and want newsletters archived by default."
           />
           <Suspense>
             <AddToKnowledgeBase
