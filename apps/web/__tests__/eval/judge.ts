@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { generateObject } from "ai";
 import { getModel } from "@/utils/llms/model";
+import type { UserAIFields } from "@/utils/llms/types";
 
 export interface JudgeCriterion {
   description: string;
@@ -30,12 +31,15 @@ export async function judgeBinary(options: {
   output: string;
   expected?: string;
   criterion: JudgeCriterion;
+  judgeUserAi?: UserAIFields;
 }): Promise<JudgeResult> {
-  const { model, providerOptions } = getModel({
-    aiProvider: null,
-    aiModel: null,
-    aiApiKey: null,
-  });
+  const { model, providerOptions } = getModel(
+    options.judgeUserAi ?? {
+      aiProvider: null,
+      aiModel: null,
+      aiApiKey: null,
+    },
+  );
 
   const system = [
     "You are an impartial judge evaluating AI-generated output.",
@@ -78,6 +82,7 @@ export async function judgeMultiple(options: {
   output: string;
   expected?: string;
   criteria: JudgeCriterion[];
+  judgeUserAi?: UserAIFields;
 }): Promise<{ results: JudgeResult[]; allPassed: boolean }> {
   const results = await Promise.all(
     options.criteria.map((criterion) => judgeBinary({ ...options, criterion })),
