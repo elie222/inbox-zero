@@ -51,7 +51,7 @@ import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSect
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
 import { RuleLoader } from "@/app/(app)/[emailAccountId]/assistant/RuleLoader";
-import { upsertRuleAttachmentSourcesAction } from "@/utils/actions/attachment-sources";
+import { handleRuleAttachmentSourceSave } from "@/utils/attachments/rule";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 
 export function Rule({
@@ -180,10 +180,6 @@ export function RuleForm({
       const hasDraftAction = data.actions.some(
         (action) => action.type === ActionType.DRAFT_EMAIL,
       );
-      const sourcesToSave = hasDraftAction ? attachmentSources : [];
-      if (!hasDraftAction) {
-        setAttachmentSources([]);
-      }
 
       // Add DIGEST action if digest is enabled
       const actionsToSubmit = [...data.actions];
@@ -223,20 +219,15 @@ export function RuleForm({
           });
           if (mutate) mutate();
         } else {
-          const attachmentSourceResult = await saveAttachmentSources({
+          await handleRuleAttachmentSourceSave({
             emailAccountId,
             ruleId: res.data.rule.id,
-            attachmentSources: sourcesToSave,
+            attachmentSources,
+            shouldSave: hasDraftAction,
+            successMessage: "Saved!",
+            partialErrorMessage:
+              "Rule saved, but draft attachment sources could not be updated.",
           });
-
-          if (attachmentSourceResult === "partial") {
-            toastError({
-              description:
-                "Rule saved, but draft attachment sources could not be updated.",
-            });
-          } else {
-            toastSuccess({ description: "Saved!" });
-          }
 
           // Revalidate to get the real data from server
           if (mutate) mutate();
@@ -266,20 +257,15 @@ export function RuleForm({
             description: "There was an error creating the rule.",
           });
         } else {
-          const attachmentSourceResult = await saveAttachmentSources({
+          await handleRuleAttachmentSourceSave({
             emailAccountId,
             ruleId: res.data.rule.id,
-            attachmentSources: sourcesToSave,
+            attachmentSources,
+            shouldSave: hasDraftAction,
+            successMessage: "Created!",
+            partialErrorMessage:
+              "Rule created, but draft attachment sources could not be saved.",
           });
-
-          if (attachmentSourceResult === "partial") {
-            toastError({
-              description:
-                "Rule created, but draft attachment sources could not be saved.",
-            });
-          } else {
-            toastSuccess({ description: "Created!" });
-          }
 
           posthog.capture("User created AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
@@ -674,27 +660,6 @@ export function RuleForm({
       </form>
     </Form>
   );
-}
-
-async function saveAttachmentSources({
-  emailAccountId,
-  ruleId,
-  attachmentSources,
-}: {
-  emailAccountId: string;
-  ruleId: string;
-  attachmentSources: AttachmentSourceInput[];
-}) {
-  const result = await upsertRuleAttachmentSourcesAction(emailAccountId, {
-    ruleId,
-    sources: attachmentSources,
-  });
-
-  if (result?.serverError || result?.validationErrors) {
-    return "partial" as const;
-  }
-
-  return "ok" as const;
 }
 
 function ThreadsExplanation({ size }: { size: "sm" | "md" }) {
