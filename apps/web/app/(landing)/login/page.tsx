@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
-import { getRequiresReconsentDescription } from "@/app/(landing)/login/messages";
 import { auth } from "@/utils/auth";
 import { isLocalAuthBypassEnabled } from "@/utils/auth/local-bypass-config";
 import { AlertBasic } from "@/components/Alert";
@@ -95,9 +94,7 @@ function ErrorAlert({ error }: { error: string }) {
       <AlertBasic
         variant="destructive"
         title="Permissions need to be refreshed"
-        description={getRequiresReconsentDescription({
-          includeSupportText: true,
-        })}
+        description={`Please sign in again and approve every requested permission. If your Microsoft 365 organization requires admin approval, ask your admin to approve ${BRAND_NAME} first. If this error persists please contact support at ${SUPPORT_EMAIL}`}
       />
     );
   }

@@ -3,7 +3,6 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense, useEffect } from "react";
-import { getRequiresReconsentDescription } from "@/app/(landing)/login/messages";
 import { Button } from "@/components/ui/button";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { ErrorPage } from "@/components/ErrorPage";
@@ -37,7 +36,7 @@ const errorMessages: Record<string, { title: string; description: string }> = {
   },
   requiresreconsent: {
     title: "Permissions need to be refreshed",
-    description: getRequiresReconsentDescription(),
+    description: `Please sign in again and approve every requested permission. If your Microsoft 365 organization requires admin approval, ask your admin to approve ${BRAND_NAME} first.`,
   },
 };
 
