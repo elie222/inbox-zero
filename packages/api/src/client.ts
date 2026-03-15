@@ -73,7 +73,7 @@ export function normalizeBaseUrl(baseUrl: string): string {
     return url.toString().replace(/\/$/, "");
   }
 
-  if (pathname === "/api/v1") {
+  if (pathname.endsWith("/api/v1")) {
     url.pathname = pathname;
     return url.toString();
   }
