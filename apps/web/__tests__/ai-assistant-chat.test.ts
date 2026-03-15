@@ -1192,7 +1192,7 @@ describe("aiProcessAssistantChat", () => {
     expect(memoriesMessage).toBeUndefined();
   });
 
-  it("updateAbout in replace mode overwrites existing content", async () => {
+  it("updatePersonalInstructions in replace mode overwrites existing content", async () => {
     const tools = await captureToolSet();
 
     mockPrisma.emailAccount.findUnique.mockResolvedValue({
@@ -1200,7 +1200,7 @@ describe("aiProcessAssistantChat", () => {
     });
     mockPrisma.emailAccount.update.mockResolvedValue({});
 
-    const result = await tools.updateAbout.execute({
+    const result = await tools.updatePersonalInstructions.execute({
       about: "New instructions",
       mode: "replace",
     });
@@ -1214,7 +1214,7 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
-  it("updateAbout in append mode preserves existing content", async () => {
+  it("updatePersonalInstructions in append mode preserves existing content", async () => {
     const tools = await captureToolSet();
 
     mockPrisma.emailAccount.findUnique.mockResolvedValue({
@@ -1222,7 +1222,7 @@ describe("aiProcessAssistantChat", () => {
     });
     mockPrisma.emailAccount.update.mockResolvedValue({});
 
-    const result = await tools.updateAbout.execute({
+    const result = await tools.updatePersonalInstructions.execute({
       about: "Additional preference",
       mode: "append",
     });
@@ -1239,7 +1239,7 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
-  it("updateAbout in append mode with no existing about sets new content", async () => {
+  it("updatePersonalInstructions in append mode with no existing about sets new content", async () => {
     const tools = await captureToolSet();
 
     mockPrisma.emailAccount.findUnique.mockResolvedValue({
@@ -1247,7 +1247,7 @@ describe("aiProcessAssistantChat", () => {
     });
     mockPrisma.emailAccount.update.mockResolvedValue({});
 
-    const result = await tools.updateAbout.execute({
+    const result = await tools.updatePersonalInstructions.execute({
       about: "First instructions",
       mode: "append",
     });

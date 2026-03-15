@@ -24,12 +24,12 @@ const inboxWorkflowProviders = [
   {
     provider: "google",
     label: "google",
-    unreadFilter: "is:unread",
+    unreadSignal: "is:unread",
   },
   {
     provider: "microsoft",
     label: "microsoft",
-    unreadFilter: "isread:false",
+    unreadSignal: "unread",
   },
 ] as const;
 const writeToolNames = new Set([
@@ -38,7 +38,7 @@ const writeToolNames = new Set([
   "updateRuleConditions",
   "updateRuleActions",
   "updateLearnedPatterns",
-  "updateAbout",
+  "updatePersonalInstructions",
   "updateAssistantSettings",
   "updateAssistantSettingsCompat",
   "updateInboxFeatures",
@@ -195,7 +195,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
     (model, emailAccount) => {
       test.each(inboxWorkflowProviders)(
         "handles inbox update requests with read-only triage search first [$label]",
-        async ({ provider, label, unreadFilter }) => {
+        async ({ provider, label, unreadSignal }) => {
           mockSearchMessages.mockResolvedValueOnce({
             messages: [
               getMockMessage({
@@ -234,7 +234,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
           const pass =
             !!searchCall &&
             hasSearchBeforeFirstWrite(toolCalls) &&
-            hasProviderUnreadFilter(searchCall.query, unreadFilter) &&
+            hasUnreadTriageSignal(searchCall.query, unreadSignal) &&
             hasNoWriteToolCalls(toolCalls);
 
           evalReporter.record({
@@ -418,6 +418,206 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
         },
         TIMEOUT,
       );
+
+      test.each(inboxWorkflowProviders)(
+        "reads the full email after search when the user asks what a message says [$label]",
+        async ({ provider, label }) => {
+          mockSearchMessages.mockResolvedValueOnce({
+            messages: [
+              getMockMessage({
+                id: "msg-read-1",
+                threadId: "thread-read-1",
+                from: "ops@partner.example",
+                subject: "Question on the revised plan",
+                snippet: "Can you confirm the revised timeline?",
+                labelIds: ["UNREAD"],
+              }),
+            ],
+            nextPageToken: undefined,
+          });
+
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount: cloneEmailAccountForProvider(emailAccount, provider),
+            messages: [
+              {
+                role: "user",
+                content:
+                  "What does the email about the revised plan say? I need the full contents.",
+              },
+            ],
+          });
+
+          const searchCall = getFirstSearchInboxCall(toolCalls);
+          const readCall = getLastMatchingToolCall(
+            toolCalls,
+            "readEmail",
+            isReadEmailInput,
+          )?.input;
+
+          const pass =
+            !!searchCall &&
+            !!readCall &&
+            hasSearchBeforeTool(toolCalls, "readEmail") &&
+            queryContainsAny(searchCall.query, ["revised", "plan"]) &&
+            readCall.messageId === "msg-read-1" &&
+            hasNoWriteToolCalls(toolCalls);
+
+          evalReporter.record({
+            testName: `search then read full email (${label})`,
+            model: model.label,
+            pass,
+            actual,
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test.each(inboxWorkflowProviders)(
+        "archives specific searched threads instead of bulk sender cleanup [$label]",
+        async ({ provider, label }) => {
+          mockSearchMessages.mockResolvedValueOnce({
+            messages: [
+              getMockMessage({
+                id: "msg-archive-1",
+                threadId: "thread-archive-1",
+                from: "alerts@sitebuilder.example",
+                subject: "Weekly site report",
+                snippet: "Traffic highlights and plugin notices.",
+                labelIds: ["UNREAD"],
+              }),
+              getMockMessage({
+                id: "msg-archive-2",
+                threadId: "thread-archive-2",
+                from: "alerts@sitebuilder.example",
+                subject: "Comment moderation summary",
+                snippet: "You have 12 new comments awaiting review.",
+                labelIds: [],
+              }),
+            ],
+            nextPageToken: undefined,
+          });
+
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount: cloneEmailAccountForProvider(emailAccount, provider),
+            messages: [
+              {
+                role: "user",
+                content:
+                  "Archive the two SiteBuilder emails in my inbox, but do not unsubscribe me or archive everything from that sender.",
+              },
+            ],
+          });
+
+          const searchCall = getFirstSearchInboxCall(toolCalls);
+          const archiveCall = getLastMatchingToolCall(
+            toolCalls,
+            "manageInbox",
+            isManageInboxThreadActionInput,
+          )?.input;
+
+          const pass =
+            !!searchCall &&
+            !!archiveCall &&
+            hasSearchBeforeFirstWrite(toolCalls) &&
+            queryContainsAny(searchCall.query, ["sitebuilder"]) &&
+            archiveCall.action === "archive_threads" &&
+            archiveCall.threadIds.length === 2 &&
+            archiveCall.threadIds.includes("thread-archive-1") &&
+            archiveCall.threadIds.includes("thread-archive-2") &&
+            !toolCalls.some(
+              (toolCall) =>
+                toolCall.toolName === "manageInbox" &&
+                isBulkArchiveSendersInput(toolCall.input),
+            );
+
+          evalReporter.record({
+            testName: `specific archive uses archive_threads (${label})`,
+            model: model.label,
+            pass,
+            actual,
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test.each(inboxWorkflowProviders)(
+        "marks specific searched threads read [$label]",
+        async ({ provider, label }) => {
+          mockSearchMessages.mockResolvedValueOnce({
+            messages: [
+              getMockMessage({
+                id: "msg-markread-1",
+                threadId: "thread-markread-1",
+                from: "updates@vendor.example",
+                subject: "Release notes",
+                snippet: "The release has shipped.",
+                labelIds: ["UNREAD"],
+              }),
+              getMockMessage({
+                id: "msg-markread-2",
+                threadId: "thread-markread-2",
+                from: "updates@vendor.example",
+                subject: "Maintenance complete",
+                snippet: "The maintenance window has ended.",
+                labelIds: ["UNREAD"],
+              }),
+            ],
+            nextPageToken: undefined,
+          });
+
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount: cloneEmailAccountForProvider(emailAccount, provider),
+            messages: [
+              {
+                role: "user",
+                content:
+                  "Mark the two unread vendor update emails as read, but do not archive them.",
+              },
+            ],
+          });
+
+          const searchCall = getFirstSearchInboxCall(toolCalls);
+          const markReadCall = getLastMatchingToolCall(
+            toolCalls,
+            "manageInbox",
+            isManageInboxThreadActionInput,
+          )?.input;
+
+          const pass =
+            !!searchCall &&
+            !!markReadCall &&
+            hasSearchBeforeFirstWrite(toolCalls) &&
+            queryContainsAny(searchCall.query, [
+              "vendor",
+              "update",
+              "unread",
+            ]) &&
+            markReadCall.action === "mark_read_threads" &&
+            markReadCall.threadIds.length === 2 &&
+            markReadCall.threadIds.includes("thread-markread-1") &&
+            markReadCall.threadIds.includes("thread-markread-2") &&
+            !toolCalls.some(
+              (toolCall) =>
+                toolCall.toolName === "manageInbox" &&
+                isManageInboxThreadActionInput(toolCall.input) &&
+                toolCall.input.action === "archive_threads",
+            );
+
+          evalReporter.record({
+            testName: `specific mark read uses mark_read_threads (${label})`,
+            model: model.label,
+            pass,
+            actual,
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
     },
   );
 
@@ -479,6 +679,20 @@ type SearchInboxInput = {
   pageToken?: string | null;
 };
 
+type ReadEmailInput = {
+  messageId: string;
+};
+
+type ManageInboxThreadActionInput = {
+  action: "archive_threads" | "mark_read_threads";
+  threadIds: string[];
+};
+
+type BulkArchiveSendersInput = {
+  action: "bulk_archive_senders";
+  fromEmails: string[];
+};
+
 function getFirstSearchInboxCall(
   toolCalls: Array<{ toolName: string; input: unknown }>,
 ) {
@@ -497,6 +711,65 @@ function isSearchInboxInput(input: unknown): input is SearchInboxInput {
   return typeof value.query === "string";
 }
 
+function isReadEmailInput(input: unknown): input is ReadEmailInput {
+  return (
+    !!input &&
+    typeof input === "object" &&
+    typeof (input as { messageId?: unknown }).messageId === "string"
+  );
+}
+
+function isManageInboxThreadActionInput(
+  input: unknown,
+): input is ManageInboxThreadActionInput {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as {
+    action?: unknown;
+    threadIds?: unknown;
+  };
+
+  return (
+    (value.action === "archive_threads" ||
+      value.action === "mark_read_threads") &&
+    Array.isArray(value.threadIds)
+  );
+}
+
+function isBulkArchiveSendersInput(
+  input: unknown,
+): input is BulkArchiveSendersInput {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as {
+    action?: unknown;
+    fromEmails?: unknown;
+  };
+
+  return (
+    value.action === "bulk_archive_senders" && Array.isArray(value.fromEmails)
+  );
+}
+
+function getLastMatchingToolCall<TInput>(
+  toolCalls: Array<{ toolName: string; input: unknown }>,
+  toolName: string,
+  matches: (input: unknown) => input is TInput,
+) {
+  for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
+    const toolCall = toolCalls[index];
+    if (toolCall.toolName !== toolName) continue;
+    if (!matches(toolCall.input)) continue;
+
+    return {
+      index,
+      input: toolCall.input,
+    };
+  }
+
+  return null;
+}
+
 function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {
   if (isSearchInboxInput(toolCall.input)) {
     return `${toolCall.toolName}(query=${toolCall.input.query}, limit=${toolCall.input.limit ?? "default"})`;
@@ -511,15 +784,19 @@ function hasNoWriteToolCalls(
   return !toolCalls.some((toolCall) => isWriteToolName(toolCall.toolName));
 }
 
-function hasProviderUnreadFilter(query: string, unreadFilter: string) {
+function hasUnreadTriageSignal(query: string, unreadSignal: string) {
   const normalizedQuery = query.toLowerCase();
-  return normalizedQuery.includes(unreadFilter);
+  return normalizedQuery.includes(unreadSignal);
 }
 
 function hasReplyTriageFocus(query: string, provider: "google" | "microsoft") {
   const normalizedQuery = query.toLowerCase();
   if (provider === "microsoft") {
-    return normalizedQuery.includes("isread:false");
+    return (
+      !normalizedQuery.includes("is:") &&
+      !normalizedQuery.includes("label:") &&
+      ["reply", "respond"].some((term) => normalizedQuery.includes(term))
+    );
   }
 
   return ["to reply", 'label:"to reply"', "label:to", "reply", "respond"].some(
@@ -546,6 +823,22 @@ function hasSearchBeforeFirstWrite(
   );
 
   return firstWriteIndex < 0 || firstSearchIndex < firstWriteIndex;
+}
+
+function hasSearchBeforeTool(
+  toolCalls: Array<{ toolName: string; input: unknown }>,
+  toolName: string,
+) {
+  const firstSearchIndex = toolCalls.findIndex(
+    (toolCall) => toolCall.toolName === "searchInbox",
+  );
+  const targetIndex = toolCalls.findIndex(
+    (toolCall) => toolCall.toolName === toolName,
+  );
+
+  return (
+    firstSearchIndex >= 0 && targetIndex >= 0 && firstSearchIndex < targetIndex
+  );
 }
 
 function isWriteToolName(toolName: string) {
@@ -577,6 +870,16 @@ function getDefaultSearchMessages() {
 function getMessageById(messageId: string) {
   const messages = [
     ...getDefaultSearchMessages(),
+    getMockMessage({
+      id: "msg-read-1",
+      threadId: "thread-read-1",
+      from: "ops@partner.example",
+      subject: "Question on the revised plan",
+      snippet: "Can you confirm the revised timeline?",
+      textPlain:
+        "The revised plan moves the launch to next Tuesday and adds a Friday review checkpoint.",
+      labelIds: ["UNREAD"],
+    }),
     getMockMessage({
       id: "msg-search-1",
       threadId: "thread-search-1",

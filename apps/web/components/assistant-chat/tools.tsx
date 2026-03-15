@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQueryState } from "nuqs";
 import type {
-  UpdateAboutTool,
   UpdateRuleConditionsTool,
   UpdateRuleConditionsOutput,
   UpdateRuleActionsTool,
@@ -910,10 +909,10 @@ export function UpdatedLearnedPatterns({
   );
 }
 
-export function UpdateAbout({ args }: { args: UpdateAboutTool["input"] }) {
+export function UpdatePersonalInstructions({ text }: { text: string }) {
   return (
-    <ExpandedToolCard title="Updated About Information">
-      <ToolPanel className="text-sm leading-relaxed">{args.about}</ToolPanel>
+    <ExpandedToolCard title="Updated Personal Instructions">
+      <ToolPanel className="text-sm leading-relaxed">{text}</ToolPanel>
     </ExpandedToolCard>
   );
 }
