@@ -1,0 +1,7 @@
+interface:
+  display_name: "Inbox Zero API CLI"
+  short_description: "Manage Inbox Zero rules and stats"
+  default_prompt: "Use $inbox-zero-api to inspect or update Inbox Zero rules and analytics through the API CLI."
+
+policy:
+  allow_implicit_invocation: true
