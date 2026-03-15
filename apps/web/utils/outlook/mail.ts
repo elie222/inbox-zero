@@ -519,9 +519,10 @@ async function addAttachmentsToDraft({
   if (!draftId) return;
 
   for (const attachment of attachments) {
-    const content = getAttachmentContentBuffer(attachment.content);
-    if (!content) continue;
-    if (content.length <= MAX_GRAPH_ATTACHMENT_SIZE_BYTES) {
+    const result = getAttachmentContent(attachment.content);
+    if (!result) continue;
+    const { buffer, base64 } = result;
+    if (buffer.length <= MAX_GRAPH_ATTACHMENT_SIZE_BYTES) {
       await withOutlookRetry(
         () =>
           client
@@ -531,26 +532,28 @@ async function addAttachmentsToDraft({
               "@odata.type": "#microsoft.graph.fileAttachment",
               name: attachment.filename || "attachment.pdf",
               contentType: attachment.contentType || "application/octet-stream",
-              contentBytes: content.toString("base64"),
+              contentBytes: base64 ?? buffer.toString("base64"),
             }),
         logger,
       );
       continue;
     }
 
-    assertGraphAttachmentSizeSupported({ attachment, content });
+    assertGraphAttachmentSizeSupported({ attachment, content: buffer });
     await uploadAttachmentViaSession({
       client,
       draftId,
       attachment,
-      content,
+      content: buffer,
       logger,
     });
   }
 }
 
-function getAttachmentContentBuffer(content: Attachment["content"]) {
-  if (Buffer.isBuffer(content)) return content;
+function getAttachmentContent(
+  content: Attachment["content"],
+): { buffer: Buffer; base64: string | null } | null {
+  if (Buffer.isBuffer(content)) return { buffer: content, base64: null };
   if (typeof content === "string") return decodeAttachmentString(content);
   return null;
 }
@@ -562,8 +565,6 @@ function assertGraphAttachmentSizeSupported({
   attachment: Attachment;
   content: Buffer;
 }) {
-  if (content.length <= MAX_GRAPH_ATTACHMENT_SIZE_BYTES) return;
-
   if (content.length <= MAX_GRAPH_UPLOAD_SESSION_SIZE_BYTES) return;
 
   throw new Error(
@@ -573,16 +574,19 @@ function assertGraphAttachmentSizeSupported({
   );
 }
 
-function decodeAttachmentString(content: string) {
+function decodeAttachmentString(content: string): {
+  buffer: Buffer;
+  base64: string | null;
+} {
   const normalized = content.trim().replace(/\s+/g, "");
   if (looksLikeBase64(normalized)) {
     const decoded = Buffer.from(normalized, "base64");
     if (isCanonicalBase64Match(normalized, decoded)) {
-      return decoded;
+      return { buffer: decoded, base64: normalized };
     }
   }
 
-  return Buffer.from(content, "utf8");
+  return { buffer: Buffer.from(content, "utf8"), base64: null };
 }
 
 function looksLikeBase64(value: string) {
@@ -667,7 +671,7 @@ async function uploadAttachmentChunk({
       "Content-Length": String(chunk.length),
       "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
     },
-    body: new Uint8Array(chunk),
+    body: chunk,
   });
 
   if (response.status === 201) {
@@ -725,28 +729,21 @@ interface UploadSessionStatus {
 }
 
 async function getUploadSessionStatus(uploadUrl: string) {
-  const response = await fetch(uploadUrl, { method: "GET" });
+  try {
+    const response = await fetch(uploadUrl, { method: "GET" });
 
-  if (response.status === 404 || response.status === 405) {
+    if (response.status === 404 || response.status === 405) {
+      return null;
+    }
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return (await response.json()) as UploadSessionStatus;
+  } catch {
     return null;
   }
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    const error = new Error(
-      `Failed to fetch Outlook upload session status: ${response.status} ${
-        errorText || response.statusText
-      }`,
-    );
-    Object.assign(error, {
-      status: response.status,
-      body: errorText,
-      response: { headers: response.headers, status: response.status },
-    });
-    throw error;
-  }
-
-  return (await response.json()) as UploadSessionStatus;
 }
 
 function getNextExpectedRangeStart(nextExpectedRanges?: string[]) {

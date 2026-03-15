@@ -116,6 +116,100 @@ describe("sendEmailWithHtml", () => {
     expect(sendPost).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps plain text attachment strings as utf-8", async () => {
+    const draftPost = vi.fn(async () => {
+      return {
+        id: "draft-1",
+        conversationId: "conversation-1",
+      } as Message;
+    });
+    const attachmentPost = vi.fn(async () => ({}));
+    const sendPost = vi.fn(async () => ({}));
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages") return { post: draftPost };
+      if (path === "/me/messages/draft-1/attachments") {
+        return { post: attachmentPost };
+      }
+      if (path === "/me/messages/draft-1/send") return { post: sendPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const plainTextContent = "hello world";
+
+    await sendEmailWithHtml(
+      client,
+      {
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageHtml: "<p>Hello</p>",
+        attachments: [
+          {
+            filename: "notes.txt",
+            content: plainTextContent,
+            contentType: "text/plain",
+          },
+        ],
+      },
+      createScopedLogger("outlook-mail-test"),
+    );
+
+    expect(attachmentPost).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentBytes: Buffer.from(plainTextContent, "utf8").toString("base64"),
+      }),
+    );
+    expect(sendPost).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps malformed base64 attachment strings as utf-8", async () => {
+    const draftPost = vi.fn(async () => {
+      return {
+        id: "draft-1",
+        conversationId: "conversation-1",
+      } as Message;
+    });
+    const attachmentPost = vi.fn(async () => ({}));
+    const sendPost = vi.fn(async () => ({}));
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages") return { post: draftPost };
+      if (path === "/me/messages/draft-1/attachments") {
+        return { post: attachmentPost };
+      }
+      if (path === "/me/messages/draft-1/send") return { post: sendPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const malformedBase64Content = "SGVsbG8*";
+
+    await sendEmailWithHtml(
+      client,
+      {
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageHtml: "<p>Hello</p>",
+        attachments: [
+          {
+            filename: "broken.txt",
+            content: malformedBase64Content,
+            contentType: "text/plain",
+          },
+        ],
+      },
+      createScopedLogger("outlook-mail-test"),
+    );
+
+    expect(attachmentPost).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentBytes: Buffer.from(malformedBase64Content, "utf8").toString(
+          "base64",
+        ),
+      }),
+    );
+    expect(sendPost).toHaveBeenCalledTimes(1);
+  });
+
   it("retries upload-session chunks and sends them as octet-stream", async () => {
     const draftPost = vi.fn(async () => {
       return {
