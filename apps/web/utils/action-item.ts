@@ -214,7 +214,10 @@ export function sanitizeActionFields(
     folderName: null,
     folderId: null,
     delayInMinutes: action.delayInMinutes || null,
-    staticAttachments: action.staticAttachments ?? null,
+    staticAttachments:
+      action.type === ActionType.DRAFT_EMAIL
+        ? (action.staticAttachments ?? null)
+        : null,
   };
 
   switch (action.type) {

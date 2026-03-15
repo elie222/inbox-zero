@@ -169,7 +169,7 @@ async function executeDelayedAction({
       cc: actionItem.cc,
       bcc: actionItem.bcc,
       url: actionItem.url,
-      staticAttachments: actionItem.staticAttachments ?? undefined,
+      staticAttachments: actionItem.staticAttachments,
       executedRule: {
         connect: { id: scheduledAction.executedRuleId },
       },

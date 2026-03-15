@@ -189,7 +189,14 @@ const draft: ActionFunction<{
     Promise.resolve(parseStaticAttachments(args.staticAttachments)),
   ]);
 
-  const allSelected = [...aiSelectedAttachments, ...staticSelected];
+  const allSelected = [
+    ...new Map(
+      [...aiSelectedAttachments, ...staticSelected].map((a) => [
+        `${a.driveConnectionId}:${a.fileId}`,
+        a,
+      ]),
+    ).values(),
+  ];
   const attachments = allSelected.length
     ? await resolveDraftAttachments({
         emailAccountId,

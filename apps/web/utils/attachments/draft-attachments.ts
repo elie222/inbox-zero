@@ -267,25 +267,30 @@ async function syncAttachmentSource({
   emailContent: string;
   logger: Logger;
 }): Promise<SourceDocument[]> {
-  const discoveredFiles = await discoverSourceFiles({
+  const { files: discoveredFiles, capped } = await discoverSourceFiles({
     source,
     provider,
   });
 
   const discoveredFileIds = discoveredFiles.map((file) => file.file.id);
 
-  if (discoveredFileIds.length > 0) {
-    await prisma.attachmentDocument.deleteMany({
-      where: {
-        attachmentSourceId: source.id,
-        fileId: { notIn: discoveredFileIds },
-      },
-    });
-  } else if (source.documents.length > 0) {
-    await prisma.attachmentDocument.deleteMany({
-      where: { attachmentSourceId: source.id },
-    });
-    return [];
+  // Only prune stale documents when we have a complete picture of what's in
+  // the source. If discovery was capped (file count or depth limit), skipping
+  // the deleteMany prevents valid attachments from being purged.
+  if (!capped) {
+    if (discoveredFileIds.length > 0) {
+      await prisma.attachmentDocument.deleteMany({
+        where: {
+          attachmentSourceId: source.id,
+          fileId: { notIn: discoveredFileIds },
+        },
+      });
+    } else if (source.documents.length > 0) {
+      await prisma.attachmentDocument.deleteMany({
+        where: { attachmentSourceId: source.id },
+      });
+      return [];
+    }
   }
 
   const existingDocuments = new Map(
@@ -412,23 +417,23 @@ async function discoverSourceFiles({
 }: {
   source: AttachmentSourceWithDocuments;
   provider: DriveProvider;
-}): Promise<DiscoveredDriveFile[]> {
+}): Promise<{ files: DiscoveredDriveFile[]; capped: boolean }> {
   if (source.type === "FILE") {
     const file = await provider.getFile(source.sourceId);
-    if (!file || file.mimeType !== PDF_MIME_TYPE) return [];
+    if (!file || file.mimeType !== PDF_MIME_TYPE)
+      return { files: [], capped: false };
 
-    return [
-      {
-        file,
-        path: source.sourcePath || file.name,
-      },
-    ];
+    return {
+      files: [{ file, path: source.sourcePath || file.name }],
+      capped: false,
+    };
   }
 
   const MAX_DISCOVERED_FILES = 500;
   const MAX_FOLDER_DEPTH = 5;
 
   const discoveredFiles: DiscoveredDriveFile[] = [];
+  let capped = false;
   const queue: Array<{ folderId: string; path: string; depth: number }> = [
     {
       folderId: source.sourceId,
@@ -441,8 +446,14 @@ async function discoverSourceFiles({
   while (queue.length > 0) {
     const current = queue.shift();
     if (!current || visitedFolders.has(current.folderId)) continue;
-    if (current.depth > MAX_FOLDER_DEPTH) continue;
-    if (discoveredFiles.length >= MAX_DISCOVERED_FILES) break;
+    if (current.depth > MAX_FOLDER_DEPTH) {
+      capped = true;
+      continue;
+    }
+    if (discoveredFiles.length >= MAX_DISCOVERED_FILES) {
+      capped = true;
+      break;
+    }
     visitedFolders.add(current.folderId);
 
     const [folders, files] = await Promise.all([
@@ -466,7 +477,7 @@ async function discoverSourceFiles({
     }
   }
 
-  return discoveredFiles;
+  return { files: discoveredFiles, capped };
 }
 
 async function indexAttachmentDocument({

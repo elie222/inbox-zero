@@ -154,5 +154,14 @@ describe("runActionFunction", () => {
 
     expect(selectDraftAttachmentsForRule).not.toHaveBeenCalled();
     expect(resolveDraftAttachments).not.toHaveBeenCalled();
+    expect(client.draftEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        content: "Attached the requested PDF.",
+        attachments: [],
+      }),
+      "user@example.com",
+      expect.objectContaining({ id: "executed-rule-1" }),
+    );
   });
 });

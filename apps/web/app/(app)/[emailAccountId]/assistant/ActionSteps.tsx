@@ -540,7 +540,8 @@ function ActionCard({
 
   const isNotifySender = actionType === ActionType.NOTIFY_SENDER;
 
-  const showAttachments = isEmailAction && !isDraftEmailWithoutManualContent;
+  const showAttachments =
+    actionType === ActionType.DRAFT_EMAIL && contentSetManually;
 
   const staticAttachments = useWatch({
     control,
