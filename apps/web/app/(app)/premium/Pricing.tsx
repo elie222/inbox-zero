@@ -56,10 +56,13 @@ export default function Pricing(props: PricingProps) {
   const hasExistingSubscription = Boolean(
     premium?.stripeSubscriptionId || premium?.lemonSqueezyCustomerId,
   );
-  const isLegacyStripePlan = hasLegacyStripePriceId({
-    tier: premium?.tier,
-    priceId: premium?.stripePriceId,
-  });
+  const isLegacyStripePlan =
+    !!premium?.stripeSubscriptionId &&
+    !premium?.lemonSqueezyCustomerId &&
+    hasLegacyStripePriceId({
+      tier: premium?.tier,
+      priceId: premium?.stripePriceId,
+    });
 
   const [frequency, setFrequency] = useState(frequencies[1]);
 

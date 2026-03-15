@@ -22,10 +22,13 @@ import {
 
 export function BillingSection() {
   const { premium, isPremium, isLoading } = usePremium();
-  const isLegacyStripePlan = hasLegacyStripePriceId({
-    tier: premium?.tier,
-    priceId: premium?.stripePriceId,
-  });
+  const isLegacyStripePlan =
+    !!premium?.stripeSubscriptionId &&
+    !premium?.lemonSqueezyCustomerId &&
+    hasLegacyStripePriceId({
+      tier: premium?.tier,
+      priceId: premium?.stripePriceId,
+    });
 
   return (
     <LoadingContent loading={isLoading}>

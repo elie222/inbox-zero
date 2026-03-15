@@ -67,4 +67,13 @@ describe("hasLegacyStripePriceId", () => {
       }),
     ).toBe(true);
   });
+
+  it("returns false for non-current prices that are not configured as legacy", () => {
+    expect(
+      hasLegacyStripePriceId({
+        tier: "STARTER_MONTHLY",
+        priceId: "price_unknown_starter_monthly",
+      }),
+    ).toBe(false);
+  });
 });

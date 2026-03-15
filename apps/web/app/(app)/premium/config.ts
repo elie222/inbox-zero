@@ -145,10 +145,10 @@ export function hasLegacyStripePriceId({
   const resolvedTier = tier || getStripeSubscriptionTier({ priceId });
   if (!resolvedTier) return false;
 
-  const currentPriceId = getStripePriceId({ tier: resolvedTier });
-  if (!currentPriceId) return false;
-
-  return currentPriceId !== priceId;
+  return (
+    STRIPE_PRICE_ID_CONFIG[resolvedTier]?.oldPriceIds?.includes(priceId) ??
+    false
+  );
 }
 
 export function getPremiumTierName(
