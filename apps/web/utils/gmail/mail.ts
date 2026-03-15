@@ -3,7 +3,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import MailComposer from "nodemailer/lib/mail-composer";
 import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
-import { zodAttachment } from "@/utils/types/mail";
+import { type WithMailerAttachments, zodAttachment } from "@/utils/types/mail";
 import { convertEmailHtmlToText } from "@/utils/mail";
 import {
   forwardEmailHtml,
@@ -50,9 +50,7 @@ export const sendEmailBody = z.object({
   attachments: z.array(zodAttachment).optional(),
 });
 export type SendEmailBody = z.infer<typeof sendEmailBody>;
-type MailSendEmailBody = Omit<SendEmailBody, "attachments"> & {
-  attachments?: Attachment[];
-};
+type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
 
 const encodeMessage = (message: Buffer) => {
   return Buffer.from(message)

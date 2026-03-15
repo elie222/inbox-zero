@@ -46,7 +46,7 @@ describe("handleRuleAttachmentSourceSave", () => {
 
   it("shows an error toast when attachment source persistence is partial", async () => {
     vi.mocked(upsertRuleAttachmentSourcesAction).mockResolvedValue({
-      serverError: "Failed",
+      serverError: "Detailed failure",
     } as any);
 
     const result = await handleRuleAttachmentSourceSave({
@@ -66,7 +66,9 @@ describe("handleRuleAttachmentSourceSave", () => {
         sources: attachmentSources,
       },
     );
-    expect(toastError).toHaveBeenCalledWith({ description: "Partial" });
+    expect(toastError).toHaveBeenCalledWith({
+      description: "Detailed failure",
+    });
     expect(toastSuccess).not.toHaveBeenCalled();
   });
 

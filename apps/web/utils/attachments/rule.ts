@@ -1,6 +1,7 @@
 import { toastError, toastSuccess } from "@/components/Toast";
 import { upsertRuleAttachmentSourcesAction } from "@/utils/actions/attachment-sources";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import { getActionErrorMessage } from "@/utils/error";
 
 export async function handleRuleAttachmentSourceSave({
   emailAccountId,
@@ -28,7 +29,9 @@ export async function handleRuleAttachmentSourceSave({
   });
 
   if (result?.serverError || result?.validationErrors) {
-    toastError({ description: partialErrorMessage });
+    toastError({
+      description: getActionErrorMessage(result, partialErrorMessage),
+    });
     return "partial" as const;
   }
 

@@ -563,6 +563,20 @@ function ActionCard({
     name: `actions.${index}.staticAttachments`,
   }) as AttachmentSourceInput[] | undefined;
 
+  const attachmentsField = supportsAttachments ? (
+    <ActionAttachmentsField
+      value={canConfigureStaticAttachments ? (staticAttachments ?? []) : []}
+      onChange={(newValue) =>
+        setValue(`actions.${index}.staticAttachments`, newValue)
+      }
+      emailAccountId={emailAccountId}
+      contentSetManually={canConfigureStaticAttachments}
+      allowAiSelectedSources={supportsAiSelectedSources}
+      attachmentSources={attachmentSources}
+      onAttachmentSourcesChange={onAttachmentSourcesChange}
+    />
+  ) : null;
+
   const rightContent = (
     <>
       {isNotifySender ? (
@@ -570,28 +584,20 @@ function ActionCard({
           {`Sends an automated notification from ${BRAND_NAME} informing the sender their email was filtered as cold outreach.`}
         </MutedText>
       ) : isDraftEmailWithoutManualContent ? (
-        <MutedText className="px-1 h-full flex items-center">
-          Our AI generates a draft reply from your email history and knowledge
-          base.
-        </MutedText>
+        <Card className="p-4 space-y-4">
+          <MutedText className="px-1 h-full flex items-center">
+            Our AI generates a draft reply from your email history and
+            knowledge base.
+          </MutedText>
+          {delayControls}
+          {attachmentsField}
+        </Card>
       ) : isEmailAction || actionType === ActionType.CALL_WEBHOOK ? (
         <Card className="p-4 space-y-4">
           {fieldsContent}
           {shouldShowProTip && <VariableProTip />}
           {delayControls}
-          {supportsAttachments && (
-            <ActionAttachmentsField
-              value={canConfigureStaticAttachments ? (staticAttachments ?? []) : []}
-              onChange={(newValue) =>
-                setValue(`actions.${index}.staticAttachments`, newValue)
-              }
-              emailAccountId={emailAccountId}
-              contentSetManually={canConfigureStaticAttachments}
-              allowAiSelectedSources={supportsAiSelectedSources}
-              attachmentSources={attachmentSources}
-              onAttachmentSourcesChange={onAttachmentSourcesChange}
-            />
-          )}
+          {attachmentsField}
         </Card>
       ) : (
         <>

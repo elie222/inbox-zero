@@ -61,6 +61,41 @@ describe("sendEmailWithHtml", () => {
       conversationId: "conversation-1",
     });
   });
+
+  it("rejects attachments larger than the Graph simple upload limit", async () => {
+    const draftPost = vi.fn(async () => {
+      return {
+        id: "draft-1",
+        conversationId: "conversation-1",
+      } as Message;
+    });
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages") return { post: draftPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await expect(
+      sendEmailWithHtml(
+        client,
+        {
+          to: "recipient@example.com",
+          subject: "Subject",
+          messageHtml: "<p>Hello</p>",
+          attachments: [
+            {
+              filename: "large.pdf",
+              content: Buffer.alloc(3 * 1024 * 1024 + 1),
+              contentType: "application/pdf",
+            },
+          ],
+        },
+        createScopedLogger("outlook-mail-test"),
+      ),
+    ).rejects.toThrow(
+      "Outlook attachments larger than 3 MB are not supported yet",
+    );
+  });
 });
 
 function createMockOutlookClient(

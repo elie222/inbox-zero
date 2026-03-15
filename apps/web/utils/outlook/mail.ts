@@ -2,6 +2,7 @@ import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Attachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/gmail/mail";
+import type { WithMailerAttachments } from "@/utils/types/mail";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createOutlookReplyContent } from "@/utils/outlook/reply";
@@ -19,9 +20,9 @@ import type { Logger } from "@/utils/logger";
 type GraphRecipient = {
   emailAddress: { address: string; name?: string };
 };
-type MailSendEmailBody = Omit<SendEmailBody, "attachments"> & {
-  attachments?: Attachment[];
-};
+type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
+
+const MAX_GRAPH_ATTACHMENT_SIZE_BYTES = 3 * 1024 * 1024;
 
 interface OutlookMessageRequest {
   bccRecipients?: GraphRecipient[];
@@ -518,6 +519,7 @@ async function addAttachmentsToDraft({
   for (const attachment of attachments) {
     const content = getAttachmentContentBuffer(attachment.content);
     if (!content) continue;
+    assertGraphAttachmentSizeSupported({ attachment, content });
 
     await withOutlookRetry(
       () =>
@@ -539,4 +541,20 @@ function getAttachmentContentBuffer(content: Attachment["content"]) {
   if (Buffer.isBuffer(content)) return content;
   if (typeof content === "string") return Buffer.from(content);
   return null;
+}
+
+function assertGraphAttachmentSizeSupported({
+  attachment,
+  content,
+}: {
+  attachment: Attachment;
+  content: Buffer;
+}) {
+  if (content.length <= MAX_GRAPH_ATTACHMENT_SIZE_BYTES) return;
+
+  throw new Error(
+    `Outlook attachments larger than 3 MB are not supported yet: ${
+      attachment.filename || "attachment"
+    }`,
+  );
 }
