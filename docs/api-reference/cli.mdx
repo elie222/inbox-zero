@@ -9,6 +9,8 @@ The package is published to npm as `@inbox-zero/api`, and the executable name is
 
 ## Run with npx
 
+Requires Node.js `18+`.
+
 ```bash
 npx @inbox-zero/api --help
 ```
@@ -35,10 +37,12 @@ Supported environment variables:
 Example:
 
 ```bash
-inbox-zero-api config set api-key iz_your_api_key
+inbox-zero-api rules list
 ```
 
 `base-url` is optional. The CLI defaults to `https://www.getinboxzero.com` and only needs an override for self-hosted or custom deployments.
+
+Set `INBOX_ZERO_API_KEY` in your shell or secret manager before running commands. Avoid passing API keys as CLI arguments because they can leak into shell history and process listings.
 
 ## Common commands
 

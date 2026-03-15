@@ -32,4 +32,12 @@ describe("buildApiUrl", () => {
       "https://www.getinboxzero.com/api/v1/stats/by-period?period=week&email=user%40example.com",
     );
   });
+
+  it("keeps empty-string query values", () => {
+    expect(
+      buildApiUrl("https://www.getinboxzero.com", "/stats/by-period", {
+        email: "",
+      }),
+    ).toBe("https://www.getinboxzero.com/api/v1/stats/by-period?email=");
+  });
 });

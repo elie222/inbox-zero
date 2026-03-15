@@ -91,7 +91,7 @@ export function buildApiUrl(
   url.pathname = `${url.pathname.replace(/\/$/, "")}/${pathname.replace(/^\//, "")}`;
 
   for (const [key, value] of Object.entries(searchParams || {})) {
-    if (value) {
+    if (value !== undefined) {
       url.searchParams.set(key, value);
     }
   }

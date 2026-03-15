@@ -1,40 +1,14 @@
-type RuleSummary = {
-  id: string;
-  name: string;
-  enabled: boolean;
-  actionCount: number;
-};
-
-type StatsByPeriodResult = {
-  result: Array<{
-    startOfPeriod: string;
-    All: number;
-    Sent: number;
-    Read: number;
-    Unread: number;
-    Unarchived: number;
-    Archived: number;
-  }>;
-  allCount: number;
-  inboxCount: number;
-  readCount: number;
-  sentCount: number;
-};
-
-type ResponseTimeResult = {
-  summary: {
-    medianResponseTime: number;
-    averageResponseTime: number;
-    within1Hour: number;
-  };
-  emailsAnalyzed: number;
-};
+import type {
+  ResponseTimeResponse,
+  Rule,
+  StatsByPeriodResponse,
+} from "./api-types";
 
 export function printJson(value: unknown) {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
-export function printRulesTable(rules: RuleSummary[]) {
+export function printRulesTable(rules: Rule[]) {
   if (rules.length === 0) {
     process.stdout.write("No rules found.\n");
     return;
@@ -43,12 +17,12 @@ export function printRulesTable(rules: RuleSummary[]) {
   process.stdout.write("ID\tENABLED\tACTIONS\tNAME\n");
   for (const rule of rules) {
     process.stdout.write(
-      `${rule.id}\t${rule.enabled ? "yes" : "no"}\t${rule.actionCount}\t${rule.name}\n`,
+      `${rule.id}\t${rule.enabled ? "yes" : "no"}\t${rule.actions.length}\t${rule.name}\n`,
     );
   }
 }
 
-export function printStatsByPeriod(result: StatsByPeriodResult) {
+export function printStatsByPeriod(result: StatsByPeriodResponse) {
   process.stdout.write(
     `Emails: ${result.allCount} total, ${result.inboxCount} inbox, ${result.readCount} read, ${result.sentCount} sent\n`,
   );
@@ -60,13 +34,15 @@ export function printStatsByPeriod(result: StatsByPeriodResult) {
   }
 }
 
-export function printResponseTime(result: ResponseTimeResult) {
-  process.stdout.write(`Emails analyzed: ${result.emailsAnalyzed}\n`);
+export function printResponseTime(result: ResponseTimeResponse) {
   process.stdout.write(
-    `Median response time: ${result.summary.medianResponseTime}\n`,
+    `Emails analyzed: ${result.emailsAnalyzed}/${result.maxEmailsCap}\n`,
   );
   process.stdout.write(
-    `Average response time: ${result.summary.averageResponseTime}\n`,
+    `Median response time: ${result.summary.medianResponseTime} minutes\n`,
   );
-  process.stdout.write(`Within 1 hour: ${result.summary.within1Hour}\n`);
+  process.stdout.write(
+    `Average response time: ${result.summary.averageResponseTime} minutes\n`,
+  );
+  process.stdout.write(`Within 1 hour: ${result.summary.within1Hour}%\n`);
 }
