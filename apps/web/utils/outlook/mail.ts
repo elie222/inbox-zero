@@ -670,25 +670,40 @@ async function uploadAttachmentChunk({
     body: new Uint8Array(chunk),
   });
 
-  if (response.status === 200 || response.status === 201) {
+  if (response.status === 201) {
     return totalSize;
   }
 
-  if (response.status === 202) {
+  if (response.status === 200 || response.status === 202) {
     const uploadStatus = (await response.json()) as UploadSessionStatus;
-    return (
-      getNextExpectedRangeStart(uploadStatus.nextExpectedRanges) ?? totalSize
+    const nextStart = getNextExpectedRangeStart(
+      uploadStatus.nextExpectedRanges,
     );
+    if (typeof nextStart !== "number") {
+      throw new Error(
+        `Outlook upload session returned ${response.status} without nextExpectedRanges`,
+      );
+    }
+
+    return nextStart;
   }
 
   if (response.status === 416) {
     const uploadStatus = await getUploadSessionStatus(uploadUrl);
+    if (!uploadStatus) {
+      return end;
+    }
+
     const nextStart = getNextExpectedRangeStart(
       uploadStatus.nextExpectedRanges,
     );
     if (typeof nextStart === "number" && nextStart > start) {
       return nextStart;
     }
+
+    throw new Error(
+      "Outlook upload session returned 416 without a usable resume range",
+    );
   }
 
   const errorText = await response.text();
@@ -711,6 +726,10 @@ interface UploadSessionStatus {
 
 async function getUploadSessionStatus(uploadUrl: string) {
   const response = await fetch(uploadUrl, { method: "GET" });
+
+  if (response.status === 404 || response.status === 405) {
+    return null;
+  }
 
   if (!response.ok) {
     const errorText = await response.text();

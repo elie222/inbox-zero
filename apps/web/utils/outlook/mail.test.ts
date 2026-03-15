@@ -127,6 +127,7 @@ describe("sendEmailWithHtml", () => {
       uploadUrl: "https://upload.example.test/session",
     }));
     const sendPost = vi.fn(async () => ({}));
+    const totalSize = 3 * 1024 * 1024 + 1;
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -135,7 +136,9 @@ describe("sendEmailWithHtml", () => {
           headers: { "Retry-After": "0" },
         }),
       )
-      .mockResolvedValue(new Response(null, { status: 201 }));
+      .mockImplementation(async (_url: string, init?: RequestInit) =>
+        createUploadChunkProgressResponse(init),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const client = createMockOutlookClient((path) => {
@@ -156,7 +159,7 @@ describe("sendEmailWithHtml", () => {
         attachments: [
           {
             filename: "large.pdf",
-            content: Buffer.alloc(3 * 1024 * 1024 + 1),
+            content: Buffer.alloc(totalSize),
             contentType: "application/pdf",
           },
         ],
@@ -168,7 +171,7 @@ describe("sendEmailWithHtml", () => {
       expect.objectContaining({
         AttachmentItem: expect.objectContaining({
           name: "large.pdf",
-          size: 3 * 1024 * 1024 + 1,
+          size: totalSize,
         }),
       }),
     );
@@ -244,17 +247,7 @@ describe("sendEmailWithHtml", () => {
         return new Response(null, { status: 201 });
       }
 
-      return new Response(
-        JSON.stringify({
-          nextExpectedRanges: [
-            `${parsedRange.endInclusive + 1}-${parsedRange.totalSize - 1}`,
-          ],
-        }),
-        {
-          status: 202,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
+      return createUploadChunkProgressResponse(init);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -284,9 +277,91 @@ describe("sendEmailWithHtml", () => {
       createScopedLogger("outlook-mail-test"),
     );
 
-    expect(
-      fetchMock.mock.calls.some(([, init]) => init?.method === "GET"),
-    ).toBe(true);
+    const statusCallIndex = fetchMock.mock.calls.findIndex(
+      ([, init]) => init?.method === "GET",
+    );
+    expect(statusCallIndex).toBeGreaterThan(-1);
+    const resumedPutCall = fetchMock.mock.calls
+      .slice(statusCallIndex + 1)
+      .find(([, init]) => init?.method === "PUT");
+    expect(getContentRangeHeader(resumedPutCall?.[1])).toBe(
+      `bytes ${chunkSize}-${chunkSize * 2 - 1}/${totalSize}`,
+    );
+    expect(sendPost).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to local chunk progress when upload-session status is unavailable", async () => {
+    const draftPost = vi.fn(async () => {
+      return {
+        id: "draft-1",
+        conversationId: "conversation-1",
+      } as Message;
+    });
+    const createUploadSessionPost = vi.fn(async () => ({
+      uploadUrl: "https://upload.example.test/session",
+    }));
+    const sendPost = vi.fn(async () => ({}));
+    const totalSize = 3 * 1024 * 1024 + 1;
+    const chunkSize = 320 * 1024;
+    let firstChunkAttempt = 0;
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === "GET") {
+        return new Response("not supported", { status: 404 });
+      }
+
+      const contentRange = getContentRangeHeader(init);
+      if (contentRange === `bytes 0-${chunkSize - 1}/${totalSize}`) {
+        if (firstChunkAttempt === 0) {
+          firstChunkAttempt += 1;
+          throw new TypeError("fetch failed");
+        }
+
+        if (firstChunkAttempt === 1) {
+          firstChunkAttempt += 1;
+          return new Response("already received", { status: 416 });
+        }
+      }
+
+      return createUploadChunkProgressResponse(init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages") return { post: draftPost };
+      if (path === "/me/messages/draft-1/attachments/createUploadSession") {
+        return { post: createUploadSessionPost };
+      }
+      if (path === "/me/messages/draft-1/send") return { post: sendPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await sendEmailWithHtml(
+      client,
+      {
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageHtml: "<p>Hello</p>",
+        attachments: [
+          {
+            filename: "fallback.pdf",
+            content: Buffer.alloc(totalSize),
+            contentType: "application/pdf",
+          },
+        ],
+      },
+      createScopedLogger("outlook-mail-test"),
+    );
+
+    const statusCallIndex = fetchMock.mock.calls.findIndex(
+      ([, init]) => init?.method === "GET",
+    );
+    expect(statusCallIndex).toBeGreaterThan(-1);
+    const resumedPutCall = fetchMock.mock.calls
+      .slice(statusCallIndex + 1)
+      .find(([, init]) => init?.method === "PUT");
+    expect(getContentRangeHeader(resumedPutCall?.[1])).toBe(
+      `bytes ${chunkSize}-${chunkSize * 2 - 1}/${totalSize}`,
+    );
     expect(sendPost).toHaveBeenCalledTimes(1);
   });
 });
@@ -324,4 +399,27 @@ function parseContentRange(contentRange: string) {
     endInclusive: Number(match[2]),
     totalSize: Number(match[3]),
   };
+}
+
+function createUploadChunkProgressResponse(init?: RequestInit) {
+  const contentRange = getContentRangeHeader(init);
+  const parsedRange = parseContentRange(contentRange);
+  if (!parsedRange)
+    throw new Error(`Unexpected content range: ${contentRange}`);
+
+  if (parsedRange.endInclusive + 1 >= parsedRange.totalSize) {
+    return new Response(null, { status: 201 });
+  }
+
+  return new Response(
+    JSON.stringify({
+      nextExpectedRanges: [
+        `${parsedRange.endInclusive + 1}-${parsedRange.totalSize - 1}`,
+      ],
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    },
+  );
 }
