@@ -57,9 +57,10 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
 
       const label = action.label.trim();
       const normalizedLabel = normalizeLabelName(label);
+      const seenLabelKey = normalizeSeenLabel(label);
       if (!label) continue;
-      if (seenLabels.has(normalizedLabel)) continue;
-      seenLabels.add(normalizedLabel);
+      if (seenLabels.has(seenLabelKey)) continue;
+      seenLabels.add(seenLabelKey);
 
       const defaultTab = LABEL_TO_DEFAULT_TAB[normalizedLabel];
       if (defaultTab) {
@@ -91,4 +92,8 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
   });
 
   return tabs;
+}
+
+function normalizeSeenLabel(label: string) {
+  return label.trim().toLowerCase().replace(/\s+/g, " ");
 }

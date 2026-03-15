@@ -59,6 +59,30 @@ describe("mapRulesToExtensionTabs", () => {
     ]);
   });
 
+  it("preserves distinct custom labels that only differ by punctuation", () => {
+    const rules = [
+      getRule("sync project dotted", [getAction({ label: "Project.One" })]),
+      getRule("sync project space", [getAction({ label: "Project One" })]),
+    ];
+
+    expect(mapRulesToExtensionTabs(rules)).toEqual([
+      {
+        type: "add_custom",
+        label: "Project One",
+        icon: "🏷️",
+        query: "in:inbox label:project-one",
+        displayLabel: "Project One",
+      },
+      {
+        type: "add_custom",
+        label: "Project.One",
+        icon: "🏷️",
+        query: "in:inbox label:projectone",
+        displayLabel: "Project.One",
+      },
+    ]);
+  });
+
   it("skips labels for archived rules", () => {
     const rules = [
       getRule("archive newsletters", [
