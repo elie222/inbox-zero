@@ -208,6 +208,11 @@ type SanitizableActionFields = Partial<
 export function sanitizeActionFields(
   action: SanitizableActionFields,
 ): ActionFieldsSelection {
+  const supportsStaticAttachments =
+    action.type === ActionType.DRAFT_EMAIL ||
+    action.type === ActionType.REPLY ||
+    action.type === ActionType.SEND_EMAIL;
+
   const base: ActionFieldsSelection = {
     type: action.type,
     label: null,
@@ -221,10 +226,9 @@ export function sanitizeActionFields(
     folderName: null,
     folderId: null,
     delayInMinutes: action.delayInMinutes || null,
-    staticAttachments:
-      action.type === ActionType.DRAFT_EMAIL
-        ? (action.staticAttachments ?? undefined)
-        : undefined,
+    staticAttachments: supportsStaticAttachments
+      ? (action.staticAttachments ?? undefined)
+      : undefined,
   };
 
   switch (action.type) {

@@ -50,6 +50,7 @@ export function ActionAttachmentsField({
   onChange,
   emailAccountId,
   contentSetManually,
+  allowAiSelectedSources = true,
   attachmentSources,
   onAttachmentSourcesChange,
 }: {
@@ -57,6 +58,7 @@ export function ActionAttachmentsField({
   onChange: (value: AttachmentSourceInput[]) => void;
   emailAccountId: string;
   contentSetManually: boolean;
+  allowAiSelectedSources?: boolean;
   attachmentSources: AttachmentSourceInput[];
   onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
@@ -68,8 +70,9 @@ export function ActionAttachmentsField({
 
   const isConnected = (connectionsData?.connections.length ?? 0) > 0;
   const hasAttachments = value.length > 0;
-  const hasAiSources = attachmentSources.length > 0;
-  const totalCount = value.length + attachmentSources.length;
+  const aiSourceCount = allowAiSelectedSources ? attachmentSources.length : 0;
+  const hasAiSources = aiSourceCount > 0;
+  const totalCount = value.length + aiSourceCount;
 
   const selectedKeys = useMemo(
     () => new Set(value.map((source) => getSourceKey(source))),
@@ -124,14 +127,6 @@ export function ActionAttachmentsField({
     <div className="border-t pt-3">
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium">Attachments</span>
-        {!isConnected && (
-          <Badge
-            variant="outline"
-            className="border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300"
-          >
-            Setup needed
-          </Badge>
-        )}
         {isConnected && totalCount > 0 && (
           <Badge variant="secondary" className="tabular-nums">
             {totalCount}
@@ -144,7 +139,7 @@ export function ActionAttachmentsField({
           <HardDriveIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0">
             <p className="text-sm text-muted-foreground">
-              Connect your cloud storage to attach files to your replies.
+              Connect your cloud storage to attach files to your emails.
             </p>
             <Button asChild variant="link" size="sm" className="mt-1 h-auto p-0 text-sm">
               <Link href={`/${emailAccountId}/drive`}>Connect Drive</Link>
@@ -205,7 +200,7 @@ export function ActionAttachmentsField({
         </div>
       )}
 
-      {isConnected && (
+      {isConnected && allowAiSelectedSources && (
         <div className="mt-2">
           <button
             type="button"

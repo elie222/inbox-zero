@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ActionType, DraftReplyConfidence } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  AttachmentSourceType,
+  DraftReplyConfidence,
+} from "@/generated/prisma/enums";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { runActionFunction } from "@/utils/ai/actions";
 import {
@@ -162,6 +166,145 @@ describe("runActionFunction", () => {
       }),
       "user@example.com",
       expect.objectContaining({ id: "executed-rule-1" }),
+    );
+  });
+
+  it("passes static attachments into replies", async () => {
+    const client = createMockEmailProvider();
+
+    vi.mocked(resolveDraftAttachments).mockResolvedValue([
+      {
+        filename: "lease.pdf",
+        content: Buffer.from("pdf"),
+        contentType: "application/pdf",
+      },
+    ]);
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.REPLY,
+        content: "Attached.",
+        staticAttachments: [
+          {
+            driveConnectionId: "drive-1",
+            name: "lease.pdf",
+            sourceId: "file-1",
+            sourcePath: "/Docs",
+            type: AttachmentSourceType.FILE,
+          },
+        ],
+      },
+      userEmail: "user@example.com",
+      userId: "user-1",
+      emailAccountId: "account-1",
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(getReplyWithConfidence).not.toHaveBeenCalled();
+    expect(resolveDraftAttachments).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      userId: "user-1",
+      selectedAttachments: [
+        {
+          driveConnectionId: "drive-1",
+          fileId: "file-1",
+          filename: "lease.pdf",
+          mimeType: "application/pdf",
+        },
+      ],
+      logger: expect.anything(),
+    });
+    expect(client.replyToEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      "Attached.",
+      expect.objectContaining({
+        attachments: [
+          expect.objectContaining({
+            filename: "lease.pdf",
+            contentType: "application/pdf",
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("passes static attachments into sent emails", async () => {
+    const client = createMockEmailProvider();
+
+    vi.mocked(resolveDraftAttachments).mockResolvedValue([
+      {
+        filename: "quote.pdf",
+        content: Buffer.from("pdf"),
+        contentType: "application/pdf",
+      },
+    ]);
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.SEND_EMAIL,
+        to: "recipient@example.com",
+        subject: "Quote",
+        content: "Attached.",
+        staticAttachments: [
+          {
+            driveConnectionId: "drive-1",
+            name: "quote.pdf",
+            sourceId: "file-2",
+            sourcePath: "/Docs",
+            type: AttachmentSourceType.FILE,
+          },
+        ],
+      },
+      userEmail: "user@example.com",
+      userId: "user-1",
+      emailAccountId: "account-1",
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(getReplyWithConfidence).not.toHaveBeenCalled();
+    expect(resolveDraftAttachments).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      userId: "user-1",
+      selectedAttachments: [
+        {
+          driveConnectionId: "drive-1",
+          fileId: "file-2",
+          filename: "quote.pdf",
+          mimeType: "application/pdf",
+        },
+      ],
+      logger: expect.anything(),
+    });
+    expect(client.sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "recipient@example.com",
+        subject: "Quote",
+        messageText: "Attached.",
+        attachments: [
+          expect.objectContaining({
+            filename: "quote.pdf",
+            contentType: "application/pdf",
+          }),
+        ],
+      }),
     );
   });
 });

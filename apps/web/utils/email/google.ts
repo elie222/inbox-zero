@@ -820,7 +820,11 @@ export class GmailProvider implements EmailProvider {
   async replyToEmail(
     email: ParsedMessage,
     content: string,
-    options?: { replyTo?: string; from?: string },
+    options?: {
+      replyTo?: string;
+      from?: string;
+      attachments?: MailAttachment[];
+    },
   ): Promise<void> {
     await replyToEmail(this.client, email, content, options?.from, options);
   }
@@ -831,6 +835,7 @@ export class GmailProvider implements EmailProvider {
     bcc?: string;
     subject: string;
     messageText: string;
+    attachments?: MailAttachment[];
   }): Promise<void> {
     await sendEmailWithPlainText(this.client, args);
   }

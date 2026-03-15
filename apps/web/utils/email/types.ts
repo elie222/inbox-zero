@@ -237,7 +237,11 @@ export interface EmailProvider {
   replyToEmail(
     email: ParsedMessage,
     content: string,
-    options?: { replyTo?: string; from?: string },
+    options?: {
+      replyTo?: string;
+      from?: string;
+      attachments?: MailAttachment[];
+    },
   ): Promise<void>;
   searchMessages(options: {
     query: string;
@@ -254,6 +258,7 @@ export interface EmailProvider {
     bcc?: string;
     subject: string;
     messageText: string;
+    attachments?: MailAttachment[];
   }): Promise<void>;
   sendEmailWithHtml(body: {
     replyToEmail?: {

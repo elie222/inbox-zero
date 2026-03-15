@@ -74,6 +74,15 @@ export async function sendEmailWithHtml(
     logger,
   );
 
+  if (body.attachments?.length) {
+    await addAttachmentsToDraft({
+      client,
+      draftId: draft.id || "",
+      attachments: body.attachments,
+      logger,
+    });
+  }
+
   await withOutlookRetry(
     () => client.getClient().api(`/me/messages/${draft.id}/send`).post({}),
     logger,
@@ -100,7 +109,7 @@ export async function replyToEmail(
   message: EmailForAction,
   reply: string,
   logger: Logger,
-  options?: { replyTo?: string; from?: string },
+  options?: { replyTo?: string; from?: string; attachments?: Attachment[] },
 ) {
   ensureEmailSendingEnabled();
 
@@ -153,6 +162,15 @@ export async function replyToEmail(
         }),
     logger,
   );
+
+  if (options?.attachments?.length) {
+    await addAttachmentsToDraft({
+      client,
+      draftId: replyDraft.id || "",
+      attachments: options.attachments,
+      logger,
+    });
+  }
 
   // Send the draft
   await withOutlookRetry(
@@ -424,6 +442,15 @@ async function sendReplyUsingCreateReply(
         }),
     logger,
   );
+
+  if (body.attachments?.length) {
+    await addAttachmentsToDraft({
+      client,
+      draftId: replyDraft.id || "",
+      attachments: body.attachments,
+      logger,
+    });
+  }
 
   // Send the draft
   await withOutlookRetry(

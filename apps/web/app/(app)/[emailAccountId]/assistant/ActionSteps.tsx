@@ -550,7 +550,13 @@ function ActionCard({
 
   const isNotifySender = actionType === ActionType.NOTIFY_SENDER;
 
-  const showAttachments = actionType === ActionType.DRAFT_EMAIL;
+  const supportsAttachments =
+    actionType === ActionType.DRAFT_EMAIL ||
+    actionType === ActionType.REPLY ||
+    actionType === ActionType.SEND_EMAIL;
+  const supportsAiSelectedSources = actionType === ActionType.DRAFT_EMAIL;
+  const canConfigureStaticAttachments =
+    actionType === ActionType.DRAFT_EMAIL ? contentSetManually : supportsAttachments;
 
   const staticAttachments = useWatch({
     control,
@@ -573,14 +579,15 @@ function ActionCard({
           {fieldsContent}
           {shouldShowProTip && <VariableProTip />}
           {delayControls}
-          {showAttachments && (
+          {supportsAttachments && (
             <ActionAttachmentsField
-              value={contentSetManually ? (staticAttachments ?? []) : []}
+              value={canConfigureStaticAttachments ? (staticAttachments ?? []) : []}
               onChange={(newValue) =>
                 setValue(`actions.${index}.staticAttachments`, newValue)
               }
               emailAccountId={emailAccountId}
-              contentSetManually={contentSetManually}
+              contentSetManually={canConfigureStaticAttachments}
+              allowAiSelectedSources={supportsAiSelectedSources}
               attachmentSources={attachmentSources}
               onAttachmentSourcesChange={onAttachmentSourcesChange}
             />

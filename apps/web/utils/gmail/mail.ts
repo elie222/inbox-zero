@@ -161,7 +161,7 @@ export async function replyToEmail(
   >,
   reply: string,
   from?: string,
-  options?: { replyTo?: string },
+  options?: { replyTo?: string; attachments?: Attachment[] },
 ) {
   ensureEmailSendingEnabled();
 
@@ -182,6 +182,7 @@ export async function replyToEmail(
     subject: formatReplySubject(message.headers.subject),
     messageText,
     messageHtml: html,
+    attachments: options?.attachments,
     replyToEmail: {
       threadId: message.threadId,
       headerMessageId: message.headers["message-id"] || "",

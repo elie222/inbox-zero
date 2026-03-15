@@ -179,40 +179,15 @@ const draft: ActionFunction<{
 }) => {
   if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) return;
 
-  const [aiSelectedAttachments, staticSelected] = await Promise.all([
-    getDraftSelectedAttachments({
-      email,
-      emailAccountId,
-      executedRule,
-      logger,
-    }),
-    Promise.resolve(parseStaticAttachments(args.staticAttachments)),
-  ]);
-
-  const allSelected = [
-    ...new Map(
-      [...aiSelectedAttachments, ...staticSelected].map((a) => [
-        `${a.driveConnectionId}:${a.fileId}`,
-        a,
-      ]),
-    ).values(),
-  ];
-  const attachments = allSelected.length
-    ? await resolveDraftAttachments({
-        emailAccountId,
-        userId,
-        selectedAttachments: allSelected,
-        logger,
-      })
-    : [];
-
-  if (allSelected.length > 0 && attachments.length === 0) {
-    logger.warn("Selected draft attachments could not be resolved", {
-      messageId: email.id,
-      ruleId: executedRule.ruleId,
-      selectedAttachmentCount: allSelected.length,
-    });
-  }
+  const attachments = await resolveActionAttachments({
+    email,
+    emailAccountId,
+    executedRule,
+    userId,
+    logger,
+    staticAttachments: args.staticAttachments,
+    includeAiSelectedAttachments: true,
+  });
 
   const draftArgs = {
     to: args.to ?? undefined,
@@ -250,8 +225,27 @@ const reply: ActionFunction<{
   content?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, email, args }) => {
+  staticAttachments?: ActionItem["staticAttachments"];
+}> = async ({
+  client,
+  email,
+  args,
+  userId,
+  emailAccountId,
+  executedRule,
+  logger,
+}) => {
   if (!args.content) return;
+
+  const attachments = await resolveActionAttachments({
+    email,
+    emailAccountId,
+    executedRule,
+    userId,
+    logger,
+    staticAttachments: args.staticAttachments,
+    includeAiSelectedAttachments: false,
+  });
 
   await client.replyToEmail(
     {
@@ -268,6 +262,7 @@ const reply: ActionFunction<{
       textHtml: email.textHtml,
     },
     args.content,
+    { attachments },
   );
 };
 
@@ -277,8 +272,27 @@ const send_email: ActionFunction<{
   to?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, args }) => {
+  staticAttachments?: ActionItem["staticAttachments"];
+}> = async ({
+  client,
+  args,
+  email,
+  userId,
+  emailAccountId,
+  executedRule,
+  logger,
+}) => {
   if (!args.to || !args.subject || !args.content) return;
+
+  const attachments = await resolveActionAttachments({
+    email,
+    emailAccountId,
+    executedRule,
+    userId,
+    logger,
+    staticAttachments: args.staticAttachments,
+    includeAiSelectedAttachments: false,
+  });
 
   const emailArgs = {
     to: args.to,
@@ -286,6 +300,7 @@ const send_email: ActionFunction<{
     bcc: args.bcc ?? undefined,
     subject: args.subject,
     messageText: args.content,
+    attachments,
   };
 
   await client.sendEmail(emailArgs);
@@ -533,6 +548,64 @@ async function getDraftSelectedAttachments({
     ruleId: executedRule.ruleId,
   });
   return [];
+}
+
+async function resolveActionAttachments({
+  email,
+  emailAccountId,
+  executedRule,
+  userId,
+  logger,
+  staticAttachments,
+  includeAiSelectedAttachments,
+}: {
+  email: EmailForAction;
+  emailAccountId: string;
+  executedRule: ExecutedRule;
+  userId: string;
+  logger: Logger;
+  staticAttachments?: ActionItem["staticAttachments"];
+  includeAiSelectedAttachments: boolean;
+}) {
+  const [aiSelectedAttachments, staticSelected] = await Promise.all([
+    includeAiSelectedAttachments
+      ? getDraftSelectedAttachments({
+          email,
+          emailAccountId,
+          executedRule,
+          logger,
+        })
+      : Promise.resolve([]),
+    Promise.resolve(parseStaticAttachments(staticAttachments)),
+  ]);
+
+  const allSelected = [
+    ...new Map(
+      [...aiSelectedAttachments, ...staticSelected].map((attachment) => [
+        `${attachment.driveConnectionId}:${attachment.fileId}`,
+        attachment,
+      ]),
+    ).values(),
+  ];
+
+  if (allSelected.length === 0) return [];
+
+  const attachments = await resolveDraftAttachments({
+    emailAccountId,
+    userId,
+    selectedAttachments: allSelected,
+    logger,
+  });
+
+  if (attachments.length === 0) {
+    logger.warn("Selected rule attachments could not be resolved", {
+      messageId: email.id,
+      ruleId: executedRule.ruleId,
+      selectedAttachmentCount: allSelected.length,
+    });
+  }
+
+  return attachments;
 }
 
 async function lazyUpdateActionFolderId({
