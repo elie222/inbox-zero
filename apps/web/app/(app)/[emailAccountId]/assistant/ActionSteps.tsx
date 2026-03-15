@@ -9,6 +9,7 @@ import type {
   UseFormWatch,
 } from "react-hook-form";
 import type { FieldErrors } from "react-hook-form";
+import { useWatch } from "react-hook-form";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { ActionType } from "@/generated/prisma/enums";
 import { RuleSteps } from "@/app/(app)/[emailAccountId]/assistant/RuleSteps";
@@ -44,6 +45,8 @@ import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
 import { Card } from "@/components/ui/card";
 import { MutedText } from "@/components/Typography";
 import { BRAND_NAME } from "@/utils/branding";
+import { ActionAttachmentsField } from "@/app/(app)/[emailAccountId]/assistant/ActionAttachmentsField";
+import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 
 export function ActionSteps({
   actionFields,
@@ -537,6 +540,13 @@ function ActionCard({
 
   const isNotifySender = actionType === ActionType.NOTIFY_SENDER;
 
+  const showAttachments = isEmailAction && !isDraftEmailWithoutManualContent;
+
+  const staticAttachments = useWatch({
+    control,
+    name: `actions.${index}.staticAttachments`,
+  }) as AttachmentSourceInput[] | undefined;
+
   const rightContent = (
     <>
       {isNotifySender ? (
@@ -553,6 +563,15 @@ function ActionCard({
           {fieldsContent}
           {shouldShowProTip && <VariableProTip />}
           {delayControls}
+          {showAttachments && (
+            <ActionAttachmentsField
+              value={staticAttachments ?? []}
+              onChange={(newValue) =>
+                setValue(`actions.${index}.staticAttachments`, newValue)
+              }
+              emailAccountId={emailAccountId}
+            />
+          )}
         </Card>
       ) : (
         <>

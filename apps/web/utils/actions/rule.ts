@@ -777,6 +777,7 @@ function mapActionToSanitizedFields(action: {
   folderName?: { value?: string | null } | null;
   folderId?: { value?: string | null } | null;
   delayInMinutes?: number | null;
+  staticAttachments?: unknown[] | null;
 }) {
   const sanitized = sanitizeActionFields({
     type: action.type,
@@ -791,6 +792,9 @@ function mapActionToSanitizedFields(action: {
     folderName: action.folderName?.value,
     folderId: action.folderId?.value,
     delayInMinutes: action.delayInMinutes,
+    staticAttachments: action.staticAttachments?.length
+      ? action.staticAttachments
+      : null,
   });
 
   return {
@@ -808,6 +812,7 @@ function mapActionToSanitizedFields(action: {
     labelId: sanitized.labelId ?? null,
     folderId: sanitized.folderId ?? null,
     delayInMinutes: sanitized.delayInMinutes ?? null,
+    staticAttachments: sanitized.staticAttachments ?? null,
   };
 }
 

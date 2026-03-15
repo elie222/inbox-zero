@@ -400,6 +400,8 @@ async function mapActionFields(
           folderId,
         }),
         delayInMinutes: a.delayInMinutes,
+        staticAttachments:
+          (a as { staticAttachments?: unknown }).staticAttachments ?? null,
       };
     },
   );

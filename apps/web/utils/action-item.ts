@@ -195,6 +195,7 @@ type ActionFieldsSelection = Pick<
   | "folderName"
   | "folderId"
   | "delayInMinutes"
+  | "staticAttachments"
 >;
 
 export function sanitizeActionFields(
@@ -213,6 +214,7 @@ export function sanitizeActionFields(
     folderName: null,
     folderId: null,
     delayInMinutes: action.delayInMinutes || null,
+    staticAttachments: action.staticAttachments ?? null,
   };
 
   switch (action.type) {

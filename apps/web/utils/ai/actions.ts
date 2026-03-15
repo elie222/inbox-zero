@@ -17,7 +17,11 @@ import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
-import type { SelectedAttachment } from "@/utils/attachments/source-schema";
+import {
+  type SelectedAttachment,
+  attachmentSourceInputSchema,
+} from "@/utils/attachments/source-schema";
+import { AttachmentSourceType } from "@/generated/prisma/enums";
 
 const MODULE = "ai-actions";
 
@@ -162,6 +166,7 @@ const draft: ActionFunction<{
   to?: string | null;
   cc?: string | null;
   bcc?: string | null;
+  staticAttachments?: unknown;
 }> = async ({
   client,
   email,
@@ -173,26 +178,32 @@ const draft: ActionFunction<{
   logger,
 }) => {
   if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) return;
-  const selectedAttachments = await getDraftSelectedAttachments({
-    email,
-    emailAccountId,
-    executedRule,
-    logger,
-  });
-  const attachments = selectedAttachments.length
+
+  const [aiSelectedAttachments, staticSelected] = await Promise.all([
+    getDraftSelectedAttachments({
+      email,
+      emailAccountId,
+      executedRule,
+      logger,
+    }),
+    Promise.resolve(parseStaticAttachments(args.staticAttachments)),
+  ]);
+
+  const allSelected = [...aiSelectedAttachments, ...staticSelected];
+  const attachments = allSelected.length
     ? await resolveDraftAttachments({
         emailAccountId,
         userId,
-        selectedAttachments,
+        selectedAttachments: allSelected,
         logger,
       })
     : [];
 
-  if (selectedAttachments.length > 0 && attachments.length === 0) {
+  if (allSelected.length > 0 && attachments.length === 0) {
     logger.warn("Selected draft attachments could not be resolved", {
       messageId: email.id,
       ruleId: executedRule.ruleId,
-      selectedAttachmentCount: selectedAttachments.length,
+      selectedAttachmentCount: allSelected.length,
     });
   }
 
@@ -576,4 +587,21 @@ async function lazyUpdateActionFolderId({
       error,
     });
   }
+}
+
+function parseStaticAttachments(raw: unknown): SelectedAttachment[] {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
+
+  const parsed = attachmentSourceInputSchema.array().safeParse(raw);
+
+  if (!parsed.success) return [];
+
+  return parsed.data
+    .filter((item) => item.type === AttachmentSourceType.FILE)
+    .map((item) => ({
+      driveConnectionId: item.driveConnectionId,
+      fileId: item.sourceId,
+      filename: item.name,
+      mimeType: "application/pdf",
+    }));
 }
