@@ -181,26 +181,38 @@ export function AttachmentSourcesField({
               <DialogTitle>Select Drive sources</DialogTitle>
             </DialogHeader>
             <LoadingContent loading={isLoading} error={error}>
-              <TreeProvider
-                showLines
-                showIcons
-                selectable={false}
-                animateExpand
-                indent={16}
-              >
-                <TreeView className="max-h-[460px] overflow-y-auto p-0">
-                  {rootItems.map((item, index) => (
-                    <SourceNode
-                      key={getTreeNodeId(item)}
-                      item={item}
-                      isLast={index === rootItems.length - 1}
-                      level={0}
-                      selectedKeys={selectedKeys}
-                      onToggle={toggleSource}
-                    />
-                  ))}
-                </TreeView>
-              </TreeProvider>
+              {rootItems.length === 0 ? (
+                <Empty className="border rounded-md p-6">
+                  <EmptyHeader>
+                    <EmptyTitle>No Drive files found</EmptyTitle>
+                    <EmptyDescription>
+                      Connect Google Drive in Settings and make sure your Drive
+                      contains PDF files or folders.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <TreeProvider
+                  showLines
+                  showIcons
+                  selectable={false}
+                  animateExpand
+                  indent={16}
+                >
+                  <TreeView className="max-h-[460px] overflow-y-auto p-0">
+                    {rootItems.map((item, index) => (
+                      <SourceNode
+                        key={getTreeNodeId(item)}
+                        item={item}
+                        isLast={index === rootItems.length - 1}
+                        level={0}
+                        selectedKeys={selectedKeys}
+                        onToggle={toggleSource}
+                      />
+                    ))}
+                  </TreeView>
+                </TreeProvider>
+              )}
             </LoadingContent>
           </DialogContent>
         </Dialog>
