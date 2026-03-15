@@ -14,8 +14,7 @@ import {
   getDocumentPreview,
 } from "@/utils/drive/document-extraction";
 import prisma from "@/utils/prisma";
-import { getUserTier, hasTierAccess } from "@/utils/premium";
-import { getUserPremium } from "@/utils/user/get";
+import { checkHasAccess } from "@/utils/premium/server";
 import type { SelectedAttachment } from "@/utils/attachments/source-schema";
 
 const MAX_ATTACHMENTS = 3;
@@ -426,11 +425,15 @@ async function discoverSourceFiles({
     ];
   }
 
+  const MAX_DISCOVERED_FILES = 500;
+  const MAX_FOLDER_DEPTH = 5;
+
   const discoveredFiles: DiscoveredDriveFile[] = [];
-  const queue: Array<{ folderId: string; path: string }> = [
+  const queue: Array<{ folderId: string; path: string; depth: number }> = [
     {
       folderId: source.sourceId,
       path: source.sourcePath || source.name,
+      depth: 0,
     },
   ];
   const visitedFolders = new Set<string>();
@@ -438,6 +441,8 @@ async function discoverSourceFiles({
   while (queue.length > 0) {
     const current = queue.shift();
     if (!current || visitedFolders.has(current.folderId)) continue;
+    if (current.depth > MAX_FOLDER_DEPTH) continue;
+    if (discoveredFiles.length >= MAX_DISCOVERED_FILES) break;
     visitedFolders.add(current.folderId);
 
     const [folders, files] = await Promise.all([
@@ -449,6 +454,7 @@ async function discoverSourceFiles({
       queue.push({
         folderId: folder.id,
         path: `${current.path}/${folder.name}`,
+        depth: current.depth + 1,
       });
     }
 
@@ -697,21 +703,7 @@ async function getDriveProvider({
 }
 
 async function hasDraftAttachmentAccess(userId: string) {
-  const premium = await getUserPremium({ userId });
-  const tier = getUserTier(
-    premium
-      ? {
-          tier: "tier" in premium ? premium.tier : null,
-          lemonSqueezyRenewsAt: premium.lemonSqueezyRenewsAt,
-          stripeSubscriptionStatus: premium.stripeSubscriptionStatus,
-        }
-      : null,
-  );
-
-  return hasTierAccess({
-    tier,
-    minimumTier: PremiumTier.PLUS_MONTHLY,
-  });
+  return checkHasAccess({ userId, minimumTier: PremiumTier.PLUS_MONTHLY });
 }
 
 function dedupeDocuments(documents: SourceDocument[]) {

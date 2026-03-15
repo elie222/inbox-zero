@@ -1,6 +1,9 @@
 import { redis } from "@/utils/redis";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
-import type { SelectedAttachment } from "@/utils/attachments/source-schema";
+import {
+  selectedAttachmentSchema,
+  type SelectedAttachment,
+} from "@/utils/attachments/source-schema";
 
 export type ReplyWithConfidence = {
   attachments?: SelectedAttachment[];
@@ -135,21 +138,5 @@ function isDraftReplyConfidence(
 }
 
 function isSelectedAttachment(value: unknown): value is SelectedAttachment {
-  if (!value || typeof value !== "object") return false;
-
-  const { driveConnectionId, fileId, filename, mimeType, reason } = value as {
-    driveConnectionId?: unknown;
-    fileId?: unknown;
-    filename?: unknown;
-    mimeType?: unknown;
-    reason?: unknown;
-  };
-
-  return (
-    typeof driveConnectionId === "string" &&
-    typeof fileId === "string" &&
-    typeof filename === "string" &&
-    typeof mimeType === "string" &&
-    (typeof reason === "string" || reason == null)
-  );
+  return selectedAttachmentSchema.safeParse(value).success;
 }

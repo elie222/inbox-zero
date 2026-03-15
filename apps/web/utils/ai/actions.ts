@@ -528,32 +528,6 @@ async function getDraftSelectedAttachments({
   return [];
 }
 
-function buildAttachmentSelectionEmailContent(email: EmailForAction) {
-  const body = email.textPlain || email.snippet || email.textHtml || "";
-  const inboundAttachments = email.attachments ?? [];
-
-  const attachmentList =
-    inboundAttachments.length > 0
-      ? inboundAttachments
-          .map(
-            (attachment) =>
-              `${attachment.filename} (${attachment.mimeType || "unknown"})`,
-          )
-          .join(", ")
-      : null;
-
-  return [
-    `<from>${email.headers.from}</from>`,
-    `<to>${email.headers.to}</to>`,
-    email.headers.cc ? `<cc>${email.headers.cc}</cc>` : null,
-    `<subject>${email.headers.subject}</subject>`,
-    `<body>${body}</body>`,
-    attachmentList ? `<attachments>${attachmentList}</attachments>` : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
 async function lazyUpdateActionFolderId({
   folderName,
   folderId,

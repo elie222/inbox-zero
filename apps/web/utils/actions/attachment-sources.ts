@@ -94,39 +94,33 @@ export const upsertRuleAttachmentSourcesAction = actionClient
         return [{ next: source, existing }];
       });
 
-      await prisma.$transaction(async (tx) => {
-        if (sourceIdsToDelete.length > 0) {
-          await tx.attachmentSource.deleteMany({
-            where: {
-              id: {
-                in: sourceIdsToDelete,
-              },
+      if (sourceIdsToDelete.length > 0) {
+        await prisma.attachmentSource.deleteMany({
+          where: { id: { in: sourceIdsToDelete } },
+        });
+      }
+
+      await Promise.all(
+        sourcesToUpdate.map((source) =>
+          prisma.attachmentSource.update({
+            where: { id: source.existing.id },
+            data: {
+              name: source.next.name,
+              sourcePath: source.next.sourcePath ?? null,
             },
-          });
-        }
+          }),
+        ),
+      );
 
-        await Promise.all(
-          sourcesToUpdate.map((source) =>
-            tx.attachmentSource.update({
-              where: { id: source.existing.id },
-              data: {
-                name: source.next.name,
-                sourcePath: source.next.sourcePath ?? null,
-              },
-            }),
-          ),
-        );
-
-        if (sourcesToCreate.length > 0) {
-          await tx.attachmentSource.createMany({
-            data: sourcesToCreate.map((source) => ({
-              ...source,
-              sourcePath: source.sourcePath ?? null,
-              ruleId,
-            })),
-          });
-        }
-      });
+      if (sourcesToCreate.length > 0) {
+        await prisma.attachmentSource.createMany({
+          data: sourcesToCreate.map((source) => ({
+            ...source,
+            sourcePath: source.sourcePath ?? null,
+            ruleId,
+          })),
+        });
+      }
 
       return { count: sources.length };
     },

@@ -61,6 +61,11 @@ export function ActionAttachmentsField({
   const isConnected = (connectionsData?.connections.length ?? 0) > 0;
   const hasAttachments = value.length > 0;
 
+  const selectedKeys = useMemo(
+    () => new Set(value.map((source) => getSourceKey(source))),
+    [value],
+  );
+
   const toggleSource = (source: AttachmentSourceInput, checked: boolean) => {
     const key = getSourceKey(source);
     if (checked) {
@@ -181,9 +186,7 @@ export function ActionAttachmentsField({
                 <DialogTitle>Select files to attach</DialogTitle>
               </DialogHeader>
               <AttachmentPicker
-                selectedKeys={
-                  new Set(value.map((source) => getSourceKey(source)))
-                }
+                selectedKeys={selectedKeys}
                 onToggle={toggleSource}
               />
             </DialogContent>
