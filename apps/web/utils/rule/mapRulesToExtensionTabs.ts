@@ -59,10 +59,12 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
       const normalizedLabel = normalizeLabelName(label);
       const seenLabelKey = normalizeSeenLabel(label);
       if (!label) continue;
-      if (seenLabels.has(seenLabelKey)) continue;
-      seenLabels.add(seenLabelKey);
 
       const defaultTab = LABEL_TO_DEFAULT_TAB[normalizedLabel];
+      const dedupeKey = defaultTab ? normalizedLabel : seenLabelKey;
+      if (seenLabels.has(dedupeKey)) continue;
+      seenLabels.add(dedupeKey);
+
       if (defaultTab) {
         tabs.push({
           type: "enable_default",

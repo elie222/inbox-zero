@@ -59,6 +59,21 @@ describe("mapRulesToExtensionTabs", () => {
     ]);
   });
 
+  it("dedupes built-in labels that only differ by punctuation", () => {
+    const rules = [
+      getRule("sync follow up", [getAction({ label: "Follow up" })]),
+      getRule("skip duplicate follow-up", [getAction({ label: "Follow-up" })]),
+    ];
+
+    expect(mapRulesToExtensionTabs(rules)).toEqual([
+      {
+        type: "enable_default",
+        tabId: "follow-up",
+        displayLabel: "Follow-up",
+      },
+    ]);
+  });
+
   it("preserves distinct custom labels that only differ by punctuation", () => {
     const rules = [
       getRule("sync project dotted", [getAction({ label: "Project.One" })]),
