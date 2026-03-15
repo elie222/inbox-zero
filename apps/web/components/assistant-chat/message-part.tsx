@@ -421,28 +421,19 @@ export function MessagePart({
   }
 
   if (part.type === "tool-updatePersonalInstructions") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text="Updating personal instructions..."
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      const updatedAbout = getOutputField<string>(output, "updatedAbout");
-      return (
-        <UpdatePersonalInstructions
-          key={toolCallId}
-          text={updatedAbout ?? part.input.about}
-        />
-      );
-    }
+    return renderToolStatus({
+      part,
+      loadingText: "Updating personal instructions...",
+      renderSuccess: ({ toolCallId, output }) => {
+        const updatedAbout = getOutputField<string>(output, "updatedAbout");
+        return (
+          <UpdatePersonalInstructions
+            key={toolCallId}
+            text={updatedAbout ?? part.input.about}
+          />
+        );
+      },
+    });
   }
 
   if (part.type === "tool-addToKnowledgeBase") {

@@ -634,19 +634,14 @@ function includesAnyText(text: string | null | undefined, terms: string[]) {
 }
 
 function mentionsCcExclusion(text: string | null | undefined) {
+  if (!text) return false;
+
+  const normalizedText = text.toLowerCase();
+
   return (
-    includesAnyText(text, ["cc", "carbon copy"]) &&
-    includesAnyText(text, [
-      "should not be marked to reply",
-      "shouldn't be marked to reply",
-      "do not mark",
-      "don't mark",
-      "not to reply",
-      "don't need to reply",
-      "do not need to reply",
-      "no reply needed",
-      "no need to reply",
-    ])
+    /(?:\bcc\b|carbon copy)/.test(normalizedText) &&
+    normalizedText.includes("to reply") &&
+    /\b(?:not|don't|do not|doesn't|does not|no)\b/.test(normalizedText)
   );
 }
 
