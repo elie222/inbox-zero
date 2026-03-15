@@ -21,7 +21,9 @@ export function RulesSelect() {
   const getCurrentLabel = () => {
     if (ruleId === "all") return "All rules";
     if (ruleId === "skipped") return "No match";
-    return data?.find((rule) => rule.id === ruleId)?.name || "All rules";
+    const rule = data?.find((rule) => rule.id === ruleId);
+    if (!rule) return "All rules";
+    return rule.enabled ? rule.name : `${rule.name} (disabled)`;
   };
 
   return (
@@ -52,6 +54,9 @@ export function RulesSelect() {
           {data?.map((rule) => (
             <DropdownMenuItem key={rule.id} onClick={() => setRuleId(rule.id)}>
               {rule.name}
+              {!rule.enabled && (
+                <span className="ml-1 text-muted-foreground">(disabled)</span>
+              )}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
