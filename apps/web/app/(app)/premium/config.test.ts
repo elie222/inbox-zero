@@ -51,4 +51,20 @@ describe("hasLegacyStripePriceId", () => {
       }),
     ).toBe(false);
   });
+
+  it("derives the tier from the price id when tier is missing", () => {
+    expect(
+      hasLegacyStripePriceId({
+        tier: null,
+        priceId: "price_current_starter_monthly",
+      }),
+    ).toBe(false);
+
+    expect(
+      hasLegacyStripePriceId({
+        tier: null,
+        priceId: "price_1RfeAFKGf8mwZWHnnnPzFEky",
+      }),
+    ).toBe(true);
+  });
 });

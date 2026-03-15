@@ -140,9 +140,12 @@ export function hasLegacyStripePriceId({
   tier: PremiumTier | null | undefined;
   priceId: string | null | undefined;
 }): boolean {
-  if (!tier || !priceId) return false;
+  if (!priceId) return false;
 
-  const currentPriceId = getStripePriceId({ tier });
+  const resolvedTier = tier || getStripeSubscriptionTier({ priceId });
+  if (!resolvedTier) return false;
+
+  const currentPriceId = getStripePriceId({ tier: resolvedTier });
   if (!currentPriceId) return false;
 
   return currentPriceId !== priceId;
