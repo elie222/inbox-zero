@@ -761,15 +761,24 @@ function renderFieldRows(
     const nextField = fields[index + 1];
 
     if (field.name === "cc" && nextField?.name === "bcc") {
-      rows.push(
-        <div
-          key={`${field.name}-${nextField.name}`}
-          className="grid gap-4 sm:grid-cols-2"
-        >
-          {renderField(field)}
-          {renderField(nextField)}
-        </div>,
-      );
+      const renderedField = renderField(field);
+      const renderedNextField = renderField(nextField);
+
+      if (renderedField && renderedNextField) {
+        rows.push(
+          <div
+            key={`${field.name}-${nextField.name}`}
+            className="grid gap-4 sm:grid-cols-2"
+          >
+            {renderedField}
+            {renderedNextField}
+          </div>,
+        );
+      } else {
+        if (renderedField) rows.push(renderedField);
+        if (renderedNextField) rows.push(renderedNextField);
+      }
+
       index += 1;
       continue;
     }
