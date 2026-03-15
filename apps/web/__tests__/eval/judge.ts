@@ -31,10 +31,10 @@ export async function judgeBinary(options: {
   output: string;
   expected?: string;
   criterion: JudgeCriterion;
-  userAi?: UserAIFields;
+  judgeUserAi?: UserAIFields;
 }): Promise<JudgeResult> {
   const { model, providerOptions } = getModel(
-    options.userAi ?? {
+    options.judgeUserAi ?? {
       aiProvider: null,
       aiModel: null,
       aiApiKey: null,
@@ -82,7 +82,7 @@ export async function judgeMultiple(options: {
   output: string;
   expected?: string;
   criteria: JudgeCriterion[];
-  userAi?: UserAIFields;
+  judgeUserAi?: UserAIFields;
 }): Promise<{ results: JudgeResult[]; allPassed: boolean }> {
   const results = await Promise.all(
     options.criteria.map((criterion) => judgeBinary({ ...options, criterion })),

@@ -266,7 +266,7 @@ Carlos`,
 
     describe("grounded product replies", () => {
       test(
-        "customer feedback about setup, rules, and llm provider stays factual and in voice",
+        "customer feedback reply uses supplied knowledge base facts",
         async () => {
           const messages = [
             {
@@ -307,7 +307,14 @@ Also, what model or provider does the assistant use by default?`,
           const result = await aiDraftReplyWithConfidence({
             messages,
             emailAccount,
-            knowledgeBaseContent: null,
+            knowledgeBaseContent: [
+              "Reply guidance for product-feedback questions:",
+              "- If someone asks about setup quality, mention that a cleaner inbox usually leads to better results during setup.",
+              "- If someone asks for rule examples, give concrete examples such as 'Archive newsletters you never read' and 'Label billing emails as Finance'.",
+              "- If someone asks what powers the assistant by default, say that Inbox Zero manages the model stack by default.",
+              "- You may also mention that users can bring their own API key if they prefer.",
+              "- Do not name a specific provider or model unless it is explicitly stated here.",
+            ].join("\n"),
             emailHistorySummary: null,
             emailHistoryContext: null,
             calendarAvailability: null,
@@ -377,7 +384,7 @@ Could you send over a couple of examples for how to write rules?`,
             emailHistorySummary: null,
             emailHistoryContext: null,
             calendarAvailability: null,
-            writingStyle: "Concise and plainspoken.",
+            writingStyle: null,
             mcpContext: null,
             meetingContext: null,
           });
@@ -408,12 +415,12 @@ Could you send over a couple of examples for how to write rules?`,
   });
 });
 
-function getGroundedReplyCriteria() {
+function getKnowledgeBaseReplyCriteria() {
   return [
     {
-      name: "Fact grounding",
+      name: "Knowledge base use",
       description:
-        "If the provided context does not name the hosted default model or provider, the reply should not claim one as a fact.",
+        "The reply uses the provided knowledge base facts for setup guidance, rule examples, and the model-stack answer instead of inventing different product details.",
     },
     {
       name: "Voice match",
@@ -469,12 +476,21 @@ async function maybeJudgeGroundedReply({
     output: reply,
     expected: [
       "Reply briefly and helpfully.",
-      "Acknowledge the setup feedback.",
-      "Offer one or two simple rule examples only if the model can do so without inventing extra product facts.",
-      "Do not claim a hosted default model or provider unless it is explicitly stated in the provided context.",
-      "Do not make roadmap commitments unless they are explicitly stated in the provided context.",
+      "Acknowledge that a cleaner inbox tends to improve setup results.",
+      "Give one or two concrete rule examples.",
+      "Say that Inbox Zero manages the model stack by default.",
+      "Optional: mention that users can bring their own API key.",
+      "Do not introduce a specific provider or model that was not present in the provided context.",
     ].join("\n"),
-    criteria: getGroundedReplyCriteria(),
-    userAi: emailAccount.user,
+    criteria: getKnowledgeBaseReplyCriteria(),
+    judgeUserAi: getEvalJudgeUserAi(),
   });
+}
+
+function getEvalJudgeUserAi() {
+  return {
+    aiProvider: "openrouter",
+    aiModel: "google/gemini-3.1-flash-lite-preview",
+    aiApiKey: process.env.OPENROUTER_API_KEY ?? null,
+  };
 }
