@@ -1,4 +1,5 @@
 import type { RulesResponse } from "@/app/api/user/rules/route";
+import { ActionType } from "@/generated/prisma/enums";
 
 // Keep in sync with inbox-zero-tabs-wxt/entrypoints/background.ts
 export type SyncTab = {
@@ -21,6 +22,9 @@ const LABEL_TO_DEFAULT_TAB: Record<string, string> = {
   Notification: "notification",
   "Cold Email": "cold-email",
   "Follow-up": "follow-up",
+  Team: "team",
+  GitHub: "github",
+  Stripe: "stripe",
 };
 
 // Matches SYSTEM_RULE_ORDER from utils/rule/consts.ts, with Follow-up appended
@@ -36,6 +40,9 @@ const LABEL_ORDER: string[] = [
   "Notification",
   "Cold Email",
   "Follow-up",
+  "Team",
+  "GitHub",
+  "Stripe",
 ];
 
 function labelToGmailSlug(label: string): string {
@@ -51,6 +58,8 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
 
   for (const rule of rules) {
     if (!rule.enabled) continue;
+    if (rule.actions.some((action) => action.type === ActionType.ARCHIVE))
+      continue;
 
     for (const action of rule.actions) {
       if (action.type !== "LABEL" || !action.label) continue;
