@@ -792,7 +792,11 @@ function hasUnreadTriageSignal(query: string, unreadSignal: string) {
 function hasReplyTriageFocus(query: string, provider: "google" | "microsoft") {
   const normalizedQuery = query.toLowerCase();
   if (provider === "microsoft") {
-    return normalizedQuery.includes("isread:false");
+    return (
+      !normalizedQuery.includes("is:") &&
+      !normalizedQuery.includes("label:") &&
+      ["reply", "respond"].some((term) => normalizedQuery.includes(term))
+    );
   }
 
   return ["to reply", 'label:"to reply"', "label:to", "reply", "respond"].some(
