@@ -23,6 +23,8 @@ type GraphRecipient = {
 type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
 
 const MAX_GRAPH_ATTACHMENT_SIZE_BYTES = 3 * 1024 * 1024;
+const MAX_GRAPH_UPLOAD_SESSION_SIZE_BYTES = 150 * 1024 * 1024;
+const GRAPH_UPLOAD_CHUNK_SIZE_BYTES = 320 * 1024;
 
 interface OutlookMessageRequest {
   bccRecipients?: GraphRecipient[];
@@ -519,27 +521,37 @@ async function addAttachmentsToDraft({
   for (const attachment of attachments) {
     const content = getAttachmentContentBuffer(attachment.content);
     if (!content) continue;
-    assertGraphAttachmentSizeSupported({ attachment, content });
+    if (content.length <= MAX_GRAPH_ATTACHMENT_SIZE_BYTES) {
+      await withOutlookRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${draftId}/attachments`)
+            .post({
+              "@odata.type": "#microsoft.graph.fileAttachment",
+              name: attachment.filename || "attachment.pdf",
+              contentType: attachment.contentType || "application/octet-stream",
+              contentBytes: content.toString("base64"),
+            }),
+        logger,
+      );
+      continue;
+    }
 
-    await withOutlookRetry(
-      () =>
-        client
-          .getClient()
-          .api(`/me/messages/${draftId}/attachments`)
-          .post({
-            "@odata.type": "#microsoft.graph.fileAttachment",
-            name: attachment.filename || "attachment.pdf",
-            contentType: attachment.contentType || "application/octet-stream",
-            contentBytes: content.toString("base64"),
-          }),
+    assertGraphAttachmentSizeSupported({ attachment, content });
+    await uploadAttachmentViaSession({
+      client,
+      draftId,
+      attachment,
+      content,
       logger,
-    );
+    });
   }
 }
 
 function getAttachmentContentBuffer(content: Attachment["content"]) {
   if (Buffer.isBuffer(content)) return content;
-  if (typeof content === "string") return Buffer.from(content);
+  if (typeof content === "string") return decodeAttachmentString(content);
   return null;
 }
 
@@ -552,9 +564,94 @@ function assertGraphAttachmentSizeSupported({
 }) {
   if (content.length <= MAX_GRAPH_ATTACHMENT_SIZE_BYTES) return;
 
+  if (content.length <= MAX_GRAPH_UPLOAD_SESSION_SIZE_BYTES) return;
+
   throw new Error(
-    `Outlook attachments larger than 3 MB are not supported yet: ${
+    `Outlook attachments larger than 150 MB are not supported: ${
       attachment.filename || "attachment"
     }`,
   );
+}
+
+function decodeAttachmentString(content: string) {
+  const normalized = content.trim().replace(/\s+/g, "");
+  if (looksLikeBase64(normalized)) {
+    const decoded = Buffer.from(normalized, "base64");
+    if (isCanonicalBase64Match(normalized, decoded)) {
+      return decoded;
+    }
+  }
+
+  return Buffer.from(content, "utf8");
+}
+
+function looksLikeBase64(value: string) {
+  return value.length > 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
+
+function isCanonicalBase64Match(value: string, decoded: Buffer) {
+  return (
+    decoded.toString("base64").replace(/=+$/u, "") === value.replace(/=+$/u, "")
+  );
+}
+
+async function uploadAttachmentViaSession({
+  client,
+  draftId,
+  attachment,
+  content,
+  logger,
+}: {
+  client: OutlookClient;
+  draftId: string;
+  attachment: Attachment;
+  content: Buffer;
+  logger: Logger;
+}) {
+  const uploadSession = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${draftId}/attachments/createUploadSession`)
+        .post({
+          AttachmentItem: {
+            attachmentType: "file",
+            name: attachment.filename || "attachment.pdf",
+            contentType: attachment.contentType || "application/octet-stream",
+            size: content.length,
+          },
+        }),
+    logger,
+  );
+
+  const uploadUrl = (uploadSession as { uploadUrl?: string }).uploadUrl;
+  if (!uploadUrl) {
+    throw new Error("Failed to create Outlook attachment upload session");
+  }
+
+  for (
+    let start = 0;
+    start < content.length;
+    start += GRAPH_UPLOAD_CHUNK_SIZE_BYTES
+  ) {
+    const end = Math.min(start + GRAPH_UPLOAD_CHUNK_SIZE_BYTES, content.length);
+    const chunk = content.subarray(start, end);
+    const response = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Length": String(chunk.length),
+        "Content-Range": `bytes ${start}-${end - 1}/${content.length}`,
+      },
+      body: new Uint8Array(chunk),
+    });
+
+    if (response.ok) continue;
+
+    const errorText = await response.text();
+    throw new Error(
+      `Failed to upload Outlook attachment chunk: ${response.status} ${
+        errorText || response.statusText
+      }`,
+    );
+  }
 }

@@ -1,5 +1,5 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
 import { sendEmailWithHtml } from "./mail";
@@ -9,6 +9,10 @@ vi.mock("@/utils/mail", () => ({
 }));
 
 describe("sendEmailWithHtml", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("parses formatted recipients when sending a new draft", async () => {
     const draftPost = vi.fn(async () => {
       return {
@@ -62,39 +66,102 @@ describe("sendEmailWithHtml", () => {
     });
   });
 
-  it("rejects attachments larger than the Graph simple upload limit", async () => {
+  it("decodes base64 string attachments before uploading", async () => {
     const draftPost = vi.fn(async () => {
       return {
         id: "draft-1",
         conversationId: "conversation-1",
       } as Message;
     });
+    const attachmentPost = vi.fn(async () => ({}));
+    const sendPost = vi.fn(async () => ({}));
 
     const client = createMockOutlookClient((path) => {
       if (path === "/me/messages") return { post: draftPost };
+      if (path === "/me/messages/draft-1/attachments") {
+        return { post: attachmentPost };
+      }
+      if (path === "/me/messages/draft-1/send") return { post: sendPost };
       throw new Error(`Unexpected API path: ${path}`);
     });
 
-    await expect(
-      sendEmailWithHtml(
-        client,
-        {
-          to: "recipient@example.com",
-          subject: "Subject",
-          messageHtml: "<p>Hello</p>",
-          attachments: [
-            {
-              filename: "large.pdf",
-              content: Buffer.alloc(3 * 1024 * 1024 + 1),
-              contentType: "application/pdf",
-            },
-          ],
-        },
-        createScopedLogger("outlook-mail-test"),
-      ),
-    ).rejects.toThrow(
-      "Outlook attachments larger than 3 MB are not supported yet",
+    const base64Content = Buffer.from("pdf-binary").toString("base64");
+
+    await sendEmailWithHtml(
+      client,
+      {
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageHtml: "<p>Hello</p>",
+        attachments: [
+          {
+            filename: "lease.pdf",
+            content: base64Content,
+            contentType: "application/pdf",
+          },
+        ],
+      },
+      createScopedLogger("outlook-mail-test"),
     );
+
+    expect(attachmentPost).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentBytes: base64Content,
+      }),
+    );
+    expect(sendPost).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses an upload session for attachments above the Graph simple upload limit", async () => {
+    const draftPost = vi.fn(async () => {
+      return {
+        id: "draft-1",
+        conversationId: "conversation-1",
+      } as Message;
+    });
+    const createUploadSessionPost = vi.fn(async () => ({
+      uploadUrl: "https://upload.example.test/session",
+    }));
+    const sendPost = vi.fn(async () => ({}));
+    const fetchMock = vi.fn(async () => new Response(null, { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages") return { post: draftPost };
+      if (path === "/me/messages/draft-1/attachments/createUploadSession") {
+        return { post: createUploadSessionPost };
+      }
+      if (path === "/me/messages/draft-1/send") return { post: sendPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await sendEmailWithHtml(
+      client,
+      {
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageHtml: "<p>Hello</p>",
+        attachments: [
+          {
+            filename: "large.pdf",
+            content: Buffer.alloc(3 * 1024 * 1024 + 1),
+            contentType: "application/pdf",
+          },
+        ],
+      },
+      createScopedLogger("outlook-mail-test"),
+    );
+
+    expect(createUploadSessionPost).toHaveBeenCalledWith(
+      expect.objectContaining({
+        AttachmentItem: expect.objectContaining({
+          name: "large.pdf",
+          size: 3 * 1024 * 1024 + 1,
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalled();
+    expect(sendPost).toHaveBeenCalledTimes(1);
   });
 });
 
