@@ -186,8 +186,8 @@ export function AttachmentSourcesField({
                   <EmptyHeader>
                     <EmptyTitle>No Drive files found</EmptyTitle>
                     <EmptyDescription>
-                      Connect Google Drive in Settings and make sure your Drive
-                      contains PDF files or folders.
+                      Connect a drive in Settings and make sure it contains PDF
+                      files or folders.
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>

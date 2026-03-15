@@ -2,9 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType, DraftReplyConfidence } from "@/generated/prisma/enums";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { runActionFunction } from "@/utils/ai/actions";
+import {
+  resolveDraftAttachments,
+  selectDraftAttachmentsForRule,
+} from "@/utils/attachments/draft-attachments";
 import { createScopedLogger } from "@/utils/logger";
+import { getReplyWithConfidence } from "@/utils/redis/reply";
 import type { ParsedMessage } from "@/utils/types";
-
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/redis/reply", () => ({
@@ -18,34 +22,6 @@ vi.mock("@/utils/attachments/draft-attachments", () => ({
     attachmentContext: null,
   }),
 }));
-
-vi.mock("@/utils/user/get", () => ({
-  getEmailAccountWithAi: vi.fn().mockResolvedValue({
-    id: "account-1",
-    email: "user@example.com",
-    userId: "user-1",
-    timezone: "UTC",
-    about: null,
-    multiRuleSelectionEnabled: false,
-    calendarBookingLink: null,
-    name: null,
-    user: {
-      aiProvider: "openai",
-      aiModel: "gpt-4",
-      aiApiKey: null,
-    },
-    account: {
-      provider: "google",
-    },
-  }),
-}));
-
-import {
-  resolveDraftAttachments,
-  selectDraftAttachmentsForRule,
-} from "@/utils/attachments/draft-attachments";
-import { getReplyWithConfidence } from "@/utils/redis/reply";
-import { getEmailAccountWithAi } from "@/utils/user/get";
 
 describe("runActionFunction", () => {
   const logger = createScopedLogger("test");
@@ -151,30 +127,10 @@ describe("runActionFunction", () => {
     );
   });
 
-  it("reselects draft attachments when the rule cache is missing", async () => {
+  it("skips draft attachments when the rule cache is missing", async () => {
     const client = createMockEmailProvider();
-    const selectedAttachments = [
-      {
-        driveConnectionId: "drive-1",
-        fileId: "file-1",
-        filename: "lease.pdf",
-        mimeType: "application/pdf",
-        reason: "Matched the requested property",
-      },
-    ];
 
     vi.mocked(getReplyWithConfidence).mockResolvedValue(null);
-    vi.mocked(selectDraftAttachmentsForRule).mockResolvedValue({
-      selectedAttachments,
-      attachmentContext: null,
-    });
-    vi.mocked(resolveDraftAttachments).mockResolvedValue([
-      {
-        filename: "lease.pdf",
-        content: Buffer.from("pdf"),
-        contentType: "application/pdf",
-      },
-    ]);
 
     await runActionFunction({
       client,
@@ -196,22 +152,7 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(getEmailAccountWithAi).toHaveBeenCalledWith({
-      emailAccountId: "account-1",
-    });
-
-    expect(selectDraftAttachmentsForRule).toHaveBeenCalledWith({
-      emailAccount: expect.objectContaining({ id: "account-1" }),
-      ruleId: "rule-1",
-      emailContent: expect.stringContaining("Please send the lease packet."),
-      logger: expect.anything(),
-    });
-
-    expect(resolveDraftAttachments).toHaveBeenCalledWith({
-      emailAccountId: "account-1",
-      userId: "user-1",
-      selectedAttachments,
-      logger: expect.anything(),
-    });
+    expect(selectDraftAttachmentsForRule).not.toHaveBeenCalled();
+    expect(resolveDraftAttachments).not.toHaveBeenCalled();
   });
 });

@@ -32,7 +32,7 @@ const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 const evalReporter = createEvalReporter();
 const logger = createScopedLogger("eval-draft-attachments");
-const recentDate = new Date("2026-03-15T10:00:00.000Z");
+const recentDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
 type AttachmentSourceRow = Prisma.AttachmentSourceGetPayload<{
   include: {

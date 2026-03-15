@@ -15,13 +15,9 @@ import { extractEmailAddress } from "@/utils/email";
 import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
-import {
-  resolveDraftAttachments,
-  selectDraftAttachmentsForRule,
-} from "@/utils/attachments/draft-attachments";
+import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
 import type { SelectedAttachment } from "@/utils/attachments/source-schema";
-import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const MODULE = "ai-actions";
 
@@ -511,40 +507,14 @@ async function getDraftSelectedAttachments({
     return cachedDraft.attachments ?? [];
   }
 
-  // TODO: persist selected draft attachments alongside executed actions so a
-  // Redis miss does not require re-selection during draft execution.
-  logger.warn("Draft attachment cache missing, reselecting attachments", {
+  // Do not re-run attachment selection on a cache miss. The draft content was
+  // generated based on a specific set of files; re-selecting could attach a
+  // different PDF than the draft references, causing a content/attachment mismatch.
+  logger.warn("Draft attachment cache missing, skipping attachments", {
     messageId: email.id,
     ruleId: executedRule.ruleId,
   });
-
-  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-  if (!emailAccount) {
-    logger.warn("Unable to load email account for draft attachment fallback", {
-      emailAccountId,
-      messageId: email.id,
-      ruleId: executedRule.ruleId,
-    });
-    return [];
-  }
-
-  try {
-    const selection = await selectDraftAttachmentsForRule({
-      emailAccount,
-      ruleId: executedRule.ruleId,
-      emailContent: buildAttachmentSelectionEmailContent(email),
-      logger,
-    });
-
-    return selection.selectedAttachments;
-  } catch (error) {
-    logger.warn("Failed to reselect draft attachments", {
-      error,
-      messageId: email.id,
-      ruleId: executedRule.ruleId,
-    });
-    return [];
-  }
+  return [];
 }
 
 function buildAttachmentSelectionEmailContent(email: EmailForAction) {
