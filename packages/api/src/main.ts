@@ -2,7 +2,7 @@
 
 import { program } from "commander";
 import packageJson from "../package.json" with { type: "json" };
-import { ApiClient } from "./client";
+import { ApiClient, buildApiUrl } from "./client";
 import {
   CONFIG_PATH,
   DEFAULT_BASE_URL,
@@ -10,6 +10,12 @@ import {
   resolveRuntimeConfig,
   updateConfig,
 } from "./config";
+import type {
+  ResponseTimeResponse,
+  RuleResponse,
+  RulesResponse,
+  StatsByPeriodResponse,
+} from "./api-types";
 import { readJsonInput } from "./io";
 import {
   printJson,
@@ -21,49 +27,6 @@ import {
 type ProgramOptions = {
   apiKey?: string;
   baseUrl?: string;
-};
-
-type RulesResponse = {
-  rules: Array<{
-    id: string;
-    name: string;
-    enabled: boolean;
-    actions: Array<unknown>;
-  }>;
-};
-
-type RuleResponse = {
-  rule: {
-    id: string;
-    name: string;
-    enabled: boolean;
-    actions: Array<unknown>;
-  };
-};
-
-type StatsByPeriodResponse = {
-  result: Array<{
-    startOfPeriod: string;
-    All: number;
-    Sent: number;
-    Read: number;
-    Unread: number;
-    Unarchived: number;
-    Archived: number;
-  }>;
-  allCount: number;
-  inboxCount: number;
-  readCount: number;
-  sentCount: number;
-};
-
-type ResponseTimeResponse = {
-  summary: {
-    medianResponseTime: number;
-    averageResponseTime: number;
-    within1Hour: number;
-  };
-  emailsAnalyzed: number;
 };
 
 async function main() {
@@ -119,7 +82,7 @@ function addConfigCommands() {
         return;
       }
 
-      process.stdout.write(`${value || DEFAULT_BASE_URL}\n`);
+      process.stdout.write(`${value || "(not configured)"}\n`);
     });
 
   config
@@ -138,8 +101,9 @@ function addOpenApiCommand() {
     .description("Fetch the live OpenAPI document")
     .option("--json", "Print JSON output")
     .action(async (options) => {
-      const client = createClient(program.optsWithGlobals() as ProgramOptions);
-      const response = await client.get("/openapi");
+      const response = await getOpenApiDocument(
+        program.optsWithGlobals() as ProgramOptions,
+      );
 
       if (options.json) {
         printJson(response);
@@ -173,14 +137,7 @@ function addRuleCommands() {
         return;
       }
 
-      printRulesTable(
-        response.rules.map((rule) => ({
-          id: rule.id,
-          name: rule.name,
-          enabled: rule.enabled,
-          actionCount: rule.actions.length,
-        })),
-      );
+      printRulesTable(response.rules);
     });
 
   rules
@@ -314,6 +271,21 @@ function createClient(options: ProgramOptions) {
   return new ApiClient(config);
 }
 
+async function getOpenApiDocument(options: ProgramOptions) {
+  const url = buildApiUrl(resolveBaseUrl(options), "/openapi");
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
 function getConfigValue(
   config: {
     apiKey?: string;
@@ -341,6 +313,17 @@ function getStringField(value: unknown, objectKey: string, key: string) {
   const field = object[key];
 
   return typeof field === "string" ? field : "";
+}
+
+function resolveBaseUrl(options: ProgramOptions) {
+  const storedConfig = loadConfig();
+
+  return (
+    options.baseUrl ||
+    process.env.INBOX_ZERO_BASE_URL ||
+    storedConfig.baseUrl ||
+    DEFAULT_BASE_URL
+  );
 }
 
 function toConfigUpdate(key: string, value: string) {

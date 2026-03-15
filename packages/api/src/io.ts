@@ -4,7 +4,7 @@ export async function readJsonInput(filePath: string) {
   const input =
     filePath === "-" ? await readFromStdin() : await readFile(filePath, "utf8");
 
-  return JSON.parse(input);
+  return JSON.parse(stripUtf8Bom(input));
 }
 
 function readFromStdin(): Promise<string> {
@@ -18,4 +18,8 @@ function readFromStdin(): Promise<string> {
     process.stdin.on("end", () => resolve(input));
     process.stdin.on("error", reject);
   });
+}
+
+function stripUtf8Bom(input: string) {
+  return input.replace(/^\uFEFF/, "");
 }

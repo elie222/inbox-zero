@@ -1,4 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 
@@ -28,8 +34,14 @@ export function saveConfig(
   config: ApiCliConfig,
   configPath = CONFIG_PATH,
 ): void {
-  mkdirSync(dirname(configPath), { recursive: true });
-  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const configDir = dirname(configPath);
+
+  mkdirSync(configDir, { recursive: true, mode: 0o700 });
+  chmodSync(configDir, 0o700);
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, {
+    mode: 0o600,
+  });
+  chmodSync(configPath, 0o600);
 }
 
 export function updateConfig(

@@ -8,6 +8,8 @@ This package is separate from `@inbox-zero/cli`, which is focused on self-hostin
 
 ### `npx`
 
+Requires Node.js `18+`.
+
 ```bash
 npx @inbox-zero/api --help
 ```
@@ -21,11 +23,11 @@ npm install -g @inbox-zero/api
 ## Quick Start
 
 ```bash
-inbox-zero-api config set api-key iz_your_api_key
-
 inbox-zero-api rules list
 inbox-zero-api stats by-period --period week
 ```
+
+Set `INBOX_ZERO_API_KEY` in your shell or secret manager before running commands. Avoid passing API keys as CLI arguments because they can leak into shell history and process listings.
 
 ## Configuration
 
@@ -49,7 +51,6 @@ Manage local API CLI configuration.
 ```bash
 inbox-zero-api config list
 inbox-zero-api config get base-url
-inbox-zero-api config set api-key iz_your_api_key
 ```
 
 `base-url` is optional. It defaults to `https://www.getinboxzero.com` and only needs to be set for self-hosted or nonstandard deployments.

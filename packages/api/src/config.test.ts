@@ -11,19 +11,22 @@ import {
 
 describe("loadConfig", () => {
   it("returns an empty object when the config file does not exist", () => {
-    expect(loadConfig("/tmp/does-not-exist-config.json")).toEqual({});
+    const missingConfigPath = join(
+      tmpdir(),
+      `inbox-zero-api-missing-${process.pid}-${Date.now()}.json`,
+    );
+
+    expect(loadConfig(missingConfigPath)).toEqual({});
   });
 });
 
 describe("updateConfig", () => {
-  const configPath = join(
-    tmpdir(),
-    `inbox-zero-api-config-${process.pid}.json`,
-  );
+  const configDir = join(tmpdir(), `inbox-zero-api-config-${process.pid}`);
+  const configPath = join(configDir, "config.json");
 
   afterEach(() => {
     vi.unstubAllEnvs();
-    rmSync(configPath, { force: true });
+    rmSync(configDir, { recursive: true, force: true });
   });
 
   it("merges new values with the existing config file", () => {
