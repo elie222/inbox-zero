@@ -109,6 +109,8 @@ export function ActionSteps({
           typeOptions={typeOptions}
           folders={folders}
           foldersLoading={foldersLoading}
+          attachmentSources={attachmentSources}
+          onAttachmentSourcesChange={onAttachmentSourcesChange}
         />
       ))}
     </RuleSteps>
@@ -130,6 +132,8 @@ function ActionCard({
   typeOptions,
   folders,
   foldersLoading,
+  attachmentSources,
+  onAttachmentSourcesChange,
 }: {
   action: CreateRuleBody["actions"][number];
   index: number;
@@ -146,6 +150,8 @@ function ActionCard({
   typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
+  attachmentSources: AttachmentSourceInput[];
+  onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
   // Watch the action type from the form to ensure reactivity
   const actionType = watch(`actions.${index}.type`);
