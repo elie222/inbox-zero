@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import type {
@@ -474,10 +474,10 @@ function ActionCard({
 
   const fieldsContent = (
     <>
-      {nonExpandableFields.map((field) => renderField(field))}
+      {renderFieldRows(nonExpandableFields, renderField)}
       {actionType === ActionType.DRAFT_EMAIL
         ? // For Draft Email, show all fields directly without expand/collapse
-          expandableFields.map((field) => renderField(field))
+          renderFieldRows(expandableFields, renderField)
         : hasExpandableFields &&
           expandableFields.length > 0 && (
             <>
@@ -501,7 +501,7 @@ function ActionCard({
                   )}
                 </Button>
               </div>
-              {expandableFields.map((field) => renderField(field))}
+              {renderFieldRows(expandableFields, renderField)}
             </>
           )}
     </>
@@ -746,6 +746,38 @@ function DelayInputControls({
       </Select>
     </div>
   );
+}
+
+function renderFieldRows(
+  fields: Array<(typeof actionInputs)[ActionType]["fields"][number]>,
+  renderField: (
+    field: (typeof actionInputs)[ActionType]["fields"][number],
+  ) => ReactNode,
+) {
+  const rows: ReactNode[] = [];
+
+  for (let index = 0; index < fields.length; index += 1) {
+    const field = fields[index];
+    const nextField = fields[index + 1];
+
+    if (field.name === "cc" && nextField?.name === "bcc") {
+      rows.push(
+        <div
+          key={`${field.name}-${nextField.name}`}
+          className="grid gap-4 sm:grid-cols-2"
+        >
+          {renderField(field)}
+          {renderField(nextField)}
+        </div>,
+      );
+      index += 1;
+      continue;
+    }
+
+    rows.push(renderField(field));
+  }
+
+  return rows;
 }
 
 // minutes to user-friendly UI format
