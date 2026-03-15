@@ -33,8 +33,6 @@ Do not invent information.
 Do not use em dashes unless the provided writing style explicitly calls for them.
 Don't suggest meeting times or mention availability unless specific calendar information is provided.
 
-Write the reply in the same language as the email thread.
-
 Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 `;
