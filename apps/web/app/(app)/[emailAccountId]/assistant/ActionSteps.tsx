@@ -616,6 +616,7 @@ function ActionCard({
 
   const handleUseAiDraft = useCallback(() => {
     setValue(`actions.${index}.content.setManually`, false);
+    setValue(`actions.${index}.staticAttachments`, []);
   }, [index, setValue]);
 
   const isLabelAction = actionType === ActionType.LABEL;
