@@ -383,12 +383,12 @@ function buildMicrosoftPermissionHelp(summary: string) {
   return (
     <div className="space-y-3">
       <p>
-        {summary} Inbox Zero still needs the permissions below to finish
+        {summary} The permissions below are still required to finish
         connecting this account.
       </p>
       <p>
         If your organization restricts consent, ask your Microsoft 365 admin to
-        approve Inbox Zero, then try again.
+        approve {BRAND_NAME}, then try again.
       </p>
       <div>
         <p className="font-medium">Required for email</p>
