@@ -198,6 +198,7 @@ export function ActionAttachmentsField({
               <AttachmentPicker
                 selectedKeys={selectedKeys}
                 onToggle={toggleSource}
+                allowFolderSelection={false}
               />
             </DialogContent>
           </Dialog>
@@ -252,6 +253,7 @@ export function ActionAttachmentsField({
               <AttachmentPicker
                 selectedKeys={aiSourceKeys}
                 onToggle={toggleAiSource}
+                allowFolderSelection
               />
             </DialogContent>
           </Dialog>
@@ -264,9 +266,11 @@ export function ActionAttachmentsField({
 function AttachmentPicker({
   selectedKeys,
   onToggle,
+  allowFolderSelection = false,
 }: {
   selectedKeys: Set<string>;
   onToggle: (source: AttachmentSourceInput, checked: boolean) => void;
+  allowFolderSelection?: boolean;
 }) {
   const { data, isLoading, error } = useDriveSourceItems(true);
 
@@ -308,6 +312,7 @@ function AttachmentPicker({
                 level={0}
                 selectedKeys={selectedKeys}
                 onToggle={onToggle}
+                allowFolderSelection={allowFolderSelection}
               />
             ))}
           </TreeView>
@@ -324,6 +329,7 @@ function AttachmentSourceNode({
   selectedKeys,
   onToggle,
   parentPath = "",
+  allowFolderSelection = false,
 }: {
   item: DriveSourceItem;
   isLast: boolean;
@@ -331,6 +337,7 @@ function AttachmentSourceNode({
   selectedKeys: Set<string>;
   onToggle: (source: AttachmentSourceInput, checked: boolean) => void;
   parentPath?: string;
+  allowFolderSelection?: boolean;
 }) {
   const { expandedIds } = useTree();
   const nodeId = getTreeNodeId(item);
@@ -384,6 +391,13 @@ function AttachmentSourceNode({
         )}
         <FolderIcon className="size-4 text-muted-foreground" />
         <div className="flex flex-1 items-center gap-2">
+          {allowFolderSelection && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={(checked) => onToggle(source, checked === true)}
+              onClick={(event) => event.stopPropagation()}
+            />
+          )}
           <TreeLabel>{item.name}</TreeLabel>
         </div>
       </TreeNodeTrigger>
@@ -398,6 +412,7 @@ function AttachmentSourceNode({
               selectedKeys={selectedKeys}
               onToggle={onToggle}
               parentPath={currentPath}
+              allowFolderSelection={allowFolderSelection}
             />
           ))
         ) : isExpanded && !isLoading ? (

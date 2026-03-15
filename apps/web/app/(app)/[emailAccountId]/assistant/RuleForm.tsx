@@ -177,6 +177,14 @@ export function RuleForm({
         }
       }
 
+      const hasDraftAction = data.actions.some(
+        (action) => action.type === ActionType.DRAFT_EMAIL,
+      );
+      const sourcesToSave = hasDraftAction ? attachmentSources : [];
+      if (!hasDraftAction) {
+        setAttachmentSources([]);
+      }
+
       // Add DIGEST action if digest is enabled
       const actionsToSubmit = [...data.actions];
       if (data.digest) {
@@ -218,7 +226,7 @@ export function RuleForm({
           const attachmentSourceResult = await saveAttachmentSources({
             emailAccountId,
             ruleId: res.data.rule.id,
-            attachmentSources,
+            attachmentSources: sourcesToSave,
           });
 
           if (attachmentSourceResult === "partial") {
@@ -261,7 +269,7 @@ export function RuleForm({
           const attachmentSourceResult = await saveAttachmentSources({
             emailAccountId,
             ruleId: res.data.rule.id,
-            attachmentSources,
+            attachmentSources: sourcesToSave,
           });
 
           if (attachmentSourceResult === "partial") {
