@@ -341,10 +341,9 @@ function getAccountErrorMessage(
     admin_consent_required: {
       title: "Admin approval required",
       description: buildMicrosoftPermissionHelp(
-        "Your Microsoft 365 organization requires admin approval before Inbox Zero can access this account.",
+        `Your Microsoft 365 organization requires admin approval before ${BRAND_NAME} can access this account.`,
       ),
-      toastDescription:
-        "Your Microsoft 365 organization requires admin approval before Inbox Zero can access this account. Ask your Microsoft 365 admin to approve Inbox Zero, then try again.",
+      toastDescription: `Your Microsoft 365 organization requires admin approval before ${BRAND_NAME} can access this account. Ask your Microsoft 365 admin to approve ${BRAND_NAME}, then try again.`,
     },
     invalid_scope_configuration: {
       title: "Microsoft app setup needs attention",
@@ -384,11 +383,11 @@ function buildMicrosoftPermissionHelp(summary: string) {
     <div className="space-y-3">
       <p>
         {summary} This usually means your Microsoft 365 organization allowed
-        sign-in, but did not return all of the permissions Inbox Zero needs to
-        finish connecting the account.
+        sign-in, but did not return all of the permissions needed to finish
+        connecting the account.
       </p>
       <p>
-        Ask your Microsoft 365 admin to approve Inbox Zero for the Microsoft
+        Ask your Microsoft 365 admin to approve {BRAND_NAME} for the Microsoft
         Graph permissions below, then try again.
       </p>
       <div>
