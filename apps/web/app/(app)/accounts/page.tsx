@@ -383,21 +383,20 @@ function buildMicrosoftPermissionHelp(summary: string) {
   return (
     <div className="space-y-3">
       <p>
-        {summary} This usually means your Microsoft 365 organization allowed
-        sign-in, but did not return all of the permissions Inbox Zero needs to
-        finish connecting the account.
+        {summary} The permissions below are still required to finish
+        connecting this account.
       </p>
       <p>
-        Ask your Microsoft 365 admin to approve Inbox Zero for the Microsoft
-        Graph permissions below, then try again.
+        If your organization restricts consent, ask your Microsoft 365 admin to
+        approve {BRAND_NAME}, then try again.
       </p>
       <div>
-        <p className="font-medium">Email and inbox connection</p>
+        <p className="font-medium">Required for email</p>
         <PermissionList scopes={MICROSOFT_EMAIL_SCOPES} />
       </div>
       <div>
         <p className="font-medium">
-          Additional permissions if you later connect other Microsoft features
+          Optional if you connect more Microsoft features
         </p>
         <div className="space-y-2">
           <div>
