@@ -10,43 +10,33 @@ export type SyncTab = {
 );
 
 // Keep in sync with inbox-zero-tabs-wxt/config/tabs.ts defaultTabsConfig IDs
-const LABEL_TO_DEFAULT_TAB: Record<string, string> = {
-  "To Reply": "to-reply",
-  "Awaiting Reply": "awaiting-reply",
-  FYI: "fyi",
-  Actioned: "actioned",
-  Newsletter: "newsletter",
-  Marketing: "marketing",
-  Calendar: "calendar",
-  Receipt: "receipt",
-  Notification: "notification",
-  "Cold Email": "cold-email",
-  "Follow-up": "follow-up",
-  Team: "team",
-  GitHub: "github",
-  Stripe: "stripe",
-};
+const DEFAULT_TABS = [
+  { label: "To Reply", tabId: "to-reply" },
+  { label: "Awaiting Reply", tabId: "awaiting-reply" },
+  { label: "FYI", tabId: "fyi" },
+  { label: "Actioned", tabId: "actioned" },
+  { label: "Newsletter", tabId: "newsletter" },
+  { label: "Marketing", tabId: "marketing" },
+  { label: "Calendar", tabId: "calendar" },
+  { label: "Receipt", tabId: "receipt" },
+  { label: "Notification", tabId: "notification" },
+  { label: "Cold Email", tabId: "cold-email" },
+  { label: "Follow-up", tabId: "follow-up" },
+  { label: "Team", tabId: "team" },
+  { label: "GitHub", tabId: "github" },
+  { label: "Stripe", tabId: "stripe" },
+] as const;
+
+const LABEL_TO_DEFAULT_TAB = Object.fromEntries(
+  DEFAULT_TABS.map((tab) => [normalizeLabel(tab.label), tab]),
+);
 
 // Matches SYSTEM_RULE_ORDER from utils/rule/consts.ts, with Follow-up appended
-const LABEL_ORDER: string[] = [
-  "To Reply",
-  "Awaiting Reply",
-  "FYI",
-  "Actioned",
-  "Newsletter",
-  "Marketing",
-  "Calendar",
-  "Receipt",
-  "Notification",
-  "Cold Email",
-  "Follow-up",
-  "Team",
-  "GitHub",
-  "Stripe",
-];
+const LABEL_ORDER = DEFAULT_TABS.map((tab) => normalizeLabel(tab.label));
 
 function labelToGmailSlug(label: string): string {
   return label
+    .trim()
     .toLowerCase()
     .replace(/\s+/g, "-")
     .replace(/[^a-z0-9/-]/g, "");
@@ -64,16 +54,18 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
     for (const action of rule.actions) {
       if (action.type !== "LABEL" || !action.label) continue;
 
-      const label = action.label;
-      if (seenLabels.has(label)) continue;
-      seenLabels.add(label);
+      const label = action.label.trim();
+      const normalizedLabel = normalizeLabel(label);
+      if (!label) continue;
+      if (seenLabels.has(normalizedLabel)) continue;
+      seenLabels.add(normalizedLabel);
 
-      const defaultTabId = LABEL_TO_DEFAULT_TAB[label];
-      if (defaultTabId) {
+      const defaultTab = LABEL_TO_DEFAULT_TAB[normalizedLabel];
+      if (defaultTab) {
         tabs.push({
           type: "enable_default",
-          tabId: defaultTabId,
-          displayLabel: label,
+          tabId: defaultTab.tabId,
+          displayLabel: defaultTab.label,
         });
       } else {
         tabs.push({
@@ -88,8 +80,8 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
   }
 
   tabs.sort((a, b) => {
-    const aIndex = LABEL_ORDER.indexOf(a.displayLabel);
-    const bIndex = LABEL_ORDER.indexOf(b.displayLabel);
+    const aIndex = LABEL_ORDER.indexOf(normalizeLabel(a.displayLabel));
+    const bIndex = LABEL_ORDER.indexOf(normalizeLabel(b.displayLabel));
     // Known labels first in defined order, custom labels at end alphabetically
     if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
     if (aIndex !== -1) return -1;
@@ -98,4 +90,8 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
   });
 
   return tabs;
+}
+
+function normalizeLabel(label: string) {
+  return label.trim().toLowerCase();
 }

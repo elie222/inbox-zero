@@ -31,7 +31,7 @@ describe("mapRulesToExtensionTabs", () => {
   });
 
   it("keeps unsupported labels as custom tabs", () => {
-    const rules = [getRule("sync travel", [getAction({ label: "Travel" })])];
+    const rules = [getRule("sync travel", [getAction({ label: " Travel " })])];
 
     expect(mapRulesToExtensionTabs(rules)).toEqual([
       {
@@ -40,6 +40,21 @@ describe("mapRulesToExtensionTabs", () => {
         icon: "🏷️",
         query: "in:inbox label:travel",
         displayLabel: "Travel",
+      },
+    ]);
+  });
+
+  it("normalizes built-in labels before lookup and dedupe", () => {
+    const rules = [
+      getRule("sync lowercase team", [getAction({ label: " team " })]),
+      getRule("skip duplicate team", [getAction({ label: "TEAM" })]),
+    ];
+
+    expect(mapRulesToExtensionTabs(rules)).toEqual([
+      {
+        type: "enable_default",
+        tabId: "team",
+        displayLabel: "Team",
       },
     ]);
   });
