@@ -1,6 +1,6 @@
 {
   "name": "@inbox-zero/api",
-  "version": "0.1.0",
+  "version": "2.29.2",
   "description": "CLI tool for managing Inbox Zero through the external API",
   "type": "module",
   "bin": {

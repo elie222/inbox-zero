@@ -84,7 +84,16 @@ jobs:
         run: cd packages/cli && bun run build
 
       - name: Publish to npm
-        run: cd packages/cli && npm publish --provenance --access public || echo "Version may already be published"
+        run: |
+          cd packages/cli
+          VERSION=$(node -p "require('./package.json').version")
+
+          if npm view "@inbox-zero/cli@$VERSION" version >/dev/null 2>&1; then
+            echo "Version $VERSION is already published, skipping."
+            exit 0
+          fi
+
+          npm publish --provenance --access public
 
   release:
     needs: build
