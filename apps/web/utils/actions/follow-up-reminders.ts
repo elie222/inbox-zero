@@ -10,6 +10,7 @@ import {
 import prisma from "@/utils/prisma";
 import { processAccountFollowUps } from "@/app/api/follow-up-reminders/process";
 import { SafeError } from "@/utils/error";
+import { env } from "@/env";
 
 export const toggleFollowUpRemindersAction = actionClient
   .metadata({ name: "toggleFollowUpReminders" })
@@ -41,7 +42,9 @@ export const updateFollowUpSettingsAction = actionClient
         data: {
           followUpAwaitingReplyDays,
           followUpNeedsReplyDays,
-          followUpAutoDraftEnabled,
+          ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
+            ? {}
+            : { followUpAutoDraftEnabled }),
         },
       });
     },

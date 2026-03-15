@@ -9,7 +9,6 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { toolCallAgentStream } from "@/utils/llms";
 import type { RecordingSessionHandle } from "@/utils/replay/recorder";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import prisma from "@/utils/prisma";
 import type { SystemType } from "@/generated/prisma/enums";
 import {
@@ -18,7 +17,7 @@ import {
   getLearnedPatternsTool,
   getUserRulesAndSettingsTool,
   type RuleReadState,
-  updateAboutTool,
+  updatePersonalInstructionsTool,
   updateLearnedPatternsTool,
   updateRuleActionsTool,
   updateRuleConditionsTool,
@@ -38,6 +37,7 @@ import {
   sendEmailTool,
   updateInboxFeaturesTool,
 } from "./chat-inbox-tools";
+import { createOrGetLabelTool, listLabelsTool } from "./chat-label-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 
@@ -48,7 +48,7 @@ export type {
   CreateRuleTool,
   GetLearnedPatternsTool,
   GetUserRulesAndSettingsTool,
-  UpdateAboutTool,
+  UpdatePersonalInstructionsTool,
   UpdateLearnedPatternsTool,
   UpdateRuleActionsOutput,
   UpdateRuleActionsTool,
@@ -60,6 +60,10 @@ export type {
   GetAssistantCapabilitiesTool,
   UpdateAssistantSettingsTool,
 } from "./chat-settings-tools";
+export type {
+  CreateOrGetLabelTool,
+  ListLabelsTool,
+} from "./chat-label-tools";
 export type {
   ForwardEmailTool,
   GetAccountOverviewTool,
@@ -121,12 +125,16 @@ Tool usage strategy (progressive disclosure):
 - For write operations that affect many emails, first summarize what will change, then execute after clear user confirmation.
 - When the user asks what settings can or cannot be changed, call getAssistantCapabilities.
 - For supported account-setting updates, prefer updateAssistantSettings.
-- For personal instructions updates, append to existing instructions by default unless the user explicitly asks to replace.
+- Personal Instructions are durable user context that is always available when the AI processes future emails. Use updatePersonalInstructions for broad standing preferences, priorities, and background.
+- Append to Personal Instructions by default. Replace only when the user clearly wants to overwrite them.
 - For scheduled check-ins and draft knowledge base management, call getAssistantCapabilities when capability or destination context is missing or stale; otherwise reuse recent capability context and proceed with updateAssistantSettings.
 - For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then provide a concise grouped summary and recommend a next action.
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
   - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
+- If the user asks to create a label or explicitly wants to ensure a label exists, call createOrGetLabel for that exact name. Do not call listLabels first.
+- When the user wants to inspect existing labels, call listLabels.
+- When the user wants to apply an existing named label to specific threads, call manageInbox with action "label_threads" using the exact labelName. Do not call createOrGetLabel first unless the user asks to create the label or ensure it exists.
 ${
   emailSendToolsEnabled
     ? `${getSendEmailSurfacePolicy({ responseSurface, messagingPlatform })}
@@ -150,6 +158,7 @@ Tool call policy:
 - If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.
 - If hidden UI context shows that specific threads were already archived or marked read, treat that as completed work. For follow-up confirmations, acknowledge the completed action instead of repeating it.
 - If a write action needs IDs and the user did not provide them, call searchInbox first to fetch the right IDs.
+- If the user already provided explicit thread IDs, use them directly instead of calling searchInbox again.
 - Never invent thread IDs, sender addresses, or existing rule names.
 ${emailSendToolsEnabled ? '- For pending email actions, do not treat "prepared" as "sent".' : ""}
 - "archive_threads" archives specific threads by ID. Use it when the user refers to specific emails shown in results.
@@ -163,7 +172,7 @@ ${emailSendToolsEnabled ? '- For pending email actions, do not treat "prepared" 
 
 Provider context:
 - Current provider: ${user.account.provider}.
-${user.account.provider === "microsoft" ? "- Use KQL syntax for search: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:." : "- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:."}
+${user.account.provider === "microsoft" ? '- Use KQL syntax for search: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.\n- For inbox triage, prefer unread-focused searches using Microsoft-compatible syntax.\n- For Microsoft reply triage, use plain reply-focused search terms only. Example: `reply OR respond OR subject:"question" OR subject:"approval"`. Never use `is:unread`, `label:`, or `in:` in Microsoft queries.' : '- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.\n- For inbox triage, default to is:unread.\n- For Gmail reply triage, include reply-needed signals like `label:"To Reply"` when helpful.'}
 
 A rule is comprised of:
 1. A condition
@@ -192,7 +201,8 @@ You can use {{variables}} in the fields to insert AI generated content. For exam
 "Hi {{name}}, {{write a friendly reply}}, Best regards, Alice"
 
 Inbox triage guidance:
-- For inbox updates and triage, default to unread messages by adding ${isMicrosoftProvider(user.account.provider) ? "isRead:false" : "is:unread"} to your search. Only include read messages when the user explicitly asks or searches for a specific topic/sender.
+- For inbox updates and triage, default to unread messages using the provider-appropriate syntax above. Only include read messages when the user explicitly asks or searches for a specific topic/sender.
+- For reply-triage requests (for example "Do I need to reply to any mail?"), do not use only the unread filter. Include provider-appropriate reply-needed signals too.
 - For "what came in today?" requests, use inbox search with a tight time range for today.
 - Group results into: must handle now, can wait, and can archive/mark read.
 - Prioritize messages labelled "To Reply" as must handle.
@@ -222,14 +232,11 @@ Keep responses concise by default.
 
 ${getFormattingRules(responseSurface)}
 
-You can set general information about the user in their Personal Instructions (via the updateAbout tool) that will be passed as context when the AI is processing emails.
-
 Conversation status categorization:
 - Emails are automatically categorized as "To Reply", "FYI", "Awaiting Reply", or "Actioned".
 - Conversation status behavior should be customized by updating conversation rules directly (To Reply, FYI, Awaiting Reply, Actioned) using updateRuleConditions.
 - For requests like "if I'm CC'd I don't need to reply", update the To Reply rule instructions (and FYI when needed) instead of creating a new rule.
 - Keep conversation rule instructions self-contained: preserve the core intent and append new exclusions/inclusions instead of replacing them with a narrow one-off condition.
-- Use updateAbout for broad profile context, not as the primary place for conversation-status routing logic.
 
 Reply Zero is a feature that labels emails that need a reply "To Reply". And labels emails that are awaiting a response "Awaiting". The user is also able to see these in a minimalist UI within Inbox Zero which only shows which emails the user needs to reply to or is awaiting a response on.
 
@@ -260,7 +267,8 @@ Conversation memory:
 - You can save memories using the saveMemory tool when the user asks you to remember something or when you identify a durable preference worth retaining across conversations.
 - Do not claim you will "remember" something without actually calling saveMemory.
 - Keep memories concise and self-contained.
-- IMPORTANT: Memories are only used in chat conversations. They do NOT affect how incoming emails are processed. If the user wants to influence how future emails are handled (e.g., "emails from X are urgent", "never archive emails from my boss"), use updateAbout with mode "append" to add to their personal instructions, or create/update a rule. Use saveMemory only for chat preferences (e.g., "don't use bulk archive", "always show me emails before archiving").
+- Memories are only used in chat conversations. They do not affect how incoming emails are processed.
+- If the user wants to influence how future emails are handled, use updatePersonalInstructions for broad standing context or create/update a rule for concrete routing logic.
 
 Behavior anchors (minimal examples):
 - For "Give me an update on what came in today", call searchInbox first with today's start in the user's timezone, then summarize into must-handle, can-wait, and can-archive.
@@ -399,6 +407,8 @@ Behavior anchors (minimal examples):
       getAccountOverview: getAccountOverviewTool(toolOptions),
       searchInbox: searchInboxTool(toolOptions),
       readEmail: readEmailTool(toolOptions),
+      listLabels: listLabelsTool(toolOptions),
+      createOrGetLabel: createOrGetLabelTool(toolOptions),
       manageInbox: manageInboxTool(toolOptions),
       updateInboxFeatures: updateInboxFeaturesTool(toolOptions),
       getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),
@@ -407,7 +417,7 @@ Behavior anchors (minimal examples):
       updateRuleConditions: updateRuleConditionsTool(toolOptions),
       updateRuleActions: updateRuleActionsTool(toolOptions),
       updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
-      updateAbout: updateAboutTool(toolOptions),
+      updatePersonalInstructions: updatePersonalInstructionsTool(toolOptions),
       addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
       searchMemories: searchMemoriesTool(toolOptions),
       saveMemory: saveMemoryTool({ ...toolOptions, chatId }),

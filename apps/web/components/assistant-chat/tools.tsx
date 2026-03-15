@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useQueryState } from "nuqs";
 import type {
-  UpdateAboutTool,
   UpdateRuleConditionsTool,
   UpdateRuleConditionsOutput,
   UpdateRuleActionsTool,
   UpdateRuleActionsOutput,
   UpdateLearnedPatternsTool,
+  UpdatePersonalInstructionsTool,
   AddToKnowledgeBaseTool,
   CreateRuleTool,
   ManageInboxTool,
@@ -55,6 +55,10 @@ import type { ActionType } from "@/generated/prisma/enums";
 import { formatShortDate } from "@/utils/date";
 import { trimToNonEmptyString } from "@/utils/string";
 import { getEmailSearchUrl, getEmailUrlForMessage } from "@/utils/url";
+import {
+  isManageInboxAction,
+  type ManageInboxAction,
+} from "@/utils/ai/assistant/manage-inbox-actions";
 import {
   Collapsible,
   CollapsibleContent,
@@ -906,9 +910,13 @@ export function UpdatedLearnedPatterns({
   );
 }
 
-export function UpdateAbout({ args }: { args: UpdateAboutTool["input"] }) {
+export function UpdatePersonalInstructions({
+  args,
+}: {
+  args: UpdatePersonalInstructionsTool["input"];
+}) {
   return (
-    <ExpandedToolCard title="Updated About Information">
+    <ExpandedToolCard title="Updated Personal Instructions">
       <ToolPanel className="text-sm leading-relaxed">{args.about}</ToolPanel>
     </ExpandedToolCard>
   );
@@ -1177,25 +1185,10 @@ function CollapsibleDiffContent({
   );
 }
 
-type ManageInboxAction =
-  | "archive_threads"
-  | "mark_read_threads"
-  | "bulk_archive_senders"
-  | "unsubscribe_senders";
-
 function parseManageInboxAction(
   action: string | undefined,
 ): ManageInboxAction | undefined {
-  if (
-    action === "archive_threads" ||
-    action === "mark_read_threads" ||
-    action === "bulk_archive_senders" ||
-    action === "unsubscribe_senders"
-  ) {
-    return action;
-  }
-
-  return undefined;
+  return isManageInboxAction(action) ? action : undefined;
 }
 
 export function getManageInboxActionLabel({
@@ -1222,6 +1215,9 @@ export function getManageInboxActionLabel({
         : "Archiving emails";
     }
     return labelApplied ? "Archived and labeled emails" : "Archived emails";
+  }
+  if (action === "label_threads") {
+    return inProgress ? "Labeling emails" : "Labeled emails";
   }
   if (action === "mark_read_threads") {
     if (inProgress) {

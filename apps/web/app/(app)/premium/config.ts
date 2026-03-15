@@ -171,6 +171,68 @@ export function getIncludedEmailAccountsPerUserForStripePrice({
   return DEFAULT_INCLUDED_EMAIL_ACCOUNTS_PER_USER;
 }
 
+export function hasLegacyStripePriceId({
+  tier,
+  priceId,
+}: {
+  tier: PremiumTier | null | undefined;
+  priceId: string | null | undefined;
+}): boolean {
+  if (!priceId) return false;
+
+  const resolvedTier = tier || getStripeSubscriptionTier({ priceId });
+  if (!resolvedTier) return false;
+
+  return (
+    STRIPE_PRICE_ID_CONFIG[resolvedTier]?.oldPriceIds?.includes(priceId) ??
+    false
+  );
+}
+
+export function shouldShowLegacyStripePricingNotice(
+  premium:
+    | {
+        tier: PremiumTier | null | undefined;
+        stripePriceId: string | null | undefined;
+        stripeSubscriptionStatus: string | null | undefined;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!premium?.stripeSubscriptionStatus) return false;
+  if (!["active", "trialing"].includes(premium.stripeSubscriptionStatus)) {
+    return false;
+  }
+
+  return hasLegacyStripePriceId({
+    tier: premium.tier,
+    priceId: premium.stripePriceId,
+  });
+}
+
+export function getPremiumTierName(
+  tier: PremiumTier | null | undefined,
+): string {
+  if (!tier) return "Premium";
+
+  const tierMap: Partial<Record<PremiumTier, string>> = {
+    STARTER_MONTHLY: "Starter",
+    STARTER_ANNUALLY: "Starter",
+    PLUS_MONTHLY: "Plus",
+    PLUS_ANNUALLY: "Plus",
+    PROFESSIONAL_MONTHLY: "Professional",
+    PROFESSIONAL_ANNUALLY: "Professional",
+    COPILOT_MONTHLY: "Enterprise",
+    BASIC_MONTHLY: "Basic",
+    BASIC_ANNUALLY: "Basic",
+    PRO_MONTHLY: "Pro",
+    PRO_ANNUALLY: "Pro",
+    LIFETIME: "Lifetime",
+  };
+
+  return tierMap[tier] ?? "Premium";
+}
+
 function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }

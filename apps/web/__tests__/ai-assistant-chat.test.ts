@@ -164,6 +164,8 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.getAssistantCapabilities).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
     expect(args.tools.readEmail).toBeDefined();
+    expect(args.tools.listLabels).toBeDefined();
+    expect(args.tools.createOrGetLabel).toBeDefined();
     expect(args.tools.manageInbox).toBeDefined();
     expect(args.tools.updateAssistantSettings).toBeDefined();
     expect(args.tools.updateInboxFeatures).toBeDefined();
@@ -1190,7 +1192,7 @@ describe("aiProcessAssistantChat", () => {
     expect(memoriesMessage).toBeUndefined();
   });
 
-  it("updateAbout in replace mode overwrites existing content", async () => {
+  it("updatePersonalInstructions in replace mode overwrites existing content", async () => {
     const tools = await captureToolSet();
 
     mockPrisma.emailAccount.findUnique.mockResolvedValue({
@@ -1198,7 +1200,7 @@ describe("aiProcessAssistantChat", () => {
     });
     mockPrisma.emailAccount.update.mockResolvedValue({});
 
-    const result = await tools.updateAbout.execute({
+    const result = await tools.updatePersonalInstructions.execute({
       about: "New instructions",
       mode: "replace",
     });
@@ -1212,7 +1214,7 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
-  it("updateAbout in append mode preserves existing content", async () => {
+  it("updatePersonalInstructions in append mode preserves existing content", async () => {
     const tools = await captureToolSet();
 
     mockPrisma.emailAccount.findUnique.mockResolvedValue({
@@ -1220,7 +1222,7 @@ describe("aiProcessAssistantChat", () => {
     });
     mockPrisma.emailAccount.update.mockResolvedValue({});
 
-    const result = await tools.updateAbout.execute({
+    const result = await tools.updatePersonalInstructions.execute({
       about: "Additional preference",
       mode: "append",
     });
@@ -1237,7 +1239,7 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
-  it("updateAbout in append mode with no existing about sets new content", async () => {
+  it("updatePersonalInstructions in append mode with no existing about sets new content", async () => {
     const tools = await captureToolSet();
 
     mockPrisma.emailAccount.findUnique.mockResolvedValue({
@@ -1245,7 +1247,7 @@ describe("aiProcessAssistantChat", () => {
     });
     mockPrisma.emailAccount.update.mockResolvedValue({});
 
-    const result = await tools.updateAbout.execute({
+    const result = await tools.updatePersonalInstructions.execute({
       about: "First instructions",
       mode: "append",
     });
@@ -1260,12 +1262,11 @@ describe("aiProcessAssistantChat", () => {
 
     const archiveMissingThreads = await tools.manageInbox.execute({
       action: "archive_threads",
-      labelId: undefined,
       read: true,
     });
     expect(archiveMissingThreads).toEqual({
       error:
-        "threadIds is required when action is archive_threads or mark_read_threads",
+        "threadIds is required when action is archive_threads, label_threads, or mark_read_threads",
     });
 
     const bulkMissingSenders = await tools.manageInbox.execute({
@@ -1289,12 +1290,19 @@ describe("aiProcessAssistantChat", () => {
     const archiveEmptyThreadIds = await tools.manageInbox.execute({
       action: "archive_threads",
       threadIds: [],
-      labelId: undefined,
       read: true,
     });
     expect(archiveEmptyThreadIds).toEqual({
       error:
         "Invalid manageInbox input: threadIds must include at least one thread ID",
+    });
+
+    const labelMissingLabelName = await tools.manageInbox.execute({
+      action: "label_threads",
+      threadIds: ["thread-1"],
+    });
+    expect(labelMissingLabelName).toEqual({
+      error: "labelName is required when action is label_threads",
     });
 
     const bulkEmptySenders = await tools.manageInbox.execute({
@@ -1532,7 +1540,6 @@ describe("aiProcessAssistantChat", () => {
     const manageResult = await tools.manageInbox.execute({
       action: "archive_threads",
       threadIds: ["thread-1", "thread-2"],
-      labelId: undefined,
     });
 
     expect(archiveThreadWithLabel).toHaveBeenCalledTimes(2);

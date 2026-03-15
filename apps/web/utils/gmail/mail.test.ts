@@ -68,12 +68,12 @@ describe("convertTextToHtmlParagraphs", () => {
 
     const plainText = buildReplyMessageText({
       textContent:
-        'Use <a href="https://example.com/login">the login page (example.com)</a>\n\n<p>Best regards,<br>John</p>',
+        'Use <a href="https://example.com/login">the login page</a>\n\n<p>Best regards,<br>John</p>',
       message,
     });
 
     expect(plainText).toContain(
-      "Use the login page (example.com) [https://example.com/login]",
+      "Use the login page [https://example.com/login]",
     );
     expect(plainText).toContain("Best regards,\nJohn");
     const quotedHeader = `\n\nOn ${formatEmailDate(new Date(message.headers.date))}, John Doe <john@example.com> wrote:\n\n`;

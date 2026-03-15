@@ -19,7 +19,7 @@ import {
   ReplyEmailResult,
   SearchInboxResult,
   SendEmailResult,
-  UpdateAbout,
+  UpdatePersonalInstructions,
   UpdatedLearnedPatterns,
   UpdatedRuleActions,
   UpdatedRuleConditions,
@@ -27,6 +27,7 @@ import {
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
 import { formatToolLabel } from "@/components/assistant-chat/tool-label";
+import { requiresThreadIds } from "@/utils/ai/assistant/manage-inbox-actions";
 
 interface MessagePartProps {
   disableConfirm: boolean;
@@ -209,7 +210,10 @@ export function MessagePart({
       const actionText = getManageInboxActionLabel({
         action: part.input.action,
         read: part.input.read ?? true,
-        labelApplied: Boolean(part.input.label),
+        labelApplied:
+          part.input.action === "archive_threads"
+            ? Boolean(part.input.label)
+            : Boolean(part.input.label || part.input.labelName),
         inProgress: true,
       });
 
@@ -226,8 +230,7 @@ export function MessagePart({
           input={part.input}
           output={output}
           threadIds={
-            part.input.action === "archive_threads" ||
-            part.input.action === "mark_read_threads"
+            requiresThreadIds(part.input.action)
               ? (part.input.threadIds ?? undefined)
               : undefined
           }
@@ -417,18 +420,26 @@ export function MessagePart({
     }
   }
 
-  if (part.type === "tool-updateAbout") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Updating about..." />;
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if (isOutputWithError(output)) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return <UpdateAbout key={toolCallId} args={part.input} />;
-    }
+  if (part.type === "tool-updatePersonalInstructions") {
+    return renderToolStatus({
+      part,
+      loadingText: "Updating personal instructions...",
+      renderSuccess: ({ toolCallId, output }) => {
+        const updatedAbout = getOutputField<string>(output, "updatedAbout");
+        return (
+          <UpdatePersonalInstructions
+            key={toolCallId}
+            args={{
+              about:
+                updatedAbout ??
+                part.input?.about ??
+                "Personal instructions updated.",
+              mode: part.input?.mode ?? "replace",
+            }}
+          />
+        );
+      },
+    });
   }
 
   if (part.type === "tool-addToKnowledgeBase") {

@@ -15,9 +15,15 @@ import { runWithBoundedConcurrency } from "@/utils/async";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import {
+  manageInboxActions,
+  requiresSenderEmails,
+  requiresThreadIds,
+} from "@/utils/ai/assistant/manage-inbox-actions";
+import {
   type AutomaticUnsubscribeResult,
   unsubscribeSenderAndMark,
 } from "@/utils/senders/unsubscribe";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 const recipientListSchema = z
@@ -167,7 +173,7 @@ export type GetAccountOverviewTool = InferUITool<
 >;
 
 function getSearchQueryDescription(provider: string): string {
-  if (provider === "microsoft") {
+  if (isMicrosoftProvider(provider)) {
     return "Search query using KQL syntax. Supports: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
   }
   return "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.";
@@ -327,30 +333,33 @@ const senderEmailsSchema = z
   .transform((emails) => [...new Set(emails)]);
 
 function getManageInboxLabelDescription(provider: string) {
-  return provider === "microsoft"
+  return isMicrosoftProvider(provider)
     ? "Optional exact Outlook category name to apply while archiving threads."
     : "Optional exact Gmail label name to apply while archiving threads.";
 }
 
 function manageInboxInputSchema(provider: string) {
   return z.object({
-    action: z
-      .enum([
-        "archive_threads",
-        "mark_read_threads",
-        "bulk_archive_senders",
-        "unsubscribe_senders",
-      ])
-      .describe("Inbox action to run."),
+    action: z.enum(manageInboxActions).describe("Inbox action to run."),
     threadIds: threadIdsSchema
       .nullish()
       .describe(
-        "Thread IDs to archive or mark read/unread. Provide IDs from searchInbox results.",
+        "Thread IDs to archive, label, or mark read/unread. Use IDs from searchInbox results or explicit thread IDs the user already provided.",
       ),
     label: z
       .string()
       .nullish()
       .describe(getManageInboxLabelDescription(provider)),
+    labelName: z
+      .string()
+      .trim()
+      .min(1)
+      .nullish()
+      .describe(
+        isMicrosoftProvider(provider)
+          ? "Exact Outlook category name to apply to the selected threads."
+          : "Exact Gmail label name to apply to the selected threads.",
+      ),
     read: z
       .boolean()
       .nullish()
@@ -376,7 +385,7 @@ export const manageInboxTool = ({
 
   return tool({
     description:
-      "Run inbox actions: archive threads, mark threads read/unread, bulk archive by sender, or unsubscribe senders.",
+      "Run inbox actions: archive threads, label threads, mark threads read/unread, bulk archive by sender, or unsubscribe senders.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
@@ -393,9 +402,7 @@ export const manageInboxTool = ({
       }
 
       const parsedInput = parsedInputResult.data;
-      const isSenderAction =
-        parsedInput.action === "bulk_archive_senders" ||
-        parsedInput.action === "unsubscribe_senders";
+      const isSenderAction = requiresSenderEmails(parsedInput.action);
 
       if (isSenderAction && !parsedInput.fromEmails?.length) {
         return {
@@ -404,10 +411,19 @@ export const manageInboxTool = ({
         };
       }
 
-      if (!isSenderAction && !parsedInput.threadIds?.length) {
+      if (
+        requiresThreadIds(parsedInput.action) &&
+        !parsedInput.threadIds?.length
+      ) {
         return {
           error:
-            "threadIds is required when action is archive_threads or mark_read_threads",
+            "threadIds is required when action is archive_threads, label_threads, or mark_read_threads",
+        };
+      }
+
+      if (parsedInput.action === "label_threads" && !parsedInput.labelName) {
+        return {
+          error: "labelName is required when action is label_threads",
         };
       }
 
@@ -487,7 +503,7 @@ export const manageInboxTool = ({
         if (!threadIds) {
           return {
             error:
-              "threadIds is required when action is archive_threads or mark_read_threads",
+              "threadIds is required when action is archive_threads, label_threads, or mark_read_threads",
           };
         }
 
@@ -500,6 +516,29 @@ export const manageInboxTool = ({
             : null;
         const resolvedArchiveLabelId =
           resolvedArchiveLabel?.labelId ?? undefined;
+        let resolvedThreadLabel: Awaited<
+          ReturnType<typeof resolveThreadLabel>
+        > | null = null;
+
+        if (parsedInput.action === "label_threads") {
+          try {
+            resolvedThreadLabel = await resolveThreadLabel({
+              emailProvider,
+              labelName: parsedInput.labelName!,
+            });
+          } catch (error) {
+            logger.warn("Failed to resolve label for thread action", {
+              error,
+              labelName: parsedInput.labelName,
+            });
+            return {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to resolve label",
+            };
+          }
+        }
 
         const threadActionResults = await runThreadActionsInParallel({
           threadIds,
@@ -510,6 +549,13 @@ export const manageInboxTool = ({
                 email,
                 resolvedArchiveLabelId,
               );
+            } else if (parsedInput.action === "label_threads") {
+              await applyLabelToThread({
+                emailProvider,
+                threadId,
+                labelId: resolvedThreadLabel!.labelId,
+                labelName: resolvedThreadLabel!.labelName,
+              });
             } else {
               await emailProvider.markReadThread(
                 threadId,
@@ -532,6 +578,10 @@ export const manageInboxTool = ({
           successCount,
           failedCount: failedThreadIds.length,
           failedThreadIds,
+          ...(resolvedThreadLabel && {
+            labelId: resolvedThreadLabel.labelId,
+            labelName: resolvedThreadLabel.labelName,
+          }),
         };
       } catch (error) {
         logger.error("Failed to run inbox action", { error });
@@ -1034,6 +1084,60 @@ async function runThreadActionsInParallel({
     threadId,
     success: result.status === "fulfilled",
   }));
+}
+
+async function applyLabelToThread({
+  emailProvider,
+  threadId,
+  labelId,
+  labelName,
+}: {
+  emailProvider: EmailProvider;
+  threadId: string;
+  labelId: string;
+  labelName: string | null;
+}) {
+  const messages = await emailProvider.getThreadMessages(threadId);
+  const results = await runWithBoundedConcurrency({
+    items: messages,
+    concurrency: 10,
+    run: async (message) => {
+      await emailProvider.labelMessage({
+        messageId: message.id,
+        labelId,
+        labelName,
+      });
+    },
+  });
+
+  const failedCount = results.filter(
+    ({ result }) => result.status === "rejected",
+  ).length;
+
+  if (failedCount > 0) {
+    throw new Error(`Failed to label ${failedCount} messages in thread`);
+  }
+}
+
+async function resolveThreadLabel({
+  emailProvider,
+  labelName,
+}: {
+  emailProvider: EmailProvider;
+  labelName: string;
+}) {
+  const existingLabel = await emailProvider.getLabelByName(labelName);
+
+  if (!existingLabel) {
+    throw new Error(
+      `Label "${labelName}" does not exist. Use createOrGetLabel first if you want to create it.`,
+    );
+  }
+
+  return {
+    labelId: existingLabel.id,
+    labelName: existingLabel.name,
+  };
 }
 
 async function runSenderUnsubscribeActions({

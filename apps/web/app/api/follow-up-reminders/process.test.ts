@@ -9,6 +9,12 @@ import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 
 vi.mock("server-only", () => ({}));
 
+const { envMock } = vi.hoisted(() => ({
+  envMock: {
+    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
+  },
+}));
+
 vi.mock("@/utils/prisma", () => ({
   default: {
     emailAccount: {
@@ -51,6 +57,10 @@ vi.mock("@/utils/rule/consts", () => ({
 
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
+}));
+
+vi.mock("@/env", () => ({
+  env: envMock,
 }));
 
 vi.mock("@/utils/email/rate-limit-mode-error", () => ({
@@ -179,6 +189,7 @@ function mockAwaitingMessage(id: string, internalDate: string) {
 describe("processAccountFollowUps - dedup logic", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
   });
 
   it("skips threads with existing unresolved tracker that has followUpAppliedAt", async () => {
@@ -540,6 +551,33 @@ describe("processAccountFollowUps - dedup logic", () => {
     vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.threadTracker.create).mockResolvedValue({
       id: "tracker-inbound",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(applyFollowUpLabel).toHaveBeenCalled();
+    expect(generateFollowUpDraft).not.toHaveBeenCalled();
+  });
+
+  it("does not generate drafts when auto-drafting is disabled globally", async () => {
+    envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = true;
+
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([{ id: "thread-6", messages: [], snippet: "" }]),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockResolvedValue(mockAwaitingMessage("msg-6", OLD_DATE)),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-6",
     } as any);
 
     await processAccountFollowUps({

@@ -8,6 +8,13 @@ import { aiDraftFollowUp } from "@/utils/ai/reply/draft-follow-up";
 
 vi.mock("server-only", () => ({}));
 
+const { envMock } = vi.hoisted(() => ({
+  envMock: {
+    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
+    NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: true,
+  },
+}));
+
 vi.mock("@/utils/ai/reply/draft-follow-up", () => ({
   aiDraftFollowUp: vi.fn().mockResolvedValue("Just checking in on this!"),
 }));
@@ -46,9 +53,7 @@ vi.mock("@/utils/referral/referral-link", () => ({
 }));
 
 vi.mock("@/env", () => ({
-  env: {
-    NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: true,
-  },
+  env: envMock,
 }));
 
 import prisma from "@/utils/prisma";
@@ -125,6 +130,7 @@ const createMockProvider = (
 describe("generateFollowUpDraft", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: false,
       signature: null,
@@ -357,6 +363,40 @@ describe("generateFollowUpDraft", () => {
       logger: mockLogger,
     });
 
+    expect(mockProvider.draftEmail).not.toHaveBeenCalled();
+  });
+
+  it("skips draft generation when auto-drafting is disabled", async () => {
+    envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = true;
+
+    const userMessage = createMockMessage({
+      id: "user-msg",
+      headers: {
+        from: "user@example.com",
+        to: "bob@external.com",
+        subject: "Initial Question",
+        date: "2024-01-01T00:00:00Z",
+      },
+    });
+
+    const mockProvider = createMockProvider({
+      getThread: vi.fn().mockResolvedValue({
+        id: "thread-1",
+        messages: [userMessage],
+        snippet: "Test",
+      }),
+    });
+
+    await generateFollowUpDraft({
+      emailAccount: createMockEmailAccount(),
+      threadId: "thread-1",
+      messageId: "user-msg",
+      trackerId: "tracker-1",
+      provider: mockProvider,
+      logger: mockLogger,
+    });
+
+    expect(aiDraftFollowUp).not.toHaveBeenCalled();
     expect(mockProvider.draftEmail).not.toHaveBeenCalled();
   });
 

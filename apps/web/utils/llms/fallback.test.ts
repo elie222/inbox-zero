@@ -11,6 +11,7 @@ const {
   mockIsTransientNetworkError,
   mockWithTracing,
   mockGetPosthogLlmClient,
+  mockIsPosthogLlmEvalApproved,
 } = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
   mockSaveAiUsage: vi.fn(),
@@ -20,6 +21,7 @@ const {
   mockIsTransientNetworkError: vi.fn(),
   mockWithTracing: vi.fn(),
   mockGetPosthogLlmClient: vi.fn(),
+  mockIsPosthogLlmEvalApproved: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -38,6 +40,7 @@ vi.mock("@/utils/usage", () => ({
 
 vi.mock("@/utils/posthog", () => ({
   getPosthogLlmClient: mockGetPosthogLlmClient,
+  isPosthogLlmEvalApproved: mockIsPosthogLlmEvalApproved,
 }));
 
 vi.mock("@posthog/ai/vercel", () => ({
@@ -72,6 +75,7 @@ describe("createGenerateText fallback chain", () => {
     });
     mockIsTransientNetworkError.mockReturnValue(false);
     mockGetPosthogLlmClient.mockReturnValue({ capture: vi.fn() });
+    mockIsPosthogLlmEvalApproved.mockReturnValue(false);
     mockWithTracing.mockImplementation((model) => model);
     mockSaveAiUsage.mockResolvedValue(undefined);
   });
@@ -296,10 +300,67 @@ describe("createGenerateText fallback chain", () => {
       provider: "openai",
       model: "gpt-5-mini",
       emailAccountId: "email-account-1",
+      llmEvalsEnabled: false,
       userId: "user-123",
     });
     expect(tracingOptions.posthogProperties).not.toHaveProperty("prompt");
     expect(mockGenerateText.mock.calls[0][0].model).toBe(tracedModel);
+  });
+
+  it("disables privacy mode for approved local eval accounts", async () => {
+    const model = { id: "openai-model" };
+    const tracedModel = { id: "posthog-traced-model" };
+    const modelOptions: SelectModel = {
+      provider: "openai",
+      modelName: "gpt-5-mini",
+      model: model as SelectModel["model"],
+      providerOptions: undefined,
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockIsPosthogLlmEvalApproved.mockReturnValue(true);
+    mockWithTracing.mockReturnValue(tracedModel);
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+      toolCalls: [],
+    });
+
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "user-123",
+      },
+      label: "PostHog eval tracing",
+      modelOptions,
+    });
+
+    await generateText({
+      prompt: "sensitive prompt",
+      model: model as SelectModel["model"],
+    });
+
+    expect(mockWithTracing).toHaveBeenCalledWith(
+      model,
+      expect.any(Object),
+      expect.objectContaining({
+        posthogDistinctId: "user@example.com",
+        posthogPrivacyMode: false,
+      }),
+    );
+
+    const tracingOptions = mockWithTracing.mock.calls[0][2];
+    expect(tracingOptions.posthogProperties).toEqual({
+      label: "PostHog eval tracing",
+      $ai_span_name: "PostHog eval tracing",
+      provider: "openai",
+      model: "gpt-5-mini",
+      emailAccountId: "email-account-1",
+      llmEvalsEnabled: true,
+      userId: "user-123",
+    });
   });
 
   it("skips direct PostHog tracing when client is unavailable", async () => {

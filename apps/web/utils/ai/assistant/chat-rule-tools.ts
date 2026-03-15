@@ -780,7 +780,7 @@ export type UpdateLearnedPatternsTool = InferUITool<
   ReturnType<typeof updateLearnedPatternsTool>
 >;
 
-export const updateAboutTool = ({
+export const updatePersonalInstructionsTool = ({
   email,
   emailAccountId,
   logger,
@@ -802,7 +802,7 @@ export const updateAboutTool = ({
         ),
     }),
     execute: async ({ about, mode }) => {
-      trackToolCall({ tool: "update_about", email, logger });
+      trackToolCall({ tool: "update_personal_instructions", email, logger });
       try {
         const existing = await prisma.emailAccount.findUnique({
           where: { id: emailAccountId },
@@ -835,7 +835,9 @@ export const updateAboutTool = ({
     },
   });
 
-export type UpdateAboutTool = InferUITool<ReturnType<typeof updateAboutTool>>;
+export type UpdatePersonalInstructionsTool = InferUITool<
+  ReturnType<typeof updatePersonalInstructionsTool>
+>;
 
 export const addToKnowledgeBaseTool = ({
   email,

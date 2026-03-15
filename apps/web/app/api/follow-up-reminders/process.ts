@@ -29,6 +29,7 @@ import { getRuleLabel } from "@/utils/rule/consts";
 import { internalDateToDate } from "@/utils/date";
 import { isSameEmailAddress } from "@/utils/email";
 import { isDuplicateError } from "@/utils/prisma-helpers";
+import { env } from "@/env";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
 const FOLLOW_UP_THREAD_SCAN_LIMIT = 50;
@@ -196,7 +197,9 @@ export async function processAccountFollowUps({
   await processFollowUpsForType({
     systemType: SystemType.AWAITING_REPLY,
     thresholdDays: emailAccount.followUpAwaitingReplyDays,
-    generateDraft: emailAccount.followUpAutoDraftEnabled,
+    generateDraft:
+      emailAccount.followUpAutoDraftEnabled &&
+      !env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED,
     emailAccount,
     provider,
     followUpLabelId: followUpLabel.id,

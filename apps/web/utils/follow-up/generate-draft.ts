@@ -13,6 +13,7 @@ import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
+import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 
 /**
  * Generates a follow-up draft for a thread that's awaiting a reply.
@@ -33,6 +34,8 @@ export async function generateFollowUpDraft({
   provider: EmailProvider;
   logger: Logger;
 }): Promise<void> {
+  if (shouldSkipAutoDraft({ logger, source: "follow-up" })) return;
+
   logger.info("Generating follow-up draft", { threadId, messageId });
 
   try {

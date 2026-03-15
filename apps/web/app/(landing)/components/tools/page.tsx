@@ -17,7 +17,7 @@ import {
   SearchInboxResult,
   SendEmailResult,
   type ThreadLookup,
-  UpdateAbout,
+  UpdatePersonalInstructions,
 } from "@/components/assistant-chat/tools";
 import { ActionType } from "@/generated/prisma/enums";
 import { ChatProvider } from "@/providers/ChatProvider";
@@ -334,7 +334,7 @@ export default function ToolsPage() {
         {/* Settings & Knowledge */}
         <section className="space-y-4">
           <SectionHeader>Settings & Knowledge</SectionHeader>
-          <UpdateAbout
+          <UpdatePersonalInstructions
             args={{
               about:
                 "I prefer concise responses and want newsletters archived by default.",
