@@ -917,6 +917,9 @@ export function UpdatePersonalInstructions({ text }: { text: string }) {
   );
 }
 
+// Alias for backwards compatibility with the previous component name
+export const UpdatePersonalInstructions = UpdateAbout;
+
 export function AddToKnowledgeBase({
   args,
 }: {
