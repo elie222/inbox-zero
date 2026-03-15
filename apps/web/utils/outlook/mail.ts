@@ -19,6 +19,9 @@ import type { Logger } from "@/utils/logger";
 type GraphRecipient = {
   emailAddress: { address: string; name?: string };
 };
+type MailSendEmailBody = Omit<SendEmailBody, "attachments"> & {
+  attachments?: Attachment[];
+};
 
 interface OutlookMessageRequest {
   bccRecipients?: GraphRecipient[];
@@ -36,7 +39,7 @@ type SentEmailResult = Pick<Message, "id" | "conversationId">;
 
 export async function sendEmailWithHtml(
   client: OutlookClient,
-  body: SendEmailBody,
+  body: MailSendEmailBody,
   logger: Logger,
 ): Promise<SentEmailResult> {
   ensureEmailSendingEnabled();
@@ -97,7 +100,7 @@ export async function sendEmailWithHtml(
 
 export async function sendEmailWithPlainText(
   client: OutlookClient,
-  body: Omit<SendEmailBody, "messageHtml"> & { messageText: string },
+  body: Omit<MailSendEmailBody, "messageHtml"> & { messageText: string },
   logger: Logger,
 ) {
   const messageHtml = convertTextToHtmlParagraphs(body.messageText);
@@ -400,7 +403,7 @@ function convertTextToHtmlParagraphs(text?: string | null): string {
 
 async function sendReplyUsingCreateReply(
   client: OutlookClient,
-  body: SendEmailBody,
+  body: MailSendEmailBody,
   logger: Logger,
 ): Promise<SentEmailResult> {
   const originalMessageId = body.replyToEmail!.messageId!;

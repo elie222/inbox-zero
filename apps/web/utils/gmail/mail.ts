@@ -50,6 +50,9 @@ export const sendEmailBody = z.object({
   attachments: z.array(zodAttachment).optional(),
 });
 export type SendEmailBody = z.infer<typeof sendEmailBody>;
+type MailSendEmailBody = Omit<SendEmailBody, "attachments"> & {
+  attachments?: Attachment[];
+};
 
 const encodeMessage = (message: Buffer) => {
   return Buffer.from(message)
@@ -113,7 +116,7 @@ const createRawMailMessage = async ({
 // https://www.labnol.org/google-api-service-account-220405
 export async function sendEmailWithHtml(
   gmail: gmail_v1.Gmail,
-  body: SendEmailBody,
+  body: MailSendEmailBody,
 ) {
   ensureEmailSendingEnabled();
 
@@ -147,7 +150,7 @@ export async function sendEmailWithHtml(
 
 export async function sendEmailWithPlainText(
   gmail: gmail_v1.Gmail,
-  body: Omit<SendEmailBody, "messageHtml"> & { messageText: string },
+  body: Omit<MailSendEmailBody, "messageHtml"> & { messageText: string },
 ) {
   const messageHtml = convertTextToHtmlParagraphs(body.messageText);
   return sendEmailWithHtml(gmail, { ...body, messageHtml });
