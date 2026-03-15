@@ -12,6 +12,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 import { isDuplicateError } from "@/utils/prisma-helpers";
+import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 
 export function partialUpdateRule({
   ruleId,
@@ -401,7 +402,8 @@ async function mapActionFields(
         }),
         delayInMinutes: a.delayInMinutes,
         staticAttachments:
-          (a as { staticAttachments?: unknown }).staticAttachments ?? null,
+          (a as { staticAttachments?: AttachmentSourceInput[] | null })
+            .staticAttachments ?? undefined,
       };
     },
   );

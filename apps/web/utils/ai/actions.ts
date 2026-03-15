@@ -166,7 +166,7 @@ const draft: ActionFunction<{
   to?: string | null;
   cc?: string | null;
   bcc?: string | null;
-  staticAttachments?: unknown;
+  staticAttachments?: ActionItem["staticAttachments"];
 }> = async ({
   client,
   email,

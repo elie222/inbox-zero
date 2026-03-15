@@ -49,6 +49,7 @@ import { validateGmailLabelName } from "@/utils/gmail/label-validation";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
+import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -777,7 +778,7 @@ function mapActionToSanitizedFields(action: {
   folderName?: { value?: string | null } | null;
   folderId?: { value?: string | null } | null;
   delayInMinutes?: number | null;
-  staticAttachments?: unknown[] | null;
+  staticAttachments?: AttachmentSourceInput[] | null;
 }) {
   const sanitized = sanitizeActionFields({
     type: action.type,
@@ -794,7 +795,7 @@ function mapActionToSanitizedFields(action: {
     delayInMinutes: action.delayInMinutes,
     staticAttachments: action.staticAttachments?.length
       ? action.staticAttachments
-      : null,
+      : undefined,
   });
 
   return {
