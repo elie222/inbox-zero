@@ -126,6 +126,7 @@
             "group": "API",
             "pages": [
               "api-reference/introduction",
+              "api-reference/cli",
               "api-reference/endpoint/get-statsby-period",
               "api-reference/endpoint/get-statsresponse-time",
               "api-reference/endpoint/get-group-emails",
