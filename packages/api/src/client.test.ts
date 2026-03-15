@@ -14,6 +14,12 @@ describe("normalizeBaseUrl", () => {
     );
   });
 
+  it("keeps a subpath api/v1 base URL unchanged", () => {
+    expect(normalizeBaseUrl("https://example.com/sub/api/v1")).toBe(
+      "https://example.com/sub/api/v1",
+    );
+  });
+
   it("appends api/v1 to custom deployment paths", () => {
     expect(normalizeBaseUrl("https://example.com/inbox-zero")).toBe(
       "https://example.com/inbox-zero/api/v1",
