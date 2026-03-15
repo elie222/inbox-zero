@@ -11,6 +11,7 @@ import {
   updateConfig,
 } from "./config";
 import type {
+  NullableRuleResponse,
   ResponseTimeResponse,
   RuleResponse,
   RulesResponse,
@@ -185,7 +186,7 @@ function addRuleCommands() {
     .action(async (id: string, options) => {
       const client = createClient(program.optsWithGlobals() as ProgramOptions);
       const body = await readJsonInput(options.file);
-      const response = await client.put<RuleResponse>(
+      const response = await client.put<NullableRuleResponse>(
         `/rules/${id}`,
         JSON.stringify(body),
       );
@@ -193,6 +194,10 @@ function addRuleCommands() {
       if (options.json) {
         printJson(response);
         return;
+      }
+
+      if (!response.rule) {
+        throw new Error(`Updated rule ${id} could not be reloaded`);
       }
 
       process.stdout.write(`Updated rule ${response.rule.id}\n`);

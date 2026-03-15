@@ -1,4 +1,4 @@
-import { rmSync } from "node:fs";
+import { chmodSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -48,6 +48,20 @@ describe("updateConfig", () => {
       apiKey: "iz_test_key",
       baseUrl: "https://www.getinboxzero.com",
     });
+  });
+
+  it("does not tighten an existing custom parent directory", () => {
+    mkdirSync(configDir, { recursive: true, mode: 0o755 });
+    chmodSync(configDir, 0o755);
+
+    updateConfig(
+      {
+        apiKey: "iz_test_key",
+      },
+      configPath,
+    );
+
+    expect(statSync(configDir).mode & 0o777).toBe(0o755);
   });
 
   it("prefers flags over environment variables and stored config", () => {
