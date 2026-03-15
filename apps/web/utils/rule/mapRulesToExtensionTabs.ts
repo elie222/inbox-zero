@@ -1,5 +1,6 @@
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { ActionType } from "@/generated/prisma/enums";
+import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 
 // Keep in sync with inbox-zero-tabs-wxt/entrypoints/background.ts
 export type SyncTab = {
@@ -28,11 +29,11 @@ const DEFAULT_TABS = [
 ] as const;
 
 const LABEL_TO_DEFAULT_TAB = Object.fromEntries(
-  DEFAULT_TABS.map((tab) => [normalizeLabel(tab.label), tab]),
+  DEFAULT_TABS.map((tab) => [normalizeLabelName(tab.label), tab]),
 );
 
 // Matches SYSTEM_RULE_ORDER from utils/rule/consts.ts, with Follow-up appended
-const LABEL_ORDER = DEFAULT_TABS.map((tab) => normalizeLabel(tab.label));
+const LABEL_ORDER = DEFAULT_TABS.map((tab) => normalizeLabelName(tab.label));
 
 function labelToGmailSlug(label: string): string {
   return label
@@ -55,7 +56,7 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
       if (action.type !== "LABEL" || !action.label) continue;
 
       const label = action.label.trim();
-      const normalizedLabel = normalizeLabel(label);
+      const normalizedLabel = normalizeLabelName(label);
       if (!label) continue;
       if (seenLabels.has(normalizedLabel)) continue;
       seenLabels.add(normalizedLabel);
@@ -80,8 +81,8 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
   }
 
   tabs.sort((a, b) => {
-    const aIndex = LABEL_ORDER.indexOf(normalizeLabel(a.displayLabel));
-    const bIndex = LABEL_ORDER.indexOf(normalizeLabel(b.displayLabel));
+    const aIndex = LABEL_ORDER.indexOf(normalizeLabelName(a.displayLabel));
+    const bIndex = LABEL_ORDER.indexOf(normalizeLabelName(b.displayLabel));
     // Known labels first in defined order, custom labels at end alphabetically
     if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
     if (aIndex !== -1) return -1;
@@ -90,8 +91,4 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
   });
 
   return tabs;
-}
-
-function normalizeLabel(label: string) {
-  return label.trim().toLowerCase();
 }
