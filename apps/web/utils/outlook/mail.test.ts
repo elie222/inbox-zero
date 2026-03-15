@@ -8,6 +8,10 @@ vi.mock("@/utils/mail", () => ({
   ensureEmailSendingEnabled: vi.fn(),
 }));
 
+vi.mock("@/utils/sleep", () => ({
+  sleep: vi.fn(async () => undefined),
+}));
+
 describe("sendEmailWithHtml", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -112,7 +116,7 @@ describe("sendEmailWithHtml", () => {
     expect(sendPost).toHaveBeenCalledTimes(1);
   });
 
-  it("uses an upload session for attachments above the Graph simple upload limit", async () => {
+  it("retries upload-session chunks and sends them as octet-stream", async () => {
     const draftPost = vi.fn(async () => {
       return {
         id: "draft-1",
@@ -123,7 +127,15 @@ describe("sendEmailWithHtml", () => {
       uploadUrl: "https://upload.example.test/session",
     }));
     const sendPost = vi.fn(async () => ({}));
-    const fetchMock = vi.fn(async () => new Response(null, { status: 201 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response("temporary failure", {
+          status: 503,
+          headers: { "Retry-After": "0" },
+        }),
+      )
+      .mockResolvedValue(new Response(null, { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const client = createMockOutlookClient((path) => {
@@ -160,7 +172,27 @@ describe("sendEmailWithHtml", () => {
         }),
       }),
     );
-    expect(fetchMock).toHaveBeenCalled();
+    const firstChunkRequest = fetchMock.mock.calls[0]?.[1] as {
+      headers?: Record<string, string>;
+    };
+    const secondChunkRequest = fetchMock.mock.calls[1]?.[1] as {
+      headers?: Record<string, string>;
+    };
+
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://upload.example.test/session",
+      expect.objectContaining({
+        method: "PUT",
+        headers: expect.objectContaining({
+          "Content-Type": "application/octet-stream",
+        }),
+      }),
+    );
+    expect(firstChunkRequest.headers?.["Content-Range"]).toBe(
+      secondChunkRequest.headers?.["Content-Range"],
+    );
     expect(sendPost).toHaveBeenCalledTimes(1);
   });
 });

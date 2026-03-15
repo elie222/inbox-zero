@@ -636,22 +636,55 @@ async function uploadAttachmentViaSession({
   ) {
     const end = Math.min(start + GRAPH_UPLOAD_CHUNK_SIZE_BYTES, content.length);
     const chunk = content.subarray(start, end);
-    const response = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Length": String(chunk.length),
-        "Content-Range": `bytes ${start}-${end - 1}/${content.length}`,
-      },
-      body: new Uint8Array(chunk),
-    });
-
-    if (response.ok) continue;
-
-    const errorText = await response.text();
-    throw new Error(
-      `Failed to upload Outlook attachment chunk: ${response.status} ${
-        errorText || response.statusText
-      }`,
+    await withOutlookRetry(
+      () =>
+        uploadAttachmentChunk({
+          uploadUrl,
+          chunk,
+          start,
+          end,
+          totalSize: content.length,
+        }),
+      logger,
     );
   }
+}
+
+async function uploadAttachmentChunk({
+  uploadUrl,
+  chunk,
+  start,
+  end,
+  totalSize,
+}: {
+  uploadUrl: string;
+  chunk: Buffer;
+  start: number;
+  end: number;
+  totalSize: number;
+}) {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "Content-Length": String(chunk.length),
+      "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
+    },
+    body: new Uint8Array(chunk),
+  });
+
+  if (response.ok) return;
+
+  const errorText = await response.text();
+  const error = new Error(
+    `Failed to upload Outlook attachment chunk: ${response.status} ${
+      errorText || response.statusText
+    }`,
+  );
+  Object.assign(error, {
+    status: response.status,
+    body: errorText,
+    response: { headers: response.headers, status: response.status },
+  });
+  throw error;
 }
