@@ -36,7 +36,7 @@ const errorMessages: Record<string, { title: string; description: string }> = {
   },
   requiresreconsent: {
     title: "Permissions need to be refreshed",
-    description: `Please sign in again and approve every requested permission. If your Microsoft 365 organization requires admin approval, ask your admin to approve ${BRAND_NAME} first.`,
+    description: `Sign in again and approve the requested access. If your Microsoft 365 organization restricts consent, ask your admin to approve ${BRAND_NAME} first.`,
   },
 };
 
