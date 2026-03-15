@@ -49,21 +49,36 @@ export function ActionAttachmentsField({
   value,
   onChange,
   emailAccountId,
+  contentSetManually,
+  attachmentSources,
+  onAttachmentSourcesChange,
 }: {
   value: AttachmentSourceInput[];
   onChange: (value: AttachmentSourceInput[]) => void;
   emailAccountId: string;
+  contentSetManually: boolean;
+  attachmentSources: AttachmentSourceInput[];
+  onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
   const { data: connectionsData } = useDriveConnections();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isSourcePickerOpen, setIsSourcePickerOpen] = useState(false);
+  const [isSourcesExpanded, setIsSourcesExpanded] = useState(false);
 
   const isConnected = (connectionsData?.connections.length ?? 0) > 0;
   const hasAttachments = value.length > 0;
+  const hasAiSources = attachmentSources.length > 0;
+  const totalCount = value.length + attachmentSources.length;
 
   const selectedKeys = useMemo(
     () => new Set(value.map((source) => getSourceKey(source))),
     [value],
+  );
+
+  const aiSourceKeys = useMemo(
+    () => new Set(attachmentSources.map((source) => getSourceKey(source))),
+    [attachmentSources],
   );
 
   const toggleSource = (source: AttachmentSourceInput, checked: boolean) => {
@@ -83,38 +98,45 @@ export function ActionAttachmentsField({
     }
   };
 
+  const toggleAiSource = (
+    source: AttachmentSourceInput,
+    checked: boolean,
+  ) => {
+    const key = getSourceKey(source);
+    if (checked) {
+      onAttachmentSourcesChange(
+        [...attachmentSources, source].filter(
+          (item, index, all) =>
+            index ===
+            all.findIndex(
+              (candidate) => getSourceKey(candidate) === getSourceKey(item),
+            ),
+        ),
+      );
+    } else {
+      onAttachmentSourcesChange(
+        attachmentSources.filter((item) => getSourceKey(item) !== key),
+      );
+    }
+  };
+
   return (
     <div className="border-t pt-3">
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          className="flex items-center gap-2"
-          onClick={() => hasAttachments && setIsExpanded(!isExpanded)}
-        >
-          <span className="text-sm font-medium">Attachments</span>
-          {!isConnected && (
-            <Badge
-              variant="outline"
-              className="border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300"
-            >
-              Setup needed
-            </Badge>
-          )}
-          {isConnected && hasAttachments && (
-            <Badge variant="secondary" className="tabular-nums">
-              {value.length}
-            </Badge>
-          )}
-          {isConnected && hasAttachments && (
-            <span className="text-muted-foreground">
-              {isExpanded ? (
-                <ChevronDownIcon className="size-3.5" />
-              ) : (
-                <ChevronRightIcon className="size-3.5" />
-              )}
-            </span>
-          )}
-        </button>
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium">Attachments</span>
+        {!isConnected && (
+          <Badge
+            variant="outline"
+            className="border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300"
+          >
+            Setup needed
+          </Badge>
+        )}
+        {isConnected && totalCount > 0 && (
+          <Badge variant="secondary" className="tabular-nums">
+            {totalCount}
+          </Badge>
+        )}
       </div>
 
       {!isConnected && (
@@ -122,7 +144,7 @@ export function ActionAttachmentsField({
           <HardDriveIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0">
             <p className="text-sm text-muted-foreground">
-              Connect Google Drive to attach files to your replies.
+              Connect your cloud storage to attach files to your replies.
             </p>
             <Button asChild variant="link" size="sm" className="mt-1 h-auto p-0 text-sm">
               <Link href={`/${emailAccountId}/drive`}>Connect Drive</Link>
@@ -131,63 +153,105 @@ export function ActionAttachmentsField({
         </div>
       )}
 
-      {isConnected && isExpanded && hasAttachments && (
-        <div className="mt-2 space-y-1">
-          {value.map((source) => (
-            <div
-              key={getSourceKey(source)}
-              className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-            >
-              <div className="min-w-0 flex items-center gap-2">
-                {source.type === AttachmentSourceType.FOLDER ? (
-                  <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
-                ) : (
-                  <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
-                )}
-                <div className="min-w-0">
-                  <span className="block truncate font-medium">{source.name}</span>
-                  {source.sourcePath && (
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {source.sourcePath}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="ml-2 shrink-0"
-                onClick={() => toggleSource(source, false)}
-              >
-                Remove
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {isConnected && (
+      {isConnected && contentSetManually && (
         <div className="mt-2">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+            onClick={() => hasAttachments && setIsExpanded(!isExpanded)}
+          >
+            <span className="font-medium">Always attach</span>
+            {hasAttachments && (
+              <>
+                <Badge variant="outline" className="text-[10px] px-1 py-0">
+                  {value.length}
+                </Badge>
+                {isExpanded ? (
+                  <ChevronDownIcon className="size-3" />
+                ) : (
+                  <ChevronRightIcon className="size-3" />
+                )}
+              </>
+            )}
+          </button>
+
+          {isExpanded && hasAttachments && (
+            <SourceList items={value} onRemove={(source) => toggleSource(source, false)} />
+          )}
+
           <Dialog open={isPickerOpen} onOpenChange={setIsPickerOpen}>
             <DialogTrigger asChild>
               <Button
                 type="button"
                 variant="link"
                 size="sm"
-                className="h-auto p-0 text-sm"
+                className="h-auto p-0 text-xs mt-1"
               >
-                <PlusIcon className="mr-1 size-3.5" />
-                Select from Drive
+                <PlusIcon className="mr-1 size-3" />
+                Select files
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl">
               <DialogHeader>
-                <DialogTitle>Select files to attach</DialogTitle>
+                <DialogTitle>Select files to always attach</DialogTitle>
               </DialogHeader>
               <AttachmentPicker
                 selectedKeys={selectedKeys}
                 onToggle={toggleSource}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
+
+      {isConnected && (
+        <div className="mt-2">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+            onClick={() => hasAiSources && setIsSourcesExpanded(!isSourcesExpanded)}
+          >
+            <span className="font-medium">AI-selected sources</span>
+            {hasAiSources && (
+              <>
+                <Badge variant="outline" className="text-[10px] px-1 py-0">
+                  {attachmentSources.length}
+                </Badge>
+                {isSourcesExpanded ? (
+                  <ChevronDownIcon className="size-3" />
+                ) : (
+                  <ChevronRightIcon className="size-3" />
+                )}
+              </>
+            )}
+          </button>
+
+          {isSourcesExpanded && hasAiSources && (
+            <SourceList
+              items={attachmentSources}
+              onRemove={(source) => toggleAiSource(source, false)}
+            />
+          )}
+
+          <Dialog open={isSourcePickerOpen} onOpenChange={setIsSourcePickerOpen}>
+            <DialogTrigger asChild>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs mt-1"
+              >
+                <PlusIcon className="mr-1 size-3" />
+                Select sources for AI
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Select sources for AI to search</DialogTitle>
+              </DialogHeader>
+              <AttachmentPicker
+                selectedKeys={aiSourceKeys}
+                onToggle={toggleAiSource}
               />
             </DialogContent>
           </Dialog>
@@ -346,6 +410,50 @@ function AttachmentSourceNode({
         ) : null}
       </TreeNodeContent>
     </TreeNode>
+  );
+}
+
+function SourceList({
+  items,
+  onRemove,
+}: {
+  items: AttachmentSourceInput[];
+  onRemove: (source: AttachmentSourceInput) => void;
+}) {
+  return (
+    <div className="mt-1 space-y-1">
+      {items.map((source) => (
+        <div
+          key={getSourceKey(source)}
+          className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+        >
+          <div className="min-w-0 flex items-center gap-2">
+            {source.type === AttachmentSourceType.FOLDER ? (
+              <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
+            )}
+            <div className="min-w-0">
+              <span className="block truncate font-medium">{source.name}</span>
+              {source.sourcePath && (
+                <span className="block truncate text-xs text-muted-foreground">
+                  {source.sourcePath}
+                </span>
+              )}
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-2 shrink-0"
+            onClick={() => onRemove(source)}
+          >
+            Remove
+          </Button>
+        </div>
+      ))}
+    </div>
   );
 }
 

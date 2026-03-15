@@ -51,7 +51,6 @@ import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSect
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
 import { RuleLoader } from "@/app/(app)/[emailAccountId]/assistant/RuleLoader";
-import { AttachmentSourcesField } from "@/app/(app)/[emailAccountId]/assistant/AttachmentSourcesField";
 import { upsertRuleAttachmentSourcesAction } from "@/utils/actions/attachment-sources";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 
@@ -324,9 +323,6 @@ export function RuleForm({
 
   const conditionalOperator = watch("conditionalOperator");
   const terminology = getEmailTerminology(provider);
-  const hasDraftAction = watch("actions")?.some(
-    (action) => action.type === ActionType.DRAFT_EMAIL,
-  );
 
   const formErrors = useMemo(() => {
     return Object.values(formState.errors)
@@ -529,15 +525,10 @@ export function RuleForm({
             typeOptions={typeOptions}
             folders={folders}
             foldersLoading={foldersLoading}
+            attachmentSources={attachmentSources}
+            onAttachmentSourcesChange={setAttachmentSources}
           />
         </RuleSectionCard>
-
-        {(hasDraftAction || attachmentSources.length > 0) && (
-          <AttachmentSourcesField
-            value={attachmentSources}
-            onChange={setAttachmentSources}
-          />
-        )}
 
         <div className="flex justify-between items-center">
           <Dialog>

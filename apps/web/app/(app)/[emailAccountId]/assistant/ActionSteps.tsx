@@ -64,6 +64,8 @@ export function ActionSteps({
   folders,
   foldersLoading,
   append,
+  attachmentSources,
+  onAttachmentSourcesChange,
 }: {
   actionFields: Array<{ id: string } & CreateRuleBody["actions"][number]>;
   register: UseFormRegister<CreateRuleBody>;
@@ -80,6 +82,8 @@ export function ActionSteps({
   folders: OutlookFolder[];
   foldersLoading: boolean;
   append: (action: CreateRuleBody["actions"][number]) => void;
+  attachmentSources: AttachmentSourceInput[];
+  onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
   return (
     <RuleSteps
@@ -540,8 +544,7 @@ function ActionCard({
 
   const isNotifySender = actionType === ActionType.NOTIFY_SENDER;
 
-  const showAttachments =
-    actionType === ActionType.DRAFT_EMAIL && contentSetManually;
+  const showAttachments = actionType === ActionType.DRAFT_EMAIL;
 
   const staticAttachments = useWatch({
     control,
@@ -566,11 +569,14 @@ function ActionCard({
           {delayControls}
           {showAttachments && (
             <ActionAttachmentsField
-              value={staticAttachments ?? []}
+              value={contentSetManually ? (staticAttachments ?? []) : []}
               onChange={(newValue) =>
                 setValue(`actions.${index}.staticAttachments`, newValue)
               }
               emailAccountId={emailAccountId}
+              contentSetManually={contentSetManually}
+              attachmentSources={attachmentSources}
+              onAttachmentSourcesChange={onAttachmentSourcesChange}
             />
           )}
         </Card>
