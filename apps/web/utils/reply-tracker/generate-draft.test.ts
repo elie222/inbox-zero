@@ -299,15 +299,13 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
 
     expect(result).toContain("Thanks for reaching out.");
     expect(result).toContain(
-      '<a href="https://example.com/login">the login page (example.com)</a>',
+      '<a href="https://example.com/login">the login page</a>',
     );
-    expect(result).toContain(
-      '<a href="mailto:help@example.com">support (help@example.com)</a>',
-    );
+    expect(result).toContain('<a href="mailto:help@example.com">support</a>');
     expect(result).not.toContain("[the login page](https://example.com/login)");
     expect(result).not.toContain("[support](mailto:help@example.com)");
     expect(result).toContain(
-      '\n\nUse <a href="https://example.com/login">the login page (example.com)</a>',
+      '\n\nUse <a href="https://example.com/login">the login page</a>',
     );
   });
 });
