@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { parseAsString, useQueryState } from "nuqs";
 import { ChevronDown, Tag } from "lucide-react";
+import { sortRulesForAutomation } from "@/utils/rule/sort";
 
 export function RulesSelect() {
   const { data, isLoading, error } = useRules();
@@ -17,11 +18,14 @@ export function RulesSelect() {
     "ruleId",
     parseAsString.withDefault("all"),
   );
+  const sortedRules = data ? sortRulesForAutomation(data) : undefined;
 
   const getCurrentLabel = () => {
     if (ruleId === "all") return "All rules";
     if (ruleId === "skipped") return "No match";
-    return data?.find((rule) => rule.id === ruleId)?.name || "All rules";
+    const rule = sortedRules?.find((rule) => rule.id === ruleId);
+    if (!rule) return "All rules";
+    return rule.enabled ? rule.name : `${rule.name} (disabled)`;
   };
 
   return (
@@ -49,9 +53,12 @@ export function RulesSelect() {
           <DropdownMenuItem onClick={() => setRuleId("skipped")}>
             No match
           </DropdownMenuItem>
-          {data?.map((rule) => (
+          {sortedRules?.map((rule) => (
             <DropdownMenuItem key={rule.id} onClick={() => setRuleId(rule.id)}>
               {rule.name}
+              {!rule.enabled && (
+                <span className="ml-1 text-muted-foreground">(disabled)</span>
+              )}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>

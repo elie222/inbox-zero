@@ -97,17 +97,7 @@ function findMarkdownLinkMatches(text: string) {
 
 function formatLinkLabel(label: string, url: string) {
   const normalizedLabel = normalizeWhitespace(stripHtmlTags(label));
-  const destinationLabel = getLinkDestinationLabel(url);
-
-  if (!normalizedLabel) return destinationLabel;
-  if (
-    normalizedLabel.toLowerCase().includes(destinationLabel.toLowerCase()) ||
-    normalizedLabel.toLowerCase().includes(url.toLowerCase())
-  ) {
-    return normalizedLabel;
-  }
-
-  return `${normalizedLabel} (${destinationLabel})`;
+  return normalizedLabel || getLinkDestinationLabel(url);
 }
 
 function getLinkDestinationLabel(url: string) {

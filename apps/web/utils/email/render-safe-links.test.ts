@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { renderEmailTextWithSafeLinks } from "./render-safe-links";
 
 describe("renderEmailTextWithSafeLinks", () => {
-  it("renders markdown links as sanitized anchors with the destination visible", () => {
+  it("renders markdown links as sanitized anchors while preserving the label", () => {
     const result = renderEmailTextWithSafeLinks(
       "Use [the login page](https://example.com/login) to continue.",
     );
 
     expect(result).toContain(
-      '<a href="https://example.com/login">the login page (example.com)</a>',
+      '<a href="https://example.com/login">the login page</a>',
     );
   });
 
@@ -18,7 +18,7 @@ describe("renderEmailTextWithSafeLinks", () => {
     );
 
     expect(result).toContain(
-      '<a href="https://example.com/login">the login page (example.com)</a>',
+      '<a href="https://example.com/login">the login page</a>',
     );
     expect(result).not.toContain('<div style="display:none">');
     expect(result).toContain("&lt;div");
@@ -41,7 +41,7 @@ describe("renderEmailTextWithSafeLinks", () => {
     );
 
     expect(result).toContain(
-      '<a href="https://example.com/login">Tom &amp; Jerry (example.com)</a>',
+      '<a href="https://example.com/login">Tom &amp; Jerry</a>',
     );
     expect(result).not.toContain("&amp;amp;");
   });
@@ -52,7 +52,17 @@ describe("renderEmailTextWithSafeLinks", () => {
     );
 
     expect(result).toContain(
-      '<a href="https://example.com/path_(1)">the docs (example.com)</a>',
+      '<a href="https://example.com/path_(1)">the docs</a>',
+    );
+  });
+
+  it("falls back to the destination when a link label is empty after sanitization", () => {
+    const result = renderEmailTextWithSafeLinks(
+      'Use <a href="mailto:help@example.com"><span></span></a> if needed.',
+    );
+
+    expect(result).toContain(
+      '<a href="mailto:help@example.com">help@example.com</a>',
     );
   });
 
