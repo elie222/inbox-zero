@@ -341,10 +341,9 @@ function getAccountErrorMessage(
     admin_consent_required: {
       title: "Admin approval required",
       description: buildMicrosoftPermissionHelp(
-        "Your Microsoft 365 organization requires admin approval before Inbox Zero can access this account.",
+        `Your Microsoft 365 organization requires admin approval before ${BRAND_NAME} can access this account.`,
       ),
-      toastDescription:
-        "Your Microsoft 365 organization requires admin approval before Inbox Zero can access this account. Ask your Microsoft 365 admin to approve Inbox Zero, then try again.",
+      toastDescription: `Your Microsoft 365 organization requires admin approval before ${BRAND_NAME} can access this account. Ask your Microsoft 365 admin to approve ${BRAND_NAME}, then try again.`,
     },
     invalid_scope_configuration: {
       title: "Microsoft app setup needs attention",
@@ -383,20 +382,21 @@ function buildMicrosoftPermissionHelp(summary: string) {
   return (
     <div className="space-y-3">
       <p>
-        {summary} The permissions below are still required to finish
-        connecting this account.
+        {summary} This usually means your Microsoft 365 organization allowed
+        sign-in, but did not return all of the permissions needed to finish
+        connecting the account.
       </p>
       <p>
-        If your organization restricts consent, ask your Microsoft 365 admin to
-        approve {BRAND_NAME}, then try again.
+        Ask your Microsoft 365 admin to approve {BRAND_NAME} for the Microsoft
+        Graph permissions below, then try again.
       </p>
       <div>
-        <p className="font-medium">Required for email</p>
+        <p className="font-medium">Email and inbox connection</p>
         <PermissionList scopes={MICROSOFT_EMAIL_SCOPES} />
       </div>
       <div>
         <p className="font-medium">
-          Optional if you connect more Microsoft features
+          Additional permissions if you later connect other Microsoft features
         </p>
         <div className="space-y-2">
           <div>

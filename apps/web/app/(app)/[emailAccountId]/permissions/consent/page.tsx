@@ -35,24 +35,24 @@ export default function PermissionsConsentPage() {
   return (
     <div className="flex flex-col items-center justify-center sm:p-20 md:p-32">
       <PageHeading className="text-center">
-        More access needed
+        We are missing permissions 😔
       </PageHeading>
 
       <TypographyP className="mx-auto mt-4 max-w-prose text-center">
         {isMicrosoft
-          ? `${BRAND_NAME} still needs Microsoft 365 access to finish connecting this account.`
-          : `${BRAND_NAME} still needs the requested access to finish connecting this account.`}
+          ? `Your Microsoft account is connected, but ${BRAND_NAME} is missing one or more required Microsoft 365 permissions.`
+          : `You must sign in and give access to all permissions for ${BRAND_NAME} to work.`}
       </TypographyP>
 
       {isMicrosoft && (
         <TypographyP className="mx-auto mt-3 max-w-prose text-center text-muted-foreground">
-          If your organization restricts consent, ask your Microsoft 365 admin
-          to approve {BRAND_NAME}, then reconnect.
+          If your organization restricts user consent, ask your Microsoft 365
+          admin to approve {BRAND_NAME} and then reconnect your account.
         </TypographyP>
       )}
       {!isMicrosoft && (
         <TypographyP className="mx-auto mt-3 max-w-prose text-center text-muted-foreground">
-          Reconnect and approve the requested access.
+          Reconnect your account and approve every requested permission.
         </TypographyP>
       )}
 
