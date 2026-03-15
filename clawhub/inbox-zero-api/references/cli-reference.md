@@ -11,7 +11,7 @@ The executable name is `inbox-zero-api`.
 
 ## Authentication and config
 
-- `INBOX_ZERO_API_KEY` is required.
+- `INBOX_ZERO_API_KEY` is required for authenticated commands such as `rules` and `stats`.
 - `INBOX_ZERO_BASE_URL` is optional for self-hosted or custom deployments.
 - Config precedence is: flags, environment variables, `~/.inbox-zero-api/config.json`.
 
