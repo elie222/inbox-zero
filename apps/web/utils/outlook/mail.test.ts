@@ -195,6 +195,100 @@ describe("sendEmailWithHtml", () => {
     );
     expect(sendPost).toHaveBeenCalledTimes(1);
   });
+
+  it("resumes upload-session progress after a retried chunk returns 416", async () => {
+    const draftPost = vi.fn(async () => {
+      return {
+        id: "draft-1",
+        conversationId: "conversation-1",
+      } as Message;
+    });
+    const createUploadSessionPost = vi.fn(async () => ({
+      uploadUrl: "https://upload.example.test/session",
+    }));
+    const sendPost = vi.fn(async () => ({}));
+    const totalSize = 3 * 1024 * 1024 + 1;
+    const chunkSize = 320 * 1024;
+    let firstChunkAttempt = 0;
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === "GET") {
+        return new Response(
+          JSON.stringify({
+            nextExpectedRanges: [`${chunkSize}-${totalSize - 1}`],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const contentRange = getContentRangeHeader(init);
+      if (contentRange === `bytes 0-${chunkSize - 1}/${totalSize}`) {
+        if (firstChunkAttempt === 0) {
+          firstChunkAttempt += 1;
+          throw new TypeError("fetch failed");
+        }
+
+        if (firstChunkAttempt === 1) {
+          firstChunkAttempt += 1;
+          return new Response("already received", { status: 416 });
+        }
+      }
+
+      const parsedRange = parseContentRange(contentRange);
+      if (!parsedRange)
+        throw new Error(`Unexpected content range: ${contentRange}`);
+
+      if (parsedRange.endInclusive + 1 >= parsedRange.totalSize) {
+        return new Response(null, { status: 201 });
+      }
+
+      return new Response(
+        JSON.stringify({
+          nextExpectedRanges: [
+            `${parsedRange.endInclusive + 1}-${parsedRange.totalSize - 1}`,
+          ],
+        }),
+        {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages") return { post: draftPost };
+      if (path === "/me/messages/draft-1/attachments/createUploadSession") {
+        return { post: createUploadSessionPost };
+      }
+      if (path === "/me/messages/draft-1/send") return { post: sendPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await sendEmailWithHtml(
+      client,
+      {
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageHtml: "<p>Hello</p>",
+        attachments: [
+          {
+            filename: "resume.pdf",
+            content: Buffer.alloc(totalSize),
+            contentType: "application/pdf",
+          },
+        ],
+      },
+      createScopedLogger("outlook-mail-test"),
+    );
+
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "GET"),
+    ).toBe(true);
+    expect(sendPost).toHaveBeenCalledTimes(1);
+  });
 });
 
 function createMockOutlookClient(
@@ -214,4 +308,20 @@ function createMockOutlookClient(
   return {
     getClient: vi.fn(() => ({ api })),
   } as unknown as OutlookClient;
+}
+
+function getContentRangeHeader(init?: RequestInit) {
+  const headers = init?.headers as Record<string, string> | undefined;
+  return headers?.["Content-Range"] || "";
+}
+
+function parseContentRange(contentRange: string) {
+  const match = /bytes (\d+)-(\d+)\/(\d+)/.exec(contentRange);
+  if (!match) return null;
+
+  return {
+    start: Number(match[1]),
+    endInclusive: Number(match[2]),
+    totalSize: Number(match[3]),
+  };
 }

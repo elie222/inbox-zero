@@ -629,14 +629,11 @@ async function uploadAttachmentViaSession({
     throw new Error("Failed to create Outlook attachment upload session");
   }
 
-  for (
-    let start = 0;
-    start < content.length;
-    start += GRAPH_UPLOAD_CHUNK_SIZE_BYTES
-  ) {
+  let start = 0;
+  while (start < content.length) {
     const end = Math.min(start + GRAPH_UPLOAD_CHUNK_SIZE_BYTES, content.length);
     const chunk = content.subarray(start, end);
-    await withOutlookRetry(
+    start = await withOutlookRetry(
       () =>
         uploadAttachmentChunk({
           uploadUrl,
@@ -673,7 +670,26 @@ async function uploadAttachmentChunk({
     body: new Uint8Array(chunk),
   });
 
-  if (response.ok) return;
+  if (response.status === 200 || response.status === 201) {
+    return totalSize;
+  }
+
+  if (response.status === 202) {
+    const uploadStatus = (await response.json()) as UploadSessionStatus;
+    return (
+      getNextExpectedRangeStart(uploadStatus.nextExpectedRanges) ?? totalSize
+    );
+  }
+
+  if (response.status === 416) {
+    const uploadStatus = await getUploadSessionStatus(uploadUrl);
+    const nextStart = getNextExpectedRangeStart(
+      uploadStatus.nextExpectedRanges,
+    );
+    if (typeof nextStart === "number" && nextStart > start) {
+      return nextStart;
+    }
+  }
 
   const errorText = await response.text();
   const error = new Error(
@@ -687,4 +703,40 @@ async function uploadAttachmentChunk({
     response: { headers: response.headers, status: response.status },
   });
   throw error;
+}
+
+interface UploadSessionStatus {
+  nextExpectedRanges?: string[];
+}
+
+async function getUploadSessionStatus(uploadUrl: string) {
+  const response = await fetch(uploadUrl, { method: "GET" });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    const error = new Error(
+      `Failed to fetch Outlook upload session status: ${response.status} ${
+        errorText || response.statusText
+      }`,
+    );
+    Object.assign(error, {
+      status: response.status,
+      body: errorText,
+      response: { headers: response.headers, status: response.status },
+    });
+    throw error;
+  }
+
+  return (await response.json()) as UploadSessionStatus;
+}
+
+function getNextExpectedRangeStart(nextExpectedRanges?: string[]) {
+  const nextRange = nextExpectedRanges?.[0];
+  if (!nextRange) return null;
+
+  const [rangeStart] = nextRange.split("-");
+  if (!rangeStart) return null;
+
+  const parsedRangeStart = Number.parseInt(rangeStart, 10);
+  return Number.isNaN(parsedRangeStart) ? null : parsedRangeStart;
 }
