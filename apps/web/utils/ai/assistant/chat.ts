@@ -9,7 +9,6 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { toolCallAgentStream } from "@/utils/llms";
 import type { RecordingSessionHandle } from "@/utils/replay/recorder";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import prisma from "@/utils/prisma";
 import type { SystemType } from "@/generated/prisma/enums";
 import {
@@ -173,7 +172,7 @@ ${emailSendToolsEnabled ? '- For pending email actions, do not treat "prepared" 
 
 Provider context:
 - Current provider: ${user.account.provider}.
-${user.account.provider === "microsoft" ? "- Use KQL syntax for search: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. For unread filters, use isRead:false. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:." : "- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:."}
+${user.account.provider === "microsoft" ? "- Use KQL syntax for search: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:." : "- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:."}
 
 A rule is comprised of:
 1. A condition
@@ -202,7 +201,7 @@ You can use {{variables}} in the fields to insert AI generated content. For exam
 "Hi {{name}}, {{write a friendly reply}}, Best regards, Alice"
 
 Inbox triage guidance:
-- For inbox updates and triage, default to unread messages by adding ${isMicrosoftProvider(user.account.provider) ? "isRead:false" : "is:unread"} to your search. Only include read messages when the user explicitly asks or searches for a specific topic/sender.
+- For inbox updates and triage, default to unread messages. For Gmail, add is:unread. For Microsoft, prefer unread-focused searches without Gmail-specific operators. Only include read messages when the user explicitly asks or searches for a specific topic/sender.
 - For reply-triage requests (for example "Do I need to reply to any mail?"), do not use only the unread filter. Include reply-needed signals too, especially the "To Reply" label when available.
 - For "what came in today?" requests, use inbox search with a tight time range for today.
 - Group results into: must handle now, can wait, and can archive/mark read.

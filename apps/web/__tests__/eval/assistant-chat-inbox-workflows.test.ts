@@ -24,12 +24,12 @@ const inboxWorkflowProviders = [
   {
     provider: "google",
     label: "google",
-    unreadFilter: "is:unread",
+    unreadSignal: "is:unread",
   },
   {
     provider: "microsoft",
     label: "microsoft",
-    unreadFilter: "isread:false",
+    unreadSignal: "unread",
   },
 ] as const;
 const writeToolNames = new Set([
@@ -195,7 +195,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
     (model, emailAccount) => {
       test.each(inboxWorkflowProviders)(
         "handles inbox update requests with read-only triage search first [$label]",
-        async ({ provider, label, unreadFilter }) => {
+        async ({ provider, label, unreadSignal }) => {
           mockSearchMessages.mockResolvedValueOnce({
             messages: [
               getMockMessage({
@@ -234,7 +234,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
           const pass =
             !!searchCall &&
             hasSearchBeforeFirstWrite(toolCalls) &&
-            hasProviderUnreadFilter(searchCall.query, unreadFilter) &&
+            hasUnreadTriageSignal(searchCall.query, unreadSignal) &&
             hasNoWriteToolCalls(toolCalls);
 
           evalReporter.record({
@@ -599,7 +599,13 @@ describe.runIf(shouldRunEval)("Eval: assistant chat inbox workflows", () => {
             markReadCall.action === "mark_read_threads" &&
             markReadCall.threadIds.length === 2 &&
             markReadCall.threadIds.includes("thread-markread-1") &&
-            markReadCall.threadIds.includes("thread-markread-2");
+            markReadCall.threadIds.includes("thread-markread-2") &&
+            !toolCalls.some(
+              (toolCall) =>
+                toolCall.toolName === "manageInbox" &&
+                isManageInboxThreadActionInput(toolCall.input) &&
+                toolCall.input.action === "archive_threads",
+            );
 
           evalReporter.record({
             testName: `specific mark read uses mark_read_threads (${label})`,
@@ -778,9 +784,9 @@ function hasNoWriteToolCalls(
   return !toolCalls.some((toolCall) => isWriteToolName(toolCall.toolName));
 }
 
-function hasProviderUnreadFilter(query: string, unreadFilter: string) {
+function hasUnreadTriageSignal(query: string, unreadSignal: string) {
   const normalizedQuery = query.toLowerCase();
-  return normalizedQuery.includes(unreadFilter);
+  return normalizedQuery.includes(unreadSignal);
 }
 
 function hasReplyTriageFocus(query: string, provider: "google" | "microsoft") {

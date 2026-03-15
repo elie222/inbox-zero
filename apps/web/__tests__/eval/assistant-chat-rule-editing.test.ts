@@ -291,10 +291,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
           !toolCalls.some(
             (toolCall) => toolCall.toolName === "updateLearnedPatterns",
           ) &&
-          includesAnyText(updateCall.condition.aiInstructions, [
-            "cc",
-            "carbon copy",
-          ]);
+          mentionsCcExclusion(updateCall.condition.aiInstructions);
 
         evalReporter.record({
           testName: "update To Reply rule for cc handling",
@@ -337,7 +334,8 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule editing", () => {
           updateCall.ruleName === "Notification" &&
           hasRuleReadBeforeUpdate(toolCalls, updateCallIndex) &&
           !toolCalls.some((toolCall) => toolCall.toolName === "createRule") &&
-          hasActionType(updateCall.actions, ActionType.MARK_READ);
+          hasActionType(updateCall.actions, ActionType.MARK_READ) &&
+          hasLabelAction(updateCall.actions, "Notification");
 
         evalReporter.record({
           testName: "update existing rule actions",
@@ -633,6 +631,23 @@ function includesAnyText(text: string | null | undefined, terms: string[]) {
 
   const normalizedText = text.toLowerCase();
   return terms.some((term) => normalizedText.includes(term.toLowerCase()));
+}
+
+function mentionsCcExclusion(text: string | null | undefined) {
+  return (
+    includesAnyText(text, ["cc", "carbon copy"]) &&
+    includesAnyText(text, [
+      "should not be marked to reply",
+      "shouldn't be marked to reply",
+      "do not mark",
+      "don't mark",
+      "not to reply",
+      "don't need to reply",
+      "do not need to reply",
+      "no reply needed",
+      "no need to reply",
+    ])
+  );
 }
 
 function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {

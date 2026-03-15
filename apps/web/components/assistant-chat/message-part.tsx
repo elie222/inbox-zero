@@ -435,7 +435,13 @@ export function MessagePart({
       if (isOutputWithError(output)) {
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
       }
-      return <UpdatePersonalInstructions key={toolCallId} args={part.input} />;
+      const updatedAbout = getOutputField<string>(output, "updatedAbout");
+      return (
+        <UpdatePersonalInstructions
+          key={toolCallId}
+          text={updatedAbout ?? part.input.about}
+        />
+      );
     }
   }
 
