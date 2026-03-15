@@ -671,7 +671,7 @@ async function uploadAttachmentChunk({
       "Content-Length": String(chunk.length),
       "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
     },
-    body: chunk,
+    body: new Uint8Array(chunk),
   });
 
   if (response.status === 201) {
