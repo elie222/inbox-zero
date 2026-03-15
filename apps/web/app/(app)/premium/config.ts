@@ -151,6 +151,27 @@ export function hasLegacyStripePriceId({
   );
 }
 
+export function shouldShowLegacyStripePricingNotice(
+  premium:
+    | {
+        tier: PremiumTier | null | undefined;
+        stripePriceId: string | null | undefined;
+        stripeSubscriptionStatus: string | null | undefined;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!premium?.stripeSubscriptionStatus) return false;
+  if (!["active", "trialing"].includes(premium.stripeSubscriptionStatus)) {
+    return false;
+  }
+
+  return hasLegacyStripePriceId({
+    tier: premium.tier,
+    priceId: premium.stripePriceId,
+  });
+}
+
 export function getPremiumTierName(
   tier: PremiumTier | null | undefined,
 ): string {

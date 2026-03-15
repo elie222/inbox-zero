@@ -19,7 +19,7 @@ import {
 import { getUserTier } from "@/utils/premium";
 import {
   getPremiumTierName,
-  hasLegacyStripePriceId,
+  shouldShowLegacyStripePricingNotice,
   type Tier,
   tiers,
 } from "@/app/(app)/premium/config";
@@ -56,13 +56,7 @@ export default function Pricing(props: PricingProps) {
   const hasExistingSubscription = Boolean(
     premium?.stripeSubscriptionId || premium?.lemonSqueezyCustomerId,
   );
-  const isLegacyStripePlan =
-    !!premium?.stripeSubscriptionId &&
-    !premium?.lemonSqueezyCustomerId &&
-    hasLegacyStripePriceId({
-      tier: premium?.tier,
-      priceId: premium?.stripePriceId,
-    });
+  const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
 
   const [frequency, setFrequency] = useState(frequencies[1]);
 

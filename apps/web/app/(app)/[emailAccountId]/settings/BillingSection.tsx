@@ -17,18 +17,12 @@ import {
 } from "@/components/ui/item";
 import {
   getPremiumTierName,
-  hasLegacyStripePriceId,
+  shouldShowLegacyStripePricingNotice,
 } from "@/app/(app)/premium/config";
 
 export function BillingSection() {
   const { premium, isPremium, isLoading } = usePremium();
-  const isLegacyStripePlan =
-    !!premium?.stripeSubscriptionId &&
-    !premium?.lemonSqueezyCustomerId &&
-    hasLegacyStripePriceId({
-      tier: premium?.tier,
-      priceId: premium?.stripePriceId,
-    });
+  const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
 
   return (
     <LoadingContent loading={isLoading}>

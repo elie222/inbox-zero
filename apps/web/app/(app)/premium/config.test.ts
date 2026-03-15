@@ -22,7 +22,10 @@ vi.mock("@/env", () => ({
   },
 }));
 
-import { hasLegacyStripePriceId } from "./config";
+import {
+  hasLegacyStripePriceId,
+  shouldShowLegacyStripePricingNotice,
+} from "./config";
 
 describe("hasLegacyStripePriceId", () => {
   it("returns false when the subscription uses the current Stripe price", () => {
@@ -73,6 +76,48 @@ describe("hasLegacyStripePriceId", () => {
       hasLegacyStripePriceId({
         tier: "STARTER_MONTHLY",
         priceId: "price_unknown_starter_monthly",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("shouldShowLegacyStripePricingNotice", () => {
+  it("shows the notice for active legacy Stripe subscriptions", () => {
+    expect(
+      shouldShowLegacyStripePricingNotice({
+        tier: "STARTER_MONTHLY",
+        stripePriceId: "price_1RfeAFKGf8mwZWHnnnPzFEky",
+        stripeSubscriptionStatus: "active",
+      }),
+    ).toBe(true);
+  });
+
+  it("shows the notice for trialing legacy Stripe subscriptions", () => {
+    expect(
+      shouldShowLegacyStripePricingNotice({
+        tier: "STARTER_MONTHLY",
+        stripePriceId: "price_1RfeAFKGf8mwZWHnnnPzFEky",
+        stripeSubscriptionStatus: "trialing",
+      }),
+    ).toBe(true);
+  });
+
+  it("hides the notice for non-active Stripe subscriptions", () => {
+    expect(
+      shouldShowLegacyStripePricingNotice({
+        tier: "STARTER_MONTHLY",
+        stripePriceId: "price_1RfeAFKGf8mwZWHnnnPzFEky",
+        stripeSubscriptionStatus: "canceled",
+      }),
+    ).toBe(false);
+  });
+
+  it("hides the notice when the Stripe price is current", () => {
+    expect(
+      shouldShowLegacyStripePricingNotice({
+        tier: "STARTER_MONTHLY",
+        stripePriceId: "price_current_starter_monthly",
+        stripeSubscriptionStatus: "active",
       }),
     ).toBe(false);
   });
