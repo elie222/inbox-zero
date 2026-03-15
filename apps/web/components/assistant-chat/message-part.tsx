@@ -429,11 +429,13 @@ export function MessagePart({
         return (
           <UpdatePersonalInstructions
             key={toolCallId}
-            text={
-              updatedAbout ??
-              part.input?.about ??
-              "Personal instructions updated."
-            }
+            args={{
+              about:
+                updatedAbout ??
+                part.input?.about ??
+                "Personal instructions updated.",
+              mode: part.input?.mode ?? "replace",
+            }}
           />
         );
       },

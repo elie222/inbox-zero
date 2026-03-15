@@ -6,6 +6,7 @@ import type {
   UpdateRuleActionsTool,
   UpdateRuleActionsOutput,
   UpdateLearnedPatternsTool,
+  UpdatePersonalInstructionsTool,
   AddToKnowledgeBaseTool,
   CreateRuleTool,
   ManageInboxTool,
@@ -909,10 +910,14 @@ export function UpdatedLearnedPatterns({
   );
 }
 
-export function UpdatePersonalInstructions({ text }: { text: string }) {
+export function UpdatePersonalInstructions({
+  args,
+}: {
+  args: UpdatePersonalInstructionsTool["input"];
+}) {
   return (
     <ExpandedToolCard title="Updated Personal Instructions">
-      <ToolPanel className="text-sm leading-relaxed">{text}</ToolPanel>
+      <ToolPanel className="text-sm leading-relaxed">{args.about}</ToolPanel>
     </ExpandedToolCard>
   );
 }
