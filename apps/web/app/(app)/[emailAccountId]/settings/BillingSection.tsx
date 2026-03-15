@@ -12,12 +12,20 @@ import {
   Item,
   ItemContent,
   ItemTitle,
+  ItemDescription,
   ItemActions,
 } from "@/components/ui/item";
-import type { PremiumTier } from "@/generated/prisma/enums";
+import {
+  getPremiumTierName,
+  hasLegacyStripePriceId,
+} from "@/app/(app)/premium/config";
 
 export function BillingSection() {
   const { premium, isPremium, isLoading } = usePremium();
+  const isLegacyStripePlan = hasLegacyStripePriceId({
+    tier: premium?.tier,
+    priceId: premium?.stripePriceId,
+  });
 
   return (
     <LoadingContent loading={isLoading}>
@@ -27,7 +35,13 @@ export function BillingSection() {
         premium.stripeSubscriptionId) ? (
         <Item size="sm">
           <ItemContent>
-            <ItemTitle>{getPlanDisplayName(premium.tier)} plan</ItemTitle>
+            <ItemTitle>{getPremiumTierName(premium.tier)} plan</ItemTitle>
+            {isLegacyStripePlan && (
+              <ItemDescription>
+                You&apos;re on grandfathered Stripe pricing. The current plan
+                prices shown elsewhere in the app are for new subscriptions.
+              </ItemDescription>
+            )}
           </ItemContent>
           <ItemActions>
             <ManageSubscription premium={premium} />
@@ -52,25 +66,4 @@ export function BillingSection() {
       )}
     </LoadingContent>
   );
-}
-
-function getPlanDisplayName(tier: PremiumTier | null | undefined): string {
-  if (!tier) return "Premium";
-
-  const tierMap: Partial<Record<PremiumTier, string>> = {
-    STARTER_MONTHLY: "Starter",
-    STARTER_ANNUALLY: "Starter",
-    PLUS_MONTHLY: "Plus",
-    PLUS_ANNUALLY: "Plus",
-    PROFESSIONAL_MONTHLY: "Professional",
-    PROFESSIONAL_ANNUALLY: "Professional",
-    COPILOT_MONTHLY: "Enterprise",
-    BASIC_MONTHLY: "Basic",
-    BASIC_ANNUALLY: "Basic",
-    PRO_MONTHLY: "Pro",
-    PRO_ANNUALLY: "Pro",
-    LIFETIME: "Lifetime",
-  };
-
-  return tierMap[tier] ?? "Premium";
 }

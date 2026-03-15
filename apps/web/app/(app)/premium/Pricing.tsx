@@ -17,8 +17,13 @@ import {
   type Frequency,
 } from "@/app/(app)/premium/PricingFrequencyToggle";
 import { getUserTier } from "@/utils/premium";
-import { type Tier, tiers } from "@/app/(app)/premium/config";
-import { AlertWithButton } from "@/components/Alert";
+import {
+  getPremiumTierName,
+  hasLegacyStripePriceId,
+  type Tier,
+  tiers,
+} from "@/app/(app)/premium/config";
+import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { toastError } from "@/components/Toast";
 import {
@@ -44,11 +49,17 @@ export default function Pricing(props: PricingProps) {
   const hasTrackedPricingView = useRef(false);
 
   const isLoggedIn = !!data?.id;
-  const pricingSource = props.showSkipUpgrade ? "welcome_upgrade" : "app_premium";
+  const pricingSource = props.showSkipUpgrade
+    ? "welcome_upgrade"
+    : "app_premium";
   const displayedTiers = props.displayTiers || tiers;
   const hasExistingSubscription = Boolean(
     premium?.stripeSubscriptionId || premium?.lemonSqueezyCustomerId,
   );
+  const isLegacyStripePlan = hasLegacyStripePriceId({
+    tier: premium?.tier,
+    priceId: premium?.stripePriceId,
+  });
 
   const [frequency, setFrequency] = useState(frequencies[1]);
 
@@ -140,6 +151,16 @@ export default function Pricing(props: PricingProps) {
                   ) : null}
                 </div>
               </>
+            )}
+
+            {isLegacyStripePlan && (
+              <div className="mx-auto mt-4 max-w-2xl text-left">
+                <AlertBasic
+                  variant="blue"
+                  title="Grandfathered pricing"
+                  description={`You're on a legacy ${getPremiumTierName(premium?.tier)} Stripe plan. The prices below are the current rates for new subscriptions and may be higher than your actual billing.`}
+                />
+              </div>
             )}
           </div>
         )}

@@ -133,6 +133,44 @@ export function getStripePriceId({
   return STRIPE_PRICE_ID_CONFIG[tier]?.priceId ?? null;
 }
 
+export function hasLegacyStripePriceId({
+  tier,
+  priceId,
+}: {
+  tier: PremiumTier | null | undefined;
+  priceId: string | null | undefined;
+}): boolean {
+  if (!tier || !priceId) return false;
+
+  const currentPriceId = getStripePriceId({ tier });
+  if (!currentPriceId) return false;
+
+  return currentPriceId !== priceId;
+}
+
+export function getPremiumTierName(
+  tier: PremiumTier | null | undefined,
+): string {
+  if (!tier) return "Premium";
+
+  const tierMap: Partial<Record<PremiumTier, string>> = {
+    STARTER_MONTHLY: "Starter",
+    STARTER_ANNUALLY: "Starter",
+    PLUS_MONTHLY: "Plus",
+    PLUS_ANNUALLY: "Plus",
+    PROFESSIONAL_MONTHLY: "Professional",
+    PROFESSIONAL_ANNUALLY: "Professional",
+    COPILOT_MONTHLY: "Enterprise",
+    BASIC_MONTHLY: "Basic",
+    BASIC_ANNUALLY: "Basic",
+    PRO_MONTHLY: "Pro",
+    PRO_ANNUALLY: "Pro",
+    LIFETIME: "Lifetime",
+  };
+
+  return tierMap[tier] ?? "Premium";
+}
+
 function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }
