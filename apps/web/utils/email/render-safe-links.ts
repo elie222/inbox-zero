@@ -259,32 +259,45 @@ function doesUrlTargetMatch(targetUrl: string, destination: URL) {
   try {
     const parsedTarget = parseExplicitUrlTarget(targetUrl);
 
-    if (parsedTarget.protocol === "mailto:") {
+    if (parsedTarget.url.protocol === "mailto:") {
       return (
         destination.protocol === "mailto:" &&
-        parsedTarget.pathname.toLowerCase() ===
+        parsedTarget.url.pathname.toLowerCase() ===
           destination.pathname.toLowerCase()
       );
     }
 
-    if (!doesUrlOriginMatch(parsedTarget, destination)) return false;
-    if (!doesUrlLabelSpecifyPathOrQuery(targetUrl, parsedTarget)) return true;
+    if (
+      !doesUrlOriginMatch(parsedTarget.url, destination, {
+        matchProtocol: parsedTarget.hasExplicitScheme,
+      })
+    ) {
+      return false;
+    }
+    if (!doesUrlLabelSpecifyPathOrQuery(targetUrl, parsedTarget.url)) {
+      return true;
+    }
 
     return (
-      normalizeComparablePath(parsedTarget.pathname) ===
+      normalizeComparablePath(parsedTarget.url.pathname) ===
         normalizeComparablePath(destination.pathname) &&
-      parsedTarget.search === destination.search
+      parsedTarget.url.search === destination.search
     );
   } catch {
     return false;
   }
 }
 
-function doesUrlOriginMatch(left: URL, right: URL) {
+function doesUrlOriginMatch(
+  left: URL,
+  right: URL,
+  options: { matchProtocol: boolean },
+) {
   return (
-    left.protocol === right.protocol &&
+    (!options.matchProtocol || left.protocol === right.protocol) &&
     normalizeHostname(left.hostname) === normalizeHostname(right.hostname) &&
-    getComparablePort(left) === getComparablePort(right)
+    (!options.matchProtocol ||
+      getComparablePort(left) === getComparablePort(right))
   );
 }
 
@@ -303,11 +316,19 @@ function getRawTargetPathOrQuery(rawTargetUrl: string) {
 }
 
 function parseExplicitUrlTarget(targetUrl: string) {
-  if (URL_SCHEME_PREFIX_REGEX.test(targetUrl)) {
-    return new URL(targetUrl);
+  const hasExplicitScheme = URL_SCHEME_PREFIX_REGEX.test(targetUrl);
+
+  if (hasExplicitScheme) {
+    return {
+      hasExplicitScheme,
+      url: new URL(targetUrl),
+    };
   }
 
-  return new URL(`https://${targetUrl}`);
+  return {
+    hasExplicitScheme,
+    url: new URL(`https://${targetUrl}`),
+  };
 }
 
 function getComparablePort(url: URL) {

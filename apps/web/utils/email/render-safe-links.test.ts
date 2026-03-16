@@ -118,6 +118,16 @@ describe("renderEmailTextWithSafeLinks", () => {
     );
   });
 
+  it("treats scheme-less URL labels as protocol-agnostic matches", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [example.com/login](http://example.com/login) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="http://example.com/login">example.com/login</a>',
+    );
+  });
+
   it("discloses the full destination when a URL label explicitly includes the root slash", () => {
     const result = renderEmailTextWithSafeLinks(
       "Use [https://example.com/](https://example.com/phish) to continue.",
