@@ -2,10 +2,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { setSenderStatus, unsubscribeSenderAndMark } from "./unsubscribe";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
+
+const { dnsLookupMock, httpsRequestMock } = vi.hoisted(() => ({
+  dnsLookupMock: vi.fn(),
+  httpsRequestMock: vi.fn(),
+}));
+
+vi.mock("node:dns/promises", () => ({
+  lookup: dnsLookupMock,
+}));
+
+vi.mock("node:http", () => ({
+  request: vi.fn(),
+}));
+
+vi.mock("node:https", () => ({
+  request: httpsRequestMock,
+}));
+
+import { setSenderStatus, unsubscribeSenderAndMark } from "./unsubscribe";
 
 describe("sender-unsubscribe", () => {
   const logger = createScopedLogger("sender-unsubscribe-test");
@@ -35,15 +53,13 @@ describe("sender-unsubscribe", () => {
   });
 
   it("does not mark sender as unsubscribed when no unsubscribe URL is available", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-
     const result = await unsubscribeSenderAndMark({
       emailAccountId: "email-account-1",
       newsletterEmail: "sender@example.com",
       logger,
     });
 
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(httpsRequestMock).not.toHaveBeenCalled();
     expect(result.unsubscribe).toEqual({
       attempted: false,
       success: false,
@@ -53,10 +69,12 @@ describe("sender-unsubscribe", () => {
     expect(prisma.newsletter.upsert).not.toHaveBeenCalled();
   });
 
-  it("attempts one-click unsubscribe with POST when an HTTP URL is available", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response("", { status: 200 }));
+  it("treats DNS lookup failures as request failures", async () => {
+    dnsLookupMock.mockRejectedValue(
+      Object.assign(new Error("temporary failure"), {
+        code: "EAI_AGAIN",
+      }),
+    );
 
     const result = await unsubscribeSenderAndMark({
       emailAccountId: "email-account-1",
@@ -65,11 +83,36 @@ describe("sender-unsubscribe", () => {
       logger,
     });
 
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "https://example.com/unsubscribe?id=1",
+    expect(httpsRequestMock).not.toHaveBeenCalled();
+    expect(result.unsubscribe).toEqual({
+      attempted: true,
+      success: false,
+      method: "get",
+      reason: "request_failed",
+      statusCode: undefined,
+    });
+    expect(result.status).toBeNull();
+    expect(prisma.newsletter.upsert).not.toHaveBeenCalled();
+  });
+
+  it("attempts one-click unsubscribe with POST when an HTTP URL is available", async () => {
+    dnsLookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    queueHttpsResponse({ statusCode: 200 });
+
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId: "email-account-1",
+      newsletterEmail: "sender@example.com",
+      unsubscribeLink: "https://example.com/unsubscribe?id=1",
+      logger,
+    });
+
+    expect(httpsRequestMock).toHaveBeenCalledWith(
+      expect.any(URL),
       expect.objectContaining({
         method: "POST",
+        lookup: expect.any(Function),
       }),
+      expect.any(Function),
     );
     expect(result.unsubscribe).toEqual(
       expect.objectContaining({
@@ -83,9 +126,7 @@ describe("sender-unsubscribe", () => {
   });
 
   it("allows bracketed public IPv6 unsubscribe URLs", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response("", { status: 200 }));
+    queueHttpsResponse({ statusCode: 200 });
 
     const result = await unsubscribeSenderAndMark({
       emailAccountId: "email-account-1",
@@ -94,11 +135,14 @@ describe("sender-unsubscribe", () => {
       logger,
     });
 
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "https://[2001:4860:4860::8888]/unsubscribe",
+    expect(dnsLookupMock).not.toHaveBeenCalled();
+    expect(httpsRequestMock).toHaveBeenCalledWith(
+      expect.any(URL),
       expect.objectContaining({
         method: "POST",
+        lookup: expect.any(Function),
       }),
+      expect.any(Function),
     );
     expect(result.unsubscribe).toEqual(
       expect.objectContaining({
@@ -111,12 +155,13 @@ describe("sender-unsubscribe", () => {
     expect(prisma.newsletter.upsert).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects redirects to unsafe URLs", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(
-        Response.redirect("http://127.0.0.1/unsubscribe", 302),
-      );
+  it("falls back to GET when POST redirects to an unsafe URL", async () => {
+    dnsLookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    queueHttpsResponse({
+      statusCode: 302,
+      headers: { location: "http://127.0.0.1/unsubscribe" },
+    });
+    queueHttpsResponse({ statusCode: 200 });
 
     const result = await unsubscribeSenderAndMark({
       emailAccountId: "email-account-1",
@@ -125,15 +170,74 @@ describe("sender-unsubscribe", () => {
       logger,
     });
 
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(httpsRequestMock).toHaveBeenCalledTimes(2);
+    expect(httpsRequestMock.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+    expect(httpsRequestMock.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
     expect(result.unsubscribe).toEqual(
       expect.objectContaining({
         attempted: true,
-        success: false,
-        reason: "unsafe_unsubscribe_url",
+        success: true,
+        method: "get",
+        statusCode: 200,
       }),
     );
-    expect(result.status).toBeNull();
-    expect(prisma.newsletter.upsert).not.toHaveBeenCalled();
+    expect(prisma.newsletter.upsert).toHaveBeenCalledTimes(1);
   });
 });
+
+function queueHttpsResponse({
+  statusCode,
+  headers = {},
+}: {
+  statusCode: number;
+  headers?: Record<string, string>;
+}) {
+  httpsRequestMock.mockImplementationOnce(
+    (
+      _url: URL,
+      _options: Record<string, unknown>,
+      callback: (response: {
+        headers: Record<string, string>;
+        on: (event: string, handler: () => void) => void;
+        resume: () => void;
+        statusCode: number;
+      }) => void,
+    ) => {
+      let errorHandler: ((error: Error) => void) | undefined;
+
+      const request = {
+        destroy: vi.fn((error?: Error) => {
+          if (error) errorHandler?.(error);
+        }),
+        end: vi.fn(() => {
+          const response = {
+            headers,
+            on: vi.fn((event: string, handler: () => void) => {
+              if (event === "end") handler();
+            }),
+            resume: vi.fn(),
+            statusCode,
+          };
+
+          callback(response);
+        }),
+        on: vi.fn((event: string, handler: (error: Error) => void) => {
+          if (event === "error") errorHandler = handler;
+          return request;
+        }),
+        setTimeout: vi.fn(),
+        write: vi.fn(),
+      };
+
+      return request;
+    },
+  );
+}

@@ -11,7 +11,6 @@ import {
 } from "@/utils/actions/unsubscriber";
 import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import { NewsletterStatus } from "@/generated/prisma/enums";
-import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { captureException } from "@/utils/error";
 import { addToArchiveSenderQueue } from "@/store/archive-sender-queue";
 import { deleteEmails } from "@/store/archive-queue";
@@ -24,6 +23,10 @@ import {
   bulkArchiveAction,
   bulkTrashAction,
 } from "@/utils/actions/mail-bulk-action";
+import {
+  getHttpUnsubscribeLink,
+  getUserFacingUnsubscribeLink,
+} from "@/utils/parse/unsubscribe";
 
 export type NewsletterFilterType =
   | "all"
@@ -248,6 +251,12 @@ export function useUnsubscribe<T extends Row>({
   refetchPremium: () => Promise<UserResponse | null | undefined>;
 }) {
   const [unsubscribeLoading, setUnsubscribeLoading] = useState(false);
+  const automaticUnsubscribeLink = getAutomaticUnsubscribeLink(
+    item.unsubscribeLink,
+  );
+  const userFacingUnsubscribeLink = getManualUnsubscribeLink(
+    item.unsubscribeLink,
+  );
 
   const onUnsubscribe = useCallback(async () => {
     if (!hasUnsubscribeAccess) return;
@@ -264,53 +273,53 @@ export function useUnsubscribe<T extends Row>({
         });
         await mutate();
       } else {
-        const hasUnsubscribeLink = Boolean(
-          cleanUnsubscribeLink(item.unsubscribeLink),
-        );
-        if (!hasUnsubscribeLink) {
+        if (!userFacingUnsubscribeLink) {
           await blockSender({
             sender: item.name,
             emailAccountId,
           });
           await mutate();
           await refetchPremium();
-        } else {
-          const unsubscribed = await unsubscribeAndArchive({
-            newsletterEmail: item.name,
-            unsubscribeLink: item.unsubscribeLink,
-            mutate,
-            refetchPremium,
-            emailAccountId,
-          });
-          if (!unsubscribed) {
-            toast.error(
-              `Could not automatically unsubscribe from ${item.name}`,
-            );
-          }
+          return;
+        }
+
+        if (!automaticUnsubscribeLink) return;
+
+        const unsubscribed = await unsubscribeAndArchive({
+          newsletterEmail: item.name,
+          unsubscribeLink: item.unsubscribeLink,
+          mutate,
+          refetchPremium,
+          emailAccountId,
+        });
+        if (!unsubscribed) {
+          toast.error(`Could not automatically unsubscribe from ${item.name}`);
         }
       }
     } catch (error) {
       captureException(error);
+    } finally {
+      setUnsubscribeLoading(false);
     }
-
-    setUnsubscribeLoading(false);
   }, [
     hasUnsubscribeAccess,
     item.name,
     item.status,
     item.unsubscribeLink,
+    automaticUnsubscribeLink,
     mutate,
     refetchPremium,
     posthog,
     emailAccountId,
+    userFacingUnsubscribeLink,
   ]);
 
   return {
     unsubscribeLoading,
     onUnsubscribe,
     unsubscribeLink:
-      hasUnsubscribeAccess && item.unsubscribeLink
-        ? cleanUnsubscribeLink(item.unsubscribeLink) || "#"
+      hasUnsubscribeAccess && userFacingUnsubscribeLink
+        ? userFacingUnsubscribeLink
         : "#",
   };
 }
@@ -344,17 +353,14 @@ export function useBulkUnsubscribe<T extends Row>({
         onDeselectItem,
         newStatus: NewsletterStatus.UNSUBSCRIBED,
         getNewStatus: (item) =>
-          cleanUnsubscribeLink(item.unsubscribeLink)
+          getAutomaticUnsubscribeLink(item.unsubscribeLink)
             ? NewsletterStatus.UNSUBSCRIBED
             : NewsletterStatus.AUTO_ARCHIVED,
         loadingMessage: "Unsubscribing from",
         successMessage: "unsubscribed",
         errorMessage: "Failed to unsubscribe from",
         processItem: async (item) => {
-          const hasUnsubscribeLink = Boolean(
-            cleanUnsubscribeLink(item.unsubscribeLink),
-          );
-          if (!hasUnsubscribeLink) {
+          if (!getAutomaticUnsubscribeLink(item.unsubscribeLink)) {
             await blockSender({
               sender: item.name,
               emailAccountId,
@@ -729,7 +735,7 @@ export function useBulkArchive<T extends Row>({
   posthog,
   emailAccountId,
 }: {
-  mutate: () => Promise<void>;
+  mutate: () => Promise<unknown>;
   posthog: PostHog;
   emailAccountId: string;
 }) {
@@ -841,7 +847,7 @@ export function useBulkDelete<T extends Row>({
   posthog,
   emailAccountId,
 }: {
-  mutate: () => Promise<void>;
+  mutate: () => Promise<unknown>;
   posthog: PostHog;
   emailAccountId: string;
 }) {
@@ -943,16 +949,29 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         if (e.key === "u") {
           // unsubscribe
           e.preventDefault();
-          const hasUnsubscribeLink = Boolean(
-            cleanUnsubscribeLink(item.unsubscribeLink),
+          const automaticUnsubscribeLink = getAutomaticUnsubscribeLink(
+            item.unsubscribeLink,
           );
-          if (!hasUnsubscribeLink) {
+          const userFacingUnsubscribeLink = getManualUnsubscribeLink(
+            item.unsubscribeLink,
+          );
+
+          if (!userFacingUnsubscribeLink) {
             await blockSender({
               sender: item.name,
               emailAccountId,
             });
             await mutate();
             await refetchPremium();
+            return;
+          }
+
+          if (!automaticUnsubscribeLink) {
+            window.open(
+              userFacingUnsubscribeLink,
+              "_blank",
+              "noopener,noreferrer",
+            );
             return;
           }
 
@@ -1040,4 +1059,16 @@ async function performAutomaticUnsubscribe({
   });
 
   return didAutomaticUnsubscribeSucceed(unsubscribeResult);
+}
+
+function getAutomaticUnsubscribeLink(unsubscribeLink?: string | null) {
+  return getHttpUnsubscribeLink({
+    unsubscribeLink,
+  });
+}
+
+function getManualUnsubscribeLink(unsubscribeLink?: string | null) {
+  return getUserFacingUnsubscribeLink({
+    unsubscribeLink,
+  });
 }

@@ -21,6 +21,7 @@ import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
+import { getHttpUnsubscribeLink } from "@/utils/parse/unsubscribe";
 import {
   Dialog,
   DialogContent,
@@ -167,11 +168,13 @@ export function BulkActions({
     (n) => n.status !== NewsletterStatus.UNSUBSCRIBED,
   );
 
-  const hasUnsubscribeLinks = selectedNewsletters.some(
-    (n) => n.unsubscribeLink,
+  const hasUnsubscribeLinks = selectedNewsletters.some((n) =>
+    getHttpUnsubscribeLink({ unsubscribeLink: n.unsubscribeLink }),
   );
 
-  const hasBlockableLinks = selectedNewsletters.some((n) => !n.unsubscribeLink);
+  const hasBlockableLinks = selectedNewsletters.some(
+    (n) => !getHttpUnsubscribeLink({ unsubscribeLink: n.unsubscribeLink }),
+  );
 
   const unsubscribeLabel =
     hasUnsubscribeLinks && hasBlockableLinks
