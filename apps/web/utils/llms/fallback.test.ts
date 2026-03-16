@@ -142,6 +142,46 @@ describe("createGenerateText fallback chain", () => {
     );
   });
 
+  it("reports the actual provider and model used for text generation", async () => {
+    const model = { id: "openai-model" };
+    const modelOptions: SelectModel = {
+      provider: "openai",
+      modelName: "gpt-5-mini",
+      model: model as SelectModel["model"],
+      providerOptions: undefined,
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+      toolCalls: [],
+    });
+
+    const onModelUsed = vi.fn();
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "user-1",
+      },
+      label: "Model attribution",
+      modelOptions,
+      onModelUsed,
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: model as SelectModel["model"],
+    });
+
+    expect(onModelUsed).toHaveBeenCalledWith({
+      provider: "openai",
+      modelName: "gpt-5-mini",
+    });
+  });
+
   it("sets openrouter user from internal user id", async () => {
     const model = { id: "openrouter-model" };
     const modelOptions: SelectModel = {

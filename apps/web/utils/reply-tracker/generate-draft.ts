@@ -25,6 +25,7 @@ import {
 } from "@/utils/meeting-briefs/recipient-context";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { meetsDraftReplyConfidenceRequirement } from "@/utils/ai/reply/draft-confidence";
+import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
 import type { SelectedAttachment } from "@/utils/attachments/source-schema";
 
@@ -32,6 +33,7 @@ export type DraftGenerationResult = {
   attachments?: SelectedAttachment[];
   draft: string | null;
   confidence: DraftReplyConfidence;
+  attribution: DraftAttribution | null;
 };
 
 /**
@@ -75,20 +77,22 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     ? { threadMessages: [testMessage], previousConversationMessages: null }
     : await fetchThreadAndConversationMessages(threadId, client);
 
-  const { draft, confidence, attachments } = await generateDraftContent(
-    emailAccount,
-    threadMessages,
-    previousConversationMessages,
-    client,
-    logger,
-    minimumConfidence,
-    selectedRuleId,
-  );
+  const { draft, confidence, attribution, attachments } =
+    await generateDraftContent(
+      emailAccount,
+      threadMessages,
+      previousConversationMessages,
+      client,
+      logger,
+      minimumConfidence,
+      selectedRuleId,
+    );
 
   if (draft == null) {
     return {
       draft: null,
       confidence,
+      attribution,
       ...(selectedRuleId ? { attachments } : {}),
     };
   }
@@ -128,6 +132,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
   return {
     draft: finalResult,
     confidence,
+    attribution,
     ...(selectedRuleId ? { attachments } : {}),
   };
 }
@@ -187,6 +192,7 @@ async function generateDraftContent(
       return {
         draft: cachedReply.reply,
         confidence: cachedReply.confidence,
+        attribution: cachedReply.attribution,
         ...(selectedRuleId ? { attachments: cachedReply.attachments } : {}),
       };
     }
@@ -221,6 +227,20 @@ async function generateDraftContent(
     messages[messages.length - 1],
     10_000,
   );
+  const historicalMessagesForLLM = previousConversationMessages?.map((msg) =>
+    getEmailForLLM(msg, {
+      maxLength: 1000,
+      extractReply: true,
+      removeForwarded: false,
+    }),
+  );
+
+  if (historicalMessagesForLLM?.length) {
+    logger.info("Fetching historical messages from sender");
+    logger.trace("Fetching historical messages from sender", {
+      sender: lastMessage.headers.from,
+    });
+  }
   const attachmentSelectionPromise = selectedRuleId
     ? selectDraftAttachmentsForRule({
         emailAccount,
@@ -248,6 +268,7 @@ async function generateDraftContent(
     writingStyle,
     mcpResult,
     upcomingMeetings,
+    emailHistorySummary,
     attachmentSelection,
   ] = await Promise.all([
     aiExtractRelevantKnowledge({
@@ -277,36 +298,19 @@ async function generateDraftContent(
       ),
       logger,
     }),
+    historicalMessagesForLLM?.length
+      ? aiExtractFromEmailHistory({
+          currentThreadMessages: messages,
+          historicalMessages: historicalMessagesForLLM,
+          emailAccount,
+          logger,
+        })
+      : Promise.resolve(null),
     attachmentSelectionPromise,
   ]);
 
-  // 2b. Extract email history context
-  const senderEmail = lastMessage.headers.from;
-
-  logger.info("Fetching historical messages from sender", {
-    sender: senderEmail,
-  });
-
-  // Convert to format needed for aiExtractFromEmailHistory
-  const historicalMessagesForLLM = previousConversationMessages?.map((msg) => {
-    return getEmailForLLM(msg, {
-      maxLength: 1000,
-      extractReply: true,
-      removeForwarded: false,
-    });
-  });
-
-  const emailHistorySummary = historicalMessagesForLLM?.length
-    ? await aiExtractFromEmailHistory({
-        currentThreadMessages: messages,
-        historicalMessages: historicalMessagesForLLM,
-        emailAccount,
-        logger,
-      })
-    : null;
-
   // 3. Draft reply
-  const { reply, confidence } = await aiDraftReplyWithConfidence({
+  const { reply, confidence, attribution } = await aiDraftReplyWithConfidence({
     messages,
     emailAccount,
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
@@ -335,44 +339,45 @@ async function generateDraftContent(
       messageId: lastMessage.id,
     });
 
-    if (typeof reply === "string") {
-      try {
-        await saveReply({
-          emailAccountId: emailAccount.id,
-          messageId: lastMessage.id,
-          reply,
-          confidence,
-          ...(selectedRuleId
-            ? {
-                attachments: attachmentSelection.selectedAttachments,
-                ruleId: selectedRuleId,
-              }
-            : {}),
-        });
-      } catch (error) {
-        logger.error("Failed to cache low-confidence draft", {
-          error,
-          messageId: lastMessage.id,
-          confidence,
-        });
-      }
+    try {
+      await saveReply({
+        emailAccountId: emailAccount.id,
+        messageId: lastMessage.id,
+        reply,
+        confidence,
+        attribution,
+        ...(selectedRuleId
+          ? {
+              attachments: attachmentSelection.selectedAttachments,
+              ruleId: selectedRuleId,
+            }
+          : {}),
+      });
+    } catch (error) {
+      logger.error("Failed to cache low-confidence draft", {
+        error,
+        messageId: lastMessage.id,
+        confidence,
+      });
     }
 
     return {
       draft: null,
       confidence,
+      attribution,
       ...(selectedRuleId
         ? { attachments: attachmentSelection.selectedAttachments }
         : {}),
     };
   }
 
-  if (typeof reply === "string") {
+  try {
     await saveReply({
       emailAccountId: emailAccount.id,
       messageId: lastMessage.id,
       reply,
       confidence,
+      attribution,
       ...(selectedRuleId
         ? {
             attachments: attachmentSelection.selectedAttachments,
@@ -380,11 +385,18 @@ async function generateDraftContent(
           }
         : {}),
     });
+  } catch (error) {
+    logger.error("Failed to cache draft", {
+      error,
+      messageId: lastMessage.id,
+      confidence,
+    });
   }
 
   return {
     draft: reply,
     confidence,
+    attribution,
     ...(selectedRuleId
       ? { attachments: attachmentSelection.selectedAttachments }
       : {}),

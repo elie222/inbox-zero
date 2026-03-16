@@ -663,7 +663,7 @@ async function uploadAttachmentChunk({
   start: number;
   end: number;
   totalSize: number;
-}) {
+}): Promise<number> {
   const response = await fetch(uploadUrl, {
     method: "PUT",
     headers: {
@@ -710,14 +710,19 @@ async function uploadAttachmentChunk({
     );
   }
 
-  await throwOutlookResponseError(response, "upload Outlook attachment chunk");
+  return await throwOutlookResponseError(
+    response,
+    "upload Outlook attachment chunk",
+  );
 }
 
 interface UploadSessionStatus {
   nextExpectedRanges?: string[];
 }
 
-async function getUploadSessionStatus(uploadUrl: string) {
+async function getUploadSessionStatus(
+  uploadUrl: string,
+): Promise<UploadSessionStatus | null> {
   const response = await fetch(uploadUrl, { method: "GET" });
 
   if (response.status === 404 || response.status === 405) {
@@ -725,7 +730,7 @@ async function getUploadSessionStatus(uploadUrl: string) {
   }
 
   if (!response.ok) {
-    await throwOutlookResponseError(
+    return await throwOutlookResponseError(
       response,
       "fetch Outlook upload session status",
     );
@@ -745,7 +750,10 @@ function getNextExpectedRangeStart(nextExpectedRanges?: string[]) {
   return Number.isNaN(parsedRangeStart) ? null : parsedRangeStart;
 }
 
-async function throwOutlookResponseError(response: Response, action: string) {
+async function throwOutlookResponseError(
+  response: Response,
+  action: string,
+): Promise<never> {
   const errorText = await response.text();
   const error = new Error(
     `Failed to ${action}: ${response.status} ${

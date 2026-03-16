@@ -341,7 +341,15 @@ async function executeMatchedRule(
                     delayInMinutes: _delayInMinutes,
                     ...executedActionFields
                   } = sanitizeActionFields(item);
-                  return executedActionFields;
+                  return {
+                    ...executedActionFields,
+                    draftModelProvider: item.draftModelProvider ?? null,
+                    draftModelName: item.draftModelName ?? null,
+                    draftPipelineVersion:
+                      item.type === ActionType.DRAFT_EMAIL
+                        ? (item.draftPipelineVersion ?? null)
+                        : null,
+                  };
                 }) || [],
             },
           },

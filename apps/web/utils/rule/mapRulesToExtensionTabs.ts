@@ -53,7 +53,7 @@ export function mapRulesToExtensionTabs(rules: RulesResponse): SyncTab[] {
       continue;
 
     for (const action of rule.actions) {
-      if (action.type !== "LABEL" || !action.label) continue;
+      if (action.type !== ActionType.LABEL || !action.label) continue;
 
       const label = action.label.trim();
       const normalizedLabel = normalizeLabelName(label);
