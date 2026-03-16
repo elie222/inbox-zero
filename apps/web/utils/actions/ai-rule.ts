@@ -29,6 +29,8 @@ import {
 } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import { createRecordingSession } from "@/utils/replay/recorder";
+import { runWithRecordingSession } from "@/utils/replay/context";
 import { aiPromptToRulesOld } from "@/utils/ai/rule/prompt-to-rules-old";
 import type { CreateRuleResult } from "@/utils/rule/types";
 
@@ -49,65 +51,75 @@ export const runRulesAction = actionClient
       if (!emailAccount) throw new SafeError("Email account not found");
       if (!provider) throw new SafeError("Provider not found");
 
-      const emailProvider = await createEmailProvider({
+      const session = createRecordingSession(
+        "webhook",
+        emailAccount.email,
         emailAccountId,
-        provider,
-        logger,
-      });
-      const message = await emailProvider.getMessage(messageId);
+      );
 
-      const fetchExecutedRule = !isTest && !rerun;
-
-      const executedRules = fetchExecutedRule
-        ? await prisma.executedRule.findMany({
-            where: {
-              emailAccountId,
-              threadId,
-              messageId,
-            },
-            select: {
-              id: true,
-              reason: true,
-              actionItems: true,
-              rule: true,
-              createdAt: true,
-              status: true,
-            },
-          })
-        : [];
-
-      if (executedRules.length > 0) {
-        logger.info("Skipping. Rule already exists.");
-
-        return executedRules.map((executedRule) => ({
-          rule: executedRule.rule,
-          actionItems: executedRule.actionItems,
-          reason: executedRule.reason,
-          existing: true,
-          createdAt: executedRule.createdAt,
-          status: executedRule.status,
-        }));
-      }
-
-      const rules = await prisma.rule.findMany({
-        where: {
+      const run = async () => {
+        const emailProvider = await createEmailProvider({
           emailAccountId,
-          enabled: true,
-        },
-        include: { actions: true },
-      });
+          provider,
+          logger,
+        });
+        const message = await emailProvider.getMessage(messageId);
 
-      const result = await runRules({
-        isTest,
-        provider: emailProvider,
-        message,
-        rules,
-        emailAccount,
-        logger,
-        modelType: "chat",
-      });
+        const fetchExecutedRule = !isTest && !rerun;
 
-      return result;
+        const executedRules = fetchExecutedRule
+          ? await prisma.executedRule.findMany({
+              where: {
+                emailAccountId,
+                threadId,
+                messageId,
+              },
+              select: {
+                id: true,
+                reason: true,
+                actionItems: true,
+                rule: true,
+                createdAt: true,
+                status: true,
+              },
+            })
+          : [];
+
+        if (executedRules.length > 0) {
+          logger.info("Skipping. Rule already exists.");
+
+          return executedRules.map((executedRule) => ({
+            rule: executedRule.rule,
+            actionItems: executedRule.actionItems,
+            reason: executedRule.reason,
+            existing: true,
+            createdAt: executedRule.createdAt,
+            status: executedRule.status,
+          }));
+        }
+
+        const rules = await prisma.rule.findMany({
+          where: {
+            emailAccountId,
+            enabled: true,
+          },
+          include: { actions: true },
+        });
+
+        const result = await runRules({
+          isTest,
+          provider: emailProvider,
+          message,
+          rules,
+          emailAccount,
+          logger,
+          modelType: "chat",
+        });
+
+        return result;
+      };
+
+      return session ? runWithRecordingSession(session, run) : run();
     },
   );
 
@@ -125,48 +137,58 @@ export const testAiCustomContentAction = actionClient
 
       if (!emailAccount) throw new SafeError("Email account not found");
 
-      const emailProvider = await createEmailProvider({
+      const session = createRecordingSession(
+        "webhook",
+        emailAccount.email,
         emailAccountId,
-        provider,
-        logger,
-      });
+      );
 
-      const rules = await prisma.rule.findMany({
-        where: {
+      const run = async () => {
+        const emailProvider = await createEmailProvider({
           emailAccountId,
-          enabled: true,
-          instructions: { not: null },
-        },
-        include: { actions: true },
-      });
+          provider,
+          logger,
+        });
 
-      const result = await runRules({
-        isTest: true,
-        provider: emailProvider,
-        logger,
-        message: {
-          id: `testMessageId-${Date.now()}`,
-          threadId: `testThreadId-${Date.now()}`,
-          snippet: content,
-          textPlain: content,
-          headers: {
-            date: new Date().toISOString(),
-            from: "",
-            to: "",
-            subject: "",
+        const rules = await prisma.rule.findMany({
+          where: {
+            emailAccountId,
+            enabled: true,
+            instructions: { not: null },
           },
-          historyId: "",
-          inline: [],
-          internalDate: new Date().toISOString(),
-          subject: "",
-          date: new Date().toISOString(),
-        },
-        rules,
-        emailAccount,
-        modelType: "chat",
-      });
+          include: { actions: true },
+        });
 
-      return result;
+        const result = await runRules({
+          isTest: true,
+          provider: emailProvider,
+          logger,
+          message: {
+            id: `testMessageId-${Date.now()}`,
+            threadId: `testThreadId-${Date.now()}`,
+            snippet: content,
+            textPlain: content,
+            headers: {
+              date: new Date().toISOString(),
+              from: "",
+              to: "",
+              subject: "",
+            },
+            historyId: "",
+            inline: [],
+            internalDate: new Date().toISOString(),
+            subject: "",
+            date: new Date().toISOString(),
+          },
+          rules,
+          emailAccount,
+          modelType: "chat",
+        });
+
+        return result;
+      };
+
+      return session ? runWithRecordingSession(session, run) : run();
     },
   );
 

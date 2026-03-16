@@ -7,6 +7,7 @@ import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
 import { recordWebhookEntry } from "@/utils/replay/recorder";
+import { runWithRecordingSession } from "@/utils/replay/context";
 
 export const maxDuration = 300;
 
@@ -54,10 +55,18 @@ async function processWebhookAsync(
   decodedData: { emailAddress: string; historyId: number },
   logger: Logger,
 ) {
-  await recordWebhookEntry("google", decodedData.emailAddress, decodedData);
+  const session = await recordWebhookEntry(
+    "google",
+    decodedData.emailAddress,
+    decodedData,
+  );
+
+  const runProcessing = () => processHistoryForUser(decodedData, {}, logger);
 
   try {
-    await processHistoryForUser(decodedData, {}, logger);
+    await (session
+      ? runWithRecordingSession(session, runProcessing)
+      : runProcessing());
   } catch (error) {
     // Look up email account to get emailAccountId for error tracking
     const emailAccount = await getWebhookEmailAccount(

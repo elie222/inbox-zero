@@ -53,6 +53,7 @@ import {
   withLLMRetry,
 } from "./retry";
 import { filterUnsupportedToolsForModel } from "./unsupported-tools";
+import { getRecordingSession } from "@/utils/replay/context";
 
 const logger = createScopedLogger("llms");
 
@@ -120,6 +121,21 @@ export function createGenerateText({
         emailAccountId: emailAccount.id,
       });
 
+      const recordingSession = getRecordingSession();
+      if (recordingSession) {
+        recordingSession
+          .record("llm-request", {
+            label,
+            request: {
+              system: systemText,
+              prompt: options.prompt,
+              messages: options.messages,
+            },
+          })
+          .catch(() => {});
+      }
+
+      const startTime = Date.now();
       const result = await generateText(
         {
           ...options,
@@ -137,6 +153,21 @@ export function createGenerateText({
         },
         ...restArgs,
       );
+
+      if (recordingSession) {
+        await recordingSession
+          .record("llm-response", {
+            label,
+            request: null,
+            response: {
+              text: result.text,
+              toolCalls: result.toolCalls,
+              usage: result.usage,
+            },
+            duration: Date.now() - startTime,
+          })
+          .catch(() => {});
+      }
 
       await onModelUsed?.({
         provider: candidate.provider,
@@ -262,6 +293,21 @@ export function createGenerateObject({
         emailAccountId: emailAccount.id,
       });
 
+      const recordingSession = getRecordingSession();
+      if (recordingSession) {
+        recordingSession
+          .record("llm-request", {
+            label,
+            request: {
+              system: systemText,
+              prompt: options.prompt,
+              messages: options.messages,
+            },
+          })
+          .catch(() => {});
+      }
+
+      const startTime = Date.now();
       const result = await generateObject(
         {
           experimental_repairText: async ({ text }) => {
@@ -284,6 +330,20 @@ export function createGenerateObject({
         },
         ...restArgs,
       );
+
+      if (recordingSession) {
+        await recordingSession
+          .record("llm-response", {
+            label,
+            request: null,
+            response: {
+              object: result.object,
+              usage: result.usage,
+            },
+            duration: Date.now() - startTime,
+          })
+          .catch(() => {});
+      }
 
       await onModelUsed?.({
         provider: candidate.provider,

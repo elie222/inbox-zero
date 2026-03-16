@@ -9,6 +9,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
 import { captureException } from "@/utils/error";
 import { recordChatEntry } from "@/utils/replay/recorder";
+import { runWithRecordingSession } from "@/utils/replay/context";
 import {
   shouldCompact,
   compactMessages,
@@ -197,17 +198,22 @@ export const POST = withEmailAccount("chat", async (request) => {
       recordChatEntry(user.email, emailAccountId, data.message),
     ]);
 
-    const result = await aiProcessAssistantChat({
-      messages: modelMessages,
-      emailAccountId,
-      user,
-      context,
-      chatId: chat.id,
-      memories,
-      inboxStats,
-      recordingSession,
-      logger: request.logger,
-    });
+    const runChat = () =>
+      aiProcessAssistantChat({
+        messages: modelMessages,
+        emailAccountId,
+        user,
+        context,
+        chatId: chat.id,
+        memories,
+        inboxStats,
+        recordingSession,
+        logger: request.logger,
+      });
+
+    const result = await (recordingSession
+      ? runWithRecordingSession(recordingSession, runChat)
+      : runChat());
 
     return result.toUIMessageStreamResponse({
       onFinish: async ({ messages }) => {

@@ -9,6 +9,7 @@ import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
 import { recordWebhookEntry } from "@/utils/replay/recorder";
+import { runWithRecordingSession } from "@/utils/replay/context";
 
 export const maxDuration = 300;
 
@@ -96,7 +97,7 @@ async function processNotificationsAsync(
     const { subscriptionId, resourceData } = notification;
     const logger = log.with({ subscriptionId, messageId: resourceData.id });
 
-    await recordWebhookEntry("microsoft", "pending", {
+    const session = await recordWebhookEntry("microsoft", "pending", {
       subscriptionId,
       resourceData,
     });
@@ -105,12 +106,17 @@ async function processNotificationsAsync(
       changeType: notification.changeType,
     });
 
-    try {
-      await processHistoryForUser({
+    const runProcessing = () =>
+      processHistoryForUser({
         subscriptionId,
         resourceData,
         logger,
       });
+
+    try {
+      await (session
+        ? runWithRecordingSession(session, runProcessing)
+        : runProcessing());
     } catch (error) {
       const emailAccount = await getWebhookEmailAccount(
         { watchEmailsSubscriptionId: subscriptionId },
