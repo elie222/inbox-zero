@@ -128,6 +128,16 @@ describe("renderEmailTextWithSafeLinks", () => {
     );
   });
 
+  it("discloses the full destination when a scheme-less label specifies a different port", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [example.com:8080](http://example.com:9090/path) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="http://example.com:9090/path">example.com:8080 - http://example.com:9090/path</a>',
+    );
+  });
+
   it("discloses the full destination when a URL label explicitly includes the root slash", () => {
     const result = renderEmailTextWithSafeLinks(
       "Use [https://example.com/](https://example.com/phish) to continue.",
