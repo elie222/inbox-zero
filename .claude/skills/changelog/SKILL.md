@@ -1,6 +1,6 @@
 ---
 name: changelog
-description: Add a new changelog entry to docs/changelog.mdx
+description: Add a new changelog entry to docs/changelog-entries/
 disable-model-invocation: true
 ---
 

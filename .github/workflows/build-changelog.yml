@@ -6,6 +6,9 @@ on:
     paths:
       - "docs/changelog-entries/**"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,4 +23,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/changelog.mdx
-          git diff --staged --quiet || git commit -m "docs: rebuild changelog" && git push
+          git diff --staged --quiet || (git commit -m "docs: rebuild changelog" && git push)
