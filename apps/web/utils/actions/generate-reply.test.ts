@@ -36,7 +36,14 @@ describe("generateNudgeReplyAction", () => {
       email: "user@example.com",
     } as any);
     vi.mocked(getReply).mockResolvedValue(null);
-    vi.mocked(aiGenerateNudge).mockResolvedValue("Follow up message");
+    vi.mocked(aiGenerateNudge).mockResolvedValue({
+      text: "Follow up message",
+      attribution: {
+        provider: "openai",
+        modelName: "gpt-5-mini",
+        pipelineVersion: 1,
+      },
+    } as any);
 
     const result = await generateNudgeReplyAction("account-1", {
       messages: [
@@ -56,7 +63,11 @@ describe("generateNudgeReplyAction", () => {
       messageId: "message-1",
       reply: "Follow up message",
       confidence: DraftReplyConfidence.ALL_EMAILS,
-      attribution: null,
+      attribution: {
+        provider: "openai",
+        modelName: "gpt-5-mini",
+        pipelineVersion: 1,
+      },
     });
     expect(result?.data).toEqual({ text: "Follow up message" });
   });

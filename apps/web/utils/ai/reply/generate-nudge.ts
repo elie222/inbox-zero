@@ -4,6 +4,10 @@ import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import {
+  DRAFT_PIPELINE_VERSION,
+  type DraftAttribution,
+} from "@/utils/ai/reply/draft-attribution";
+import {
   PLAIN_TEXT_OUTPUT_INSTRUCTION,
   PROMPT_SECURITY_INSTRUCTIONS,
 } from "@/utils/ai/security";
@@ -37,11 +41,19 @@ ${getTodayForLLM()}
 IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`;
 
   const modelOptions = getModel(emailAccount.user, "chat");
+  let attribution: DraftAttribution | null = null;
 
   const generateText = createGenerateText({
     label: "Reply",
     emailAccount,
     modelOptions,
+    onModelUsed: ({ provider, modelName }) => {
+      attribution = {
+        provider,
+        modelName,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
+      };
+    },
   });
 
   const response = await generateText({
@@ -50,5 +62,8 @@ IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`
     prompt,
   });
 
-  return response.text;
+  return {
+    text: response.text,
+    attribution,
+  };
 }

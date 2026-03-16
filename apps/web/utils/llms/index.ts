@@ -75,10 +75,15 @@ export function createGenerateText({
   emailAccount,
   label,
   modelOptions,
+  onModelUsed,
 }: {
   emailAccount: Pick<EmailAccountWithAI, "email" | "id" | "userId">;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
+  onModelUsed?: (candidate: {
+    provider: string;
+    modelName: string;
+  }) => void | Promise<void>;
 }): typeof generateText {
   return async (...args) => {
     const [options, ...restArgs] = args;
@@ -132,6 +137,11 @@ export function createGenerateText({
         },
         ...restArgs,
       );
+
+      await onModelUsed?.({
+        provider: candidate.provider,
+        modelName: candidate.modelName,
+      });
 
       if (result.usage) {
         await saveAiUsage({

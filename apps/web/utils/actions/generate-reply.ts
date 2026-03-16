@@ -42,13 +42,16 @@ export const generateNudgeReplyAction = actionClient
         }),
       }));
 
-      const text = await aiGenerateNudge({ messages, emailAccount });
+      const { text, attribution } = await aiGenerateNudge({
+        messages,
+        emailAccount,
+      });
       await saveReply({
         emailAccountId,
         messageId: lastMessage.id,
         reply: text,
         confidence: DraftReplyConfidence.ALL_EMAILS,
-        attribution: null,
+        attribution,
       });
 
       return { text };
