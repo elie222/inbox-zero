@@ -3,13 +3,29 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createScopedLogger } from "./logger";
 
 const { mockedEnv } = vi.hoisted(() => ({
-  mockedEnv: {
-    NODE_ENV: "test",
-    AXIOM_TOKEN: undefined,
-    NEXT_PUBLIC_AXIOM_TOKEN: undefined,
-    NEXT_PUBLIC_LOG_SCOPES: undefined,
-    ENABLE_DEBUG_LOGS: false,
-  },
+  mockedEnv: (() => {
+    let axiomToken: string | undefined;
+    let throwOnAxiomTokenAccess = false;
+
+    return {
+      NODE_ENV: "test",
+      get AXIOM_TOKEN() {
+        if (throwOnAxiomTokenAccess) {
+          throw new Error("Attempted to read server token in client context");
+        }
+        return axiomToken;
+      },
+      set AXIOM_TOKEN(value: string | undefined) {
+        axiomToken = value;
+      },
+      setThrowOnAxiomTokenAccess(value: boolean) {
+        throwOnAxiomTokenAccess = value;
+      },
+      NEXT_PUBLIC_AXIOM_TOKEN: undefined,
+      NEXT_PUBLIC_LOG_SCOPES: undefined,
+      ENABLE_DEBUG_LOGS: false,
+    };
+  })(),
 }));
 
 vi.mock("next-axiom", () => ({
@@ -33,9 +49,11 @@ describe("Logger", () => {
   beforeEach(() => {
     mockedEnv.NODE_ENV = "test";
     mockedEnv.AXIOM_TOKEN = undefined;
+    mockedEnv.setThrowOnAxiomTokenAccess(false);
     mockedEnv.NEXT_PUBLIC_AXIOM_TOKEN = undefined;
     mockedEnv.NEXT_PUBLIC_LOG_SCOPES = undefined;
     mockedEnv.ENABLE_DEBUG_LOGS = false;
+    vi.unstubAllGlobals();
     vi.clearAllMocks();
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -61,6 +79,19 @@ describe("Logger", () => {
     const logger = createScopedLogger("test");
 
     logger.info("Server log");
+
+    expect(log.info).not.toHaveBeenCalled();
+    expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not read the server token when used on the client", () => {
+    vi.stubGlobal("window", {});
+    mockedEnv.setThrowOnAxiomTokenAccess(true);
+
+    expect(() => {
+      const logger = createScopedLogger("test");
+      logger.info("Client log");
+    }).not.toThrow();
 
     expect(log.info).not.toHaveBeenCalled();
     expect(consoleLogSpy).toHaveBeenCalledTimes(1);
