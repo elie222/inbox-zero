@@ -5,6 +5,11 @@ type RenderSafeLinksOptions = {
   allowHiddenLinks?: boolean;
 };
 
+type ExplicitLinkTarget =
+  | { type: "domain"; value: string }
+  | { type: "email"; value: string }
+  | { type: "url"; value: string };
+
 const HTML_ANCHOR_REGEX =
   /<a\s+[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi;
 const HTML_TAG_REGEX = /<[^>]+>/g;
@@ -123,9 +128,8 @@ function findMarkdownLinkMatches(text: string) {
 
 function formatLinkLabel(label: string, url: string) {
   const normalizedLabel = normalizeWhitespace(stripHtmlTags(label));
-  const destinationLabel = getLinkDestinationLabel(url);
 
-  if (!normalizedLabel) return destinationLabel;
+  if (!normalizedLabel) return getLinkDestinationLabel(url);
 
   // Only disclose the destination when the visible label explicitly names a
   // URL, domain, or email that does not match the actual target.
@@ -135,7 +139,19 @@ function formatLinkLabel(label: string, url: string) {
     return normalizedLabel;
   }
 
+  const destinationLabel = getDisclosureDestinationLabel(url, explicitTargets);
   return `${normalizedLabel} - ${destinationLabel}`;
+}
+
+function getDisclosureDestinationLabel(
+  url: string,
+  explicitTargets: ExplicitLinkTarget[],
+) {
+  if (explicitTargets.some((target) => target.type === "url")) {
+    return getVisibleLinkText(url);
+  }
+
+  return getLinkDestinationLabel(url);
 }
 
 function getVisibleLinkText(url: string) {
@@ -178,11 +194,7 @@ function stripHtmlTags(value: string) {
 }
 
 function extractExplicitLinkTargets(value: string) {
-  const targets: Array<
-    | { type: "domain"; value: string }
-    | { type: "email"; value: string }
-    | { type: "url"; value: string }
-  > = [];
+  const targets: ExplicitLinkTarget[] = [];
 
   URL_REGEX.lastIndex = 0;
   const urlMatches = value.match(URL_REGEX) || [];
@@ -211,13 +223,7 @@ function extractExplicitLinkTargets(value: string) {
   return targets;
 }
 
-function doesTargetMatchUrl(
-  target:
-    | { type: "domain"; value: string }
-    | { type: "email"; value: string }
-    | { type: "url"; value: string },
-  url: string,
-) {
+function doesTargetMatchUrl(target: ExplicitLinkTarget, url: string) {
   const parsed = new URL(url);
   const hostname = normalizeHostname(parsed.hostname);
 
@@ -244,13 +250,40 @@ function doesUrlTargetMatch(targetUrl: string, destination: URL) {
       );
     }
 
+    if (!doesUrlOriginMatch(parsedTarget, destination)) return false;
+    if (!doesUrlLabelSpecifyPathOrQuery(parsedTarget)) return true;
+
     return (
-      normalizeHostname(parsedTarget.hostname) ===
-      normalizeHostname(destination.hostname)
+      normalizeComparablePath(parsedTarget.pathname) ===
+        normalizeComparablePath(destination.pathname) &&
+      parsedTarget.search === destination.search
     );
   } catch {
     return false;
   }
+}
+
+function doesUrlOriginMatch(left: URL, right: URL) {
+  return (
+    left.protocol === right.protocol &&
+    normalizeHostname(left.hostname) === normalizeHostname(right.hostname) &&
+    getComparablePort(left) === getComparablePort(right)
+  );
+}
+
+function doesUrlLabelSpecifyPathOrQuery(url: URL) {
+  return normalizeComparablePath(url.pathname) !== "/" || Boolean(url.search);
+}
+
+function getComparablePort(url: URL) {
+  if (url.port) return url.port;
+  if (url.protocol === "http:") return "80";
+  if (url.protocol === "https:") return "443";
+  return "";
+}
+
+function normalizeComparablePath(pathname: string) {
+  return pathname || "/";
 }
 
 function normalizeHostname(value: string) {
