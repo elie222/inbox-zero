@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Changelog
 
-Add entries to `docs/changelog.mdx` using Mintlify's `<Update>` component.
+Add changelog entries as individual files in `docs/changelog-entries/`. A GitHub Action rebuilds `docs/changelog.mdx` on merge.
 
 ## Principles
 
@@ -19,14 +19,19 @@ Add entries to `docs/changelog.mdx` using Mintlify's `<Update>` component.
 
 ## Format
 
-```mdx
-<Update label="Month Day, Year" description="Headline Theme">
-  One or two sentences about the main feature.
+Create a file named `docs/changelog-entries/YYYY-MM-DD.mdx` with frontmatter + markdown:
 
-  - Bullet one
-  - Bullet two
-  - Bullet three
-</Update>
+```mdx
+---
+date: "Month Day, Year"
+description: "Headline Theme"
+---
+
+One or two sentences about the main feature.
+
+- Bullet one
+- Bullet two
+- Bullet three
 ```
 
 ## What to include
@@ -49,5 +54,5 @@ Add entries to `docs/changelog.mdx` using Mintlify's `<Update>` component.
 1. Review recent merged PRs: `gh pr list --repo elie222/inbox-zero --state merged --limit 30 --json number,title,mergedAt`
 2. Filter to user-facing changes only
 3. Group into a theme — find the headline
-4. Create a new file in `docs/changelog-entries/` named by date (e.g., `2026-03-15.mdx`) containing a single `<Update>` block
+4. Create a new file `docs/changelog-entries/YYYY-MM-DD.mdx` with frontmatter (`date`, `description`) and markdown content
 5. Do **not** edit `docs/changelog.mdx` directly — a GitHub Action rebuilds it automatically after merge
