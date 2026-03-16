@@ -5,6 +5,7 @@ const { mockedEnv } = vi.hoisted(() => ({
     NODE_ENV: "production",
     UPSTASH_REDIS_URL: "https://redis.example.com",
     UPSTASH_REDIS_TOKEN: "token",
+    AXIOM_TOKEN: undefined,
     NEXT_PUBLIC_AXIOM_TOKEN: undefined,
     NEXT_PUBLIC_LOG_SCOPES: undefined,
     ENABLE_DEBUG_LOGS: false,

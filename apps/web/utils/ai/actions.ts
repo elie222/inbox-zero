@@ -15,6 +15,13 @@ import { extractEmailAddress } from "@/utils/email";
 import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
+import { getReplyWithConfidence } from "@/utils/redis/reply";
+import {
+  type SelectedAttachment,
+  attachmentSourceInputSchema,
+} from "@/utils/attachments/source-schema";
+import { AttachmentSourceType } from "@/generated/prisma/enums";
 
 const MODULE = "ai-actions";
 
@@ -159,8 +166,28 @@ const draft: ActionFunction<{
   to?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, email, args, userEmail, executedRule }) => {
+  staticAttachments?: ActionItem["staticAttachments"];
+}> = async ({
+  client,
+  email,
+  args,
+  userEmail,
+  userId,
+  emailAccountId,
+  executedRule,
+  logger,
+}) => {
   if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) return;
+
+  const attachments = await resolveActionAttachments({
+    email,
+    emailAccountId,
+    executedRule,
+    userId,
+    logger,
+    staticAttachments: args.staticAttachments,
+    includeAiSelectedAttachments: true,
+  });
 
   const draftArgs = {
     to: args.to ?? undefined,
@@ -168,6 +195,7 @@ const draft: ActionFunction<{
     content: args.content ?? "",
     cc: args.cc ?? undefined,
     bcc: args.bcc ?? undefined,
+    attachments,
   };
 
   const result = await client.draftEmail(
@@ -197,8 +225,27 @@ const reply: ActionFunction<{
   content?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, email, args }) => {
+  staticAttachments?: ActionItem["staticAttachments"];
+}> = async ({
+  client,
+  email,
+  args,
+  userId,
+  emailAccountId,
+  executedRule,
+  logger,
+}) => {
   if (!args.content) return;
+
+  const attachments = await resolveActionAttachments({
+    email,
+    emailAccountId,
+    executedRule,
+    userId,
+    logger,
+    staticAttachments: args.staticAttachments,
+    includeAiSelectedAttachments: false,
+  });
 
   await client.replyToEmail(
     {
@@ -215,6 +262,7 @@ const reply: ActionFunction<{
       textHtml: email.textHtml,
     },
     args.content,
+    { attachments },
   );
 };
 
@@ -224,8 +272,27 @@ const send_email: ActionFunction<{
   to?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, args }) => {
+  staticAttachments?: ActionItem["staticAttachments"];
+}> = async ({
+  client,
+  args,
+  email,
+  userId,
+  emailAccountId,
+  executedRule,
+  logger,
+}) => {
   if (!args.to || !args.subject || !args.content) return;
+
+  const attachments = await resolveActionAttachments({
+    email,
+    emailAccountId,
+    executedRule,
+    userId,
+    logger,
+    staticAttachments: args.staticAttachments,
+    includeAiSelectedAttachments: false,
+  });
 
   const emailArgs = {
     to: args.to,
@@ -233,6 +300,7 @@ const send_email: ActionFunction<{
     bcc: args.bcc ?? undefined,
     subject: args.subject,
     messageText: args.content,
+    attachments,
   };
 
   await client.sendEmail(emailArgs);
@@ -449,6 +517,97 @@ async function lazyUpdateActionLabelId({
   }
 }
 
+async function getDraftSelectedAttachments({
+  email,
+  emailAccountId,
+  executedRule,
+  logger,
+}: {
+  email: EmailForAction;
+  emailAccountId: string;
+  executedRule: ExecutedRule;
+  logger: Logger;
+}): Promise<SelectedAttachment[]> {
+  if (!executedRule.ruleId) return [];
+
+  const cachedDraft = await getReplyWithConfidence({
+    emailAccountId,
+    messageId: email.id,
+    ruleId: executedRule.ruleId,
+  });
+
+  if (cachedDraft) {
+    return cachedDraft.attachments ?? [];
+  }
+
+  // Do not re-run attachment selection on a cache miss. The draft content was
+  // generated based on a specific set of files; re-selecting could attach a
+  // different PDF than the draft references, causing a content/attachment mismatch.
+  logger.warn("Draft attachment cache missing, skipping attachments", {
+    messageId: email.id,
+    ruleId: executedRule.ruleId,
+  });
+  return [];
+}
+
+async function resolveActionAttachments({
+  email,
+  emailAccountId,
+  executedRule,
+  userId,
+  logger,
+  staticAttachments,
+  includeAiSelectedAttachments,
+}: {
+  email: EmailForAction;
+  emailAccountId: string;
+  executedRule: ExecutedRule;
+  userId: string;
+  logger: Logger;
+  staticAttachments?: ActionItem["staticAttachments"];
+  includeAiSelectedAttachments: boolean;
+}) {
+  const [aiSelectedAttachments, staticSelected] = await Promise.all([
+    includeAiSelectedAttachments
+      ? getDraftSelectedAttachments({
+          email,
+          emailAccountId,
+          executedRule,
+          logger,
+        })
+      : Promise.resolve([]),
+    Promise.resolve(parseStaticAttachments(staticAttachments)),
+  ]);
+
+  const allSelected = [
+    ...new Map(
+      [...aiSelectedAttachments, ...staticSelected].map((attachment) => [
+        `${attachment.driveConnectionId}:${attachment.fileId}`,
+        attachment,
+      ]),
+    ).values(),
+  ];
+
+  if (allSelected.length === 0) return [];
+
+  const attachments = await resolveDraftAttachments({
+    emailAccountId,
+    userId,
+    selectedAttachments: allSelected,
+    logger,
+  });
+
+  if (attachments.length === 0) {
+    logger.warn("Selected rule attachments could not be resolved", {
+      messageId: email.id,
+      ruleId: executedRule.ruleId,
+      selectedAttachmentCount: allSelected.length,
+    });
+  }
+
+  return attachments;
+}
+
 async function lazyUpdateActionFolderId({
   folderName,
   folderId,
@@ -482,4 +641,21 @@ async function lazyUpdateActionFolderId({
       error,
     });
   }
+}
+
+function parseStaticAttachments(raw: unknown): SelectedAttachment[] {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
+
+  const parsed = attachmentSourceInputSchema.array().safeParse(raw);
+
+  if (!parsed.success) return [];
+
+  return parsed.data
+    .filter((item) => item.type === AttachmentSourceType.FILE)
+    .map((item) => ({
+      driveConnectionId: item.driveConnectionId,
+      fileId: item.sourceId,
+      filename: item.name,
+      mimeType: "application/pdf",
+    }));
 }

@@ -1,4 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
+import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
 import {
@@ -771,6 +772,7 @@ export class GmailProvider implements EmailProvider {
       content: string;
       cc?: string;
       bcc?: string;
+      attachments?: MailAttachment[];
     },
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
@@ -818,7 +820,11 @@ export class GmailProvider implements EmailProvider {
   async replyToEmail(
     email: ParsedMessage,
     content: string,
-    options?: { replyTo?: string; from?: string },
+    options?: {
+      replyTo?: string;
+      from?: string;
+      attachments?: MailAttachment[];
+    },
   ): Promise<void> {
     await replyToEmail(this.client, email, content, options?.from, options);
   }
@@ -829,6 +835,7 @@ export class GmailProvider implements EmailProvider {
     bcc?: string;
     subject: string;
     messageText: string;
+    attachments?: MailAttachment[];
   }): Promise<void> {
     await sendEmailWithPlainText(this.client, args);
   }

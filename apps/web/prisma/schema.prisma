@@ -422,14 +422,15 @@ model Label {
 }
 
 model Rule {
-  id           String   @id @default(cuid())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  name         String
-  actions      Action[]
-  enabled      Boolean  @default(true)
-  automate     Boolean  @default(true) // @deprecated - No longer used. All rules are now automated. Kept for historical data only.
-  runOnThreads Boolean  @default(false) // if disabled, only runs on individual emails
+  id                String             @id @default(cuid())
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  name              String
+  actions           Action[]
+  attachmentSources AttachmentSource[]
+  enabled           Boolean            @default(true)
+  automate          Boolean            @default(true) // @deprecated - No longer used. All rules are now automated. Kept for historical data only.
+  runOnThreads      Boolean            @default(false) // if disabled, only runs on individual emails
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -487,6 +488,7 @@ model Action {
   folderName     String?
   folderId       String?
   delayInMinutes Int?
+  staticAttachments Json? // AttachmentSourceInput[] — explicit files to attach for email actions
 
   @@index([ruleId])
 }
@@ -569,6 +571,7 @@ model ExecutedAction {
   url        String?
   folderName String?
   folderId   String?
+  staticAttachments Json? // AttachmentSourceInput[] — explicit files to attach for email actions
 
   // additional fields as a result of the action
   draftId         String? // Gmail draft ID created by DRAFT_EMAIL action
@@ -593,17 +596,18 @@ model ScheduledAction {
   status           ScheduledActionStatus @default(PENDING)
   schedulingStatus SchedulingStatus      @default(PENDING)
 
-  label       String?
-  labelId     String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
-  subject     String?
-  content     String?
-  to          String?
-  cc          String?
-  bcc         String?
-  url         String?
-  folderName  String?
-  folderId    String?
-  scheduledId String?
+  label             String?
+  labelId           String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
+  subject           String?
+  content           String?
+  to                String?
+  cc                String?
+  bcc               String?
+  url               String?
+  folderName        String?
+  folderId          String?
+  scheduledId       String?
+  staticAttachments Json? // AttachmentSourceInput[] — explicit files to attach for email actions
 
   executedAt       DateTime?
   executedActionId String?   @unique
@@ -1136,8 +1140,9 @@ model DriveConnection {
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  documentFilings DocumentFiling[]
-  filingFolders   FilingFolder[]
+  documentFilings   DocumentFiling[]
+  filingFolders     FilingFolder[]
+  attachmentSources AttachmentSource[]
 
   @@unique([emailAccountId, provider])
   @@index([emailAccountId])
@@ -1200,6 +1205,51 @@ model DocumentFiling {
   @@index([emailAccountId, status])
   @@index([driveConnectionId])
   @@index([messageId])
+}
+
+model AttachmentSource {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name       String
+  type       AttachmentSourceType
+  sourceId   String
+  sourcePath String?
+
+  ruleId String
+  rule   Rule   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  driveConnectionId String
+  driveConnection   DriveConnection @relation(fields: [driveConnectionId], references: [id], onDelete: Cascade)
+
+  documents AttachmentDocument[]
+
+  @@unique([ruleId, driveConnectionId, type, sourceId])
+  @@index([ruleId])
+  @@index([driveConnectionId])
+}
+
+model AttachmentDocument {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attachmentSourceId String
+  attachmentSource   AttachmentSource @relation(fields: [attachmentSourceId], references: [id], onDelete: Cascade)
+
+  fileId     String
+  name       String
+  mimeType   String
+  modifiedAt DateTime?
+  summary    String?   @db.Text
+  content    String?   @db.Text
+  metadata   Json?
+  indexedAt  DateTime?
+  error      String?   @db.Text
+
+  @@unique([attachmentSourceId, fileId])
+  @@index([attachmentSourceId, modifiedAt])
 }
 
 model Referral {
@@ -1340,6 +1390,11 @@ enum DocumentFilingStatus {
   REJECTED // User said skip
   ERROR // Filing failed
   PREVIEW // Preview feedback only (not filed)
+}
+
+enum AttachmentSourceType {
+  FILE
+  FOLDER
 }
 
 // @deprecated - No longer used

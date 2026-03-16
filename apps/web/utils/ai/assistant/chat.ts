@@ -275,6 +275,7 @@ Behavior anchors (minimal examples):
 - For "Turn off meeting briefs and enable auto-file attachments", call updateInboxFeatures with meetingBriefsEnabled=false and filingEnabled=true.
 - For "If I'm CC'd on an email it shouldn't be marked To Reply", update the "To Reply" rule instructions with updateRuleConditions.
 - For "Archive emails older than 30 days", this is not possible as an automated rule, but you can do it as a one-time action: use searchInbox with a before: date filter, then archive the results with archive_threads.
+- Rules support static file attachments from connected cloud storage (Google Drive or OneDrive). If the user wants to always attach specific files when a rule triggers (e.g. always send a PDF contract), create the rule with the appropriate email action, then inform the user that they can select files to attach by opening the rule in their assistant settings and using the Attachments section.
 - For "what does that email say?" or "tell me about this email", use readEmail with the messageId from a prior searchInbox result to get the full body.
 - For "clean up my inbox" or retroactive bulk cleanup:
   1. Check the inbox stats in your context to understand the scale and read/unread ratio.

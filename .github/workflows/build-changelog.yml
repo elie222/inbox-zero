@@ -1,0 +1,26 @@
+name: Build Changelog
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/changelog-entries/**"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build changelog.mdx from entries
+        run: node docs/scripts/build-changelog.mjs
+
+      - name: Commit updated changelog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/changelog.mdx
+          git diff --staged --quiet || (git commit -m "docs: rebuild changelog" && git push)

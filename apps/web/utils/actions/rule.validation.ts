@@ -10,6 +10,7 @@ import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
+import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
 
 export const delayInMinutesSchema = z
   .number()
@@ -107,6 +108,7 @@ const zodAction = z
     folderName: zodField,
     folderId: zodField,
     delayInMinutes: delayInMinutesSchema,
+    staticAttachments: z.array(attachmentSourceInputSchema).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.type === ActionType.LABEL) {
