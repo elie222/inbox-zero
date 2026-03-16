@@ -12,6 +12,7 @@ export const footerNavigation = {
       target: "_blank",
     },
     { name: "AI Email Assistant", href: "/ai-automation" },
+    { name: "AI Chat for Slack & Telegram", href: "/ai-assistant-chat" },
     { name: "Brief My Meeting", href: "/brief-my-meeting" },
     { name: "Reply Zero", href: "/reply-zero-ai" },
     { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
@@ -74,6 +75,8 @@ export const footerNavigation = {
       href: "https://inbox-zero.openstatus.dev/",
       target: "_blank",
     },
+    { name: "CLI", href: "/cli" },
+    { name: "OpenClaw Skill", href: "/openclaw" },
   ],
   company: [
     { name: "Affiliates", href: "/affiliates", target: "_blank" },
