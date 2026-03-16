@@ -253,7 +253,12 @@ async function sendPinnedUnsubscribeRequest({
 }: {
   method: "POST" | "GET";
   unsubscribeUrl: string;
-}) {
+}): Promise<{
+  blocked: boolean;
+  ok: boolean;
+  statusCode: number;
+  headers: IncomingHttpHeaders;
+}> {
   const resolvedUrl = await resolveSafeExternalHttpUrl(unsubscribeUrl);
   if (!resolvedUrl) {
     return {
@@ -267,6 +272,7 @@ async function sendPinnedUnsubscribeRequest({
   const requestBody = method === "POST" ? ONE_CLICK_REQUEST_BODY : undefined;
 
   return new Promise<{
+    blocked: boolean;
     ok: boolean;
     statusCode: number;
     headers: IncomingHttpHeaders;

@@ -102,7 +102,9 @@ export function NewsletterModal(props: {
                 emailAccountId={emailAccountId}
                 labels={userLabels}
                 posthog={posthog}
-                mutate={mutate}
+                mutate={async () => {
+                  await mutate();
+                }}
               />
             </div>
 
