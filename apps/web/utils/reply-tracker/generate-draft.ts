@@ -200,6 +200,20 @@ async function generateDraftContent(
     messages[messages.length - 1],
     10_000,
   );
+  const historicalMessagesForLLM = previousConversationMessages?.map((msg) =>
+    getEmailForLLM(msg, {
+      maxLength: 1000,
+      extractReply: true,
+      removeForwarded: false,
+    }),
+  );
+
+  if (historicalMessagesForLLM?.length) {
+    logger.info("Fetching historical messages from sender", {
+      sender: lastMessage.headers.from,
+    });
+  }
+
   const [
     knowledgeResult,
     emailHistoryContext,
@@ -207,6 +221,7 @@ async function generateDraftContent(
     writingStyle,
     mcpResult,
     upcomingMeetings,
+    emailHistorySummary,
   ] = await Promise.all([
     aiExtractRelevantKnowledge({
       knowledgeBase,
@@ -235,32 +250,15 @@ async function generateDraftContent(
       ),
       logger,
     }),
+    historicalMessagesForLLM?.length
+      ? aiExtractFromEmailHistory({
+          currentThreadMessages: messages,
+          historicalMessages: historicalMessagesForLLM,
+          emailAccount,
+          logger,
+        })
+      : Promise.resolve(null),
   ]);
-
-  // 2b. Extract email history context
-  const senderEmail = lastMessage.headers.from;
-
-  logger.info("Fetching historical messages from sender", {
-    sender: senderEmail,
-  });
-
-  // Convert to format needed for aiExtractFromEmailHistory
-  const historicalMessagesForLLM = previousConversationMessages?.map((msg) => {
-    return getEmailForLLM(msg, {
-      maxLength: 1000,
-      extractReply: true,
-      removeForwarded: false,
-    });
-  });
-
-  const emailHistorySummary = historicalMessagesForLLM?.length
-    ? await aiExtractFromEmailHistory({
-        currentThreadMessages: messages,
-        historicalMessages: historicalMessagesForLLM,
-        emailAccount,
-        logger,
-      })
-    : null;
 
   // 3. Draft reply
   const { reply, confidence, attribution } = await aiDraftReplyWithConfidence({
@@ -291,36 +289,32 @@ async function generateDraftContent(
       messageId: lastMessage.id,
     });
 
-    if (typeof reply === "string") {
-      try {
-        await saveReply({
-          emailAccountId: emailAccount.id,
-          messageId: lastMessage.id,
-          reply,
-          confidence,
-          attribution,
-        });
-      } catch (error) {
-        logger.error("Failed to cache low-confidence draft", {
-          error,
-          messageId: lastMessage.id,
-          confidence,
-        });
-      }
+    try {
+      await saveReply({
+        emailAccountId: emailAccount.id,
+        messageId: lastMessage.id,
+        reply,
+        confidence,
+        attribution,
+      });
+    } catch (error) {
+      logger.error("Failed to cache low-confidence draft", {
+        error,
+        messageId: lastMessage.id,
+        confidence,
+      });
     }
 
     return { draft: null, confidence, attribution };
   }
 
-  if (typeof reply === "string") {
-    await saveReply({
-      emailAccountId: emailAccount.id,
-      messageId: lastMessage.id,
-      reply,
-      confidence,
-      attribution,
-    });
-  }
+  await saveReply({
+    emailAccountId: emailAccount.id,
+    messageId: lastMessage.id,
+    reply,
+    confidence,
+    attribution,
+  });
 
   return { draft: reply, confidence, attribution };
 }
