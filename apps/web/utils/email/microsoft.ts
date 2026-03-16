@@ -1,6 +1,7 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
+import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import {
   getMessage,
   getMessages,
@@ -611,6 +612,7 @@ export class OutlookProvider implements EmailProvider {
       content: string;
       cc?: string;
       bcc?: string;
+      attachments?: MailAttachment[];
     },
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
@@ -658,7 +660,11 @@ export class OutlookProvider implements EmailProvider {
   async replyToEmail(
     email: ParsedMessage,
     content: string,
-    options?: { replyTo?: string; from?: string },
+    options?: {
+      replyTo?: string;
+      from?: string;
+      attachments?: MailAttachment[];
+    },
   ): Promise<void> {
     await replyToEmail(this.client, email, content, this.logger, options);
   }
@@ -669,6 +675,7 @@ export class OutlookProvider implements EmailProvider {
     bcc?: string;
     subject: string;
     messageText: string;
+    attachments?: MailAttachment[];
   }): Promise<void> {
     await sendEmailWithPlainText(this.client, args, this.logger);
   }

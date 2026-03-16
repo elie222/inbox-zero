@@ -3,7 +3,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import MailComposer from "nodemailer/lib/mail-composer";
 import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
-import { zodAttachment } from "@/utils/types/mail";
+import { type WithMailerAttachments, zodAttachment } from "@/utils/types/mail";
 import { convertEmailHtmlToText } from "@/utils/mail";
 import {
   forwardEmailHtml,
@@ -50,6 +50,7 @@ export const sendEmailBody = z.object({
   attachments: z.array(zodAttachment).optional(),
 });
 export type SendEmailBody = z.infer<typeof sendEmailBody>;
+type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
 
 const encodeMessage = (message: Buffer) => {
   return Buffer.from(message)
@@ -113,7 +114,7 @@ const createRawMailMessage = async ({
 // https://www.labnol.org/google-api-service-account-220405
 export async function sendEmailWithHtml(
   gmail: gmail_v1.Gmail,
-  body: SendEmailBody,
+  body: MailSendEmailBody,
 ) {
   ensureEmailSendingEnabled();
 
@@ -147,7 +148,7 @@ export async function sendEmailWithHtml(
 
 export async function sendEmailWithPlainText(
   gmail: gmail_v1.Gmail,
-  body: Omit<SendEmailBody, "messageHtml"> & { messageText: string },
+  body: Omit<MailSendEmailBody, "messageHtml"> & { messageText: string },
 ) {
   const messageHtml = convertTextToHtmlParagraphs(body.messageText);
   return sendEmailWithHtml(gmail, { ...body, messageHtml });
@@ -161,7 +162,7 @@ export async function replyToEmail(
   >,
   reply: string,
   from?: string,
-  options?: { replyTo?: string },
+  options?: { replyTo?: string; attachments?: Attachment[] },
 ) {
   ensureEmailSendingEnabled();
 
@@ -182,6 +183,7 @@ export async function replyToEmail(
     subject: formatReplySubject(message.headers.subject),
     messageText,
     messageHtml: html,
+    attachments: options?.attachments,
     replyToEmail: {
       threadId: message.threadId,
       headerMessageId: message.headers["message-id"] || "",

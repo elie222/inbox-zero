@@ -9,6 +9,7 @@ import type {
   UseFormWatch,
 } from "react-hook-form";
 import type { FieldErrors } from "react-hook-form";
+import { useWatch } from "react-hook-form";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { ActionType } from "@/generated/prisma/enums";
 import { RuleSteps } from "@/app/(app)/[emailAccountId]/assistant/RuleSteps";
@@ -44,6 +45,8 @@ import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
 import { Card } from "@/components/ui/card";
 import { MutedText } from "@/components/Typography";
 import { BRAND_NAME } from "@/utils/branding";
+import { ActionAttachmentsField } from "@/app/(app)/[emailAccountId]/assistant/ActionAttachmentsField";
+import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 
 export function ActionSteps({
   actionFields,
@@ -61,6 +64,8 @@ export function ActionSteps({
   folders,
   foldersLoading,
   append,
+  attachmentSources,
+  onAttachmentSourcesChange,
 }: {
   actionFields: Array<{ id: string } & CreateRuleBody["actions"][number]>;
   register: UseFormRegister<CreateRuleBody>;
@@ -77,6 +82,8 @@ export function ActionSteps({
   folders: OutlookFolder[];
   foldersLoading: boolean;
   append: (action: CreateRuleBody["actions"][number]) => void;
+  attachmentSources: AttachmentSourceInput[];
+  onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
   return (
     <RuleSteps
@@ -102,6 +109,8 @@ export function ActionSteps({
           typeOptions={typeOptions}
           folders={folders}
           foldersLoading={foldersLoading}
+          attachmentSources={attachmentSources}
+          onAttachmentSourcesChange={onAttachmentSourcesChange}
         />
       ))}
     </RuleSteps>
@@ -123,6 +132,8 @@ function ActionCard({
   typeOptions,
   folders,
   foldersLoading,
+  attachmentSources,
+  onAttachmentSourcesChange,
 }: {
   action: CreateRuleBody["actions"][number];
   index: number;
@@ -139,6 +150,8 @@ function ActionCard({
   typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
+  attachmentSources: AttachmentSourceInput[];
+  onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
   // Watch the action type from the form to ensure reactivity
   const actionType = watch(`actions.${index}.type`);
@@ -537,6 +550,33 @@ function ActionCard({
 
   const isNotifySender = actionType === ActionType.NOTIFY_SENDER;
 
+  const supportsAttachments =
+    actionType === ActionType.DRAFT_EMAIL ||
+    actionType === ActionType.REPLY ||
+    actionType === ActionType.SEND_EMAIL;
+  const supportsAiSelectedSources = actionType === ActionType.DRAFT_EMAIL;
+  const canConfigureStaticAttachments =
+    actionType === ActionType.DRAFT_EMAIL ? contentSetManually : supportsAttachments;
+
+  const staticAttachments = useWatch({
+    control,
+    name: `actions.${index}.staticAttachments`,
+  }) as AttachmentSourceInput[] | undefined;
+
+  const attachmentsField = supportsAttachments ? (
+    <ActionAttachmentsField
+      value={canConfigureStaticAttachments ? (staticAttachments ?? []) : []}
+      onChange={(newValue) =>
+        setValue(`actions.${index}.staticAttachments`, newValue)
+      }
+      emailAccountId={emailAccountId}
+      contentSetManually={canConfigureStaticAttachments}
+      allowAiSelectedSources={supportsAiSelectedSources}
+      attachmentSources={attachmentSources}
+      onAttachmentSourcesChange={onAttachmentSourcesChange}
+    />
+  ) : null;
+
   const rightContent = (
     <>
       {isNotifySender ? (
@@ -544,15 +584,20 @@ function ActionCard({
           {`Sends an automated notification from ${BRAND_NAME} informing the sender their email was filtered as cold outreach.`}
         </MutedText>
       ) : isDraftEmailWithoutManualContent ? (
-        <MutedText className="px-1 h-full flex items-center">
-          Our AI generates a draft reply from your email history and knowledge
-          base.
-        </MutedText>
+        <Card className="p-4 space-y-4">
+          <MutedText className="px-1 h-full flex items-center">
+            Our AI generates a draft reply from your email history and
+            knowledge base.
+          </MutedText>
+          {delayControls}
+          {attachmentsField}
+        </Card>
       ) : isEmailAction || actionType === ActionType.CALL_WEBHOOK ? (
         <Card className="p-4 space-y-4">
           {fieldsContent}
           {shouldShowProTip && <VariableProTip />}
           {delayControls}
+          {attachmentsField}
         </Card>
       ) : (
         <>
@@ -596,6 +641,7 @@ function ActionCard({
 
   const handleUseAiDraft = useCallback(() => {
     setValue(`actions.${index}.content.setManually`, false);
+    setValue(`actions.${index}.staticAttachments`, []);
   }, [index, setValue]);
 
   const isLabelAction = actionType === ActionType.LABEL;

@@ -181,6 +181,7 @@ export function getDefaultActions(
   cc: string | null;
   bcc: string | null;
   delayInMinutes: number | null;
+  staticAttachments: null;
   createdAt: Date;
   updatedAt: Date;
 }> {
@@ -202,6 +203,7 @@ export function getDefaultActions(
     cc: string | null;
     bcc: string | null;
     delayInMinutes: number | null;
+    staticAttachments: null;
     createdAt: Date;
     updatedAt: Date;
   }> = [];
@@ -222,6 +224,7 @@ export function getDefaultActions(
       cc: null,
       bcc: null,
       delayInMinutes: null,
+      staticAttachments: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -241,6 +244,7 @@ export function getDefaultActions(
       cc: null,
       bcc: null,
       delayInMinutes: null,
+      staticAttachments: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -262,6 +266,7 @@ export function getDefaultActions(
       cc: null,
       bcc: null,
       delayInMinutes: null,
+      staticAttachments: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -283,6 +288,7 @@ export function getDefaultActions(
       cc: null,
       bcc: null,
       delayInMinutes: null,
+      staticAttachments: null,
       createdAt: now,
       updatedAt: now,
     });

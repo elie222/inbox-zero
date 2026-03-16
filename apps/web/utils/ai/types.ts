@@ -28,4 +28,5 @@ export type ActionItem = {
   folderName?: ExecutedAction["folderName"];
   folderId?: ExecutedAction["folderId"];
   delayInMinutes?: number | null;
+  staticAttachments?: ExecutedAction["staticAttachments"];
 };

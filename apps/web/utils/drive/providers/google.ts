@@ -49,12 +49,12 @@ export class GoogleDriveProvider implements DriveProvider {
     this.logger.trace("Listing folders", { parentId });
 
     try {
-      // If no parentId, fetch ALL folders for better initial experience
-      const parent = parentId || null;
-      const escapedParent = parent ? this.escapeDriveQueryValue(parent) : null;
+      const escapedParent = parentId
+        ? this.escapeDriveQueryValue(parentId)
+        : null;
       const query = escapedParent
         ? `'${escapedParent}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
-        : "mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+        : "'root' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
 
       const allFiles: drive_v3.Schema$File[] = [];
       let pageToken: string | undefined;
@@ -63,7 +63,7 @@ export class GoogleDriveProvider implements DriveProvider {
         const response = await this.client.files.list({
           q: query,
           fields: "nextPageToken, files(id, name, parents, webViewLink)",
-          pageSize: parent ? 100 : 1000,
+          pageSize: 200,
           orderBy: "name",
           pageToken,
         });
@@ -174,7 +174,8 @@ export class GoogleDriveProvider implements DriveProvider {
     try {
       const response = await this.client.files.get({
         fileId,
-        fields: "id, name, mimeType, size, parents, webViewLink, createdTime",
+        fields:
+          "id, name, mimeType, size, parents, webViewLink, createdTime, modifiedTime",
       });
 
       const file = response.data;
@@ -194,6 +195,65 @@ export class GoogleDriveProvider implements DriveProvider {
       this.logger.error("Error getting file", { error, fileId });
       throw error;
     }
+  }
+
+  async listFiles(
+    parentId?: string,
+    options?: { mimeTypes?: string[] },
+  ): Promise<DriveFile[]> {
+    this.logger.trace("Listing files", {
+      parentId,
+      mimeTypes: options?.mimeTypes,
+    });
+
+    const parentQuery = parentId
+      ? `'${this.escapeDriveQueryValue(parentId)}' in parents`
+      : "'root' in parents";
+    const mimeTypeQuery = options?.mimeTypes?.length
+      ? ` and (${options.mimeTypes
+          .map(
+            (mimeType) =>
+              `mimeType = '${this.escapeDriveQueryValue(mimeType)}'`,
+          )
+          .join(" or ")})`
+      : " and mimeType != 'application/vnd.google-apps.folder'";
+    const query = `${parentQuery}${mimeTypeQuery} and trashed = false`;
+
+    const files: drive_v3.Schema$File[] = [];
+    let pageToken: string | undefined;
+
+    do {
+      const response = await this.client.files.list({
+        q: query,
+        fields:
+          "nextPageToken, files(id, name, mimeType, size, parents, webViewLink, createdTime, modifiedTime)",
+        pageSize: 200,
+        orderBy: "name",
+        pageToken,
+      });
+
+      files.push(...(response.data.files || []));
+      pageToken = response.data.nextPageToken ?? undefined;
+    } while (pageToken);
+
+    return files.map((file) => this.convertToFile(file));
+  }
+
+  async downloadFile(
+    fileId: string,
+  ): Promise<{ content: Buffer; file: DriveFile } | null> {
+    const file = await this.getFile(fileId);
+    if (!file) return null;
+
+    const response = await this.client.files.get(
+      { fileId, alt: "media" },
+      { responseType: "arraybuffer" },
+    );
+
+    return {
+      file,
+      content: Buffer.from(response.data as ArrayBuffer),
+    };
   }
 
   async moveFile(fileId: string, targetFolderId: string): Promise<DriveFile> {
@@ -254,6 +314,7 @@ export class GoogleDriveProvider implements DriveProvider {
       folderId: file.parents?.[0] ?? undefined,
       webUrl: file.webViewLink ?? undefined,
       createdAt: file.createdTime ? new Date(file.createdTime) : undefined,
+      modifiedAt: file.modifiedTime ? new Date(file.modifiedTime) : undefined,
     };
   }
 
