@@ -710,18 +710,7 @@ async function uploadAttachmentChunk({
     );
   }
 
-  const errorText = await response.text();
-  const error = new Error(
-    `Failed to upload Outlook attachment chunk: ${response.status} ${
-      errorText || response.statusText
-    }`,
-  );
-  Object.assign(error, {
-    status: response.status,
-    body: errorText,
-    response: { headers: response.headers, status: response.status },
-  });
-  throw error;
+  await throwOutlookResponseError(response, "upload Outlook attachment chunk");
 }
 
 interface UploadSessionStatus {
@@ -736,18 +725,10 @@ async function getUploadSessionStatus(uploadUrl: string) {
   }
 
   if (!response.ok) {
-    const errorText = await response.text();
-    const error = new Error(
-      `Failed to fetch Outlook upload session status: ${response.status} ${
-        errorText || response.statusText
-      }`,
+    await throwOutlookResponseError(
+      response,
+      "fetch Outlook upload session status",
     );
-    Object.assign(error, {
-      status: response.status,
-      body: errorText,
-      response: { headers: response.headers, status: response.status },
-    });
-    throw error;
   }
 
   return (await response.json()) as UploadSessionStatus;
@@ -762,4 +743,19 @@ function getNextExpectedRangeStart(nextExpectedRanges?: string[]) {
 
   const parsedRangeStart = Number.parseInt(rangeStart, 10);
   return Number.isNaN(parsedRangeStart) ? null : parsedRangeStart;
+}
+
+async function throwOutlookResponseError(response: Response, action: string) {
+  const errorText = await response.text();
+  const error = new Error(
+    `Failed to ${action}: ${response.status} ${
+      errorText || response.statusText
+    }`,
+  );
+  Object.assign(error, {
+    status: response.status,
+    body: errorText,
+    response: { headers: response.headers, status: response.status },
+  });
+  throw error;
 }
