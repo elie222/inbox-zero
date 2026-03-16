@@ -26,7 +26,7 @@
     "commander": "14.0.3",
     "husky": "9.1.7",
     "lint-staged": "16.4.0",
-    "tsconfig-paths": "^4.2.0",
+    "tsconfig-paths": "4.2.0",
     "tsx": "4.21.0",
     "turbo": "2.8.17",
     "ultracite": "7.3.1"

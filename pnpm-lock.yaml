@@ -31,7 +31,7 @@ importers:
         specifier: 16.4.0
         version: 16.4.0
       tsconfig-paths:
-        specifier: ^4.2.0
+        specifier: 4.2.0
         version: 4.2.0
       tsx:
         specifier: 4.21.0
@@ -73,7 +73,7 @@ importers:
         specifier: 3.0.41
         version: 3.0.41(zod@3.25.76)
       '@ai-sdk/openai-compatible':
-        specifier: ^2.0.35
+        specifier: 2.0.35
         version: 2.0.35(zod@3.25.76)
       '@ai-sdk/perplexity':
         specifier: 3.0.23
@@ -118,7 +118,7 @@ importers:
         specifier: 0.9.0
         version: 0.9.0
       '@googleapis/calendar':
-        specifier: ^14.2.0
+        specifier: 14.2.0
         version: 14.2.0
       '@googleapis/drive':
         specifier: 20.1.0
@@ -352,7 +352,7 @@ importers:
         specifier: 4.1.0
         version: 4.1.0
       diff:
-        specifier: ^8.0.3
+        specifier: 8.0.3
         version: 8.0.3
       dompurify:
         specifier: 3.3.3
@@ -361,7 +361,7 @@ importers:
         specifier: 0.71.5
         version: 0.71.5
       easymde:
-        specifier: ^2.20.0
+        specifier: 2.20.0
         version: 2.20.0
       email-reply-parser:
         specifier: 2.3.5
@@ -379,7 +379,7 @@ importers:
         specifier: 5.5.6
         version: 5.5.6
       framer-motion:
-        specifier: ^12.37.0
+        specifier: 12.37.0
         version: 12.37.0(@emotion/is-prop-valid@1.2.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       gaxios:
         specifier: 7.1.4
@@ -547,7 +547,7 @@ importers:
         specifier: 0.8.10
         version: 0.8.10(@tiptap/core@2.26.1(@tiptap/pm@2.26.1))
       tldts:
-        specifier: ^7.0.26
+        specifier: 7.0.26
         version: 7.0.26
       unpdf:
         specifier: 1.4.0
@@ -566,7 +566,7 @@ importers:
         specifier: 0.2.2
         version: 0.2.2(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@24.10.1)(typescript@5.9.3)))
       '@microsoft/microsoft-graph-types':
-        specifier: ^2.43.1
+        specifier: 2.43.1
         version: 2.43.1
       '@playwright/test':
         specifier: 1.58.2
