@@ -106,7 +106,7 @@ export async function getActionItemsWithAiArgs({
     return filterIncompleteDraftActions(selectedRule.actions);
   }
 
-  const result = await aiGenerateArgs({
+  const { args, attribution: aiArgsAttribution } = await aiGenerateArgs({
     email: getEmailForLLM(message),
     emailAccount,
     selectedRule,
@@ -117,9 +117,10 @@ export async function getActionItemsWithAiArgs({
 
   const combinedActions = combineActionsWithAiArgs(
     selectedRule.actions,
-    result,
+    args,
     draft,
     draftAttribution,
+    aiArgsAttribution,
   );
   const filteredActions = filterIncompleteDraftActions(combinedActions);
 
@@ -138,6 +139,7 @@ export function combineActionsWithAiArgs(
   aiArgs: ActionArgResponse | undefined,
   draft: string | null = null,
   draftAttribution: DraftAttribution | null = null,
+  aiArgsAttribution: DraftAttribution | null = null,
 ): ActionWithDraftAttribution[] {
   if (!aiArgs && !draft) return actions as ActionWithDraftAttribution[];
 
@@ -156,6 +158,17 @@ export function combineActionsWithAiArgs(
     // Process AI args if available
     const aiAction = aiArgs?.[`${action.type}-${action.id}`];
     if (!aiAction) return updatedAction;
+
+    if (
+      action.type === ActionType.DRAFT_EMAIL &&
+      typeof action.content === "string" &&
+      aiAction.content
+    ) {
+      updatedAction.draftModelProvider = aiArgsAttribution?.provider ?? null;
+      updatedAction.draftModelName = aiArgsAttribution?.modelName ?? null;
+      updatedAction.draftPipelineVersion =
+        aiArgsAttribution?.pipelineVersion ?? null;
+    }
 
     // Merge variables for each field that has AI-generated content
     for (const [field, vars] of Object.entries(aiAction)) {

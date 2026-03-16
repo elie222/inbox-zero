@@ -9,7 +9,9 @@ export type DraftAttribution = {
   pipelineVersion: number;
 };
 
-export function createDraftAttributionTracker() {
+export function createDraftAttributionTracker(
+  pipelineVersion = DRAFT_PIPELINE_VERSION,
+) {
   let attribution: DraftAttribution | null = null;
 
   return {
@@ -26,7 +28,7 @@ export function createDraftAttributionTracker() {
       attribution = {
         provider,
         modelName,
-        pipelineVersion: DRAFT_PIPELINE_VERSION,
+        pipelineVersion,
       };
     },
   };

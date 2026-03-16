@@ -11,9 +11,17 @@ import type { ActionType } from "@/generated/prisma/enums";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import {
+  createDraftAttributionTracker,
+  type DraftAttribution,
+} from "@/utils/ai/reply/draft-attribution";
+import {
   PLAIN_TEXT_OUTPUT_INSTRUCTION,
   PROMPT_SECURITY_INSTRUCTIONS,
 } from "@/utils/ai/security";
+
+// Bump this when template-based draft generation changes in a way that would
+// affect attribution comparisons for rule-generated draft content.
+const TEMPLATE_DRAFT_PIPELINE_VERSION = 1;
 
 /**
  * AI Argument Generator for Email Actions
@@ -48,6 +56,11 @@ export type ActionArgResponse = {
   };
 };
 
+export type ActionArgGenerationResult = {
+  args: ActionArgResponse | undefined;
+  attribution: DraftAttribution | null;
+};
+
 export async function aiGenerateArgs({
   email,
   emailAccount,
@@ -68,13 +81,13 @@ export async function aiGenerateArgs({
   }[];
   modelType: ModelType;
   logger: Logger;
-}): Promise<ActionArgResponse | undefined> {
+}): Promise<ActionArgGenerationResult> {
   logger.info("Generating args for rule");
 
   // If no parameters, skip
   if (parameters.length === 0) {
     logger.info("Skipping. No parameters for rule");
-    return;
+    return { args: undefined, attribution: null };
   }
 
   const system = getSystemPrompt();
@@ -84,11 +97,15 @@ export async function aiGenerateArgs({
   // logger.trace("Parameters:", zodToJsonSchema(parameters));
 
   const modelOptions = getModel(emailAccount.user, modelType);
+  const attributionTracker = createDraftAttributionTracker(
+    TEMPLATE_DRAFT_PIPELINE_VERSION,
+  );
 
   const generateObject = createGenerateObject({
     label: "Args for rule",
     emailAccount,
     modelOptions,
+    onModelUsed: attributionTracker.onModelUsed,
   });
 
   const aiResponse = await withRetry(
@@ -115,10 +132,16 @@ export async function aiGenerateArgs({
 
   if (!result) {
     logger.warn("No tool call found", { aiResponse });
-    return;
+    return {
+      args: undefined,
+      attribution: attributionTracker.attribution,
+    };
   }
 
-  return result;
+  return {
+    args: result,
+    attribution: attributionTracker.attribution,
+  };
 }
 
 function getSystemPrompt() {

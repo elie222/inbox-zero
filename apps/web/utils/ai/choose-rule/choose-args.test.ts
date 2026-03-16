@@ -5,6 +5,7 @@ import {
 } from "./choose-args";
 import { ActionType } from "@/generated/prisma/enums";
 import type { Action } from "@/generated/prisma/client";
+import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 
 vi.mock("server-only", () => ({}));
 
@@ -57,6 +58,45 @@ describe("combineActionsWithAiArgs", () => {
       expect(result[0].content).toBe(
         "Dear Mr. Johnson,\n\nThank you for your email. I'd be happy to help with your request.\n\nBest regards",
       );
+    });
+
+    it("stores attribution for template-generated draft content", () => {
+      const actions = [
+        createMockAction({
+          id: "draft-template-1",
+          type: ActionType.DRAFT_EMAIL,
+          content: "Hello {{name}},\n\n{{reply}}",
+        }),
+      ];
+
+      const aiArgs = {
+        "DRAFT_EMAIL-draft-template-1": {
+          content: {
+            var1: "Taylor",
+            var2: "Thanks for the note.",
+          },
+        },
+      };
+      const aiArgsAttribution: DraftAttribution = {
+        provider: "openai",
+        modelName: "gpt-5-mini",
+        pipelineVersion: 1,
+      };
+
+      const result = combineActionsWithAiArgs(
+        actions,
+        aiArgs,
+        null,
+        null,
+        aiArgsAttribution,
+      );
+
+      expect(result[0]).toMatchObject({
+        content: "Hello Taylor,\n\nThanks for the note.",
+        draftModelProvider: "openai",
+        draftModelName: "gpt-5-mini",
+        draftPipelineVersion: 1,
+      });
     });
 
     it("should handle DRAFT_EMAIL action without content (full draft generation)", () => {
