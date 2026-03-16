@@ -23,6 +23,29 @@ export async function createEmailProvider({
   provider: string;
   logger: Logger;
 }): Promise<EmailProvider> {
+  const emailProvider = await createEmailProviderInternal({
+    emailAccountId,
+    provider,
+    logger,
+  });
+
+  const session = getRecordingSession();
+  if (session) {
+    return createRecordingEmailProvider(emailProvider, session);
+  }
+
+  return emailProvider;
+}
+
+async function createEmailProviderInternal({
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}): Promise<EmailProvider> {
   if (isLocalAuthBypassEnabled()) {
     const localBypassProvider = await getLocalBypassProvider({
       emailAccountId,
@@ -41,22 +64,13 @@ export async function createEmailProvider({
     source: "create-email-provider",
   });
 
-  let emailProvider: EmailProvider;
-
   if (rateLimitProvider === "google") {
     const client = await getGmailClientForEmail({ emailAccountId, logger });
-    emailProvider = new GmailProvider(client, logger, emailAccountId);
-  } else {
-    const client = await getOutlookClientForEmail({ emailAccountId, logger });
-    emailProvider = new OutlookProvider(client, logger);
+    return new GmailProvider(client, logger, emailAccountId);
   }
 
-  const session = getRecordingSession();
-  if (session) {
-    return createRecordingEmailProvider(emailProvider, session);
-  }
-
-  return emailProvider;
+  const client = await getOutlookClientForEmail({ emailAccountId, logger });
+  return new OutlookProvider(client, logger);
 }
 
 async function getLocalBypassProvider({

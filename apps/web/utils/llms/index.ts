@@ -123,7 +123,7 @@ export function createGenerateText({
 
       const recordingSession = getRecordingSession();
       if (recordingSession) {
-        recordingSession
+        await recordingSession
           .record("llm-request", {
             label,
             request: {
@@ -295,7 +295,7 @@ export function createGenerateObject({
 
       const recordingSession = getRecordingSession();
       if (recordingSession) {
-        recordingSession
+        await recordingSession
           .record("llm-request", {
             label,
             request: {

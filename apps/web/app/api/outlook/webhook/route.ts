@@ -97,10 +97,22 @@ async function processNotificationsAsync(
     const { subscriptionId, resourceData } = notification;
     const logger = log.with({ subscriptionId, messageId: resourceData.id });
 
-    const session = await recordWebhookEntry("microsoft", "pending", {
-      subscriptionId,
-      resourceData,
+    const emailAccount = await getWebhookEmailAccount(
+      { watchEmailsSubscriptionId: subscriptionId },
+      logger,
+    ).catch((error) => {
+      logger.error("Error getting email account for recording", { error });
+      return null;
     });
+
+    const session = await recordWebhookEntry(
+      "microsoft",
+      emailAccount?.email || "pending",
+      {
+        subscriptionId,
+        resourceData,
+      },
+    );
 
     logger.info("Processing notification", {
       changeType: notification.changeType,
@@ -118,14 +130,6 @@ async function processNotificationsAsync(
         ? runWithRecordingSession(session, runProcessing)
         : runProcessing());
     } catch (error) {
-      const emailAccount = await getWebhookEmailAccount(
-        { watchEmailsSubscriptionId: subscriptionId },
-        logger,
-      ).catch((error) => {
-        logger.error("Error getting email account", { error });
-        return null;
-      });
-
       if (emailAccount?.email) {
         await handleWebhookError(error, {
           email: emailAccount.email,
