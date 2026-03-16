@@ -3,6 +3,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
+import { createDraftAttributionTracker } from "@/utils/ai/reply/draft-attribution";
 import {
   PLAIN_TEXT_OUTPUT_INSTRUCTION,
   PROMPT_SECURITY_INSTRUCTIONS,
@@ -37,11 +38,13 @@ ${getTodayForLLM()}
 IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`;
 
   const modelOptions = getModel(emailAccount.user, "chat");
+  const attributionTracker = createDraftAttributionTracker();
 
   const generateText = createGenerateText({
     label: "Reply",
     emailAccount,
     modelOptions,
+    onModelUsed: attributionTracker.onModelUsed,
   });
 
   const response = await generateText({
@@ -50,5 +53,8 @@ IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`
     prompt,
   });
 
-  return response.text;
+  return {
+    text: response.text,
+    attribution: attributionTracker.attribution,
+  };
 }

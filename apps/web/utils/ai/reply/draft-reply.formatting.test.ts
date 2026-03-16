@@ -231,6 +231,32 @@ describe("aiDraftReply formatting", () => {
 
     expect(result.confidence).toBe(DraftReplyConfidence.ALL_EMAILS);
   });
+
+  it("returns the actual provider and model used for the successful draft generation", async () => {
+    mockCreateGenerateObject.mockImplementationOnce(({ onModelUsed }) => {
+      return vi.fn().mockImplementationOnce(async () => {
+        await onModelUsed?.({
+          provider: "openai",
+          modelName: "gpt-5.1-mini",
+        });
+
+        return {
+          object: {
+            reply: "Thanks for your message.",
+            confidence: DraftReplyConfidence.STANDARD,
+          },
+        };
+      });
+    });
+
+    const result = await aiDraftReplyWithConfidence(getDraftParams());
+
+    expect(result.attribution).toEqual({
+      provider: "openai",
+      modelName: "gpt-5.1-mini",
+      pipelineVersion: 1,
+    });
+  });
 });
 
 function getDraftParams() {

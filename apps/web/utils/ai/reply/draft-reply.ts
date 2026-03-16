@@ -10,6 +10,10 @@ import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availabili
 import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { normalizeDraftReplyConfidence } from "@/utils/ai/reply/draft-confidence";
+import {
+  createDraftAttributionTracker,
+  type DraftAttribution,
+} from "@/utils/ai/reply/draft-attribution";
 
 const logger = createScopedLogger("DraftReply");
 const DRAFT_OUTPUT_INSTRUCTION =
@@ -180,6 +184,7 @@ const draftSchema = z.object({
 export type DraftReplyResult = {
   reply: string;
   confidence: DraftReplyConfidence;
+  attribution: DraftAttribution | null;
 };
 
 export async function aiDraftReplyWithConfidence({
@@ -231,11 +236,13 @@ export async function aiDraftReplyWithConfidence({
   });
 
   const modelOptions = getModel(emailAccount.user, "draft");
+  const attributionTracker = createDraftAttributionTracker();
 
   const generateObject = createGenerateObject({
     emailAccount,
     label: "Draft reply",
     modelOptions,
+    onModelUsed: attributionTracker.onModelUsed,
   });
 
   const generate = () =>
@@ -261,6 +268,7 @@ export async function aiDraftReplyWithConfidence({
   return {
     reply: normalizeDraftReplyFormatting(result.object.reply),
     confidence: normalizeDraftReplyConfidence(result.object.confidence),
+    attribution: attributionTracker.attribution,
   };
 }
 
