@@ -195,11 +195,24 @@ type ActionFieldsSelection = Pick<
   | "folderName"
   | "folderId"
   | "delayInMinutes"
+  | "staticAttachments"
 >;
 
+type SanitizableActionFields = Partial<
+  Omit<ActionFieldsSelection, "staticAttachments">
+> & {
+  type: ActionType;
+  staticAttachments?: Prisma.JsonValue | null;
+};
+
 export function sanitizeActionFields(
-  action: Partial<ActionFieldsSelection> & { type: ActionType },
+  action: SanitizableActionFields,
 ): ActionFieldsSelection {
+  const supportsStaticAttachments =
+    action.type === ActionType.DRAFT_EMAIL ||
+    action.type === ActionType.REPLY ||
+    action.type === ActionType.SEND_EMAIL;
+
   const base: ActionFieldsSelection = {
     type: action.type,
     label: null,
@@ -213,6 +226,9 @@ export function sanitizeActionFields(
     folderName: null,
     folderId: null,
     delayInMinutes: action.delayInMinutes || null,
+    staticAttachments: supportsStaticAttachments
+      ? (action.staticAttachments ?? undefined)
+      : undefined,
   };
 
   switch (action.type) {

@@ -2,6 +2,7 @@ import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Attachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/gmail/mail";
+import type { WithMailerAttachments } from "@/utils/types/mail";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createOutlookReplyContent } from "@/utils/outlook/reply";
@@ -19,6 +20,11 @@ import type { Logger } from "@/utils/logger";
 type GraphRecipient = {
   emailAddress: { address: string; name?: string };
 };
+type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
+
+const MAX_GRAPH_ATTACHMENT_SIZE_BYTES = 3 * 1024 * 1024;
+const MAX_GRAPH_UPLOAD_SESSION_SIZE_BYTES = 150 * 1024 * 1024;
+const GRAPH_UPLOAD_CHUNK_SIZE_BYTES = 320 * 1024;
 
 interface OutlookMessageRequest {
   bccRecipients?: GraphRecipient[];
@@ -36,7 +42,7 @@ type SentEmailResult = Pick<Message, "id" | "conversationId">;
 
 export async function sendEmailWithHtml(
   client: OutlookClient,
-  body: SendEmailBody,
+  body: MailSendEmailBody,
   logger: Logger,
 ): Promise<SentEmailResult> {
   ensureEmailSendingEnabled();
@@ -74,6 +80,15 @@ export async function sendEmailWithHtml(
     logger,
   );
 
+  if (body.attachments?.length) {
+    await addAttachmentsToDraft({
+      client,
+      draftId: draft.id || "",
+      attachments: body.attachments,
+      logger,
+    });
+  }
+
   await withOutlookRetry(
     () => client.getClient().api(`/me/messages/${draft.id}/send`).post({}),
     logger,
@@ -88,7 +103,7 @@ export async function sendEmailWithHtml(
 
 export async function sendEmailWithPlainText(
   client: OutlookClient,
-  body: Omit<SendEmailBody, "messageHtml"> & { messageText: string },
+  body: Omit<MailSendEmailBody, "messageHtml"> & { messageText: string },
   logger: Logger,
 ) {
   const messageHtml = convertTextToHtmlParagraphs(body.messageText);
@@ -100,7 +115,7 @@ export async function replyToEmail(
   message: EmailForAction,
   reply: string,
   logger: Logger,
-  options?: { replyTo?: string; from?: string },
+  options?: { replyTo?: string; from?: string; attachments?: Attachment[] },
 ) {
   ensureEmailSendingEnabled();
 
@@ -153,6 +168,15 @@ export async function replyToEmail(
         }),
     logger,
   );
+
+  if (options?.attachments?.length) {
+    await addAttachmentsToDraft({
+      client,
+      draftId: replyDraft.id || "",
+      attachments: options.attachments,
+      logger,
+    });
+  }
 
   // Send the draft
   await withOutlookRetry(
@@ -336,6 +360,15 @@ export async function draftEmail(
     logger,
   );
 
+  if (args.attachments?.length) {
+    await addAttachmentsToDraft({
+      client,
+      draftId: replyDraft.id || updatedDraft.id || "",
+      attachments: args.attachments,
+      logger,
+    });
+  }
+
   // Restore the original message's unread status if it was unread before
   // createReplyAll automatically marks the original message as read
   if (wasUnread) {
@@ -373,7 +406,7 @@ function convertTextToHtmlParagraphs(text?: string | null): string {
 
 async function sendReplyUsingCreateReply(
   client: OutlookClient,
-  body: SendEmailBody,
+  body: MailSendEmailBody,
   logger: Logger,
 ): Promise<SentEmailResult> {
   const originalMessageId = body.replyToEmail!.messageId!;
@@ -415,6 +448,15 @@ async function sendReplyUsingCreateReply(
         }),
     logger,
   );
+
+  if (body.attachments?.length) {
+    await addAttachmentsToDraft({
+      client,
+      draftId: replyDraft.id || "",
+      attachments: body.attachments,
+      logger,
+    });
+  }
 
   // Send the draft
   await withOutlookRetry(
@@ -461,4 +503,265 @@ function buildGraphRecipients(
     seen.add(key);
     return true;
   });
+}
+
+async function addAttachmentsToDraft({
+  client,
+  draftId,
+  attachments,
+  logger,
+}: {
+  client: OutlookClient;
+  draftId: string;
+  attachments: Attachment[];
+  logger: Logger;
+}) {
+  if (!draftId) return;
+
+  for (const attachment of attachments) {
+    const result = getAttachmentContent(attachment.content);
+    if (!result) continue;
+    const { buffer, base64 } = result;
+    if (buffer.length <= MAX_GRAPH_ATTACHMENT_SIZE_BYTES) {
+      await withOutlookRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${draftId}/attachments`)
+            .post({
+              "@odata.type": "#microsoft.graph.fileAttachment",
+              name: attachment.filename || "attachment.pdf",
+              contentType: attachment.contentType || "application/octet-stream",
+              contentBytes: base64 ?? buffer.toString("base64"),
+            }),
+        logger,
+      );
+      continue;
+    }
+
+    assertGraphAttachmentSizeSupported({ attachment, content: buffer });
+    await uploadAttachmentViaSession({
+      client,
+      draftId,
+      attachment,
+      content: buffer,
+      logger,
+    });
+  }
+}
+
+function getAttachmentContent(
+  content: Attachment["content"],
+): { buffer: Buffer; base64: string | null } | null {
+  if (Buffer.isBuffer(content)) return { buffer: content, base64: null };
+  if (typeof content === "string") return decodeAttachmentString(content);
+  return null;
+}
+
+function assertGraphAttachmentSizeSupported({
+  attachment,
+  content,
+}: {
+  attachment: Attachment;
+  content: Buffer;
+}) {
+  if (content.length <= MAX_GRAPH_UPLOAD_SESSION_SIZE_BYTES) return;
+
+  throw new Error(
+    `Outlook attachments larger than 150 MB are not supported: ${
+      attachment.filename || "attachment"
+    }`,
+  );
+}
+
+function decodeAttachmentString(content: string): {
+  buffer: Buffer;
+  base64: string | null;
+} {
+  const normalized = content.trim().replace(/\s+/g, "");
+  if (looksLikeBase64(normalized)) {
+    const decoded = Buffer.from(normalized, "base64");
+    if (isCanonicalBase64Match(normalized, decoded)) {
+      return { buffer: decoded, base64: normalized };
+    }
+  }
+
+  return { buffer: Buffer.from(content, "utf8"), base64: null };
+}
+
+function looksLikeBase64(value: string) {
+  return value.length > 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
+
+function isCanonicalBase64Match(value: string, decoded: Buffer) {
+  return (
+    decoded.toString("base64").replace(/=+$/u, "") === value.replace(/=+$/u, "")
+  );
+}
+
+async function uploadAttachmentViaSession({
+  client,
+  draftId,
+  attachment,
+  content,
+  logger,
+}: {
+  client: OutlookClient;
+  draftId: string;
+  attachment: Attachment;
+  content: Buffer;
+  logger: Logger;
+}) {
+  const uploadSession = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${draftId}/attachments/createUploadSession`)
+        .post({
+          AttachmentItem: {
+            attachmentType: "file",
+            name: attachment.filename || "attachment.pdf",
+            contentType: attachment.contentType || "application/octet-stream",
+            size: content.length,
+          },
+        }),
+    logger,
+  );
+
+  const uploadUrl = (uploadSession as { uploadUrl?: string }).uploadUrl;
+  if (!uploadUrl) {
+    throw new Error("Failed to create Outlook attachment upload session");
+  }
+
+  let start = 0;
+  while (start < content.length) {
+    const end = Math.min(start + GRAPH_UPLOAD_CHUNK_SIZE_BYTES, content.length);
+    const chunk = content.subarray(start, end);
+    start = await withOutlookRetry(
+      () =>
+        uploadAttachmentChunk({
+          uploadUrl,
+          chunk,
+          start,
+          end,
+          totalSize: content.length,
+        }),
+      logger,
+    );
+  }
+}
+
+async function uploadAttachmentChunk({
+  uploadUrl,
+  chunk,
+  start,
+  end,
+  totalSize,
+}: {
+  uploadUrl: string;
+  chunk: Buffer;
+  start: number;
+  end: number;
+  totalSize: number;
+}): Promise<number> {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "Content-Length": String(chunk.length),
+      "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
+    },
+    body: new Uint8Array(chunk),
+  });
+
+  if (response.status === 201) {
+    return totalSize;
+  }
+
+  if (response.status === 200 || response.status === 202) {
+    const uploadStatus = (await response.json()) as UploadSessionStatus;
+    const nextStart = getNextExpectedRangeStart(
+      uploadStatus.nextExpectedRanges,
+    );
+    if (typeof nextStart !== "number") {
+      throw new Error(
+        `Outlook upload session returned ${response.status} without nextExpectedRanges`,
+      );
+    }
+
+    return nextStart;
+  }
+
+  if (response.status === 416) {
+    const uploadStatus = await getUploadSessionStatus(uploadUrl);
+    if (!uploadStatus) {
+      return end;
+    }
+
+    const nextStart = getNextExpectedRangeStart(
+      uploadStatus.nextExpectedRanges,
+    );
+    if (typeof nextStart === "number" && nextStart > start) {
+      return nextStart;
+    }
+
+    throw new Error(
+      "Outlook upload session returned 416 without a usable resume range",
+    );
+  }
+
+  return await throwOutlookResponseError(
+    response,
+    "upload Outlook attachment chunk",
+  );
+}
+
+interface UploadSessionStatus {
+  nextExpectedRanges?: string[];
+}
+
+async function getUploadSessionStatus(uploadUrl: string) {
+  const response = await fetch(uploadUrl, { method: "GET" });
+
+  if (response.status === 404 || response.status === 405) {
+    return null;
+  }
+
+  if (!response.ok) {
+    await throwOutlookResponseError(
+      response,
+      "fetch Outlook upload session status",
+    );
+  }
+
+  return (await response.json()) as UploadSessionStatus;
+}
+
+function getNextExpectedRangeStart(nextExpectedRanges?: string[]) {
+  const nextRange = nextExpectedRanges?.[0];
+  if (!nextRange) return null;
+
+  const [rangeStart] = nextRange.split("-");
+  if (!rangeStart) return null;
+
+  const parsedRangeStart = Number.parseInt(rangeStart, 10);
+  return Number.isNaN(parsedRangeStart) ? null : parsedRangeStart;
+}
+
+async function throwOutlookResponseError(
+  response: Response,
+  action: string,
+): Promise<never> {
+  const errorText = await response.text();
+  const error = new Error(
+    `Failed to ${action}: ${response.status} ${
+      errorText || response.statusText
+    }`,
+  );
+  Object.assign(error, {
+    status: response.status,
+    body: errorText,
+    response: { headers: response.headers, status: response.status },
+  });
+  throw error;
 }

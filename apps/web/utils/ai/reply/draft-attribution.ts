@@ -8,3 +8,26 @@ export type DraftAttribution = {
   modelName: string;
   pipelineVersion: number;
 };
+
+export function createDraftAttributionTracker() {
+  let attribution: DraftAttribution | null = null;
+
+  return {
+    get attribution() {
+      return attribution;
+    },
+    onModelUsed({
+      provider,
+      modelName,
+    }: {
+      provider: string;
+      modelName: string;
+    }) {
+      attribution = {
+        provider,
+        modelName,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
+      };
+    },
+  };
+}

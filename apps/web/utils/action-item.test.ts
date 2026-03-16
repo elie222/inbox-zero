@@ -4,7 +4,7 @@ import {
   sanitizeActionFields,
   actionInputs,
 } from "./action-item";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, AttachmentSourceType } from "@/generated/prisma/enums";
 
 describe("actionInputs", () => {
   it("has configuration for all action types", () => {
@@ -193,6 +193,26 @@ describe("sanitizeActionFields", () => {
       expect(result.to).toBeNull();
       expect(result.content).toBe("Content");
     });
+
+    it("preserves static attachments", () => {
+      const attachments = [
+        {
+          driveConnectionId: "drive-1",
+          name: "lease.pdf",
+          sourceId: "file-1",
+          sourcePath: "/Docs",
+          type: AttachmentSourceType.FILE,
+        },
+      ];
+
+      const result = sanitizeActionFields({
+        type: ActionType.REPLY,
+        content: "Content",
+        staticAttachments: attachments,
+      });
+
+      expect(result.staticAttachments).toEqual(attachments);
+    });
   });
 
   describe("SEND_EMAIL action", () => {
@@ -210,6 +230,28 @@ describe("sanitizeActionFields", () => {
       expect(result.to).toBe("to@test.com");
       expect(result.cc).toBe("cc@test.com");
       expect(result.bcc).toBe("bcc@test.com");
+    });
+
+    it("preserves static attachments", () => {
+      const attachments = [
+        {
+          driveConnectionId: "drive-1",
+          name: "quote.pdf",
+          sourceId: "file-2",
+          sourcePath: "/Docs",
+          type: AttachmentSourceType.FILE,
+        },
+      ];
+
+      const result = sanitizeActionFields({
+        type: ActionType.SEND_EMAIL,
+        subject: "Subject",
+        content: "Content",
+        to: "to@test.com",
+        staticAttachments: attachments,
+      });
+
+      expect(result.staticAttachments).toEqual(attachments);
     });
   });
 

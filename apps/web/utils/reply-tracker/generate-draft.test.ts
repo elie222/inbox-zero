@@ -67,6 +67,13 @@ vi.mock("@/utils/meeting-briefs/recipient-context", () => ({
   formatMeetingContextForPrompt: vi.fn().mockReturnValue(null),
 }));
 
+vi.mock("@/utils/attachments/draft-attachments", () => ({
+  selectDraftAttachmentsForRule: vi.fn().mockResolvedValue({
+    selectedAttachments: [],
+    attachmentContext: null,
+  }),
+}));
+
 vi.mock("@/utils/ai/knowledge/extract-from-email-history", () => ({
   aiExtractFromEmailHistory: vi.fn().mockResolvedValue(null),
 }));
@@ -78,6 +85,7 @@ vi.mock("@/env", () => ({
 }));
 
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
+import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
 import prisma from "@/utils/prisma";
 import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
 
@@ -368,6 +376,11 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
 describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getReplyWithConfidence).mockResolvedValue(null);
+    vi.mocked(selectDraftAttachmentsForRule).mockResolvedValue({
+      selectedAttachments: [],
+      attachmentContext: null,
+    });
   });
 
   it("uses cached drafts when cached confidence meets the threshold", async () => {
@@ -490,6 +503,111 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         modelName: "gpt-5.1",
         pipelineVersion: 1,
       },
+    });
+  });
+
+  it("returns a generated draft even when caching it fails", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Fresh draft",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: {
+        provider: "anthropic",
+        modelName: "claude-sonnet-4-5",
+        pipelineVersion: 1,
+      },
+    });
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
+    vi.mocked(saveReply).mockRejectedValueOnce(new Error("redis unavailable"));
+
+    const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      logger,
+      DraftReplyConfidence.STANDARD,
+    );
+
+    expect(result).toEqual({
+      draft: "Fresh draft",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: {
+        provider: "anthropic",
+        modelName: "claude-sonnet-4-5",
+        pipelineVersion: 1,
+      },
+    });
+  });
+
+  it("passes selected attachment context into drafting and caches it per rule", async () => {
+    const selectedAttachments = [
+      {
+        driveConnectionId: "drive-1",
+        fileId: "file-1",
+        filename: "lease.pdf",
+        mimeType: "application/pdf",
+        reason: "Matched the requested property packet",
+      },
+    ];
+
+    vi.mocked(selectDraftAttachmentsForRule).mockResolvedValue({
+      selectedAttachments,
+      attachmentContext: `<attachment>
+filename: lease.pdf
+path: Properties/Lease.pdf
+reason: Matched the requested property packet
+</attachment>`,
+    });
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Attached the lease packet for review.",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: null,
+    });
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+      includeReferralSignature: false,
+      signature: null,
+    } as any);
+
+    const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      logger,
+      DraftReplyConfidence.ALL_EMAILS,
+      "rule-1",
+    );
+
+    expect(selectDraftAttachmentsForRule).toHaveBeenCalledWith({
+      emailAccount: expect.objectContaining({ id: "test-account-id" }),
+      ruleId: "rule-1",
+      emailContent: expect.any(String),
+      logger,
+    });
+
+    expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachmentContext: expect.stringContaining("lease.pdf"),
+      }),
+    );
+
+    expect(saveReply).toHaveBeenCalledWith({
+      emailAccountId: "test-account-id",
+      messageId: "msg-1",
+      reply: "Attached the lease packet for review.",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: null,
+      attachments: selectedAttachments,
+      ruleId: "rule-1",
+    });
+
+    expect(result).toEqual({
+      draft: "Attached the lease packet for review.",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: null,
+      attachments: selectedAttachments,
     });
   });
 });

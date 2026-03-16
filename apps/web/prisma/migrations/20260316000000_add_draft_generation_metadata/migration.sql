@@ -1,7 +1,7 @@
 ALTER TABLE "ExecutedAction"
 ADD COLUMN "draftModelProvider" TEXT,
 ADD COLUMN "draftModelName" TEXT,
-ADD COLUMN "draftPipelineVersion" INTEGER DEFAULT 1;
+ADD COLUMN "draftPipelineVersion" INTEGER;
 
 UPDATE "ExecutedAction"
 SET "draftPipelineVersion" = 1

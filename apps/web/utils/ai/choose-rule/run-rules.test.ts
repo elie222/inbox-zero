@@ -330,7 +330,7 @@ describe("runRules draft attribution persistence", () => {
     ]);
   });
 
-  it("lets the database default the draft pipeline version when draft attribution is missing", async () => {
+  it("persists a null draft pipeline version when draft attribution is missing", async () => {
     const draftRule = createRule("draft-rule", SystemType.TO_REPLY, [
       getAction({
         id: "draft-action-1",
@@ -400,9 +400,9 @@ describe("runRules draft attribution persistence", () => {
         content: "Generated draft content",
         draftModelProvider: null,
         draftModelName: null,
+        draftPipelineVersion: null,
       }),
     );
-    expect(createdActions?.[0]).not.toHaveProperty("draftPipelineVersion");
   });
 });
 

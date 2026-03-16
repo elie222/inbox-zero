@@ -345,11 +345,10 @@ async function executeMatchedRule(
                     ...executedActionFields,
                     draftModelProvider: item.draftModelProvider ?? null,
                     draftModelName: item.draftModelName ?? null,
-                    ...(item.type === ActionType.DRAFT_EMAIL
-                      ? item.draftPipelineVersion == null
-                        ? {}
-                        : { draftPipelineVersion: item.draftPipelineVersion }
-                      : { draftPipelineVersion: null }),
+                    draftPipelineVersion:
+                      item.type === ActionType.DRAFT_EMAIL
+                        ? (item.draftPipelineVersion ?? null)
+                        : null,
                   };
                 }) || [],
             },

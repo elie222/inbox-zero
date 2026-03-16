@@ -58,6 +58,7 @@ export async function executeScheduledAction(
       cc: scheduledAction.cc,
       bcc: scheduledAction.bcc,
       url: scheduledAction.url,
+      staticAttachments: scheduledAction.staticAttachments,
     };
 
     const executedAction = await executeDelayedAction({
@@ -168,6 +169,7 @@ async function executeDelayedAction({
       cc: actionItem.cc,
       bcc: actionItem.bcc,
       url: actionItem.url,
+      staticAttachments: actionItem.staticAttachments ?? undefined,
       executedRule: {
         connect: { id: scheduledAction.executedRuleId },
       },

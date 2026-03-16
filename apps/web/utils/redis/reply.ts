@@ -1,8 +1,13 @@
-import { redis } from "@/utils/redis";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
+import {
+  selectedAttachmentSchema,
+  type SelectedAttachment,
+} from "@/utils/attachments/source-schema";
+import { redis } from "@/utils/redis";
 
 export type ReplyWithConfidence = {
+  attachments?: SelectedAttachment[];
   reply: string;
   confidence: DraftReplyConfidence;
   attribution: DraftAttribution | null;
@@ -11,13 +16,16 @@ export type ReplyWithConfidence = {
 export async function getReply({
   emailAccountId,
   messageId,
+  ruleId,
 }: {
   emailAccountId: string;
   messageId: string;
+  ruleId?: string;
 }): Promise<string | null> {
   const cachedReply = await getReplyWithConfidence({
     emailAccountId,
     messageId,
+    ruleId,
   });
   return cachedReply?.reply ?? null;
 }
@@ -25,12 +33,14 @@ export async function getReply({
 export async function getReplyWithConfidence({
   emailAccountId,
   messageId,
+  ruleId,
 }: {
   emailAccountId: string;
   messageId: string;
+  ruleId?: string;
 }): Promise<ReplyWithConfidence | null> {
   const cachedReply = await redis.get<string>(
-    getReplyKey({ emailAccountId, messageId }),
+    getReplyKey({ emailAccountId, messageId, ruleId }),
   );
   return parseCachedReply(cachedReply);
 }
@@ -41,22 +51,27 @@ export async function saveReply({
   reply,
   confidence,
   attribution,
+  attachments,
+  ruleId,
 }: {
   emailAccountId: string;
   messageId: string;
   reply: string;
   confidence: DraftReplyConfidence;
-  attribution: DraftAttribution | null;
+  attribution?: DraftAttribution | null;
+  attachments?: SelectedAttachment[];
+  ruleId?: string;
 }) {
   return redis.set(
-    getReplyKey({ emailAccountId, messageId }),
+    getReplyKey({ emailAccountId, messageId, ruleId }),
     JSON.stringify({
       reply,
       confidence,
-      attribution,
+      ...(attribution !== undefined ? { attribution } : {}),
+      ...(attachments !== undefined ? { attachments } : {}),
     }),
     {
-      ex: 60 * 60 * 24, // 1 day
+      ex: ruleId ? 60 * 60 * 24 * 90 : 60 * 60 * 24,
     },
   );
 }
@@ -64,11 +79,15 @@ export async function saveReply({
 function getReplyKey({
   emailAccountId,
   messageId,
+  ruleId,
 }: {
   emailAccountId: string;
   messageId: string;
+  ruleId?: string;
 }) {
-  return `reply:${emailAccountId}:${messageId}`;
+  return ruleId
+    ? `reply:${emailAccountId}:${messageId}:${ruleId}`
+    : `reply:${emailAccountId}:${messageId}`;
 }
 
 function parseCachedReply(
@@ -89,7 +108,8 @@ function parseReplyWithConfidenceFromObject(
 ): ReplyWithConfidence | null {
   if (!value || typeof value !== "object") return null;
 
-  const { reply, confidence, attribution } = value as {
+  const { attachments, reply, confidence, attribution } = value as {
+    attachments?: unknown;
     reply?: unknown;
     confidence?: unknown;
     attribution?: unknown;
@@ -97,8 +117,16 @@ function parseReplyWithConfidenceFromObject(
 
   if (typeof reply !== "string") return null;
   if (!isDraftReplyConfidence(confidence)) return null;
+  if (
+    attachments != null &&
+    (!Array.isArray(attachments) ||
+      !attachments.every((attachment) => isSelectedAttachment(attachment)))
+  ) {
+    return null;
+  }
 
   return {
+    attachments: attachments as SelectedAttachment[] | undefined,
     reply,
     confidence,
     attribution: parseDraftAttribution(attribution),
@@ -132,4 +160,8 @@ function parseDraftAttribution(value: unknown): DraftAttribution | null {
   }
 
   return { provider, modelName, pipelineVersion };
+}
+
+function isSelectedAttachment(value: unknown): value is SelectedAttachment {
+  return selectedAttachmentSchema.safeParse(value).success;
 }

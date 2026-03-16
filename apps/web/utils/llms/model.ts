@@ -208,7 +208,13 @@ function selectModel(
     case Provider.AI_GATEWAY: {
       const modelName = aiModel || "google/gemini-3-flash";
       const aiGatewayApiKey = resolveApiKey(aiApiKey, env.AI_GATEWAY_API_KEY);
-      const gateway = createGateway({ apiKey: aiGatewayApiKey });
+      const gateway = createGateway({
+        apiKey: aiGatewayApiKey,
+        headers: {
+          "http-referer": "https://www.getinboxzero.com",
+          "x-title": "Inbox Zero",
+        },
+      });
       return {
         provider: Provider.AI_GATEWAY,
         modelName,
