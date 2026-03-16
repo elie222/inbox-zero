@@ -1,14 +1,16 @@
-import { redis } from "@/utils/redis";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 import {
   selectedAttachmentSchema,
   type SelectedAttachment,
 } from "@/utils/attachments/source-schema";
+import { redis } from "@/utils/redis";
 
 export type ReplyWithConfidence = {
   attachments?: SelectedAttachment[];
   reply: string;
   confidence: DraftReplyConfidence;
+  attribution: DraftAttribution | null;
 };
 
 export async function getReply({
@@ -48,6 +50,7 @@ export async function saveReply({
   messageId,
   reply,
   confidence,
+  attribution,
   attachments,
   ruleId,
 }: {
@@ -55,6 +58,7 @@ export async function saveReply({
   messageId: string;
   reply: string;
   confidence: DraftReplyConfidence;
+  attribution?: DraftAttribution | null;
   attachments?: SelectedAttachment[];
   ruleId?: string;
 }) {
@@ -63,7 +67,8 @@ export async function saveReply({
     JSON.stringify({
       reply,
       confidence,
-      attachments,
+      ...(attribution !== undefined ? { attribution } : {}),
+      ...(attachments !== undefined ? { attachments } : {}),
     }),
     {
       ex: ruleId ? 60 * 60 * 24 * 90 : 60 * 60 * 24,
@@ -103,10 +108,11 @@ function parseReplyWithConfidenceFromObject(
 ): ReplyWithConfidence | null {
   if (!value || typeof value !== "object") return null;
 
-  const { attachments, reply, confidence } = value as {
+  const { attachments, reply, confidence, attribution } = value as {
     attachments?: unknown;
     reply?: unknown;
     confidence?: unknown;
+    attribution?: unknown;
   };
 
   if (typeof reply !== "string") return null;
@@ -123,6 +129,7 @@ function parseReplyWithConfidenceFromObject(
     attachments: attachments as SelectedAttachment[] | undefined,
     reply,
     confidence,
+    attribution: parseDraftAttribution(attribution),
   };
 }
 
@@ -135,6 +142,24 @@ function isDraftReplyConfidence(
       confidence as DraftReplyConfidence,
     )
   );
+}
+
+function parseDraftAttribution(value: unknown): DraftAttribution | null {
+  if (!value || typeof value !== "object") return null;
+
+  const { provider, modelName, pipelineVersion } = value as {
+    provider?: unknown;
+    modelName?: unknown;
+    pipelineVersion?: unknown;
+  };
+
+  if (typeof provider !== "string") return null;
+  if (typeof modelName !== "string") return null;
+  if (typeof pipelineVersion !== "number" || Number.isNaN(pipelineVersion)) {
+    return null;
+  }
+
+  return { provider, modelName, pipelineVersion };
 }
 
 function isSelectedAttachment(value: unknown): value is SelectedAttachment {
