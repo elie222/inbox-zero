@@ -18,13 +18,13 @@ export function HiddenAiDraftLinksSetting() {
   const { execute } = useAction(
     updateHiddenAiDraftLinksAction.bind(null, emailAccountId),
     {
+      onSuccess: () => {
+        mutate();
+      },
       onError: createSettingActionErrorHandler({
         mutate,
         prefix: "Failed to update hidden AI draft links setting",
       }),
-      onSettled: () => {
-        mutate();
-      },
     },
   );
 

@@ -127,6 +127,8 @@ function formatLinkLabel(label: string, url: string) {
 
   if (!normalizedLabel) return destinationLabel;
 
+  // Only disclose the destination when the visible label explicitly names a
+  // URL, domain, or email that does not match the actual target.
   const explicitTargets = extractExplicitLinkTargets(normalizedLabel);
   if (!explicitTargets.length) return normalizedLabel;
   if (explicitTargets.every((target) => doesTargetMatchUrl(target, url))) {
