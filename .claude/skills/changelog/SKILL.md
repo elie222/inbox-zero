@@ -49,4 +49,5 @@ Add entries to `docs/changelog.mdx` using Mintlify's `<Update>` component.
 1. Review recent merged PRs: `gh pr list --repo elie222/inbox-zero --state merged --limit 30 --json number,title,mergedAt`
 2. Filter to user-facing changes only
 3. Group into a theme — find the headline
-4. Write the entry and add it as the **first** `<Update>` in `docs/changelog.mdx`
+4. Create a new file in `docs/changelog-entries/` named by date (e.g., `2026-03-15.mdx`) containing a single `<Update>` block
+5. Do **not** edit `docs/changelog.mdx` directly — a GitHub Action rebuilds it automatically after merge
