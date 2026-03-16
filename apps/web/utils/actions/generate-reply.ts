@@ -48,6 +48,7 @@ export const generateNudgeReplyAction = actionClient
         messageId: lastMessage.id,
         reply: text,
         confidence: DraftReplyConfidence.ALL_EMAILS,
+        attribution: null,
       });
 
       return { text };

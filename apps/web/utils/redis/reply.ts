@@ -89,7 +89,7 @@ function parseReplyWithConfidenceFromObject(
 ): ReplyWithConfidence | null {
   if (!value || typeof value !== "object") return null;
 
-  const { reply, confidence } = value as {
+  const { reply, confidence, attribution } = value as {
     reply?: unknown;
     confidence?: unknown;
     attribution?: unknown;
@@ -101,7 +101,7 @@ function parseReplyWithConfidenceFromObject(
   return {
     reply,
     confidence,
-    attribution: parseDraftAttribution(value.attribution),
+    attribution: parseDraftAttribution(attribution),
   };
 }
 
