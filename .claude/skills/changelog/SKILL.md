@@ -23,7 +23,6 @@ Create a file named `docs/changelog-entries/YYYY-MM-DD.mdx` with frontmatter + m
 
 ```mdx
 ---
-date: "Month Day, Year"
 description: "Headline Theme"
 ---
 
@@ -33,6 +32,8 @@ One or two sentences about the main feature.
 - Bullet two
 - Bullet three
 ```
+
+The date is derived from the filename automatically.
 
 ## What to include
 
@@ -54,5 +55,5 @@ One or two sentences about the main feature.
 1. Review recent merged PRs: `gh pr list --repo elie222/inbox-zero --state merged --limit 30 --json number,title,mergedAt`
 2. Filter to user-facing changes only
 3. Group into a theme — find the headline
-4. Create a new file `docs/changelog-entries/YYYY-MM-DD.mdx` with frontmatter (`date`, `description`) and markdown content
+4. Create a new file `docs/changelog-entries/YYYY-MM-DD.mdx` with frontmatter (`description`) and markdown content
 5. Do **not** edit `docs/changelog.mdx` directly — a GitHub Action rebuilds it automatically after merge
