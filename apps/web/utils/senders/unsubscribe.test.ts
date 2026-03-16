@@ -129,12 +129,13 @@ describe("sender-unsubscribe", () => {
     expect(prisma.newsletter.upsert).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects redirects to unsafe URLs", async () => {
+  it("falls back to GET when POST redirects to an unsafe URL", async () => {
     dnsLookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
     queueHttpsResponse({
       statusCode: 302,
       headers: { location: "http://127.0.0.1/unsubscribe" },
     });
+    queueHttpsResponse({ statusCode: 200 });
 
     const result = await unsubscribeSenderAndMark({
       emailAccountId: "email-account-1",
@@ -143,16 +144,26 @@ describe("sender-unsubscribe", () => {
       logger,
     });
 
-    expect(httpsRequestMock).toHaveBeenCalledTimes(1);
+    expect(httpsRequestMock).toHaveBeenCalledTimes(2);
+    expect(httpsRequestMock.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+    expect(httpsRequestMock.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
     expect(result.unsubscribe).toEqual(
       expect.objectContaining({
         attempted: true,
-        success: false,
-        reason: "unsafe_unsubscribe_url",
+        success: true,
+        method: "get",
+        statusCode: 200,
       }),
     );
-    expect(result.status).toBeNull();
-    expect(prisma.newsletter.upsert).not.toHaveBeenCalled();
+    expect(prisma.newsletter.upsert).toHaveBeenCalledTimes(1);
   });
 });
 

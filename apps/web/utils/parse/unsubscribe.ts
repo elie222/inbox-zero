@@ -65,7 +65,7 @@ function getMatchingUnsubscribeLink(
   allowedProtocols: string[],
 ) {
   const headerLinks = parseListUnsubscribeHeader(options.listUnsubscribeHeader);
-  const fallbackLinks = parseListUnsubscribeHeader(options.unsubscribeLink);
+  const fallbackLinks = parseStoredUnsubscribeLinks(options.unsubscribeLink);
 
   const allLinks = [...headerLinks, ...fallbackLinks];
 
@@ -80,6 +80,21 @@ function getMatchingUnsubscribeLink(
   return undefined;
 }
 
+function parseStoredUnsubscribeLinks(unsubscribeLink?: string | null) {
+  if (!unsubscribeLink) return [];
+
+  if (hasMultipleBracketedUnsubscribeLinks(unsubscribeLink)) {
+    return parseListUnsubscribeHeader(unsubscribeLink);
+  }
+
+  const cleanedLink = cleanUnsubscribeLink(unsubscribeLink);
+  if (!cleanedLink) return [];
+
+  if (isSingleUnsubscribeLink(cleanedLink)) return [cleanedLink];
+
+  return parseListUnsubscribeHeader(unsubscribeLink);
+}
+
 function normalizeAllowedUnsubscribeLink(
   link: string,
   allowedProtocols: string[],
@@ -91,4 +106,17 @@ function normalizeAllowedUnsubscribeLink(
   } catch {
     return undefined;
   }
+}
+
+function isSingleUnsubscribeLink(link: string) {
+  try {
+    new URL(link);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasMultipleBracketedUnsubscribeLinks(link: string) {
+  return (link.match(/<[^>]+>/g)?.length || 0) > 1;
 }

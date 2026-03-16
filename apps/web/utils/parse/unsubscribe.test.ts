@@ -258,6 +258,15 @@ describe("getHttpUnsubscribeLink", () => {
       }),
     ).toBeUndefined();
   });
+
+  it("finds HTTP URLs in stored mixed unsubscribe data", () => {
+    expect(
+      getHttpUnsubscribeLink({
+        unsubscribeLink:
+          "<mailto:unsubscribe@example.com>, <https://example.com/unsub?id=1>",
+      }),
+    ).toBe("https://example.com/unsub?id=1");
+  });
 });
 
 describe("getUserFacingUnsubscribeLink", () => {
@@ -276,5 +285,14 @@ describe("getUserFacingUnsubscribeLink", () => {
         unsubscribeLink: "javascript:alert(1)",
       }),
     ).toBeUndefined();
+  });
+
+  it("treats a direct unsubscribe URL with commas as a single link", () => {
+    expect(
+      getUserFacingUnsubscribeLink({
+        unsubscribeLink:
+          "https://example.com/unsub?tags=product-updates,weekly-digest",
+      }),
+    ).toBe("https://example.com/unsub?tags=product-updates,weekly-digest");
   });
 });

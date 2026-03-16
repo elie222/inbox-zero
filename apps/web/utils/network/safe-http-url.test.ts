@@ -62,6 +62,16 @@ describe("isSafeExternalHttpUrl", () => {
     ).resolves.toBeNull();
   });
 
+  it("rejects hostnames that resolve to private IPv6 addresses", async () => {
+    vi.mocked(dns.lookup).mockResolvedValue([
+      { address: "fd00::8", family: 6 },
+    ] as Awaited<ReturnType<typeof dns.lookup>>);
+
+    await expect(
+      resolveSafeExternalHttpUrl("https://news.example.com/unsubscribe"),
+    ).resolves.toBeNull();
+  });
+
   it("returns a pinned DNS lookup for public hostnames", async () => {
     vi.mocked(dns.lookup).mockResolvedValue([
       { address: "93.184.216.34", family: 4 },

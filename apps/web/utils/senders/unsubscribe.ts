@@ -145,16 +145,6 @@ async function attemptAutomaticUnsubscribe({
     };
   }
 
-  if (postResult.reason === "unsafe_unsubscribe_url") {
-    return {
-      attempted: true,
-      success: false,
-      method: "post",
-      statusCode: postResult.statusCode,
-      reason: postResult.reason,
-    };
-  }
-
   const getResult = await sendUnsubscribeRequest({
     method: "GET",
     unsubscribeUrl,
@@ -300,6 +290,7 @@ async function sendPinnedUnsubscribeRequest({
       },
       (response) => {
         response.resume();
+        response.on("error", reject);
         response.on("end", () =>
           resolve({
             blocked: false,
