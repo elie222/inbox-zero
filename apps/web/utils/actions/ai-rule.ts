@@ -52,7 +52,7 @@ export const runRulesAction = actionClient
       if (!provider) throw new SafeError("Provider not found");
 
       const session = createRecordingSession(
-        "webhook",
+        "rule-run",
         emailAccount.email,
         emailAccountId,
       );
@@ -138,7 +138,7 @@ export const testAiCustomContentAction = actionClient
       if (!emailAccount) throw new SafeError("Email account not found");
 
       const session = createRecordingSession(
-        "webhook",
+        "rule-run",
         emailAccount.email,
         emailAccountId,
       );

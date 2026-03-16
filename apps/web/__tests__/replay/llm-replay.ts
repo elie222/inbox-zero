@@ -57,6 +57,16 @@ export function createLLMReplay(entries: RecordingEntry[]) {
   const mockGenerateText = vi.fn(async (options: any) => {
     const label = options._replayLabel || "unknown";
     const response = getNextResponse(label) as any;
+
+    if (response.toolCalls?.length && options.tools) {
+      for (const toolCall of response.toolCalls) {
+        const toolImpl = options.tools[toolCall.toolName];
+        if (typeof toolImpl?.execute === "function") {
+          await toolImpl.execute(toolCall.input);
+        }
+      }
+    }
+
     return {
       text: response.text || "",
       toolCalls: response.toolCalls || [],
@@ -90,21 +100,36 @@ export function createLLMReplay(entries: RecordingEntry[]) {
 
 function extractLLMPairs(entries: RecordingEntry[]): LLMCallRecord[] {
   const pairs: LLMCallRecord[] = [];
-  let pendingRequest: { label: string; request: unknown } | null = null;
+  const pendingRequests = new Map<
+    string,
+    Array<{ label: string; request: unknown }>
+  >();
 
   for (const entry of entries) {
     if (entry.type === "llm-request") {
-      pendingRequest = {
+      const label = entry.label || "unknown";
+      const queue = pendingRequests.get(label) || [];
+      queue.push({
         label: entry.label || "unknown",
         request: entry.request,
-      };
-    } else if (entry.type === "llm-response" && pendingRequest) {
+      });
+      pendingRequests.set(label, queue);
+    } else if (entry.type === "llm-response") {
+      const label = entry.label || "unknown";
+      const queue = pendingRequests.get(label);
+      const pendingRequest = queue?.shift();
+
+      if (!pendingRequest) continue;
+
+      if (!queue?.length) {
+        pendingRequests.delete(label);
+      }
+
       pairs.push({
         label: pendingRequest.label,
         request: pendingRequest.request,
         response: entry.response,
       });
-      pendingRequest = null;
     }
   }
 

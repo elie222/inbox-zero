@@ -19,7 +19,7 @@ export interface RecordingEntry {
   type: EntryType;
 }
 
-export type FlowType = "webhook" | "chat";
+export type FlowType = "webhook" | "chat" | "rule-run";
 
 export interface SessionMetadata {
   commitSha?: string;

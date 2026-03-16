@@ -40,7 +40,7 @@ See `apps/web/__tests__/replay/` for examples of how to use `createReplayTestCon
 {
   "metadata": {
     "description": "Human-readable description of what this test covers",
-    "flow": "webhook" | "chat",
+    "flow": "webhook" | "chat" | "rule-run",
     "recordedAt": "ISO timestamp",
     "commitSha": "optional git SHA"
   },
@@ -65,9 +65,11 @@ fixtures/replay/
 ├── webhook/          # Webhook email processing flows
 │   ├── label-and-archive.json
 │   └── draft-reply.json
-└── chat/             # Assistant chat flows
-    ├── search-and-summarize.json
-    └── draft-reply-flow.json
+├── chat/             # Assistant chat flows
+│   ├── search-and-summarize.json
+│   └── draft-reply-flow.json
+└── rule-run/         # Manual/test rule execution flows
+    └── your-scenario.json
 ```
 
 ## Entry Types
