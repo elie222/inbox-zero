@@ -69,6 +69,32 @@ describe("sender-unsubscribe", () => {
     expect(prisma.newsletter.upsert).not.toHaveBeenCalled();
   });
 
+  it("treats DNS lookup failures as request failures", async () => {
+    dnsLookupMock.mockRejectedValue(
+      Object.assign(new Error("temporary failure"), {
+        code: "EAI_AGAIN",
+      }),
+    );
+
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId: "email-account-1",
+      newsletterEmail: "sender@example.com",
+      unsubscribeLink: "https://example.com/unsubscribe?id=1",
+      logger,
+    });
+
+    expect(httpsRequestMock).not.toHaveBeenCalled();
+    expect(result.unsubscribe).toEqual({
+      attempted: true,
+      success: false,
+      method: "get",
+      reason: "request_failed",
+      statusCode: undefined,
+    });
+    expect(result.status).toBeNull();
+    expect(prisma.newsletter.upsert).not.toHaveBeenCalled();
+  });
+
   it("attempts one-click unsubscribe with POST when an HTTP URL is available", async () => {
     dnsLookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
     queueHttpsResponse({ statusCode: 200 });

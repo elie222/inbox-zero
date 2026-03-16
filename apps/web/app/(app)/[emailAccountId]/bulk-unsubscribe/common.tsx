@@ -258,7 +258,7 @@ export function MoreDropdown<T extends Row>({
   emailAccountId: string;
   labels: EmailLabel[];
   posthog: PostHog;
-  mutate: () => Promise<void>;
+  mutate: () => Promise<unknown>;
 }) {
   const { provider } = useAccount();
   const terminology = getEmailTerminology(provider);

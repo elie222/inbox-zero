@@ -162,27 +162,27 @@ function getMappedIpv4Address(ipv6Address: string) {
 async function resolvePublicAddresses(
   hostname: string,
 ): Promise<ResolvedAddress[] | null> {
-  try {
-    const results = await lookup(hostname, {
-      all: true,
-      verbatim: true,
+  const results = await lookup(hostname, {
+    all: true,
+    verbatim: true,
+  });
+
+  if (!results.length) {
+    throw Object.assign(new Error("DNS lookup returned no results"), {
+      code: "ENOTFOUND",
     });
+  }
 
-    if (!results.length) return null;
+  const addresses = results.map((result) => ({
+    address: stripIpv6Brackets(result.address),
+    family: result.family as 4 | 6,
+  }));
 
-    const addresses = results.map((result) => ({
-      address: stripIpv6Brackets(result.address),
-      family: result.family as 4 | 6,
-    }));
-
-    if (addresses.some((result) => isResolvedAddressPrivate(result.address))) {
-      return null;
-    }
-
-    return addresses;
-  } catch {
+  if (addresses.some((result) => isResolvedAddressPrivate(result.address))) {
     return null;
   }
+
+  return addresses;
 }
 
 function isResolvedAddressPrivate(address: string) {

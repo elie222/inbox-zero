@@ -72,6 +72,19 @@ describe("isSafeExternalHttpUrl", () => {
     ).resolves.toBeNull();
   });
 
+  it("surfaces DNS lookup failures", async () => {
+    const error = Object.assign(new Error("temporary failure"), {
+      code: "EAI_AGAIN",
+    });
+    vi.mocked(dns.lookup).mockRejectedValue(error);
+
+    await expect(
+      resolveSafeExternalHttpUrl("https://news.example.com/unsubscribe"),
+    ).rejects.toMatchObject({
+      code: "EAI_AGAIN",
+    });
+  });
+
   it("returns a pinned DNS lookup for public hostnames", async () => {
     vi.mocked(dns.lookup).mockResolvedValue([
       { address: "93.184.216.34", family: 4 },

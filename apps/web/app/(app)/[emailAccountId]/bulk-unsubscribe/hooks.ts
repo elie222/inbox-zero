@@ -735,7 +735,7 @@ export function useBulkArchive<T extends Row>({
   posthog,
   emailAccountId,
 }: {
-  mutate: () => Promise<void>;
+  mutate: () => Promise<unknown>;
   posthog: PostHog;
   emailAccountId: string;
 }) {
@@ -847,7 +847,7 @@ export function useBulkDelete<T extends Row>({
   posthog,
   emailAccountId,
 }: {
-  mutate: () => Promise<void>;
+  mutate: () => Promise<unknown>;
   posthog: PostHog;
   emailAccountId: string;
 }) {
