@@ -1,9 +1,11 @@
 import { redis } from "@/utils/redis";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 
 export type ReplyWithConfidence = {
   reply: string;
   confidence: DraftReplyConfidence;
+  attribution: DraftAttribution | null;
 };
 
 export async function getReply({
@@ -38,17 +40,20 @@ export async function saveReply({
   messageId,
   reply,
   confidence,
+  attribution,
 }: {
   emailAccountId: string;
   messageId: string;
   reply: string;
   confidence: DraftReplyConfidence;
+  attribution: DraftAttribution | null;
 }) {
   return redis.set(
     getReplyKey({ emailAccountId, messageId }),
     JSON.stringify({
       reply,
       confidence,
+      attribution,
     }),
     {
       ex: 60 * 60 * 24, // 1 day
@@ -87,6 +92,7 @@ function parseReplyWithConfidenceFromObject(
   const { reply, confidence } = value as {
     reply?: unknown;
     confidence?: unknown;
+    attribution?: unknown;
   };
 
   if (typeof reply !== "string") return null;
@@ -95,6 +101,7 @@ function parseReplyWithConfidenceFromObject(
   return {
     reply,
     confidence,
+    attribution: parseDraftAttribution(value.attribution),
   };
 }
 
@@ -107,4 +114,22 @@ function isDraftReplyConfidence(
       confidence as DraftReplyConfidence,
     )
   );
+}
+
+function parseDraftAttribution(value: unknown): DraftAttribution | null {
+  if (!value || typeof value !== "object") return null;
+
+  const { provider, modelName, pipelineVersion } = value as {
+    provider?: unknown;
+    modelName?: unknown;
+    pipelineVersion?: unknown;
+  };
+
+  if (typeof provider !== "string") return null;
+  if (typeof modelName !== "string") return null;
+  if (typeof pipelineVersion !== "number" || Number.isNaN(pipelineVersion)) {
+    return null;
+  }
+
+  return { provider, modelName, pipelineVersion };
 }

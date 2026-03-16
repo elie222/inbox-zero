@@ -374,6 +374,11 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     vi.mocked(getReplyWithConfidence).mockResolvedValue({
       reply: "Cached draft reply",
       confidence: DraftReplyConfidence.STANDARD,
+      attribution: {
+        provider: "openai",
+        modelName: "gpt-5.1",
+        pipelineVersion: 1,
+      },
     });
 
     const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
@@ -388,6 +393,11 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     expect(result).toEqual({
       draft: "Cached draft reply",
       confidence: DraftReplyConfidence.STANDARD,
+      attribution: {
+        provider: "openai",
+        modelName: "gpt-5.1",
+        pipelineVersion: 1,
+      },
     });
     expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
   });
@@ -400,6 +410,11 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: "Fresh draft",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: {
+        provider: "anthropic",
+        modelName: "claude-sonnet-4-5",
+        pipelineVersion: 1,
+      },
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
       createMockEmailAccountSettings(),
@@ -417,12 +432,22 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     expect(result).toEqual({
       draft: "Fresh draft",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: {
+        provider: "anthropic",
+        modelName: "claude-sonnet-4-5",
+        pipelineVersion: 1,
+      },
     });
     expect(saveReply).toHaveBeenCalledWith({
       emailAccountId: "test-account-id",
       messageId: "msg-1",
       reply: "Fresh draft",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: {
+        provider: "anthropic",
+        modelName: "claude-sonnet-4-5",
+        pipelineVersion: 1,
+      },
     });
   });
 
@@ -430,6 +455,11 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: "Draft that should be skipped",
       confidence: DraftReplyConfidence.ALL_EMAILS,
+      attribution: {
+        provider: "openai",
+        modelName: "gpt-5.1",
+        pipelineVersion: 1,
+      },
     });
 
     const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
@@ -444,12 +474,22 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     expect(result).toEqual({
       draft: null,
       confidence: DraftReplyConfidence.ALL_EMAILS,
+      attribution: {
+        provider: "openai",
+        modelName: "gpt-5.1",
+        pipelineVersion: 1,
+      },
     });
     expect(saveReply).toHaveBeenCalledWith({
       emailAccountId: "test-account-id",
       messageId: "msg-1",
       reply: "Draft that should be skipped",
       confidence: DraftReplyConfidence.ALL_EMAILS,
+      attribution: {
+        provider: "openai",
+        modelName: "gpt-5.1",
+        pipelineVersion: 1,
+      },
     });
   });
 });

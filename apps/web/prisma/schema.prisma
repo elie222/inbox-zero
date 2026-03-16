@@ -572,6 +572,9 @@ model ExecutedAction {
   // additional fields as a result of the action
   draftId         String? // Gmail draft ID created by DRAFT_EMAIL action
   wasDraftSent    Boolean? // Tracks if the corresponding draft was sent (true) or ignored/superseded (false)
+  draftModelProvider String?
+  draftModelName     String?
+  draftPipelineVersion Int?
   draftSendLog    DraftSendLog? // Will exist if the draft was sent
   digestItems     DigestItem[] // Relation to digest items created by this action
   scheduledAction ScheduledAction? // Reverse relation for delayed actions

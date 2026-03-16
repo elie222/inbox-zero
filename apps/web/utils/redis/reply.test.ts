@@ -21,6 +21,11 @@ describe("saveReply", () => {
       messageId: "message-1",
       reply: "Draft reply",
       confidence: DraftReplyConfidence.STANDARD,
+      attribution: {
+        provider: "openai",
+        modelName: "gpt-5.1",
+        pipelineVersion: 1,
+      },
     });
 
     expect(redis.set).toHaveBeenCalledWith(
@@ -28,9 +33,43 @@ describe("saveReply", () => {
       JSON.stringify({
         reply: "Draft reply",
         confidence: DraftReplyConfidence.STANDARD,
+        attribution: {
+          provider: "openai",
+          modelName: "gpt-5.1",
+          pipelineVersion: 1,
+        },
       }),
       { ex: 60 * 60 * 24 },
     );
+  });
+
+  it("returns cached attribution metadata when present", async () => {
+    vi.mocked(redis.get).mockResolvedValue(
+      JSON.stringify({
+        reply: "Draft reply",
+        confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+        attribution: {
+          provider: "openai",
+          modelName: "gpt-5.1",
+          pipelineVersion: 1,
+        },
+      }),
+    );
+
+    const result = await getReplyWithConfidence({
+      emailAccountId: "account-1",
+      messageId: "message-1",
+    });
+
+    expect(result).toEqual({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: {
+        provider: "openai",
+        modelName: "gpt-5.1",
+        pipelineVersion: 1,
+      },
+    });
   });
 
   it("returns null for unsupported confidence values", async () => {

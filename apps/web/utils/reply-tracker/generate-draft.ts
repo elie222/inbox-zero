@@ -25,10 +25,12 @@ import {
 } from "@/utils/meeting-briefs/recipient-context";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { meetsDraftReplyConfidenceRequirement } from "@/utils/ai/reply/draft-confidence";
+import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 
 export type DraftGenerationResult = {
   draft: string | null;
   confidence: DraftReplyConfidence;
+  attribution: DraftAttribution | null;
 };
 
 /**
@@ -69,7 +71,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     ? { threadMessages: [testMessage], previousConversationMessages: null }
     : await fetchThreadAndConversationMessages(threadId, client);
 
-  const { draft, confidence } = await generateDraftContent(
+  const { draft, confidence, attribution } = await generateDraftContent(
     emailAccount,
     threadMessages,
     previousConversationMessages,
@@ -78,9 +80,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     minimumConfidence,
   );
 
-  if (draft == null) {
-    return { draft: null, confidence };
-  }
+  if (draft == null) return { draft: null, confidence, attribution };
 
   const emailAccountWithSignatures = await prisma.emailAccount.findUnique({
     where: { id: emailAccount.id },
@@ -110,7 +110,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     finalResult = `${finalResult}\n\n${emailAccountWithSignatures.signature}`;
   }
 
-  return { draft: finalResult, confidence };
+  return { draft: finalResult, confidence, attribution };
 }
 
 /**
@@ -163,7 +163,11 @@ async function generateDraftContent(
     });
 
     if (meetsThreshold) {
-      return { draft: cachedReply.reply, confidence: cachedReply.confidence };
+      return {
+        draft: cachedReply.reply,
+        confidence: cachedReply.confidence,
+        attribution: cachedReply.attribution,
+      };
     }
 
     logger.info("Skipping cached draft due to low confidence", {
@@ -259,7 +263,7 @@ async function generateDraftContent(
     : null;
 
   // 3. Draft reply
-  const { reply, confidence } = await aiDraftReplyWithConfidence({
+  const { reply, confidence, attribution } = await aiDraftReplyWithConfidence({
     messages,
     emailAccount,
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
@@ -294,6 +298,7 @@ async function generateDraftContent(
           messageId: lastMessage.id,
           reply,
           confidence,
+          attribution,
         });
       } catch (error) {
         logger.error("Failed to cache low-confidence draft", {
@@ -304,7 +309,7 @@ async function generateDraftContent(
       }
     }
 
-    return { draft: null, confidence };
+    return { draft: null, confidence, attribution };
   }
 
   if (typeof reply === "string") {
@@ -313,8 +318,9 @@ async function generateDraftContent(
       messageId: lastMessage.id,
       reply,
       confidence,
+      attribution,
     });
   }
 
-  return { draft: reply, confidence };
+  return { draft: reply, confidence, attribution };
 }
