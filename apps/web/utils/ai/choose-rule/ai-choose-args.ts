@@ -56,7 +56,7 @@ export type ActionArgResponse = {
   };
 };
 
-export type ActionArgGenerationResult = {
+type ActionArgGenerationResult = {
   args: ActionArgResponse | undefined;
   attribution: DraftAttribution | null;
 };
