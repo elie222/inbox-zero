@@ -329,6 +329,81 @@ describe("runRules draft attribution persistence", () => {
       }),
     ]);
   });
+
+  it("lets the database default the draft pipeline version when draft attribution is missing", async () => {
+    const draftRule = createRule("draft-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "draft-action-1",
+        type: ActionType.DRAFT_EMAIL,
+      }),
+    ]);
+
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [{ rule: draftRule, matchReasons: [] }],
+      reasoning: "Matched draft rule",
+    } as any);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([
+      {
+        ...getAction({
+          id: "draft-action-1",
+          type: ActionType.DRAFT_EMAIL,
+          content: "Generated draft content",
+        }),
+        draftModelProvider: null,
+        draftModelName: null,
+        draftPipelineVersion: null,
+      } as any,
+    ]);
+
+    const createSpy = prisma.executedRule.create.mockResolvedValue({
+      id: "exec-1",
+      status: ExecutedRuleStatus.APPLYING,
+      ruleId: draftRule.id,
+      threadId,
+      messageId: "message-1",
+      actionItems: [],
+    } as any);
+
+    await runRules({
+      provider: {} as any,
+      message: {
+        ...getEmail(),
+        id: "message-1",
+        threadId,
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        attachments: [],
+        headers: {
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Subject",
+          date: "Mon, 1 Jan 2026 12:00:00 +0000",
+          "message-id": "<message-1>",
+        },
+      } as any,
+      rules: [draftRule],
+      emailAccount: getEmailAccount(),
+      isTest: false,
+      modelType: "default" as any,
+      logger,
+    });
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    const createdActions =
+      createSpy.mock.calls[0]?.[0]?.data?.actionItems?.createMany?.data;
+    expect(createdActions).toHaveLength(1);
+    expect(createdActions?.[0]).toEqual(
+      expect.objectContaining({
+        type: ActionType.DRAFT_EMAIL,
+        content: "Generated draft content",
+        draftModelProvider: null,
+        draftModelName: null,
+      }),
+    );
+    expect(createdActions?.[0]).not.toHaveProperty("draftPipelineVersion");
+  });
 });
 
 describe("limitDraftEmailActions", () => {

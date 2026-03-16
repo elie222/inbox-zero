@@ -574,7 +574,7 @@ model ExecutedAction {
   wasDraftSent    Boolean? // Tracks if the corresponding draft was sent (true) or ignored/superseded (false)
   draftModelProvider String?
   draftModelName     String?
-  draftPipelineVersion Int?
+  draftPipelineVersion Int? @default(1)
   draftSendLog    DraftSendLog? // Will exist if the draft was sent
   digestItems     DigestItem[] // Relation to digest items created by this action
   scheduledAction ScheduledAction? // Reverse relation for delayed actions
