@@ -729,21 +729,28 @@ interface UploadSessionStatus {
 }
 
 async function getUploadSessionStatus(uploadUrl: string) {
-  try {
-    const response = await fetch(uploadUrl, { method: "GET" });
+  const response = await fetch(uploadUrl, { method: "GET" });
 
-    if (response.status === 404 || response.status === 405) {
-      return null;
-    }
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return (await response.json()) as UploadSessionStatus;
-  } catch {
+  if (response.status === 404 || response.status === 405) {
     return null;
   }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    const error = new Error(
+      `Failed to fetch Outlook upload session status: ${response.status} ${
+        errorText || response.statusText
+      }`,
+    );
+    Object.assign(error, {
+      status: response.status,
+      body: errorText,
+      response: { headers: response.headers, status: response.status },
+    });
+    throw error;
+  }
+
+  return (await response.json()) as UploadSessionStatus;
 }
 
 function getNextExpectedRangeStart(nextExpectedRanges?: string[]) {

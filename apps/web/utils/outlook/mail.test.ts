@@ -458,6 +458,70 @@ describe("sendEmailWithHtml", () => {
     );
     expect(sendPost).toHaveBeenCalledTimes(1);
   });
+
+  it("surfaces unexpected upload-session status failures during 416 recovery", async () => {
+    const draftPost = vi.fn(async () => {
+      return {
+        id: "draft-1",
+        conversationId: "conversation-1",
+      } as Message;
+    });
+    const createUploadSessionPost = vi.fn(async () => ({
+      uploadUrl: "https://upload.example.test/session",
+    }));
+    const sendPost = vi.fn(async () => ({}));
+    const totalSize = 3 * 1024 * 1024 + 1;
+    const chunkSize = 320 * 1024;
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === "GET") {
+        return new Response("unavailable", { status: 503 });
+      }
+
+      const contentRange = getContentRangeHeader(init);
+      if (contentRange === `bytes 0-${chunkSize - 1}/${totalSize}`) {
+        return new Response("already received", { status: 416 });
+      }
+
+      return createUploadChunkProgressResponse(init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages") return { post: draftPost };
+      if (path === "/me/messages/draft-1/attachments/createUploadSession") {
+        return { post: createUploadSessionPost };
+      }
+      if (path === "/me/messages/draft-1/send") return { post: sendPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await expect(
+      sendEmailWithHtml(
+        client,
+        {
+          to: "recipient@example.com",
+          subject: "Subject",
+          messageHtml: "<p>Hello</p>",
+          attachments: [
+            {
+              filename: "resume.pdf",
+              content: Buffer.alloc(totalSize),
+              contentType: "application/pdf",
+            },
+          ],
+        },
+        createScopedLogger("outlook-mail-test"),
+      ),
+    ).rejects.toMatchObject({
+      error: expect.objectContaining({
+        message: expect.stringContaining(
+          "Failed to fetch Outlook upload session status: 503",
+        ),
+      }),
+    });
+
+    expect(sendPost).not.toHaveBeenCalled();
+  });
 });
 
 function createMockOutlookClient(
