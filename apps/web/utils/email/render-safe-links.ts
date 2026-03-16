@@ -15,7 +15,7 @@ const HTML_ANCHOR_REGEX =
 const HTML_TAG_REGEX = /<[^>]+>/g;
 const URL_REGEX = /\bhttps?:\/\/[^\s<>()]+/gi;
 const SCHEMELESS_URL_REGEX =
-  /\b(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,}(?:(?::\d+)(?:(?:\/[^\s<>()]*)|(?:\?[^\s<>()]+))?|(?:\/[^\s<>()]*)|(?:\?[^\s<>()]+))/gi;
+  /\b(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,}(?:(?::\d+)?(?:[/?#][^\s<>()]*)|:\d+)/gi;
 const EMAIL_REGEX = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const DOMAIN_REGEX =
   /\b(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,}\b/gi;
@@ -24,7 +24,7 @@ const WHITESPACE_REGEX = /\s+/g;
 const WWW_PREFIX_REGEX = /^www\./i;
 const CRLF_REGEX = /\r\n/g;
 const URL_SCHEME_PREFIX_REGEX = /^[A-Z][A-Z\d+.-]*:\/\//i;
-const URL_PATH_OR_QUERY_PREFIX_REGEX = /[/?]/;
+const URL_SUFFIX_PREFIX_REGEX = /[/?#]/;
 const EXPLICIT_PORT_SUFFIX_REGEX = /:\d+$/;
 
 export function renderEmailTextWithSafeLinks(
@@ -283,7 +283,9 @@ function doesUrlTargetMatch(targetUrl: string, destination: URL) {
     return (
       normalizeComparablePath(parsedTarget.url.pathname) ===
         normalizeComparablePath(destination.pathname) &&
-      parsedTarget.url.search === destination.search
+      parsedTarget.url.search === destination.search &&
+      (!doesUrlLabelSpecifyFragment(targetUrl) ||
+        parsedTarget.url.hash === destination.hash)
     );
   } catch {
     return false;
@@ -304,17 +306,21 @@ function doesUrlOriginMatch(
 }
 
 function doesUrlLabelSpecifyPathOrQuery(rawTargetUrl: string, url: URL) {
-  if (getRawTargetPathOrQuery(rawTargetUrl)) return true;
+  if (getRawTargetSuffix(rawTargetUrl)) return true;
 
   return normalizeComparablePath(url.pathname) !== "/" || Boolean(url.search);
 }
 
-function getRawTargetPathOrQuery(rawTargetUrl: string) {
-  const withoutScheme = rawTargetUrl.replace(URL_SCHEME_PREFIX_REGEX, "");
-  const pathOrQueryIndex = withoutScheme.search(URL_PATH_OR_QUERY_PREFIX_REGEX);
+function doesUrlLabelSpecifyFragment(rawTargetUrl: string) {
+  return getRawTargetSuffix(rawTargetUrl).includes("#");
+}
 
-  if (pathOrQueryIndex === -1) return "";
-  return withoutScheme.slice(pathOrQueryIndex);
+function getRawTargetSuffix(rawTargetUrl: string) {
+  const withoutScheme = rawTargetUrl.replace(URL_SCHEME_PREFIX_REGEX, "");
+  const suffixIndex = withoutScheme.search(URL_SUFFIX_PREFIX_REGEX);
+
+  if (suffixIndex === -1) return "";
+  return withoutScheme.slice(suffixIndex);
 }
 
 function parseExplicitUrlTarget(targetUrl: string) {
@@ -342,7 +348,7 @@ function hasRawTargetPort(rawTargetUrl: string) {
 
 function getRawTargetAuthority(rawTargetUrl: string) {
   const withoutScheme = rawTargetUrl.replace(URL_SCHEME_PREFIX_REGEX, "");
-  const pathOrQueryIndex = withoutScheme.search(URL_PATH_OR_QUERY_PREFIX_REGEX);
+  const pathOrQueryIndex = withoutScheme.search(URL_SUFFIX_PREFIX_REGEX);
 
   if (pathOrQueryIndex === -1) return withoutScheme;
   return withoutScheme.slice(0, pathOrQueryIndex);

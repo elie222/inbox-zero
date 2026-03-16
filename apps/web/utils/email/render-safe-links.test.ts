@@ -138,6 +138,16 @@ describe("renderEmailTextWithSafeLinks", () => {
     );
   });
 
+  it("discloses the full destination when a scheme-less label specifies a fragment", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [example.com#section](https://example.com/other) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/other">example.com#section - https://example.com/other</a>',
+    );
+  });
+
   it("discloses the full destination when a URL label explicitly includes the root slash", () => {
     const result = renderEmailTextWithSafeLinks(
       "Use [https://example.com/](https://example.com/phish) to continue.",
