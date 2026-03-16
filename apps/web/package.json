@@ -40,7 +40,7 @@
     "@ai-sdk/perplexity": "3.0.23",
     "@ai-sdk/provider": "3.0.8",
     "@ai-sdk/react": "3.0.118",
-    "@asteasolutions/zod-to-openapi": "8.4.3",
+    "@asteasolutions/zod-to-openapi": "7.3.4",
     "@better-auth/expo": "1.5.5",
     "@better-auth/sso": "1.5.5",
     "@chat-adapter/slack": "4.20.2",
