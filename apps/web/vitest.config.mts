@@ -7,6 +7,11 @@ const envFile = isE2E ? "./.env.e2e" : "./.env.test";
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
+  // Vitest runs outside Next, so it must compile JSX instead of inheriting
+  // Next's tsconfig `jsx: "preserve"` setting.
+  esbuild: {
+    jsx: "automatic",
+  },
   test: {
     environment: "node",
     setupFiles: ["./__tests__/setup.ts"],
