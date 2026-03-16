@@ -12,6 +12,7 @@ import {
   findAutoArchiveFilter,
   filterNewsletters,
 } from "@/app/api/user/stats/newsletters/helpers";
+import { getUserFacingUnsubscribeLink } from "@/utils/parse/unsubscribe";
 
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
@@ -95,7 +96,10 @@ async function getEmailMessages(
       value: email.count,
       inboxEmails: email.inboxEmails,
       readEmails: email.readEmails,
-      unsubscribeLink: email.unsubscribeLink,
+      unsubscribeLink:
+        getUserFacingUnsubscribeLink({
+          unsubscribeLink: email.unsubscribeLink,
+        }) ?? null,
       autoArchived: findAutoArchiveFilter(
         autoArchiveFilters,
         from,

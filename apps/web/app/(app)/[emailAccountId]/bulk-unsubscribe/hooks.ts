@@ -11,7 +11,6 @@ import {
 } from "@/utils/actions/unsubscriber";
 import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import { NewsletterStatus } from "@/generated/prisma/enums";
-import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { captureException } from "@/utils/error";
 import { addToArchiveSenderQueue } from "@/store/archive-sender-queue";
 import { deleteEmails } from "@/store/archive-queue";
@@ -24,6 +23,7 @@ import {
   bulkArchiveAction,
   bulkTrashAction,
 } from "@/utils/actions/mail-bulk-action";
+import { getUserFacingUnsubscribeLink } from "@/utils/parse/unsubscribe";
 
 export type NewsletterFilterType =
   | "all"
@@ -265,7 +265,9 @@ export function useUnsubscribe<T extends Row>({
         await mutate();
       } else {
         const hasUnsubscribeLink = Boolean(
-          cleanUnsubscribeLink(item.unsubscribeLink),
+          getUserFacingUnsubscribeLink({
+            unsubscribeLink: item.unsubscribeLink,
+          }),
         );
         if (!hasUnsubscribeLink) {
           await blockSender({
@@ -310,7 +312,9 @@ export function useUnsubscribe<T extends Row>({
     onUnsubscribe,
     unsubscribeLink:
       hasUnsubscribeAccess && item.unsubscribeLink
-        ? cleanUnsubscribeLink(item.unsubscribeLink) || "#"
+        ? getUserFacingUnsubscribeLink({
+            unsubscribeLink: item.unsubscribeLink,
+          }) || "#"
         : "#",
   };
 }
@@ -344,7 +348,9 @@ export function useBulkUnsubscribe<T extends Row>({
         onDeselectItem,
         newStatus: NewsletterStatus.UNSUBSCRIBED,
         getNewStatus: (item) =>
-          cleanUnsubscribeLink(item.unsubscribeLink)
+          getUserFacingUnsubscribeLink({
+            unsubscribeLink: item.unsubscribeLink,
+          })
             ? NewsletterStatus.UNSUBSCRIBED
             : NewsletterStatus.AUTO_ARCHIVED,
         loadingMessage: "Unsubscribing from",
@@ -352,7 +358,9 @@ export function useBulkUnsubscribe<T extends Row>({
         errorMessage: "Failed to unsubscribe from",
         processItem: async (item) => {
           const hasUnsubscribeLink = Boolean(
-            cleanUnsubscribeLink(item.unsubscribeLink),
+            getUserFacingUnsubscribeLink({
+              unsubscribeLink: item.unsubscribeLink,
+            }),
           );
           if (!hasUnsubscribeLink) {
             await blockSender({
@@ -944,7 +952,9 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
           // unsubscribe
           e.preventDefault();
           const hasUnsubscribeLink = Boolean(
-            cleanUnsubscribeLink(item.unsubscribeLink),
+            getUserFacingUnsubscribeLink({
+              unsubscribeLink: item.unsubscribeLink,
+            }),
           );
           if (!hasUnsubscribeLink) {
             await blockSender({

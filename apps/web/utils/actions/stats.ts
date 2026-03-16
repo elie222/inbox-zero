@@ -10,6 +10,7 @@ import {
   extractNameFromEmail,
 } from "@/utils/email";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
+import { getUserFacingUnsubscribeLink } from "@/utils/parse/unsubscribe";
 import { internalDateToDate } from "@/utils/date";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
@@ -178,8 +179,10 @@ async function saveBatch({
 
   const emailsToSave = messages
     .map((m) => {
-      const unsubscribeLink =
-        findUnsubscribeLink(m.textHtml) || m.headers["list-unsubscribe"];
+      const unsubscribeLink = getUserFacingUnsubscribeLink({
+        unsubscribeLink: findUnsubscribeLink(m.textHtml),
+        listUnsubscribeHeader: m.headers["list-unsubscribe"],
+      });
 
       const date = internalDateToDate(m.internalDate);
       if (!date) {

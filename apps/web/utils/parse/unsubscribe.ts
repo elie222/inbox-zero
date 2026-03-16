@@ -47,23 +47,48 @@ export function getHttpUnsubscribeLink(options: {
   unsubscribeLink?: string | null;
   listUnsubscribeHeader?: string | null;
 }) {
+  return getMatchingUnsubscribeLink(options, ["http:", "https:"]);
+}
+
+export function getUserFacingUnsubscribeLink(options: {
+  unsubscribeLink?: string | null;
+  listUnsubscribeHeader?: string | null;
+}) {
+  return getMatchingUnsubscribeLink(options, ["http:", "https:", "mailto:"]);
+}
+
+function getMatchingUnsubscribeLink(
+  options: {
+    unsubscribeLink?: string | null;
+    listUnsubscribeHeader?: string | null;
+  },
+  allowedProtocols: string[],
+) {
   const headerLinks = parseListUnsubscribeHeader(options.listUnsubscribeHeader);
   const fallbackLinks = parseListUnsubscribeHeader(options.unsubscribeLink);
 
   const allLinks = [...headerLinks, ...fallbackLinks];
 
   for (const link of allLinks) {
-    if (isHttpLink(link)) return link;
+    const normalizedLink = normalizeAllowedUnsubscribeLink(
+      link,
+      allowedProtocols,
+    );
+    if (normalizedLink) return normalizedLink;
   }
 
   return undefined;
 }
 
-function isHttpLink(link: string): boolean {
+function normalizeAllowedUnsubscribeLink(
+  link: string,
+  allowedProtocols: string[],
+) {
   try {
     const url = new URL(link);
-    return url.protocol === "http:" || url.protocol === "https:";
+    if (!allowedProtocols.includes(url.protocol)) return undefined;
+    return url.toString();
   } catch {
-    return false;
+    return undefined;
   }
 }

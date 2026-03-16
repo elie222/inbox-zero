@@ -184,7 +184,7 @@ function UnsubscribeButton<T extends Row>({
           href={unsubscribeLink}
           target={hasUnsubscribeLink ? "_blank" : undefined}
           onClick={onUnsubscribe}
-          rel="noreferrer"
+          rel="noopener noreferrer"
         >
           {unsubscribeLoading && <ButtonLoader />}
           {buttonText}

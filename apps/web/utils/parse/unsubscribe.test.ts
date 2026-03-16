@@ -4,6 +4,7 @@ import {
   containsUnsubscribeKeyword,
   containsUnsubscribeUrlPattern,
   getHttpUnsubscribeLink,
+  getUserFacingUnsubscribeLink,
   parseListUnsubscribeHeader,
 } from "./unsubscribe";
 
@@ -254,6 +255,25 @@ describe("getHttpUnsubscribeLink", () => {
       getHttpUnsubscribeLink({
         listUnsubscribeHeader: "<mailto:unsubscribe@example.com>",
         unsubscribeLink: "mailto:alt@example.com",
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe("getUserFacingUnsubscribeLink", () => {
+  it("returns the first safe manual unsubscribe link from a mixed header", () => {
+    expect(
+      getUserFacingUnsubscribeLink({
+        listUnsubscribeHeader:
+          "<javascript:alert(1)>, <mailto:unsubscribe@example.com>, <https://example.com/unsub?id=1>",
+      }),
+    ).toBe("mailto:unsubscribe@example.com");
+  });
+
+  it("returns undefined when every unsubscribe link uses an unsafe scheme", () => {
+    expect(
+      getUserFacingUnsubscribeLink({
+        unsubscribeLink: "javascript:alert(1)",
       }),
     ).toBeUndefined();
   });
