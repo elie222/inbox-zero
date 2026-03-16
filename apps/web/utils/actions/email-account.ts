@@ -8,8 +8,12 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { z } from "zod";
 import { updateContactRole } from "@inboxzero/loops";
+import {
+  updateHiddenAiDraftLinksBody,
+  updateReferralSignatureBody,
+} from "@/utils/actions/email-account.validation";
+import { z } from "zod";
 
 export const updateEmailAccountRoleAction = actionClient
   .metadata({ name: "updateEmailAccountRole" })
@@ -89,11 +93,9 @@ export const analyzePersonaAction = actionClient
     return personaAnalysis;
   });
 
-const updateReferralSignatureSchema = z.object({ enabled: z.boolean() });
-
 export const updateReferralSignatureAction = actionClient
   .metadata({ name: "updateReferralSignature" })
-  .inputSchema(updateReferralSignatureSchema)
+  .inputSchema(updateReferralSignatureBody)
   .action(
     async ({ ctx: { emailAccountId, logger }, parsedInput: { enabled } }) => {
       logger.info("Updating referral signature", { enabled });
@@ -101,6 +103,20 @@ export const updateReferralSignatureAction = actionClient
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: { includeReferralSignature: enabled },
+      });
+    },
+  );
+
+export const updateHiddenAiDraftLinksAction = actionClient
+  .metadata({ name: "updateHiddenAiDraftLinks" })
+  .inputSchema(updateHiddenAiDraftLinksBody)
+  .action(
+    async ({ ctx: { emailAccountId, logger }, parsedInput: { enabled } }) => {
+      logger.info("Updating hidden AI draft links", { enabled });
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { allowHiddenAiDraftLinks: enabled },
       });
     },
   );

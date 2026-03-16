@@ -150,6 +150,7 @@ model EmailAccount {
   autoCategorizeSenders     Boolean              @default(false)
   multiRuleSelectionEnabled Boolean              @default(false)
   draftReplyConfidence      DraftReplyConfidence @default(ALL_EMAILS)
+  allowHiddenAiDraftLinks   Boolean              @default(false)
 
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes

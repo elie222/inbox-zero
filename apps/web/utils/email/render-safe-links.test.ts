@@ -66,6 +66,128 @@ describe("renderEmailTextWithSafeLinks", () => {
     );
   });
 
+  it("shows visible destinations instead of hidden anchors when hidden links are disabled", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [the login page](https://example.com/login) or email [support](mailto:help@example.com).",
+      { allowHiddenLinks: false },
+    );
+
+    expect(result).toContain(
+      "Use https://example.com/login or email help@example.com.",
+    );
+    expect(result).not.toContain("<a href=");
+  });
+
+  it("discloses the actual destination when the label contains a different domain", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [getinboxzero.com](https://attacker.tld/login) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://attacker.tld/login">getinboxzero.com - attacker.tld</a>',
+    );
+  });
+
+  it("discloses the actual destination when the label contains a different subdomain", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [login.example.com](https://evil.example.com/login) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://evil.example.com/login">login.example.com - evil.example.com</a>',
+    );
+  });
+
+  it("discloses the full destination when a URL label contains a different path", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [https://example.com/login](https://example.com/phish) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/phish">https://example.com/login - https://example.com/phish</a>',
+    );
+  });
+
+  it("discloses the full destination when a scheme-less URL label contains a different path", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [example.com/login](https://example.com/phish) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/phish">example.com/login - https://example.com/phish</a>',
+    );
+  });
+
+  it("treats scheme-less URL labels as protocol-agnostic matches", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [example.com/login](http://example.com/login) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="http://example.com/login">example.com/login</a>',
+    );
+  });
+
+  it("discloses the full destination when a scheme-less label specifies a different port", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [example.com:8080](http://example.com:9090/path) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="http://example.com:9090/path">example.com:8080 - http://example.com:9090/path</a>',
+    );
+  });
+
+  it("discloses the full destination when a scheme-less label specifies a fragment", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [example.com#section](https://example.com/other) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/other">example.com#section - https://example.com/other</a>',
+    );
+  });
+
+  it("discloses the full destination when a URL label explicitly includes the root slash", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [https://example.com/](https://example.com/phish) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/phish">https://example.com/ - https://example.com/phish</a>',
+    );
+  });
+
+  it("keeps bare URL labels unchanged when only the destination path differs", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [https://example.com](https://example.com/phish) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/phish">https://example.com</a>',
+    );
+  });
+
+  it("treats www-only hostname differences as the same destination", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [www.example.com](https://example.com/login) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/login">www.example.com</a>',
+    );
+  });
+
+  it("keeps generic labels unchanged when hidden links are enabled", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [click here](https://example.com/login) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/login">click here</a>',
+    );
+  });
+
   it("preserves newlines as plain text until the provider formatter handles them", () => {
     const result = renderEmailTextWithSafeLinks("Line one\nLine two");
 
