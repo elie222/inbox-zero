@@ -14,6 +14,8 @@ const HTML_ANCHOR_REGEX =
   /<a\s+[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi;
 const HTML_TAG_REGEX = /<[^>]+>/g;
 const URL_REGEX = /\bhttps?:\/\/[^\s<>()]+/gi;
+const SCHEMELESS_URL_WITH_PATH_REGEX =
+  /\b(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,}(?:(?:\/[^\s<>()]*)|(?:\?[^\s<>()]+))/gi;
 const EMAIL_REGEX = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const DOMAIN_REGEX =
   /\b(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,}\b/gi;
@@ -21,6 +23,8 @@ const TRAILING_PUNCTUATION_REGEX = /[),.;:!?]+$/g;
 const WHITESPACE_REGEX = /\s+/g;
 const WWW_PREFIX_REGEX = /^www\./i;
 const CRLF_REGEX = /\r\n/g;
+const URL_SCHEME_PREFIX_REGEX = /^[A-Z][A-Z\d+.-]*:\/\//i;
+const URL_PATH_OR_QUERY_PREFIX_REGEX = /[/?]/;
 
 export function renderEmailTextWithSafeLinks(
   text: string,
@@ -214,8 +218,21 @@ function extractExplicitLinkTargets(value: string) {
   EMAIL_REGEX.lastIndex = 0;
   const withoutUrlsOrEmails = withoutUrls.replace(EMAIL_REGEX, " ");
 
+  SCHEMELESS_URL_WITH_PATH_REGEX.lastIndex = 0;
+  const schemeLessUrlMatches =
+    withoutUrlsOrEmails.match(SCHEMELESS_URL_WITH_PATH_REGEX) || [];
+  for (const match of schemeLessUrlMatches) {
+    targets.push({ type: "url", value: trimTrailingPunctuation(match) });
+  }
+
+  SCHEMELESS_URL_WITH_PATH_REGEX.lastIndex = 0;
+  const withoutExplicitUrls = withoutUrlsOrEmails.replace(
+    SCHEMELESS_URL_WITH_PATH_REGEX,
+    " ",
+  );
+
   DOMAIN_REGEX.lastIndex = 0;
-  const domainMatches = withoutUrlsOrEmails.match(DOMAIN_REGEX) || [];
+  const domainMatches = withoutExplicitUrls.match(DOMAIN_REGEX) || [];
   for (const match of domainMatches) {
     targets.push({ type: "domain", value: trimTrailingPunctuation(match) });
   }
@@ -240,7 +257,7 @@ function doesTargetMatchUrl(target: ExplicitLinkTarget, url: string) {
 
 function doesUrlTargetMatch(targetUrl: string, destination: URL) {
   try {
-    const parsedTarget = new URL(targetUrl);
+    const parsedTarget = parseExplicitUrlTarget(targetUrl);
 
     if (parsedTarget.protocol === "mailto:") {
       return (
@@ -251,7 +268,7 @@ function doesUrlTargetMatch(targetUrl: string, destination: URL) {
     }
 
     if (!doesUrlOriginMatch(parsedTarget, destination)) return false;
-    if (!doesUrlLabelSpecifyPathOrQuery(parsedTarget)) return true;
+    if (!doesUrlLabelSpecifyPathOrQuery(targetUrl, parsedTarget)) return true;
 
     return (
       normalizeComparablePath(parsedTarget.pathname) ===
@@ -271,8 +288,26 @@ function doesUrlOriginMatch(left: URL, right: URL) {
   );
 }
 
-function doesUrlLabelSpecifyPathOrQuery(url: URL) {
+function doesUrlLabelSpecifyPathOrQuery(rawTargetUrl: string, url: URL) {
+  if (getRawTargetPathOrQuery(rawTargetUrl)) return true;
+
   return normalizeComparablePath(url.pathname) !== "/" || Boolean(url.search);
+}
+
+function getRawTargetPathOrQuery(rawTargetUrl: string) {
+  const withoutScheme = rawTargetUrl.replace(URL_SCHEME_PREFIX_REGEX, "");
+  const pathOrQueryIndex = withoutScheme.search(URL_PATH_OR_QUERY_PREFIX_REGEX);
+
+  if (pathOrQueryIndex === -1) return "";
+  return withoutScheme.slice(pathOrQueryIndex);
+}
+
+function parseExplicitUrlTarget(targetUrl: string) {
+  if (URL_SCHEME_PREFIX_REGEX.test(targetUrl)) {
+    return new URL(targetUrl);
+  }
+
+  return new URL(`https://${targetUrl}`);
 }
 
 function getComparablePort(url: URL) {

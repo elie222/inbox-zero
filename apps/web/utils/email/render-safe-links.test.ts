@@ -108,6 +108,26 @@ describe("renderEmailTextWithSafeLinks", () => {
     );
   });
 
+  it("discloses the full destination when a scheme-less URL label contains a different path", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [example.com/login](https://example.com/phish) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/phish">example.com/login - https://example.com/phish</a>',
+    );
+  });
+
+  it("discloses the full destination when a URL label explicitly includes the root slash", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [https://example.com/](https://example.com/phish) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/phish">https://example.com/ - https://example.com/phish</a>',
+    );
+  });
+
   it("keeps bare URL labels unchanged when only the destination path differs", () => {
     const result = renderEmailTextWithSafeLinks(
       "Use [https://example.com](https://example.com/phish) to continue.",
