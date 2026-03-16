@@ -66,6 +66,38 @@ describe("renderEmailTextWithSafeLinks", () => {
     );
   });
 
+  it("shows visible destinations instead of hidden anchors when hidden links are disabled", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [the login page](https://example.com/login) or email [support](mailto:help@example.com).",
+      { allowHiddenLinks: false },
+    );
+
+    expect(result).toContain(
+      "Use https://example.com/login or email help@example.com.",
+    );
+    expect(result).not.toContain("<a href=");
+  });
+
+  it("discloses the actual destination when the label contains a different domain", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [getinboxzero.com](https://attacker.tld/login) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://attacker.tld/login">getinboxzero.com - attacker.tld</a>',
+    );
+  });
+
+  it("keeps generic labels unchanged when hidden links are enabled", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [click here](https://example.com/login) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/login">click here</a>',
+    );
+  });
+
   it("preserves newlines as plain text until the provider formatter handles them", () => {
     const result = renderEmailTextWithSafeLinks("Line one\nLine two");
 

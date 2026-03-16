@@ -1,10 +1,19 @@
 import he from "he";
+import { getDomain } from "tldts";
 import { escapeHtml } from "@/utils/string";
 
-export function renderEmailTextWithSafeLinks(text: string): string {
+type RenderSafeLinksOptions = {
+  allowHiddenLinks?: boolean;
+};
+
+export function renderEmailTextWithSafeLinks(
+  text: string,
+  options: RenderSafeLinksOptions = {},
+): string {
   const matches = findLinkMatches(text);
   if (!matches.length) return escapeTextSegment(text);
 
+  const allowHiddenLinks = options.allowHiddenLinks ?? true;
   let result = "";
   let lastIndex = 0;
 
@@ -16,6 +25,12 @@ export function renderEmailTextWithSafeLinks(text: string): string {
     const safeUrl = getSafeEmailLinkUrl(match.url);
     if (!safeUrl) {
       result += escapeTextSegment(match.raw);
+      lastIndex = match.end;
+      continue;
+    }
+
+    if (!allowHiddenLinks) {
+      result += escapeHtml(getVisibleLinkText(safeUrl));
       lastIndex = match.end;
       continue;
     }
@@ -97,7 +112,26 @@ function findMarkdownLinkMatches(text: string) {
 
 function formatLinkLabel(label: string, url: string) {
   const normalizedLabel = normalizeWhitespace(stripHtmlTags(label));
-  return normalizedLabel || getLinkDestinationLabel(url);
+  const destinationLabel = getLinkDestinationLabel(url);
+
+  if (!normalizedLabel) return destinationLabel;
+
+  const explicitTargets = extractExplicitLinkTargets(normalizedLabel);
+  if (!explicitTargets.length) return normalizedLabel;
+  if (explicitTargets.every((target) => doesTargetMatchUrl(target, url))) {
+    return normalizedLabel;
+  }
+
+  return `${normalizedLabel} - ${destinationLabel}`;
+}
+
+function getVisibleLinkText(url: string) {
+  const parsed = new URL(url);
+  if (parsed.protocol === "mailto:") {
+    return getLinkDestinationLabel(url);
+  }
+
+  return url;
 }
 
 function getLinkDestinationLabel(url: string) {
@@ -128,6 +162,91 @@ function getSafeEmailLinkUrl(url: string) {
 
 function stripHtmlTags(value: string) {
   return value.replace(/<[^>]+>/g, " ");
+}
+
+function extractExplicitLinkTargets(value: string) {
+  const targets: Array<
+    | { type: "domain"; value: string }
+    | { type: "email"; value: string }
+    | { type: "url"; value: string }
+  > = [];
+
+  const urlRegex = /\bhttps?:\/\/[^\s<>()]+/gi;
+  const emailRegex = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+  const domainRegex =
+    /\b(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,}\b/gi;
+
+  const urlMatches = value.match(urlRegex) || [];
+  for (const match of urlMatches) {
+    targets.push({ type: "url", value: trimTrailingPunctuation(match) });
+  }
+
+  const withoutUrls = value.replace(urlRegex, " ");
+  const emailMatches = withoutUrls.match(emailRegex) || [];
+  for (const match of emailMatches) {
+    targets.push({ type: "email", value: trimTrailingPunctuation(match) });
+  }
+
+  const withoutUrlsOrEmails = withoutUrls.replace(emailRegex, " ");
+  const domainMatches = withoutUrlsOrEmails.match(domainRegex) || [];
+  for (const match of domainMatches) {
+    targets.push({ type: "domain", value: trimTrailingPunctuation(match) });
+  }
+
+  return targets;
+}
+
+function doesTargetMatchUrl(
+  target:
+    | { type: "domain"; value: string }
+    | { type: "email"; value: string }
+    | { type: "url"; value: string },
+  url: string,
+) {
+  const parsed = new URL(url);
+  const hostname = normalizeHostname(parsed.hostname);
+
+  switch (target.type) {
+    case "url":
+      return doesUrlTargetMatch(target.value, parsed);
+    case "email":
+      if (parsed.protocol !== "mailto:") return false;
+      return target.value.toLowerCase() === parsed.pathname.toLowerCase();
+    case "domain":
+      return hostname === normalizeHostname(target.value);
+  }
+}
+
+function doesUrlTargetMatch(targetUrl: string, destination: URL) {
+  try {
+    const parsedTarget = new URL(targetUrl);
+
+    if (parsedTarget.protocol === "mailto:") {
+      return (
+        destination.protocol === "mailto:" &&
+        parsedTarget.pathname.toLowerCase() ===
+          destination.pathname.toLowerCase()
+      );
+    }
+
+    return (
+      normalizeHostname(parsedTarget.hostname) ===
+      normalizeHostname(destination.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function normalizeHostname(value: string) {
+  return (
+    getDomain(value)?.toLowerCase() ||
+    value.replace(/^www\./i, "").toLowerCase()
+  );
+}
+
+function trimTrailingPunctuation(value: string) {
+  return value.replace(/[),.;:!?]+$/g, "");
 }
 
 function findNextMarkdownLinkMatch(text: string, startIndex: number) {
