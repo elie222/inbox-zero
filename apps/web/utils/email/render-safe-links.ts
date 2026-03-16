@@ -1,10 +1,21 @@
 import he from "he";
-import { getDomain } from "tldts";
 import { escapeHtml } from "@/utils/string";
 
 type RenderSafeLinksOptions = {
   allowHiddenLinks?: boolean;
 };
+
+const HTML_ANCHOR_REGEX =
+  /<a\s+[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi;
+const HTML_TAG_REGEX = /<[^>]+>/g;
+const URL_REGEX = /\bhttps?:\/\/[^\s<>()]+/gi;
+const EMAIL_REGEX = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const DOMAIN_REGEX =
+  /\b(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,}\b/gi;
+const TRAILING_PUNCTUATION_REGEX = /[),.;:!?]+$/g;
+const WHITESPACE_REGEX = /\s+/g;
+const WWW_PREFIX_REGEX = /^www\./i;
+const CRLF_REGEX = /\r\n/g;
 
 export function renderEmailTextWithSafeLinks(
   text: string,
@@ -64,9 +75,9 @@ function findHtmlAnchorMatches(text: string) {
     start: number;
     url: string;
   }> = [];
-  const regex = /<a\s+[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi;
 
-  let match = regex.exec(text);
+  HTML_ANCHOR_REGEX.lastIndex = 0;
+  let match = HTML_ANCHOR_REGEX.exec(text);
   while (match) {
     matches.push({
       start: match.index,
@@ -76,7 +87,7 @@ function findHtmlAnchorMatches(text: string) {
       label: decodeHtmlEntities(stripHtmlTags(match[3] || "")),
     });
 
-    match = regex.exec(text);
+    match = HTML_ANCHOR_REGEX.exec(text);
   }
 
   return matches;
@@ -140,7 +151,7 @@ function getLinkDestinationLabel(url: string) {
     return parsed.pathname || url;
   }
 
-  return parsed.hostname.replace(/^www\./, "");
+  return parsed.hostname.replace(WWW_PREFIX_REGEX, "");
 }
 
 function getSafeEmailLinkUrl(url: string) {
@@ -161,7 +172,7 @@ function getSafeEmailLinkUrl(url: string) {
 }
 
 function stripHtmlTags(value: string) {
-  return value.replace(/<[^>]+>/g, " ");
+  return value.replace(HTML_TAG_REGEX, " ");
 }
 
 function extractExplicitLinkTargets(value: string) {
@@ -171,24 +182,26 @@ function extractExplicitLinkTargets(value: string) {
     | { type: "url"; value: string }
   > = [];
 
-  const urlRegex = /\bhttps?:\/\/[^\s<>()]+/gi;
-  const emailRegex = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
-  const domainRegex =
-    /\b(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,}\b/gi;
-
-  const urlMatches = value.match(urlRegex) || [];
+  URL_REGEX.lastIndex = 0;
+  const urlMatches = value.match(URL_REGEX) || [];
   for (const match of urlMatches) {
     targets.push({ type: "url", value: trimTrailingPunctuation(match) });
   }
 
-  const withoutUrls = value.replace(urlRegex, " ");
-  const emailMatches = withoutUrls.match(emailRegex) || [];
+  URL_REGEX.lastIndex = 0;
+  const withoutUrls = value.replace(URL_REGEX, " ");
+
+  EMAIL_REGEX.lastIndex = 0;
+  const emailMatches = withoutUrls.match(EMAIL_REGEX) || [];
   for (const match of emailMatches) {
     targets.push({ type: "email", value: trimTrailingPunctuation(match) });
   }
 
-  const withoutUrlsOrEmails = withoutUrls.replace(emailRegex, " ");
-  const domainMatches = withoutUrlsOrEmails.match(domainRegex) || [];
+  EMAIL_REGEX.lastIndex = 0;
+  const withoutUrlsOrEmails = withoutUrls.replace(EMAIL_REGEX, " ");
+
+  DOMAIN_REGEX.lastIndex = 0;
+  const domainMatches = withoutUrlsOrEmails.match(DOMAIN_REGEX) || [];
   for (const match of domainMatches) {
     targets.push({ type: "domain", value: trimTrailingPunctuation(match) });
   }
@@ -239,14 +252,11 @@ function doesUrlTargetMatch(targetUrl: string, destination: URL) {
 }
 
 function normalizeHostname(value: string) {
-  return (
-    getDomain(value)?.toLowerCase() ||
-    value.replace(/^www\./i, "").toLowerCase()
-  );
+  return value.replace(WWW_PREFIX_REGEX, "").toLowerCase();
 }
 
 function trimTrailingPunctuation(value: string) {
-  return value.replace(/[),.;:!?]+$/g, "");
+  return value.replace(TRAILING_PUNCTUATION_REGEX, "");
 }
 
 function findNextMarkdownLinkMatch(text: string, startIndex: number) {
@@ -281,7 +291,13 @@ function findMarkdownLinkUrlEnd(text: string, startIndex: number) {
     const character = text[index];
 
     if (!character) break;
-    if (/\s/.test(character)) return -1;
+    if (
+      character === " " ||
+      character === "\t" ||
+      character === "\n" ||
+      character === "\r"
+    )
+      return -1;
 
     if (character === "(") {
       depth++;
@@ -302,9 +318,9 @@ function decodeHtmlEntities(value: string) {
 }
 
 function normalizeWhitespace(value: string) {
-  return value.replace(/\s+/g, " ").trim();
+  return value.replace(WHITESPACE_REGEX, " ").trim();
 }
 
 function escapeTextSegment(value: string) {
-  return escapeHtml(value).replace(/\r\n/g, "\n");
+  return escapeHtml(value).replace(CRLF_REGEX, "\n");
 }

@@ -88,6 +88,26 @@ describe("renderEmailTextWithSafeLinks", () => {
     );
   });
 
+  it("discloses the actual destination when the label contains a different subdomain", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [login.example.com](https://evil.example.com/login) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://evil.example.com/login">login.example.com - evil.example.com</a>',
+    );
+  });
+
+  it("treats www-only hostname differences as the same destination", () => {
+    const result = renderEmailTextWithSafeLinks(
+      "Use [www.example.com](https://example.com/login) to continue.",
+    );
+
+    expect(result).toContain(
+      '<a href="https://example.com/login">www.example.com</a>',
+    );
+  });
+
   it("keeps generic labels unchanged when hidden links are enabled", () => {
     const result = renderEmailTextWithSafeLinks(
       "Use [click here](https://example.com/login) to continue.",
