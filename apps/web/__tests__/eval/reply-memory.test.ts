@@ -214,7 +214,7 @@ function formatJudgeActual(
   summary: string,
   judgeResult: { pass: boolean; reasoning: string },
 ) {
-  return `${summary} | judge=${judgeResult.pass ? "PASS" : "FAIL"} (${judgeResult.reasoning})`;
+  return `${summary}; judge=${judgeResult.pass ? "PASS" : "FAIL"} (${judgeResult.reasoning})`;
 }
 
 function getEvalJudgeUserAi() {
