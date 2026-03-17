@@ -163,9 +163,11 @@ describe("createRuleSchema", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain(
-        "Leave static.from empty",
-      );
+      expect(
+        result.error.issues.some(
+          (issue) => issue.path.join(".") === "condition.static.from",
+        ),
+      ).toBe(true);
     }
   });
 
@@ -196,6 +198,13 @@ describe("createRuleSchema", () => {
     });
 
     expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some(
+          (issue) => issue.path.join(".") === "condition.static.from",
+        ),
+      ).toBe(true);
+    }
   });
 
   it("rejects sender-only aiInstructions when static.from already defines the match", () => {
