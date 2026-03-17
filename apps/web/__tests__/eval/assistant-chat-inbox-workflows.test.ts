@@ -635,7 +635,7 @@ async function runAssistantChat({
   messages: ModelMessage[];
   inboxStats?: { total: number; unread: number } | null;
 }) {
-  const capturedToolCalls: Array<{ toolName: string; input: unknown }> = [];
+  const toolCalls: Array<{ toolName: string; input: unknown }> = [];
 
   const result = await aiProcessAssistantChat({
     messages,
@@ -643,9 +643,9 @@ async function runAssistantChat({
     user: emailAccount,
     inboxStats,
     logger,
-    onStepFinish: async ({ toolCalls }) => {
-      for (const toolCall of toolCalls || []) {
-        capturedToolCalls.push({
+    onStepFinish: async ({ toolCalls: stepToolCalls }) => {
+      for (const toolCall of stepToolCalls || []) {
+        toolCalls.push({
           toolName: toolCall.toolName,
           input: toolCall.input,
         });
@@ -656,12 +656,12 @@ async function runAssistantChat({
   await result.consumeStream();
 
   const actual =
-    capturedToolCalls.length > 0
-      ? capturedToolCalls.map(summarizeToolCall).join(" | ")
+    toolCalls.length > 0
+      ? toolCalls.map(summarizeToolCall).join(" | ")
       : "no tool calls";
 
   return {
-    toolCalls: capturedToolCalls,
+    toolCalls,
     actual,
   };
 }
