@@ -149,7 +149,7 @@ describe.runIf(shouldRunEval)(
               {
                 role: "user",
                 content:
-                  'Create a rule called "Briefings" that labels emails from @briefing.example as Briefings.',
+                  "Please set up a Briefings rule so emails from @briefing.example get labeled for me.",
               },
             ];
 
@@ -181,7 +181,7 @@ describe.runIf(shouldRunEval)(
               {
                 role: "user",
                 content:
-                  'Create a rule called "Reservations" that labels and marks as read emails from @lodging.example, @flight-alerts.example, and @rail.example.',
+                  "Can you treat emails from @lodging.example, @flight-alerts.example, and @rail.example as Reservations and mark them read for me?",
               },
             ];
 
@@ -215,7 +215,7 @@ describe.runIf(shouldRunEval)(
               {
                 role: "user",
                 content:
-                  'Create a rule called "Escalations" that labels emails about vendor escalations as Escalations.',
+                  "I want vendor escalation emails to stand out. Please make a rule that labels those as Escalations.",
               },
             ];
 
@@ -248,7 +248,7 @@ describe.runIf(shouldRunEval)(
               {
                 role: "user",
                 content:
-                  'Create a rule called "Urgent Vendors" that labels urgent emails from @partner-updates.example as Urgent Vendors.',
+                  "I only care about urgent messages from @partner-updates.example. Can you label those as Urgent Vendors?",
               },
             ];
 
@@ -280,7 +280,7 @@ describe.runIf(shouldRunEval)(
             {
               role: "user",
               content:
-                "I already have a Newsletter rule. Emails from digest@briefing.example should match that rule.",
+                "I already separate newsletters. digest@briefing.example should be treated like the rest of those, not as its own thing.",
             },
           ];
 
