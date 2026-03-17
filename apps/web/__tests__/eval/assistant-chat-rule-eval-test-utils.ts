@@ -120,11 +120,7 @@ export function configureRuleEvalPrisma({
     const matchedRule = defaultRuleRowsByName.get(ruleName);
     if (!matchedRule) return null;
 
-    return {
-      id: matchedRule.id,
-      name: matchedRule.name,
-      updatedAt: matchedRule.updatedAt,
-    };
+    return matchedRule;
   });
 }
 

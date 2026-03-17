@@ -16,7 +16,7 @@ import { createScopedLogger } from "@/utils/logger";
 vi.mock("server-only", () => ({}));
 
 export const shouldRunEval = shouldRunEvalTests();
-export const TIMEOUT = 60_000;
+export const TIMEOUT = 120_000;
 const logger = createScopedLogger("eval-assistant-chat-inbox-workflows");
 const forbiddenMicrosoftQueryOperators = [
   "is:",

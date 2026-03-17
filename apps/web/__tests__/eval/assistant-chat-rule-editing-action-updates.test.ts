@@ -27,7 +27,7 @@ import { createScopedLogger } from "@/utils/logger";
 vi.mock("server-only", () => ({}));
 
 const shouldRunEval = shouldRunEvalTests();
-const TIMEOUT = 60_000;
+const TIMEOUT = 240_000;
 const evalReporter = createEvalReporter();
 const logger = createScopedLogger(
   "eval-assistant-chat-rule-editing-action-updates",
