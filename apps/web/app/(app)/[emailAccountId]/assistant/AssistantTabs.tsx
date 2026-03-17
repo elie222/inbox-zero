@@ -7,7 +7,6 @@ import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Rules } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
-import { RulesPrompt } from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { TypographyP } from "@/components/Typography";
@@ -40,9 +39,6 @@ export function AssistantTabs() {
             </div>
           </TabsContent>
 
-          <TabsContent value="prompt" className="mt-0 h-full">
-            <RulesPrompt />
-          </TabsContent>
           <TabsContent value="rules" className="content-container pb-4">
             <Rules />
           </TabsContent>
