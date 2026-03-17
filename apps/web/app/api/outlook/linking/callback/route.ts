@@ -54,6 +54,8 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       oauthError,
       errorDescription: oauthErrorDescription,
       logger,
+      redirectUri: linkingRedirectUri,
+      requestedScopes: OUTLOOK_SCOPES,
     });
   }
 
@@ -479,6 +481,8 @@ function handleMicrosoftOAuthAuthorizeError(params: {
   oauthError: string;
   errorDescription: string | null;
   logger: Logger;
+  redirectUri: string;
+  requestedScopes: readonly string[];
 }) {
   const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
   const mappedError = classifyMicrosoftOAuthCallbackError({
@@ -489,6 +493,12 @@ function handleMicrosoftOAuthAuthorizeError(params: {
   params.logger.warn("Microsoft authorize callback returned an OAuth error", {
     oauthError: params.oauthError,
     aadstsCode: extractAadstsCode(params.errorDescription),
+    errorDescription: params.errorDescription,
+    redirectUri: params.redirectUri,
+    requestedScopes: params.requestedScopes,
+    safeErrorDescription: getSafeMicrosoftOAuthErrorDescription(
+      params.errorDescription,
+    ),
   });
 
   if (mappedError) {

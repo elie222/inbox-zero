@@ -18,7 +18,6 @@ describe("validateOAuthCallback", () => {
       receivedState: "received-state",
       storedState: "different-stored-state",
       stateCookieName: "test_cookie",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 
@@ -40,7 +39,6 @@ describe("validateOAuthCallback", () => {
       receivedState: "state",
       storedState: "state",
       stateCookieName: "test_cookie",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 
@@ -61,7 +59,6 @@ describe("validateOAuthCallback", () => {
       receivedState: "state",
       storedState: "state",
       stateCookieName: "test_cookie",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 
@@ -84,7 +81,6 @@ describe("validateOAuthCallback", () => {
       receivedState: "state",
       storedState: "state",
       stateCookieName: "test_cookie",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 

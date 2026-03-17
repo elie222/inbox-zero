@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/utils/middleware";
 import { getLinkingOAuth2Url } from "@/utils/outlook/client";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
+import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import {
   generateOAuthState,
   oauthStateCookieOptions,
@@ -21,6 +22,13 @@ const getAuthUrl = ({ userId }: { userId: string }) => {
 export const GET = withAuth("outlook/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
   const { url: authUrl, state } = getAuthUrl({ userId });
+  const parsedAuthUrl = new URL(authUrl);
+
+  request.logger.info("Generated Microsoft email linking auth URL", {
+    prompt: parsedAuthUrl.searchParams.get("prompt"),
+    redirectUri: parsedAuthUrl.searchParams.get("redirect_uri"),
+    requestedScopes: OUTLOOK_SCOPES,
+  });
 
   const response = NextResponse.json({ url: authUrl });
 
