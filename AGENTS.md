@@ -43,8 +43,7 @@
 ## Change Philosophy
 - Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.
 - Do not optimize for migration paths: refactor call sites directly, including larger coordinated changes when clarity improves.
-- For LLM features, prefer AI-first behavior over brittle keyword or regex heuristics that try to simulate model reasoning. Only add deterministic gates when the product explicitly requires a hard rule.
-- Do not tune prompts to mirror exact eval cases. Fix the general failure mode instead, and keep eval wording and prompt wording independent.
+- For LLM features, stay AI-first: fix general failure modes, not exact eval wording, and avoid brittle keyword or regex rules unless the product needs a hard guard.
 
 ## Component Guidelines
 - Use shadcn/ui components when available
