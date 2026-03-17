@@ -20,7 +20,7 @@ import type {
   MatchReason,
   MatchingRuleResult,
 } from "@/utils/ai/choose-rule/types";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, extractEmailAddresses } from "@/utils/email";
 import { isCalendarInvite } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 import type { EmailProvider } from "@/utils/email/types";
@@ -495,10 +495,14 @@ export function matchesStaticRule(
     }
   };
 
-  const fromMatch = from
-    ? safeRegexTest(from, message.headers.from, true)
-    : true;
-  const toMatch = to ? safeRegexTest(to, message.headers.to, true) : true;
+  const fromHeader = normalizeEmailHeaderForRuleMatching(message.headers.from);
+  const toHeader = normalizeEmailHeaderForRuleMatching(
+    message.headers.to,
+    true,
+  );
+
+  const fromMatch = from ? safeRegexTest(from, fromHeader, true) : true;
+  const toMatch = to ? safeRegexTest(to, toHeader, true) : true;
   const subjectMatch = subject
     ? safeRegexTest(subject, message.headers.subject, false)
     : true;
@@ -663,4 +667,17 @@ async function getPreviouslyExecutedRuleIds({
   return new Set(
     previousRules.map((r) => r.ruleId).filter((id): id is string => !!id),
   );
+}
+
+function normalizeEmailHeaderForRuleMatching(
+  header: string,
+  allowMultiple = false,
+) {
+  if (!header) return "";
+
+  if (allowMultiple) {
+    return extractEmailAddresses(header).join(", ");
+  }
+
+  return extractEmailAddress(header);
 }

@@ -119,6 +119,39 @@ describe("matchesStaticRule", () => {
     expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
+  it("matches from against the sender address, not the display name", () => {
+    const rule = getStaticRule({ from: "@trusted.com" });
+    const message = getMessage({
+      headers: getHeaders({
+        from: '"Trusted trusted@trusted.com" <attacker@evil.com>',
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(false);
+  });
+
+  it("matches to against extracted recipient addresses across multiple recipients", () => {
+    const rule = getStaticRule({ to: "team@company.com" });
+    const message = getMessage({
+      headers: getHeaders({
+        to: '"VIP vip@vip.com" <actual@company.com>, Team <team@company.com>',
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
+  });
+
+  it("does not match to against email-like text in a display name", () => {
+    const rule = getStaticRule({ to: "@vip.com" });
+    const message = getMessage({
+      headers: getHeaders({
+        to: '"VIP vip@vip.com" <actual@company.com>, Team <team@company.com>',
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(false);
+  });
+
   it("should match Creator Message subject pattern", () => {
     const rule = getStaticRule({ subject: "[Creator Message]*" });
     const message = getMessage({
