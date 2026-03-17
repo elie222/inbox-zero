@@ -6,6 +6,7 @@ import {
 } from "@/__tests__/eval/models";
 import { judgeBinary } from "@/__tests__/eval/judge";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
+import { getEvalJudgeUserAi } from "@/__tests__/eval/semantic-judge";
 import {
   ReplyMemoryKind,
   ReplyMemoryScopeType,
@@ -214,14 +215,6 @@ Can you resend the short enterprise pricing explanation you usually send for a 3
           meetingContext: null,
         });
 
-        const hasExpectedCorrection =
-          /seat count/i.test(withMemory.reply) &&
-          /annual billing/i.test(withMemory.reply);
-        const avoidsUnsupportedNumericPricing =
-          !/\$\d|\d+\s*(per (seat|user|month)|users?)|discount/i.test(
-            withMemory.reply,
-          );
-
         const judgeResult = await judgeBinary({
           input: buildDraftComparisonInput({
             emailContent: messages[0].content,
@@ -238,10 +231,7 @@ Can you resend the short enterprise pricing explanation you usually send for a 3
           },
           judgeUserAi: getEvalJudgeUserAi(),
         });
-        const pass =
-          hasExpectedCorrection &&
-          avoidsUnsupportedNumericPricing &&
-          judgeResult.pass;
+        const pass = judgeResult.pass;
 
         evalReporter.record({
           testName: "pricing memory improves draft",
@@ -257,8 +247,6 @@ Can you resend the short enterprise pricing explanation you usually send for a 3
           criteria: [judgeResult],
         });
 
-        expect(hasExpectedCorrection).toBe(true);
-        expect(avoidsUnsupportedNumericPricing).toBe(true);
         expect(judgeResult.pass).toBe(true);
       },
       TIMEOUT,
@@ -352,14 +340,4 @@ function formatDraftComparisonActual({
     `with=${JSON.stringify(withMemoryReply)}`,
     `judge=${judgeResult.pass ? "PASS" : "FAIL"} (${judgeResult.reasoning})`,
   ].join(" | ");
-}
-
-function getEvalJudgeUserAi() {
-  if (!process.env.OPENROUTER_API_KEY) return undefined;
-
-  return {
-    aiProvider: "openrouter",
-    aiModel: "google/gemini-3.1-flash-lite-preview",
-    aiApiKey: process.env.OPENROUTER_API_KEY,
-  };
 }

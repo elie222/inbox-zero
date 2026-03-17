@@ -11,6 +11,10 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import {
+  formatSemanticJudgeActual,
+  judgeEvalOutput,
+} from "@/__tests__/eval/semantic-judge";
+import {
   buildDefaultSystemRuleRows,
   configureRuleEvalPrisma,
   configureRuleEvalProvider,
@@ -140,16 +144,28 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule creation", () => {
         "createRule",
         isCreateRuleInput,
       )?.input;
+      const judgeResult = createCall
+        ? await judgeEvalOutput({
+            input:
+              "Create a new rule called Escalations that labels emails about vendor escalations as Escalations.",
+            output: createCall.condition.aiInstructions ?? "",
+            expected:
+              "Semantic rule instructions that capture emails about vendor escalations or vendor escalation issues. Exact wording does not need to match the prompt.",
+            criterion: {
+              name: "Semantic rule instructions",
+              description:
+                "The generated aiInstructions should semantically describe vendor escalations or equivalent vendor-issue escalation language, even if the wording differs from the prompt.",
+            },
+          })
+        : null;
 
       const pass =
+        !!createCall &&
+        !!judgeResult?.pass &&
         !!createCall &&
         createCall.name === "Escalations" &&
         hasActionType(createCall.actions, ActionType.LABEL) &&
         hasLabelAction(createCall.actions, "Escalations") &&
-        includesAnyText(createCall.condition.aiInstructions, [
-          "vendor",
-          "escalation",
-        ]) &&
         !toolCalls.some(
           (toolCall) => toolCall.toolName === "updateRuleActions",
         ) &&
@@ -164,7 +180,12 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule creation", () => {
         testName: "create new explicit rule",
         model: model.label,
         pass,
-        actual,
+        actual: createCall
+          ? `${actual} | ${formatSemanticJudgeActual(
+              createCall.condition.aiInstructions ?? "",
+              judgeResult!,
+            )}`
+          : actual,
       });
 
       expect(pass).toBe(true);
@@ -246,13 +267,6 @@ function hasLabelAction(
       action.type === ActionType.LABEL &&
       action.fields?.label === expectedLabel,
   );
-}
-
-function includesAnyText(text: string | null | undefined, terms: string[]) {
-  if (!text) return false;
-
-  const normalizedText = text.toLowerCase();
-  return terms.some((term) => normalizedText.includes(term.toLowerCase()));
 }
 
 function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {

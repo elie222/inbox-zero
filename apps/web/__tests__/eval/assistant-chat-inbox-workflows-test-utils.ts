@@ -8,6 +8,7 @@ import {
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
 import { shouldRunEvalTests } from "@/__tests__/eval/models";
+import { judgeEvalOutput } from "@/__tests__/eval/semantic-judge";
 import { getMockMessage } from "@/__tests__/helpers";
 import type { getEmailAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
@@ -305,9 +306,25 @@ export function hasReplyTriageFocus(
   );
 }
 
-export function queryContainsAny(query: string, terms: string[]) {
-  const normalizedQuery = query.toLowerCase();
-  return terms.some((term) => normalizedQuery.includes(term));
+export async function judgeSearchInboxQuery({
+  prompt,
+  query,
+  expected,
+}: {
+  prompt: string;
+  query: string;
+  expected: string;
+}) {
+  return judgeEvalOutput({
+    input: prompt,
+    output: query,
+    expected,
+    criterion: {
+      name: "Search query semantics",
+      description:
+        "The generated inbox search query should semantically target the requested messages even if the exact wording differs from the prompt.",
+    },
+  });
 }
 
 export function hasSearchBeforeFirstWrite(toolCalls: RecordedToolCall[]) {
