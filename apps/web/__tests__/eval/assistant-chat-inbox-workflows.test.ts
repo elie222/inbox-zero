@@ -636,20 +636,6 @@ async function runAssistantChat({
   inboxStats?: { total: number; unread: number } | null;
 }) {
   const recordedToolCalls: Array<{ toolName: string; input: unknown }> = [];
-  const recordingSession = {
-    record: vi.fn(
-      async (type: string, data: { request?: { toolCalls?: any[] } }) => {
-        if (type !== "chat-step") return;
-
-        for (const toolCall of data.request?.toolCalls || []) {
-          recordedToolCalls.push({
-            toolName: toolCall.toolName,
-            input: toolCall.input,
-          });
-        }
-      },
-    ),
-  };
 
   const result = await aiProcessAssistantChat({
     messages,
@@ -657,7 +643,14 @@ async function runAssistantChat({
     user: emailAccount,
     inboxStats,
     logger,
-    recordingSession,
+    onStepFinish: async ({ toolCalls }) => {
+      for (const toolCall of toolCalls || []) {
+        recordedToolCalls.push({
+          toolName: toolCall.toolName,
+          input: toolCall.input,
+        });
+      }
+    },
   });
 
   await result.consumeStream();

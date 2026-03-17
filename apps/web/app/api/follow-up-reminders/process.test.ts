@@ -415,11 +415,13 @@ describe("processAccountFollowUps - dedup logic", () => {
       getThreadsWithLabel: vi
         .fn()
         .mockResolvedValue([
-          { id: "thread-replay", messages: [], snippet: "" },
+          { id: "thread-duplicate-check", messages: [], snippet: "" },
         ]),
       getLatestMessageInThread: vi
         .fn()
-        .mockResolvedValue(mockAwaitingMessage("msg-replay", OLD_DATE)),
+        .mockResolvedValue(
+          mockAwaitingMessage("msg-duplicate-check", OLD_DATE),
+        ),
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
 
@@ -428,18 +430,21 @@ describe("processAccountFollowUps - dedup logic", () => {
       findManyCallCount += 1;
       if (findManyCallCount === 1) return Promise.resolve([]);
 
-      // Simulate outbound replay side effect:
+      // Simulate outbound side effect from a prior processing pass:
       // the prior tracker exists but is resolved=true.
       // If dedup query filters resolved=false, it will miss this row.
       if (args?.where?.resolved === false) return Promise.resolve([]);
       return Promise.resolve([
-        { threadId: "thread-replay", messageId: "msg-replay" } as any,
+        {
+          threadId: "thread-duplicate-check",
+          messageId: "msg-duplicate-check",
+        } as any,
       ]);
     });
 
     vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.threadTracker.create).mockResolvedValue({
-      id: "tracker-replay",
+      id: "tracker-duplicate-check",
     } as any);
 
     await processAccountFollowUps({
