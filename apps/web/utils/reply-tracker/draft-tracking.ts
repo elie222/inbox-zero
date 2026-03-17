@@ -411,20 +411,16 @@ function queueReplyMemoryLearning({
     return;
   }
 
-  withPrismaRetry(
-    () =>
-      saveReplyMemoryEvidence({
-        emailAccountId,
-        executedActionId,
-        sourceMessageId,
-        sentMessageId,
-        threadId,
-        draftText,
-        sentText,
-        similarityScore,
-      }),
-    { logger },
-  )
+  saveReplyMemoryEvidence({
+    emailAccountId,
+    executedActionId,
+    sourceMessageId,
+    sentMessageId,
+    threadId,
+    draftText,
+    sentText,
+    similarityScore,
+  })
     .then(() =>
       syncReplyMemoriesFromEvidence({
         emailAccountId,
