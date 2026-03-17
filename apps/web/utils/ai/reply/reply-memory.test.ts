@@ -9,6 +9,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import {
   aiExtractReplyMemoriesFromDraftEdit,
   getReplyMemoryContent,
+  getReplyMemoriesForPrompt,
   isMeaningfulDraftEdit,
   syncReplyMemoriesFromDraftSendLogs,
 } from "./reply-memory";
@@ -140,6 +141,69 @@ describe("reply-memory", () => {
       take: 6,
     });
     expect(prisma.$queryRaw).toHaveBeenCalled();
+  });
+
+  it("returns selected reply memory metadata for observability", async () => {
+    vi.mocked(prisma.replyMemory.findMany)
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "sender-memory",
+          title: "vendor sender preference",
+          content: "For this sender, mention annual billing first.",
+          kind: ReplyMemoryKind.FACT,
+          scopeType: ReplyMemoryScopeType.SENDER,
+          scopeValue: "sales@example.com",
+        }),
+      ] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "global-memory",
+          title: "short replies",
+          content: "Keep replies to 1-2 sentences.",
+          kind: ReplyMemoryKind.STYLE,
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+        }),
+      ] as any);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([
+      createReplyMemory({
+        id: "topic-memory",
+        title: "pricing",
+        content: "Mention that pricing depends on seat count.",
+        kind: ReplyMemoryKind.FACT,
+        scopeType: ReplyMemoryScopeType.TOPIC,
+        scopeValue: "pricing",
+      }),
+    ] as any);
+
+    const result = await getReplyMemoriesForPrompt({
+      emailAccountId: "account-1",
+      senderEmail: "sales@example.com",
+      emailContent: "What pricing should I share for a 30 seat team?",
+      logger,
+    });
+
+    expect(result.content).toContain("Keep replies to 1-2 sentences.");
+    expect(result.selectedMemories).toHaveLength(3);
+    expect(result.selectedMemories).toEqual(
+      expect.arrayContaining([
+        {
+          id: "sender-memory",
+          kind: ReplyMemoryKind.FACT,
+          scopeType: ReplyMemoryScopeType.SENDER,
+        },
+        {
+          id: "global-memory",
+          kind: ReplyMemoryKind.STYLE,
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+        },
+        {
+          id: "topic-memory",
+          kind: ReplyMemoryKind.FACT,
+          scopeType: ReplyMemoryScopeType.TOPIC,
+        },
+      ]),
+    );
   });
 
   it("keeps sender memories ahead of newer global memories when retrieval is capped", async () => {

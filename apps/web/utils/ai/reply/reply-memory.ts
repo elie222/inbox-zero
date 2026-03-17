@@ -173,6 +173,30 @@ export async function getReplyMemoryContent({
   emailContent: string;
   logger: Logger;
 }): Promise<string | null> {
+  const result = await getReplyMemoriesForPrompt({
+    emailAccountId,
+    senderEmail,
+    emailContent,
+    logger,
+  });
+
+  return result.content;
+}
+
+export async function getReplyMemoriesForPrompt({
+  emailAccountId,
+  senderEmail,
+  emailContent,
+  logger,
+}: {
+  emailAccountId: string;
+  senderEmail: string;
+  emailContent: string;
+  logger: Logger;
+}): Promise<{
+  content: string | null;
+  selectedMemories: Array<Pick<ReplyMemory, "id" | "kind" | "scopeType">>;
+}> {
   try {
     const normalizedSenderEmail = senderEmail.trim().toLowerCase();
     const senderDomain = extractDomainFromEmail(
@@ -223,12 +247,27 @@ export async function getReplyMemoryContent({
       ]),
     ).slice(0, MAX_RETRIEVED_REPLY_MEMORIES);
 
-    if (!selected.length) return null;
+    if (!selected.length) {
+      return {
+        content: null,
+        selectedMemories: [],
+      };
+    }
 
-    return formatReplyMemoryContent(selected);
+    return {
+      content: formatReplyMemoryContent(selected),
+      selectedMemories: selected.map((memory) => ({
+        id: memory.id,
+        kind: memory.kind,
+        scopeType: memory.scopeType,
+      })),
+    };
   } catch (error) {
     logger.error("Failed to load reply memories", { error, emailAccountId });
-    return null;
+    return {
+      content: null,
+      selectedMemories: [],
+    };
   }
 }
 

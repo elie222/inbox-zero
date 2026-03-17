@@ -48,7 +48,10 @@ vi.mock("@/utils/ai/knowledge/extract", () => ({
 }));
 
 vi.mock("@/utils/ai/reply/reply-memory", () => ({
-  getReplyMemoryContent: vi.fn().mockResolvedValue(null),
+  getReplyMemoriesForPrompt: vi.fn().mockResolvedValue({
+    content: null,
+    selectedMemories: [],
+  }),
 }));
 
 vi.mock("@/utils/ai/reply/reply-context-collector", () => ({
@@ -90,7 +93,7 @@ vi.mock("@/env", () => ({
 }));
 
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
-import { getReplyMemoryContent } from "@/utils/ai/reply/reply-memory";
+import { getReplyMemoriesForPrompt } from "@/utils/ai/reply/reply-memory";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
 import prisma from "@/utils/prisma";
 import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
@@ -207,9 +210,17 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
       confidence: DraftReplyConfidence.STANDARD,
       attribution: null,
     });
-    vi.mocked(getReplyMemoryContent).mockResolvedValue(
-      "1. [FACT | TOPIC:pricing] Mention that pricing depends on seat count.",
-    );
+    vi.mocked(getReplyMemoriesForPrompt).mockResolvedValue({
+      content:
+        "1. [FACT | TOPIC:pricing] Mention that pricing depends on seat count.",
+      selectedMemories: [
+        {
+          id: "memory-1",
+          kind: "FACT",
+          scopeType: "TOPIC",
+        },
+      ],
+    } as any);
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
       createMockEmailAccountSettings(),
     );
@@ -222,7 +233,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
       logger,
     );
 
-    expect(getReplyMemoryContent).toHaveBeenCalledWith({
+    expect(getReplyMemoriesForPrompt).toHaveBeenCalledWith({
       emailAccountId: "test-account-id",
       senderEmail: "sender@example.com",
       emailContent: expect.stringContaining("Hello, how are you?"),
