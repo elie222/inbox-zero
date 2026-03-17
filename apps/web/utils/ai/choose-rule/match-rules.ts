@@ -520,7 +520,11 @@ export function matchesStaticRule(
         addressText: fromAddressHeader.toLowerCase(),
         displayNameText: fromDisplayNameHeader.toLowerCase(),
         logInvalidPattern: (pattern, error) =>
-          log.error("Invalid regex pattern", { pattern, error }),
+          logInvalidEmailMatchPattern({
+            logger: log,
+            pattern,
+            error,
+          }),
       })
     : true;
   const toMatch = to
@@ -529,7 +533,11 @@ export function matchesStaticRule(
         addressText: toAddressHeader.toLowerCase(),
         displayNameText: toDisplayNameHeader.toLowerCase(),
         logInvalidPattern: (pattern, error) =>
-          log.error("Invalid regex pattern", { pattern, error }),
+          logInvalidEmailMatchPattern({
+            logger: log,
+            pattern,
+            error,
+          }),
       })
     : true;
   const subjectMatch = subject
@@ -771,9 +779,18 @@ function matchesEmailFieldPattern({
 function isAddressLikeEmailPattern(pattern: string) {
   const normalized = pattern.trim().toLowerCase();
 
-  return (
-    normalized.includes("@") ||
-    normalized.includes("*") ||
-    /^[^\s@]+\.[^\s@]+$/.test(normalized)
-  );
+  return normalized.includes("@") || /^[^\s@]+\.[^\s@]+$/.test(normalized);
+}
+
+function logInvalidEmailMatchPattern({
+  logger,
+  pattern,
+  error,
+}: {
+  logger: Logger;
+  pattern: string;
+  error: unknown;
+}) {
+  logger.error("Invalid email match pattern");
+  logger.trace("Invalid email match pattern details", { pattern, error });
 }

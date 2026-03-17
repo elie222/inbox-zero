@@ -141,6 +141,17 @@ describe("matchesStaticRule", () => {
     expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
+  it("matches wildcard from display names when the pattern is name-like", () => {
+    const rule = getStaticRule({ from: "Team *" });
+    const message = getMessage({
+      headers: getHeaders({
+        from: "Team Billing <billing@example.com>",
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
+  });
+
   it("matches from domains regardless of casing or leading @", () => {
     const message = getMessage({
       headers: getHeaders({ from: "User@Example.com" }),
@@ -189,6 +200,17 @@ describe("matchesStaticRule", () => {
     const message = getMessage({
       headers: getHeaders({
         to: '"Elie Steinbock" <ele@gmail.com>, Team <team@company.com>',
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
+  });
+
+  it("matches wildcard to display names when the pattern is name-like", () => {
+    const rule = getStaticRule({ to: "Team *" });
+    const message = getMessage({
+      headers: getHeaders({
+        to: '"Elie Steinbock" <ele@gmail.com>, Team Billing <team@company.com>',
       }),
     });
 
