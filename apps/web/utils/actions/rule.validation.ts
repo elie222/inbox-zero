@@ -13,10 +13,8 @@ import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
 import {
   AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
-  INVALID_STATIC_FROM_PLACEHOLDER_MESSAGE,
-  isRedundantSenderOnlyAiInstructions,
-  isInvalidStaticFromPlaceholder,
-  REDUNDANT_SENDER_ONLY_AI_INSTRUCTIONS_MESSAGE,
+  INVALID_STATIC_FROM_MESSAGE,
+  isInvalidStaticFromValue,
   STATIC_FROM_CONDITION_DESCRIPTION,
 } from "@/utils/ai/rule/rule-condition-descriptions";
 
@@ -28,43 +26,28 @@ export const delayInMinutesSchema = z
 
 export const updateRuleConditionSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
-  condition: z
-    .object({
-      aiInstructions: z
-        .string()
-        .nullish()
-        .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
-      static: z
-        .object({
-          from: z
-            .string()
-            .nullish()
-            .refine((value) => !isInvalidStaticFromPlaceholder(value), {
-              message: INVALID_STATIC_FROM_PLACEHOLDER_MESSAGE,
-            })
-            .describe(STATIC_FROM_CONDITION_DESCRIPTION),
-          to: z.string().nullish(),
-          subject: z.string().nullish(),
-        })
-        .nullish(),
-      conditionalOperator: z
-        .enum([LogicalOperator.AND, LogicalOperator.OR])
-        .nullish(),
-    })
-    .superRefine((condition, ctx) => {
-      if (
-        isRedundantSenderOnlyAiInstructions(
-          condition.aiInstructions,
-          condition.static?.from,
-        )
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: REDUNDANT_SENDER_ONLY_AI_INSTRUCTIONS_MESSAGE,
-          path: ["aiInstructions"],
-        });
-      }
-    }),
+  condition: z.object({
+    aiInstructions: z
+      .string()
+      .nullish()
+      .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
+    static: z
+      .object({
+        from: z
+          .string()
+          .nullish()
+          .refine((value) => !isInvalidStaticFromValue(value), {
+            message: INVALID_STATIC_FROM_MESSAGE,
+          })
+          .describe(STATIC_FROM_CONDITION_DESCRIPTION),
+        to: z.string().nullish(),
+        subject: z.string().nullish(),
+      })
+      .nullish(),
+    conditionalOperator: z
+      .enum([LogicalOperator.AND, LogicalOperator.OR])
+      .nullish(),
+  }),
 });
 
 const zodActionType = z.enum([

@@ -443,26 +443,4 @@ describe("updateRuleConditionSchema", () => {
 
     expect(result.success).toBe(true);
   });
-
-  it("rejects sender-only aiInstructions when static.from already defines the match", () => {
-    const result = updateRuleConditionSchema.safeParse({
-      ruleName: "Newsletters",
-      condition: {
-        aiInstructions: "Emails from @briefing.example",
-        static: {
-          from: "@briefing.example",
-          to: null,
-          subject: null,
-        },
-        conditionalOperator: null,
-      },
-    });
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0].message).toContain(
-        "Set aiInstructions to null",
-      );
-    }
-  });
 });

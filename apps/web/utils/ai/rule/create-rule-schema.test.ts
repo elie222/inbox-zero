@@ -135,7 +135,7 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects placeholder static.from values", () => {
+  it("rejects structurally invalid static.from values", () => {
     const result = createRuleSchema(provider).safeParse({
       ...buildRule({
         type: ActionType.LABEL,
@@ -154,7 +154,7 @@ describe("createRuleSchema", () => {
         conditionalOperator: null,
         aiInstructions: "Emails about vendor escalations",
         static: {
-          from: "none@none.com",
+          from: "not-a-sender",
           to: null,
           subject: null,
         },
@@ -204,40 +204,6 @@ describe("createRuleSchema", () => {
           (issue) => issue.path.join(".") === "condition.static.from",
         ),
       ).toBe(true);
-    }
-  });
-
-  it("rejects sender-only aiInstructions when static.from already defines the match", () => {
-    const result = createRuleSchema(provider).safeParse({
-      ...buildRule({
-        type: ActionType.LABEL,
-        fields: {
-          label: "Newsletters",
-          to: null,
-          cc: null,
-          bcc: null,
-          subject: null,
-          content: null,
-          webhookUrl: null,
-        },
-        delayInMinutes: null,
-      }),
-      condition: {
-        conditionalOperator: null,
-        aiInstructions: "Emails from @briefing.example",
-        static: {
-          from: "@briefing.example",
-          to: null,
-          subject: null,
-        },
-      },
-    });
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0].message).toContain(
-        "Set aiInstructions to null",
-      );
     }
   });
 

@@ -7,10 +7,8 @@ import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import {
   AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
-  INVALID_STATIC_FROM_PLACEHOLDER_MESSAGE,
-  isRedundantSenderOnlyAiInstructions,
-  isInvalidStaticFromPlaceholder,
-  REDUNDANT_SENDER_ONLY_AI_INSTRUCTIONS_MESSAGE,
+  INVALID_STATIC_FROM_MESSAGE,
+  isInvalidStaticFromValue,
   STATIC_FROM_CONDITION_DESCRIPTION,
 } from "@/utils/ai/rule/rule-condition-descriptions";
 
@@ -31,8 +29,8 @@ const conditionSchema = z
         from: z
           .string()
           .nullable()
-          .refine((value) => !isInvalidStaticFromPlaceholder(value), {
-            message: INVALID_STATIC_FROM_PLACEHOLDER_MESSAGE,
+          .refine((value) => !isInvalidStaticFromValue(value), {
+            message: INVALID_STATIC_FROM_MESSAGE,
           })
           .describe(STATIC_FROM_CONDITION_DESCRIPTION),
         to: z.string().nullable().describe("The to email address to match"),
@@ -42,20 +40,6 @@ const conditionSchema = z
       .describe(
         "The static conditions to match. If multiple static conditions are specified, the rule will match if ALL of the conditions match (AND operation)",
       ),
-  })
-  .superRefine((condition, ctx) => {
-    if (
-      isRedundantSenderOnlyAiInstructions(
-        condition.aiInstructions,
-        condition.static?.from,
-      )
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: REDUNDANT_SENDER_ONLY_AI_INSTRUCTIONS_MESSAGE,
-        path: ["aiInstructions"],
-      });
-    }
   })
   .describe("The conditions to match");
 
