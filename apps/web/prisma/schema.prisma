@@ -183,6 +183,8 @@ model EmailAccount {
   emailMessages    EmailMessage[]
   emailTokens      EmailToken[]
   knowledge        Knowledge[]
+  replyMemories    ReplyMemory[]
+  replyMemoryEvidence ReplyMemoryEvidence[]
   chats            Chat[]
   chatMemories     ChatMemory[]
   digests          Digest[]
@@ -847,6 +849,49 @@ model Knowledge {
   @@unique([emailAccountId, title])
 }
 
+model ReplyMemory {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  title      String
+  content    String
+  tags       String[]          @default([])
+  kind       ReplyMemoryKind
+  scopeType  ReplyMemoryScopeType
+  scopeValue String            @default("")
+  status     ReplyMemoryStatus @default(ACTIVE)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, kind, scopeType, scopeValue, title])
+  @@index([emailAccountId, status, updatedAt])
+  @@index([emailAccountId, scopeType, scopeValue])
+}
+
+model ReplyMemoryEvidence {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  executedActionId String   @unique
+  sourceMessageId  String
+  sentMessageId    String
+  threadId         String
+  draftText        String
+  sentText         String
+  similarityScore  Float
+  processedAt      DateTime?
+  expiresAt        DateTime
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId, processedAt, createdAt])
+  @@index([expiresAt])
+}
+
 model ApiKey {
   id         String        @id @default(cuid())
   createdAt  DateTime      @default(now())
@@ -1374,6 +1419,25 @@ enum DraftReplyConfidence {
   ALL_EMAILS
   STANDARD
   HIGH_CONFIDENCE
+}
+
+enum ReplyMemoryKind {
+  FACT
+  PROCESS
+  PREFERENCE
+  STYLE
+}
+
+enum ReplyMemoryScopeType {
+  GLOBAL
+  SENDER
+  DOMAIN
+  TOPIC
+}
+
+enum ReplyMemoryStatus {
+  ACTIVE
+  SUPPRESSED
 }
 
 enum NewsletterStatus {

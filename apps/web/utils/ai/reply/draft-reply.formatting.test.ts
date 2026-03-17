@@ -219,6 +219,31 @@ describe("aiDraftReply formatting", () => {
     );
   });
 
+  it("includes learned reply memories in the generation prompt when provided", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Thanks for your message.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    await aiDraftReplyWithConfidence({
+      ...getDraftParams(),
+      replyMemoryContent:
+        "1. [FACT | TOPIC:pricing] Mention that pricing depends on seat count.",
+    });
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+
+    expect(callArgs.prompt).toContain("<reply_memories>");
+    expect(callArgs.prompt).toContain(
+      "Mention that pricing depends on seat count.",
+    );
+    expect(callArgs.prompt).toContain(
+      "explicit user instructions and knowledge base content take precedence",
+    );
+  });
+
   it("defaults invalid confidence values to ALL_EMAILS", async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {

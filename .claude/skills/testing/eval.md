@@ -99,3 +99,10 @@ EVAL_REPORT_PATH=eval-results/report.md EVAL_MODELS=all pnpm test-ai eval/your-f
 
 - `EVAL_MODELS` — not set: single run with env model; `all`: all models; comma-separated: specific models
 - `EVAL_REPORT_PATH` — save markdown + JSON report to file
+
+## Anti-overfitting
+
+- Treat evals as an external spec for behavior, not as wording to copy into prompts
+- When an eval fails, fix the general failure mode rather than matching the exact fixture language
+- Avoid adding prompt examples that are near-clones of the eval case
+- Prefer broader follow-up coverage or neighboring cases over test-specific prompt tuning

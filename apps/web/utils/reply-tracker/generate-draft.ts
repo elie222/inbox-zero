@@ -28,6 +28,7 @@ import { meetsDraftReplyConfidenceRequirement } from "@/utils/ai/reply/draft-con
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
 import type { SelectedAttachment } from "@/utils/attachments/source-schema";
+import { getReplyMemoryContent } from "@/utils/ai/reply/reply-memory";
 
 export type DraftGenerationResult = {
   attachments?: SelectedAttachment[];
@@ -263,6 +264,7 @@ async function generateDraftContent(
       });
   const [
     knowledgeResult,
+    replyMemoryContent,
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
@@ -275,6 +277,12 @@ async function generateDraftContent(
       knowledgeBase,
       emailContent: lastMessageContent,
       emailAccount,
+      logger,
+    }),
+    getReplyMemoryContent({
+      emailAccountId: emailAccount.id,
+      senderEmail: extractEmailAddress(lastMessage.headers.from),
+      emailContent: lastMessageContent,
       logger,
     }),
     aiCollectReplyContext({
@@ -314,6 +322,7 @@ async function generateDraftContent(
     messages,
     emailAccount,
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
+    replyMemoryContent,
     emailHistorySummary,
     emailHistoryContext,
     calendarAvailability,

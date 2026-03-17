@@ -46,6 +46,10 @@ vi.mock("@/utils/ai/knowledge/extract", () => ({
   aiExtractRelevantKnowledge: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock("@/utils/ai/reply/reply-memory", () => ({
+  getReplyMemoryContent: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock("@/utils/ai/reply/reply-context-collector", () => ({
   aiCollectReplyContext: vi.fn().mockResolvedValue(null),
 }));
@@ -85,6 +89,7 @@ vi.mock("@/env", () => ({
 }));
 
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
+import { getReplyMemoryContent } from "@/utils/ai/reply/reply-memory";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
 import prisma from "@/utils/prisma";
 import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
@@ -193,6 +198,41 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     // User signature HTML should NOT be escaped
     expect(result).toContain('<p style="color:blue">');
     expect(result).toContain("Best regards,<br>John</p>");
+  });
+
+  it("passes retrieved reply memories into the draft prompt call", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Thanks for the note.",
+      confidence: DraftReplyConfidence.STANDARD,
+      attribution: null,
+    });
+    vi.mocked(getReplyMemoryContent).mockResolvedValue(
+      "1. [FACT | TOPIC:pricing] Mention that pricing depends on seat count.",
+    );
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
+
+    await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      logger,
+    );
+
+    expect(getReplyMemoryContent).toHaveBeenCalledWith({
+      emailAccountId: "test-account-id",
+      senderEmail: "sender@example.com",
+      emailContent: expect.stringContaining("Hello, how are you?"),
+      logger,
+    });
+    expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyMemoryContent:
+          "1. [FACT | TOPIC:pricing] Mention that pricing depends on seat count.",
+      }),
+    );
   });
 
   it("escapes zero-size font attacks in AI content", async () => {

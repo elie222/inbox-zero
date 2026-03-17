@@ -5,6 +5,12 @@ import { withPrismaRetry } from "@/utils/prisma-retry";
 import { calculateSimilarity } from "@/utils/similarity-score";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
+import { emailToContent } from "@/utils/mail";
+import {
+  isMeaningfulDraftEdit,
+  saveReplyMemoryEvidence,
+  syncReplyMemoriesFromEvidence,
+} from "@/utils/ai/reply/reply-memory";
 import { logReplyTrackerError } from "./error-logging";
 
 /**
@@ -48,6 +54,11 @@ export async function trackSentDraftStatus({
       id: true,
       content: true,
       draftId: true,
+      executedRule: {
+        select: {
+          messageId: true,
+        },
+      },
     },
   });
 
@@ -100,6 +111,18 @@ export async function trackSentDraftStatus({
       "Created draft send log and marked action as not sent (draft still exists)",
       { executedActionId },
     );
+    queueReplyMemoryLearning({
+      emailAccountId,
+      executedActionId,
+      sourceMessageId: executedAction.executedRule.messageId,
+      sentMessageId,
+      threadId,
+      draftText: executedAction.content,
+      similarityScore,
+      message,
+      provider,
+      logger,
+    });
     return;
   }
 
@@ -135,6 +158,19 @@ export async function trackSentDraftStatus({
     "Successfully created draft send log and updated action status via transaction",
     { executedActionId },
   );
+
+  queueReplyMemoryLearning({
+    emailAccountId,
+    executedActionId,
+    sourceMessageId: executedAction.executedRule.messageId,
+    sentMessageId,
+    threadId,
+    draftText: executedAction.content,
+    similarityScore,
+    message,
+    provider,
+    logger,
+  });
 }
 
 /**
@@ -338,4 +374,68 @@ export async function cleanupThreadAIDrafts({
   } catch (error) {
     logger.error("Error during thread draft cleanup", { error });
   }
+}
+
+function queueReplyMemoryLearning({
+  emailAccountId,
+  executedActionId,
+  sourceMessageId,
+  sentMessageId,
+  threadId,
+  draftText,
+  similarityScore,
+  message,
+  provider,
+  logger,
+}: {
+  emailAccountId: string;
+  executedActionId: string;
+  sourceMessageId?: string | null;
+  sentMessageId: string;
+  threadId: string;
+  draftText?: string | null;
+  similarityScore: number;
+  message: ParsedMessage;
+  provider: EmailProvider;
+  logger: Logger;
+}) {
+  if (!sourceMessageId || !draftText) return;
+
+  const sentText = emailToContent(message, {
+    maxLength: 4000,
+    extractReply: true,
+    removeForwarded: false,
+  });
+
+  if (!isMeaningfulDraftEdit({ draftText, sentText, similarityScore })) {
+    return;
+  }
+
+  withPrismaRetry(
+    () =>
+      saveReplyMemoryEvidence({
+        emailAccountId,
+        executedActionId,
+        sourceMessageId,
+        sentMessageId,
+        threadId,
+        draftText,
+        sentText,
+        similarityScore,
+      }),
+    { logger },
+  )
+    .then(() =>
+      syncReplyMemoriesFromEvidence({
+        emailAccountId,
+        provider,
+        logger,
+      }),
+    )
+    .catch((error) => {
+      logger.error("Failed to learn reply memories from draft edit", {
+        error,
+        executedActionId,
+      });
+    });
 }

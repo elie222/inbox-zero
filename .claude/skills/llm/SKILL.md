@@ -119,6 +119,11 @@ ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
    - Extract common patterns into utility functions
    - Document complex AI logic with clear comments
 
+8. **AI-First Behavior**:
+   - Prefer generic prompt instructions, structured outputs, and model choice over brittle lexical heuristics that imitate model reasoning
+   - Only add deterministic filters when the product truly needs a hard rule outside the model
+   - Do not add prompt examples that closely mirror eval fixtures just to make a test pass
+
 ## Testing
 
 See [llm-test.mdc](mdc:.cursor/rules/llm-test.mdc)

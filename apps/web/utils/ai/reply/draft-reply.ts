@@ -50,6 +50,7 @@ const getUserPrompt = ({
   messages,
   emailAccount,
   knowledgeBaseContent,
+  replyMemoryContent,
   emailHistorySummary,
   emailHistoryContext,
   calendarAvailability,
@@ -61,6 +62,7 @@ const getUserPrompt = ({
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
+  replyMemoryContent: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
@@ -84,6 +86,15 @@ ${emailAccount.about}
 <knowledge_base>
 ${knowledgeBaseContent}
 </knowledge_base>
+`
+    : "";
+
+  const learnedReplyMemories = replyMemoryContent
+    ? `Learned reply memories from prior draft edits. Use these when relevant, but explicit user instructions and knowledge base content take precedence.
+
+<reply_memories>
+${replyMemoryContent}
+</reply_memories>
 `
     : "";
 
@@ -152,6 +163,7 @@ Mention attached documents only when useful and only if this section is present.
 
   return `${userAbout}
 ${relevantKnowledge}
+${learnedReplyMemories}
 ${historicalContext}
 ${precedentHistoryContext}
 ${writingStylePrompt}
@@ -191,6 +203,7 @@ export async function aiDraftReplyWithConfidence({
   messages,
   emailAccount,
   knowledgeBaseContent,
+  replyMemoryContent = null,
   emailHistorySummary,
   emailHistoryContext,
   calendarAvailability,
@@ -202,6 +215,7 @@ export async function aiDraftReplyWithConfidence({
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
+  replyMemoryContent?: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
@@ -226,6 +240,7 @@ export async function aiDraftReplyWithConfidence({
     messages,
     emailAccount,
     knowledgeBaseContent,
+    replyMemoryContent,
     emailHistorySummary,
     emailHistoryContext,
     calendarAvailability,
@@ -276,6 +291,7 @@ export async function aiDraftReply({
   messages,
   emailAccount,
   knowledgeBaseContent,
+  replyMemoryContent = null,
   emailHistorySummary,
   emailHistoryContext,
   calendarAvailability,
@@ -287,6 +303,7 @@ export async function aiDraftReply({
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
+  replyMemoryContent?: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
@@ -299,6 +316,7 @@ export async function aiDraftReply({
     messages,
     emailAccount,
     knowledgeBaseContent,
+    replyMemoryContent,
     emailHistorySummary,
     emailHistoryContext,
     calendarAvailability,
