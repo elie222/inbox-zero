@@ -364,7 +364,9 @@ function usesAiInstructionsOnly(
   return (
     (!staticFrom ||
       staticFrom.trim().length === 0 ||
-      staticFrom.trim() === "*") &&
+      staticFrom.trim() === "*" ||
+      staticFrom.trim() === "*@*" ||
+      staticFrom.trim() === "@") &&
     includesAnyText(createCall.condition.aiInstructions, expectedTerms)
   );
 }
