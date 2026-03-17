@@ -27,7 +27,7 @@ export const updateRuleConditionSchema = z.object({
   condition: z.object({
     aiInstructions: z
       .string()
-      .optional()
+      .nullish()
       .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
     static: z
       .object({

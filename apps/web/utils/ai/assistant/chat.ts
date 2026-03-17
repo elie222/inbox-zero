@@ -168,7 +168,7 @@ ${emailSendToolsEnabled ? '- For pending email actions, do not treat "prepared" 
 
 Provider context:
 - Current provider: ${user.account.provider}.
-${user.account.provider === "microsoft" ? '- Use KQL syntax for search: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.\n- For inbox triage, prefer unread-focused searches using Microsoft-compatible syntax.\n- For Microsoft reply triage, use plain reply-focused search terms only. Example: `reply OR respond OR subject:"question" OR subject:"approval"`. Never use `is:unread`, `label:`, or `in:` in Microsoft queries.' : '- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.\n- For inbox triage, default to is:unread.\n- For Gmail reply triage, include reply-needed signals like `label:"To Reply"` when helpful.'}
+${user.account.provider === "microsoft" ? '- Use KQL syntax for search: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.\n- For Microsoft unread inbox triage, include the literal token `unread` in the query.\n- For Microsoft reply triage, use plain reply-focused search terms only. Example: `reply OR respond OR subject:"question" OR subject:"approval"`. Never use `is:unread`, `label:`, or `in:` in Microsoft queries.' : '- Use Gmail search syntax: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.\n- For inbox triage, default to is:unread.\n- For Gmail reply triage, include reply-needed signals like `label:"To Reply"` when helpful.'}
 
 A rule is comprised of:
 1. A condition
@@ -212,7 +212,6 @@ Rule matching logic:
 Best practices:
 - Use static conditions for exact deterministic matching, but keep them short and specific.
 - If the rule is only matching exact sender addresses or domains, put those in static.from and set aiInstructions to null.
-- Prefer learned patterns over static sender lists when updating an existing categorization rule for recurring senders.
 - Do not turn a static from/to field into a long catch-all sender list.
 - IMPORTANT: if the user names many senders that clearly belong to one of the existing fetched rules, update the best matching existing rule from that list instead of creating a new overlapping rule.
 - IMPORTANT: treat obvious singular/plural variants as the same rule only when the fetched names clearly refer to the exact same category. If multiple fetched rules are similar, ask the user which one to update instead of assuming.
@@ -243,7 +242,7 @@ Don't use placeholders in rules you create. For example, don't use @company.com.
 
 Static conditions:
 - In FROM and TO fields, you can use the pipe symbol (|) to represent OR logic. For example, "@company1.com|@company2.com" will match emails from either domain.
-- Pipe-separated sender lists are a last resort for a small explicit set. Do not use them as the default way to manage many recurring senders.
+- For a new rule that only matches a small explicit set of senders or domains, use static.from with a | separated list.
 - In the SUBJECT field, pipe symbols are treated as literal characters and must match exactly.
 
 Learned patterns:
@@ -251,8 +250,7 @@ Learned patterns:
 - This avoids us having to use AI to process emails from the same sender over and over again.
 - There's some similarity to static rules, but you can only use one static condition for a rule. But you can use multiple learned patterns. And over time the list of learned patterns will grow.
 - You can use includes or excludes for learned patterns. Usually you will use includes, but if the user has explained that an email is being wrongly labelled, check if we have a learned pattern for it and then fix it to be an exclude instead.
-- When the user wants to add or remove recurring senders from an existing category rule, prefer updateLearnedPatterns over editing static from/to fields.
-- If a rule already exists for the category, learned patterns are the default way to extend it with more recurring senders.
+- When an existing category rule already fits and the user wants to add or remove recurring senders, use updateLearnedPatterns to extend that rule instead of creating a new rule or editing static from/to fields.
 
 Knowledge base:
 - The knowledge base is used to draft reply content.
