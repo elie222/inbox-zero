@@ -34,6 +34,9 @@ vi.mock("@/utils/llms/model", () => ({
     fallbackModels: [],
   })),
 }));
+vi.mock("@/utils/llms/retry", () => ({
+  withNetworkRetry: vi.fn().mockImplementation((fn) => fn()),
+}));
 vi.mock("@/utils/user/get", () => ({
   getEmailAccountWithAi: vi.fn().mockResolvedValue({
     id: "account-1",
@@ -195,6 +198,102 @@ describe("reply-memory", () => {
     });
   });
 
+  it("marks evidence processed without extraction when the source email cannot be loaded", async () => {
+    vi.mocked(prisma.replyMemoryEvidence.deleteMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.replyMemoryEvidence.findMany).mockResolvedValue([
+      {
+        id: "evidence-1",
+        emailAccountId: "account-1",
+        executedActionId: "action-1",
+        sourceMessageId: "source-1",
+        sentMessageId: "sent-1",
+        threadId: "thread-1",
+        draftText: "Thanks for reaching out.",
+        sentText: "Pricing depends on seat count.",
+        similarityScore: 0.5,
+        processedAt: null,
+        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+        createdAt: new Date("2026-03-17T10:00:00.000Z"),
+        updatedAt: new Date("2026-03-17T10:00:00.000Z"),
+      },
+    ] as any);
+    vi.mocked(prisma.replyMemoryEvidence.update).mockResolvedValue({} as any);
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(null),
+    };
+
+    await syncReplyMemoriesFromEvidence({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(mockGenerateObject).not.toHaveBeenCalled();
+    expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
+    expect(prisma.replyMemoryEvidence.update).toHaveBeenCalledWith({
+      where: { id: "evidence-1" },
+      data: { processedAt: expect.any(Date) },
+    });
+  });
+
+  it("skips persisting scoped memories without a concrete scope value", async () => {
+    vi.mocked(prisma.replyMemoryEvidence.deleteMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.replyMemoryEvidence.findMany).mockResolvedValue([
+      {
+        id: "evidence-1",
+        emailAccountId: "account-1",
+        executedActionId: "action-1",
+        sourceMessageId: "source-1",
+        sentMessageId: "sent-1",
+        threadId: "thread-1",
+        draftText: "Thanks for reaching out.",
+        sentText: "Pricing depends on seat count.",
+        similarityScore: 0.5,
+        processedAt: null,
+        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+        createdAt: new Date("2026-03-17T10:00:00.000Z"),
+        updatedAt: new Date("2026-03-17T10:00:00.000Z"),
+      },
+    ] as any);
+    vi.mocked(prisma.replyMemory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.replyMemoryEvidence.update).mockResolvedValue({} as any);
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        memories: [
+          {
+            title: "sender preference",
+            content: "Mention annual billing first.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.SENDER,
+            scopeValue: "   ",
+            tags: ["pricing"],
+          },
+        ],
+      },
+    });
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+
+    await syncReplyMemoriesFromEvidence({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
+    expect(prisma.replyMemoryEvidence.update).toHaveBeenCalledWith({
+      where: { id: "evidence-1" },
+      data: { processedAt: expect.any(Date) },
+    });
+  });
+
   it("normalizes extracted reply memories before returning them", async () => {
     mockGenerateObject.mockResolvedValue({
       object: {
@@ -248,6 +347,37 @@ describe("reply-memory", () => {
         tags: ["pricing", "seats"],
       },
     ]);
+  });
+
+  it("returns no extracted memories when sender or edited content is missing", async () => {
+    const result = await aiExtractReplyMemoriesFromDraftEdit({
+      emailAccount: {
+        id: "account-1",
+        userId: "user-1",
+        email: "user@example.com",
+        about: null,
+        multiRuleSelectionEnabled: false,
+        timezone: "UTC",
+        calendarBookingLink: null,
+        name: "User",
+        user: {
+          aiProvider: "openai",
+          aiModel: "gpt-5.1",
+          aiApiKey: null,
+        },
+        account: {
+          provider: "google",
+        },
+      } as any,
+      incomingEmailContent: "",
+      draftText: "Thanks for reaching out.",
+      sentText: "Thanks for reaching out.",
+      senderEmail: "",
+      existingMemories: [],
+    });
+
+    expect(result).toEqual([]);
+    expect(mockGenerateObject).not.toHaveBeenCalled();
   });
 });
 

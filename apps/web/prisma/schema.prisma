@@ -582,6 +582,7 @@ model ExecutedAction {
   draftModelName     String?
   draftPipelineVersion Int?
   draftSendLog    DraftSendLog? // Will exist if the draft was sent
+  replyMemoryEvidence ReplyMemoryEvidence? // Evidence captured from edits to this draft
   digestItems     DigestItem[] // Relation to digest items created by this action
   scheduledAction ScheduledAction? // Reverse relation for delayed actions
 
@@ -859,7 +860,7 @@ model ReplyMemory {
   tags       String[]          @default([])
   kind       ReplyMemoryKind
   scopeType  ReplyMemoryScopeType
-  scopeValue String            @default("")
+  scopeValue String
   status     ReplyMemoryStatus @default(ACTIVE)
 
   emailAccountId String
@@ -885,6 +886,7 @@ model ReplyMemoryEvidence {
   processedAt      DateTime?
   expiresAt        DateTime
 
+  executedAction ExecutedAction @relation(fields: [executedActionId], references: [id], onDelete: Cascade)
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 

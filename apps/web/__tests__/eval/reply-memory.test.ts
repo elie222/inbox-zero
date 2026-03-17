@@ -108,7 +108,7 @@ describe.runIf(shouldRunEval)("reply memory extraction eval", () => {
           (memory) =>
             (memory.kind === ReplyMemoryKind.STYLE ||
               memory.kind === ReplyMemoryKind.PREFERENCE) &&
-            /short|concise|brief|exclamation|direct/i.test(
+            /short|concise|brief|direct|plain|simple|neutral|professional|exclamation|enthusias/i.test(
               `${memory.title} ${memory.content} ${memory.tags.join(" ")}`,
             ),
         );

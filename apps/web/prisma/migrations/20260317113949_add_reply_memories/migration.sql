@@ -17,7 +17,7 @@ CREATE TABLE "ReplyMemory" (
     "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "kind" "ReplyMemoryKind" NOT NULL,
     "scopeType" "ReplyMemoryScopeType" NOT NULL,
-    "scopeValue" TEXT NOT NULL DEFAULT '',
+    "scopeValue" TEXT NOT NULL,
     "status" "ReplyMemoryStatus" NOT NULL DEFAULT 'ACTIVE',
     "emailAccountId" TEXT NOT NULL,
 
@@ -63,6 +63,9 @@ CREATE INDEX "ReplyMemoryEvidence_expiresAt_idx" ON "ReplyMemoryEvidence"("expir
 
 -- AddForeignKey
 ALTER TABLE "ReplyMemory" ADD CONSTRAINT "ReplyMemory_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ReplyMemoryEvidence" ADD CONSTRAINT "ReplyMemoryEvidence_executedActionId_fkey" FOREIGN KEY ("executedActionId") REFERENCES "ExecutedAction"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ReplyMemoryEvidence" ADD CONSTRAINT "ReplyMemoryEvidence_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;

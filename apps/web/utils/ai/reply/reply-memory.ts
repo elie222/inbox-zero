@@ -12,6 +12,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
+import { withNetworkRetry } from "@/utils/llms/retry";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -373,23 +374,28 @@ async function processReplyMemoryEvidence({
   const senderEmail = extractEmailAddress(incomingMessage?.headers.from || "");
   const senderDomain = extractDomainFromEmail(senderEmail).toLowerCase();
 
+  if (!incomingMessage || !senderEmail) {
+    logger.warn(
+      "Skipping reply memory extraction without source email context",
+      {
+        replyMemoryEvidenceId: evidence.id,
+        sourceMessageId: evidence.sourceMessageId,
+        hasIncomingMessage: !!incomingMessage,
+        hasSenderEmail: !!senderEmail,
+      },
+    );
+    await markReplyMemoryEvidenceProcessed(evidence.id);
+    return;
+  }
+
   const existingMemories = await prisma.replyMemory.findMany({
     where: {
       emailAccountId: evidence.emailAccountId,
       status: ReplyMemoryStatus.ACTIVE,
-      OR: senderDomain
-        ? [
-            { scopeType: ReplyMemoryScopeType.GLOBAL },
-            {
-              scopeType: ReplyMemoryScopeType.SENDER,
-              scopeValue: senderEmail.toLowerCase(),
-            },
-            {
-              scopeType: ReplyMemoryScopeType.DOMAIN,
-              scopeValue: senderDomain,
-            },
-          ]
-        : [{ scopeType: ReplyMemoryScopeType.GLOBAL }],
+      OR: getReplyMemoryScopes({
+        senderEmail: senderEmail.toLowerCase(),
+        senderDomain,
+      }),
     },
     orderBy: { updatedAt: "desc" },
     take: MAX_EXISTING_MEMORIES_IN_PROMPT,
@@ -415,6 +421,13 @@ async function processReplyMemoryEvidence({
       memory.scopeType === ReplyMemoryScopeType.GLOBAL
         ? ""
         : memory.scopeValue.trim().toLowerCase();
+
+    // Non-global memories without a concrete scope can never be retrieved later.
+    if (
+      memory.scopeType !== ReplyMemoryScopeType.GLOBAL &&
+      !normalizedScopeValue
+    )
+      continue;
 
     await prisma.replyMemory.upsert({
       where: {
@@ -443,10 +456,7 @@ async function processReplyMemoryEvidence({
     });
   }
 
-  await prisma.replyMemoryEvidence.update({
-    where: { id: evidence.id },
-    data: { processedAt: new Date() },
-  });
+  await markReplyMemoryEvidenceProcessed(evidence.id);
 }
 
 export async function aiExtractReplyMemoriesFromDraftEdit({
@@ -467,20 +477,36 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
   >[];
   emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
 }) {
-  const senderDomain = extractDomainFromEmail(senderEmail).toLowerCase();
-  const prompt = `<source_email_sender>${senderEmail || "unknown"}</source_email_sender>
+  const normalizedIncomingEmailContent = incomingEmailContent.trim();
+  const normalizedDraftText = draftText.trim();
+  const normalizedSentText = sentText.trim();
+  const normalizedSenderEmail = senderEmail.trim().toLowerCase();
+
+  if (!normalizedSenderEmail) return [];
+  if (!normalizedDraftText || !normalizedSentText) return [];
+  if (
+    normalizeMemoryText(normalizedDraftText) ===
+    normalizeMemoryText(normalizedSentText)
+  ) {
+    return [];
+  }
+
+  const senderDomain = extractDomainFromEmail(
+    normalizedSenderEmail,
+  ).toLowerCase();
+  const prompt = `<source_email_sender>${normalizedSenderEmail}</source_email_sender>
 <source_email_domain>${senderDomain || "unknown"}</source_email_domain>
 
 <incoming_email>
-${incomingEmailContent || "Unavailable"}
+${normalizedIncomingEmailContent}
 </incoming_email>
 
 <ai_draft>
-${draftText}
+${normalizedDraftText}
 </ai_draft>
 
 <user_sent>
-${sentText}
+${normalizedSentText}
 </user_sent>
 
 <existing_memories>
@@ -498,12 +524,16 @@ Extract reusable reply memories from this draft edit.`;
     modelOptions,
   });
 
-  const result = await generateObject({
-    ...modelOptions,
-    system: extractionSystemPrompt,
-    prompt,
-    schema: replyMemorySchema,
-  });
+  const result = await withNetworkRetry(
+    () =>
+      generateObject({
+        ...modelOptions,
+        system: extractionSystemPrompt,
+        prompt,
+        schema: replyMemorySchema,
+      }),
+    { label: "Reply memory extraction" },
+  );
 
   const normalizedMemories = result.object.memories.map((memory) => ({
     ...memory,
@@ -563,6 +593,41 @@ function countOverlap(left: Set<string>, right: Set<string>) {
   }
 
   return count;
+}
+
+function getReplyMemoryScopes({
+  senderEmail,
+  senderDomain,
+}: {
+  senderEmail: string;
+  senderDomain: string;
+}) {
+  return [
+    { scopeType: ReplyMemoryScopeType.GLOBAL },
+    ...(senderEmail
+      ? [
+          {
+            scopeType: ReplyMemoryScopeType.SENDER,
+            scopeValue: senderEmail,
+          },
+        ]
+      : []),
+    ...(senderDomain
+      ? [
+          {
+            scopeType: ReplyMemoryScopeType.DOMAIN,
+            scopeValue: senderDomain,
+          },
+        ]
+      : []),
+  ];
+}
+
+async function markReplyMemoryEvidenceProcessed(id: string) {
+  await prisma.replyMemoryEvidence.update({
+    where: { id },
+    data: { processedAt: new Date() },
+  });
 }
 
 const STOP_WORDS = new Set([
