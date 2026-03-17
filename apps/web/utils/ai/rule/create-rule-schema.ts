@@ -5,6 +5,10 @@ import { isDefined } from "@/utils/types";
 import { env } from "@/env";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
+import {
+  AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
+  STATIC_FROM_CONDITION_DESCRIPTION,
+} from "@/utils/ai/rule/rule-condition-descriptions";
 
 const conditionSchema = z
   .object({
@@ -17,12 +21,10 @@ const conditionSchema = z
     aiInstructions: z
       .string()
       .nullable()
-      .describe(
-        "Instructions for the AI to determine when to apply this rule. For example: 'Apply this rule to emails about product updates' or 'Use this rule for messages discussing project deadlines'. Be specific about the email content or characteristics that should trigger this rule.",
-      ),
+      .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
     static: z
       .object({
-        from: z.string().nullable().describe("The from email address to match"),
+        from: z.string().nullable().describe(STATIC_FROM_CONDITION_DESCRIPTION),
         to: z.string().nullable().describe("The to email address to match"),
         subject: z.string().nullable().describe("The subject to match"),
       })

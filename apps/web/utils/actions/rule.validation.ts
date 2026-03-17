@@ -11,6 +11,10 @@ import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
+import {
+  AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
+  STATIC_FROM_CONDITION_DESCRIPTION,
+} from "@/utils/ai/rule/rule-condition-descriptions";
 
 export const delayInMinutesSchema = z
   .number()
@@ -21,10 +25,13 @@ export const delayInMinutesSchema = z
 export const updateRuleConditionSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
   condition: z.object({
-    aiInstructions: z.string().optional(),
+    aiInstructions: z
+      .string()
+      .optional()
+      .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
     static: z
       .object({
-        from: z.string().nullish(),
+        from: z.string().nullish().describe(STATIC_FROM_CONDITION_DESCRIPTION),
         to: z.string().nullish(),
         subject: z.string().nullish(),
       })

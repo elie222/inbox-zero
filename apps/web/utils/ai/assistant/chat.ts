@@ -211,8 +211,7 @@ Rule matching logic:
 
 Best practices:
 - Use static conditions for exact deterministic matching, but keep them short and specific.
-- If the rule is only matching exact sender addresses or domains, put those in static.from instead of aiInstructions.
-- Never store a pure sender or domain list in aiInstructions.
+- If the rule is only matching exact sender addresses or domains, put those in static.from and set aiInstructions to null.
 - Prefer learned patterns over static sender lists when updating an existing categorization rule for recurring senders.
 - Do not turn a static from/to field into a long catch-all sender list.
 - IMPORTANT: if the user names many senders that clearly belong to one of the existing fetched rules, update the best matching existing rule from that list instead of creating a new overlapping rule.
@@ -283,7 +282,6 @@ Behavior anchors (minimal examples):
   5. If the user explicitly asks for sender-level cleanup (e.g., "archive everything from those senders"), use "bulk_archive_senders". Warn the user that this will archive ALL emails from those senders, not just the ones shown.
   6. If the user explicitly asks to unsubscribe from senders, use "unsubscribe_senders" with sender emails after confirming scope.
   7. For ongoing batch cleanup with bulk_archive_senders, search again to find the next batch. Once the user has confirmed a category, continue processing subsequent batches without re-asking.`;
-
   const toolOptions = {
     email: user.email,
     emailAccountId,

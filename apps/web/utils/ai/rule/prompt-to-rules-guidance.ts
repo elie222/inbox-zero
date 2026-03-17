@@ -4,8 +4,9 @@ Use static conditions for exact deterministic matching, but keep them short and 
 You can use multiple conditions in a rule, but aim for simplicity.
 In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
 If a rule can be handled fully with static conditions, do so, but this is rarely possible.
-If the rule is only matching exact sender addresses or domains, put those in static.from instead of aiInstructions.
-Never store a pure sender or domain list in aiInstructions.
+If the rule is only matching exact sender addresses or domains, put those in static.from and set aiInstructions to null.
+aiInstructions are only for semantic or content matching. Do not repeat sender lists, label names, or actions there.
+Example sender-only rule shape: static.from="@airbnb.com|@booking.com|@delta.com", aiInstructions=null.
 
 Output policy:
 - Return a JSON object only. No prose and no markdown.
