@@ -6,6 +6,7 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { exportSession } from "@/utils/replay/recorder";
 import type { ReplayFixture } from "@/utils/replay/types";
+import { stripQuotedContent } from "@/utils/strip-quoted-content";
 
 const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 const URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/g;
@@ -18,6 +19,9 @@ const SAFE_HEADER_KEYS = new Set([
   "subject",
   "date",
   "list-unsubscribe",
+  "message-id",
+  "in-reply-to",
+  "references",
 ]);
 
 async function main() {
@@ -223,6 +227,7 @@ function sanitizeMessageLike(
     "subject",
     "date",
     "inline",
+    "attachments",
   ];
 
   for (const key of allowedKeys) {
@@ -248,21 +253,7 @@ function isMessageLike(value: unknown): value is Record<string, unknown> {
 }
 
 function stripQuotedReplies(value: string): string {
-  const normalized = value.replace(/\r\n/g, "\n");
-  const quotedMarkers = [
-    /\nOn [\s\S]+? wrote:\n/,
-    /\n--\n/,
-    /\nReply directly to this email, or go to chat\./,
-  ];
-
-  for (const marker of quotedMarkers) {
-    const match = normalized.match(marker);
-    if (match?.index != null) {
-      return normalized.slice(0, match.index).trim();
-    }
-  }
-
-  return normalized.trim();
+  return stripQuotedContent(value.replace(/\r\n/g, "\n"));
 }
 
 function truncate(value: string, limit: number): string {

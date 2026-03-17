@@ -119,7 +119,12 @@ function extractLLMPairs(entries: RecordingEntry[]): LLMCallRecord[] {
       const queue = pendingRequests.get(label);
       const pendingRequest = queue?.shift();
 
-      if (!pendingRequest) continue;
+      if (!pendingRequest) {
+        throw new Error(
+          `Found llm-response for label "${label}" without a matching llm-request. ` +
+            `Pending request labels: ${[...pendingRequests.keys()].join(", ") || "none"}`,
+        );
+      }
 
       if (!queue?.length) {
         pendingRequests.delete(label);
