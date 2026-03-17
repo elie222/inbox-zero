@@ -173,34 +173,22 @@ export async function getReplyMemoryContent({
 
     const [senderMemories, domainMemories, globalMemories] = await Promise.all([
       normalizedSenderEmail
-        ? prisma.replyMemory.findMany({
-            where: {
-              emailAccountId,
-              scopeType: ReplyMemoryScopeType.SENDER,
-              scopeValue: normalizedSenderEmail,
-            },
-            orderBy: { updatedAt: "desc" },
-            take: MAX_RETRIEVED_REPLY_MEMORIES,
+        ? fetchReplyMemoriesByScope({
+            emailAccountId,
+            scopeType: ReplyMemoryScopeType.SENDER,
+            scopeValue: normalizedSenderEmail,
           })
         : Promise.resolve([]),
       senderDomain
-        ? prisma.replyMemory.findMany({
-            where: {
-              emailAccountId,
-              scopeType: ReplyMemoryScopeType.DOMAIN,
-              scopeValue: senderDomain,
-            },
-            orderBy: { updatedAt: "desc" },
-            take: MAX_RETRIEVED_REPLY_MEMORIES,
+        ? fetchReplyMemoriesByScope({
+            emailAccountId,
+            scopeType: ReplyMemoryScopeType.DOMAIN,
+            scopeValue: senderDomain,
           })
         : Promise.resolve([]),
-      prisma.replyMemory.findMany({
-        where: {
-          emailAccountId,
-          scopeType: ReplyMemoryScopeType.GLOBAL,
-        },
-        orderBy: { updatedAt: "desc" },
-        take: MAX_RETRIEVED_REPLY_MEMORIES,
+      fetchReplyMemoriesByScope({
+        emailAccountId,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
       }),
     ]);
 
@@ -512,6 +500,26 @@ function formatExistingMemories(
         }] ${memory.title}: ${memory.content}`,
     )
     .join("\n");
+}
+
+async function fetchReplyMemoriesByScope({
+  emailAccountId,
+  scopeType,
+  scopeValue,
+}: {
+  emailAccountId: string;
+  scopeType: ReplyMemoryScopeType;
+  scopeValue?: string;
+}) {
+  return prisma.replyMemory.findMany({
+    where: {
+      emailAccountId,
+      scopeType,
+      ...(scopeValue !== undefined ? { scopeValue } : {}),
+    },
+    orderBy: { updatedAt: "desc" },
+    take: MAX_RETRIEVED_REPLY_MEMORIES,
+  });
 }
 
 function normalizeMemoryText(value: string) {
