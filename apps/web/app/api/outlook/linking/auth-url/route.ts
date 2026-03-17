@@ -4,7 +4,6 @@ import { getLinkingOAuth2Url } from "@/utils/outlook/client";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import {
-  getOAuthStateFingerprint,
   generateOAuthState,
   oauthStateCookieOptions,
 } from "@/utils/oauth/state";
@@ -29,7 +28,6 @@ export const GET = withAuth("outlook/linking/auth-url", async (request) => {
     prompt: parsedAuthUrl.searchParams.get("prompt"),
     redirectUri: parsedAuthUrl.searchParams.get("redirect_uri"),
     requestedScopes: OUTLOOK_SCOPES,
-    stateFingerprint: getOAuthStateFingerprint(state),
   });
 
   const response = NextResponse.json({ url: authUrl });

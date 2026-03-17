@@ -3,10 +3,6 @@ vi.mock("server-only", () => ({}));
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import {
-  generateOAuthState,
-  getOAuthStateFingerprint,
-} from "@/utils/oauth/state";
 
 const {
   mockValidateOAuthCallback,
@@ -182,33 +178,6 @@ describe("outlook linking callback route", () => {
     expect(redirectLocation).toContain("consent+screen");
     expect(mockValidateOAuthCallback).not.toHaveBeenCalled();
     expect(mockHandleAccountLinking).not.toHaveBeenCalled();
-  });
-
-  it("logs a state fingerprint for authorize callback errors", async () => {
-    const consoleWarnSpy = vi
-      .spyOn(console, "warn")
-      .mockImplementation(() => {});
-    const state = generateOAuthState({ userId: "user-123" });
-    const stateFingerprint = getOAuthStateFingerprint(state);
-
-    try {
-      await GET(
-        createRequest(
-          "http://localhost:3000/api/outlook/linking/callback?error=consent_required&error_description=AADSTS65004&state=" +
-            state,
-          state,
-        ),
-      );
-
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining(`"stateFingerprint": "${stateFingerprint}"`),
-      );
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('"errorDescription": "AADSTS65004"'),
-      );
-    } finally {
-      consoleWarnSpy.mockRestore();
-    }
   });
 
   it("redirects with invalid_state for Microsoft callback errors with mismatched state", async () => {

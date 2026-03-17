@@ -15,7 +15,6 @@ import {
   getSafeMicrosoftOAuthErrorDescription,
   parseMicrosoftScopes,
 } from "@/utils/oauth/microsoft-oauth";
-import { getOAuthStateFingerprint } from "@/utils/oauth/state";
 import {
   acquireOAuthCodeLock,
   getOAuthCodeResult,
@@ -57,9 +56,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       logger,
       redirectUri: linkingRedirectUri,
       requestedScopes: OUTLOOK_SCOPES,
-      stateFingerprint: storedState
-        ? getOAuthStateFingerprint(storedState)
-        : null,
     });
   }
 
@@ -487,7 +483,6 @@ function handleMicrosoftOAuthAuthorizeError(params: {
   logger: Logger;
   redirectUri: string;
   requestedScopes: readonly string[];
-  stateFingerprint: string | null;
 }) {
   const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
   const mappedError = classifyMicrosoftOAuthCallbackError({
@@ -504,7 +499,6 @@ function handleMicrosoftOAuthAuthorizeError(params: {
     safeErrorDescription: getSafeMicrosoftOAuthErrorDescription(
       params.errorDescription,
     ),
-    stateFingerprint: params.stateFingerprint,
   });
 
   if (mappedError) {

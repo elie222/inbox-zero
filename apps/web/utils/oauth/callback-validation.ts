@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
-import { getOAuthStateFingerprint, parseOAuthState } from "@/utils/oauth/state";
+import { parseOAuthState } from "@/utils/oauth/state";
 
 interface ValidateCallbackParams {
   code: string | null;
@@ -66,9 +66,7 @@ export function validateOAuthCallback({
   }
 
   if (!code) {
-    logger.warn("Missing code in OAuth callback", {
-      stateFingerprint: getOAuthStateFingerprint(storedState),
-    });
+    logger.warn("Missing code in OAuth callback");
     redirectUrl.searchParams.set("error", "missing_code");
     response.cookies.delete(stateCookieName);
     return {
