@@ -30,7 +30,7 @@ yarn-error.log*
 # local env files - ignore ALL .env files except .env.example
 .env*
 !.env.example
-json.env
+/json.env
 
 # vercel
 .vercel
