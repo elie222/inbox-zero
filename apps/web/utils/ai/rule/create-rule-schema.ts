@@ -7,6 +7,8 @@ import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import {
   AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
+  INVALID_STATIC_FROM_PLACEHOLDER_MESSAGE,
+  isInvalidStaticFromPlaceholder,
   STATIC_FROM_CONDITION_DESCRIPTION,
 } from "@/utils/ai/rule/rule-condition-descriptions";
 
@@ -24,7 +26,13 @@ const conditionSchema = z
       .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
     static: z
       .object({
-        from: z.string().nullable().describe(STATIC_FROM_CONDITION_DESCRIPTION),
+        from: z
+          .string()
+          .nullable()
+          .refine((value) => !isInvalidStaticFromPlaceholder(value), {
+            message: INVALID_STATIC_FROM_PLACEHOLDER_MESSAGE,
+          })
+          .describe(STATIC_FROM_CONDITION_DESCRIPTION),
         to: z.string().nullable().describe("The to email address to match"),
         subject: z.string().nullable().describe("The subject to match"),
       })

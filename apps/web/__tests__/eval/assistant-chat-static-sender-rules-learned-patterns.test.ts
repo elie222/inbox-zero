@@ -9,15 +9,15 @@ import {
   shouldRunEvalTests,
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
-import type { getEmailAccount } from "@/__tests__/helpers";
-import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
-import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
 import {
-  getDefaultActions,
-  getRuleConfig,
-  SYSTEM_RULE_ORDER,
-} from "@/utils/rule/consts";
+  buildDefaultSystemRuleRows,
+  configureRuleEvalPrisma,
+  configureRuleEvalProvider,
+  configureRuleMutationMocks,
+  senderListHasValue,
+} from "@/__tests__/eval/assistant-chat-rule-eval-test-utils";
+import type { getEmailAccount } from "@/__tests__/helpers";
+import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai eval/assistant-chat-static-sender-rules
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-static-sender-rules
@@ -31,7 +31,8 @@ const logger = createScopedLogger(
   "eval-assistant-chat-static-sender-rules-learned-patterns",
 );
 const ruleUpdatedAt = new Date("2026-03-13T00:00:00.000Z");
-const defaultRuleRows = getDefaultRuleRows();
+const defaultRuleRows = buildDefaultSystemRuleRows(ruleUpdatedAt);
+const about = "I manage a busy work inbox.";
 
 const scenarios = [
   {
@@ -152,65 +153,22 @@ describe.runIf(shouldRunEval)(
     beforeEach(() => {
       vi.clearAllMocks();
 
-      mockCreateRule.mockResolvedValue({ id: "created-rule-id" });
-      mockPartialUpdateRule.mockResolvedValue({ id: "updated-rule-id" });
-      mockUpdateRuleActions.mockResolvedValue({ id: "updated-rule-id" });
-      mockSaveLearnedPatterns.mockResolvedValue({ success: true });
-
-      prisma.emailAccount.findUnique.mockImplementation(async ({ select }) => {
-        if (select?.rules) {
-          return {
-            about: "I manage a busy work inbox.",
-            rules: defaultRuleRows,
-          };
-        }
-
-        return {
-          about: "I manage a busy work inbox.",
-        };
+      configureRuleMutationMocks({
+        mockCreateRule,
+        mockPartialUpdateRule,
+        mockUpdateRuleActions,
+        mockSaveLearnedPatterns,
       });
 
-      prisma.emailAccount.update.mockResolvedValue({
-        about: "I manage a busy work inbox.",
+      configureRuleEvalPrisma({
+        about,
+        ruleRows: defaultRuleRows,
       });
 
-      prisma.rule.findUnique.mockImplementation(async ({ where, select }) => {
-        const ruleName = where?.name_emailAccountId?.name;
-        const matchedRule = defaultRuleRows.find(
-          (rule) => rule.name === ruleName,
-        );
-
-        if (!matchedRule) return null;
-
-        if (select?.group) {
-          return {
-            group: {
-              items: [],
-            },
-          };
-        }
-
-        return {
-          id: matchedRule.id,
-          name: matchedRule.name,
-          updatedAt: matchedRule.updatedAt,
-        };
-      });
-
-      mockCreateEmailProvider.mockResolvedValue({
-        getMessagesWithPagination: vi.fn().mockResolvedValue({
-          messages: [],
-          nextPageToken: undefined,
-        }),
-        getLabels: vi.fn().mockResolvedValue(getDefaultLabels()),
-        createLabel: vi.fn(async (name: string) => ({
-          id: `label-${name.toLowerCase().replace(/\s+/g, "-")}`,
-          name,
-          type: "user",
-        })),
-        archiveThreadWithLabel: vi.fn(),
-        markReadThread: vi.fn(),
-        bulkArchiveFromSenders: vi.fn(),
+      configureRuleEvalProvider({
+        mockCreateEmailProvider,
+        ruleRows: defaultRuleRows,
+        includeCreateLabel: true,
       });
     });
 
@@ -395,7 +353,7 @@ function hasIncludedFrom(
   return learnedPatterns.some(
     (pattern) =>
       !!pattern.include?.from &&
-      senderMatches(pattern.include.from, expectedFrom),
+      senderListHasValue(pattern.include.from, expectedFrom),
   );
 }
 
@@ -406,63 +364,6 @@ function hasExcludedFrom(
   return learnedPatterns.some(
     (pattern) =>
       !!pattern.exclude?.from &&
-      senderMatches(pattern.exclude.from, expectedFrom),
-  );
-}
-
-function senderMatches(actual: string, expected: string) {
-  return splitSenderValues(actual).includes(normalizeSender(expected));
-}
-
-function normalizeSender(value: string) {
-  return value.trim().toLowerCase().replace(/^@/, "");
-}
-
-function splitSenderValues(value: string) {
-  return value
-    .split(/[|,\n]/)
-    .map((part) => normalizeSender(part))
-    .filter(Boolean);
-}
-
-function getDefaultRuleRows() {
-  return SYSTEM_RULE_ORDER.map((systemType) => {
-    const config = getRuleConfig(systemType);
-
-    return {
-      id: `${systemType.toLowerCase()}-rule-id`,
-      name: config.name,
-      instructions: config.instructions,
-      updatedAt: ruleUpdatedAt,
-      from: null,
-      to: null,
-      subject: null,
-      conditionalOperator: LogicalOperator.AND,
-      enabled: true,
-      runOnThreads: config.runOnThreads,
-      systemType,
-      actions: getDefaultActions(systemType, "google").map((action) => ({
-        type: action.type,
-        content: action.content,
-        label: action.label,
-        to: action.to,
-        cc: action.cc,
-        bcc: action.bcc,
-        subject: action.subject,
-        url: action.url,
-        folderName: action.folderName,
-      })),
-    };
-  });
-}
-
-function getDefaultLabels() {
-  return defaultRuleRows.flatMap((rule) =>
-    rule.actions
-      .filter((action) => action.type === ActionType.LABEL && action.label)
-      .map((action) => ({
-        id: `Label_${action.label}`,
-        name: action.label!,
-      })),
+      senderListHasValue(pattern.exclude.from, expectedFrom),
   );
 }

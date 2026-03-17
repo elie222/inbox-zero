@@ -13,6 +13,8 @@ import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
 import {
   AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
+  INVALID_STATIC_FROM_PLACEHOLDER_MESSAGE,
+  isInvalidStaticFromPlaceholder,
   STATIC_FROM_CONDITION_DESCRIPTION,
 } from "@/utils/ai/rule/rule-condition-descriptions";
 
@@ -31,7 +33,13 @@ export const updateRuleConditionSchema = z.object({
       .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
     static: z
       .object({
-        from: z.string().nullish().describe(STATIC_FROM_CONDITION_DESCRIPTION),
+        from: z
+          .string()
+          .nullish()
+          .refine((value) => !isInvalidStaticFromPlaceholder(value), {
+            message: INVALID_STATIC_FROM_PLACEHOLDER_MESSAGE,
+          })
+          .describe(STATIC_FROM_CONDITION_DESCRIPTION),
         to: z.string().nullish(),
         subject: z.string().nullish(),
       })

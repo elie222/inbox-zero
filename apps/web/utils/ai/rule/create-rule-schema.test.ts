@@ -135,6 +135,69 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rejects placeholder static.from values", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.LABEL,
+        fields: {
+          label: "Escalations",
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: null,
+        },
+        delayInMinutes: null,
+      }),
+      condition: {
+        conditionalOperator: null,
+        aiInstructions: "Emails about vendor escalations",
+        static: {
+          from: "none@none.com",
+          to: null,
+          subject: null,
+        },
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain(
+        "Leave static.from empty",
+      );
+    }
+  });
+
+  it("rejects catch-all static.from values", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.LABEL,
+        fields: {
+          label: "Escalations",
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: null,
+        },
+        delayInMinutes: null,
+      }),
+      condition: {
+        conditionalOperator: null,
+        aiInstructions: "Emails about vendor escalations",
+        static: {
+          from: "*@*.*",
+          to: null,
+          subject: null,
+        },
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   function buildRule(action: {
     type: ActionType;
     fields: {

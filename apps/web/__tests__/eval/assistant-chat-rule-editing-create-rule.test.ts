@@ -10,15 +10,15 @@ import {
   shouldRunEvalTests,
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
-import type { getEmailAccount } from "@/__tests__/helpers";
-import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
-import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
 import {
-  getDefaultActions,
-  getRuleConfig,
-  SYSTEM_RULE_ORDER,
-} from "@/utils/rule/consts";
+  buildDefaultSystemRuleRows,
+  configureRuleEvalPrisma,
+  configureRuleEvalProvider,
+  configureRuleMutationMocks,
+} from "@/__tests__/eval/assistant-chat-rule-eval-test-utils";
+import type { getEmailAccount } from "@/__tests__/helpers";
+import { ActionType } from "@/generated/prisma/enums";
+import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai eval/assistant-chat-rule-editing
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-rule-editing
@@ -31,7 +31,8 @@ const logger = createScopedLogger(
   "eval-assistant-chat-rule-editing-create-rule",
 );
 const notificationRuleUpdatedAt = new Date("2026-03-13T00:00:00.000Z");
-const defaultRuleRows = getDefaultRuleRows();
+const defaultRuleRows = buildDefaultSystemRuleRows(notificationRuleUpdatedAt);
+const about = "My name is Test User, and I manage a company inbox.";
 
 const {
   mockCreateRule,
@@ -103,37 +104,21 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule creation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockCreateRule.mockResolvedValue({ id: "created-rule-id" });
-    mockPartialUpdateRule.mockResolvedValue({ id: "updated-rule-id" });
-    mockUpdateRuleActions.mockResolvedValue({ id: "updated-rule-id" });
-    mockSaveLearnedPatterns.mockResolvedValue({ success: true });
-
-    prisma.emailAccount.findUnique.mockImplementation(async ({ select }) => {
-      if (select?.rules) {
-        return {
-          about: "My name is Test User, and I manage a company inbox.",
-          rules: defaultRuleRows,
-        };
-      }
-
-      return {
-        about: "My name is Test User, and I manage a company inbox.",
-      };
+    configureRuleMutationMocks({
+      mockCreateRule,
+      mockPartialUpdateRule,
+      mockUpdateRuleActions,
+      mockSaveLearnedPatterns,
     });
 
-    prisma.emailAccount.update.mockResolvedValue({
-      about: "My name is Test User, and I manage a company inbox.",
+    configureRuleEvalPrisma({
+      about,
+      ruleRows: defaultRuleRows,
     });
 
-    mockCreateEmailProvider.mockResolvedValue({
-      getMessagesWithPagination: vi.fn().mockResolvedValue({
-        messages: [],
-        nextPageToken: undefined,
-      }),
-      getLabels: vi.fn().mockResolvedValue(getDefaultLabels()),
-      archiveThreadWithLabel: vi.fn(),
-      markReadThread: vi.fn(),
-      bulkArchiveFromSenders: vi.fn(),
+    configureRuleEvalProvider({
+      mockCreateEmailProvider,
+      ruleRows: defaultRuleRows,
     });
   });
 
@@ -276,46 +261,4 @@ function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {
   }
 
   return toolCall.toolName;
-}
-
-function getDefaultRuleRows() {
-  return SYSTEM_RULE_ORDER.map((systemType) => {
-    const config = getRuleConfig(systemType);
-
-    return {
-      id: `${systemType.toLowerCase()}-rule-id`,
-      name: config.name,
-      instructions: config.instructions,
-      updatedAt: notificationRuleUpdatedAt,
-      from: null,
-      to: null,
-      subject: null,
-      conditionalOperator: LogicalOperator.AND,
-      enabled: true,
-      runOnThreads: config.runOnThreads,
-      systemType,
-      actions: getDefaultActions(systemType, "google").map((action) => ({
-        type: action.type,
-        content: action.content,
-        label: action.label,
-        to: action.to,
-        cc: action.cc,
-        bcc: action.bcc,
-        subject: action.subject,
-        url: action.url,
-        folderName: action.folderName,
-      })),
-    };
-  });
-}
-
-function getDefaultLabels() {
-  return defaultRuleRows.flatMap((rule) =>
-    rule.actions
-      .filter((action) => action.type === ActionType.LABEL && action.label)
-      .map((action) => ({
-        id: `Label_${action.label}`,
-        name: action.label!,
-      })),
-  );
 }

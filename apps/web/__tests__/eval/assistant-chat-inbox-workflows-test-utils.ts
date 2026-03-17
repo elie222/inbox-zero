@@ -3,6 +3,7 @@ import { beforeEach, vi } from "vitest";
 import {
   captureAssistantChatToolCalls,
   getFirstMatchingToolCall,
+  getLastMatchingToolCall as getSharedLastMatchingToolCall,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
@@ -17,6 +18,13 @@ vi.mock("server-only", () => ({}));
 export const shouldRunEval = shouldRunEvalTests();
 export const TIMEOUT = 60_000;
 const logger = createScopedLogger("eval-assistant-chat-inbox-workflows");
+const forbiddenMicrosoftQueryOperators = [
+  "is:",
+  "label:",
+  "in:",
+  "category:",
+  "has:",
+];
 
 export const inboxWorkflowProviders = [
   {
@@ -217,24 +225,7 @@ export function getFirstSearchInboxCall(toolCalls: RecordedToolCall[]) {
     ?.input;
 }
 
-export function getLastMatchingToolCall<TInput>(
-  toolCalls: RecordedToolCall[],
-  toolName: string,
-  matches: (input: unknown) => input is TInput,
-) {
-  for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
-    const toolCall = toolCalls[index];
-    if (toolCall.toolName !== toolName) continue;
-    if (!matches(toolCall.input)) continue;
-
-    return {
-      index,
-      input: toolCall.input,
-    };
-  }
-
-  return null;
-}
+export const getLastMatchingToolCall = getSharedLastMatchingToolCall;
 
 export function isReadEmailInput(input: unknown): input is ReadEmailInput {
   return (
@@ -290,8 +281,7 @@ export function hasUnreadTriageSignal(
   if (provider === "microsoft") {
     return (
       /\bunread\b/.test(normalizedQuery) &&
-      !normalizedQuery.includes("is:") &&
-      !normalizedQuery.includes("label:")
+      !containsForbiddenMicrosoftQueryOperator(normalizedQuery)
     );
   }
 
@@ -305,8 +295,7 @@ export function hasReplyTriageFocus(
   const normalizedQuery = query.toLowerCase();
   if (provider === "microsoft") {
     return (
-      !normalizedQuery.includes("is:") &&
-      !normalizedQuery.includes("label:") &&
+      !containsForbiddenMicrosoftQueryOperator(normalizedQuery) &&
       ["reply", "respond"].some((term) => normalizedQuery.includes(term))
     );
   }
@@ -362,6 +351,12 @@ export function cloneEmailAccountForProvider(
       provider,
     },
   };
+}
+
+function containsForbiddenMicrosoftQueryOperator(query: string) {
+  return forbiddenMicrosoftQueryOperators.some((token) =>
+    query.includes(token),
+  );
 }
 
 type SearchInboxInput = {
