@@ -20,7 +20,12 @@ import type {
   MatchReason,
   MatchingRuleResult,
 } from "@/utils/ai/choose-rule/types";
-import { extractEmailAddress, extractEmailAddresses } from "@/utils/email";
+import {
+  extractEmailAddress,
+  extractEmailAddresses,
+  extractNameFromEmail,
+  splitRecipientList,
+} from "@/utils/email";
 import { isCalendarInvite } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 import type { EmailProvider } from "@/utils/email/types";
@@ -495,25 +500,37 @@ export function matchesStaticRule(
     }
   };
 
-  const fromHeader = normalizeEmailHeaderForRuleMatching(message.headers.from);
-  const toHeader = normalizeEmailHeaderForRuleMatching(
+  const fromAddressHeader = normalizeEmailHeaderForRuleMatching(
+    message.headers.from,
+  );
+  const toAddressHeader = normalizeEmailHeaderForRuleMatching(
     message.headers.to,
     true,
   );
+  const fromDisplayNameHeader = normalizeEmailDisplayNameHeaderForRuleMatching(
+    message.headers.from,
+  );
+  const toDisplayNameHeader = normalizeEmailDisplayNameHeaderForRuleMatching(
+    message.headers.to,
+  );
 
   const fromMatch = from
-    ? safeRegexTest(
-        normalizeEmailPatternForRuleMatching(from),
-        fromHeader.toLowerCase(),
-        true,
-      )
+    ? matchesEmailFieldPattern({
+        pattern: from,
+        addressText: fromAddressHeader.toLowerCase(),
+        displayNameText: fromDisplayNameHeader.toLowerCase(),
+        logInvalidPattern: (pattern, error) =>
+          log.error("Invalid regex pattern", { pattern, error }),
+      })
     : true;
   const toMatch = to
-    ? safeRegexTest(
-        normalizeEmailPatternForRuleMatching(to),
-        toHeader.toLowerCase(),
-        true,
-      )
+    ? matchesEmailFieldPattern({
+        pattern: to,
+        addressText: toAddressHeader.toLowerCase(),
+        displayNameText: toDisplayNameHeader.toLowerCase(),
+        logInvalidPattern: (pattern, error) =>
+          log.error("Invalid regex pattern", { pattern, error }),
+      })
     : true;
   const subjectMatch = subject
     ? safeRegexTest(subject, message.headers.subject, false)
@@ -694,8 +711,69 @@ function normalizeEmailHeaderForRuleMatching(
   return extractEmailAddress(header);
 }
 
-function normalizeEmailPatternForRuleMatching(pattern: string) {
-  return splitEmailPatterns(pattern)
-    .map((part) => part.trim().toLowerCase().replace(/^@/, ""))
-    .join("|");
+function normalizeEmailDisplayNameHeaderForRuleMatching(header: string) {
+  if (!header) return "";
+
+  return splitRecipientList(header)
+    .map((part) => {
+      const name = extractNameFromEmail(part).trim();
+      const email = extractEmailAddress(part).trim().toLowerCase();
+
+      if (!name) return "";
+      if (email && name.toLowerCase() === email) return "";
+
+      return name;
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+function matchesEmailFieldPattern({
+  pattern,
+  addressText,
+  displayNameText,
+  logInvalidPattern,
+}: {
+  pattern: string;
+  addressText: string;
+  displayNameText: string;
+  logInvalidPattern: (pattern: string, error: unknown) => void;
+}) {
+  try {
+    const patterns = splitEmailPatterns(pattern);
+
+    for (const patternPart of patterns) {
+      const normalizedPattern = patternPart
+        .trim()
+        .toLowerCase()
+        .replace(/^@/, "");
+      const regexPattern = normalizedPattern
+        .replace(/[.+?^${}()[\]\\]/g, "\\$&")
+        .replace(/\*/g, ".*");
+      const regex = new RegExp(regexPattern);
+
+      if (isAddressLikeEmailPattern(patternPart)) {
+        if (regex.test(addressText)) return true;
+        continue;
+      }
+
+      if (displayNameText && regex.test(displayNameText)) return true;
+      if (regex.test(addressText)) return true;
+    }
+
+    return false;
+  } catch (error) {
+    logInvalidPattern(pattern, error);
+    return false;
+  }
+}
+
+function isAddressLikeEmailPattern(pattern: string) {
+  const normalized = pattern.trim().toLowerCase();
+
+  return (
+    normalized.includes("@") ||
+    normalized.includes("*") ||
+    /^[^\s@]+\.[^\s@]+$/.test(normalized)
+  );
 }

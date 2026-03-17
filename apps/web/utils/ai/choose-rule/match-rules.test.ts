@@ -130,6 +130,17 @@ describe("matchesStaticRule", () => {
     expect(matchesStaticRule(rule, message, logger)).toBe(false);
   });
 
+  it("matches from display names when the pattern is name-only", () => {
+    const rule = getStaticRule({ from: "Elie Steinbock" });
+    const message = getMessage({
+      headers: getHeaders({
+        from: "Elie Steinbock <ele@gmail.com>",
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
+  });
+
   it("matches from domains regardless of casing or leading @", () => {
     const message = getMessage({
       headers: getHeaders({ from: "User@Example.com" }),
@@ -171,6 +182,17 @@ describe("matchesStaticRule", () => {
     });
 
     expect(matchesStaticRule(rule, message, logger)).toBe(false);
+  });
+
+  it("matches to display names when the pattern is name-only", () => {
+    const rule = getStaticRule({ to: "Elie Steinbock" });
+    const message = getMessage({
+      headers: getHeaders({
+        to: '"Elie Steinbock" <ele@gmail.com>, Team <team@company.com>',
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("matches to addresses regardless of casing", () => {
