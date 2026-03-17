@@ -1,5 +1,10 @@
+import type { ActionType } from "@/generated/prisma/enums";
 import { Prisma } from "@/generated/prisma/client";
 import { encryptToken, decryptToken } from "@/utils/encryption";
+import {
+  getBlockedLowTrustStaticFromActionTypes,
+  LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
+} from "@/utils/rule/static-from-risk";
 
 export const encryptedTokens = Prisma.defineExtension((client) => {
   return client.$extends({
@@ -511,6 +516,116 @@ export const encryptedTokens = Prisma.defineExtension((client) => {
           return query(args);
         },
       },
+      rule: {
+        async create({ args, query }) {
+          assertLowTrustStaticFromOutboundActionsAllowed({
+            from: getUpdatedRuleString(args.data.from),
+            actionTypes: getRuleActionTypesFromWrite(args.data.actions),
+          });
+          return query(args);
+        },
+        async update({ args, query }) {
+          const existingRule = await client.rule.findUnique({
+            where: args.where,
+            select: {
+              from: true,
+              actions: { select: { type: true } },
+            },
+          });
+
+          assertLowTrustStaticFromOutboundActionsAllowed({
+            from: getUpdatedRuleString(args.data.from) ?? existingRule?.from,
+            actionTypes: getRuleActionTypesFromWrite(
+              args.data.actions,
+              existingRule?.actions.map((action) => action.type),
+            ),
+          });
+          return query(args);
+        },
+        async upsert({ args, query }) {
+          const existingRule = await client.rule.findUnique({
+            where: args.where,
+            select: {
+              from: true,
+              actions: { select: { type: true } },
+            },
+          });
+
+          assertLowTrustStaticFromOutboundActionsAllowed({
+            from: existingRule
+              ? (getUpdatedRuleString(args.update.from) ?? existingRule.from)
+              : getUpdatedRuleString(args.create.from),
+            actionTypes: existingRule
+              ? getRuleActionTypesFromWrite(
+                  args.update.actions,
+                  existingRule.actions.map((action) => action.type),
+                )
+              : getRuleActionTypesFromWrite(args.create.actions),
+          });
+          return query(args);
+        },
+      },
     },
   });
 });
+
+function assertLowTrustStaticFromOutboundActionsAllowed({
+  from,
+  actionTypes,
+}: {
+  from: string | null | undefined;
+  actionTypes: readonly ActionType[];
+}) {
+  const blockedActionTypes = getBlockedLowTrustStaticFromActionTypes(
+    from,
+    actionTypes,
+  );
+  if (!blockedActionTypes.length) return;
+
+  throw new Error(LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE);
+}
+
+function getRuleActionTypesFromWrite(
+  actions: unknown,
+  fallbackActionTypes: readonly ActionType[] = [],
+): readonly ActionType[] {
+  if (!actions || typeof actions !== "object") {
+    return fallbackActionTypes;
+  }
+
+  const actionsRecord = actions as {
+    create?: unknown;
+    createMany?: { data?: unknown };
+  };
+
+  const createManyTypes = getActionTypesFromNestedWrite(
+    actionsRecord.createMany?.data,
+  );
+  if (createManyTypes.length) return createManyTypes;
+
+  const createTypes = getActionTypesFromNestedWrite(actionsRecord.create);
+  if (createTypes.length) return createTypes;
+
+  return fallbackActionTypes;
+}
+
+function getActionTypesFromNestedWrite(actions: unknown): ActionType[] {
+  const actionItems = Array.isArray(actions)
+    ? actions
+    : actions
+      ? [actions]
+      : [];
+
+  return actionItems.flatMap((action) => {
+    if (!action || typeof action !== "object" || !("type" in action)) return [];
+    const { type } = action as { type?: ActionType };
+    return type ? [type] : [];
+  });
+}
+
+function getUpdatedRuleString(
+  value: string | { set?: string | null } | null | undefined,
+) {
+  if (typeof value === "string" || value == null) return value;
+  if ("set" in value) return value.set;
+}

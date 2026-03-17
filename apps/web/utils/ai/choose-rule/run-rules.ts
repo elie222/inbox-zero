@@ -42,6 +42,10 @@ import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { internalDateToDate } from "@/utils/date";
 import { ConditionType } from "@/utils/config";
 import type { Logger } from "@/utils/logger";
+import {
+  getBlockedLowTrustStaticFromActionTypes,
+  LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
+} from "@/utils/rule/static-from-risk";
 
 const MODULE = "ai/choose-rule";
 
@@ -242,7 +246,10 @@ export async function runRules({
 
     executedRules.push({
       ...executedRule,
-      status: executedRule.executedRule?.status || ExecutedRuleStatus.APPLIED,
+      status:
+        executedRule.status ||
+        executedRule.executedRule?.status ||
+        ExecutedRuleStatus.APPLIED,
     });
   }
 
@@ -295,6 +302,47 @@ async function executeMatchedRule(
   logger: Logger,
   skipArchive?: boolean,
 ) {
+  const blockedActionTypes = getBlockedLowTrustStaticFromActionTypes(
+    rule.from,
+    rule.actions.map((action) => action.type),
+  );
+  if (blockedActionTypes.length) {
+    const reasonToUse = reason
+      ? `${reason}. ${LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE}`
+      : LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE;
+    let executedRule = null;
+
+    if (!isTest) {
+      executedRule = await withPrismaRetry(
+        () =>
+          prisma.executedRule.create({
+            data: {
+              messageId: message.id,
+              threadId: message.threadId,
+              automated: true,
+              status: ExecutedRuleStatus.SKIPPED,
+              reason: reasonToUse,
+              matchMetadata: serializeMatchReasons(matchReasons),
+              rule: rule?.id ? { connect: { id: rule.id } } : undefined,
+              emailAccount: { connect: { id: emailAccount.id } },
+              createdAt: batchTimestamp,
+            },
+          }),
+        { logger },
+      );
+    }
+
+    return {
+      rule,
+      actionItems: [],
+      executedRule,
+      reason: reasonToUse,
+      status: ExecutedRuleStatus.SKIPPED,
+      matchReasons,
+      createdAt: batchTimestamp,
+    };
+  }
+
   let actionItems = await getActionItemsWithAiArgs({
     message,
     emailAccount,
