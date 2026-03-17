@@ -197,6 +197,33 @@ describe("aiDraftReply formatting", () => {
     expect(result).toBe("Hmmm, let me think about that. Sounds good!!!");
   });
 
+  it("replaces em dashes by default when writing style does not call for them", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Good feedback—I can clarify that.",
+      },
+    });
+
+    const result = await aiDraftReply(getDraftParams());
+
+    expect(result).toBe("Good feedback, I can clarify that.");
+  });
+
+  it("preserves em dashes when the writing style explicitly calls for them", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Good feedback—I can clarify that.",
+      },
+    });
+
+    const result = await aiDraftReply({
+      ...getDraftParams(),
+      writingStyle: "Use em dashes for brief asides when it improves flow.",
+    });
+
+    expect(result).toBe("Good feedback—I can clarify that.");
+  });
+
   it("includes thread-language instructions in generation prompts", async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {

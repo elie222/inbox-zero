@@ -19,7 +19,7 @@ const logger = createScopedLogger("DraftReply");
 const DRAFT_OUTPUT_INSTRUCTION =
   "Return plain text only. Do not use HTML tags. If a clickable link is necessary, use markdown links in the format [Label](https://example.com/path) or [Label](mailto:name@example.com).";
 
-const systemPrompt = `You are an expert assistant that drafts email replies using knowledge base information.
+const systemPrompt = `You are an expert assistant that drafts email replies.
 
 ${PROMPT_SECURITY_INSTRUCTIONS}
 
@@ -41,10 +41,11 @@ Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 `;
 
-const defaultWritingStyle = `Keep it concise and friendly.
-Keep the reply short. Aim for 2 sentences at most.
+const defaultWritingStyle = `Keep it concise, direct, and friendly.
+Keep the reply short. Aim for 2 sentences at most unless a brief answer to multiple questions needs more.
 Don't be pushy.
-Write in a polite and professional tone.`;
+Write in a plainspoken, professional tone.
+Prefer short declarative sentences over polished or overly elaborate phrasing.`;
 
 const getUserPrompt = ({
   messages,
@@ -236,6 +237,8 @@ export async function aiDraftReplyWithConfidence({
       : null,
   });
 
+  const effectiveWritingStyle = writingStyle || defaultWritingStyle;
+
   const prompt = getUserPrompt({
     messages,
     emailAccount,
@@ -244,7 +247,7 @@ export async function aiDraftReplyWithConfidence({
     emailHistorySummary,
     emailHistoryContext,
     calendarAvailability,
-    writingStyle: writingStyle || defaultWritingStyle,
+    writingStyle: effectiveWritingStyle,
     mcpContext,
     meetingContext,
     attachmentContext,
@@ -281,7 +284,10 @@ export async function aiDraftReplyWithConfidence({
   }
 
   return {
-    reply: normalizeDraftReplyFormatting(result.object.reply),
+    reply: normalizeDraftReplyFormatting(
+      result.object.reply,
+      effectiveWritingStyle,
+    ),
     confidence: normalizeDraftReplyConfidence(result.object.confidence),
     attribution: attributionTracker.attribution,
   };
@@ -329,7 +335,10 @@ export async function aiDraftReply({
   return result.reply;
 }
 
-function normalizeDraftReplyFormatting(reply: string): string {
+function normalizeDraftReplyFormatting(
+  reply: string,
+  writingStyle: string | null,
+): string {
   const withNormalizedLineEndings = reply.replace(/\r\n?|\u2028|\u2029/g, "\n");
 
   const withDecodedEscapedNewlines = /\\r\\n|\\n|\\r/.test(
@@ -347,8 +356,11 @@ function normalizeDraftReplyFormatting(reply: string): string {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+  const withNormalizedPunctuation = allowsEmDashes(writingStyle)
+    ? cleaned
+    : replaceEmDashes(cleaned);
 
-  const nonEmptyLines = cleaned
+  const nonEmptyLines = withNormalizedPunctuation
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
@@ -357,7 +369,7 @@ function normalizeDraftReplyFormatting(reply: string): string {
     return nonEmptyLines.join("\n\n");
   }
 
-  return cleaned;
+  return withNormalizedPunctuation;
 }
 
 function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
@@ -373,6 +385,14 @@ function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
 
 function isLikelyListItem(line: string): boolean {
   return /^(\s*[-*]\s+|\s*\d+[.)]\s+|\s*[a-zA-Z][.)]\s+|>\s+)/.test(line);
+}
+
+function allowsEmDashes(writingStyle: string | null): boolean {
+  return !!writingStyle && /\bem[\s-]?dash(?:es)?\b|—/i.test(writingStyle);
+}
+
+function replaceEmDashes(text: string): string {
+  return text.replace(/\s*[—–]\s*/g, ", ");
 }
 
 // Matches any non-separator, non-whitespace character repeated 50+ times in a row
@@ -406,7 +426,7 @@ Do not suggest specific times. Acknowledge the request and suggest alternatives 
     parts.push(`Available time slots:
 ${times}
 
-${calendarBookingLink ? "Lead with the booking link, then optionally suggest a few of these times as alternatives." : "Use these time slots when responding to meeting requests."} Format suggested times as a bulleted list.`);
+${calendarBookingLink ? "Lead with the booking link, then optionally suggest a few of these times as alternatives." : "When the sender is asking to schedule, respond concretely using these time slots. If they appear stale relative to today's date, say that and ask for updated availability instead of ignoring the scheduling request."} Format suggested times as a bulleted list.`);
   }
 
   if (parts.length === 0) return "";
