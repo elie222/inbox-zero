@@ -103,6 +103,7 @@ qa/browser-flows/results/*
 
 # local claude hooks (personal nested repo)
 .claude/local/
+.claude/scheduled_tasks.lock
 
 # eval reports
 eval-results/
