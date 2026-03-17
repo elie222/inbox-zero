@@ -75,11 +75,8 @@ export type {
 } from "./chat-inbox-tools";
 export type { SaveMemoryTool, SearchMemoriesTool } from "./chat-memory-tools";
 
-type AssistantChatStep = Pick<
-  Parameters<
-    NonNullable<Parameters<typeof toolCallAgentStream>[0]["onStepFinish"]>
-  >[0],
-  "text" | "toolCalls"
+type AssistantChatOnStepFinish = NonNullable<
+  Parameters<typeof toolCallAgentStream>[0]["onStepFinish"]
 >;
 
 export async function aiProcessAssistantChat({
@@ -104,7 +101,7 @@ export async function aiProcessAssistantChat({
   inboxStats?: { total: number; unread: number } | null;
   responseSurface?: "web" | "messaging";
   messagingPlatform?: MessagingPlatform;
-  onStepFinish?: (step: AssistantChatStep) => Promise<void> | void;
+  onStepFinish?: AssistantChatOnStepFinish;
   logger: Logger;
 }) {
   const emailSendToolsEnabled = env.NEXT_PUBLIC_EMAIL_SEND_ENABLED;
@@ -391,9 +388,12 @@ Behavior anchors (minimal examples):
     usageLabel: "assistant-chat",
     providerOptions: getChatProviderOptionsForCaching({ chatId }),
     messages: messagesWithCacheControl,
-    onStepFinish: async ({ text, toolCalls }) => {
-      logger.trace("Step finished", { text, toolCalls });
-      await onStepFinish?.({ text, toolCalls });
+    onStepFinish: async (step) => {
+      logger.trace("Step finished", {
+        text: step.text,
+        toolCalls: step.toolCalls,
+      });
+      await onStepFinish?.(step);
     },
     maxSteps: 10,
     tools: {
