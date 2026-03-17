@@ -1,6 +1,6 @@
 import * as stringSimilarity from "string-similarity";
+import { stripQuotedContent } from "@/utils/email/strip-quoted-content";
 import { convertEmailHtmlToText, parseReply } from "@/utils/mail";
-import { stripQuotedContent } from "@/utils/strip-quoted-content";
 import type { ParsedMessage } from "@/utils/types";
 
 /**

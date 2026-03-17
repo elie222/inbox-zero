@@ -3,8 +3,8 @@ import { ActionType } from "@/generated/prisma/enums";
 import type { ExecutedRule } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
+import { stripQuotedContent as stripQuotedContentShared } from "@/utils/email/strip-quoted-content";
 import { convertEmailHtmlToText } from "@/utils/mail";
-import { stripQuotedContent as stripQuotedContentShared } from "@/utils/strip-quoted-content";
 import type { ParsedMessage } from "@/utils/types";
 
 /**

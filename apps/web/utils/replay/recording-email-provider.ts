@@ -14,36 +14,66 @@ export function createRecordingEmailProvider(
 
       const method = prop as string;
 
-      return async (...args: unknown[]) => {
+      return (...args: unknown[]) => {
         const startTime = Date.now();
 
-        await session
-          .record("email-api-call", {
+        recordInBackground(
+          session.record("email-api-call", {
             method,
             request: sanitizeArgs(method, args),
-          })
-          .catch(() => {});
+          }),
+        );
 
         try {
-          const result = await (original as (...a: unknown[]) => unknown).apply(
+          const result = (original as (...a: unknown[]) => unknown).apply(
             target,
             args,
           );
-          const duration = Date.now() - startTime;
 
-          session
-            .record("email-api-response", {
+          if (isPromiseLike(result)) {
+            return result.then(
+              (resolved) => {
+                recordInBackground(
+                  session.record("email-api-response", {
+                    method,
+                    request: null,
+                    response: resolved,
+                    duration: Date.now() - startTime,
+                  }),
+                );
+                return resolved;
+              },
+              (error) => {
+                recordInBackground(
+                  session.record("email-api-response", {
+                    method,
+                    request: null,
+                    response: {
+                      error: true,
+                      message:
+                        error instanceof Error ? error.message : String(error),
+                    },
+                    duration: Date.now() - startTime,
+                  }),
+                );
+                throw error;
+              },
+            );
+          }
+
+          recordInBackground(
+            session.record("email-api-response", {
               method,
               request: null,
               response: result,
-              duration,
-            })
-            .catch(() => {});
+              duration: Date.now() - startTime,
+            }),
+          );
 
           return result;
         } catch (error) {
-          session
-            .record("email-api-response", {
+          recordInBackground(
+            session.record("email-api-response", {
               method,
               request: null,
               response: {
@@ -51,8 +81,8 @@ export function createRecordingEmailProvider(
                 message: error instanceof Error ? error.message : String(error),
               },
               duration: Date.now() - startTime,
-            })
-            .catch(() => {});
+            }),
+          );
           throw error;
         }
       };
@@ -76,4 +106,17 @@ function sanitizeArgs(_method: string, args: unknown[]): unknown {
     }
     return String(arg);
   });
+}
+
+function isPromiseLike(value: unknown): value is Promise<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
+}
+
+function recordInBackground(promise: Promise<void>) {
+  promise.catch(() => {});
 }

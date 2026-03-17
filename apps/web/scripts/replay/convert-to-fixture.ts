@@ -4,9 +4,9 @@
 import "dotenv/config";
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { stripQuotedContent } from "@/utils/email/strip-quoted-content";
 import { exportSession } from "@/utils/replay/recorder";
 import type { ReplayFixture } from "@/utils/replay/types";
-import { stripQuotedContent } from "@/utils/strip-quoted-content";
 
 const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 const URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/g;
@@ -185,10 +185,6 @@ function sanitizeString(
     return "[REDACTED]";
   }
 
-  if (parentKey === "textHtml") {
-    return "[HTML omitted]";
-  }
-
   if (parentKey === "textPlain" || parentKey === "snippet") {
     return stripQuotedReplies(result);
   }
@@ -222,8 +218,10 @@ function sanitizeMessageLike(
     "snippet",
     "historyId",
     "internalDate",
+    "bodyContentType",
     "headers",
     "textPlain",
+    "textHtml",
     "subject",
     "date",
     "inline",
