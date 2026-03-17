@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { generateSignedOAuthState, parseSignedOAuthState } from "./state";
+import {
+  generateSignedOAuthState,
+  getOAuthStateFingerprint,
+  parseSignedOAuthState,
+} from "./state";
 
 describe("signed OAuth state", () => {
   afterEach(() => {
@@ -52,5 +56,17 @@ describe("signed OAuth state", () => {
     expect(() =>
       parseSignedOAuthState<{ emailAccountId: string; type: "slack" }>(state),
     ).toThrow("OAuth state expired");
+  });
+
+  it("creates a stable fingerprint for logs", () => {
+    const state = generateSignedOAuthState({
+      emailAccountId: "acc_123",
+      type: "slack" as const,
+    });
+
+    expect(getOAuthStateFingerprint(state)).toHaveLength(12);
+    expect(getOAuthStateFingerprint(state)).toBe(
+      getOAuthStateFingerprint(state),
+    );
   });
 });

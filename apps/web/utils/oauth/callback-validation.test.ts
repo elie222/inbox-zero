@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { validateOAuthCallback } from "./callback-validation";
 import { createScopedLogger } from "@/utils/logger";
-import { parseOAuthState } from "@/utils/oauth/state";
+import { getOAuthStateFingerprint, parseOAuthState } from "@/utils/oauth/state";
 
 const logger = createScopedLogger("test");
 
@@ -32,30 +32,35 @@ describe("validateOAuthCallback", () => {
     const consoleWarnSpy = vi
       .spyOn(console, "warn")
       .mockImplementation(() => {});
+    const state = "state";
+    const stateFingerprint = "fingerprint-123";
 
     vi.mocked(parseOAuthState).mockReturnValue({
       userId: "user-id",
       nonce: "nonce",
     });
+    vi.mocked(getOAuthStateFingerprint).mockReturnValue(stateFingerprint);
 
-    const result = validateOAuthCallback({
-      code: null,
-      receivedState: "state",
-      storedState: "state",
-      stateCookieName: "test_cookie",
-      logger,
-    });
+    try {
+      const result = validateOAuthCallback({
+        code: null,
+        receivedState: state,
+        storedState: state,
+        stateCookieName: "test_cookie",
+        logger,
+      });
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const url = new URL(result.response.headers.get("location") || "");
-      expect(url.searchParams.get("error")).toBe("missing_code");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const url = new URL(result.response.headers.get("location") || "");
+        expect(url.searchParams.get("error")).toBe("missing_code");
+      }
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`"stateFingerprint": "${stateFingerprint}"`),
+      );
+    } finally {
+      consoleWarnSpy.mockRestore();
     }
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('"targetUserId": "user-id"'),
-    );
-
-    consoleWarnSpy.mockRestore();
   });
 
   it("should return error when state decode fails", () => {

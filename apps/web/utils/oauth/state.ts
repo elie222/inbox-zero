@@ -30,6 +30,10 @@ export function parseOAuthState<T extends Record<string, unknown>>(
   return JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
 }
 
+export function getOAuthStateFingerprint(state: string): string {
+  return crypto.createHash("sha256").update(state).digest("hex").slice(0, 12);
+}
+
 export function generateSignedOAuthState<T extends Record<string, unknown>>(
   data: T & { nonce?: string; issuedAt?: number },
 ): string {
