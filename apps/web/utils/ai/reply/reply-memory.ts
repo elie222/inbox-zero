@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   ReplyMemoryKind,
   ReplyMemoryScopeType,
-  ReplyMemoryStatus,
 } from "@/generated/prisma/enums";
 import type { ReplyMemory } from "@/generated/prisma/client";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
@@ -21,7 +20,6 @@ const REPLY_MEMORY_RETENTION_DAYS = 7;
 const MAX_MEMORIES_PER_EDIT = 3;
 const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
 const MAX_RETRIEVED_REPLY_MEMORIES = 6;
-const TOPIC_SCOPE_MIN_OVERLAP = 1;
 
 const replyMemorySchema = z.object({
   memories: z.array(
@@ -31,7 +29,6 @@ const replyMemorySchema = z.object({
       kind: z.nativeEnum(ReplyMemoryKind),
       scopeType: z.nativeEnum(ReplyMemoryScopeType),
       scopeValue: z.string().trim().max(200),
-      tags: z.array(z.string().trim().min(1).max(40)).max(6),
     }),
   ),
 });
@@ -43,9 +40,7 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
 Return only memories that are likely to help with future drafts.
 
 Memory kinds:
-- FACT: reusable factual corrections or answers
-- PROCESS: repeatable workflow or handling instructions
-- PREFERENCE: stable user preferences
+- FACT: reusable factual corrections, business rules, or handling guidance
 - STYLE: tone, length, formatting, and phrasing habits
 
 Scopes:
@@ -59,15 +54,14 @@ Rules:
 - Skip one-off contextual details that should not be reused later.
 - If the edit only changes a meeting time, date, greeting, sign-off, or other thread-specific logistics, return no memory unless the user stated a stable rule.
 - Prefer concise, direct drafting instructions.
-- Do not infer a durable preference from a single scheduling choice or one-off availability update.
-- Use FACT when the edit adds reusable business information, policy, pricing, product capabilities, or constraints.
-- Use PROCESS only for repeatable workflow steps the assistant should follow.
+- Do not infer a durable style preference from a single scheduling choice or one-off availability update.
+- Use FACT when the edit adds reusable business information, policy, pricing, product capabilities, constraints, or recurring handling guidance.
+- Use STYLE for stable tone, length, formatting, or phrasing preferences.
 - For GLOBAL scope, leave scopeValue empty.
 - For SENDER scope, use the exact sender email from the context.
 - For DOMAIN scope, use the exact sender domain from the context.
 - For TOPIC scope, use a short stable topic phrase such as "pricing" or "refunds".
 - Always include a scopeValue field. Use an empty string for GLOBAL scope.
-- Always include a tags field. Use an empty array when no tags are useful.
 - Avoid duplicating an existing memory if the same idea is already covered.
 - If nothing durable was learned, return an empty array.`;
 
@@ -179,34 +173,48 @@ export async function getReplyMemoryContent({
   logger: Logger;
 }): Promise<string | null> {
   try {
-    const senderDomain = extractDomainFromEmail(senderEmail).toLowerCase();
-    const memories = await prisma.replyMemory.findMany({
+    const normalizedSenderEmail = senderEmail.trim().toLowerCase();
+    const senderDomain = extractDomainFromEmail(
+      normalizedSenderEmail,
+    ).toLowerCase();
+    const normalizedEmailContent = emailContent.trim().toLowerCase();
+
+    const exactMemories = await prisma.replyMemory.findMany({
       where: {
         emailAccountId,
-        status: ReplyMemoryStatus.ACTIVE,
         OR: [
           { scopeType: ReplyMemoryScopeType.GLOBAL },
           {
             scopeType: ReplyMemoryScopeType.SENDER,
-            scopeValue: senderEmail.toLowerCase(),
+            scopeValue: normalizedSenderEmail,
           },
           {
             scopeType: ReplyMemoryScopeType.DOMAIN,
             scopeValue: senderDomain,
           },
-          { scopeType: ReplyMemoryScopeType.TOPIC },
         ],
       },
       orderBy: { updatedAt: "desc" },
-      take: 200,
+      take: MAX_RETRIEVED_REPLY_MEMORIES,
     });
 
-    const selected = selectReplyMemories({
-      memories,
-      senderEmail,
-      senderDomain,
-      emailContent,
-    });
+    const topicMemories = normalizedEmailContent
+      ? await prisma.$queryRaw<ReplyMemory[]>`
+          SELECT *
+          FROM "ReplyMemory"
+          WHERE "emailAccountId" = ${emailAccountId}
+            AND "scopeType" = CAST(${ReplyMemoryScopeType.TOPIC} AS "ReplyMemoryScopeType")
+            AND "scopeValue" <> ''
+            AND LOWER(${normalizedEmailContent}) LIKE ('%' || LOWER("scopeValue") || '%')
+          ORDER BY LENGTH("scopeValue") DESC, "updatedAt" DESC
+          LIMIT ${MAX_RETRIEVED_REPLY_MEMORIES}
+        `
+      : [];
+
+    const selected = dedupeReplyMemories([
+      ...sortReplyMemories(exactMemories),
+      ...topicMemories,
+    ]).slice(0, MAX_RETRIEVED_REPLY_MEMORIES);
 
     if (!selected.length) return null;
 
@@ -249,99 +257,6 @@ function formatReplyMemoryContent(memories: ReplyMemory[]) {
       return `${index + 1}. [${memory.kind} | ${scope}] ${memory.content}`;
     })
     .join("\n");
-}
-
-function selectReplyMemories({
-  memories,
-  senderEmail,
-  senderDomain,
-  emailContent,
-}: {
-  memories: ReplyMemory[];
-  senderEmail: string;
-  senderDomain: string;
-  emailContent: string;
-}) {
-  const normalizedSenderEmail = senderEmail.toLowerCase();
-  const normalizedSenderDomain = senderDomain.toLowerCase();
-  const emailTokens = tokenize(emailContent);
-
-  const scored = memories
-    .map((memory) => {
-      const score = scoreReplyMemory({
-        memory,
-        normalizedSenderEmail,
-        normalizedSenderDomain,
-        emailTokens,
-      });
-
-      return { memory, score };
-    })
-    .filter((item) => item.score > 0)
-    .sort((left, right) => {
-      if (right.score !== left.score) return right.score - left.score;
-      return right.memory.updatedAt.getTime() - left.memory.updatedAt.getTime();
-    });
-
-  return scored
-    .slice(0, MAX_RETRIEVED_REPLY_MEMORIES)
-    .map((item) => item.memory);
-}
-
-function scoreReplyMemory({
-  memory,
-  normalizedSenderEmail,
-  normalizedSenderDomain,
-  emailTokens,
-}: {
-  memory: ReplyMemory;
-  normalizedSenderEmail: string;
-  normalizedSenderDomain: string;
-  emailTokens: Set<string>;
-}) {
-  if (
-    memory.scopeType === ReplyMemoryScopeType.SENDER &&
-    memory.scopeValue.toLowerCase() !== normalizedSenderEmail
-  ) {
-    return 0;
-  }
-
-  if (
-    memory.scopeType === ReplyMemoryScopeType.DOMAIN &&
-    memory.scopeValue.toLowerCase() !== normalizedSenderDomain
-  ) {
-    return 0;
-  }
-
-  const memoryText = [memory.title, memory.content, ...memory.tags].join(" ");
-  const memoryTokens = tokenize(memoryText);
-  const overlapCount = countOverlap(emailTokens, memoryTokens);
-
-  if (
-    memory.scopeType === ReplyMemoryScopeType.TOPIC &&
-    overlapCount < TOPIC_SCOPE_MIN_OVERLAP
-  ) {
-    return 0;
-  }
-
-  let score = 0;
-
-  if (memory.scopeType === ReplyMemoryScopeType.SENDER) score += 120;
-  if (memory.scopeType === ReplyMemoryScopeType.DOMAIN) score += 90;
-  if (memory.scopeType === ReplyMemoryScopeType.GLOBAL) score += 15;
-  if (memory.scopeType === ReplyMemoryScopeType.TOPIC) score += 35;
-
-  if (
-    memory.scopeType === ReplyMemoryScopeType.GLOBAL &&
-    (memory.kind === ReplyMemoryKind.PREFERENCE ||
-      memory.kind === ReplyMemoryKind.STYLE)
-  ) {
-    score += 35;
-  }
-
-  score += overlapCount * 8;
-
-  return score;
 }
 
 async function processReplyMemoryEvidence({
@@ -402,7 +317,6 @@ async function processReplyMemoryEvidence({
   const existingMemories = await prisma.replyMemory.findMany({
     where: {
       emailAccountId: evidence.emailAccountId,
-      status: ReplyMemoryStatus.ACTIVE,
       OR: getReplyMemoryScopes({
         senderEmail: senderEmail.toLowerCase(),
         senderDomain,
@@ -433,10 +347,9 @@ async function processReplyMemoryEvidence({
         ? ""
         : memory.scopeValue.trim().toLowerCase();
 
-    // Sender and domain memories need a concrete scope target to be retrievable.
+    // Non-global memories need a concrete scope target to be retrievable.
     if (
-      (memory.scopeType === ReplyMemoryScopeType.SENDER ||
-        memory.scopeType === ReplyMemoryScopeType.DOMAIN) &&
+      memory.scopeType !== ReplyMemoryScopeType.GLOBAL &&
       !normalizedScopeValue
     )
       continue;
@@ -455,15 +368,12 @@ async function processReplyMemoryEvidence({
         emailAccountId: evidence.emailAccountId,
         title: memory.title,
         content: memory.content,
-        tags: normalizeTags(memory.tags),
         kind: memory.kind,
         scopeType: memory.scopeType,
         scopeValue: normalizedScopeValue,
       },
       update: {
         content: memory.content,
-        tags: normalizeTags(memory.tags),
-        status: ReplyMemoryStatus.ACTIVE,
       },
     });
   }
@@ -555,7 +465,6 @@ Extract reusable reply memories from this draft edit.`;
       memory.scopeType === ReplyMemoryScopeType.GLOBAL
         ? ""
         : memory.scopeValue.trim(),
-    tags: normalizeTags(memory.tags),
   }));
 
   return normalizedMemories;
@@ -579,28 +488,8 @@ function formatExistingMemories(
     .join("\n");
 }
 
-function normalizeTags(tags: string[]) {
-  return Array.from(
-    new Set(tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean)),
-  ).slice(0, 6);
-}
-
 function normalizeMemoryText(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-function tokenize(value: string) {
-  return new Set(normalizeMemoryText(value).match(/[\p{L}\p{N}]{3,}/gu) ?? []);
-}
-
-function countOverlap(left: Set<string>, right: Set<string>) {
-  let count = 0;
-
-  for (const value of left) {
-    if (right.has(value)) count += 1;
-  }
-
-  return count;
 }
 
 function getReplyMemoryScopes({
@@ -637,4 +526,36 @@ async function markReplyMemoryEvidenceProcessed(id: string) {
     where: { id },
     data: { processedAt: new Date() },
   });
+}
+
+function sortReplyMemories(memories: ReplyMemory[]) {
+  return [...memories].sort((left, right) => {
+    const scopePriority =
+      getScopePriority(right.scopeType) - getScopePriority(left.scopeType);
+    if (scopePriority !== 0) return scopePriority;
+    return right.updatedAt.getTime() - left.updatedAt.getTime();
+  });
+}
+
+function dedupeReplyMemories(memories: ReplyMemory[]) {
+  const seen = new Set<string>();
+
+  return memories.filter((memory) => {
+    if (seen.has(memory.id)) return false;
+    seen.add(memory.id);
+    return true;
+  });
+}
+
+function getScopePriority(scopeType: ReplyMemoryScopeType) {
+  switch (scopeType) {
+    case ReplyMemoryScopeType.SENDER:
+      return 3;
+    case ReplyMemoryScopeType.DOMAIN:
+      return 2;
+    case ReplyMemoryScopeType.GLOBAL:
+      return 1;
+    case ReplyMemoryScopeType.TOPIC:
+      return 0;
+  }
 }

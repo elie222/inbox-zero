@@ -43,7 +43,7 @@ describe.runIf(shouldRunEval)("reply memory extraction eval", () => {
             (memory) =>
               memory.kind === ReplyMemoryKind.FACT &&
               /pricing|seat|annual billing/i.test(
-                `${memory.title} ${memory.content} ${memory.tags.join(" ")}`,
+                `${memory.title} ${memory.content}`,
               ) &&
               (memory.scopeType === ReplyMemoryScopeType.TOPIC ||
                 memory.scopeType === ReplyMemoryScopeType.GLOBAL),
@@ -106,10 +106,9 @@ describe.runIf(shouldRunEval)("reply memory extraction eval", () => {
 
         const pass = result.some(
           (memory) =>
-            (memory.kind === ReplyMemoryKind.STYLE ||
-              memory.kind === ReplyMemoryKind.PREFERENCE) &&
+            memory.kind === ReplyMemoryKind.STYLE &&
             /short|concise|brief|direct|plain|simple|neutral|professional|exclamation|enthusias/i.test(
-              `${memory.title} ${memory.content} ${memory.tags.join(" ")}`,
+              `${memory.title} ${memory.content}`,
             ),
         );
 
@@ -117,7 +116,7 @@ describe.runIf(shouldRunEval)("reply memory extraction eval", () => {
           testName: "concise style extraction",
           model: model.label,
           pass,
-          expected: "STYLE/PREFERENCE memory about concise replies",
+          expected: "STYLE memory about concise replies",
           actual: summarizeMemories(result),
         });
 

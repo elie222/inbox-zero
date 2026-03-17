@@ -857,17 +857,15 @@ model ReplyMemory {
 
   title      String
   content    String
-  tags       String[]          @default([])
   kind       ReplyMemoryKind
   scopeType  ReplyMemoryScopeType
   scopeValue String
-  status     ReplyMemoryStatus @default(ACTIVE)
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, kind, scopeType, scopeValue, title])
-  @@index([emailAccountId, status, updatedAt])
+  @@index([emailAccountId, updatedAt])
   @@index([emailAccountId, scopeType, scopeValue])
 }
 
@@ -1425,8 +1423,6 @@ enum DraftReplyConfidence {
 
 enum ReplyMemoryKind {
   FACT
-  PROCESS
-  PREFERENCE
   STYLE
 }
 
@@ -1435,11 +1431,6 @@ enum ReplyMemoryScopeType {
   SENDER
   DOMAIN
   TOPIC
-}
-
-enum ReplyMemoryStatus {
-  ACTIVE
-  SUPPRESSED
 }
 
 enum NewsletterStatus {

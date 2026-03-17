@@ -1,24 +1,18 @@
 -- CreateEnum
-CREATE TYPE "ReplyMemoryKind" AS ENUM ('FACT', 'PROCESS', 'PREFERENCE', 'STYLE');
+CREATE TYPE "ReplyMemoryKind" AS ENUM ('FACT', 'STYLE');
 
 -- CreateEnum
 CREATE TYPE "ReplyMemoryScopeType" AS ENUM ('GLOBAL', 'SENDER', 'DOMAIN', 'TOPIC');
 
--- CreateEnum
-CREATE TYPE "ReplyMemoryStatus" AS ENUM ('ACTIVE', 'SUPPRESSED');
-
--- CreateTable
 CREATE TABLE "ReplyMemory" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "title" TEXT NOT NULL,
     "content" TEXT NOT NULL,
-    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "kind" "ReplyMemoryKind" NOT NULL,
     "scopeType" "ReplyMemoryScopeType" NOT NULL,
     "scopeValue" TEXT NOT NULL,
-    "status" "ReplyMemoryStatus" NOT NULL DEFAULT 'ACTIVE',
     "emailAccountId" TEXT NOT NULL,
 
     CONSTRAINT "ReplyMemory_pkey" PRIMARY KEY ("id")
@@ -44,7 +38,7 @@ CREATE TABLE "ReplyMemoryEvidence" (
 );
 
 -- CreateIndex
-CREATE INDEX "ReplyMemory_emailAccountId_status_updatedAt_idx" ON "ReplyMemory"("emailAccountId", "status", "updatedAt");
+CREATE INDEX "ReplyMemory_emailAccountId_updatedAt_idx" ON "ReplyMemory"("emailAccountId", "updatedAt");
 
 -- CreateIndex
 CREATE INDEX "ReplyMemory_emailAccountId_scopeType_scopeValue_idx" ON "ReplyMemory"("emailAccountId", "scopeType", "scopeValue");

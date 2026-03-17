@@ -4,7 +4,6 @@ import { createScopedLogger } from "@/utils/logger";
 import {
   ReplyMemoryKind,
   ReplyMemoryScopeType,
-  ReplyMemoryStatus,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
@@ -97,7 +96,6 @@ describe("reply-memory", () => {
         kind: ReplyMemoryKind.FACT,
         scopeType: ReplyMemoryScopeType.TOPIC,
         scopeValue: "pricing",
-        tags: ["pricing", "seats"],
       }),
       createReplyMemory({
         title: "vendor sender preference",
@@ -106,13 +104,14 @@ describe("reply-memory", () => {
         scopeType: ReplyMemoryScopeType.SENDER,
         scopeValue: "sales@example.com",
       }),
+    ] as any);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([
       createReplyMemory({
-        title: "irrelevant topic",
-        content: "Talk about onboarding docs.",
+        title: "pricing",
+        content: "Mention that pricing depends on seat count.",
         kind: ReplyMemoryKind.FACT,
         scopeType: ReplyMemoryScopeType.TOPIC,
-        scopeValue: "onboarding",
-        tags: ["onboarding"],
+        scopeValue: "pricing",
       }),
     ] as any);
 
@@ -126,7 +125,7 @@ describe("reply-memory", () => {
     expect(result).toContain("Keep replies to 1-2 sentences.");
     expect(result).toContain("pricing depends on seat count");
     expect(result).toContain("annual billing first");
-    expect(result).not.toContain("onboarding docs");
+    expect(prisma.$queryRaw).toHaveBeenCalled();
   });
 
   it("processes draft edit evidence into active reply memories", async () => {
@@ -164,7 +163,6 @@ describe("reply-memory", () => {
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.TOPIC,
             scopeValue: "pricing",
-            tags: ["pricing", "seats"],
           },
         ],
       },
@@ -206,7 +204,6 @@ describe("reply-memory", () => {
           content: "Mention that pricing depends on seat count.",
           scopeType: ReplyMemoryScopeType.TOPIC,
           scopeValue: "pricing",
-          tags: ["pricing", "seats"],
         }),
       }),
     );
@@ -327,7 +324,6 @@ describe("reply-memory", () => {
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.SENDER,
             scopeValue: "   ",
-            tags: ["pricing"],
           },
         ],
       },
@@ -350,7 +346,7 @@ describe("reply-memory", () => {
     });
   });
 
-  it("allows topic memories without a concrete scope value", async () => {
+  it("skips topic memories without a concrete scope value", async () => {
     vi.mocked(prisma.replyMemoryEvidence.deleteMany).mockResolvedValue({
       count: 0,
     });
@@ -385,7 +381,6 @@ describe("reply-memory", () => {
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.TOPIC,
             scopeValue: "   ",
-            tags: ["pricing"],
           },
         ],
       },
@@ -401,14 +396,7 @@ describe("reply-memory", () => {
       logger,
     });
 
-    expect(prisma.replyMemory.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        create: expect.objectContaining({
-          scopeType: ReplyMemoryScopeType.TOPIC,
-          scopeValue: "",
-        }),
-      }),
-    );
+    expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
   });
 
   it("normalizes extracted reply memories before returning them", async () => {
@@ -421,7 +409,6 @@ describe("reply-memory", () => {
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             scopeValue: "ignored for global scope",
-            tags: ["Pricing", " seats ", "Pricing"],
           },
         ],
       },
@@ -461,7 +448,6 @@ describe("reply-memory", () => {
         kind: ReplyMemoryKind.FACT,
         scopeType: ReplyMemoryScopeType.GLOBAL,
         scopeValue: "",
-        tags: ["pricing", "seats"],
       },
     ]);
   });
@@ -503,25 +489,25 @@ function createReplyMemory(
     id: string;
     title: string;
     content: string;
-    tags: string[];
     kind: ReplyMemoryKind;
     scopeType: ReplyMemoryScopeType;
     scopeValue: string;
-    status: ReplyMemoryStatus;
     createdAt: Date;
     updatedAt: Date;
     emailAccountId: string;
   }>,
 ) {
+  const title = overrides.title ?? "memory";
+  const scopeType = overrides.scopeType ?? ReplyMemoryScopeType.GLOBAL;
+  const scopeValue = overrides.scopeValue ?? "";
+
   return {
-    id: "memory-1",
-    title: "memory",
+    id: overrides.id ?? `${scopeType}:${scopeValue}:${title}`,
+    title,
     content: "memory content",
-    tags: [],
     kind: ReplyMemoryKind.FACT,
-    scopeType: ReplyMemoryScopeType.GLOBAL,
-    scopeValue: "",
-    status: ReplyMemoryStatus.ACTIVE,
+    scopeType,
+    scopeValue,
     createdAt: new Date("2026-03-17T09:00:00.000Z"),
     updatedAt: new Date("2026-03-17T09:00:00.000Z"),
     emailAccountId: "account-1",
