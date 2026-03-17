@@ -635,21 +635,7 @@ async function runAssistantChat({
   messages: ModelMessage[];
   inboxStats?: { total: number; unread: number } | null;
 }) {
-  const recordedToolCalls: Array<{ toolName: string; input: unknown }> = [];
-  const recordingSession = {
-    record: vi.fn(
-      async (type: string, data: { request?: { toolCalls?: any[] } }) => {
-        if (type !== "chat-step") return;
-
-        for (const toolCall of data.request?.toolCalls || []) {
-          recordedToolCalls.push({
-            toolName: toolCall.toolName,
-            input: toolCall.input,
-          });
-        }
-      },
-    ),
-  };
+  const toolCalls: Array<{ toolName: string; input: unknown }> = [];
 
   const result = await aiProcessAssistantChat({
     messages,
@@ -657,18 +643,25 @@ async function runAssistantChat({
     user: emailAccount,
     inboxStats,
     logger,
-    recordingSession,
+    onStepFinish: async ({ toolCalls: stepToolCalls }) => {
+      for (const toolCall of stepToolCalls || []) {
+        toolCalls.push({
+          toolName: toolCall.toolName,
+          input: toolCall.input,
+        });
+      }
+    },
   });
 
   await result.consumeStream();
 
   const actual =
-    recordedToolCalls.length > 0
-      ? recordedToolCalls.map(summarizeToolCall).join(" | ")
+    toolCalls.length > 0
+      ? toolCalls.map(summarizeToolCall).join(" | ")
       : "no tool calls";
 
   return {
-    toolCalls: recordedToolCalls,
+    toolCalls,
     actual,
   };
 }
