@@ -194,10 +194,11 @@ describe.runIf(shouldRunEval)(
           test(
             scenario.title,
             async () => {
-              const { toolCalls, actual } = await runAssistantChat({
-                emailAccount,
-                messages: [{ role: "user", content: scenario.prompt }],
-              });
+              const { toolCalls, actual, didSaveLearnedPatterns } =
+                await runAssistantChat({
+                  emailAccount,
+                  messages: [{ role: "user", content: scenario.prompt }],
+                });
 
               const updateCall = getLastUpdateLearnedPatternsCall(toolCalls);
               const updateCallIndex = getLastToolCallIndex(
@@ -221,7 +222,7 @@ describe.runIf(shouldRunEval)(
                 (scenario.excludes ?? []).every((expectedFrom) =>
                   hasExcludedFrom(updateCall.learnedPatterns, expectedFrom),
                 ) &&
-                mockSaveLearnedPatterns.mock.calls.length > 0;
+                didSaveLearnedPatterns;
 
               evalReporter.record({
                 testName: scenario.reportName,
@@ -229,8 +230,6 @@ describe.runIf(shouldRunEval)(
                 pass,
                 actual,
               });
-
-              expect(mockSaveLearnedPatterns).toHaveBeenCalled();
               expect(pass).toBe(true);
             },
             TIMEOUT,
@@ -252,15 +251,21 @@ async function runAssistantChat({
   emailAccount: ReturnType<typeof getEmailAccount>;
   messages: ModelMessage[];
 }) {
+  const saveLearnedPatternsCallsBefore =
+    mockSaveLearnedPatterns.mock.calls.length;
   const toolCalls = await captureAssistantChatToolCalls({
     messages,
     emailAccount,
     logger,
   });
+  const saveLearnedPatternsCallsAfter =
+    mockSaveLearnedPatterns.mock.calls.length;
 
   return {
     toolCalls,
     actual: summarizeRecordedToolCalls(toolCalls, summarizeToolCall),
+    didSaveLearnedPatterns:
+      saveLearnedPatternsCallsAfter > saveLearnedPatternsCallsBefore,
   };
 }
 

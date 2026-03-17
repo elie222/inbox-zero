@@ -277,7 +277,10 @@ function mentionsCcExclusion(text: string | null | undefined) {
   return (
     /(?:\bcc\b|carbon copy|copied|copy recipient|primary recipient|to field)/.test(
       normalizedText,
-    ) && /\b(?:not|don't|do not|doesn't|does not|no)\b/.test(normalizedText)
+    ) &&
+    /\b(?:not|don't|do not|doesn't|does not|no|exclude|excluding)\b/.test(
+      normalizedText,
+    )
   );
 }
 
