@@ -143,13 +143,13 @@ describe.runIf(shouldRunEval)(
       "assistant-chat static sender rules",
       (model, emailAccount) => {
         test(
-          "uses static.from for an exact newsletter sender domain",
+          "uses static.from for an exact sender domain",
           async () => {
             const messages: ModelMessage[] = [
               {
                 role: "user",
                 content:
-                  'Create a rule called "TLDR Newsletters" that labels emails from @tldrnewsletter.com as TLDR Newsletters.',
+                  'Create a rule called "Briefings" that labels emails from @briefing.example as Briefings.',
               },
             ];
 
@@ -159,11 +159,11 @@ describe.runIf(shouldRunEval)(
             });
 
             const currentPass = usesStaticFromForSenders(current.createCall, [
-              "@tldrnewsletter.com",
+              "@briefing.example",
             ]);
 
             evalReporter.record({
-              testName: "newsletter sender domain (current)",
+              testName: "single sender domain (current)",
               model: model.label,
               pass: currentPass,
               actual: current.actual,
@@ -175,13 +175,13 @@ describe.runIf(shouldRunEval)(
         );
 
         test(
-          "uses static.from for a small explicit travel sender list",
+          "uses static.from for a small explicit sender list",
           async () => {
             const messages: ModelMessage[] = [
               {
                 role: "user",
                 content:
-                  'Create a rule called "Travel" that labels and marks as read emails from @airbnb.com, @booking.com, and @delta.com.',
+                  'Create a rule called "Reservations" that labels and marks as read emails from @lodging.example, @flight-alerts.example, and @rail.example.',
               },
             ];
 
@@ -191,13 +191,13 @@ describe.runIf(shouldRunEval)(
             });
 
             const currentPass = usesStaticFromForSenders(current.createCall, [
-              "@airbnb.com",
-              "@booking.com",
-              "@delta.com",
+              "@lodging.example",
+              "@flight-alerts.example",
+              "@rail.example",
             ]);
 
             evalReporter.record({
-              testName: "travel sender list (current)",
+              testName: "sender list (current)",
               model: model.label,
               pass: currentPass,
               actual: current.actual,
@@ -280,7 +280,7 @@ describe.runIf(shouldRunEval)(
             {
               role: "user",
               content:
-                "I already have a Newsletter rule. Emails from newsletter@morningbrew.com should match that rule.",
+                "I already have a Newsletter rule. Emails from digest@briefing.example should match that rule.",
             },
           ];
 
@@ -293,10 +293,7 @@ describe.runIf(shouldRunEval)(
             current.toolCalls,
             (input) =>
               input.ruleName === "Newsletter" &&
-              hasIncludedFrom(
-                input.learnedPatterns,
-                "newsletter@morningbrew.com",
-              ),
+              hasIncludedFrom(input.learnedPatterns, "digest@briefing.example"),
           );
 
           const currentPass =
