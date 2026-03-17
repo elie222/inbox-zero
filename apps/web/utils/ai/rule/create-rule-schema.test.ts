@@ -198,6 +198,40 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects sender-only aiInstructions when static.from already defines the match", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.LABEL,
+        fields: {
+          label: "Newsletters",
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: null,
+        },
+        delayInMinutes: null,
+      }),
+      condition: {
+        conditionalOperator: null,
+        aiInstructions: "Emails from @briefing.example",
+        static: {
+          from: "@briefing.example",
+          to: null,
+          subject: null,
+        },
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain(
+        "Set aiInstructions to null",
+      );
+    }
+  });
+
   function buildRule(action: {
     type: ActionType;
     fields: {

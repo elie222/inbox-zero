@@ -3,6 +3,7 @@ import {
   delayInMinutesSchema,
   createRuleBody,
   type CreateRuleBody,
+  updateRuleConditionSchema,
 } from "./rule.validation";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
@@ -422,5 +423,46 @@ describe("createRuleBody", () => {
         expect(result.data.conditionalOperator).toBeUndefined();
       }
     });
+  });
+});
+
+describe("updateRuleConditionSchema", () => {
+  it("accepts null aiInstructions for sender-only updates", () => {
+    const result = updateRuleConditionSchema.safeParse({
+      ruleName: "Newsletters",
+      condition: {
+        aiInstructions: null,
+        static: {
+          from: "@briefing.example",
+          to: null,
+          subject: null,
+        },
+        conditionalOperator: null,
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects sender-only aiInstructions when static.from already defines the match", () => {
+    const result = updateRuleConditionSchema.safeParse({
+      ruleName: "Newsletters",
+      condition: {
+        aiInstructions: "Emails from @briefing.example",
+        static: {
+          from: "@briefing.example",
+          to: null,
+          subject: null,
+        },
+        conditionalOperator: null,
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain(
+        "Set aiInstructions to null",
+      );
+    }
   });
 });
