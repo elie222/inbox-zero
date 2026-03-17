@@ -130,6 +130,27 @@ describe("matchesStaticRule", () => {
     expect(matchesStaticRule(rule, message, logger)).toBe(false);
   });
 
+  it("matches from domains regardless of casing or leading @", () => {
+    const message = getMessage({
+      headers: getHeaders({ from: "User@Example.com" }),
+    });
+
+    expect(
+      matchesStaticRule(
+        getStaticRule({ from: "@EXAMPLE.COM" }),
+        message,
+        logger,
+      ),
+    ).toBe(true);
+    expect(
+      matchesStaticRule(
+        getStaticRule({ from: "EXAMPLE.COM" }),
+        message,
+        logger,
+      ),
+    ).toBe(true);
+  });
+
   it("matches to against extracted recipient addresses across multiple recipients", () => {
     const rule = getStaticRule({ to: "team@company.com" });
     const message = getMessage({
@@ -150,6 +171,17 @@ describe("matchesStaticRule", () => {
     });
 
     expect(matchesStaticRule(rule, message, logger)).toBe(false);
+  });
+
+  it("matches to addresses regardless of casing", () => {
+    const rule = getStaticRule({ to: "TEAM@COMPANY.COM" });
+    const message = getMessage({
+      headers: getHeaders({
+        to: '"VIP vip@vip.com" <actual@company.com>, Team <team@company.com>',
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match Creator Message subject pattern", () => {

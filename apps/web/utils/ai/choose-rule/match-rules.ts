@@ -501,8 +501,20 @@ export function matchesStaticRule(
     true,
   );
 
-  const fromMatch = from ? safeRegexTest(from, fromHeader, true) : true;
-  const toMatch = to ? safeRegexTest(to, toHeader, true) : true;
+  const fromMatch = from
+    ? safeRegexTest(
+        normalizeEmailPatternForRuleMatching(from),
+        fromHeader.toLowerCase(),
+        true,
+      )
+    : true;
+  const toMatch = to
+    ? safeRegexTest(
+        normalizeEmailPatternForRuleMatching(to),
+        toHeader.toLowerCase(),
+        true,
+      )
+    : true;
   const subjectMatch = subject
     ? safeRegexTest(subject, message.headers.subject, false)
     : true;
@@ -680,4 +692,10 @@ function normalizeEmailHeaderForRuleMatching(
   }
 
   return extractEmailAddress(header);
+}
+
+function normalizeEmailPatternForRuleMatching(pattern: string) {
+  return splitEmailPatterns(pattern)
+    .map((part) => part.trim().toLowerCase().replace(/^@/, ""))
+    .join("|");
 }
