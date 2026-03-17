@@ -15,15 +15,15 @@ vi.mock("@/utils/similarity-score", () => ({
 }));
 vi.mock("@/utils/ai/reply/reply-memory", () => ({
   isMeaningfulDraftEdit: vi.fn(),
-  saveReplyMemoryEvidence: vi.fn().mockResolvedValue(undefined),
-  syncReplyMemoriesFromEvidence: vi.fn().mockResolvedValue(undefined),
+  saveDraftSendLogReplyMemory: vi.fn().mockResolvedValue(undefined),
+  syncReplyMemoriesFromDraftSendLogs: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { calculateSimilarity } from "@/utils/similarity-score";
 import {
   isMeaningfulDraftEdit,
-  saveReplyMemoryEvidence,
-  syncReplyMemoriesFromEvidence,
+  saveDraftSendLogReplyMemory,
+  syncReplyMemoriesFromDraftSendLogs,
 } from "@/utils/ai/reply/reply-memory";
 
 const logger = createScopedLogger("draft-tracking-test");
@@ -31,19 +31,21 @@ const logger = createScopedLogger("draft-tracking-test");
 describe("trackSentDraftStatus", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.draftSendLog.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.draftSendLog.create).mockResolvedValue({
+      id: "draft-send-log-1",
+    } as any);
     vi.mocked(prisma.executedAction.update).mockResolvedValue({} as any);
-    vi.mocked(prisma.$transaction).mockResolvedValue([] as any);
+    vi.mocked(prisma.$transaction).mockResolvedValue([
+      { id: "draft-send-log-1" },
+      {},
+    ] as any);
   });
 
-  it("captures reply memory evidence for meaningful edited sends", async () => {
+  it("queues reply memory learning for meaningful edited sends", async () => {
     vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
       id: "action-1",
       draftId: "draft-1",
       content: "Thanks for reaching out.",
-      executedRule: {
-        messageId: "source-1",
-      },
     } as any);
     vi.mocked(calculateSimilarity).mockReturnValue(0.52);
     vi.mocked(isMeaningfulDraftEdit).mockReturnValue(true);
@@ -70,19 +72,13 @@ describe("trackSentDraftStatus", () => {
         }),
       }),
     );
-    expect(saveReplyMemoryEvidence).toHaveBeenCalledWith(
+    expect(saveDraftSendLogReplyMemory).toHaveBeenCalledWith(
       expect.objectContaining({
-        emailAccountId: "account-1",
-        executedActionId: "action-1",
-        sourceMessageId: "source-1",
-        sentMessageId: "sent-1",
-        threadId: "thread-1",
-        draftText: "Thanks for reaching out.",
+        draftSendLogId: "draft-send-log-1",
         sentText: "Please include pricing for seat counts.",
-        similarityScore: 0.52,
       }),
     );
-    expect(syncReplyMemoriesFromEvidence).toHaveBeenCalledWith({
+    expect(syncReplyMemoriesFromDraftSendLogs).toHaveBeenCalledWith({
       emailAccountId: "account-1",
       provider,
       logger,
@@ -94,9 +90,6 @@ describe("trackSentDraftStatus", () => {
       id: "action-1",
       draftId: "draft-1",
       content: "Thanks for reaching out.",
-      executedRule: {
-        messageId: "source-1",
-      },
     } as any);
     vi.mocked(calculateSimilarity).mockReturnValue(0.98);
     vi.mocked(isMeaningfulDraftEdit).mockReturnValue(false);
@@ -110,8 +103,8 @@ describe("trackSentDraftStatus", () => {
       logger,
     });
 
-    expect(saveReplyMemoryEvidence).not.toHaveBeenCalled();
-    expect(syncReplyMemoriesFromEvidence).not.toHaveBeenCalled();
+    expect(saveDraftSendLogReplyMemory).not.toHaveBeenCalled();
+    expect(syncReplyMemoriesFromDraftSendLogs).not.toHaveBeenCalled();
   });
 });
 

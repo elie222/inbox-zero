@@ -8,8 +8,8 @@ import type { Logger } from "@/utils/logger";
 import { emailToContent } from "@/utils/mail";
 import {
   isMeaningfulDraftEdit,
-  saveReplyMemoryEvidence,
-  syncReplyMemoriesFromEvidence,
+  saveDraftSendLogReplyMemory,
+  syncReplyMemoriesFromDraftSendLogs,
 } from "@/utils/ai/reply/reply-memory";
 import { logReplyTrackerError } from "./error-logging";
 
@@ -54,11 +54,6 @@ export async function trackSentDraftStatus({
       id: true,
       content: true,
       draftId: true,
-      executedRule: {
-        select: {
-          messageId: true,
-        },
-      },
     },
   });
 
@@ -89,7 +84,7 @@ export async function trackSentDraftStatus({
     });
 
     // Create DraftSendLog to record the comparison, but mark wasDraftSent as false
-    await withPrismaRetry(
+    const [draftSendLog] = await withPrismaRetry(
       () =>
         prisma.$transaction([
           prisma.draftSendLog.create({
@@ -114,9 +109,7 @@ export async function trackSentDraftStatus({
     queueReplyMemoryLearning({
       emailAccountId,
       executedActionId,
-      sourceMessageId: executedAction.executedRule.messageId,
-      sentMessageId,
-      threadId,
+      draftSendLogId: draftSendLog.id,
       draftText: executedAction.content,
       similarityScore,
       message,
@@ -135,7 +128,7 @@ export async function trackSentDraftStatus({
     },
   );
 
-  await withPrismaRetry(
+  const [draftSendLog] = await withPrismaRetry(
     () =>
       prisma.$transaction([
         prisma.draftSendLog.create({
@@ -162,9 +155,7 @@ export async function trackSentDraftStatus({
   queueReplyMemoryLearning({
     emailAccountId,
     executedActionId,
-    sourceMessageId: executedAction.executedRule.messageId,
-    sentMessageId,
-    threadId,
+    draftSendLogId: draftSendLog.id,
     draftText: executedAction.content,
     similarityScore,
     message,
@@ -379,9 +370,7 @@ export async function cleanupThreadAIDrafts({
 function queueReplyMemoryLearning({
   emailAccountId,
   executedActionId,
-  sourceMessageId,
-  sentMessageId,
-  threadId,
+  draftSendLogId,
   draftText,
   similarityScore,
   message,
@@ -390,16 +379,14 @@ function queueReplyMemoryLearning({
 }: {
   emailAccountId: string;
   executedActionId: string;
-  sourceMessageId?: string | null;
-  sentMessageId: string;
-  threadId: string;
+  draftSendLogId: string;
   draftText?: string | null;
   similarityScore: number;
   message: ParsedMessage;
   provider: EmailProvider;
   logger: Logger;
 }) {
-  if (!sourceMessageId || !draftText) return;
+  if (!draftText) return;
 
   const sentText = emailToContent(message, {
     maxLength: 4000,
@@ -411,18 +398,12 @@ function queueReplyMemoryLearning({
     return;
   }
 
-  saveReplyMemoryEvidence({
-    emailAccountId,
-    executedActionId,
-    sourceMessageId,
-    sentMessageId,
-    threadId,
-    draftText,
+  saveDraftSendLogReplyMemory({
+    draftSendLogId,
     sentText,
-    similarityScore,
   })
     .then(() =>
-      syncReplyMemoriesFromEvidence({
+      syncReplyMemoriesFromDraftSendLogs({
         emailAccountId,
         provider,
         logger,

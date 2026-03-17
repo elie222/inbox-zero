@@ -3,7 +3,7 @@ import {
   ReplyMemoryKind,
   ReplyMemoryScopeType,
 } from "@/generated/prisma/enums";
-import type { ReplyMemory } from "@/generated/prisma/client";
+import type { Prisma, ReplyMemory } from "@/generated/prisma/client";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { extractDomainFromEmail, extractEmailAddress } from "@/utils/email";
@@ -67,56 +67,23 @@ Rules:
 - Avoid duplicating an existing memory if the same idea is already covered.
 - If nothing durable was learned, return an empty array.`;
 
-export async function saveReplyMemoryEvidence({
-  emailAccountId,
-  executedActionId,
-  sourceMessageId,
-  sentMessageId,
-  threadId,
-  draftText,
+export async function saveDraftSendLogReplyMemory({
+  draftSendLogId,
   sentText,
-  similarityScore,
 }: {
-  emailAccountId: string;
-  executedActionId: string;
-  sourceMessageId: string;
-  sentMessageId: string;
-  threadId: string;
-  draftText: string;
+  draftSendLogId: string;
   sentText: string;
-  similarityScore: number;
 }) {
-  const now = new Date();
-  const expiresAt = new Date(
-    now.getTime() + REPLY_MEMORY_RETENTION_DAYS * 24 * 60 * 60 * 1000,
-  );
-
-  return prisma.replyMemoryEvidence.upsert({
-    where: { executedActionId },
-    create: {
-      emailAccountId,
-      executedActionId,
-      sourceMessageId,
-      sentMessageId,
-      threadId,
-      draftText,
-      sentText,
-      similarityScore,
-      expiresAt,
-    },
-    update: {
-      sourceMessageId,
-      sentMessageId,
-      threadId,
-      draftText,
-      sentText,
-      similarityScore,
-      expiresAt,
+  return prisma.draftSendLog.update({
+    where: { id: draftSendLogId },
+    data: {
+      replyMemorySentText: sentText,
+      replyMemoryProcessedAt: null,
     },
   });
 }
 
-export async function syncReplyMemoriesFromEvidence({
+export async function syncReplyMemoriesFromDraftSendLogs({
   emailAccountId,
   provider,
   logger,
@@ -125,39 +92,57 @@ export async function syncReplyMemoriesFromEvidence({
   provider: EmailProvider;
   logger: Logger;
 }) {
-  await prisma.replyMemoryEvidence.deleteMany({
+  const retentionCutoff = new Date(
+    Date.now() - REPLY_MEMORY_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+  );
+
+  await prisma.draftSendLog.updateMany({
     where: {
-      emailAccountId,
-      expiresAt: { lte: new Date() },
+      createdAt: { lte: retentionCutoff },
+      replyMemorySentText: { not: null },
+      executedAction: {
+        executedRule: {
+          emailAccountId,
+        },
+      },
+    },
+    data: {
+      replyMemorySentText: null,
     },
   });
 
   const emailAccount = await getEmailAccountWithAi({ emailAccountId });
   if (!emailAccount) return;
 
-  const evidenceRows = await prisma.replyMemoryEvidence.findMany({
+  const draftSendLogs = await prisma.draftSendLog.findMany({
     where: {
-      emailAccountId,
-      processedAt: null,
-      expiresAt: { gt: new Date() },
+      createdAt: { gt: retentionCutoff },
+      replyMemoryProcessedAt: null,
+      replyMemorySentText: { not: null },
+      executedAction: {
+        executedRule: {
+          emailAccountId,
+        },
+      },
     },
+    include: draftSendLogReplyMemoryInclude,
     orderBy: { createdAt: "asc" },
     take: 5,
   });
 
-  for (const evidence of evidenceRows) {
+  for (const draftSendLog of draftSendLogs) {
     try {
-      await processReplyMemoryEvidence({
-        evidence,
+      await processReplyMemoryDraftSendLog({
+        draftSendLog,
         emailAccount,
         provider,
         logger,
       });
     } catch (error) {
-      logger.error("Failed to process reply memory evidence", {
+      logger.error("Failed to process reply memory draft send log", {
         error,
-        replyMemoryEvidenceId: evidence.id,
-        executedActionId: evidence.executedActionId,
+        draftSendLogId: draftSendLog.id,
+        executedActionId: draftSendLog.executedAction.id,
       });
     }
   }
@@ -261,29 +246,28 @@ function formatReplyMemoryContent(memories: ReplyMemory[]) {
     .join("\n");
 }
 
-async function processReplyMemoryEvidence({
-  evidence,
+async function processReplyMemoryDraftSendLog({
+  draftSendLog,
   emailAccount,
   provider,
   logger,
 }: {
-  evidence: {
-    id: string;
-    sourceMessageId: string;
-    draftText: string;
-    sentText: string;
-    emailAccountId: string;
-  };
+  draftSendLog: DraftSendLogReplyMemoryPayload;
   emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
   provider: EmailProvider;
   logger: Logger;
 }) {
+  const sourceMessageId = draftSendLog.executedAction.executedRule.messageId;
+  const emailAccountId =
+    draftSendLog.executedAction.executedRule.emailAccountId;
+  const draftText = draftSendLog.executedAction.content ?? "";
+
   const incomingMessage = await provider
-    .getMessage(evidence.sourceMessageId)
+    .getMessage(sourceMessageId)
     .catch((error) => {
       logger.warn("Failed to load source message for reply memory learning", {
         error,
-        sourceMessageId: evidence.sourceMessageId,
+        sourceMessageId,
       });
       return null;
     });
@@ -295,8 +279,8 @@ async function processReplyMemoryEvidence({
     logger.warn(
       "Retrying reply memory extraction after source email lookup failed",
       {
-        replyMemoryEvidenceId: evidence.id,
-        sourceMessageId: evidence.sourceMessageId,
+        draftSendLogId: draftSendLog.id,
+        sourceMessageId,
       },
     );
     return;
@@ -306,19 +290,19 @@ async function processReplyMemoryEvidence({
     logger.warn(
       "Skipping reply memory extraction without source email context",
       {
-        replyMemoryEvidenceId: evidence.id,
-        sourceMessageId: evidence.sourceMessageId,
+        draftSendLogId: draftSendLog.id,
+        sourceMessageId,
         hasIncomingMessage: true,
         hasSenderEmail: false,
       },
     );
-    await markReplyMemoryEvidenceProcessed(evidence.id);
+    await markDraftSendLogReplyMemoryProcessed(draftSendLog.id);
     return;
   }
 
   const existingMemories = await prisma.replyMemory.findMany({
     where: {
-      emailAccountId: evidence.emailAccountId,
+      emailAccountId,
       OR: getReplyMemoryScopes({
         senderEmail: senderEmail.toLowerCase(),
         senderDomain,
@@ -336,8 +320,8 @@ async function processReplyMemoryEvidence({
           removeForwarded: false,
         }).content
       : "",
-    draftText: evidence.draftText,
-    sentText: evidence.sentText,
+    draftText,
+    sentText: draftSendLog.replyMemorySentText ?? "",
     senderEmail,
     existingMemories,
     emailAccount,
@@ -356,10 +340,10 @@ async function processReplyMemoryEvidence({
     )
       continue;
 
-    await prisma.replyMemory.upsert({
+    const persistedMemory = await prisma.replyMemory.upsert({
       where: {
         emailAccountId_kind_scopeType_scopeValue_title: {
-          emailAccountId: evidence.emailAccountId,
+          emailAccountId,
           kind: memory.kind,
           scopeType: memory.scopeType,
           scopeValue: normalizedScopeValue,
@@ -367,7 +351,7 @@ async function processReplyMemoryEvidence({
         },
       },
       create: {
-        emailAccountId: evidence.emailAccountId,
+        emailAccountId,
         title: memory.title,
         content: memory.content,
         kind: memory.kind,
@@ -378,9 +362,23 @@ async function processReplyMemoryEvidence({
         content: memory.content,
       },
     });
+
+    await prisma.replyMemorySource.upsert({
+      where: {
+        replyMemoryId_draftSendLogId: {
+          replyMemoryId: persistedMemory.id,
+          draftSendLogId: draftSendLog.id,
+        },
+      },
+      create: {
+        replyMemoryId: persistedMemory.id,
+        draftSendLogId: draftSendLog.id,
+      },
+      update: {},
+    });
   }
 
-  await markReplyMemoryEvidenceProcessed(evidence.id);
+  await markDraftSendLogReplyMemoryProcessed(draftSendLog.id);
 }
 
 export async function aiExtractReplyMemoriesFromDraftEdit({
@@ -523,12 +521,34 @@ function getReplyMemoryScopes({
   ];
 }
 
-async function markReplyMemoryEvidenceProcessed(id: string) {
-  await prisma.replyMemoryEvidence.update({
+async function markDraftSendLogReplyMemoryProcessed(id: string) {
+  await prisma.draftSendLog.update({
     where: { id },
-    data: { processedAt: new Date() },
+    data: {
+      replyMemoryProcessedAt: new Date(),
+      replyMemorySentText: null,
+    },
   });
 }
+
+const draftSendLogReplyMemoryInclude = {
+  executedAction: {
+    select: {
+      id: true,
+      content: true,
+      executedRule: {
+        select: {
+          emailAccountId: true,
+          messageId: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.DraftSendLogInclude;
+
+type DraftSendLogReplyMemoryPayload = Prisma.DraftSendLogGetPayload<{
+  include: typeof draftSendLogReplyMemoryInclude;
+}>;
 
 function sortReplyMemories(memories: ReplyMemory[]) {
   return [...memories].sort((left, right) => {

@@ -184,7 +184,6 @@ model EmailAccount {
   emailTokens      EmailToken[]
   knowledge        Knowledge[]
   replyMemories    ReplyMemory[]
-  replyMemoryEvidence ReplyMemoryEvidence[]
   chats            Chat[]
   chatMemories     ChatMemory[]
   digests          Digest[]
@@ -582,7 +581,6 @@ model ExecutedAction {
   draftModelName     String?
   draftPipelineVersion Int?
   draftSendLog    DraftSendLog? // Will exist if the draft was sent
-  replyMemoryEvidence ReplyMemoryEvidence? // Evidence captured from edits to this draft
   digestItems     DigestItem[] // Relation to digest items created by this action
   scheduledAction ScheduledAction? // Reverse relation for delayed actions
 
@@ -863,33 +861,24 @@ model ReplyMemory {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  sources        ReplyMemorySource[]
 
   @@unique([emailAccountId, kind, scopeType, scopeValue, title])
   @@index([emailAccountId, updatedAt])
   @@index([emailAccountId, scopeType, scopeValue])
 }
 
-model ReplyMemoryEvidence {
-  id        String   @id @default(cuid())
+model ReplyMemorySource {
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  executedActionId String   @unique
-  sourceMessageId  String
-  sentMessageId    String
-  threadId         String
-  draftText        String
-  sentText         String
-  similarityScore  Float
-  processedAt      DateTime?
-  expiresAt        DateTime
+  replyMemoryId String
+  replyMemory   ReplyMemory @relation(fields: [replyMemoryId], references: [id], onDelete: Cascade)
 
-  executedAction ExecutedAction @relation(fields: [executedActionId], references: [id], onDelete: Cascade)
-  emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  draftSendLogId String
+  draftSendLog   DraftSendLog @relation(fields: [draftSendLogId], references: [id], onDelete: Cascade)
 
-  @@index([emailAccountId, processedAt, createdAt])
-  @@index([expiresAt])
+  @@id([replyMemoryId, draftSendLogId])
+  @@index([draftSendLogId])
 }
 
 model ApiKey {
@@ -966,10 +955,14 @@ model DraftSendLog {
   executedActionId String         @unique
   executedAction   ExecutedAction @relation(fields: [executedActionId], references: [id], onDelete: Cascade)
 
-  sentMessageId   String
-  similarityScore Float // Similarity score (0.0 to 1.0) between original draft and sent message
+  sentMessageId          String
+  similarityScore        Float // Similarity score (0.0 to 1.0) between original draft and sent message
+  replyMemorySentText    String?
+  replyMemoryProcessedAt DateTime?
+  replyMemorySources     ReplyMemorySource[]
 
   @@index([executedActionId])
+  @@index([replyMemoryProcessedAt, createdAt])
 }
 
 model Chat {

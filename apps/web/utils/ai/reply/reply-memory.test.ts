@@ -10,7 +10,7 @@ import {
   aiExtractReplyMemoriesFromDraftEdit,
   getReplyMemoryContent,
   isMeaningfulDraftEdit,
-  syncReplyMemoriesFromEvidence,
+  syncReplyMemoriesFromDraftSendLogs,
 } from "./reply-memory";
 
 const { mockCreateGenerateObject, mockGenerateObject } = vi.hoisted(() => {
@@ -128,32 +128,21 @@ describe("reply-memory", () => {
     expect(prisma.$queryRaw).toHaveBeenCalled();
   });
 
-  it("processes draft edit evidence into active reply memories", async () => {
-    vi.mocked(prisma.replyMemoryEvidence.deleteMany).mockResolvedValue({
+  it("processes queued draft send logs into active reply memories", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
       count: 0,
     });
-    vi.mocked(prisma.replyMemoryEvidence.findMany).mockResolvedValue([
-      {
-        id: "evidence-1",
-        emailAccountId: "account-1",
-        executedActionId: "action-1",
-        sourceMessageId: "source-1",
-        sentMessageId: "sent-1",
-        threadId: "thread-1",
-        draftText: "Thanks for reaching out.",
-        sentText: "Thanks for reaching out. Pricing depends on seat count.",
-        similarityScore: 0.5,
-        processedAt: null,
-        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
-        createdAt: new Date("2026-03-17T10:00:00.000Z"),
-        updatedAt: new Date("2026-03-17T10:00:00.000Z"),
-      },
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText:
+          "Thanks for reaching out. Pricing depends on seat count.",
+      }),
     ] as any);
     vi.mocked(prisma.replyMemory.findMany).mockResolvedValue([]);
     vi.mocked(prisma.replyMemory.upsert).mockResolvedValue(
       createReplyMemory({}) as any,
     );
-    vi.mocked(prisma.replyMemoryEvidence.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
     mockGenerateObject.mockResolvedValue({
       object: {
         memories: [
@@ -172,7 +161,7 @@ describe("reply-memory", () => {
       getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
     };
 
-    await syncReplyMemoriesFromEvidence({
+    await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
       provider: provider as any,
       logger,
@@ -207,40 +196,44 @@ describe("reply-memory", () => {
         }),
       }),
     );
-    expect(prisma.replyMemoryEvidence.update).toHaveBeenCalledWith({
-      where: { id: "evidence-1" },
-      data: { processedAt: expect.any(Date) },
+    expect(prisma.replyMemorySource.upsert).toHaveBeenCalledWith({
+      where: {
+        replyMemoryId_draftSendLogId: {
+          replyMemoryId: "GLOBAL::memory",
+          draftSendLogId: "draft-send-log-1",
+        },
+      },
+      create: {
+        replyMemoryId: "GLOBAL::memory",
+        draftSendLogId: "draft-send-log-1",
+      },
+      update: {},
+    });
+    expect(prisma.draftSendLog.update).toHaveBeenCalledWith({
+      where: { id: "draft-send-log-1" },
+      data: {
+        replyMemoryProcessedAt: expect.any(Date),
+        replyMemorySentText: null,
+      },
     });
   });
 
-  it("leaves evidence unprocessed when the source email cannot be loaded", async () => {
-    vi.mocked(prisma.replyMemoryEvidence.deleteMany).mockResolvedValue({
+  it("leaves draft send logs pending when the source email cannot be loaded", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
       count: 0,
     });
-    vi.mocked(prisma.replyMemoryEvidence.findMany).mockResolvedValue([
-      {
-        id: "evidence-1",
-        emailAccountId: "account-1",
-        executedActionId: "action-1",
-        sourceMessageId: "source-1",
-        sentMessageId: "sent-1",
-        threadId: "thread-1",
-        draftText: "Thanks for reaching out.",
-        sentText: "Pricing depends on seat count.",
-        similarityScore: 0.5,
-        processedAt: null,
-        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
-        createdAt: new Date("2026-03-17T10:00:00.000Z"),
-        updatedAt: new Date("2026-03-17T10:00:00.000Z"),
-      },
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText: "Pricing depends on seat count.",
+      }),
     ] as any);
-    vi.mocked(prisma.replyMemoryEvidence.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
 
     const provider = {
       getMessage: vi.fn().mockResolvedValue(null),
     };
 
-    await syncReplyMemoriesFromEvidence({
+    await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
       provider: provider as any,
       logger,
@@ -248,37 +241,25 @@ describe("reply-memory", () => {
 
     expect(mockGenerateObject).not.toHaveBeenCalled();
     expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
-    expect(prisma.replyMemoryEvidence.update).not.toHaveBeenCalled();
+    expect(prisma.draftSendLog.update).not.toHaveBeenCalled();
   });
 
-  it("marks evidence processed when the source email is loaded but sender extraction fails", async () => {
-    vi.mocked(prisma.replyMemoryEvidence.deleteMany).mockResolvedValue({
+  it("marks draft send logs processed when sender extraction fails", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
       count: 0,
     });
-    vi.mocked(prisma.replyMemoryEvidence.findMany).mockResolvedValue([
-      {
-        id: "evidence-1",
-        emailAccountId: "account-1",
-        executedActionId: "action-1",
-        sourceMessageId: "source-1",
-        sentMessageId: "sent-1",
-        threadId: "thread-1",
-        draftText: "Thanks for reaching out.",
-        sentText: "Pricing depends on seat count.",
-        similarityScore: 0.5,
-        processedAt: null,
-        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
-        createdAt: new Date("2026-03-17T10:00:00.000Z"),
-        updatedAt: new Date("2026-03-17T10:00:00.000Z"),
-      },
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText: "Pricing depends on seat count.",
+      }),
     ] as any);
-    vi.mocked(prisma.replyMemoryEvidence.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
 
     const provider = {
       getMessage: vi.fn().mockResolvedValue(createSourceMessage({ from: "" })),
     };
 
-    await syncReplyMemoriesFromEvidence({
+    await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
       provider: provider as any,
       logger,
@@ -286,35 +267,26 @@ describe("reply-memory", () => {
 
     expect(mockGenerateObject).not.toHaveBeenCalled();
     expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
-    expect(prisma.replyMemoryEvidence.update).toHaveBeenCalledWith({
-      where: { id: "evidence-1" },
-      data: { processedAt: expect.any(Date) },
+    expect(prisma.draftSendLog.update).toHaveBeenCalledWith({
+      where: { id: "draft-send-log-1" },
+      data: {
+        replyMemoryProcessedAt: expect.any(Date),
+        replyMemorySentText: null,
+      },
     });
   });
 
   it("skips persisting scoped memories without a concrete scope value", async () => {
-    vi.mocked(prisma.replyMemoryEvidence.deleteMany).mockResolvedValue({
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
       count: 0,
     });
-    vi.mocked(prisma.replyMemoryEvidence.findMany).mockResolvedValue([
-      {
-        id: "evidence-1",
-        emailAccountId: "account-1",
-        executedActionId: "action-1",
-        sourceMessageId: "source-1",
-        sentMessageId: "sent-1",
-        threadId: "thread-1",
-        draftText: "Thanks for reaching out.",
-        sentText: "Pricing depends on seat count.",
-        similarityScore: 0.5,
-        processedAt: null,
-        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
-        createdAt: new Date("2026-03-17T10:00:00.000Z"),
-        updatedAt: new Date("2026-03-17T10:00:00.000Z"),
-      },
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText: "Pricing depends on seat count.",
+      }),
     ] as any);
     vi.mocked(prisma.replyMemory.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.replyMemoryEvidence.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
     mockGenerateObject.mockResolvedValue({
       object: {
         memories: [
@@ -333,42 +305,33 @@ describe("reply-memory", () => {
       getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
     };
 
-    await syncReplyMemoriesFromEvidence({
+    await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
       provider: provider as any,
       logger,
     });
 
     expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
-    expect(prisma.replyMemoryEvidence.update).toHaveBeenCalledWith({
-      where: { id: "evidence-1" },
-      data: { processedAt: expect.any(Date) },
+    expect(prisma.draftSendLog.update).toHaveBeenCalledWith({
+      where: { id: "draft-send-log-1" },
+      data: {
+        replyMemoryProcessedAt: expect.any(Date),
+        replyMemorySentText: null,
+      },
     });
   });
 
   it("skips topic memories without a concrete scope value", async () => {
-    vi.mocked(prisma.replyMemoryEvidence.deleteMany).mockResolvedValue({
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
       count: 0,
     });
-    vi.mocked(prisma.replyMemoryEvidence.findMany).mockResolvedValue([
-      {
-        id: "evidence-1",
-        emailAccountId: "account-1",
-        executedActionId: "action-1",
-        sourceMessageId: "source-1",
-        sentMessageId: "sent-1",
-        threadId: "thread-1",
-        draftText: "Thanks for reaching out.",
-        sentText: "Pricing depends on seat count.",
-        similarityScore: 0.5,
-        processedAt: null,
-        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
-        createdAt: new Date("2026-03-17T10:00:00.000Z"),
-        updatedAt: new Date("2026-03-17T10:00:00.000Z"),
-      },
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText: "Pricing depends on seat count.",
+      }),
     ] as any);
     vi.mocked(prisma.replyMemory.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.replyMemoryEvidence.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
     vi.mocked(prisma.replyMemory.upsert).mockResolvedValue(
       createReplyMemory({}) as any,
     );
@@ -390,7 +353,7 @@ describe("reply-memory", () => {
       getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
     };
 
-    await syncReplyMemoriesFromEvidence({
+    await syncReplyMemoriesFromDraftSendLogs({
       emailAccountId: "account-1",
       provider: provider as any,
       logger,
@@ -603,4 +566,32 @@ function createSourceMessage(
     textPlain: "Can you share pricing for a larger team?",
     textHtml: "<p>Can you share pricing for a larger team?</p>",
   } as ParsedMessage;
+}
+
+function createDraftSendLog(
+  overrides: Partial<{
+    id: string;
+    replyMemorySentText: string;
+    draftText: string;
+    sourceMessageId: string;
+    emailAccountId: string;
+    replyMemoryProcessedAt: Date | null;
+    createdAt: Date;
+  }> = {},
+) {
+  return {
+    id: overrides.id ?? "draft-send-log-1",
+    createdAt: overrides.createdAt ?? new Date("2026-03-17T10:00:00.000Z"),
+    replyMemoryProcessedAt: overrides.replyMemoryProcessedAt ?? null,
+    replyMemorySentText:
+      overrides.replyMemorySentText ?? "Pricing depends on seat count.",
+    executedAction: {
+      id: "action-1",
+      content: overrides.draftText ?? "Thanks for reaching out.",
+      executedRule: {
+        emailAccountId: overrides.emailAccountId ?? "account-1",
+        messageId: overrides.sourceMessageId ?? "source-1",
+      },
+    },
+  };
 }

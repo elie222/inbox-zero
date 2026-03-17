@@ -19,22 +19,12 @@ CREATE TABLE "ReplyMemory" (
 );
 
 -- CreateTable
-CREATE TABLE "ReplyMemoryEvidence" (
-    "id" TEXT NOT NULL,
+CREATE TABLE "ReplyMemorySource" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "executedActionId" TEXT NOT NULL,
-    "sourceMessageId" TEXT NOT NULL,
-    "sentMessageId" TEXT NOT NULL,
-    "threadId" TEXT NOT NULL,
-    "draftText" TEXT NOT NULL,
-    "sentText" TEXT NOT NULL,
-    "similarityScore" DOUBLE PRECISION NOT NULL,
-    "processedAt" TIMESTAMP(3),
-    "expiresAt" TIMESTAMP(3) NOT NULL,
-    "emailAccountId" TEXT NOT NULL,
+    "replyMemoryId" TEXT NOT NULL,
+    "draftSendLogId" TEXT NOT NULL,
 
-    CONSTRAINT "ReplyMemoryEvidence_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "ReplyMemorySource_pkey" PRIMARY KEY ("replyMemoryId","draftSendLogId")
 );
 
 -- CreateIndex
@@ -47,19 +37,21 @@ CREATE INDEX "ReplyMemory_emailAccountId_scopeType_scopeValue_idx" ON "ReplyMemo
 CREATE UNIQUE INDEX "ReplyMemory_emailAccountId_kind_scopeType_scopeValue_title_key" ON "ReplyMemory"("emailAccountId", "kind", "scopeType", "scopeValue", "title");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ReplyMemoryEvidence_executedActionId_key" ON "ReplyMemoryEvidence"("executedActionId");
+CREATE INDEX "ReplyMemorySource_draftSendLogId_idx" ON "ReplyMemorySource"("draftSendLogId");
+
+-- AlterTable
+ALTER TABLE "DraftSendLog"
+ADD COLUMN "replyMemorySentText" TEXT,
+ADD COLUMN "replyMemoryProcessedAt" TIMESTAMP(3);
 
 -- CreateIndex
-CREATE INDEX "ReplyMemoryEvidence_emailAccountId_processedAt_createdAt_idx" ON "ReplyMemoryEvidence"("emailAccountId", "processedAt", "createdAt");
-
--- CreateIndex
-CREATE INDEX "ReplyMemoryEvidence_expiresAt_idx" ON "ReplyMemoryEvidence"("expiresAt");
+CREATE INDEX "DraftSendLog_replyMemoryProcessedAt_createdAt_idx" ON "DraftSendLog"("replyMemoryProcessedAt", "createdAt");
 
 -- AddForeignKey
 ALTER TABLE "ReplyMemory" ADD CONSTRAINT "ReplyMemory_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ReplyMemoryEvidence" ADD CONSTRAINT "ReplyMemoryEvidence_executedActionId_fkey" FOREIGN KEY ("executedActionId") REFERENCES "ExecutedAction"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ReplyMemorySource" ADD CONSTRAINT "ReplyMemorySource_replyMemoryId_fkey" FOREIGN KEY ("replyMemoryId") REFERENCES "ReplyMemory"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ReplyMemoryEvidence" ADD CONSTRAINT "ReplyMemoryEvidence_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ReplyMemorySource" ADD CONSTRAINT "ReplyMemorySource_draftSendLogId_fkey" FOREIGN KEY ("draftSendLogId") REFERENCES "DraftSendLog"("id") ON DELETE CASCADE ON UPDATE CASCADE;

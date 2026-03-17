@@ -43,7 +43,9 @@
 ## Change Philosophy
 - Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.
 - Do not optimize for migration paths: refactor call sites directly, including larger coordinated changes when clarity improves.
-- For LLM features, stay AI-first: fix general failure modes, not exact eval wording, and avoid brittle keyword or regex rules unless the product needs a hard guard.
+
+## LLM Features
+- Stay AI-first: fix general failure modes, not exact eval wording, and avoid brittle keyword or regex rules unless the product needs a hard guard.
 
 ## Component Guidelines
 - Use shadcn/ui components when available
