@@ -1,9 +1,4 @@
-import type {
-  JSONValue,
-  ModelMessage,
-  StreamTextOnStepFinishCallback,
-  Tool,
-} from "ai";
+import type { JSONValue, ModelMessage } from "ai";
 import type { Logger } from "@/utils/logger";
 import type { MessageContext } from "@/app/api/chat/validation";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -80,6 +75,13 @@ export type {
 } from "./chat-inbox-tools";
 export type { SaveMemoryTool, SearchMemoriesTool } from "./chat-memory-tools";
 
+type AssistantChatStep = Pick<
+  Parameters<
+    NonNullable<Parameters<typeof toolCallAgentStream>[0]["onStepFinish"]>
+  >[0],
+  "text" | "toolCalls"
+>;
+
 export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
@@ -102,7 +104,7 @@ export async function aiProcessAssistantChat({
   inboxStats?: { total: number; unread: number } | null;
   responseSurface?: "web" | "messaging";
   messagingPlatform?: MessagingPlatform;
-  onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
+  onStepFinish?: (step: AssistantChatStep) => Promise<void> | void;
   logger: Logger;
 }) {
   const emailSendToolsEnabled = env.NEXT_PUBLIC_EMAIL_SEND_ENABLED;
