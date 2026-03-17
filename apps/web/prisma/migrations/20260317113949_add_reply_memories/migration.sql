@@ -42,10 +42,11 @@ CREATE INDEX "ReplyMemorySource_draftSendLogId_idx" ON "ReplyMemorySource"("draf
 -- AlterTable
 ALTER TABLE "DraftSendLog"
 ADD COLUMN "replyMemorySentText" TEXT,
+ADD COLUMN "replyMemoryAttemptCount" INTEGER NOT NULL DEFAULT 0,
 ADD COLUMN "replyMemoryProcessedAt" TIMESTAMP(3);
 
 -- CreateIndex
-CREATE INDEX "DraftSendLog_replyMemoryProcessedAt_createdAt_idx" ON "DraftSendLog"("replyMemoryProcessedAt", "createdAt");
+CREATE INDEX "DraftSendLog_replyMemoryProcessedAt_replyMemoryAttemptCount_createdAt_idx" ON "DraftSendLog"("replyMemoryProcessedAt", "replyMemoryAttemptCount", "createdAt");
 
 -- AddForeignKey
 ALTER TABLE "ReplyMemory" ADD CONSTRAINT "ReplyMemory_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;

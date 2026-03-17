@@ -17,6 +17,7 @@ import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const REPLY_MEMORY_RETENTION_DAYS = 7;
+const MAX_REPLY_MEMORY_SOURCE_FETCH_ATTEMPTS = 3;
 const MAX_MEMORIES_PER_EDIT = 3;
 const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
 const MAX_RETRIEVED_REPLY_MEMORIES = 6;
@@ -78,6 +79,7 @@ export async function saveDraftSendLogReplyMemory({
     where: { id: draftSendLogId },
     data: {
       replyMemorySentText: sentText,
+      replyMemoryAttemptCount: 0,
       replyMemoryProcessedAt: null,
     },
   });
@@ -117,6 +119,9 @@ export async function syncReplyMemoriesFromDraftSendLogs({
   const draftSendLogs = await prisma.draftSendLog.findMany({
     where: {
       createdAt: { gt: retentionCutoff },
+      replyMemoryAttemptCount: {
+        lt: MAX_REPLY_MEMORY_SOURCE_FETCH_ATTEMPTS,
+      },
       replyMemoryProcessedAt: null,
       replyMemorySentText: { not: null },
       executedAction: {
@@ -126,7 +131,7 @@ export async function syncReplyMemoriesFromDraftSendLogs({
       },
     },
     include: draftSendLogReplyMemoryInclude,
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ replyMemoryAttemptCount: "asc" }, { createdAt: "asc" }],
     take: 5,
   });
 
@@ -166,24 +171,38 @@ export async function getReplyMemoryContent({
     ).toLowerCase();
     const normalizedEmailContent = emailContent.trim().toLowerCase();
 
-    const exactMemories = await prisma.replyMemory.findMany({
-      where: {
-        emailAccountId,
-        OR: [
-          { scopeType: ReplyMemoryScopeType.GLOBAL },
-          {
-            scopeType: ReplyMemoryScopeType.SENDER,
-            scopeValue: normalizedSenderEmail,
-          },
-          {
-            scopeType: ReplyMemoryScopeType.DOMAIN,
-            scopeValue: senderDomain,
-          },
-        ],
-      },
-      orderBy: { updatedAt: "desc" },
-      take: MAX_RETRIEVED_REPLY_MEMORIES,
-    });
+    const [senderMemories, domainMemories, globalMemories] = await Promise.all([
+      normalizedSenderEmail
+        ? prisma.replyMemory.findMany({
+            where: {
+              emailAccountId,
+              scopeType: ReplyMemoryScopeType.SENDER,
+              scopeValue: normalizedSenderEmail,
+            },
+            orderBy: { updatedAt: "desc" },
+            take: MAX_RETRIEVED_REPLY_MEMORIES,
+          })
+        : Promise.resolve([]),
+      senderDomain
+        ? prisma.replyMemory.findMany({
+            where: {
+              emailAccountId,
+              scopeType: ReplyMemoryScopeType.DOMAIN,
+              scopeValue: senderDomain,
+            },
+            orderBy: { updatedAt: "desc" },
+            take: MAX_RETRIEVED_REPLY_MEMORIES,
+          })
+        : Promise.resolve([]),
+      prisma.replyMemory.findMany({
+        where: {
+          emailAccountId,
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+        },
+        orderBy: { updatedAt: "desc" },
+        take: MAX_RETRIEVED_REPLY_MEMORIES,
+      }),
+    ]);
 
     const topicMemories = normalizedEmailContent
       ? await prisma.$queryRaw<ReplyMemory[]>`
@@ -198,10 +217,14 @@ export async function getReplyMemoryContent({
         `
       : [];
 
-    const selected = dedupeReplyMemories([
-      ...sortReplyMemories(exactMemories),
-      ...topicMemories,
-    ]).slice(0, MAX_RETRIEVED_REPLY_MEMORIES);
+    const selected = dedupeReplyMemories(
+      sortReplyMemories([
+        ...senderMemories,
+        ...domainMemories,
+        ...globalMemories,
+        ...topicMemories,
+      ]),
+    ).slice(0, MAX_RETRIEVED_REPLY_MEMORIES);
 
     if (!selected.length) return null;
 
@@ -274,6 +297,7 @@ async function processReplyMemoryDraftSendLog({
 
   const senderEmail = extractEmailAddress(incomingMessage?.headers.from || "");
   const senderDomain = extractDomainFromEmail(senderEmail).toLowerCase();
+  const normalizedSenderEmail = senderEmail.toLowerCase();
 
   if (!incomingMessage) {
     logger.warn(
@@ -283,6 +307,7 @@ async function processReplyMemoryDraftSendLog({
         sourceMessageId,
       },
     );
+    await recordDraftSendLogReplyMemoryFailure(draftSendLog);
     return;
   }
 
@@ -304,7 +329,7 @@ async function processReplyMemoryDraftSendLog({
     where: {
       emailAccountId,
       OR: getReplyMemoryScopes({
-        senderEmail: senderEmail.toLowerCase(),
+        senderEmail: normalizedSenderEmail,
         senderDomain,
       }),
     },
@@ -322,16 +347,17 @@ async function processReplyMemoryDraftSendLog({
       : "",
     draftText,
     sentText: draftSendLog.replyMemorySentText ?? "",
-    senderEmail,
+    senderEmail: normalizedSenderEmail,
     existingMemories,
     emailAccount,
   });
 
   for (const memory of extracted) {
-    const normalizedScopeValue =
-      memory.scopeType === ReplyMemoryScopeType.GLOBAL
-        ? ""
-        : memory.scopeValue.trim().toLowerCase();
+    const normalizedScopeValue = getNormalizedReplyMemoryScopeValue({
+      memory,
+      senderEmail: normalizedSenderEmail,
+      senderDomain,
+    });
 
     // Non-global memories need a concrete scope target to be retrievable.
     if (
@@ -531,6 +557,29 @@ async function markDraftSendLogReplyMemoryProcessed(id: string) {
   });
 }
 
+async function recordDraftSendLogReplyMemoryFailure(
+  draftSendLog: Pick<
+    DraftSendLogReplyMemoryPayload,
+    "id" | "replyMemoryAttemptCount"
+  >,
+) {
+  const nextAttemptCount = draftSendLog.replyMemoryAttemptCount + 1;
+
+  await prisma.draftSendLog.update({
+    where: { id: draftSendLog.id },
+    data:
+      nextAttemptCount >= MAX_REPLY_MEMORY_SOURCE_FETCH_ATTEMPTS
+        ? {
+            replyMemoryAttemptCount: { increment: 1 },
+            replyMemoryProcessedAt: new Date(),
+            replyMemorySentText: null,
+          }
+        : {
+            replyMemoryAttemptCount: { increment: 1 },
+          },
+  });
+}
+
 const draftSendLogReplyMemoryInclude = {
   executedAction: {
     select: {
@@ -579,5 +628,29 @@ function getScopePriority(scopeType: ReplyMemoryScopeType) {
       return 1;
     case ReplyMemoryScopeType.TOPIC:
       return 0;
+  }
+}
+
+function getNormalizedReplyMemoryScopeValue({
+  memory,
+  senderEmail,
+  senderDomain,
+}: {
+  memory: Pick<
+    z.infer<typeof replyMemorySchema>["memories"][number],
+    "scopeType" | "scopeValue"
+  >;
+  senderEmail: string;
+  senderDomain: string;
+}) {
+  switch (memory.scopeType) {
+    case ReplyMemoryScopeType.GLOBAL:
+      return "";
+    case ReplyMemoryScopeType.SENDER:
+      return senderEmail;
+    case ReplyMemoryScopeType.DOMAIN:
+      return senderDomain;
+    case ReplyMemoryScopeType.TOPIC:
+      return memory.scopeValue.trim().toLowerCase();
   }
 }
