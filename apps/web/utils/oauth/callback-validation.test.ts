@@ -18,7 +18,6 @@ describe("validateOAuthCallback", () => {
       receivedState: "received-state",
       storedState: "different-stored-state",
       stateCookieName: "test_cookie",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 
@@ -30,6 +29,10 @@ describe("validateOAuthCallback", () => {
   });
 
   it("should return error when code is missing", () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
+
     vi.mocked(parseOAuthState).mockReturnValue({
       userId: "user-id",
       nonce: "nonce",
@@ -40,7 +43,6 @@ describe("validateOAuthCallback", () => {
       receivedState: "state",
       storedState: "state",
       stateCookieName: "test_cookie",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 
@@ -49,6 +51,11 @@ describe("validateOAuthCallback", () => {
       const url = new URL(result.response.headers.get("location") || "");
       expect(url.searchParams.get("error")).toBe("missing_code");
     }
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"targetUserId": "user-id"'),
+    );
+
+    consoleWarnSpy.mockRestore();
   });
 
   it("should return error when state decode fails", () => {
@@ -61,7 +68,6 @@ describe("validateOAuthCallback", () => {
       receivedState: "state",
       storedState: "state",
       stateCookieName: "test_cookie",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 
@@ -84,7 +90,6 @@ describe("validateOAuthCallback", () => {
       receivedState: "state",
       storedState: "state",
       stateCookieName: "test_cookie",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 

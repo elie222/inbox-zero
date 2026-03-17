@@ -66,7 +66,9 @@ export function validateOAuthCallback({
   }
 
   if (!code) {
-    logger.warn("Missing code in OAuth callback");
+    logger.warn("Missing code in OAuth callback", {
+      targetUserId: decodedState.userId,
+    });
     redirectUrl.searchParams.set("error", "missing_code");
     response.cookies.delete(stateCookieName);
     return {

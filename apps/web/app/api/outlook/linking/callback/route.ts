@@ -8,6 +8,7 @@ import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
+import { parseOAuthState } from "@/utils/oauth/state";
 import {
   classifyMicrosoftOAuthCallbackError,
   extractAadstsCode,
@@ -54,6 +55,9 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       oauthError,
       errorDescription: oauthErrorDescription,
       logger,
+      targetUserId: parseOAuthStateUserId(storedState, logger),
+      redirectUri: linkingRedirectUri,
+      requestedScopes: OUTLOOK_SCOPES,
     });
   }
 
@@ -479,6 +483,9 @@ function handleMicrosoftOAuthAuthorizeError(params: {
   oauthError: string;
   errorDescription: string | null;
   logger: Logger;
+  redirectUri: string;
+  requestedScopes: readonly string[];
+  targetUserId: string | null;
 }) {
   const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
   const mappedError = classifyMicrosoftOAuthCallbackError({
@@ -489,6 +496,13 @@ function handleMicrosoftOAuthAuthorizeError(params: {
   params.logger.warn("Microsoft authorize callback returned an OAuth error", {
     oauthError: params.oauthError,
     aadstsCode: extractAadstsCode(params.errorDescription),
+    errorDescription: params.errorDescription,
+    redirectUri: params.redirectUri,
+    requestedScopes: params.requestedScopes,
+    safeErrorDescription: getSafeMicrosoftOAuthErrorDescription(
+      params.errorDescription,
+    ),
+    targetUserId: params.targetUserId,
   });
 
   if (mappedError) {
@@ -532,4 +546,20 @@ function validateMicrosoftOAuthErrorState(params: {
   const response = NextResponse.redirect(redirectUrl);
   response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
   return response;
+}
+
+function parseOAuthStateUserId(
+  storedState: string | undefined,
+  logger: Logger,
+): string | null {
+  if (!storedState) return null;
+
+  try {
+    return parseOAuthState<{ userId: string }>(storedState).userId;
+  } catch (error) {
+    logger.warn("Failed to decode Microsoft OAuth state for authorize error", {
+      error,
+    });
+    return null;
+  }
 }
