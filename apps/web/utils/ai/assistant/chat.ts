@@ -215,6 +215,7 @@ Rule matching logic:
 
 Best practices:
 - Use static conditions for exact deterministic matching, but keep them short and specific.
+- If a new rule is only matching exact sender addresses or domains, put them in static.from and leave aiInstructions empty.
 - Prefer learned patterns over static sender lists when updating an existing categorization rule for recurring senders.
 - Do not turn a static from/to field into a long catch-all sender list.
 - IMPORTANT: if the user names many senders that clearly belong to one of the existing fetched rules, update the best matching existing rule from that list instead of creating a new overlapping rule.
