@@ -21,9 +21,11 @@ Parse `$ARGUMENTS` for options:
 
 2. Create a loop with `CronCreate` using the parsed interval and this prompt:
 
-   > Check if the current PR has new comments from human reviewers (ignore bot accounts like vercel, dependabot, github-actions, etc.). Fetch both code review comments and conversation comments.
+   > Check if the current PR has new comments that haven't been addressed yet. Ignore bot accounts (vercel, dependabot, github-actions, etc.). Fetch both code review comments and conversation comments.
    >
-   > - If there are new actionable comments (requesting code changes, flagging bugs, raising issues): run /address-pr-comments to address them. Do NOT auto-resolve threads — let the reviewer handle resolution.
-   > - If there are no new human comments since last check: cancel this scheduled task, monitoring is done.
+   > - If there are unaddressed comments: run /address-pr-comments to address them. Do NOT auto-resolve threads — let the reviewer handle resolution.
+   > - If all comments have been addressed and there's nothing new to handle: cancel this scheduled task, monitoring is done.
+   >
+   > Important: AI review bots (e.g. cubic-dev-ai, coderabbit, copilot) do NOT have full context of the project. Use your own judgment — their suggestions may be wrong or inapplicable. Don't blindly implement bot feedback.
 
-3. Confirm to the user: "Watching PR #X every {interval}. I'll address new comments automatically and stop when the PR is clean."
+3. Confirm to the user: "Watching PR #X every {interval}. I'll address new comments automatically and stop when everything is handled."
