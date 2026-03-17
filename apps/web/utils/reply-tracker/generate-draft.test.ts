@@ -92,6 +92,7 @@ import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
 const logger = createScopedLogger("reply-tracker/generate-draft-test");
 
 type EmailAccountSignatureSettings = {
+  allowHiddenAiDraftLinks: boolean;
   includeReferralSignature: boolean;
   signature: string | null;
 };
@@ -140,6 +141,7 @@ const createMockClient = (): EmailProvider =>
 const createMockEmailAccountSettings = (
   overrides: Partial<EmailAccountSignatureSettings> = {},
 ): EmailAccountSignatureSettings => ({
+  allowHiddenAiDraftLinks: false,
   includeReferralSignature: false,
   signature: null,
   ...overrides,
@@ -294,7 +296,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
-      createMockEmailAccountSettings(),
+      createMockEmailAccountSettings({ allowHiddenAiDraftLinks: true }),
     );
 
     const result = await fetchMessagesAndGenerateDraft(
@@ -315,6 +317,30 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     expect(result).toContain(
       '\n\nUse <a href="https://example.com/login">the login page</a>',
     );
+  });
+
+  it("shows visible destinations when hidden AI draft links are disabled", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply:
+        "Thanks for reaching out.\n\nUse [the login page](https://example.com/login) or email [support](mailto:help@example.com).",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings({ allowHiddenAiDraftLinks: false }),
+    );
+
+    const result = await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      logger,
+    );
+
+    expect(result).toContain("https://example.com/login");
+    expect(result).toContain("help@example.com");
+    expect(result).not.toContain('<a href="https://example.com/login">');
+    expect(result).not.toContain('<a href="mailto:help@example.com">');
   });
 });
 

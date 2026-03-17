@@ -100,6 +100,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
   const emailAccountWithSignatures = await prisma.emailAccount.findUnique({
     where: { id: emailAccount.id },
     select: {
+      allowHiddenAiDraftLinks: true,
       includeReferralSignature: true,
       signature: true,
     },
@@ -107,7 +108,10 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
 
   // Escape untrusted AI output, but preserve sanitized links so drafts can
   // include clickable URLs without allowing arbitrary HTML rendering.
-  let finalResult = renderEmailTextWithSafeLinks(draft);
+  let finalResult = renderEmailTextWithSafeLinks(draft, {
+    allowHiddenLinks:
+      emailAccountWithSignatures?.allowHiddenAiDraftLinks ?? false,
+  });
 
   if (
     !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&

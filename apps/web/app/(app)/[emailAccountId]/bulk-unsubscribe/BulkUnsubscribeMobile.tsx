@@ -145,7 +145,7 @@ export function BulkUnsubscribeRowMobile({
                 href={unsubscribeLink}
                 target={hasUnsubscribeLink ? "_blank" : undefined}
                 onClick={onUnsubscribe}
-                rel="noreferrer"
+                rel="noopener noreferrer"
               >
                 <span className="flex items-center gap-1.5">
                   {unsubscribeLoading ? (

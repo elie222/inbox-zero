@@ -47,23 +47,76 @@ export function getHttpUnsubscribeLink(options: {
   unsubscribeLink?: string | null;
   listUnsubscribeHeader?: string | null;
 }) {
+  return getMatchingUnsubscribeLink(options, ["http:", "https:"]);
+}
+
+export function getUserFacingUnsubscribeLink(options: {
+  unsubscribeLink?: string | null;
+  listUnsubscribeHeader?: string | null;
+}) {
+  return getMatchingUnsubscribeLink(options, ["http:", "https:", "mailto:"]);
+}
+
+function getMatchingUnsubscribeLink(
+  options: {
+    unsubscribeLink?: string | null;
+    listUnsubscribeHeader?: string | null;
+  },
+  allowedProtocols: string[],
+) {
   const headerLinks = parseListUnsubscribeHeader(options.listUnsubscribeHeader);
-  const fallbackLinks = parseListUnsubscribeHeader(options.unsubscribeLink);
+  const fallbackLinks = parseStoredUnsubscribeLinks(options.unsubscribeLink);
 
   const allLinks = [...headerLinks, ...fallbackLinks];
 
   for (const link of allLinks) {
-    if (isHttpLink(link)) return link;
+    const normalizedLink = normalizeAllowedUnsubscribeLink(
+      link,
+      allowedProtocols,
+    );
+    if (normalizedLink) return normalizedLink;
   }
 
   return undefined;
 }
 
-function isHttpLink(link: string): boolean {
+function parseStoredUnsubscribeLinks(unsubscribeLink?: string | null) {
+  if (!unsubscribeLink) return [];
+
+  if (hasMultipleBracketedUnsubscribeLinks(unsubscribeLink)) {
+    return parseListUnsubscribeHeader(unsubscribeLink);
+  }
+
+  const cleanedLink = cleanUnsubscribeLink(unsubscribeLink);
+  if (!cleanedLink) return [];
+
+  if (isSingleUnsubscribeLink(cleanedLink)) return [cleanedLink];
+
+  return parseListUnsubscribeHeader(unsubscribeLink);
+}
+
+function normalizeAllowedUnsubscribeLink(
+  link: string,
+  allowedProtocols: string[],
+) {
   try {
     const url = new URL(link);
-    return url.protocol === "http:" || url.protocol === "https:";
+    if (!allowedProtocols.includes(url.protocol)) return undefined;
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function isSingleUnsubscribeLink(link: string) {
+  try {
+    new URL(link);
+    return true;
   } catch {
     return false;
   }
+}
+
+function hasMultipleBracketedUnsubscribeLinks(link: string) {
+  return (link.match(/<[^>]+>/g)?.length || 0) > 1;
 }

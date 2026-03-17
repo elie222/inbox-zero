@@ -10,6 +10,10 @@ import {
   extractNameFromEmail,
 } from "@/utils/email";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
+import {
+  cleanUnsubscribeLink,
+  parseListUnsubscribeHeader,
+} from "@/utils/parse/unsubscribe";
 import { internalDateToDate } from "@/utils/date";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
@@ -178,8 +182,10 @@ async function saveBatch({
 
   const emailsToSave = messages
     .map((m) => {
-      const unsubscribeLink =
-        findUnsubscribeLink(m.textHtml) || m.headers["list-unsubscribe"];
+      const unsubscribeLink = mergeUnsubscribeSources({
+        htmlUnsubscribeLink: findUnsubscribeLink(m.textHtml),
+        listUnsubscribeHeader: m.headers["list-unsubscribe"],
+      });
 
       const date = internalDateToDate(m.internalDate);
       if (!date) {
@@ -221,4 +227,22 @@ async function saveBatch({
       nextPageToken: res.nextPageToken,
     },
   };
+}
+
+function mergeUnsubscribeSources({
+  htmlUnsubscribeLink,
+  listUnsubscribeHeader,
+}: {
+  htmlUnsubscribeLink?: string | null;
+  listUnsubscribeHeader?: string | null;
+}) {
+  if (!listUnsubscribeHeader) return cleanUnsubscribeLink(htmlUnsubscribeLink);
+
+  const normalizedHtmlLink = cleanUnsubscribeLink(htmlUnsubscribeLink);
+  if (!normalizedHtmlLink) return listUnsubscribeHeader;
+
+  const headerLinks = parseListUnsubscribeHeader(listUnsubscribeHeader);
+  if (headerLinks.includes(normalizedHtmlLink)) return listUnsubscribeHeader;
+
+  return `${listUnsubscribeHeader}, <${normalizedHtmlLink}>`;
 }
