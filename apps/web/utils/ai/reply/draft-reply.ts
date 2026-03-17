@@ -284,10 +284,7 @@ export async function aiDraftReplyWithConfidence({
   }
 
   return {
-    reply: normalizeDraftReplyFormatting(
-      result.object.reply,
-      effectiveWritingStyle,
-    ),
+    reply: normalizeDraftReplyFormatting(result.object.reply),
     confidence: normalizeDraftReplyConfidence(result.object.confidence),
     attribution: attributionTracker.attribution,
   };
@@ -335,10 +332,7 @@ export async function aiDraftReply({
   return result.reply;
 }
 
-function normalizeDraftReplyFormatting(
-  reply: string,
-  writingStyle: string | null,
-): string {
+function normalizeDraftReplyFormatting(reply: string): string {
   const withNormalizedLineEndings = reply.replace(/\r\n?|\u2028|\u2029/g, "\n");
 
   const withDecodedEscapedNewlines = /\\r\\n|\\n|\\r/.test(
@@ -356,11 +350,8 @@ function normalizeDraftReplyFormatting(
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  const withNormalizedPunctuation = allowsEmDashes(writingStyle)
-    ? cleaned
-    : replaceEmDashes(cleaned);
 
-  const nonEmptyLines = withNormalizedPunctuation
+  const nonEmptyLines = cleaned
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
@@ -369,7 +360,7 @@ function normalizeDraftReplyFormatting(
     return nonEmptyLines.join("\n\n");
   }
 
-  return withNormalizedPunctuation;
+  return cleaned;
 }
 
 function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
@@ -385,14 +376,6 @@ function shouldConvertSingleLineBreaksToParagraphs(lines: string[]): boolean {
 
 function isLikelyListItem(line: string): boolean {
   return /^(\s*[-*]\s+|\s*\d+[.)]\s+|\s*[a-zA-Z][.)]\s+|>\s+)/.test(line);
-}
-
-function allowsEmDashes(writingStyle: string | null): boolean {
-  return !!writingStyle && /\bem[\s-]?dash(?:es)?\b|—/i.test(writingStyle);
-}
-
-function replaceEmDashes(text: string): string {
-  return text.replace(/\s*[—–]\s*/g, ", ");
 }
 
 // Matches any non-separator, non-whitespace character repeated 50+ times in a row
