@@ -30,12 +30,14 @@ export const updateRuleConditionSchema = z.object({
     aiInstructions: z
       .string()
       .nullish()
+      .transform((v) => (v?.trim() ? v : null))
       .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
     static: z
       .object({
         from: z
           .string()
           .nullish()
+          .transform((v) => (v?.trim() ? v : null))
           .refine((value) => !isInvalidStaticFromValue(value), {
             message: INVALID_STATIC_FROM_MESSAGE,
           })
