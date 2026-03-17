@@ -207,6 +207,114 @@ describe.runIf(shouldRunEval)(
           },
           TIMEOUT,
         );
+
+        test(
+          "uses aiInstructions without static sender filters for semantic-only rules",
+          async () => {
+            const messages: ModelMessage[] = [
+              {
+                role: "user",
+                content:
+                  'Create a rule called "Escalations" that labels emails about vendor escalations as Escalations.',
+              },
+            ];
+
+            const current = await runAssistantChat({
+              emailAccount,
+              messages,
+            });
+
+            const currentPass = usesAiInstructionsOnly(current.createCall, [
+              "vendor",
+              "escalation",
+            ]);
+
+            evalReporter.record({
+              testName: "semantic only rule (current)",
+              model: model.label,
+              pass: currentPass,
+              actual: current.actual,
+            });
+
+            expect(current.toolCalls.length).toBeGreaterThan(0);
+          },
+          TIMEOUT,
+        );
+
+        test(
+          "uses static.from plus aiInstructions when sender and semantic matching are both needed",
+          async () => {
+            const messages: ModelMessage[] = [
+              {
+                role: "user",
+                content:
+                  'Create a rule called "Urgent Vendors" that labels urgent emails from @partner-updates.example as Urgent Vendors.',
+              },
+            ];
+
+            const current = await runAssistantChat({
+              emailAccount,
+              messages,
+            });
+
+            const currentPass = usesStaticFromAndInstructions(
+              current.createCall,
+              ["@partner-updates.example"],
+              ["urgent"],
+            );
+
+            evalReporter.record({
+              testName: "sender plus semantic rule (current)",
+              model: model.label,
+              pass: currentPass,
+              actual: current.actual,
+            });
+
+            expect(currentPass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test("uses learned patterns when adding a recurring sender to the Newsletter rule", async () => {
+          const messages: ModelMessage[] = [
+            {
+              role: "user",
+              content:
+                "I already have a Newsletter rule. Emails from newsletter@morningbrew.com should match that rule.",
+            },
+          ];
+
+          const current = await runAssistantChat({
+            emailAccount,
+            messages,
+          });
+
+          const updateCall = findUpdateLearnedPatternsCall(
+            current.toolCalls,
+            (input) =>
+              input.ruleName === "Newsletter" &&
+              hasIncludedFrom(
+                input.learnedPatterns,
+                "newsletter@morningbrew.com",
+              ),
+          );
+
+          const currentPass =
+            !!updateCall &&
+            !current.toolCalls.some(
+              (toolCall) => toolCall.toolName === "createRule",
+            ) &&
+            mockSaveLearnedPatterns.mock.calls.length > 0;
+
+          evalReporter.record({
+            testName: "newsletter learned pattern update (current)",
+            model: model.label,
+            pass: currentPass,
+            actual: current.actual,
+          });
+
+          expect(current.toolCalls.length).toBeGreaterThan(0);
+        }, 120_000);
       },
     );
 
@@ -230,6 +338,20 @@ type CreateRuleInput = {
     type: ActionType;
     fields?: {
       label?: string | null;
+    } | null;
+  }>;
+};
+
+type UpdateLearnedPatternsInput = {
+  ruleName: string;
+  learnedPatterns: Array<{
+    include?: {
+      from?: string | null;
+      subject?: string | null;
+    } | null;
+    exclude?: {
+      from?: string | null;
+      subject?: string | null;
     } | null;
   }>;
 };
@@ -275,13 +397,20 @@ async function runAssistantChat({
   await result.consumeStream();
 
   const createCall = getLastCreateRuleCall(recordedToolCalls);
+  const learnedPatternsCall = findUpdateLearnedPatternsCall(
+    recordedToolCalls,
+    () => true,
+  );
   const actual = createCall
     ? summarizeCreateRuleCall(createCall)
-    : summarizeToolCalls(recordedToolCalls);
+    : learnedPatternsCall
+      ? summarizeUpdateLearnedPatternsCall(learnedPatternsCall)
+      : summarizeToolCalls(recordedToolCalls);
 
   return {
     createCall,
     actual,
+    toolCalls: recordedToolCalls,
   };
 }
 
@@ -327,6 +456,35 @@ function usesStaticFromForSenders(
   return staticFromIncludesAllSenders(staticFrom, expectedSenders);
 }
 
+function usesAiInstructionsOnly(
+  createCall: CreateRuleInput | null,
+  expectedTerms: string[],
+) {
+  if (!createCall) return false;
+
+  return (
+    (!createCall.condition.static?.from ||
+      createCall.condition.static.from.trim() === "*") &&
+    includesAnyText(createCall.condition.aiInstructions, expectedTerms)
+  );
+}
+
+function usesStaticFromAndInstructions(
+  createCall: CreateRuleInput | null,
+  expectedSenders: string[],
+  expectedTerms: string[],
+) {
+  if (!createCall) return false;
+
+  const staticFrom = createCall.condition.static?.from;
+  if (!staticFrom) return false;
+
+  return (
+    staticFromIncludesAllSenders(staticFrom, expectedSenders) &&
+    includesAnyText(createCall.condition.aiInstructions, expectedTerms)
+  );
+}
+
 function staticFromIncludesAllSenders(
   staticFrom: string,
   expectedSenders: string[],
@@ -360,6 +518,37 @@ function summarizeCreateRuleCall(createCall: CreateRuleInput) {
   ].join("; ");
 }
 
+function findUpdateLearnedPatternsCall(
+  toolCalls: Array<{ toolName: string; input: unknown }>,
+  matches: (input: UpdateLearnedPatternsInput) => boolean,
+) {
+  for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
+    const toolCall = toolCalls[index];
+    if (toolCall.toolName !== "updateLearnedPatterns") continue;
+    if (!isUpdateLearnedPatternsInput(toolCall.input)) continue;
+    if (!matches(toolCall.input)) continue;
+
+    return toolCall.input;
+  }
+
+  return null;
+}
+
+function isUpdateLearnedPatternsInput(
+  input: unknown,
+): input is UpdateLearnedPatternsInput {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as {
+    ruleName?: unknown;
+    learnedPatterns?: unknown;
+  };
+
+  return (
+    typeof value.ruleName === "string" && Array.isArray(value.learnedPatterns)
+  );
+}
+
 function summarizeToolCalls(
   toolCalls: Array<{ toolName: string; input: unknown }>,
 ) {
@@ -367,9 +556,44 @@ function summarizeToolCalls(
   return toolCalls.map((toolCall) => toolCall.toolName).join(" | ");
 }
 
+function summarizeUpdateLearnedPatternsCall(
+  updateCall: UpdateLearnedPatternsInput,
+) {
+  return `updateLearnedPatterns(rule=${updateCall.ruleName}; patterns=${updateCall.learnedPatterns.length})`;
+}
+
 function truncate(value: string | null | undefined, maxLength = 120) {
   if (!value) return "null";
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+}
+
+function includesAnyText(text: string | null | undefined, terms: string[]) {
+  if (!text) return false;
+
+  const normalizedText = text.toLowerCase();
+  return terms.some((term) => normalizedText.includes(term.toLowerCase()));
+}
+
+function hasIncludedFrom(
+  learnedPatterns: UpdateLearnedPatternsInput["learnedPatterns"],
+  expectedFrom: string,
+) {
+  return learnedPatterns.some(
+    (pattern) =>
+      !!pattern.include?.from &&
+      senderMatches(pattern.include.from, expectedFrom),
+  );
+}
+
+function senderMatches(actual: string, expected: string) {
+  const normalizedActual = normalizeSender(actual);
+  const normalizedExpected = normalizeSender(expected);
+
+  return (
+    normalizedActual === normalizedExpected ||
+    normalizedActual.includes(normalizedExpected) ||
+    normalizedExpected.includes(normalizedActual)
+  );
 }
 
 function getDefaultRuleRows() {
