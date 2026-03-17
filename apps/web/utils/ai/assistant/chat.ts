@@ -211,8 +211,8 @@ Rule matching logic:
 
 Best practices:
 - Use static conditions for exact deterministic matching, but keep them short and specific.
-- If the rule is only matching exact sender addresses or domains, put those in static.from and leave aiInstructions empty. Do not restate the sender in aiInstructions.
-- If the user did not specify any sender or domain, leave static.from empty. Never fill it with placeholders like none, null, or @*.
+- If the rule is only matching exact sender addresses or domains, put those in static.from and set aiInstructions to null. Do not restate the sender in aiInstructions.
+- If the user did not specify any sender or domain, omit static.from or set it to null. Never fill it with placeholders like none, null, or @*.
 - Do not turn a static from/to field into a long catch-all sender list.
 - IMPORTANT: if the user names many senders that clearly belong to one of the existing fetched rules, update the best matching existing rule from that list instead of creating a new overlapping rule.
 - IMPORTANT: treat obvious singular/plural variants as the same rule only when the fetched names clearly refer to the exact same category. If multiple fetched rules are similar, ask the user which one to update instead of assuming.
