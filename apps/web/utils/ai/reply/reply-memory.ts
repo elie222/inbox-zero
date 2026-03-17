@@ -22,15 +22,17 @@ const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
 const MAX_RETRIEVED_REPLY_MEMORIES = 6;
 
 const replyMemorySchema = z.object({
-  memories: z.array(
-    z.object({
-      title: z.string().trim().min(1).max(120),
-      content: z.string().trim().min(1).max(400),
-      kind: z.nativeEnum(ReplyMemoryKind),
-      scopeType: z.nativeEnum(ReplyMemoryScopeType),
-      scopeValue: z.string().trim().max(200),
-    }),
-  ),
+  memories: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(120),
+        content: z.string().trim().min(1).max(400),
+        kind: z.nativeEnum(ReplyMemoryKind),
+        scopeType: z.nativeEnum(ReplyMemoryScopeType),
+        scopeValue: z.string().trim().max(200),
+      }),
+    )
+    .max(MAX_MEMORIES_PER_EDIT),
 });
 
 const extractionSystemPrompt = `You analyze how a user edits AI-generated email reply drafts and turn durable patterns into reusable drafting memories.
@@ -467,7 +469,7 @@ Extract reusable reply memories from this draft edit.`;
         : memory.scopeValue.trim(),
   }));
 
-  return normalizedMemories;
+  return normalizedMemories.slice(0, MAX_MEMORIES_PER_EDIT);
 }
 
 function formatExistingMemories(

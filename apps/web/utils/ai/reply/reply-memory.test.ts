@@ -452,6 +452,76 @@ describe("reply-memory", () => {
     ]);
   });
 
+  it("caps extracted reply memories at the per-edit limit", async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        memories: [
+          {
+            title: "memory 1",
+            content: "First memory.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+          {
+            title: "memory 2",
+            content: "Second memory.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+          {
+            title: "memory 3",
+            content: "Third memory.",
+            kind: ReplyMemoryKind.STYLE,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+          {
+            title: "memory 4",
+            content: "Fourth memory.",
+            kind: ReplyMemoryKind.STYLE,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+        ],
+      },
+    });
+
+    const result = await aiExtractReplyMemoriesFromDraftEdit({
+      emailAccount: {
+        id: "account-1",
+        userId: "user-1",
+        email: "user@example.com",
+        about: null,
+        multiRuleSelectionEnabled: false,
+        timezone: "UTC",
+        calendarBookingLink: null,
+        name: "User",
+        user: {
+          aiProvider: "openai",
+          aiModel: "gpt-5.1",
+          aiApiKey: null,
+        },
+        account: {
+          provider: "google",
+        },
+      } as any,
+      incomingEmailContent: "Can you share pricing details?",
+      draftText: "Pricing is on our website.",
+      sentText: "Pricing depends on seat count and billing plan.",
+      senderEmail: "partner@example.com",
+      existingMemories: [],
+    });
+
+    expect(result).toHaveLength(3);
+    expect(result.map((memory) => memory.title)).toEqual([
+      "memory 1",
+      "memory 2",
+      "memory 3",
+    ]);
+  });
+
   it("returns no extracted memories when sender or edited content is missing", async () => {
     const result = await aiExtractReplyMemoriesFromDraftEdit({
       emailAccount: {
