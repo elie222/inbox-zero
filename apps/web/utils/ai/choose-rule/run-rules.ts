@@ -306,7 +306,11 @@ async function executeMatchedRule(
     rule.from,
     rule.actions.map((action) => action.type),
   );
-  if (blockedActionTypes.length) {
+  const allActionsBlocked =
+    blockedActionTypes.length > 0 &&
+    blockedActionTypes.length === rule.actions.length;
+
+  if (allActionsBlocked) {
     const reasonToUse = reason
       ? `${reason}. ${LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE}`
       : LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE;
@@ -352,6 +356,11 @@ async function executeMatchedRule(
     logger,
     isTest,
   });
+
+  if (blockedActionTypes.length) {
+    const blockedSet = new Set(blockedActionTypes);
+    actionItems = actionItems.filter((item) => !blockedSet.has(item.type));
+  }
 
   if (skipArchive) {
     actionItems = actionItems.filter(

@@ -119,6 +119,15 @@ describe("matchesStaticRule", () => {
     expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
+  it("does not match @domain.com against a different domain with the same suffix", () => {
+    const rule = getStaticRule({ from: "@example.com" });
+    const message = getMessage({
+      headers: getHeaders({ from: "test@myexample.com" }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(false);
+  });
+
   it("matches from against the sender address, not the display name", () => {
     const rule = getStaticRule({ from: "@trusted.com" });
     const message = getMessage({

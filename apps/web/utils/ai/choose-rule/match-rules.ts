@@ -751,10 +751,7 @@ function matchesEmailFieldPattern({
     const patterns = splitEmailPatterns(pattern);
 
     for (const patternPart of patterns) {
-      const normalizedPattern = patternPart
-        .trim()
-        .toLowerCase()
-        .replace(/^@/, "");
+      const normalizedPattern = patternPart.trim().toLowerCase();
       const regexPattern = normalizedPattern
         .replace(/[.+?^${}()[\]\\]/g, "\\$&")
         .replace(/\*/g, ".*");

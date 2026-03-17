@@ -533,8 +533,9 @@ export const encryptedTokens = Prisma.defineExtension((client) => {
             },
           });
 
+          const updatedFrom = getUpdatedRuleString(args.data.from);
           assertLowTrustStaticFromOutboundActionsAllowed({
-            from: getUpdatedRuleString(args.data.from) ?? existingRule?.from,
+            from: updatedFrom !== undefined ? updatedFrom : existingRule?.from,
             actionTypes: getRuleActionTypesFromWrite(
               args.data.actions,
               existingRule?.actions.map((action) => action.type),
@@ -551,9 +552,14 @@ export const encryptedTokens = Prisma.defineExtension((client) => {
             },
           });
 
+          const updatedUpsertFrom = existingRule
+            ? getUpdatedRuleString(args.update.from)
+            : undefined;
           assertLowTrustStaticFromOutboundActionsAllowed({
             from: existingRule
-              ? (getUpdatedRuleString(args.update.from) ?? existingRule.from)
+              ? updatedUpsertFrom !== undefined
+                ? updatedUpsertFrom
+                : existingRule.from
               : getUpdatedRuleString(args.create.from),
             actionTypes: existingRule
               ? getRuleActionTypesFromWrite(
