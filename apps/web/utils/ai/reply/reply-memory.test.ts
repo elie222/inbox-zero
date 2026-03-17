@@ -181,6 +181,24 @@ describe("reply-memory", () => {
     });
 
     expect(provider.getMessage).toHaveBeenCalledWith("source-1");
+    expect(prisma.replyMemory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { scopeType: ReplyMemoryScopeType.GLOBAL },
+            { scopeType: ReplyMemoryScopeType.TOPIC },
+            {
+              scopeType: ReplyMemoryScopeType.SENDER,
+              scopeValue: "sales@example.com",
+            },
+            {
+              scopeType: ReplyMemoryScopeType.DOMAIN,
+              scopeValue: "example.com",
+            },
+          ]),
+        }),
+      }),
+    );
     expect(prisma.replyMemory.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
@@ -198,7 +216,7 @@ describe("reply-memory", () => {
     });
   });
 
-  it("marks evidence processed without extraction when the source email cannot be loaded", async () => {
+  it("leaves evidence unprocessed when the source email cannot be loaded", async () => {
     vi.mocked(prisma.replyMemoryEvidence.deleteMany).mockResolvedValue({
       count: 0,
     });
@@ -223,6 +241,44 @@ describe("reply-memory", () => {
 
     const provider = {
       getMessage: vi.fn().mockResolvedValue(null),
+    };
+
+    await syncReplyMemoriesFromEvidence({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(mockGenerateObject).not.toHaveBeenCalled();
+    expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
+    expect(prisma.replyMemoryEvidence.update).not.toHaveBeenCalled();
+  });
+
+  it("marks evidence processed when the source email is loaded but sender extraction fails", async () => {
+    vi.mocked(prisma.replyMemoryEvidence.deleteMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.replyMemoryEvidence.findMany).mockResolvedValue([
+      {
+        id: "evidence-1",
+        emailAccountId: "account-1",
+        executedActionId: "action-1",
+        sourceMessageId: "source-1",
+        sentMessageId: "sent-1",
+        threadId: "thread-1",
+        draftText: "Thanks for reaching out.",
+        sentText: "Pricing depends on seat count.",
+        similarityScore: 0.5,
+        processedAt: null,
+        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+        createdAt: new Date("2026-03-17T10:00:00.000Z"),
+        updatedAt: new Date("2026-03-17T10:00:00.000Z"),
+      },
+    ] as any);
+    vi.mocked(prisma.replyMemoryEvidence.update).mockResolvedValue({} as any);
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage({ from: "" })),
     };
 
     await syncReplyMemoriesFromEvidence({
@@ -292,6 +348,67 @@ describe("reply-memory", () => {
       where: { id: "evidence-1" },
       data: { processedAt: expect.any(Date) },
     });
+  });
+
+  it("allows topic memories without a concrete scope value", async () => {
+    vi.mocked(prisma.replyMemoryEvidence.deleteMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.replyMemoryEvidence.findMany).mockResolvedValue([
+      {
+        id: "evidence-1",
+        emailAccountId: "account-1",
+        executedActionId: "action-1",
+        sourceMessageId: "source-1",
+        sentMessageId: "sent-1",
+        threadId: "thread-1",
+        draftText: "Thanks for reaching out.",
+        sentText: "Pricing depends on seat count.",
+        similarityScore: 0.5,
+        processedAt: null,
+        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+        createdAt: new Date("2026-03-17T10:00:00.000Z"),
+        updatedAt: new Date("2026-03-17T10:00:00.000Z"),
+      },
+    ] as any);
+    vi.mocked(prisma.replyMemory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.replyMemoryEvidence.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.replyMemory.upsert).mockResolvedValue(
+      createReplyMemory({}) as any,
+    );
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        memories: [
+          {
+            title: "pricing guidance",
+            content: "Mention that pricing depends on seat count.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "   ",
+            tags: ["pricing"],
+          },
+        ],
+      },
+    });
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+
+    await syncReplyMemoriesFromEvidence({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(prisma.replyMemory.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          scopeType: ReplyMemoryScopeType.TOPIC,
+          scopeValue: "",
+        }),
+      }),
+    );
   });
 
   it("normalizes extracted reply memories before returning them", async () => {
@@ -412,7 +529,9 @@ function createReplyMemory(
   };
 }
 
-function createSourceMessage(): ParsedMessage {
+function createSourceMessage(
+  overrides: Partial<ParsedMessage["headers"]> = {},
+): ParsedMessage {
   return {
     id: "source-1",
     threadId: "thread-1",
@@ -423,6 +542,7 @@ function createSourceMessage(): ParsedMessage {
       subject: "Pricing question",
       date: "2026-03-17T10:00:00.000Z",
       "message-id": "<source-1@example.com>",
+      ...overrides,
     },
     textPlain: "Can you share pricing for a larger team?",
     textHtml: "<p>Can you share pricing for a larger team?</p>",

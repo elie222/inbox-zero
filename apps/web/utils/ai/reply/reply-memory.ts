@@ -374,14 +374,25 @@ async function processReplyMemoryEvidence({
   const senderEmail = extractEmailAddress(incomingMessage?.headers.from || "");
   const senderDomain = extractDomainFromEmail(senderEmail).toLowerCase();
 
-  if (!incomingMessage || !senderEmail) {
+  if (!incomingMessage) {
+    logger.warn(
+      "Retrying reply memory extraction after source email lookup failed",
+      {
+        replyMemoryEvidenceId: evidence.id,
+        sourceMessageId: evidence.sourceMessageId,
+      },
+    );
+    return;
+  }
+
+  if (!senderEmail) {
     logger.warn(
       "Skipping reply memory extraction without source email context",
       {
         replyMemoryEvidenceId: evidence.id,
         sourceMessageId: evidence.sourceMessageId,
-        hasIncomingMessage: !!incomingMessage,
-        hasSenderEmail: !!senderEmail,
+        hasIncomingMessage: true,
+        hasSenderEmail: false,
       },
     );
     await markReplyMemoryEvidenceProcessed(evidence.id);
@@ -422,9 +433,10 @@ async function processReplyMemoryEvidence({
         ? ""
         : memory.scopeValue.trim().toLowerCase();
 
-    // Non-global memories without a concrete scope can never be retrieved later.
+    // Sender and domain memories need a concrete scope target to be retrievable.
     if (
-      memory.scopeType !== ReplyMemoryScopeType.GLOBAL &&
+      (memory.scopeType === ReplyMemoryScopeType.SENDER ||
+        memory.scopeType === ReplyMemoryScopeType.DOMAIN) &&
       !normalizedScopeValue
     )
       continue;
@@ -578,11 +590,7 @@ function normalizeMemoryText(value: string) {
 }
 
 function tokenize(value: string) {
-  return new Set(
-    normalizeMemoryText(value)
-      .match(/[\p{L}\p{N}]{3,}/gu)
-      ?.filter((token) => !STOP_WORDS.has(token)) ?? [],
-  );
+  return new Set(normalizeMemoryText(value).match(/[\p{L}\p{N}]{3,}/gu) ?? []);
 }
 
 function countOverlap(left: Set<string>, right: Set<string>) {
@@ -604,6 +612,7 @@ function getReplyMemoryScopes({
 }) {
   return [
     { scopeType: ReplyMemoryScopeType.GLOBAL },
+    { scopeType: ReplyMemoryScopeType.TOPIC },
     ...(senderEmail
       ? [
           {
@@ -629,23 +638,3 @@ async function markReplyMemoryEvidenceProcessed(id: string) {
     data: { processedAt: new Date() },
   });
 }
-
-const STOP_WORDS = new Set([
-  "about",
-  "after",
-  "also",
-  "been",
-  "from",
-  "have",
-  "into",
-  "just",
-  "more",
-  "that",
-  "than",
-  "their",
-  "them",
-  "they",
-  "this",
-  "your",
-  "with",
-]);
