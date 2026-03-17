@@ -5,9 +5,14 @@ import {
   shouldRunEvalTests,
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
+import {
+  captureAssistantChatToolCalls,
+  getLastMatchingToolCall,
+  summarizeRecordedToolCalls,
+  type RecordedToolCall,
+} from "@/__tests__/eval/assistant-chat-eval-utils";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
 import type { getEmailAccount } from "@/__tests__/helpers";
@@ -21,6 +26,59 @@ const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 const evalReporter = createEvalReporter();
 const logger = createScopedLogger("eval-assistant-chat-settings-memory");
+const scenarios: EvalScenario[] = [
+  {
+    title: "uses getAssistantCapabilities for capability discovery requests",
+    reportName: "capability discovery uses getAssistantCapabilities",
+    prompt: "What settings can you change for me from chat?",
+    expectation: {
+      kind: "capability_discovery",
+    },
+  },
+  {
+    title: "uses updateAssistantSettings for supported setting changes",
+    reportName: "supported settings change uses updateAssistantSettings",
+    prompt: "Turn on multi-rule selection for me.",
+    expectation: {
+      kind: "assistant_settings",
+      changePath: "assistant.multiRuleSelection.enabled",
+      value: true,
+      forbiddenTools: ["updateAssistantSettingsCompat"],
+    },
+  },
+  {
+    title:
+      "uses updatePersonalInstructions in append mode for personal instruction updates",
+    reportName: "personal instructions use updatePersonalInstructions append",
+    prompt: "Add to my personal instructions that I prefer concise replies.",
+    expectation: {
+      kind: "personal_instructions",
+      terms: ["concise"],
+      mode: "append",
+    },
+  },
+  {
+    title: "uses saveMemory when asked to remember a durable preference",
+    reportName: "remember preference uses saveMemory",
+    prompt: "Remember that I like batching newsletters in the afternoon.",
+    timeout: 120_000,
+    expectation: {
+      kind: "save_memory",
+      terms: ["batch", "newsletter", "afternoon"],
+      forbiddenTools: ["searchMemories"],
+    },
+  },
+  {
+    title: "uses searchMemories when asked about remembered preferences",
+    reportName: "memory lookup uses searchMemories",
+    prompt: "What do you remember about my newsletter preferences?",
+    expectation: {
+      kind: "search_memories",
+      terms: ["newsletter", "preference"],
+      forbiddenTools: ["saveMemory"],
+    },
+  },
+];
 
 const { mockPosthogCaptureEvent, mockRedis } = vi.hoisted(() => ({
   mockPosthogCaptureEvent: vi.fn(),
@@ -155,202 +213,29 @@ describe.runIf(shouldRunEval)(
     describeEvalMatrix(
       "assistant-chat settings and memory",
       (model, emailAccount) => {
-        test(
-          "uses getAssistantCapabilities for capability discovery requests",
-          async () => {
-            const { toolCalls, actual } = await runAssistantChat({
-              emailAccount,
-              messages: [
-                {
-                  role: "user",
-                  content: "What settings can you change for me from chat?",
-                },
-              ],
-            });
+        for (const scenario of scenarios) {
+          test(
+            scenario.title,
+            async () => {
+              const result = await runAssistantChat({
+                emailAccount,
+                messages: [{ role: "user", content: scenario.prompt }],
+              });
 
-            const pass =
-              toolCalls.some(
-                (toolCall) => toolCall.toolName === "getAssistantCapabilities",
-              ) &&
-              !toolCalls.some(
-                (toolCall) =>
-                  toolCall.toolName === "updateAssistantSettings" ||
-                  toolCall.toolName === "updateAssistantSettingsCompat",
-              );
+              const pass = evaluateScenario(result, scenario.expectation);
 
-            evalReporter.record({
-              testName: "capability discovery uses getAssistantCapabilities",
-              model: model.label,
-              pass,
-              actual,
-            });
+              evalReporter.record({
+                testName: scenario.reportName,
+                model: model.label,
+                pass,
+                actual: result.actual,
+              });
 
-            expect(pass).toBe(true);
-          },
-          TIMEOUT,
-        );
-
-        test(
-          "uses updateAssistantSettings for supported setting changes",
-          async () => {
-            const { toolCalls, actual } = await runAssistantChat({
-              emailAccount,
-              messages: [
-                {
-                  role: "user",
-                  content: "Turn on multi-rule selection for me.",
-                },
-              ],
-            });
-
-            const settingsCall = getLastMatchingToolCall(
-              toolCalls,
-              "updateAssistantSettings",
-              isUpdateAssistantSettingsInput,
-            )?.input;
-
-            const pass =
-              !!settingsCall &&
-              settingsCall.changes.some(
-                (change) =>
-                  change.path === "assistant.multiRuleSelection.enabled" &&
-                  change.value === true,
-              ) &&
-              !toolCalls.some(
-                (toolCall) =>
-                  toolCall.toolName === "updateAssistantSettingsCompat",
-              );
-
-            evalReporter.record({
-              testName:
-                "supported settings change uses updateAssistantSettings",
-              model: model.label,
-              pass,
-              actual,
-            });
-
-            expect(pass).toBe(true);
-          },
-          TIMEOUT,
-        );
-
-        test(
-          "uses updatePersonalInstructions in append mode for personal instruction updates",
-          async () => {
-            const { toolCalls, actual } = await runAssistantChat({
-              emailAccount,
-              messages: [
-                {
-                  role: "user",
-                  content:
-                    "Add to my personal instructions that I prefer concise replies.",
-                },
-              ],
-            });
-
-            const aboutCall = getLastMatchingToolCall(
-              toolCalls,
-              "updatePersonalInstructions",
-              isUpdateAboutInput,
-            )?.input;
-
-            const pass =
-              !!aboutCall &&
-              aboutCall.about.toLowerCase().includes("concise") &&
-              aboutCall.mode === "append";
-
-            evalReporter.record({
-              testName:
-                "personal instructions use updatePersonalInstructions append",
-              model: model.label,
-              pass,
-              actual,
-            });
-
-            expect(pass).toBe(true);
-          },
-          TIMEOUT,
-        );
-
-        test(
-          "uses saveMemory when asked to remember a durable preference",
-          async () => {
-            const { toolCalls, actual } = await runAssistantChat({
-              emailAccount,
-              messages: [
-                {
-                  role: "user",
-                  content:
-                    "Remember that I like batching newsletters in the afternoon.",
-                },
-              ],
-            });
-
-            const memoryCall = getLastMatchingToolCall(
-              toolCalls,
-              "saveMemory",
-              isSaveMemoryInput,
-            )?.input;
-
-            const pass =
-              !!memoryCall &&
-              includesAllText(memoryCall.content, [
-                "batch",
-                "newsletters",
-                "afternoon",
-              ]) &&
-              !toolCalls.some(
-                (toolCall) => toolCall.toolName === "searchMemories",
-              );
-
-            evalReporter.record({
-              testName: "remember preference uses saveMemory",
-              model: model.label,
-              pass,
-              actual,
-            });
-
-            expect(pass).toBe(true);
-          },
-          TIMEOUT,
-        );
-
-        test(
-          "uses searchMemories when asked about remembered preferences",
-          async () => {
-            const { toolCalls, actual } = await runAssistantChat({
-              emailAccount,
-              messages: [
-                {
-                  role: "user",
-                  content:
-                    "What do you remember about my newsletter preferences?",
-                },
-              ],
-            });
-
-            const searchCall = getLastMatchingToolCall(
-              toolCalls,
-              "searchMemories",
-              isSearchMemoriesInput,
-            )?.input;
-
-            const pass =
-              !!searchCall &&
-              includesAnyText(searchCall.query, ["newsletter", "preference"]) &&
-              !toolCalls.some((toolCall) => toolCall.toolName === "saveMemory");
-
-            evalReporter.record({
-              testName: "memory lookup uses searchMemories",
-              model: model.label,
-              pass,
-              actual,
-            });
-
-            expect(pass).toBe(true);
-          },
-          TIMEOUT,
-        );
+              expect(pass).toBe(true);
+            },
+            scenario.timeout ?? TIMEOUT,
+          );
+        }
       },
     );
 
@@ -367,33 +252,15 @@ async function runAssistantChat({
   emailAccount: ReturnType<typeof getEmailAccount>;
   messages: ModelMessage[];
 }) {
-  const toolCalls: Array<{ toolName: string; input: unknown }> = [];
-
-  const result = await aiProcessAssistantChat({
+  const toolCalls = await captureAssistantChatToolCalls({
     messages,
-    emailAccountId: emailAccount.id,
-    user: emailAccount,
+    emailAccount,
     logger,
-    onStepFinish: async ({ toolCalls: stepToolCalls }) => {
-      for (const toolCall of stepToolCalls || []) {
-        toolCalls.push({
-          toolName: toolCall.toolName,
-          input: toolCall.input,
-        });
-      }
-    },
   });
-
-  await result.consumeStream();
-
-  const actual =
-    toolCalls.length > 0
-      ? toolCalls.map(summarizeToolCall).join(" | ")
-      : "no tool calls";
 
   return {
     toolCalls,
-    actual,
+    actual: summarizeRecordedToolCalls(toolCalls, summarizeToolCall),
   };
 }
 
@@ -416,6 +283,40 @@ type SearchMemoriesInput = {
 type UpdateAboutInput = {
   about: string;
   mode?: "append" | "replace";
+};
+
+type ScenarioExpectation =
+  | {
+      kind: "capability_discovery";
+    }
+  | {
+      kind: "assistant_settings";
+      changePath: string;
+      value: unknown;
+      forbiddenTools: string[];
+    }
+  | {
+      kind: "personal_instructions";
+      terms: string[];
+      mode: "append" | "replace";
+    }
+  | {
+      kind: "save_memory";
+      terms: string[];
+      forbiddenTools: string[];
+    }
+  | {
+      kind: "search_memories";
+      terms: string[];
+      forbiddenTools: string[];
+    };
+
+type EvalScenario = {
+  title: string;
+  reportName: string;
+  prompt: string;
+  timeout?: number;
+  expectation: ScenarioExpectation;
 };
 
 function isUpdateAssistantSettingsInput(
@@ -456,23 +357,82 @@ function isUpdateAboutInput(input: unknown): input is UpdateAboutInput {
   );
 }
 
-function getLastMatchingToolCall<TInput>(
-  toolCalls: Array<{ toolName: string; input: unknown }>,
-  toolName: string,
-  matches: (input: unknown) => input is TInput,
+function evaluateScenario(
+  result: Awaited<ReturnType<typeof runAssistantChat>>,
+  expectation: ScenarioExpectation,
 ) {
-  for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
-    const toolCall = toolCalls[index];
-    if (toolCall.toolName !== toolName) continue;
-    if (!matches(toolCall.input)) continue;
+  switch (expectation.kind) {
+    case "capability_discovery":
+      return (
+        result.toolCalls.some(
+          (toolCall) => toolCall.toolName === "getAssistantCapabilities",
+        ) &&
+        hasNoToolCalls(result.toolCalls, [
+          "updateAssistantSettings",
+          "updateAssistantSettingsCompat",
+        ])
+      );
 
-    return {
-      index,
-      input: toolCall.input,
-    };
+    case "assistant_settings": {
+      const settingsCall = getLastMatchingToolCall(
+        result.toolCalls,
+        "updateAssistantSettings",
+        isUpdateAssistantSettingsInput,
+      )?.input;
+
+      return (
+        !!settingsCall &&
+        settingsCall.changes.some(
+          (change) =>
+            change.path === expectation.changePath &&
+            change.value === expectation.value,
+        ) &&
+        hasNoToolCalls(result.toolCalls, expectation.forbiddenTools)
+      );
+    }
+
+    case "personal_instructions": {
+      const aboutCall = getLastMatchingToolCall(
+        result.toolCalls,
+        "updatePersonalInstructions",
+        isUpdateAboutInput,
+      )?.input;
+
+      return (
+        !!aboutCall &&
+        includesAnyText(aboutCall.about, expectation.terms) &&
+        aboutCall.mode === expectation.mode
+      );
+    }
+
+    case "save_memory": {
+      const memoryCall = getLastMatchingToolCall(
+        result.toolCalls,
+        "saveMemory",
+        isSaveMemoryInput,
+      )?.input;
+
+      return (
+        !!memoryCall &&
+        includesAllText(memoryCall.content, expectation.terms) &&
+        hasNoToolCalls(result.toolCalls, expectation.forbiddenTools)
+      );
+    }
+
+    case "search_memories": {
+      const searchCall = getLastMatchingToolCall(
+        result.toolCalls,
+        "searchMemories",
+        isSearchMemoriesInput,
+      )?.input;
+
+      return (
+        !!searchCall &&
+        includesAnyText(searchCall.query, expectation.terms) &&
+        hasNoToolCalls(result.toolCalls, expectation.forbiddenTools)
+      );
+    }
   }
-
-  return null;
 }
 
 function includesAnyText(text: string | null | undefined, terms: string[]) {
@@ -489,7 +449,11 @@ function includesAllText(text: string | null | undefined, terms: string[]) {
   return terms.every((term) => normalizedText.includes(term.toLowerCase()));
 }
 
-function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {
+function hasNoToolCalls(toolCalls: RecordedToolCall[], toolNames: string[]) {
+  return !toolCalls.some((toolCall) => toolNames.includes(toolCall.toolName));
+}
+
+function summarizeToolCall(toolCall: RecordedToolCall) {
   if (toolCall.toolName === "getAssistantCapabilities") {
     return "getAssistantCapabilities()";
   }

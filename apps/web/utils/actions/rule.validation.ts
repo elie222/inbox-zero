@@ -11,6 +11,12 @@ import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
+import {
+  AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
+  INVALID_STATIC_FROM_MESSAGE,
+  isInvalidStaticFromValue,
+  STATIC_FROM_CONDITION_DESCRIPTION,
+} from "@/utils/ai/rule/rule-condition-descriptions";
 
 export const delayInMinutesSchema = z
   .number()
@@ -21,10 +27,21 @@ export const delayInMinutesSchema = z
 export const updateRuleConditionSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
   condition: z.object({
-    aiInstructions: z.string().optional(),
+    aiInstructions: z
+      .string()
+      .nullish()
+      .transform((v) => (v?.trim() ? v : null))
+      .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
     static: z
       .object({
-        from: z.string().nullish(),
+        from: z
+          .string()
+          .nullish()
+          .transform((v) => (v?.trim() ? v : null))
+          .refine((value) => !isInvalidStaticFromValue(value), {
+            message: INVALID_STATIC_FROM_MESSAGE,
+          })
+          .describe(STATIC_FROM_CONDITION_DESCRIPTION),
         to: z.string().nullish(),
         subject: z.string().nullish(),
       })
@@ -233,9 +250,6 @@ export const updateRuleBody = createRuleBody.extend({ id: z.string() });
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
 export const deleteRuleBody = z.object({ id: z.string() });
-
-export const saveRulesPromptBody = z.object({ rulesPrompt: z.string().trim() });
-export type SaveRulesPromptBody = z.infer<typeof saveRulesPromptBody>;
 
 export const createRulesBody = z.object({ prompt: z.string().trim() });
 export type CreateRulesBody = z.infer<typeof createRulesBody>;

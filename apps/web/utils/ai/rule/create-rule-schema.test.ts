@@ -135,6 +135,106 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts omitted aiInstructions for sender-only rules", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.LABEL,
+        fields: {
+          label: "Newsletters",
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: null,
+        },
+        delayInMinutes: null,
+      }),
+      condition: {
+        conditionalOperator: null,
+        static: {
+          from: "@briefing.example",
+          to: null,
+          subject: null,
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects structurally invalid static.from values", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.LABEL,
+        fields: {
+          label: "Escalations",
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: null,
+        },
+        delayInMinutes: null,
+      }),
+      condition: {
+        conditionalOperator: null,
+        aiInstructions: "Emails about vendor escalations",
+        static: {
+          from: "not-a-sender",
+          to: null,
+          subject: null,
+        },
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some(
+          (issue) => issue.path.join(".") === "condition.static.from",
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("rejects catch-all static.from values", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.LABEL,
+        fields: {
+          label: "Escalations",
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: null,
+        },
+        delayInMinutes: null,
+      }),
+      condition: {
+        conditionalOperator: null,
+        aiInstructions: "Emails about vendor escalations",
+        static: {
+          from: "*@*.*",
+          to: null,
+          subject: null,
+        },
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some(
+          (issue) => issue.path.join(".") === "condition.static.from",
+        ),
+      ).toBe(true);
+    }
+  });
+
   function buildRule(action: {
     type: ActionType;
     fields: {

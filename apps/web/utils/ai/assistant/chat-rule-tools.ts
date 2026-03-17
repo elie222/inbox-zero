@@ -262,7 +262,8 @@ export const createRuleTool = ({
   logger: Logger;
 }) =>
   tool({
-    description: "Create a new rule",
+    description:
+      'Create a new rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and put only the semantic part in condition.aiInstructions. Example: condition.static.from="@sender.com" with no condition.aiInstructions.',
     inputSchema: createRuleSchema(provider),
     execute: async ({ name, condition, actions }) => {
       trackToolCall({ tool: "create_rule", email, logger });
@@ -326,7 +327,7 @@ export const updateRuleConditionsTool = ({
 }) =>
   tool({
     description:
-      "Update the conditions of an existing rule. Requires a fresh getUserRulesAndSettings call in the current request before writing.",
+      "Update the conditions of an existing rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and put only the semantic part in condition.aiInstructions. Requires a fresh getUserRulesAndSettings call in the current request before writing.",
     inputSchema: updateRuleConditionSchema,
     execute: async ({ ruleName, condition }) => {
       trackToolCall({ tool: "update_rule_conditions", email, logger });
@@ -653,7 +654,8 @@ export const updateLearnedPatternsTool = ({
   getRuleReadState?: () => RuleReadState | null;
 }) =>
   tool({
-    description: "Update the learned patterns of an existing rule",
+    description:
+      "Update the learned patterns of an existing rule. Use this when a matching category rule already exists and the user wants a recurring sender added to or removed from it.",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
       learnedPatterns: z
