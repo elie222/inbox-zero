@@ -249,9 +249,6 @@ export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
 export const deleteRuleBody = z.object({ id: z.string() });
 
-export const saveRulesPromptBody = z.object({ rulesPrompt: z.string().trim() });
-export type SaveRulesPromptBody = z.infer<typeof saveRulesPromptBody>;
-
 export const createRulesBody = z.object({ prompt: z.string().trim() });
 export type CreateRulesBody = z.infer<typeof createRulesBody>;
 

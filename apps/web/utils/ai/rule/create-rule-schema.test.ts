@@ -135,6 +135,34 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts omitted aiInstructions for sender-only rules", () => {
+    const result = createRuleSchema(provider).safeParse({
+      ...buildRule({
+        type: ActionType.LABEL,
+        fields: {
+          label: "Newsletters",
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: null,
+        },
+        delayInMinutes: null,
+      }),
+      condition: {
+        conditionalOperator: null,
+        static: {
+          from: "@briefing.example",
+          to: null,
+          subject: null,
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("rejects structurally invalid static.from values", () => {
     const result = createRuleSchema(provider).safeParse({
       ...buildRule({

@@ -22,21 +22,21 @@ const conditionSchema = z
       ),
     aiInstructions: z
       .string()
-      .nullable()
+      .nullish()
       .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
     static: z
       .object({
         from: z
           .string()
-          .nullable()
+          .nullish()
           .refine((value) => !isInvalidStaticFromValue(value), {
             message: INVALID_STATIC_FROM_MESSAGE,
           })
           .describe(STATIC_FROM_CONDITION_DESCRIPTION),
-        to: z.string().nullable().describe("The to email address to match"),
-        subject: z.string().nullable().describe("The subject to match"),
+        to: z.string().nullish().describe("The to email address to match"),
+        subject: z.string().nullish().describe("The subject to match"),
       })
-      .nullable()
+      .nullish()
       .describe(
         "The static conditions to match. If multiple static conditions are specified, the rule will match if ALL of the conditions match (AND operation)",
       ),
