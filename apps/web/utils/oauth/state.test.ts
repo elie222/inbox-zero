@@ -64,7 +64,7 @@ describe("signed OAuth state", () => {
       type: "slack" as const,
     });
 
-    expect(getOAuthStateFingerprint(state)).toHaveLength(12);
+    expect(getOAuthStateFingerprint(state)).toHaveLength(8);
     expect(getOAuthStateFingerprint(state)).toBe(
       getOAuthStateFingerprint(state),
     );

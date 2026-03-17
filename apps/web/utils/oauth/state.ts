@@ -31,7 +31,14 @@ export function parseOAuthState<T extends Record<string, unknown>>(
 }
 
 export function getOAuthStateFingerprint(state: string): string {
-  return crypto.createHash("sha256").update(state).digest("hex").slice(0, 12);
+  let hash = 2_166_136_261;
+
+  for (let i = 0; i < state.length; i++) {
+    hash ^= state.charCodeAt(i);
+    hash = Math.imul(hash, 16_777_619);
+  }
+
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 export function generateSignedOAuthState<T extends Record<string, unknown>>(
