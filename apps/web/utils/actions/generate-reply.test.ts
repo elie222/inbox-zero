@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { generateNudgeReplyAction } from "@/utils/actions/generate-reply";
+import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
 import { aiGenerateNudge } from "@/utils/ai/reply/generate-nudge";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -41,7 +42,7 @@ describe("generateNudgeReplyAction", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5-mini",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     } as any);
 
@@ -66,7 +67,7 @@ describe("generateNudgeReplyAction", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5-mini",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
     expect(result?.data).toEqual({ text: "Follow up message" });

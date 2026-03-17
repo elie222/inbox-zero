@@ -123,6 +123,9 @@ ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
    - Prefer generic prompt instructions, structured outputs, and model choice over brittle lexical heuristics that imitate model reasoning
    - Only add deterministic filters when the product truly needs a hard rule outside the model
    - Do not add prompt examples that closely mirror eval fixtures just to make a test pass
+9. **Draft Attribution Versioning**:
+   - When changing draft-generation prompt inputs, retrieval context, routing, or post-processing, bump `apps/web/utils/ai/reply/draft-attribution.ts` `DRAFT_PIPELINE_VERSION`
+   - Treat that version as analytics attribution for reply-draft quality comparisons
 
 ## Testing
 

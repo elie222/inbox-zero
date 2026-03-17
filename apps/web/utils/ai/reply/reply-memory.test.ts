@@ -184,6 +184,48 @@ describe("reply-memory", () => {
     );
   });
 
+  it("keeps topic memories ahead of newer global memories when retrieval is capped", async () => {
+    vi.mocked(prisma.replyMemory.findMany)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce(
+        Array.from({ length: 6 }, (_, index) =>
+          createReplyMemory({
+            id: `global-${index}`,
+            title: `global ${index}`,
+            content: `Global memory ${index}.`,
+            kind: ReplyMemoryKind.STYLE,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            updatedAt: new Date(`2026-03-17T09:0${index}:00.000Z`),
+          }),
+        ) as any,
+      );
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([
+      createReplyMemory({
+        id: "topic-pricing",
+        title: "pricing guidance",
+        content: "Mention that enterprise pricing depends on seat count.",
+        kind: ReplyMemoryKind.FACT,
+        scopeType: ReplyMemoryScopeType.TOPIC,
+        scopeValue: "pricing",
+        updatedAt: new Date("2026-03-16T08:00:00.000Z"),
+      }),
+    ] as any);
+
+    const result = await getReplyMemoryContent({
+      emailAccountId: "account-1",
+      senderEmail: "sales@example.com",
+      emailContent: "Can you resend the pricing guidance?",
+      logger,
+    });
+
+    expect(result).toContain("enterprise pricing depends on seat count");
+    expect(result?.split("\n")).toHaveLength(6);
+    expect(result?.split("\n")[0]).toContain(
+      "enterprise pricing depends on seat count",
+    );
+  });
+
   it("processes queued draft send logs into active reply memories", async () => {
     vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
       count: 0,
@@ -297,6 +339,52 @@ describe("reply-memory", () => {
 
     expect(mockGenerateObject).not.toHaveBeenCalled();
     expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
+    expect(prisma.draftSendLog.update).toHaveBeenCalledWith({
+      where: { id: "draft-send-log-1" },
+      data: {
+        replyMemoryAttemptCount: { increment: 1 },
+      },
+    });
+  });
+
+  it("increments retry state when non-source reply memory processing fails", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText: "Pricing depends on seat count.",
+      }),
+    ] as any);
+    vi.mocked(prisma.replyMemory.findMany).mockResolvedValue([] as any);
+    vi.mocked(prisma.replyMemory.upsert).mockRejectedValue(
+      new Error("database unavailable"),
+    );
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        memories: [
+          {
+            title: "pricing answer",
+            content: "Mention that pricing depends on seat count.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "pricing",
+          },
+        ],
+      },
+    });
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+
+    await syncReplyMemoriesFromDraftSendLogs({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
     expect(prisma.draftSendLog.update).toHaveBeenCalledWith({
       where: { id: "draft-send-log-1" },
       data: {
@@ -421,6 +509,55 @@ describe("reply-memory", () => {
 
     const provider = {
       getMessage: vi.fn().mockResolvedValue(null),
+    };
+
+    await syncReplyMemoriesFromDraftSendLogs({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(prisma.draftSendLog.update).toHaveBeenCalledWith({
+      where: { id: "draft-send-log-1" },
+      data: {
+        replyMemoryAttemptCount: { increment: 1 },
+        replyMemoryProcessedAt: expect.any(Date),
+        replyMemorySentText: null,
+      },
+    });
+  });
+
+  it("marks a draft send log processed after repeated non-source processing failures", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText: "Pricing depends on seat count.",
+        replyMemoryAttemptCount: 2,
+      }),
+    ] as any);
+    vi.mocked(prisma.replyMemory.findMany).mockResolvedValue([] as any);
+    vi.mocked(prisma.replyMemory.upsert).mockRejectedValue(
+      new Error("database unavailable"),
+    );
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        memories: [
+          {
+            title: "pricing answer",
+            content: "Mention that pricing depends on seat count.",
+            kind: ReplyMemoryKind.FACT,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "pricing",
+          },
+        ],
+      },
+    });
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
     };
 
     await syncReplyMemoriesFromDraftSendLogs({

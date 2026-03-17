@@ -7,6 +7,7 @@ import type { ParsedMessage } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
 import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
@@ -456,7 +457,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5.1",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
 
@@ -475,7 +476,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5.1",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
     expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
@@ -492,7 +493,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "anthropic",
         modelName: "claude-sonnet-4-5",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
@@ -514,7 +515,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "anthropic",
         modelName: "claude-sonnet-4-5",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
     expect(saveReply).toHaveBeenCalledWith({
@@ -525,7 +526,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "anthropic",
         modelName: "claude-sonnet-4-5",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
   });
@@ -537,7 +538,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5.1",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
 
@@ -556,7 +557,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5.1",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
     expect(saveReply).toHaveBeenCalledWith({
@@ -567,7 +568,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5.1",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
   });
@@ -579,7 +580,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "anthropic",
         modelName: "claude-sonnet-4-5",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
@@ -602,7 +603,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "anthropic",
         modelName: "claude-sonnet-4-5",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
   });

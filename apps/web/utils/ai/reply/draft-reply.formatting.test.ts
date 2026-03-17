@@ -4,6 +4,7 @@ import {
   aiDraftReply,
   aiDraftReplyWithConfidence,
 } from "@/utils/ai/reply/draft-reply";
+import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 
 const { mockCreateGenerateObject, mockGenerateObject } = vi.hoisted(() => {
@@ -279,7 +280,7 @@ describe("aiDraftReply formatting", () => {
     expect(result.attribution).toEqual({
       provider: "openai",
       modelName: "gpt-5.1-mini",
-      pipelineVersion: 1,
+      pipelineVersion: DRAFT_PIPELINE_VERSION,
     });
   });
 });

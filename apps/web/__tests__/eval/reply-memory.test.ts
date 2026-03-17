@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test, vi } from "vitest";
+import { getEmail } from "@/__tests__/helpers";
 import {
   describeEvalMatrix,
   shouldRunEvalTests,
@@ -9,6 +10,7 @@ import {
   ReplyMemoryKind,
   ReplyMemoryScopeType,
 } from "@/generated/prisma/enums";
+import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
 import { aiExtractReplyMemoriesFromDraftEdit } from "@/utils/ai/reply/reply-memory";
 
 // pnpm test-ai eval/reply-memory
@@ -17,11 +19,11 @@ import { aiExtractReplyMemoriesFromDraftEdit } from "@/utils/ai/reply/reply-memo
 vi.mock("server-only", () => ({}));
 
 const shouldRunEval = shouldRunEvalTests();
-const TIMEOUT = 120_000;
+const TIMEOUT = 180_000;
 const evalReporter = createEvalReporter();
 
-describe.runIf(shouldRunEval)("reply memory extraction eval", () => {
-  describeEvalMatrix("reply memory extraction", (model, emailAccount) => {
+describe.runIf(shouldRunEval)("reply memory eval", () => {
+  describeEvalMatrix("reply memory", (model, emailAccount) => {
     test(
       "extracts a reusable factual pricing memory",
       async () => {
@@ -163,6 +165,104 @@ describe.runIf(shouldRunEval)("reply memory extraction eval", () => {
       },
       TIMEOUT,
     );
+
+    test(
+      "improves a pricing draft when a learned reply memory is available",
+      async () => {
+        const messages = [
+          {
+            ...getEmail({
+              from: "buyer@example.com",
+              to: emailAccount.email,
+              subject: "Pricing follow-up",
+              content: `Hi,
+
+We lost your earlier pricing note.
+
+Can you resend the short enterprise pricing explanation you usually send for a 30 person team, and mention whether annual billing changes the quote?`,
+            }),
+            date: new Date("2026-03-17T10:00:00Z"),
+          },
+        ];
+
+        const withoutMemory = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent: null,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const replyMemoryContent =
+          "1. [FACT | TOPIC:pricing] When asked about enterprise pricing, explain that it depends on seat count and whether the customer wants annual billing.";
+
+        const withMemory = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const hasExpectedCorrection =
+          /seat count/i.test(withMemory.reply) &&
+          /annual billing/i.test(withMemory.reply);
+        const avoidsUnsupportedNumericPricing =
+          !/\$\d|\d+\s*(per (seat|user|month)|users?)|discount/i.test(
+            withMemory.reply,
+          );
+
+        const judgeResult = await judgeBinary({
+          input: buildDraftComparisonInput({
+            emailContent: messages[0].content,
+            withoutMemoryReply: withoutMemory.reply,
+            replyMemoryContent,
+          }),
+          output: withMemory.reply,
+          expected:
+            "A concise professional reply that explains enterprise pricing depends on seat count and whether the customer wants annual billing, without inventing unsupported numeric prices, per-seat quotes, or discount claims.",
+          criterion: {
+            name: "Learned memory improves draft generation",
+            description:
+              "Compared with the no-memory draft, the memory-aware draft should correctly apply the learned pricing guidance from the provided reply memory and be more grounded by avoiding unsupported numeric pricing claims or discount details that were never provided.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass =
+          hasExpectedCorrection &&
+          avoidsUnsupportedNumericPricing &&
+          judgeResult.pass;
+
+        evalReporter.record({
+          testName: "pricing memory improves draft",
+          model: model.label,
+          pass,
+          expected:
+            "memory-aware draft uses seat-count and annual-billing guidance",
+          actual: formatDraftComparisonActual({
+            withoutMemoryReply: withoutMemory.reply,
+            withMemoryReply: withMemory.reply,
+            judgeResult,
+          }),
+          criteria: [judgeResult],
+        });
+
+        expect(hasExpectedCorrection).toBe(true);
+        expect(avoidsUnsupportedNumericPricing).toBe(true);
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
   });
 
   afterAll(() => {
@@ -210,11 +310,48 @@ function buildJudgeInput({
   ].join("\n");
 }
 
+function buildDraftComparisonInput({
+  emailContent,
+  withoutMemoryReply,
+  replyMemoryContent,
+}: {
+  emailContent: string;
+  withoutMemoryReply: string;
+  replyMemoryContent: string;
+}) {
+  return [
+    "## Current Email",
+    emailContent,
+    "",
+    "## Reply Without Learned Memory",
+    withoutMemoryReply,
+    "",
+    "## Learned Reply Memory",
+    replyMemoryContent,
+  ].join("\n");
+}
+
 function formatJudgeActual(
   summary: string,
   judgeResult: { pass: boolean; reasoning: string },
 ) {
   return `${summary}; judge=${judgeResult.pass ? "PASS" : "FAIL"} (${judgeResult.reasoning})`;
+}
+
+function formatDraftComparisonActual({
+  withoutMemoryReply,
+  withMemoryReply,
+  judgeResult,
+}: {
+  withoutMemoryReply: string;
+  withMemoryReply: string;
+  judgeResult: { pass: boolean; reasoning: string };
+}) {
+  return [
+    `without=${JSON.stringify(withoutMemoryReply)}`,
+    `with=${JSON.stringify(withMemoryReply)}`,
+    `judge=${judgeResult.pass ? "PASS" : "FAIL"} (${judgeResult.reasoning})`,
+  ].join(" | ");
 }
 
 function getEvalJudgeUserAi() {

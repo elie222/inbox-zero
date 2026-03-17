@@ -149,6 +149,15 @@ export async function syncReplyMemoriesFromDraftSendLogs({
         draftSendLogId: draftSendLog.id,
         executedActionId: draftSendLog.executedAction.id,
       });
+
+      try {
+        await recordDraftSendLogReplyMemoryFailure(draftSendLog);
+      } catch (recordError) {
+        logger.error("Failed to record reply memory draft send log failure", {
+          error: recordError,
+          draftSendLogId: draftSendLog.id,
+        });
+      }
     }
   }
 }
@@ -632,9 +641,9 @@ function getScopePriority(scopeType: ReplyMemoryScopeType) {
       return 3;
     case ReplyMemoryScopeType.DOMAIN:
       return 2;
-    case ReplyMemoryScopeType.GLOBAL:
-      return 1;
     case ReplyMemoryScopeType.TOPIC:
+      return 1;
+    case ReplyMemoryScopeType.GLOBAL:
       return 0;
   }
 }
