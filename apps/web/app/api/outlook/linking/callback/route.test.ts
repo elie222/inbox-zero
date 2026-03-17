@@ -126,8 +126,8 @@ describe("outlook linking callback route", () => {
           ok: true,
           json: async () => ({
             access_token: "access-token",
-            scope:
-              "openid profile email User.Read Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
+            refresh_token: "refresh-token",
+            scope: "Mail.ReadWrite MailboxSettings.ReadWrite",
           }),
         })
         .mockResolvedValueOnce({
@@ -150,6 +150,52 @@ describe("outlook linking callback route", () => {
     expect(mockHandleAccountLinking).not.toHaveBeenCalled();
     expect(mockSetOAuthCodeResult).not.toHaveBeenCalled();
     expect(mockClearOAuthCode).toHaveBeenCalledWith("valid-auth-code");
+  });
+
+  it("allows successful linking when Microsoft token scope omits OIDC scopes", async () => {
+    mockHandleAccountLinking.mockResolvedValue({
+      type: "continue_create",
+    });
+    prisma.account.create.mockResolvedValue({
+      id: "account-123",
+    } as Awaited<ReturnType<typeof prisma.account.create>>);
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            access_token: "access-token",
+            refresh_token: "refresh-token",
+            scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
+            token_type: "Bearer",
+            expires_in: 3600,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "provider-account-id",
+            userPrincipalName: "user@example.com",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+        }),
+    );
+
+    const response = await GET(
+      createRequest("http://localhost:3000/api/outlook/linking/callback"),
+    );
+
+    const redirectLocation = response.headers.get("location");
+    expect(redirectLocation).toContain("success=account_created_and_linked");
+    expect(mockHandleAccountLinking).toHaveBeenCalled();
+    expect(prisma.account.create).toHaveBeenCalled();
+    expect(mockSetOAuthCodeResult).toHaveBeenCalledWith("valid-auth-code", {
+      success: "account_created_and_linked",
+    });
   });
 
   it("redirects with admin_consent_required when Microsoft returns an AADSTS65001 callback error", async () => {
