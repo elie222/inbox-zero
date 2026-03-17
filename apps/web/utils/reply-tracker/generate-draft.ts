@@ -28,6 +28,7 @@ import { meetsDraftReplyConfidenceRequirement } from "@/utils/ai/reply/draft-con
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
 import type { SelectedAttachment } from "@/utils/attachments/source-schema";
+import { getReplyMemoriesForPrompt } from "@/utils/ai/reply/reply-memory";
 
 export type DraftGenerationResult = {
   attachments?: SelectedAttachment[];
@@ -263,6 +264,7 @@ async function generateDraftContent(
       });
   const [
     knowledgeResult,
+    replyMemorySelection,
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
@@ -275,6 +277,12 @@ async function generateDraftContent(
       knowledgeBase,
       emailContent: lastMessageContent,
       emailAccount,
+      logger,
+    }),
+    getReplyMemoriesForPrompt({
+      emailAccountId: emailAccount.id,
+      senderEmail: extractEmailAddress(lastMessage.headers.from),
+      emailContent: lastMessageContent,
       logger,
     }),
     aiCollectReplyContext({
@@ -308,12 +316,30 @@ async function generateDraftContent(
       : Promise.resolve(null),
     attachmentSelectionPromise,
   ]);
+  const {
+    content: replyMemoryContent,
+    selectedMemories: selectedReplyMemories,
+  } = replyMemorySelection;
+
+  if (selectedReplyMemories.length) {
+    logger.info("Injecting reply memories into draft prompt", {
+      replyMemoryCount: selectedReplyMemories.length,
+      replyMemoryIds: selectedReplyMemories.map((memory) => memory.id),
+      replyMemoryKinds: [
+        ...new Set(selectedReplyMemories.map((memory) => memory.kind)),
+      ],
+      replyMemoryScopeTypes: [
+        ...new Set(selectedReplyMemories.map((memory) => memory.scopeType)),
+      ],
+    });
+  }
 
   // 3. Draft reply
   const { reply, confidence, attribution } = await aiDraftReplyWithConfidence({
     messages,
     emailAccount,
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
+    replyMemoryContent,
     emailHistorySummary,
     emailHistoryContext,
     calendarAvailability,

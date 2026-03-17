@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, test } from "vitest";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
+import { formatSemanticJudgeActual } from "@/__tests__/eval/semantic-judge";
 import { getMockMessage } from "@/__tests__/helpers";
 import {
   cloneEmailAccountForProvider,
@@ -11,8 +12,8 @@ import {
   hasSearchBeforeTool,
   inboxWorkflowProviders,
   isReadEmailInput,
+  judgeSearchInboxQuery,
   mockSearchMessages,
-  queryContainsAny,
   runAssistantChat,
   setupInboxWorkflowEval,
   shouldRunEval,
@@ -73,18 +74,33 @@ describe.runIf(shouldRunEval)(
             });
 
             const searchCall = getFirstSearchInboxCall(toolCalls);
+            const searchJudge = searchCall
+              ? await judgeSearchInboxQuery({
+                  prompt:
+                    "Find me an email related to setting up the SMTP relay API.",
+                  query: searchCall.query,
+                  expected:
+                    "A search query focused on the SMTP relay API setup email.",
+                })
+              : null;
 
             const pass =
               !!searchCall &&
+              !!searchJudge?.pass &&
               hasSearchBeforeFirstWrite(toolCalls) &&
-              queryContainsAny(searchCall.query, ["smtp", "relay", "api"]) &&
               hasNoWriteToolCalls(toolCalls);
 
             evalReporter.record({
               testName: `direct email lookup uses search (${label})`,
               model: model.label,
               pass,
-              actual,
+              actual:
+                searchCall && searchJudge
+                  ? `${actual} | ${formatSemanticJudgeActual(
+                      searchCall.query,
+                      searchJudge,
+                    )}`
+                  : actual,
             });
 
             expect(pass).toBe(true);
@@ -124,6 +140,15 @@ describe.runIf(shouldRunEval)(
             });
 
             const searchCall = getFirstSearchInboxCall(toolCalls);
+            const searchJudge = searchCall
+              ? await judgeSearchInboxQuery({
+                  prompt:
+                    "What does the email about the revised plan say? I need the full contents.",
+                  query: searchCall.query,
+                  expected:
+                    "A search query focused on the email about the revised plan.",
+                })
+              : null;
             const readCall = getLastMatchingToolCall(
               toolCalls,
               "readEmail",
@@ -133,8 +158,8 @@ describe.runIf(shouldRunEval)(
             const pass =
               !!searchCall &&
               !!readCall &&
+              !!searchJudge?.pass &&
               hasSearchBeforeTool(toolCalls, "readEmail") &&
-              queryContainsAny(searchCall.query, ["revised", "plan"]) &&
               readCall.messageId === "msg-read-1" &&
               hasNoWriteToolCalls(toolCalls);
 
@@ -142,7 +167,13 @@ describe.runIf(shouldRunEval)(
               testName: `search then read full email (${label})`,
               model: model.label,
               pass,
-              actual,
+              actual:
+                searchCall && searchJudge
+                  ? `${actual} | ${formatSemanticJudgeActual(
+                      searchCall.query,
+                      searchJudge,
+                    )}`
+                  : actual,
             });
 
             expect(pass).toBe(true);

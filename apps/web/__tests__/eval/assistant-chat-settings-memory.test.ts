@@ -6,6 +6,10 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import {
+  formatSemanticJudgeActual,
+  judgeEvalOutput,
+} from "@/__tests__/eval/semantic-judge";
+import {
   captureAssistantChatToolCalls,
   getLastMatchingToolCall,
   summarizeRecordedToolCalls,
@@ -53,8 +57,9 @@ const scenarios: EvalScenario[] = [
     prompt: "Add to my personal instructions that I prefer concise replies.",
     expectation: {
       kind: "personal_instructions",
-      terms: ["concise"],
       mode: "append",
+      semanticExpectation:
+        "Updated personal instructions that remember the user's preference for concise replies.",
     },
   },
   {
@@ -64,8 +69,9 @@ const scenarios: EvalScenario[] = [
     timeout: 120_000,
     expectation: {
       kind: "save_memory",
-      terms: ["batch", "newsletter", "afternoon"],
       forbiddenTools: ["searchMemories"],
+      semanticExpectation:
+        "Saved memory content that captures the durable preference to batch newsletters in the afternoon.",
     },
   },
   {
@@ -74,8 +80,9 @@ const scenarios: EvalScenario[] = [
     prompt: "What do you remember about my newsletter preferences?",
     expectation: {
       kind: "search_memories",
-      terms: ["newsletter", "preference"],
       forbiddenTools: ["saveMemory"],
+      semanticExpectation:
+        "A memory search query that looks up what the assistant knows about the user's newsletter preferences.",
     },
   },
 ];
@@ -222,13 +229,23 @@ describe.runIf(shouldRunEval)(
                 messages: [{ role: "user", content: scenario.prompt }],
               });
 
-              const pass = evaluateScenario(result, scenario.expectation);
+              const { pass, judgeOutput, judgeResult } = await evaluateScenario(
+                result,
+                scenario.prompt,
+                scenario.expectation,
+              );
 
               evalReporter.record({
                 testName: scenario.reportName,
                 model: model.label,
                 pass,
-                actual: result.actual,
+                actual:
+                  judgeOutput && judgeResult
+                    ? `${result.actual} | ${formatSemanticJudgeActual(
+                        judgeOutput,
+                        judgeResult,
+                      )}`
+                    : result.actual,
               });
 
               expect(pass).toBe(true);
@@ -297,18 +314,18 @@ type ScenarioExpectation =
     }
   | {
       kind: "personal_instructions";
-      terms: string[];
       mode: "append" | "replace";
+      semanticExpectation: string;
     }
   | {
       kind: "save_memory";
-      terms: string[];
       forbiddenTools: string[];
+      semanticExpectation: string;
     }
   | {
       kind: "search_memories";
-      terms: string[];
       forbiddenTools: string[];
+      semanticExpectation: string;
     };
 
 type EvalScenario = {
@@ -357,21 +374,25 @@ function isUpdateAboutInput(input: unknown): input is UpdateAboutInput {
   );
 }
 
-function evaluateScenario(
+async function evaluateScenario(
   result: Awaited<ReturnType<typeof runAssistantChat>>,
+  prompt: string,
   expectation: ScenarioExpectation,
 ) {
   switch (expectation.kind) {
     case "capability_discovery":
-      return (
-        result.toolCalls.some(
-          (toolCall) => toolCall.toolName === "getAssistantCapabilities",
-        ) &&
-        hasNoToolCalls(result.toolCalls, [
-          "updateAssistantSettings",
-          "updateAssistantSettingsCompat",
-        ])
-      );
+      return {
+        pass:
+          result.toolCalls.some(
+            (toolCall) => toolCall.toolName === "getAssistantCapabilities",
+          ) &&
+          hasNoToolCalls(result.toolCalls, [
+            "updateAssistantSettings",
+            "updateAssistantSettingsCompat",
+          ]),
+        judgeOutput: null,
+        judgeResult: null,
+      };
 
     case "assistant_settings": {
       const settingsCall = getLastMatchingToolCall(
@@ -380,15 +401,18 @@ function evaluateScenario(
         isUpdateAssistantSettingsInput,
       )?.input;
 
-      return (
-        !!settingsCall &&
-        settingsCall.changes.some(
-          (change) =>
-            change.path === expectation.changePath &&
-            change.value === expectation.value,
-        ) &&
-        hasNoToolCalls(result.toolCalls, expectation.forbiddenTools)
-      );
+      return {
+        pass:
+          !!settingsCall &&
+          settingsCall.changes.some(
+            (change) =>
+              change.path === expectation.changePath &&
+              change.value === expectation.value,
+          ) &&
+          hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
+        judgeOutput: null,
+        judgeResult: null,
+      };
     }
 
     case "personal_instructions": {
@@ -397,12 +421,27 @@ function evaluateScenario(
         "updatePersonalInstructions",
         isUpdateAboutInput,
       )?.input;
+      const judgeResult = aboutCall
+        ? await judgeEvalOutput({
+            input: prompt,
+            output: aboutCall.about,
+            expected: expectation.semanticExpectation,
+            criterion: {
+              name: "Personal instructions semantics",
+              description:
+                "The updated personal instructions should semantically preserve the requested preference even if the wording differs from the prompt.",
+            },
+          })
+        : null;
 
-      return (
-        !!aboutCall &&
-        includesAnyText(aboutCall.about, expectation.terms) &&
-        aboutCall.mode === expectation.mode
-      );
+      return {
+        pass:
+          !!aboutCall &&
+          !!judgeResult?.pass &&
+          aboutCall.mode === expectation.mode,
+        judgeOutput: aboutCall?.about ?? null,
+        judgeResult,
+      };
     }
 
     case "save_memory": {
@@ -411,12 +450,27 @@ function evaluateScenario(
         "saveMemory",
         isSaveMemoryInput,
       )?.input;
+      const judgeResult = memoryCall
+        ? await judgeEvalOutput({
+            input: prompt,
+            output: memoryCall.content,
+            expected: expectation.semanticExpectation,
+            criterion: {
+              name: "Saved memory semantics",
+              description:
+                "The saved memory content should semantically capture the requested durable preference, even if the wording differs from the prompt.",
+            },
+          })
+        : null;
 
-      return (
-        !!memoryCall &&
-        includesAllText(memoryCall.content, expectation.terms) &&
-        hasNoToolCalls(result.toolCalls, expectation.forbiddenTools)
-      );
+      return {
+        pass:
+          !!memoryCall &&
+          !!judgeResult?.pass &&
+          hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
+        judgeOutput: memoryCall?.content ?? null,
+        judgeResult,
+      };
     }
 
     case "search_memories": {
@@ -425,28 +479,29 @@ function evaluateScenario(
         "searchMemories",
         isSearchMemoriesInput,
       )?.input;
+      const judgeResult = searchCall
+        ? await judgeEvalOutput({
+            input: prompt,
+            output: searchCall.query,
+            expected: expectation.semanticExpectation,
+            criterion: {
+              name: "Memory search semantics",
+              description:
+                "The memory search query should semantically target the requested remembered preference, even if the wording differs from the prompt.",
+            },
+          })
+        : null;
 
-      return (
-        !!searchCall &&
-        includesAnyText(searchCall.query, expectation.terms) &&
-        hasNoToolCalls(result.toolCalls, expectation.forbiddenTools)
-      );
+      return {
+        pass:
+          !!searchCall &&
+          !!judgeResult?.pass &&
+          hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
+        judgeOutput: searchCall?.query ?? null,
+        judgeResult,
+      };
     }
   }
-}
-
-function includesAnyText(text: string | null | undefined, terms: string[]) {
-  if (!text) return false;
-
-  const normalizedText = text.toLowerCase();
-  return terms.some((term) => normalizedText.includes(term.toLowerCase()));
-}
-
-function includesAllText(text: string | null | undefined, terms: string[]) {
-  if (!text) return false;
-
-  const normalizedText = text.toLowerCase();
-  return terms.every((term) => normalizedText.includes(term.toLowerCase()));
 }
 
 function hasNoToolCalls(toolCalls: RecordedToolCall[], toolNames: string[]) {

@@ -10,6 +10,10 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import {
+  formatSemanticJudgeActual,
+  judgeEvalOutput,
+} from "@/__tests__/eval/semantic-judge";
+import {
   buildDefaultSystemRuleRows,
   configureRuleEvalPrisma,
   configureRuleEvalProvider,
@@ -43,7 +47,8 @@ const scenarios = [
     prompt: "i want vendor escalations to stand out. label those Escalations.",
     expectation: {
       kind: "ai_only",
-      terms: ["vendor", "escalation"],
+      instructionExpectation:
+        "Semantic rule instructions that capture vendor escalations or vendor issues that should stand out as escalations.",
     },
   },
   {
@@ -54,7 +59,8 @@ const scenarios = [
       "if a vendor relationship is going sideways, make sure those emails stand out as Escalations.",
     expectation: {
       kind: "ai_only",
-      terms: ["vendor", "escalat", "relationship"],
+      instructionExpectation:
+        "Semantic rule instructions that capture vendor relationships going badly or escalating vendor issues, even if the wording differs from the prompt.",
     },
   },
   {
@@ -66,7 +72,8 @@ const scenarios = [
     expectation: {
       kind: "static_plus_ai",
       senders: ["@partner-updates.example"],
-      terms: ["urgent"],
+      instructionExpectation:
+        "Semantic rule instructions that narrow matching to urgent notes from the specified sender domain.",
     },
   },
   {
@@ -78,7 +85,8 @@ const scenarios = [
     expectation: {
       kind: "static_plus_ai",
       senders: ["renewals@contracts.example"],
-      terms: ["renewal", "expiration"],
+      instructionExpectation:
+        "Semantic rule instructions that narrow matching to renewal or expiration emails from the specified sender.",
     },
   },
 ] as const;
@@ -186,8 +194,16 @@ describe.runIf(shouldRunEval)(
                 messages: [{ role: "user", content: scenario.prompt }],
               });
 
-              const pass = evaluateScenario(
+              const judgeResult = result.createCall
+                ? await judgeAiInstructions(
+                    scenario.prompt,
+                    result.createCall.condition.aiInstructions ?? "",
+                    scenario.expectation.instructionExpectation,
+                  )
+                : null;
+              const pass = await evaluateScenario(
                 result.createCall,
+                judgeResult,
                 scenario.expectation,
               );
 
@@ -195,7 +211,13 @@ describe.runIf(shouldRunEval)(
                 testName: scenario.reportName,
                 model: model.label,
                 pass,
-                actual: result.actual,
+                actual:
+                  result.createCall && judgeResult
+                    ? `${result.actual} | ${formatSemanticJudgeActual(
+                        result.createCall.condition.aiInstructions ?? "",
+                        judgeResult,
+                      )}`
+                    : result.actual,
               });
 
               expect(pass).toBe(true);
@@ -215,12 +237,12 @@ describe.runIf(shouldRunEval)(
 type ScenarioExpectation =
   | {
       kind: "ai_only";
-      terms: string[];
+      instructionExpectation: string;
     }
   | {
       kind: "static_plus_ai";
       senders: string[];
-      terms: string[];
+      instructionExpectation: string;
     };
 
 type CreateRuleInput = {
@@ -268,18 +290,19 @@ async function runAssistantChat({
   };
 }
 
-function evaluateScenario(
+async function evaluateScenario(
   createCall: CreateRuleInput | null,
+  judgeResult: Awaited<ReturnType<typeof judgeAiInstructions>> | null,
   expectation: ScenarioExpectation,
 ) {
   switch (expectation.kind) {
     case "ai_only":
-      return usesAiInstructionsOnly(createCall, expectation.terms);
+      return usesAiInstructionsOnly(createCall, judgeResult);
     case "static_plus_ai":
       return usesStaticFromAndInstructions(
         createCall,
         expectation.senders,
-        expectation.terms,
+        judgeResult,
       );
   }
 }
@@ -314,22 +337,19 @@ function isCreateRuleInput(input: unknown): input is CreateRuleInput {
 
 function usesAiInstructionsOnly(
   createCall: CreateRuleInput | null,
-  expectedTerms: string[],
+  judgeResult: Awaited<ReturnType<typeof judgeAiInstructions>> | null,
 ) {
   if (!createCall) return false;
 
   const staticFrom = createCall.condition.static?.from;
 
-  return (
-    (!staticFrom || staticFrom.trim().length === 0) &&
-    includesAnyText(createCall.condition.aiInstructions, expectedTerms)
-  );
+  return (!staticFrom || staticFrom.trim().length === 0) && !!judgeResult?.pass;
 }
 
 function usesStaticFromAndInstructions(
   createCall: CreateRuleInput | null,
   expectedSenders: string[],
-  expectedTerms: string[],
+  judgeResult: Awaited<ReturnType<typeof judgeAiInstructions>> | null,
 ) {
   if (!createCall) return false;
 
@@ -337,8 +357,7 @@ function usesStaticFromAndInstructions(
   if (!staticFrom) return false;
 
   return (
-    senderListMatchesExactly(staticFrom, expectedSenders) &&
-    includesAnyText(createCall.condition.aiInstructions, expectedTerms)
+    senderListMatchesExactly(staticFrom, expectedSenders) && !!judgeResult?.pass
   );
 }
 
@@ -360,9 +379,19 @@ function truncate(value: string | null | undefined, maxLength = 120) {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 }
 
-function includesAnyText(text: string | null | undefined, terms: string[]) {
-  if (!text) return false;
-
-  const normalizedText = text.toLowerCase();
-  return terms.some((term) => normalizedText.includes(term.toLowerCase()));
+async function judgeAiInstructions(
+  prompt: string,
+  aiInstructions: string,
+  instructionExpectation: string,
+) {
+  return judgeEvalOutput({
+    input: prompt,
+    output: aiInstructions,
+    expected: instructionExpectation,
+    criterion: {
+      name: "Semantic aiInstructions",
+      description:
+        "The generated aiInstructions should semantically capture the requested rule behavior even if the wording differs from the prompt.",
+    },
+  });
 }

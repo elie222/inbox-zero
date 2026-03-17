@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
+import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
 import { redis } from "@/utils/redis";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 
@@ -24,7 +25,7 @@ describe("saveReply", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5.1",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
 
@@ -36,7 +37,7 @@ describe("saveReply", () => {
         attribution: {
           provider: "openai",
           modelName: "gpt-5.1",
-          pipelineVersion: 1,
+          pipelineVersion: DRAFT_PIPELINE_VERSION,
         },
       }),
       { ex: 60 * 60 * 24 },
@@ -51,7 +52,7 @@ describe("saveReply", () => {
         attribution: {
           provider: "openai",
           modelName: "gpt-5.1",
-          pipelineVersion: 1,
+          pipelineVersion: DRAFT_PIPELINE_VERSION,
         },
       }),
     );
@@ -67,7 +68,7 @@ describe("saveReply", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5.1",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
   });

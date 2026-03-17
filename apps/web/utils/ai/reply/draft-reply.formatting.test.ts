@@ -4,6 +4,7 @@ import {
   aiDraftReply,
   aiDraftReplyWithConfidence,
 } from "@/utils/ai/reply/draft-reply";
+import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 
 const { mockCreateGenerateObject, mockGenerateObject } = vi.hoisted(() => {
@@ -219,6 +220,31 @@ describe("aiDraftReply formatting", () => {
     );
   });
 
+  it("includes learned reply memories in the generation prompt when provided", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Thanks for your message.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    await aiDraftReplyWithConfidence({
+      ...getDraftParams(),
+      replyMemoryContent:
+        "1. [FACT | TOPIC:pricing] Mention that pricing depends on seat count.",
+    });
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+
+    expect(callArgs.prompt).toContain("<reply_memories>");
+    expect(callArgs.prompt).toContain(
+      "Mention that pricing depends on seat count.",
+    );
+    expect(callArgs.prompt).toContain(
+      "explicit user instructions and knowledge base content take precedence",
+    );
+  });
+
   it("defaults invalid confidence values to ALL_EMAILS", async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {
@@ -254,7 +280,7 @@ describe("aiDraftReply formatting", () => {
     expect(result.attribution).toEqual({
       provider: "openai",
       modelName: "gpt-5.1-mini",
-      pipelineVersion: 1,
+      pipelineVersion: DRAFT_PIPELINE_VERSION,
     });
   });
 });

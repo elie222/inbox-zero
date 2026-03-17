@@ -5,6 +5,12 @@ import { withPrismaRetry } from "@/utils/prisma-retry";
 import { calculateSimilarity } from "@/utils/similarity-score";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
+import { emailToContent } from "@/utils/mail";
+import {
+  isMeaningfulDraftEdit,
+  saveDraftSendLogReplyMemory,
+  syncReplyMemoriesFromDraftSendLogs,
+} from "@/utils/ai/reply/reply-memory";
 import { logReplyTrackerError } from "./error-logging";
 
 /**
@@ -78,7 +84,7 @@ export async function trackSentDraftStatus({
     });
 
     // Create DraftSendLog to record the comparison, but mark wasDraftSent as false
-    await withPrismaRetry(
+    const [draftSendLog] = await withPrismaRetry(
       () =>
         prisma.$transaction([
           prisma.draftSendLog.create({
@@ -100,6 +106,16 @@ export async function trackSentDraftStatus({
       "Created draft send log and marked action as not sent (draft still exists)",
       { executedActionId },
     );
+    queueReplyMemoryLearning({
+      emailAccountId,
+      executedActionId,
+      draftSendLogId: draftSendLog.id,
+      draftText: executedAction.content,
+      similarityScore,
+      message,
+      provider,
+      logger,
+    });
     return;
   }
 
@@ -112,7 +128,7 @@ export async function trackSentDraftStatus({
     },
   );
 
-  await withPrismaRetry(
+  const [draftSendLog] = await withPrismaRetry(
     () =>
       prisma.$transaction([
         prisma.draftSendLog.create({
@@ -135,6 +151,17 @@ export async function trackSentDraftStatus({
     "Successfully created draft send log and updated action status via transaction",
     { executedActionId },
   );
+
+  queueReplyMemoryLearning({
+    emailAccountId,
+    executedActionId,
+    draftSendLogId: draftSendLog.id,
+    draftText: executedAction.content,
+    similarityScore,
+    message,
+    provider,
+    logger,
+  });
 }
 
 /**
@@ -338,4 +365,54 @@ export async function cleanupThreadAIDrafts({
   } catch (error) {
     logger.error("Error during thread draft cleanup", { error });
   }
+}
+
+function queueReplyMemoryLearning({
+  emailAccountId,
+  executedActionId,
+  draftSendLogId,
+  draftText,
+  similarityScore,
+  message,
+  provider,
+  logger,
+}: {
+  emailAccountId: string;
+  executedActionId: string;
+  draftSendLogId: string;
+  draftText?: string | null;
+  similarityScore: number;
+  message: ParsedMessage;
+  provider: EmailProvider;
+  logger: Logger;
+}) {
+  if (!draftText) return;
+
+  const sentText = emailToContent(message, {
+    maxLength: 4000,
+    extractReply: true,
+    removeForwarded: false,
+  });
+
+  if (!isMeaningfulDraftEdit({ draftText, sentText, similarityScore })) {
+    return;
+  }
+
+  saveDraftSendLogReplyMemory({
+    draftSendLogId,
+    sentText,
+  })
+    .then(() =>
+      syncReplyMemoriesFromDraftSendLogs({
+        emailAccountId,
+        provider,
+        logger,
+      }),
+    )
+    .catch((error) => {
+      logger.error("Failed to learn reply memories from draft edit", {
+        error,
+        executedActionId,
+      });
+    });
 }

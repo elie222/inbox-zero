@@ -12,6 +12,10 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import {
+  formatSemanticJudgeActual,
+  judgeEvalOutput,
+} from "@/__tests__/eval/semantic-judge";
+import {
   buildDefaultSystemRuleRows,
   configureRuleEvalPrisma,
   configureRuleEvalProvider,
@@ -162,9 +166,24 @@ describe.runIf(shouldRunEval)(
               toolCalls,
               "updateRuleConditions",
             );
+            const judgeResult = updateCall
+              ? await judgeEvalOutput({
+                  input:
+                    "If I am CC'd on an email, it should not be marked To Reply.",
+                  output: updateCall.condition.aiInstructions ?? "",
+                  expected:
+                    "Rule instructions that exclude emails where the user is only CC'd from the To Reply rule.",
+                  criterion: {
+                    name: "CC exclusion semantics",
+                    description:
+                      "The generated aiInstructions should semantically express that emails where the user is only CC'd should not match the To Reply rule. Exact CC or negation wording is not required.",
+                  },
+                })
+              : null;
 
             const pass =
               !!updateCall &&
+              !!judgeResult?.pass &&
               updateCall.ruleName === "To Reply" &&
               hasRuleReadBeforeUpdate(toolCalls, updateCallIndex) &&
               !toolCalls.some(
@@ -172,14 +191,18 @@ describe.runIf(shouldRunEval)(
               ) &&
               !toolCalls.some(
                 (toolCall) => toolCall.toolName === "updateLearnedPatterns",
-              ) &&
-              mentionsCcExclusion(updateCall.condition.aiInstructions);
+              );
 
             evalReporter.record({
               testName: "update To Reply rule for cc handling",
               model: model.label,
               pass,
-              actual,
+              actual: updateCall
+                ? `${actual} | ${formatSemanticJudgeActual(
+                    updateCall.condition.aiInstructions ?? "",
+                    judgeResult!,
+                  )}`
+                : actual,
             });
 
             expect(pass).toBe(true);
@@ -235,21 +258,6 @@ function isUpdateRuleConditionsInput(
     typeof value.ruleName === "string" &&
     !!value.condition &&
     typeof value.condition === "object"
-  );
-}
-
-function mentionsCcExclusion(text: string | null | undefined) {
-  if (!text) return false;
-
-  const normalizedText = text.toLowerCase();
-
-  return (
-    /(?:\bcc\b|carbon copy|copied|copy recipient|primary recipient|to field)/.test(
-      normalizedText,
-    ) &&
-    /\b(?:not|don't|do not|doesn't|does not|no|exclude|excluding)\b/.test(
-      normalizedText,
-    )
   );
 }
 

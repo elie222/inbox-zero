@@ -183,6 +183,7 @@ model EmailAccount {
   emailMessages    EmailMessage[]
   emailTokens      EmailToken[]
   knowledge        Knowledge[]
+  replyMemories    ReplyMemory[]
   chats            Chat[]
   chatMemories     ChatMemory[]
   digests          Digest[]
@@ -847,6 +848,39 @@ model Knowledge {
   @@unique([emailAccountId, title])
 }
 
+model ReplyMemory {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  title      String
+  content    String
+  kind       ReplyMemoryKind
+  scopeType  ReplyMemoryScopeType
+  scopeValue String
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  sources        ReplyMemorySource[]
+
+  @@unique([emailAccountId, kind, scopeType, scopeValue, title])
+  @@index([emailAccountId, updatedAt])
+  @@index([emailAccountId, scopeType, scopeValue])
+}
+
+model ReplyMemorySource {
+  createdAt DateTime @default(now())
+
+  replyMemoryId String
+  replyMemory   ReplyMemory @relation(fields: [replyMemoryId], references: [id], onDelete: Cascade)
+
+  draftSendLogId String
+  draftSendLog   DraftSendLog @relation(fields: [draftSendLogId], references: [id], onDelete: Cascade)
+
+  @@id([replyMemoryId, draftSendLogId])
+  @@index([draftSendLogId])
+}
+
 model ApiKey {
   id         String        @id @default(cuid())
   createdAt  DateTime      @default(now())
@@ -921,10 +955,15 @@ model DraftSendLog {
   executedActionId String         @unique
   executedAction   ExecutedAction @relation(fields: [executedActionId], references: [id], onDelete: Cascade)
 
-  sentMessageId   String
-  similarityScore Float // Similarity score (0.0 to 1.0) between original draft and sent message
+  sentMessageId          String
+  similarityScore        Float // Similarity score (0.0 to 1.0) between original draft and sent message
+  replyMemorySentText    String?
+  replyMemoryAttemptCount Int      @default(0)
+  replyMemoryProcessedAt DateTime?
+  replyMemorySources     ReplyMemorySource[]
 
   @@index([executedActionId])
+  @@index([replyMemoryProcessedAt, replyMemoryAttemptCount, createdAt])
 }
 
 model Chat {
@@ -1374,6 +1413,18 @@ enum DraftReplyConfidence {
   ALL_EMAILS
   STANDARD
   HIGH_CONFIDENCE
+}
+
+enum ReplyMemoryKind {
+  FACT
+  STYLE
+}
+
+enum ReplyMemoryScopeType {
+  GLOBAL
+  SENDER
+  DOMAIN
+  TOPIC
 }
 
 enum NewsletterStatus {
