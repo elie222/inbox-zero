@@ -100,5 +100,8 @@ qa/browser-flows/results/*
 .claude/skills/local/
 .agents/skills/local/
 
+# local claude hooks (personal nested repo)
+.claude/local/
+
 # eval reports
 eval-results/
