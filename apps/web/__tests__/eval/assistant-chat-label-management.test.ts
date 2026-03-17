@@ -1,30 +1,26 @@
 import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
-import { describeEvalMatrix } from "@/__tests__/eval/models";
+import {
+  captureAssistantChatToolCalls,
+  getLastMatchingToolCall,
+  summarizeRecordedToolCalls,
+  type RecordedToolCall,
+} from "@/__tests__/eval/assistant-chat-eval-utils";
+import {
+  describeEvalMatrix,
+  shouldRunEvalTests,
+} from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import type { getEmailAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 
 // pnpm test-ai eval/assistant-chat-label-management
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-label-management
 
 vi.mock("server-only", () => ({}));
 
-const isAiTest = process.env.RUN_AI_TESTS === "true";
-const hasAnyEvalApiKey = Boolean(
-  process.env.OPENROUTER_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    process.env.ANTHROPIC_API_KEY ||
-    process.env.GOOGLE_API_KEY,
-);
-const hasDefaultEvalApiKey = Boolean(process.env.OPENROUTER_API_KEY);
-const shouldRunEval = isAiTest
-  ? process.env.EVAL_MODELS
-    ? hasAnyEvalApiKey
-    : hasDefaultEvalApiKey
-  : false;
+const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 const evalReporter = createEvalReporter();
 const logger = createScopedLogger("eval-assistant-chat-label-management");
@@ -370,33 +366,15 @@ async function runAssistantChat({
   emailAccount: ReturnType<typeof getEmailAccount>;
   messages: ModelMessage[];
 }) {
-  const toolCalls: Array<{ toolName: string; input: unknown }> = [];
-
-  const result = await aiProcessAssistantChat({
+  const toolCalls = await captureAssistantChatToolCalls({
     messages,
-    emailAccountId: emailAccount.id,
-    user: emailAccount,
+    emailAccount,
     logger,
-    onStepFinish: async ({ toolCalls: stepToolCalls }) => {
-      for (const toolCall of stepToolCalls || []) {
-        toolCalls.push({
-          toolName: toolCall.toolName,
-          input: toolCall.input,
-        });
-      }
-    },
   });
-
-  await result.consumeStream();
-
-  const actual =
-    toolCalls.length > 0
-      ? toolCalls.map(summarizeToolCall).join(" | ")
-      : "no tool calls";
 
   return {
     toolCalls,
-    actual,
+    actual: summarizeRecordedToolCalls(toolCalls, summarizeToolCall),
   };
 }
 
@@ -444,7 +422,7 @@ function isManageInboxLabelThreadsInput(
   );
 }
 
-function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {
+function summarizeToolCall(toolCall: RecordedToolCall) {
   if (
     toolCall.toolName === "createOrGetLabel" &&
     isCreateOrGetLabelInput(toolCall.input)
@@ -461,23 +439,4 @@ function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {
   }
 
   return toolCall.toolName;
-}
-
-function getLastMatchingToolCall<TInput>(
-  toolCalls: Array<{ toolName: string; input: unknown }>,
-  toolName: string,
-  matches: (input: unknown) => input is TInput,
-) {
-  for (let index = toolCalls.length - 1; index >= 0; index--) {
-    const toolCall = toolCalls[index];
-    if (toolCall.toolName !== toolName) continue;
-    if (!matches(toolCall.input)) continue;
-
-    return {
-      index,
-      input: toolCall.input,
-    };
-  }
-
-  return null;
 }

@@ -174,7 +174,7 @@ export type GetAccountOverviewTool = InferUITool<
 
 function getSearchQueryDescription(provider: string): string {
   if (isMicrosoftProvider(provider)) {
-    return "Search query using KQL syntax. Supports: from:, to:, subject:, received>=YYYY-MM-DD, keyword search. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
+    return "Search query using KQL syntax. Supports: unread, read, from:, to:, subject:, received>=YYYY-MM-DD, keyword search. For unread inbox triage, use unread. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
   }
   return "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.";
 }

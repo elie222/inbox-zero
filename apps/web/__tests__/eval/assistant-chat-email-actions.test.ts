@@ -5,10 +5,16 @@ import {
   shouldRunEvalTests,
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
+import {
+  captureAssistantChatToolCalls,
+  getFirstMatchingToolCall,
+  getLastMatchingToolCall,
+  summarizeRecordedToolCalls,
+  type RecordedToolCall,
+} from "@/__tests__/eval/assistant-chat-eval-utils";
 import { getMockMessage } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai eval/assistant-chat-email-actions
@@ -20,6 +26,70 @@ const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
 const evalReporter = createEvalReporter();
 const logger = createScopedLogger("eval-assistant-chat-email-actions");
+const scenarios: EvalScenario[] = [
+  {
+    title:
+      "uses sendEmail directly for a new outbound draft with an explicit recipient",
+    reportName: "direct draft uses sendEmail",
+    prompt:
+      "Draft an email to Alex <alex@vendor.test> with the subject Meeting on Tuesday and say that Tuesday at 2pm works for me.",
+    expectation: {
+      kind: "send_email",
+      recipient: "alex@vendor.test",
+      subject: "Meeting on Tuesday",
+      terms: ["Tuesday", "2pm"],
+      disallowedTools: ["searchInbox", "replyEmail", "forwardEmail"],
+    },
+  },
+  {
+    title: "uses searchInbox then replyEmail for replies to existing mail",
+    reportName: "reply uses search then replyEmail",
+    prompt:
+      "Reply to the email from ops@partner.example and say Tuesday at 2pm works for me.",
+    searchMessages: [
+      getMockMessage({
+        id: "msg-reply-1",
+        threadId: "thread-reply-1",
+        from: "ops@partner.example",
+        subject: "Question on the revised plan",
+        snippet: "Can you send your answer today?",
+        labelIds: ["UNREAD"],
+      }),
+    ],
+    expectation: {
+      kind: "reply_email",
+      searchTerms: ["ops", "partner", "revised"],
+      messageId: "msg-reply-1",
+      terms: ["Tuesday", "2pm"],
+      disallowedTools: ["sendEmail"],
+    },
+  },
+  {
+    title:
+      "uses searchInbox then forwardEmail for forwarding an existing message",
+    reportName: "forward uses search then forwardEmail",
+    prompt:
+      "Forward the SMTP relay setup email to eng@company.test and mention this is the one to use.",
+    searchMessages: [
+      getMockMessage({
+        id: "msg-forward-1",
+        threadId: "thread-forward-1",
+        from: "support@smtprelay.example",
+        subject: "SMTP relay API setup guide",
+        snippet: "Here are the connection details for your API client.",
+        labelIds: ["UNREAD"],
+      }),
+    ],
+    expectation: {
+      kind: "forward_email",
+      searchTerms: ["smtp", "relay", "setup"],
+      messageId: "msg-forward-1",
+      recipient: "eng@company.test",
+      terms: ["one to use"],
+      disallowedTools: ["sendEmail"],
+    },
+  },
+];
 
 const {
   mockCreateEmailProvider,
@@ -119,159 +189,36 @@ describe.runIf(shouldRunEval)("Eval: assistant chat email actions", () => {
   });
 
   describeEvalMatrix("assistant-chat email actions", (model, emailAccount) => {
-    test(
-      "uses sendEmail directly for a new outbound draft with an explicit recipient",
-      async () => {
-        const { toolCalls, actual } = await runAssistantChat({
-          emailAccount,
-          messages: [
-            {
-              role: "user",
-              content:
-                "Draft an email to Alex <alex@vendor.test> with the subject Meeting on Tuesday and say that Tuesday at 2pm works for me.",
-            },
-          ],
-        });
+    for (const scenario of scenarios) {
+      test(
+        scenario.title,
+        async () => {
+          if (scenario.searchMessages) {
+            mockSearchMessages.mockResolvedValueOnce({
+              messages: scenario.searchMessages,
+              nextPageToken: undefined,
+            });
+          }
 
-        const sendCall = getLastMatchingToolCall(
-          toolCalls,
-          "sendEmail",
-          isSendEmailInput,
-        )?.input;
+          const result = await runAssistantChat({
+            emailAccount,
+            messages: [{ role: "user", content: scenario.prompt }],
+          });
 
-        const pass =
-          !!sendCall &&
-          sendCall.to.includes("alex@vendor.test") &&
-          sendCall.subject === "Meeting on Tuesday" &&
-          includesAnyText(sendCall.messageHtml, ["Tuesday", "2pm"]) &&
-          !toolCalls.some((toolCall) => toolCall.toolName === "searchInbox") &&
-          !toolCalls.some((toolCall) => toolCall.toolName === "replyEmail") &&
-          !toolCalls.some((toolCall) => toolCall.toolName === "forwardEmail");
+          const pass = evaluateScenario(result, scenario.expectation);
 
-        evalReporter.record({
-          testName: "direct draft uses sendEmail",
-          model: model.label,
-          pass,
-          actual,
-        });
+          evalReporter.record({
+            testName: scenario.reportName,
+            model: model.label,
+            pass,
+            actual: result.actual,
+          });
 
-        expect(pass).toBe(true);
-      },
-      TIMEOUT,
-    );
-
-    test(
-      "uses searchInbox then replyEmail for replies to existing mail",
-      async () => {
-        mockSearchMessages.mockResolvedValueOnce({
-          messages: [
-            getMockMessage({
-              id: "msg-reply-1",
-              threadId: "thread-reply-1",
-              from: "ops@partner.example",
-              subject: "Question on the revised plan",
-              snippet: "Can you send your answer today?",
-              labelIds: ["UNREAD"],
-            }),
-          ],
-          nextPageToken: undefined,
-        });
-
-        const { toolCalls, actual } = await runAssistantChat({
-          emailAccount,
-          messages: [
-            {
-              role: "user",
-              content:
-                "Reply to the email from ops@partner.example and say Tuesday at 2pm works for me.",
-            },
-          ],
-        });
-
-        const searchCall = getFirstSearchInboxCall(toolCalls);
-        const replyCall = getLastMatchingToolCall(
-          toolCalls,
-          "replyEmail",
-          isReplyEmailInput,
-        )?.input;
-
-        const pass =
-          !!searchCall &&
-          !!replyCall &&
-          hasToolBeforeTool(toolCalls, "searchInbox", "replyEmail") &&
-          queryContainsAny(searchCall.query, ["ops", "partner", "revised"]) &&
-          replyCall.messageId === "msg-reply-1" &&
-          includesAnyText(replyCall.content, ["Tuesday", "2pm"]) &&
-          !toolCalls.some((toolCall) => toolCall.toolName === "sendEmail");
-
-        evalReporter.record({
-          testName: "reply uses search then replyEmail",
-          model: model.label,
-          pass,
-          actual,
-        });
-
-        expect(pass).toBe(true);
-      },
-      TIMEOUT,
-    );
-
-    test(
-      "uses searchInbox then forwardEmail for forwarding an existing message",
-      async () => {
-        mockSearchMessages.mockResolvedValueOnce({
-          messages: [
-            getMockMessage({
-              id: "msg-forward-1",
-              threadId: "thread-forward-1",
-              from: "support@smtprelay.example",
-              subject: "SMTP relay API setup guide",
-              snippet: "Here are the connection details for your API client.",
-              labelIds: ["UNREAD"],
-            }),
-          ],
-          nextPageToken: undefined,
-        });
-
-        const { toolCalls, actual } = await runAssistantChat({
-          emailAccount,
-          messages: [
-            {
-              role: "user",
-              content:
-                "Forward the SMTP relay setup email to eng@company.test and mention this is the one to use.",
-            },
-          ],
-        });
-
-        const searchCall = getFirstSearchInboxCall(toolCalls);
-        const forwardCall = getLastMatchingToolCall(
-          toolCalls,
-          "forwardEmail",
-          isForwardEmailInput,
-        )?.input;
-
-        const pass =
-          !!searchCall &&
-          !!forwardCall &&
-          hasToolBeforeTool(toolCalls, "searchInbox", "forwardEmail") &&
-          queryContainsAny(searchCall.query, ["smtp", "relay", "setup"]) &&
-          forwardCall.messageId === "msg-forward-1" &&
-          forwardCall.to.includes("eng@company.test") &&
-          includesAnyText(forwardCall.content, ["one to use"]) &&
-          !toolCalls.some((toolCall) => toolCall.toolName === "sendEmail");
-
-        evalReporter.record({
-          testName: "forward uses search then forwardEmail",
-          model: model.label,
-          pass,
-          actual,
-        });
-
-        expect(pass).toBe(true);
-      },
-      TIMEOUT,
-    );
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
+    }
   });
 
   afterAll(() => {
@@ -286,33 +233,15 @@ async function runAssistantChat({
   emailAccount: ReturnType<typeof getEmailAccount>;
   messages: ModelMessage[];
 }) {
-  const toolCalls: Array<{ toolName: string; input: unknown }> = [];
-
-  const result = await aiProcessAssistantChat({
+  const toolCalls = await captureAssistantChatToolCalls({
     messages,
-    emailAccountId: emailAccount.id,
-    user: emailAccount,
+    emailAccount,
     logger,
-    onStepFinish: async ({ toolCalls: stepToolCalls }) => {
-      for (const toolCall of stepToolCalls || []) {
-        toolCalls.push({
-          toolName: toolCall.toolName,
-          input: toolCall.input,
-        });
-      }
-    },
   });
-
-  await result.consumeStream();
-
-  const actual =
-    toolCalls.length > 0
-      ? toolCalls.map(summarizeToolCall).join(" | ")
-      : "no tool calls";
 
   return {
     toolCalls,
-    actual,
+    actual: summarizeRecordedToolCalls(toolCalls, summarizeToolCall),
   };
 }
 
@@ -335,6 +264,38 @@ type ForwardEmailInput = {
   messageId: string;
   to: string;
   content?: string | null;
+};
+
+type ScenarioExpectation =
+  | {
+      kind: "send_email";
+      recipient: string;
+      subject: string;
+      terms: string[];
+      disallowedTools: string[];
+    }
+  | {
+      kind: "reply_email";
+      searchTerms: string[];
+      messageId: string;
+      terms: string[];
+      disallowedTools: string[];
+    }
+  | {
+      kind: "forward_email";
+      searchTerms: string[];
+      messageId: string;
+      recipient: string;
+      terms: string[];
+      disallowedTools: string[];
+    };
+
+type EvalScenario = {
+  title: string;
+  reportName: string;
+  prompt: string;
+  searchMessages?: ReturnType<typeof getMockMessage>[];
+  expectation: ScenarioExpectation;
 };
 
 function isSearchInboxInput(input: unknown): input is SearchInboxInput {
@@ -390,37 +351,75 @@ function isForwardEmailInput(input: unknown): input is ForwardEmailInput {
   );
 }
 
-function getFirstSearchInboxCall(
-  toolCalls: Array<{ toolName: string; input: unknown }>,
-) {
-  const toolCall = toolCalls.find(
-    (candidate) => candidate.toolName === "searchInbox",
-  );
-
-  return isSearchInboxInput(toolCall?.input) ? toolCall.input : null;
+function getFirstSearchInboxCall(toolCalls: RecordedToolCall[]) {
+  return getFirstMatchingToolCall(toolCalls, "searchInbox", isSearchInboxInput)
+    ?.input;
 }
 
-function getLastMatchingToolCall<TInput>(
-  toolCalls: Array<{ toolName: string; input: unknown }>,
-  toolName: string,
-  matches: (input: unknown) => input is TInput,
+function evaluateScenario(
+  result: Awaited<ReturnType<typeof runAssistantChat>>,
+  expectation: ScenarioExpectation,
 ) {
-  for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
-    const toolCall = toolCalls[index];
-    if (toolCall.toolName !== toolName) continue;
-    if (!matches(toolCall.input)) continue;
+  switch (expectation.kind) {
+    case "send_email": {
+      const sendCall = getLastMatchingToolCall(
+        result.toolCalls,
+        "sendEmail",
+        isSendEmailInput,
+      )?.input;
 
-    return {
-      index,
-      input: toolCall.input,
-    };
+      return (
+        !!sendCall &&
+        sendCall.to.includes(expectation.recipient) &&
+        sendCall.subject === expectation.subject &&
+        includesAnyText(sendCall.messageHtml, expectation.terms) &&
+        hasNoToolCalls(result.toolCalls, expectation.disallowedTools)
+      );
+    }
+
+    case "reply_email": {
+      const searchCall = getFirstSearchInboxCall(result.toolCalls);
+      const replyCall = getLastMatchingToolCall(
+        result.toolCalls,
+        "replyEmail",
+        isReplyEmailInput,
+      )?.input;
+
+      return (
+        !!searchCall &&
+        !!replyCall &&
+        hasToolBeforeTool(result.toolCalls, "searchInbox", "replyEmail") &&
+        queryContainsAny(searchCall.query, expectation.searchTerms) &&
+        replyCall.messageId === expectation.messageId &&
+        includesAnyText(replyCall.content, expectation.terms) &&
+        hasNoToolCalls(result.toolCalls, expectation.disallowedTools)
+      );
+    }
+
+    case "forward_email": {
+      const searchCall = getFirstSearchInboxCall(result.toolCalls);
+      const forwardCall = getLastMatchingToolCall(
+        result.toolCalls,
+        "forwardEmail",
+        isForwardEmailInput,
+      )?.input;
+
+      return (
+        !!searchCall &&
+        !!forwardCall &&
+        hasToolBeforeTool(result.toolCalls, "searchInbox", "forwardEmail") &&
+        queryContainsAny(searchCall.query, expectation.searchTerms) &&
+        forwardCall.messageId === expectation.messageId &&
+        forwardCall.to.includes(expectation.recipient) &&
+        includesAnyText(forwardCall.content, expectation.terms) &&
+        hasNoToolCalls(result.toolCalls, expectation.disallowedTools)
+      );
+    }
   }
-
-  return null;
 }
 
 function hasToolBeforeTool(
-  toolCalls: Array<{ toolName: string; input: unknown }>,
+  toolCalls: RecordedToolCall[],
   firstToolName: string,
   secondToolName: string,
 ) {
@@ -432,6 +431,10 @@ function hasToolBeforeTool(
   );
 
   return firstIndex >= 0 && secondIndex >= 0 && firstIndex < secondIndex;
+}
+
+function hasNoToolCalls(toolCalls: RecordedToolCall[], toolNames: string[]) {
+  return !toolCalls.some((toolCall) => toolNames.includes(toolCall.toolName));
 }
 
 function queryContainsAny(query: string, terms: string[]) {
@@ -446,7 +449,7 @@ function includesAnyText(text: string | null | undefined, terms: string[]) {
   return terms.some((term) => normalizedText.includes(term.toLowerCase()));
 }
 
-function summarizeToolCall(toolCall: { toolName: string; input: unknown }) {
+function summarizeToolCall(toolCall: RecordedToolCall) {
   if (isSearchInboxInput(toolCall.input)) {
     return `${toolCall.toolName}(query=${toolCall.input.query})`;
   }

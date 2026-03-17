@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { aiPromptToRulesOld } from "@/utils/ai/rule/prompt-to-rules-old";
+import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { ActionType } from "@/generated/prisma/enums";
 import { getEmailAccount } from "@/__tests__/helpers";
@@ -12,7 +12,7 @@ const TIMEOUT = 15_000;
 
 vi.mock("server-only", () => ({}));
 
-describe.runIf(isAiTest)("aiPromptToRulesOld", () => {
+describe.runIf(isAiTest)("aiPromptToRules", () => {
   it(
     "should convert prompt file to rules",
     async () => {
@@ -27,11 +27,7 @@ describe.runIf(isAiTest)("aiPromptToRulesOld", () => {
 
       const promptFile = prompts.join("\n");
 
-      const result = await aiPromptToRulesOld({
-        emailAccount,
-        promptFile,
-        isEditing: false,
-      });
+      const result = await aiPromptToRules({ emailAccount, promptFile });
 
       expect(Array.isArray(result)).toBe(true);
       expect(result.length).toBe(prompts.length);
@@ -119,11 +115,7 @@ describe.runIf(isAiTest)("aiPromptToRulesOld", () => {
     const promptFile = "Some prompt";
 
     await expect(
-      aiPromptToRulesOld({
-        emailAccount,
-        promptFile,
-        isEditing: false,
-      }),
+      aiPromptToRules({ emailAccount, promptFile }),
     ).rejects.toThrow();
   });
 
@@ -138,11 +130,7 @@ describe.runIf(isAiTest)("aiPromptToRulesOld", () => {
       * Forward emails from VIP clients (from @bigclient.com) to vip-support@company.com
     `.trim();
 
-      const result = await aiPromptToRulesOld({
-        emailAccount,
-        promptFile,
-        isEditing: false,
-      });
+      const result = await aiPromptToRules({ emailAccount, promptFile });
 
       expect(result.length).toBe(3);
 
@@ -215,11 +203,7 @@ describe.runIf(isAiTest)("aiPromptToRulesOld", () => {
       """
     `.trim();
 
-      const result = await aiPromptToRulesOld({
-        emailAccount,
-        promptFile,
-        isEditing: false,
-      });
+      const result = await aiPromptToRules({ emailAccount, promptFile });
 
       expect(result.length).toBe(1);
       expect(result[0]).toMatchObject({
@@ -251,11 +235,7 @@ describe.runIf(isAiTest)("aiPromptToRulesOld", () => {
       forward it to manager@company.com and label it as "Escalation"
     `.trim();
 
-      const result = await aiPromptToRulesOld({
-        emailAccount,
-        promptFile,
-        isEditing: false,
-      });
+      const result = await aiPromptToRules({ emailAccount, promptFile });
 
       expect(result.length).toBe(1);
       expect(result[0]).toMatchObject({
@@ -299,11 +279,7 @@ describe.runIf(isAiTest)("aiPromptToRulesOld", () => {
       """
     `.trim();
 
-      const result = await aiPromptToRulesOld({
-        emailAccount,
-        promptFile,
-        isEditing: false,
-      });
+      const result = await aiPromptToRules({ emailAccount, promptFile });
 
       expect(result.length).toBe(1);
       expect(result[0]).toMatchObject({

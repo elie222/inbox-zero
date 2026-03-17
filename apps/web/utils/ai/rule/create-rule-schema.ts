@@ -5,6 +5,12 @@ import { isDefined } from "@/utils/types";
 import { env } from "@/env";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
+import {
+  AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
+  INVALID_STATIC_FROM_MESSAGE,
+  isInvalidStaticFromValue,
+  STATIC_FROM_CONDITION_DESCRIPTION,
+} from "@/utils/ai/rule/rule-condition-descriptions";
 
 const conditionSchema = z
   .object({
@@ -16,17 +22,23 @@ const conditionSchema = z
       ),
     aiInstructions: z
       .string()
-      .nullable()
-      .describe(
-        "Instructions for the AI to determine when to apply this rule. For example: 'Apply this rule to emails about product updates' or 'Use this rule for messages discussing project deadlines'. Be specific about the email content or characteristics that should trigger this rule.",
-      ),
+      .nullish()
+      .transform((v) => (v?.trim() ? v : null))
+      .describe(AI_INSTRUCTIONS_PROMPT_DESCRIPTION),
     static: z
       .object({
-        from: z.string().nullable().describe("The from email address to match"),
-        to: z.string().nullable().describe("The to email address to match"),
-        subject: z.string().nullable().describe("The subject to match"),
+        from: z
+          .string()
+          .nullish()
+          .transform((v) => (v?.trim() ? v : null))
+          .refine((value) => !isInvalidStaticFromValue(value), {
+            message: INVALID_STATIC_FROM_MESSAGE,
+          })
+          .describe(STATIC_FROM_CONDITION_DESCRIPTION),
+        to: z.string().nullish().describe("The to email address to match"),
+        subject: z.string().nullish().describe("The subject to match"),
       })
-      .nullable()
+      .nullish()
       .describe(
         "The static conditions to match. If multiple static conditions are specified, the rule will match if ALL of the conditions match (AND operation)",
       ),
