@@ -406,7 +406,6 @@ async function processReplyMemoryEvidence({
     draftText: evidence.draftText,
     sentText: evidence.sentText,
     senderEmail,
-    senderDomain,
     existingMemories,
     emailAccount,
   });
