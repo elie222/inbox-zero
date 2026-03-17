@@ -7,6 +7,7 @@ import type { ParsedMessage } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
 import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
@@ -44,6 +45,13 @@ vi.mock("@/utils/referral/referral-link", () => ({
 
 vi.mock("@/utils/ai/knowledge/extract", () => ({
   aiExtractRelevantKnowledge: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@/utils/ai/reply/reply-memory", () => ({
+  getReplyMemoriesForPrompt: vi.fn().mockResolvedValue({
+    content: null,
+    selectedMemories: [],
+  }),
 }));
 
 vi.mock("@/utils/ai/reply/reply-context-collector", () => ({
@@ -85,6 +93,7 @@ vi.mock("@/env", () => ({
 }));
 
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
+import { getReplyMemoriesForPrompt } from "@/utils/ai/reply/reply-memory";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
 import prisma from "@/utils/prisma";
 import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
@@ -193,6 +202,49 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     // User signature HTML should NOT be escaped
     expect(result).toContain('<p style="color:blue">');
     expect(result).toContain("Best regards,<br>John</p>");
+  });
+
+  it("passes retrieved reply memories into the draft prompt call", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Thanks for the note.",
+      confidence: DraftReplyConfidence.STANDARD,
+      attribution: null,
+    });
+    vi.mocked(getReplyMemoriesForPrompt).mockResolvedValue({
+      content:
+        "1. [FACT | TOPIC:pricing] Mention that pricing depends on seat count.",
+      selectedMemories: [
+        {
+          id: "memory-1",
+          kind: "FACT",
+          scopeType: "TOPIC",
+        },
+      ],
+    } as any);
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
+
+    await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      createMockClient(),
+      createMockMessage(),
+      logger,
+    );
+
+    expect(getReplyMemoriesForPrompt).toHaveBeenCalledWith({
+      emailAccountId: "test-account-id",
+      senderEmail: "sender@example.com",
+      emailContent: expect.stringContaining("Hello, how are you?"),
+      logger,
+    });
+    expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyMemoryContent:
+          "1. [FACT | TOPIC:pricing] Mention that pricing depends on seat count.",
+      }),
+    );
   });
 
   it("escapes zero-size font attacks in AI content", async () => {
@@ -416,7 +468,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5.1",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
 
@@ -435,7 +487,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5.1",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
     expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
@@ -452,7 +504,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "anthropic",
         modelName: "claude-sonnet-4-5",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
@@ -474,7 +526,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "anthropic",
         modelName: "claude-sonnet-4-5",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
     expect(saveReply).toHaveBeenCalledWith({
@@ -485,7 +537,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "anthropic",
         modelName: "claude-sonnet-4-5",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
   });
@@ -497,7 +549,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5.1",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
 
@@ -516,7 +568,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5.1",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
     expect(saveReply).toHaveBeenCalledWith({
@@ -527,7 +579,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "openai",
         modelName: "gpt-5.1",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
   });
@@ -539,7 +591,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "anthropic",
         modelName: "claude-sonnet-4-5",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
@@ -562,7 +614,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       attribution: {
         provider: "anthropic",
         modelName: "claude-sonnet-4-5",
-        pipelineVersion: 1,
+        pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
   });

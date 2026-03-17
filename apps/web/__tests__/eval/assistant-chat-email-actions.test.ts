@@ -6,6 +6,10 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import {
+  formatSemanticJudgeActual,
+  judgeEvalOutput,
+} from "@/__tests__/eval/semantic-judge";
+import {
   captureAssistantChatToolCalls,
   getFirstMatchingToolCall,
   getLastMatchingToolCall,
@@ -37,7 +41,8 @@ const scenarios: EvalScenario[] = [
       kind: "send_email",
       recipient: "alex@vendor.test",
       subject: "Meeting on Tuesday",
-      terms: ["Tuesday", "2pm"],
+      contentExpectation:
+        "Draft email content that clearly says Tuesday at 2pm works for the sender.",
       disallowedTools: ["searchInbox", "replyEmail", "forwardEmail"],
     },
   },
@@ -58,9 +63,11 @@ const scenarios: EvalScenario[] = [
     ],
     expectation: {
       kind: "reply_email",
-      searchTerms: ["ops", "partner", "revised"],
+      searchExpectation:
+        "A search query focused on finding the email from ops@partner.example about the revised plan.",
       messageId: "msg-reply-1",
-      terms: ["Tuesday", "2pm"],
+      contentExpectation:
+        "Reply content that clearly says Tuesday at 2pm works for the sender.",
       disallowedTools: ["sendEmail"],
     },
   },
@@ -82,10 +89,12 @@ const scenarios: EvalScenario[] = [
     ],
     expectation: {
       kind: "forward_email",
-      searchTerms: ["smtp", "relay", "setup"],
+      searchExpectation:
+        "A search query focused on finding the SMTP relay setup email.",
       messageId: "msg-forward-1",
       recipient: "eng@company.test",
-      terms: ["one to use"],
+      contentExpectation:
+        "Forwarded note that clearly says this is the one to use.",
       disallowedTools: ["sendEmail"],
     },
   },
@@ -205,16 +214,20 @@ describe.runIf(shouldRunEval)("Eval: assistant chat email actions", () => {
             messages: [{ role: "user", content: scenario.prompt }],
           });
 
-          const pass = evaluateScenario(result, scenario.expectation);
+          const evaluation = await evaluateScenario(
+            result,
+            scenario.prompt,
+            scenario.expectation,
+          );
 
           evalReporter.record({
             testName: scenario.reportName,
             model: model.label,
-            pass,
-            actual: result.actual,
+            pass: evaluation.pass,
+            actual: evaluation.actual,
           });
 
-          expect(pass).toBe(true);
+          expect(evaluation.pass).toBe(true);
         },
         TIMEOUT,
       );
@@ -271,22 +284,22 @@ type ScenarioExpectation =
       kind: "send_email";
       recipient: string;
       subject: string;
-      terms: string[];
+      contentExpectation: string;
       disallowedTools: string[];
     }
   | {
       kind: "reply_email";
-      searchTerms: string[];
+      searchExpectation: string;
       messageId: string;
-      terms: string[];
+      contentExpectation: string;
       disallowedTools: string[];
     }
   | {
       kind: "forward_email";
-      searchTerms: string[];
+      searchExpectation: string;
       messageId: string;
       recipient: string;
-      terms: string[];
+      contentExpectation: string;
       disallowedTools: string[];
     };
 
@@ -356,8 +369,9 @@ function getFirstSearchInboxCall(toolCalls: RecordedToolCall[]) {
     ?.input;
 }
 
-function evaluateScenario(
+async function evaluateScenario(
   result: Awaited<ReturnType<typeof runAssistantChat>>,
+  prompt: string,
   expectation: ScenarioExpectation,
 ) {
   switch (expectation.kind) {
@@ -367,14 +381,34 @@ function evaluateScenario(
         "sendEmail",
         isSendEmailInput,
       )?.input;
+      const contentJudge = sendCall
+        ? await judgeEvalOutput({
+            input: prompt,
+            output: sendCall.messageHtml,
+            expected: expectation.contentExpectation,
+            criterion: {
+              name: "Email body semantics",
+              description:
+                "The drafted email body should semantically capture the requested message even if the exact wording differs from the prompt.",
+            },
+          })
+        : null;
 
-      return (
-        !!sendCall &&
-        sendCall.to.includes(expectation.recipient) &&
-        sendCall.subject === expectation.subject &&
-        includesAnyText(sendCall.messageHtml, expectation.terms) &&
-        hasNoToolCalls(result.toolCalls, expectation.disallowedTools)
-      );
+      return {
+        pass:
+          !!sendCall &&
+          !!contentJudge?.pass &&
+          sendCall.to.includes(expectation.recipient) &&
+          sendCall.subject === expectation.subject &&
+          hasNoToolCalls(result.toolCalls, expectation.disallowedTools),
+        actual:
+          sendCall && contentJudge
+            ? `${result.actual} | ${formatSemanticJudgeActual(
+                sendCall.messageHtml,
+                contentJudge,
+              )}`
+            : result.actual,
+      };
     }
 
     case "reply_email": {
@@ -384,16 +418,49 @@ function evaluateScenario(
         "replyEmail",
         isReplyEmailInput,
       )?.input;
+      const searchJudge = searchCall
+        ? await judgeEvalOutput({
+            input: prompt,
+            output: searchCall.query,
+            expected: expectation.searchExpectation,
+            criterion: {
+              name: "Search query semantics",
+              description:
+                "The generated search query should semantically target the requested message even if the exact wording differs from the prompt.",
+            },
+          })
+        : null;
+      const contentJudge = replyCall
+        ? await judgeEvalOutput({
+            input: prompt,
+            output: replyCall.content,
+            expected: expectation.contentExpectation,
+            criterion: {
+              name: "Reply content semantics",
+              description:
+                "The reply content should semantically capture the requested message even if the wording differs from the prompt.",
+            },
+          })
+        : null;
 
-      return (
-        !!searchCall &&
-        !!replyCall &&
-        hasToolBeforeTool(result.toolCalls, "searchInbox", "replyEmail") &&
-        queryContainsAny(searchCall.query, expectation.searchTerms) &&
-        replyCall.messageId === expectation.messageId &&
-        includesAnyText(replyCall.content, expectation.terms) &&
-        hasNoToolCalls(result.toolCalls, expectation.disallowedTools)
-      );
+      return {
+        pass:
+          !!searchCall &&
+          !!replyCall &&
+          !!searchJudge?.pass &&
+          !!contentJudge?.pass &&
+          hasToolBeforeTool(result.toolCalls, "searchInbox", "replyEmail") &&
+          replyCall.messageId === expectation.messageId &&
+          hasNoToolCalls(result.toolCalls, expectation.disallowedTools),
+        actual:
+          searchCall && replyCall && searchJudge && contentJudge
+            ? [
+                result.actual,
+                formatSemanticJudgeActual(searchCall.query, searchJudge),
+                formatSemanticJudgeActual(replyCall.content, contentJudge),
+              ].join(" | ")
+            : result.actual,
+      };
     }
 
     case "forward_email": {
@@ -403,17 +470,50 @@ function evaluateScenario(
         "forwardEmail",
         isForwardEmailInput,
       )?.input;
+      const searchJudge = searchCall
+        ? await judgeEvalOutput({
+            input: prompt,
+            output: searchCall.query,
+            expected: expectation.searchExpectation,
+            criterion: {
+              name: "Search query semantics",
+              description:
+                "The generated search query should semantically target the requested message even if the exact wording differs from the prompt.",
+            },
+          })
+        : null;
+      const contentJudge = forwardCall?.content
+        ? await judgeEvalOutput({
+            input: prompt,
+            output: forwardCall.content,
+            expected: expectation.contentExpectation,
+            criterion: {
+              name: "Forward note semantics",
+              description:
+                "The forwarded note should semantically capture the requested message even if the wording differs from the prompt.",
+            },
+          })
+        : null;
 
-      return (
-        !!searchCall &&
-        !!forwardCall &&
-        hasToolBeforeTool(result.toolCalls, "searchInbox", "forwardEmail") &&
-        queryContainsAny(searchCall.query, expectation.searchTerms) &&
-        forwardCall.messageId === expectation.messageId &&
-        forwardCall.to.includes(expectation.recipient) &&
-        includesAnyText(forwardCall.content, expectation.terms) &&
-        hasNoToolCalls(result.toolCalls, expectation.disallowedTools)
-      );
+      return {
+        pass:
+          !!searchCall &&
+          !!forwardCall &&
+          !!searchJudge?.pass &&
+          !!contentJudge?.pass &&
+          hasToolBeforeTool(result.toolCalls, "searchInbox", "forwardEmail") &&
+          forwardCall.messageId === expectation.messageId &&
+          forwardCall.to.includes(expectation.recipient) &&
+          hasNoToolCalls(result.toolCalls, expectation.disallowedTools),
+        actual:
+          searchCall && forwardCall?.content && searchJudge && contentJudge
+            ? [
+                result.actual,
+                formatSemanticJudgeActual(searchCall.query, searchJudge),
+                formatSemanticJudgeActual(forwardCall.content, contentJudge),
+              ].join(" | ")
+            : result.actual,
+      };
     }
   }
 }
@@ -435,18 +535,6 @@ function hasToolBeforeTool(
 
 function hasNoToolCalls(toolCalls: RecordedToolCall[], toolNames: string[]) {
   return !toolCalls.some((toolCall) => toolNames.includes(toolCall.toolName));
-}
-
-function queryContainsAny(query: string, terms: string[]) {
-  const normalizedQuery = query.toLowerCase();
-  return terms.some((term) => normalizedQuery.includes(term));
-}
-
-function includesAnyText(text: string | null | undefined, terms: string[]) {
-  if (!text) return false;
-
-  const normalizedText = text.toLowerCase();
-  return terms.some((term) => normalizedText.includes(term.toLowerCase()));
 }
 
 function summarizeToolCall(toolCall: RecordedToolCall) {

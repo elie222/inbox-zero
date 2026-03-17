@@ -140,3 +140,9 @@ Run AI tests with:
 ## Eval Tests
 
 For cross-model comparison and LLM-as-judge evaluation, see [eval.md](eval.md).
+
+## Prompt and Eval Separation
+
+- Do not tune prompts to match exact eval wording
+- If an eval exposes a failure, address the underlying behavior in a general way
+- Deterministic logic is acceptable for real product rules, not as a shortcut around weak model reasoning

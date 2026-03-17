@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, test } from "vitest";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
+import { formatSemanticJudgeActual } from "@/__tests__/eval/semantic-judge";
 import { getMockMessage } from "@/__tests__/helpers";
 import {
   cloneEmailAccountForProvider,
@@ -11,8 +12,8 @@ import {
   inboxWorkflowProviders,
   isBulkArchiveSendersInput,
   isManageInboxThreadActionInput,
+  judgeSearchInboxQuery,
   mockSearchMessages,
-  queryContainsAny,
   runAssistantChat,
   setupInboxWorkflowEval,
   shouldRunEval,
@@ -72,11 +73,19 @@ describe.runIf(shouldRunEval)(
             });
 
             const searchCall = getFirstSearchInboxCall(toolCalls);
+            const searchJudge = searchCall
+              ? await judgeSearchInboxQuery({
+                  prompt: "Delete all SiteBuilder emails from my inbox.",
+                  query: searchCall.query,
+                  expected:
+                    "A search query focused on SiteBuilder emails in the inbox.",
+                })
+              : null;
 
             const pass =
               !!searchCall &&
+              !!searchJudge?.pass &&
               hasSearchBeforeFirstWrite(toolCalls) &&
-              queryContainsAny(searchCall.query, ["sitebuilder"]) &&
               !toolCalls.some(
                 (toolCall) => toolCall.toolName === "manageInbox",
               ) &&
@@ -86,7 +95,13 @@ describe.runIf(shouldRunEval)(
               testName: `sender cleanup requires confirmation before write (${label})`,
               model: model.label,
               pass,
-              actual,
+              actual:
+                searchCall && searchJudge
+                  ? `${actual} | ${formatSemanticJudgeActual(
+                      searchCall.query,
+                      searchJudge,
+                    )}`
+                  : actual,
             });
 
             expect(pass).toBe(true);
@@ -134,6 +149,15 @@ describe.runIf(shouldRunEval)(
             });
 
             const searchCall = getFirstSearchInboxCall(toolCalls);
+            const searchJudge = searchCall
+              ? await judgeSearchInboxQuery({
+                  prompt:
+                    "Archive the two SiteBuilder emails in my inbox, but do not unsubscribe me or archive everything from that sender.",
+                  query: searchCall.query,
+                  expected:
+                    "A search query focused on the SiteBuilder emails currently in the inbox.",
+                })
+              : null;
             const archiveCall = getLastMatchingToolCall(
               toolCalls,
               "manageInbox",
@@ -143,8 +167,8 @@ describe.runIf(shouldRunEval)(
             const pass =
               !!searchCall &&
               !!archiveCall &&
+              !!searchJudge?.pass &&
               hasSearchBeforeFirstWrite(toolCalls) &&
-              queryContainsAny(searchCall.query, ["sitebuilder"]) &&
               archiveCall.action === "archive_threads" &&
               archiveCall.threadIds.length === 2 &&
               archiveCall.threadIds.includes("thread-archive-1") &&
@@ -159,7 +183,13 @@ describe.runIf(shouldRunEval)(
               testName: `specific archive uses archive_threads (${label})`,
               model: model.label,
               pass,
-              actual,
+              actual:
+                searchCall && searchJudge
+                  ? `${actual} | ${formatSemanticJudgeActual(
+                      searchCall.query,
+                      searchJudge,
+                    )}`
+                  : actual,
             });
 
             expect(pass).toBe(true);
@@ -207,6 +237,15 @@ describe.runIf(shouldRunEval)(
             });
 
             const searchCall = getFirstSearchInboxCall(toolCalls);
+            const searchJudge = searchCall
+              ? await judgeSearchInboxQuery({
+                  prompt:
+                    "Mark the two unread vendor update emails as read, but do not archive them.",
+                  query: searchCall.query,
+                  expected:
+                    "A search query focused on unread vendor update emails.",
+                })
+              : null;
             const markReadCall = getLastMatchingToolCall(
               toolCalls,
               "manageInbox",
@@ -216,12 +255,8 @@ describe.runIf(shouldRunEval)(
             const pass =
               !!searchCall &&
               !!markReadCall &&
+              !!searchJudge?.pass &&
               hasSearchBeforeFirstWrite(toolCalls) &&
-              queryContainsAny(searchCall.query, [
-                "vendor",
-                "update",
-                "unread",
-              ]) &&
               markReadCall.action === "mark_read_threads" &&
               markReadCall.threadIds.length === 2 &&
               markReadCall.threadIds.includes("thread-markread-1") &&
@@ -237,7 +272,13 @@ describe.runIf(shouldRunEval)(
               testName: `specific mark read uses mark_read_threads (${label})`,
               model: model.label,
               pass,
-              actual,
+              actual:
+                searchCall && searchJudge
+                  ? `${actual} | ${formatSemanticJudgeActual(
+                      searchCall.query,
+                      searchJudge,
+                    )}`
+                  : actual,
             });
 
             expect(pass).toBe(true);

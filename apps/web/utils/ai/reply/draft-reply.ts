@@ -19,7 +19,7 @@ const logger = createScopedLogger("DraftReply");
 const DRAFT_OUTPUT_INSTRUCTION =
   "Return plain text only. Do not use HTML tags. If a clickable link is necessary, use markdown links in the format [Label](https://example.com/path) or [Label](mailto:name@example.com).";
 
-const systemPrompt = `You are an expert assistant that drafts email replies using knowledge base information.
+const systemPrompt = `You are an expert assistant that drafts email replies.
 
 ${PROMPT_SECURITY_INSTRUCTIONS}
 
@@ -41,15 +41,17 @@ Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 `;
 
-const defaultWritingStyle = `Keep it concise and friendly.
-Keep the reply short. Aim for 2 sentences at most.
+const defaultWritingStyle = `Keep it concise, direct, and friendly.
+Keep the reply short. Aim for 2 sentences at most unless a brief answer to multiple questions needs more.
 Don't be pushy.
-Write in a polite and professional tone.`;
+Write in a plainspoken, professional tone.
+Prefer short declarative sentences over polished or overly elaborate phrasing.`;
 
 const getUserPrompt = ({
   messages,
   emailAccount,
   knowledgeBaseContent,
+  replyMemoryContent,
   emailHistorySummary,
   emailHistoryContext,
   calendarAvailability,
@@ -61,6 +63,7 @@ const getUserPrompt = ({
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
+  replyMemoryContent: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
@@ -84,6 +87,15 @@ ${emailAccount.about}
 <knowledge_base>
 ${knowledgeBaseContent}
 </knowledge_base>
+`
+    : "";
+
+  const learnedReplyMemories = replyMemoryContent
+    ? `Learned reply memories from prior draft edits. Use these when relevant, but explicit user instructions and knowledge base content take precedence.
+
+<reply_memories>
+${replyMemoryContent}
+</reply_memories>
 `
     : "";
 
@@ -152,6 +164,7 @@ Mention attached documents only when useful and only if this section is present.
 
   return `${userAbout}
 ${relevantKnowledge}
+${learnedReplyMemories}
 ${historicalContext}
 ${precedentHistoryContext}
 ${writingStylePrompt}
@@ -191,6 +204,7 @@ export async function aiDraftReplyWithConfidence({
   messages,
   emailAccount,
   knowledgeBaseContent,
+  replyMemoryContent = null,
   emailHistorySummary,
   emailHistoryContext,
   calendarAvailability,
@@ -202,6 +216,7 @@ export async function aiDraftReplyWithConfidence({
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
+  replyMemoryContent?: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
@@ -222,14 +237,17 @@ export async function aiDraftReplyWithConfidence({
       : null,
   });
 
+  const effectiveWritingStyle = writingStyle || defaultWritingStyle;
+
   const prompt = getUserPrompt({
     messages,
     emailAccount,
     knowledgeBaseContent,
+    replyMemoryContent,
     emailHistorySummary,
     emailHistoryContext,
     calendarAvailability,
-    writingStyle: writingStyle || defaultWritingStyle,
+    writingStyle: effectiveWritingStyle,
     mcpContext,
     meetingContext,
     attachmentContext,
@@ -276,6 +294,7 @@ export async function aiDraftReply({
   messages,
   emailAccount,
   knowledgeBaseContent,
+  replyMemoryContent = null,
   emailHistorySummary,
   emailHistoryContext,
   calendarAvailability,
@@ -287,6 +306,7 @@ export async function aiDraftReply({
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
+  replyMemoryContent?: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
@@ -299,6 +319,7 @@ export async function aiDraftReply({
     messages,
     emailAccount,
     knowledgeBaseContent,
+    replyMemoryContent,
     emailHistorySummary,
     emailHistoryContext,
     calendarAvailability,
@@ -388,7 +409,7 @@ Do not suggest specific times. Acknowledge the request and suggest alternatives 
     parts.push(`Available time slots:
 ${times}
 
-${calendarBookingLink ? "Lead with the booking link, then optionally suggest a few of these times as alternatives." : "Use these time slots when responding to meeting requests."} Format suggested times as a bulleted list.`);
+${calendarBookingLink ? "Lead with the booking link, then optionally suggest a few of these times as alternatives." : "When the sender is asking to schedule, respond concretely using these time slots. If they appear stale relative to today's date, say that and ask for updated availability instead of ignoring the scheduling request."} Format suggested times as a bulleted list.`);
   }
 
   if (parts.length === 0) return "";

@@ -7,6 +7,11 @@ import {
   shouldRunEvalTests,
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
+import {
+  formatSemanticJudgeActual,
+  getEvalJudgeUserAi,
+  judgeEvalOutput,
+} from "@/__tests__/eval/semantic-judge";
 
 // pnpm test-ai eval/draft-reply
 
@@ -14,29 +19,6 @@ const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 90_000;
 
 vi.mock("server-only", () => ({}));
-
-const TIME_SLOT_PATTERN =
-  /\b(?:March|April|May|June|July|August|September|October|November|December|January|February)\s+\d{1,2}[:\s]+\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?/i;
-
-const SPECIFIC_TIME_PATTERN =
-  /\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?\s*[-–]\s*\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?/i;
-
-function assertNoSpecificTimes(reply: string, context: string) {
-  // biome-ignore lint/suspicious/noMisplacedAssertion: extracted assertion helper called from tests
-  expect(
-    TIME_SLOT_PATTERN.test(reply),
-    `Draft should NOT contain specific date+time slots. ${context}\n\nDraft:\n${reply}`,
-  ).toBe(false);
-  // biome-ignore lint/suspicious/noMisplacedAssertion: extracted assertion helper called from tests
-  expect(
-    SPECIFIC_TIME_PATTERN.test(reply),
-    `Draft should NOT contain time ranges. ${context}\n\nDraft:\n${reply}`,
-  ).toBe(false);
-}
-
-function hasSpecificTimes(reply: string): boolean {
-  return TIME_SLOT_PATTERN.test(reply) || SPECIFIC_TIME_PATTERN.test(reply);
-}
 
 describe.runIf(shouldRunEval)("draft-reply eval", () => {
   const evalReporter = createEvalReporter();
@@ -82,19 +64,30 @@ Lisa & the MindfulPath Team`,
           });
 
           const testName = "marketing email with booking CTA";
-          const pass = !hasSpecificTimes(result.reply);
+          const judgeResult = await judgeEvalOutput({
+            input: messages
+              .map((message) => message.content)
+              .join("\n\n---\n\n"),
+            output: result.reply,
+            expected:
+              "A short reply that stays grounded in the email and does not propose specific meeting dates, times, or time ranges.",
+            criterion: {
+              name: "No invented meeting times",
+              description:
+                "The draft should not suggest specific meeting slots or ranges when the incoming email already provides a booking link and does not ask for manual scheduling.",
+            },
+          });
+          const pass = judgeResult.pass;
+
           evalReporter.record({
             testName,
             model: model.label,
             pass,
             expected: "no specific times",
-            actual: pass ? "clean draft" : "contains time suggestions",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
-          assertNoSpecificTimes(
-            result.reply,
-            "Marketing email with scheduling CTA should not trigger time suggestions",
-          );
+          expect(judgeResult.pass).toBe(true);
         },
         TIMEOUT,
       );
@@ -136,19 +129,30 @@ Solutions Engineer, DataBridge`,
           });
 
           const testName = "booking link email";
-          const pass = !hasSpecificTimes(result.reply);
+          const judgeResult = await judgeEvalOutput({
+            input: messages
+              .map((message) => message.content)
+              .join("\n\n---\n\n"),
+            output: result.reply,
+            expected:
+              "A reply that acknowledges the outreach without inventing specific meeting dates or times, since the sender already provided a booking link.",
+            criterion: {
+              name: "Booking link respected",
+              description:
+                "The draft should avoid proposing specific meeting slots when the email already contains a booking link and no calendar availability was provided.",
+            },
+          });
+          const pass = judgeResult.pass;
+
           evalReporter.record({
             testName,
             model: model.label,
             pass,
             expected: "no specific times",
-            actual: pass ? "clean draft" : "contains time suggestions",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
-          assertNoSpecificTimes(
-            result.reply,
-            "Email already provides a booking link — draft should not invent times",
-          );
+          expect(judgeResult.pass).toBe(true);
         },
         TIMEOUT,
       );
@@ -172,7 +176,7 @@ Let me know what works!
 
 Priya`,
               }),
-              date: new Date("2026-03-10T14:00:00Z"),
+              date: new Date("2027-03-10T14:00:00Z"),
             },
           ];
 
@@ -184,8 +188,8 @@ Priya`,
             emailHistoryContext: null,
             calendarAvailability: {
               suggestedTimes: [
-                { start: "2026-03-12 10:00", end: "2026-03-12 10:30" },
-                { start: "2026-03-12 14:00", end: "2026-03-12 14:30" },
+                { start: "2027-03-12 10:00", end: "2027-03-12 10:30" },
+                { start: "2027-03-12 14:00", end: "2027-03-12 14:30" },
               ],
             },
             writingStyle: null,
@@ -194,19 +198,42 @@ Priya`,
           });
 
           const testName = "genuine scheduling request";
-          const pass = result.reply.length > 10;
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              messages.map((message) => message.content).join("\n\n---\n\n"),
+              "",
+              "## Calendar Availability",
+              JSON.stringify(
+                {
+                  suggestedTimes: [
+                    { start: "2027-03-12 10:00", end: "2027-03-12 10:30" },
+                    { start: "2027-03-12 14:00", end: "2027-03-12 14:30" },
+                  ],
+                },
+                null,
+                2,
+              ),
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A substantive scheduling reply that meaningfully advances the meeting, either by using the provided calendar availability or by asking for updated availability if the suggested times appear stale.",
+            criterion: {
+              name: "Substantive scheduling reply",
+              description:
+                "When the sender explicitly asks to schedule and calendar availability is provided, the draft should be a meaningful scheduling response rather than a blank or evasive reply. It may either propose the provided slots or ask for updated availability if those slots appear outdated.",
+            },
+          });
+          const pass = judgeResult.pass;
+
           evalReporter.record({
             testName,
             model: model.label,
             pass,
             expected: "substantive draft",
-            actual: pass ? "has content" : "empty/too short",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
-          expect(
-            result.reply.length,
-            "Draft should have content for a genuine scheduling request",
-          ).toBeGreaterThan(10);
+          expect(judgeResult.pass).toBe(true);
         },
         TIMEOUT,
       );
@@ -246,19 +273,30 @@ Carlos`,
           });
 
           const testName = "non-scheduling question";
-          const pass = !hasSpecificTimes(result.reply);
+          const judgeResult = await judgeEvalOutput({
+            input: messages
+              .map((message) => message.content)
+              .join("\n\n---\n\n"),
+            output: result.reply,
+            expected:
+              "A grounded reply that addresses the question without offering specific meeting dates or times.",
+            criterion: {
+              name: "No scheduling drift",
+              description:
+                "For a non-scheduling question, the draft should not drift into proposing calendar times or meeting slots.",
+            },
+          });
+          const pass = judgeResult.pass;
+
           evalReporter.record({
             testName,
             model: model.label,
             pass,
             expected: "no specific times",
-            actual: pass ? "clean draft" : "contains time suggestions",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
-          assertNoSpecificTimes(
-            result.reply,
-            "Non-scheduling question should not contain time suggestions",
-          );
+          expect(judgeResult.pass).toBe(true);
         },
         TIMEOUT,
       );
@@ -390,20 +428,30 @@ Could you send over a couple of examples for how to write rules?`,
           });
 
           const testName = "no em dash by default";
-          const pass = !result.reply.includes("—");
+          const judgeResult = await judgeEvalOutput({
+            input: messages
+              .map((message) => message.content)
+              .join("\n\n---\n\n"),
+            output: result.reply,
+            expected:
+              "A concise reply that does not use an em dash unless explicitly asked for by the provided context or writing style.",
+            criterion: {
+              name: "No default em dash",
+              description:
+                "The reply should avoid em dashes by default when the writing style does not call for them.",
+            },
+          });
+          const pass = judgeResult.pass;
 
           evalReporter.record({
             testName,
             model: model.label,
             pass,
             expected: "reply without em dash",
-            actual: JSON.stringify(result.reply),
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
-          expect(
-            result.reply.includes("—"),
-            `Reply should not contain an em dash unless the writing style explicitly asks for it.\n\nReply:\n${result.reply}`,
-          ).toBe(false);
+          expect(judgeResult.pass).toBe(true);
         },
         TIMEOUT,
       );
@@ -485,12 +533,4 @@ async function maybeJudgeGroundedReply({
     criteria: getKnowledgeBaseReplyCriteria(),
     judgeUserAi: getEvalJudgeUserAi(),
   });
-}
-
-function getEvalJudgeUserAi() {
-  return {
-    aiProvider: "openrouter",
-    aiModel: "google/gemini-3.1-flash-lite-preview",
-    aiApiKey: process.env.OPENROUTER_API_KEY ?? null,
-  };
 }
