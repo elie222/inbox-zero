@@ -52,13 +52,22 @@ describe("mergeAccount", () => {
       });
 
       expect(result).toBe("partial_reassign");
-      expect(prisma.$transaction).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.anything(), // account update
-          expect.anything(), // email account update
-          expect.anything(), // user update (primary email change)
-        ]),
-      );
+      expect(prisma.account.update).toHaveBeenCalledWith({
+        where: { id: accountId },
+        data: { userId: targetUserId },
+      });
+      expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+        where: { accountId },
+        data: {
+          userId: targetUserId,
+          name: "Test User",
+          email: "primary@test.com",
+        },
+      });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: sourceUserId },
+        data: { email: "secondary@test.com" },
+      });
       expect(prisma.user.delete).not.toHaveBeenCalled();
     });
 
@@ -98,17 +107,19 @@ describe("mergeAccount", () => {
       });
 
       expect(result).toBe("partial_reassign");
-      expect(prisma.$transaction).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.anything(), // account update
-          expect.anything(), // email account update
-        ]),
-      );
-      expect(prisma.$transaction).toHaveBeenCalledWith(
-        expect.not.arrayContaining([
-          expect.objectContaining({ model: "user" }),
-        ]),
-      );
+      expect(prisma.account.update).toHaveBeenCalledWith({
+        where: { id: accountId },
+        data: { userId: targetUserId },
+      });
+      expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+        where: { accountId },
+        data: {
+          userId: targetUserId,
+          name: "Test User",
+          email: "secondary@test.com",
+        },
+      });
+      expect(prisma.user.update).not.toHaveBeenCalled();
       expect(prisma.user.delete).not.toHaveBeenCalled();
     });
   });
@@ -156,13 +167,18 @@ describe("mergeAccount", () => {
         targetUserId,
         logger,
       });
-      expect(prisma.$transaction).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.anything(), // account update
-          expect.anything(), // email account update
-          expect.anything(), // user delete
-        ]),
-      );
+      expect(prisma.account.update).toHaveBeenCalledWith({
+        where: { id: accountId },
+        data: { userId: targetUserId },
+      });
+      expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+        where: { accountId },
+        data: {
+          userId: targetUserId,
+          name: "Test User",
+          email: "only@test.com",
+        },
+      });
       expect(prisma.user.delete).toHaveBeenCalledWith({
         where: { id: sourceUserId },
       });
