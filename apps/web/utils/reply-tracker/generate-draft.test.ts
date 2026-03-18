@@ -507,7 +507,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
-    vi.mocked(getReplyMemoriesForPrompt).mockResolvedValue({
+    vi.mocked(getReplyMemoriesForPrompt).mockResolvedValueOnce({
       content:
         "1. [FACT | TOPIC:pricing] Mention that pricing depends on seat count.",
       selectedMemories: [
