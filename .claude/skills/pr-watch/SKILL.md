@@ -46,8 +46,16 @@ Parse `$ARGUMENTS` for options:
    >
    > ## Exit condition — only cancel this task when ALL are true:
    > 1. Every top-level comment has a reply (compare comment IDs vs replied-to IDs).
-   > 2. You did NOT push any fixes in this iteration (if you pushed, wait one more iteration for re-review).
-   > 3. All reviewer check runs have completed — run `gh pr checks` and verify no reviewer checks (e.g. "Baz Reviewer", "cubic · AI code reviewer") are pending or in_progress.
+   > 2. You did NOT push any fixes in this iteration (if you pushed, wait at least TWO more iterations — checks take time to start and complete).
+   > 3. All reviewer check runs **for the latest commit** have completed. Do NOT use `gh pr checks` (it can show stale results). Instead:
+   >    ```bash
+   >    HEAD_SHA=$(gh pr view --json headRefOid --jq .headRefOid)
+   >    # Find incomplete checks for this exact commit
+   >    gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" --jq '[.check_runs[] | select(.status != "completed") | {name: .name, status: .status}]'
+   >    # Also verify reviewer bots ran on THIS commit (not a previous one)
+   >    gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" --jq '[.check_runs[] | select(.name == "Baz Reviewer" or .name == "cubic · AI code reviewer") | {name: .name, status: .status, conclusion: .conclusion}]'
+   >    ```
+   >    If reviewer bots show no results for this SHA, they haven't started yet — wait.
    > If any condition is false, wait for the next iteration.
 
 3. Confirm to the user: "Watching PR #X every {interval}. I'll address new comments automatically and stop when everything is handled."
