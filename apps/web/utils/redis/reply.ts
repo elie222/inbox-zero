@@ -174,6 +174,18 @@ function parseDraftContextMetadata(
   value: unknown,
 ): DraftContextMetadata | null {
   if (!value || typeof value !== "object") return null;
+
+  const v = value as Record<string, unknown>;
+
+  if (!v.replyMemories || typeof v.replyMemories !== "object") return null;
+  if (!v.knowledgeBase || typeof v.knowledgeBase !== "object") return null;
+  if (!v.senderHistory || typeof v.senderHistory !== "object") return null;
+  if (!v.calendar || typeof v.calendar !== "object") return null;
+  if (!v.writingStyle || typeof v.writingStyle !== "object") return null;
+  if (!v.externalTools || typeof v.externalTools !== "object") return null;
+  if (!v.meetings || typeof v.meetings !== "object") return null;
+  if (!v.attachments || typeof v.attachments !== "object") return null;
+
   return value as DraftContextMetadata;
 }
 

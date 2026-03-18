@@ -507,6 +507,17 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
+    vi.mocked(getReplyMemoriesForPrompt).mockResolvedValue({
+      content:
+        "1. [FACT | TOPIC:pricing] Mention that pricing depends on seat count.",
+      selectedMemories: [
+        {
+          id: "memory-1",
+          kind: "FACT",
+          scopeType: "TOPIC",
+        },
+      ],
+    } as any);
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
       createMockEmailAccountSettings(),
     );
