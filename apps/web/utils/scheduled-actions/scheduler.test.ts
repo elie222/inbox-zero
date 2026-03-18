@@ -52,9 +52,24 @@ describe("scheduler", () => {
       });
 
       expect(result).toBe(2);
-      expect(prisma.scheduledAction.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.scheduledAction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            emailAccountId: "account-123",
+            messageId: "msg-123",
+            status: ScheduledActionStatus.PENDING,
+            executedRule: { ruleId: "rule-123" },
+          }),
+        }),
+      );
       expect(prisma.scheduledAction.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: expect.objectContaining({
+            emailAccountId: "account-123",
+            messageId: "msg-123",
+            status: ScheduledActionStatus.PENDING,
+            executedRule: { ruleId: "rule-123" },
+          }),
           data: { status: ScheduledActionStatus.CANCELLED },
         }),
       );
