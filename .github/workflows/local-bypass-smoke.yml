@@ -1,17 +1,8 @@
 name: Local Bypass Smoke
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - "apps/web/**"
-      - "packages/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - "turbo.json"
-      - "tsconfig.json"
-      - ".github/workflows/local-bypass-smoke.yml"
+  schedule:
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -88,14 +79,7 @@ jobs:
 
       - name: Run local bypass smoke test
         id: smoke_test
-        continue-on-error: ${{ github.event_name == 'pull_request' }}
         run: pnpm -F inbox-zero-ai test:local-bypass-smoke
-
-      - name: Report PR smoke failure (non-blocking)
-        if: ${{ github.event_name == 'pull_request' && steps.smoke_test.outcome == 'failure' }}
-        run: |
-          echo "::warning::Local bypass smoke test failed (non-blocking on pull requests)."
-          echo "::warning::Run this workflow manually (workflow_dispatch) to collect artifacts."
 
       - name: Upload smoke artifacts
         if: ${{ always() && github.event_name == 'workflow_dispatch' }}
