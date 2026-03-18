@@ -184,6 +184,43 @@ describe.runIf(shouldRunEval)(
           },
           TIMEOUT,
         );
+
+        test(
+          "does not add delay when updating rule actions unless requested",
+          async () => {
+            const { toolCalls, actual } = await runAssistantChat({
+              emailAccount,
+              messages: [
+                {
+                  role: "user",
+                  content: "Add a draft reply action to my Notification rule.",
+                },
+              ],
+            });
+
+            const updateCall = getLastMatchingToolCall(
+              toolCalls,
+              "updateRuleActions",
+              isUpdateRuleActionsInput,
+            )?.input;
+
+            const pass =
+              !!updateCall &&
+              updateCall.ruleName === "Notification" &&
+              hasActionType(updateCall.actions, ActionType.DRAFT_EMAIL) &&
+              updateCall.actions.every((a) => !a.delayInMinutes);
+
+            evalReporter.record({
+              testName: "no unrequested delay on action update",
+              model: model.label,
+              pass,
+              actual,
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
       },
     );
 
@@ -222,6 +259,7 @@ type UpdateRuleActionsInput = {
     fields?: {
       label?: string | null;
     } | null;
+    delayInMinutes?: number | null;
   }>;
 };
 
