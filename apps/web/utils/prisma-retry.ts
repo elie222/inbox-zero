@@ -6,13 +6,8 @@ import type { Logger } from "./logger";
  * Primarily targets P2028 ("Transaction already closed") which occurs
  * frequently in E2E tests using Neon's connection pooler.
  *
- * @param operation - The Prisma operation to execute.
- * @param options - Retry configuration.
- * @param options.maxRetries - Maximum number of retry attempts (default: 3).
- * @param options.delayMs - Initial delay in milliseconds for backoff (default: 100).
- * @param options.logger - Optional logger for retry visibility.
- * @returns The result of the Prisma operation.
- * @throws The original error if retries are exhausted or if a non-retriable error occurs.
+ * NOTE: Do not add new usages of this wrapper. Prisma operations should not
+ * need retries under normal conditions. Existing call sites are grandfathered.
  */
 export async function withPrismaRetry<T>(
   operation: () => Promise<T>,

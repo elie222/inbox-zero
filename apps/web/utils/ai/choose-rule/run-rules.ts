@@ -339,23 +339,19 @@ async function executeMatchedRule(
     let executedRule = null;
 
     if (!isTest) {
-      executedRule = await withPrismaRetry(
-        () =>
-          prisma.executedRule.create({
-            data: {
-              messageId: message.id,
-              threadId: message.threadId,
-              automated: true,
-              status: ExecutedRuleStatus.SKIPPED,
-              reason: reasonToUse,
-              matchMetadata: serializeMatchReasons(matchReasons),
-              rule: rule?.id ? { connect: { id: rule.id } } : undefined,
-              emailAccount: { connect: { id: emailAccount.id } },
-              createdAt: batchTimestamp,
-            },
-          }),
-        { logger },
-      );
+      executedRule = await prisma.executedRule.create({
+        data: {
+          messageId: message.id,
+          threadId: message.threadId,
+          automated: true,
+          status: ExecutedRuleStatus.SKIPPED,
+          reason: reasonToUse,
+          matchMetadata: serializeMatchReasons(matchReasons),
+          rule: rule?.id ? { connect: { id: rule.id } } : undefined,
+          emailAccount: { connect: { id: emailAccount.id } },
+          createdAt: batchTimestamp,
+        },
+      });
     }
 
     return {
