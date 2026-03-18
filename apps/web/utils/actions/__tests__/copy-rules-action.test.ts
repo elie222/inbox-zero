@@ -209,6 +209,9 @@ describe("copyRulesFromAccountAction", () => {
         }),
       }),
     );
+    expect(
+      prisma.rule.create.mock.calls[0]?.[0].data.actions.createMany.data,
+    ).toHaveLength(1);
   });
 
   it("updates existing rule when matching by name (case-insensitive)", async () => {
@@ -375,6 +378,9 @@ describe("copyRulesFromAccountAction", () => {
         }),
       }),
     );
+    expect(
+      prisma.rule.create.mock.calls[0]?.[0].data.actions.createMany.data,
+    ).toHaveLength(2);
   });
 
   it("handles mixed copy and replace scenarios", async () => {

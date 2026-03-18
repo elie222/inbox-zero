@@ -195,6 +195,11 @@ export async function createRule({
       systemType,
     });
 
+    validateLowTrustStaticFromOutboundActions({
+      from: result.condition.static?.from,
+      actionTypes: result.actions.map((action) => action.type),
+    });
+
     const mappedActions = await mapActionFields(
       result.actions,
       provider,
@@ -256,6 +261,11 @@ export async function updateRule({
     logger.info("Updating rule", {
       name: result.name,
       ruleId,
+    });
+
+    validateLowTrustStaticFromOutboundActions({
+      from: result.condition.static?.from,
+      actionTypes: result.actions.map((action) => action.type),
     });
 
     const mappedActions = await mapActionFields(
@@ -396,13 +406,17 @@ export async function updateRuleActions({
     select: { from: true },
   });
 
+  if (!existingRule) {
+    throw new Error("Rule not found");
+  }
+
   validateLowTrustStaticFromOutboundActions({
-    from: existingRule?.from,
+    from: existingRule.from,
     actionTypes: actions.map((action) => action.type),
   });
 
   return prisma.rule.update({
-    where: { id: ruleId },
+    where: { id: ruleId, emailAccountId },
     data: {
       actions: {
         deleteMany: {},
