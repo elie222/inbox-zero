@@ -187,5 +187,5 @@ git add <changed-files> && git commit -m "<generic message about addressing revi
 ### 5e. Repeat
 
 Go back to step 5a. Exit when:
-- 0 unresolved threads remain, OR
+- All exit conditions in step 5b are met, OR
 - Max iterations reached (report "max iterations reached, may still have comments")
