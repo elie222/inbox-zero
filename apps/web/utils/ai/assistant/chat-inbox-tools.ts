@@ -1420,7 +1420,7 @@ async function extractAttachmentText(
   buffer: Buffer,
   mimeType: string,
   logger: Logger,
-): Promise<{ text: string; truncated: boolean }> {
+): Promise<{ text: string; truncated: boolean } | null> {
   if (
     mimeType === "application/pdf" ||
     mimeType ===
