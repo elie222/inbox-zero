@@ -63,6 +63,12 @@ const logger = createScopedLogger("reply-memory-test");
 describe("reply-memory", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(null as any);
+    vi.mocked(prisma.emailAccount.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.replyMemory.count).mockResolvedValue(0 as any);
+    vi.mocked(prisma.replyMemory.updateMany).mockResolvedValue({
+      count: 0,
+    } as any);
   });
 
   it("filters out unchanged draft edits after normalization", () => {
@@ -395,10 +401,10 @@ describe("reply-memory", () => {
         replyMemorySentText: "Pricing depends on seat count.",
       }),
     ] as any);
-    vi.mocked(prisma.replyMemory.findMany)
-      .mockResolvedValueOnce([] as any)
-      .mockResolvedValueOnce([] as any);
-    vi.mocked(prisma.replyMemory.count).mockResolvedValue(9 as any);
+    vi.mocked(prisma.replyMemory.findMany).mockResolvedValueOnce([] as any);
+    vi.mocked(prisma.replyMemory.count)
+      .mockResolvedValueOnce(9 as any)
+      .mockResolvedValueOnce(9 as any);
     vi.mocked(prisma.replyMemory.upsert).mockResolvedValue(
       createReplyMemory({
         id: "style-memory",
@@ -407,9 +413,9 @@ describe("reply-memory", () => {
         scopeType: ReplyMemoryScopeType.GLOBAL,
       }) as any,
     );
-    vi.mocked(prisma.learnedWritingStyle.findUnique)
-      .mockResolvedValueOnce(null as any)
-      .mockResolvedValueOnce(null as any);
+    vi.mocked(prisma.emailAccount.findUnique)
+      .mockResolvedValueOnce({ learnedWritingStyle: null } as any)
+      .mockResolvedValueOnce({ learnedWritingStyle: null } as any);
     vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
     mockGenerateObject.mockResolvedValueOnce({
       object: {
@@ -436,7 +442,8 @@ describe("reply-memory", () => {
     });
 
     expect(mockGenerateObject).toHaveBeenCalledTimes(1);
-    expect(prisma.learnedWritingStyle.upsert).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
+    expect(prisma.replyMemory.updateMany).not.toHaveBeenCalled();
   });
 
   it("refreshes learned writing style after enough new global style memories accumulate", async () => {
@@ -458,6 +465,7 @@ describe("reply-memory", () => {
             content: "Keep replies short and remove filler.",
             kind: ReplyMemoryKind.STYLE,
             scopeType: ReplyMemoryScopeType.GLOBAL,
+            learnedWritingStyleAnalyzedAt: null,
           }),
           sources: [
             {
@@ -470,8 +478,11 @@ describe("reply-memory", () => {
             },
           ],
         },
-      ] as any);
-    vi.mocked(prisma.replyMemory.count).mockResolvedValue(10 as any);
+      ] as any)
+      .mockResolvedValueOnce([] as any);
+    vi.mocked(prisma.replyMemory.count)
+      .mockResolvedValueOnce(10 as any)
+      .mockResolvedValueOnce(10 as any);
     vi.mocked(prisma.replyMemory.upsert).mockResolvedValue(
       createReplyMemory({
         id: "style-memory",
@@ -480,10 +491,10 @@ describe("reply-memory", () => {
         scopeType: ReplyMemoryScopeType.GLOBAL,
       }) as any,
     );
-    vi.mocked(prisma.learnedWritingStyle.findUnique)
-      .mockResolvedValueOnce(null as any)
-      .mockResolvedValueOnce(null as any);
-    vi.mocked(prisma.learnedWritingStyle.upsert).mockResolvedValue({} as any);
+    vi.mocked(prisma.emailAccount.findUnique)
+      .mockResolvedValueOnce({ learnedWritingStyle: null } as any)
+      .mockResolvedValueOnce({ learnedWritingStyle: null } as any);
+    vi.mocked(prisma.emailAccount.update).mockResolvedValue({} as any);
     vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
     mockGenerateObject
       .mockResolvedValueOnce({
@@ -517,18 +528,19 @@ describe("reply-memory", () => {
     });
 
     expect(mockGenerateObject).toHaveBeenCalledTimes(2);
-    expect(prisma.learnedWritingStyle.upsert).toHaveBeenCalledWith({
-      where: { emailAccountId: "account-1" },
-      create: {
-        emailAccountId: "account-1",
-        content:
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: "account-1" },
+      data: {
+        learnedWritingStyle:
           "Observed patterns:\n- Keep replies direct and compact.\nRepresentative edits:\n- Trim filler before sending.",
-        memoryCount: 10,
       },
-      update: {
-        content:
-          "Observed patterns:\n- Keep replies direct and compact.\nRepresentative edits:\n- Trim filler before sending.",
-        memoryCount: 10,
+    });
+    expect(prisma.replyMemory.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["style-memory"] },
+      },
+      data: {
+        learnedWritingStyleAnalyzedAt: expect.any(Date),
       },
     });
   });
@@ -1152,6 +1164,7 @@ function createReplyMemory(
     createdAt: Date;
     updatedAt: Date;
     emailAccountId: string;
+    learnedWritingStyleAnalyzedAt: Date | null;
   }>,
 ) {
   const title = overrides.title ?? "memory";
@@ -1168,6 +1181,7 @@ function createReplyMemory(
     createdAt: new Date("2026-03-17T09:00:00.000Z"),
     updatedAt: new Date("2026-03-17T09:00:00.000Z"),
     emailAccountId: "account-1",
+    learnedWritingStyleAnalyzedAt: null,
     ...overrides,
   };
 }

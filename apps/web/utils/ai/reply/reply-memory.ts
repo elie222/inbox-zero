@@ -411,9 +411,9 @@ async function processReplyMemoryDraftSendLog({
       orderBy: { updatedAt: "desc" },
       take: MAX_EXISTING_MEMORIES_IN_PROMPT,
     }),
-    prisma.learnedWritingStyle.findUnique({
-      where: { emailAccountId },
-      select: { content: true },
+    prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { learnedWritingStyle: true },
     }),
   ]);
 
@@ -429,7 +429,7 @@ async function processReplyMemoryDraftSendLog({
     sentText: draftSendLog.replyMemorySentText ?? "",
     senderEmail: normalizedSenderEmail,
     existingMemories,
-    learnedWritingStyle: learnedWritingStyle?.content ?? null,
+    learnedWritingStyle: learnedWritingStyle?.learnedWritingStyle ?? null,
     emailAccount,
   });
 
@@ -464,9 +464,15 @@ async function processReplyMemoryDraftSendLog({
         kind: memory.kind,
         scopeType: memory.scopeType,
         scopeValue: normalizedScopeValue,
+        ...(memory.kind === ReplyMemoryKind.STYLE
+          ? { learnedWritingStyleAnalyzedAt: null }
+          : {}),
       },
       update: {
         content: memory.content,
+        ...(memory.kind === ReplyMemoryKind.STYLE
+          ? { learnedWritingStyleAnalyzedAt: null }
+          : {}),
       },
     });
 
@@ -525,6 +531,12 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
   const senderDomain = extractDomainFromEmail(
     normalizedSenderEmail,
   ).toLowerCase();
+  const learnedWritingStylePrompt = learnedWritingStyle
+    ? `<learned_writing_style>
+${learnedWritingStyle}
+</learned_writing_style>
+`
+    : "";
   const prompt = `<source_email_sender>${normalizedSenderEmail}</source_email_sender>
 <source_email_domain>${senderDomain || "unknown"}</source_email_domain>
 
@@ -544,9 +556,7 @@ ${normalizedSentText}
 ${formatExistingMemories(existingMemories)}
 </existing_memories>
 
-<learned_writing_style>
-${learnedWritingStyle || "None"}
-</learned_writing_style>
+${learnedWritingStylePrompt}
 
 ${getUserInfoPrompt({ emailAccount })}
 
@@ -631,39 +641,75 @@ async function maybeRefreshLearnedWritingStyle({
   emailAccountId: string;
   emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
 }) {
-  const learnedWritingStyleState = await prisma.learnedWritingStyle.findUnique({
-    where: { emailAccountId },
-    select: {
-      memoryCount: true,
-    },
-  });
+  const [
+    learnedWritingStyleState,
+    styleMemoryCount,
+    unanalyzedStyleMemoryCount,
+  ] = await Promise.all([
+    prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { learnedWritingStyle: true },
+    }),
+    prisma.replyMemory.count({
+      where: {
+        emailAccountId,
+        kind: ReplyMemoryKind.STYLE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+      },
+    }),
+    prisma.replyMemory.count({
+      where: {
+        emailAccountId,
+        kind: ReplyMemoryKind.STYLE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+        learnedWritingStyleAnalyzedAt: null,
+      },
+    }),
+  ]);
 
-  const styleMemoryCount = await prisma.replyMemory.count({
-    where: {
-      emailAccountId,
-      kind: ReplyMemoryKind.STYLE,
-      scopeType: ReplyMemoryScopeType.GLOBAL,
-    },
-  });
-
-  if (styleMemoryCount < MIN_STYLE_MEMORIES_FOR_LEARNED_STYLE) return;
-  if (
-    styleMemoryCount <
-    (learnedWritingStyleState?.memoryCount ?? 0) +
-      STYLE_MEMORIES_PER_LEARNED_STYLE_REFRESH
-  )
+  if (!learnedWritingStyleState?.learnedWritingStyle) {
+    if (styleMemoryCount < MIN_STYLE_MEMORIES_FOR_LEARNED_STYLE) return;
+  } else if (
+    unanalyzedStyleMemoryCount < STYLE_MEMORIES_PER_LEARNED_STYLE_REFRESH
+  ) {
     return;
+  }
 
-  const styleMemories = await prisma.replyMemory.findMany({
-    where: {
-      emailAccountId,
-      kind: ReplyMemoryKind.STYLE,
-      scopeType: ReplyMemoryScopeType.GLOBAL,
-    },
-    include: styleMemoryCompactionInclude,
-    orderBy: { updatedAt: "desc" },
-    take: MAX_STYLE_MEMORIES_FOR_LEARNED_STYLE,
-  });
+  const [unanalyzedStyleMemories, analyzedStyleMemories] = await Promise.all([
+    prisma.replyMemory.findMany({
+      where: {
+        emailAccountId,
+        kind: ReplyMemoryKind.STYLE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+        learnedWritingStyleAnalyzedAt: null,
+      },
+      include: styleMemoryCompactionInclude,
+      orderBy: { updatedAt: "desc" },
+      take: MAX_STYLE_MEMORIES_FOR_LEARNED_STYLE,
+    }),
+    prisma.replyMemory.findMany({
+      where: {
+        emailAccountId,
+        kind: ReplyMemoryKind.STYLE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+        learnedWritingStyleAnalyzedAt: {
+          not: null,
+        },
+      },
+      include: styleMemoryCompactionInclude,
+      orderBy: { updatedAt: "desc" },
+      take: MAX_STYLE_MEMORIES_FOR_LEARNED_STYLE,
+    }),
+  ]);
+
+  const styleMemories = [...unanalyzedStyleMemories];
+  const seenMemoryIds = new Set(styleMemories.map((memory) => memory.id));
+  for (const memory of analyzedStyleMemories) {
+    if (seenMemoryIds.has(memory.id)) continue;
+    styleMemories.push(memory);
+    seenMemoryIds.add(memory.id);
+    if (styleMemories.length >= MAX_STYLE_MEMORIES_FOR_LEARNED_STYLE) break;
+  }
 
   if (!styleMemories.length) return;
 
@@ -672,16 +718,23 @@ async function maybeRefreshLearnedWritingStyle({
     emailAccount,
   });
 
-  await prisma.learnedWritingStyle.upsert({
-    where: { emailAccountId },
-    create: {
-      emailAccountId,
-      content: learnedWritingStyle,
-      memoryCount: styleMemoryCount,
+  await prisma.emailAccount.update({
+    where: { id: emailAccountId },
+    data: { learnedWritingStyle },
+  });
+
+  const analyzedMemoryIds = styleMemories
+    .filter((memory) => memory.learnedWritingStyleAnalyzedAt === null)
+    .map((memory) => memory.id);
+
+  if (!analyzedMemoryIds.length) return;
+
+  await prisma.replyMemory.updateMany({
+    where: {
+      id: { in: analyzedMemoryIds },
     },
-    update: {
-      content: learnedWritingStyle,
-      memoryCount: styleMemoryCount,
+    data: {
+      learnedWritingStyleAnalyzedAt: new Date(),
     },
   });
 }

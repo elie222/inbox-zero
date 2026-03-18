@@ -164,6 +164,7 @@ model EmailAccount {
   followUpAutoDraftEnabled  Boolean @default(true)
 
   digestSchedule Schedule?
+  learnedWritingStyle String?
 
   userId    String
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -178,7 +179,6 @@ model EmailAccount {
   groups           Group[]
   categories       Category[]
   threadTrackers   ThreadTracker[]
-  learnedWritingStyle LearnedWritingStyle?
   cleanupJobs      CleanupJob[]
   cleanupThreads   CleanupThread[]
   emailMessages    EmailMessage[]
@@ -205,18 +205,6 @@ model EmailAccount {
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
-}
-
-model LearnedWritingStyle {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  content     String
-  memoryCount Int      @default(0)
-
-  emailAccountId String @unique
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 }
 
 model Organization {
@@ -872,6 +860,7 @@ model ReplyMemory {
   kind       ReplyMemoryKind
   scopeType  ReplyMemoryScopeType
   scopeValue String
+  learnedWritingStyleAnalyzedAt DateTime?
 
   emailAccountId String
   emailAccount   EmailAccount        @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -880,6 +869,7 @@ model ReplyMemory {
   @@unique([emailAccountId, kind, scopeType, scopeValue, title])
   @@index([emailAccountId, updatedAt])
   @@index([emailAccountId, scopeType, scopeValue])
+  @@index([emailAccountId, kind, scopeType, learnedWritingStyleAnalyzedAt])
 }
 
 model ReplyMemorySource {

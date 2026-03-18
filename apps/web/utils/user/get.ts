@@ -182,10 +182,10 @@ export async function getLearnedWritingStyle({
 }: {
   emailAccountId: string;
 }) {
-  const learnedWritingStyle = await prisma.learnedWritingStyle.findUnique({
-    where: { emailAccountId },
-    select: { content: true },
+  const learnedWritingStyle = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: { learnedWritingStyle: true },
   });
 
-  return learnedWritingStyle?.content || null;
+  return learnedWritingStyle?.learnedWritingStyle || null;
 }
