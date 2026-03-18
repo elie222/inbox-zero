@@ -17,7 +17,13 @@ export const POST = withEmailAccount(
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const json = await request.json();
+    let json: unknown;
+    try {
+      json = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
     const { data, error } = confirmAssistantEmailActionBody.safeParse(json);
     if (error) {
       return NextResponse.json({ error: error.errors }, { status: 400 });

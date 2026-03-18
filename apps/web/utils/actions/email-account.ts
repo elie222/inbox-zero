@@ -9,7 +9,6 @@ import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { updateContactRole } from "@inboxzero/loops";
-import { isLocalAuthBypassEnabled } from "@/utils/auth/local-bypass-config";
 import {
   updateHiddenAiDraftLinksBody,
   updateReferralSignatureBody,
@@ -50,10 +49,6 @@ export const analyzePersonaAction = actionClient
 
     if (existingPersona?.personaAnalysis) {
       return existingPersona.personaAnalysis;
-    }
-
-    if (isLocalAuthBypassEnabled()) {
-      return null;
     }
 
     const emailAccount = await getEmailAccountWithAiAndTokens({

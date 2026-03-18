@@ -50,7 +50,6 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
-import { isLocalAuthBypassEnabled } from "@/utils/auth/local-bypass-config";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -442,10 +441,6 @@ export const createRulesOnboardingAction = actionClient
       }
 
       await Promise.allSettled(promises);
-
-      if (isLocalAuthBypassEnabled()) {
-        return;
-      }
 
       after(() =>
         bulkProcessInboxEmails({
