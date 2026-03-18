@@ -61,6 +61,13 @@ export const getCalendarEventsTool = ({
           ),
         );
 
+        const rejected = allResults.filter((r) => r.status === "rejected");
+        if (rejected.length > 0) {
+          logger.warn("Some calendar providers failed", {
+            count: rejected.length,
+          });
+        }
+
         const events = allResults
           .filter(
             (r): r is PromiseFulfilledResult<CalendarEvent[]> =>

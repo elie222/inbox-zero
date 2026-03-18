@@ -329,6 +329,14 @@ const readAttachmentInputSchema = z.object({
   attachmentId: z
     .string()
     .describe("The attachment ID (from readEmail attachment metadata)"),
+  mimeType: z
+    .string()
+    .optional()
+    .describe("MIME type from readEmail attachment metadata"),
+  filename: z
+    .string()
+    .optional()
+    .describe("Filename from readEmail attachment metadata"),
 });
 
 export const readAttachmentTool = ({
@@ -346,35 +354,33 @@ export const readAttachmentTool = ({
     description:
       "Read the text content of an email attachment. Supports PDF, DOCX, plain text, CSV, and HTML. Returns metadata only for binary files (images, etc.).",
     inputSchema: readAttachmentInputSchema,
-    execute: async ({ messageId, attachmentId }) => {
+    execute: async ({
+      messageId,
+      attachmentId,
+      mimeType: inputMimeType,
+      filename: inputFilename,
+    }) => {
       trackToolCall({ tool: "read_attachment", email, logger });
 
       try {
-        const emailProvider = await createEmailProvider({
-          emailAccountId,
-          provider,
-          logger,
-        });
+        const resolvedMimeType = inputMimeType ?? "application/octet-stream";
+        const resolvedFilename = inputFilename ?? "unknown";
 
-        const message = await emailProvider.getMessage(messageId);
-        const attachmentMeta = message.attachments?.find(
-          (a) => a.attachmentId === attachmentId,
-        );
-
-        const mimeType = attachmentMeta?.mimeType ?? "application/octet-stream";
-        const filename = attachmentMeta?.filename ?? "unknown";
-        const size = attachmentMeta?.size ?? 0;
-
-        if (!isExtractableMimeType(mimeType)) {
+        if (!isExtractableMimeType(resolvedMimeType)) {
           return {
-            filename,
-            mimeType,
-            size,
+            filename: resolvedFilename,
+            mimeType: resolvedMimeType,
             contentAvailable: false,
             message:
               "This attachment type cannot be read as text. Only PDF, DOCX, plain text, CSV, and HTML are supported.",
           };
         }
+
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
 
         const attachment = await emailProvider.getAttachment(
           messageId,
@@ -385,13 +391,13 @@ export const readAttachmentTool = ({
 
         const { text, truncated } = await extractAttachmentText(
           buffer,
-          mimeType,
+          resolvedMimeType,
           logger,
         );
 
         return {
-          filename,
-          mimeType,
+          filename: resolvedFilename,
+          mimeType: resolvedMimeType,
           size: attachment.size,
           contentAvailable: true,
           content: text,

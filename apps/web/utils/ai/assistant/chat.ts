@@ -125,11 +125,11 @@ Tool usage strategy (progressive disclosure):
 - Start with read-only context tools before write tools.
 - Some tools require activation first. Call activateTools with the needed capability groups before using: calendar ("calendar"), attachment reading ("attachments"), label management ("labels"), account settings ("settings"), conversation memory ("memory"), knowledge base ("knowledge"), or email forwarding ("forward").
 - For write operations that affect many emails, first summarize what will change, then execute after clear user confirmation.
-- When the user asks what settings can or cannot be changed, activate "settings" then call getAssistantCapabilities.
-- For supported account-setting updates, prefer updateAssistantSettings.
+- When the user asks what settings can or cannot be changed, call getAssistantCapabilities (no activation needed).
+- For supported account-setting updates, activate "settings" then prefer updateAssistantSettings.
 - Personal Instructions are durable user context that is always available when the AI processes future emails. Use updatePersonalInstructions for broad standing preferences, priorities, and background.
 - Append to Personal Instructions by default. Replace only when the user clearly wants to overwrite them.
-- For scheduled check-ins and draft knowledge base management, activate "settings" then call getAssistantCapabilities when capability or destination context is missing or stale; otherwise reuse recent capability context and proceed with updateAssistantSettings.
+- For scheduled check-ins and draft knowledge base management, call getAssistantCapabilities when capability or destination context is missing or stale; otherwise reuse recent capability context. Activate "settings" before calling updateAssistantSettings.
 - For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then provide a concise grouped summary and recommend a next action.
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
@@ -479,28 +479,13 @@ Behavior anchors (minimal examples):
       );
       if (activated.size === 0) return undefined;
 
+      const unlocked = [...activated].flatMap((cap) => {
+        if (cap === "forward" && !emailSendToolsEnabled) return [];
+        return capabilityToolNames[cap] ?? [];
+      });
+
       return {
-        activeTools: [
-          ...coreToolNames,
-          ...(activated.has("calendar") ? ["getCalendarEvents"] : []),
-          ...(activated.has("attachments") ? ["readAttachment"] : []),
-          ...(activated.has("labels")
-            ? ["listLabels", "createOrGetLabel"]
-            : []),
-          ...(activated.has("settings")
-            ? [
-                "updateAssistantSettings",
-                "updateAssistantSettingsCompat",
-                "updateInboxFeatures",
-                "updatePersonalInstructions",
-              ]
-            : []),
-          ...(activated.has("memory") ? ["searchMemories", "saveMemory"] : []),
-          ...(activated.has("knowledge") ? ["addToKnowledgeBase"] : []),
-          ...(activated.has("forward") && emailSendToolsEnabled
-            ? ["forwardEmail"]
-            : []),
-        ],
+        activeTools: [...coreToolNames, ...unlocked],
       };
     },
   });
@@ -722,6 +707,21 @@ const capabilityGroupValues = [
 ] as const;
 
 type Capability = (typeof capabilityGroupValues)[number];
+
+const capabilityToolNames: Record<Capability, string[]> = {
+  calendar: ["getCalendarEvents"],
+  attachments: ["readAttachment"],
+  labels: ["listLabels", "createOrGetLabel"],
+  settings: [
+    "updateAssistantSettings",
+    "updateAssistantSettingsCompat",
+    "updateInboxFeatures",
+    "updatePersonalInstructions",
+  ],
+  memory: ["searchMemories", "saveMemory"],
+  knowledge: ["addToKnowledgeBase"],
+  forward: ["forwardEmail"],
+};
 
 const activateToolsInputSchema = z.object({
   capabilities: z

@@ -242,10 +242,8 @@ function isGetCalendarEventsInput(
   if (!input || typeof input !== "object") return false;
   const value = input as Record<string, unknown>;
   return (
-    value.startDate === undefined ||
-    typeof value.startDate === "string" ||
-    value.endDate === undefined ||
-    typeof value.endDate === "string"
+    (value.startDate === undefined || typeof value.startDate === "string") &&
+    (value.endDate === undefined || typeof value.endDate === "string")
   );
 }
 
