@@ -29,12 +29,14 @@ import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
 import type { SelectedAttachment } from "@/utils/attachments/source-schema";
 import { getReplyMemoriesForPrompt } from "@/utils/ai/reply/reply-memory";
+import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metadata";
 
 export type DraftGenerationResult = {
   attachments?: SelectedAttachment[];
   draft: string | null;
   confidence: DraftReplyConfidence;
   attribution: DraftAttribution | null;
+  draftContextMetadata?: DraftContextMetadata | null;
 };
 
 /**
@@ -78,7 +80,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     ? { threadMessages: [testMessage], previousConversationMessages: null }
     : await fetchThreadAndConversationMessages(threadId, client);
 
-  const { draft, confidence, attribution, attachments } =
+  const { draft, confidence, attribution, attachments, draftContextMetadata } =
     await generateDraftContent(
       emailAccount,
       threadMessages,
@@ -94,6 +96,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
       draft: null,
       confidence,
       attribution,
+      draftContextMetadata,
       ...(selectedRuleId ? { attachments } : {}),
     };
   }
@@ -134,6 +137,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     draft: finalResult,
     confidence,
     attribution,
+    draftContextMetadata,
     ...(selectedRuleId ? { attachments } : {}),
   };
 }
@@ -194,6 +198,7 @@ async function generateDraftContent(
         draft: cachedReply.reply,
         confidence: cachedReply.confidence,
         attribution: cachedReply.attribution,
+        draftContextMetadata: cachedReply.draftContextMetadata,
         ...(selectedRuleId ? { attachments: cachedReply.attachments } : {}),
       };
     }
@@ -320,6 +325,41 @@ async function generateDraftContent(
     content: replyMemoryContent,
     selectedMemories: selectedReplyMemories,
   } = replyMemorySelection;
+  const meetingContext = formatMeetingContextForPrompt(
+    upcomingMeetings,
+    emailAccount.timezone,
+  );
+  const precedentThreadCount = emailHistoryContext?.relevantEmails.length ?? 0;
+  const draftContextMetadata: DraftContextMetadata = {
+    replyMemories: {
+      count: selectedReplyMemories.length,
+      ids: selectedReplyMemories.map((m) => m.id),
+      kinds: [...new Set(selectedReplyMemories.map((m) => m.kind))],
+      scopeTypes: [...new Set(selectedReplyMemories.map((m) => m.scopeType))],
+    },
+    knowledgeBase: {
+      availableCount: knowledgeBase.length,
+      injected: !!knowledgeResult?.relevantContent?.trim(),
+    },
+    senderHistory: {
+      summaryInjected: !!emailHistorySummary,
+      summarySourceMessageCount: historicalMessagesForLLM?.length ?? 0,
+      precedentThreadsInjected: precedentThreadCount > 0,
+      precedentThreadCount,
+    },
+    calendar: {
+      injected: !!calendarAvailability,
+      noAvailability: calendarAvailability?.noAvailability ?? false,
+      suggestedTimesCount: calendarAvailability?.suggestedTimes?.length ?? 0,
+    },
+    writingStyle: { custom: !!writingStyle },
+    externalTools: { injected: !!mcpResult?.response },
+    meetings: { injected: !!meetingContext, count: upcomingMeetings.length },
+    attachments: {
+      injected: !!attachmentSelection.attachmentContext,
+      selectedCount: attachmentSelection.selectedAttachments.length,
+    },
+  };
 
   if (selectedReplyMemories.length) {
     logger.info("Injecting reply memories into draft prompt", {
@@ -345,10 +385,7 @@ async function generateDraftContent(
     calendarAvailability,
     writingStyle,
     mcpContext: mcpResult?.response || null,
-    meetingContext: formatMeetingContextForPrompt(
-      upcomingMeetings,
-      emailAccount.timezone,
-    ),
+    meetingContext,
     attachmentContext: attachmentSelection.attachmentContext,
   });
 
@@ -372,6 +409,7 @@ async function generateDraftContent(
         reply,
         confidence,
         attribution,
+        draftContextMetadata,
         ...(selectedRuleId
           ? {
               attachments: attachmentSelection.selectedAttachments,
@@ -391,6 +429,7 @@ async function generateDraftContent(
       draft: null,
       confidence,
       attribution,
+      draftContextMetadata,
       ...(selectedRuleId
         ? { attachments: attachmentSelection.selectedAttachments }
         : {}),
@@ -404,6 +443,7 @@ async function generateDraftContent(
       reply,
       confidence,
       attribution,
+      draftContextMetadata,
       ...(selectedRuleId
         ? {
             attachments: attachmentSelection.selectedAttachments,
@@ -423,6 +463,7 @@ async function generateDraftContent(
     draft: reply,
     confidence,
     attribution,
+    draftContextMetadata,
     ...(selectedRuleId
       ? { attachments: attachmentSelection.selectedAttachments }
       : {}),
