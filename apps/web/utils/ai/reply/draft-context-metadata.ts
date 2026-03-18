@@ -1,42 +1,45 @@
-import type {
+import { z } from "zod";
+import {
   ReplyMemoryKind,
   ReplyMemoryScopeType,
 } from "@/generated/prisma/enums";
 
-export type DraftContextMetadata = {
-  replyMemories: {
-    count: number;
-    ids: string[];
-    kinds: ReplyMemoryKind[];
-    scopeTypes: ReplyMemoryScopeType[];
-  };
-  knowledgeBase: {
-    availableCount: number;
-    injected: boolean;
-  };
-  senderHistory: {
-    summaryInjected: boolean;
-    summarySourceMessageCount: number;
-    precedentThreadsInjected: boolean;
-    precedentThreadCount: number;
-  };
-  calendar: {
-    injected: boolean;
-    noAvailability: boolean;
-    suggestedTimesCount: number;
-  };
-  writingStyle: {
-    custom: boolean;
-  };
-  externalTools: {
-    injected: boolean;
-  };
-  meetings: {
-    injected: boolean;
-    count: number;
-  };
-  attachments: {
-    injected: boolean;
-    selectedCount: number;
-  };
-};
+export const draftContextMetadataSchema = z.object({
+  replyMemories: z.object({
+    count: z.number(),
+    ids: z.array(z.string()),
+    kinds: z.array(z.nativeEnum(ReplyMemoryKind)),
+    scopeTypes: z.array(z.nativeEnum(ReplyMemoryScopeType)),
+  }),
+  knowledgeBase: z.object({
+    availableCount: z.number(),
+    injected: z.boolean(),
+  }),
+  senderHistory: z.object({
+    summaryInjected: z.boolean(),
+    summarySourceMessageCount: z.number(),
+    precedentThreadsInjected: z.boolean(),
+    precedentThreadCount: z.number(),
+  }),
+  calendar: z.object({
+    injected: z.boolean(),
+    noAvailability: z.boolean(),
+    suggestedTimesCount: z.number(),
+  }),
+  writingStyle: z.object({
+    custom: z.boolean(),
+  }),
+  externalTools: z.object({
+    injected: z.boolean(),
+  }),
+  meetings: z.object({
+    injected: z.boolean(),
+    count: z.number(),
+  }),
+  attachments: z.object({
+    injected: z.boolean(),
+    selectedCount: z.number(),
+  }),
+});
+
+export type DraftContextMetadata = z.infer<typeof draftContextMetadataSchema>;
