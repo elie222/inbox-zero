@@ -356,13 +356,6 @@ export const readAttachmentTool = ({
           logger,
         });
 
-        const attachment = await emailProvider.getAttachment(
-          messageId,
-          attachmentId,
-        );
-
-        const buffer = Buffer.from(attachment.data, "base64");
-
         const message = await emailProvider.getMessage(messageId);
         const attachmentMeta = message.attachments?.find(
           (a) => a.attachmentId === attachmentId,
@@ -370,30 +363,39 @@ export const readAttachmentTool = ({
 
         const mimeType = attachmentMeta?.mimeType ?? "application/octet-stream";
         const filename = attachmentMeta?.filename ?? "unknown";
+        const size = attachmentMeta?.size ?? 0;
 
-        const textContent = await extractAttachmentText(
-          buffer,
-          mimeType,
-          logger,
-        );
-
-        if (textContent === null) {
+        if (!isExtractableMimeType(mimeType)) {
           return {
             filename,
             mimeType,
-            size: attachment.size,
+            size,
             contentAvailable: false,
             message:
               "This attachment type cannot be read as text. Only PDF, DOCX, plain text, CSV, and HTML are supported.",
           };
         }
 
+        const attachment = await emailProvider.getAttachment(
+          messageId,
+          attachmentId,
+        );
+
+        const buffer = Buffer.from(attachment.data, "base64");
+
+        const { text, truncated } = await extractAttachmentText(
+          buffer,
+          mimeType,
+          logger,
+        );
+
         return {
           filename,
           mimeType,
           size: attachment.size,
           contentAvailable: true,
-          content: textContent,
+          content: text,
+          truncated,
         };
       } catch (error) {
         logger.error("Failed to read attachment", { error });
@@ -1386,11 +1388,23 @@ function getValidationErrorMessage(toolName: string, error: z.ZodError) {
 
 const MAX_ATTACHMENT_TEXT_LENGTH = 8000;
 
+const EXTRACTABLE_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+  "text/csv",
+  "text/html",
+]);
+
+function isExtractableMimeType(mimeType: string): boolean {
+  return EXTRACTABLE_MIME_TYPES.has(mimeType);
+}
+
 async function extractAttachmentText(
   buffer: Buffer,
   mimeType: string,
   logger: Logger,
-): Promise<string | null> {
+): Promise<{ text: string; truncated: boolean }> {
   if (
     mimeType === "application/pdf" ||
     mimeType ===
@@ -1404,14 +1418,21 @@ async function extractAttachmentText(
       maxLength: MAX_ATTACHMENT_TEXT_LENGTH,
       logger,
     });
-    return result?.text ?? null;
+    return {
+      text: result?.text ?? "",
+      truncated: result?.truncated ?? false,
+    };
   }
 
   if (mimeType === "text/csv") {
     const text = buffer.toString("utf-8");
-    return text.length > MAX_ATTACHMENT_TEXT_LENGTH
-      ? `${text.slice(0, MAX_ATTACHMENT_TEXT_LENGTH)}... (truncated)`
-      : text;
+    const truncated = text.length > MAX_ATTACHMENT_TEXT_LENGTH;
+    return {
+      text: truncated
+        ? `${text.slice(0, MAX_ATTACHMENT_TEXT_LENGTH)}... (truncated)`
+        : text,
+      truncated,
+    };
   }
 
   if (mimeType === "text/html") {
@@ -1420,10 +1441,14 @@ async function extractAttachmentText(
       wordwrap: false,
       selectors: [{ selector: "img", format: "skip" }],
     });
-    return text.length > MAX_ATTACHMENT_TEXT_LENGTH
-      ? `${text.slice(0, MAX_ATTACHMENT_TEXT_LENGTH)}... (truncated)`
-      : text;
+    const truncated = text.length > MAX_ATTACHMENT_TEXT_LENGTH;
+    return {
+      text: truncated
+        ? `${text.slice(0, MAX_ATTACHMENT_TEXT_LENGTH)}... (truncated)`
+        : text,
+      truncated,
+    };
   }
 
-  return null;
+  return { text: "", truncated: false };
 }

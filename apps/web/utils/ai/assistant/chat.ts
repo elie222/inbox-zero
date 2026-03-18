@@ -725,7 +725,7 @@ type Capability = (typeof capabilityGroupValues)[number];
 
 const activateToolsInputSchema = z.object({
   capabilities: z
-    .array(z.string())
+    .array(z.enum(capabilityGroupValues as unknown as [string, ...string[]]))
     .describe(
       `Which capability groups to activate. Options: ${capabilityGroupValues.join(", ")}`,
     ),

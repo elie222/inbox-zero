@@ -1,6 +1,7 @@
 import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
+import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
 
@@ -50,7 +51,7 @@ export const getCalendarEventsTool = ({
           };
         }
 
-        const allEvents = await Promise.all(
+        const allResults = await Promise.allSettled(
           providers.map((provider) =>
             provider.fetchEvents({
               timeMin: new Date(startDate),
@@ -60,9 +61,14 @@ export const getCalendarEventsTool = ({
           ),
         );
 
-        const events = allEvents
-          .flat()
+        const events = allResults
+          .filter(
+            (r): r is PromiseFulfilledResult<CalendarEvent[]> =>
+              r.status === "fulfilled",
+          )
+          .flatMap((r) => r.value)
           .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+          .slice(0, maxResults ?? 25)
           .map((event) => ({
             title: event.title,
             startTime: event.startTime.toISOString(),
