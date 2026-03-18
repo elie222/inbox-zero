@@ -1,4 +1,8 @@
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import {
+  draftContextMetadataSchema,
+  type DraftContextMetadata,
+} from "@/utils/ai/reply/draft-context-metadata";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 import {
   selectedAttachmentSchema,
@@ -11,6 +15,7 @@ export type ReplyWithConfidence = {
   reply: string;
   confidence: DraftReplyConfidence;
   attribution: DraftAttribution | null;
+  draftContextMetadata: DraftContextMetadata | null;
 };
 
 export async function getReply({
@@ -51,6 +56,7 @@ export async function saveReply({
   reply,
   confidence,
   attribution,
+  draftContextMetadata,
   attachments,
   ruleId,
 }: {
@@ -59,6 +65,7 @@ export async function saveReply({
   reply: string;
   confidence: DraftReplyConfidence;
   attribution?: DraftAttribution | null;
+  draftContextMetadata?: DraftContextMetadata | null;
   attachments?: SelectedAttachment[];
   ruleId?: string;
 }) {
@@ -68,6 +75,7 @@ export async function saveReply({
       reply,
       confidence,
       ...(attribution !== undefined ? { attribution } : {}),
+      ...(draftContextMetadata !== undefined ? { draftContextMetadata } : {}),
       ...(attachments !== undefined ? { attachments } : {}),
     }),
     {
@@ -108,12 +116,14 @@ function parseReplyWithConfidenceFromObject(
 ): ReplyWithConfidence | null {
   if (!value || typeof value !== "object") return null;
 
-  const { attachments, reply, confidence, attribution } = value as {
-    attachments?: unknown;
-    reply?: unknown;
-    confidence?: unknown;
-    attribution?: unknown;
-  };
+  const { attachments, reply, confidence, attribution, draftContextMetadata } =
+    value as {
+      attachments?: unknown;
+      reply?: unknown;
+      confidence?: unknown;
+      attribution?: unknown;
+      draftContextMetadata?: unknown;
+    };
 
   if (typeof reply !== "string") return null;
   if (!isDraftReplyConfidence(confidence)) return null;
@@ -130,6 +140,7 @@ function parseReplyWithConfidenceFromObject(
     reply,
     confidence,
     attribution: parseDraftAttribution(attribution),
+    draftContextMetadata: parseDraftContextMetadata(draftContextMetadata),
   };
 }
 
@@ -160,6 +171,13 @@ function parseDraftAttribution(value: unknown): DraftAttribution | null {
   }
 
   return { provider, modelName, pipelineVersion };
+}
+
+function parseDraftContextMetadata(
+  value: unknown,
+): DraftContextMetadata | null {
+  const result = draftContextMetadataSchema.safeParse(value);
+  return result.success ? result.data : null;
 }
 
 function isSelectedAttachment(value: unknown): value is SelectedAttachment {

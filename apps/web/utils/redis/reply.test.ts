@@ -63,6 +63,7 @@ describe("saveReply", () => {
     });
 
     expect(result).toEqual({
+      attachments: undefined,
       reply: "Draft reply",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
       attribution: {
@@ -70,6 +71,7 @@ describe("saveReply", () => {
         modelName: "gpt-5.1",
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
+      draftContextMetadata: null,
     });
   });
 

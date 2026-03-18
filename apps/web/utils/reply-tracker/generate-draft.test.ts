@@ -507,6 +507,17 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
+    vi.mocked(getReplyMemoriesForPrompt).mockResolvedValueOnce({
+      content:
+        "1. [FACT | TOPIC:pricing] Mention that pricing depends on seat count.",
+      selectedMemories: [
+        {
+          id: "memory-1",
+          kind: "FACT",
+          scopeType: "TOPIC",
+        },
+      ],
+    } as any);
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
       createMockEmailAccountSettings(),
     );
@@ -520,7 +531,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       DraftReplyConfidence.STANDARD,
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       draft: "Fresh draft",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
       attribution: {
@@ -529,17 +540,31 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
-    expect(saveReply).toHaveBeenCalledWith({
-      emailAccountId: "test-account-id",
-      messageId: "msg-1",
-      reply: "Fresh draft",
-      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
-      attribution: {
-        provider: "anthropic",
-        modelName: "claude-sonnet-4-5",
-        pipelineVersion: DRAFT_PIPELINE_VERSION,
-      },
-    });
+    expect(result.draftContextMetadata).toEqual(
+      expect.objectContaining({
+        replyMemories: expect.objectContaining({
+          ids: ["memory-1"],
+        }),
+      }),
+    );
+    expect(saveReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "test-account-id",
+        messageId: "msg-1",
+        reply: "Fresh draft",
+        confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+        attribution: {
+          provider: "anthropic",
+          modelName: "claude-sonnet-4-5",
+          pipelineVersion: DRAFT_PIPELINE_VERSION,
+        },
+        draftContextMetadata: expect.objectContaining({
+          replyMemories: expect.objectContaining({
+            ids: ["memory-1"],
+          }),
+        }),
+      }),
+    );
   });
 
   it("skips drafting when confidence is below the threshold", async () => {
@@ -562,7 +587,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       DraftReplyConfidence.STANDARD,
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       draft: null,
       confidence: DraftReplyConfidence.ALL_EMAILS,
       attribution: {
@@ -571,17 +596,31 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
-    expect(saveReply).toHaveBeenCalledWith({
-      emailAccountId: "test-account-id",
-      messageId: "msg-1",
-      reply: "Draft that should be skipped",
-      confidence: DraftReplyConfidence.ALL_EMAILS,
-      attribution: {
-        provider: "openai",
-        modelName: "gpt-5.1",
-        pipelineVersion: DRAFT_PIPELINE_VERSION,
-      },
-    });
+    expect(result.draftContextMetadata).toEqual(
+      expect.objectContaining({
+        replyMemories: expect.objectContaining({
+          ids: ["memory-1"],
+        }),
+      }),
+    );
+    expect(saveReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "test-account-id",
+        messageId: "msg-1",
+        reply: "Draft that should be skipped",
+        confidence: DraftReplyConfidence.ALL_EMAILS,
+        attribution: {
+          provider: "openai",
+          modelName: "gpt-5.1",
+          pipelineVersion: DRAFT_PIPELINE_VERSION,
+        },
+        draftContextMetadata: expect.objectContaining({
+          replyMemories: expect.objectContaining({
+            ids: ["memory-1"],
+          }),
+        }),
+      }),
+    );
   });
 
   it("returns a generated draft even when caching it fails", async () => {
@@ -608,7 +647,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
       DraftReplyConfidence.STANDARD,
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       draft: "Fresh draft",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
       attribution: {
@@ -617,6 +656,13 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
     });
+    expect(result.draftContextMetadata).toEqual(
+      expect.objectContaining({
+        replyMemories: expect.objectContaining({
+          ids: ["memory-1"],
+        }),
+      }),
+    );
   });
 
   it("passes selected attachment context into drafting and caches it per rule", async () => {
@@ -671,21 +717,37 @@ reason: Matched the requested property packet
       }),
     );
 
-    expect(saveReply).toHaveBeenCalledWith({
-      emailAccountId: "test-account-id",
-      messageId: "msg-1",
-      reply: "Attached the lease packet for review.",
-      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
-      attribution: null,
-      attachments: selectedAttachments,
-      ruleId: "rule-1",
-    });
+    expect(saveReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "test-account-id",
+        messageId: "msg-1",
+        reply: "Attached the lease packet for review.",
+        confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+        attribution: null,
+        attachments: selectedAttachments,
+        ruleId: "rule-1",
+        draftContextMetadata: expect.objectContaining({
+          attachments: {
+            injected: true,
+            selectedCount: 1,
+          },
+        }),
+      }),
+    );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       draft: "Attached the lease packet for review.",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
       attribution: null,
       attachments: selectedAttachments,
     });
+    expect(result.draftContextMetadata).toEqual(
+      expect.objectContaining({
+        attachments: {
+          injected: true,
+          selectedCount: 1,
+        },
+      }),
+    );
   });
 });

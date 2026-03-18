@@ -91,7 +91,7 @@ ${knowledgeBaseContent}
     : "";
 
   const learnedReplyMemories = replyMemoryContent
-    ? `Learned reply memories from prior draft edits. Use these when relevant, but explicit user instructions and knowledge base content take precedence.
+    ? `Learned reply memories from prior draft edits. These are advisory, not mandatory. Use them only when they clearly help with the current email, and ignore any memory that does not fit. Explicit user instructions and knowledge base content take precedence.
 
 <reply_memories>
 ${replyMemoryContent}
