@@ -27,6 +27,10 @@ inbox-zero-api openapi --json
 
 If the CLI is not installed yet, install it with the OpenClaw installer or run `npm install -g @inbox-zero/api`.
 
+## Cursor
+
+Set `INBOX_ZERO_API_KEY` in your environment (shell profile, Cursor env, or a local env file—never commit keys). Install the CLI with `npm install -g @inbox-zero/api` or `npx @inbox-zero/api`.
+
 ## OpenClaw Config
 
 Set the API key in `~/.openclaw/openclaw.json` under `skills.entries.inboxZeroApi.apiKey`, or export `INBOX_ZERO_API_KEY` in the host environment.
