@@ -460,8 +460,16 @@ async function evaluateScenario(
 
       const hasCorrectId = readEmailCall?.messageId === expectation.messageId;
 
+      const didNotReadAttachment = !result.toolCalls.some(
+        (tc) => tc.toolName === "readAttachment",
+      );
+
       return {
-        pass: hasCorrectChain && hasCorrectId && !!searchJudge?.pass,
+        pass:
+          hasCorrectChain &&
+          hasCorrectId &&
+          didNotReadAttachment &&
+          !!searchJudge?.pass,
         actual:
           searchCall && searchJudge
             ? `${result.actual} | ${formatSemanticJudgeActual(

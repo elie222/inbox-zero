@@ -386,9 +386,12 @@ async function evaluateScenario(
             manageCall.threadIds?.includes(id),
           )
         : false;
+      const hasExactCount =
+        isTrash &&
+        manageCall.threadIds?.length === expectation.threadIds.length;
 
       return {
-        pass: isTrash && hasExpectedThreads,
+        pass: isTrash && hasExpectedThreads && hasExactCount,
         actual: manageCall
           ? `manageInbox(action=${manageCall.action}, threadIds=${JSON.stringify(manageCall.threadIds)})`
           : result.actual,
@@ -408,6 +411,9 @@ async function evaluateScenario(
             manageCall.threadIds?.includes(id),
           )
         : false;
+      const hasExactCount =
+        isArchive &&
+        manageCall.threadIds?.length === expectation.threadIds.length;
       const notTrash = !result.toolCalls.some(
         (tc) =>
           tc.toolName === "manageInbox" &&
@@ -416,7 +422,7 @@ async function evaluateScenario(
       );
 
       return {
-        pass: isArchive && hasExpectedThreads && notTrash,
+        pass: isArchive && hasExpectedThreads && hasExactCount && notTrash,
         actual: manageCall
           ? `manageInbox(action=${manageCall.action}, threadIds=${JSON.stringify(manageCall.threadIds)})`
           : result.actual,
@@ -444,7 +450,7 @@ async function evaluateScenario(
       });
 
       return {
-        pass: !hasTrashCall,
+        pass: !hasTrashCall && !!semanticJudge?.pass,
         actual: hasTrashCall
           ? `used trash_threads (should not have) | ${result.actual}`
           : `${result.actual} | ${formatSemanticJudgeActual(result.actual, semanticJudge)}`,

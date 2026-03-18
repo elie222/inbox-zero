@@ -7,6 +7,7 @@ import {
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import {
   captureAssistantChatToolCalls,
+  getFirstMatchingToolCall,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
@@ -24,6 +25,13 @@ const TIMEOUT = 60_000;
 const evalReporter = createEvalReporter();
 const logger = createScopedLogger("eval-assistant-chat-calendar");
 
+const today = new Date();
+const tomorrow = new Date(today);
+tomorrow.setDate(tomorrow.getDate() + 1);
+
+const todayDateStr = today.toISOString().slice(0, 10);
+const tomorrowDateStr = tomorrow.toISOString().slice(0, 10);
+
 const scenarios: EvalScenario[] = [
   {
     title: "activates calendar and fetches events for tomorrow",
@@ -33,6 +41,7 @@ const scenarios: EvalScenario[] = [
       kind: "calendar_query",
       requiresActivateCalendar: true,
       requiresGetCalendarEvents: true,
+      expectedStartDateContains: tomorrowDateStr,
     },
   },
   {
@@ -53,6 +62,7 @@ const scenarios: EvalScenario[] = [
       kind: "calendar_query",
       requiresActivateCalendar: true,
       requiresGetCalendarEvents: true,
+      expectedStartDateContains: todayDateStr,
     },
   },
   {
@@ -222,6 +232,7 @@ type ScenarioExpectation = {
   kind: "calendar_query";
   requiresActivateCalendar: boolean;
   requiresGetCalendarEvents: boolean;
+  expectedStartDateContains?: string;
 };
 
 type EvalScenario = {
@@ -289,6 +300,20 @@ function evaluateScenario(
     !correctOrder
   )
     return false;
+
+  if (expectation.expectedStartDateContains) {
+    const calendarCall = getFirstMatchingToolCall(
+      result.toolCalls,
+      "getCalendarEvents",
+      isGetCalendarEventsInput,
+    );
+    if (
+      !calendarCall?.input.startDate?.includes(
+        expectation.expectedStartDateContains,
+      )
+    )
+      return false;
+  }
 
   return true;
 }

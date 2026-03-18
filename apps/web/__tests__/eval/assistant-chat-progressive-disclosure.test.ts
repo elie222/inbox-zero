@@ -7,7 +7,6 @@ import {
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import {
   captureAssistantChatToolCalls,
-  getFirstMatchingToolCall,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
@@ -304,27 +303,23 @@ function evaluateScenario(
 ): boolean {
   switch (expectation.kind) {
     case "activate_then_use": {
-      const activateCall = getFirstMatchingToolCall(
-        toolCalls,
-        "activateTools",
-        isActivateToolsInput,
+      const activateIndex = toolCalls.findIndex(
+        (tc) =>
+          tc.toolName === "activateTools" &&
+          isActivateToolsInput(tc.input) &&
+          expectation.expectedCapabilities.every((cap) =>
+            (tc.input as ActivateToolsInput).capabilities.includes(cap),
+          ),
       );
 
-      if (!activateCall) return false;
-
-      const hasExpectedCapabilities = expectation.expectedCapabilities.every(
-        (cap) => activateCall.input.capabilities.includes(cap),
-      );
-
-      if (!hasExpectedCapabilities) return false;
+      if (activateIndex < 0) return false;
 
       const followUpIndex = toolCalls.findIndex(
         (tc, i) =>
-          i > activateCall.index &&
-          tc.toolName === expectation.expectedFollowUpTool,
+          i > activateIndex && tc.toolName === expectation.expectedFollowUpTool,
       );
 
-      return followUpIndex > activateCall.index;
+      return followUpIndex > activateIndex;
     }
 
     case "core_tool_no_activation": {
