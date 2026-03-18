@@ -33,6 +33,7 @@
 - Prefer the `EmailProvider` abstraction; only use provider-type checks (`isGoogleProvider`, `isMicrosoftProvider`) at true provider boundary/integration code.
 - Infer types from Zod schemas using `z.infer<typeof schema>` instead of duplicating as separate interfaces
 - Avoid premature abstraction. Duplicating 2-3 times is fine; extract when a stable pattern emerges.
+- Don't extract single-use helper functions that just rename and forward parameters; inline the logic at the call site.
 - No barrel files. Import directly from source files.
 - Colocate page components next to their `page.tsx`. No nested `components/` subfolders in route directories.
 - Reusable components shared across pages go in `apps/web/components/`
