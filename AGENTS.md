@@ -21,6 +21,7 @@
 - TypeScript with strict null checks
 - Path aliases: `@/` for imports from project root
 - NextJS app router with (app) directory, tailwindcss
+- For version-sensitive or unclear Next.js behavior, check the relevant doc in `node_modules/next/dist/docs/` before changing framework code.
 - Only add comments for "why", not "what". Prefer self-documenting code.
 - Logging: avoid duplicating logger context fields from higher in the call chain. Use `logger.trace()` for PII fields (from, to, subject, etc.).
 - Tests should use the real logger implementation (do not mock `@/utils/logger`).
