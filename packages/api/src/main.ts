@@ -222,7 +222,6 @@ function addStatsCommands() {
     .option("--period <period>", "Time bucket: day, week, month, or year")
     .option("--from-date <timestamp>", "Unix timestamp in milliseconds")
     .option("--to-date <timestamp>", "Unix timestamp in milliseconds")
-    .option("--email <email>", "Email address to scope stats for legacy keys")
     .option("--json", "Print JSON output")
     .action(async (options) => {
       const client = createClient(program.optsWithGlobals() as ProgramOptions);
@@ -232,7 +231,6 @@ function addStatsCommands() {
           period: options.period,
           fromDate: options.fromDate,
           toDate: options.toDate,
-          email: options.email,
         },
       );
 
@@ -249,7 +247,6 @@ function addStatsCommands() {
     .description("Get response time statistics")
     .option("--from-date <timestamp>", "Unix timestamp in milliseconds")
     .option("--to-date <timestamp>", "Unix timestamp in milliseconds")
-    .option("--email <email>", "Email address to scope stats for legacy keys")
     .option("--json", "Print JSON output")
     .action(async (options) => {
       const client = createClient(program.optsWithGlobals() as ProgramOptions);
@@ -258,7 +255,6 @@ function addStatsCommands() {
         {
           fromDate: options.fromDate,
           toDate: options.toDate,
-          email: options.email,
         },
       );
 

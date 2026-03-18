@@ -5,7 +5,6 @@ export const statsByPeriodQuerySchema = z.object({
   period: zodPeriod.optional().default("week"),
   fromDate: z.coerce.number().optional(),
   toDate: z.coerce.number().optional(),
-  email: z.string().optional(),
 });
 
 export const statsByPeriodResponseSchema = z.object({
