@@ -59,11 +59,34 @@ When using `gws`, prefer it for data setup since it's faster and more reliable t
 ### Browser testing (via `agent-browser` CLI)
 Use the `agent-browser` skill for all browser interactions. The core loop is: open → snapshot → interact → re-snapshot → screenshot.
 
+- **Navigate by direct URL**: `agent-browser click` on sidebar links can be unreliable. Prefer `agent-browser --cdp 9222 open <full-url>`.
+- **Set viewport to 1440x900**: Headless Chrome defaults to a tiny viewport. After connecting, set it via CDP:
+  ```bash
+  TARGET_ID=$(curl -s http://127.0.0.1:9222/json | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).find(t=>t.type==='page'&&!t.url.startsWith('chrome')).id")
+  node -e "const d=JSON.stringify({id:1,method:'Emulation.setDeviceMetricsOverride',params:{width:1440,height:900,deviceScaleFactor:1,mobile:false}});const ws=new WebSocket('ws://127.0.0.1:9222/devtools/page/$TARGET_ID');ws.onopen=()=>ws.send(d);ws.onmessage=()=>ws.close();"
+  ```
+
+#### Interacting with the chat input
+The chat textarea has `data-testid="chat-input"`. Use:
+```bash
+agent-browser fill "[data-testid=chat-input]" "Your message here"
+agent-browser press Enter                          # submit
+sleep 15-30                                        # wait for AI response
+agent-browser screenshot /tmp/result.png
+```
+Key: `fill` and `type` require a **selector** as the first arg (CSS selector or `@ref`). Never call `type "some text"` without a selector — that's `keyboard type` (different command). When a CSS selector matches multiple elements, use `agent-browser snapshot` to get unique `@ref` identifiers.
 - Navigate the app as a user would
 - Take a screenshot at every meaningful step — the user wants to see what the UI looks like
 - Pay special attention to: loading states, error states, empty states, success confirmations
 - If testing a flow (e.g., email → rule → draft), wait for async operations to complete before checking results
 - Always `agent-browser close` when done to clean up
+
+#### App route reference
+- Assistant chat: `/<emailAccountId>/assistant`
+- Assistant rules: `/<emailAccountId>/automation`
+- Assistant settings: `/<emailAccountId>/automation?tab=settings`
+- Bulk unsubscribe: `/<emailAccountId>/bulk-unsubscribe`
+- Settings: `/settings`
 
 #### Browser authentication
 
