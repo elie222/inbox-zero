@@ -21,8 +21,7 @@ const MAX_REPLY_MEMORY_SOURCE_FETCH_ATTEMPTS = 3;
 const MAX_MEMORIES_PER_EDIT = 3;
 const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
 const MAX_RETRIEVED_REPLY_MEMORIES = 6;
-const MAX_TOPIC_MEMORY_CANDIDATES = 12;
-const MAX_SELECTED_TOPIC_MEMORIES = 3;
+const MAX_RETRIEVED_TOPIC_REPLY_MEMORIES = 2;
 
 const replyMemorySchema = z.object({
   memories: z
@@ -36,10 +35,6 @@ const replyMemorySchema = z.object({
       }),
     )
     .max(MAX_MEMORIES_PER_EDIT),
-});
-
-const replyMemoryTopicSelectionSchema = z.object({
-  memoryIds: z.array(z.string()).max(MAX_SELECTED_TOPIC_MEMORIES),
 });
 
 const extractionSystemPrompt = `You analyze how a user edits AI-generated email reply drafts and turn durable patterns into reusable drafting memories.
@@ -73,18 +68,6 @@ Rules:
 - Always include a scopeValue field. Use an empty string for GLOBAL scope.
 - Avoid duplicating an existing memory if the same idea is already covered.
 - If nothing durable was learned, return an empty array.`;
-
-const topicSelectionSystemPrompt = `You select which stored TOPIC reply memories are relevant for drafting a reply to the current email.
-
-${PROMPT_SECURITY_INSTRUCTIONS}
-
-Rules:
-- Return only memory IDs from the candidate list.
-- Select at most ${MAX_SELECTED_TOPIC_MEMORIES} memories.
-- Prefer returning no IDs over weak or generic matches.
-- Only select a memory when its topic or instruction is clearly relevant to the current email.
-- Treat semantic matches as valid even when the wording differs.
-- Do not select memories just because they share generic business words.`;
 
 export async function saveDraftSendLogReplyMemory({
   draftSendLogId,
@@ -184,20 +167,17 @@ export async function getReplyMemoryContent({
   emailAccountId,
   senderEmail,
   emailContent,
-  emailAccount,
   logger,
 }: {
   emailAccountId: string;
   senderEmail: string;
   emailContent: string;
-  emailAccount?: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
   logger: Logger;
 }): Promise<string | null> {
   const result = await getReplyMemoriesForPrompt({
     emailAccountId,
     senderEmail,
     emailContent,
-    emailAccount,
     logger,
   });
 
@@ -208,13 +188,11 @@ export async function getReplyMemoriesForPrompt({
   emailAccountId,
   senderEmail,
   emailContent,
-  emailAccount,
   logger,
 }: {
   emailAccountId: string;
   senderEmail: string;
   emailContent: string;
-  emailAccount?: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
   logger: Logger;
 }): Promise<{
   content: string | null;
@@ -226,36 +204,39 @@ export async function getReplyMemoriesForPrompt({
       normalizedSenderEmail,
     ).toLowerCase();
     const normalizedEmailContent = emailContent.trim().toLowerCase();
-    const promptEmailAccount =
-      emailAccount ?? (await getEmailAccountWithAi({ emailAccountId }));
+    const [senderMemories, domainMemories, globalMemories] = await Promise.all([
+      normalizedSenderEmail
+        ? fetchReplyMemoriesByScope({
+            emailAccountId,
+            scopeType: ReplyMemoryScopeType.SENDER,
+            scopeValue: normalizedSenderEmail,
+          })
+        : Promise.resolve([]),
+      senderDomain
+        ? fetchReplyMemoriesByScope({
+            emailAccountId,
+            scopeType: ReplyMemoryScopeType.DOMAIN,
+            scopeValue: senderDomain,
+          })
+        : Promise.resolve([]),
+      fetchReplyMemoriesByScope({
+        emailAccountId,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+      }),
+    ]);
 
-    const [senderMemories, domainMemories, globalMemories, topicMemories] =
-      await Promise.all([
-        normalizedSenderEmail
-          ? fetchReplyMemoriesByScope({
-              emailAccountId,
-              scopeType: ReplyMemoryScopeType.SENDER,
-              scopeValue: normalizedSenderEmail,
-            })
-          : Promise.resolve([]),
-        senderDomain
-          ? fetchReplyMemoriesByScope({
-              emailAccountId,
-              scopeType: ReplyMemoryScopeType.DOMAIN,
-              scopeValue: senderDomain,
-            })
-          : Promise.resolve([]),
-        fetchReplyMemoriesByScope({
-          emailAccountId,
-          scopeType: ReplyMemoryScopeType.GLOBAL,
-        }),
-        getRelevantTopicReplyMemories({
-          emailAccountId,
-          emailContent: normalizedEmailContent,
-          emailAccount: promptEmailAccount,
-          logger,
-        }),
-      ]);
+    const topicMemories = normalizedEmailContent
+      ? await prisma.$queryRaw<ReplyMemory[]>`
+          SELECT *
+          FROM "ReplyMemory"
+          WHERE "emailAccountId" = ${emailAccountId}
+            AND "scopeType" = CAST(${ReplyMemoryScopeType.TOPIC} AS "ReplyMemoryScopeType")
+            AND "scopeValue" <> ''
+            AND LOWER(${normalizedEmailContent}) LIKE ('%' || LOWER("scopeValue") || '%')
+          ORDER BY LENGTH("scopeValue") DESC, "updatedAt" DESC
+          LIMIT ${MAX_RETRIEVED_TOPIC_REPLY_MEMORIES}
+        `
+      : [];
 
     const selected = dedupeReplyMemories(
       sortReplyMemories([
@@ -728,100 +709,4 @@ function getNormalizedReplyMemoryScopeValue({
     case ReplyMemoryScopeType.TOPIC:
       return memory.scopeValue.trim().toLowerCase();
   }
-}
-
-async function getRelevantTopicReplyMemories({
-  emailAccountId,
-  emailContent,
-  emailAccount,
-  logger,
-}: {
-  emailAccountId: string;
-  emailContent: string;
-  emailAccount: NonNullable<
-    Awaited<ReturnType<typeof getEmailAccountWithAi>>
-  > | null;
-  logger: Logger;
-}) {
-  if (!emailContent || !emailAccount) return [];
-
-  try {
-    const candidates = await prisma.replyMemory.findMany({
-      where: {
-        emailAccountId,
-        scopeType: ReplyMemoryScopeType.TOPIC,
-        NOT: { scopeValue: "" },
-      },
-      orderBy: { updatedAt: "desc" },
-      take: MAX_TOPIC_MEMORY_CANDIDATES,
-    });
-
-    if (!candidates.length) return [];
-
-    const selectedIds = await selectRelevantTopicReplyMemoryIds({
-      emailAccount,
-      emailContent,
-      candidates,
-    });
-    if (!selectedIds.length) return [];
-
-    const selectedIdSet = new Set(selectedIds);
-
-    return candidates.filter((candidate) => selectedIdSet.has(candidate.id));
-  } catch (error) {
-    logger.error("Failed to select topic reply memories", {
-      error,
-      emailAccountId,
-    });
-    return [];
-  }
-}
-
-async function selectRelevantTopicReplyMemoryIds({
-  emailAccount,
-  emailContent,
-  candidates,
-}: {
-  emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
-  emailContent: string;
-  candidates: ReplyMemory[];
-}) {
-  const modelOptions = getModel(emailAccount.user, "economy");
-  const generateObject = createGenerateObject({
-    emailAccount,
-    label: "Reply memory topic selection",
-    modelOptions,
-  });
-
-  const prompt = `<incoming_email>
-${emailContent}
-</incoming_email>
-
-<candidate_topic_memories>
-${formatTopicMemoryCandidates(candidates)}
-</candidate_topic_memories>
-
-Select the candidate memory IDs that should be injected into the draft prompt.`;
-
-  const result = await generateObject({
-    ...modelOptions,
-    system: topicSelectionSystemPrompt,
-    prompt,
-    schema: replyMemoryTopicSelectionSchema,
-  });
-
-  const candidateIds = new Set(candidates.map((candidate) => candidate.id));
-
-  return result.object.memoryIds.filter((memoryId) =>
-    candidateIds.has(memoryId),
-  );
-}
-
-function formatTopicMemoryCandidates(candidates: ReplyMemory[]) {
-  return candidates
-    .map(
-      (memory, index) =>
-        `${index + 1}. id=${memory.id}; topic=${memory.scopeValue}; kind=${memory.kind}; title=${memory.title}; content=${memory.content}`,
-    )
-    .join("\n");
 }

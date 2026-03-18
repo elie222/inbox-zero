@@ -292,7 +292,6 @@ async function generateDraftContent(
       emailAccountId: emailAccount.id,
       senderEmail: extractEmailAddress(lastMessage.headers.from),
       emailContent: lastMessageContent,
-      emailAccount,
       logger,
     }),
     aiCollectReplyContext({

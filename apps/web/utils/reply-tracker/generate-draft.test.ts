@@ -237,9 +237,6 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
       emailAccountId: "test-account-id",
       senderEmail: "sender@example.com",
       emailContent: expect.stringContaining("Hello, how are you?"),
-      emailAccount: expect.objectContaining({
-        id: "test-account-id",
-      }),
       logger,
     });
     expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
