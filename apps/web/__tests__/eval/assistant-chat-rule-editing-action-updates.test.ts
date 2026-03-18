@@ -208,7 +208,7 @@ describe.runIf(shouldRunEval)(
               !!updateCall &&
               updateCall.ruleName === "Notification" &&
               hasActionType(updateCall.actions, ActionType.DRAFT_EMAIL) &&
-              updateCall.actions.every((a) => !a.delayInMinutes);
+              updateCall.actions.every((a) => a.delayInMinutes == null);
 
             evalReporter.record({
               testName: "no unrequested delay on action update",
