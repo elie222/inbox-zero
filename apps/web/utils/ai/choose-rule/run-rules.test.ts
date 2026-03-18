@@ -406,6 +406,79 @@ describe("runRules draft attribution persistence", () => {
   });
 });
 
+describe("runRules outbound guardrails", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("skips legacy low-trust from rules with FORWARD actions", async () => {
+    const forwardRule = {
+      ...createRule("forward-rule", null, [
+        getAction({
+          id: "forward-action-1",
+          type: ActionType.FORWARD,
+          to: "forward@example.com",
+        }),
+      ]),
+      from: "Team *",
+    };
+
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [
+        { rule: forwardRule, matchReasons: [{ type: ConditionType.STATIC }] },
+      ],
+      reasoning: "Matched forward rule",
+    } as any);
+
+    const createSpy = prisma.executedRule.create.mockResolvedValue({
+      id: "exec-guard-1",
+      status: ExecutedRuleStatus.SKIPPED,
+      ruleId: forwardRule.id,
+      threadId,
+      messageId: "message-1",
+      actionItems: [],
+    } as any);
+
+    const result = await runRules({
+      provider: {} as any,
+      message: {
+        ...getEmail(),
+        id: "message-1",
+        threadId,
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        attachments: [],
+        headers: {
+          from: "Team Billing <billing@example.com>",
+          to: "user@example.com",
+          subject: "Subject",
+          date: "Mon, 1 Jan 2026 12:00:00 +0000",
+          "message-id": "<message-1>",
+        },
+      } as any,
+      rules: [forwardRule],
+      emailAccount: getEmailAccount(),
+      isTest: false,
+      modelType: "default" as any,
+      logger,
+    });
+
+    expect(getActionItemsWithAiArgs).not.toHaveBeenCalled();
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: ExecutedRuleStatus.SKIPPED,
+        }),
+      }),
+    );
+    expect(result[0]?.status).toBe(ExecutedRuleStatus.SKIPPED);
+    expect(result[0]?.reason).toContain(
+      "email- or domain-based From condition",
+    );
+  });
+});
+
 describe("limitDraftEmailActions", () => {
   it("returns original matches when there are no draft actions", () => {
     const matches = [

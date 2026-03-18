@@ -119,6 +119,124 @@ describe("matchesStaticRule", () => {
     expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
+  it("does not match @domain.com against a different domain with the same suffix", () => {
+    const rule = getStaticRule({ from: "@example.com" });
+    const message = getMessage({
+      headers: getHeaders({ from: "test@myexample.com" }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(false);
+  });
+
+  it("matches from against the sender address, not the display name", () => {
+    const rule = getStaticRule({ from: "@trusted.com" });
+    const message = getMessage({
+      headers: getHeaders({
+        from: '"Trusted trusted@trusted.com" <attacker@evil.com>',
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(false);
+  });
+
+  it("matches from display names when the pattern is name-only", () => {
+    const rule = getStaticRule({ from: "Elie Steinbock" });
+    const message = getMessage({
+      headers: getHeaders({
+        from: "Elie Steinbock <ele@gmail.com>",
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
+  });
+
+  it("matches wildcard from display names when the pattern is name-like", () => {
+    const rule = getStaticRule({ from: "Team *" });
+    const message = getMessage({
+      headers: getHeaders({
+        from: "Team Billing <billing@example.com>",
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
+  });
+
+  it("matches from domains regardless of casing or leading @", () => {
+    const message = getMessage({
+      headers: getHeaders({ from: "User@Example.com" }),
+    });
+
+    expect(
+      matchesStaticRule(
+        getStaticRule({ from: "@EXAMPLE.COM" }),
+        message,
+        logger,
+      ),
+    ).toBe(true);
+    expect(
+      matchesStaticRule(
+        getStaticRule({ from: "EXAMPLE.COM" }),
+        message,
+        logger,
+      ),
+    ).toBe(true);
+  });
+
+  it("matches to against extracted recipient addresses across multiple recipients", () => {
+    const rule = getStaticRule({ to: "team@company.com" });
+    const message = getMessage({
+      headers: getHeaders({
+        to: '"VIP vip@vip.com" <actual@company.com>, Team <team@company.com>',
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
+  });
+
+  it("does not match to against email-like text in a display name", () => {
+    const rule = getStaticRule({ to: "@vip.com" });
+    const message = getMessage({
+      headers: getHeaders({
+        to: '"VIP vip@vip.com" <actual@company.com>, Team <team@company.com>',
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(false);
+  });
+
+  it("matches to display names when the pattern is name-only", () => {
+    const rule = getStaticRule({ to: "Elie Steinbock" });
+    const message = getMessage({
+      headers: getHeaders({
+        to: '"Elie Steinbock" <ele@gmail.com>, Team <team@company.com>',
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
+  });
+
+  it("matches wildcard to display names when the pattern is name-like", () => {
+    const rule = getStaticRule({ to: "Team *" });
+    const message = getMessage({
+      headers: getHeaders({
+        to: '"Elie Steinbock" <ele@gmail.com>, Team Billing <team@company.com>',
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
+  });
+
+  it("matches to addresses regardless of casing", () => {
+    const rule = getStaticRule({ to: "TEAM@COMPANY.COM" });
+    const message = getMessage({
+      headers: getHeaders({
+        to: '"VIP vip@vip.com" <actual@company.com>, Team <team@company.com>',
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
+  });
+
   it("should match Creator Message subject pattern", () => {
     const rule = getStaticRule({ subject: "[Creator Message]*" });
     const message = getMessage({

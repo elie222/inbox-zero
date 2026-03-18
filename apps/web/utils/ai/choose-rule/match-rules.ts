@@ -20,9 +20,18 @@ import type {
   MatchReason,
   MatchingRuleResult,
 } from "@/utils/ai/choose-rule/types";
-import { extractEmailAddress } from "@/utils/email";
+import {
+  extractEmailAddress,
+  extractEmailAddresses,
+  extractNameFromEmail,
+  splitRecipientList,
+} from "@/utils/email";
 import { isCalendarInvite } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
+import {
+  isAddressLikeEmailPattern,
+  splitEmailPatterns,
+} from "@/utils/rule/email-from-pattern";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ModelType } from "@/utils/llms/model";
 import {
@@ -495,10 +504,46 @@ export function matchesStaticRule(
     }
   };
 
+  const fromAddressHeader = normalizeEmailHeaderForRuleMatching(
+    message.headers.from,
+  );
+  const toAddressHeader = normalizeEmailHeaderForRuleMatching(
+    message.headers.to,
+    true,
+  );
+  const fromDisplayNameHeader = normalizeEmailDisplayNameHeaderForRuleMatching(
+    message.headers.from,
+  );
+  const toDisplayNameHeader = normalizeEmailDisplayNameHeaderForRuleMatching(
+    message.headers.to,
+  );
+
   const fromMatch = from
-    ? safeRegexTest(from, message.headers.from, true)
+    ? matchesEmailFieldPattern({
+        pattern: from,
+        addressText: fromAddressHeader.toLowerCase(),
+        displayNameText: fromDisplayNameHeader.toLowerCase(),
+        logInvalidPattern: (pattern, error) =>
+          logInvalidEmailMatchPattern({
+            logger: log,
+            pattern,
+            error,
+          }),
+      })
     : true;
-  const toMatch = to ? safeRegexTest(to, message.headers.to, true) : true;
+  const toMatch = to
+    ? matchesEmailFieldPattern({
+        pattern: to,
+        addressText: toAddressHeader.toLowerCase(),
+        displayNameText: toDisplayNameHeader.toLowerCase(),
+        logInvalidPattern: (pattern, error) =>
+          logInvalidEmailMatchPattern({
+            logger: log,
+            pattern,
+            error,
+          }),
+      })
+    : true;
   const subjectMatch = subject
     ? safeRegexTest(subject, message.headers.subject, false)
     : true;
@@ -507,18 +552,6 @@ export function matchesStaticRule(
     : true;
 
   return fromMatch && toMatch && subjectMatch && bodyMatch;
-}
-
-/**
- * Split email patterns by pipe, comma, or " OR " separator.
- * Used for from/to fields to support multiple email addresses.
- * Examples: "@a.com|@b.com", "@a.com, @b.com", "@a.com OR @b.com"
- */
-export function splitEmailPatterns(pattern: string): string[] {
-  return pattern
-    .split(/\s*\bor\b\s*|[|,]/i)
-    .map((p) => p.trim())
-    .filter(Boolean);
 }
 
 function matchesGroupRule(
@@ -663,4 +696,84 @@ async function getPreviouslyExecutedRuleIds({
   return new Set(
     previousRules.map((r) => r.ruleId).filter((id): id is string => !!id),
   );
+}
+
+function normalizeEmailHeaderForRuleMatching(
+  header: string,
+  allowMultiple = false,
+) {
+  if (!header) return "";
+
+  if (allowMultiple) {
+    return extractEmailAddresses(header).join(", ");
+  }
+
+  return extractEmailAddress(header);
+}
+
+function normalizeEmailDisplayNameHeaderForRuleMatching(header: string) {
+  if (!header) return "";
+
+  return splitRecipientList(header)
+    .map((part) => {
+      const name = extractNameFromEmail(part).trim();
+      const email = extractEmailAddress(part).trim().toLowerCase();
+
+      if (!name) return "";
+      if (email && name.toLowerCase() === email) return "";
+
+      return name;
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+function matchesEmailFieldPattern({
+  pattern,
+  addressText,
+  displayNameText,
+  logInvalidPattern,
+}: {
+  pattern: string;
+  addressText: string;
+  displayNameText: string;
+  logInvalidPattern: (pattern: string, error: unknown) => void;
+}) {
+  try {
+    const patterns = splitEmailPatterns(pattern);
+
+    for (const patternPart of patterns) {
+      const normalizedPattern = patternPart.trim().toLowerCase();
+      const regexPattern = normalizedPattern
+        .replace(/[.+?^${}()[\]\\]/g, "\\$&")
+        .replace(/\*/g, ".*");
+      const regex = new RegExp(regexPattern);
+
+      if (isAddressLikeEmailPattern(patternPart)) {
+        if (regex.test(addressText)) return true;
+        continue;
+      }
+
+      if (displayNameText && regex.test(displayNameText)) return true;
+      if (regex.test(addressText)) return true;
+    }
+
+    return false;
+  } catch (error) {
+    logInvalidPattern(pattern, error);
+    return false;
+  }
+}
+
+function logInvalidEmailMatchPattern({
+  logger,
+  pattern,
+  error,
+}: {
+  logger: Logger;
+  pattern: string;
+  error: unknown;
+}) {
+  logger.error("Invalid email match pattern");
+  logger.trace("Invalid email match pattern details", { pattern, error });
 }
