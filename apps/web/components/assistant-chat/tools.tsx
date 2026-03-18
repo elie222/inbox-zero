@@ -1216,6 +1216,9 @@ export function getManageInboxActionLabel({
     }
     return labelApplied ? "Archived and labeled emails" : "Archived emails";
   }
+  if (action === "trash_threads") {
+    return inProgress ? "Trashing emails" : "Trashed emails";
+  }
   if (action === "label_threads") {
     return inProgress ? "Labeling emails" : "Labeled emails";
   }

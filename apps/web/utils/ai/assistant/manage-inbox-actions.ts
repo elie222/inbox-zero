@@ -1,5 +1,6 @@
 export const manageInboxActions = [
   "archive_threads",
+  "trash_threads",
   "label_threads",
   "mark_read_threads",
   "bulk_archive_senders",
@@ -10,6 +11,7 @@ export type ManageInboxAction = (typeof manageInboxActions)[number];
 
 const threadIdManageInboxActions = [
   "archive_threads",
+  "trash_threads",
   "label_threads",
   "mark_read_threads",
 ] as const satisfies readonly ManageInboxAction[];

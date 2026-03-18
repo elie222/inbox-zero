@@ -12,6 +12,7 @@ import {
   stepCountIs,
   type StreamTextOnFinishCallback,
   type StreamTextOnStepFinishCallback,
+  type PrepareStepFunction,
   NoObjectGeneratedError,
   TypeValidationError,
 } from "ai";
@@ -498,6 +499,8 @@ export async function toolCallAgentStream({
   modelType,
   messages,
   tools,
+  activeTools,
+  prepareStep,
   maxSteps,
   userId,
   emailAccountId,
@@ -511,6 +514,8 @@ export async function toolCallAgentStream({
   modelType?: ModelType;
   messages: ModelMessage[];
   tools?: Record<string, Tool>;
+  activeTools?: Array<string>;
+  prepareStep?: PrepareStepFunction<Record<string, Tool>>;
   maxSteps?: number;
   userId?: string;
   emailAccountId: string;
@@ -580,6 +585,10 @@ export async function toolCallAgentStream({
     const agent = new ToolLoopAgent({
       model,
       tools: candidateTools,
+      activeTools: activeTools as
+        | Array<keyof typeof candidateTools>
+        | undefined,
+      prepareStep,
       stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
       ...commonOptions,
       providerOptions,
