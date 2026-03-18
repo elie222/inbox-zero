@@ -7,6 +7,8 @@ import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
   createRule,
+  mapActionsForRuleCreate,
+  outboundActionsNeedChatRiskConfirmation,
   partialUpdateRule,
   updateRuleActions,
 } from "@/utils/rule/rule";
@@ -269,33 +271,56 @@ export const createRuleTool = ({
       trackToolCall({ tool: "create_rule", email, logger });
 
       try {
+        const resultPayload = {
+          name,
+          condition,
+          actions: actions.map((action) => ({
+            type: action.type,
+            fields: action.fields
+              ? {
+                  content: action.fields.content ?? null,
+                  to: action.fields.to ?? null,
+                  subject: action.fields.subject ?? null,
+                  label: action.fields.label ?? null,
+                  webhookUrl: action.fields.webhookUrl ?? null,
+                  cc: action.fields.cc ?? null,
+                  bcc: action.fields.bcc ?? null,
+                  ...(isMicrosoftProvider(provider) && {
+                    folderName: action.fields.folderName ?? null,
+                  }),
+                }
+              : null,
+            delayInMinutes: null,
+          })),
+        };
+
+        const mappedActions = await mapActionsForRuleCreate(
+          resultPayload.actions,
+          provider,
+          emailAccountId,
+          logger,
+        );
+
+        const { needsConfirmation, riskMessages } =
+          outboundActionsNeedChatRiskConfirmation(resultPayload, mappedActions);
+
+        if (needsConfirmation) {
+          return {
+            success: true,
+            actionType: "create_rule" as const,
+            requiresConfirmation: true as const,
+            confirmationState: "pending" as const,
+            riskMessages,
+          };
+        }
+
         const rule = await createRule({
-          result: {
-            name,
-            condition,
-            actions: actions.map((action) => ({
-              type: action.type,
-              fields: action.fields
-                ? {
-                    content: action.fields.content ?? null,
-                    to: action.fields.to ?? null,
-                    subject: action.fields.subject ?? null,
-                    label: action.fields.label ?? null,
-                    webhookUrl: action.fields.webhookUrl ?? null,
-                    cc: action.fields.cc ?? null,
-                    bcc: action.fields.bcc ?? null,
-                    ...(isMicrosoftProvider(provider) && {
-                      folderName: action.fields.folderName ?? null,
-                    }),
-                  }
-                : null,
-              delayInMinutes: null,
-            })),
-          },
+          result: resultPayload,
           emailAccountId,
           provider,
           runOnThreads: true,
           logger,
+          enablement: { source: "chat" },
         });
 
         return { success: true, ruleId: rule.id };
