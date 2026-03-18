@@ -1,5 +1,5 @@
 import "server-only";
-import { redis } from "@/utils/redis";
+import { isRedisConfigured, redis } from "@/utils/redis";
 import prisma from "@/utils/prisma";
 
 const EXPIRATION = 60 * 60; // 1 hour
@@ -33,11 +33,14 @@ export async function getEmailAccount({
   if (!userId || !emailAccountId) return null;
 
   const key = getValidationKey({ userId, emailAccountId });
+  const redisConfigured = isRedisConfigured();
 
-  // Check Redis cache first
-  const cachedResult = await redis.get<string>(key);
-  if (cachedResult !== null) {
-    return cachedResult;
+  if (redisConfigured) {
+    // Check Redis cache first
+    const cachedResult = await redis.get<string>(key);
+    if (cachedResult !== null) {
+      return cachedResult;
+    }
   }
 
   // Not in cache, check database
@@ -46,8 +49,10 @@ export async function getEmailAccount({
     select: { email: true },
   });
 
-  // Cache the result
-  await redis.set(key, emailAccount?.email ?? null, { ex: EXPIRATION });
+  if (redisConfigured) {
+    // Cache the result
+    await redis.set(key, emailAccount?.email ?? null, { ex: EXPIRATION });
+  }
 
   return emailAccount?.email ?? null;
 }
@@ -63,6 +68,8 @@ export async function invalidateAccountValidation({
   userId: string;
   emailAccountId: string;
 }): Promise<void> {
+  if (!isRedisConfigured()) return;
+
   const key = getValidationKey({ userId, emailAccountId });
   await redis.del(key);
 }
