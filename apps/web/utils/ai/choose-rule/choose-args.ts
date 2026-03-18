@@ -18,6 +18,7 @@ import {
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
+import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metadata";
 
 const MODULE = "choose-args";
 export type EmailAccountForDrafting = EmailAccountWithAI & {
@@ -28,6 +29,7 @@ type DraftAttributionFields = {
   draftModelProvider?: string | null;
   draftModelName?: string | null;
   draftPipelineVersion?: number | null;
+  draftContextMetadata?: DraftContextMetadata | null;
 };
 
 export type ActionWithDraftAttribution = Action & DraftAttributionFields;
@@ -59,6 +61,7 @@ export async function getActionItemsWithAiArgs({
   let draft: string | null = null;
   let draftConfidence: DraftReplyConfidence | null = null;
   let draftAttribution: DraftAttribution | null = null;
+  let draftContextMetadata: DraftContextMetadata | null = null;
 
   if (draftEmailActions.length) {
     try {
@@ -81,6 +84,7 @@ export async function getActionItemsWithAiArgs({
       draft = draftResult.draft;
       draftConfidence = draftResult.confidence;
       draftAttribution = draftResult.attribution;
+      draftContextMetadata = draftResult.draftContextMetadata ?? null;
 
       log.info("Draft generated", {
         email: emailAccount.email,
@@ -121,6 +125,7 @@ export async function getActionItemsWithAiArgs({
     draft,
     draftAttribution,
     aiArgsAttribution,
+    draftContextMetadata,
   );
   const filteredActions = filterIncompleteDraftActions(combinedActions);
 
@@ -140,6 +145,7 @@ export function combineActionsWithAiArgs(
   draft: string | null = null,
   draftAttribution: DraftAttribution | null = null,
   aiArgsAttribution: DraftAttribution | null = null,
+  draftContextMetadata: DraftContextMetadata | null = null,
 ): ActionWithDraftAttribution[] {
   if (!aiArgs && !draft) return actions as ActionWithDraftAttribution[];
 
@@ -153,6 +159,7 @@ export function combineActionsWithAiArgs(
       updatedAction.draftModelName = draftAttribution?.modelName ?? null;
       updatedAction.draftPipelineVersion =
         draftAttribution?.pipelineVersion ?? null;
+      updatedAction.draftContextMetadata = draftContextMetadata;
     }
 
     // Process AI args if available

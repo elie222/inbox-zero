@@ -105,6 +105,7 @@ describe("reply-memory", () => {
       ] as any);
     vi.mocked(prisma.$queryRaw).mockResolvedValue([
       createReplyMemory({
+        id: "topic-pricing",
         title: "pricing",
         content: "Mention that pricing depends on seat count.",
         kind: ReplyMemoryKind.FACT,

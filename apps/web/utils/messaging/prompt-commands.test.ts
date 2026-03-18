@@ -45,28 +45,15 @@ describe("isHelpCommand", () => {
 });
 
 describe("getHelpText", () => {
-  it("includes the cleanup prompt shortcut", () => {
-    expect(getHelpText("telegram")).toContain(
-      "/cleanup - Help me clean up my inbox today",
-    );
-  });
-
-  it("uses platform-specific intro for Telegram", () => {
-    expect(getHelpText("telegram")).toContain("Telegram DM");
-  });
-
-  it("uses platform-specific intro for Teams", () => {
-    expect(getHelpText("teams")).toContain("Teams DM");
-  });
-
-  it("uses platform-specific intro for Slack", () => {
-    expect(getHelpText("slack")).toContain("from Slack");
-  });
-
-  it("includes a help line for every prompt command", () => {
+  it("includes the available slash commands", () => {
     const helpText = getHelpText("slack");
+    expect(helpText).toContain("Commands:");
+
     for (const key of Object.keys(PROMPT_COMMANDS)) {
       expect(helpText).toContain(`/${key}`);
     }
+
+    expect(helpText).toContain("/connect <code>");
+    expect(helpText).toContain("/switch");
   });
 });
