@@ -56,6 +56,7 @@ const getUserPrompt = ({
   emailHistoryContext,
   calendarAvailability,
   writingStyle,
+  learnedWritingStyle,
   mcpContext,
   meetingContext,
   attachmentContext,
@@ -68,6 +69,7 @@ const getUserPrompt = ({
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
+  learnedWritingStyle: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
   attachmentContext: string | null;
@@ -136,6 +138,15 @@ ${writingStyle}
 `
     : "";
 
+  const learnedWritingStylePrompt = learnedWritingStyle
+    ? `Learned writing style from prior draft edits. This is advisory and lower priority than any explicit writing style provided by the user.
+
+<learned_writing_style>
+${learnedWritingStyle}
+</learned_writing_style>
+`
+    : "";
+
   const schedulingContext = getSchedulingContext({
     calendarBookingLink: emailAccount.calendarBookingLink,
     calendarAvailability,
@@ -168,6 +179,7 @@ ${learnedReplyMemories}
 ${historicalContext}
 ${precedentHistoryContext}
 ${writingStylePrompt}
+${learnedWritingStylePrompt}
 ${schedulingContext}
 ${mcpToolsContext}
 ${upcomingMeetingsContext}
@@ -209,6 +221,7 @@ export async function aiDraftReplyWithConfidence({
   emailHistoryContext,
   calendarAvailability,
   writingStyle,
+  learnedWritingStyle = null,
   mcpContext,
   meetingContext,
   attachmentContext = null,
@@ -221,6 +234,7 @@ export async function aiDraftReplyWithConfidence({
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
+  learnedWritingStyle?: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
   attachmentContext?: string | null;
@@ -248,6 +262,7 @@ export async function aiDraftReplyWithConfidence({
     emailHistoryContext,
     calendarAvailability,
     writingStyle: effectiveWritingStyle,
+    learnedWritingStyle,
     mcpContext,
     meetingContext,
     attachmentContext,
@@ -299,6 +314,7 @@ export async function aiDraftReply({
   emailHistoryContext,
   calendarAvailability,
   writingStyle,
+  learnedWritingStyle = null,
   mcpContext,
   meetingContext,
   attachmentContext = null,
@@ -311,6 +327,7 @@ export async function aiDraftReply({
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
+  learnedWritingStyle?: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
   attachmentContext?: string | null;
@@ -324,6 +341,7 @@ export async function aiDraftReply({
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
+    learnedWritingStyle,
     mcpContext,
     meetingContext,
     attachmentContext,

@@ -178,6 +178,7 @@ model EmailAccount {
   groups           Group[]
   categories       Category[]
   threadTrackers   ThreadTracker[]
+  learnedWritingStyle LearnedWritingStyle?
   cleanupJobs      CleanupJob[]
   cleanupThreads   CleanupThread[]
   emailMessages    EmailMessage[]
@@ -204,6 +205,18 @@ model EmailAccount {
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
+}
+
+model LearnedWritingStyle {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  content     String
+  memoryCount Int      @default(0)
+
+  emailAccountId String @unique
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 }
 
 model Organization {

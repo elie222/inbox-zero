@@ -4,7 +4,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { extractEmailAddress, extractEmailAddresses } from "@/utils/email";
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
 import { getReplyWithConfidence, saveReply } from "@/utils/redis/reply";
-import { getWritingStyle } from "@/utils/user/get";
+import { getLearnedWritingStyle, getWritingStyle } from "@/utils/user/get";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -273,6 +273,7 @@ async function generateDraftContent(
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
+    learnedWritingStyle,
     mcpResult,
     upcomingMeetings,
     emailHistorySummary,
@@ -297,6 +298,7 @@ async function generateDraftContent(
     }),
     aiGetCalendarAvailability({ emailAccount, messages, logger }),
     getWritingStyle({ emailAccountId: emailAccount.id }),
+    getLearnedWritingStyle({ emailAccountId: emailAccount.id }),
     mcpAgent({ emailAccount, messages }),
     getMeetingContext({
       emailAccountId: emailAccount.id,
@@ -384,6 +386,7 @@ async function generateDraftContent(
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
+    learnedWritingStyle,
     mcpContext: mcpResult?.response || null,
     meetingContext,
     attachmentContext: attachmentSelection.attachmentContext,

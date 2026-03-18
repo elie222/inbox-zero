@@ -22,6 +22,9 @@ const MAX_MEMORIES_PER_EDIT = 3;
 const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
 const MAX_RETRIEVED_REPLY_MEMORIES = 6;
 const MAX_RETRIEVED_TOPIC_REPLY_MEMORIES = 3;
+const MIN_STYLE_MEMORIES_FOR_LEARNED_STYLE = 10;
+const STYLE_MEMORIES_PER_LEARNED_STYLE_REFRESH = 5;
+const MAX_STYLE_MEMORIES_FOR_LEARNED_STYLE = 25;
 
 const replyMemorySchema = z.object({
   memories: z
@@ -35,6 +38,10 @@ const replyMemorySchema = z.object({
       }),
     )
     .max(MAX_MEMORIES_PER_EDIT),
+});
+
+const learnedWritingStyleSchema = z.object({
+  learnedWritingStyle: z.string().trim().min(1).max(1500),
 });
 
 const extractionSystemPrompt = `You analyze how a user edits AI-generated email reply drafts and turn durable patterns into reusable drafting memories.
@@ -68,6 +75,23 @@ Rules:
 - Always include a scopeValue field. Use an empty string for GLOBAL scope.
 - Avoid duplicating an existing memory if the same idea is already covered.
 - If nothing durable was learned, return an empty array.`;
+
+const learnedWritingStyleSystemPrompt = `You maintain a compact learned writing-style summary for an email user based on accumulated style memories from prior draft edits.
+
+${PROMPT_SECURITY_INSTRUCTIONS}
+
+Return a concise prompt-ready style guide that helps draft future emails.
+
+Rules:
+- Summarize repeated style patterns, not one-off instructions.
+- Focus on directness, verbosity, greeting habits, sign-off habits, paragraph structure, formatting, and how much filler the user removes.
+- Keep it under 1500 characters.
+- Include two sections exactly:
+  1. "Observed patterns:" with 2-5 bullets
+  2. "Representative edits:" with 2-3 short bullets
+- Representative edits should be short paraphrases of draft-to-send changes, not full email quotes.
+- Do not mention names, email addresses, company names, phone numbers, dates, links, or other identifying details.
+- This learned summary is advisory and should complement, not replace, explicit user-written style settings.`;
 
 export async function saveDraftSendLogReplyMemory({
   draftSendLogId,
@@ -161,6 +185,15 @@ export async function syncReplyMemoriesFromDraftSendLogs({
       }
     }
   }
+
+  try {
+    await maybeRefreshLearnedWritingStyle({ emailAccountId, emailAccount });
+  } catch (error) {
+    logger.error("Failed to refresh learned writing style", {
+      error,
+      emailAccountId,
+    });
+  }
 }
 
 export async function getReplyMemoryContent({
@@ -208,6 +241,7 @@ export async function getReplyMemoriesForPrompt({
       normalizedSenderEmail
         ? fetchReplyMemoriesByScope({
             emailAccountId,
+            kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.SENDER,
             scopeValue: normalizedSenderEmail,
           })
@@ -215,12 +249,14 @@ export async function getReplyMemoriesForPrompt({
       senderDomain
         ? fetchReplyMemoriesByScope({
             emailAccountId,
+            kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.DOMAIN,
             scopeValue: senderDomain,
           })
         : Promise.resolve([]),
       fetchReplyMemoriesByScope({
         emailAccountId,
+        kind: ReplyMemoryKind.FACT,
         scopeType: ReplyMemoryScopeType.GLOBAL,
       }),
     ]);
@@ -230,6 +266,7 @@ export async function getReplyMemoriesForPrompt({
           SELECT *
           FROM "ReplyMemory"
           WHERE "emailAccountId" = ${emailAccountId}
+            AND "kind" = CAST(${ReplyMemoryKind.FACT} AS "ReplyMemoryKind")
             AND "scopeType" = CAST(${ReplyMemoryScopeType.TOPIC} AS "ReplyMemoryScopeType")
             AND "scopeValue" <> ''
             AND LOWER(${normalizedEmailContent}) LIKE ('%' || LOWER("scopeValue") || '%')
@@ -361,17 +398,24 @@ async function processReplyMemoryDraftSendLog({
     return;
   }
 
-  const existingMemories = await prisma.replyMemory.findMany({
-    where: {
-      emailAccountId,
-      OR: getReplyMemoryScopes({
-        senderEmail: normalizedSenderEmail,
-        senderDomain,
-      }),
-    },
-    orderBy: { updatedAt: "desc" },
-    take: MAX_EXISTING_MEMORIES_IN_PROMPT,
-  });
+  const [existingMemories, learnedWritingStyle] = await Promise.all([
+    prisma.replyMemory.findMany({
+      where: {
+        emailAccountId,
+        kind: ReplyMemoryKind.FACT,
+        OR: getReplyMemoryScopes({
+          senderEmail: normalizedSenderEmail,
+          senderDomain,
+        }),
+      },
+      orderBy: { updatedAt: "desc" },
+      take: MAX_EXISTING_MEMORIES_IN_PROMPT,
+    }),
+    prisma.learnedWritingStyle.findUnique({
+      where: { emailAccountId },
+      select: { content: true },
+    }),
+  ]);
 
   const extracted = await aiExtractReplyMemoriesFromDraftEdit({
     incomingEmailContent: incomingMessage
@@ -385,6 +429,7 @@ async function processReplyMemoryDraftSendLog({
     sentText: draftSendLog.replyMemorySentText ?? "",
     senderEmail: normalizedSenderEmail,
     existingMemories,
+    learnedWritingStyle: learnedWritingStyle?.content ?? null,
     emailAccount,
   });
 
@@ -449,6 +494,7 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
   sentText,
   senderEmail,
   existingMemories,
+  learnedWritingStyle = null,
   emailAccount,
 }: {
   incomingEmailContent: string;
@@ -459,6 +505,7 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
     ReplyMemory,
     "title" | "content" | "kind" | "scopeType" | "scopeValue"
   >[];
+  learnedWritingStyle?: string | null;
   emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
 }) {
   const normalizedIncomingEmailContent = incomingEmailContent.trim();
@@ -496,6 +543,10 @@ ${normalizedSentText}
 <existing_memories>
 ${formatExistingMemories(existingMemories)}
 </existing_memories>
+
+<learned_writing_style>
+${learnedWritingStyle || "None"}
+</learned_writing_style>
 
 ${getUserInfoPrompt({ emailAccount })}
 
@@ -552,22 +603,123 @@ function formatExistingMemories(
 
 async function fetchReplyMemoriesByScope({
   emailAccountId,
+  kind,
   scopeType,
   scopeValue,
 }: {
   emailAccountId: string;
+  kind: ReplyMemoryKind;
   scopeType: ReplyMemoryScopeType;
   scopeValue?: string;
 }) {
   return prisma.replyMemory.findMany({
     where: {
       emailAccountId,
+      kind,
       scopeType,
       ...(scopeValue !== undefined ? { scopeValue } : {}),
     },
     orderBy: { updatedAt: "desc" },
     take: MAX_RETRIEVED_REPLY_MEMORIES,
   });
+}
+
+async function maybeRefreshLearnedWritingStyle({
+  emailAccountId,
+  emailAccount,
+}: {
+  emailAccountId: string;
+  emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
+}) {
+  const learnedWritingStyleState = await prisma.learnedWritingStyle.findUnique({
+    where: { emailAccountId },
+    select: {
+      memoryCount: true,
+    },
+  });
+
+  const styleMemoryCount = await prisma.replyMemory.count({
+    where: {
+      emailAccountId,
+      kind: ReplyMemoryKind.STYLE,
+      scopeType: ReplyMemoryScopeType.GLOBAL,
+    },
+  });
+
+  if (styleMemoryCount < MIN_STYLE_MEMORIES_FOR_LEARNED_STYLE) return;
+  if (
+    styleMemoryCount <
+    (learnedWritingStyleState?.memoryCount ?? 0) +
+      STYLE_MEMORIES_PER_LEARNED_STYLE_REFRESH
+  )
+    return;
+
+  const styleMemories = await prisma.replyMemory.findMany({
+    where: {
+      emailAccountId,
+      kind: ReplyMemoryKind.STYLE,
+      scopeType: ReplyMemoryScopeType.GLOBAL,
+    },
+    include: styleMemoryCompactionInclude,
+    orderBy: { updatedAt: "desc" },
+    take: MAX_STYLE_MEMORIES_FOR_LEARNED_STYLE,
+  });
+
+  if (!styleMemories.length) return;
+
+  const learnedWritingStyle = await summarizeLearnedWritingStyle({
+    styleMemories,
+    emailAccount,
+  });
+
+  await prisma.learnedWritingStyle.upsert({
+    where: { emailAccountId },
+    create: {
+      emailAccountId,
+      content: learnedWritingStyle,
+      memoryCount: styleMemoryCount,
+    },
+    update: {
+      content: learnedWritingStyle,
+      memoryCount: styleMemoryCount,
+    },
+  });
+}
+
+async function summarizeLearnedWritingStyle({
+  styleMemories,
+  emailAccount,
+}: {
+  styleMemories: StyleMemoryCompactionPayload[];
+  emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
+}) {
+  const prompt = `<style_memory_evidence>
+${formatStyleMemoryEvidence(styleMemories)}
+</style_memory_evidence>
+
+${getUserInfoPrompt({ emailAccount })}
+
+Summarize the user's learned writing style from this evidence.`;
+
+  const modelOptions = getModel(emailAccount.user, "economy");
+  const generateObject = createGenerateObject({
+    emailAccount,
+    label: "Learned writing style compaction",
+    modelOptions,
+  });
+
+  const result = await withNetworkRetry(
+    () =>
+      generateObject({
+        ...modelOptions,
+        system: learnedWritingStyleSystemPrompt,
+        prompt,
+        schema: learnedWritingStyleSchema,
+      }),
+    { label: "Learned writing style compaction" },
+  );
+
+  return result.object.learnedWritingStyle.trim();
 }
 
 function normalizeMemoryText(value: string) {
@@ -655,6 +807,29 @@ type DraftSendLogReplyMemoryPayload = Prisma.DraftSendLogGetPayload<{
   include: typeof draftSendLogReplyMemoryInclude;
 }>;
 
+const styleMemoryCompactionInclude = {
+  sources: {
+    orderBy: { createdAt: "desc" },
+    take: 1,
+    include: {
+      draftSendLog: {
+        select: {
+          replyMemorySentText: true,
+          executedAction: {
+            select: {
+              content: true,
+            },
+          },
+        },
+      },
+    },
+  },
+} satisfies Prisma.ReplyMemoryInclude;
+
+type StyleMemoryCompactionPayload = Prisma.ReplyMemoryGetPayload<{
+  include: typeof styleMemoryCompactionInclude;
+}>;
+
 function sortReplyMemories(memories: ReplyMemory[]) {
   return [...memories].sort((left, right) => {
     const scopePriority =
@@ -709,4 +884,28 @@ function getNormalizedReplyMemoryScopeValue({
     case ReplyMemoryScopeType.TOPIC:
       return memory.scopeValue.trim().toLowerCase();
   }
+}
+
+function formatStyleMemoryEvidence(
+  styleMemories: StyleMemoryCompactionPayload[],
+) {
+  return styleMemories
+    .map((memory, index) => {
+      const source = memory.sources[0];
+      const draftText = source?.draftSendLog.executedAction.content ?? "";
+      const sentText = source?.draftSendLog.replyMemorySentText ?? "";
+
+      return `${index + 1}. ${memory.title}: ${memory.content}
+Draft example: ${truncateStyleEvidenceText(draftText) || "None"}
+Sent example: ${truncateStyleEvidenceText(sentText) || "None"}`;
+    })
+    .join("\n\n");
+}
+
+function truncateStyleEvidenceText(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  return normalized.length > 280
+    ? `${normalized.slice(0, 277).trimEnd()}...`
+    : normalized;
 }
