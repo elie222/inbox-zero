@@ -12,6 +12,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 import { isDuplicateError } from "@/utils/prisma-helpers";
+import { SafeError } from "@/utils/error";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import {
   getBlockedLowTrustStaticFromActionTypes,
@@ -494,7 +495,7 @@ function validateLowTrustStaticFromOutboundActions({
   );
   if (!blockedActionTypes.length) return;
 
-  throw new Error(LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE);
+  throw new SafeError(LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE, 400);
 }
 
 async function mapActionFields(
