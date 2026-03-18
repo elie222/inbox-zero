@@ -88,7 +88,7 @@ Read analytics from the external API.
 
 ```bash
 inbox-zero-api stats by-period --period month
-inbox-zero-api stats response-time --email me@example.com --json
+inbox-zero-api stats response-time --json
 ```
 
 For bot workflows, prefer `--json` so the CLI returns structured output instead of a human-oriented summary.

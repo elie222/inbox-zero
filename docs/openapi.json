@@ -310,14 +310,6 @@
             "required": false,
             "name": "toDate",
             "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "email",
-            "in": "query"
           }
         ],
         "responses": {
@@ -554,14 +546,6 @@
             },
             "required": false,
             "name": "toDate",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "email",
             "in": "query"
           }
         ],

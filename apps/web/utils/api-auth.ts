@@ -8,7 +8,6 @@ import type { RequestWithLogger } from "@/utils/middleware";
 import type { ApiKeyScopeValue } from "@/utils/api-key-scopes";
 
 export const API_KEY_HEADER = "API-Key";
-type ApiKeyAuthType = "account-scoped" | "legacy";
 
 export type AccountApiKeyPrincipal = {
   apiKeyId: string;
@@ -27,14 +26,13 @@ export type StatsApiKeyPrincipal = {
   emailAccountId: string;
   provider: string;
   scopes: ApiKeyScopeValue[];
-  authType: ApiKeyAuthType;
+  authType: "account-scoped";
 };
 
 export async function validateApiKey(
   request: NextRequest,
   options?: {
     requiredScopes?: ApiKeyScopeValue[];
-    allowLegacy?: boolean;
   },
 ) {
   const apiKey = request.headers.get(API_KEY_HEADER);
@@ -53,9 +51,7 @@ export async function validateApiKey(
     );
 
     if (!hasAllScopes) {
-      if (!options.allowLegacy || storedApiKey.emailAccountId) {
-        throw new SafeError("API key does not have required permissions", 403);
-      }
+      throw new SafeError("API key does not have required permissions", 403);
     }
   }
 
@@ -72,7 +68,13 @@ export async function validateApiKey(
 export async function getUserFromApiKey(secretKey: string) {
   const storedApiKey = await getStoredApiKey(secretKey);
 
-  if (!storedApiKey || isExpired(storedApiKey.expiresAt)) return null;
+  if (
+    !storedApiKey ||
+    isExpired(storedApiKey.expiresAt) ||
+    !storedApiKey.emailAccountId
+  ) {
+    return null;
+  }
 
   return {
     id: storedApiKey.userId,
@@ -103,59 +105,28 @@ export async function validateAccountApiKey(
 }
 
 /**
- * Validates an API key and gets an email provider for the associated account.
- * Account-scoped keys require STATS_READ. Legacy user-scoped keys are still
- * accepted for existing read-only stats routes until they are migrated.
+ * Validates an API key and gets an email provider for the associated inbox.
  */
 export async function validateApiKeyAndGetEmailProvider(
   request: RequestWithLogger,
 ): Promise<StatsApiKeyPrincipal & { emailProvider: EmailProvider }> {
-  const { apiKey } = await validateApiKey(request, {
-    requiredScopes: ["STATS_READ"],
-    allowLegacy: true,
-  });
-
-  if (apiKey.emailAccount) {
-    const emailProvider = await createEmailProvider({
-      emailAccountId: apiKey.emailAccount.id,
-      provider: apiKey.emailAccount.account.provider,
-      logger: request.logger,
-    });
-
-    return {
-      apiKeyId: apiKey.id,
-      emailProvider,
-      userId: apiKey.userId,
-      accountId: apiKey.emailAccount.account.id,
-      emailAccountId: apiKey.emailAccount.id,
-      provider: apiKey.emailAccount.account.provider,
-      scopes: apiKey.scopes,
-      authType: "account-scoped",
-    };
-  }
-
-  const legacyAccount = apiKey.user.accounts[0];
-  const legacyEmailAccountId = legacyAccount?.emailAccount?.id;
-
-  if (!legacyAccount || !legacyEmailAccountId) {
-    throw new SafeError("Missing account", 401);
-  }
+  const accountPrincipal = await validateAccountApiKey(request, ["STATS_READ"]);
 
   const emailProvider = await createEmailProvider({
-    emailAccountId: legacyEmailAccountId,
-    provider: legacyAccount.provider,
+    emailAccountId: accountPrincipal.emailAccountId,
+    provider: accountPrincipal.provider,
     logger: request.logger,
   });
 
   return {
-    apiKeyId: apiKey.id,
+    apiKeyId: accountPrincipal.apiKeyId,
+    userId: accountPrincipal.userId,
+    accountId: accountPrincipal.accountId,
+    emailAccountId: accountPrincipal.emailAccountId,
+    provider: accountPrincipal.provider,
+    scopes: accountPrincipal.scopes,
     emailProvider,
-    userId: apiKey.userId,
-    accountId: legacyAccount.id,
-    emailAccountId: legacyEmailAccountId,
-    provider: legacyAccount.provider,
-    scopes: apiKey.scopes,
-    authType: "legacy",
+    authType: "account-scoped",
   };
 }
 
@@ -179,22 +150,6 @@ async function getStoredApiKey(secretKey: string) {
               id: true,
               provider: true,
             },
-          },
-        },
-      },
-      user: {
-        select: {
-          accounts: {
-            select: {
-              id: true,
-              provider: true,
-              emailAccount: {
-                select: {
-                  id: true,
-                },
-              },
-            },
-            take: 1,
           },
         },
       },

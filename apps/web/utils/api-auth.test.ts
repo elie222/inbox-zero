@@ -64,9 +64,6 @@ describe("api-auth", () => {
             provider: "google",
           },
         },
-        user: {
-          accounts: [],
-        },
       } as never);
 
       const result = await validateApiKey(getRequest("valid-api-key"));
@@ -103,9 +100,6 @@ describe("api-auth", () => {
         expiresAt: null,
         scopes: ["RULES_READ", "RULES_WRITE"],
         emailAccount: null,
-        user: {
-          accounts: [],
-        },
       } as never);
 
       await expect(getUserFromApiKey("valid-key")).resolves.toEqual({
@@ -113,6 +107,20 @@ describe("api-auth", () => {
         emailAccountId: "email-account-id",
         scopes: ["RULES_READ", "RULES_WRITE"],
       });
+    });
+
+    it("returns null for keys without an inbox scope", async () => {
+      vi.mocked(hashApiKey).mockReturnValue("hashed-key");
+      prisma.apiKey.findUnique.mockResolvedValue({
+        id: "key-id",
+        userId: "user-id",
+        emailAccountId: null,
+        expiresAt: null,
+        scopes: ["RULES_READ"],
+        emailAccount: null,
+      } as never);
+
+      await expect(getUserFromApiKey("legacy-key")).resolves.toBeNull();
     });
   });
 
@@ -132,9 +140,6 @@ describe("api-auth", () => {
             id: "account-id",
             provider: "google",
           },
-        },
-        user: {
-          accounts: [],
         },
       } as never);
 
@@ -158,9 +163,6 @@ describe("api-auth", () => {
             id: "account-id",
             provider: "google",
           },
-        },
-        user: {
-          accounts: [],
         },
       } as never);
 
@@ -196,9 +198,6 @@ describe("api-auth", () => {
             provider: "google",
           },
         },
-        user: {
-          accounts: [],
-        },
       } as never);
 
       await expect(
@@ -215,41 +214,20 @@ describe("api-auth", () => {
       });
     });
 
-    it("falls back to the legacy first linked account", async () => {
+    it("rejects keys without an inbox scope", async () => {
       vi.mocked(hashApiKey).mockReturnValue("hashed-key");
-      vi.mocked(createEmailProvider).mockResolvedValue("provider" as never);
       prisma.apiKey.findUnique.mockResolvedValue({
         id: "key-id",
         userId: "user-id",
         emailAccountId: null,
         expiresAt: null,
-        scopes: [],
+        scopes: ["STATS_READ"],
         emailAccount: null,
-        user: {
-          accounts: [
-            {
-              id: "legacy-account-id",
-              provider: "google",
-              emailAccount: {
-                id: "legacy-email-account-id",
-              },
-            },
-          ],
-        },
       } as never);
 
       await expect(
         validateApiKeyAndGetEmailProvider(getRequest("legacy-key") as any),
-      ).resolves.toEqual({
-        apiKeyId: "key-id",
-        emailProvider: "provider",
-        userId: "user-id",
-        accountId: "legacy-account-id",
-        emailAccountId: "legacy-email-account-id",
-        provider: "google",
-        scopes: [],
-        authType: "legacy",
-      });
+      ).rejects.toThrow("Account-scoped API key required");
     });
   });
 });

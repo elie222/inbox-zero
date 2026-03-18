@@ -147,7 +147,11 @@ async function clickIfVisible(page: Page, locator: Locator, timeout: number) {
     return false;
   }
 
-  await locator.click();
+  try {
+    await locator.click({ timeout });
+  } catch {
+    return false;
+  }
   await page.waitForTimeout(200);
   return true;
 }
