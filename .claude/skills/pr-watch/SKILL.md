@@ -24,7 +24,11 @@ Parse `$ARGUMENTS` for options:
    > Check if the current PR has new comments that haven't been addressed yet. Ignore bot accounts (vercel, dependabot, github-actions, etc.). Fetch both code review comments and conversation comments.
    >
    > - If there are unaddressed comments: run /address-pr-comments to address them. Do NOT auto-resolve threads — let the reviewer handle resolution.
-   > - If all comments have been addressed and there's nothing new to handle: cancel this scheduled task, monitoring is done.
+   > - **Exit condition — only cancel this task when ALL of the following are true:**
+   >   1. No new comments you haven't already seen and addressed.
+   >   2. You did NOT push any fixes in this iteration (if you pushed, reviewers need time to re-review — always wait at least one more iteration).
+   >   3. All reviewer check runs have completed — run `gh pr checks` and verify no reviewer checks (e.g. "Baz Reviewer", "cubic · AI code reviewer") are pending or in_progress. If any reviewer check is still running, they haven't finished posting comments yet — wait for the next iteration.
+   >   If any condition is false, let the cron run for another iteration instead of cancelling.
    >
    > Important: AI review bots (e.g. cubic-dev-ai, coderabbit, copilot) do NOT have full context of the project. Use your own judgment — their suggestions may be wrong or inapplicable. Don't blindly implement bot feedback.
 

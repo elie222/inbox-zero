@@ -109,30 +109,26 @@ sleep <wait-seconds>
 
 Default: 300 seconds (5 minutes).
 
-### 5b. Check for unresolved comments
+### 5b. Check for new comments and reviewer status
 
+Fetch comments and check reviewer status:
 ```bash
 PR_NUM=$(gh pr view --json number --jq .number)
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-OWNER=$(echo $REPO | cut -d/ -f1)
-REPO_NAME=$(echo $REPO | cut -d/ -f2)
 
-UNRESOLVED=$(gh api graphql -f query='
-  query($owner:String!, $repo:String!, $pr:Int!) {
-    repository(owner:$owner, name:$repo) {
-      pullRequest(number:$pr) {
-        reviewThreads(first:100) {
-          nodes { isResolved }
-        }
-      }
-    }
-  }' -f owner=$OWNER -f repo=$REPO_NAME -F pr=$PR_NUM \
-  --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
+# Fetch all review comments to check for new ones you haven't addressed
+gh api "repos/$REPO/pulls/$PR_NUM/comments" --jq '.[] | {id, body: .body[0:200], author: .user.login, created_at}'
+
+# Check if reviewer checks are still running
+gh pr checks $PR_NUM
 ```
 
-**If 0 unresolved threads → exit loop. Done.**
+**Exit conditions — only exit if ALL are true:**
+1. No new comments you haven't already seen and addressed.
+2. You did NOT push fixes in the previous iteration (reviewers need time to re-review new commits — always do at least one more check after pushing).
+3. All reviewer check runs have completed — run `gh pr checks` and verify no reviewer checks (e.g. "Baz Reviewer", "cubic · AI code reviewer") are pending or in_progress. If any reviewer check is still running, they haven't finished posting comments yet — wait for the next iteration.
 
-Note: Conversation comments (from bots like Vercel, or general discussion) do NOT block exit. Only unresolved review threads matter.
+If any condition is false, continue the loop.
 
 ### 5c. Fetch and address comments
 
@@ -191,5 +187,5 @@ git add <changed-files> && git commit -m "<generic message about addressing revi
 ### 5e. Repeat
 
 Go back to step 5a. Exit when:
-- 0 unresolved threads remain, OR
+- All exit conditions in step 5b are met, OR
 - Max iterations reached (report "max iterations reached, may still have comments")
