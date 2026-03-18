@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { ActionType } from "@/generated/prisma/enums";
+import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/risk", () => ({
@@ -27,7 +29,9 @@ vi.mock("@/utils/prisma-helpers", () => ({
   isDuplicateError: vi.fn(() => false),
 }));
 
-import { deleteRule } from "./rule";
+import { createRule, deleteRule, updateRuleActions } from "./rule";
+
+const logger = createScopedLogger("test");
 
 describe("deleteRule", () => {
   beforeEach(() => {
@@ -80,5 +84,71 @@ describe("deleteRule", () => {
     expect(prisma.rule.delete).toHaveBeenCalledWith({
       where: { id: "rule-id", emailAccountId: "email-account-id" },
     });
+  });
+});
+
+describe("outbound action guardrails", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects creating a low-trust from rule with FORWARD", async () => {
+    await expect(
+      createRule({
+        result: {
+          name: "Forward rule",
+          condition: {
+            aiInstructions: null,
+            conditionalOperator: null,
+            static: {
+              from: "Team *",
+              to: null,
+              subject: null,
+            },
+          },
+          actions: [
+            {
+              type: ActionType.FORWARD,
+              fields: {
+                to: "forward@example.com",
+              },
+              delayInMinutes: null,
+            },
+          ],
+        },
+        emailAccountId: "email-account-id",
+        provider: "gmail",
+        runOnThreads: true,
+        logger,
+      }),
+    ).rejects.toThrow("email- or domain-based From condition");
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects updating actions to FORWARD on an existing low-trust from rule", async () => {
+    prisma.rule.findFirst.mockResolvedValue({
+      from: "Team *",
+    });
+
+    await expect(
+      updateRuleActions({
+        ruleId: "rule-id",
+        actions: [
+          {
+            type: ActionType.FORWARD,
+            fields: {
+              to: "forward@example.com",
+            },
+            delayInMinutes: null,
+          },
+        ],
+        provider: "gmail",
+        emailAccountId: "email-account-id",
+        logger,
+      }),
+    ).rejects.toThrow("email- or domain-based From condition");
+
+    expect(prisma.rule.update).not.toHaveBeenCalled();
   });
 });

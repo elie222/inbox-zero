@@ -13,6 +13,10 @@ import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import {
+  getBlockedLowTrustStaticFromActionTypes,
+  LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
+} from "@/utils/rule/static-from-risk";
 
 export function partialUpdateRule({
   ruleId,
@@ -47,6 +51,11 @@ export async function createRule({
     logger.info("Creating rule", {
       name: result.name,
       systemType,
+    });
+
+    validateLowTrustStaticFromOutboundActions({
+      from: result.condition.static?.from,
+      actionTypes: result.actions.map((action) => action.type),
     });
 
     const mappedActions = await mapActionFields(
@@ -111,6 +120,11 @@ export async function updateRule({
     logger.info("Updating rule", {
       name: result.name,
       ruleId,
+    });
+
+    validateLowTrustStaticFromOutboundActions({
+      from: result.condition.static?.from,
+      actionTypes: result.actions.map((action) => action.type),
     });
 
     const rule = await prisma.rule.update({
@@ -262,6 +276,16 @@ export async function updateRuleActions({
   emailAccountId: string;
   logger: Logger;
 }) {
+  const existingRule = await prisma.rule.findFirst({
+    where: { id: ruleId, emailAccountId },
+    select: { from: true },
+  });
+
+  validateLowTrustStaticFromOutboundActions({
+    from: existingRule?.from,
+    actionTypes: actions.map((action) => action.type),
+  });
+
   return prisma.rule.update({
     where: { id: ruleId },
     data: {
@@ -326,6 +350,22 @@ function shouldEnable(rule: CreateOrUpdateRuleSchema, actions: RiskAction[]) {
   );
   // Only enable if all actions are low risk
   return riskLevels.every((level) => level === "low");
+}
+
+function validateLowTrustStaticFromOutboundActions({
+  from,
+  actionTypes,
+}: {
+  from: string | null | undefined;
+  actionTypes: readonly ActionType[];
+}) {
+  const blockedActionTypes = getBlockedLowTrustStaticFromActionTypes(
+    from,
+    actionTypes,
+  );
+  if (!blockedActionTypes.length) return;
+
+  throw new Error(LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE);
 }
 
 async function mapActionFields(
