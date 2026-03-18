@@ -1,6 +1,6 @@
 ---
 name: testing
-description: Guidelines for testing the application with Vitest
+description: Guidelines for testing the application with Vitest, including unit tests, AI tests, and eval suites for LLM features
 ---
 # Testing
 
