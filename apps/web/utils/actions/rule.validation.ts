@@ -24,7 +24,7 @@ export const delayInMinutesSchema = z
   .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
   .nullish()
   .describe(
-    "Only set when the user explicitly requests a delay. Do not add delays by default.",
+    "Minutes to wait before executing this action. Only set when explicitly requested.",
   );
 
 export const updateRuleConditionSchema = z.object({

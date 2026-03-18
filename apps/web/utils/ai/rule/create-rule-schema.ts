@@ -131,7 +131,7 @@ const actionSchema = (provider: string) =>
         .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
         .nullable()
         .describe(
-          "Only set when the user explicitly requests a delay. Do not add delays by default.",
+          "Minutes to wait before executing this action. Only set when explicitly requested.",
         ),
     })
     .superRefine((action, ctx) => {
