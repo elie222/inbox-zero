@@ -42,6 +42,10 @@ import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { internalDateToDate } from "@/utils/date";
 import { ConditionType } from "@/utils/config";
 import type { Logger } from "@/utils/logger";
+import {
+  getBlockedLowTrustStaticFromActionTypes,
+  LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
+} from "@/utils/rule/static-from-risk";
 
 const MODULE = "ai/choose-rule";
 
@@ -242,7 +246,10 @@ export async function runRules({
 
     executedRules.push({
       ...executedRule,
-      status: executedRule.executedRule?.status || ExecutedRuleStatus.APPLIED,
+      status:
+        executedRule.status ||
+        executedRule.executedRule?.status ||
+        ExecutedRuleStatus.APPLIED,
     });
   }
 
@@ -295,20 +302,67 @@ async function executeMatchedRule(
   logger: Logger,
   skipArchive?: boolean,
 ) {
-  let actionItems = await getActionItemsWithAiArgs({
-    message,
-    emailAccount,
-    selectedRule: rule,
-    client,
-    modelType,
-    logger,
-    isTest,
-  });
+  const blockedActionTypes = getBlockedLowTrustStaticFromActionTypes(
+    rule.from,
+    rule.actions.map((action) => action.type),
+  );
+
+  let actionItems: Awaited<ReturnType<typeof getActionItemsWithAiArgs>> = [];
+
+  if (blockedActionTypes.length < rule.actions.length) {
+    actionItems = await getActionItemsWithAiArgs({
+      message,
+      emailAccount,
+      selectedRule: rule,
+      client,
+      modelType,
+      logger,
+      isTest,
+    });
+
+    if (blockedActionTypes.length) {
+      const blockedSet = new Set(blockedActionTypes);
+      actionItems = actionItems.filter((item) => !blockedSet.has(item.type));
+    }
+  }
 
   if (skipArchive) {
     actionItems = actionItems.filter(
       (item) => item.type !== ActionType.ARCHIVE,
     );
+  }
+
+  if (actionItems.length === 0 && blockedActionTypes.length) {
+    const reasonToUse = reason
+      ? `${reason}. ${LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE}`
+      : LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE;
+    let executedRule = null;
+
+    if (!isTest) {
+      executedRule = await prisma.executedRule.create({
+        data: {
+          messageId: message.id,
+          threadId: message.threadId,
+          automated: true,
+          status: ExecutedRuleStatus.SKIPPED,
+          reason: reasonToUse,
+          matchMetadata: serializeMatchReasons(matchReasons),
+          rule: rule?.id ? { connect: { id: rule.id } } : undefined,
+          emailAccount: { connect: { id: emailAccount.id } },
+          createdAt: batchTimestamp,
+        },
+      });
+    }
+
+    return {
+      rule,
+      actionItems: [],
+      executedRule,
+      reason: reasonToUse,
+      status: ExecutedRuleStatus.SKIPPED,
+      matchReasons,
+      createdAt: batchTimestamp,
+    };
   }
 
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>

@@ -13,7 +13,7 @@ import {
 } from "@/utils/actions/ai-rule.validation";
 import { createRulesBody } from "@/utils/actions/rule.validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
-import { createRule } from "@/utils/rule/rule";
+import { createRule, setRuleRunOnThreads } from "@/utils/rule/rule";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
@@ -166,10 +166,7 @@ export const setRuleRunOnThreadsAction = actionClient
       ctx: { emailAccountId },
       parsedInput: { ruleId, runOnThreads },
     }) => {
-      await prisma.rule.update({
-        where: { id: ruleId, emailAccountId },
-        data: { runOnThreads },
-      });
+      await setRuleRunOnThreads({ ruleId, emailAccountId, runOnThreads });
     },
   );
 
