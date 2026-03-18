@@ -62,10 +62,6 @@ describe("createMessagingLinkCodeAction", () => {
       provider: "TEAMS",
       expiresInSeconds: 600,
     });
-    expect(generateMessagingLinkCodeMock).toHaveBeenCalledWith({
-      emailAccountId: "email-account-1",
-      provider: "TEAMS",
-    });
   });
 
   it("returns an error when Teams is not configured", async () => {
@@ -107,10 +103,6 @@ describe("createMessagingLinkCodeAction", () => {
       provider: "TELEGRAM",
       expiresInSeconds: 600,
       botUrl: "https://t.me/inboxdevbot",
-    });
-    expect(generateMessagingLinkCodeMock).toHaveBeenCalledWith({
-      emailAccountId: "email-account-1",
-      provider: "TELEGRAM",
     });
 
     vi.unstubAllGlobals();

@@ -14,6 +14,8 @@ All testing guidance lives in this directory. Read the relevant file for your ta
 | Eval suite | [eval.md](eval.md) | Cross-model comparison, LLM-as-judge |
 | E2E tests | [e2e.md](e2e.md) | Real email workflow tests from inbox-zero-e2e repo |
 
+Prefer behavior-focused assertions; avoid freezing prompt copy or internal call shapes unless those exact values are the contract under test.
+
 ## Quick Commands
 
 ```bash

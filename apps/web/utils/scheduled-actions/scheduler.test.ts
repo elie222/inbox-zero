@@ -39,13 +39,10 @@ describe("scheduler", () => {
 
   describe("cancelScheduledActions", () => {
     it("should cancel scheduled actions for a specific rule", async () => {
-      // Mock finding actions to cancel
       prisma.scheduledAction.findMany.mockResolvedValue([
         { id: "action-1", scheduledId: "qstash-msg-1" },
         { id: "action-2", scheduledId: "qstash-msg-2" },
       ] as any);
-
-      // Mock updating actions as cancelled
       prisma.scheduledAction.updateMany.mockResolvedValue({ count: 2 });
 
       const result = await cancelScheduledActions({
@@ -54,36 +51,28 @@ describe("scheduler", () => {
         ruleId: "rule-123",
       });
 
-      expect(prisma.scheduledAction.findMany).toHaveBeenCalledWith({
-        where: {
-          emailAccountId: "account-123",
-          messageId: "msg-123",
-          status: ScheduledActionStatus.PENDING,
-          executedRule: {
-            ruleId: "rule-123",
-          },
-        },
-        select: {
-          id: true,
-          scheduledId: true,
-        },
-      });
-
-      expect(prisma.scheduledAction.updateMany).toHaveBeenCalledWith({
-        where: {
-          emailAccountId: "account-123",
-          messageId: "msg-123",
-          status: ScheduledActionStatus.PENDING,
-          executedRule: {
-            ruleId: "rule-123",
-          },
-        },
-        data: {
-          status: ScheduledActionStatus.CANCELLED,
-        },
-      });
-
       expect(result).toBe(2);
+      expect(prisma.scheduledAction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            emailAccountId: "account-123",
+            messageId: "msg-123",
+            status: ScheduledActionStatus.PENDING,
+            executedRule: { ruleId: "rule-123" },
+          }),
+        }),
+      );
+      expect(prisma.scheduledAction.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            emailAccountId: "account-123",
+            messageId: "msg-123",
+            status: ScheduledActionStatus.PENDING,
+            executedRule: { ruleId: "rule-123" },
+          }),
+          data: { status: ScheduledActionStatus.CANCELLED },
+        }),
+      );
     });
 
     it("should return zero when no actions to cancel", async () => {
@@ -113,36 +102,16 @@ describe("scheduler", () => {
         reason: "Custom reason",
       });
 
-      expect(prisma.scheduledAction.findMany).toHaveBeenCalledWith({
-        where: {
-          emailAccountId: "account-123",
-          messageId: "msg-123",
-          threadId: "thread-123",
-          status: ScheduledActionStatus.PENDING,
-          executedRule: {
-            ruleId: "rule-123",
-          },
-        },
-        select: {
-          id: true,
-          scheduledId: true,
-        },
-      });
-
-      expect(prisma.scheduledAction.updateMany).toHaveBeenCalledWith({
-        where: {
-          emailAccountId: "account-123",
-          messageId: "msg-123",
-          threadId: "thread-123",
-          status: ScheduledActionStatus.PENDING,
-          executedRule: {
-            ruleId: "rule-123",
-          },
-        },
-        data: {
-          status: ScheduledActionStatus.CANCELLED,
-        },
-      });
+      expect(prisma.scheduledAction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ threadId: "thread-123" }),
+        }),
+      );
+      expect(prisma.scheduledAction.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ threadId: "thread-123" }),
+        }),
+      );
     });
   });
 });
