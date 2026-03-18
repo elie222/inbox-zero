@@ -21,6 +21,7 @@ const MAX_REPLY_MEMORY_SOURCE_FETCH_ATTEMPTS = 3;
 const MAX_MEMORIES_PER_EDIT = 3;
 const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
 const MAX_RETRIEVED_REPLY_MEMORIES = 6;
+const MAX_RETRIEVED_TOPIC_REPLY_MEMORIES = 3;
 
 const replyMemorySchema = z.object({
   memories: z
@@ -203,7 +204,6 @@ export async function getReplyMemoriesForPrompt({
       normalizedSenderEmail,
     ).toLowerCase();
     const normalizedEmailContent = emailContent.trim().toLowerCase();
-
     const [senderMemories, domainMemories, globalMemories] = await Promise.all([
       normalizedSenderEmail
         ? fetchReplyMemoriesByScope({
@@ -234,7 +234,7 @@ export async function getReplyMemoriesForPrompt({
             AND "scopeValue" <> ''
             AND LOWER(${normalizedEmailContent}) LIKE ('%' || LOWER("scopeValue") || '%')
           ORDER BY LENGTH("scopeValue") DESC, "updatedAt" DESC
-          LIMIT ${MAX_RETRIEVED_REPLY_MEMORIES}
+          LIMIT ${MAX_RETRIEVED_TOPIC_REPLY_MEMORIES}
         `
       : [];
 

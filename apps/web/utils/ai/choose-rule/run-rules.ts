@@ -6,7 +6,7 @@ import {
   GroupItemSource,
   SystemType,
 } from "@/generated/prisma/enums";
-import type { Rule } from "@/generated/prisma/client";
+import type { Prisma, Rule } from "@/generated/prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import {
@@ -349,6 +349,11 @@ async function executeMatchedRule(
                       item.type === ActionType.DRAFT_EMAIL
                         ? (item.draftPipelineVersion ?? null)
                         : null,
+                    draftContextMetadata:
+                      item.type === ActionType.DRAFT_EMAIL &&
+                      item.draftContextMetadata
+                        ? (item.draftContextMetadata as Prisma.InputJsonValue)
+                        : undefined,
                   };
                 }) || [],
             },

@@ -241,7 +241,7 @@ describe("aiDraftReply formatting", () => {
       "Mention that pricing depends on seat count.",
     );
     expect(callArgs.prompt).toContain(
-      "explicit user instructions and knowledge base content take precedence",
+      "These are advisory, not mandatory. Use them only when they clearly help with the current email",
     );
   });
 
