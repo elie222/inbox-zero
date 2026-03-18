@@ -1,6 +1,17 @@
 name: Local Bypass Smoke
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "tsconfig.json"
+      - ".github/workflows/local-bypass-smoke.yml"
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
@@ -82,7 +93,7 @@ jobs:
         run: pnpm -F inbox-zero-ai test:local-bypass-smoke
 
       - name: Upload smoke artifacts
-        if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+        if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') }}
         uses: actions/upload-artifact@v4
         with:
           name: local-bypass-smoke-artifacts-${{ github.run_id }}
