@@ -102,21 +102,25 @@ describe("reply-memory", () => {
           kind: ReplyMemoryKind.STYLE,
           scopeType: ReplyMemoryScopeType.GLOBAL,
         }),
+      ] as any)
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "topic-pricing",
+          title: "pricing",
+          content: "Mention that pricing depends on seat count.",
+          kind: ReplyMemoryKind.FACT,
+          scopeType: ReplyMemoryScopeType.TOPIC,
+          scopeValue: "pricing",
+        }),
       ] as any);
-    vi.mocked(prisma.$queryRaw).mockResolvedValue([
-      createReplyMemory({
-        title: "pricing",
-        content: "Mention that pricing depends on seat count.",
-        kind: ReplyMemoryKind.FACT,
-        scopeType: ReplyMemoryScopeType.TOPIC,
-        scopeValue: "pricing",
-      }),
-    ] as any);
+    mockGenerateObject.mockResolvedValue({
+      object: { memoryIds: ["topic-pricing"] },
+    });
 
     const result = await getReplyMemoryContent({
       emailAccountId: "account-1",
       senderEmail: "sales@example.com",
-      emailContent: "What pricing should I share for a 30 seat team?",
+      emailContent: "What should I share for a 30 seat team quote?",
       logger,
     });
 
@@ -140,7 +144,15 @@ describe("reply-memory", () => {
       orderBy: { updatedAt: "desc" },
       take: 6,
     });
-    expect(prisma.$queryRaw).toHaveBeenCalled();
+    expect(prisma.replyMemory.findMany).toHaveBeenNthCalledWith(4, {
+      where: {
+        emailAccountId: "account-1",
+        scopeType: ReplyMemoryScopeType.TOPIC,
+        NOT: { scopeValue: "" },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 12,
+    });
   });
 
   it("returns selected reply memory metadata for observability", async () => {
@@ -164,22 +176,25 @@ describe("reply-memory", () => {
           kind: ReplyMemoryKind.STYLE,
           scopeType: ReplyMemoryScopeType.GLOBAL,
         }),
+      ] as any)
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "topic-memory",
+          title: "pricing",
+          content: "Mention that pricing depends on seat count.",
+          kind: ReplyMemoryKind.FACT,
+          scopeType: ReplyMemoryScopeType.TOPIC,
+          scopeValue: "pricing",
+        }),
       ] as any);
-    vi.mocked(prisma.$queryRaw).mockResolvedValue([
-      createReplyMemory({
-        id: "topic-memory",
-        title: "pricing",
-        content: "Mention that pricing depends on seat count.",
-        kind: ReplyMemoryKind.FACT,
-        scopeType: ReplyMemoryScopeType.TOPIC,
-        scopeValue: "pricing",
-      }),
-    ] as any);
+    mockGenerateObject.mockResolvedValue({
+      object: { memoryIds: ["topic-memory"] },
+    });
 
     const result = await getReplyMemoriesForPrompt({
       emailAccountId: "account-1",
       senderEmail: "sales@example.com",
-      emailContent: "What pricing should I share for a 30 seat team?",
+      emailContent: "What should I share for a 30 seat team quote?",
       logger,
     });
 
@@ -231,8 +246,8 @@ describe("reply-memory", () => {
             updatedAt: new Date(`2026-03-17T09:0${index}:00.000Z`),
           }),
         ) as any,
-      );
-    vi.mocked(prisma.$queryRaw).mockResolvedValue([] as any);
+      )
+      .mockResolvedValueOnce([] as any);
 
     const result = await getReplyMemoryContent({
       emailAccountId: "account-1",
@@ -263,23 +278,26 @@ describe("reply-memory", () => {
             updatedAt: new Date(`2026-03-17T09:0${index}:00.000Z`),
           }),
         ) as any,
-      );
-    vi.mocked(prisma.$queryRaw).mockResolvedValue([
-      createReplyMemory({
-        id: "topic-pricing",
-        title: "pricing guidance",
-        content: "Mention that enterprise pricing depends on seat count.",
-        kind: ReplyMemoryKind.FACT,
-        scopeType: ReplyMemoryScopeType.TOPIC,
-        scopeValue: "pricing",
-        updatedAt: new Date("2026-03-16T08:00:00.000Z"),
-      }),
-    ] as any);
+      )
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "topic-pricing",
+          title: "pricing guidance",
+          content: "Mention that enterprise pricing depends on seat count.",
+          kind: ReplyMemoryKind.FACT,
+          scopeType: ReplyMemoryScopeType.TOPIC,
+          scopeValue: "pricing",
+          updatedAt: new Date("2026-03-16T08:00:00.000Z"),
+        }),
+      ] as any);
+    mockGenerateObject.mockResolvedValue({
+      object: { memoryIds: ["topic-pricing"] },
+    });
 
     const result = await getReplyMemoryContent({
       emailAccountId: "account-1",
       senderEmail: "sales@example.com",
-      emailContent: "Can you resend the pricing guidance?",
+      emailContent: "Can you resend the quote guidance for a larger team?",
       logger,
     });
 

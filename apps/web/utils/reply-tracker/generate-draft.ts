@@ -23,18 +23,24 @@ import {
   getMeetingContext,
   formatMeetingContextForPrompt,
 } from "@/utils/meeting-briefs/recipient-context";
-import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import {
+  DraftReplyConfidence,
+  type ReplyMemoryKind,
+  type ReplyMemoryScopeType,
+} from "@/generated/prisma/enums";
 import { meetsDraftReplyConfidenceRequirement } from "@/utils/ai/reply/draft-confidence";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
 import type { SelectedAttachment } from "@/utils/attachments/source-schema";
 import { getReplyMemoriesForPrompt } from "@/utils/ai/reply/reply-memory";
+import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metadata";
 
 export type DraftGenerationResult = {
   attachments?: SelectedAttachment[];
   draft: string | null;
   confidence: DraftReplyConfidence;
   attribution: DraftAttribution | null;
+  draftContextMetadata?: DraftContextMetadata | null;
 };
 
 /**
@@ -78,7 +84,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     ? { threadMessages: [testMessage], previousConversationMessages: null }
     : await fetchThreadAndConversationMessages(threadId, client);
 
-  const { draft, confidence, attribution, attachments } =
+  const { draft, confidence, attribution, attachments, draftContextMetadata } =
     await generateDraftContent(
       emailAccount,
       threadMessages,
@@ -94,6 +100,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
       draft: null,
       confidence,
       attribution,
+      draftContextMetadata,
       ...(selectedRuleId ? { attachments } : {}),
     };
   }
@@ -134,6 +141,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
     draft: finalResult,
     confidence,
     attribution,
+    draftContextMetadata,
     ...(selectedRuleId ? { attachments } : {}),
   };
 }
@@ -194,6 +202,7 @@ async function generateDraftContent(
         draft: cachedReply.reply,
         confidence: cachedReply.confidence,
         attribution: cachedReply.attribution,
+        draftContextMetadata: cachedReply.draftContextMetadata,
         ...(selectedRuleId ? { attachments: cachedReply.attachments } : {}),
       };
     }
@@ -283,6 +292,7 @@ async function generateDraftContent(
       emailAccountId: emailAccount.id,
       senderEmail: extractEmailAddress(lastMessage.headers.from),
       emailContent: lastMessageContent,
+      emailAccount,
       logger,
     }),
     aiCollectReplyContext({
@@ -320,6 +330,27 @@ async function generateDraftContent(
     content: replyMemoryContent,
     selectedMemories: selectedReplyMemories,
   } = replyMemorySelection;
+  const meetingContext = formatMeetingContextForPrompt(
+    upcomingMeetings,
+    emailAccount.timezone,
+  );
+  const draftContextMetadata = buildDraftContextMetadata({
+    knowledgeBaseCount: knowledgeBase.length,
+    hasKnowledgeBaseContext: !!knowledgeResult?.relevantContent?.trim(),
+    selectedReplyMemories,
+    hasHistoricalSummary: !!emailHistorySummary,
+    historicalSourceMessageCount: historicalMessagesForLLM?.length ?? 0,
+    precedentThreadCount: emailHistoryContext?.relevantEmails.length ?? 0,
+    hasCalendarAvailability: !!calendarAvailability,
+    noCalendarAvailability: calendarAvailability?.noAvailability ?? false,
+    suggestedTimesCount: calendarAvailability?.suggestedTimes?.length ?? 0,
+    hasCustomWritingStyle: !!writingStyle,
+    hasExternalToolsContext: !!mcpResult?.response,
+    meetingCount: upcomingMeetings.length,
+    hasMeetingContext: !!meetingContext,
+    selectedAttachmentCount: attachmentSelection.selectedAttachments.length,
+    hasAttachmentContext: !!attachmentSelection.attachmentContext,
+  });
 
   if (selectedReplyMemories.length) {
     logger.info("Injecting reply memories into draft prompt", {
@@ -345,10 +376,7 @@ async function generateDraftContent(
     calendarAvailability,
     writingStyle,
     mcpContext: mcpResult?.response || null,
-    meetingContext: formatMeetingContextForPrompt(
-      upcomingMeetings,
-      emailAccount.timezone,
-    ),
+    meetingContext,
     attachmentContext: attachmentSelection.attachmentContext,
   });
 
@@ -372,6 +400,7 @@ async function generateDraftContent(
         reply,
         confidence,
         attribution,
+        draftContextMetadata,
         ...(selectedRuleId
           ? {
               attachments: attachmentSelection.selectedAttachments,
@@ -391,6 +420,7 @@ async function generateDraftContent(
       draft: null,
       confidence,
       attribution,
+      draftContextMetadata,
       ...(selectedRuleId
         ? { attachments: attachmentSelection.selectedAttachments }
         : {}),
@@ -404,6 +434,7 @@ async function generateDraftContent(
       reply,
       confidence,
       attribution,
+      draftContextMetadata,
       ...(selectedRuleId
         ? {
             attachments: attachmentSelection.selectedAttachments,
@@ -423,8 +454,87 @@ async function generateDraftContent(
     draft: reply,
     confidence,
     attribution,
+    draftContextMetadata,
     ...(selectedRuleId
       ? { attachments: attachmentSelection.selectedAttachments }
       : {}),
+  };
+}
+
+function buildDraftContextMetadata({
+  knowledgeBaseCount,
+  hasKnowledgeBaseContext,
+  selectedReplyMemories,
+  hasHistoricalSummary,
+  historicalSourceMessageCount,
+  precedentThreadCount,
+  hasCalendarAvailability,
+  noCalendarAvailability,
+  suggestedTimesCount,
+  hasCustomWritingStyle,
+  hasExternalToolsContext,
+  meetingCount,
+  hasMeetingContext,
+  selectedAttachmentCount,
+  hasAttachmentContext,
+}: {
+  knowledgeBaseCount: number;
+  hasKnowledgeBaseContext: boolean;
+  selectedReplyMemories: Array<{
+    id: string;
+    kind: ReplyMemoryKind;
+    scopeType: ReplyMemoryScopeType;
+  }>;
+  hasHistoricalSummary: boolean;
+  historicalSourceMessageCount: number;
+  precedentThreadCount: number;
+  hasCalendarAvailability: boolean;
+  noCalendarAvailability: boolean;
+  suggestedTimesCount: number;
+  hasCustomWritingStyle: boolean;
+  hasExternalToolsContext: boolean;
+  meetingCount: number;
+  hasMeetingContext: boolean;
+  selectedAttachmentCount: number;
+  hasAttachmentContext: boolean;
+}): DraftContextMetadata {
+  return {
+    replyMemories: {
+      count: selectedReplyMemories.length,
+      ids: selectedReplyMemories.map((memory) => memory.id),
+      kinds: [...new Set(selectedReplyMemories.map((memory) => memory.kind))],
+      scopeTypes: [
+        ...new Set(selectedReplyMemories.map((memory) => memory.scopeType)),
+      ],
+    },
+    knowledgeBase: {
+      availableCount: knowledgeBaseCount,
+      injected: hasKnowledgeBaseContext,
+    },
+    senderHistory: {
+      summaryInjected: hasHistoricalSummary,
+      summarySourceMessageCount: historicalSourceMessageCount,
+      precedentThreadsInjected: precedentThreadCount > 0,
+      precedentThreadCount,
+    },
+    calendar: {
+      injected: hasCalendarAvailability,
+      noAvailability: noCalendarAvailability,
+      suggestedTimesCount,
+    },
+    writingStyle: {
+      custom: hasCustomWritingStyle,
+    },
+    externalTools: {
+      injected: hasExternalToolsContext,
+    },
+    meetings: {
+      injected: hasMeetingContext,
+      count: meetingCount,
+    },
+    attachments: {
+      injected: hasAttachmentContext,
+      selectedCount: selectedAttachmentCount,
+    },
   };
 }

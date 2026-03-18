@@ -349,6 +349,10 @@ async function executeMatchedRule(
                       item.type === ActionType.DRAFT_EMAIL
                         ? (item.draftPipelineVersion ?? null)
                         : null,
+                    draftContextMetadata:
+                      item.type === ActionType.DRAFT_EMAIL
+                        ? (item.draftContextMetadata ?? null)
+                        : null,
                   };
                 }) || [],
             },

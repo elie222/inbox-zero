@@ -580,6 +580,7 @@ model ExecutedAction {
   draftModelProvider String?
   draftModelName     String?
   draftPipelineVersion Int?
+  draftContextMetadata Json?
   draftSendLog    DraftSendLog? // Will exist if the draft was sent
   digestItems     DigestItem[] // Relation to digest items created by this action
   scheduledAction ScheduledAction? // Reverse relation for delayed actions
