@@ -395,6 +395,13 @@ interface MicrosoftTokens {
   token_type?: string | null;
 }
 
+const MICROSOFT_LINKING_SCOPES_TO_VALIDATE = OUTLOOK_SCOPES.filter(
+  (scope) =>
+    !["openid", "profile", "email", "User.Read", "offline_access"].includes(
+      scope,
+    ),
+);
+
 function assertMicrosoftLinkingConsent(params: {
   targetUserId: string;
   tokenScope: string | null | undefined;
@@ -404,7 +411,10 @@ function assertMicrosoftLinkingConsent(params: {
 }) {
   const grantedScopes = parseMicrosoftScopes(params.tokenScope);
   const missingScopes = params.tokenScope
-    ? getMissingMicrosoftScopes(params.tokenScope, OUTLOOK_SCOPES)
+    ? getMissingMicrosoftScopes(
+        params.tokenScope,
+        MICROSOFT_LINKING_SCOPES_TO_VALIDATE,
+      )
     : [];
 
   params.logger.info("Microsoft token exchange succeeded", {
