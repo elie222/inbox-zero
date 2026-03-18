@@ -368,6 +368,43 @@ async function executeMatchedRule(
     );
   }
 
+  if (actionItems.length === 0 && blockedActionTypes.length) {
+    const reasonToUse = reason
+      ? `${reason}. ${LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE}`
+      : LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE;
+    let executedRule = null;
+
+    if (!isTest) {
+      executedRule = await withPrismaRetry(
+        () =>
+          prisma.executedRule.create({
+            data: {
+              messageId: message.id,
+              threadId: message.threadId,
+              automated: true,
+              status: ExecutedRuleStatus.SKIPPED,
+              reason: reasonToUse,
+              matchMetadata: serializeMatchReasons(matchReasons),
+              rule: rule?.id ? { connect: { id: rule.id } } : undefined,
+              emailAccount: { connect: { id: emailAccount.id } },
+              createdAt: batchTimestamp,
+            },
+          }),
+        { logger },
+      );
+    }
+
+    return {
+      rule,
+      actionItems: [],
+      executedRule,
+      reason: reasonToUse,
+      status: ExecutedRuleStatus.SKIPPED,
+      matchReasons,
+      createdAt: batchTimestamp,
+    };
+  }
+
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>
     item.delayInMinutes != null && item.delayInMinutes > 0
       ? "delayedActions"
