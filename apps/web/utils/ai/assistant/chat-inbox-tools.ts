@@ -389,19 +389,29 @@ export const readAttachmentTool = ({
 
         const buffer = Buffer.from(attachment.data, "base64");
 
-        const { text, truncated } = await extractAttachmentText(
+        const extracted = await extractAttachmentText(
           buffer,
           resolvedMimeType,
           logger,
         );
+
+        if (!extracted) {
+          return {
+            filename: resolvedFilename,
+            mimeType: resolvedMimeType,
+            size: attachment.size,
+            contentAvailable: false,
+            message: "Failed to extract text from this attachment.",
+          };
+        }
 
         return {
           filename: resolvedFilename,
           mimeType: resolvedMimeType,
           size: attachment.size,
           contentAvailable: true,
-          content: text,
-          truncated,
+          content: extracted.text,
+          truncated: extracted.truncated,
         };
       } catch (error) {
         logger.error("Failed to read attachment", { error });
@@ -1424,10 +1434,8 @@ async function extractAttachmentText(
       maxLength: MAX_ATTACHMENT_TEXT_LENGTH,
       logger,
     });
-    return {
-      text: result?.text ?? "",
-      truncated: result?.truncated ?? false,
-    };
+    if (!result) return null;
+    return { text: result.text, truncated: result.truncated };
   }
 
   if (mimeType === "text/csv") {

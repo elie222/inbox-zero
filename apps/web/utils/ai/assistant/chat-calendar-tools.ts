@@ -61,18 +61,26 @@ export const getCalendarEventsTool = ({
           ),
         );
 
-        const rejected = allResults.filter((r) => r.status === "rejected");
-        if (rejected.length > 0) {
+        const fulfilled = allResults.filter(
+          (r): r is PromiseFulfilledResult<CalendarEvent[]> =>
+            r.status === "fulfilled",
+        );
+        const rejectedCount = allResults.length - fulfilled.length;
+
+        if (rejectedCount > 0) {
           logger.warn("Some calendar providers failed", {
-            count: rejected.length,
+            count: rejectedCount,
           });
         }
 
-        const events = allResults
-          .filter(
-            (r): r is PromiseFulfilledResult<CalendarEvent[]> =>
-              r.status === "fulfilled",
-          )
+        if (fulfilled.length === 0) {
+          return {
+            error:
+              "All calendar providers failed to fetch events. Please try again later.",
+          };
+        }
+
+        const events = fulfilled
           .flatMap((r) => r.value)
           .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
           .slice(0, maxResults ?? 25)
