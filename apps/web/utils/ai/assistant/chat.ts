@@ -751,7 +751,7 @@ function getActivatedCapabilities(
   const activated = new Set<Capability>();
   for (const step of steps) {
     for (const tc of step.toolCalls) {
-      if (tc.toolName === "activateTools") {
+      if (tc.toolName === "activateTools" && tc.args) {
         const caps = tc.args.capabilities;
         if (Array.isArray(caps)) {
           for (const cap of caps) activated.add(cap as Capability);

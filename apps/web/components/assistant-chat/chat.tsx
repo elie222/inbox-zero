@@ -198,6 +198,7 @@ export function Chat({ open }: { open: boolean }) {
       )}
 
       <PromptInputTextarea
+        data-testid="chat-input"
         value={input}
         placeholder="Ask me anything"
         onChange={(e) => setInput(e.currentTarget.value)}
