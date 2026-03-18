@@ -1,4 +1,5 @@
-import type { JSONValue, ModelMessage } from "ai";
+import { tool, type JSONValue, type ModelMessage } from "ai";
+import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import type { MessageContext } from "@/app/api/chat/validation";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -30,6 +31,7 @@ import {
   forwardEmailTool,
   getAccountOverviewTool,
   manageInboxTool,
+  readAttachmentTool,
   readEmailTool,
   replyEmailTool,
   searchInboxTool,
@@ -38,6 +40,7 @@ import {
 } from "./chat-inbox-tools";
 import { createOrGetLabelTool, listLabelsTool } from "./chat-label-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
+import { getCalendarEventsTool } from "./chat-calendar-tools";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 
 export const maxDuration = 120;
@@ -67,6 +70,7 @@ export type {
   ForwardEmailTool,
   GetAccountOverviewTool,
   ManageInboxTool,
+  ReadAttachmentTool,
   ReadEmailTool,
   ReplyEmailTool,
   SearchInboxTool,
@@ -74,6 +78,7 @@ export type {
   UpdateInboxFeaturesTool,
 } from "./chat-inbox-tools";
 export type { SaveMemoryTool, SearchMemoriesTool } from "./chat-memory-tools";
+export type { GetCalendarEventsTool } from "./chat-calendar-tools";
 
 type AssistantChatOnStepFinish = NonNullable<
   Parameters<typeof toolCallAgentStream>[0]["onStepFinish"]
@@ -111,32 +116,34 @@ export async function aiProcessAssistantChat({
 
 Core responsibilities:
 1. Search and summarize inbox activity (especially what's new and what needs attention)
-2. Take inbox actions (archive, mark read, bulk archive by sender, and sender unsubscribe)
+2. Take inbox actions (archive, trash/delete, mark read, bulk archive by sender, and sender unsubscribe)
 3. Update account features (meeting briefs and auto-file attachments)
 4. Create and update rules
 
 Tool usage strategy (progressive disclosure):
 - Use the minimum number of tools needed.
 - Start with read-only context tools before write tools.
+- Some tools require activation first. Call activateTools with the needed capability groups before using: calendar ("calendar"), attachment reading ("attachments"), label management ("labels"), account settings ("settings"), conversation memory ("memory"), knowledge base ("knowledge"), or email forwarding ("forward").
+- When you know you will need an extended tool (e.g. the user asks to remember something, change settings, or check their calendar), activate the relevant group immediately — do not wait until you try to use the tool and fail.
 - For write operations that affect many emails, first summarize what will change, then execute after clear user confirmation.
-- When the user asks what settings can or cannot be changed, call getAssistantCapabilities.
-- For supported account-setting updates, prefer updateAssistantSettings.
+- When the user asks what settings can or cannot be changed, call getAssistantCapabilities (no activation needed).
+- For supported account-setting updates, activate "settings" then prefer updateAssistantSettings.
 - Personal Instructions are durable user context that is always available when the AI processes future emails. Use updatePersonalInstructions for broad standing preferences, priorities, and background.
 - Append to Personal Instructions by default. Replace only when the user clearly wants to overwrite them.
-- For scheduled check-ins and draft knowledge base management, call getAssistantCapabilities when capability or destination context is missing or stale; otherwise reuse recent capability context and proceed with updateAssistantSettings.
+- For scheduled check-ins and draft knowledge base management, call getAssistantCapabilities when capability or destination context is missing or stale; otherwise reuse recent capability context. Activate "settings" before calling updateAssistantSettings.
 - For retroactive cleanup requests (for example "clean up my inbox"), first search the inbox to understand what the user is seeing (volume, types of emails, read/unread ratio). Then provide a concise grouped summary and recommend a next action.
 - Consider read vs unread status. If most inbox emails are read, the user may be comfortable with their inbox — focus on unread clutter or ask what they want to clean.
 - When you need the full content of an email (not just the snippet), use readEmail with the messageId from searchInbox results. Do not re-search trying to find more content.
   - If the user asks for an inbox update, search recent messages first and prioritize "To Reply" items.
-- If the user asks to create a label or explicitly wants to ensure a label exists, call createOrGetLabel for that exact name. Do not call listLabels first.
-- When the user wants to inspect existing labels, call listLabels.
+- If the user asks to create a label or explicitly wants to ensure a label exists, activate "labels" then call createOrGetLabel for that exact name. Do not call listLabels first.
+- When the user wants to inspect existing labels, activate "labels" then call listLabels.
 - When the user wants to apply an existing named label to specific threads, call manageInbox with action "label_threads" using the exact labelName. Do not call createOrGetLabel first unless the user asks to create the label or ensure it exists.
 ${
   emailSendToolsEnabled
     ? `${getSendEmailSurfacePolicy({ responseSurface, messagingPlatform })}
 - When the user asks to "draft" an email or reply, use sendEmail/replyEmail/forwardEmail. The pending-action confirmation flow acts as a draft — the user reviews and confirms before anything is sent.
 - When replying to a thread, write the reply in the same language as the latest message in the thread.
-- When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
+- When the user asks to forward an existing email, activate "forward" then use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
 - When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.
 - Only send emails when the user clearly asks to send now.
 - After calling these tools, briefly say the email is ready for them to review and send. Do not ask follow-up questions about CC, BCC, or whether to proceed — the UI handles confirmation.
@@ -158,11 +165,12 @@ Tool call policy:
 - Never invent thread IDs, sender addresses, or existing rule names.
 ${emailSendToolsEnabled ? '- For pending email actions, do not treat "prepared" as "sent".' : ""}
 - "archive_threads" archives specific threads by ID. Use it when the user refers to specific emails shown in results.
+- "trash_threads" moves specific threads to the trash folder. Prefer archive unless the user explicitly asks to delete or trash.
 - "bulk_archive_senders" archives ALL emails from given senders server-side, not just the visible ones. Use it when the user asks to clean up by sender. Since it affects emails beyond what's shown, confirm the scope with the user before executing.
 - "unsubscribe_senders" attempts automatic unsubscribe using message unsubscribe headers/links, marks those senders as unsubscribed, and archives emails from those senders. Use it when the user explicitly asks to unsubscribe from senders. Since it affects all emails from those senders, confirm the scope with the user before executing.
 - Choose the tool that matches what the user actually asked for. Do not default to bulk archive when the user is referring to specific emails.
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
-- For ambiguous destructive requests (for example archive vs mark read), ask a brief clarification question before writing.
+- For ambiguous destructive requests (for example archive vs trash vs mark read), ask a brief clarification question before writing.
 - Before changing an existing rule, call getUserRulesAndSettings immediately before the write.
 - If a rule has changed since that read, call getUserRulesAndSettings again and then apply the update.
 
@@ -254,17 +262,19 @@ Learned patterns:
 - When an existing category rule already fits and the user wants to add or remove recurring senders, use updateLearnedPatterns to extend that rule instead of creating a new rule or editing static from/to fields.
 
 Knowledge base:
+- Activate "knowledge" before using addToKnowledgeBase.
 - The knowledge base is used to draft reply content.
 - It is only used when an action of type DRAFT_REPLY is used AND the rule has no preset draft content.
 
 Conversation memory:
+- Activate "memory" before using searchMemories or saveMemory.
 - You can search memories from previous conversations using the searchMemories tool when you need context from past interactions.
 - Use this when the user references something discussed before or when past context would help.
 - You can save memories using the saveMemory tool when the user asks you to remember something or when you identify a durable preference worth retaining across conversations.
 - Do not claim you will "remember" something without actually calling saveMemory.
 - Keep memories concise and self-contained.
 - Memories are only used in chat conversations. They do not affect how incoming emails are processed.
-- If the user wants to influence how future emails are handled, use updatePersonalInstructions for broad standing context or create/update a rule for concrete routing logic.
+- If the user wants to influence how future emails are handled, activate "settings" and use updatePersonalInstructions for broad standing context or create/update a rule for concrete routing logic.
 
 Behavior anchors (minimal examples):
 - For "Give me an update on what came in today", call searchInbox first with today's start in the user's timezone, then summarize into must-handle, can-wait, and can-archive.
@@ -376,6 +386,70 @@ Behavior anchors (minimal examples):
     stablePrefixEndIndex,
   );
 
+  const allTools = {
+    // Always-active core tools
+    activateTools: activateToolsTool(),
+    getAssistantCapabilities: getAssistantCapabilitiesTool(toolOptions),
+    getAccountOverview: getAccountOverviewTool(toolOptions),
+    searchInbox: searchInboxTool(toolOptions),
+    readEmail: readEmailTool(toolOptions),
+    manageInbox: manageInboxTool(toolOptions),
+    getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),
+    getLearnedPatterns: getLearnedPatternsTool(toolOptions),
+    createRule: createRuleTool(toolOptions),
+    updateRuleConditions: updateRuleConditionsTool(toolOptions),
+    updateRuleActions: updateRuleActionsTool(toolOptions),
+    updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
+
+    // Email send tools (gated by env)
+    ...(emailSendToolsEnabled
+      ? {
+          sendEmail: sendEmailTool(toolOptions),
+          replyEmail: replyEmailTool(toolOptions),
+        }
+      : {}),
+
+    // Progressive disclosure groups (registered but not active by default)
+    // Calendar
+    getCalendarEvents: getCalendarEventsTool(toolOptions),
+    // Attachments
+    readAttachment: readAttachmentTool(toolOptions),
+    // Labels
+    listLabels: listLabelsTool(toolOptions),
+    createOrGetLabel: createOrGetLabelTool(toolOptions),
+    // Settings
+    updateAssistantSettings: updateAssistantSettingsTool(toolOptions),
+    updateAssistantSettingsCompat:
+      updateAssistantSettingsCompatTool(toolOptions),
+    updateInboxFeatures: updateInboxFeaturesTool(toolOptions),
+    updatePersonalInstructions: updatePersonalInstructionsTool(toolOptions),
+    // Memory
+    searchMemories: searchMemoriesTool(toolOptions),
+    saveMemory: saveMemoryTool({ ...toolOptions, chatId }),
+    // Knowledge
+    addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
+    // Forward
+    ...(emailSendToolsEnabled
+      ? { forwardEmail: forwardEmailTool(toolOptions) }
+      : {}),
+  };
+
+  const coreToolNames: Array<string> = [
+    "activateTools",
+    "getAssistantCapabilities",
+    "getAccountOverview",
+    "searchInbox",
+    "readEmail",
+    "manageInbox",
+    "getUserRulesAndSettings",
+    "getLearnedPatterns",
+    "createRule",
+    "updateRuleConditions",
+    "updateRuleActions",
+    "updateLearnedPatterns",
+    ...(emailSendToolsEnabled ? ["sendEmail", "replyEmail"] : []),
+  ];
+
   const result = toolCallAgentStream({
     userAi: user.user,
     userId: user.userId,
@@ -393,35 +467,27 @@ Behavior anchors (minimal examples):
       await onStepFinish?.(step);
     },
     maxSteps: 10,
-    tools: {
-      getAssistantCapabilities: getAssistantCapabilitiesTool(toolOptions),
-      updateAssistantSettings: updateAssistantSettingsTool(toolOptions),
-      updateAssistantSettingsCompat:
-        updateAssistantSettingsCompatTool(toolOptions),
-      getAccountOverview: getAccountOverviewTool(toolOptions),
-      searchInbox: searchInboxTool(toolOptions),
-      readEmail: readEmailTool(toolOptions),
-      listLabels: listLabelsTool(toolOptions),
-      createOrGetLabel: createOrGetLabelTool(toolOptions),
-      manageInbox: manageInboxTool(toolOptions),
-      updateInboxFeatures: updateInboxFeaturesTool(toolOptions),
-      getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),
-      getLearnedPatterns: getLearnedPatternsTool(toolOptions),
-      createRule: createRuleTool(toolOptions),
-      updateRuleConditions: updateRuleConditionsTool(toolOptions),
-      updateRuleActions: updateRuleActionsTool(toolOptions),
-      updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
-      updatePersonalInstructions: updatePersonalInstructionsTool(toolOptions),
-      addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
-      searchMemories: searchMemoriesTool(toolOptions),
-      saveMemory: saveMemoryTool({ ...toolOptions, chatId }),
-      ...(emailSendToolsEnabled
-        ? {
-            sendEmail: sendEmailTool(toolOptions),
-            replyEmail: replyEmailTool(toolOptions),
-            forwardEmail: forwardEmailTool(toolOptions),
-          }
-        : {}),
+    tools: allTools,
+    activeTools: coreToolNames,
+    prepareStep: ({ steps }) => {
+      const activated = getActivatedCapabilities(
+        steps as unknown as Array<{
+          toolCalls: Array<{
+            toolName: string;
+            args: Record<string, unknown>;
+          }>;
+        }>,
+      );
+      if (activated.size === 0) return undefined;
+
+      const unlocked = [...activated].flatMap((cap) => {
+        if (cap === "forward" && !emailSendToolsEnabled) return [];
+        return capabilityToolNames[cap] ?? [];
+      });
+
+      return {
+        activeTools: [...coreToolNames, ...unlocked],
+      };
     },
   });
 
@@ -629,4 +695,70 @@ Inline email cards:
 - The UI automatically resolves the full email metadata (sender, subject, date) from the thread ID, so do NOT repeat those details in the tag content.
 - Use a separate <emails> block per category group, with a markdown header (##) before each block.
 - Only use <email> tags for triage and inbox summary flows, not for every search result.`;
+}
+
+const capabilityGroupValues = [
+  "calendar",
+  "attachments",
+  "labels",
+  "settings",
+  "memory",
+  "knowledge",
+  "forward",
+] as const;
+
+type Capability = (typeof capabilityGroupValues)[number];
+
+const capabilityToolNames: Record<Capability, string[]> = {
+  calendar: ["getCalendarEvents"],
+  attachments: ["readAttachment"],
+  labels: ["listLabels", "createOrGetLabel"],
+  settings: [
+    "updateAssistantSettings",
+    "updateAssistantSettingsCompat",
+    "updateInboxFeatures",
+    "updatePersonalInstructions",
+  ],
+  memory: ["searchMemories", "saveMemory"],
+  knowledge: ["addToKnowledgeBase"],
+  forward: ["forwardEmail"],
+};
+
+const activateToolsInputSchema = z.object({
+  capabilities: z
+    .array(z.enum(capabilityGroupValues as unknown as [string, ...string[]]))
+    .describe(
+      `Which capability groups to activate. Options: ${capabilityGroupValues.join(", ")}`,
+    ),
+});
+
+function activateToolsTool() {
+  return tool({
+    description:
+      "Activate additional tool capabilities. Call this before using calendar, attachment reading, label management, settings, memory, knowledge base, or forward tools.",
+    inputSchema: activateToolsInputSchema,
+    execute: async ({ capabilities }) => ({
+      activated: capabilities,
+      message: `Activated: ${capabilities.join(", ")}. These tools are now available.`,
+    }),
+  });
+}
+
+function getActivatedCapabilities(
+  steps: Array<{
+    toolCalls: Array<{ toolName: string; args: Record<string, unknown> }>;
+  }>,
+): Set<Capability> {
+  const activated = new Set<Capability>();
+  for (const step of steps) {
+    for (const tc of step.toolCalls) {
+      if (tc.toolName === "activateTools" && tc.args) {
+        const caps = tc.args.capabilities;
+        if (Array.isArray(caps)) {
+          for (const cap of caps) activated.add(cap as Capability);
+        }
+      }
+    }
+  }
+  return activated;
 }

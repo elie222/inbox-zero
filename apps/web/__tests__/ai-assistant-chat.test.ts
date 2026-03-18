@@ -1553,4 +1553,144 @@ describe("aiProcessAssistantChat", () => {
       }),
     );
   });
+
+  describe("progressive tool disclosure", () => {
+    async function captureStreamArgs(emailSend = true) {
+      const { aiProcessAssistantChat } = await loadAssistantChatModule({
+        emailSend,
+      });
+
+      mockToolCallAgentStream.mockResolvedValue({
+        toUIMessageStreamResponse: vi.fn(),
+      });
+
+      await aiProcessAssistantChat({
+        messages: baseMessages,
+        emailAccountId: "email-account-id",
+        user: getEmailAccount(),
+        logger,
+      });
+
+      return mockToolCallAgentStream.mock.calls[0][0];
+    }
+
+    it("passes activeTools with only core tools by default", async () => {
+      const args = await captureStreamArgs();
+
+      expect(args.activeTools).toBeDefined();
+      expect(args.activeTools).toContain("activateTools");
+      expect(args.activeTools).toContain("searchInbox");
+      expect(args.activeTools).toContain("readEmail");
+      expect(args.activeTools).toContain("manageInbox");
+      expect(args.activeTools).toContain("createRule");
+      expect(args.activeTools).toContain("getAccountOverview");
+    });
+
+    it("excludes progressive disclosure tools from activeTools", async () => {
+      const args = await captureStreamArgs();
+
+      expect(args.activeTools).not.toContain("listLabels");
+      expect(args.activeTools).not.toContain("createOrGetLabel");
+      expect(args.activeTools).not.toContain("updateAssistantSettings");
+      expect(args.activeTools).not.toContain("saveMemory");
+      expect(args.activeTools).not.toContain("searchMemories");
+      expect(args.activeTools).not.toContain("addToKnowledgeBase");
+      expect(args.activeTools).not.toContain("forwardEmail");
+      expect(args.activeTools).not.toContain("getCalendarEvents");
+      expect(args.activeTools).not.toContain("readAttachment");
+    });
+
+    it("registers progressive tools in the tools object even though not active", async () => {
+      const args = await captureStreamArgs();
+
+      expect(args.tools.listLabels).toBeDefined();
+      expect(args.tools.createOrGetLabel).toBeDefined();
+      expect(args.tools.updateAssistantSettings).toBeDefined();
+      expect(args.tools.saveMemory).toBeDefined();
+      expect(args.tools.searchMemories).toBeDefined();
+      expect(args.tools.addToKnowledgeBase).toBeDefined();
+      expect(args.tools.getCalendarEvents).toBeDefined();
+      expect(args.tools.readAttachment).toBeDefined();
+    });
+
+    it("registers activateTools as a core tool", async () => {
+      const args = await captureStreamArgs();
+
+      expect(args.tools.activateTools).toBeDefined();
+      expect(args.activeTools).toContain("activateTools");
+    });
+
+    it("passes prepareStep callback", async () => {
+      const args = await captureStreamArgs();
+
+      expect(args.prepareStep).toBeDefined();
+      expect(typeof args.prepareStep).toBe("function");
+    });
+
+    it("prepareStep unlocks tools when activateTools was called", async () => {
+      const args = await captureStreamArgs();
+
+      const result = args.prepareStep({
+        steps: [
+          {
+            toolCalls: [
+              {
+                toolName: "activateTools",
+                args: { capabilities: ["labels", "memory"] },
+              },
+            ],
+          },
+        ],
+        stepNumber: 1,
+        model: {},
+        messages: [],
+        experimental_context: undefined,
+      });
+
+      expect(result?.activeTools).toContain("listLabels");
+      expect(result?.activeTools).toContain("createOrGetLabel");
+      expect(result?.activeTools).toContain("searchMemories");
+      expect(result?.activeTools).toContain("saveMemory");
+      // Should still include core tools
+      expect(result?.activeTools).toContain("searchInbox");
+      expect(result?.activeTools).toContain("activateTools");
+      // Should NOT include non-activated groups
+      expect(result?.activeTools).not.toContain("getCalendarEvents");
+      expect(result?.activeTools).not.toContain("addToKnowledgeBase");
+    });
+
+    it("prepareStep returns undefined when no tools activated", async () => {
+      const args = await captureStreamArgs();
+
+      const result = args.prepareStep({
+        steps: [
+          {
+            toolCalls: [{ toolName: "searchInbox", args: { query: "test" } }],
+          },
+        ],
+        stepNumber: 1,
+        model: {},
+        messages: [],
+        experimental_context: undefined,
+      });
+
+      expect(result).toBeUndefined();
+    });
+
+    it("includes send tools in activeTools when email send enabled", async () => {
+      const args = await captureStreamArgs(true);
+
+      expect(args.activeTools).toContain("sendEmail");
+      expect(args.activeTools).toContain("replyEmail");
+      expect(args.activeTools).not.toContain("forwardEmail");
+    });
+
+    it("excludes send tools from activeTools when email send disabled", async () => {
+      const args = await captureStreamArgs(false);
+
+      expect(args.activeTools).not.toContain("sendEmail");
+      expect(args.activeTools).not.toContain("replyEmail");
+      expect(args.activeTools).not.toContain("forwardEmail");
+    });
+  });
 });
