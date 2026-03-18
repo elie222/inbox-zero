@@ -12,8 +12,8 @@ Use this skill when the task is to inspect or change Inbox Zero state through th
 ## Workflow
 
 1. Prefer `--json` so the output is stable and machine-readable.
-2. Keep credentials in `INBOX_ZERO_API_KEY` or OpenClaw skill config. Avoid passing API keys as CLI flags unless there is no alternative.
-3. Before creating or replacing a rule body, fetch the live schema with `inbox-zero-api openapi --json`.
+2. For authenticated commands (`rules`, `stats`, etc.), keep credentials in `INBOX_ZERO_API_KEY` or OpenClaw skill config. Avoid passing API keys as CLI flags unless there is no alternative.
+3. Before creating or replacing a rule body, fetch the live schema with `inbox-zero-api openapi --json` (no API key required).
 4. For create and update flows, write JSON into a workspace file or pipe it on stdin.
 5. Treat `rules update` as a full replacement. Read the current rule first if you only intend to change part of it.
 
@@ -26,6 +26,10 @@ inbox-zero-api openapi --json
 ```
 
 If the CLI is not installed yet, install it with the OpenClaw installer or run `npm install -g @inbox-zero/api`.
+
+## Cursor
+
+Set `INBOX_ZERO_API_KEY` when using authenticated commands (`rules`, `stats`, etc.); `openapi --json` works without a key. Use shell profile, Cursor env, or a local env file—never commit keys. Install: `npm install -g @inbox-zero/api` or `npx @inbox-zero/api`.
 
 ## OpenClaw Config
 
