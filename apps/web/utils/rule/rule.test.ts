@@ -55,7 +55,7 @@ describe("deleteRule", () => {
 
   it("falls back to deleting the rule when the group is already gone", async () => {
     prisma.group.deleteMany.mockResolvedValue({ count: 0 });
-    prisma.rule.delete.mockResolvedValue({ id: "rule-id" });
+    prisma.rule.delete.mockResolvedValue({ id: "rule-id" } as any);
 
     await deleteRule({
       emailAccountId: "email-account-id",
@@ -72,7 +72,7 @@ describe("deleteRule", () => {
   });
 
   it("deletes the rule directly when there is no group", async () => {
-    prisma.rule.delete.mockResolvedValue({ id: "rule-id" });
+    prisma.rule.delete.mockResolvedValue({ id: "rule-id" } as any);
 
     await deleteRule({
       emailAccountId: "email-account-id",
@@ -111,7 +111,7 @@ describe("outbound action guardrails", () => {
               type: ActionType.FORWARD,
               fields: {
                 to: "forward@example.com",
-              },
+              } as any,
               delayInMinutes: null,
             },
           ],
@@ -129,7 +129,7 @@ describe("outbound action guardrails", () => {
   it("rejects updating actions to FORWARD on an existing low-trust from rule", async () => {
     prisma.rule.findFirst.mockResolvedValue({
       from: "Team *",
-    });
+    } as any);
 
     await expect(
       updateRuleActions({
@@ -139,7 +139,7 @@ describe("outbound action guardrails", () => {
             type: ActionType.FORWARD,
             fields: {
               to: "forward@example.com",
-            },
+            } as any,
             delayInMinutes: null,
           },
         ],

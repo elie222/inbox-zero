@@ -30,6 +30,10 @@ import {
   upsertSystemRule,
   createRule,
   updateRule,
+  createRuleWithResolvedActions,
+  replaceRuleWithResolvedActions,
+  setRuleEnabled,
+  updateRuleInstructions,
 } from "@/utils/rule/rule";
 import { SafeError } from "@/utils/error";
 import {
@@ -165,9 +169,10 @@ export const updateRuleSettingsAction = actionClient
       });
       if (!currentRule) throw new SafeError("Rule not found");
 
-      await prisma.rule.update({
-        where: { id, emailAccountId },
-        data: { instructions },
+      await updateRuleInstructions({
+        ruleId: id,
+        emailAccountId,
+        instructions,
       });
 
       revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
@@ -184,7 +189,7 @@ export const enableDraftRepliesAction = actionClient
     }) => {
       if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED && enable) return;
 
-      let rule = await prisma.rule.findUnique({
+      const existingRule = await prisma.rule.findUnique({
         where: {
           emailAccountId_systemType: {
             emailAccountId,
@@ -194,13 +199,12 @@ export const enableDraftRepliesAction = actionClient
         include: { actions: true },
       });
 
-      if (!rule && !enable) {
+      if (!existingRule && !enable) {
         return;
       }
 
-      // if rule doesn't exist, then toggle will create it
-      rule =
-        rule ||
+      const rule =
+        existingRule ||
         (await toggleRule({
           emailAccountId,
           enabled: enable,
@@ -416,19 +420,18 @@ export const createRulesOnboardingAction = actionClient
             systemType: undefined,
           });
 
-          const promise = prisma.rule
-            .create({
-              data: {
-                emailAccountId,
-                name: customCategory.name,
-                instructions:
-                  customCategory.description ||
-                  `Custom category: ${customCategory.name}`,
-                systemType: null,
-                runOnThreads: true,
-                actions: { createMany: { data: actions } },
-              },
-            })
+          const promise = createRuleWithResolvedActions({
+            emailAccountId,
+            data: {
+              name: customCategory.name,
+              instructions:
+                customCategory.description ||
+                `Custom category: ${customCategory.name}`,
+              systemType: null,
+              runOnThreads: true,
+            },
+            actions,
+          })
             .then(() => {})
             .catch((error) => {
               if (isDuplicateError(error, "name")) return;
@@ -595,8 +598,8 @@ export const copyRulesFromAccountAction = actionClientUser
         }));
 
         if (existingRuleId) {
-          await prisma.rule.update({
-            where: { id: existingRuleId },
+          await replaceRuleWithResolvedActions({
+            ruleId: existingRuleId,
             data: {
               instructions: sourceRule.instructions,
               enabled: sourceRule.enabled,
@@ -606,20 +609,16 @@ export const copyRulesFromAccountAction = actionClientUser
               to: sourceRule.to,
               subject: sourceRule.subject,
               body: sourceRule.body,
-              // Drop groupId - it's account-specific
               groupId: null,
-              actions: {
-                deleteMany: {},
-                createMany: { data: mappedActions },
-              },
             },
+            actions: mappedActions,
           });
           replacedCount++;
         } else {
           try {
-            await prisma.rule.create({
+            await createRuleWithResolvedActions({
+              emailAccountId: targetEmailAccountId,
               data: {
-                emailAccountId: targetEmailAccountId,
                 name: sourceRule.name,
                 systemType: sourceRule.systemType,
                 instructions: sourceRule.instructions,
@@ -630,10 +629,9 @@ export const copyRulesFromAccountAction = actionClientUser
                 to: sourceRule.to,
                 subject: sourceRule.subject,
                 body: sourceRule.body,
-                // Drop groupId - it's account-specific
                 groupId: null,
-                actions: { createMany: { data: mappedActions } },
               },
+              actions: mappedActions,
             });
             copiedCount++;
           } catch (error) {
@@ -670,11 +668,7 @@ async function toggleRule({
   logger: Logger;
 }) {
   if (ruleId) {
-    return await prisma.rule.update({
-      where: { id: ruleId, emailAccountId },
-      data: { enabled },
-      include: { actions: true },
-    });
+    return await setRuleEnabled({ ruleId, emailAccountId, enabled });
   }
 
   if (!systemType) {
@@ -691,10 +685,10 @@ async function toggleRule({
   });
 
   if (existingRule) {
-    return await prisma.rule.update({
-      where: { id: existingRule.id },
-      data: { enabled },
-      include: { actions: true },
+    return await setRuleEnabled({
+      ruleId: existingRule.id,
+      emailAccountId,
+      enabled,
     });
   }
 
@@ -1056,9 +1050,8 @@ export const importRulesAction = actionClient
           }));
 
           if (existingRuleId) {
-            // Update existing rule
-            await prisma.rule.update({
-              where: { id: existingRuleId },
+            await replaceRuleWithResolvedActions({
+              ruleId: existingRuleId,
               data: {
                 instructions: rule.instructions,
                 enabled: rule.enabled ?? true,
@@ -1071,18 +1064,14 @@ export const importRulesAction = actionClient
                 subject: rule.subject,
                 body: rule.body,
                 groupId: null,
-                actions: {
-                  deleteMany: {},
-                  createMany: { data: mappedActions },
-                },
               },
+              actions: mappedActions,
             });
             updatedCount++;
           } else {
-            // Create new rule
-            await prisma.rule.create({
+            await createRuleWithResolvedActions({
+              emailAccountId,
               data: {
-                emailAccountId,
                 name: rule.name,
                 systemType: rule.systemType,
                 instructions: rule.instructions,
@@ -1096,8 +1085,8 @@ export const importRulesAction = actionClient
                 subject: rule.subject,
                 body: rule.body,
                 groupId: null,
-                actions: { createMany: { data: mappedActions } },
               },
+              actions: mappedActions,
             });
             createdCount++;
           }

@@ -17,6 +17,23 @@ import {
   getBlockedLowTrustStaticFromActionTypes,
   LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
 } from "@/utils/rule/static-from-risk";
+import type { RuleWithRelations } from "@/utils/rule/types";
+
+type RuleRecordData = {
+  name?: string;
+  systemType?: SystemType | null;
+  instructions?: string | null;
+  enabled?: boolean;
+  automate?: boolean;
+  runOnThreads?: boolean;
+  conditionalOperator?: Rule["conditionalOperator"] | null;
+  categoryFilterType?: Rule["categoryFilterType"] | null;
+  from?: string | null;
+  to?: string | null;
+  subject?: string | null;
+  body?: string | null;
+  groupId?: string | null;
+};
 
 export function partialUpdateRule({
   ruleId,
@@ -30,6 +47,131 @@ export function partialUpdateRule({
     data,
     include: { actions: true, group: true },
   });
+}
+
+export function updateRuleInstructions({
+  ruleId,
+  emailAccountId,
+  instructions,
+}: {
+  ruleId: string;
+  emailAccountId: string;
+  instructions: string;
+}) {
+  return prisma.rule.update({
+    where: { id: ruleId, emailAccountId },
+    data: { instructions },
+  });
+}
+
+export function setRuleRunOnThreads({
+  ruleId,
+  emailAccountId,
+  runOnThreads,
+}: {
+  ruleId: string;
+  emailAccountId: string;
+  runOnThreads: boolean;
+}) {
+  return prisma.rule.update({
+    where: { id: ruleId, emailAccountId },
+    data: { runOnThreads },
+  });
+}
+
+export function setRuleEnabled({
+  ruleId,
+  emailAccountId,
+  enabled,
+}: {
+  ruleId: string;
+  emailAccountId: string;
+  enabled: boolean;
+}) {
+  return prisma.rule.update({
+    where: { id: ruleId, emailAccountId },
+    data: { enabled },
+    include: { actions: true },
+  });
+}
+
+export async function createRuleWithResolvedActions({
+  emailAccountId,
+  data,
+  actions,
+}: {
+  emailAccountId: string;
+  data: RuleRecordData & { name: string };
+  actions: Prisma.ActionCreateManyRuleInput[];
+}): Promise<RuleWithRelations> {
+  validateLowTrustStaticFromOutboundActions({
+    from: data.from,
+    actionTypes: actions.map((action) => action.type),
+  });
+
+  const rule = await prisma.rule.create({
+    data: {
+      emailAccountId,
+      name: data.name,
+      systemType: data.systemType ?? undefined,
+      instructions: data.instructions ?? undefined,
+      enabled: data.enabled ?? undefined,
+      automate: data.automate ?? undefined,
+      runOnThreads: data.runOnThreads ?? undefined,
+      conditionalOperator: data.conditionalOperator ?? undefined,
+      categoryFilterType: data.categoryFilterType ?? undefined,
+      from: data.from ?? undefined,
+      to: data.to ?? undefined,
+      subject: data.subject ?? undefined,
+      body: data.body ?? undefined,
+      groupId: data.groupId ?? undefined,
+      actions: { createMany: { data: actions } },
+    },
+    include: { actions: true, group: true },
+  });
+
+  return rule as RuleWithRelations;
+}
+
+export async function replaceRuleWithResolvedActions({
+  ruleId,
+  data,
+  actions,
+}: {
+  ruleId: string;
+  data: RuleRecordData;
+  actions: Prisma.ActionCreateManyRuleInput[];
+}): Promise<RuleWithRelations> {
+  validateLowTrustStaticFromOutboundActions({
+    from: data.from,
+    actionTypes: actions.map((action) => action.type),
+  });
+
+  const rule = await prisma.rule.update({
+    where: { id: ruleId },
+    data: {
+      name: data.name,
+      systemType: data.systemType,
+      instructions: data.instructions,
+      enabled: data.enabled,
+      automate: data.automate,
+      runOnThreads: data.runOnThreads,
+      conditionalOperator: data.conditionalOperator ?? undefined,
+      categoryFilterType: data.categoryFilterType,
+      from: data.from,
+      to: data.to,
+      subject: data.subject,
+      body: data.body,
+      groupId: data.groupId,
+      actions: {
+        deleteMany: {},
+        createMany: { data: actions },
+      },
+    },
+    include: { actions: true, group: true },
+  });
+
+  return rule as RuleWithRelations;
 }
 
 export async function createRule({
@@ -53,11 +195,6 @@ export async function createRule({
       systemType,
     });
 
-    validateLowTrustStaticFromOutboundActions({
-      from: result.condition.static?.from,
-      actionTypes: result.actions.map((action) => action.type),
-    });
-
     const mappedActions = await mapActionFields(
       result.actions,
       provider,
@@ -65,12 +202,11 @@ export async function createRule({
       logger,
     );
 
-    const rule = await prisma.rule.create({
+    const rule = await createRuleWithResolvedActions({
+      emailAccountId,
       data: {
         name: result.name,
-        emailAccountId,
         systemType,
-        actions: { createMany: { data: mappedActions } },
         enabled: shouldEnable(
           result,
           mappedActions.map((a) => ({
@@ -89,7 +225,7 @@ export async function createRule({
         to: result.condition.static?.to,
         subject: result.condition.static?.subject,
       },
-      include: { actions: true, group: true },
+      actions: mappedActions,
     });
 
     await createRuleHistory({ rule, triggerType: "created" });
@@ -122,29 +258,17 @@ export async function updateRule({
       ruleId,
     });
 
-    validateLowTrustStaticFromOutboundActions({
-      from: result.condition.static?.from,
-      actionTypes: result.actions.map((action) => action.type),
-    });
+    const mappedActions = await mapActionFields(
+      result.actions,
+      provider,
+      emailAccountId,
+      logger,
+    );
 
-    const rule = await prisma.rule.update({
-      where: { id: ruleId },
+    const rule = await replaceRuleWithResolvedActions({
+      ruleId,
       data: {
         name: result.name,
-        emailAccountId,
-        // NOTE: this is safe for now as `Action` doesn't have relations
-        // but if we add relations to `Action`, we would need to `update` here instead of `deleteMany` and `createMany` to avoid cascading deletes
-        actions: {
-          deleteMany: {},
-          createMany: {
-            data: await mapActionFields(
-              result.actions,
-              provider,
-              emailAccountId,
-              logger,
-            ),
-          },
-        },
         conditionalOperator: result.condition.conditionalOperator ?? undefined,
         instructions: result.condition.aiInstructions,
         from: result.condition.static?.from,
@@ -152,7 +276,7 @@ export async function updateRule({
         subject: result.condition.static?.subject,
         ...(runOnThreads !== undefined && { runOnThreads }),
       },
-      include: { actions: true, group: true },
+      actions: mappedActions,
     });
 
     await createRuleHistory({ rule, triggerType: "updated" });
@@ -207,16 +331,12 @@ export async function upsertSystemRule({
       hadSystemType: !!existingRule.systemType,
     });
 
-    const rule = await prisma.rule.update({
-      where: { id: existingRule.id },
+    const rule = await replaceRuleWithResolvedActions({
+      ruleId: existingRule.id,
       data: {
         ...data,
-        actions: {
-          deleteMany: {},
-          createMany: { data: actions },
-        },
       },
-      include: { actions: true, group: true },
+      actions,
     });
 
     await createRuleHistory({ rule, triggerType: "updated" });
@@ -225,13 +345,12 @@ export async function upsertSystemRule({
     logger.info("Creating new system rule");
 
     try {
-      const rule = await prisma.rule.create({
+      const rule = await createRuleWithResolvedActions({
+        emailAccountId,
         data: {
           ...data,
-          emailAccountId,
-          actions: { createMany: { data: actions } },
         },
-        include: { actions: true, group: true },
+        actions,
       });
 
       await createRuleHistory({ rule, triggerType: "created" });
@@ -245,16 +364,12 @@ export async function upsertSystemRule({
       });
       if (!existing) throw error;
 
-      const rule = await prisma.rule.update({
-        where: { id: existing.id },
+      const rule = await replaceRuleWithResolvedActions({
+        ruleId: existing.id,
         data: {
           ...data,
-          actions: {
-            deleteMany: {},
-            createMany: { data: actions },
-          },
         },
-        include: { actions: true, group: true },
+        actions,
       });
 
       await createRuleHistory({ rule, triggerType: "updated" });
