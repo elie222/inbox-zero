@@ -3,8 +3,8 @@ import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
 import { env } from "@/env";
-import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
+import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import {
   AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
   INVALID_STATIC_FROM_MESSAGE,
@@ -125,11 +125,7 @@ const actionSchema = (provider: string) =>
         .describe(
           "The fields to use for the action. Static text can be combined with dynamic values using double braces {{}}. For example: 'Hi {{sender's name}}' or 'Re: {{subject}}' or '{{when I'm available for a meeting}}'. Dynamic values will be replaced with actual email data when the rule is executed. Dynamic values are generated in real time by the AI. Only use dynamic values where absolutely necessary. Otherwise, use plain static text. A field can be also be fully static or fully dynamic.",
         ),
-      delayInMinutes: z
-        .number()
-        .min(1, "Minimum supported delay is 1 minute")
-        .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
-        .nullable(),
+      delayInMinutes: delayInMinutesSchema,
     })
     .superRefine((action, ctx) => {
       addMissingRecipientIssue({

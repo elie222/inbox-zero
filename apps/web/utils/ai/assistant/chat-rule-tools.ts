@@ -54,6 +54,7 @@ type GetUserRulesAndSettingsOutput =
                 webhookUrl: string | null;
                 folderName: string | null;
               }>;
+              delayInMinutes?: number | null;
             }>;
             enabled: boolean;
             runOnThreads: boolean;
@@ -120,6 +121,7 @@ export const getUserRulesAndSettingsTool = ({
                     subject: true,
                     url: true,
                     folderName: true,
+                    delayInMinutes: true,
                   },
                 },
               },
@@ -172,6 +174,7 @@ export const getUserRulesAndSettingsTool = ({
                   webhookUrl: action.url,
                   folderName: action.folderName,
                 }),
+                delayInMinutes: action.delayInMinutes,
               })),
               enabled: rule.enabled,
               runOnThreads: rule.runOnThreads,
@@ -542,6 +545,7 @@ export const updateRuleActionsTool = ({
                 subject: true,
                 url: true,
                 folderName: true,
+                delayInMinutes: true,
               },
             },
           },
@@ -582,6 +586,7 @@ export const updateRuleActionsTool = ({
               folderName: action.folderName,
             }),
           }),
+          delayInMinutes: action.delayInMinutes,
         }));
 
         await updateRuleActions({
@@ -634,6 +639,7 @@ export type UpdateRuleActionsOutput = {
   originalActions?: Array<{
     type: string;
     fields: Record<string, string | null>;
+    delayInMinutes?: number | null;
   }>;
   updatedActions?: Array<{
     type: string;
