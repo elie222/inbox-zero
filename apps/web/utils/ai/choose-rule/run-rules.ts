@@ -306,60 +306,24 @@ async function executeMatchedRule(
     rule.from,
     rule.actions.map((action) => action.type),
   );
-  const allActionsBlocked =
-    blockedActionTypes.length > 0 &&
-    blockedActionTypes.length === rule.actions.length;
 
-  if (allActionsBlocked) {
-    const reasonToUse = reason
-      ? `${reason}. ${LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE}`
-      : LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE;
-    let executedRule = null;
+  let actionItems: Awaited<ReturnType<typeof getActionItemsWithAiArgs>> = [];
 
-    if (!isTest) {
-      executedRule = await withPrismaRetry(
-        () =>
-          prisma.executedRule.create({
-            data: {
-              messageId: message.id,
-              threadId: message.threadId,
-              automated: true,
-              status: ExecutedRuleStatus.SKIPPED,
-              reason: reasonToUse,
-              matchMetadata: serializeMatchReasons(matchReasons),
-              rule: rule?.id ? { connect: { id: rule.id } } : undefined,
-              emailAccount: { connect: { id: emailAccount.id } },
-              createdAt: batchTimestamp,
-            },
-          }),
-        { logger },
-      );
+  if (blockedActionTypes.length < rule.actions.length) {
+    actionItems = await getActionItemsWithAiArgs({
+      message,
+      emailAccount,
+      selectedRule: rule,
+      client,
+      modelType,
+      logger,
+      isTest,
+    });
+
+    if (blockedActionTypes.length) {
+      const blockedSet = new Set(blockedActionTypes);
+      actionItems = actionItems.filter((item) => !blockedSet.has(item.type));
     }
-
-    return {
-      rule,
-      actionItems: [],
-      executedRule,
-      reason: reasonToUse,
-      status: ExecutedRuleStatus.SKIPPED,
-      matchReasons,
-      createdAt: batchTimestamp,
-    };
-  }
-
-  let actionItems = await getActionItemsWithAiArgs({
-    message,
-    emailAccount,
-    selectedRule: rule,
-    client,
-    modelType,
-    logger,
-    isTest,
-  });
-
-  if (blockedActionTypes.length) {
-    const blockedSet = new Set(blockedActionTypes);
-    actionItems = actionItems.filter((item) => !blockedSet.has(item.type));
   }
 
   if (skipArchive) {
