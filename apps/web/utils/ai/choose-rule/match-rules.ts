@@ -28,6 +28,10 @@ import {
 } from "@/utils/email";
 import { isCalendarInvite } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
+import {
+  isAddressLikeEmailPattern,
+  splitEmailPatterns,
+} from "@/utils/rule/email-from-pattern";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ModelType } from "@/utils/llms/model";
 import {
@@ -550,18 +554,6 @@ export function matchesStaticRule(
   return fromMatch && toMatch && subjectMatch && bodyMatch;
 }
 
-/**
- * Split email patterns by pipe, comma, or " OR " separator.
- * Used for from/to fields to support multiple email addresses.
- * Examples: "@a.com|@b.com", "@a.com, @b.com", "@a.com OR @b.com"
- */
-export function splitEmailPatterns(pattern: string): string[] {
-  return pattern
-    .split(/\s*\bor\b\s*|[|,]/i)
-    .map((p) => p.trim())
-    .filter(Boolean);
-}
-
 function matchesGroupRule(
   rule: RuleWithActions,
   groups: GroupsWithRules,
@@ -771,12 +763,6 @@ function matchesEmailFieldPattern({
     logInvalidPattern(pattern, error);
     return false;
   }
-}
-
-function isAddressLikeEmailPattern(pattern: string) {
-  const normalized = pattern.trim().toLowerCase();
-
-  return normalized.includes("@") || /^[^\s@]+\.[^\s@]+$/.test(normalized);
 }
 
 function logInvalidEmailMatchPattern({
