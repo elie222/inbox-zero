@@ -478,17 +478,17 @@ model Action {
   ruleId    String
   rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
-  label          String? // labelName - labelId is the source of truth, and we use it when set
-  labelId        String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
-  subject        String?
-  content        String?
-  to             String?
-  cc             String?
-  bcc            String?
-  url            String?
-  folderName     String?
-  folderId       String?
-  delayInMinutes Int?
+  label             String? // labelName - labelId is the source of truth, and we use it when set
+  labelId           String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
+  subject           String?
+  content           String?
+  to                String?
+  cc                String?
+  bcc               String?
+  url               String?
+  folderName        String?
+  folderId          String?
+  delayInMinutes    Int?
   staticAttachments Json? // AttachmentSourceInput[] — explicit files to attach for email actions
 
   @@index([ruleId])
@@ -562,28 +562,28 @@ model ExecutedAction {
   executedRule   ExecutedRule @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
 
   // optional extra fields to be used with the action
-  label      String?
-  labelId    String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
-  subject    String?
-  content    String?
-  to         String?
-  cc         String?
-  bcc        String?
-  url        String?
-  folderName String?
-  folderId   String?
+  label             String?
+  labelId           String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
+  subject           String?
+  content           String?
+  to                String?
+  cc                String?
+  bcc               String?
+  url               String?
+  folderName        String?
+  folderId          String?
   staticAttachments Json? // AttachmentSourceInput[] — explicit files to attach for email actions
 
   // additional fields as a result of the action
-  draftId         String? // Gmail draft ID created by DRAFT_EMAIL action
-  wasDraftSent    Boolean? // Tracks if the corresponding draft was sent (true) or ignored/superseded (false)
-  draftModelProvider String?
-  draftModelName     String?
+  draftId              String? // Gmail draft ID created by DRAFT_EMAIL action
+  wasDraftSent         Boolean? // Tracks if the corresponding draft was sent (true) or ignored/superseded (false)
+  draftModelProvider   String?
+  draftModelName       String?
   draftPipelineVersion Int?
   draftContextMetadata Json?
-  draftSendLog    DraftSendLog? // Will exist if the draft was sent
-  digestItems     DigestItem[] // Relation to digest items created by this action
-  scheduledAction ScheduledAction? // Reverse relation for delayed actions
+  draftSendLog         DraftSendLog? // Will exist if the draft was sent
+  digestItems          DigestItem[] // Relation to digest items created by this action
+  scheduledAction      ScheduledAction? // Reverse relation for delayed actions
 
   @@index([executedRuleId])
 }
@@ -861,7 +861,7 @@ model ReplyMemory {
   scopeValue String
 
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccount   EmailAccount        @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   sources        ReplyMemorySource[]
 
   @@unique([emailAccountId, kind, scopeType, scopeValue, title])
@@ -956,12 +956,12 @@ model DraftSendLog {
   executedActionId String         @unique
   executedAction   ExecutedAction @relation(fields: [executedActionId], references: [id], onDelete: Cascade)
 
-  sentMessageId          String
-  similarityScore        Float // Similarity score (0.0 to 1.0) between original draft and sent message
-  replyMemorySentText    String?
-  replyMemoryAttemptCount Int      @default(0)
-  replyMemoryProcessedAt DateTime?
-  replyMemorySources     ReplyMemorySource[]
+  sentMessageId           String
+  similarityScore         Float // Similarity score (0.0 to 1.0) between original draft and sent message
+  replyMemorySentText     String?
+  replyMemoryAttemptCount Int                 @default(0)
+  replyMemoryProcessedAt  DateTime?
+  replyMemorySources      ReplyMemorySource[]
 
   @@index([executedActionId])
   @@index([replyMemoryProcessedAt, replyMemoryAttemptCount, createdAt])
