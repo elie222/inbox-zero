@@ -1,17 +1,6 @@
 name: Local Bypass Smoke
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - "apps/web/**"
-      - "packages/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - "turbo.json"
-      - "tsconfig.json"
-      - ".github/workflows/local-bypass-smoke.yml"
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
