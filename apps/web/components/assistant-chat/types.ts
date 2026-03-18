@@ -5,9 +5,11 @@ import type {
   ForwardEmailTool,
   GetAccountOverviewTool,
   GetAssistantCapabilitiesTool,
+  GetCalendarEventsTool,
   GetLearnedPatternsTool,
   GetUserRulesAndSettingsTool,
   ManageInboxTool,
+  ReadAttachmentTool,
   ReadEmailTool,
   ReplyEmailTool,
   SearchInboxTool,
@@ -49,6 +51,8 @@ export type ChatTools = {
   sendEmail: SendEmailTool;
   replyEmail: ReplyEmailTool;
   forwardEmail: ForwardEmailTool;
+  getCalendarEvents: GetCalendarEventsTool;
+  readAttachment: ReadAttachmentTool;
 };
 
 // biome-ignore lint/complexity/noBannedTypes: ignore

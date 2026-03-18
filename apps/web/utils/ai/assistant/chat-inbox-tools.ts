@@ -320,6 +320,92 @@ export const readEmailTool = ({
 
 export type ReadEmailTool = InferUITool<ReturnType<typeof readEmailTool>>;
 
+const readAttachmentInputSchema = z.object({
+  messageId: z
+    .string()
+    .describe(
+      "The message ID containing the attachment (from readEmail results)",
+    ),
+  attachmentId: z
+    .string()
+    .describe("The attachment ID (from readEmail attachment metadata)"),
+});
+
+export const readAttachmentTool = ({
+  email,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) =>
+  tool({
+    description:
+      "Read the text content of an email attachment. Supports PDF, DOCX, plain text, CSV, and HTML. Returns metadata only for binary files (images, etc.).",
+    inputSchema: readAttachmentInputSchema,
+    execute: async ({ messageId, attachmentId }) => {
+      trackToolCall({ tool: "read_attachment", email, logger });
+
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+
+        const attachment = await emailProvider.getAttachment(
+          messageId,
+          attachmentId,
+        );
+
+        const buffer = Buffer.from(attachment.data, "base64");
+
+        const message = await emailProvider.getMessage(messageId);
+        const attachmentMeta = message.attachments?.find(
+          (a) => a.attachmentId === attachmentId,
+        );
+
+        const mimeType = attachmentMeta?.mimeType ?? "application/octet-stream";
+        const filename = attachmentMeta?.filename ?? "unknown";
+
+        const textContent = await extractAttachmentText(
+          buffer,
+          mimeType,
+          logger,
+        );
+
+        if (textContent === null) {
+          return {
+            filename,
+            mimeType,
+            size: attachment.size,
+            contentAvailable: false,
+            message:
+              "This attachment type cannot be read as text. Only PDF, DOCX, plain text, CSV, and HTML are supported.",
+          };
+        }
+
+        return {
+          filename,
+          mimeType,
+          size: attachment.size,
+          contentAvailable: true,
+          content: textContent,
+        };
+      } catch (error) {
+        logger.error("Failed to read attachment", { error });
+        return { error: "Failed to read attachment" };
+      }
+    },
+  });
+
+export type ReadAttachmentTool = InferUITool<
+  ReturnType<typeof readAttachmentTool>
+>;
+
 const threadIdsSchema = z
   .array(z.string())
   .min(1)
@@ -385,7 +471,7 @@ export const manageInboxTool = ({
 
   return tool({
     description:
-      "Run inbox actions: archive threads, label threads, mark threads read/unread, bulk archive by sender, or unsubscribe senders.",
+      "Run inbox actions: archive threads, trash/delete threads, label threads, mark threads read/unread, bulk archive by sender, or unsubscribe senders. Trash moves emails to the trash folder.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
@@ -549,6 +635,8 @@ export const manageInboxTool = ({
                 email,
                 resolvedArchiveLabelId,
               );
+            } else if (parsedInput.action === "trash_threads") {
+              await emailProvider.trashThread(threadId, email, "user");
             } else if (parsedInput.action === "label_threads") {
               await applyLabelToThread({
                 emailProvider,
@@ -1294,4 +1382,48 @@ function getValidationErrorMessage(toolName: string, error: z.ZodError) {
   if (!field) return `Invalid ${toolName} input: ${firstIssue.message}`;
 
   return `Invalid ${toolName} input: ${field} ${firstIssue.message}`;
+}
+
+const MAX_ATTACHMENT_TEXT_LENGTH = 8000;
+
+async function extractAttachmentText(
+  buffer: Buffer,
+  mimeType: string,
+  logger: Logger,
+): Promise<string | null> {
+  if (
+    mimeType === "application/pdf" ||
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mimeType === "text/plain"
+  ) {
+    const { extractTextFromDocument } = await import(
+      "@/utils/drive/document-extraction"
+    );
+    const result = await extractTextFromDocument(buffer, mimeType, {
+      maxLength: MAX_ATTACHMENT_TEXT_LENGTH,
+      logger,
+    });
+    return result?.text ?? null;
+  }
+
+  if (mimeType === "text/csv") {
+    const text = buffer.toString("utf-8");
+    return text.length > MAX_ATTACHMENT_TEXT_LENGTH
+      ? `${text.slice(0, MAX_ATTACHMENT_TEXT_LENGTH)}... (truncated)`
+      : text;
+  }
+
+  if (mimeType === "text/html") {
+    const { htmlToText } = await import("html-to-text");
+    const text = htmlToText(buffer.toString("utf-8"), {
+      wordwrap: false,
+      selectors: [{ selector: "img", format: "skip" }],
+    });
+    return text.length > MAX_ATTACHMENT_TEXT_LENGTH
+      ? `${text.slice(0, MAX_ATTACHMENT_TEXT_LENGTH)}... (truncated)`
+      : text;
+  }
+
+  return null;
 }
