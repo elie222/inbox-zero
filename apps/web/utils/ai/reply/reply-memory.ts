@@ -712,10 +712,7 @@ function getNormalizedReplyMemoryScopeValue({
   senderEmail,
   senderDomain,
 }: {
-  memory: Pick<
-    z.infer<typeof replyMemorySchema>["memories"][number],
-    "scopeType" | "scopeValue"
-  >;
+  memory: Pick<ReplyMemory, "scopeType" | "scopeValue">;
   senderEmail: string;
   senderDomain: string;
 }) {
