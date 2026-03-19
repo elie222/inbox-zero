@@ -60,6 +60,7 @@ async function getPreviewData({
       calendarBookingLink: true,
       filingEnabled: true,
       filingPrompt: true,
+      filingConfirmationSendEmail: true,
       user: {
         select: {
           aiProvider: true,

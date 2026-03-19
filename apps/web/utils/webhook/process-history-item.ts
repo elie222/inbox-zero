@@ -34,7 +34,11 @@ export type SharedProcessHistoryOptions = {
   emailAccount: EmailAccountForDrafting &
     Pick<
       EmailAccount,
-      "autoCategorizeSenders" | "filingEnabled" | "filingPrompt" | "email"
+      | "autoCategorizeSenders"
+      | "filingEnabled"
+      | "filingPrompt"
+      | "filingConfirmationSendEmail"
+      | "email"
     >;
   logger: Logger;
 };
@@ -226,6 +230,8 @@ export async function processHistoryItem(
                     ...emailAccount,
                     filingEnabled: emailAccount.filingEnabled,
                     filingPrompt: emailAccount.filingPrompt,
+                    filingConfirmationSendEmail:
+                      emailAccount.filingConfirmationSendEmail,
                     email: emailAccount.email,
                   },
                   message: parsedMessage,

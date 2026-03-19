@@ -40,6 +40,7 @@ export interface ProcessAttachmentOptions {
   emailAccount: EmailAccountWithAI & {
     filingEnabled: boolean;
     filingPrompt: string | null;
+    filingConfirmationSendEmail: boolean;
     email: string;
   };
   emailProvider: EmailProvider;
@@ -257,8 +258,14 @@ export async function processAttachment({
       wasAsked: shouldAsk,
     });
 
+    const shouldSendAskNotification = sendNotification && shouldAsk;
+    const shouldSendFiledNotification =
+      sendNotification &&
+      !shouldAsk &&
+      emailAccount.filingConfirmationSendEmail;
+
     // Step 10: Send notification email as a reply to the source email
-    if (sendNotification) {
+    if (shouldSendAskNotification || shouldSendFiledNotification) {
       const sourceMessage = {
         threadId: message.threadId,
         headerMessageId: message.headers["message-id"] || "",
@@ -266,7 +273,7 @@ export async function processAttachment({
       };
 
       try {
-        if (shouldAsk) {
+        if (shouldSendAskNotification) {
           await sendAskNotification({
             emailProvider,
             userEmail: emailAccount.email,

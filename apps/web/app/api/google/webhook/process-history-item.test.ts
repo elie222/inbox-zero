@@ -150,6 +150,7 @@ describe("processHistoryItem", () => {
       autoCategorizeSenders: false,
       filingEnabled: false,
       filingPrompt: null,
+      filingConfirmationSendEmail: true,
       draftReplyConfidence: DraftReplyConfidence.ALL_EMAILS,
     };
   }

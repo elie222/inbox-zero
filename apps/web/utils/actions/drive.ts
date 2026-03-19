@@ -5,6 +5,7 @@ import {
   disconnectDriveBody,
   updateFilingPromptBody,
   updateFilingEnabledBody,
+  updateFilingConfirmationEmailBody,
   addFilingFolderBody,
   removeFilingFolderBody,
   cleanupStaleFilingFoldersBody,
@@ -70,6 +71,16 @@ export const updateFilingEnabledAction = actionClient
       });
     },
   );
+
+export const updateFilingConfirmationEmailAction = actionClient
+  .metadata({ name: "updateFilingConfirmationEmail" })
+  .inputSchema(updateFilingConfirmationEmailBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { sendEmail } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { filingConfirmationSendEmail: sendEmail },
+    });
+  });
 
 export const addFilingFolderAction = actionClient
   .metadata({ name: "addFilingFolder" })
@@ -273,6 +284,7 @@ export const fileAttachmentAction = actionClient
           calendarBookingLink: true,
           filingEnabled: true,
           filingPrompt: true,
+          filingConfirmationSendEmail: true,
           user: {
             select: {
               aiProvider: true,
