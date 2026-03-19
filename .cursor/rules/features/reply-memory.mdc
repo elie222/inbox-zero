@@ -8,17 +8,17 @@ alwaysApply: false
 
 ## Overview
 
-The reply memory system exists to improve future draft replies from prior user corrections.
+The reply memory system improves future draft replies from prior user corrections.
 
-It should do two jobs:
+It does two jobs:
 
 - act as a lightweight runtime corrective layer for drafting
 - automatically build useful knowledge for users who do not maintain a manual knowledge base
 
-The system should not treat all learned data the same way.
+The system does not treat all learned data the same way.
 Some learned items are always-on writing preferences.
 Some are conditional facts or procedures.
-Some are raw evidence that should be kept for analysis and eval generation, but not injected directly into prompts.
+Some are raw evidence that stays useful for analysis and eval generation, but is not injected directly into prompts.
 
 ## Core Principles
 
@@ -30,7 +30,7 @@ The memory itself should already be a prompt-ready instruction or fact.
 
 ### Memory Types
 
-We should move toward these conceptual types:
+The current system uses these conceptual types:
 
 - `fact`
   - durable business knowledge, routing rules, pricing, policies
@@ -43,7 +43,7 @@ We should move toward these conceptual types:
 
 ### Small Prompt Footprint
 
-The drafting prompt should stay small.
+The drafting prompt stays small.
 
 - style/preferences should be compact and mostly always-on
 - facts/procedures should be selected conditionally
@@ -59,37 +59,7 @@ The main drafting path should receive:
 - learned style profile
 - a small selected set of relevant facts/procedures
 
-It should not rely on a large memory dump.
-
-### Subagent
-
-For subagents, progressive disclosure is acceptable because extra hops are fine.
-
-The preferred pattern is:
-
-1. give the subagent a compact tag index
-2. ask which tags it wants to expand
-3. expand only those sections
-4. optionally allow a free-form search pass
-5. ask the subagent to extract the relevant items
-
-This is a CAG-style memory selector for subagents, not for the main drafter.
-
-### Tag Index
-
-Tags should be controlled and simple.
-The tags themselves are the short summary.
-We do not need extra prose summaries per tag at first.
-
-Good tag categories:
-
-- kind: fact / preference / procedure
-- scope: global / sender / domain / topic
-- topic: pricing / billing / scheduling / support / intros / logistics / etc.
-- confidence: high / medium / low
-- state: active / conflicted / stale
-
-Free-form search can be layered on top to help the subagent find relevant areas when tags are not enough.
+It does not rely on a large memory dump.
 
 ## Knowledge Base Relationship
 
@@ -103,7 +73,7 @@ That means:
 - `preference` items are user-specific drafting bias
 - raw evidence is the learning substrate that feeds both
 
-The system should not assume manual KB coverage.
+The system does not assume manual KB coverage.
 
 ## Evidence and Retention
 
@@ -114,109 +84,27 @@ Raw draft/send evidence is useful for:
 - consolidating memories
 - validating conflicts
 
-Temporary retention is acceptable.
+Temporary retention is acceptable, and the current system:
 
-Current direction:
+- keeps raw sent-text evidence for about a week
+- lazily cleans it up when reply-memory sync runs
+- keeps durable memories longer than raw evidence
 
-- keep raw sent-text evidence for about a week
-- lazily clean it up
-- keep durable memories longer than raw evidence
+## Current Implementation Notes
 
-## Conflict Handling
+- `ReplyMemory` stores one canonical `content` field plus `kind`, `scopeType`, and `scopeValue`
+- promptable memories are `fact` and `procedure`
+- `preference` memories are account-level and feed learned writing style
+- learned writing style is stored separately on `EmailAccount`
+- raw evidence lives on `ReplyMemorySource` and keeps draft/send examples for short-term analysis
 
-Memories can change over time.
+## Future Notes
 
-Example:
+Potential follow-up ideas:
 
-- older evidence suggests no greeting
-- newer evidence suggests adding a brief personalized greeting
-
-The system should support:
-
-- reinforcement
-- recency
-- conflict detection
-- stale memory handling
-
-Likely fields later:
-
-- `timesSeen`
-- `lastSeenAt`
-- `confidence`
-- `state`
-
-## Immediate Task List
-
-### Phase 1: Simplify Memory Shape
-
-- remove `title + content` split
-- keep one canonical memory `content`
-- update uniqueness and formatting
-
-### Phase 2: Clean Up Taxonomy
-
-- narrow or replace `STYLE`
-- introduce clearer conceptual types: `fact`, `preference`, `procedure`
-- stop storing playbooks as generic style
-
-### Phase 3: Add Evidence Graduation Rules
-
-- do not treat every extracted item as a durable prompt memory
-- define promotion rules by kind
-- allow fast promotion for very high-confidence preference signals
-- require stronger reinforcement for broader facts/procedures
-
-### Phase 4: Build Memory Consolidation
-
-- merge near-duplicate memories
-- rebuild learned style profile from preference evidence
-- weaken or retire stale/conflicted memories
-
-### Phase 5: Build Subagent Memory CAG
-
-- generate a compact per-account tag index
-- allow progressive disclosure by tags
-- allow optional free-form search
-- let the subagent extract relevant items before handing context to the main drafter
-
-### Phase 6: Improve Analysis and Evals
-
-- log repeated residual draft mistakes
-- separate runtime memory from offline improvement signals
-- generate eval cases from repeated failure modes
-
-## Recommended Implementation Sequence For This Branch
-
-### Step 1: Ship the Single-Field Memory Shape
-
-Status: already implemented on this branch.
-
-Scope:
-
-- `ReplyMemory` uses one canonical `content` field
-- no `title + content` split
-- extraction and prompt formatting use a single atomic memory string
-
-Key files:
-
-- `apps/web/prisma/schema.prisma`
-- `apps/web/prisma/migrations/..._simplify_reply_memory_shape/`
-- `apps/web/utils/ai/reply/extract-reply-memories.ts`
-- `apps/web/utils/ai/reply/reply-memory.ts`
-
-### Step 2: Replace Broad STYLE Usage
-
-Goal:
-
-- stop using `STYLE` as a bucket for everything
-- narrow style-like memories to `preference`
-- move handling patterns into `procedure`
-
-Suggested work:
-
-- add a new enum value for procedures
-- update extraction prompt and examples
-- update learned-style compaction so it only reads preference-like evidence
+- subagent memory CAG with tag-based progressive disclosure and optional free-form search
+- better conflict handling through reinforcement, recency, and stale-memory detection
+- stronger analysis and eval generation from repeated residual draft mistakes
 
 Key files:
 
@@ -224,79 +112,6 @@ Key files:
 - `apps/web/utils/ai/reply/extract-reply-memories.ts`
 - `apps/web/utils/ai/reply/reply-memory.ts`
 - `apps/web/utils/ai/reply/summarize-learned-writing-style.ts`
-
-### Step 3: Add Promotion / Graduation Rules
-
-Goal:
-
-- raw evidence first
-- durable runtime memories second
-
-Suggested work:
-
-- decide which kinds can be promoted from a single high-confidence edit
-- require stronger reinforcement for broader facts/procedures
-- keep weak signals as evidence only
-
-Possible schema additions:
-
-- `timesSeen`
-- `lastSeenAt`
-- `confidence`
-- `state`
-
-### Step 4: Build Memory Consolidation
-
-Goal:
-
-- merge duplicates
-- retire stale memories
-- detect conflicts
-- rebuild learned style summary from current evidence
-
-Suggested work:
-
-- add a consolidation job or opportunistic refresh path
-- track stale vs active vs conflicted memories
-- make newer repeated evidence able to override older habits
-
-### Step 5: Add Subagent-Only Memory CAG
-
-Goal:
-
-- progressive disclosure for subagents
-- no large memory dump into the main drafter
-
-Suggested work:
-
-- build a compact tag index per account
-- expose tag list first
-- allow expansion by selected tags
-- allow optional free-form search
-- let the subagent extract relevant items before handing off to the main drafter
-
-Expected shape:
-
-1. tag index
-2. expand selected sections
-3. optional free-form search
-4. cheap selector extracts relevant fragments
-
-### Step 6: Add Better Evaluation and Analysis
-
-Goal:
-
-- use residual mistakes to improve the system globally
-
-Suggested work:
-
-- log repeated model mistakes separately from runtime memory
-- turn repeated failure patterns into eval cases
-- measure:
-  - repeated corrections
-  - promoted vs evidence-only items
-  - prompt hit rate for retrieved memories
-  - stale/conflicted memory rates
 
 ## Key Design Rule
 
