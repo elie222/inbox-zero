@@ -42,6 +42,12 @@ describe.runIf(isAiTest)("Eval: Your Feature", () => {
 });
 ```
 
+## Model Selection in Fixtures
+
+- Do not pin per-user AI settings in eval fixtures unless the eval is explicitly about model-selection behavior.
+- If you construct an `emailAccount` or `user` fixture yourself, keep `aiProvider`, `aiModel`, and `aiApiKey` as `null` so the eval uses the normal global/default AI path.
+- Prefer the `emailAccount` provided by `describeEvalMatrix()` instead of overriding its user AI settings.
+
 ## Subjective Eval with LLM-as-Judge
 
 For outputs without a single correct answer (e.g., email drafts), use binary pass/fail judging:
