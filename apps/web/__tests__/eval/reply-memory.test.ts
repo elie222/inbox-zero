@@ -251,6 +251,178 @@ Can you resend the short enterprise pricing explanation you usually send for a 3
       },
       TIMEOUT,
     );
+
+    test(
+      "uses learned writing style to keep a status reply terse and direct",
+      async () => {
+        const messages = [
+          {
+            ...getEmail({
+              from: "teammate@example.com",
+              to: emailAccount.email,
+              subject: "Checking in on the deck",
+              content: `Hey,
+
+Just checking whether you had a chance to review the deck I sent over yesterday. No rush, but let me know when you get a minute.
+
+Thanks!`,
+            }),
+            date: new Date("2026-03-17T11:00:00Z"),
+          },
+        ];
+
+        const withoutLearnedStyle = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent: null,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          learnedWritingStyle: null,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const learnedWritingStyle = `Observed patterns:
+- Prefer short direct acknowledgements.
+- Skip greetings and sign-offs unless they add necessary context.
+- Remove enthusiasm and filler from routine replies.
+Representative edits:
+- Trimmed a warm check-in into a one-line acknowledgement.
+- Removed extra thanks and closing language before sending.`;
+
+        const withLearnedStyle = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent: null,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          learnedWritingStyle,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const judgeResult = await judgeBinary({
+          input: buildLearnedWritingStyleComparisonInput({
+            emailContent: messages[0].content,
+            withoutLearnedStyleReply: withoutLearnedStyle.reply,
+            learnedWritingStyle,
+          }),
+          output: withLearnedStyle.reply,
+          expected:
+            "A short plainspoken reply that acknowledges the follow-up directly, avoids greeting or sign-off fluff, and stays to one or two simple sentences.",
+          criterion: {
+            name: "Learned writing style guides terse replies",
+            description:
+              "Compared with the no-style baseline, the draft with learned writing style should be more direct and lower ceremony, without adding greeting or sign-off filler.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = judgeResult.pass;
+
+        evalReporter.record({
+          testName: "learned style makes status reply terse",
+          model: model.label,
+          pass,
+          expected: "short direct reply with low ceremony",
+          actual: formatLearnedWritingStyleActual({
+            withoutLearnedStyleReply: withoutLearnedStyle.reply,
+            withLearnedStyleReply: withLearnedStyle.reply,
+            judgeResult,
+          }),
+          criteria: [judgeResult],
+        });
+
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "keeps learned writing style advisory when factual guidance is also present",
+      async () => {
+        const messages = [
+          {
+            ...getEmail({
+              from: "buyer@example.com",
+              to: emailAccount.email,
+              subject: "Quick pricing recap",
+              content: `Hi,
+
+Can you resend the short enterprise pricing summary for our team and confirm whether annual billing changes the quote?
+
+Thanks,`,
+            }),
+            date: new Date("2026-03-17T12:00:00Z"),
+          },
+        ];
+
+        const learnedWritingStyle = `Observed patterns:
+- Keep routine replies compact and direct.
+- Prefer plain declarative wording over polished framing.
+- Avoid greetings and sign-offs when they are not needed.
+Representative edits:
+- Removed extra context before answering a simple request.
+- Shortened a multi-line reply into two tight sentences.`;
+
+        const replyMemoryContent =
+          "1. [FACT | TOPIC:pricing] When asked about enterprise pricing, explain that it depends on seat count and whether the customer wants annual billing.";
+
+        const result = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          learnedWritingStyle,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const judgeResult = await judgeBinary({
+          input: [
+            "## Current Email",
+            messages[0].content,
+            "",
+            "## Learned Writing Style",
+            learnedWritingStyle,
+            "",
+            "## Learned Reply Memory",
+            replyMemoryContent,
+          ].join("\n"),
+          output: result.reply,
+          expected:
+            "A concise reply that still includes the factual pricing guidance that enterprise pricing depends on seat count and whether the customer wants annual billing.",
+          criterion: {
+            name: "Style stays advisory beside factual guidance",
+            description:
+              "The learned writing style should make the reply shorter and more direct, but it must not suppress the factual pricing guidance supplied by the learned reply memory.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = judgeResult.pass;
+
+        evalReporter.record({
+          testName: "learned style remains advisory",
+          model: model.label,
+          pass,
+          expected: "concise reply that still includes pricing facts",
+          actual: formatJudgeActual(result.reply, judgeResult),
+          criteria: [judgeResult],
+        });
+
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
   });
 
   afterAll(() => {
@@ -319,6 +491,27 @@ function buildDraftComparisonInput({
   ].join("\n");
 }
 
+function buildLearnedWritingStyleComparisonInput({
+  emailContent,
+  withoutLearnedStyleReply,
+  learnedWritingStyle,
+}: {
+  emailContent: string;
+  withoutLearnedStyleReply: string;
+  learnedWritingStyle: string;
+}) {
+  return [
+    "## Current Email",
+    emailContent,
+    "",
+    "## Reply Without Learned Style",
+    withoutLearnedStyleReply,
+    "",
+    "## Learned Writing Style",
+    learnedWritingStyle,
+  ].join("\n");
+}
+
 function formatJudgeActual(
   summary: string,
   judgeResult: { pass: boolean; reasoning: string },
@@ -338,6 +531,22 @@ function formatDraftComparisonActual({
   return [
     `without=${JSON.stringify(withoutMemoryReply)}`,
     `with=${JSON.stringify(withMemoryReply)}`,
+    `judge=${judgeResult.pass ? "PASS" : "FAIL"} (${judgeResult.reasoning})`,
+  ].join(" | ");
+}
+
+function formatLearnedWritingStyleActual({
+  withoutLearnedStyleReply,
+  withLearnedStyleReply,
+  judgeResult,
+}: {
+  withoutLearnedStyleReply: string;
+  withLearnedStyleReply: string;
+  judgeResult: { pass: boolean; reasoning: string };
+}) {
+  return [
+    `without=${JSON.stringify(withoutLearnedStyleReply)}`,
+    `with=${JSON.stringify(withLearnedStyleReply)}`,
     `judge=${judgeResult.pass ? "PASS" : "FAIL"} (${judgeResult.reasoning})`,
   ].join(" | ");
 }
