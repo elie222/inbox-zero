@@ -78,4 +78,4 @@ inbox-zero-api rules delete rule_123
 
 - `rules update` replaces the rule body rather than patching individual fields.
 - Prefer temporary workspace files over inline JSON for larger payloads.
-- Use `--email` on stats commands only when working with legacy keys that require explicit email scoping.
+- Stats commands are always scoped to the inbox account attached to the API key.

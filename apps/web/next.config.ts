@@ -13,6 +13,9 @@ const withMDX = nextMdx({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  logging: {
+    browserToTerminal: true,
+  },
   output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
   // Skip TypeScript checking during E2E CI builds to save memory
   typescript: {

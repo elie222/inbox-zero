@@ -21,6 +21,7 @@
 - TypeScript with strict null checks
 - Path aliases: `@/` for imports from project root
 - NextJS app router with (app) directory, tailwindcss
+- For version-sensitive or unclear Next.js behavior, check the relevant doc in `node_modules/next/dist/docs/` before changing framework code.
 - Only add comments for "why", not "what". Prefer self-documenting code.
 - Logging: avoid duplicating logger context fields from higher in the call chain. Use `logger.trace()` for PII fields (from, to, subject, etc.).
 - Tests should use the real logger implementation (do not mock `@/utils/logger`).
@@ -57,6 +58,7 @@ See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates
 
 - API route middleware: `withError` (public, no auth), `withAuth` (user-level), `withEmailAccount` (email-account-level). Export response type via `Awaited<ReturnType<typeof getData>>`.
 - Mutations: use server actions with `next-safe-action`, NOT POST API routes.
+- Exception: mobile-native integrations may use POST API routes when they require a stable HTTP contract.
 - Validation: Zod schemas in `utils/actions/*.validation.ts`. Infer types with `z.infer`.
 - Data fetching: SWR on the client. Call `mutate()` after mutations.
 - Forms: React Hook Form + `useAction` hook. Use `getActionErrorMessage(error.error)` for errors.

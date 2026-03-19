@@ -145,7 +145,7 @@ describe("api-middleware", () => {
     ).toContain("External API request failed");
   });
 
-  it("attaches legacy stats auth and provider to stats requests", async () => {
+  it("attaches account-scoped stats auth and provider to stats requests", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const request = createMockRequest(
       "GET",
@@ -153,25 +153,25 @@ describe("api-middleware", () => {
     );
 
     mockValidateApiKeyAndGetEmailProvider.mockResolvedValue({
-      apiKeyId: "legacy-key",
+      apiKeyId: "key-123",
       emailProvider: "provider" as any,
       userId: "user-123",
       accountId: "account-123",
       emailAccountId: "email-account-123",
       provider: "google",
-      scopes: [],
-      authType: "legacy",
+      scopes: ["STATS_READ"],
+      authType: "account-scoped",
     });
 
     const handler = vi.fn(async (apiRequest: any) => {
       expect(apiRequest.apiAuth).toEqual({
-        apiKeyId: "legacy-key",
+        apiKeyId: "key-123",
         userId: "user-123",
         accountId: "account-123",
         emailAccountId: "email-account-123",
         provider: "google",
-        scopes: [],
-        authType: "legacy",
+        scopes: ["STATS_READ"],
+        authType: "account-scoped",
       });
       expect(apiRequest.emailProvider).toBe("provider");
 
@@ -186,6 +186,6 @@ describe("api-middleware", () => {
     expect(handler).toHaveBeenCalledTimes(1);
     expect(
       logSpy.mock.calls.map((call) => call.join(" ")).join("\n"),
-    ).toContain('"apiAuthType": "legacy"');
+    ).toContain('"apiAuthType": "account-scoped"');
   });
 });
