@@ -95,11 +95,11 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
       content: memory.content.trim(),
       kind: memory.kind,
       scopeType:
-        memory.kind === ReplyMemoryKind.STYLE
+        memory.kind === ReplyMemoryKind.PREFERENCE
           ? ReplyMemoryScopeType.GLOBAL
           : memory.scopeType,
       scopeValue:
-        memory.kind === ReplyMemoryKind.STYLE ||
+        memory.kind === ReplyMemoryKind.PREFERENCE ||
         memory.scopeType === ReplyMemoryScopeType.GLOBAL
           ? ""
           : memory.scopeValue.trim(),
@@ -211,8 +211,9 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
 Return only memories that are likely to help with future drafts.
 
 Memory kinds:
-- FACT: reusable factual corrections, business rules, or handling guidance
-- STYLE: tone, length, formatting, and phrasing habits
+- FACT: reusable factual corrections, business rules, or durable knowledge
+- PREFERENCE: tone, length, formatting, and phrasing habits
+- PROCEDURE: repeatable ways to handle a recurring class of replies
 
 Scopes:
 - GLOBAL: applies broadly to the user's replies
@@ -225,13 +226,13 @@ Rules:
 - Skip one-off contextual details that should not be reused later.
 - If the edit only changes a meeting time, date, greeting, sign-off, or other thread-specific logistics, return no memory unless the user stated a stable rule.
 - Prefer concise, direct drafting instructions.
-- Prefer concise, direct drafting instructions.
 - Each memory should be a single prompt-ready instruction or fact in the content field. Do not split the same idea across a title and body.
 - Do not infer a durable style preference from a single scheduling choice or one-off availability update.
-- Do not store a STYLE memory that simply repeats the user's explicit writing style setting.
-- STYLE memories are always account-level. Use GLOBAL scope for STYLE memories.
-- Use FACT when the edit adds reusable business information, policy, pricing, product capabilities, constraints, or recurring handling guidance.
-- Use STYLE for stable tone, length, formatting, or phrasing preferences.
+- Do not store a PREFERENCE memory that simply repeats the user's explicit writing style setting.
+- PREFERENCE memories are always account-level. Use GLOBAL scope for PREFERENCE memories.
+- Use FACT when the edit adds reusable business information, policy, pricing, product capabilities, constraints, contacts, or logistics.
+- Use PROCEDURE when the edit shows a reusable way to handle a recurring class of replies.
+- Use PREFERENCE for stable tone, length, formatting, or phrasing preferences.
 - For GLOBAL scope, leave scopeValue empty.
 - For SENDER scope, use the exact sender email from the context.
 - For DOMAIN scope, use the exact sender domain from the context.

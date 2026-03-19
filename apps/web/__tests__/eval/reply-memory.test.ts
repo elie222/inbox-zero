@@ -92,6 +92,65 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
     );
 
     test(
+      "extracts a reusable procedure memory from a qualifying-step correction",
+      async () => {
+        const incomingEmailContent =
+          "We would love a demo for our operations team next week. Do you have time on Tuesday or Wednesday?";
+        const draftText =
+          "Happy to do a demo next week. Here are a few times that work for me.";
+        const sentText =
+          "Happy to help. Before we schedule, can you share your team size and the main workflow you want to see? That will help me tailor the demo.";
+
+        const result = await aiExtractReplyMemoriesFromDraftEdit({
+          emailAccount: replyMemoryEmailAccount,
+          incomingEmailContent,
+          draftText,
+          sentText,
+          senderEmail: "prospect@example.com",
+          existingMemories: [],
+        });
+
+        const hasExpectedStructure = result.some(
+          (memory) =>
+            memory.kind === ReplyMemoryKind.PROCEDURE &&
+            (memory.scopeType === ReplyMemoryScopeType.TOPIC ||
+              memory.scopeType === ReplyMemoryScopeType.GLOBAL),
+        );
+        const summary = summarizeMemories(result);
+        const judgeResult = await judgeBinary({
+          input: buildJudgeInput({
+            incomingEmailContent,
+            draftText,
+            sentText,
+          }),
+          output: summary,
+          expected:
+            "A reusable PROCEDURE memory that captures the pattern of asking for team size and use case before scheduling a demo.",
+          criterion: {
+            name: "Reusable procedure memory extraction",
+            description:
+              "The extracted memories should include a reusable handling pattern, not just a factual note or style preference. It should capture that demo requests should be qualified before offering times.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = hasExpectedStructure && judgeResult.pass;
+
+        evalReporter.record({
+          testName: "demo qualification procedure extraction",
+          model: model.label,
+          pass,
+          expected: "PROCEDURE memory about qualifying demo requests",
+          actual: formatJudgeActual(summary, judgeResult),
+          criteria: [judgeResult],
+        });
+
+        expect(hasExpectedStructure).toBe(true);
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
       "does not learn from a one-off scheduling edit",
       async () => {
         const result = await aiExtractReplyMemoriesFromDraftEdit({
@@ -120,7 +179,7 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
     );
 
     test(
-      "extracts a global style memory from a strong tone edit",
+      "extracts a global preference memory from a strong tone edit",
       async () => {
         const result = await aiExtractReplyMemoriesFromDraftEdit({
           emailAccount: replyMemoryEmailAccount,
@@ -135,7 +194,7 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
 
         const hasExpectedStructure = result.some(
           (memory) =>
-            memory.kind === ReplyMemoryKind.STYLE &&
+            memory.kind === ReplyMemoryKind.PREFERENCE &&
             memory.scopeType === ReplyMemoryScopeType.GLOBAL,
         );
         const summary = summarizeMemories(result);
@@ -149,9 +208,9 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
           }),
           output: summary,
           expected:
-            "A reusable STYLE memory that captures the user's preference for concise, low-enthusiasm replies rather than this one specific sentence.",
+            "A reusable PREFERENCE memory that captures the user's preference for concise, low-enthusiasm replies rather than this one specific sentence.",
           criterion: {
-            name: "Reusable style memory extraction",
+            name: "Reusable preference memory extraction",
             description:
               "The extracted memories should include a reusable style preference grounded in the edit, such as preferring concise or less enthusiastic replies. The memory should describe a durable communication preference, not restate the specific sentence.",
           },
@@ -163,7 +222,7 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
           testName: "concise style extraction",
           model: model.label,
           pass,
-          expected: "STYLE memory about concise replies",
+          expected: "PREFERENCE memory about concise replies",
           actual: formatJudgeActual(summary, judgeResult),
           criteria: [judgeResult],
         });
@@ -260,10 +319,95 @@ Can you resend the short enterprise pricing explanation you usually send for a 3
     );
 
     test(
-      "summarizes repeated style evidence into a prompt-ready learned writing style",
+      "uses a learned procedure memory to qualify demo requests before scheduling",
+      async () => {
+        const messages = [
+          {
+            ...getEmail({
+              from: "prospect@example.com",
+              to: emailAccount.email,
+              subject: "Demo next week",
+              content: `Hi,
+
+We would love to see a demo next week for our operations team. Are you available on Tuesday or Wednesday?
+
+Thanks,`,
+            }),
+            date: new Date("2026-03-17T10:30:00Z"),
+          },
+        ];
+
+        const withoutMemory = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent: null,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const replyMemoryContent =
+          "1. [PROCEDURE | TOPIC:demos] When a sender asks for a demo, first ask for team size and the main workflow they want to see before offering times.";
+
+        const withMemory = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const judgeResult = await judgeBinary({
+          input: buildDraftComparisonInput({
+            emailContent: messages[0].content,
+            withoutMemoryReply: withoutMemory.reply,
+            replyMemoryContent,
+          }),
+          output: withMemory.reply,
+          expected:
+            "A concise reply that asks for team size and the main workflow before suggesting demo times.",
+          criterion: {
+            name: "Learned procedure guides demo qualification",
+            description:
+              "Compared with the no-memory draft, the memory-aware draft should follow the procedure and qualify the demo request before offering times.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = judgeResult.pass;
+
+        evalReporter.record({
+          testName: "procedure memory improves demo reply",
+          model: model.label,
+          pass,
+          expected:
+            "memory-aware draft asks for team size and use case before scheduling",
+          actual: formatDraftComparisonActual({
+            withoutMemoryReply: withoutMemory.reply,
+            withMemoryReply: withMemory.reply,
+            judgeResult,
+          }),
+          criteria: [judgeResult],
+        });
+
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "summarizes repeated preference evidence into a prompt-ready learned writing style",
       async () => {
         const learnedWritingStyle = await aiSummarizeLearnedWritingStyle({
-          styleMemoryEvidence: buildStyleMemoryEvidence([
+          preferenceMemoryEvidence: buildPreferenceMemoryEvidence([
             {
               title: "concise tone",
               content: "Keep replies short and remove filler.",
@@ -293,7 +437,7 @@ Can you resend the short enterprise pricing explanation you usually send for a 3
         const judgeResult = await judgeBinary({
           input: [
             "## Style Evidence",
-            buildStyleMemoryEvidence([
+            buildPreferenceMemoryEvidence([
               {
                 title: "concise tone",
                 content: "Keep replies short and remove filler.",
@@ -378,7 +522,7 @@ Thanks!`,
         });
 
         const learnedWritingStyle = await aiSummarizeLearnedWritingStyle({
-          styleMemoryEvidence: buildStyleMemoryEvidence([
+          preferenceMemoryEvidence: buildPreferenceMemoryEvidence([
             {
               title: "concise tone",
               content: "Prefer short direct acknowledgements.",
@@ -475,7 +619,7 @@ Thanks,`,
         ];
 
         const learnedWritingStyle = await aiSummarizeLearnedWritingStyle({
-          styleMemoryEvidence: buildStyleMemoryEvidence([
+          preferenceMemoryEvidence: buildPreferenceMemoryEvidence([
             {
               title: "compact replies",
               content: "Keep routine replies compact and direct.",
@@ -583,7 +727,7 @@ function summarizeMemories(
     .join(" || ");
 }
 
-function buildStyleMemoryEvidence(
+function buildPreferenceMemoryEvidence(
   evidence: Array<{
     title?: string;
     content: string;

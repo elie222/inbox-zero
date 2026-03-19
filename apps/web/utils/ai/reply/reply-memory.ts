@@ -15,11 +15,16 @@ import { aiSummarizeLearnedWritingStyle } from "./summarize-learned-writing-styl
 const REPLY_MEMORY_RETENTION_DAYS = 7;
 const MAX_REPLY_MEMORY_SOURCE_FETCH_ATTEMPTS = 3;
 const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
+const MAX_EXISTING_PREFERENCE_MEMORIES_IN_PROMPT = 4;
 const MAX_RETRIEVED_REPLY_MEMORIES = 6;
 const MAX_RETRIEVED_TOPIC_REPLY_MEMORIES = 3;
-const MIN_STYLE_EVIDENCE_FOR_LEARNED_STYLE = 10;
-const STYLE_EVIDENCE_PER_LEARNED_STYLE_REFRESH = 5;
-const MAX_STYLE_EVIDENCE_FOR_LEARNED_STYLE = 25;
+const PROMPTABLE_REPLY_MEMORY_KINDS = [
+  ReplyMemoryKind.FACT,
+  ReplyMemoryKind.PROCEDURE,
+];
+const MIN_PREFERENCE_EVIDENCE_FOR_LEARNED_STYLE = 10;
+const PREFERENCE_EVIDENCE_PER_LEARNED_STYLE_REFRESH = 5;
+const MAX_PREFERENCE_EVIDENCE_FOR_LEARNED_STYLE = 25;
 
 export async function saveDraftSendLogReplyMemory({
   draftSendLogId,
@@ -169,7 +174,7 @@ export async function getReplyMemoriesForPrompt({
       normalizedSenderEmail
         ? fetchReplyMemoriesByScope({
             emailAccountId,
-            kind: ReplyMemoryKind.FACT,
+            kinds: PROMPTABLE_REPLY_MEMORY_KINDS,
             scopeType: ReplyMemoryScopeType.SENDER,
             scopeValue: normalizedSenderEmail,
           })
@@ -177,14 +182,14 @@ export async function getReplyMemoriesForPrompt({
       senderDomain
         ? fetchReplyMemoriesByScope({
             emailAccountId,
-            kind: ReplyMemoryKind.FACT,
+            kinds: PROMPTABLE_REPLY_MEMORY_KINDS,
             scopeType: ReplyMemoryScopeType.DOMAIN,
             scopeValue: senderDomain,
           })
         : Promise.resolve([]),
       fetchReplyMemoriesByScope({
         emailAccountId,
-        kind: ReplyMemoryKind.FACT,
+        kinds: PROMPTABLE_REPLY_MEMORY_KINDS,
         scopeType: ReplyMemoryScopeType.GLOBAL,
       }),
     ]);
@@ -194,7 +199,10 @@ export async function getReplyMemoriesForPrompt({
           SELECT *
           FROM "ReplyMemory"
           WHERE "emailAccountId" = ${emailAccountId}
-            AND "kind" = CAST(${ReplyMemoryKind.FACT} AS "ReplyMemoryKind")
+            AND (
+              "kind" = CAST(${ReplyMemoryKind.FACT} AS "ReplyMemoryKind")
+              OR "kind" = CAST(${ReplyMemoryKind.PROCEDURE} AS "ReplyMemoryKind")
+            )
             AND "scopeType" = CAST(${ReplyMemoryScopeType.TOPIC} AS "ReplyMemoryScopeType")
             AND "scopeValue" <> ''
             AND LOWER(${normalizedEmailContent}) LIKE ('%' || LOWER("scopeValue") || '%')
@@ -326,24 +334,45 @@ async function processReplyMemoryDraftSendLog({
     return;
   }
 
-  const [existingMemories, styleContext] = await Promise.all([
+  const [
+    existingPromptableMemories,
+    existingPreferenceMemories,
+    writingContext,
+  ] = await Promise.all([
     prisma.replyMemory.findMany({
       where: {
         emailAccountId,
-        kind: ReplyMemoryKind.FACT,
+        kind: { in: PROMPTABLE_REPLY_MEMORY_KINDS },
         OR: getReplyMemoryScopes({
           senderEmail: normalizedSenderEmail,
           senderDomain,
         }),
       },
       orderBy: { updatedAt: "desc" },
-      take: MAX_EXISTING_MEMORIES_IN_PROMPT,
+      take:
+        MAX_EXISTING_MEMORIES_IN_PROMPT -
+        MAX_EXISTING_PREFERENCE_MEMORIES_IN_PROMPT,
+    }),
+    prisma.replyMemory.findMany({
+      where: {
+        emailAccountId,
+        kind: ReplyMemoryKind.PREFERENCE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+        useForLearnedWritingStyle: true,
+      },
+      orderBy: { updatedAt: "desc" },
+      take: MAX_EXISTING_PREFERENCE_MEMORIES_IN_PROMPT,
     }),
     prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       select: { learnedWritingStyle: true, writingStyle: true },
     }),
   ]);
+
+  const existingMemories = [
+    ...existingPromptableMemories,
+    ...existingPreferenceMemories,
+  ];
 
   const extracted = await aiExtractReplyMemoriesFromDraftEdit({
     incomingEmailContent: incomingMessage
@@ -357,14 +386,14 @@ async function processReplyMemoryDraftSendLog({
     sentText: draftSendLog.replyMemorySentText ?? "",
     senderEmail: normalizedSenderEmail,
     existingMemories,
-    writingStyle: styleContext?.writingStyle ?? null,
-    learnedWritingStyle: styleContext?.learnedWritingStyle ?? null,
+    writingStyle: writingContext?.writingStyle ?? null,
+    learnedWritingStyle: writingContext?.learnedWritingStyle ?? null,
     emailAccount,
   });
 
   for (const memory of extracted) {
     const normalizedMemory =
-      memory.kind === ReplyMemoryKind.STYLE
+      memory.kind === ReplyMemoryKind.PREFERENCE
         ? {
             ...memory,
             scopeType: ReplyMemoryScopeType.GLOBAL,
@@ -395,6 +424,9 @@ async function processReplyMemoryDraftSendLog({
       },
     } satisfies Prisma.ReplyMemoryWhereUniqueInput;
 
+    const useForLearnedWritingStyle =
+      normalizedMemory.kind === ReplyMemoryKind.PREFERENCE;
+
     const persistedMemory = await prisma.replyMemory.upsert({
       where,
       create: {
@@ -403,9 +435,11 @@ async function processReplyMemoryDraftSendLog({
         kind: normalizedMemory.kind,
         scopeType: normalizedMemory.scopeType,
         scopeValue: normalizedScopeValue,
+        useForLearnedWritingStyle,
       },
       update: {
         content: normalizedMemory.content,
+        useForLearnedWritingStyle,
       },
     });
 
@@ -431,19 +465,19 @@ async function processReplyMemoryDraftSendLog({
 
 async function fetchReplyMemoriesByScope({
   emailAccountId,
-  kind,
+  kinds,
   scopeType,
   scopeValue,
 }: {
   emailAccountId: string;
-  kind: ReplyMemoryKind;
+  kinds: ReplyMemoryKind[];
   scopeType: ReplyMemoryScopeType;
   scopeValue?: string;
 }) {
   return prisma.replyMemory.findMany({
     where: {
       emailAccountId,
-      kind,
+      kind: { in: kinds },
       scopeType,
       ...(scopeValue !== undefined ? { scopeValue } : {}),
     },
@@ -459,97 +493,92 @@ async function maybeRefreshLearnedWritingStyle({
   emailAccountId: string;
   emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
 }) {
+  const preferenceEvidenceMemoryFilter = {
+    replyMemory: {
+      is: {
+        emailAccountId,
+        kind: ReplyMemoryKind.PREFERENCE,
+        useForLearnedWritingStyle: true,
+      },
+    },
+  } as const;
+
   const [
     learnedWritingStyleState,
-    styleEvidenceCount,
-    unanalyzedStyleEvidenceCount,
+    preferenceEvidenceCount,
+    unanalyzedPreferenceEvidenceCount,
   ] = await Promise.all([
     prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       select: { learnedWritingStyle: true },
     }),
     prisma.replyMemorySource.count({
-      where: {
-        replyMemory: {
-          is: {
-            emailAccountId,
-            kind: ReplyMemoryKind.STYLE,
-          },
-        },
-      },
+      where: preferenceEvidenceMemoryFilter,
     }),
     prisma.replyMemorySource.count({
       where: {
         learnedWritingStyleAnalyzedAt: null,
-        replyMemory: {
-          is: {
-            emailAccountId,
-            kind: ReplyMemoryKind.STYLE,
-          },
-        },
+        ...preferenceEvidenceMemoryFilter,
       },
     }),
   ]);
 
   if (!learnedWritingStyleState?.learnedWritingStyle) {
-    if (styleEvidenceCount < MIN_STYLE_EVIDENCE_FOR_LEARNED_STYLE) return;
+    if (preferenceEvidenceCount < MIN_PREFERENCE_EVIDENCE_FOR_LEARNED_STYLE) {
+      return;
+    }
   } else if (
-    unanalyzedStyleEvidenceCount < STYLE_EVIDENCE_PER_LEARNED_STYLE_REFRESH
+    unanalyzedPreferenceEvidenceCount <
+    PREFERENCE_EVIDENCE_PER_LEARNED_STYLE_REFRESH
   ) {
     return;
   }
 
-  const [unanalyzedStyleEvidence, analyzedStyleEvidence] = await Promise.all([
-    prisma.replyMemorySource.findMany({
-      where: {
-        learnedWritingStyleAnalyzedAt: null,
-        replyMemory: {
-          is: {
-            emailAccountId,
-            kind: ReplyMemoryKind.STYLE,
-          },
+  const [unanalyzedPreferenceEvidence, analyzedPreferenceEvidence] =
+    await Promise.all([
+      prisma.replyMemorySource.findMany({
+        where: {
+          learnedWritingStyleAnalyzedAt: null,
+          ...preferenceEvidenceMemoryFilter,
         },
-      },
-      include: styleWritingEvidenceInclude,
-      orderBy: { createdAt: "desc" },
-      take: MAX_STYLE_EVIDENCE_FOR_LEARNED_STYLE,
-    }),
-    prisma.replyMemorySource.findMany({
-      where: {
-        learnedWritingStyleAnalyzedAt: {
-          not: null,
+        include: preferenceWritingEvidenceInclude,
+        orderBy: { createdAt: "desc" },
+        take: MAX_PREFERENCE_EVIDENCE_FOR_LEARNED_STYLE,
+      }),
+      prisma.replyMemorySource.findMany({
+        where: {
+          learnedWritingStyleAnalyzedAt: { not: null },
+          ...preferenceEvidenceMemoryFilter,
         },
-        replyMemory: {
-          is: {
-            emailAccountId,
-            kind: ReplyMemoryKind.STYLE,
-          },
-        },
-      },
-      include: styleWritingEvidenceInclude,
-      orderBy: { createdAt: "desc" },
-      take: MAX_STYLE_EVIDENCE_FOR_LEARNED_STYLE,
-    }),
-  ]);
+        include: preferenceWritingEvidenceInclude,
+        orderBy: { createdAt: "desc" },
+        take: MAX_PREFERENCE_EVIDENCE_FOR_LEARNED_STYLE,
+      }),
+    ]);
 
-  const styleEvidence = [...unanalyzedStyleEvidence];
+  const preferenceEvidence = [...unanalyzedPreferenceEvidence];
   const seenEvidenceIds = new Set(
-    styleEvidence.map(
+    preferenceEvidence.map(
       (evidence) => `${evidence.replyMemoryId}:${evidence.draftSendLogId}`,
     ),
   );
-  for (const evidence of analyzedStyleEvidence) {
+  for (const evidence of analyzedPreferenceEvidence) {
     const evidenceId = `${evidence.replyMemoryId}:${evidence.draftSendLogId}`;
     if (seenEvidenceIds.has(evidenceId)) continue;
-    styleEvidence.push(evidence);
+    preferenceEvidence.push(evidence);
     seenEvidenceIds.add(evidenceId);
-    if (styleEvidence.length >= MAX_STYLE_EVIDENCE_FOR_LEARNED_STYLE) break;
+    if (
+      preferenceEvidence.length >= MAX_PREFERENCE_EVIDENCE_FOR_LEARNED_STYLE
+    ) {
+      break;
+    }
   }
 
-  if (!styleEvidence.length) return;
+  if (!preferenceEvidence.length) return;
 
   const learnedWritingStyle = await aiSummarizeLearnedWritingStyle({
-    styleMemoryEvidence: formatStyleMemoryEvidence(styleEvidence),
+    preferenceMemoryEvidence:
+      formatPreferenceMemoryEvidence(preferenceEvidence),
     emailAccount,
   });
 
@@ -558,7 +587,7 @@ async function maybeRefreshLearnedWritingStyle({
     data: { learnedWritingStyle },
   });
 
-  const unanalyzedEvidencePredicates = styleEvidence
+  const unanalyzedEvidencePredicates = preferenceEvidence
     .filter((evidence) => evidence.learnedWritingStyleAnalyzedAt === null)
     .map((evidence) => ({
       replyMemoryId: evidence.replyMemoryId,
@@ -666,7 +695,7 @@ type DraftSendLogReplyMemoryPayload = Prisma.DraftSendLogGetPayload<{
   include: typeof draftSendLogReplyMemoryInclude;
 }>;
 
-const styleWritingEvidenceInclude = {
+const preferenceWritingEvidenceInclude = {
   replyMemory: {
     select: {
       content: true,
@@ -684,8 +713,8 @@ const styleWritingEvidenceInclude = {
   },
 } satisfies Prisma.ReplyMemorySourceInclude;
 
-type StyleWritingEvidencePayload = Prisma.ReplyMemorySourceGetPayload<{
-  include: typeof styleWritingEvidenceInclude;
+type PreferenceWritingEvidencePayload = Prisma.ReplyMemorySourceGetPayload<{
+  include: typeof preferenceWritingEvidenceInclude;
 }>;
 
 function sortReplyMemories(memories: ReplyMemory[]) {
@@ -741,22 +770,22 @@ function getNormalizedReplyMemoryScopeValue({
   }
 }
 
-function formatStyleMemoryEvidence(
-  styleEvidence: StyleWritingEvidencePayload[],
+function formatPreferenceMemoryEvidence(
+  preferenceEvidence: PreferenceWritingEvidencePayload[],
 ) {
-  return styleEvidence
+  return preferenceEvidence
     .map((evidence, index) => {
       const draftText = evidence.draftSendLog.executedAction.content ?? "";
       const sentText = evidence.draftSendLog.replyMemorySentText ?? "";
 
       return `${index + 1}. ${evidence.replyMemory.content}
-Draft example: ${truncateStyleEvidenceText(draftText) || "None"}
-Sent example: ${truncateStyleEvidenceText(sentText) || "None"}`;
+Draft example: ${truncatePreferenceEvidenceText(draftText) || "None"}
+Sent example: ${truncatePreferenceEvidenceText(sentText) || "None"}`;
     })
     .join("\n\n");
 }
 
-function truncateStyleEvidenceText(value: string) {
+function truncatePreferenceEvidenceText(value: string) {
   const normalized = value.replace(/\s+/g, " ").trim();
   if (!normalized) return "";
   return normalized.length > 280

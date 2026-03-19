@@ -9,17 +9,17 @@ const learnedWritingStyleSchema = z.object({
 });
 
 export async function aiSummarizeLearnedWritingStyle({
-  styleMemoryEvidence,
+  preferenceMemoryEvidence,
   emailAccount,
 }: {
-  styleMemoryEvidence: string;
+  preferenceMemoryEvidence: string;
   emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
 }) {
-  const prompt = `<style_memory_evidence>
-${styleMemoryEvidence}
-</style_memory_evidence>
+  const prompt = `<preference_memory_evidence>
+${preferenceMemoryEvidence}
+</preference_memory_evidence>
 
-Summarize the user's learned writing style from this evidence.`;
+Summarize the user's learned writing style from this preference evidence.`;
 
   const modelOptions = getModel(emailAccount.user, "economy");
   const generateObject = createGenerateObject({
@@ -39,7 +39,7 @@ Summarize the user's learned writing style from this evidence.`;
 }
 
 function getSystemPrompt() {
-  return `You maintain a compact learned writing-style summary for an email user based on accumulated style memories from prior draft edits.
+  return `You maintain a compact learned writing-style summary for an email user based on accumulated preference memories from prior draft edits.
 
 ${PROMPT_SECURITY_INSTRUCTIONS}
 
