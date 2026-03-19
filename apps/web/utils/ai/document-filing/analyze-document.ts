@@ -50,7 +50,12 @@ const documentAnalysisSchema = z
 export type DocumentAnalysisResult = z.infer<typeof documentAnalysisSchema>;
 
 type EmailContext = { subject: string; sender: string };
-type AttachmentContext = { filename: string; content: string };
+type AttachmentContext = {
+  filename: string;
+  mimeType: string;
+  size: number;
+  content: string;
+};
 type DriveFolder = {
   id: string;
   name: string;
@@ -149,13 +154,15 @@ function buildPrompt({
 ${truncatedText}
 </document_content>`
     : `<document_content>
-No text content available for this file type. Use the filename, email subject, and sender to decide where to file it.
+No text content available for this file type. Use the filename, MIME type, file size, email subject, and sender to decide where to file it.
 </document_content>`;
 
   return `Decide where to file this document:
 
 <document_metadata>
 <filename>${attachment.filename}</filename>
+<mime_type>${attachment.mimeType}</mime_type>
+<size_bytes>${attachment.size}</size_bytes>
 <email_subject>${email.subject}</email_subject>
 <email_sender>${email.sender}</email_sender>
 </document_metadata>
