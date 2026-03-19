@@ -13,6 +13,7 @@ import {
 } from "@/generated/prisma/enums";
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
 import { aiExtractReplyMemoriesFromDraftEdit } from "@/utils/ai/reply/extract-reply-memories";
+import { aiSummarizeLearnedWritingStyle } from "@/utils/ai/reply/summarize-learned-writing-style";
 
 // pnpm test-ai eval/reply-memory
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/reply-memory
@@ -25,11 +26,15 @@ const evalReporter = createEvalReporter();
 
 describe.runIf(shouldRunEval)("reply memory eval", () => {
   describeEvalMatrix("reply memory", (model, emailAccount) => {
+    const replyMemoryEmailAccount = emailAccount as Parameters<
+      typeof aiExtractReplyMemoriesFromDraftEdit
+    >[0]["emailAccount"];
+
     test(
       "extracts a reusable factual pricing memory",
       async () => {
         const result = await aiExtractReplyMemoriesFromDraftEdit({
-          emailAccount,
+          emailAccount: replyMemoryEmailAccount,
           incomingEmailContent:
             "Can you share your pricing for a 30 person team and let me know whether annual billing changes the quote?",
           draftText:
@@ -90,7 +95,7 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
       "does not learn from a one-off scheduling edit",
       async () => {
         const result = await aiExtractReplyMemoriesFromDraftEdit({
-          emailAccount,
+          emailAccount: replyMemoryEmailAccount,
           incomingEmailContent:
             "Would Tuesday or Wednesday afternoon work for a quick call next week?",
           draftText: "Happy to chat. I am free any time next week.",
@@ -115,10 +120,10 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
     );
 
     test(
-      "extracts a concise style memory from repeated tone edits",
+      "extracts a global style memory from a strong tone edit",
       async () => {
         const result = await aiExtractReplyMemoriesFromDraftEdit({
-          emailAccount,
+          emailAccount: replyMemoryEmailAccount,
           incomingEmailContent:
             "Thanks for the quick follow-up. Just confirming you got my note.",
           draftText:
@@ -129,7 +134,9 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
         });
 
         const hasExpectedStructure = result.some(
-          (memory) => memory.kind === ReplyMemoryKind.STYLE,
+          (memory) =>
+            memory.kind === ReplyMemoryKind.STYLE &&
+            memory.scopeType === ReplyMemoryScopeType.GLOBAL,
         );
         const summary = summarizeMemories(result);
         const judgeResult = await judgeBinary({
@@ -253,6 +260,91 @@ Can you resend the short enterprise pricing explanation you usually send for a 3
     );
 
     test(
+      "summarizes repeated style evidence into a prompt-ready learned writing style",
+      async () => {
+        const learnedWritingStyle = await aiSummarizeLearnedWritingStyle({
+          styleMemoryEvidence: buildStyleMemoryEvidence([
+            {
+              title: "concise tone",
+              content: "Keep replies short and remove filler.",
+              draftText:
+                "Hi there! Thanks so much for checking in. I just wanted to let you know that I got your note and will take a look soon.",
+              sentText: "Got it. I will review and get back to you.",
+            },
+            {
+              title: "low ceremony",
+              content: "Skip greetings and sign-offs for routine replies.",
+              draftText:
+                "Hi! Thanks again for the follow-up. I appreciate the reminder and will send an update shortly. Best,",
+              sentText: "I will send an update shortly.",
+            },
+            {
+              title: "plain wording",
+              content:
+                "Prefer plain declarative phrasing over warm filler in status updates.",
+              draftText:
+                "I just wanted to let you know that I am still on track and hope to have more to share very soon.",
+              sentText: "Still on track. I will share more soon.",
+            },
+          ]),
+          emailAccount: replyMemoryEmailAccount,
+        });
+
+        const judgeResult = await judgeBinary({
+          input: [
+            "## Style Evidence",
+            buildStyleMemoryEvidence([
+              {
+                title: "concise tone",
+                content: "Keep replies short and remove filler.",
+                draftText:
+                  "Hi there! Thanks so much for checking in. I just wanted to let you know that I got your note and will take a look soon.",
+                sentText: "Got it. I will review and get back to you.",
+              },
+              {
+                title: "low ceremony",
+                content: "Skip greetings and sign-offs for routine replies.",
+                draftText:
+                  "Hi! Thanks again for the follow-up. I appreciate the reminder and will send an update shortly. Best,",
+                sentText: "I will send an update shortly.",
+              },
+              {
+                title: "plain wording",
+                content:
+                  "Prefer plain declarative phrasing over warm filler in status updates.",
+                draftText:
+                  "I just wanted to let you know that I am still on track and hope to have more to share very soon.",
+                sentText: "Still on track. I will share more soon.",
+              },
+            ]),
+          ].join("\n"),
+          output: learnedWritingStyle,
+          expected:
+            'A compact learned writing style with "Observed patterns:" and "Representative edits:" sections that captures brevity, low ceremony, and plain wording without copying full email text.',
+          criterion: {
+            name: "Learned writing style summary quality",
+            description:
+              "The summary should distill repeated evidence into an account-level style guide with concise patterns and short representative edits, not raw quotes or one-off instructions.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = judgeResult.pass;
+
+        evalReporter.record({
+          testName: "learned style summary quality",
+          model: model.label,
+          pass,
+          expected: "prompt-ready learned writing style summary",
+          actual: formatJudgeActual(learnedWritingStyle, judgeResult),
+          criteria: [judgeResult],
+        });
+
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
       "uses learned writing style to keep a status reply terse and direct",
       async () => {
         const messages = [
@@ -285,13 +377,33 @@ Thanks!`,
           meetingContext: null,
         });
 
-        const learnedWritingStyle = `Observed patterns:
-- Prefer short direct acknowledgements.
-- Skip greetings and sign-offs unless they add necessary context.
-- Remove enthusiasm and filler from routine replies.
-Representative edits:
-- Trimmed a warm check-in into a one-line acknowledgement.
-- Removed extra thanks and closing language before sending.`;
+        const learnedWritingStyle = await aiSummarizeLearnedWritingStyle({
+          styleMemoryEvidence: buildStyleMemoryEvidence([
+            {
+              title: "concise tone",
+              content: "Prefer short direct acknowledgements.",
+              draftText:
+                "Hi there! Thanks so much for checking in. I just wanted to let you know that I received your message and I will review it soon.",
+              sentText: "Got it. I will review and get back to you.",
+            },
+            {
+              title: "low ceremony",
+              content:
+                "Skip greetings and sign-offs unless they add necessary context.",
+              draftText:
+                "Hi! Thanks again for following up. I appreciate the reminder and will send an update shortly. Best,",
+              sentText: "I will send an update shortly.",
+            },
+            {
+              title: "less enthusiasm",
+              content: "Remove enthusiasm and filler from routine replies.",
+              draftText:
+                "Thanks so much for the nudge. I am excited to review this and will get back to you very soon.",
+              sentText: "I will review this and get back to you soon.",
+            },
+          ]),
+          emailAccount: replyMemoryEmailAccount,
+        });
 
         const withLearnedStyle = await aiDraftReplyWithConfidence({
           messages,
@@ -362,13 +474,35 @@ Thanks,`,
           },
         ];
 
-        const learnedWritingStyle = `Observed patterns:
-- Keep routine replies compact and direct.
-- Prefer plain declarative wording over polished framing.
-- Avoid greetings and sign-offs when they are not needed.
-Representative edits:
-- Removed extra context before answering a simple request.
-- Shortened a multi-line reply into two tight sentences.`;
+        const learnedWritingStyle = await aiSummarizeLearnedWritingStyle({
+          styleMemoryEvidence: buildStyleMemoryEvidence([
+            {
+              title: "compact replies",
+              content: "Keep routine replies compact and direct.",
+              draftText:
+                "Hi there, thanks for your note. I just wanted to circle back and let you know that I can send over the summary shortly.",
+              sentText: "I can send the summary shortly.",
+            },
+            {
+              title: "plain wording",
+              content:
+                "Prefer plain declarative wording over polished framing.",
+              draftText:
+                "I wanted to reach back out with a quick note to confirm the enterprise pricing details for your review.",
+              sentText: "Here are the enterprise pricing details.",
+            },
+            {
+              title: "skip extra ceremony",
+              content:
+                "Avoid greetings and sign-offs when they are not needed.",
+              draftText:
+                "Hi! Thanks again for your patience. I appreciate it and wanted to share the pricing recap below. Best,",
+              sentText:
+                "Enterprise pricing depends on seat count and annual billing.",
+            },
+          ]),
+          emailAccount: replyMemoryEmailAccount,
+        });
 
         const replyMemoryContent =
           "1. [FACT | TOPIC:pricing] When asked about enterprise pricing, explain that it depends on seat count and whether the customer wants annual billing.";
@@ -447,6 +581,23 @@ function summarizeMemories(
         `[${memory.kind}|${memory.scopeType}${memory.scopeValue ? `:${memory.scopeValue}` : ""}] ${memory.title}: ${memory.content}`,
     )
     .join(" || ");
+}
+
+function buildStyleMemoryEvidence(
+  evidence: Array<{
+    title: string;
+    content: string;
+    draftText: string;
+    sentText: string;
+  }>,
+) {
+  return evidence
+    .map(
+      (item, index) => `${index + 1}. ${item.title}: ${item.content}
+Draft example: ${item.draftText}
+Sent example: ${item.sentText}`,
+    )
+    .join("\n\n");
 }
 
 function buildJudgeInput({

@@ -53,6 +53,7 @@ Rules:
 - Prefer concise, direct drafting instructions.
 - Do not infer a durable style preference from a single scheduling choice or one-off availability update.
 - Do not store a STYLE memory that simply repeats the user's explicit writing style setting.
+- STYLE memories are always account-level. Use GLOBAL scope for STYLE memories.
 - Use FACT when the edit adds reusable business information, policy, pricing, product capabilities, constraints, or recurring handling guidance.
 - Use STYLE for stable tone, length, formatting, or phrasing preferences.
 - For GLOBAL scope, leave scopeValue empty.
@@ -134,9 +135,14 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
   return result.object.memories
     .map((memory) => ({
       ...memory,
+      scopeType:
+        memory.kind === ReplyMemoryKind.STYLE
+          ? ReplyMemoryScopeType.GLOBAL
+          : memory.scopeType,
       title: memory.title.trim(),
       content: memory.content.trim(),
       scopeValue:
+        memory.kind === ReplyMemoryKind.STYLE ||
         memory.scopeType === ReplyMemoryScopeType.GLOBAL
           ? ""
           : memory.scopeValue.trim(),

@@ -860,7 +860,6 @@ model ReplyMemory {
   kind       ReplyMemoryKind
   scopeType  ReplyMemoryScopeType
   scopeValue String
-  learnedWritingStyleAnalyzedAt DateTime?
 
   emailAccountId String
   emailAccount   EmailAccount        @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -869,11 +868,11 @@ model ReplyMemory {
   @@unique([emailAccountId, kind, scopeType, scopeValue, title])
   @@index([emailAccountId, updatedAt])
   @@index([emailAccountId, scopeType, scopeValue])
-  @@index([emailAccountId, kind, scopeType, learnedWritingStyleAnalyzedAt])
 }
 
 model ReplyMemorySource {
   createdAt DateTime @default(now())
+  learnedWritingStyleAnalyzedAt DateTime?
 
   replyMemoryId String
   replyMemory   ReplyMemory @relation(fields: [replyMemoryId], references: [id], onDelete: Cascade)
@@ -883,6 +882,7 @@ model ReplyMemorySource {
 
   @@id([replyMemoryId, draftSendLogId])
   @@index([draftSendLogId])
+  @@index([replyMemoryId, learnedWritingStyleAnalyzedAt, createdAt])
 }
 
 model ApiKey {
