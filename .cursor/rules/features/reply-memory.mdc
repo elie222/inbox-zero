@@ -18,7 +18,7 @@ It does two jobs:
 The system does not treat all learned data the same way.
 Some learned items are always-on writing preferences.
 Some are conditional facts or procedures.
-Some are raw draft/send correction signals on `ReplyMemorySource`, plus short-lived sent-text evidence on `DraftSendLog`, which stay useful for analysis and eval generation but are not injected directly into prompts.
+Some are raw draft/send correction signals on `ReplyMemorySource`, plus short-lived sent-text evidence on `DraftSendLog`, which stay useful for analysis and debugging but are not injected directly into prompts.
 
 ## Core Principles
 
@@ -80,7 +80,6 @@ The system does not assume manual KB coverage.
 Raw draft/send evidence is useful for:
 
 - improving prompts
-- building evals
 - consolidating memories
 - validating conflicts
 
