@@ -2,7 +2,6 @@ import { z } from "zod";
 import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
-import { withNetworkRetry } from "@/utils/llms/retry";
 import type { getEmailAccountWithAi } from "@/utils/user/get";
 
 const learnedWritingStyleSchema = z.object({
@@ -29,16 +28,12 @@ Summarize the user's learned writing style from this evidence.`;
     modelOptions,
   });
 
-  const result = await withNetworkRetry(
-    () =>
-      generateObject({
-        ...modelOptions,
-        system: getSystemPrompt(),
-        prompt,
-        schema: learnedWritingStyleSchema,
-      }),
-    { label: "Learned writing style compaction" },
-  );
+  const result = await generateObject({
+    ...modelOptions,
+    system: getSystemPrompt(),
+    prompt,
+    schema: learnedWritingStyleSchema,
+  });
 
   return result.object.learnedWritingStyle.trim();
 }

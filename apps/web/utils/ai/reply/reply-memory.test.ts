@@ -34,9 +34,6 @@ vi.mock("@/utils/llms/model", () => ({
     fallbackModels: [],
   })),
 }));
-vi.mock("@/utils/llms/retry", () => ({
-  withNetworkRetry: vi.fn().mockImplementation((fn) => fn()),
-}));
 vi.mock("@/utils/user/get", () => ({
   getEmailAccountWithAi: vi.fn().mockResolvedValue({
     id: "account-1",

@@ -9,7 +9,6 @@ import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { extractDomainFromEmail } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
-import { withNetworkRetry } from "@/utils/llms/retry";
 import type { getEmailAccountWithAi } from "@/utils/user/get";
 
 const MAX_MEMORIES_PER_EDIT = 3;
@@ -85,16 +84,12 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
     modelOptions,
   });
 
-  const result = await withNetworkRetry(
-    () =>
-      generateObject({
-        ...modelOptions,
-        system: getSystemPrompt(),
-        prompt,
-        schema: replyMemorySchema,
-      }),
-    { label: "Reply memory extraction" },
-  );
+  const result = await generateObject({
+    ...modelOptions,
+    system: getSystemPrompt(),
+    prompt,
+    schema: replyMemorySchema,
+  });
 
   return result.object.memories
     .map((memory) => ({
