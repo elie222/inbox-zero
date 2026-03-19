@@ -1,0 +1,194 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+
+# Reply Memory Feature
+
+## Overview
+
+The reply memory system exists to improve future draft replies from prior user corrections.
+
+It should do two jobs:
+
+- act as a lightweight runtime corrective layer for drafting
+- automatically build useful knowledge for users who do not maintain a manual knowledge base
+
+The system should not treat all learned data the same way.
+Some learned items are always-on writing preferences.
+Some are conditional facts or procedures.
+Some are raw evidence that should be kept for analysis and eval generation, but not injected directly into prompts.
+
+## Core Principles
+
+### Atomic Memories
+
+Each memory should be one atomic fragment in a single canonical `content` field.
+
+Do not split a memory across `title + content`.
+The memory itself should already be a prompt-ready instruction or fact.
+
+### Memory Types
+
+We should move toward these conceptual types:
+
+- `fact`
+  - durable business knowledge, routing rules, pricing, policies
+- `preference`
+  - writing style, formatting, greeting/sign-off habits
+- `procedure`
+  - how to handle a recurring class of replies
+- raw evidence
+  - draft/send correction signals used for analysis, consolidation, and evals
+
+### Small Prompt Footprint
+
+The drafting prompt should stay small.
+
+- style/preferences should be compact and mostly always-on
+- facts/procedures should be selected conditionally
+- raw evidence should usually stay out of the prompt
+
+## Retrieval Model
+
+### Main Drafter
+
+The main drafting path should receive:
+
+- manual writing style
+- learned style profile
+- a small selected set of relevant facts/procedures
+
+It should not rely on a large memory dump.
+
+### Subagent
+
+For subagents, progressive disclosure is acceptable because extra hops are fine.
+
+The preferred pattern is:
+
+1. give the subagent a compact tag index
+2. ask which tags it wants to expand
+3. expand only those sections
+4. optionally allow a free-form search pass
+5. ask the subagent to extract the relevant items
+
+This is a CAG-style memory selector for subagents, not for the main drafter.
+
+### Tag Index
+
+Tags should be controlled and simple.
+The tags themselves are the short summary.
+We do not need extra prose summaries per tag at first.
+
+Good tag categories:
+
+- kind: fact / preference / procedure
+- scope: global / sender / domain / topic
+- topic: pricing / billing / scheduling / support / intros / logistics / etc.
+- confidence: high / medium / low
+- state: active / conflicted / stale
+
+Free-form search can be layered on top to help the subagent find relevant areas when tags are not enough.
+
+## Knowledge Base Relationship
+
+Most users do not have a manual knowledge base.
+
+The reply memory system can serve as an automatic KB for those users.
+
+That means:
+
+- `fact` and `procedure` items are effectively auto-KB entries
+- `preference` items are user-specific drafting bias
+- raw evidence is the learning substrate that feeds both
+
+The system should not assume manual KB coverage.
+
+## Evidence and Retention
+
+Raw draft/send evidence is useful for:
+
+- improving prompts
+- building evals
+- consolidating memories
+- validating conflicts
+
+Temporary retention is acceptable.
+
+Current direction:
+
+- keep raw sent-text evidence for about a week
+- lazily clean it up
+- keep durable memories longer than raw evidence
+
+## Conflict Handling
+
+Memories can change over time.
+
+Example:
+
+- older evidence suggests no greeting
+- newer evidence suggests adding a brief personalized greeting
+
+The system should support:
+
+- reinforcement
+- recency
+- conflict detection
+- stale memory handling
+
+Likely fields later:
+
+- `timesSeen`
+- `lastSeenAt`
+- `confidence`
+- `state`
+
+## Immediate Task List
+
+### Phase 1: Simplify Memory Shape
+
+- remove `title + content` split
+- keep one canonical memory `content`
+- update uniqueness and formatting
+
+### Phase 2: Clean Up Taxonomy
+
+- narrow or replace `STYLE`
+- introduce clearer conceptual types: `fact`, `preference`, `procedure`
+- stop storing playbooks as generic style
+
+### Phase 3: Add Evidence Graduation Rules
+
+- do not treat every extracted item as a durable prompt memory
+- define promotion rules by kind
+- allow fast promotion for very high-confidence preference signals
+- require stronger reinforcement for broader facts/procedures
+
+### Phase 4: Build Memory Consolidation
+
+- merge near-duplicate memories
+- rebuild learned style profile from preference evidence
+- weaken or retire stale/conflicted memories
+
+### Phase 5: Build Subagent Memory CAG
+
+- generate a compact per-account tag index
+- allow progressive disclosure by tags
+- allow optional free-form search
+- let the subagent extract relevant items before handing context to the main drafter
+
+### Phase 6: Improve Analysis and Evals
+
+- log repeated residual draft mistakes
+- separate runtime memory from offline improvement signals
+- generate eval cases from repeated failure modes
+
+## Key Design Rule
+
+The memory system is a residual improvement layer.
+
+Search, inbox context, relationships, and KB retrieval should continue to do most of the factual heavy lifting.
+Memory should capture what repeatedly goes wrong or what the user reliably corrects.
