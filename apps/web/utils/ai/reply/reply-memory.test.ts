@@ -7,12 +7,12 @@ import {
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
-  aiExtractReplyMemoriesFromDraftEdit,
   getReplyMemoryContent,
   getReplyMemoriesForPrompt,
   isMeaningfulDraftEdit,
   syncReplyMemoriesFromDraftSendLogs,
 } from "./reply-memory";
+import { aiExtractReplyMemoriesFromDraftEdit } from "./extract-reply-memories";
 
 const { mockCreateGenerateObject, mockGenerateObject } = vi.hoisted(() => {
   const mockGenerateObject = vi.fn();

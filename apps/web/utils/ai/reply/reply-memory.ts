@@ -1,53 +1,25 @@
-import { z } from "zod";
 import {
   ReplyMemoryKind,
   ReplyMemoryScopeType,
 } from "@/generated/prisma/enums";
 import type { Prisma, ReplyMemory } from "@/generated/prisma/client";
-import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import { extractDomainFromEmail, extractEmailAddress } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { createGenerateObject } from "@/utils/llms";
-import { getModel } from "@/utils/llms/model";
-import { withNetworkRetry } from "@/utils/llms/retry";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
-import {
-  getLearnedWritingStylePrompt,
-  getReplyMemoryExtractionPrompt,
-  getReplyMemoryExtractionSystemPrompt,
-  learnedWritingStyleSystemPrompt,
-} from "./reply-memory.prompts";
+import { aiExtractReplyMemoriesFromDraftEdit } from "./extract-reply-memories";
+import { aiSummarizeLearnedWritingStyle } from "./summarize-learned-writing-style";
 
 const REPLY_MEMORY_RETENTION_DAYS = 7;
 const MAX_REPLY_MEMORY_SOURCE_FETCH_ATTEMPTS = 3;
-const MAX_MEMORIES_PER_EDIT = 3;
 const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
 const MAX_RETRIEVED_REPLY_MEMORIES = 6;
 const MAX_RETRIEVED_TOPIC_REPLY_MEMORIES = 3;
 const MIN_STYLE_MEMORIES_FOR_LEARNED_STYLE = 10;
 const STYLE_MEMORIES_PER_LEARNED_STYLE_REFRESH = 5;
 const MAX_STYLE_MEMORIES_FOR_LEARNED_STYLE = 25;
-
-const replyMemorySchema = z.object({
-  memories: z
-    .array(
-      z.object({
-        title: z.string().trim().min(1).max(120),
-        content: z.string().trim().min(1).max(400),
-        kind: z.nativeEnum(ReplyMemoryKind),
-        scopeType: z.nativeEnum(ReplyMemoryScopeType),
-        scopeValue: z.string().trim().max(200),
-      }),
-    )
-    .max(MAX_MEMORIES_PER_EDIT),
-});
-
-const learnedWritingStyleSchema = z.object({
-  learnedWritingStyle: z.string().trim().min(1).max(1500),
-});
 
 export async function saveDraftSendLogReplyMemory({
   draftSendLogId,
@@ -463,105 +435,6 @@ async function processReplyMemoryDraftSendLog({
   });
 }
 
-export async function aiExtractReplyMemoriesFromDraftEdit({
-  incomingEmailContent,
-  draftText,
-  sentText,
-  senderEmail,
-  existingMemories,
-  learnedWritingStyle = null,
-  emailAccount,
-}: {
-  incomingEmailContent: string;
-  draftText: string;
-  sentText: string;
-  senderEmail: string;
-  existingMemories: Pick<
-    ReplyMemory,
-    "title" | "content" | "kind" | "scopeType" | "scopeValue"
-  >[];
-  learnedWritingStyle?: string | null;
-  emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
-}) {
-  const normalizedIncomingEmailContent = incomingEmailContent.trim();
-  const normalizedDraftText = draftText.trim();
-  const normalizedSentText = sentText.trim();
-  const normalizedSenderEmail = senderEmail.trim().toLowerCase();
-
-  if (!normalizedSenderEmail) return [];
-  if (!normalizedDraftText || !normalizedSentText) return [];
-  if (
-    normalizeMemoryText(normalizedDraftText) ===
-    normalizeMemoryText(normalizedSentText)
-  ) {
-    return [];
-  }
-
-  const senderDomain = extractDomainFromEmail(
-    normalizedSenderEmail,
-  ).toLowerCase();
-  const prompt = getReplyMemoryExtractionPrompt({
-    senderEmail: normalizedSenderEmail,
-    senderDomain,
-    incomingEmailContent: normalizedIncomingEmailContent,
-    draftText: normalizedDraftText,
-    sentText: normalizedSentText,
-    existingMemories: formatExistingMemories(existingMemories),
-    learnedWritingStyle,
-    userInfoPrompt: getUserInfoPrompt({ emailAccount }),
-  });
-
-  const modelOptions = getModel(emailAccount.user, "economy");
-  const generateObject = createGenerateObject({
-    emailAccount,
-    label: "Reply memory extraction",
-    modelOptions,
-  });
-
-  const result = await withNetworkRetry(
-    () =>
-      generateObject({
-        ...modelOptions,
-        system: getReplyMemoryExtractionSystemPrompt({
-          maxMemoriesPerEdit: MAX_MEMORIES_PER_EDIT,
-        }),
-        prompt,
-        schema: replyMemorySchema,
-      }),
-    { label: "Reply memory extraction" },
-  );
-
-  const normalizedMemories = result.object.memories.map((memory) => ({
-    ...memory,
-    title: memory.title.trim(),
-    content: memory.content.trim(),
-    scopeValue:
-      memory.scopeType === ReplyMemoryScopeType.GLOBAL
-        ? ""
-        : memory.scopeValue.trim(),
-  }));
-
-  return normalizedMemories.slice(0, MAX_MEMORIES_PER_EDIT);
-}
-
-function formatExistingMemories(
-  memories: Pick<
-    ReplyMemory,
-    "title" | "content" | "kind" | "scopeType" | "scopeValue"
-  >[],
-) {
-  if (!memories.length) return "None";
-
-  return memories
-    .map(
-      (memory, index) =>
-        `${index + 1}. [${memory.kind} | ${memory.scopeType}${
-          memory.scopeValue ? `:${memory.scopeValue}` : ""
-        }] ${memory.title}: ${memory.content}`,
-    )
-    .join("\n");
-}
-
 async function fetchReplyMemoriesByScope({
   emailAccountId,
   kind,
@@ -664,8 +537,8 @@ async function maybeRefreshLearnedWritingStyle({
 
   if (!styleMemories.length) return;
 
-  const learnedWritingStyle = await summarizeLearnedWritingStyle({
-    styleMemories,
+  const learnedWritingStyle = await aiSummarizeLearnedWritingStyle({
+    styleMemoryEvidence: formatStyleMemoryEvidence(styleMemories),
     emailAccount,
   });
 
@@ -688,39 +561,6 @@ async function maybeRefreshLearnedWritingStyle({
       learnedWritingStyleAnalyzedAt: new Date(),
     },
   });
-}
-
-async function summarizeLearnedWritingStyle({
-  styleMemories,
-  emailAccount,
-}: {
-  styleMemories: StyleMemoryCompactionPayload[];
-  emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
-}) {
-  const prompt = getLearnedWritingStylePrompt({
-    styleMemoryEvidence: formatStyleMemoryEvidence(styleMemories),
-    userInfoPrompt: getUserInfoPrompt({ emailAccount }),
-  });
-
-  const modelOptions = getModel(emailAccount.user, "economy");
-  const generateObject = createGenerateObject({
-    emailAccount,
-    label: "Learned writing style compaction",
-    modelOptions,
-  });
-
-  const result = await withNetworkRetry(
-    () =>
-      generateObject({
-        ...modelOptions,
-        system: learnedWritingStyleSystemPrompt,
-        prompt,
-        schema: learnedWritingStyleSchema,
-      }),
-    { label: "Learned writing style compaction" },
-  );
-
-  return result.object.learnedWritingStyle.trim();
 }
 
 function normalizeMemoryText(value: string) {

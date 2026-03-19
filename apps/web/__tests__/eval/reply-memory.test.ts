@@ -12,7 +12,7 @@ import {
   ReplyMemoryScopeType,
 } from "@/generated/prisma/enums";
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
-import { aiExtractReplyMemoriesFromDraftEdit } from "@/utils/ai/reply/reply-memory";
+import { aiExtractReplyMemoriesFromDraftEdit } from "@/utils/ai/reply/extract-reply-memories";
 
 // pnpm test-ai eval/reply-memory
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/reply-memory
