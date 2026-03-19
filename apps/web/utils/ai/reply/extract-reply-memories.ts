@@ -111,6 +111,11 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
           ? ""
           : memory.scopeValue.trim(),
     }))
+    .filter(
+      (memory) =>
+        memory.scopeType !== ReplyMemoryScopeType.TOPIC ||
+        memory.scopeValue.length > 0,
+    )
     .slice(0, MAX_MEMORIES_PER_EDIT);
 }
 
