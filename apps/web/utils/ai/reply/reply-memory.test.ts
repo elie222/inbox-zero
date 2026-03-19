@@ -45,8 +45,8 @@ vi.mock("@/utils/user/get", () => ({
     calendarBookingLink: null,
     name: "User",
     user: {
-      aiProvider: "openai",
-      aiModel: "gpt-5.1",
+      aiProvider: null,
+      aiModel: null,
       aiApiKey: null,
     },
     account: {
@@ -615,8 +615,8 @@ describe("reply-memory", () => {
         calendarBookingLink: null,
         name: "User",
         user: {
-          aiProvider: "openai",
-          aiModel: "gpt-5.1",
+          aiProvider: null,
+          aiModel: null,
           aiApiKey: null,
         },
         account: {
@@ -1119,8 +1119,8 @@ describe("reply-memory", () => {
         calendarBookingLink: null,
         name: "User",
         user: {
-          aiProvider: "openai",
-          aiModel: "gpt-5.1",
+          aiProvider: null,
+          aiModel: null,
           aiApiKey: null,
         },
         account: {
@@ -1193,8 +1193,8 @@ describe("reply-memory", () => {
         calendarBookingLink: null,
         name: "User",
         user: {
-          aiProvider: "openai",
-          aiModel: "gpt-5.1",
+          aiProvider: null,
+          aiModel: null,
           aiApiKey: null,
         },
         account: {
@@ -1228,8 +1228,8 @@ describe("reply-memory", () => {
         calendarBookingLink: null,
         name: "User",
         user: {
-          aiProvider: "openai",
-          aiModel: "gpt-5.1",
+          aiProvider: null,
+          aiModel: null,
           aiApiKey: null,
         },
         account: {
