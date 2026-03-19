@@ -186,6 +186,119 @@ Likely fields later:
 - separate runtime memory from offline improvement signals
 - generate eval cases from repeated failure modes
 
+## Recommended Implementation Sequence For This Branch
+
+### Step 1: Ship the Single-Field Memory Shape
+
+Status: already implemented on this branch.
+
+Scope:
+
+- `ReplyMemory` uses one canonical `content` field
+- no `title + content` split
+- extraction and prompt formatting use a single atomic memory string
+
+Key files:
+
+- `apps/web/prisma/schema.prisma`
+- `apps/web/prisma/migrations/..._simplify_reply_memory_shape/`
+- `apps/web/utils/ai/reply/extract-reply-memories.ts`
+- `apps/web/utils/ai/reply/reply-memory.ts`
+
+### Step 2: Replace Broad STYLE Usage
+
+Goal:
+
+- stop using `STYLE` as a bucket for everything
+- narrow style-like memories to `preference`
+- move handling patterns into `procedure`
+
+Suggested work:
+
+- add a new enum value for procedures
+- update extraction prompt and examples
+- update learned-style compaction so it only reads preference-like evidence
+
+Key files:
+
+- `apps/web/prisma/schema.prisma`
+- `apps/web/utils/ai/reply/extract-reply-memories.ts`
+- `apps/web/utils/ai/reply/reply-memory.ts`
+- `apps/web/utils/ai/reply/summarize-learned-writing-style.ts`
+
+### Step 3: Add Promotion / Graduation Rules
+
+Goal:
+
+- raw evidence first
+- durable runtime memories second
+
+Suggested work:
+
+- decide which kinds can be promoted from a single high-confidence edit
+- require stronger reinforcement for broader facts/procedures
+- keep weak signals as evidence only
+
+Possible schema additions:
+
+- `timesSeen`
+- `lastSeenAt`
+- `confidence`
+- `state`
+
+### Step 4: Build Memory Consolidation
+
+Goal:
+
+- merge duplicates
+- retire stale memories
+- detect conflicts
+- rebuild learned style summary from current evidence
+
+Suggested work:
+
+- add a consolidation job or opportunistic refresh path
+- track stale vs active vs conflicted memories
+- make newer repeated evidence able to override older habits
+
+### Step 5: Add Subagent-Only Memory CAG
+
+Goal:
+
+- progressive disclosure for subagents
+- no large memory dump into the main drafter
+
+Suggested work:
+
+- build a compact tag index per account
+- expose tag list first
+- allow expansion by selected tags
+- allow optional free-form search
+- let the subagent extract relevant items before handing off to the main drafter
+
+Expected shape:
+
+1. tag index
+2. expand selected sections
+3. optional free-form search
+4. cheap selector extracts relevant fragments
+
+### Step 6: Add Better Evaluation and Analysis
+
+Goal:
+
+- use residual mistakes to improve the system globally
+
+Suggested work:
+
+- log repeated model mistakes separately from runtime memory
+- turn repeated failure patterns into eval cases
+- measure:
+  - repeated corrections
+  - promoted vs evidence-only items
+  - prompt hit rate for retrieved memories
+  - stale/conflicted memory rates
+
 ## Key Design Rule
 
 The memory system is a residual improvement layer.
