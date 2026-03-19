@@ -566,7 +566,7 @@ Thanks,`,
 
 function summarizeMemories(
   memories: Array<{
-    title: string;
+    title?: string;
     kind: ReplyMemoryKind;
     scopeType: ReplyMemoryScopeType;
     scopeValue: string;
@@ -578,14 +578,14 @@ function summarizeMemories(
   return memories
     .map(
       (memory) =>
-        `[${memory.kind}|${memory.scopeType}${memory.scopeValue ? `:${memory.scopeValue}` : ""}] ${memory.title}: ${memory.content}`,
+        `[${memory.kind}|${memory.scopeType}${memory.scopeValue ? `:${memory.scopeValue}` : ""}] ${memory.content}`,
     )
     .join(" || ");
 }
 
 function buildStyleMemoryEvidence(
   evidence: Array<{
-    title: string;
+    title?: string;
     content: string;
     draftText: string;
     sentText: string;
@@ -593,7 +593,7 @@ function buildStyleMemoryEvidence(
 ) {
   return evidence
     .map(
-      (item, index) => `${index + 1}. ${item.title}: ${item.content}
+      (item, index) => `${index + 1}. ${item.content}
 Draft example: ${item.draftText}
 Sent example: ${item.sentText}`,
     )

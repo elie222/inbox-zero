@@ -18,7 +18,6 @@ const replyMemorySchema = z.object({
   memories: z
     .array(
       z.object({
-        title: z.string().trim().min(1).max(120),
         content: z.string().trim().min(1).max(400),
         kind: z.nativeEnum(ReplyMemoryKind),
         scopeType: z.nativeEnum(ReplyMemoryScopeType),
@@ -44,7 +43,7 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
   senderEmail: string;
   existingMemories: Pick<
     ReplyMemory,
-    "title" | "content" | "kind" | "scopeType" | "scopeValue"
+    "content" | "kind" | "scopeType" | "scopeValue"
   >[];
   writingStyle?: string | null;
   learnedWritingStyle?: string | null;
@@ -93,13 +92,12 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
 
   return result.object.memories
     .map((memory) => ({
-      ...memory,
+      content: memory.content.trim(),
+      kind: memory.kind,
       scopeType:
         memory.kind === ReplyMemoryKind.STYLE
           ? ReplyMemoryScopeType.GLOBAL
           : memory.scopeType,
-      title: memory.title.trim(),
-      content: memory.content.trim(),
       scopeValue:
         memory.kind === ReplyMemoryKind.STYLE ||
         memory.scopeType === ReplyMemoryScopeType.GLOBAL
@@ -132,7 +130,7 @@ function getPrompt({
   sentText: string;
   existingMemories: Pick<
     ReplyMemory,
-    "title" | "content" | "kind" | "scopeType" | "scopeValue"
+    "content" | "kind" | "scopeType" | "scopeValue"
   >[];
   writingStyle: string | null;
   learnedWritingStyle: string | null;
@@ -185,7 +183,7 @@ Extract reusable reply memories from this draft edit.`;
 function formatExistingMemories(
   memories: Pick<
     ReplyMemory,
-    "title" | "content" | "kind" | "scopeType" | "scopeValue"
+    "content" | "kind" | "scopeType" | "scopeValue"
   >[],
 ) {
   if (!memories.length) return "None";
@@ -196,7 +194,7 @@ function formatExistingMemories(
       (memory, index) =>
         `${index + 1}. [${memory.kind} | ${memory.scopeType}${
           memory.scopeValue ? `:${memory.scopeValue}` : ""
-        }] ${memory.title}: ${memory.content}`,
+        }] ${memory.content}`,
     )
     .join("\n");
 }
@@ -227,6 +225,8 @@ Rules:
 - Skip one-off contextual details that should not be reused later.
 - If the edit only changes a meeting time, date, greeting, sign-off, or other thread-specific logistics, return no memory unless the user stated a stable rule.
 - Prefer concise, direct drafting instructions.
+- Prefer concise, direct drafting instructions.
+- Each memory should be a single prompt-ready instruction or fact in the content field. Do not split the same idea across a title and body.
 - Do not infer a durable style preference from a single scheduling choice or one-off availability update.
 - Do not store a STYLE memory that simply repeats the user's explicit writing style setting.
 - STYLE memories are always account-level. Use GLOBAL scope for STYLE memories.

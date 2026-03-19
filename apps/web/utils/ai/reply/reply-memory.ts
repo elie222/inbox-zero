@@ -386,12 +386,12 @@ async function processReplyMemoryDraftSendLog({
       continue;
 
     const where = {
-      emailAccountId_kind_scopeType_scopeValue_title: {
+      emailAccountId_kind_scopeType_scopeValue_content: {
         emailAccountId,
         kind: normalizedMemory.kind,
         scopeType: normalizedMemory.scopeType,
         scopeValue: normalizedScopeValue,
-        title: normalizedMemory.title,
+        content: normalizedMemory.content,
       },
     } satisfies Prisma.ReplyMemoryWhereUniqueInput;
 
@@ -399,7 +399,6 @@ async function processReplyMemoryDraftSendLog({
       where,
       create: {
         emailAccountId,
-        title: normalizedMemory.title,
         content: normalizedMemory.content,
         kind: normalizedMemory.kind,
         scopeType: normalizedMemory.scopeType,
@@ -670,7 +669,6 @@ type DraftSendLogReplyMemoryPayload = Prisma.DraftSendLogGetPayload<{
 const styleWritingEvidenceInclude = {
   replyMemory: {
     select: {
-      title: true,
       content: true,
     },
   },
@@ -751,7 +749,7 @@ function formatStyleMemoryEvidence(
       const draftText = evidence.draftSendLog.executedAction.content ?? "";
       const sentText = evidence.draftSendLog.replyMemorySentText ?? "";
 
-      return `${index + 1}. ${evidence.replyMemory.title}: ${evidence.replyMemory.content}
+      return `${index + 1}. ${evidence.replyMemory.content}
 Draft example: ${truncateStyleEvidenceText(draftText) || "None"}
 Sent example: ${truncateStyleEvidenceText(sentText) || "None"}`;
     })

@@ -855,7 +855,6 @@ model ReplyMemory {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  title      String
   content    String
   kind       ReplyMemoryKind
   scopeType  ReplyMemoryScopeType
@@ -865,7 +864,7 @@ model ReplyMemory {
   emailAccount   EmailAccount        @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   sources        ReplyMemorySource[]
 
-  @@unique([emailAccountId, kind, scopeType, scopeValue, title])
+  @@unique([emailAccountId, kind, scopeType, scopeValue, content])
   @@index([emailAccountId, updatedAt])
   @@index([emailAccountId, scopeType, scopeValue])
 }

@@ -364,7 +364,6 @@ describe("reply-memory", () => {
     expect(prisma.replyMemory.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
-          title: "pricing answer",
           content: "Mention that pricing depends on seat count.",
           scopeType: ReplyMemoryScopeType.TOPIC,
           scopeValue: "pricing",
@@ -632,7 +631,6 @@ describe("reply-memory", () => {
 
     expect(result).toEqual([
       {
-        title: "concise tone",
         content: "Keep replies short and remove filler.",
         kind: ReplyMemoryKind.STYLE,
         scopeType: ReplyMemoryScopeType.GLOBAL,
@@ -1137,7 +1135,6 @@ describe("reply-memory", () => {
 
     expect(result).toEqual([
       {
-        title: "pricing answer",
         content: "Mention that pricing depends on seat count.",
         kind: ReplyMemoryKind.FACT,
         scopeType: ReplyMemoryScopeType.GLOBAL,
@@ -1209,10 +1206,10 @@ describe("reply-memory", () => {
     });
 
     expect(result).toHaveLength(3);
-    expect(result.map((memory) => memory.title)).toEqual([
-      "memory 1",
-      "memory 2",
-      "memory 3",
+    expect(result.map((memory) => memory.content)).toEqual([
+      "First memory.",
+      "Second memory.",
+      "Third memory.",
     ]);
   });
 
@@ -1261,14 +1258,13 @@ function createReplyMemory(
     emailAccountId: string;
   }>,
 ) {
-  const title = overrides.title ?? "memory";
   const scopeType = overrides.scopeType ?? ReplyMemoryScopeType.GLOBAL;
   const scopeValue = overrides.scopeValue ?? "";
+  const content = overrides.content ?? overrides.title ?? "memory";
 
   return {
-    id: overrides.id ?? `${scopeType}:${scopeValue}:${title}`,
-    title,
-    content: "memory content",
+    id: overrides.id ?? `${scopeType}:${scopeValue}:${content}`,
+    content,
     kind: ReplyMemoryKind.FACT,
     scopeType,
     scopeValue,
