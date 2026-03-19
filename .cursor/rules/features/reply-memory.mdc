@@ -26,7 +26,6 @@ Some are raw evidence that should be kept for analysis and eval generation, but 
 
 Each memory should be one atomic fragment in a single canonical `content` field.
 
-Do not split a memory across `title + content`.
 The memory itself should already be a prompt-ready instruction or fact.
 
 ### Memory Types
