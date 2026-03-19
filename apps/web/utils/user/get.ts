@@ -187,5 +187,5 @@ export async function getLearnedWritingStyle({
     select: { learnedWritingStyle: true },
   });
 
-  return learnedWritingStyle?.learnedWritingStyle || null;
+  return learnedWritingStyle?.learnedWritingStyle ?? null;
 }

@@ -447,16 +447,26 @@ async function processReplyMemoryDraftSendLog({
     )
       continue;
 
-    const persistedMemory = await prisma.replyMemory.upsert({
-      where: {
-        emailAccountId_kind_scopeType_scopeValue_title: {
-          emailAccountId,
-          kind: memory.kind,
-          scopeType: memory.scopeType,
-          scopeValue: normalizedScopeValue,
-          title: memory.title,
-        },
+    const where = {
+      emailAccountId_kind_scopeType_scopeValue_title: {
+        emailAccountId,
+        kind: memory.kind,
+        scopeType: memory.scopeType,
+        scopeValue: normalizedScopeValue,
+        title: memory.title,
       },
+    } satisfies Prisma.ReplyMemoryWhereUniqueInput;
+
+    const existingStyleMemory =
+      memory.kind === ReplyMemoryKind.STYLE
+        ? await prisma.replyMemory.findUnique({
+            where,
+            select: { content: true },
+          })
+        : null;
+
+    const persistedMemory = await prisma.replyMemory.upsert({
+      where,
       create: {
         emailAccountId,
         title: memory.title,
@@ -470,7 +480,8 @@ async function processReplyMemoryDraftSendLog({
       },
       update: {
         content: memory.content,
-        ...(memory.kind === ReplyMemoryKind.STYLE
+        ...(memory.kind === ReplyMemoryKind.STYLE &&
+        existingStyleMemory?.content !== memory.content
           ? { learnedWritingStyleAnalyzedAt: null }
           : {}),
       },
@@ -491,7 +502,9 @@ async function processReplyMemoryDraftSendLog({
     });
   }
 
-  await markDraftSendLogReplyMemoryProcessed(draftSendLog.id);
+  await markDraftSendLogReplyMemoryProcessed(draftSendLog.id, {
+    clearSentText: false,
+  });
 }
 
 export async function aiExtractReplyMemoriesFromDraftEdit({
@@ -808,12 +821,17 @@ function getReplyMemoryScopes({
   ];
 }
 
-async function markDraftSendLogReplyMemoryProcessed(id: string) {
+async function markDraftSendLogReplyMemoryProcessed(
+  id: string,
+  options?: { clearSentText?: boolean },
+) {
   await prisma.draftSendLog.update({
     where: { id },
     data: {
       replyMemoryProcessedAt: new Date(),
-      replyMemorySentText: null,
+      ...(options?.clearSentText !== false
+        ? { replyMemorySentText: null }
+        : {}),
     },
   });
 }

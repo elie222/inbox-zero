@@ -66,6 +66,7 @@ describe("reply-memory", () => {
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(null as any);
     vi.mocked(prisma.emailAccount.update).mockResolvedValue({} as any);
     vi.mocked(prisma.replyMemory.count).mockResolvedValue(0 as any);
+    vi.mocked(prisma.replyMemory.findUnique).mockResolvedValue(null as any);
     vi.mocked(prisma.replyMemory.updateMany).mockResolvedValue({
       count: 0,
     } as any);
@@ -387,7 +388,6 @@ describe("reply-memory", () => {
       where: { id: "draft-send-log-1" },
       data: {
         replyMemoryProcessedAt: expect.any(Date),
-        replyMemorySentText: null,
       },
     });
   });
@@ -543,6 +543,61 @@ describe("reply-memory", () => {
         learnedWritingStyleAnalyzedAt: expect.any(Date),
       },
     });
+  });
+
+  it("does not mark an unchanged style memory as unanalyzed again", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText: "Pricing depends on seat count.",
+      }),
+    ] as any);
+    vi.mocked(prisma.replyMemory.findMany).mockResolvedValue([] as any);
+    vi.mocked(prisma.replyMemory.findUnique).mockResolvedValueOnce({
+      content: "Keep replies short and remove filler.",
+    } as any);
+    vi.mocked(prisma.replyMemory.upsert).mockResolvedValue(
+      createReplyMemory({
+        id: "style-memory",
+        title: "concise tone",
+        kind: ReplyMemoryKind.STYLE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+      }) as any,
+    );
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        memories: [
+          {
+            title: "concise tone",
+            content: "Keep replies short and remove filler.",
+            kind: ReplyMemoryKind.STYLE,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+        ],
+      },
+    });
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+
+    await syncReplyMemoriesFromDraftSendLogs({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(prisma.replyMemory.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: {
+          content: "Keep replies short and remove filler.",
+        },
+      }),
+    );
   });
 
   it("increments retry state when the source email cannot be loaded", async () => {
@@ -887,7 +942,6 @@ describe("reply-memory", () => {
       where: { id: "draft-send-log-1" },
       data: {
         replyMemoryProcessedAt: expect.any(Date),
-        replyMemorySentText: null,
       },
     });
   });
