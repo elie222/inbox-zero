@@ -29,42 +29,6 @@ const replyMemorySchema = z.object({
     .max(MAX_MEMORIES_PER_EDIT),
 });
 
-function getSystemPrompt() {
-  return `You analyze how a user edits AI-generated email reply drafts and turn durable patterns into reusable drafting memories.
-
-${PROMPT_SECURITY_INSTRUCTIONS}
-
-Return only memories that are likely to help with future drafts.
-
-Memory kinds:
-- FACT: reusable factual corrections, business rules, or handling guidance
-- STYLE: tone, length, formatting, and phrasing habits
-
-Scopes:
-- GLOBAL: applies broadly to the user's replies
-- SENDER: applies to one sender email address
-- DOMAIN: applies to one sender domain
-- TOPIC: applies to a reusable topic or subject area
-
-Rules:
-- Return at most ${MAX_MEMORIES_PER_EDIT} memories.
-- Skip one-off contextual details that should not be reused later.
-- If the edit only changes a meeting time, date, greeting, sign-off, or other thread-specific logistics, return no memory unless the user stated a stable rule.
-- Prefer concise, direct drafting instructions.
-- Do not infer a durable style preference from a single scheduling choice or one-off availability update.
-- Do not store a STYLE memory that simply repeats the user's explicit writing style setting.
-- STYLE memories are always account-level. Use GLOBAL scope for STYLE memories.
-- Use FACT when the edit adds reusable business information, policy, pricing, product capabilities, constraints, or recurring handling guidance.
-- Use STYLE for stable tone, length, formatting, or phrasing preferences.
-- For GLOBAL scope, leave scopeValue empty.
-- For SENDER scope, use the exact sender email from the context.
-- For DOMAIN scope, use the exact sender domain from the context.
-- For TOPIC scope, use a short stable topic phrase such as "pricing" or "refunds".
-- Always include a scopeValue field. Use an empty string for GLOBAL scope.
-- Avoid duplicating an existing memory if the same idea is already covered.
-- If nothing durable was learned, return an empty array.`;
-}
-
 export async function aiExtractReplyMemoriesFromDraftEdit({
   incomingEmailContent,
   draftText,
@@ -174,15 +138,18 @@ function getPrompt({
   learnedWritingStyle: string | null;
   emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
 }) {
-  const writingStylePrompt = writingStyle
+  const trimmedWritingStyle = writingStyle?.trim();
+  const trimmedLearnedWritingStyle = learnedWritingStyle?.trim();
+
+  const writingStylePrompt = trimmedWritingStyle
     ? `<writing_style>
-${writingStyle}
+${trimmedWritingStyle}
 </writing_style>
 `
     : "";
-  const learnedWritingStylePrompt = learnedWritingStyle
+  const learnedWritingStylePrompt = trimmedLearnedWritingStyle
     ? `<learned_writing_style>
-${learnedWritingStyle}
+${trimmedLearnedWritingStyle}
 </learned_writing_style>
 `
     : "";
@@ -236,4 +203,40 @@ function formatExistingMemories(
 
 function normalizeMemoryText(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function getSystemPrompt() {
+  return `You analyze how a user edits AI-generated email reply drafts and turn durable patterns into reusable drafting memories.
+
+${PROMPT_SECURITY_INSTRUCTIONS}
+
+Return only memories that are likely to help with future drafts.
+
+Memory kinds:
+- FACT: reusable factual corrections, business rules, or handling guidance
+- STYLE: tone, length, formatting, and phrasing habits
+
+Scopes:
+- GLOBAL: applies broadly to the user's replies
+- SENDER: applies to one sender email address
+- DOMAIN: applies to one sender domain
+- TOPIC: applies to a reusable topic or subject area
+
+Rules:
+- Return at most ${MAX_MEMORIES_PER_EDIT} memories.
+- Skip one-off contextual details that should not be reused later.
+- If the edit only changes a meeting time, date, greeting, sign-off, or other thread-specific logistics, return no memory unless the user stated a stable rule.
+- Prefer concise, direct drafting instructions.
+- Do not infer a durable style preference from a single scheduling choice or one-off availability update.
+- Do not store a STYLE memory that simply repeats the user's explicit writing style setting.
+- STYLE memories are always account-level. Use GLOBAL scope for STYLE memories.
+- Use FACT when the edit adds reusable business information, policy, pricing, product capabilities, constraints, or recurring handling guidance.
+- Use STYLE for stable tone, length, formatting, or phrasing preferences.
+- For GLOBAL scope, leave scopeValue empty.
+- For SENDER scope, use the exact sender email from the context.
+- For DOMAIN scope, use the exact sender domain from the context.
+- For TOPIC scope, use a short stable topic phrase such as "pricing" or "refunds".
+- Always include a scopeValue field. Use an empty string for GLOBAL scope.
+- Avoid duplicating an existing memory if the same idea is already covered.
+- If nothing durable was learned, return an empty array.`;
 }

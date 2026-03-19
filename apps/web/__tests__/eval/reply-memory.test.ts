@@ -320,7 +320,7 @@ Can you resend the short enterprise pricing explanation you usually send for a 3
           ].join("\n"),
           output: learnedWritingStyle,
           expected:
-            'A compact learned writing style with "Observed patterns:" and "Representative edits:" sections that captures brevity, low ceremony, and plain wording without copying full email text.',
+            "A compact learned writing style summary that captures brevity, low ceremony, and plain wording without copying full email text.",
           criterion: {
             name: "Learned writing style summary quality",
             description:
