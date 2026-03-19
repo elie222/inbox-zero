@@ -176,16 +176,3 @@ export async function getWritingStyle({
 
   return writingStyle?.writingStyle || null;
 }
-
-export async function getLearnedWritingStyle({
-  emailAccountId,
-}: {
-  emailAccountId: string;
-}) {
-  const learnedWritingStyle = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: { learnedWritingStyle: true },
-  });
-
-  return learnedWritingStyle?.learnedWritingStyle ?? null;
-}
