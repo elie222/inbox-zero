@@ -13,6 +13,7 @@ import { withNetworkRetry } from "@/utils/llms/retry";
 import type { getEmailAccountWithAi } from "@/utils/user/get";
 
 const MAX_MEMORIES_PER_EDIT = 3;
+const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
 
 const replyMemorySchema = z.object({
   memories: z
@@ -51,6 +52,7 @@ Rules:
 - If the edit only changes a meeting time, date, greeting, sign-off, or other thread-specific logistics, return no memory unless the user stated a stable rule.
 - Prefer concise, direct drafting instructions.
 - Do not infer a durable style preference from a single scheduling choice or one-off availability update.
+- Do not store a STYLE memory that simply repeats the user's explicit writing style setting.
 - Use FACT when the edit adds reusable business information, policy, pricing, product capabilities, constraints, or recurring handling guidance.
 - Use STYLE for stable tone, length, formatting, or phrasing preferences.
 - For GLOBAL scope, leave scopeValue empty.
@@ -68,6 +70,7 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
   sentText,
   senderEmail,
   existingMemories,
+  writingStyle = null,
   learnedWritingStyle = null,
   emailAccount,
 }: {
@@ -79,6 +82,7 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
     ReplyMemory,
     "title" | "content" | "kind" | "scopeType" | "scopeValue"
   >[];
+  writingStyle?: string | null;
   learnedWritingStyle?: string | null;
   emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
 }) {
@@ -96,9 +100,7 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
     return [];
   }
 
-  const senderDomain = extractDomainFromEmail(
-    normalizedSenderEmail,
-  ).toLowerCase();
+  const senderDomain = extractDomainFromEmail(normalizedSenderEmail);
   const prompt = getPrompt({
     senderEmail: normalizedSenderEmail,
     senderDomain,
@@ -106,6 +108,7 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
     draftText: normalizedDraftText,
     sentText: normalizedSentText,
     existingMemories,
+    writingStyle,
     learnedWritingStyle,
     emailAccount,
   });
@@ -148,6 +151,7 @@ function getPrompt({
   draftText,
   sentText,
   existingMemories,
+  writingStyle,
   learnedWritingStyle,
   emailAccount,
 }: {
@@ -160,9 +164,16 @@ function getPrompt({
     ReplyMemory,
     "title" | "content" | "kind" | "scopeType" | "scopeValue"
   >[];
+  writingStyle: string | null;
   learnedWritingStyle: string | null;
   emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
 }) {
+  const writingStylePrompt = writingStyle
+    ? `<writing_style>
+${writingStyle}
+</writing_style>
+`
+    : "";
   const learnedWritingStylePrompt = learnedWritingStyle
     ? `<learned_writing_style>
 ${learnedWritingStyle}
@@ -189,6 +200,8 @@ ${sentText}
 ${formatExistingMemories(existingMemories)}
 </existing_memories>
 
+${writingStylePrompt}
+
 ${learnedWritingStylePrompt}
 
 ${getUserInfoPrompt({ emailAccount })}
@@ -205,6 +218,7 @@ function formatExistingMemories(
   if (!memories.length) return "None";
 
   return memories
+    .slice(0, MAX_EXISTING_MEMORIES_IN_PROMPT)
     .map(
       (memory, index) =>
         `${index + 1}. [${memory.kind} | ${memory.scopeType}${

@@ -326,7 +326,7 @@ async function processReplyMemoryDraftSendLog({
     return;
   }
 
-  const [existingMemories, learnedWritingStyle] = await Promise.all([
+  const [existingMemories, styleContext] = await Promise.all([
     prisma.replyMemory.findMany({
       where: {
         emailAccountId,
@@ -341,7 +341,7 @@ async function processReplyMemoryDraftSendLog({
     }),
     prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
-      select: { learnedWritingStyle: true },
+      select: { learnedWritingStyle: true, writingStyle: true },
     }),
   ]);
 
@@ -357,7 +357,8 @@ async function processReplyMemoryDraftSendLog({
     sentText: draftSendLog.replyMemorySentText ?? "",
     senderEmail: normalizedSenderEmail,
     existingMemories,
-    learnedWritingStyle: learnedWritingStyle?.learnedWritingStyle ?? null,
+    writingStyle: styleContext?.writingStyle ?? null,
+    learnedWritingStyle: styleContext?.learnedWritingStyle ?? null,
     emailAccount,
   });
 
@@ -431,7 +432,7 @@ async function processReplyMemoryDraftSendLog({
   }
 
   await markDraftSendLogReplyMemoryProcessed(draftSendLog.id, {
-    clearSentText: false,
+    keepSentText: true,
   });
 }
 
@@ -598,15 +599,13 @@ function getReplyMemoryScopes({
 
 async function markDraftSendLogReplyMemoryProcessed(
   id: string,
-  options?: { clearSentText?: boolean },
+  options?: { keepSentText?: boolean },
 ) {
   await prisma.draftSendLog.update({
     where: { id },
     data: {
       replyMemoryProcessedAt: new Date(),
-      ...(options?.clearSentText !== false
-        ? { replyMemorySentText: null }
-        : {}),
+      ...(options?.keepSentText ? {} : { replyMemorySentText: null }),
     },
   });
 }
