@@ -5,6 +5,22 @@ if ! command -v gitleaks >/dev/null 2>&1; then
 fi
 
 zero_oid="0000000000000000000000000000000000000000"
+remote_name="${1:-origin}"
+remote_default_ref=$(git symbolic-ref "refs/remotes/$remote_name/HEAD" 2>/dev/null || true)
+
+if [ -z "$remote_default_ref" ]; then
+  remote_head_branch=$(git remote show "$remote_name" 2>/dev/null | sed -n '/HEAD branch/s/.*: //p' | head -n 1)
+
+  if [ -n "$remote_head_branch" ]; then
+    remote_default_ref="$remote_name/$remote_head_branch"
+  fi
+else
+  remote_default_ref=${remote_default_ref#refs/remotes/}
+fi
+
+if [ -z "$remote_default_ref" ]; then
+  remote_default_ref="$remote_name/main"
+fi
 
 while read -r local_ref local_oid remote_ref remote_oid
 do
@@ -13,7 +29,7 @@ do
   fi
 
   if [ "$remote_oid" = "$zero_oid" ]; then
-    merge_base=$(git merge-base "$local_oid" origin/main 2>/dev/null)
+    merge_base=$(git merge-base "$local_oid" "$remote_default_ref" 2>/dev/null)
 
     if [ -n "$merge_base" ]; then
       log_opts="$merge_base..$local_oid"
