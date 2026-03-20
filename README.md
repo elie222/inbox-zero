@@ -5,7 +5,7 @@
     <h1 align="center">Inbox Zero - your 24/7 AI email assistant</h1>
   </a>
   <p align="center">
-    Organizes your inbox, pre-drafts replies, and tracks follow‑ups - so you reach inbox zero faster. Open source alternative to Fyxer, but more customisable and secure.
+    Organizes your inbox, pre-drafts replies, manages your calendar, and organizes attachments. Chat with it from Slack or Telegram to manage your inbox on the go. Open source alternative to Fyxer, but more customizable and secure.
     <br />
     <a href="https://www.getinboxzero.com">Website</a>
     ·
@@ -45,6 +45,7 @@ To help you spend less time in your inbox, so you can focus on what matters most
 - **Email Analytics:** Track your activity and trends over time.
 - **Meeting Briefs:** Get personalized briefings before every meeting, pulling context from your email and calendar.
 - **Smart Filing:** Automatically save email attachments to Google Drive or OneDrive.
+- **Slack & Telegram Integration:** Chat with your AI assistant from Slack or Telegram to manage your inbox without leaving the apps you already use.
 
 
 Learn more in our [docs](https://docs.getinboxzero.com).
