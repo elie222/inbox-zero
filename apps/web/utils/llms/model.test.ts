@@ -94,6 +94,7 @@ vi.mock("@/env", () => ({
     BEDROCK_REGION: "us-west-2",
     BEDROCK_ACCESS_KEY: "",
     BEDROCK_SECRET_KEY: "",
+    MINIMAX_API_KEY: "test-minimax-key",
   },
 }));
 
@@ -135,6 +136,7 @@ describe("Models", () => {
     vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
     vi.mocked(env).BEDROCK_ACCESS_KEY = "";
     vi.mocked(env).BEDROCK_SECRET_KEY = "";
+    vi.mocked(env).MINIMAX_API_KEY = "test-minimax-key";
   });
 
   describe("getModel", () => {
@@ -1053,6 +1055,65 @@ describe("Models", () => {
       expect(result.fallbackModels[0]).toMatchObject({
         provider: Provider.OPENAI_COMPATIBLE,
         modelName: "llama3",
+      });
+    });
+
+    it("should configure MiniMax provider with default model", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "minimax";
+
+      const result = getModel(userAi);
+      expect(result.provider).toBe(Provider.MINIMAX);
+      expect(result.modelName).toBe("MiniMax-M2.7");
+      expect(result.model).toBeDefined();
+      expect(createOpenAICompatible).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "minimax",
+          baseURL: "https://api.minimax.io/v1",
+          apiKey: "test-minimax-key",
+        }),
+      );
+    });
+
+    it("should configure MiniMax provider with custom model", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: "user-minimax-key",
+        aiProvider: Provider.MINIMAX,
+        aiModel: "MiniMax-M2.7-highspeed",
+      };
+
+      const result = getModel(userAi);
+      expect(result.provider).toBe(Provider.MINIMAX);
+      expect(result.modelName).toBe("MiniMax-M2.7-highspeed");
+      expect(createOpenAICompatible).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "minimax",
+          baseURL: "https://api.minimax.io/v1",
+          apiKey: "user-minimax-key",
+        }),
+      );
+    });
+
+    it("should use MiniMax as a fallback provider", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_FALLBACKS = "minimax:MiniMax-M2.7-highspeed";
+
+      const result = getModel(userAi);
+
+      expect(result.fallbackModels).toHaveLength(1);
+      expect(result.fallbackModels[0]).toMatchObject({
+        provider: Provider.MINIMAX,
+        modelName: "MiniMax-M2.7-highspeed",
       });
     });
   });

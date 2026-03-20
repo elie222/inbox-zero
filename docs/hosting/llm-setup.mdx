@@ -29,6 +29,7 @@ Use one of these values for `*_LLM_PROVIDER`:
 | [Groq](https://console.groq.com/docs/quickstart) | `groq` |
 | [Vercel AI Gateway](https://ai-sdk.dev/providers/ai-sdk-providers/ai-gateway) | `aigateway` |
 | [AWS Bedrock](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock) | `bedrock` |
+| [MiniMax](https://platform.minimax.io/) | `minimax` |
 | [Ollama](https://ollama.com/) | `ollama` |
 | OpenAI-compatible (LM Studio, vLLM, LiteLLM, etc.) | `openai-compatible` |
 
@@ -60,3 +61,4 @@ The app also has **Settings → AI** for per-user keys/models, but self-hosted d
 ## Provider-specific details
 
 - `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`.
+- `minimax` requires `MINIMAX_API_KEY`. Available models: `MiniMax-M2.7` (default) and `MiniMax-M2.7-highspeed`.

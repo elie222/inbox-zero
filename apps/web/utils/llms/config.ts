@@ -12,6 +12,7 @@ export const Provider = {
   AI_GATEWAY: "aigateway",
   OLLAMA: "ollama",
   OPENAI_COMPATIBLE: "openai-compatible",
+  MINIMAX: "minimax",
 };
 
 export const providerOptions: { label: string; value: string }[] = [
@@ -21,6 +22,7 @@ export const providerOptions: { label: string; value: string }[] = [
   { label: "Azure OpenAI", value: Provider.AZURE },
   { label: "Google", value: Provider.GOOGLE },
   { label: "Groq", value: Provider.GROQ },
+  { label: "MiniMax", value: Provider.MINIMAX },
   { label: "OpenRouter", value: Provider.OPENROUTER },
   { label: "Vercel AI Gateway", value: Provider.AI_GATEWAY },
 ];

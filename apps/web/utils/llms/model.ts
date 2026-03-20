@@ -255,6 +255,19 @@ function selectModel(
         model: openaiCompatible(modelName),
       };
     }
+    case Provider.MINIMAX: {
+      const modelName = aiModel || "MiniMax-M2.7";
+      const minimax = createOpenAICompatible({
+        name: "minimax",
+        baseURL: "https://api.minimax.io/v1",
+        apiKey: resolveApiKey(aiApiKey, env.MINIMAX_API_KEY),
+      });
+      return {
+        provider: Provider.MINIMAX,
+        modelName,
+        model: minimax(modelName),
+      };
+    }
 
     case Provider.BEDROCK: {
       const modelName =
@@ -533,6 +546,7 @@ function getProviderApiKey(provider: string) {
     // Returns a placeholder so the fallback chain doesn't skip this provider
     // when no API key is configured (many OpenAI-compatible servers don't require one)
     [Provider.OPENAI_COMPATIBLE]: env.LLM_API_KEY || "not-required",
+    [Provider.MINIMAX]: resolveApiKey(null, env.MINIMAX_API_KEY),
   };
 
   return providerApiKeys[provider];

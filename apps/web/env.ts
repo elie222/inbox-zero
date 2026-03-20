@@ -15,6 +15,7 @@ const llmProviderEnum = z.enum([
   "aigateway",
   "ollama",
   "openai-compatible",
+  "minimax",
 ]);
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
@@ -102,6 +103,7 @@ export const env = createEnv({
     OLLAMA_MODEL: z.string().optional(),
     OPENAI_COMPATIBLE_BASE_URL: z.string().optional(),
     OPENAI_COMPATIBLE_MODEL: z.string().optional(),
+    MINIMAX_API_KEY: z.string().optional(),
 
     OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
 

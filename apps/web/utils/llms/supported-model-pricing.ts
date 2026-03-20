@@ -134,6 +134,17 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 0.59 / 1_000_000,
     output: 0.79 / 1_000_000,
   },
+  // https://platform.minimax.io/docs/guides/pricing
+  "MiniMax-M2.7": {
+    input: 0.3 / 1_000_000,
+    output: 1.2 / 1_000_000,
+    cachedInput: 0.06 / 1_000_000,
+  },
+  "MiniMax-M2.7-highspeed": {
+    input: 0.6 / 1_000_000,
+    output: 2.4 / 1_000_000,
+    cachedInput: 0.06 / 1_000_000,
+  },
 };
 
 // Source model ids to use when fetching OpenRouter pricing for our supported models.
