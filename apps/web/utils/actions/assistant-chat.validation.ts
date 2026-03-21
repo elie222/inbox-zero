@@ -111,6 +111,34 @@ export type ConfirmAssistantEmailActionBody = z.infer<
   typeof confirmAssistantEmailActionBody
 >;
 
+export const pendingCreateRuleToolOutputSchema = z.object({
+  success: z.literal(true),
+  actionType: z.literal("create_rule"),
+  requiresConfirmation: z.literal(true),
+  confirmationState: z.enum(["pending", "processing", "confirmed"]),
+  confirmationProcessingAt: z.string().optional(),
+  riskMessages: z.array(z.string()),
+  ruleId: z.string().optional(),
+  confirmationResult: z
+    .object({
+      ruleId: z.string(),
+      confirmedAt: z.string(),
+    })
+    .optional(),
+});
+export type PendingCreateRuleToolOutput = z.infer<
+  typeof pendingCreateRuleToolOutputSchema
+>;
+
+export const confirmAssistantCreateRuleBody = z.object({
+  chatId: z.string().trim().min(1),
+  chatMessageId: z.string().trim().min(1),
+  toolCallId: z.string().trim().min(1),
+});
+export type ConfirmAssistantCreateRuleBody = z.infer<
+  typeof confirmAssistantCreateRuleBody
+>;
+
 const assistantChatTextPartSchema = z.object({
   type: z.literal("text"),
   text: z.string().min(1).max(3000),

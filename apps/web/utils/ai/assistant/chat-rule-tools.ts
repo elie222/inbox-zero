@@ -1,13 +1,15 @@
 import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
-import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
+import {
+  createRuleSchema,
+  type CreateOrUpdateRuleSchema,
+} from "@/utils/ai/rule/create-rule-schema";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
   createRule,
-  mapActionsForRuleCreate,
   outboundActionsNeedChatRiskConfirmation,
   partialUpdateRule,
   updateRuleActions,
@@ -28,6 +30,38 @@ import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
+
+export function buildCreateRuleSchemaFromChatToolInput(
+  input: z.infer<ReturnType<typeof createRuleSchema>>,
+  provider: string,
+): CreateOrUpdateRuleSchema {
+  return {
+    name: input.name,
+    condition: input.condition,
+    actions: input.actions.map((action) => ({
+      type: action.type,
+      fields: action.fields
+        ? {
+            content: action.fields.content ?? null,
+            to: action.fields.to ?? null,
+            subject: action.fields.subject ?? null,
+            label: action.fields.label ?? null,
+            webhookUrl: action.fields.webhookUrl ?? null,
+            cc: action.fields.cc ?? null,
+            bcc: action.fields.bcc ?? null,
+            ...(isMicrosoftProvider(provider) && {
+              folderName: action.fields.folderName ?? null,
+            }),
+          }
+        : null,
+      delayInMinutes: null,
+    })),
+  };
+}
+
+export type ChatCreateRuleToolInvocation = Parameters<
+  typeof buildCreateRuleSchemaFromChatToolInput
+>[0];
 
 type GetUserRulesAndSettingsOutput =
   | {
@@ -271,38 +305,13 @@ export const createRuleTool = ({
       trackToolCall({ tool: "create_rule", email, logger });
 
       try {
-        const resultPayload = {
-          name,
-          condition,
-          actions: actions.map((action) => ({
-            type: action.type,
-            fields: action.fields
-              ? {
-                  content: action.fields.content ?? null,
-                  to: action.fields.to ?? null,
-                  subject: action.fields.subject ?? null,
-                  label: action.fields.label ?? null,
-                  webhookUrl: action.fields.webhookUrl ?? null,
-                  cc: action.fields.cc ?? null,
-                  bcc: action.fields.bcc ?? null,
-                  ...(isMicrosoftProvider(provider) && {
-                    folderName: action.fields.folderName ?? null,
-                  }),
-                }
-              : null,
-            delayInMinutes: null,
-          })),
-        };
-
-        const mappedActions = await mapActionsForRuleCreate(
-          resultPayload.actions,
+        const resultPayload = buildCreateRuleSchemaFromChatToolInput(
+          { name, condition, actions },
           provider,
-          emailAccountId,
-          logger,
         );
 
         const { needsConfirmation, riskMessages } =
-          outboundActionsNeedChatRiskConfirmation(resultPayload, mappedActions);
+          outboundActionsNeedChatRiskConfirmation(resultPayload);
 
         if (needsConfirmation) {
           return {

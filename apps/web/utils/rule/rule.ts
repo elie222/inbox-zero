@@ -21,47 +21,25 @@ import {
 import type { RuleWithRelations } from "@/utils/rule/types";
 import type { RuleConditions } from "@/utils/condition";
 
-export type CreateRuleEnablement =
+type CreateRuleEnablement =
   | { source: "default" }
   | { source: "chat"; chatRiskConfirmed?: boolean };
 
-const OUTBOUND_ACTION_TYPES: ActionType[] = [
-  ActionType.REPLY,
-  ActionType.SEND_EMAIL,
-  ActionType.FORWARD,
-];
-
-function ruleConditionsForRisk(rule: CreateOrUpdateRuleSchema): RuleConditions {
-  return {
-    instructions: rule.condition.aiInstructions ?? undefined,
-    from: rule.condition.static?.from ?? undefined,
-    to: rule.condition.static?.to ?? undefined,
-    subject: rule.condition.static?.subject ?? undefined,
-  };
-}
-
 export function outboundActionsNeedChatRiskConfirmation(
   result: CreateOrUpdateRuleSchema,
-  mappedActions: Array<{
-    type: ActionType;
-    subject: string | null;
-    content: string | null;
-    to: string | null;
-    cc: string | null;
-    bcc: string | null;
-  }>,
 ): { needsConfirmation: boolean; riskMessages: string[] } {
   const ruleCtx = ruleConditionsForRisk(result);
   const messages: string[] = [];
-  for (const a of mappedActions) {
-    if (!OUTBOUND_ACTION_TYPES.includes(a.type)) continue;
+  for (const action of result.actions) {
+    if (!OUTBOUND_ACTION_TYPES.includes(action.type)) continue;
+
     const ra: RiskAction = {
-      type: a.type,
-      subject: a.subject,
-      content: a.content,
-      to: a.to,
-      cc: a.cc,
-      bcc: a.bcc,
+      type: action.type,
+      subject: action.fields?.subject ?? null,
+      content: action.fields?.content ?? null,
+      to: action.fields?.to?.trim() || null,
+      cc: action.fields?.cc ?? null,
+      bcc: action.fields?.bcc ?? null,
     };
     const { level, message } = getActionRiskLevel(ra, ruleCtx);
     if (level !== "low" && !messages.includes(message)) {
@@ -572,15 +550,6 @@ function validateLowTrustStaticFromOutboundActions({
   throw new SafeError(LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE, 400);
 }
 
-export async function mapActionsForRuleCreate(
-  actions: CreateOrUpdateRuleSchema["actions"],
-  provider: string,
-  emailAccountId: string,
-  logger: Logger,
-) {
-  return mapActionFields(actions, provider, emailAccountId, logger);
-}
-
 async function mapActionFields(
   actions: (CreateOrUpdateRuleSchema["actions"][number] & {
     labelId?: string | null;
@@ -662,4 +631,19 @@ async function mapActionFields(
   );
 
   return Promise.all(actionPromises);
+}
+
+const OUTBOUND_ACTION_TYPES: ActionType[] = [
+  ActionType.REPLY,
+  ActionType.SEND_EMAIL,
+  ActionType.FORWARD,
+];
+
+function ruleConditionsForRisk(rule: CreateOrUpdateRuleSchema): RuleConditions {
+  return {
+    instructions: rule.condition.aiInstructions ?? undefined,
+    from: rule.condition.static?.from ?? undefined,
+    to: rule.condition.static?.to ?? undefined,
+    subject: rule.condition.static?.subject ?? undefined,
+  };
 }

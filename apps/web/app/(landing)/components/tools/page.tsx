@@ -7,6 +7,7 @@ import {
   AddToKnowledgeBase,
   BasicToolInfo,
   CreatedRuleToolCard,
+  PendingCreateRulePreviewCard,
   UpdatedRuleConditions,
   UpdatedRuleActions,
   UpdatedLearnedPatterns,
@@ -19,6 +20,7 @@ import {
   type ThreadLookup,
   UpdatePersonalInstructions,
 } from "@/components/assistant-chat/tools";
+import type { UpdateRuleActionsTool } from "@/utils/ai/assistant/chat";
 import { ActionType } from "@/generated/prisma/enums";
 import { ChatProvider } from "@/providers/ChatProvider";
 
@@ -93,6 +95,31 @@ export default function ToolsPage() {
             }}
           />
 
+          <MutedText>Pending confirmation:</MutedText>
+          <PendingCreateRulePreviewCard
+            args={{
+              name: "AutoReply VIP",
+              condition: {
+                aiInstructions: null,
+                static: {
+                  from: "vip-client@example.com",
+                  to: null,
+                  subject: null,
+                },
+                conditionalOperator: null,
+              },
+              actions: [
+                ruleAction(ActionType.REPLY, {
+                  content:
+                    "{{Draft a short reply that answers the sender and proposes a next step}}",
+                }),
+              ],
+            }}
+            riskMessages={[
+              "High Risk: The AI can automatically generate and send any email content. A malicious actor could potentially trick the AI into generating unwanted or inappropriate content.",
+            ]}
+          />
+
           <MutedText>Updated conditions (no diff):</MutedText>
           <UpdatedRuleConditions
             preview
@@ -151,7 +178,7 @@ export default function ToolsPage() {
                 ruleAction(ActionType.ARCHIVE),
                 ruleAction(ActionType.LABEL, { label: "Newsletter" }),
                 ruleAction(ActionType.MARK_READ),
-              ] as any,
+              ],
             }}
             condition={{
               aiInstructions: "Newsletter and marketing emails",
@@ -169,7 +196,7 @@ export default function ToolsPage() {
               actions: [
                 ruleAction(ActionType.FORWARD, { to: "jim@company.com" }),
                 ruleAction(ActionType.LABEL, { label: "Recruiting" }),
-              ] as any,
+              ],
             }}
             condition={{
               aiInstructions:
@@ -689,7 +716,10 @@ const nullFields: RuleActionFields = {
   webhookUrl: null,
 };
 
-function ruleAction(type: ActionType, fields?: Partial<RuleActionFields>) {
+function ruleAction(
+  type: ActionType,
+  fields?: Partial<RuleActionFields>,
+): UpdateRuleActionsTool["input"]["actions"][number] {
   return {
     type,
     fields: { ...nullFields, ...fields },
