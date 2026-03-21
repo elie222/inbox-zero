@@ -3,10 +3,10 @@
 import { z } from "zod";
 import { after } from "next/server";
 import uniq from "lodash/uniq";
-import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
+import { calculatePremiumBillingQuantity } from "@/utils/premium/billing";
 import {
   cancelPremiumLemon,
   syncPremiumSeats,
@@ -19,7 +19,10 @@ import {
 } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@/generated/prisma/enums";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
-import { getStripePriceId } from "@/app/(app)/premium/config";
+import {
+  getIncludedEmailAccountsPerUserForStripePrice,
+  getStripePriceId,
+} from "@/app/(app)/premium/config";
 import {
   actionClientUser,
   adminActionClient,
@@ -523,8 +526,16 @@ export const generateCheckoutSessionAction = actionClientUser
         });
       }
 
-      const quantity =
-        sumBy(user.premium?.users || [], (u) => u._count.emailAccounts) || 1;
+      const quantity = Math.max(
+        1,
+        calculatePremiumBillingQuantity({
+          users: (user.premium?.users || []).map((premiumUser) => ({
+            emailAccountCount: premiumUser._count.emailAccounts,
+          })),
+          includedEmailAccountsPerUser:
+            getIncludedEmailAccountsPerUserForStripePrice({ priceId }),
+        }),
+      );
 
       // ALWAYS create a checkout with a stripeCustomerId
       const checkout = await stripe.checkout.sessions.create({
