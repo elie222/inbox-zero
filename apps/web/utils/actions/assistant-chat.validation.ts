@@ -122,11 +122,11 @@ export const pendingCreateRuleToolOutputSchema = z.object({
   confirmationState: z.enum(["pending", "processing", "confirmed"]),
   confirmationProcessingAt: z.string().optional(),
   riskMessages: z.array(z.string()),
-  ruleId: z.string().optional(),
+  ruleId: z.string().trim().min(1).optional(),
   confirmationResult: z
     .object({
-      ruleId: z.string(),
-      confirmedAt: z.string(),
+      ruleId: z.string().trim().min(1),
+      confirmedAt: z.string().min(1),
     })
     .optional(),
 });
