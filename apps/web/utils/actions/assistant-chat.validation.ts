@@ -100,13 +100,17 @@ export type AssistantPendingEmailToolOutput =
   | PendingReplyEmailToolOutput
   | PendingForwardEmailToolOutput;
 
-export const confirmAssistantEmailActionBody = z.object({
+const confirmAssistantActionBaseBody = z.object({
   chatId: z.string().trim().min(1),
   chatMessageId: z.string().trim().min(1),
   toolCallId: z.string().trim().min(1),
-  actionType: assistantPendingEmailActionTypeSchema,
-  contentOverride: z.string().trim().min(1).optional(),
 });
+
+export const confirmAssistantEmailActionBody =
+  confirmAssistantActionBaseBody.extend({
+    actionType: assistantPendingEmailActionTypeSchema,
+    contentOverride: z.string().trim().min(1).optional(),
+  });
 export type ConfirmAssistantEmailActionBody = z.infer<
   typeof confirmAssistantEmailActionBody
 >;
@@ -130,11 +134,7 @@ export type PendingCreateRuleToolOutput = z.infer<
   typeof pendingCreateRuleToolOutputSchema
 >;
 
-export const confirmAssistantCreateRuleBody = z.object({
-  chatId: z.string().trim().min(1),
-  chatMessageId: z.string().trim().min(1),
-  toolCallId: z.string().trim().min(1),
-});
+export const confirmAssistantCreateRuleBody = confirmAssistantActionBaseBody;
 export type ConfirmAssistantCreateRuleBody = z.infer<
   typeof confirmAssistantCreateRuleBody
 >;

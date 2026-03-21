@@ -776,12 +776,7 @@ export function PendingCreateRuleToolCard({
       }
 
       const input = { chatId, chatMessageId, toolCallId };
-      let result = await confirmAssistantCreateRule(emailAccountId, input);
-
-      if (result?.serverError === "Chat message not found") {
-        await new Promise((r) => setTimeout(r, 2000));
-        result = await confirmAssistantCreateRule(emailAccountId, input);
-      }
+      const result = await confirmAssistantCreateRule(emailAccountId, input);
 
       if (result?.serverError) {
         toastError({ description: result.serverError });

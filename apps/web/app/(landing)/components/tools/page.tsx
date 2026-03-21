@@ -20,7 +20,6 @@ import {
   type ThreadLookup,
   UpdatePersonalInstructions,
 } from "@/components/assistant-chat/tools";
-import type { UpdateRuleActionsTool } from "@/utils/ai/assistant/chat";
 import { ActionType } from "@/generated/prisma/enums";
 import { ChatProvider } from "@/providers/ChatProvider";
 
@@ -205,18 +204,18 @@ export default function ToolsPage() {
             originalActions={[
               {
                 type: ActionType.LABEL,
-                fields: { label: "Recruiting" },
+                fields: buildRuleActionFields({ label: "Recruiting" }),
               },
             ]}
             updatedActions={[
               {
                 type: ActionType.FORWARD,
-                fields: { to: "jim@company.com" },
+                fields: buildRuleActionFields({ to: "jim@company.com" }),
                 delayInMinutes: null,
               },
               {
                 type: ActionType.LABEL,
-                fields: { label: "Recruiting" },
+                fields: buildRuleActionFields({ label: "Recruiting" }),
                 delayInMinutes: null,
               },
             ]}
@@ -706,23 +705,44 @@ type RuleActionFields = {
   webhookUrl: string | null;
 };
 
-const nullFields: RuleActionFields = {
-  label: null,
-  content: null,
-  to: null,
-  cc: null,
-  bcc: null,
-  subject: null,
-  webhookUrl: null,
+type DemoRuleActionType =
+  | typeof ActionType.ARCHIVE
+  | typeof ActionType.LABEL
+  | typeof ActionType.REPLY
+  | typeof ActionType.SEND_EMAIL
+  | typeof ActionType.FORWARD
+  | typeof ActionType.DRAFT_EMAIL
+  | typeof ActionType.MARK_SPAM
+  | typeof ActionType.CALL_WEBHOOK
+  | typeof ActionType.MARK_READ
+  | typeof ActionType.DIGEST
+  | typeof ActionType.MOVE_FOLDER;
+
+type DemoRuleAction = {
+  type: DemoRuleActionType;
+  fields: RuleActionFields;
+  delayInMinutes: number | null;
 };
 
 function ruleAction(
-  type: ActionType,
+  type: DemoRuleActionType,
   fields?: Partial<RuleActionFields>,
-): UpdateRuleActionsTool["input"]["actions"][number] {
+): DemoRuleAction {
   return {
     type,
-    fields: { ...nullFields, ...fields },
+    fields: buildRuleActionFields(fields),
     delayInMinutes: null,
+  };
+}
+
+function buildRuleActionFields(fields?: Partial<RuleActionFields>): RuleActionFields {
+  return {
+    label: fields?.label ?? null,
+    content: fields?.content ?? null,
+    to: fields?.to ?? null,
+    cc: fields?.cc ?? null,
+    bcc: fields?.bcc ?? null,
+    subject: fields?.subject ?? null,
+    webhookUrl: fields?.webhookUrl ?? null,
   };
 }

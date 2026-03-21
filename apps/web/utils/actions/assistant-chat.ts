@@ -8,6 +8,7 @@ import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-ad
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { convertNewlinesToBr, escapeHtml } from "@/utils/string";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
   type AssistantEmailConfirmationResult,
   type AssistantPendingEmailActionType,
@@ -154,11 +155,11 @@ export async function confirmAssistantEmailActionForAccount({
       contentOverride,
     });
   } catch (error) {
-    await clearAssistantEmailPartProcessing({
+    await clearPendingPartProcessing({
       chatMessageId: reservation.chatMessageId,
-      toolCallId,
-      actionType,
       emailAccountId,
+      findPart: (parts) =>
+        findPendingAssistantEmailPart({ parts, toolCallId, actionType }),
     }).catch((processingError) => {
       logger.error("Failed to clear processing state for email action", {
         error: processingError,
@@ -253,10 +254,43 @@ export async function confirmAssistantCreateRuleForAccount({
       enablement: { source: "chat", chatRiskConfirmed: true },
     });
   } catch (error) {
-    await clearAssistantCreateRulePartProcessing({
+    if (
+      reservation.output.confirmationState === "processing" &&
+      isDuplicateError(error, "name")
+    ) {
+      const existingRule = await findRuleForPendingAssistantCreateRule({
+        toolInput,
+        emailAccountId,
+      });
+
+      if (existingRule) {
+        const confirmedAt = new Date().toISOString();
+        await persistConfirmedAssistantCreateRulePart({
+          chatMessageId: reservation.chatMessageId,
+          emailAccountId,
+          toolCallId,
+          parts: reservation.parts,
+          partIndex: reservation.partIndex,
+          riskMessages: reservation.output.riskMessages,
+          ruleId: existingRule.id,
+          confirmedAt,
+          logger,
+        });
+
+        return {
+          success: true,
+          confirmationState: "confirmed" as const,
+          ruleId: existingRule.id,
+          confirmationResult: { ruleId: existingRule.id, confirmedAt },
+        };
+      }
+    }
+
+    await clearPendingPartProcessing({
       chatMessageId: reservation.chatMessageId,
-      toolCallId,
       emailAccountId,
+      findPart: (parts) =>
+        findPendingAssistantCreateRulePart({ parts, toolCallId }),
     }).catch((processingError) => {
       logger.error("Failed to clear processing state for create rule", {
         error: processingError,
@@ -269,26 +303,17 @@ export async function confirmAssistantCreateRuleForAccount({
   }
 
   const confirmedAt = new Date().toISOString();
-  const riskMessages = reservation.output.riskMessages;
-  const updatedParts = updateAssistantCreateRulePartWithConfirmation({
+  await persistConfirmedAssistantCreateRulePart({
+    chatMessageId: reservation.chatMessageId,
+    emailAccountId,
+    toolCallId,
     parts: reservation.parts,
     partIndex: reservation.partIndex,
+    riskMessages: reservation.output.riskMessages,
     ruleId: rule.id,
-    riskMessages,
     confirmedAt,
+    logger,
   });
-
-  try {
-    await persistConfirmedAssistantEmailPart({
-      chatMessageId: reservation.chatMessageId,
-      parts: updatedParts,
-    });
-  } catch (error) {
-    logger.error("Failed to persist confirmed create rule", { error });
-    throw new SafeError(
-      "Rule was created but confirmation state could not be saved. Please refresh.",
-    );
-  }
 
   return {
     success: true,
@@ -486,18 +511,20 @@ function findPendingAssistantCreateRulePart({
   return null;
 }
 
-async function findChatMessageForPendingCreateRule({
+async function findChatMessageForPendingAction({
   chatId,
   chatMessageId,
-  toolCallId,
   emailAccountId,
   logger,
+  matchParts,
+  logPrefix,
 }: {
   chatId: string;
   chatMessageId: string;
-  toolCallId: string;
   emailAccountId: string;
   logger: Logger;
+  matchParts: (parts: unknown) => boolean;
+  logPrefix: string;
 }) {
   const chatMessage = await prisma.chatMessage.findFirst({
     where: {
@@ -520,6 +547,7 @@ async function findChatMessageForPendingCreateRule({
       chat: { id: chatId, emailAccountId },
     },
     orderBy: { updatedAt: "desc" },
+    take: 10,
     select: {
       id: true,
       chatId: true,
@@ -529,21 +557,13 @@ async function findChatMessageForPendingCreateRule({
   });
 
   for (const candidate of fallbackCandidates) {
-    const lookup = findPendingAssistantCreateRulePart({
-      parts: candidate.parts,
-      toolCallId,
-    });
-    if (!lookup) continue;
+    if (!matchParts(candidate.parts)) continue;
 
-    logger.warn(
-      "Assistant create rule confirmation recovered using fallback message lookup",
-      {
-        chatId,
-        chatMessageId,
-        resolvedChatMessageId: candidate.id,
-        toolCallId,
-      },
-    );
+    logger.warn(`${logPrefix} recovered using fallback message lookup`, {
+      chatId,
+      chatMessageId,
+      resolvedChatMessageId: candidate.id,
+    });
     return candidate;
   }
 
@@ -665,13 +685,16 @@ async function reservePendingAssistantEmailAction({
   emailAccountId: string;
   logger: Logger;
 }) {
-  const chatMessage = await findChatMessageForPendingAssistantEmailAction({
+  const matchEmailParts = (parts: unknown) =>
+    !!findPendingAssistantEmailPart({ parts, toolCallId, actionType });
+
+  const chatMessage = await findChatMessageForPendingAction({
     chatId,
     chatMessageId,
-    toolCallId,
-    actionType,
     emailAccountId,
     logger,
+    matchParts: matchEmailParts,
+    logPrefix: "Assistant email confirmation",
   });
 
   if (!chatMessage) {
@@ -747,13 +770,13 @@ async function reservePendingAssistantEmailAction({
     };
   }
 
-  const latestMessage = await findChatMessageForPendingAssistantEmailAction({
+  const latestMessage = await findChatMessageForPendingAction({
     chatId,
     chatMessageId,
-    toolCallId,
-    actionType,
     emailAccountId,
     logger,
+    matchParts: matchEmailParts,
+    logPrefix: "Assistant email confirmation",
   });
 
   if (!latestMessage) {
@@ -787,16 +810,18 @@ async function reservePendingAssistantEmailAction({
   throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
 }
 
-async function clearAssistantEmailPartProcessing({
+async function clearPendingPartProcessing({
   chatMessageId,
-  toolCallId,
-  actionType,
   emailAccountId,
+  findPart,
 }: {
   chatMessageId: string;
-  toolCallId: string;
-  actionType: AssistantPendingEmailActionType;
   emailAccountId: string;
+  findPart: (parts: unknown) => {
+    index: number;
+    output: { confirmationState: string };
+    parts: unknown[];
+  } | null;
 }) {
   const chatMessage = await prisma.chatMessage.findFirst({
     where: {
@@ -805,25 +830,28 @@ async function clearAssistantEmailPartProcessing({
     },
     select: {
       id: true,
+      chatId: true,
+      updatedAt: true,
       parts: true,
     },
   });
 
   if (!chatMessage) return;
 
-  const lookup = findPendingAssistantEmailPart({
-    parts: chatMessage.parts,
-    toolCallId,
-    actionType,
-  });
+  const lookup = findPart(chatMessage.parts);
   if (!lookup || lookup.output.confirmationState !== "processing") return;
 
   const pendingParts = updateAssistantEmailPartWithPending({
     parts: lookup.parts,
     partIndex: lookup.index,
   });
-  await prisma.chatMessage.update({
-    where: { id: chatMessage.id },
+
+  await prisma.chatMessage.updateMany({
+    where: {
+      id: chatMessage.id,
+      chatId: chatMessage.chatId,
+      updatedAt: chatMessage.updatedAt,
+    },
     data: { parts: pendingParts as Prisma.InputJsonValue },
   });
 }
@@ -898,74 +926,6 @@ function updateAssistantEmailPartOutput({
   });
 }
 
-function updateAssistantCreateRulePartWithProcessing({
-  parts,
-  partIndex,
-  processingAt,
-}: {
-  parts: unknown[];
-  partIndex: number;
-  processingAt: string;
-}) {
-  return updateAssistantEmailPartOutput({
-    parts,
-    partIndex,
-    outputPatch: {
-      confirmationState: "processing",
-      confirmationProcessingAt: processingAt,
-    },
-  });
-}
-
-function updateAssistantCreateRulePartWithPending({
-  parts,
-  partIndex,
-}: {
-  parts: unknown[];
-  partIndex: number;
-}) {
-  return updateAssistantEmailPartOutput({
-    parts,
-    partIndex,
-    outputPatch: {
-      confirmationState: "pending",
-    },
-  });
-}
-
-function updateAssistantCreateRulePartWithConfirmation({
-  parts,
-  partIndex,
-  ruleId,
-  riskMessages,
-  confirmedAt,
-}: {
-  parts: unknown[];
-  partIndex: number;
-  ruleId: string;
-  riskMessages: string[];
-  confirmedAt: string;
-}) {
-  return parts.map((part, index) => {
-    if (index !== partIndex || !isRecord(part)) return part;
-    const existingOutput = isRecord(part.output) ? part.output : {};
-    const rest = getOutputWithoutProcessingMetadata(existingOutput);
-    return {
-      ...part,
-      output: {
-        ...rest,
-        success: true,
-        actionType: "create_rule",
-        requiresConfirmation: true,
-        confirmationState: "confirmed",
-        riskMessages,
-        ruleId,
-        confirmationResult: { ruleId, confirmedAt },
-      },
-    };
-  });
-}
-
 async function persistConfirmedAssistantEmailPart({
   chatMessageId,
   parts,
@@ -1003,44 +963,6 @@ function hasProcessingLeaseExpired(processingAt?: string | null) {
   return Date.now() - processingTime >= CONFIRMATION_PROCESSING_LEASE_MS;
 }
 
-async function clearAssistantCreateRulePartProcessing({
-  chatMessageId,
-  toolCallId,
-  emailAccountId,
-}: {
-  chatMessageId: string;
-  toolCallId: string;
-  emailAccountId: string;
-}) {
-  const chatMessage = await prisma.chatMessage.findFirst({
-    where: {
-      id: chatMessageId,
-      chat: { emailAccountId },
-    },
-    select: {
-      id: true,
-      parts: true,
-    },
-  });
-
-  if (!chatMessage) return;
-
-  const lookup = findPendingAssistantCreateRulePart({
-    parts: chatMessage.parts,
-    toolCallId,
-  });
-  if (!lookup || lookup.output.confirmationState !== "processing") return;
-
-  const pendingParts = updateAssistantCreateRulePartWithPending({
-    parts: lookup.parts,
-    partIndex: lookup.index,
-  });
-  await prisma.chatMessage.update({
-    where: { id: chatMessage.id },
-    data: { parts: pendingParts as Prisma.InputJsonValue },
-  });
-}
-
 async function reservePendingAssistantCreateRule({
   chatId,
   chatMessageId,
@@ -1054,12 +976,16 @@ async function reservePendingAssistantCreateRule({
   emailAccountId: string;
   logger: Logger;
 }) {
-  const chatMessage = await findChatMessageForPendingCreateRule({
+  const matchCreateRuleParts = (parts: unknown) =>
+    !!findPendingAssistantCreateRulePart({ parts, toolCallId });
+
+  const chatMessage = await findChatMessageForPendingAction({
     chatId,
     chatMessageId,
-    toolCallId,
     emailAccountId,
     logger,
+    matchParts: matchCreateRuleParts,
+    logPrefix: "Assistant create rule confirmation",
   });
 
   if (!chatMessage) {
@@ -1098,7 +1024,7 @@ async function reservePendingAssistantCreateRule({
   }
 
   const processingAt = new Date().toISOString();
-  const processingParts = updateAssistantCreateRulePartWithProcessing({
+  const processingParts = updateAssistantEmailPartWithProcessing({
     parts: lookup.parts,
     partIndex: lookup.index,
     processingAt,
@@ -1126,12 +1052,13 @@ async function reservePendingAssistantCreateRule({
     };
   }
 
-  const latestMessage = await findChatMessageForPendingCreateRule({
+  const latestMessage = await findChatMessageForPendingAction({
     chatId,
     chatMessageId,
-    toolCallId,
     emailAccountId,
     logger,
+    matchParts: matchCreateRuleParts,
+    logPrefix: "Assistant create rule confirmation",
   });
 
   if (!latestMessage) {
@@ -1156,6 +1083,150 @@ async function reservePendingAssistantCreateRule({
   throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
 }
 
+async function persistConfirmedAssistantCreateRulePart({
+  chatMessageId,
+  emailAccountId,
+  toolCallId,
+  parts,
+  partIndex,
+  riskMessages,
+  ruleId,
+  confirmedAt,
+  logger,
+}: {
+  chatMessageId: string;
+  emailAccountId: string;
+  toolCallId: string;
+  parts: unknown[];
+  partIndex: number;
+  riskMessages?: string[];
+  ruleId: string;
+  confirmedAt: string;
+  logger: Logger;
+}) {
+  const updatedParts = buildConfirmedAssistantCreateRuleParts({
+    parts,
+    partIndex,
+    riskMessages,
+    ruleId,
+    confirmedAt,
+  });
+
+  try {
+    await persistConfirmedAssistantEmailPart({
+      chatMessageId,
+      parts: updatedParts,
+    });
+    return;
+  } catch (error) {
+    logger.error("Failed to persist confirmed create rule", { error, ruleId });
+  }
+
+  try {
+    const latestMessage = await prisma.chatMessage.findFirst({
+      where: {
+        id: chatMessageId,
+        chat: { emailAccountId },
+      },
+      select: {
+        id: true,
+        chatId: true,
+        updatedAt: true,
+        parts: true,
+      },
+    });
+
+    if (!latestMessage) return;
+
+    const latestLookup = findPendingAssistantCreateRulePart({
+      parts: latestMessage.parts,
+      toolCallId,
+    });
+
+    if (!latestLookup) return;
+
+    if (
+      latestLookup.output.confirmationState === "confirmed" &&
+      latestLookup.output.ruleId === ruleId
+    ) {
+      return;
+    }
+
+    const reconciledParts = buildConfirmedAssistantCreateRuleParts({
+      parts: latestLookup.parts,
+      partIndex: latestLookup.index,
+      riskMessages,
+      ruleId,
+      confirmedAt,
+    });
+
+    await prisma.chatMessage.updateMany({
+      where: {
+        id: latestMessage.id,
+        chatId: latestMessage.chatId,
+        updatedAt: latestMessage.updatedAt,
+      },
+      data: { parts: reconciledParts as Prisma.InputJsonValue },
+    });
+  } catch (error) {
+    logger.error("Failed to reconcile confirmed create rule part", {
+      error,
+      ruleId,
+    });
+  }
+}
+
+function buildConfirmedAssistantCreateRuleParts({
+  parts,
+  partIndex,
+  riskMessages,
+  ruleId,
+  confirmedAt,
+}: {
+  parts: unknown[];
+  partIndex: number;
+  riskMessages?: string[];
+  ruleId: string;
+  confirmedAt: string;
+}) {
+  return updateAssistantEmailPartOutput({
+    parts,
+    partIndex,
+    outputPatch: {
+      success: true,
+      actionType: "create_rule",
+      requiresConfirmation: true,
+      confirmationState: "confirmed",
+      riskMessages,
+      ruleId,
+      confirmationResult: { ruleId, confirmedAt },
+    },
+  });
+}
+
+async function findRuleForPendingAssistantCreateRule({
+  toolInput,
+  emailAccountId,
+}: {
+  toolInput: unknown;
+  emailAccountId: string;
+}) {
+  if (!isRecord(toolInput) || typeof toolInput.name !== "string") return null;
+
+  const ruleName = toolInput.name.trim();
+  if (!ruleName) return null;
+
+  return prisma.rule.findUnique({
+    where: {
+      name_emailAccountId: {
+        name: ruleName,
+        emailAccountId,
+      },
+    },
+    select: { id: true },
+  });
+}
+
 function warnAndThrowAssistantEmailConfirmationError({
   logger,
   logMessage,
@@ -1178,74 +1249,6 @@ function warnAndThrowAssistantEmailConfirmationError({
   });
 
   throw new SafeError(safeMessage);
-}
-
-async function findChatMessageForPendingAssistantEmailAction({
-  chatId,
-  chatMessageId,
-  toolCallId,
-  actionType,
-  emailAccountId,
-  logger,
-}: {
-  chatId: string;
-  chatMessageId: string;
-  toolCallId: string;
-  actionType: AssistantPendingEmailActionType;
-  emailAccountId: string;
-  logger: Logger;
-}) {
-  const chatMessage = await prisma.chatMessage.findFirst({
-    where: {
-      id: chatMessageId,
-      chat: { id: chatId, emailAccountId },
-    },
-    select: {
-      id: true,
-      chatId: true,
-      updatedAt: true,
-      parts: true,
-    },
-  });
-
-  if (chatMessage) return chatMessage;
-
-  const fallbackCandidates = await prisma.chatMessage.findMany({
-    where: {
-      role: "assistant",
-      chat: { id: chatId, emailAccountId },
-    },
-    orderBy: { updatedAt: "desc" },
-    select: {
-      id: true,
-      chatId: true,
-      updatedAt: true,
-      parts: true,
-    },
-  });
-
-  for (const candidate of fallbackCandidates) {
-    const lookup = findPendingAssistantEmailPart({
-      parts: candidate.parts,
-      toolCallId,
-      actionType,
-    });
-    if (!lookup) continue;
-
-    logger.warn(
-      "Assistant email confirmation recovered using fallback message lookup",
-      {
-        chatId,
-        chatMessageId,
-        resolvedChatMessageId: candidate.id,
-        toolCallId,
-        actionType,
-      },
-    );
-    return candidate;
-  }
-
-  return null;
 }
 
 function parsePendingSendEmailOutput(output: unknown) {
