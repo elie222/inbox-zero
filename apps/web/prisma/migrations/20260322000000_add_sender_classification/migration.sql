@@ -19,9 +19,6 @@ CREATE TABLE "SenderClassification" (
 CREATE UNIQUE INDEX "SenderClassification_emailAccountId_sender_ruleId_messageId_eventType_key" ON "SenderClassification"("emailAccountId", "sender", "ruleId", "messageId", "eventType");
 
 -- CreateIndex
-CREATE INDEX "SenderClassification_emailAccountId_sender_idx" ON "SenderClassification"("emailAccountId", "sender");
-
--- CreateIndex
 CREATE INDEX "SenderClassification_ruleId_idx" ON "SenderClassification"("ruleId");
 
 -- AddForeignKey

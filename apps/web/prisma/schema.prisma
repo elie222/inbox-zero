@@ -687,7 +687,6 @@ model SenderClassification {
   messageId String
 
   @@unique([emailAccountId, sender, ruleId, messageId, eventType])
-  @@index([emailAccountId, sender])
   @@index([ruleId])
 }
 
