@@ -5,4 +5,12 @@ This folder is the **canonical** packaged skill for the Inbox Zero API CLI (`@in
 - **OpenClaw**: publish or install from here; see `inbox-zero-api/SKILL.md` frontmatter `metadata.openclaw`.
 - **Cursor Directory**: the repo root includes `.cursor-plugin/plugin.json`. Skills are exposed via `skills/inbox-zero-api` → symlink to this directory so Open Plugins discovery finds `skills/*/SKILL.md` without duplicating files.
 
-Edit content only under `inbox-zero-api/`; the Cursor plugin picks it up automatically.
+Edit content only under `inbox-zero-api/`; the Cursor plugin and `agents/inbox-zero-api-cli.md` are regenerated from it.
+
+After changing the packaged skill or `agents/reviewer.json`, run:
+
+```bash
+node scripts/sync-ai-artifacts.mjs
+```
+
+Use `node scripts/sync-ai-artifacts.mjs --check` to verify generated files are current.

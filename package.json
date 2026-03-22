@@ -6,6 +6,8 @@
     "dev": "turbo dev --filter=./apps/web",
     "test": "turbo run test --filter=./apps/web",
     "lint": "turbo lint",
+    "sync:ai-artifacts": "node scripts/sync-ai-artifacts.mjs",
+    "sync:ai-artifacts:check": "node scripts/sync-ai-artifacts.mjs --check",
     "postinstall": "sh clone-marketing.sh",
     "prepare": "husky install",
     "ncu": "ncu -u -ws",
