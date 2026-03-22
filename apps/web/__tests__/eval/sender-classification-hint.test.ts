@@ -165,6 +165,103 @@ These are hints from past user actions. Still evaluate the current email on its 
     hint: null,
     expectedRule: "Receipt",
   },
+
+  // --- Move-to-label pattern: remove + add creates mixed signal ---
+  {
+    name: "Changelog after user moved previous one from Newsletter to Notification",
+    email: getEmail({
+      from: "changelog@notion.so",
+      subject: "What's new in Notion — March 2026",
+      content:
+        "New this month: Notion Mail is out of beta, improved database formulas, and 3x faster search. Plus: AI can now summarize entire databases. Read the full changelog at notion.so/releases.",
+    }),
+    hint: `<sender_classifications>
+User has manually classified emails from this sender into these rules:
+- "What's new in Notion — February 2026" removed from Newsletter
+- "What's new in Notion — February 2026" → Notification
+- "Your Notion workspace is running low on storage" → Notification
+These are hints from past user actions. Still evaluate the current email on its own merits.
+</sender_classifications>`,
+    expectedRule: "Notification",
+  },
+
+  // --- Weak/noisy signal: only 1 classification ---
+  {
+    name: "Sender with single data point — hint should not dominate",
+    email: getEmail({
+      from: "hello@cal.com",
+      subject: "New booking: Product demo with Acme Corp",
+      content:
+        "You have a new booking. Product demo with Acme Corp. Date: March 26, 2026 at 2:00 PM PST. Duration: 30 minutes. Join link: cal.com/meeting/abc123. Add to Google Calendar.",
+    }),
+    hint: `<sender_classifications>
+User has manually classified emails from this sender into these rules:
+- "Your Cal.com weekly summary" → Newsletter
+These are hints from past user actions. Still evaluate the current email on its own merits.
+</sender_classifications>`,
+    expectedRule: "Calendar",
+  },
+
+  // --- Contradictory signal: user went back and forth ---
+  {
+    name: "Sender with contradictory history — AI should rely on content",
+    email: getEmail({
+      from: "team@figma.com",
+      subject: "Figma Config 2026: Early bird tickets available",
+      content:
+        "Figma Config is back. June 24-25 in San Francisco. Register now for early bird pricing at $299 (regular $499). Speakers include design leaders from Apple, Google, and Stripe. config.figma.com",
+      listUnsubscribe: "<https://figma.com/unsubscribe>",
+    }),
+    hint: `<sender_classifications>
+User has manually classified emails from this sender into these rules:
+- "What's new in Figma — February" → Newsletter
+- "What's new in Figma — February" removed from Newsletter
+- "What's new in Figma — February" → Marketing
+- "Figma Config 2025: Save the date" → Marketing
+- "Your Figma invoice for March" → Receipt
+These are hints from past user actions. Still evaluate the current email on its own merits.
+</sender_classifications>`,
+    expectedRule: "Marketing",
+  },
+
+  // --- Hint should NOT override: receipt email despite marketing history ---
+  {
+    name: "Actual receipt from sender with mostly marketing history",
+    email: getEmail({
+      from: "noreply@uber.com",
+      subject: "Your trip receipt — $24.50",
+      content:
+        "Thanks for riding with Uber. Trip on March 22. Pickup: 123 Main St. Dropoff: 456 Oak Ave. Fare: $19.00. Service fee: $3.50. Tax: $2.00. Total: $24.50. Paid with Visa ending 4242.",
+    }),
+    hint: `<sender_classifications>
+User has manually classified emails from this sender into these rules:
+- "Get $10 off your next 3 rides" → Marketing
+- "Uber Pass: Save 15% on every ride" → Marketing
+- "New in your city: Uber Reserve" → Marketing
+These are hints from past user actions. Still evaluate the current email on its own merits.
+</sender_classifications>`,
+    expectedRule: "Receipt",
+  },
+
+  // --- Real SaaS tool: Stripe sends receipts, notifications, and marketing ---
+  {
+    name: "Stripe payout notification with mixed history",
+    email: getEmail({
+      from: "notifications@stripe.com",
+      subject: "Your payout of $4,231.50 is on its way",
+      content:
+        "A payout of $4,231.50 USD was initiated to your Chase bank account ending in 9876. Expected arrival: March 24, 2026. View payout details in your Stripe Dashboard.",
+    }),
+    hint: `<sender_classifications>
+User has manually classified emails from this sender into these rules:
+- "Invoice #2026-0312 for Acme Corp" → Receipt
+- "Stripe Atlas: Incorporate your startup" → Marketing
+- "Your payout of $3,100.00 is on its way" → Notification
+- "Action required: Verify your bank account" → Notification
+These are hints from past user actions. Still evaluate the current email on its own merits.
+</sender_classifications>`,
+    expectedRule: ["Notification", "Receipt"],
+  },
 ];
 
 describe.runIf(shouldRunEval)("Eval: Sender Classification Hints", () => {
