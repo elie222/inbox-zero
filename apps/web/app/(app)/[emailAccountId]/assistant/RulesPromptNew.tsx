@@ -137,6 +137,7 @@ function RulesPromptForm({
           return `${rules.length} rules created!`;
         },
         error: (err) => {
+          setIsProcessingDialogOpen(false);
           return `Error creating rules: ${err.message}`;
         },
       },
