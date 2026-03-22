@@ -100,15 +100,43 @@ export type AssistantPendingEmailToolOutput =
   | PendingReplyEmailToolOutput
   | PendingForwardEmailToolOutput;
 
-export const confirmAssistantEmailActionBody = z.object({
+const confirmAssistantActionBaseBody = z.object({
   chatId: z.string().trim().min(1),
   chatMessageId: z.string().trim().min(1),
   toolCallId: z.string().trim().min(1),
-  actionType: assistantPendingEmailActionTypeSchema,
-  contentOverride: z.string().trim().min(1).optional(),
 });
+
+export const confirmAssistantEmailActionBody =
+  confirmAssistantActionBaseBody.extend({
+    actionType: assistantPendingEmailActionTypeSchema,
+    contentOverride: z.string().trim().min(1).optional(),
+  });
 export type ConfirmAssistantEmailActionBody = z.infer<
   typeof confirmAssistantEmailActionBody
+>;
+
+export const pendingCreateRuleToolOutputSchema = z.object({
+  success: z.literal(true),
+  actionType: z.literal("create_rule"),
+  requiresConfirmation: z.literal(true),
+  confirmationState: z.enum(["pending", "processing", "confirmed"]),
+  confirmationProcessingAt: z.string().optional(),
+  riskMessages: z.array(z.string()),
+  ruleId: z.string().trim().min(1).optional(),
+  confirmationResult: z
+    .object({
+      ruleId: z.string().trim().min(1),
+      confirmedAt: z.string().min(1),
+    })
+    .optional(),
+});
+export type PendingCreateRuleToolOutput = z.infer<
+  typeof pendingCreateRuleToolOutputSchema
+>;
+
+export const confirmAssistantCreateRuleBody = confirmAssistantActionBaseBody;
+export type ConfirmAssistantCreateRuleBody = z.infer<
+  typeof confirmAssistantCreateRuleBody
 >;
 
 const assistantChatTextPartSchema = z.object({

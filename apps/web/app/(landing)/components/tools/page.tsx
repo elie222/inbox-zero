@@ -7,6 +7,7 @@ import {
   AddToKnowledgeBase,
   BasicToolInfo,
   CreatedRuleToolCard,
+  PendingCreateRulePreviewCard,
   UpdatedRuleConditions,
   UpdatedRuleActions,
   UpdatedLearnedPatterns,
@@ -93,6 +94,31 @@ export default function ToolsPage() {
             }}
           />
 
+          <MutedText>Pending confirmation:</MutedText>
+          <PendingCreateRulePreviewCard
+            args={{
+              name: "AutoReply VIP",
+              condition: {
+                aiInstructions: null,
+                static: {
+                  from: "vip-client@example.com",
+                  to: null,
+                  subject: null,
+                },
+                conditionalOperator: null,
+              },
+              actions: [
+                ruleAction(ActionType.REPLY, {
+                  content:
+                    "{{Draft a short reply that answers the sender and proposes a next step}}",
+                }),
+              ],
+            }}
+            riskMessages={[
+              "High Risk: The AI can automatically generate and send any email content. A malicious actor could potentially trick the AI into generating unwanted or inappropriate content.",
+            ]}
+          />
+
           <MutedText>Updated conditions (no diff):</MutedText>
           <UpdatedRuleConditions
             preview
@@ -151,7 +177,7 @@ export default function ToolsPage() {
                 ruleAction(ActionType.ARCHIVE),
                 ruleAction(ActionType.LABEL, { label: "Newsletter" }),
                 ruleAction(ActionType.MARK_READ),
-              ] as any,
+              ],
             }}
             condition={{
               aiInstructions: "Newsletter and marketing emails",
@@ -169,7 +195,7 @@ export default function ToolsPage() {
               actions: [
                 ruleAction(ActionType.FORWARD, { to: "jim@company.com" }),
                 ruleAction(ActionType.LABEL, { label: "Recruiting" }),
-              ] as any,
+              ],
             }}
             condition={{
               aiInstructions:
@@ -178,18 +204,18 @@ export default function ToolsPage() {
             originalActions={[
               {
                 type: ActionType.LABEL,
-                fields: { label: "Recruiting" },
+                fields: buildRuleActionFields({ label: "Recruiting" }),
               },
             ]}
             updatedActions={[
               {
                 type: ActionType.FORWARD,
-                fields: { to: "jim@company.com" },
+                fields: buildRuleActionFields({ to: "jim@company.com" }),
                 delayInMinutes: null,
               },
               {
                 type: ActionType.LABEL,
-                fields: { label: "Recruiting" },
+                fields: buildRuleActionFields({ label: "Recruiting" }),
                 delayInMinutes: null,
               },
             ]}
@@ -679,20 +705,44 @@ type RuleActionFields = {
   webhookUrl: string | null;
 };
 
-const nullFields: RuleActionFields = {
-  label: null,
-  content: null,
-  to: null,
-  cc: null,
-  bcc: null,
-  subject: null,
-  webhookUrl: null,
+type DemoRuleActionType =
+  | typeof ActionType.ARCHIVE
+  | typeof ActionType.LABEL
+  | typeof ActionType.REPLY
+  | typeof ActionType.SEND_EMAIL
+  | typeof ActionType.FORWARD
+  | typeof ActionType.DRAFT_EMAIL
+  | typeof ActionType.MARK_SPAM
+  | typeof ActionType.CALL_WEBHOOK
+  | typeof ActionType.MARK_READ
+  | typeof ActionType.DIGEST
+  | typeof ActionType.MOVE_FOLDER;
+
+type DemoRuleAction = {
+  type: DemoRuleActionType;
+  fields: RuleActionFields;
+  delayInMinutes: number | null;
 };
 
-function ruleAction(type: ActionType, fields?: Partial<RuleActionFields>) {
+function ruleAction(
+  type: DemoRuleActionType,
+  fields?: Partial<RuleActionFields>,
+): DemoRuleAction {
   return {
     type,
-    fields: { ...nullFields, ...fields },
+    fields: buildRuleActionFields(fields),
     delayInMinutes: null,
+  };
+}
+
+function buildRuleActionFields(fields?: Partial<RuleActionFields>): RuleActionFields {
+  return {
+    label: fields?.label ?? null,
+    content: fields?.content ?? null,
+    to: fields?.to ?? null,
+    cc: fields?.cc ?? null,
+    bcc: fields?.bcc ?? null,
+    subject: fields?.subject ?? null,
+    webhookUrl: fields?.webhookUrl ?? null,
   };
 }
