@@ -150,6 +150,8 @@ export async function processAttachment({
       },
       attachment: {
         filename: attachment.filename,
+        mimeType: attachment.mimeType,
+        size: attachment.size,
         content: extraction?.text ?? "",
       },
       folders: allFolders,
