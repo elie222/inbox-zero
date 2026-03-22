@@ -36,8 +36,9 @@ SET
   "createdAt" = LEAST("ReplyMemorySource"."createdAt", EXCLUDED."createdAt"),
   "learnedWritingStyleAnalyzedAt" = CASE
     WHEN "ReplyMemorySource"."learnedWritingStyleAnalyzedAt" IS NULL
-      OR EXCLUDED."learnedWritingStyleAnalyzedAt" IS NULL
-      THEN NULL
+      THEN EXCLUDED."learnedWritingStyleAnalyzedAt"
+    WHEN EXCLUDED."learnedWritingStyleAnalyzedAt" IS NULL
+      THEN "ReplyMemorySource"."learnedWritingStyleAnalyzedAt"
     ELSE LEAST(
       "ReplyMemorySource"."learnedWritingStyleAnalyzedAt",
       EXCLUDED."learnedWritingStyleAnalyzedAt"
