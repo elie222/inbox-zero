@@ -1,6 +1,0 @@
-ALTER TABLE "ReplyMemory"
-ADD COLUMN "useForLearnedWritingStyle" BOOLEAN NOT NULL DEFAULT false;
-
-ALTER TYPE "ReplyMemoryKind" RENAME VALUE 'STYLE' TO 'PREFERENCE';
-
-ALTER TYPE "ReplyMemoryKind" ADD VALUE 'PROCEDURE';

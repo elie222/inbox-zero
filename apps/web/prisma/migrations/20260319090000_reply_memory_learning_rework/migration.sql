@@ -1,3 +1,8 @@
+ALTER TABLE "EmailAccount" ADD COLUMN "learnedWritingStyle" TEXT;
+
+ALTER TABLE "ReplyMemorySource"
+ADD COLUMN "learnedWritingStyleAnalyzedAt" TIMESTAMP(3);
+
 -- Drop the title/content split for reply memories and keep a single canonical
 -- memory payload in content.
 CREATE TEMP TABLE "_ReplyMemoryDedup" AS
@@ -54,8 +59,18 @@ DROP CONSTRAINT "ReplyMemory_emailAccountId_kind_scopeType_scopeValue_title_key"
 ALTER TABLE "ReplyMemory"
 DROP COLUMN "title";
 
+ALTER TYPE "ReplyMemoryKind" RENAME VALUE 'STYLE' TO 'PREFERENCE';
+
+ALTER TYPE "ReplyMemoryKind" ADD VALUE 'PROCEDURE';
+
+ALTER TABLE "ReplyMemory"
+ADD COLUMN "useForLearnedWritingStyle" BOOLEAN NOT NULL DEFAULT false;
+
 ALTER TABLE "ReplyMemory"
 ADD CONSTRAINT "ReplyMemory_emailAccountId_kind_scopeType_scopeValue_content_key"
 UNIQUE ("emailAccountId", "kind", "scopeType", "scopeValue", "content");
+
+CREATE INDEX "ReplyMemorySource_replyMemoryId_learnedWritingStyleAnalyzedAt_createdAt_idx"
+ON "ReplyMemorySource"("replyMemoryId", "learnedWritingStyleAnalyzedAt", "createdAt");
 
 DROP TABLE "_ReplyMemoryDedup";
