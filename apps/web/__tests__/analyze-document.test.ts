@@ -1,19 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { getEmailAccount } from "@/__tests__/helpers";
 import { analyzeDocument } from "@/utils/ai/document-filing/analyze-document";
+import { Provider } from "@/utils/llms/config";
 
 vi.mock("server-only", () => ({}));
 
-const isAiTest = process.env.RUN_AI_TESTS === "true";
+const testModelConfig = getTestModelConfig();
+const isAiTest = process.env.RUN_AI_TESTS === "true" && !!testModelConfig;
 const TIMEOUT = 30_000;
 
 describe.runIf(isAiTest)("analyzeDocument", () => {
   const emailAccount = {
     ...getEmailAccount(),
     user: {
-      aiProvider: "openrouter",
-      aiModel: "openai/gpt-4.1-mini",
-      aiApiKey: process.env.OPENROUTER_API_KEY ?? null,
+      aiProvider: testModelConfig?.provider ?? Provider.OPEN_AI,
+      aiModel: testModelConfig?.model ?? null,
+      aiApiKey: testModelConfig?.apiKey ?? null,
     },
     filingPrompt: `
 Only use the existing folders provided below.
@@ -101,3 +103,37 @@ Only use the existing folders provided below.
     TIMEOUT,
   );
 });
+
+type TestModelConfig = {
+  apiKey: string;
+  model: string | null;
+  provider: string;
+};
+
+function getTestModelConfig(): TestModelConfig | null {
+  const candidates: Array<TestModelConfig | null> = [
+    getProviderTestModelConfig(Provider.OPEN_AI, process.env.OPENAI_API_KEY),
+    getProviderTestModelConfig(
+      Provider.OPENROUTER,
+      process.env.OPENROUTER_API_KEY,
+      "openai/gpt-4.1-mini",
+    ),
+    getProviderTestModelConfig(Provider.GOOGLE, process.env.GOOGLE_API_KEY),
+  ];
+
+  return candidates.find((candidate) => !!candidate) ?? null;
+}
+
+function getProviderTestModelConfig(
+  provider: string,
+  apiKey: string | undefined,
+  model: string | null = null,
+): TestModelConfig | null {
+  if (!apiKey) return null;
+
+  return {
+    provider,
+    model,
+    apiKey,
+  };
+}
