@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { useAction } from "next-safe-action/hooks";
-import { HashIcon } from "lucide-react";
+import { HashIcon, MailIcon } from "lucide-react";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -26,7 +26,10 @@ import { DriveSetup } from "./DriveSetup";
 import { Switch } from "@/components/ui/switch";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
-import { updateFilingEnabledAction } from "@/utils/actions/drive";
+import {
+  updateFilingConfirmationEmailAction,
+  updateFilingEnabledAction,
+} from "@/utils/actions/drive";
 import { updateChannelFeaturesAction } from "@/utils/actions/messaging-channels";
 import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
@@ -97,7 +100,13 @@ export default function DrivePage() {
             <div className="flex items-center justify-between">
               <PageHeader title="Auto-file attachments" />
               <div className="flex items-center gap-3">
-                <IntegrationsPopover emailAccountId={emailAccountId} />
+                <DeliveryPopover
+                  emailAccountId={emailAccountId}
+                  filingConfirmationSendEmail={
+                    emailAccount?.filingConfirmationSendEmail ?? true
+                  }
+                  onEmailDeliveryUpdated={mutateEmail}
+                />
                 {!filingEnabled && <Badge variant="destructive">Paused</Badge>}
                 <Switch
                   checked={filingEnabled}
@@ -135,58 +144,104 @@ function getDriveView(
   return "settings";
 }
 
-function IntegrationsPopover({ emailAccountId }: { emailAccountId: string }) {
+function DeliveryPopover({
+  emailAccountId,
+  filingConfirmationSendEmail,
+  onEmailDeliveryUpdated,
+}: {
+  emailAccountId: string;
+  filingConfirmationSendEmail: boolean;
+  onEmailDeliveryUpdated: () => Promise<unknown>;
+}) {
   const { data, isLoading, mutate } = useMessagingChannels();
+  const {
+    execute: executeEmailDelivery,
+    isExecuting: isUpdatingEmailDelivery,
+  } = useAction(
+    updateFilingConfirmationEmailAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Settings saved" });
+        onEmailDeliveryUpdated();
+      },
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error) ?? "Failed to update",
+        });
+      },
+    },
+  );
 
   const allConnected = data?.channels.filter((c) => c.isConnected) ?? [];
   const withChannel = allConnected.filter((c) => c.channelId);
-
   const availableProviders = data?.availableProviders ?? [];
-
-  if (
-    isLoading ||
-    (allConnected.length === 0 && availableProviders.length === 0)
-  )
-    return null;
+  const slackAvailable = availableProviders.includes("SLACK");
 
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm">
-          Integrations
+          Delivery
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-72">
+      <PopoverContent align="end" className="w-80">
         <div className="space-y-3">
           <div>
-            <h4 className="text-sm font-medium">Integrations</h4>
+            <h4 className="text-sm font-medium">Delivery</h4>
             <MutedText className="text-xs">
-              Send filing updates to connected apps
+              Choose how filing updates should reach you
             </MutedText>
           </div>
 
-          {withChannel.length > 0 ? (
-            <div className="space-y-2">
-              {withChannel.map((channel) => (
-                <SlackChannelToggle
-                  key={channel.id}
-                  channel={channel}
-                  emailAccountId={emailAccountId}
-                  onUpdate={mutate}
-                />
-              ))}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <MailIcon className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">Email confirmations</span>
+              </div>
+              <Toggle
+                name="filing-email-delivery"
+                enabled={filingConfirmationSendEmail}
+                disabled={isUpdatingEmailDelivery}
+                onChange={(sendEmail) => executeEmailDelivery({ sendEmail })}
+              />
             </div>
-          ) : (
             <MutedText className="text-xs">
-              Select a target channel in{" "}
-              <Link
-                href={prefixPath(emailAccountId, "/briefs")}
-                className="underline text-foreground"
-              >
-                Meeting Briefs
-              </Link>{" "}
-              to enable Slack notifications.
+              Questions that need your input still arrive by email.
             </MutedText>
+          </div>
+
+          {!isLoading && (withChannel.length > 0 || slackAvailable) && (
+            <div className="space-y-2 border-t pt-3">
+              <MutedText className="text-xs">Connected apps</MutedText>
+              {withChannel.length > 0 ? (
+                <div className="space-y-2">
+                  {withChannel.map((channel) => (
+                    <SlackChannelToggle
+                      key={channel.id}
+                      channel={channel}
+                      emailAccountId={emailAccountId}
+                      onUpdate={mutate}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <MutedText className="text-xs">
+                  Select a target channel in{" "}
+                  <Link
+                    href={prefixPath(emailAccountId, "/briefs")}
+                    className="underline text-foreground"
+                  >
+                    Meeting Briefs
+                  </Link>{" "}
+                  to enable Slack notifications.
+                </MutedText>
+              )}
+            </div>
+          )}
+
+          {isLoading && (
+            <MutedText className="text-xs">Loading connected apps...</MutedText>
           )}
         </div>
       </PopoverContent>

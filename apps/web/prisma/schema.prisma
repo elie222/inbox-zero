@@ -156,8 +156,9 @@ model EmailAccount {
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
   meetingBriefsSendEmail        Boolean @default(true)
 
-  filingEnabled Boolean @default(false)
-  filingPrompt  String?
+  filingEnabled               Boolean @default(false)
+  filingPrompt                String?
+  filingConfirmationSendEmail Boolean @default(true)
 
   followUpAwaitingReplyDays Float?
   followUpNeedsReplyDays    Float?

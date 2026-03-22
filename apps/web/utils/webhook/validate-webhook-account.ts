@@ -21,6 +21,7 @@ const webhookEmailAccountSelect = {
   autoCategorizeSenders: true,
   filingEnabled: true,
   filingPrompt: true,
+  filingConfirmationSendEmail: true,
   watchEmailsSubscriptionId: true,
   watchEmailsSubscriptionHistory: true,
   account: {

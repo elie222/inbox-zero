@@ -94,6 +94,8 @@ describe("validateWebhookAccount", () => {
         overrides.draftReplyConfidence ?? DraftReplyConfidence.ALL_EMAILS,
       filingEnabled: overrides.filingEnabled ?? false,
       filingPrompt: overrides.filingPrompt ?? null,
+      filingConfirmationSendEmail:
+        overrides.filingConfirmationSendEmail ?? true,
     };
   }
 
