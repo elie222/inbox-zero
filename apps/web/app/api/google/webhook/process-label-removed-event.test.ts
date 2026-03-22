@@ -10,6 +10,7 @@ import {
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
+import { findRuleByLabelId } from "@/utils/rule/sender-classification";
 
 const logger = createTestLogger();
 
@@ -47,20 +48,38 @@ vi.mock("@/utils/gmail/label", () => ({
     FORUMS: "CATEGORY_FORUMS",
     UPDATES: "CATEGORY_UPDATES",
   },
-  getLabelById: vi.fn().mockImplementation(({ id }: { id: string }) => {
-    const labelMap: Record<string, { name: string }> = {
-      "label-1": { name: "Cold Email" },
-      "label-2": { name: "Newsletter" },
-      "label-3": { name: "Marketing" },
-      "label-4": { name: "To Reply" },
-    };
-    return Promise.resolve(labelMap[id] || { name: "Unknown Label" });
-  }),
+  GMAIL_SYSTEM_LABELS: [
+    "INBOX",
+    "SENT",
+    "DRAFT",
+    "SPAM",
+    "TRASH",
+    "IMPORTANT",
+    "STARRED",
+    "UNREAD",
+  ],
 }));
 
 vi.mock("@/utils/email", () => ({
   extractEmailAddress: vi.fn().mockReturnValue("sender@example.com"),
 }));
+
+vi.mock("@/app/api/google/webhook/fetch-sender-from-message", () => ({
+  fetchSenderFromMessage: vi.fn().mockResolvedValue("sender@example.com"),
+}));
+
+vi.mock("@/utils/rule/sender-classification", () => ({
+  saveSenderClassification: vi.fn().mockResolvedValue(undefined),
+  findRuleByLabelId: vi.fn(),
+}));
+
+vi.mock("@/utils/rule/consts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/utils/rule/consts")>();
+  return {
+    ...actual,
+    isEligibleForClassificationFeedback: vi.fn().mockReturnValue(true),
+  };
+});
 
 describe("process-label-removed-event", () => {
   beforeEach(() => {
@@ -104,7 +123,7 @@ describe("process-label-removed-event", () => {
 
   describe("handleLabelRemovedEvent", () => {
     it("should process Cold Email label removal and call saveLearnedPattern with exclude: true", async () => {
-      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
         id: "rule-123",
         systemType: SystemType.COLD_EMAIL,
       } as any);
@@ -127,7 +146,7 @@ describe("process-label-removed-event", () => {
     });
 
     it("should skip learning when To Reply label is removed (not a learnable rule)", async () => {
-      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
         id: "rule-456",
         systemType: SystemType.TO_REPLY,
       } as any);
@@ -189,7 +208,7 @@ describe("process-label-removed-event", () => {
     });
 
     it("should handle multiple label removals in a single event", async () => {
-      vi.mocked(prisma.rule.findFirst)
+      vi.mocked(findRuleByLabelId)
         .mockResolvedValueOnce({
           id: "rule-1",
           systemType: SystemType.COLD_EMAIL,
@@ -216,7 +235,7 @@ describe("process-label-removed-event", () => {
     });
 
     it("should skip learning when no rule is found for the removed label", async () => {
-      vi.mocked(prisma.rule.findFirst).mockResolvedValue(null);
+      vi.mocked(findRuleByLabelId).mockResolvedValue(null);
 
       const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
         "unknown-label",
@@ -283,17 +302,16 @@ describe("process-label-removed-event", () => {
     });
 
     it("should handle SPAM removal + custom label removal in same event", async () => {
-      // First call: undoSpamLearning looks up cold email rule
-      // Second call: learnFromRemovedLabel looks up rule for custom label
-      vi.mocked(prisma.rule.findFirst)
-        .mockResolvedValueOnce({
-          id: "rule-cold",
-          groupId: "group-cold",
-        } as any)
-        .mockResolvedValueOnce({
-          id: "rule-newsletter",
-          systemType: SystemType.NEWSLETTER,
-        } as any);
+      // undoSpamLearning looks up cold email rule via prisma.rule.findFirst
+      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+        id: "rule-cold",
+        groupId: "group-cold",
+      } as any);
+      // learnFromRemovedLabel uses findRuleByLabelId for the custom label
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-newsletter",
+        systemType: SystemType.NEWSLETTER,
+      } as any);
       vi.mocked(prisma.groupItem.deleteMany).mockResolvedValue({ count: 1 });
 
       const historyItem = {
@@ -337,8 +355,6 @@ describe("process-label-removed-event", () => {
 
       await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
 
-      // Should fetch message to get sender (not skip early)
-      expect(mockProvider.getMessage).toHaveBeenCalledWith("msg-1");
       // Should call deleteMany for undo
       expect(prisma.groupItem.deleteMany).toHaveBeenCalled();
       // Should NOT call saveLearnedPattern (no custom labels to learn from)
