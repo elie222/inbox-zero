@@ -53,8 +53,7 @@ SET
 DELETE FROM "ReplyMemory"
 WHERE id IN (SELECT id FROM "_ReplyMemoryDedup");
 
-ALTER TABLE "ReplyMemory"
-DROP CONSTRAINT "ReplyMemory_emailAccountId_kind_scopeType_scopeValue_title_key";
+DROP INDEX IF EXISTS "ReplyMemory_emailAccountId_kind_scopeType_scopeValue_title_key";
 
 ALTER TABLE "ReplyMemory"
 DROP COLUMN "title";
