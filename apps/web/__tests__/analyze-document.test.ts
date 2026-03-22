@@ -111,29 +111,29 @@ type TestModelConfig = {
 };
 
 function getTestModelConfig(): TestModelConfig | null {
-  const candidates: Array<TestModelConfig | null> = [
-    getProviderTestModelConfig(Provider.OPEN_AI, process.env.OPENAI_API_KEY),
-    getProviderTestModelConfig(
-      Provider.OPENROUTER,
-      process.env.OPENROUTER_API_KEY,
-      "openai/gpt-4.1-mini",
-    ),
-    getProviderTestModelConfig(Provider.GOOGLE, process.env.GOOGLE_API_KEY),
-  ];
+  if (process.env.OPENAI_API_KEY) {
+    return {
+      provider: Provider.OPEN_AI,
+      model: null,
+      apiKey: process.env.OPENAI_API_KEY,
+    };
+  }
 
-  return candidates.find((candidate) => !!candidate) ?? null;
-}
+  if (process.env.OPENROUTER_API_KEY) {
+    return {
+      provider: Provider.OPENROUTER,
+      model: "openai/gpt-4.1-mini",
+      apiKey: process.env.OPENROUTER_API_KEY,
+    };
+  }
 
-function getProviderTestModelConfig(
-  provider: string,
-  apiKey: string | undefined,
-  model: string | null = null,
-): TestModelConfig | null {
-  if (!apiKey) return null;
+  if (process.env.GOOGLE_API_KEY) {
+    return {
+      provider: Provider.GOOGLE,
+      model: null,
+      apiKey: process.env.GOOGLE_API_KEY,
+    };
+  }
 
-  return {
-    provider,
-    model,
-    apiKey,
-  };
+  return null;
 }
