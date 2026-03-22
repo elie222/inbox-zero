@@ -859,7 +859,7 @@ model ReplyMemory {
   kind       ReplyMemoryKind
   scopeType  ReplyMemoryScopeType
   scopeValue String
-  useForLearnedWritingStyle Boolean @default(false)
+  feedsStyleProfile Boolean @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount        @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
