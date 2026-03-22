@@ -200,9 +200,10 @@ model EmailAccount {
   meetingBriefings    MeetingBriefing[]
   driveConnections    DriveConnection[]
   messagingChannels   MessagingChannel[]
-  documentFilings     DocumentFiling[]
-  filingFolders       FilingFolder[]
-  apiKeys             ApiKey[]
+  documentFilings       DocumentFiling[]
+  filingFolders         FilingFolder[]
+  apiKeys               ApiKey[]
+  senderClassifications SenderClassification[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -438,7 +439,8 @@ model Rule {
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  executedRules ExecutedRule[]
+  executedRules            ExecutedRule[]
+  senderClassifications    SenderClassification[]
 
   // conditions: ai, group, static, category
   conditionalOperator LogicalOperator @default(AND)
@@ -667,6 +669,26 @@ model GroupItem {
   source    GroupItemSource? // provides value for UI/audit.
 
   @@unique([groupId, type, value])
+}
+
+model SenderClassification {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  sender    String // normalized email address (lowercase)
+  eventType SenderClassificationEventType
+
+  ruleId         String
+  rule           Rule         @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  threadId  String
+  messageId String
+
+  @@unique([emailAccountId, sender, ruleId, messageId, eventType])
+  @@index([emailAccountId, sender])
+  @@index([ruleId])
 }
 
 model Category {
@@ -1576,6 +1598,11 @@ enum GroupItemSource {
   USER
   LABEL_REMOVED
   LABEL_ADDED
+}
+
+enum SenderClassificationEventType {
+  LABEL_ADDED
+  LABEL_REMOVED
 }
 
 enum MessagingProvider {

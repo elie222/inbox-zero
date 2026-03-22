@@ -40,6 +40,7 @@ import {
 } from "@/utils/cold-email/cold-email-rule";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
+import { getSenderClassificationsForPrompt } from "@/utils/rule/sender-classification";
 
 const MODULE = "match-rules";
 
@@ -441,12 +442,23 @@ async function findMatchingRulesWithReasons(
   });
 
   if (potentialAiMatches.length) {
+    const senderEmail = extractEmailAddress(message.headers.from);
+    const senderClassificationHint = senderEmail
+      ? await getSenderClassificationsForPrompt({
+          emailAccountId: emailAccount.id,
+          senderEmail,
+          provider,
+          logger,
+        })
+      : null;
+
     const fullResult = await aiChooseRule({
       email: getEmailForLLM(message),
       rules: potentialAiMatches,
       emailAccount,
       modelType,
       logger,
+      senderClassificationHint,
     });
 
     const result = {
