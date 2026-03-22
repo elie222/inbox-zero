@@ -64,7 +64,7 @@ ALTER TYPE "ReplyMemoryKind" RENAME VALUE 'STYLE' TO 'PREFERENCE';
 ALTER TYPE "ReplyMemoryKind" ADD VALUE 'PROCEDURE';
 
 ALTER TABLE "ReplyMemory"
-ADD COLUMN "feedsStyleProfile" BOOLEAN NOT NULL DEFAULT false;
+ADD COLUMN "isLearnedStyleEvidence" BOOLEAN NOT NULL DEFAULT false;
 
 ALTER TABLE "ReplyMemory"
 ADD CONSTRAINT "ReplyMemory_emailAccountId_kind_scopeType_scopeValue_content_key"

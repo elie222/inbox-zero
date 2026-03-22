@@ -358,7 +358,7 @@ async function processReplyMemoryDraftSendLog({
         emailAccountId,
         kind: ReplyMemoryKind.PREFERENCE,
         scopeType: ReplyMemoryScopeType.GLOBAL,
-        feedsStyleProfile: true,
+        isLearnedStyleEvidence: true,
       },
       orderBy: { updatedAt: "desc" },
       take: MAX_EXISTING_PREFERENCE_MEMORIES_IN_PROMPT,
@@ -424,7 +424,7 @@ async function processReplyMemoryDraftSendLog({
       },
     } satisfies Prisma.ReplyMemoryWhereUniqueInput;
 
-    const feedsStyleProfile =
+    const isLearnedStyleEvidence =
       normalizedMemory.kind === ReplyMemoryKind.PREFERENCE;
 
     const persistedMemory = await prisma.replyMemory.upsert({
@@ -435,11 +435,11 @@ async function processReplyMemoryDraftSendLog({
         kind: normalizedMemory.kind,
         scopeType: normalizedMemory.scopeType,
         scopeValue: normalizedScopeValue,
-        feedsStyleProfile,
+        isLearnedStyleEvidence,
       },
       update: {
         content: normalizedMemory.content,
-        feedsStyleProfile,
+        isLearnedStyleEvidence,
       },
     });
 
@@ -498,7 +498,7 @@ async function maybeRefreshLearnedWritingStyle({
       is: {
         emailAccountId,
         kind: ReplyMemoryKind.PREFERENCE,
-        feedsStyleProfile: true,
+        isLearnedStyleEvidence: true,
       },
     },
   } as const;

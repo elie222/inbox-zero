@@ -373,7 +373,7 @@ describe("reply-memory", () => {
         emailAccountId: "account-1",
         kind: ReplyMemoryKind.PREFERENCE,
         scopeType: ReplyMemoryScopeType.GLOBAL,
-        feedsStyleProfile: true,
+        isLearnedStyleEvidence: true,
       },
       orderBy: { updatedAt: "desc" },
       take: 4,
@@ -384,7 +384,7 @@ describe("reply-memory", () => {
           content: "Mention that pricing depends on seat count.",
           scopeType: ReplyMemoryScopeType.TOPIC,
           scopeValue: "pricing",
-          feedsStyleProfile: false,
+          isLearnedStyleEvidence: false,
         }),
       }),
     );
@@ -509,11 +509,11 @@ describe("reply-memory", () => {
           content: "Keep routine replies direct and low ceremony.",
           scopeType: ReplyMemoryScopeType.GLOBAL,
           scopeValue: "",
-          feedsStyleProfile: true,
+          isLearnedStyleEvidence: true,
         }),
         update: expect.objectContaining({
           content: "Keep routine replies direct and low ceremony.",
-          feedsStyleProfile: true,
+          isLearnedStyleEvidence: true,
         }),
       }),
     );
@@ -640,7 +640,7 @@ describe("reply-memory", () => {
           is: {
             emailAccountId: "account-1",
             kind: ReplyMemoryKind.PREFERENCE,
-            feedsStyleProfile: true,
+            isLearnedStyleEvidence: true,
           },
         },
       },
@@ -1338,7 +1338,7 @@ function createReplyMemory(
     kind: ReplyMemoryKind;
     scopeType: ReplyMemoryScopeType;
     scopeValue: string;
-    feedsStyleProfile: boolean;
+    isLearnedStyleEvidence: boolean;
     createdAt: Date;
     updatedAt: Date;
     emailAccountId: string;
@@ -1355,8 +1355,8 @@ function createReplyMemory(
     kind,
     scopeType,
     scopeValue,
-    feedsStyleProfile:
-      overrides.feedsStyleProfile ?? kind === ReplyMemoryKind.PREFERENCE,
+    isLearnedStyleEvidence:
+      overrides.isLearnedStyleEvidence ?? kind === ReplyMemoryKind.PREFERENCE,
     createdAt: new Date("2026-03-17T09:00:00.000Z"),
     updatedAt: new Date("2026-03-17T09:00:00.000Z"),
     emailAccountId: "account-1",
