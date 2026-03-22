@@ -58,10 +58,10 @@ export enum ClientGroupSource {
 }
 
 export interface CalendarConflict {
-  title: string;
   calendar: string;
-  start: string;
   end: string;
+  start: string;
+  title: string;
 }
 
 export interface CalendarAvailability {
@@ -71,9 +71,9 @@ export interface CalendarAvailability {
 }
 
 export interface CosEngineResponse {
-  category: CosCategory;
-  summary: string;
   actionTaken: string | null;
+  category: CosCategory;
+  conflicts: CalendarConflict[];
   draft: {
     to: string;
     subject: string;
@@ -81,24 +81,24 @@ export interface CosEngineResponse {
     gmailDraftId: string;
     gmailThreadId: string;
   } | null;
-  needsApproval: boolean;
-  conflicts: CalendarConflict[];
   isVip: boolean;
+  needsApproval: boolean;
+  summary: string;
   vipGroupName: string | null;
 }
 
 export interface EmailMetadata {
-  messageId: string;
-  threadId: string;
-  from: string;
-  to: string;
-  subject: string;
-  date: Date;
-  labels: string[];
-  category: string | null;
-  headers: Record<string, string>;
-  snippet: string;
   body: string;
+  category: string | null;
+  date: Date;
+  from: string;
+  headers: Record<string, string>;
+  labels: string[];
+  messageId: string;
+  snippet: string;
+  subject: string;
+  threadId: string;
+  to: string;
 }
 
 export const CATEGORY_ICONS: Record<CosCategory, string> = {
@@ -141,7 +141,7 @@ export const CALENDAR_IDS = {
 } as const;
 
 // Calendars whose events are always treated as soft/movable
-export const SOFT_CALENDARS = new Set([
+export const SOFT_CALENDARS: Set<string> = new Set([
   CALENDAR_IDS.nutrition,
   CALENDAR_IDS.workout,
 ]);

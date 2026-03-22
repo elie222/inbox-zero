@@ -327,7 +327,7 @@ async function buildRawEmail(params: {
 
   // biome-ignore lint/suspicious/noExplicitAny: nodemailer MailComposer constructor type mismatch
   const mailComposer = new MailComposer(
-    mailOptions as Parameters<typeof MailComposer>[0],
+    mailOptions as ConstructorParameters<typeof MailComposer>[0],
   );
   const message = await mailComposer.compile().build();
   return Buffer.from(message)

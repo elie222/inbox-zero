@@ -1,4 +1,5 @@
 import prisma from "@/utils/prisma";
+import type { CosFilterReason } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { getCalendarClientWithRefresh } from "@/utils/calendar/client";
@@ -151,11 +152,11 @@ export async function processChiefOfStaffWebhook(decoded: {
     let calendarClient: Awaited<
       ReturnType<typeof getCalendarClientWithRefresh>
     > | null = null;
-    if (calendarConn?.refresh_token) {
+    if (calendarConn?.refreshToken) {
       try {
         calendarClient = await getCalendarClientWithRefresh({
-          accessToken: calendarConn.access_token,
-          refreshToken: calendarConn.refresh_token,
+          accessToken: calendarConn.accessToken,
+          refreshToken: calendarConn.refreshToken,
           expiresAt: calendarConn.expiresAt?.getTime() ?? null,
           emailAccountId: emailAccount.id,
           logger: log,
@@ -295,7 +296,7 @@ export async function processOneEmail({
         emailAccountId: emailAccount.id,
         sender: emailMetadata.from,
         subject: emailMetadata.subject,
-        filterReason: filterResult.reason as string,
+        filterReason: filterResult.reason as CosFilterReason,
       },
     });
     return;

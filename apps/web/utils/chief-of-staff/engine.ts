@@ -1,6 +1,6 @@
 // apps/web/utils/chief-of-staff/engine.ts
 
-import { generateText } from "ai";
+import { generateText, stepCountIs } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createChiefOfStaffTools } from "./tools";
 import { buildSystemPrompt } from "./system-prompt";
@@ -114,7 +114,7 @@ export async function processEmailWithClaude(
       },
     ],
     tools,
-    maxSteps: 10,
+    stopWhen: stepCountIs(10),
   });
 
   // Parse the JSON response from Claude
