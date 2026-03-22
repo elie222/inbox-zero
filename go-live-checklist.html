@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chief of Staff Bot - Go Live Checklist</title>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Google+Sans+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --md-sys-color-primary: #6750A4;
+      --md-sys-color-on-primary: #FFFFFF;
+      --md-sys-color-primary-container: #EADDFF;
+      --md-sys-color-on-primary-container: #21005D;
+      --md-sys-color-secondary: #625B71;
+      --md-sys-color-secondary-container: #E8DEF8;
+      --md-sys-color-surface: #FFFBFE;
+      --md-sys-color-surface-variant: #E7E0EC;
+      --md-sys-color-on-surface: #1C1B1F;
+      --md-sys-color-on-surface-variant: #49454F;
+      --md-sys-color-outline: #79747E;
+      --md-sys-color-outline-variant: #CAC4D0;
+      --md-sys-color-tertiary: #7D5260;
+      --md-sys-color-tertiary-container: #FFD8E4;
+      --md-sys-color-error: #B3261E;
+      --md-sys-color-error-container: #F9DEDC;
+      --md-sys-color-success: #386A20;
+      --md-sys-color-success-container: #C4F2A6;
+      --md-sys-shape-corner-medium: 12px;
+      --md-sys-shape-corner-large: 16px;
+      --md-sys-shape-corner-extra-large: 28px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Google Sans', system-ui, -apple-system, sans-serif;
+      background: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      line-height: 1.5;
+      padding: 24px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      padding: 40px 0 32px;
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: -0.5px;
+      color: var(--md-sys-color-on-surface);
+    }
+
+    header p {
+      font-size: 14px;
+      color: var(--md-sys-color-on-surface-variant);
+      margin-top: 8px;
+    }
+
+    .progress-bar-container {
+      background: var(--md-sys-color-surface-variant);
+      border-radius: 100px;
+      height: 8px;
+      margin: 24px 0 32px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      background: var(--md-sys-color-primary);
+      height: 100%;
+      border-radius: 100px;
+      transition: width 0.4s cubic-bezier(0.2, 0, 0, 1);
+      width: 0%;
+    }
+
+    .progress-text {
+      text-align: center;
+      font-size: 14px;
+      color: var(--md-sys-color-on-surface-variant);
+      margin-top: -24px;
+      margin-bottom: 24px;
+    }
+
+    .section {
+      margin-bottom: 16px;
+      border-radius: var(--md-sys-shape-corner-large);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      overflow: hidden;
+      background: var(--md-sys-color-surface);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+
+    .section-header:hover {
+      background: color-mix(in srgb, var(--md-sys-color-on-surface) 4%, transparent);
+    }
+
+    .section-number {
+      width: 32px;
+      height: 32px;
+      border-radius: 100px;
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .section-number.done {
+      background: var(--md-sys-color-success-container);
+      color: var(--md-sys-color-success);
+    }
+
+    .section-title {
+      flex: 1;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .section-time {
+      font-size: 12px;
+      color: var(--md-sys-color-on-surface-variant);
+      background: var(--md-sys-color-surface-variant);
+      padding: 4px 12px;
+      border-radius: 100px;
+    }
+
+    .section-chevron {
+      color: var(--md-sys-color-on-surface-variant);
+      transition: transform 0.2s;
+      font-size: 20px;
+    }
+
+    .section.open .section-chevron {
+      transform: rotate(180deg);
+    }
+
+    .section-body {
+      display: none;
+      padding: 0 20px 20px;
+      border-top: 1px solid var(--md-sys-color-outline-variant);
+    }
+
+    .section.open .section-body {
+      display: block;
+    }
+
+    .task {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    }
+
+    .task:last-child { border-bottom: none; }
+
+    .task input[type="checkbox"] {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--md-sys-color-outline);
+      border-radius: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .task input[type="checkbox"]:checked {
+      background: var(--md-sys-color-primary);
+      border-color: var(--md-sys-color-primary);
+    }
+
+    .task input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      left: 5px;
+      top: 1px;
+      width: 6px;
+      height: 10px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+
+    .task.checked .task-text {
+      color: var(--md-sys-color-on-surface-variant);
+      text-decoration: line-through;
+    }
+
+    .task-text {
+      font-size: 14px;
+      flex: 1;
+    }
+
+    .task-text strong {
+      font-weight: 500;
+    }
+
+    code {
+      font-family: 'Google Sans Mono', 'SF Mono', monospace;
+      font-size: 13px;
+      background: var(--md-sys-color-surface-variant);
+      padding: 2px 6px;
+      border-radius: 4px;
+      word-break: break-all;
+    }
+
+    pre {
+      background: #1C1B1F;
+      color: #E6E1E5;
+      padding: 16px;
+      border-radius: var(--md-sys-shape-corner-medium);
+      overflow-x: auto;
+      font-family: 'Google Sans Mono', 'SF Mono', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 12px 0;
+    }
+
+    .note {
+      background: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-surface);
+      padding: 12px 16px;
+      border-radius: var(--md-sys-shape-corner-medium);
+      font-size: 13px;
+      margin: 12px 0;
+    }
+
+    .warn {
+      background: var(--md-sys-color-error-container);
+      color: var(--md-sys-color-on-surface);
+      padding: 12px 16px;
+      border-radius: var(--md-sys-shape-corner-medium);
+      font-size: 13px;
+      margin: 12px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--md-sys-color-surface-variant);
+      font-weight: 500;
+      color: var(--md-sys-color-on-surface-variant);
+    }
+
+    th:first-child { border-radius: 8px 0 0 0; }
+    th:last-child { border-radius: 0 8px 0 0; }
+
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    }
+
+    .section-description {
+      font-size: 14px;
+      color: var(--md-sys-color-on-surface-variant);
+      margin-bottom: 16px;
+      padding-top: 16px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 40px 0;
+      font-size: 13px;
+      color: var(--md-sys-color-on-surface-variant);
+    }
+
+    @media (max-width: 600px) {
+      body { padding: 16px; }
+      header h1 { font-size: 22px; }
+      pre { font-size: 11px; padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Chief of Staff Bot</h1>
+  <p>Go-Live Checklist</p>
+</header>
+
+<div class="progress-bar-container">
+  <div class="progress-bar" id="progressBar"></div>
+</div>
+<div class="progress-text" id="progressText">0 of 28 tasks complete</div>
+
+<!-- Section 1 -->
+<div class="section" id="section-1">
+  <div class="section-header" onclick="toggleSection('section-1')">
+    <div class="section-number" id="num-1">1</div>
+    <div class="section-title">Google Cloud Setup</div>
+    <div class="section-time">~30 min</div>
+    <div class="section-chevron">&#9662;</div>
+  </div>
+  <div class="section-body">
+    <p class="section-description">Set up Pub/Sub subscription and verify OAuth scopes for the Chief of Staff webhook.</p>
+
+    <div class="task" data-section="1">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Verify Google Cloud project exists</strong> with Gmail API, Calendar API, and Pub/Sub API enabled</div>
+    </div>
+
+    <div class="task" data-section="1">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Verify Pub/Sub topic exists</strong> (e.g., <code>chief-of-staff-gmail</code>) with <code>gmail-api-push@system.gserviceaccount.com</code> as Publisher</div>
+    </div>
+
+    <div class="task" data-section="1">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Create a second push subscription</strong> on the same topic pointing to the Chief of Staff endpoint:
+        <pre>gcloud pubsub subscriptions create chief-of-staff-push \
+  --topic=chief-of-staff-gmail \
+  --push-endpoint="https://YOUR_RAILWAY_URL/api/chief-of-staff/webhook?token=YOUR_TOKEN" \
+  --ack-deadline=30</pre>
+      </div>
+    </div>
+
+    <div class="task" data-section="1">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Verify OAuth scopes</strong> include <code>gmail.settings.basic</code> (for signatures) and <code>calendar</code> (for shipping events)</div>
+    </div>
+
+    <div class="task" data-section="1">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Connect nick@smartcollege.com</strong> via OAuth (second inbox). Each inbox needs its own OAuth token stored in the Account table.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 2 -->
+<div class="section" id="section-2">
+  <div class="section-header" onclick="toggleSection('section-2')">
+    <div class="section-number" id="num-2">2</div>
+    <div class="section-title">Slack App Setup</div>
+    <div class="section-time">~15 min</div>
+    <div class="section-chevron">&#9662;</div>
+  </div>
+  <div class="section-body">
+    <p class="section-description">Configure Slack interactivity for the approve/edit/reject buttons.</p>
+
+    <div class="task" data-section="2">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Go to <a href="https://api.slack.com/apps" target="_blank">api.slack.com/apps</a></strong> and select your Inbox Zero Slack app</div>
+    </div>
+
+    <div class="task" data-section="2">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Set Interactivity Request URL</strong> to:
+        <pre>https://YOUR_RAILWAY_URL/api/chief-of-staff/slack/interactions</pre>
+      </div>
+    </div>
+
+    <div class="task" data-section="2">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Create <code>#chief-of-staff</code> channel</strong> (private recommended) and invite the bot</div>
+    </div>
+
+    <div class="task" data-section="2">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Copy the channel ID</strong> (right-click channel name &rarr; Copy link &rarr; ID is in the URL, starts with C)</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3 -->
+<div class="section" id="section-3">
+  <div class="section-header" onclick="toggleSection('section-3')">
+    <div class="section-number" id="num-3">3</div>
+    <div class="section-title">Acuity API Setup</div>
+    <div class="section-time">~5 min</div>
+    <div class="section-chevron">&#9662;</div>
+  </div>
+  <div class="section-body">
+    <p class="section-description">Get your Acuity REST API credentials.</p>
+
+    <div class="task" data-section="3">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Log into <a href="https://secure.acuityscheduling.com" target="_blank">Acuity Scheduling</a></strong> &rarr; Integrations &rarr; API</div>
+    </div>
+
+    <div class="task" data-section="3">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Copy User ID and API Key</strong> &mdash; you'll need both for the .env file</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 4 -->
+<div class="section" id="section-4">
+  <div class="section-header" onclick="toggleSection('section-4')">
+    <div class="section-number" id="num-4">4</div>
+    <div class="section-title">Environment Variables</div>
+    <div class="section-time">~5 min</div>
+    <div class="section-chevron">&#9662;</div>
+  </div>
+  <div class="section-body">
+    <p class="section-description">Add Chief of Staff variables to your .env (or Railway dashboard).</p>
+
+    <div class="task" data-section="4">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Set Acuity credentials:</strong>
+        <pre>ACUITY_USER_ID=your_user_id
+ACUITY_API_KEY=your_api_key</pre>
+      </div>
+    </div>
+
+    <div class="task" data-section="4">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Set Slack channel ID:</strong>
+        <pre>CHIEF_OF_STAFF_SLACK_CHANNEL_ID=C0xxxxxxxxx</pre>
+      </div>
+    </div>
+
+    <div class="task" data-section="4">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Generate and set cron secret:</strong>
+        <pre>CRON_SECRET=$(openssl rand -hex 32)</pre>
+      </div>
+    </div>
+
+    <div class="task" data-section="4">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Verify existing vars are set:</strong> <code>ANTHROPIC_API_KEY</code>, <code>SLACK_SIGNING_SECRET</code>, <code>GOOGLE_PUBSUB_VERIFICATION_TOKEN</code>, <code>DATABASE_URL</code></div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 5 -->
+<div class="section" id="section-5">
+  <div class="section-header" onclick="toggleSection('section-5')">
+    <div class="section-number" id="num-5">5</div>
+    <div class="section-title">Database Migration</div>
+    <div class="section-time">~5 min</div>
+    <div class="section-chevron">&#9662;</div>
+  </div>
+  <div class="section-body">
+    <p class="section-description">Run the Prisma migration to create the 9 new tables.</p>
+
+    <div class="task" data-section="5">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Run migration:</strong>
+        <pre>cd apps/web && npx prisma migrate dev --name chief_of_staff</pre>
+        <div class="note">This creates new tables only. Existing data is untouched.</div>
+      </div>
+    </div>
+
+    <div class="task" data-section="5">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Verify tables exist:</strong> <code>ChiefOfStaffConfig</code>, <code>AutonomyLevel</code>, <code>ProcessedEmail</code>, <code>CosPendingDraft</code>, <code>VipCache</code>, <code>ClientGroup</code>, <code>ClientGroupMember</code>, <code>CosFilteredEmail</code>, <code>ShippingEvent</code></div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 6 -->
+<div class="section" id="section-6">
+  <div class="section-header" onclick="toggleSection('section-6')">
+    <div class="section-number" id="num-6">6</div>
+    <div class="section-title">Seed Initial Config</div>
+    <div class="section-time">~10 min</div>
+    <div class="section-chevron">&#9662;</div>
+  </div>
+  <div class="section-body">
+    <p class="section-description">Create configuration records for each inbox. Use Prisma Studio (<code>npx prisma studio</code>) or a seed script.</p>
+
+    <div class="task" data-section="6">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Create ChiefOfStaffConfig for leekenick@gmail.com:</strong>
+        <br>venture: <code>personal</code>, enabled: <code>true</code>
+        <br>voiceTone: <code>{"instructions": "Direct and casual. Nick's personal voice."}</code>
+      </div>
+    </div>
+
+    <div class="task" data-section="6">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Create ChiefOfStaffConfig for nick@smartcollege.com:</strong>
+        <br>venture: <code>smart_college</code>, enabled: <code>true</code>
+        <br>voiceTone: <code>{"instructions": "Warm but professional. First-name basis with parents. Reference the student by name."}</code>
+      </div>
+    </div>
+
+    <div class="task" data-section="6">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Create AutonomyLevel records</strong> for each inbox (14 total &mdash; 7 categories &times; 2 inboxes):
+        <table>
+          <tr><th>Category</th><th>Mode</th></tr>
+          <tr><td>scheduling</td><td>auto_handle</td></tr>
+          <tr><td>scheduling_cancel</td><td>draft_approve</td></tr>
+          <tr><td>client_parent</td><td>draft_approve</td></tr>
+          <tr><td>business</td><td>draft_approve</td></tr>
+          <tr><td>urgent</td><td>flag_only</td></tr>
+          <tr><td>notification</td><td>auto_handle</td></tr>
+          <tr><td>low_priority</td><td>auto_handle</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 7 -->
+<div class="section" id="section-7">
+  <div class="section-header" onclick="toggleSection('section-7')">
+    <div class="section-number" id="num-7">7</div>
+    <div class="section-title">Deploy to Railway</div>
+    <div class="section-time">~10 min</div>
+    <div class="section-chevron">&#9662;</div>
+  </div>
+  <div class="section-body">
+    <p class="section-description">Deploy the app and set environment variables in Railway.</p>
+
+    <div class="task" data-section="7">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Connect GitHub repo</strong> to Railway (or run <code>railway up</code>)</div>
+    </div>
+
+    <div class="task" data-section="7">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Set all environment variables</strong> in Railway dashboard</div>
+    </div>
+
+    <div class="task" data-section="7">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Verify deployment is healthy</strong> &mdash; check Railway logs for startup errors</div>
+    </div>
+
+    <div class="task" data-section="7">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Update Pub/Sub and Slack URLs</strong> with the actual Railway domain</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 8 -->
+<div class="section" id="section-8">
+  <div class="section-header" onclick="toggleSection('section-8')">
+    <div class="section-number" id="num-8">8</div>
+    <div class="section-title">Set Up Cron Jobs</div>
+    <div class="section-time">~10 min</div>
+    <div class="section-chevron">&#9662;</div>
+  </div>
+  <div class="section-body">
+    <p class="section-description">Create scheduled HTTP requests that hit the cron endpoint. Use Railway cron, cron-job.org, or similar.</p>
+    <div class="note">Every request needs header: <code>Authorization: Bearer YOUR_CRON_SECRET</code></div>
+
+    <div class="task" data-section="8">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Retry failed</strong> &mdash; every 5 min:
+        <pre>GET /api/chief-of-staff/cron?type=retry-failed</pre>
+      </div>
+    </div>
+
+    <div class="task" data-section="8">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Batch summary</strong> &mdash; every 4 hours:
+        <pre>GET /api/chief-of-staff/cron?type=batch-summary</pre>
+      </div>
+    </div>
+
+    <div class="task" data-section="8">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Refresh signatures</strong> &mdash; daily at 6am CT:
+        <pre>GET /api/chief-of-staff/cron?type=refresh-signatures</pre>
+      </div>
+    </div>
+
+    <div class="task" data-section="8">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Refresh VIP cache</strong> &mdash; daily at 6am CT:
+        <pre>GET /api/chief-of-staff/cron?type=refresh-vip-cache</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 9 -->
+<div class="section" id="section-9">
+  <div class="section-header" onclick="toggleSection('section-9')">
+    <div class="section-number" id="num-9">9</div>
+    <div class="section-title">Test It</div>
+    <div class="section-time">~15 min</div>
+    <div class="section-chevron">&#9662;</div>
+  </div>
+  <div class="section-body">
+    <p class="section-description">End-to-end verification that the pipeline works.</p>
+
+    <div class="task" data-section="9">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Send a test email</strong> to leekenick@gmail.com from a personal contact &mdash; verify it appears in <code>#chief-of-staff</code> within ~10 seconds</div>
+    </div>
+
+    <div class="task" data-section="9">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Test Approve button</strong> &mdash; tap Approve, verify email is sent and Slack message updates to "Sent"</div>
+    </div>
+
+    <div class="task" data-section="9">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Test Edit button</strong> &mdash; tap Edit, modify draft in modal, submit, verify edited email is sent</div>
+    </div>
+
+    <div class="task" data-section="9">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Test Reject button</strong> &mdash; tap Reject, verify message updates to "Skipped"</div>
+    </div>
+
+    <div class="task" data-section="9">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Send a promotional email</strong> &mdash; verify it does NOT appear in Slack (pre-filtered, no Claude API cost)</div>
+    </div>
+
+    <div class="task" data-section="9">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Test Smart College inbox</strong> &mdash; have a parent email nick@smartcollege.com about scheduling, verify it uses warm/professional tone</div>
+    </div>
+
+    <div class="task" data-section="9">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Verify signature</strong> appears on sent emails</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 10 -->
+<div class="section" id="section-10">
+  <div class="section-header" onclick="toggleSection('section-10')">
+    <div class="section-number" id="num-10">10</div>
+    <div class="section-title">Monitor</div>
+    <div class="section-time">Ongoing</div>
+    <div class="section-chevron">&#9662;</div>
+  </div>
+  <div class="section-body">
+    <p class="section-description">Keep an eye on things during the first few days.</p>
+
+    <div class="task" data-section="10">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Check Railway logs</strong> for errors during the first 24 hours</div>
+    </div>
+
+    <div class="task" data-section="10">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Review ProcessedEmail table</strong> via Prisma Studio &mdash; check for any <code>failed</code> or <code>dead_letter</code> status entries</div>
+    </div>
+
+    <div class="task" data-section="10">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Review CosFilteredEmail table</strong> &mdash; verify the pre-filter is catching junk correctly and not filtering important emails</div>
+    </div>
+
+    <div class="task" data-section="10">
+      <input type="checkbox" onchange="updateProgress()">
+      <div class="task-text"><strong>Watch for dead-letter Slack alerts</strong> &mdash; these mean an email failed processing 3 times</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Chief of Staff Bot &middot; Built on Inbox Zero &middot; PR #1
+</footer>
+
+<script>
+  const STORAGE_KEY = 'cos-checklist-state';
+
+  function saveState() {
+    const checkboxes = document.querySelectorAll('.task input[type="checkbox"]');
+    const state = Array.from(checkboxes).map(cb => cb.checked);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function loadState() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return;
+    const state = JSON.parse(saved);
+    const checkboxes = document.querySelectorAll('.task input[type="checkbox"]');
+    checkboxes.forEach((cb, i) => {
+      if (state[i]) {
+        cb.checked = true;
+        cb.closest('.task').classList.add('checked');
+      }
+    });
+  }
+
+  function updateProgress() {
+    const checkboxes = document.querySelectorAll('.task input[type="checkbox"]');
+    const total = checkboxes.length;
+    const checked = document.querySelectorAll('.task input[type="checkbox"]:checked').length;
+    const pct = Math.round((checked / total) * 100);
+
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressText').textContent = `${checked} of ${total} tasks complete`;
+
+    // Update task styling
+    checkboxes.forEach(cb => {
+      cb.closest('.task').classList.toggle('checked', cb.checked);
+    });
+
+    // Update section numbers
+    for (let i = 1; i <= 10; i++) {
+      const section = document.getElementById(`section-${i}`);
+      const tasks = section.querySelectorAll('.task input[type="checkbox"]');
+      const allDone = Array.from(tasks).every(t => t.checked);
+      const numEl = document.getElementById(`num-${i}`);
+      numEl.classList.toggle('done', allDone);
+      if (allDone) numEl.textContent = '\u2713';
+      else numEl.textContent = i;
+    }
+
+    saveState();
+  }
+
+  function toggleSection(id) {
+    document.getElementById(id).classList.toggle('open');
+  }
+
+  // Init
+  loadState();
+  updateProgress();
+  // Open first incomplete section
+  for (let i = 1; i <= 10; i++) {
+    const section = document.getElementById(`section-${i}`);
+    const tasks = section.querySelectorAll('.task input[type="checkbox"]');
+    const allDone = Array.from(tasks).every(t => t.checked);
+    if (!allDone) { section.classList.add('open'); break; }
+  }
+</script>
+
+</body>
+</html>
