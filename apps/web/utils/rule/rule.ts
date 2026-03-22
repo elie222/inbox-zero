@@ -19,6 +19,38 @@ import {
   LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
 } from "@/utils/rule/static-from-risk";
 import type { RuleWithRelations } from "@/utils/rule/types";
+import type { RuleConditions } from "@/utils/condition";
+
+type CreateRuleEnablement =
+  | { source: "default" }
+  | { source: "chat"; chatRiskConfirmed?: boolean };
+
+export function outboundActionsNeedChatRiskConfirmation(
+  result: CreateOrUpdateRuleSchema,
+): { needsConfirmation: boolean; riskMessages: string[] } {
+  const ruleCtx = ruleConditionsForRisk(result);
+  const messages: string[] = [];
+  for (const action of result.actions) {
+    if (!OUTBOUND_ACTION_TYPES.includes(action.type)) continue;
+
+    const ra: RiskAction = {
+      type: action.type,
+      subject: action.fields?.subject ?? null,
+      content: action.fields?.content ?? null,
+      to: action.fields?.to?.trim() || null,
+      cc: action.fields?.cc ?? null,
+      bcc: action.fields?.bcc ?? null,
+    };
+    const { level, message } = getActionRiskLevel(ra, ruleCtx);
+    if (level !== "low" && !messages.includes(message)) {
+      messages.push(message);
+    }
+  }
+  return {
+    needsConfirmation: messages.length > 0,
+    riskMessages: messages,
+  };
+}
 
 type RuleRecordData = {
   name?: string;
@@ -182,6 +214,7 @@ export async function createRule({
   provider,
   runOnThreads,
   logger,
+  enablement = { source: "default" } satisfies CreateRuleEnablement,
 }: {
   result: CreateOrUpdateRuleSchema;
   emailAccountId: string;
@@ -189,6 +222,7 @@ export async function createRule({
   provider: string;
   runOnThreads: boolean;
   logger: Logger;
+  enablement?: CreateRuleEnablement;
 }) {
   try {
     logger.info("Creating rule", {
@@ -223,6 +257,7 @@ export async function createRule({
             cc: a.cc ?? null,
             bcc: a.bcc ?? null,
           })),
+          enablement,
         ),
         runOnThreads,
         conditionalOperator: result.condition.conditionalOperator ?? undefined,
@@ -454,8 +489,11 @@ export async function deleteRule({
   await prisma.rule.delete({ where: { id: ruleId, emailAccountId } });
 }
 
-function shouldEnable(rule: CreateOrUpdateRuleSchema, actions: RiskAction[]) {
-  // Don't automate if it's an example rule that should have been edited by the user
+function shouldEnable(
+  rule: CreateOrUpdateRuleSchema,
+  actions: RiskAction[],
+  enablement: CreateRuleEnablement,
+) {
   if (
     hasExampleParams({
       condition: rule.condition,
@@ -464,21 +502,35 @@ function shouldEnable(rule: CreateOrUpdateRuleSchema, actions: RiskAction[]) {
   )
     return false;
 
-  // Don't automate sending, replying, or forwarding emails
-  if (
-    rule.actions.find(
-      (a) =>
-        a.type === ActionType.REPLY ||
-        a.type === ActionType.SEND_EMAIL ||
-        a.type === ActionType.FORWARD,
-    )
-  )
+  if (enablement.source === "chat" && enablement.chatRiskConfirmed) {
+    return true;
+  }
+
+  if (enablement.source === "chat") {
+    const hasOutbound = rule.actions.some((a) =>
+      OUTBOUND_ACTION_TYPES.includes(a.type),
+    );
+    if (!hasOutbound) {
+      return actions.every(
+        (action) => getActionRiskLevel(action, {}).level === "low",
+      );
+    }
+    const ruleCtx = ruleConditionsForRisk(rule);
+    for (const action of actions) {
+      if (!OUTBOUND_ACTION_TYPES.includes(action.type)) continue;
+      if (getActionRiskLevel(action, ruleCtx).level !== "low") {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (rule.actions.find((a) => OUTBOUND_ACTION_TYPES.includes(a.type)))
     return false;
 
   const riskLevels = actions.map(
     (action) => getActionRiskLevel(action, {}).level,
   );
-  // Only enable if all actions are low risk
   return riskLevels.every((level) => level === "low");
 }
 
@@ -579,4 +631,19 @@ async function mapActionFields(
   );
 
   return Promise.all(actionPromises);
+}
+
+const OUTBOUND_ACTION_TYPES: ActionType[] = [
+  ActionType.REPLY,
+  ActionType.SEND_EMAIL,
+  ActionType.FORWARD,
+];
+
+function ruleConditionsForRisk(rule: CreateOrUpdateRuleSchema): RuleConditions {
+  return {
+    instructions: rule.condition.aiInstructions ?? undefined,
+    from: rule.condition.static?.from ?? undefined,
+    to: rule.condition.static?.to ?? undefined,
+    subject: rule.condition.static?.subject ?? undefined,
+  };
 }

@@ -19,10 +19,12 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallbackColor } from "@/components/ui/avatar";
 import {
+  AlertTriangleIcon,
   ChevronRightIcon,
   TrashIcon,
   ExternalLinkIcon,
@@ -34,7 +36,10 @@ import {
 } from "lucide-react";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
-import { confirmAssistantEmailAction } from "@/utils/actions/assistant-chat";
+import {
+  confirmAssistantCreateRule,
+  confirmAssistantEmailAction,
+} from "@/utils/actions/assistant-chat";
 import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -733,6 +738,162 @@ export function CreatedRuleToolCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+export function PendingCreateRuleToolCard({
+  args,
+  output,
+  chatMessageId,
+  toolCallId,
+  disableConfirm,
+}: {
+  args: CreateRuleTool["input"];
+  output: unknown;
+  chatMessageId: string;
+  toolCallId: string;
+  disableConfirm: boolean;
+}) {
+  const { emailAccountId } = useAccount();
+  const { chatId } = useChat();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [ruleIdOverride, setRuleIdOverride] = useState<string | null>(null);
+
+  const riskMessages =
+    getOutputField<string[]>(output, "riskMessages")?.filter(Boolean) ?? [];
+  const confirmationState =
+    getOutputField<string>(output, "confirmationState") || "pending";
+  const isProcessing = confirmationState === "processing";
+  const ruleIdFromOutput = getOutputField<string>(output, "ruleId");
+  const ruleId = ruleIdOverride || ruleIdFromOutput;
+
+  const handleConfirm = async () => {
+    setIsConfirming(true);
+    try {
+      if (!chatId) {
+        toastError({ description: "Could not create this rule." });
+        return;
+      }
+
+      const input = { chatId, chatMessageId, toolCallId };
+      const result = await confirmAssistantCreateRule(emailAccountId, input);
+
+      if (result?.serverError) {
+        toastError({ description: result.serverError });
+        return;
+      }
+
+      const createdId = result?.data?.ruleId;
+      if (!createdId) {
+        toastError({ description: "Could not create this rule." });
+        return;
+      }
+
+      setRuleIdOverride(createdId);
+      toastSuccess({ description: "Rule created and enabled." });
+    } catch {
+      toastError({ description: "Could not create this rule." });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  return (
+    <PendingCreateRuleCardContent
+      args={args}
+      disableConfirm={disableConfirm}
+      isConfirming={isConfirming}
+      isProcessing={isProcessing}
+      onConfirm={handleConfirm}
+      riskMessages={riskMessages}
+      ruleId={ruleId}
+    />
+  );
+}
+
+export function PendingCreateRulePreviewCard({
+  args,
+  riskMessages,
+}: {
+  args: CreateRuleTool["input"];
+  riskMessages: string[];
+}) {
+  return (
+    <PendingCreateRuleCardContent
+      args={args}
+      disableConfirm
+      isConfirming={false}
+      isProcessing={false}
+      onConfirm={() => {}}
+      riskMessages={riskMessages}
+    />
+  );
+}
+
+function PendingCreateRuleCardContent({
+  args,
+  disableConfirm,
+  isConfirming,
+  isProcessing,
+  onConfirm,
+  riskMessages,
+  ruleId,
+}: {
+  args: CreateRuleTool["input"];
+  disableConfirm: boolean;
+  isConfirming: boolean;
+  isProcessing: boolean;
+  onConfirm: () => void;
+  riskMessages: string[];
+  ruleId?: string;
+}) {
+  if (ruleId) {
+    return <CreatedRuleToolCard args={args} ruleId={ruleId} />;
+  }
+
+  return (
+    <div className="space-y-3">
+      <Alert variant="default" className="border-amber-500/40 bg-amber-500/5">
+        <AlertTriangleIcon className="size-4 text-amber-600" />
+        <AlertTitle>Review before enabling</AlertTitle>
+        <AlertDescription className="space-y-2 text-sm">
+          <p>
+            This rule can send email automatically. Review it before enabling.
+          </p>
+          {riskMessages.length === 1 ? (
+            <p className="text-muted-foreground">{riskMessages[0]}</p>
+          ) : riskMessages.length > 1 ? (
+            <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+              {riskMessages.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          ) : null}
+        </AlertDescription>
+      </Alert>
+
+      <CreatedRuleToolCard args={args} preview />
+
+      <div className="flex justify-end">
+        <Button
+          onClick={onConfirm}
+          disabled={isConfirming || isProcessing || disableConfirm}
+          size="sm"
+          className="gap-2"
+        >
+          {isProcessing ? (
+            "Creating..."
+          ) : isConfirming ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Creating...
+            </>
+          ) : (
+            "Create & enable rule"
+          )}
+        </Button>
+      </div>
+    </div>
   );
 }
 
