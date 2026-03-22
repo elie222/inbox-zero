@@ -108,3 +108,8 @@ qa/browser-flows/results/*
 
 # eval reports
 eval-results/
+
+# installed skills — install via: skills install vercel-labs/agent-browser
+.claude/skills/agent-browser/
+skills-lock.json
+
