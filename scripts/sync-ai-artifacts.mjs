@@ -201,7 +201,8 @@ function renderCursorPlugin(skill) {
     {
       name: skill.name,
       version: "1.0.0",
-      description: `${skill.description} Same skill source as OpenClaw / ClawHub (clawhub/inbox-zero-api).`,
+      description:
+        "Cursor plugin for the Inbox Zero API CLI. Use inbox-zero-api for rules, stats, OpenAPI schema, and safe mutations.",
       author: {
         name: "Inbox Zero",
       },
