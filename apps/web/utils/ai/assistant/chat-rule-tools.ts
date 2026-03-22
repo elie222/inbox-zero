@@ -23,7 +23,7 @@ import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { filterNullProperties } from "@/utils";
 import {
-  delayInMinutesSchema,
+  delayInMinutesLlmSchema,
   updateRuleConditionSchema,
 } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
@@ -532,7 +532,7 @@ export const updateRuleActionsTool = ({
               subject: z.string().nullish(),
               folderName: z.string().nullish(),
             }),
-            delayInMinutes: delayInMinutesSchema,
+            delayInMinutes: delayInMinutesLlmSchema,
           })
           .superRefine((action, ctx) => {
             addMissingRecipientIssue({
