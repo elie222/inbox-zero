@@ -14,6 +14,13 @@ Usage:
 - `/qa-run --all [--parallel] [--max-parallel=3]`
 - `/qa-run --only=flow-a,flow-b [--parallel] [--max-parallel=3]`
 - `/qa-run --group=api [--parallel]`
+- `/qa-run --all --base-url=http://localhost:3000`
+
+Base URL:
+- `--base-url=<url>` sets the Inbox Zero app URL (e.g. `http://localhost:3000`, `https://www.getinboxzero.com`, or any self-hosted URL).
+- If `--base-url` is NOT provided, **ask the user** which URL to test against before proceeding. Do not assume production or localhost.
+- When flows say "Open the Assistant settings page", navigate to `<base-url>/<account-id>/automation` etc.
+- Gmail/Outlook URLs (mail.google.com, outlook.live.com) are unaffected by this flag.
 
 Filtering:
 - By default (without `--all` or `--only`), only `priority: high` flows run. Low-priority flows are skipped.
