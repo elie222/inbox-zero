@@ -12,7 +12,8 @@ import {
   ReplyMemoryScopeType,
 } from "@/generated/prisma/enums";
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
-import { aiExtractReplyMemoriesFromDraftEdit } from "@/utils/ai/reply/reply-memory";
+import { aiExtractReplyMemoriesFromDraftEdit } from "@/utils/ai/reply/extract-reply-memories";
+import { aiSummarizeLearnedWritingStyle } from "@/utils/ai/reply/summarize-learned-writing-style";
 
 // pnpm test-ai eval/reply-memory
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/reply-memory
@@ -25,11 +26,15 @@ const evalReporter = createEvalReporter();
 
 describe.runIf(shouldRunEval)("reply memory eval", () => {
   describeEvalMatrix("reply memory", (model, emailAccount) => {
+    const replyMemoryEmailAccount = emailAccount as Parameters<
+      typeof aiExtractReplyMemoriesFromDraftEdit
+    >[0]["emailAccount"];
+
     test(
       "extracts a reusable factual pricing memory",
       async () => {
         const result = await aiExtractReplyMemoriesFromDraftEdit({
-          emailAccount,
+          emailAccount: replyMemoryEmailAccount,
           incomingEmailContent:
             "Can you share your pricing for a 30 person team and let me know whether annual billing changes the quote?",
           draftText:
@@ -87,10 +92,69 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
     );
 
     test(
+      "extracts a reusable procedure memory from a qualifying-step correction",
+      async () => {
+        const incomingEmailContent =
+          "We would love a demo for our operations team next week. Do you have time on Tuesday or Wednesday?";
+        const draftText =
+          "Happy to do a demo next week. Here are a few times that work for me.";
+        const sentText =
+          "Happy to help. Before we schedule, can you share your team size and the main workflow you want to see? That will help me tailor the demo.";
+
+        const result = await aiExtractReplyMemoriesFromDraftEdit({
+          emailAccount: replyMemoryEmailAccount,
+          incomingEmailContent,
+          draftText,
+          sentText,
+          senderEmail: "prospect@example.com",
+          existingMemories: [],
+        });
+
+        const hasExpectedStructure = result.some(
+          (memory) =>
+            memory.kind === ReplyMemoryKind.PROCEDURE &&
+            (memory.scopeType === ReplyMemoryScopeType.TOPIC ||
+              memory.scopeType === ReplyMemoryScopeType.GLOBAL),
+        );
+        const summary = summarizeMemories(result);
+        const judgeResult = await judgeBinary({
+          input: buildJudgeInput({
+            incomingEmailContent,
+            draftText,
+            sentText,
+          }),
+          output: summary,
+          expected:
+            "A reusable PROCEDURE memory that captures the pattern of asking for team size and use case before scheduling a demo.",
+          criterion: {
+            name: "Reusable procedure memory extraction",
+            description:
+              "The extracted memories should include a reusable handling pattern, not just a factual note or style preference. It should capture that demo requests should be qualified before offering times.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = hasExpectedStructure && judgeResult.pass;
+
+        evalReporter.record({
+          testName: "demo qualification procedure extraction",
+          model: model.label,
+          pass,
+          expected: "PROCEDURE memory about qualifying demo requests",
+          actual: formatJudgeActual(summary, judgeResult),
+          criteria: [judgeResult],
+        });
+
+        expect(hasExpectedStructure).toBe(true);
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
       "does not learn from a one-off scheduling edit",
       async () => {
         const result = await aiExtractReplyMemoriesFromDraftEdit({
-          emailAccount,
+          emailAccount: replyMemoryEmailAccount,
           incomingEmailContent:
             "Would Tuesday or Wednesday afternoon work for a quick call next week?",
           draftText: "Happy to chat. I am free any time next week.",
@@ -115,10 +179,10 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
     );
 
     test(
-      "extracts a concise style memory from repeated tone edits",
+      "extracts a global preference memory from a strong tone edit",
       async () => {
         const result = await aiExtractReplyMemoriesFromDraftEdit({
-          emailAccount,
+          emailAccount: replyMemoryEmailAccount,
           incomingEmailContent:
             "Thanks for the quick follow-up. Just confirming you got my note.",
           draftText:
@@ -129,7 +193,9 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
         });
 
         const hasExpectedStructure = result.some(
-          (memory) => memory.kind === ReplyMemoryKind.STYLE,
+          (memory) =>
+            memory.kind === ReplyMemoryKind.PREFERENCE &&
+            memory.scopeType === ReplyMemoryScopeType.GLOBAL,
         );
         const summary = summarizeMemories(result);
         const judgeResult = await judgeBinary({
@@ -142,9 +208,9 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
           }),
           output: summary,
           expected:
-            "A reusable STYLE memory that captures the user's preference for concise, low-enthusiasm replies rather than this one specific sentence.",
+            "A reusable PREFERENCE memory that captures the user's preference for concise, low-enthusiasm replies rather than this one specific sentence.",
           criterion: {
-            name: "Reusable style memory extraction",
+            name: "Reusable preference memory extraction",
             description:
               "The extracted memories should include a reusable style preference grounded in the edit, such as preferring concise or less enthusiastic replies. The memory should describe a durable communication preference, not restate the specific sentence.",
           },
@@ -156,7 +222,7 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
           testName: "concise style extraction",
           model: model.label,
           pass,
-          expected: "STYLE memory about concise replies",
+          expected: "PREFERENCE memory about concise replies",
           actual: formatJudgeActual(summary, judgeResult),
           criteria: [judgeResult],
         });
@@ -251,6 +317,390 @@ Can you resend the short enterprise pricing explanation you usually send for a 3
       },
       TIMEOUT,
     );
+
+    test(
+      "uses a learned procedure memory to qualify demo requests before scheduling",
+      async () => {
+        const messages = [
+          {
+            ...getEmail({
+              from: "prospect@example.com",
+              to: emailAccount.email,
+              subject: "Demo next week",
+              content: `Hi,
+
+We would love to see a demo next week for our operations team. Are you available on Tuesday or Wednesday?
+
+Thanks,`,
+            }),
+            date: new Date("2026-03-17T10:30:00Z"),
+          },
+        ];
+
+        const withoutMemory = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent: null,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const replyMemoryContent =
+          "1. [PROCEDURE | TOPIC:demos] When a sender asks for a demo, first ask for team size and the main workflow they want to see before offering times.";
+
+        const withMemory = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const judgeResult = await judgeBinary({
+          input: buildDraftComparisonInput({
+            emailContent: messages[0].content,
+            withoutMemoryReply: withoutMemory.reply,
+            replyMemoryContent,
+          }),
+          output: withMemory.reply,
+          expected:
+            "A concise reply that asks for team size and the main workflow before suggesting demo times.",
+          criterion: {
+            name: "Learned procedure guides demo qualification",
+            description:
+              "Compared with the no-memory draft, the memory-aware draft should follow the procedure and qualify the demo request before offering times.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = judgeResult.pass;
+
+        evalReporter.record({
+          testName: "procedure memory improves demo reply",
+          model: model.label,
+          pass,
+          expected:
+            "memory-aware draft asks for team size and use case before scheduling",
+          actual: formatDraftComparisonActual({
+            withoutMemoryReply: withoutMemory.reply,
+            withMemoryReply: withMemory.reply,
+            judgeResult,
+          }),
+          criteria: [judgeResult],
+        });
+
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "summarizes repeated preference evidence into a prompt-ready learned writing style",
+      async () => {
+        const learnedWritingStyle = await aiSummarizeLearnedWritingStyle({
+          preferenceMemoryEvidence: buildPreferenceMemoryEvidence([
+            {
+              title: "concise tone",
+              content: "Keep replies short and remove filler.",
+              draftText:
+                "Hi there! Thanks so much for checking in. I just wanted to let you know that I got your note and will take a look soon.",
+              sentText: "Got it. I will review and get back to you.",
+            },
+            {
+              title: "low ceremony",
+              content: "Skip greetings and sign-offs for routine replies.",
+              draftText:
+                "Hi! Thanks again for the follow-up. I appreciate the reminder and will send an update shortly. Best,",
+              sentText: "I will send an update shortly.",
+            },
+            {
+              title: "plain wording",
+              content:
+                "Prefer plain declarative phrasing over warm filler in status updates.",
+              draftText:
+                "I just wanted to let you know that I am still on track and hope to have more to share very soon.",
+              sentText: "Still on track. I will share more soon.",
+            },
+          ]),
+          emailAccount: replyMemoryEmailAccount,
+        });
+
+        const judgeResult = await judgeBinary({
+          input: [
+            "## Style Evidence",
+            buildPreferenceMemoryEvidence([
+              {
+                title: "concise tone",
+                content: "Keep replies short and remove filler.",
+                draftText:
+                  "Hi there! Thanks so much for checking in. I just wanted to let you know that I got your note and will take a look soon.",
+                sentText: "Got it. I will review and get back to you.",
+              },
+              {
+                title: "low ceremony",
+                content: "Skip greetings and sign-offs for routine replies.",
+                draftText:
+                  "Hi! Thanks again for the follow-up. I appreciate the reminder and will send an update shortly. Best,",
+                sentText: "I will send an update shortly.",
+              },
+              {
+                title: "plain wording",
+                content:
+                  "Prefer plain declarative phrasing over warm filler in status updates.",
+                draftText:
+                  "I just wanted to let you know that I am still on track and hope to have more to share very soon.",
+                sentText: "Still on track. I will share more soon.",
+              },
+            ]),
+          ].join("\n"),
+          output: learnedWritingStyle,
+          expected:
+            "A compact learned writing style summary that captures brevity, low ceremony, and plain wording without copying full email text.",
+          criterion: {
+            name: "Learned writing style summary quality",
+            description:
+              "The summary should distill repeated evidence into an account-level style guide with concise patterns and short representative edits, not raw quotes or one-off instructions.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = judgeResult.pass;
+
+        evalReporter.record({
+          testName: "learned style summary quality",
+          model: model.label,
+          pass,
+          expected: "prompt-ready learned writing style summary",
+          actual: formatJudgeActual(learnedWritingStyle, judgeResult),
+          criteria: [judgeResult],
+        });
+
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "uses learned writing style to keep a status reply terse and direct",
+      async () => {
+        const messages = [
+          {
+            ...getEmail({
+              from: "teammate@example.com",
+              to: emailAccount.email,
+              subject: "Checking in on the deck",
+              content: `Hey,
+
+Just checking whether you had a chance to review the deck I sent over yesterday. No rush, but let me know when you get a minute.
+
+Thanks!`,
+            }),
+            date: new Date("2026-03-17T11:00:00Z"),
+          },
+        ];
+
+        const withoutLearnedStyle = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent: null,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          learnedWritingStyle: null,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const learnedWritingStyle = await aiSummarizeLearnedWritingStyle({
+          preferenceMemoryEvidence: buildPreferenceMemoryEvidence([
+            {
+              title: "concise tone",
+              content: "Prefer short direct acknowledgements.",
+              draftText:
+                "Hi there! Thanks so much for checking in. I just wanted to let you know that I received your message and I will review it soon.",
+              sentText: "Got it. I will review and get back to you.",
+            },
+            {
+              title: "low ceremony",
+              content:
+                "Skip greetings and sign-offs unless they add necessary context.",
+              draftText:
+                "Hi! Thanks again for following up. I appreciate the reminder and will send an update shortly. Best,",
+              sentText: "I will send an update shortly.",
+            },
+            {
+              title: "less enthusiasm",
+              content: "Remove enthusiasm and filler from routine replies.",
+              draftText:
+                "Thanks so much for the nudge. I am excited to review this and will get back to you very soon.",
+              sentText: "I will review this and get back to you soon.",
+            },
+          ]),
+          emailAccount: replyMemoryEmailAccount,
+        });
+
+        const withLearnedStyle = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent: null,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          learnedWritingStyle,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const judgeResult = await judgeBinary({
+          input: buildLearnedWritingStyleComparisonInput({
+            emailContent: messages[0].content,
+            withoutLearnedStyleReply: withoutLearnedStyle.reply,
+            learnedWritingStyle,
+          }),
+          output: withLearnedStyle.reply,
+          expected:
+            "A short plainspoken reply that acknowledges the follow-up directly, avoids greeting or sign-off fluff, and stays to one or two simple sentences.",
+          criterion: {
+            name: "Learned writing style guides terse replies",
+            description:
+              "Compared with the no-style baseline, the draft with learned writing style should be more direct and lower ceremony, without adding greeting or sign-off filler.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = judgeResult.pass;
+
+        evalReporter.record({
+          testName: "learned style makes status reply terse",
+          model: model.label,
+          pass,
+          expected: "short direct reply with low ceremony",
+          actual: formatLearnedWritingStyleActual({
+            withoutLearnedStyleReply: withoutLearnedStyle.reply,
+            withLearnedStyleReply: withLearnedStyle.reply,
+            judgeResult,
+          }),
+          criteria: [judgeResult],
+        });
+
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "keeps learned writing style advisory when factual guidance is also present",
+      async () => {
+        const messages = [
+          {
+            ...getEmail({
+              from: "buyer@example.com",
+              to: emailAccount.email,
+              subject: "Quick pricing recap",
+              content: `Hi,
+
+Can you resend the short enterprise pricing summary for our team and confirm whether annual billing changes the quote?
+
+Thanks,`,
+            }),
+            date: new Date("2026-03-17T12:00:00Z"),
+          },
+        ];
+
+        const learnedWritingStyle = await aiSummarizeLearnedWritingStyle({
+          preferenceMemoryEvidence: buildPreferenceMemoryEvidence([
+            {
+              title: "compact replies",
+              content: "Keep routine replies compact and direct.",
+              draftText:
+                "Hi there, thanks for your note. I just wanted to circle back and let you know that I can send over the summary shortly.",
+              sentText: "I can send the summary shortly.",
+            },
+            {
+              title: "plain wording",
+              content:
+                "Prefer plain declarative wording over polished framing.",
+              draftText:
+                "I wanted to reach back out with a quick note to confirm the enterprise pricing details for your review.",
+              sentText: "Here are the enterprise pricing details.",
+            },
+            {
+              title: "skip extra ceremony",
+              content:
+                "Avoid greetings and sign-offs when they are not needed.",
+              draftText:
+                "Hi! Thanks again for your patience. I appreciate it and wanted to share the pricing recap below. Best,",
+              sentText:
+                "Enterprise pricing depends on seat count and annual billing.",
+            },
+          ]),
+          emailAccount: replyMemoryEmailAccount,
+        });
+
+        const replyMemoryContent =
+          "1. [FACT | TOPIC:pricing] When asked about enterprise pricing, explain that it depends on seat count and whether the customer wants annual billing.";
+
+        const result = await aiDraftReplyWithConfidence({
+          messages,
+          emailAccount,
+          knowledgeBaseContent: null,
+          replyMemoryContent,
+          emailHistorySummary: null,
+          emailHistoryContext: null,
+          calendarAvailability: null,
+          writingStyle: null,
+          learnedWritingStyle,
+          mcpContext: null,
+          meetingContext: null,
+        });
+
+        const judgeResult = await judgeBinary({
+          input: [
+            "## Current Email",
+            messages[0].content,
+            "",
+            "## Learned Writing Style",
+            learnedWritingStyle,
+            "",
+            "## Learned Reply Memory",
+            replyMemoryContent,
+          ].join("\n"),
+          output: result.reply,
+          expected:
+            "A concise reply that still includes the factual pricing guidance that enterprise pricing depends on seat count and whether the customer wants annual billing.",
+          criterion: {
+            name: "Style stays advisory beside factual guidance",
+            description:
+              "The learned writing style should make the reply shorter and more direct, but it must not suppress the factual pricing guidance supplied by the learned reply memory.",
+          },
+          judgeUserAi: getEvalJudgeUserAi(),
+        });
+        const pass = judgeResult.pass;
+
+        evalReporter.record({
+          testName: "learned style remains advisory",
+          model: model.label,
+          pass,
+          expected: "concise reply that still includes pricing facts",
+          actual: formatJudgeActual(result.reply, judgeResult),
+          criteria: [judgeResult],
+        });
+
+        expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
   });
 
   afterAll(() => {
@@ -260,7 +710,7 @@ Can you resend the short enterprise pricing explanation you usually send for a 3
 
 function summarizeMemories(
   memories: Array<{
-    title: string;
+    title?: string;
     kind: ReplyMemoryKind;
     scopeType: ReplyMemoryScopeType;
     scopeValue: string;
@@ -272,9 +722,26 @@ function summarizeMemories(
   return memories
     .map(
       (memory) =>
-        `[${memory.kind}|${memory.scopeType}${memory.scopeValue ? `:${memory.scopeValue}` : ""}] ${memory.title}: ${memory.content}`,
+        `[${memory.kind}|${memory.scopeType}${memory.scopeValue ? `:${memory.scopeValue}` : ""}] ${memory.content}`,
     )
     .join(" || ");
+}
+
+function buildPreferenceMemoryEvidence(
+  evidence: Array<{
+    title?: string;
+    content: string;
+    draftText: string;
+    sentText: string;
+  }>,
+) {
+  return evidence
+    .map(
+      (item, index) => `${index + 1}. ${item.content}
+Draft example: ${item.draftText}
+Sent example: ${item.sentText}`,
+    )
+    .join("\n\n");
 }
 
 function buildJudgeInput({
@@ -319,6 +786,27 @@ function buildDraftComparisonInput({
   ].join("\n");
 }
 
+function buildLearnedWritingStyleComparisonInput({
+  emailContent,
+  withoutLearnedStyleReply,
+  learnedWritingStyle,
+}: {
+  emailContent: string;
+  withoutLearnedStyleReply: string;
+  learnedWritingStyle: string;
+}) {
+  return [
+    "## Current Email",
+    emailContent,
+    "",
+    "## Reply Without Learned Style",
+    withoutLearnedStyleReply,
+    "",
+    "## Learned Writing Style",
+    learnedWritingStyle,
+  ].join("\n");
+}
+
 function formatJudgeActual(
   summary: string,
   judgeResult: { pass: boolean; reasoning: string },
@@ -338,6 +826,22 @@ function formatDraftComparisonActual({
   return [
     `without=${JSON.stringify(withoutMemoryReply)}`,
     `with=${JSON.stringify(withMemoryReply)}`,
+    `judge=${judgeResult.pass ? "PASS" : "FAIL"} (${judgeResult.reasoning})`,
+  ].join(" | ");
+}
+
+function formatLearnedWritingStyleActual({
+  withoutLearnedStyleReply,
+  withLearnedStyleReply,
+  judgeResult,
+}: {
+  withoutLearnedStyleReply: string;
+  withLearnedStyleReply: string;
+  judgeResult: { pass: boolean; reasoning: string };
+}) {
+  return [
+    `without=${JSON.stringify(withoutLearnedStyleReply)}`,
+    `with=${JSON.stringify(withLearnedStyleReply)}`,
     `judge=${judgeResult.pass ? "PASS" : "FAIL"} (${judgeResult.reasoning})`,
   ].join(" | ");
 }

@@ -62,6 +62,21 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
    }
    ```
 
+2. Unless a test is specifically about model selection or user AI overrides, keep user-level AI settings at `null`:
+
+   ```typescript
+   function getUser() {
+     return {
+       email: "user@test.com",
+       aiModel: null,
+       aiProvider: null,
+       aiApiKey: null,
+     };
+   }
+   ```
+
+   Do not pin fixtures to a specific provider/model for normal LLM behavior tests. That should exercise the app's default/global AI selection path.
+
 ## Test Cases
 
 1. Include these standard test cases:

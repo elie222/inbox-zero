@@ -273,6 +273,7 @@ async function generateDraftContent(
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
+    learnedWritingStyle,
     mcpResult,
     upcomingMeetings,
     emailHistorySummary,
@@ -297,6 +298,10 @@ async function generateDraftContent(
     }),
     aiGetCalendarAvailability({ emailAccount, messages, logger }),
     getWritingStyle({ emailAccountId: emailAccount.id }),
+    prisma.emailAccount.findUnique({
+      where: { id: emailAccount.id },
+      select: { learnedWritingStyle: true },
+    }),
     mcpAgent({ emailAccount, messages }),
     getMeetingContext({
       emailAccountId: emailAccount.id,
@@ -384,6 +389,7 @@ async function generateDraftContent(
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
+    learnedWritingStyle: learnedWritingStyle?.learnedWritingStyle ?? null,
     mcpContext: mcpResult?.response || null,
     meetingContext,
     attachmentContext: attachmentSelection.attachmentContext,

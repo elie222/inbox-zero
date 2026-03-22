@@ -1,0 +1,243 @@
+import { z } from "zod";
+import {
+  ReplyMemoryKind,
+  ReplyMemoryScopeType,
+} from "@/generated/prisma/enums";
+import type { ReplyMemory } from "@/generated/prisma/client";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
+import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
+import { extractDomainFromEmail } from "@/utils/email";
+import { createGenerateObject } from "@/utils/llms";
+import { getModel } from "@/utils/llms/model";
+import type { getEmailAccountWithAi } from "@/utils/user/get";
+
+const MAX_MEMORIES_PER_EDIT = 3;
+const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
+
+const replyMemorySchema = z.object({
+  memories: z
+    .array(
+      z.object({
+        content: z.string().trim().min(1).max(400),
+        kind: z.nativeEnum(ReplyMemoryKind),
+        scopeType: z.nativeEnum(ReplyMemoryScopeType),
+        scopeValue: z.string().trim().max(200),
+      }),
+    )
+    .max(MAX_MEMORIES_PER_EDIT),
+});
+
+export async function aiExtractReplyMemoriesFromDraftEdit({
+  incomingEmailContent,
+  draftText,
+  sentText,
+  senderEmail,
+  existingMemories,
+  writingStyle = null,
+  learnedWritingStyle = null,
+  emailAccount,
+}: {
+  incomingEmailContent: string;
+  draftText: string;
+  sentText: string;
+  senderEmail: string;
+  existingMemories: Pick<
+    ReplyMemory,
+    "content" | "kind" | "scopeType" | "scopeValue"
+  >[];
+  writingStyle?: string | null;
+  learnedWritingStyle?: string | null;
+  emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
+}) {
+  const normalizedIncomingEmailContent = incomingEmailContent.trim();
+  const normalizedDraftText = draftText.trim();
+  const normalizedSentText = sentText.trim();
+  const normalizedSenderEmail = senderEmail.trim().toLowerCase();
+
+  if (!normalizedSenderEmail) return [];
+  if (!normalizedDraftText || !normalizedSentText) return [];
+  if (
+    normalizeMemoryText(normalizedDraftText) ===
+    normalizeMemoryText(normalizedSentText)
+  ) {
+    return [];
+  }
+
+  const senderDomain = extractDomainFromEmail(normalizedSenderEmail);
+  const prompt = getPrompt({
+    senderEmail: normalizedSenderEmail,
+    senderDomain,
+    incomingEmailContent: normalizedIncomingEmailContent,
+    draftText: normalizedDraftText,
+    sentText: normalizedSentText,
+    existingMemories,
+    writingStyle,
+    learnedWritingStyle,
+    emailAccount,
+  });
+
+  const modelOptions = getModel(emailAccount.user, "economy");
+  const generateObject = createGenerateObject({
+    emailAccount,
+    label: "Reply memory extraction",
+    modelOptions,
+  });
+
+  const result = await generateObject({
+    ...modelOptions,
+    system: getSystemPrompt(),
+    prompt,
+    schema: replyMemorySchema,
+  });
+
+  return result.object.memories
+    .map((memory) => ({
+      content: memory.content.trim(),
+      kind: memory.kind,
+      scopeType:
+        memory.kind === ReplyMemoryKind.PREFERENCE
+          ? ReplyMemoryScopeType.GLOBAL
+          : memory.scopeType,
+      scopeValue:
+        memory.kind === ReplyMemoryKind.PREFERENCE ||
+        memory.scopeType === ReplyMemoryScopeType.GLOBAL
+          ? ""
+          : memory.scopeValue.trim(),
+    }))
+    .filter(
+      (memory) =>
+        memory.scopeType !== ReplyMemoryScopeType.TOPIC ||
+        memory.scopeValue.length > 0,
+    )
+    .slice(0, MAX_MEMORIES_PER_EDIT);
+}
+
+function getPrompt({
+  senderEmail,
+  senderDomain,
+  incomingEmailContent,
+  draftText,
+  sentText,
+  existingMemories,
+  writingStyle,
+  learnedWritingStyle,
+  emailAccount,
+}: {
+  senderEmail: string;
+  senderDomain: string;
+  incomingEmailContent: string;
+  draftText: string;
+  sentText: string;
+  existingMemories: Pick<
+    ReplyMemory,
+    "content" | "kind" | "scopeType" | "scopeValue"
+  >[];
+  writingStyle: string | null;
+  learnedWritingStyle: string | null;
+  emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
+}) {
+  const trimmedWritingStyle = writingStyle?.trim();
+  const trimmedLearnedWritingStyle = learnedWritingStyle?.trim();
+
+  const writingStylePrompt = trimmedWritingStyle
+    ? `<writing_style>
+${trimmedWritingStyle}
+</writing_style>
+`
+    : "";
+  const learnedWritingStylePrompt = trimmedLearnedWritingStyle
+    ? `<learned_writing_style>
+${trimmedLearnedWritingStyle}
+</learned_writing_style>
+`
+    : "";
+
+  return `<source_email_sender>${senderEmail}</source_email_sender>
+<source_email_domain>${senderDomain || "unknown"}</source_email_domain>
+
+<incoming_email>
+${incomingEmailContent}
+</incoming_email>
+
+<ai_draft>
+${draftText}
+</ai_draft>
+
+<user_sent>
+${sentText}
+</user_sent>
+
+<existing_memories>
+${formatExistingMemories(existingMemories)}
+</existing_memories>
+
+${writingStylePrompt}
+
+${learnedWritingStylePrompt}
+
+${getUserInfoPrompt({ emailAccount })}
+
+Extract reusable reply memories from this draft edit.`;
+}
+
+function formatExistingMemories(
+  memories: Pick<
+    ReplyMemory,
+    "content" | "kind" | "scopeType" | "scopeValue"
+  >[],
+) {
+  if (!memories.length) return "None";
+
+  return memories
+    .slice(0, MAX_EXISTING_MEMORIES_IN_PROMPT)
+    .map(
+      (memory, index) =>
+        `${index + 1}. [${memory.kind} | ${memory.scopeType}${
+          memory.scopeValue ? `:${memory.scopeValue}` : ""
+        }] ${memory.content}`,
+    )
+    .join("\n");
+}
+
+function normalizeMemoryText(value: string) {
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function getSystemPrompt() {
+  return `You analyze how a user edits AI-generated email reply drafts and turn durable patterns into reusable drafting memories.
+
+${PROMPT_SECURITY_INSTRUCTIONS}
+
+Return only memories that are likely to help with future drafts.
+
+Memory kinds:
+- FACT: reusable factual corrections, business rules, or durable knowledge
+- PREFERENCE: tone, length, formatting, and phrasing habits
+- PROCEDURE: repeatable ways to handle a recurring class of replies
+
+Scopes:
+- GLOBAL: applies broadly to the user's replies
+- SENDER: applies to one sender email address
+- DOMAIN: applies to one sender domain
+- TOPIC: applies to a reusable topic or subject area
+
+Rules:
+- Return at most ${MAX_MEMORIES_PER_EDIT} memories.
+- Skip one-off contextual details that should not be reused later.
+- If the edit only changes a meeting time, date, greeting, sign-off, or other thread-specific logistics, return no memory unless the user stated a stable rule.
+- Prefer concise, direct drafting instructions.
+- Each memory should be a single prompt-ready instruction or fact in the content field. Do not split the same idea across a title and body.
+- Do not infer a durable style preference from a single scheduling choice or one-off availability update.
+- Do not store a PREFERENCE memory that simply repeats the user's explicit writing style setting.
+- PREFERENCE memories are always account-level. Use GLOBAL scope for PREFERENCE memories.
+- Use FACT when the edit adds reusable business information, policy, pricing, product capabilities, constraints, contacts, or logistics.
+- Use PROCEDURE when the edit shows a reusable way to handle a recurring class of replies.
+- Use PREFERENCE for stable tone, length, formatting, or phrasing preferences.
+- For GLOBAL scope, leave scopeValue empty.
+- For SENDER scope, use the exact sender email from the context.
+- For DOMAIN scope, use the exact sender domain from the context.
+- For TOPIC scope, use a short stable topic phrase such as "pricing" or "refunds".
+- Always include a scopeValue field. Use an empty string for GLOBAL scope.
+- Avoid duplicating an existing memory if the same idea is already covered.
+- If nothing durable was learned, return an empty array.`;
+}

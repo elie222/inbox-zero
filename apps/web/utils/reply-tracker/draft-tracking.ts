@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { ActionType } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
@@ -398,21 +399,22 @@ function queueReplyMemoryLearning({
     return;
   }
 
-  saveDraftSendLogReplyMemory({
-    draftSendLogId,
-    sentText,
-  })
-    .then(() =>
-      syncReplyMemoriesFromDraftSendLogs({
+  after(async () => {
+    try {
+      await saveDraftSendLogReplyMemory({
+        draftSendLogId,
+        sentText,
+      });
+      await syncReplyMemoriesFromDraftSendLogs({
         emailAccountId,
         provider,
         logger,
-      }),
-    )
-    .catch((error) => {
+      });
+    } catch (error) {
       logger.error("Failed to learn reply memories from draft edit", {
         error,
         executedActionId,
       });
-    });
+    }
+  });
 }

@@ -165,6 +165,7 @@ model EmailAccount {
   followUpAutoDraftEnabled  Boolean @default(true)
 
   digestSchedule Schedule?
+  learnedWritingStyle String?
 
   userId    String
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -855,23 +856,24 @@ model ReplyMemory {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  title      String
   content    String
   kind       ReplyMemoryKind
   scopeType  ReplyMemoryScopeType
   scopeValue String
+  isLearnedStyleEvidence Boolean @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount        @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   sources        ReplyMemorySource[]
 
-  @@unique([emailAccountId, kind, scopeType, scopeValue, title])
+  @@unique([emailAccountId, kind, scopeType, scopeValue, content])
   @@index([emailAccountId, updatedAt])
   @@index([emailAccountId, scopeType, scopeValue])
 }
 
 model ReplyMemorySource {
   createdAt DateTime @default(now())
+  learnedWritingStyleAnalyzedAt DateTime?
 
   replyMemoryId String
   replyMemory   ReplyMemory @relation(fields: [replyMemoryId], references: [id], onDelete: Cascade)
@@ -881,6 +883,7 @@ model ReplyMemorySource {
 
   @@id([replyMemoryId, draftSendLogId])
   @@index([draftSendLogId])
+  @@index([replyMemoryId, learnedWritingStyleAnalyzedAt, createdAt])
 }
 
 model ApiKey {
@@ -1419,7 +1422,8 @@ enum DraftReplyConfidence {
 
 enum ReplyMemoryKind {
   FACT
-  STYLE
+  PREFERENCE
+  PROCEDURE
 }
 
 enum ReplyMemoryScopeType {

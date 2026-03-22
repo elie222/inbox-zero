@@ -7,12 +7,12 @@ import {
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
-  aiExtractReplyMemoriesFromDraftEdit,
   getReplyMemoryContent,
   getReplyMemoriesForPrompt,
   isMeaningfulDraftEdit,
   syncReplyMemoriesFromDraftSendLogs,
 } from "./reply-memory";
+import { aiExtractReplyMemoriesFromDraftEdit } from "./extract-reply-memories";
 
 const { mockCreateGenerateObject, mockGenerateObject } = vi.hoisted(() => {
   const mockGenerateObject = vi.fn();
@@ -34,9 +34,6 @@ vi.mock("@/utils/llms/model", () => ({
     fallbackModels: [],
   })),
 }));
-vi.mock("@/utils/llms/retry", () => ({
-  withNetworkRetry: vi.fn().mockImplementation((fn) => fn()),
-}));
 vi.mock("@/utils/user/get", () => ({
   getEmailAccountWithAi: vi.fn().mockResolvedValue({
     id: "account-1",
@@ -48,8 +45,8 @@ vi.mock("@/utils/user/get", () => ({
     calendarBookingLink: null,
     name: "User",
     user: {
-      aiProvider: "openai",
-      aiModel: "gpt-5.1",
+      aiProvider: null,
+      aiModel: null,
       aiApiKey: null,
     },
     account: {
@@ -63,6 +60,17 @@ const logger = createScopedLogger("reply-memory-test");
 describe("reply-memory", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(null as any);
+    vi.mocked(prisma.emailAccount.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.replyMemory.findMany).mockResolvedValue([] as any);
+    vi.mocked(prisma.replyMemory.count).mockResolvedValue(0 as any);
+    vi.mocked(prisma.replyMemory.updateMany).mockResolvedValue({
+      count: 0,
+    } as any);
+    vi.mocked(prisma.replyMemorySource.count).mockResolvedValue(0 as any);
+    vi.mocked(prisma.replyMemorySource.updateMany).mockResolvedValue({
+      count: 0,
+    } as any);
   });
 
   it("filters out unchanged draft edits after normalization", () => {
@@ -97,9 +105,9 @@ describe("reply-memory", () => {
       .mockResolvedValueOnce([] as any)
       .mockResolvedValueOnce([
         createReplyMemory({
-          title: "short replies",
-          content: "Keep replies to 1-2 sentences.",
-          kind: ReplyMemoryKind.STYLE,
+          title: "company positioning",
+          content: "Use the current product positioning language.",
+          kind: ReplyMemoryKind.PROCEDURE,
           scopeType: ReplyMemoryScopeType.GLOBAL,
         }),
       ] as any);
@@ -121,12 +129,15 @@ describe("reply-memory", () => {
       logger,
     });
 
-    expect(result).toContain("Keep replies to 1-2 sentences.");
+    expect(result).toContain("Use the current product positioning language.");
     expect(result).toContain("pricing depends on seat count");
     expect(result).toContain("annual billing first");
     expect(prisma.replyMemory.findMany).toHaveBeenNthCalledWith(1, {
       where: {
         emailAccountId: "account-1",
+        kind: {
+          in: [ReplyMemoryKind.FACT, ReplyMemoryKind.PROCEDURE],
+        },
         scopeType: ReplyMemoryScopeType.SENDER,
         scopeValue: "sales@example.com",
       },
@@ -136,6 +147,9 @@ describe("reply-memory", () => {
     expect(prisma.replyMemory.findMany).toHaveBeenNthCalledWith(3, {
       where: {
         emailAccountId: "account-1",
+        kind: {
+          in: [ReplyMemoryKind.FACT, ReplyMemoryKind.PROCEDURE],
+        },
         scopeType: ReplyMemoryScopeType.GLOBAL,
       },
       orderBy: { updatedAt: "desc" },
@@ -160,9 +174,9 @@ describe("reply-memory", () => {
       .mockResolvedValueOnce([
         createReplyMemory({
           id: "global-memory",
-          title: "short replies",
-          content: "Keep replies to 1-2 sentences.",
-          kind: ReplyMemoryKind.STYLE,
+          title: "company positioning",
+          content: "Use the current product positioning language.",
+          kind: ReplyMemoryKind.PROCEDURE,
           scopeType: ReplyMemoryScopeType.GLOBAL,
         }),
       ] as any);
@@ -184,7 +198,9 @@ describe("reply-memory", () => {
       logger,
     });
 
-    expect(result.content).toContain("Keep replies to 1-2 sentences.");
+    expect(result.content).toContain(
+      "Use the current product positioning language.",
+    );
     expect(result.selectedMemories).toHaveLength(3);
     expect(result.selectedMemories).toEqual(
       expect.arrayContaining([
@@ -195,7 +211,7 @@ describe("reply-memory", () => {
         },
         {
           id: "global-memory",
-          kind: ReplyMemoryKind.STYLE,
+          kind: ReplyMemoryKind.PROCEDURE,
           scopeType: ReplyMemoryScopeType.GLOBAL,
         },
         {
@@ -227,7 +243,7 @@ describe("reply-memory", () => {
             id: `global-${index}`,
             title: `global ${index}`,
             content: `Global memory ${index}.`,
-            kind: ReplyMemoryKind.STYLE,
+            kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             updatedAt: new Date(`2026-03-17T09:0${index}:00.000Z`),
           }),
@@ -259,7 +275,7 @@ describe("reply-memory", () => {
             id: `global-${index}`,
             title: `global ${index}`,
             content: `Global memory ${index}.`,
-            kind: ReplyMemoryKind.STYLE,
+            kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             updatedAt: new Date(`2026-03-17T09:0${index}:00.000Z`),
           }),
@@ -334,6 +350,9 @@ describe("reply-memory", () => {
     expect(prisma.replyMemory.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
+          kind: {
+            in: [ReplyMemoryKind.FACT, ReplyMemoryKind.PROCEDURE],
+          },
           OR: expect.arrayContaining([
             { scopeType: ReplyMemoryScopeType.GLOBAL },
             { scopeType: ReplyMemoryScopeType.TOPIC },
@@ -349,13 +368,23 @@ describe("reply-memory", () => {
         }),
       }),
     );
+    expect(prisma.replyMemory.findMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        emailAccountId: "account-1",
+        kind: ReplyMemoryKind.PREFERENCE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+        isLearnedStyleEvidence: true,
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 4,
+    });
     expect(prisma.replyMemory.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
-          title: "pricing answer",
           content: "Mention that pricing depends on seat count.",
           scopeType: ReplyMemoryScopeType.TOPIC,
           scopeValue: "pricing",
+          isLearnedStyleEvidence: false,
         }),
       }),
     );
@@ -376,9 +405,323 @@ describe("reply-memory", () => {
       where: { id: "draft-send-log-1" },
       data: {
         replyMemoryProcessedAt: expect.any(Date),
-        replyMemorySentText: null,
       },
     });
+  });
+
+  it("does not refresh learned writing style before enough preference evidence exists", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText: "Pricing depends on seat count.",
+      }),
+    ] as any);
+    vi.mocked(prisma.replyMemory.findMany).mockResolvedValueOnce([] as any);
+    vi.mocked(prisma.replyMemorySource.count)
+      .mockResolvedValueOnce(9 as any)
+      .mockResolvedValueOnce(9 as any);
+    vi.mocked(prisma.replyMemory.upsert).mockResolvedValue(
+      createReplyMemory({
+        id: "style-memory",
+        title: "concise tone",
+        kind: ReplyMemoryKind.PREFERENCE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+      }) as any,
+    );
+    vi.mocked(prisma.emailAccount.findUnique)
+      .mockResolvedValueOnce({ learnedWritingStyle: null } as any)
+      .mockResolvedValueOnce({ learnedWritingStyle: null } as any);
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        memories: [
+          {
+            title: "concise tone",
+            content: "Keep replies short and remove filler.",
+            kind: ReplyMemoryKind.PREFERENCE,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+        ],
+      },
+    });
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+
+    await syncReplyMemoriesFromDraftSendLogs({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(mockGenerateObject).toHaveBeenCalledTimes(1);
+    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
+    expect(prisma.replyMemorySource.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("marks persisted preference memories as learned-style eligible", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText: "Got it. I will review and get back to you.",
+      }),
+    ] as any);
+    vi.mocked(prisma.replyMemory.upsert).mockResolvedValue(
+      createReplyMemory({
+        id: "preference-memory",
+        kind: ReplyMemoryKind.PREFERENCE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+      }) as any,
+    );
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        memories: [
+          {
+            content: "Keep routine replies direct and low ceremony.",
+            kind: ReplyMemoryKind.PREFERENCE,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+            scopeValue: "",
+          },
+        ],
+      },
+    });
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+
+    await syncReplyMemoriesFromDraftSendLogs({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(prisma.replyMemory.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          content: "Keep routine replies direct and low ceremony.",
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+          scopeValue: "",
+          isLearnedStyleEvidence: true,
+        }),
+        update: expect.objectContaining({
+          content: "Keep routine replies direct and low ceremony.",
+          isLearnedStyleEvidence: true,
+        }),
+      }),
+    );
+  });
+
+  it("refreshes learned writing style from repeated sources on one preference memory", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText: "Pricing depends on seat count.",
+      }),
+    ] as any);
+    vi.mocked(prisma.replyMemory.findMany).mockResolvedValueOnce([] as any);
+    vi.mocked(prisma.replyMemorySource.findMany)
+      .mockResolvedValueOnce([
+        createPreferenceWritingEvidence({
+          replyMemoryId: "style-memory",
+          draftSendLogId: "draft-send-log-1",
+          learnedWritingStyleAnalyzedAt: null,
+          replyMemory: createReplyMemory({
+            id: "style-memory",
+            title: "concise tone",
+            content: "Keep replies short and remove filler.",
+            kind: ReplyMemoryKind.PREFERENCE,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "pricing",
+          }),
+          draftSendLog: createDraftSendLog({
+            id: "draft-send-log-1",
+            draftText: "Draft version with more filler and extra wording.",
+            replyMemorySentText: "Sent version with the filler removed.",
+          }),
+        }),
+        createPreferenceWritingEvidence({
+          replyMemoryId: "style-memory",
+          draftSendLogId: "draft-send-log-older",
+          learnedWritingStyleAnalyzedAt: null,
+          replyMemory: createReplyMemory({
+            id: "style-memory",
+            title: "concise tone",
+            content: "Keep replies short and remove filler.",
+            kind: ReplyMemoryKind.PREFERENCE,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "pricing",
+          }),
+          draftSendLog: createDraftSendLog({
+            id: "draft-send-log-older",
+            draftText: "Older draft with extra padding.",
+            replyMemorySentText: "Older sent reply with padding removed.",
+          }),
+        }),
+      ] as any)
+      .mockResolvedValueOnce([
+        createPreferenceWritingEvidence({
+          replyMemoryId: "style-memory",
+          draftSendLogId: "draft-send-log-oldest",
+          learnedWritingStyleAnalyzedAt: new Date("2026-03-16T10:00:00.000Z"),
+          replyMemory: createReplyMemory({
+            id: "style-memory",
+            title: "concise tone",
+            content: "Keep replies short and remove filler.",
+            kind: ReplyMemoryKind.PREFERENCE,
+            scopeType: ReplyMemoryScopeType.GLOBAL,
+          }),
+          draftSendLog: createDraftSendLog({
+            id: "draft-send-log-oldest",
+            draftText: "Oldest draft with a long warm intro.",
+            replyMemorySentText: "Oldest sent reply with the intro removed.",
+          }),
+        }),
+      ] as any);
+    vi.mocked(prisma.replyMemorySource.count)
+      .mockResolvedValueOnce(10 as any)
+      .mockResolvedValueOnce(5 as any);
+    vi.mocked(prisma.replyMemory.upsert).mockResolvedValue(
+      createReplyMemory({
+        id: "style-memory",
+        title: "concise tone",
+        kind: ReplyMemoryKind.PREFERENCE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+      }) as any,
+    );
+    vi.mocked(prisma.emailAccount.findUnique)
+      .mockResolvedValueOnce({ learnedWritingStyle: null } as any)
+      .mockResolvedValueOnce({ learnedWritingStyle: null } as any);
+    vi.mocked(prisma.emailAccount.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
+    mockGenerateObject
+      .mockResolvedValueOnce({
+        object: {
+          memories: [
+            {
+              title: "concise tone",
+              content: "Keep replies short and remove filler.",
+              kind: ReplyMemoryKind.PREFERENCE,
+              scopeType: ReplyMemoryScopeType.GLOBAL,
+              scopeValue: "",
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        object: {
+          learnedWritingStyle:
+            "Observed patterns:\n- Keep replies direct and compact.\nRepresentative edits:\n- Trim filler before sending.",
+        },
+      });
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+
+    await syncReplyMemoriesFromDraftSendLogs({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(prisma.replyMemorySource.count).toHaveBeenNthCalledWith(1, {
+      where: {
+        replyMemory: {
+          is: {
+            emailAccountId: "account-1",
+            kind: ReplyMemoryKind.PREFERENCE,
+            isLearnedStyleEvidence: true,
+          },
+        },
+      },
+    });
+    expect(mockGenerateObject).toHaveBeenCalledTimes(2);
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: "account-1" },
+      data: {
+        learnedWritingStyle:
+          "Observed patterns:\n- Keep replies direct and compact.\nRepresentative edits:\n- Trim filler before sending.",
+      },
+    });
+    expect(prisma.replyMemorySource.updateMany).toHaveBeenCalledWith({
+      where: {
+        learnedWritingStyleAnalyzedAt: null,
+        OR: [
+          {
+            replyMemoryId: "style-memory",
+            draftSendLogId: "draft-send-log-1",
+          },
+          {
+            replyMemoryId: "style-memory",
+            draftSendLogId: "draft-send-log-older",
+          },
+        ],
+      },
+      data: {
+        learnedWritingStyleAnalyzedAt: expect.any(Date),
+      },
+    });
+  });
+
+  it("normalizes extracted preference memories to global scope", async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        memories: [
+          {
+            title: "concise tone",
+            content: "Keep replies short and remove filler.",
+            kind: ReplyMemoryKind.PREFERENCE,
+            scopeType: ReplyMemoryScopeType.TOPIC,
+            scopeValue: "pricing",
+          },
+        ],
+      },
+    });
+
+    const result = await aiExtractReplyMemoriesFromDraftEdit({
+      emailAccount: {
+        id: "account-1",
+        userId: "user-1",
+        email: "user@example.com",
+        about: null,
+        multiRuleSelectionEnabled: false,
+        timezone: "UTC",
+        calendarBookingLink: null,
+        name: "User",
+        user: {
+          aiProvider: null,
+          aiModel: null,
+          aiApiKey: null,
+        },
+        account: {
+          provider: "google",
+        },
+      } as any,
+      incomingEmailContent: "Can you resend the pricing summary?",
+      draftText: "Hi there, pricing is on the website.",
+      sentText: "Pricing depends on seat count and billing plan.",
+      senderEmail: "partner@example.com",
+      existingMemories: [],
+    });
+
+    expect(result).toEqual([
+      {
+        content: "Keep replies short and remove filler.",
+        kind: ReplyMemoryKind.PREFERENCE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+        scopeValue: "",
+      },
+    ]);
   });
 
   it("increments retry state when the source email cannot be loaded", async () => {
@@ -723,7 +1066,6 @@ describe("reply-memory", () => {
       where: { id: "draft-send-log-1" },
       data: {
         replyMemoryProcessedAt: expect.any(Date),
-        replyMemorySentText: null,
       },
     });
   });
@@ -860,8 +1202,8 @@ describe("reply-memory", () => {
         calendarBookingLink: null,
         name: "User",
         user: {
-          aiProvider: "openai",
-          aiModel: "gpt-5.1",
+          aiProvider: null,
+          aiModel: null,
           aiApiKey: null,
         },
         account: {
@@ -878,7 +1220,6 @@ describe("reply-memory", () => {
 
     expect(result).toEqual([
       {
-        title: "pricing answer",
         content: "Mention that pricing depends on seat count.",
         kind: ReplyMemoryKind.FACT,
         scopeType: ReplyMemoryScopeType.GLOBAL,
@@ -908,14 +1249,14 @@ describe("reply-memory", () => {
           {
             title: "memory 3",
             content: "Third memory.",
-            kind: ReplyMemoryKind.STYLE,
+            kind: ReplyMemoryKind.PREFERENCE,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             scopeValue: "",
           },
           {
             title: "memory 4",
             content: "Fourth memory.",
-            kind: ReplyMemoryKind.STYLE,
+            kind: ReplyMemoryKind.PREFERENCE,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             scopeValue: "",
           },
@@ -934,8 +1275,8 @@ describe("reply-memory", () => {
         calendarBookingLink: null,
         name: "User",
         user: {
-          aiProvider: "openai",
-          aiModel: "gpt-5.1",
+          aiProvider: null,
+          aiModel: null,
           aiApiKey: null,
         },
         account: {
@@ -950,10 +1291,10 @@ describe("reply-memory", () => {
     });
 
     expect(result).toHaveLength(3);
-    expect(result.map((memory) => memory.title)).toEqual([
-      "memory 1",
-      "memory 2",
-      "memory 3",
+    expect(result.map((memory) => memory.content)).toEqual([
+      "First memory.",
+      "Second memory.",
+      "Third memory.",
     ]);
   });
 
@@ -969,8 +1310,8 @@ describe("reply-memory", () => {
         calendarBookingLink: null,
         name: "User",
         user: {
-          aiProvider: "openai",
-          aiModel: "gpt-5.1",
+          aiProvider: null,
+          aiModel: null,
           aiApiKey: null,
         },
         account: {
@@ -997,25 +1338,64 @@ function createReplyMemory(
     kind: ReplyMemoryKind;
     scopeType: ReplyMemoryScopeType;
     scopeValue: string;
+    isLearnedStyleEvidence: boolean;
     createdAt: Date;
     updatedAt: Date;
     emailAccountId: string;
   }>,
 ) {
-  const title = overrides.title ?? "memory";
+  const kind = overrides.kind ?? ReplyMemoryKind.FACT;
   const scopeType = overrides.scopeType ?? ReplyMemoryScopeType.GLOBAL;
   const scopeValue = overrides.scopeValue ?? "";
+  const content = overrides.content ?? overrides.title ?? "memory";
 
   return {
-    id: overrides.id ?? `${scopeType}:${scopeValue}:${title}`,
-    title,
-    content: "memory content",
-    kind: ReplyMemoryKind.FACT,
+    id: overrides.id ?? `${scopeType}:${scopeValue}:${content}`,
+    content,
+    kind,
     scopeType,
     scopeValue,
+    isLearnedStyleEvidence:
+      overrides.isLearnedStyleEvidence ?? kind === ReplyMemoryKind.PREFERENCE,
     createdAt: new Date("2026-03-17T09:00:00.000Z"),
     updatedAt: new Date("2026-03-17T09:00:00.000Z"),
     emailAccountId: "account-1",
+    ...overrides,
+  };
+}
+
+function createPreferenceWritingEvidence(
+  overrides: Partial<{
+    replyMemoryId: string;
+    draftSendLogId: string;
+    createdAt: Date;
+    learnedWritingStyleAnalyzedAt: Date | null;
+    replyMemory: ReturnType<typeof createReplyMemory>;
+    draftSendLog: ReturnType<typeof createDraftSendLog>;
+  }>,
+) {
+  return {
+    replyMemoryId: overrides.replyMemoryId ?? "style-memory",
+    draftSendLogId: overrides.draftSendLogId ?? "draft-send-log-1",
+    createdAt: overrides.createdAt ?? new Date("2026-03-17T10:00:00.000Z"),
+    learnedWritingStyleAnalyzedAt:
+      overrides.learnedWritingStyleAnalyzedAt ?? null,
+    replyMemory:
+      overrides.replyMemory ??
+      createReplyMemory({
+        id: "style-memory",
+        title: "concise tone",
+        content: "Keep replies short and remove filler.",
+        kind: ReplyMemoryKind.PREFERENCE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+      }),
+    draftSendLog:
+      overrides.draftSendLog ??
+      createDraftSendLog({
+        id: "draft-send-log-1",
+        draftText: "Draft version with more filler and extra wording.",
+        replyMemorySentText: "Sent version with the filler removed.",
+      }),
     ...overrides,
   };
 }
