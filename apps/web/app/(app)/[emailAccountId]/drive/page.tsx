@@ -206,9 +206,6 @@ function DeliveryPopover({
                 onChange={(sendEmail) => executeEmailDelivery({ sendEmail })}
               />
             </div>
-            <MutedText className="text-xs">
-              Questions that need your input still arrive by email.
-            </MutedText>
           </div>
 
           {!isLoading && (withChannel.length > 0 || slackAvailable) && (
