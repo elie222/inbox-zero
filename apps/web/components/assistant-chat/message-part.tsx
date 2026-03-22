@@ -12,6 +12,7 @@ import {
   AddToKnowledgeBase,
   BasicToolInfo,
   CreatedRuleToolCard,
+  PendingCreateRuleToolCard,
   ForwardEmailResult,
   getManageInboxActionLabel,
   ManageInboxResult,
@@ -314,6 +315,26 @@ export function MessagePart({
       const { output } = part;
       if (isOutputWithError(output)) {
         return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
+      }
+      const requiresRuleConfirmation =
+        getOutputField<boolean>(output, "requiresConfirmation") === true &&
+        getOutputField<string>(output, "actionType") === "create_rule";
+      const confirmationState =
+        getOutputField<string>(output, "confirmationState") || "";
+      if (
+        requiresRuleConfirmation &&
+        (confirmationState === "pending" || confirmationState === "processing")
+      ) {
+        return (
+          <PendingCreateRuleToolCard
+            key={toolCallId}
+            args={part.input}
+            output={output}
+            chatMessageId={messageId}
+            toolCallId={toolCallId}
+            disableConfirm={disableConfirm}
+          />
+        );
       }
       const ruleId = getOutputField<string>(output, "ruleId");
       return (

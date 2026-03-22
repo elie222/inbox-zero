@@ -536,8 +536,10 @@ describe("confirmAssistantEmailAction", () => {
     );
 
     expect(result?.serverError).toBe("Failed to send email");
-    const revertedParts = (prisma.chatMessage.update.mock.calls[0][0] as any)
-      .data.parts as any[];
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(2);
+    const revertedParts = (
+      prisma.chatMessage.updateMany.mock.calls[1][0] as any
+    ).data.parts as any[];
     expect(revertedParts[0].output.confirmationState).toBe("pending");
   });
 

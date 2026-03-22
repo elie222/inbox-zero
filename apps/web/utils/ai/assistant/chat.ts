@@ -228,6 +228,7 @@ Best practices:
 - Do not solve rule overlap by appending long sender exclusion lists to AI instructions. Prefer learned pattern includes/excludes or a more specific existing rule.
 - IMPORTANT: do not create semantic duplicates like "Notification" and "Notifications" when those names refer to the same existing rule.
 ${emailSendToolsEnabled ? `- IMPORTANT: for rules, prefer "draft a reply" action over "reply" action. For chat email sending, just use the appropriate tool directly when the user asks.` : ""}
+- When createRule automates reply, send, or forward with medium-or-higher risk (dynamic body or recipients), the UI asks the user to confirm before the rule is created. Say they should review and tap "Create & enable rule" in the chat if that appears.
 - Use short, concise rule names (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.
 
 Always explain the changes you made.
