@@ -1,0 +1,47 @@
+name: AI Artifacts Check
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".claude/agents/**"
+      - ".codex/agents/**"
+      - ".cursor-plugin/plugin.json"
+      - "agents/**"
+      - "clawhub/**"
+      - "package.json"
+      - "scripts/sync-ai-artifacts.mjs"
+      - ".github/workflows/ai-artifacts-check.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".claude/agents/**"
+      - ".codex/agents/**"
+      - ".cursor-plugin/plugin.json"
+      - "agents/**"
+      - "clawhub/**"
+      - "package.json"
+      - "scripts/sync-ai-artifacts.mjs"
+      - ".github/workflows/ai-artifacts-check.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Verify generated AI artifacts
+        run: node scripts/sync-ai-artifacts.mjs --check
