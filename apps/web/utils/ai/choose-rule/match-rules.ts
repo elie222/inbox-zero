@@ -40,7 +40,7 @@ import {
 } from "@/utils/cold-email/cold-email-rule";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
-import { getClassificationFeedbackForPrompt } from "@/utils/rule/classification-feedback";
+import { getClassificationFeedback } from "@/utils/rule/classification-feedback";
 
 const MODULE = "match-rules";
 
@@ -443,8 +443,8 @@ async function findMatchingRulesWithReasons(
 
   if (potentialAiMatches.length) {
     const senderEmail = extractEmailAddress(message.headers.from);
-    const classificationFeedbackHint = senderEmail
-      ? await getClassificationFeedbackForPrompt({
+    const classificationFeedback = senderEmail
+      ? await getClassificationFeedback({
           emailAccountId: emailAccount.id,
           senderEmail,
           provider,
@@ -458,7 +458,7 @@ async function findMatchingRulesWithReasons(
       emailAccount,
       modelType,
       logger,
-      classificationFeedbackHint,
+      classificationFeedback,
     });
 
     const result = {

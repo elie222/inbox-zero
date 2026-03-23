@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import {
   saveClassificationFeedback,
-  getClassificationFeedbackForPrompt,
+  getClassificationFeedback,
   findRuleByLabelId,
 } from "./classification-feedback";
 import { ClassificationFeedbackEventType } from "@/generated/prisma/enums";
@@ -77,15 +77,15 @@ describe("saveClassificationFeedback", () => {
   });
 });
 
-describe("getClassificationFeedbackForPrompt", () => {
+describe("getClassificationFeedback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("returns null when no classifications exist", async () => {
+  it("returns null when no feedback exists", async () => {
     vi.mocked(prisma.classificationFeedback.findMany).mockResolvedValue([]);
 
-    const result = await getClassificationFeedbackForPrompt({
+    const result = await getClassificationFeedback({
       emailAccountId: "acc-1",
       senderEmail: "test@example.com",
       provider: { getMessagesBatch: vi.fn() } as any,
@@ -98,7 +98,7 @@ describe("getClassificationFeedbackForPrompt", () => {
   it("normalizes sender email to lowercase for query", async () => {
     vi.mocked(prisma.classificationFeedback.findMany).mockResolvedValue([]);
 
-    await getClassificationFeedbackForPrompt({
+    await getClassificationFeedback({
       emailAccountId: "acc-1",
       senderEmail: "Test@EXAMPLE.com",
       provider: { getMessagesBatch: vi.fn() } as any,
@@ -114,7 +114,7 @@ describe("getClassificationFeedbackForPrompt", () => {
     );
   });
 
-  it("formats classifications with subjects from batch fetch", async () => {
+  it("returns structured items with subjects from batch fetch", async () => {
     vi.mocked(prisma.classificationFeedback.findMany).mockResolvedValue([
       {
         messageId: "msg-1",
@@ -135,21 +135,28 @@ describe("getClassificationFeedbackForPrompt", () => {
       ]),
     } as any;
 
-    const result = await getClassificationFeedbackForPrompt({
+    const result = await getClassificationFeedback({
       emailAccountId: "acc-1",
       senderEmail: "amazon@example.com",
       provider: mockProvider,
       logger,
     });
 
-    expect(result).toContain("Your order has shipped");
-    expect(result).toContain("Receipt");
-    expect(result).toContain("Spring sale: 40% off");
-    expect(result).toContain("Marketing");
-    expect(result).toContain("<classification_feedback>");
+    expect(result).toEqual([
+      {
+        subject: "Your order has shipped",
+        ruleName: "Receipt",
+        eventType: "LABEL_ADDED",
+      },
+      {
+        subject: "Spring sale: 40% off",
+        ruleName: "Marketing",
+        eventType: "LABEL_ADDED",
+      },
+    ]);
   });
 
-  it("handles LABEL_REMOVED events in formatting", async () => {
+  it("returns null subject for LABEL_REMOVED events with missing messages", async () => {
     vi.mocked(prisma.classificationFeedback.findMany).mockResolvedValue([
       {
         messageId: "msg-1",
@@ -159,45 +166,19 @@ describe("getClassificationFeedbackForPrompt", () => {
     ] as any);
 
     const mockProvider = {
-      getMessagesBatch: vi
-        .fn()
-        .mockResolvedValue([
-          { id: "msg-1", headers: { subject: "Weekly digest" } },
-        ]),
-    } as any;
-
-    const result = await getClassificationFeedbackForPrompt({
-      emailAccountId: "acc-1",
-      senderEmail: "test@example.com",
-      provider: mockProvider,
-      logger,
-    });
-
-    expect(result).toContain("removed from Newsletter");
-  });
-
-  it("handles deleted messages gracefully", async () => {
-    vi.mocked(prisma.classificationFeedback.findMany).mockResolvedValue([
-      {
-        messageId: "msg-deleted",
-        eventType: ClassificationFeedbackEventType.LABEL_ADDED,
-        rule: { name: "Receipt" },
-      },
-    ] as any);
-
-    const mockProvider = {
       getMessagesBatch: vi.fn().mockResolvedValue([]),
     } as any;
 
-    const result = await getClassificationFeedbackForPrompt({
+    const result = await getClassificationFeedback({
       emailAccountId: "acc-1",
       senderEmail: "test@example.com",
       provider: mockProvider,
       logger,
     });
 
-    expect(result).toContain("email no longer available");
-    expect(result).toContain("Receipt");
+    expect(result).toEqual([
+      { subject: null, ruleName: "Newsletter", eventType: "LABEL_REMOVED" },
+    ]);
   });
 
   it("handles batch fetch failure gracefully", async () => {
@@ -213,15 +194,16 @@ describe("getClassificationFeedbackForPrompt", () => {
       getMessagesBatch: vi.fn().mockRejectedValue(new Error("API error")),
     } as any;
 
-    const result = await getClassificationFeedbackForPrompt({
+    const result = await getClassificationFeedback({
       emailAccountId: "acc-1",
       senderEmail: "test@example.com",
       provider: mockProvider,
       logger,
     });
 
-    expect(result).not.toBeNull();
-    expect(result).toContain("email no longer available");
+    expect(result).toEqual([
+      { subject: null, ruleName: "Receipt", eventType: "LABEL_ADDED" },
+    ]);
   });
 });
 

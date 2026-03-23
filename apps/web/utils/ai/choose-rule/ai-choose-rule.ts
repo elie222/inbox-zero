@@ -8,13 +8,14 @@ import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
 import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { sortRulesForAutomation } from "@/utils/rule/sort";
 import type { Logger } from "@/utils/logger";
+import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
   rules: { name: string; instructions: string; systemType?: string | null }[];
   modelType?: ModelType;
-  classificationFeedbackHint?: string | null;
+  classificationFeedback?: ClassificationFeedbackItem[] | null;
 };
 
 export async function aiChooseRule<
@@ -25,14 +26,14 @@ export async function aiChooseRule<
   emailAccount,
   modelType,
   logger,
-  classificationFeedbackHint,
+  classificationFeedback,
 }: {
   email: EmailForLLM;
   rules: T[];
   emailAccount: EmailAccountWithAI;
   modelType?: ModelType;
   logger: Logger;
-  classificationFeedbackHint?: string | null;
+  classificationFeedback?: ClassificationFeedbackItem[] | null;
 }): Promise<{
   rules: { rule: T; isPrimary?: boolean }[];
   reason: string;
@@ -46,7 +47,7 @@ export async function aiChooseRule<
     rules: orderedRules,
     emailAccount,
     modelType,
-    classificationFeedbackHint,
+    classificationFeedback,
   });
 
   const rulesWithMetadata = aiResponse.matchedRules
@@ -92,7 +93,7 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
     emailAccount,
     rules,
     modelType = "default",
-    classificationFeedbackHint,
+    classificationFeedback,
   } = options;
 
   const modelOptions = getModel(emailAccount.user, modelType);
@@ -112,7 +113,7 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
       rules,
       modelOptions,
       generateObject,
-      classificationFeedbackHint,
+      classificationFeedback,
     });
 
     return { result, modelOptions };
@@ -123,7 +124,7 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
       rules,
       modelOptions,
       generateObject,
-      classificationFeedbackHint,
+      classificationFeedback,
     });
   }
 }
@@ -134,14 +135,14 @@ async function getAiResponseSingleRule({
   rules,
   modelOptions,
   generateObject,
-  classificationFeedbackHint,
+  classificationFeedback,
 }: {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
   rules: GetAiResponseOptions["rules"];
   modelOptions: ReturnType<typeof getModel>;
   generateObject: ReturnType<typeof createGenerateObject>;
-  classificationFeedbackHint?: string | null;
+  classificationFeedback?: ClassificationFeedbackItem[] | null;
 }) {
   const system = `You are an AI assistant that helps people manage their emails.
 
@@ -168,7 +169,7 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
 
 ${getUserRulesPrompt({ rules })}
 
-${classificationFeedbackHint ?? ""}
+${formatClassificationFeedback(classificationFeedback)}
 
 ${getUserInfoPrompt({ emailAccount })}
 
@@ -226,14 +227,14 @@ async function getAiResponseMultiRule({
   rules,
   modelOptions,
   generateObject,
-  classificationFeedbackHint,
+  classificationFeedback,
 }: {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
   rules: GetAiResponseOptions["rules"];
   modelOptions: ReturnType<typeof getModel>;
   generateObject: ReturnType<typeof createGenerateObject>;
-  classificationFeedbackHint?: string | null;
+  classificationFeedback?: ClassificationFeedbackItem[] | null;
 }) {
   const rulesSection = rules
     .map(
@@ -272,7 +273,7 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
 ${rulesSection}
 </available_rules>
 
-${classificationFeedbackHint ?? ""}
+${formatClassificationFeedback(classificationFeedback)}
 
 ${getUserInfoPrompt({ emailAccount })}
 
@@ -399,4 +400,26 @@ function logAiChooseRuleResult<
 
 function joinLogValues(values: (string | null | undefined)[]) {
   return values.filter(isDefined).join(", ");
+}
+
+function formatClassificationFeedback(
+  feedback: ClassificationFeedbackItem[] | null | undefined,
+): string {
+  if (!feedback?.length) return "";
+
+  const lines = feedback.map((entry) => {
+    const subject = entry.subject
+      ? `"${entry.subject}"`
+      : "(email no longer available)";
+    if (entry.eventType === "LABEL_ADDED") {
+      return `- ${subject} → ${entry.ruleName}`;
+    }
+    return `- ${subject} removed from ${entry.ruleName}`;
+  });
+
+  return `<classification_feedback>
+User has manually classified emails from this sender into these rules:
+${lines.join("\n")}
+These are hints from past user actions. Still evaluate the current email on its own merits.
+</classification_feedback>`;
 }

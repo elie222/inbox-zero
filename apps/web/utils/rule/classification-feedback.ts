@@ -1,6 +1,6 @@
 import {
   ActionType,
-  ClassificationFeedbackEventType,
+  type ClassificationFeedbackEventType,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
@@ -8,6 +8,12 @@ import type { EmailProvider } from "@/utils/email/types";
 import { truncate } from "@/utils/string";
 
 const MAX_FEEDBACK_FOR_PROMPT = 10;
+
+export type ClassificationFeedbackItem = {
+  subject: string | null;
+  ruleName: string;
+  eventType: "LABEL_ADDED" | "LABEL_REMOVED";
+};
 
 export async function saveClassificationFeedback({
   emailAccountId,
@@ -56,7 +62,7 @@ export async function saveClassificationFeedback({
   });
 }
 
-export async function getClassificationFeedbackForPrompt({
+export async function getClassificationFeedback({
   emailAccountId,
   senderEmail,
   provider,
@@ -66,7 +72,7 @@ export async function getClassificationFeedbackForPrompt({
   senderEmail: string;
   provider: EmailProvider;
   logger: Logger;
-}): Promise<string | null> {
+}): Promise<ClassificationFeedbackItem[] | null> {
   const feedback = await prisma.classificationFeedback.findMany({
     where: {
       emailAccountId,
@@ -89,7 +95,32 @@ export async function getClassificationFeedbackForPrompt({
     logger,
   );
 
-  return formatFeedbackPrompt(feedback, subjects);
+  return feedback.map((entry) => ({
+    subject: subjects.get(entry.messageId) ?? null,
+    ruleName: entry.rule?.name ?? "Unknown",
+    eventType: entry.eventType,
+  }));
+}
+
+export async function findRuleByLabelId({
+  labelId,
+  emailAccountId,
+}: {
+  labelId: string;
+  emailAccountId: string;
+}) {
+  return prisma.rule.findFirst({
+    where: {
+      emailAccountId,
+      actions: {
+        some: {
+          labelId,
+          type: ActionType.LABEL,
+        },
+      },
+    },
+    select: { id: true, systemType: true },
+  });
 }
 
 async function fetchSubjectsForFeedback(
@@ -114,61 +145,4 @@ async function fetchSubjectsForFeedback(
   }
 
   return subjectMap;
-}
-
-function formatFeedbackPrompt(
-  feedback: {
-    messageId: string;
-    eventType: ClassificationFeedbackEventType;
-    rule: { name: string } | null;
-  }[],
-  subjects: Map<string, string>,
-): string {
-  const lines: string[] = [];
-
-  for (const entry of feedback) {
-    const ruleName = entry.rule?.name ?? "Unknown";
-    const subject = subjects.get(entry.messageId);
-
-    if (entry.eventType === ClassificationFeedbackEventType.LABEL_ADDED) {
-      if (subject) {
-        lines.push(`- "${subject}" → ${ruleName}`);
-      } else {
-        lines.push(`- (email no longer available) → ${ruleName}`);
-      }
-    } else {
-      if (subject) {
-        lines.push(`- "${subject}" removed from ${ruleName}`);
-      } else {
-        lines.push(`- Removed from ${ruleName}`);
-      }
-    }
-  }
-
-  return `<classification_feedback>
-User has manually classified emails from this sender into these rules:
-${lines.join("\n")}
-These are hints from past user actions. Still evaluate the current email on its own merits.
-</classification_feedback>`;
-}
-
-export async function findRuleByLabelId({
-  labelId,
-  emailAccountId,
-}: {
-  labelId: string;
-  emailAccountId: string;
-}) {
-  return prisma.rule.findFirst({
-    where: {
-      emailAccountId,
-      actions: {
-        some: {
-          labelId,
-          type: ActionType.LABEL,
-        },
-      },
-    },
-    select: { id: true, systemType: true },
-  });
 }
