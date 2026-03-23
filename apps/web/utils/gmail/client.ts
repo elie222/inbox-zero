@@ -5,6 +5,7 @@ import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";
+import { getGoogleOauthClientOptions } from "@/utils/google/oauth";
 
 type AuthOptions = {
   accessToken?: string | null;
@@ -21,10 +22,7 @@ const getAuth = ({
 }: AuthOptions) => {
   const expiryDate = expiresAt ? expiresAt : rest.expiryDate;
 
-  const googleAuth = new auth.OAuth2({
-    clientId: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-  });
+  const googleAuth = new auth.OAuth2(getGoogleOauthClientOptions());
   googleAuth.setCredentials({
     access_token: accessToken,
     refresh_token: refreshToken,
@@ -36,11 +34,11 @@ const getAuth = ({
 };
 
 export function getLinkingOAuth2Client() {
-  return new auth.OAuth2({
-    clientId: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-    redirectUri: `${env.NEXT_PUBLIC_BASE_URL}/api/google/linking/callback`,
-  });
+  return new auth.OAuth2(
+    getGoogleOauthClientOptions(
+      `${env.NEXT_PUBLIC_BASE_URL}/api/google/linking/callback`,
+    ),
+  );
 }
 
 // we should potentially use this everywhere instead of getGmailClient as this handles refreshing the access token and saving it to the db

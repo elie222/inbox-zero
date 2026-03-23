@@ -1,5 +1,6 @@
 import { sso } from "@better-auth/sso";
 import { expo } from "@better-auth/expo";
+import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { oAuthProxy } from "better-auth/plugins";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
@@ -21,7 +22,6 @@ import {
 } from "@/utils/email/provider-types";
 import { encryptToken } from "@/utils/encryption";
 import { captureException } from "@/utils/error";
-import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import { createScopedLogger } from "@/utils/logger";
 import {
@@ -36,30 +36,25 @@ import {
 } from "@/utils/premium/server";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 import prisma from "@/utils/prisma";
+import {
+  fetchGoogleOpenIdProfile,
+  getGoogleOauthDiscoveryUrl,
+  getGoogleOauthIssuer,
+  isGoogleOauthEmulationEnabled,
+} from "@/utils/google/oauth";
 
 const logger = createScopedLogger("auth");
+const hasGoogleOauth = hasGoogleOauthConfig();
+const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
   : [];
+const googleSocialProvider = getGoogleSocialProvider();
+const googleOauthPlugin = getGoogleOauthPlugin();
 
 const socialProviders = {
-  ...(hasGoogleOauthConfig()
-    ? {
-        google: {
-          clientId: env.GOOGLE_CLIENT_ID,
-          clientSecret: env.GOOGLE_CLIENT_SECRET,
-          scope: [...GMAIL_SCOPES],
-          accessType: "offline" as const,
-          prompt: "select_account consent" as const,
-          disableIdTokenSignIn: true,
-          // For preview deployments, redirect through staging (which proxies back to preview URL)
-          ...(env.OAUTH_PROXY_URL && {
-            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
-          }),
-        },
-      }
-    : {}),
+  ...(googleSocialProvider ? { google: googleSocialProvider } : {}),
   ...(hasMicrosoftOauthConfig()
     ? {
         microsoft: {
@@ -115,6 +110,7 @@ export const betterAuthConfig = betterAuth({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
+    ...(googleOauthPlugin ? [googleOauthPlugin] : []),
     ...(mobileAuthOrigins.length > 0 ? [expo()] : []),
     // OAuth proxy for preview deployments (Google doesn't allow wildcard redirect URIs)
     ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER
@@ -364,19 +360,12 @@ export async function handleReferralOnSignUp({
 // TODO: move into email provider instead of checking the provider type
 async function getProfileData(providerId: string, accessToken: string) {
   if (isGoogleProvider(providerId)) {
-    const contactsClient = getGoogleContactsClient({ accessToken });
-    const profileResponse = await contactsClient.people.get({
-      resourceName: "people/me",
-      personFields: "emailAddresses,names,photos",
-    });
+    const profile = await fetchGoogleOpenIdProfile(accessToken);
 
     return {
-      email: profileResponse.data.emailAddresses
-        ?.find((e) => e.metadata?.primary)
-        ?.value?.toLowerCase(),
-      name: profileResponse.data.names?.find((n) => n.metadata?.primary)
-        ?.displayName,
-      image: profileResponse.data.photos?.find((p) => p.metadata?.primary)?.url,
+      email: profile.email?.toLowerCase(),
+      name: profile.name,
+      image: profile.picture,
     };
   }
 
@@ -408,6 +397,46 @@ async function getProfileData(providerId: string, accessToken: string) {
       throw error;
     }
   }
+}
+
+function getGoogleSocialProvider() {
+  if (!hasGoogleOauth || useGoogleOauthEmulator) return null;
+
+  return {
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+    scope: [...GMAIL_SCOPES],
+    accessType: "offline" as const,
+    prompt: "select_account consent" as const,
+    disableIdTokenSignIn: true,
+    // For preview deployments, redirect through staging (which proxies back to preview URL)
+    ...(env.OAUTH_PROXY_URL && {
+      redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
+    }),
+  };
+}
+
+function getGoogleOauthPlugin() {
+  if (!hasGoogleOauth || !useGoogleOauthEmulator) return null;
+
+  return genericOAuth({
+    config: [
+      {
+        providerId: "google",
+        discoveryUrl: getGoogleOauthDiscoveryUrl(),
+        issuer: getGoogleOauthIssuer(),
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+        scopes: [...GMAIL_SCOPES],
+        pkce: true,
+        accessType: "offline",
+        prompt: "select_account consent",
+        ...(env.OAUTH_PROXY_URL && {
+          redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/google`,
+        }),
+      },
+    ],
+  });
 }
 
 async function handleLinkAccount(account: Account) {

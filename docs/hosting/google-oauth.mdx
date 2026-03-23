@@ -36,6 +36,7 @@ Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new
 
 3. **Update `.env` file:**
    - Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+   - Optional for local OAuth emulation: set `GOOGLE_OAUTH_BASE_URL=http://localhost:4002`.
 
 4. **Update [scopes](https://console.cloud.google.com/auth/scopes):**
    1. Go to `Data Access` in the sidebar.
@@ -74,3 +75,21 @@ Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new
    ![Enable People API](/images/self-hosting/google-auth/10-enable-people-api.png)
 
 Next step for real-time notifications: [Google PubSub](/hosting/google-pubsub)
+
+## Local OAuth emulation
+
+For local development you can emulate the Google OAuth/OIDC flow with [`emulate`](https://emulate.dev/):
+
+```bash
+pnpm emulate:google
+```
+
+Then set:
+
+```bash
+GOOGLE_CLIENT_ID=emulate-google-client.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=emulate-google-secret
+GOOGLE_OAUTH_BASE_URL=http://localhost:4002
+```
+
+The emulator only covers OAuth/OIDC. Gmail, Calendar, Drive, Contacts, and Pub/Sub setup still require real Google services.

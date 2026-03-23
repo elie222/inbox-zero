@@ -8,6 +8,7 @@ import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
+import { fetchGoogleOpenIdProfile } from "@/utils/google/oauth";
 import {
   acquireOAuthCodeLock,
   getOAuthCodeResult,
@@ -44,13 +45,7 @@ export const GET = withError("google/linking/callback", async (request) => {
     logger.info("OAuth code already processed, returning cached result", {
       targetUserId,
     });
-    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-    for (const [key, value] of Object.entries(cachedResult.params)) {
-      redirectUrl.searchParams.set(key, value);
-    }
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-    return response;
+    return createAccountsRedirectResponse(cachedResult.params);
   }
 
   const acquiredLock = await acquireOAuthCodeLock(code);
@@ -58,56 +53,23 @@ export const GET = withError("google/linking/callback", async (request) => {
     logger.info("OAuth code is being processed by another request", {
       targetUserId,
     });
-    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-    return response;
+    return createAccountsRedirectResponse();
   }
 
   const googleAuth = getLinkingOAuth2Client();
 
   try {
     const { tokens } = await googleAuth.getToken(code);
-    const { id_token } = tokens;
+    const accessToken = tokens.access_token;
 
-    if (!id_token) {
-      throw new SafeError("Missing id_token from Google response");
+    if (!accessToken) {
+      throw new SafeError("Missing access_token from Google response");
     }
 
-    let payload: {
-      sub?: string;
-      email?: string;
-      name?: string;
-      picture?: string;
-    };
-    try {
-      const ticket = await googleAuth.verifyIdToken({
-        idToken: id_token,
-        audience: env.GOOGLE_CLIENT_ID,
-      });
-      const verifiedPayload = ticket.getPayload();
-      if (!verifiedPayload) {
-        throw new SafeError(
-          "Could not get payload from verified ID token ticket.",
-        );
-      }
-      payload = verifiedPayload;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      logger.error("ID token verification failed using googleAuth:", {
-        error: err,
-      });
-      throw new SafeError(`ID token verification failed: ${message}`);
-    }
+    const payload = await fetchGoogleOpenIdProfile(accessToken);
 
     const providerAccountId = payload.sub;
     const providerEmail = payload.email;
-
-    if (!providerAccountId || !providerEmail) {
-      throw new SafeError(
-        "ID token missing required subject (sub) or email claim.",
-      );
-    }
 
     const existingAccount = await prisma.account.findUnique({
       where: {
@@ -204,14 +166,7 @@ export const GET = withError("google/linking/callback", async (request) => {
         }
       }
 
-      await setOAuthCodeResult(code, { success: "account_created_and_linked" });
-
-      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-      successUrl.searchParams.set("success", "account_created_and_linked");
-      const successResponse = NextResponse.redirect(successUrl);
-      successResponse.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-
-      return successResponse;
+      return cacheSuccessAndRedirect(code, "account_created_and_linked");
     }
 
     if (linkingResult.type === "update_tokens") {
@@ -229,14 +184,7 @@ export const GET = withError("google/linking/callback", async (request) => {
         accountId: linkingResult.existingAccountId,
       });
 
-      await setOAuthCodeResult(code, { success: "tokens_updated" });
-
-      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-      successUrl.searchParams.set("success", "tokens_updated");
-      const successResponse = NextResponse.redirect(successUrl);
-      successResponse.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-
-      return successResponse;
+      return cacheSuccessAndRedirect(code, "tokens_updated");
     }
 
     logger.info("Merging Google account (user confirmed).", {
@@ -267,14 +215,7 @@ export const GET = withError("google/linking/callback", async (request) => {
       mergeType,
     });
 
-    await setOAuthCodeResult(code, { success: successMessage });
-
-    const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-    successUrl.searchParams.set("success", successMessage);
-    const successResponse = NextResponse.redirect(successUrl);
-    successResponse.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-
-    return successResponse;
+    return cacheSuccessAndRedirect(code, successMessage);
   } catch (error) {
     await clearOAuthCode(code);
 
@@ -314,4 +255,24 @@ async function updateGoogleAccountTokens(
       id_token: tokens.id_token,
     },
   });
+}
+
+function createAccountsRedirectResponse(params?: Record<string, string>) {
+  const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      redirectUrl.searchParams.set(key, value);
+    }
+  }
+
+  const response = NextResponse.redirect(redirectUrl);
+  response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
+
+  return response;
+}
+
+async function cacheSuccessAndRedirect(code: string, success: string) {
+  await setOAuthCodeResult(code, { success });
+  return createAccountsRedirectResponse({ success });
 }

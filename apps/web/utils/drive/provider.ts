@@ -11,6 +11,7 @@ import { MICROSOFT_DRIVE_SCOPES } from "@/utils/drive/scopes";
 import { SafeError } from "@/utils/error";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
+import { getGoogleOauthTokenUrl } from "@/utils/google/oauth";
 
 type OAuthTokenResponse = {
   access_token?: string;
@@ -187,7 +188,7 @@ async function refreshGoogleDriveToken(
     throw new Error("Google login not enabled - missing credentials");
   }
 
-  const response = await fetch("https://oauth2.googleapis.com/token", {
+  const response = await fetch(getGoogleOauthTokenUrl(), {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",

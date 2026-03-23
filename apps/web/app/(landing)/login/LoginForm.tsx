@@ -20,7 +20,13 @@ import { toastError } from "@/components/Toast";
 import { isInternalPath } from "@/utils/path";
 import { getPossessiveBrandName } from "@/utils/branding";
 
-export function LoginForm({ showLocalBypass }: { showLocalBypass: boolean }) {
+export function LoginForm({
+  showLocalBypass,
+  useGoogleOauthEmulator,
+}: {
+  showLocalBypass: boolean;
+  useGoogleOauthEmulator: boolean;
+}) {
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
   const { callbackURL, errorCallbackURL } = getAuthCallbackUrls(next);
@@ -36,6 +42,7 @@ export function LoginForm({ showLocalBypass }: { showLocalBypass: boolean }) {
       callbackURL,
       errorCallbackURL,
       setLoading: setLoadingGoogle,
+      useGoogleOauthEmulator,
     });
   };
 
@@ -183,19 +190,22 @@ async function handleSocialSignIn({
   callbackURL,
   errorCallbackURL,
   setLoading,
+  useGoogleOauthEmulator = false,
 }: {
   provider: "google" | "microsoft";
   providerName: "Google" | "Microsoft";
   callbackURL: string;
   errorCallbackURL: string;
   setLoading: (loading: boolean) => void;
+  useGoogleOauthEmulator?: boolean;
 }) {
   setLoading(true);
   try {
-    await signIn.social({
+    await signInWithProvider({
       provider,
-      errorCallbackURL,
       callbackURL,
+      errorCallbackURL,
+      useGoogleOauthEmulator,
     });
   } catch (error) {
     console.error(`Error signing in with ${providerName}:`, error);
@@ -206,4 +216,30 @@ async function handleSocialSignIn({
   } finally {
     setLoading(false);
   }
+}
+
+async function signInWithProvider({
+  provider,
+  callbackURL,
+  errorCallbackURL,
+  useGoogleOauthEmulator,
+}: {
+  provider: "google" | "microsoft";
+  callbackURL: string;
+  errorCallbackURL: string;
+  useGoogleOauthEmulator: boolean;
+}) {
+  if (provider === "google" && useGoogleOauthEmulator) {
+    return signIn.oauth2({
+      providerId: provider,
+      errorCallbackURL,
+      callbackURL,
+    });
+  }
+
+  return signIn.social({
+    provider,
+    errorCallbackURL,
+    callbackURL,
+  });
 }

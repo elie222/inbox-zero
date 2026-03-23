@@ -6,6 +6,7 @@ import {
   saveDriveTokens,
   markDriveConnectionAsDisconnected,
 } from "@/utils/drive/providers/token-helpers";
+import { getGoogleOauthTokenUrl } from "@/utils/google/oauth";
 
 export async function refreshGoogleDriveToken(
   connection: Pick<DriveConnection, "id" | "refreshToken">,
@@ -23,7 +24,7 @@ export async function refreshGoogleDriveToken(
     throw new Error("Google login not enabled - missing credentials");
   }
 
-  const response = await fetch("https://oauth2.googleapis.com/token", {
+  const response = await fetch(getGoogleOauthTokenUrl(), {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",

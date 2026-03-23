@@ -631,6 +631,9 @@ importers:
       dotenv-cli:
         specifier: 11.0.0
         version: 11.0.0
+      emulate:
+        specifier: 0.2.0
+        version: 0.2.0(hono@4.11.4)
       jsdom:
         specifier: 27.3.0
         version: 27.3.0
@@ -7896,6 +7899,10 @@ packages:
   empathic@2.0.0:
     resolution: {integrity: sha512-i6UzDscO/XfAcNYD75CfICkmfLedpyPDdozrLMmQc5ORaQcdMoc21OnlEylMIqI7U8eniKrPMxxtj8k0vhmJhA==}
     engines: {node: '>=14'}
+
+  emulate@0.2.0:
+    resolution: {integrity: sha512-tjiJMgYc0U16g/UDB5jSZjN7QKBDPk1GmRRKOPGkH4GYyu7gx3s775zyJNhWQ2C6/eUTBuFkXjbyB75whS6wUA==}
+    hasBin: true
 
   encodeurl@1.0.2:
     resolution: {integrity: sha512-TPJXq8JqFaVYm2CWmPvnP2Iyo4ZSM7/QKcSmuMLDObfpH5fi7RUGmd/rTDf+rut/saiDiQEeVTNgAmJEdAOx0w==}
@@ -20459,6 +20466,15 @@ snapshots:
   emoji-regex@9.2.2: {}
 
   empathic@2.0.0: {}
+
+  emulate@0.2.0(hono@4.11.4):
+    dependencies:
+      '@hono/node-server': 1.19.9(hono@4.11.4)
+      commander: 14.0.3
+      picocolors: 1.1.1
+      yaml: 2.8.2
+    transitivePeerDependencies:
+      - hono
 
   encodeurl@1.0.2: {}
 

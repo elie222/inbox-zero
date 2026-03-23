@@ -1,6 +1,10 @@
 import { auth } from "@googleapis/drive";
 import { env } from "@/env";
 import {
+  fetchGoogleOpenIdProfile,
+  getGoogleOauthClientOptions,
+} from "@/utils/google/oauth";
+import {
   GOOGLE_DRIVE_FULL_SCOPES,
   GOOGLE_DRIVE_SCOPES,
   MICROSOFT_DRIVE_SCOPES,
@@ -14,11 +18,11 @@ import {
  * Creates an OAuth2 client for Google Drive authentication
  */
 export function getGoogleDriveOAuth2Client() {
-  return new auth.OAuth2({
-    clientId: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-    redirectUri: `${env.NEXT_PUBLIC_BASE_URL}/api/google/drive/callback`,
-  });
+  return new auth.OAuth2(
+    getGoogleOauthClientOptions(
+      `${env.NEXT_PUBLIC_BASE_URL}/api/google/drive/callback`,
+    ),
+  );
 }
 
 /**
@@ -52,26 +56,13 @@ export async function exchangeGoogleDriveCode(code: string) {
     throw new Error("No access or refresh token returned from Google");
   }
 
-  // Get user email from ID token
-  if (!tokens.id_token) {
-    throw new Error("No ID token returned from Google");
-  }
-
-  const ticket = await oauth2Client.verifyIdToken({
-    idToken: tokens.id_token,
-    audience: env.GOOGLE_CLIENT_ID,
-  });
-  const payload = ticket.getPayload();
-
-  if (!payload?.email) {
-    throw new Error("Could not get email from Google ID token");
-  }
+  const profile = await fetchGoogleOpenIdProfile(tokens.access_token);
 
   return {
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,
     expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-    email: payload.email,
+    email: profile.email,
   };
 }
 
