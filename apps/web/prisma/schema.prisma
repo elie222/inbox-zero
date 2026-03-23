@@ -1005,7 +1005,11 @@ model Chat {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  compactionCount      Int  @default(0)
+  title     String?
+  starred   Boolean   @default(false)
+  deletedAt DateTime?
+
+  compactionCount Int @default(0)
   lastSeenRulesRevision Int?
 
   messages       ChatMessage[]
@@ -1015,6 +1019,7 @@ model Chat {
   emailAccount   EmailAccount     @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@index([emailAccountId])
+  @@index([emailAccountId, deletedAt, updatedAt])
 }
 
 model ChatMessage {

@@ -12,7 +12,10 @@ export const GET = withEmailAccount("chats", async (request) => {
 
 async function getChats({ emailAccountId }: { emailAccountId: string }) {
   const chats = await prisma.chat.findMany({
-    where: { emailAccountId },
+    where: {
+      emailAccountId,
+      deletedAt: null,
+    },
     orderBy: { updatedAt: "desc" },
   });
 
