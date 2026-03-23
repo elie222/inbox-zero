@@ -1,10 +1,10 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import {
-  saveSenderClassification,
-  getSenderClassificationsForPrompt,
+  saveClassificationFeedback,
+  getClassificationFeedbackForPrompt,
   findRuleByLabelId,
-} from "./sender-classification";
-import { SenderClassificationEventType } from "@/generated/prisma/enums";
+} from "./classification-feedback";
+import { ClassificationFeedbackEventType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -12,7 +12,7 @@ vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/prisma", () => ({
   default: {
-    senderClassification: {
+    classificationFeedback: {
       upsert: vi.fn().mockResolvedValue({}),
       findMany: vi.fn().mockResolvedValue([]),
     },
@@ -24,23 +24,23 @@ vi.mock("@/utils/prisma", () => ({
 
 const logger = createScopedLogger("test");
 
-describe("saveSenderClassification", () => {
+describe("saveClassificationFeedback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("normalizes sender to lowercase", async () => {
-    await saveSenderClassification({
+    await saveClassificationFeedback({
       emailAccountId: "acc-1",
       sender: "User@Example.COM",
       ruleId: "rule-1",
       threadId: "thread-1",
       messageId: "msg-1",
-      eventType: SenderClassificationEventType.LABEL_ADDED,
+      eventType: ClassificationFeedbackEventType.LABEL_ADDED,
       logger,
     });
 
-    expect(prisma.senderClassification.upsert).toHaveBeenCalledWith(
+    expect(prisma.classificationFeedback.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
           sender: "user@example.com",
@@ -50,17 +50,17 @@ describe("saveSenderClassification", () => {
   });
 
   it("uses upsert with composite unique key for deduplication", async () => {
-    await saveSenderClassification({
+    await saveClassificationFeedback({
       emailAccountId: "acc-1",
       sender: "test@example.com",
       ruleId: "rule-1",
       threadId: "thread-1",
       messageId: "msg-1",
-      eventType: SenderClassificationEventType.LABEL_ADDED,
+      eventType: ClassificationFeedbackEventType.LABEL_ADDED,
       logger,
     });
 
-    expect(prisma.senderClassification.upsert).toHaveBeenCalledWith(
+    expect(prisma.classificationFeedback.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           emailAccountId_sender_ruleId_messageId_eventType: {
@@ -68,7 +68,7 @@ describe("saveSenderClassification", () => {
             sender: "test@example.com",
             ruleId: "rule-1",
             messageId: "msg-1",
-            eventType: SenderClassificationEventType.LABEL_ADDED,
+            eventType: ClassificationFeedbackEventType.LABEL_ADDED,
           },
         },
         update: {},
@@ -77,15 +77,15 @@ describe("saveSenderClassification", () => {
   });
 });
 
-describe("getSenderClassificationsForPrompt", () => {
+describe("getClassificationFeedbackForPrompt", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("returns null when no classifications exist", async () => {
-    vi.mocked(prisma.senderClassification.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.classificationFeedback.findMany).mockResolvedValue([]);
 
-    const result = await getSenderClassificationsForPrompt({
+    const result = await getClassificationFeedbackForPrompt({
       emailAccountId: "acc-1",
       senderEmail: "test@example.com",
       provider: { getMessagesBatch: vi.fn() } as any,
@@ -96,16 +96,16 @@ describe("getSenderClassificationsForPrompt", () => {
   });
 
   it("normalizes sender email to lowercase for query", async () => {
-    vi.mocked(prisma.senderClassification.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.classificationFeedback.findMany).mockResolvedValue([]);
 
-    await getSenderClassificationsForPrompt({
+    await getClassificationFeedbackForPrompt({
       emailAccountId: "acc-1",
       senderEmail: "Test@EXAMPLE.com",
       provider: { getMessagesBatch: vi.fn() } as any,
       logger,
     });
 
-    expect(prisma.senderClassification.findMany).toHaveBeenCalledWith(
+    expect(prisma.classificationFeedback.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           sender: "test@example.com",
@@ -115,15 +115,15 @@ describe("getSenderClassificationsForPrompt", () => {
   });
 
   it("formats classifications with subjects from batch fetch", async () => {
-    vi.mocked(prisma.senderClassification.findMany).mockResolvedValue([
+    vi.mocked(prisma.classificationFeedback.findMany).mockResolvedValue([
       {
         messageId: "msg-1",
-        eventType: SenderClassificationEventType.LABEL_ADDED,
+        eventType: ClassificationFeedbackEventType.LABEL_ADDED,
         rule: { name: "Receipt" },
       },
       {
         messageId: "msg-2",
-        eventType: SenderClassificationEventType.LABEL_ADDED,
+        eventType: ClassificationFeedbackEventType.LABEL_ADDED,
         rule: { name: "Marketing" },
       },
     ] as any);
@@ -135,7 +135,7 @@ describe("getSenderClassificationsForPrompt", () => {
       ]),
     } as any;
 
-    const result = await getSenderClassificationsForPrompt({
+    const result = await getClassificationFeedbackForPrompt({
       emailAccountId: "acc-1",
       senderEmail: "amazon@example.com",
       provider: mockProvider,
@@ -146,14 +146,14 @@ describe("getSenderClassificationsForPrompt", () => {
     expect(result).toContain("Receipt");
     expect(result).toContain("Spring sale: 40% off");
     expect(result).toContain("Marketing");
-    expect(result).toContain("<sender_classifications>");
+    expect(result).toContain("<classification_feedback>");
   });
 
   it("handles LABEL_REMOVED events in formatting", async () => {
-    vi.mocked(prisma.senderClassification.findMany).mockResolvedValue([
+    vi.mocked(prisma.classificationFeedback.findMany).mockResolvedValue([
       {
         messageId: "msg-1",
-        eventType: SenderClassificationEventType.LABEL_REMOVED,
+        eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
         rule: { name: "Newsletter" },
       },
     ] as any);
@@ -166,7 +166,7 @@ describe("getSenderClassificationsForPrompt", () => {
         ]),
     } as any;
 
-    const result = await getSenderClassificationsForPrompt({
+    const result = await getClassificationFeedbackForPrompt({
       emailAccountId: "acc-1",
       senderEmail: "test@example.com",
       provider: mockProvider,
@@ -177,10 +177,10 @@ describe("getSenderClassificationsForPrompt", () => {
   });
 
   it("handles deleted messages gracefully", async () => {
-    vi.mocked(prisma.senderClassification.findMany).mockResolvedValue([
+    vi.mocked(prisma.classificationFeedback.findMany).mockResolvedValue([
       {
         messageId: "msg-deleted",
-        eventType: SenderClassificationEventType.LABEL_ADDED,
+        eventType: ClassificationFeedbackEventType.LABEL_ADDED,
         rule: { name: "Receipt" },
       },
     ] as any);
@@ -189,7 +189,7 @@ describe("getSenderClassificationsForPrompt", () => {
       getMessagesBatch: vi.fn().mockResolvedValue([]),
     } as any;
 
-    const result = await getSenderClassificationsForPrompt({
+    const result = await getClassificationFeedbackForPrompt({
       emailAccountId: "acc-1",
       senderEmail: "test@example.com",
       provider: mockProvider,
@@ -201,10 +201,10 @@ describe("getSenderClassificationsForPrompt", () => {
   });
 
   it("handles batch fetch failure gracefully", async () => {
-    vi.mocked(prisma.senderClassification.findMany).mockResolvedValue([
+    vi.mocked(prisma.classificationFeedback.findMany).mockResolvedValue([
       {
         messageId: "msg-1",
-        eventType: SenderClassificationEventType.LABEL_ADDED,
+        eventType: ClassificationFeedbackEventType.LABEL_ADDED,
         rule: { name: "Receipt" },
       },
     ] as any);
@@ -213,7 +213,7 @@ describe("getSenderClassificationsForPrompt", () => {
       getMessagesBatch: vi.fn().mockRejectedValue(new Error("API error")),
     } as any;
 
-    const result = await getSenderClassificationsForPrompt({
+    const result = await getClassificationFeedbackForPrompt({
       emailAccountId: "acc-1",
       senderEmail: "test@example.com",
       provider: mockProvider,

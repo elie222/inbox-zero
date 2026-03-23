@@ -14,7 +14,7 @@ type GetAiResponseOptions = {
   emailAccount: EmailAccountWithAI;
   rules: { name: string; instructions: string; systemType?: string | null }[];
   modelType?: ModelType;
-  senderClassificationHint?: string | null;
+  classificationFeedbackHint?: string | null;
 };
 
 export async function aiChooseRule<
@@ -25,14 +25,14 @@ export async function aiChooseRule<
   emailAccount,
   modelType,
   logger,
-  senderClassificationHint,
+  classificationFeedbackHint,
 }: {
   email: EmailForLLM;
   rules: T[];
   emailAccount: EmailAccountWithAI;
   modelType?: ModelType;
   logger: Logger;
-  senderClassificationHint?: string | null;
+  classificationFeedbackHint?: string | null;
 }): Promise<{
   rules: { rule: T; isPrimary?: boolean }[];
   reason: string;
@@ -46,7 +46,7 @@ export async function aiChooseRule<
     rules: orderedRules,
     emailAccount,
     modelType,
-    senderClassificationHint,
+    classificationFeedbackHint,
   });
 
   const rulesWithMetadata = aiResponse.matchedRules
@@ -92,7 +92,7 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
     emailAccount,
     rules,
     modelType = "default",
-    senderClassificationHint,
+    classificationFeedbackHint,
   } = options;
 
   const modelOptions = getModel(emailAccount.user, modelType);
@@ -112,7 +112,7 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
       rules,
       modelOptions,
       generateObject,
-      senderClassificationHint,
+      classificationFeedbackHint,
     });
 
     return { result, modelOptions };
@@ -123,7 +123,7 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
       rules,
       modelOptions,
       generateObject,
-      senderClassificationHint,
+      classificationFeedbackHint,
     });
   }
 }
@@ -134,14 +134,14 @@ async function getAiResponseSingleRule({
   rules,
   modelOptions,
   generateObject,
-  senderClassificationHint,
+  classificationFeedbackHint,
 }: {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
   rules: GetAiResponseOptions["rules"];
   modelOptions: ReturnType<typeof getModel>;
   generateObject: ReturnType<typeof createGenerateObject>;
-  senderClassificationHint?: string | null;
+  classificationFeedbackHint?: string | null;
 }) {
   const system = `You are an AI assistant that helps people manage their emails.
 
@@ -168,7 +168,7 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
 
 ${getUserRulesPrompt({ rules })}
 
-${senderClassificationHint ?? ""}
+${classificationFeedbackHint ?? ""}
 
 ${getUserInfoPrompt({ emailAccount })}
 
@@ -226,14 +226,14 @@ async function getAiResponseMultiRule({
   rules,
   modelOptions,
   generateObject,
-  senderClassificationHint,
+  classificationFeedbackHint,
 }: {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
   rules: GetAiResponseOptions["rules"];
   modelOptions: ReturnType<typeof getModel>;
   generateObject: ReturnType<typeof createGenerateObject>;
-  senderClassificationHint?: string | null;
+  classificationFeedbackHint?: string | null;
 }) {
   const rulesSection = rules
     .map(
@@ -272,7 +272,7 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
 ${rulesSection}
 </available_rules>
 
-${senderClassificationHint ?? ""}
+${classificationFeedbackHint ?? ""}
 
 ${getUserInfoPrompt({ emailAccount })}
 

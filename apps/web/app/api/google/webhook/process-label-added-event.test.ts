@@ -5,7 +5,7 @@ import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { GroupItemSource } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
-import { saveSenderClassification } from "@/utils/rule/sender-classification";
+import { saveClassificationFeedback } from "@/utils/rule/classification-feedback";
 
 const logger = createTestLogger();
 
@@ -29,8 +29,8 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/utils/rule/sender-classification", () => ({
-  saveSenderClassification: vi.fn().mockResolvedValue(undefined),
+vi.mock("@/utils/rule/classification-feedback", () => ({
+  saveClassificationFeedback: vi.fn().mockResolvedValue(undefined),
   findRuleByLabelId: vi.fn().mockResolvedValue(null),
 }));
 
@@ -133,7 +133,7 @@ describe("process-label-added-event", () => {
       );
 
       expect(saveLearnedPattern).not.toHaveBeenCalled();
-      expect(saveSenderClassification).not.toHaveBeenCalled();
+      expect(saveClassificationFeedback).not.toHaveBeenCalled();
     });
 
     it("should skip when no Cold Email rule exists", async () => {

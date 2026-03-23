@@ -1,15 +1,15 @@
 import {
   ActionType,
-  SenderClassificationEventType,
+  ClassificationFeedbackEventType,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 import { truncate } from "@/utils/string";
 
-const MAX_CLASSIFICATIONS_FOR_PROMPT = 10;
+const MAX_FEEDBACK_FOR_PROMPT = 10;
 
-export async function saveSenderClassification({
+export async function saveClassificationFeedback({
   emailAccountId,
   sender,
   ruleId,
@@ -23,18 +23,18 @@ export async function saveSenderClassification({
   ruleId: string;
   threadId: string;
   messageId: string;
-  eventType: SenderClassificationEventType;
+  eventType: ClassificationFeedbackEventType;
   logger: Logger;
 }) {
   const normalizedSender = sender.toLowerCase();
 
-  logger.trace("Saving sender classification", {
+  logger.trace("Saving classification feedback", {
     sender: normalizedSender,
     ruleId,
     eventType,
   });
 
-  await prisma.senderClassification.upsert({
+  await prisma.classificationFeedback.upsert({
     where: {
       emailAccountId_sender_ruleId_messageId_eventType: {
         emailAccountId,
@@ -56,7 +56,7 @@ export async function saveSenderClassification({
   });
 }
 
-export async function getSenderClassificationsForPrompt({
+export async function getClassificationFeedbackForPrompt({
   emailAccountId,
   senderEmail,
   provider,
@@ -67,13 +67,13 @@ export async function getSenderClassificationsForPrompt({
   provider: EmailProvider;
   logger: Logger;
 }): Promise<string | null> {
-  const classifications = await prisma.senderClassification.findMany({
+  const feedback = await prisma.classificationFeedback.findMany({
     where: {
       emailAccountId,
       sender: senderEmail.toLowerCase(),
     },
     orderBy: { createdAt: "desc" },
-    take: MAX_CLASSIFICATIONS_FOR_PROMPT,
+    take: MAX_FEEDBACK_FOR_PROMPT,
     select: {
       messageId: true,
       eventType: true,
@@ -81,18 +81,18 @@ export async function getSenderClassificationsForPrompt({
     },
   });
 
-  if (classifications.length === 0) return null;
+  if (!feedback?.length) return null;
 
-  const subjects = await fetchSubjectsForClassifications(
-    classifications.map((c) => c.messageId),
+  const subjects = await fetchSubjectsForFeedback(
+    feedback.map((f) => f.messageId),
     provider,
     logger,
   );
 
-  return formatClassificationsPrompt(classifications, subjects);
+  return formatFeedbackPrompt(feedback, subjects);
 }
 
-async function fetchSubjectsForClassifications(
+async function fetchSubjectsForFeedback(
   messageIds: string[],
   provider: EmailProvider,
   logger: Logger,
@@ -108,7 +108,7 @@ async function fetchSubjectsForClassifications(
       }
     }
   } catch (error) {
-    logger.warn("Failed to fetch subjects for sender classifications", {
+    logger.warn("Failed to fetch subjects for classification feedback", {
       error,
     });
   }
@@ -116,23 +116,21 @@ async function fetchSubjectsForClassifications(
   return subjectMap;
 }
 
-function formatClassificationsPrompt(
-  classifications: {
+function formatFeedbackPrompt(
+  feedback: {
     messageId: string;
-    eventType: SenderClassificationEventType;
+    eventType: ClassificationFeedbackEventType;
     rule: { name: string } | null;
   }[],
   subjects: Map<string, string>,
 ): string {
   const lines: string[] = [];
 
-  for (const classification of classifications) {
-    const ruleName = classification.rule?.name ?? "Unknown";
-    const subject = subjects.get(classification.messageId);
+  for (const entry of feedback) {
+    const ruleName = entry.rule?.name ?? "Unknown";
+    const subject = subjects.get(entry.messageId);
 
-    if (
-      classification.eventType === SenderClassificationEventType.LABEL_ADDED
-    ) {
+    if (entry.eventType === ClassificationFeedbackEventType.LABEL_ADDED) {
       if (subject) {
         lines.push(`- "${subject}" → ${ruleName}`);
       } else {
@@ -147,11 +145,11 @@ function formatClassificationsPrompt(
     }
   }
 
-  return `<sender_classifications>
+  return `<classification_feedback>
 User has manually classified emails from this sender into these rules:
 ${lines.join("\n")}
 These are hints from past user actions. Still evaluate the current email on its own merits.
-</sender_classifications>`;
+</classification_feedback>`;
 }
 
 export async function findRuleByLabelId({

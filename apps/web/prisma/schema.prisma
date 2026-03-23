@@ -203,7 +203,7 @@ model EmailAccount {
   documentFilings       DocumentFiling[]
   filingFolders         FilingFolder[]
   apiKeys               ApiKey[]
-  senderClassifications SenderClassification[]
+  classificationFeedback ClassificationFeedback[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -440,7 +440,7 @@ model Rule {
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   executedRules            ExecutedRule[]
-  senderClassifications    SenderClassification[]
+  classificationFeedback   ClassificationFeedback[]
 
   // conditions: ai, group, static, category
   conditionalOperator LogicalOperator @default(AND)
@@ -671,12 +671,12 @@ model GroupItem {
   @@unique([groupId, type, value])
 }
 
-model SenderClassification {
+model ClassificationFeedback {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
   sender    String // normalized email address (lowercase)
-  eventType SenderClassificationEventType
+  eventType ClassificationFeedbackEventType
 
   ruleId         String
   rule           Rule         @relation(fields: [ruleId], references: [id], onDelete: Cascade)
@@ -1599,7 +1599,7 @@ enum GroupItemSource {
   LABEL_ADDED
 }
 
-enum SenderClassificationEventType {
+enum ClassificationFeedbackEventType {
   LABEL_ADDED
   LABEL_REMOVED
 }

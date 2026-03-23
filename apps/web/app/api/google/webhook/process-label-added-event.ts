@@ -3,7 +3,7 @@ import {
   ActionType,
   GroupItemSource,
   GroupItemType,
-  SenderClassificationEventType,
+  ClassificationFeedbackEventType,
   SystemType,
 } from "@/generated/prisma/enums";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
@@ -15,8 +15,8 @@ import prisma from "@/utils/prisma";
 import { isEligibleForClassificationFeedback } from "@/utils/rule/consts";
 import {
   findRuleByLabelId,
-  saveSenderClassification,
-} from "@/utils/rule/sender-classification";
+  saveClassificationFeedback,
+} from "@/utils/rule/classification-feedback";
 import { fetchSenderFromMessage } from "@/app/api/google/webhook/fetch-sender-from-message";
 
 /**
@@ -190,13 +190,13 @@ async function recordClassificationFromLabelAdd({
     return;
   }
 
-  await saveSenderClassification({
+  await saveClassificationFeedback({
     emailAccountId,
     sender,
     ruleId: rule.id,
     threadId,
     messageId,
-    eventType: SenderClassificationEventType.LABEL_ADDED,
+    eventType: ClassificationFeedbackEventType.LABEL_ADDED,
     logger,
   });
 }

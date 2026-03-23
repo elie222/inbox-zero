@@ -2,7 +2,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import {
   GroupItemSource,
   GroupItemType,
-  SenderClassificationEventType,
+  ClassificationFeedbackEventType,
   SystemType,
 } from "@/generated/prisma/enums";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -14,8 +14,8 @@ import { recordLabelRemovalLearning } from "@/utils/rule/record-label-removal-le
 import { isEligibleForClassificationFeedback } from "@/utils/rule/consts";
 import {
   findRuleByLabelId,
-  saveSenderClassification,
-} from "@/utils/rule/sender-classification";
+  saveClassificationFeedback,
+} from "@/utils/rule/classification-feedback";
 import { fetchSenderFromMessage } from "@/app/api/google/webhook/fetch-sender-from-message";
 
 export async function handleLabelRemovedEvent(
@@ -129,13 +129,13 @@ async function learnFromRemovedLabel({
   });
 
   if (rule && sender && isEligibleForClassificationFeedback(rule.systemType)) {
-    await saveSenderClassification({
+    await saveClassificationFeedback({
       emailAccountId,
       sender,
       ruleId: rule.id,
       threadId,
       messageId,
-      eventType: SenderClassificationEventType.LABEL_REMOVED,
+      eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
       logger,
     });
   }
