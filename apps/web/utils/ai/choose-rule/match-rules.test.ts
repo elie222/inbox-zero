@@ -2782,7 +2782,7 @@ describe("findMatchingRules - Integration Tests", () => {
 
     // Ensure potentialAiMatches includes aiOnlyRule
     vi.mocked(aiChooseRule).mockResolvedValue({
-      rules: [aiOnlyRule as any],
+      rules: [{ rule: aiOnlyRule as any }],
       reason: "AI reasoning here",
     });
 
@@ -2790,7 +2790,9 @@ describe("findMatchingRules - Integration Tests", () => {
     const message = getMessage({
       headers: getHeaders({ from: "reason@example.com" }),
     });
-    const emailAccount = getEmailAccount();
+    const emailAccount = getEmailAccount({
+      multiRuleSelectionEnabled: true,
+    });
 
     const result = await findMatchingRules({
       rules,
@@ -2806,6 +2808,42 @@ describe("findMatchingRules - Integration Tests", () => {
     expect(result.reasoning).toBe(
       "Matched static conditions; AI reasoning here",
     );
+  });
+
+  it("does not append a second AI-selected rule when multi-rule selection is disabled", async () => {
+    const keepInInboxRule = getRule({
+      id: "keep-in-inbox",
+      name: "Keep in Inbox",
+      from: "@dailystoic.com",
+    });
+    const newsletterRule = getRule({
+      id: "newsletter-rule",
+      name: "Newsletter",
+      instructions: "Newsletters and digests",
+      systemType: SystemType.NEWSLETTER,
+    });
+
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [{ rule: newsletterRule as any, isPrimary: true }],
+      reason: "This is a newsletter",
+    });
+
+    const result = await findMatchingRules({
+      rules: [keepInInboxRule, newsletterRule],
+      message: getMessage({
+        headers: getHeaders({ from: "daily@dailystoic.com" }),
+      }),
+      emailAccount: getEmailAccount({
+        multiRuleSelectionEnabled: false,
+      }),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]?.rule.id).toBe("keep-in-inbox");
+    expect(result.reasoning).toBe("Matched static conditions");
   });
 
   it("matchesStaticRule: catches RegExp construction error and returns false", () => {
