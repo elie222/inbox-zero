@@ -14,7 +14,6 @@
     "setup": "tsx packages/cli/src/main.ts setup",
     "setup-aws": "tsx packages/cli/src/main.ts setup-aws",
     "setup-terraform": "tsx packages/cli/src/main.ts setup-terraform",
-    "emulate:google": "pnpm --dir apps/web exec emulate --service google --seed ../../emulate.config.yaml --port 4002",
     "start:cli": "tsx packages/cli/src/main.ts start",
     "docker:local:build": "./docker/scripts/publish-ghcr.sh --local",
     "docker:local:push": "./docker/scripts/publish-ghcr.sh",

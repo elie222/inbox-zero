@@ -126,7 +126,7 @@ See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for
 For local sign-in, account linking, calendar linking, and drive linking without creating a Google Cloud app, this repo includes an [`emulate`](https://emulate.dev/) seed config:
 
 ```bash
-pnpm emulate:google
+pnpm --dir apps/web emulate:google
 ```
 
 Set these values in `apps/web/.env.local`:

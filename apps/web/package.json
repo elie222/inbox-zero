@@ -18,6 +18,7 @@
     "test-e2e:flows": "cross-env RUN_E2E_FLOW_TESTS=true vitest --run --dir __tests__/e2e/flows --no-file-parallelism",
     "test:local-bypass-smoke": "playwright test -c playwright.local-bypass.config.mjs",
     "telegram:setup": "dotenv -e .env.local -- tsx scripts/setup-telegram-bot.ts",
+    "emulate:google": "emulate --service google --seed ../../emulate.config.yaml --port 4002",
     "prisma:migrate:e2e": "dotenv -e .env.e2e -- prisma migrate deploy",
     "prisma:migrate:local": "dotenv -e .env.local -- prisma migrate deploy",
     "preinstall": "npx only-allow pnpm",
