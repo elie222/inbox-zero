@@ -1,4 +1,5 @@
 import { env } from "@/env";
+import { z } from "zod";
 
 const GOOGLE_DISCOVERY_URL =
   "https://accounts.google.com/.well-known/openid-configuration";
@@ -6,15 +7,17 @@ const GOOGLE_ISSUER = "https://accounts.google.com";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 
-export type GoogleOpenIdProfile = {
-  email: string;
-  email_verified?: boolean;
-  family_name?: string;
-  given_name?: string;
-  name?: string;
-  picture?: string;
-  sub: string;
-};
+const googleOpenIdProfileSchema = z.object({
+  email: z.string(),
+  email_verified: z.boolean().optional(),
+  family_name: z.string().optional(),
+  given_name: z.string().optional(),
+  name: z.string().optional(),
+  picture: z.string().optional(),
+  sub: z.string(),
+});
+
+type GoogleOpenIdProfile = z.infer<typeof googleOpenIdProfileSchema>;
 
 const googleOauthBaseUrl =
   env.GOOGLE_OAUTH_BASE_URL?.replace(/\/+$/, "") || null;
@@ -66,7 +69,9 @@ export function getGoogleOauthClientOptions(redirectUri?: string) {
   };
 }
 
-export async function fetchGoogleOpenIdProfile(accessToken: string) {
+export async function fetchGoogleOpenIdProfile(
+  accessToken: string,
+): Promise<GoogleOpenIdProfile> {
   const response = await fetch(getGoogleOauthUserInfoUrl(), {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -77,11 +82,14 @@ export async function fetchGoogleOpenIdProfile(accessToken: string) {
     throw new Error(`Failed to fetch Google profile (${response.status})`);
   }
 
-  const profile = (await response.json()) as Partial<GoogleOpenIdProfile>;
-
-  if (!profile.sub || !profile.email) {
-    throw new Error("Google profile response missing subject or email");
+  const profileResult = googleOpenIdProfileSchema.safeParse(
+    await response.json(),
+  );
+  if (!profileResult.success) {
+    throw new Error(
+      `Invalid Google profile response: ${profileResult.error.message}`,
+    );
   }
 
-  return profile as GoogleOpenIdProfile;
+  return profileResult.data;
 }

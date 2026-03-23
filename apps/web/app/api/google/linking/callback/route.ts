@@ -69,7 +69,14 @@ export const GET = withError("google/linking/callback", async (request) => {
     const payload = await fetchGoogleOpenIdProfile(accessToken);
 
     const providerAccountId = payload.sub;
+    // Email is PII and should stay out of info-level logs.
     const providerEmail = payload.email;
+
+    logger.trace("Fetched Google profile for account linking", {
+      providerAccountId,
+      providerEmail,
+      targetUserId,
+    });
 
     const existingAccount = await prisma.account.findUnique({
       where: {
@@ -100,7 +107,7 @@ export const GET = withError("google/linking/callback", async (request) => {
 
     if (linkingResult.type === "continue_create") {
       logger.info("Creating new Google account and linking to current user", {
-        email: providerEmail,
+        providerAccountId,
         targetUserId,
       });
 
@@ -131,7 +138,7 @@ export const GET = withError("google/linking/callback", async (request) => {
         });
 
         logger.info("Successfully created and linked new Google account", {
-          email: providerEmail,
+          providerAccountId,
           targetUserId,
           accountId: newAccount.id,
         });
@@ -171,7 +178,7 @@ export const GET = withError("google/linking/callback", async (request) => {
 
     if (linkingResult.type === "update_tokens") {
       logger.info("Updating tokens for existing Google account", {
-        email: providerEmail,
+        providerAccountId,
         targetUserId,
         accountId: linkingResult.existingAccountId,
       });
@@ -179,7 +186,7 @@ export const GET = withError("google/linking/callback", async (request) => {
       await updateGoogleAccountTokens(linkingResult.existingAccountId, tokens);
 
       logger.info("Successfully updated tokens for Google account", {
-        email: providerEmail,
+        providerAccountId,
         targetUserId,
         accountId: linkingResult.existingAccountId,
       });
@@ -188,7 +195,6 @@ export const GET = withError("google/linking/callback", async (request) => {
     }
 
     logger.info("Merging Google account (user confirmed).", {
-      email: providerEmail,
       providerAccountId,
       existingUserId: linkingResult.sourceUserId,
       targetUserId,
