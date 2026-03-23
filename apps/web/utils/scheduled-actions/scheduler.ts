@@ -186,7 +186,12 @@ export async function cancelScheduledActions({
         emailAccountId,
         messageId,
         ...(threadId && { threadId }),
-        status: ScheduledActionStatus.PENDING,
+        status: {
+          in: [
+            ScheduledActionStatus.PENDING,
+            ScheduledActionStatus.AWAITING_CONFIRMATION,
+          ],
+        },
         executedRule: {
           ruleId,
         },
@@ -226,7 +231,12 @@ export async function cancelScheduledActions({
         emailAccountId,
         messageId,
         ...(threadId && { threadId }),
-        status: ScheduledActionStatus.PENDING,
+        status: {
+          in: [
+            ScheduledActionStatus.PENDING,
+            ScheduledActionStatus.AWAITING_CONFIRMATION,
+          ],
+        },
         executedRule: { ruleId },
       },
       data: {
@@ -355,4 +365,68 @@ export async function markQStashActionAsExecuting(scheduledActionId: string) {
     });
     return null;
   }
+}
+
+export async function markScheduledActionAwaitingConfirmation(
+  scheduledActionId: string,
+) {
+  const result = await prisma.scheduledAction.updateMany({
+    where: {
+      id: scheduledActionId,
+      status: ScheduledActionStatus.PENDING,
+    },
+    data: {
+      status: ScheduledActionStatus.AWAITING_CONFIRMATION,
+    },
+  });
+
+  return result.count > 0;
+}
+
+export async function revertScheduledActionAwaitingConfirmation(
+  scheduledActionId: string,
+) {
+  const result = await prisma.scheduledAction.updateMany({
+    where: {
+      id: scheduledActionId,
+      status: ScheduledActionStatus.AWAITING_CONFIRMATION,
+    },
+    data: {
+      status: ScheduledActionStatus.PENDING,
+    },
+  });
+
+  return result.count > 0;
+}
+
+export async function markAwaitingConfirmationActionAsExecuting(
+  scheduledActionId: string,
+) {
+  const result = await prisma.scheduledAction.updateMany({
+    where: {
+      id: scheduledActionId,
+      status: ScheduledActionStatus.AWAITING_CONFIRMATION,
+    },
+    data: {
+      status: ScheduledActionStatus.EXECUTING,
+    },
+  });
+
+  return result.count > 0;
+}
+
+export async function cancelAwaitingConfirmationScheduledAction(
+  scheduledActionId: string,
+) {
+  const result = await prisma.scheduledAction.updateMany({
+    where: {
+      id: scheduledActionId,
+      status: ScheduledActionStatus.AWAITING_CONFIRMATION,
+    },
+    data: {
+      status: ScheduledActionStatus.CANCELLED,
+    },
+  });
+
+  return result.count > 0;
 }

@@ -9,6 +9,7 @@ import { executeScheduledAction } from "@/utils/scheduled-actions/executor";
 import { markQStashActionAsExecuting } from "@/utils/scheduled-actions/scheduler";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
+import { requestSlackApprovalForScheduledAction } from "@/utils/scheduled-actions/slack-approval";
 
 export const maxDuration = 300;
 
@@ -94,6 +95,15 @@ async function processScheduledActions(logger: Logger) {
           data: { status: ScheduledActionStatus.FAILED },
         });
         failed += 1;
+        continue;
+      }
+
+      const approvalRequest = await requestSlackApprovalForScheduledAction({
+        scheduledAction,
+        logger: actionLogger,
+      });
+      if (approvalRequest.status === "requested") {
+        skipped += 1;
         continue;
       }
 

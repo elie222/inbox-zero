@@ -1552,6 +1552,7 @@ enum DigestStatus {
 
 enum ScheduledActionStatus {
   PENDING
+  AWAITING_CONFIRMATION
   EXECUTING
   COMPLETED
   FAILED

@@ -53,6 +53,12 @@ import {
 } from "@/utils/messaging/prompt-commands";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
+import {
+  approveScheduledActionFromSlack,
+  rejectScheduledActionFromSlack,
+  SCHEDULED_ACTION_APPROVE_ACTION_ID,
+  SCHEDULED_ACTION_REJECT_ACTION_ID,
+} from "@/utils/scheduled-actions/slack-approval";
 import { getEmailUrlForMessage } from "@/utils/url";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
@@ -449,6 +455,14 @@ function registerMessagingHandlers({
       await handlePendingEmailConfirmAction({ event, logger: handlerLogger });
     },
   );
+  bot.onAction(SCHEDULED_ACTION_APPROVE_ACTION_ID, async (event) => {
+    const handlerLogger = getHandlerLogger();
+    await handleScheduledActionApprove({ event, logger: handlerLogger });
+  });
+  bot.onAction(SCHEDULED_ACTION_REJECT_ACTION_ID, async (event) => {
+    const handlerLogger = getHandlerLogger();
+    await handleScheduledActionReject({ event, logger: handlerLogger });
+  });
 
   if (adapters.slack) {
     bot.onAssistantThreadStarted(async ({ channelId, threadTs }) => {
@@ -915,6 +929,116 @@ async function handlePendingEmailConfirmAction({
       event,
       provider,
       text: "I couldn't send that draft. Please try again.",
+      logger,
+    });
+  }
+}
+
+async function handleScheduledActionApprove({
+  event,
+  logger,
+}: {
+  event: ActionEvent;
+  logger: Logger;
+}) {
+  const thread = event.thread;
+  if (!thread) {
+    logger.warn("Missing thread for scheduled action approval");
+    return;
+  }
+
+  const provider = getSupportedPlatform(thread.adapter.name);
+  if (provider !== "slack") return;
+
+  const scheduledActionId = event.value?.trim();
+  if (!scheduledActionId) {
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "That delayed action is invalid or expired.",
+      logger,
+    });
+    return;
+  }
+
+  try {
+    const result = await approveScheduledActionFromSlack({
+      scheduledActionId,
+      providerUserId: event.user.userId,
+      teamId: getTeamIdFromActionEvent({ provider, event }),
+      logger,
+    });
+
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: result.feedback,
+      logger,
+    });
+  } catch (error) {
+    logger.warn("Scheduled action approval failed", {
+      scheduledActionId,
+      error,
+    });
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "I couldn't approve that delayed action. Please try again.",
+      logger,
+    });
+  }
+}
+
+async function handleScheduledActionReject({
+  event,
+  logger,
+}: {
+  event: ActionEvent;
+  logger: Logger;
+}) {
+  const thread = event.thread;
+  if (!thread) {
+    logger.warn("Missing thread for scheduled action rejection");
+    return;
+  }
+
+  const provider = getSupportedPlatform(thread.adapter.name);
+  if (provider !== "slack") return;
+
+  const scheduledActionId = event.value?.trim();
+  if (!scheduledActionId) {
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "That delayed action is invalid or expired.",
+      logger,
+    });
+    return;
+  }
+
+  try {
+    const result = await rejectScheduledActionFromSlack({
+      scheduledActionId,
+      providerUserId: event.user.userId,
+      teamId: getTeamIdFromActionEvent({ provider, event }),
+      logger,
+    });
+
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: result.feedback,
+      logger,
+    });
+  } catch (error) {
+    logger.warn("Scheduled action rejection failed", {
+      scheduledActionId,
+      error,
+    });
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "I couldn't reject that delayed action. Please try again.",
       logger,
     });
   }

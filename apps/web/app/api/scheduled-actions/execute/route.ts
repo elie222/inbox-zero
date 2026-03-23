@@ -6,6 +6,7 @@ import prisma from "@/utils/prisma";
 import { ScheduledActionStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
 import { withQstashOrInternal } from "@/utils/qstash";
+import { requestSlackApprovalForScheduledAction } from "@/utils/scheduled-actions/slack-approval";
 
 export const maxDuration = 300; // 5 minutes
 
@@ -75,6 +76,14 @@ export const POST = withError(
           status: scheduledAction.status,
         });
         return new Response("Action is not pending", { status: 200 });
+      }
+
+      const approvalRequest = await requestSlackApprovalForScheduledAction({
+        scheduledAction,
+        logger,
+      });
+      if (approvalRequest.status === "requested") {
+        return new Response("Action awaiting confirmation", { status: 200 });
       }
 
       // Mark as executing to prevent duplicate processing
