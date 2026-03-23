@@ -121,24 +121,6 @@ Open http://localhost:3000
 
 See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for more details including devcontainer setup.
 
-#### Optional: local Google OAuth emulation
-
-For local sign-in, account linking, calendar linking, and drive linking without creating a Google Cloud app, this repo includes an [`emulate`](https://emulate.dev/) seed config:
-
-```bash
-pnpm --dir apps/web emulate:google
-```
-
-Set these values in `apps/web/.env.local`:
-
-```bash
-GOOGLE_CLIENT_ID=emulate-google-client.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=emulate-google-secret
-GOOGLE_OAUTH_BASE_URL=http://localhost:4002
-```
-
-This only emulates Google OAuth/OIDC. Gmail, Calendar, Drive, Contacts, and Pub/Sub API calls are still real Google integrations.
-
 ## Contributing
 
 View open tasks in [GitHub Issues](https://github.com/elie222/inbox-zero/issues) and join our [Discord](https://www.getinboxzero.com/discord) to discuss what's being worked on.
