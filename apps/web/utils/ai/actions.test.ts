@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ActionType,
   AttachmentSourceType,
+  DraftMaterializationMode,
   DraftReplyConfidence,
 } from "@/generated/prisma/enums";
+import prisma from "@/utils/__mocks__/prisma";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { runActionFunction } from "@/utils/ai/actions";
 import {
@@ -14,6 +16,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
 import type { ParsedMessage } from "@/utils/types";
 vi.mock("server-only", () => ({}));
+vi.mock("@/utils/prisma");
 
 vi.mock("@/utils/redis/reply", () => ({
   getReplyWithConfidence: vi.fn().mockResolvedValue(null),
@@ -44,10 +47,13 @@ describe("runActionFunction", () => {
     snippet: "",
     attachments: [],
     internalDate: "1700000000000",
-  } as ParsedMessage;
+  } as unknown as ParsedMessage;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      draftMaterializationMode: DraftMaterializationMode.MAILBOX_DRAFT,
+    } as any);
   });
 
   it("passes resolved drive attachments into draft creation", async () => {
@@ -56,6 +62,8 @@ describe("runActionFunction", () => {
     vi.mocked(getReplyWithConfidence).mockResolvedValue({
       reply: "Attached the requested PDF.",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+      attribution: null,
+      draftContextMetadata: null,
       attachments: [
         {
           driveConnectionId: "drive-1",
@@ -306,5 +314,41 @@ describe("runActionFunction", () => {
         ],
       }),
     );
+  });
+
+  it("returns a messaging-only proposal result without creating a provider draft", async () => {
+    const client = createMockEmailProvider();
+
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      draftMaterializationMode: DraftMaterializationMode.MESSAGING_ONLY,
+    } as any);
+
+    const result = await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.DRAFT_EMAIL,
+        content: "Reply from Slack only.",
+      },
+      userEmail: "user@example.com",
+      userId: "user-1",
+      emailAccountId: "account-1",
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(result).toEqual({
+      draftId: null,
+      materializationMode: DraftMaterializationMode.MESSAGING_ONLY,
+      selectedAttachments: [],
+    });
+    expect(client.draftEmail).not.toHaveBeenCalled();
+    expect(resolveDraftAttachments).not.toHaveBeenCalled();
   });
 });

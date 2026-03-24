@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, DraftMaterializationMode } from "@/generated/prisma/enums";
 import type { ExecutedRule } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
@@ -35,6 +35,12 @@ type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
   executedRule: ExecutedRule;
   logger: Logger;
 }) => Promise<any>;
+
+export type DraftActionResult = {
+  draftId: string | null;
+  materializationMode: DraftMaterializationMode;
+  selectedAttachments: SelectedAttachment[];
+};
 
 export const runActionFunction = async (options: {
   client: EmailProvider;
@@ -179,15 +185,41 @@ const draft: ActionFunction<{
 }) => {
   if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) return;
 
-  const attachments = await resolveActionAttachments({
+  const materializationMode = await getDraftMaterializationMode(emailAccountId);
+  const selectedAttachments = await getDraftSelectedAttachments({
     email,
     emailAccountId,
     executedRule,
-    userId,
     logger,
-    staticAttachments: args.staticAttachments,
-    includeAiSelectedAttachments: true,
   });
+
+  if (materializationMode === DraftMaterializationMode.MESSAGING_ONLY) {
+    return {
+      draftId: null,
+      materializationMode,
+      selectedAttachments,
+    } satisfies DraftActionResult;
+  }
+
+  const staticSelected = parseStaticAttachments(args.staticAttachments);
+  const allSelected = [
+    ...new Map(
+      [...selectedAttachments, ...staticSelected].map((attachment) => [
+        `${attachment.driveConnectionId}:${attachment.fileId}`,
+        attachment,
+      ]),
+    ).values(),
+  ];
+
+  const attachments =
+    allSelected.length > 0
+      ? await resolveDraftAttachments({
+          emailAccountId,
+          userId,
+          selectedAttachments: allSelected,
+          logger,
+        })
+      : [];
 
   const draftArgs = {
     to: args.to ?? undefined,
@@ -218,7 +250,11 @@ const draft: ActionFunction<{
     userEmail,
     executedRule,
   );
-  return { draftId: result.draftId };
+  return {
+    draftId: result.draftId || null,
+    materializationMode,
+    selectedAttachments,
+  } satisfies DraftActionResult;
 };
 
 const reply: ActionFunction<{
@@ -658,4 +694,15 @@ function parseStaticAttachments(raw: unknown): SelectedAttachment[] {
       filename: item.name,
       mimeType: "application/pdf",
     }));
+}
+
+async function getDraftMaterializationMode(emailAccountId: string) {
+  const account = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: { draftMaterializationMode: true },
+  });
+
+  return (
+    account?.draftMaterializationMode ?? DraftMaterializationMode.MAILBOX_DRAFT
+  );
 }
