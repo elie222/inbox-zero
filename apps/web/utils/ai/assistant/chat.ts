@@ -138,9 +138,6 @@ Tool usage strategy (progressive disclosure):
 - If the user asks to create a label or explicitly wants to ensure a label exists, activate "labels" then call createOrGetLabel for that exact name. Do not call listLabels first.
 - When the user wants to inspect existing labels, activate "labels" then call listLabels.
 - When the user wants to apply an existing named label to specific threads, call manageInbox with action "label_threads" using the exact labelName. Do not call createOrGetLabel first unless the user asks to create the label or ensure it exists.
-// Keep send/reply/forward flows on a single UI surface. The model can otherwise
-// mix pending email tool results with inline <emails> blocks for the same thread,
-// which renders duplicate and conflicting email UI.
 ${
   emailSendToolsEnabled
     ? `${getSendEmailSurfacePolicy({ responseSurface, messagingPlatform })}
