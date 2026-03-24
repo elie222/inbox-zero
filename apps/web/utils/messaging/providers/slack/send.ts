@@ -150,17 +150,18 @@ export async function resolveSlackDestination({
 
 type Blocks = (KnownBlock | Block)[];
 
-async function postMessageWithJoin(
+export async function postMessageWithJoin(
   client: WebClient,
   channelId: string,
   message: { text: string; blocks?: Blocks },
-): Promise<void> {
+): Promise<{ ts: string; channel: string } | undefined> {
   const args = message.blocks
     ? { channel: channelId, blocks: message.blocks, text: message.text }
     : { channel: channelId, text: message.text };
 
   try {
-    await client.chat.postMessage(args);
+    const response = await client.chat.postMessage(args);
+    return response.ts ? { ts: response.ts, channel: channelId } : undefined;
   } catch (error: unknown) {
     if (isSlackError(error) && error.data?.error === "not_in_channel") {
       try {
@@ -176,8 +177,8 @@ async function postMessageWithJoin(
         }
         throw joinError;
       }
-      await client.chat.postMessage(args);
-      return;
+      const response = await client.chat.postMessage(args);
+      return response.ts ? { ts: response.ts, channel: channelId } : undefined;
     }
     throw error;
   }
