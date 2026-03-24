@@ -116,11 +116,7 @@ function getGoogleOauthUserInfoUrl() {
 }
 
 function getGoogleOauthBaseUrl() {
-  return (
-    env.GOOGLE_OAUTH_BASE_URL?.replace(/\/+$/, "") ||
-    env.GOOGLE_BASE_URL?.replace(/\/+$/, "") ||
-    null
-  );
+  return env.GOOGLE_BASE_URL?.replace(/\/+$/, "") || null;
 }
 
 function getGoogleApiBaseUrl() {
