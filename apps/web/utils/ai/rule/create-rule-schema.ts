@@ -5,6 +5,7 @@ import { isDefined } from "@/utils/types";
 import { env } from "@/env";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import { delayInMinutesLlmSchema } from "@/utils/actions/rule.validation";
+import { addRuleActionRequirement } from "@/utils/actions/rule.validation";
 import {
   AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
   INVALID_STATIC_FROM_MESSAGE,
@@ -156,16 +157,13 @@ export const createRuleSchema = (provider: string) =>
         ),
       actions: z.array(actionSchema(provider)).describe("The actions to take"),
     })
-    .superRefine((data, ctx) => {
-      if (!data.stopProcessing && data.actions.length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message:
-            "Rules need at least one action unless stopProcessing is true.",
-          path: ["actions"],
-        });
-      }
-    });
+    .superRefine((data, ctx) =>
+      addRuleActionRequirement(
+        data,
+        ctx,
+        "Rules need at least one action unless stopProcessing is true.",
+      ),
+    );
 
 export type CreateRuleSchema = z.infer<ReturnType<typeof createRuleSchema>>;
 export type CreateOrUpdateRuleSchema = CreateRuleSchema & {

@@ -267,12 +267,12 @@ const createRuleBodySchema = z.object({
 export function addRuleActionRequirement(
   data: { stopProcessing?: boolean | null; actions: unknown[] },
   ctx: z.RefinementCtx,
+  message = "You must have at least one action unless this rule stops other rules.",
 ) {
   if (!data.stopProcessing && data.actions.length === 0) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message:
-        "You must have at least one action unless this rule stops other rules.",
+      message,
       path: ["actions"],
     });
   }
@@ -451,16 +451,13 @@ const importedRule = z
     actions: z.array(importedAction),
     group: z.string().nullish(),
   })
-  .superRefine((data, ctx) => {
-    if (!data.stopProcessing && data.actions.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "Imported rules must include at least one action unless stopProcessing is true",
-        path: ["actions"],
-      });
-    }
-  })
+  .superRefine((data, ctx) =>
+    addRuleActionRequirement(
+      data,
+      ctx,
+      "Imported rules must include at least one action unless stopProcessing is true",
+    ),
+  )
   .refine(
     (data) =>
       data.systemType ||
