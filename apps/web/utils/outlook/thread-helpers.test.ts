@@ -23,7 +23,7 @@ describe("runThreadMessageMutation", () => {
       },
     });
 
-    expect(maxInFlight).toBeLessThanOrEqual(2);
+    expect(maxInFlight).toBeLessThanOrEqual(3);
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
@@ -148,7 +148,7 @@ describe("processThreadMessagesFallback", () => {
     });
 
     expect(handler).toHaveBeenCalledTimes(4);
-    expect(maxInFlight).toBeLessThanOrEqual(2);
+    expect(maxInFlight).toBeLessThanOrEqual(3);
   });
 });
 

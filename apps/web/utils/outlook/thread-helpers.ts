@@ -2,7 +2,7 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import type { Logger } from "@/utils/logger";
 import { runWithBoundedConcurrency } from "@/utils/async";
 
-const OUTLOOK_THREAD_WRITE_CONCURRENCY = 2;
+const OUTLOOK_THREAD_WRITE_CONCURRENCY = 3;
 
 export async function runThreadMessageMutation({
   messageIds,
