@@ -7,6 +7,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";
 import type { EmailProvider } from "@/utils/email/types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { notifyDraftOnChannel } from "@/utils/messaging/notify-draft";
 
 const MODULE = "ai-execute-act";
 
@@ -70,6 +71,22 @@ export async function executeAct({
           draftId: actionResult.draftId,
           logger,
         });
+
+        try {
+          await notifyDraftOnChannel({
+            executedRuleId: executedRule.id,
+            draftId: actionResult.draftId,
+            draftContent: action.content,
+            draftSubject: action.subject,
+            recipient: action.to,
+            threadId: executedRule.threadId,
+            messageId: executedRule.messageId,
+            emailAccountId,
+            logger: log,
+          });
+        } catch (error) {
+          log.error("Failed to send draft notification", { error });
+        }
       }
     } catch (error) {
       await logErrorWithDedupe({
