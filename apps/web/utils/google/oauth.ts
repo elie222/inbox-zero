@@ -61,26 +61,26 @@ export function getGoogleOauthClientOptions(redirectUri?: string) {
 }
 
 export function getGoogleApiRootUrl() {
-  return getGoogleOauthBaseUrl() || GOOGLE_API_ROOT_URL;
+  return getGoogleApiBaseUrl() || GOOGLE_API_ROOT_URL;
 }
 
 export function getGoogleGmailApiRootUrl() {
-  return getGoogleOauthBaseUrl() || GOOGLE_GMAIL_API_ROOT_URL;
+  return getGoogleApiBaseUrl() || GOOGLE_GMAIL_API_ROOT_URL;
 }
 
 export function getGoogleGmailBatchUrl() {
-  const baseUrl = getGoogleOauthBaseUrl();
+  const baseUrl = getGoogleApiBaseUrl();
   return baseUrl ? `${baseUrl}/batch/gmail/v1` : GOOGLE_GMAIL_BATCH_URL;
 }
 
 export function getGooglePeopleApiRootUrl() {
-  return getGoogleOauthBaseUrl() || GOOGLE_PEOPLE_API_ROOT_URL;
+  return getGoogleApiBaseUrl() || GOOGLE_PEOPLE_API_ROOT_URL;
 }
 
 export function getGoogleTokenInfoUrl(accessToken: string) {
   const url = new URL(
-    getGoogleOauthBaseUrl()
-      ? `${getGoogleOauthBaseUrl()}/oauth2/v1/tokeninfo`
+    getGoogleApiBaseUrl()
+      ? `${getGoogleApiBaseUrl()}/oauth2/v1/tokeninfo`
       : GOOGLE_TOKEN_INFO_URL,
   );
   url.searchParams.set("access_token", accessToken);
@@ -116,5 +116,13 @@ function getGoogleOauthUserInfoUrl() {
 }
 
 function getGoogleOauthBaseUrl() {
-  return env.GOOGLE_OAUTH_BASE_URL?.replace(/\/+$/, "") || null;
+  return (
+    env.GOOGLE_OAUTH_BASE_URL?.replace(/\/+$/, "") ||
+    env.GOOGLE_BASE_URL?.replace(/\/+$/, "") ||
+    null
+  );
+}
+
+function getGoogleApiBaseUrl() {
+  return env.GOOGLE_BASE_URL?.replace(/\/+$/, "") || null;
 }

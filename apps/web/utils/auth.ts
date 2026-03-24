@@ -31,10 +31,6 @@ import {
   isGoogleOauthEmulationEnabled,
 } from "@/utils/google/oauth";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  hasGoogleOauthConfig,
-  hasMicrosoftOauthConfig,
-} from "@/utils/oauth/provider-config";
 import { createOutlookClient } from "@/utils/outlook/client";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import {
@@ -45,66 +41,59 @@ import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
-const hasGoogleOauth = hasGoogleOauthConfig();
 const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
   : [];
-const googleSocialProvider =
-  hasGoogleOauth && !useGoogleOauthEmulator
-    ? {
-        clientId: env.GOOGLE_CLIENT_ID,
-        clientSecret: env.GOOGLE_CLIENT_SECRET,
-        scope: [...GMAIL_SCOPES],
-        accessType: "offline" as const,
-        prompt: "select_account consent" as const,
-        disableIdTokenSignIn: true,
-        // For preview deployments, redirect through staging (which proxies back to preview URL)
-        ...(env.OAUTH_PROXY_URL && {
-          redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
-        }),
-      }
-    : null;
-const googleOauthPlugin =
-  hasGoogleOauth && useGoogleOauthEmulator
-    ? genericOAuth({
-        config: [
-          {
-            providerId: "google",
-            discoveryUrl: getGoogleOauthDiscoveryUrl(),
-            issuer: getGoogleOauthIssuer(),
-            clientId: env.GOOGLE_CLIENT_ID,
-            clientSecret: env.GOOGLE_CLIENT_SECRET,
-            scopes: [...GMAIL_SCOPES],
-            pkce: true,
-            accessType: "offline",
-            prompt: "select_account consent",
-            ...(env.OAUTH_PROXY_URL && {
-              redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/google`,
-            }),
-          },
-        ],
-      })
-    : null;
+const googleSocialProvider = !useGoogleOauthEmulator
+  ? {
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      scope: [...GMAIL_SCOPES],
+      accessType: "offline" as const,
+      prompt: "select_account consent" as const,
+      disableIdTokenSignIn: true,
+      // For preview deployments, redirect through staging (which proxies back to preview URL)
+      ...(env.OAUTH_PROXY_URL && {
+        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
+      }),
+    }
+  : null;
+const googleOauthPlugin = useGoogleOauthEmulator
+  ? genericOAuth({
+      config: [
+        {
+          providerId: "google",
+          discoveryUrl: getGoogleOauthDiscoveryUrl(),
+          issuer: getGoogleOauthIssuer(),
+          clientId: env.GOOGLE_CLIENT_ID,
+          clientSecret: env.GOOGLE_CLIENT_SECRET,
+          scopes: [...GMAIL_SCOPES],
+          pkce: true,
+          accessType: "offline",
+          prompt: "select_account consent",
+          ...(env.OAUTH_PROXY_URL && {
+            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/google`,
+          }),
+        },
+      ],
+    })
+  : null;
 
 const socialProviders = {
   ...(googleSocialProvider ? { google: googleSocialProvider } : {}),
-  ...(hasMicrosoftOauthConfig()
-    ? {
-        microsoft: {
-          clientId: env.MICROSOFT_CLIENT_ID!,
-          clientSecret: env.MICROSOFT_CLIENT_SECRET!,
-          scope: [...OUTLOOK_SCOPES],
-          tenantId: env.MICROSOFT_TENANT_ID,
-          disableIdTokenSignIn: true,
-          // For preview deployments, redirect through staging (which proxies back to preview URL)
-          ...(env.OAUTH_PROXY_URL && {
-            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
-          }),
-        },
-      }
-    : {}),
+  microsoft: {
+    clientId: env.MICROSOFT_CLIENT_ID || "",
+    clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
+    scope: [...OUTLOOK_SCOPES],
+    tenantId: env.MICROSOFT_TENANT_ID,
+    disableIdTokenSignIn: true,
+    // For preview deployments, redirect through staging (which proxies back to preview URL)
+    ...(env.OAUTH_PROXY_URL && {
+      redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
+    }),
+  },
 };
 
 export const betterAuthConfig = betterAuth({

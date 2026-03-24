@@ -73,14 +73,41 @@ describe("google oauth helpers", () => {
     expect(oauth.getGoogleOauthTokenUrl()).toBe(
       "http://localhost:4444/oauth2/token",
     );
-    expect(oauth.getGoogleApiRootUrl()).toBe("http://localhost:4444");
-    expect(oauth.getGoogleGmailApiRootUrl()).toBe("http://localhost:4444");
-    expect(oauth.getGoogleGmailBatchUrl()).toBe(
-      "http://localhost:4444/batch/gmail/v1",
+    expect(oauth.getGoogleApiRootUrl()).toBe("https://www.googleapis.com/");
+    expect(oauth.getGoogleGmailApiRootUrl()).toBe(
+      "https://gmail.googleapis.com/",
     );
-    expect(oauth.getGooglePeopleApiRootUrl()).toBe("http://localhost:4444");
+    expect(oauth.getGoogleGmailBatchUrl()).toBe(
+      "https://gmail.googleapis.com/batch/gmail/v1",
+    );
+    expect(oauth.getGooglePeopleApiRootUrl()).toBe(
+      "https://people.googleapis.com/",
+    );
     expect(oauth.getGoogleTokenInfoUrl("token")).toBe(
-      "http://localhost:4444/oauth2/v1/tokeninfo?access_token=token",
+      "https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=token",
+    );
+  });
+
+  it("uses a shared emulator base when GOOGLE_BASE_URL is configured", async () => {
+    const oauth = await importGoogleOauthModule({
+      GOOGLE_BASE_URL: "http://localhost:5555/",
+    });
+
+    expect(oauth.isGoogleOauthEmulationEnabled()).toBe(true);
+    expect(oauth.getGoogleOauthDiscoveryUrl()).toBe(
+      "http://localhost:5555/.well-known/openid-configuration",
+    );
+    expect(oauth.getGoogleOauthTokenUrl()).toBe(
+      "http://localhost:5555/oauth2/token",
+    );
+    expect(oauth.getGoogleApiRootUrl()).toBe("http://localhost:5555");
+    expect(oauth.getGoogleGmailApiRootUrl()).toBe("http://localhost:5555");
+    expect(oauth.getGoogleGmailBatchUrl()).toBe(
+      "http://localhost:5555/batch/gmail/v1",
+    );
+    expect(oauth.getGooglePeopleApiRootUrl()).toBe("http://localhost:5555");
+    expect(oauth.getGoogleTokenInfoUrl("token")).toBe(
+      "http://localhost:5555/oauth2/v1/tokeninfo?access_token=token",
     );
   });
 
@@ -131,6 +158,7 @@ describe("google oauth helpers", () => {
 
 async function importGoogleOauthModule(
   envOverrides?: Partial<{
+    GOOGLE_BASE_URL: string | undefined;
     GOOGLE_CLIENT_ID: string;
     GOOGLE_CLIENT_SECRET: string;
     GOOGLE_OAUTH_BASE_URL: string | undefined;
@@ -138,6 +166,7 @@ async function importGoogleOauthModule(
 ) {
   vi.doMock("@/env", () => ({
     env: {
+      GOOGLE_BASE_URL: undefined,
       GOOGLE_CLIENT_ID: "client-id",
       GOOGLE_CLIENT_SECRET: "client-secret",
       GOOGLE_OAUTH_BASE_URL: undefined,
