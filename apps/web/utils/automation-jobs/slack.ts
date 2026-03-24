@@ -1,7 +1,10 @@
 import { MessagingProvider } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
-import { resolveSlackDestination } from "@/utils/messaging/providers/slack/send";
+import {
+  isSlackDmChannel,
+  resolveSlackDestination,
+} from "@/utils/messaging/providers/slack/send";
 
 type SlackMessagingChannel = {
   provider: MessagingProvider;
@@ -51,6 +54,9 @@ export async function sendAutomationMessageToSlack({
   }
 
   const client = createSlackClient(channel.accessToken);
+  const formattedText = isSlackDmChannel(channel.channelId)
+    ? text
+    : `${text}\n\n_Reply with @Inbox Zero to chat about your emails._`;
 
   slackLogger.info("Sending Slack automation message");
 
@@ -75,7 +81,7 @@ export async function sendAutomationMessageToSlack({
   try {
     const response = await client.chat.postMessage({
       channel: destinationChannelId,
-      text,
+      text: formattedText,
     });
     slackLogger.info("Slack automation message sent");
 
@@ -97,7 +103,7 @@ export async function sendAutomationMessageToSlack({
       await client.conversations.join({ channel: channel.channelId });
       const response = await client.chat.postMessage({
         channel: channel.channelId,
-        text,
+        text: formattedText,
       });
       slackLogger.info("Slack automation message sent after joining channel");
 
