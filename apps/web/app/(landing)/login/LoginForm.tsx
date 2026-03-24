@@ -36,23 +36,28 @@ export function LoginForm({
   const [loadingLocalBypass, setLoadingLocalBypass] = useState(false);
 
   const handleGoogleSignIn = async () => {
-    await handleSocialSignIn({
-      provider: "google",
+    await handleProviderSignIn({
       providerName: "Google",
-      callbackURL,
-      errorCallbackURL,
       setLoading: setLoadingGoogle,
-      useGoogleOauthEmulator,
+      signInAction: () =>
+        signInWithGoogle({
+          callbackURL,
+          errorCallbackURL,
+          useGoogleOauthEmulator,
+        }),
     });
   };
 
   const handleMicrosoftSignIn = async () => {
-    await handleSocialSignIn({
-      provider: "microsoft",
+    await handleProviderSignIn({
       providerName: "Microsoft",
-      callbackURL,
-      errorCallbackURL,
       setLoading: setLoadingMicrosoft,
+      signInAction: () =>
+        signIn.social({
+          provider: "microsoft",
+          errorCallbackURL,
+          callbackURL,
+        }),
     });
   };
 
@@ -184,29 +189,18 @@ function isOrganizationInvitationPath(path: string) {
   return /^\/organizations\/invitations\/[^/]+\/accept\/?$/.test(pathname);
 }
 
-async function handleSocialSignIn({
-  provider,
+async function handleProviderSignIn({
   providerName,
-  callbackURL,
-  errorCallbackURL,
   setLoading,
-  useGoogleOauthEmulator = false,
+  signInAction,
 }: {
-  provider: "google" | "microsoft";
   providerName: "Google" | "Microsoft";
-  callbackURL: string;
-  errorCallbackURL: string;
   setLoading: (loading: boolean) => void;
-  useGoogleOauthEmulator?: boolean;
+  signInAction: () => Promise<unknown>;
 }) {
   setLoading(true);
   try {
-    await signInWithProvider({
-      provider,
-      callbackURL,
-      errorCallbackURL,
-      useGoogleOauthEmulator,
-    });
+    await signInAction();
   } catch (error) {
     console.error(`Error signing in with ${providerName}:`, error);
     toastError({
@@ -218,27 +212,25 @@ async function handleSocialSignIn({
   }
 }
 
-async function signInWithProvider({
-  provider,
+async function signInWithGoogle({
   callbackURL,
   errorCallbackURL,
   useGoogleOauthEmulator,
 }: {
-  provider: "google" | "microsoft";
   callbackURL: string;
   errorCallbackURL: string;
   useGoogleOauthEmulator: boolean;
 }) {
-  if (provider === "google" && useGoogleOauthEmulator) {
+  if (useGoogleOauthEmulator) {
     return signIn.oauth2({
-      providerId: provider,
+      providerId: "google",
       errorCallbackURL,
       callbackURL,
     });
   }
 
   return signIn.social({
-    provider,
+    provider: "google",
     errorCallbackURL,
     callbackURL,
   });
