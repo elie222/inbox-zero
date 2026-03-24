@@ -1,11 +1,15 @@
-import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
+import { env } from "@/env";
 import {
   getCalendarOAuth2Client,
   fetchGoogleCalendars,
   getCalendarClientWithRefresh,
 } from "@/utils/calendar/client";
+import {
+  fetchGoogleOpenIdProfile,
+  isGoogleOauthEmulationEnabled,
+} from "@/utils/google/oauth";
 import type { CalendarOAuthProvider, CalendarTokens } from "../oauth-types";
 import { autoPopulateTimezone } from "../timezone-helpers";
 
@@ -19,25 +23,15 @@ export function createGoogleCalendarProvider(
       const googleAuth = getCalendarOAuth2Client();
 
       const { tokens } = await googleAuth.getToken(code);
-      const { id_token, access_token, refresh_token, expiry_date } = tokens;
-
-      if (!id_token) {
-        throw new Error("Missing id_token from Google response");
-      }
+      const { access_token, refresh_token, expiry_date } = tokens;
 
       if (!access_token || !refresh_token) {
         throw new Error("No refresh_token returned from Google");
       }
 
-      const ticket = await googleAuth.verifyIdToken({
-        idToken: id_token,
-        audience: env.GOOGLE_CLIENT_ID,
-      });
-      const payload = ticket.getPayload();
-
-      if (!payload?.email) {
-        throw new Error("Could not get email from ID token");
-      }
+      const payload = isGoogleOauthEmulationEnabled()
+        ? await fetchGoogleOpenIdProfile(access_token)
+        : await verifyGoogleIdTokenPayload(googleAuth, tokens.id_token);
 
       return {
         accessToken: access_token,
@@ -105,4 +99,25 @@ export function createGoogleCalendarProvider(
       }
     },
   };
+}
+
+async function verifyGoogleIdTokenPayload(
+  googleAuth: ReturnType<typeof getCalendarOAuth2Client>,
+  idToken: string | null | undefined,
+) {
+  if (!idToken) {
+    throw new Error("Missing id_token from Google response");
+  }
+
+  const ticket = await googleAuth.verifyIdToken({
+    idToken,
+    audience: env.GOOGLE_CLIENT_ID,
+  });
+  const payload = ticket.getPayload();
+
+  if (!payload?.email) {
+    throw new Error("Could not get email from ID token");
+  }
+
+  return payload;
 }

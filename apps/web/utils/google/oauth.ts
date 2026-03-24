@@ -4,6 +4,12 @@ import { z } from "zod";
 const GOOGLE_DISCOVERY_URL =
   "https://accounts.google.com/.well-known/openid-configuration";
 const GOOGLE_ISSUER = "https://accounts.google.com";
+const GOOGLE_API_ROOT_URL = "https://www.googleapis.com/";
+const GOOGLE_GMAIL_API_ROOT_URL = "https://gmail.googleapis.com/";
+const GOOGLE_GMAIL_BATCH_URL = "https://gmail.googleapis.com/batch/gmail/v1";
+const GOOGLE_PEOPLE_API_ROOT_URL = "https://people.googleapis.com/";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_TOKEN_INFO_URL = "https://www.googleapis.com/oauth2/v1/tokeninfo";
 const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 
 const googleOpenIdProfileSchema = z.object({
@@ -31,6 +37,11 @@ export function getGoogleOauthIssuer() {
   return getGoogleOauthBaseUrl() || GOOGLE_ISSUER;
 }
 
+export function getGoogleOauthTokenUrl() {
+  const baseUrl = getGoogleOauthBaseUrl();
+  return baseUrl ? `${baseUrl}/oauth2/token` : GOOGLE_TOKEN_URL;
+}
+
 export function getGoogleOauthClientOptions(redirectUri?: string) {
   const baseUrl = getGoogleOauthBaseUrl();
 
@@ -41,12 +52,39 @@ export function getGoogleOauthClientOptions(redirectUri?: string) {
     ...(baseUrl && {
       endpoints: {
         oauth2AuthBaseUrl: `${baseUrl}/o/oauth2/v2/auth`,
-        oauth2TokenUrl: `${baseUrl}/oauth2/token`,
+        oauth2TokenUrl: getGoogleOauthTokenUrl(),
         oauth2RevokeUrl: `${baseUrl}/oauth2/revoke`,
       },
       issuers: [baseUrl],
     }),
   };
+}
+
+export function getGoogleApiRootUrl() {
+  return getGoogleOauthBaseUrl() || GOOGLE_API_ROOT_URL;
+}
+
+export function getGoogleGmailApiRootUrl() {
+  return getGoogleOauthBaseUrl() || GOOGLE_GMAIL_API_ROOT_URL;
+}
+
+export function getGoogleGmailBatchUrl() {
+  const baseUrl = getGoogleOauthBaseUrl();
+  return baseUrl ? `${baseUrl}/batch/gmail/v1` : GOOGLE_GMAIL_BATCH_URL;
+}
+
+export function getGooglePeopleApiRootUrl() {
+  return getGoogleOauthBaseUrl() || GOOGLE_PEOPLE_API_ROOT_URL;
+}
+
+export function getGoogleTokenInfoUrl(accessToken: string) {
+  const url = new URL(
+    getGoogleOauthBaseUrl()
+      ? `${getGoogleOauthBaseUrl()}/oauth2/v1/tokeninfo`
+      : GOOGLE_TOKEN_INFO_URL,
+  );
+  url.searchParams.set("access_token", accessToken);
+  return url.toString();
 }
 
 export async function fetchGoogleOpenIdProfile(accessToken: string) {

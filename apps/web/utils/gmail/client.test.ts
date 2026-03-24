@@ -3,9 +3,15 @@ import { people } from "@googleapis/people";
 import { auth } from "@googleapis/gmail";
 import {
   getContactsClient,
+  getGmailClientWithRefresh,
   getLinkingOAuth2Client,
 } from "@/utils/gmail/client";
-import { getGoogleOauthClientOptions } from "@/utils/google/oauth";
+import {
+  getGoogleGmailApiRootUrl,
+  getGoogleOauthClientOptions,
+  getGooglePeopleApiRootUrl,
+} from "@/utils/google/oauth";
+import { gmail } from "@googleapis/gmail";
 
 vi.mock("@/utils/auth", () => ({
   saveTokens: vi.fn(),
@@ -20,15 +26,19 @@ vi.mock("@/utils/google/oauth", () => ({
       oauth2TokenUrl: "http://localhost:4444/oauth2/token",
     },
   })),
+  getGoogleGmailApiRootUrl: vi.fn(() => "http://localhost:4444"),
+  getGooglePeopleApiRootUrl: vi.fn(() => "http://localhost:4444"),
 }));
 
 const setCredentials = vi.fn();
+const refreshAccessToken = vi.fn();
 
 vi.mock("@googleapis/gmail", () => ({
   auth: {
     OAuth2: vi.fn(function OAuth2() {
       return {
         setCredentials,
+        refreshAccessToken,
       };
     }),
   },
@@ -66,7 +76,12 @@ describe("gmail oauth client configuration", () => {
       expiry_date: undefined,
       scope: expect.any(String),
     });
-    expect(people).toHaveBeenCalled();
+    expect(getGooglePeopleApiRootUrl).toHaveBeenCalledWith();
+    expect(people).toHaveBeenCalledWith({
+      version: "v1",
+      auth: expect.any(Object),
+      rootUrl: "http://localhost:4444",
+    });
   });
 
   it("uses emulator-aware OAuth options for the linking client", () => {
@@ -82,6 +97,35 @@ describe("gmail oauth client configuration", () => {
       endpoints: {
         oauth2TokenUrl: "http://localhost:4444/oauth2/token",
       },
+    });
+  });
+
+  it("uses emulator-aware Gmail root URLs when refreshing tokens", async () => {
+    refreshAccessToken.mockResolvedValue({
+      credentials: {
+        access_token: "new-access-token",
+      },
+    });
+
+    await getGmailClientWithRefresh({
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      expiresAt: null,
+      emailAccountId: "email-account-id",
+      logger: {
+        error: vi.fn(),
+        info: vi.fn(),
+        trace: vi.fn(),
+        warn: vi.fn(),
+        with: vi.fn(),
+      } as any,
+    });
+
+    expect(getGoogleGmailApiRootUrl).toHaveBeenCalledWith();
+    expect(gmail).toHaveBeenCalledWith({
+      version: "v1",
+      auth: expect.any(Object),
+      rootUrl: "http://localhost:4444",
     });
   });
 });

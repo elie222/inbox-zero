@@ -29,6 +29,22 @@ describe("google oauth helpers", () => {
       clientSecret: "client-secret",
       redirectUri: "http://localhost:3000/callback",
     });
+    expect(oauth.getGoogleOauthTokenUrl()).toBe(
+      "https://oauth2.googleapis.com/token",
+    );
+    expect(oauth.getGoogleApiRootUrl()).toBe("https://www.googleapis.com/");
+    expect(oauth.getGoogleGmailApiRootUrl()).toBe(
+      "https://gmail.googleapis.com/",
+    );
+    expect(oauth.getGoogleGmailBatchUrl()).toBe(
+      "https://gmail.googleapis.com/batch/gmail/v1",
+    );
+    expect(oauth.getGooglePeopleApiRootUrl()).toBe(
+      "https://people.googleapis.com/",
+    );
+    expect(oauth.getGoogleTokenInfoUrl("token")).toBe(
+      "https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=token",
+    );
   });
 
   it("uses emulator OAuth endpoints when configured", async () => {
@@ -54,6 +70,18 @@ describe("google oauth helpers", () => {
       },
       issuers: ["http://localhost:4444"],
     });
+    expect(oauth.getGoogleOauthTokenUrl()).toBe(
+      "http://localhost:4444/oauth2/token",
+    );
+    expect(oauth.getGoogleApiRootUrl()).toBe("http://localhost:4444");
+    expect(oauth.getGoogleGmailApiRootUrl()).toBe("http://localhost:4444");
+    expect(oauth.getGoogleGmailBatchUrl()).toBe(
+      "http://localhost:4444/batch/gmail/v1",
+    );
+    expect(oauth.getGooglePeopleApiRootUrl()).toBe("http://localhost:4444");
+    expect(oauth.getGoogleTokenInfoUrl("token")).toBe(
+      "http://localhost:4444/oauth2/v1/tokeninfo?access_token=token",
+    );
   });
 
   it("fetches and validates the OpenID profile", async () => {

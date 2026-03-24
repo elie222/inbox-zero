@@ -1,11 +1,15 @@
 import { auth, gmail, type gmail_v1 } from "@googleapis/gmail";
 import { people } from "@googleapis/people";
 import { saveTokens } from "@/utils/auth";
-import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";
-import { getGoogleOauthClientOptions } from "@/utils/google/oauth";
+import { env } from "@/env";
+import {
+  getGoogleGmailApiRootUrl,
+  getGoogleOauthClientOptions,
+  getGooglePeopleApiRootUrl,
+} from "@/utils/google/oauth";
 
 type AuthOptions = {
   accessToken?: string | null;
@@ -62,7 +66,7 @@ export const getGmailClientWithRefresh = async ({
 
   // we handle refresh ourselves so not passing in expiresAt
   const auth = getAuth({ accessToken, refreshToken });
-  const g = gmail({ version: "v1", auth });
+  const g = gmail({ version: "v1", auth, rootUrl: getGoogleGmailApiRootUrl() });
 
   const expiryDate = expiresAt ? expiresAt : null;
   if (expiryDate && expiryDate > Date.now()) return g;
@@ -110,7 +114,11 @@ export const getContactsClient = ({
   refreshToken,
 }: AuthOptions) => {
   const auth = getAuth({ accessToken, refreshToken });
-  const contacts = people({ version: "v1", auth });
+  const contacts = people({
+    version: "v1",
+    auth,
+    rootUrl: getGooglePeopleApiRootUrl(),
+  });
 
   return contacts;
 };
