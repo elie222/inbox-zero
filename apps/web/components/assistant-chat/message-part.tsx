@@ -536,17 +536,10 @@ export function MessagePart({
 }
 
 function stripInlineEmailSections(text: string) {
-  const withoutTitledEmailSections = text.replace(
-    /\n{0,2}##[^\n]*\n\s*<emails>[\s\S]*?<\/emails>/g,
-    "",
-  );
-  const withoutEmailSections = withoutTitledEmailSections.replace(
-    /\n{0,2}<emails>[\s\S]*?<\/emails>/g,
-    "",
-  );
-  const normalized = withoutEmailSections.replace(/\n{3,}/g, "\n\n").trim();
-
-  return normalized;
+  return text
+    .replace(/\n{0,2}(?:##[^\n]*\n\s*)?<emails>[\s\S]*?<\/emails>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function getInProgressManageInboxOutput(input: {

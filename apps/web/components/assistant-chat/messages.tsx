@@ -49,19 +49,14 @@ export function Messages({
           <div className="flex flex-1 flex-col gap-4">
             {messages.length === 0 && <Overview setInput={setInput} />}
 
-            {messages.map((message, index) => (
-              <Fragment key={message.id}>
-                <Message from={message.role}>
-                  <MessageContent variant="flat">
-                    {(() => {
-                      const hideInlineEmailCards = message.parts?.some(
-                        (part) =>
-                          part.type === "tool-sendEmail" ||
-                          part.type === "tool-replyEmail" ||
-                          part.type === "tool-forwardEmail",
-                      );
+            {messages.map((message, index) => {
+              const hideInlineEmailCards = hasEmailToolPart(message.parts);
 
-                      return message.parts?.map((part, partIndex) => (
+              return (
+                <Fragment key={message.id}>
+                  <Message from={message.role}>
+                    <MessageContent variant="flat">
+                      {message.parts?.map((part, partIndex) => (
                         <MessagePart
                           key={`${message.id}-${partIndex}`}
                           part={part}
@@ -75,13 +70,13 @@ export function Messages({
                           partIndex={partIndex}
                           threadLookup={emailLookup}
                         />
-                      ));
-                    })()}
-                  </MessageContent>
-                </Message>
-                {index === firstAssistantIndex && <MessagingChannelHint />}
-              </Fragment>
-            ))}
+                      ))}
+                    </MessageContent>
+                  </Message>
+                  {index === firstAssistantIndex && <MessagingChannelHint />}
+                </Fragment>
+              );
+            })}
 
             {status === "submitted" &&
               messages.length > 0 &&
@@ -108,6 +103,15 @@ export function Messages({
         </ConversationContent>
       </Conversation>
     </EmailLookupProvider>
+  );
+}
+
+function hasEmailToolPart(parts: ChatMessage["parts"]): boolean {
+  return parts?.some(
+    (part) =>
+      part.type === "tool-sendEmail" ||
+      part.type === "tool-replyEmail" ||
+      part.type === "tool-forwardEmail",
   );
 }
 
