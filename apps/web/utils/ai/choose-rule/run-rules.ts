@@ -39,6 +39,7 @@ import {
 } from "@/utils/reply-tracker/handle-conversation-status";
 import { removeConflictingThreadStatusLabels } from "@/utils/reply-tracker/label-helpers";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import { sortRulesForAutomation } from "@/utils/rule/sort";
 import { internalDateToDate } from "@/utils/date";
 import { ConditionType } from "@/utils/config";
 import type { Logger } from "@/utils/logger";
@@ -110,8 +111,12 @@ export async function runRules({
   skipArchive?: boolean;
 }): Promise<RunRulesResult[]> {
   const batchTimestamp = new Date(); // Single timestamp for this batch execution
-  const ruleOrderById = new Map(rules.map((rule, index) => [rule.id, index]));
-  const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
+  const orderedRules = sortRulesForAutomation(rules);
+  const ruleOrderById = new Map(
+    orderedRules.map((rule, index) => [rule.id, index]),
+  );
+  const { regularRules, conversationRules } =
+    prepareRulesWithMetaRule(orderedRules);
 
   const results = await findMatchingRules({
     rules: regularRules,
@@ -753,7 +758,20 @@ function applyStopProcessing<
       (ruleOrderById.get(b.rule.id) ?? Number.MAX_SAFE_INTEGER),
   );
 
-  return [selectedMatch];
+  const terminalMatchOrder =
+    ruleOrderById.get(selectedMatch.rule.id) ?? Number.MAX_SAFE_INTEGER;
+
+  return matches
+    .filter(
+      (match) =>
+        (ruleOrderById.get(match.rule.id) ?? Number.MAX_SAFE_INTEGER) <=
+        terminalMatchOrder,
+    )
+    .sort(
+      (a, b) =>
+        (ruleOrderById.get(a.rule.id) ?? Number.MAX_SAFE_INTEGER) -
+        (ruleOrderById.get(b.rule.id) ?? Number.MAX_SAFE_INTEGER),
+    );
 }
 
 /**

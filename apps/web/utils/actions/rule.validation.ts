@@ -264,7 +264,7 @@ const createRuleBodySchema = z.object({
   systemType: zodSystemRule.nullish(),
 });
 
-function addRuleActionRequirement(
+export function addRuleActionRequirement(
   data: { stopProcessing?: boolean | null; actions: unknown[] },
   ctx: z.RefinementCtx,
 ) {

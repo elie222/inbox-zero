@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
+import { addRuleActionRequirement } from "@/utils/actions/rule.validation";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 
 const conditionSchema = z
@@ -112,16 +113,7 @@ export const ruleRequestBodySchema = z
     condition: conditionSchema,
     actions: z.array(actionSchema),
   })
-  .superRefine((data, ctx) => {
-    if (!data.stopProcessing && data.actions.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "A rule must include at least one action unless stopProcessing is true",
-        path: ["actions"],
-      });
-    }
-  });
+  .superRefine(addRuleActionRequirement);
 
 const ruleActionResponseSchema = z.object({
   type: ruleActionTypeSchema,

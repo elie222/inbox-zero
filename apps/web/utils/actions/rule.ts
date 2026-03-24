@@ -148,7 +148,7 @@ export const updateRuleAction = actionClient
               },
             },
             actions: resolvedActions.map(mapActionToSanitizedFields),
-            stopProcessing: stopProcessing ?? false,
+            stopProcessing: stopProcessing ?? undefined,
           },
           emailAccountId,
           provider,

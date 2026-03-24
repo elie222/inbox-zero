@@ -414,6 +414,14 @@ describe("runRules stopProcessing", () => {
   });
 
   it("executes only the first matching terminal rule", async () => {
+    const earlierRule = createRule("earlier-rule", null, [
+      getAction({
+        id: "earlier-label",
+        type: ActionType.LABEL,
+        label: "Alpha",
+        ruleId: "earlier-rule",
+      }),
+    ]);
     const terminalRule = createRule(
       "terminal-rule",
       null,
@@ -427,17 +435,21 @@ describe("runRules stopProcessing", () => {
       ],
       true,
     );
-    const otherRule = createRule("other-rule", null, [
+    const laterRule = createRule("zulu-rule", null, [
       getAction({
-        id: "other-label",
+        id: "later-label",
         type: ActionType.LABEL,
-        label: "Newsletter",
-        ruleId: "other-rule",
+        label: "Zulu",
+        ruleId: "zulu-rule",
       }),
     ]);
 
     vi.mocked(findMatchingRules).mockResolvedValue({
-      matches: [{ rule: otherRule }, { rule: terminalRule }],
+      matches: [
+        { rule: laterRule },
+        { rule: terminalRule },
+        { rule: earlierRule },
+      ],
       reasoning: "Matched multiple rules",
     } as any);
     vi.mocked(getActionItemsWithAiArgs).mockImplementation(
@@ -448,17 +460,18 @@ describe("runRules stopProcessing", () => {
     const result = await runRules({
       provider: {} as any,
       message: getEmail() as any,
-      rules: [terminalRule, otherRule],
+      rules: [terminalRule, laterRule, earlierRule],
       emailAccount: getEmailAccount(),
       isTest: true,
       modelType: "chat" as any,
       logger,
     });
 
-    expect(result).toHaveLength(1);
-    expect(result[0]?.rule?.id).toBe("terminal-rule");
-    expect(result[0]?.actionItems).toHaveLength(1);
-    expect(result[0]?.actionItems?.[0]?.label).toBe("Keep");
+    expect(result).toHaveLength(2);
+    expect(result.map((item) => item.rule?.id)).toEqual([
+      "earlier-rule",
+      "terminal-rule",
+    ]);
   });
 
   it("keeps stacking non-terminal matches", async () => {
