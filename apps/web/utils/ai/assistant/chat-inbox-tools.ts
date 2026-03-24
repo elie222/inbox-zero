@@ -646,6 +646,7 @@ export const manageInboxTool = ({
 
         const threadActionResults = await runThreadActionsInParallel({
           threadIds,
+          concurrency: THREAD_ACTION_CONCURRENCY,
           runAction: async (threadId) => {
             if (parsedInput.action === "archive_threads") {
               await emailProvider.archiveThreadWithLabel(
@@ -1172,15 +1173,16 @@ function createLabelLookupMap(labels: Array<{ id: string; name: string }>) {
 
 async function runThreadActionsInParallel({
   threadIds,
+  concurrency,
   runAction,
 }: {
   threadIds: string[];
+  concurrency: number;
   runAction: (threadId: string) => Promise<void>;
 }) {
-  const BATCH_SIZE = 10;
   const results = await runWithBoundedConcurrency({
     items: threadIds,
-    concurrency: BATCH_SIZE,
+    concurrency,
     run: async (threadId) => {
       await runAction(threadId);
     },
@@ -1206,7 +1208,7 @@ async function applyLabelToThread({
   const messages = await emailProvider.getThreadMessages(threadId);
   const results = await runWithBoundedConcurrency({
     items: messages,
-    concurrency: 10,
+    concurrency: LABEL_MESSAGE_CONCURRENCY,
     run: async (message) => {
       await emailProvider.labelMessage({
         messageId: message.id,
@@ -1383,6 +1385,9 @@ function normalizeSenderEmails(fromEmails: string[]) {
     ),
   ];
 }
+
+const LABEL_MESSAGE_CONCURRENCY = 1;
+const THREAD_ACTION_CONCURRENCY = 3;
 
 function getValidationErrorMessage(toolName: string, error: z.ZodError) {
   const firstIssue = error.issues[0];

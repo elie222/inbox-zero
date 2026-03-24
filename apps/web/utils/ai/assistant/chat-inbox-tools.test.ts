@@ -312,26 +312,39 @@ describe("chat inbox tools", () => {
     expect(getLabelByName).toHaveBeenCalledTimes(1);
     expect(getThreadMessages).toHaveBeenNthCalledWith(1, "thread-1");
     expect(getThreadMessages).toHaveBeenNthCalledWith(2, "thread-2");
-    expect(labelMessage).toHaveBeenNthCalledWith(1, {
-      messageId: "thread-1-message-1",
-      labelId: "Label_123",
-      labelName: "Finance",
-    });
-    expect(labelMessage).toHaveBeenNthCalledWith(2, {
-      messageId: "thread-1-message-2",
-      labelId: "Label_123",
-      labelName: "Finance",
-    });
-    expect(labelMessage).toHaveBeenNthCalledWith(3, {
-      messageId: "thread-2-message-1",
-      labelId: "Label_123",
-      labelName: "Finance",
-    });
-    expect(labelMessage).toHaveBeenNthCalledWith(4, {
-      messageId: "thread-2-message-2",
-      labelId: "Label_123",
-      labelName: "Finance",
-    });
+    expect(labelMessage).toHaveBeenCalledTimes(4);
+    expect(labelMessage.mock.calls).toEqual(
+      expect.arrayContaining([
+        [
+          {
+            messageId: "thread-1-message-1",
+            labelId: "Label_123",
+            labelName: "Finance",
+          },
+        ],
+        [
+          {
+            messageId: "thread-1-message-2",
+            labelId: "Label_123",
+            labelName: "Finance",
+          },
+        ],
+        [
+          {
+            messageId: "thread-2-message-1",
+            labelId: "Label_123",
+            labelName: "Finance",
+          },
+        ],
+        [
+          {
+            messageId: "thread-2-message-2",
+            labelId: "Label_123",
+            labelName: "Finance",
+          },
+        ],
+      ]),
+    );
     expect(result).toMatchObject({
       action: "label_threads",
       success: true,
@@ -341,6 +354,63 @@ describe("chat inbox tools", () => {
       labelId: "Label_123",
       labelName: "Finance",
     });
+  });
+
+  it("throttles Gmail label_threads writes to small batches", async () => {
+    const getThreadMessages = vi.fn().mockImplementation(async (threadId) => [
+      {
+        id: `${threadId}-message-1`,
+        threadId,
+      },
+      {
+        id: `${threadId}-message-2`,
+        threadId,
+      },
+    ]);
+    const getLabelByName = vi.fn().mockResolvedValue({
+      id: "Label_123",
+      name: "Finance",
+      type: "user",
+    });
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const labelMessage = vi.fn().mockImplementation(async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      return {};
+    });
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      name: "google",
+      getThreadMessages,
+      getLabelByName,
+      labelMessage,
+    } as any);
+
+    const toolInstance = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      action: "label_threads",
+      labelName: "Finance",
+      threadIds: ["thread-1", "thread-2", "thread-3"],
+    });
+
+    expect(result).toMatchObject({
+      action: "label_threads",
+      success: true,
+      failedCount: 0,
+      successCount: 3,
+      requestedCount: 3,
+    });
+    expect(labelMessage).toHaveBeenCalledTimes(6);
+    expect(maxInFlight).toBeLessThanOrEqual(3);
   });
 
   it("returns a descriptive error when label_threads receives an unknown labelName", async () => {

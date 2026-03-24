@@ -3,7 +3,10 @@ import type { Logger } from "@/utils/logger";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { WELL_KNOWN_FOLDERS } from "./message";
 import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
-import { processThreadMessagesFallback } from "@/utils/outlook/thread-helpers";
+import {
+  processThreadMessagesFallback,
+  runThreadMessageMutation,
+} from "@/utils/outlook/thread-helpers";
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
 import {
   normalizeOutlookCategoryName,
@@ -275,11 +278,16 @@ export async function labelThread({
     .filter(`conversationId eq '${escapedThreadId}'`)
     .get();
 
-  await Promise.all(
-    messages.value.map((message) =>
-      labelMessage({ client, messageId: message.id!, categories, logger }),
-    ),
-  );
+  await runThreadMessageMutation({
+    messageIds: messages.value
+      .map((message) => message.id)
+      .filter((messageId): messageId is string => Boolean(messageId)),
+    threadId,
+    logger,
+    messageHandler: (messageId) =>
+      labelMessage({ client, messageId, categories, logger }),
+    failureMessage: "Failed to label message in thread",
+  });
 }
 
 // Doesn't use pagination. But this function not really used anyway. Can add in the future of needed.
@@ -309,37 +317,38 @@ export async function removeThreadLabel({
     .get();
 
   // Remove the category from each message
-  await Promise.all(
-    messages.value.map(
-      async (message: { id: string; categories?: string[] }) => {
-        if (!message.categories || !message.categories.includes(categoryName)) {
-          return; // Category not present, nothing to remove
-        }
+  const messagesWithCategory: Array<{ id: string; categories?: string[] }> =
+    messages.value.filter((message: { id: string; categories?: string[] }) =>
+      message.categories?.includes(categoryName),
+    );
 
-        const updatedCategories = message.categories.filter(
-          (cat) => cat !== categoryName,
-        );
-
-        try {
-          await withOutlookRetry(
-            () =>
-              client
-                .getClient()
-                .api(`/me/messages/${message.id}`)
-                .patch({ categories: updatedCategories }),
-            logger,
-          );
-        } catch (error) {
-          logger.warn("Failed to remove category from message", {
-            messageId: message.id,
-            threadId,
-            categoryName,
-            error,
-          });
-        }
-      },
+  await runThreadMessageMutation({
+    messageIds: messagesWithCategory.map(
+      (message: { id: string }) => message.id,
     ),
-  );
+    threadId,
+    logger,
+    messageHandler: async (messageId) => {
+      const message = messagesWithCategory.find(
+        (item) => item.id === messageId,
+      );
+      if (!message?.categories) return;
+
+      const updatedCategories = message.categories.filter(
+        (cat) => cat !== categoryName,
+      );
+
+      await withOutlookRetry(
+        () =>
+          client.getClient().api(`/me/messages/${messageId}`).patch({
+            categories: updatedCategories,
+          }),
+        logger,
+      );
+    },
+    failureMessage: "Failed to remove category from message",
+    continueOnError: true,
+  });
 }
 
 export async function archiveThread({
@@ -394,27 +403,21 @@ export async function archiveThread({
       .filter(`conversationId eq '${escapedThreadId}'`) // Escape single quotes in threadId for the filter
       .get();
 
-    const archivePromise = Promise.all(
-      messages.value.map(async (message: { id: string }) => {
-        try {
-          return await withOutlookRetry(
-            () =>
-              client.getClient().api(`/me/messages/${message.id}/move`).post({
-                destinationId: folderId,
-              }),
-            logger,
-          );
-        } catch (error) {
-          logger.warn("Failed to move message to folder", {
-            folderId,
-            messageId: message.id,
-            threadId,
-            error,
-          });
-          return null;
-        }
-      }),
-    );
+    const archivePromise = runThreadMessageMutation({
+      messageIds: messages.value.map((message: { id: string }) => message.id),
+      threadId,
+      logger,
+      messageHandler: (messageId) =>
+        withOutlookRetry(
+          () =>
+            client.getClient().api(`/me/messages/${messageId}/move`).post({
+              destinationId: folderId,
+            }),
+          logger,
+        ),
+      failureMessage: "Failed to move message to folder",
+      continueOnError: true,
+    });
 
     const publishPromise = publishArchive({
       ownerEmail,
@@ -529,17 +532,20 @@ export async function markReadThread({
       .get();
 
     // Update each message in the thread
-    await Promise.all(
-      messages.value.map((message: { id: string }) =>
+    await runThreadMessageMutation({
+      messageIds: messages.value.map((message: { id: string }) => message.id),
+      threadId,
+      logger,
+      messageHandler: (messageId) =>
         withOutlookRetry(
           () =>
-            client.getClient().api(`/me/messages/${message.id}`).patch({
+            client.getClient().api(`/me/messages/${messageId}`).patch({
               isRead: read,
             }),
           logger,
         ),
-      ),
-    );
+      failureMessage: "Failed to mark message as read",
+    });
   } catch (error) {
     // If the filter fails, try a different approach
     logger.warn("Filter failed, trying alternative approach", {
