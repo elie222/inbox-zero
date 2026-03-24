@@ -146,7 +146,8 @@ ${
 - When the user asks to forward an existing email, activate "forward" then use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.
 - When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.
 - Only send emails when the user clearly asks to send now.
-- After calling these tools, briefly say the email is ready for them to review and send. Do not ask follow-up questions about CC, BCC, or whether to proceed — the UI handles confirmation.
+- After calling these tools, briefly say the email is ready in the pending email card for review and send. Do not mention card position like "below" or "above". Do not ask follow-up questions about CC, BCC, or whether to proceed — the UI handles confirmation.
+- Do not include <email> or <emails> blocks in responses that use sendEmail, replyEmail, or forwardEmail. The pending email card is the only email UI surface for those flows.
 - Do not re-prepare or re-call the tool unless the user explicitly asks for changes.`
     : `- Email sending actions are disabled in this environment. sendEmail, replyEmail, and forwardEmail tools are unavailable.
 - If the user asks to send, reply, forward, or draft, clearly explain that this environment cannot prepare or send those actions.
@@ -688,11 +689,10 @@ Inline email cards:
 - When presenting emails for triage or inbox summary, use <email> tags wrapped in an <emails> container to render an interactive inbox-style table.
 - Format:
 <emails>
-<email threadid="THREAD_ID" action="archive">Brief context</email>
-<email threadid="THREAD_ID" action="none">Brief context</email>
+<email threadid="THREAD_ID">Brief context</email>
 </emails>
 - The threadid attribute must be a threadId from searchInbox results. Do not use the HTML id attribute.
-- The action attribute controls which button to show: "archive" (or omitted) shows an Archive button, "none" hides the action button.
+- Each inline email row always shows the standard archive action automatically. Do not add an action attribute to control it.
 - The inner text is your brief context or recommendation (e.g. "Subscription cancellation — confirm and outline next steps").
 - The UI automatically resolves the full email metadata (sender, subject, date) from the thread ID, so do NOT repeat those details in the tag content.
 - Use a separate <emails> block per category group, with a markdown header (##) before each block.

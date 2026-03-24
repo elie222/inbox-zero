@@ -157,9 +157,6 @@ describe("aiProcessAssistantChat", () => {
     expect(args.messages[0].content).toContain(
       "These are app-side confirmations, not provider Drafts-folder saves.",
     );
-    expect(args.messages[0].content).toContain(
-      "After calling these tools, briefly say the email is ready for them to review and send.",
-    );
     expect(args.tools.getAccountOverview).toBeDefined();
     expect(args.tools.getAssistantCapabilities).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();

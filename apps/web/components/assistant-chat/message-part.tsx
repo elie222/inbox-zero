@@ -32,6 +32,7 @@ import { requiresThreadIds } from "@/utils/ai/assistant/manage-inbox-actions";
 
 interface MessagePartProps {
   disableConfirm: boolean;
+  hideInlineEmailCards: boolean;
   isStreaming: boolean;
   messageId: string;
   part: ChatMessage["parts"][0];
@@ -58,6 +59,7 @@ export function MessagePart({
   part,
   isStreaming,
   disableConfirm,
+  hideInlineEmailCards,
   messageId,
   partIndex,
   threadLookup,
@@ -76,8 +78,12 @@ export function MessagePart({
   }
 
   if (part.type === "text") {
-    if (!part.text) return null;
-    return <Response key={key}>{part.text}</Response>;
+    const text =
+      hideInlineEmailCards && part.text
+        ? stripInlineEmailSections(part.text)
+        : part.text;
+    if (!text) return null;
+    return <Response key={key}>{text}</Response>;
   }
 
   if (part.type === "file") {
@@ -527,6 +533,18 @@ export function MessagePart({
   }
 
   return null;
+}
+
+const INLINE_EMAIL_SECTION_RE =
+  /\n{0,2}##[^\n]*\n\s*<emails>[\s\S]*?<\/emails>/g;
+const INLINE_EMAIL_BLOCK_RE = /\n{0,2}<emails>[\s\S]*?<\/emails>/g;
+
+function stripInlineEmailSections(text: string) {
+  return text
+    .replace(INLINE_EMAIL_SECTION_RE, "")
+    .replace(INLINE_EMAIL_BLOCK_RE, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function getInProgressManageInboxOutput(input: {

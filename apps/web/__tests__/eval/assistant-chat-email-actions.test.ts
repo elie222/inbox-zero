@@ -10,7 +10,7 @@ import {
   judgeEvalOutput,
 } from "@/__tests__/eval/semantic-judge";
 import {
-  captureAssistantChatToolCalls,
+  captureAssistantChatTrace,
   getFirstMatchingToolCall,
   getLastMatchingToolCall,
   summarizeRecordedToolCalls,
@@ -44,6 +44,7 @@ const scenarios: EvalScenario[] = [
       contentExpectation:
         "Draft email content that clearly says Tuesday at 2pm works for the sender.",
       disallowedTools: ["searchInbox", "replyEmail", "forwardEmail"],
+      forbidInlineEmailMarkup: true,
     },
   },
   {
@@ -69,6 +70,7 @@ const scenarios: EvalScenario[] = [
       contentExpectation:
         "Reply content that clearly says Tuesday at 2pm works for the sender.",
       disallowedTools: ["sendEmail"],
+      forbidInlineEmailMarkup: true,
     },
   },
   {
@@ -96,6 +98,7 @@ const scenarios: EvalScenario[] = [
       contentExpectation:
         "Forwarded note that clearly says this is the one to use.",
       disallowedTools: ["sendEmail"],
+      forbidInlineEmailMarkup: true,
     },
   },
 ];
@@ -246,15 +249,21 @@ async function runAssistantChat({
   emailAccount: ReturnType<typeof getEmailAccount>;
   messages: ModelMessage[];
 }) {
-  const toolCalls = await captureAssistantChatToolCalls({
+  const trace = await captureAssistantChatTrace({
     messages,
     emailAccount,
     logger,
   });
 
   return {
-    toolCalls,
-    actual: summarizeRecordedToolCalls(toolCalls, summarizeToolCall),
+    toolCalls: trace.toolCalls,
+    assistantText: trace.stepTexts.join("\n\n"),
+    actual: [
+      summarizeRecordedToolCalls(trace.toolCalls, summarizeToolCall),
+      summarizeAssistantText(trace.stepTexts),
+    ]
+      .filter(Boolean)
+      .join(" | "),
   };
 }
 
@@ -286,6 +295,7 @@ type ScenarioExpectation =
       subject: string;
       contentExpectation: string;
       disallowedTools: string[];
+      forbidInlineEmailMarkup?: boolean;
     }
   | {
       kind: "reply_email";
@@ -293,6 +303,7 @@ type ScenarioExpectation =
       messageId: string;
       contentExpectation: string;
       disallowedTools: string[];
+      forbidInlineEmailMarkup?: boolean;
     }
   | {
       kind: "forward_email";
@@ -301,6 +312,7 @@ type ScenarioExpectation =
       recipient: string;
       contentExpectation: string;
       disallowedTools: string[];
+      forbidInlineEmailMarkup?: boolean;
     };
 
 type EvalScenario = {
@@ -400,6 +412,7 @@ async function evaluateScenario(
           !!contentJudge?.pass &&
           sendCall.to.includes(expectation.recipient) &&
           sendCall.subject === expectation.subject &&
+          allowsAssistantText(expectation, result.assistantText) &&
           hasNoToolCalls(result.toolCalls, expectation.disallowedTools),
         actual:
           sendCall && contentJudge
@@ -451,6 +464,7 @@ async function evaluateScenario(
           !!contentJudge?.pass &&
           hasToolBeforeTool(result.toolCalls, "searchInbox", "replyEmail") &&
           replyCall.messageId === expectation.messageId &&
+          allowsAssistantText(expectation, result.assistantText) &&
           hasNoToolCalls(result.toolCalls, expectation.disallowedTools),
         actual:
           searchCall && replyCall && searchJudge && contentJudge
@@ -504,6 +518,7 @@ async function evaluateScenario(
           hasToolBeforeTool(result.toolCalls, "searchInbox", "forwardEmail") &&
           forwardCall.messageId === expectation.messageId &&
           forwardCall.to.includes(expectation.recipient) &&
+          allowsAssistantText(expectation, result.assistantText) &&
           hasNoToolCalls(result.toolCalls, expectation.disallowedTools),
         actual:
           searchCall && forwardCall?.content && searchJudge && contentJudge
@@ -516,6 +531,19 @@ async function evaluateScenario(
       };
     }
   }
+}
+
+function allowsAssistantText(
+  expectation: ScenarioExpectation,
+  assistantText: string,
+) {
+  if (!expectation.forbidInlineEmailMarkup) return true;
+  return !/<emails?\b/i.test(assistantText);
+}
+
+function summarizeAssistantText(stepTexts: string[]) {
+  if (!stepTexts.length) return "";
+  return `assistant text: ${stepTexts.join(" | ").slice(0, 300)}`;
 }
 
 function hasToolBeforeTool(
