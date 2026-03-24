@@ -1,0 +1,5 @@
+ALTER TABLE "Rule"
+ADD COLUMN "stopProcessing" BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE "RuleHistory"
+ADD COLUMN "stopProcessing" BOOLEAN NOT NULL DEFAULT false;

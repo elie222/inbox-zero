@@ -163,6 +163,24 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("allows zero actions when stopProcessing is enabled", () => {
+    const result = createRuleSchema(provider).safeParse({
+      name: "Exceptions",
+      condition: {
+        conditionalOperator: null,
+        static: {
+          from: "@example.com",
+          to: null,
+          subject: null,
+        },
+      },
+      stopProcessing: true,
+      actions: [],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("rejects structurally invalid static.from values", () => {
     const result = createRuleSchema(provider).safeParse({
       ...buildRule({

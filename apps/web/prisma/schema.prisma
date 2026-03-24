@@ -434,6 +434,7 @@ model Rule {
   enabled           Boolean            @default(true)
   automate          Boolean            @default(true) // @deprecated - No longer used. All rules are now automated. Kept for historical data only.
   runOnThreads      Boolean            @default(false) // if disabled, only runs on individual emails
+  stopProcessing    Boolean            @default(false) // if enabled, stop evaluating later rules after this rule matches
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -510,6 +511,7 @@ model RuleHistory {
   enabled             Boolean
   automate            Boolean
   runOnThreads        Boolean
+  stopProcessing      Boolean
   conditionalOperator String
   from                String?
   to                  String?

@@ -114,6 +114,7 @@ export default async function RuleHistoryPage(props: {
                           {history.enabled ? "Enabled" : "Disabled"}
                           {history.automate && " • Automated"}
                           {history.runOnThreads && " • Runs on threads"}
+                          {history.stopProcessing && " • Stops other rules"}
                         </dd>
                       </div>
                       {history.conditionalOperator && (

@@ -140,15 +140,32 @@ const actionSchema = (provider: string) =>
     });
 
 export const createRuleSchema = (provider: string) =>
-  z.object({
-    name: z
-      .string()
-      .describe(
-        "A short, concise name for the rule (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.",
-      ),
-    condition: conditionSchema,
-    actions: z.array(actionSchema(provider)).describe("The actions to take"),
-  });
+  z
+    .object({
+      name: z
+        .string()
+        .describe(
+          "A short, concise name for the rule (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.",
+        ),
+      condition: conditionSchema,
+      stopProcessing: z
+        .boolean()
+        .optional()
+        .describe(
+          "Set to true when this rule should prevent later rules from applying after it matches. Use this for exceptions like leaving matching emails untouched or in the inbox.",
+        ),
+      actions: z.array(actionSchema(provider)).describe("The actions to take"),
+    })
+    .superRefine((data, ctx) => {
+      if (!data.stopProcessing && data.actions.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "Rules need at least one action unless stopProcessing is true.",
+          path: ["actions"],
+        });
+      }
+    });
 
 export type CreateRuleSchema = z.infer<ReturnType<typeof createRuleSchema>>;
 export type CreateOrUpdateRuleSchema = CreateRuleSchema & {

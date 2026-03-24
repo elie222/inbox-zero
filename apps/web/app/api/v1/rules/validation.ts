@@ -104,12 +104,24 @@ export const rulePathParamsSchema = z.object({
   id: z.string(),
 });
 
-export const ruleRequestBodySchema = z.object({
-  name: z.string().trim().min(1),
-  runOnThreads: z.boolean().optional().default(true),
-  condition: conditionSchema,
-  actions: z.array(actionSchema).min(1),
-});
+export const ruleRequestBodySchema = z
+  .object({
+    name: z.string().trim().min(1),
+    runOnThreads: z.boolean().optional().default(true),
+    stopProcessing: z.boolean().optional().default(false),
+    condition: conditionSchema,
+    actions: z.array(actionSchema),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.stopProcessing && data.actions.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "A rule must include at least one action unless stopProcessing is true",
+        path: ["actions"],
+      });
+    }
+  });
 
 const ruleActionResponseSchema = z.object({
   type: ruleActionTypeSchema,
@@ -132,6 +144,7 @@ export const ruleResponseSchema = z.object({
     name: z.string(),
     enabled: z.boolean(),
     runOnThreads: z.boolean(),
+    stopProcessing: z.boolean(),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
     condition: z.object({

@@ -33,6 +33,7 @@ export function RuleImportExportSetting({
       enabled: rule.enabled,
       automate: rule.automate,
       runOnThreads: rule.runOnThreads,
+      stopProcessing: rule.stopProcessing,
       systemType: rule.systemType,
       conditionalOperator: rule.conditionalOperator,
       from: rule.from,

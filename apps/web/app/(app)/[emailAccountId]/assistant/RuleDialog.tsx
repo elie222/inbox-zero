@@ -100,6 +100,7 @@ export function RuleDialog({
                   },
                 ],
                 runOnThreads: true,
+                stopProcessing: false,
                 conditionalOperator: LogicalOperator.AND,
                 ...finalInitialRule,
               }}
@@ -151,6 +152,7 @@ function transformRuleForDuplication(
     instructions: rule.instructions || undefined,
     groupId: rule.groupId || undefined,
     runOnThreads: rule.runOnThreads,
+    stopProcessing: rule.stopProcessing,
     conditionalOperator: rule.conditionalOperator,
     conditions,
     actions: rule.actions.map((action) => ({

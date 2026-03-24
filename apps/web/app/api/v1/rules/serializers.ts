@@ -5,6 +5,7 @@ export const apiRuleSelect = {
   name: true,
   enabled: true,
   runOnThreads: true,
+  stopProcessing: true,
   createdAt: true,
   updatedAt: true,
   instructions: true,
@@ -36,6 +37,7 @@ export function serializeRule(rule: ApiRuleRecord) {
     name: rule.name,
     enabled: rule.enabled,
     runOnThreads: rule.runOnThreads,
+    stopProcessing: rule.stopProcessing,
     createdAt: rule.createdAt.toISOString(),
     updatedAt: rule.updatedAt.toISOString(),
     condition: {

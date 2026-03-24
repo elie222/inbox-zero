@@ -123,6 +123,7 @@ export function getRule(
     updatedAt: new Date(),
     automate: true,
     runOnThreads: false,
+    stopProcessing: false,
     groupId: null,
     from: null,
     subject: null,
@@ -154,6 +155,7 @@ export function getAction(overrides: Partial<Action> = {}): Action {
     folderName: null,
     folderId: null,
     delayInMinutes: null,
+    staticAttachments: null,
     ...overrides,
   };
 }

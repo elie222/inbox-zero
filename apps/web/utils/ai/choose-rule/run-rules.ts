@@ -110,6 +110,7 @@ export async function runRules({
   skipArchive?: boolean;
 }): Promise<RunRulesResult[]> {
   const batchTimestamp = new Date(); // Single timestamp for this batch execution
+  const ruleOrderById = new Map(rules.map((rule, index) => [rule.id, index]));
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
 
   const results = await findMatchingRules({
@@ -174,7 +175,10 @@ export async function runRules({
     }
   }
 
-  const finalMatches = limitDraftEmailActions(matchesWithFlags, logger);
+  const finalMatches = applyStopProcessing(
+    limitDraftEmailActions(matchesWithFlags, logger),
+    ruleOrderById,
+  );
 
   logger.trace("Matching rule", () => ({
     module: MODULE,
@@ -281,6 +285,7 @@ function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
       runOnThreads: true,
       systemType: null,
       actions: [],
+      stopProcessing: false,
     };
 
     regularRules.push(metaRule);
@@ -726,6 +731,29 @@ export async function ensureConversationRuleContinuity({
 
 function isConversationRule(ruleId: string): boolean {
   return ruleId === CONVERSATION_TRACKING_META_RULE_ID;
+}
+
+function applyStopProcessing<
+  T extends {
+    rule: RuleWithActions;
+    matchReasons?: MatchReason[];
+    resolvedReason?: string;
+    isConversationRule?: boolean;
+  },
+>(matches: T[], ruleOrderById: Map<string, number>): T[] {
+  const terminalMatches = matches.filter((match) => match.rule.stopProcessing);
+
+  if (terminalMatches.length === 0) {
+    return matches;
+  }
+
+  const [selectedMatch] = [...terminalMatches].sort(
+    (a, b) =>
+      (ruleOrderById.get(a.rule.id) ?? Number.MAX_SAFE_INTEGER) -
+      (ruleOrderById.get(b.rule.id) ?? Number.MAX_SAFE_INTEGER),
+  );
+
+  return [selectedMatch];
 }
 
 /**

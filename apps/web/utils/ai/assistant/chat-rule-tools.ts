@@ -38,6 +38,7 @@ export function buildCreateRuleSchemaFromChatToolInput(
   return {
     name: input.name,
     condition: input.condition,
+    stopProcessing: input.stopProcessing ?? false,
     actions: input.actions.map((action) => ({
       type: action.type,
       fields: action.fields
@@ -94,6 +95,7 @@ type GetUserRulesAndSettingsOutput =
             }>;
             enabled: boolean;
             runOnThreads: boolean;
+            stopProcessing: boolean;
           }>
         | undefined;
     }
@@ -146,6 +148,7 @@ export const getUserRulesAndSettingsTool = ({
                 conditionalOperator: true,
                 enabled: true,
                 runOnThreads: true,
+                stopProcessing: true,
                 actions: {
                   select: {
                     type: true,
@@ -214,6 +217,7 @@ export const getUserRulesAndSettingsTool = ({
               })),
               enabled: rule.enabled,
               runOnThreads: rule.runOnThreads,
+              stopProcessing: rule.stopProcessing,
             };
           }),
         };
@@ -302,14 +306,14 @@ export const createRuleTool = ({
 }) =>
   tool({
     description:
-      'Create a new rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and put only the semantic part in condition.aiInstructions. Example: condition.static.from="@sender.com" with no condition.aiInstructions.',
+      'Create a new rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and put only the semantic part in condition.aiInstructions. Example: condition.static.from="@sender.com" with no condition.aiInstructions. Set stopProcessing=true when the user wants matching emails left alone or wants this rule to block later rules.',
     inputSchema: createRuleSchema(provider),
-    execute: async ({ name, condition, actions }) => {
+    execute: async ({ name, condition, stopProcessing, actions }) => {
       trackToolCall({ tool: "create_rule", email, logger });
 
       try {
         const resultPayload = buildCreateRuleSchemaFromChatToolInput(
-          { name, condition, actions },
+          { name, condition, stopProcessing, actions },
           provider,
         );
 
@@ -364,9 +368,9 @@ export const updateRuleConditionsTool = ({
 }) =>
   tool({
     description:
-      "Update the conditions of an existing rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and put only the semantic part in condition.aiInstructions. Requires a fresh getUserRulesAndSettings call in the current request before writing.",
+      "Update the conditions of an existing rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and put only the semantic part in condition.aiInstructions. Use stopProcessing when the user wants this rule to take priority and block later rules. Requires a fresh getUserRulesAndSettings call in the current request before writing.",
     inputSchema: updateRuleConditionSchema,
-    execute: async ({ ruleName, condition }) => {
+    execute: async ({ ruleName, stopProcessing, condition }) => {
       trackToolCall({ tool: "update_rule_conditions", email, logger });
       try {
         const readValidationError = validateRuleWasReadRecently({
@@ -392,6 +396,7 @@ export const updateRuleConditionsTool = ({
             to: true,
             subject: true,
             conditionalOperator: true,
+            stopProcessing: true,
           },
         });
 
@@ -424,6 +429,7 @@ export const updateRuleConditionsTool = ({
             subject: rule.subject,
           }),
           conditionalOperator: rule.conditionalOperator,
+          stopProcessing: rule.stopProcessing,
         };
 
         await partialUpdateRule({
@@ -434,6 +440,7 @@ export const updateRuleConditionsTool = ({
             to: condition.static?.to,
             subject: condition.static?.subject,
             conditionalOperator: condition.conditionalOperator ?? undefined,
+            ...(stopProcessing !== undefined && { stopProcessing }),
           },
         });
 
@@ -448,6 +455,7 @@ export const updateRuleConditionsTool = ({
               })
             : undefined,
           conditionalOperator: condition.conditionalOperator,
+          stopProcessing: stopProcessing ?? rule.stopProcessing,
         };
 
         return {
@@ -478,11 +486,13 @@ export type UpdateRuleConditionsOutput = {
     aiInstructions: string | null;
     static?: Record<string, string | null>;
     conditionalOperator: string | null;
+    stopProcessing?: boolean;
   };
   updatedConditions?: {
     aiInstructions: string | null | undefined;
     static?: Record<string, string | null>;
     conditionalOperator: string | null | undefined;
+    stopProcessing?: boolean;
   };
 };
 

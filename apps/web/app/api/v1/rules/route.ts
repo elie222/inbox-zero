@@ -37,6 +37,7 @@ export const POST = withAccountApiKey(
         name: ruleInput.name,
         condition: ruleInput.condition,
         actions: ruleInput.actions,
+        stopProcessing: ruleInput.stopProcessing,
       },
       emailAccountId,
       provider,

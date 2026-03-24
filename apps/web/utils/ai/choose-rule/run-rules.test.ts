@@ -56,6 +56,7 @@ const createRule = (
   id: string,
   systemType: SystemType | null = null,
   actions: Action[] = [],
+  stopProcessing = false,
 ): RuleWithActions => ({
   id,
   name: `Rule ${id}`,
@@ -66,6 +67,7 @@ const createRule = (
   updatedAt: new Date(),
   actions,
   runOnThreads: false,
+  stopProcessing,
   from: null,
   to: null,
   subject: null,
@@ -403,6 +405,104 @@ describe("runRules draft attribution persistence", () => {
         draftPipelineVersion: null,
       }),
     );
+  });
+});
+
+describe("runRules stopProcessing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("executes only the first matching terminal rule", async () => {
+    const terminalRule = createRule(
+      "terminal-rule",
+      null,
+      [
+        getAction({
+          id: "terminal-label",
+          type: ActionType.LABEL,
+          label: "Keep",
+          ruleId: "terminal-rule",
+        }),
+      ],
+      true,
+    );
+    const otherRule = createRule("other-rule", null, [
+      getAction({
+        id: "other-label",
+        type: ActionType.LABEL,
+        label: "Newsletter",
+        ruleId: "other-rule",
+      }),
+    ]);
+
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [{ rule: otherRule }, { rule: terminalRule }],
+      reasoning: "Matched multiple rules",
+    } as any);
+    vi.mocked(getActionItemsWithAiArgs).mockImplementation(
+      async ({ selectedRule }) =>
+        selectedRule.actions.map((action) => ({ ...action })),
+    );
+
+    const result = await runRules({
+      provider: {} as any,
+      message: getEmail() as any,
+      rules: [terminalRule, otherRule],
+      emailAccount: getEmailAccount(),
+      isTest: true,
+      modelType: "chat" as any,
+      logger,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.rule?.id).toBe("terminal-rule");
+    expect(result[0]?.actionItems).toHaveLength(1);
+    expect(result[0]?.actionItems?.[0]?.label).toBe("Keep");
+  });
+
+  it("keeps stacking non-terminal matches", async () => {
+    const teamRule = createRule("team-rule", null, [
+      getAction({
+        id: "team-label",
+        type: ActionType.LABEL,
+        label: "Team",
+        ruleId: "team-rule",
+      }),
+    ]);
+    const receiptRule = createRule("receipt-rule", null, [
+      getAction({
+        id: "receipt-label",
+        type: ActionType.LABEL,
+        label: "Receipt",
+        ruleId: "receipt-rule",
+      }),
+    ]);
+
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [{ rule: teamRule }, { rule: receiptRule }],
+      reasoning: "Matched multiple rules",
+    } as any);
+    vi.mocked(getActionItemsWithAiArgs).mockImplementation(
+      async ({ selectedRule }) =>
+        selectedRule.actions.map((action) => ({ ...action })),
+    );
+
+    const result = await runRules({
+      provider: {} as any,
+      message: getEmail() as any,
+      rules: [teamRule, receiptRule],
+      emailAccount: getEmailAccount(),
+      isTest: true,
+      modelType: "chat" as any,
+      logger,
+    });
+
+    expect(result).toHaveLength(2);
+    expect(result.map((item) => item.rule?.id)).toEqual([
+      "team-rule",
+      "receipt-rule",
+    ]);
   });
 });
 

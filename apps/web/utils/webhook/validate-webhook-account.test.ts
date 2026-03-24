@@ -66,6 +66,7 @@ describe("validateWebhookAccount", () => {
           updatedAt: new Date(),
           enabled: true,
           runOnThreads: false,
+          stopProcessing: false,
           groupId: null,
           from: null,
           to: null,

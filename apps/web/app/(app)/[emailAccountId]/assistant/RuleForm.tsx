@@ -235,6 +235,7 @@ export function RuleForm({
             conditions: data.conditions.map((condition) => condition.type),
             actions: actionsToSubmit.map((action) => action.type),
             runOnThreads: data.runOnThreads,
+            stopProcessing: data.stopProcessing,
             digest: data.digest,
           });
           if (isDialog && onSuccess) {
@@ -271,6 +272,7 @@ export function RuleForm({
             conditions: data.conditions.map((condition) => condition.type),
             actions: actionsToSubmit.map((action) => action.type),
             runOnThreads: data.runOnThreads,
+            stopProcessing: data.stopProcessing,
             digest: data.digest,
           });
           if (isDialog && onSuccess) {
@@ -297,6 +299,7 @@ export function RuleForm({
   );
 
   const conditions = watch("conditions");
+  const stopProcessing = watch("stopProcessing") || false;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: needed
   useEffect(() => {
@@ -489,7 +492,14 @@ export function RuleForm({
           color="green"
           title="Then:"
           errors={
-            actionErrors.length > 0 ? (
+            (errors.actions?.message || errors.actions?.root?.message) ? (
+              <AlertError
+                title="Error"
+                description={
+                  errors.actions?.message || errors.actions?.root?.message
+                }
+              />
+            ) : actionErrors.length > 0 ? (
               <AlertError
                 title="Error"
                 description={
@@ -522,6 +532,12 @@ export function RuleForm({
             attachmentSources={attachmentSources}
             onAttachmentSourcesChange={setAttachmentSources}
           />
+          {stopProcessing && actionFields.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Matching emails will be left unchanged, and later rules will not
+              run.
+            </p>
+          )}
         </RuleSectionCard>
 
         <div className="flex justify-between items-center">
@@ -568,6 +584,23 @@ export function RuleForm({
                     />
                   </div>
                 )}
+
+                <div className="flex items-center space-x-2">
+                  <Toggle
+                    name="stopProcessing"
+                    labelRight="Stop other rules"
+                    enabled={stopProcessing}
+                    onChange={(enabled) => {
+                      setValue("stopProcessing", enabled);
+                    }}
+                  />
+
+                  <TooltipExplanation
+                    size="md"
+                    side="right"
+                    text="When enabled, this rule takes priority. Once it matches, later rules will not run. If you remove all actions, matching emails are left untouched."
+                  />
+                </div>
 
                 {!!rule.id && (
                   <div className="flex">

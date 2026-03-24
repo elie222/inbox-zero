@@ -42,6 +42,20 @@ describe("rule API validation", () => {
     expect(result.error?.issues[0]?.path).toEqual(expectedPath);
   });
 
+  it("allows zero actions when stopProcessing is true", () => {
+    const result = ruleRequestBodySchema.safeParse({
+      name: "Rule",
+      runOnThreads: true,
+      stopProcessing: true,
+      condition: {
+        aiInstructions: "Leave these emails alone",
+      },
+      actions: [],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("rejects unknown response action types", () => {
     const result = rulesResponseSchema.safeParse({
       rules: [
@@ -50,6 +64,7 @@ describe("rule API validation", () => {
           name: "Rule",
           enabled: true,
           runOnThreads: true,
+          stopProcessing: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           condition: {

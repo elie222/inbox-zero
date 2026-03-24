@@ -404,16 +404,14 @@ async function findMatchingRulesWithReasons(
       modelType,
     });
 
-    const existingMatchIds = new Set(matches.map((match) => match.rule.id));
-    const filteredAiRules = filterMultipleSystemRules(fullResult.rules);
-    const aiRules =
-      !emailAccount.multiRuleSelectionEnabled && existingMatchIds.size > 0
-        ? filteredAiRules.filter((rule) => existingMatchIds.has(rule.id))
-        : filteredAiRules;
+    const result = {
+      rules: filterMultipleSystemRules(fullResult.rules),
+      reason: fullResult.reason,
+    };
 
     // Build combined matches: update existing matches with AI reasons if AI also chose them,
     // and append new AI-selected matches
-    const aiRuleIds = new Set(aiRules.map((rule) => rule.id));
+    const aiRuleIds = new Set(result.rules.map((r) => r.id));
 
     const combinedMatches = [
       // Map existing matches, appending AI match reason if AI also chose this rule
@@ -424,7 +422,7 @@ async function findMatchingRulesWithReasons(
           : match.matchReasons || [],
       })),
       // Append AI-selected matches that weren't already in matches
-      ...aiRules
+      ...result.rules
         .filter(
           (aiRule) =>
             !matches.some(
@@ -443,10 +441,7 @@ async function findMatchingRulesWithReasons(
       .filter((r): r is string => !!r)
       .join(", ");
 
-    const aiReason =
-      existingMatchIds.size === 0 || aiRules.length > 0
-        ? fullResult.reason?.trim()
-        : undefined;
+    const aiReason = result.reason?.trim();
     const combinedReasoning = [existingReasoning, aiReason]
       .filter((r): r is string => !!r)
       .join("; ");

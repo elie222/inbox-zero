@@ -116,6 +116,16 @@ describe("createRuleBody", () => {
       }
     });
 
+    it("allows zero actions when stopProcessing is enabled", () => {
+      const result = createRuleBody.safeParse({
+        ...validRule,
+        stopProcessing: true,
+        actions: [],
+      });
+
+      expect(result.success).toBe(true);
+    });
+
     it("accepts multiple actions", () => {
       const result = createRuleBody.safeParse({
         ...validRule,

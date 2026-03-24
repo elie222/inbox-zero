@@ -38,6 +38,12 @@ export const delayInMinutesLlmSchema = z
 
 export const updateRuleConditionSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
+  stopProcessing: z
+    .boolean()
+    .optional()
+    .describe(
+      "Whether this rule should stop other rules from applying after it matches. Use when the user wants matching emails left alone or wants this rule to take priority.",
+    ),
   condition: z.object({
     aiInstructions: z
       .string()
@@ -192,14 +198,15 @@ const zodAction = z
     }
   });
 
-export const createRuleBody = z.object({
+const createRuleBodySchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1, "Please enter a name"),
   instructions: z.string().nullish(),
   groupId: z.string().nullish(),
   runOnThreads: z.boolean().nullish(),
+  stopProcessing: z.boolean().nullish(),
   digest: z.boolean().nullish(),
-  actions: z.array(zodAction).min(1, "You must have at least one action"),
+  actions: z.array(zodAction),
   conditions: z
     .array(zodCondition)
     .min(1, "You must have at least one condition")
@@ -256,9 +263,29 @@ export const createRuleBody = z.object({
     .optional(),
   systemType: zodSystemRule.nullish(),
 });
+
+function addRuleActionRequirement(
+  data: { stopProcessing?: boolean | null; actions: unknown[] },
+  ctx: z.RefinementCtx,
+) {
+  if (!data.stopProcessing && data.actions.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "You must have at least one action unless this rule stops other rules.",
+      path: ["actions"],
+    });
+  }
+}
+
+export const createRuleBody = createRuleBodySchema.superRefine(
+  addRuleActionRequirement,
+);
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
-export const updateRuleBody = createRuleBody.extend({ id: z.string() });
+export const updateRuleBody = createRuleBodySchema
+  .extend({ id: z.string() })
+  .superRefine(addRuleActionRequirement);
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
 export const deleteRuleBody = z.object({ id: z.string() });
@@ -408,6 +435,7 @@ const importedRule = z
     enabled: z.boolean().optional().default(true),
     automate: z.boolean().optional().default(true),
     runOnThreads: z.boolean().optional().default(false),
+    stopProcessing: z.boolean().optional().default(false),
     systemType: zodSystemRule.nullish(),
     conditionalOperator: z
       .enum([LogicalOperator.AND, LogicalOperator.OR])
@@ -420,8 +448,18 @@ const importedRule = z
     categoryFilterType: z
       .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
       .nullish(),
-    actions: z.array(importedAction).min(1),
+    actions: z.array(importedAction),
     group: z.string().nullish(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.stopProcessing && data.actions.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Imported rules must include at least one action unless stopProcessing is true",
+        path: ["actions"],
+      });
+    }
   })
   .refine(
     (data) =>

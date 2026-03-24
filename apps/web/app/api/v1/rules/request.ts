@@ -29,5 +29,6 @@ export function toRuleWriteInput(body: RuleRequestBody) {
       delayInMinutes: action.delayInMinutes ?? null,
     })),
     runOnThreads: body.runOnThreads ?? true,
+    stopProcessing: body.stopProcessing ?? false,
   };
 }

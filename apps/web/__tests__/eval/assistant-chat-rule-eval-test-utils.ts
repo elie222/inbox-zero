@@ -33,6 +33,7 @@ export function buildDefaultSystemRuleRows(updatedAt: Date) {
       conditionalOperator: LogicalOperator.AND,
       enabled: true,
       runOnThreads: config.runOnThreads,
+      stopProcessing: false,
       systemType,
       actions: getDefaultActions(systemType, "google").map((action) => ({
         type: action.type,
@@ -120,7 +121,10 @@ export function configureRuleEvalPrisma({
     const matchedRule = defaultRuleRowsByName.get(ruleName);
     if (!matchedRule) return null;
 
-    return matchedRule;
+    return {
+      ...matchedRule,
+      stopProcessing: matchedRule.stopProcessing ?? false,
+    };
   });
 }
 

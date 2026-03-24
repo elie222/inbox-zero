@@ -59,6 +59,7 @@ type RuleRecordData = {
   enabled?: boolean;
   automate?: boolean;
   runOnThreads?: boolean;
+  stopProcessing?: boolean;
   conditionalOperator?: Rule["conditionalOperator"] | null;
   categoryFilterType?: Rule["categoryFilterType"] | null;
   from?: string | null;
@@ -151,6 +152,7 @@ export async function createRuleWithResolvedActions({
       enabled: data.enabled ?? undefined,
       automate: data.automate ?? undefined,
       runOnThreads: data.runOnThreads ?? undefined,
+      stopProcessing: data.stopProcessing ?? undefined,
       conditionalOperator: data.conditionalOperator ?? undefined,
       categoryFilterType: data.categoryFilterType ?? undefined,
       from: data.from ?? undefined,
@@ -189,6 +191,7 @@ export async function replaceRuleWithResolvedActions({
       enabled: data.enabled,
       automate: data.automate,
       runOnThreads: data.runOnThreads,
+      stopProcessing: data.stopProcessing,
       conditionalOperator: data.conditionalOperator ?? undefined,
       categoryFilterType: data.categoryFilterType,
       from: data.from,
@@ -260,6 +263,7 @@ export async function createRule({
           enablement,
         ),
         runOnThreads,
+        stopProcessing: result.stopProcessing,
         conditionalOperator: result.condition.conditionalOperator ?? undefined,
         instructions: result.condition.aiInstructions,
         from: result.condition.static?.from,
@@ -315,6 +319,7 @@ export async function updateRule({
       ruleId,
       data: {
         name: result.name,
+        stopProcessing: result.stopProcessing,
         conditionalOperator: result.condition.conditionalOperator ?? undefined,
         instructions: result.condition.aiInstructions,
         from: result.condition.static?.from,

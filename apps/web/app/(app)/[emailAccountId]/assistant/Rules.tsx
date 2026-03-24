@@ -101,6 +101,7 @@ export function Rules({
         instructions: ruleConfiguration.instructions,
         enabled: false,
         runOnThreads: false,
+        stopProcessing: false,
         automate: true,
         actions: getDefaultActions(systemType, provider),
         group: null,

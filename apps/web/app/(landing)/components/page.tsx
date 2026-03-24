@@ -913,6 +913,7 @@ function getRule(): Rule {
     enabled: true,
     automate: true,
     runOnThreads: true,
+    stopProcessing: false,
     emailAccountId: "emailAccountId",
     promptText: null,
     categoryFilterType: null,

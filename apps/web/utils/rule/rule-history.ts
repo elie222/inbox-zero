@@ -43,6 +43,7 @@ export async function createRuleHistory({
       enabled: rule.enabled,
       automate: rule.automate,
       runOnThreads: rule.runOnThreads,
+      stopProcessing: rule.stopProcessing,
       conditionalOperator: rule.conditionalOperator,
       from: rule.from,
       to: rule.to,
