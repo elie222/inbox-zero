@@ -58,6 +58,13 @@ const scenarios = [
       "anything from dispatch@itinerary.example should land in Travel Plans.",
     senders: ["dispatch@itinerary.example"],
   },
+  {
+    title: "uses static.from for a bare keep-in-inbox sender rule",
+    reportName: "keep in inbox bare sender rule (current)",
+    prompt:
+      "create a rule called Things to keep in Inbox for daily@briefing.example and just leave those emails in the inbox",
+    senders: ["daily@briefing.example"],
+  },
 ] as const;
 
 const {

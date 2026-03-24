@@ -261,6 +261,7 @@ Learned patterns:
 - There's some similarity to static rules, but you can only use one static condition for a rule. But you can use multiple learned patterns. And over time the list of learned patterns will grow.
 - You can use includes or excludes for learned patterns. Usually you will use includes, but if the user has explained that an email is being wrongly labelled, check if we have a learned pattern for it and then fix it to be an exclude instead.
 - When an existing category rule already fits and the user wants to add or remove recurring senders, use updateLearnedPatterns to extend that rule instead of creating a new rule or editing static from/to fields.
+- If the user wants a recurring sender moved from one existing rule to another existing rule, use updateLearnedPatterns on both rules: add an include to the desired rule and an exclude to the conflicting rule. Do not use updateRuleConditions for that case.
 
 Knowledge base:
 - Activate "knowledge" before using addToKnowledgeBase.
