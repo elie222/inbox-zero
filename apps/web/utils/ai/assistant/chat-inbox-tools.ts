@@ -15,7 +15,6 @@ import { runWithBoundedConcurrency } from "@/utils/async";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import {
-  type ManageInboxAction,
   manageInboxActions,
   requiresSenderEmails,
   requiresThreadIds,
@@ -647,9 +646,7 @@ export const manageInboxTool = ({
 
         const threadActionResults = await runThreadActionsInParallel({
           threadIds,
-          concurrency: getManageInboxThreadActionConcurrency(
-            parsedInput.action,
-          ),
+          concurrency: THREAD_ACTION_CONCURRENCY,
           runAction: async (threadId) => {
             if (parsedInput.action === "archive_threads") {
               await emailProvider.archiveThreadWithLabel(
@@ -1390,12 +1387,7 @@ function normalizeSenderEmails(fromEmails: string[]) {
 }
 
 const LABEL_MESSAGE_CONCURRENCY = 1;
-
-function getManageInboxThreadActionConcurrency(action: ManageInboxAction) {
-  if (action === "label_threads") return 2;
-
-  return 3;
-}
+const THREAD_ACTION_CONCURRENCY = 3;
 
 function getValidationErrorMessage(toolName: string, error: z.ZodError) {
   const firstIssue = error.issues[0];

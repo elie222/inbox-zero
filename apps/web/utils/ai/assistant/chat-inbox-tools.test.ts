@@ -410,7 +410,7 @@ describe("chat inbox tools", () => {
       requestedCount: 3,
     });
     expect(labelMessage).toHaveBeenCalledTimes(6);
-    expect(maxInFlight).toBeLessThanOrEqual(2);
+    expect(maxInFlight).toBeLessThanOrEqual(3);
   });
 
   it("returns a descriptive error when label_threads receives an unknown labelName", async () => {
