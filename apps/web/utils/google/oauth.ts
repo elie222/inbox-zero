@@ -4,7 +4,12 @@ import { z } from "zod";
 const GOOGLE_DISCOVERY_URL =
   "https://accounts.google.com/.well-known/openid-configuration";
 const GOOGLE_ISSUER = "https://accounts.google.com";
+const GOOGLE_API_ROOT_URL = "https://www.googleapis.com/";
+const GOOGLE_GMAIL_API_ROOT_URL = "https://gmail.googleapis.com/";
+const GOOGLE_GMAIL_BATCH_URL = "https://gmail.googleapis.com/batch/gmail/v1";
+const GOOGLE_PEOPLE_API_ROOT_URL = "https://people.googleapis.com/";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_TOKEN_INFO_URL = "https://www.googleapis.com/oauth2/v1/tokeninfo";
 const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 
 const googleOpenIdProfileSchema = z.object({
@@ -13,46 +18,48 @@ const googleOpenIdProfileSchema = z.object({
   family_name: z.string().optional(),
   given_name: z.string().optional(),
   name: z.string().optional(),
-  picture: z.string().optional(),
+  picture: z.string().nullish(),
   sub: z.string().min(1),
 });
 
 type GoogleOpenIdProfile = z.infer<typeof googleOpenIdProfileSchema>;
 
-const googleOauthBaseUrl =
-  env.GOOGLE_OAUTH_BASE_URL?.replace(/\/+$/, "") || null;
+const googleBaseUrl =
+  env.GOOGLE_BASE_URL?.replace(/\/+$/, "") ||
+  env.GOOGLE_OAUTH_BASE_URL?.replace(/\/+$/, "") ||
+  null;
 
-function getGoogleOauthBaseUrl() {
-  return googleOauthBaseUrl;
+function getGoogleBaseUrl() {
+  return googleBaseUrl;
 }
 
 export function isGoogleOauthEmulationEnabled() {
-  return !!getGoogleOauthBaseUrl();
+  return !!getGoogleBaseUrl();
 }
 
 export function getGoogleOauthDiscoveryUrl() {
-  const baseUrl = getGoogleOauthBaseUrl();
+  const baseUrl = getGoogleBaseUrl();
   return baseUrl
     ? `${baseUrl}/.well-known/openid-configuration`
     : GOOGLE_DISCOVERY_URL;
 }
 
 export function getGoogleOauthIssuer() {
-  return getGoogleOauthBaseUrl() || GOOGLE_ISSUER;
+  return getGoogleBaseUrl() || GOOGLE_ISSUER;
 }
 
 export function getGoogleOauthTokenUrl() {
-  const baseUrl = getGoogleOauthBaseUrl();
+  const baseUrl = getGoogleBaseUrl();
   return baseUrl ? `${baseUrl}/oauth2/token` : GOOGLE_TOKEN_URL;
 }
 
 export function getGoogleOauthUserInfoUrl() {
-  const baseUrl = getGoogleOauthBaseUrl();
+  const baseUrl = getGoogleBaseUrl();
   return baseUrl ? `${baseUrl}/oauth2/v2/userinfo` : GOOGLE_USERINFO_URL;
 }
 
 export function getGoogleOauthClientOptions(redirectUri?: string) {
-  const baseUrl = getGoogleOauthBaseUrl();
+  const baseUrl = getGoogleBaseUrl();
 
   return {
     clientId: env.GOOGLE_CLIENT_ID,
@@ -67,6 +74,32 @@ export function getGoogleOauthClientOptions(redirectUri?: string) {
       issuers: [baseUrl],
     }),
   };
+}
+
+export function getGoogleApiRootUrl() {
+  return getGoogleBaseUrl() || GOOGLE_API_ROOT_URL;
+}
+
+export function getGoogleGmailApiRootUrl() {
+  return getGoogleBaseUrl() || GOOGLE_GMAIL_API_ROOT_URL;
+}
+
+export function getGoogleGmailBatchUrl() {
+  const baseUrl = getGoogleBaseUrl();
+  return baseUrl ? `${baseUrl}/batch/gmail/v1` : GOOGLE_GMAIL_BATCH_URL;
+}
+
+export function getGooglePeopleApiRootUrl() {
+  return getGoogleBaseUrl() || GOOGLE_PEOPLE_API_ROOT_URL;
+}
+
+export function getGoogleTokenInfoUrl(accessToken: string) {
+  const baseUrl = getGoogleBaseUrl();
+  const url = new URL(
+    baseUrl ? `${baseUrl}/oauth2/v1/tokeninfo` : GOOGLE_TOKEN_INFO_URL,
+  );
+  url.searchParams.set("access_token", accessToken);
+  return url.toString();
 }
 
 export async function fetchGoogleOpenIdProfile(

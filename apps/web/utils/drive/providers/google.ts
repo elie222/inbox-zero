@@ -2,7 +2,10 @@ import { auth, drive, type drive_v3 } from "@googleapis/drive";
 import { Readable } from "node:stream";
 import type { Logger } from "@/utils/logger";
 import { createScopedLogger } from "@/utils/logger";
-import { getGoogleOauthClientOptions } from "@/utils/google/oauth";
+import {
+  getGoogleApiRootUrl,
+  getGoogleOauthClientOptions,
+} from "@/utils/google/oauth";
 import type {
   DriveProvider,
   DriveFolder,
@@ -27,7 +30,11 @@ export class GoogleDriveProvider implements DriveProvider {
       access_token: accessToken,
     });
 
-    this.client = drive({ version: "v3", auth: googleAuth });
+    this.client = drive({
+      version: "v3",
+      auth: googleAuth,
+      rootUrl: getGoogleApiRootUrl(),
+    });
   }
 
   toJSON() {

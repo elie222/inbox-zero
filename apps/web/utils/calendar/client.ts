@@ -4,7 +4,10 @@ import type { Logger } from "@/utils/logger";
 import { CALENDAR_SCOPES as GOOGLE_CALENDAR_SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
-import { getGoogleOauthClientOptions } from "@/utils/google/oauth";
+import {
+  getGoogleApiRootUrl,
+  getGoogleOauthClientOptions,
+} from "@/utils/google/oauth";
 
 type AuthOptions = {
   accessToken?: string | null;
@@ -53,12 +56,12 @@ export const getCalendarClientWithRefresh = async ({
   // Check if token is still valid
   if (expiresAt && expiresAt > Date.now()) {
     const auth = getAuth({ accessToken, refreshToken, expiresAt });
-    return calendar({ version: "v3", auth });
+    return calendar({ version: "v3", auth, rootUrl: getGoogleApiRootUrl() });
   }
 
   // Token is expired or missing, need to refresh
   const auth = getAuth({ accessToken, refreshToken });
-  const cal = calendar({ version: "v3", auth });
+  const cal = calendar({ version: "v3", auth, rootUrl: getGoogleApiRootUrl() });
 
   // may throw `invalid_grant` error
   try {

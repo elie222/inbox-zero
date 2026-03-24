@@ -3,6 +3,7 @@ import {
   getAccessTokenFromClient,
   getGmailClientWithRefresh,
 } from "@/utils/gmail/client";
+import { getGoogleTokenInfoUrl } from "@/utils/google/oauth";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
@@ -30,9 +31,7 @@ async function checkGmailPermissions({
   }
 
   try {
-    const response = await fetch(
-      `https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`,
-    );
+    const response = await fetch(getGoogleTokenInfoUrl(accessToken));
 
     const data = await response.json();
 
