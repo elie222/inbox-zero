@@ -3,7 +3,11 @@ import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { Pricing } from "@/components/new-landing/sections/Pricing";
 import { PricingComparisonTable } from "@/app/(landing)/pricing/PricingComparisonTable";
 import { PricingFAQs } from "@/app/(landing)/pricing/PricingFAQs";
-import { SectionContent } from "@/components/new-landing/common/Section";
+import {
+  Section,
+  SectionContent,
+} from "@/components/new-landing/common/Section";
+import { PageHeading } from "@/components/new-landing/common/Typography";
 import { getBrandTitle } from "@/utils/branding";
 
 export const metadata: Metadata = {
@@ -15,6 +19,9 @@ export const metadata: Metadata = {
 export default function PricingPage() {
   return (
     <BasicLayout>
+      <Section>
+        <PageHeading>Pricing</PageHeading>
+      </Section>
       <Pricing />
       <SectionContent>
         <PricingComparisonTable />

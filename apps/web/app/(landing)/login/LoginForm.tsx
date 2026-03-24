@@ -91,7 +91,7 @@ export function LoginForm({ showLocalBypass }: { showLocalBypass: boolean }) {
             <span className="flex items-center justify-center">
               <Image
                 src="/images/google.svg"
-                alt=""
+                alt="Google"
                 width={24}
                 height={24}
                 unoptimized
@@ -131,7 +131,7 @@ export function LoginForm({ showLocalBypass }: { showLocalBypass: boolean }) {
         <span className="flex items-center justify-center">
           <Image
             src="/images/microsoft.svg"
-            alt=""
+            alt="Microsoft"
             width={24}
             height={24}
             unoptimized

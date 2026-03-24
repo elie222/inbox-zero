@@ -7,9 +7,14 @@ import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { PricingLazy } from "@/app/(app)/premium/PricingLazy";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { FinalCTA } from "@/app/(landing)/home/FinalCTA";
-import { BRAND_NAME } from "@/utils/branding";
+import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
 
-export const metadata: Metadata = { alternates: { canonical: "/old-landing" } };
+export const metadata: Metadata = {
+  title: getBrandTitle("Home"),
+  description:
+    "Your AI executive assistant to reach inbox zero fast. Automate emails, bulk unsubscribe, block cold emails, and analytics.",
+  alternates: { canonical: "/old-landing" },
+};
 
 export default function Home() {
   return (

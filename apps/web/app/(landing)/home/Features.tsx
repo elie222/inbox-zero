@@ -36,6 +36,7 @@ export function FeaturesWithImage({
   subtitle,
   description,
   image,
+  imageAlt,
   features,
 }: {
   imageSide?: "left" | "right";
@@ -43,6 +44,7 @@ export function FeaturesWithImage({
   subtitle: string;
   description: React.ReactNode;
   image: string;
+  imageAlt: string;
   features: {
     name: string;
     description: string;
@@ -100,7 +102,7 @@ export function FeaturesWithImage({
             <div className="rounded-xl bg-gray-900/5 p-2 ring-1 ring-inset ring-gray-900/10 lg:rounded-2xl lg:p-4">
               <Image
                 src={image}
-                alt="Product screenshot"
+                alt={imageAlt}
                 className="w-[48rem] max-w-none rounded-xl shadow-2xl ring-1 ring-gray-400/10 sm:w-[57rem]"
                 width={2400}
                 height={1800}
@@ -142,6 +144,7 @@ export function FeaturesAiAssistant({ imageSide }: { imageSide?: Side }) {
       description={description}
       features={[]}
       image="/images/home/ai-email-assistant.png"
+      imageAlt="AI email assistant organizing an inbox with labels"
     />
   );
 }
@@ -178,6 +181,7 @@ export function FeaturesColdEmailBlocker({ imageSide }: { imageSide?: Side }) {
       subtitle={subtitle}
       description={description}
       image="/images/home/cold-email-blocker.png"
+      imageAlt="Cold email blocker filtering unwanted emails"
       features={featuresColdEmailBlocker}
     />
   );
@@ -212,6 +216,7 @@ export function FeaturesStats({ imageSide }: { imageSide?: Side }) {
       subtitle="What gets measured, gets managed"
       description="Understanding your inbox is the first step to dealing with it. Understand what is filling up your inbox. Then figure out an action plan to deal with it."
       image="/images/home/email-analytics.png"
+      imageAlt="Email analytics dashboard showing sender statistics"
       features={featuresStats}
     />
   );
@@ -246,6 +251,7 @@ export function FeaturesUnsubscribe({ imageSide }: { imageSide?: Side }) {
       subtitle="Bulk unsubscribe from emails you never read"
       description="Unsubscribe from newsletters and marketing emails in one click. We show you which emails you never read to make it easy."
       image="/images/home/bulk-unsubscriber.png"
+      imageAlt="Bulk unsubscribe interface listing newsletter senders"
       features={featuresUnsubscribe}
     />
   );
@@ -286,6 +292,7 @@ export function FeaturesReplyZero({ imageSide }: { imageSide?: Side }) {
       subtitle="Pre-written drafts waiting in your inbox"
       description="Focus only on emails needing your attention. Reply Zero identifies them and prepares draft replies, letting you skip the noise and respond faster."
       image="/images/home/reply-zero.png"
+      imageAlt="Reply Zero showing pre-drafted email responses"
       features={featuresReplyZero}
     />
   );
