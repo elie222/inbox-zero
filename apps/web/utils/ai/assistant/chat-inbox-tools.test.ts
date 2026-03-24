@@ -312,6 +312,7 @@ describe("chat inbox tools", () => {
     expect(getLabelByName).toHaveBeenCalledTimes(1);
     expect(getThreadMessages).toHaveBeenNthCalledWith(1, "thread-1");
     expect(getThreadMessages).toHaveBeenNthCalledWith(2, "thread-2");
+    expect(labelMessage).toHaveBeenCalledTimes(4);
     expect(labelMessage.mock.calls).toEqual(
       expect.arrayContaining([
         [
