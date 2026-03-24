@@ -1,13 +1,7 @@
 import type { KnownBlock, Block } from "@slack/types";
 
 const MAX_BODY_LENGTH = 1500;
-
-function escapeSlackMrkdwn(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
+const SLACK_BLOCK_TEXT_LIMIT = 3000;
 
 type DraftNotificationBlocksParams = {
   recipient: string;
@@ -28,10 +22,14 @@ export function buildDraftNotificationBlocks({
       ? `${draftBody.slice(0, MAX_BODY_LENGTH)}...`
       : draftBody;
 
-  const quotedBody = escapeSlackMrkdwn(truncatedBody)
+  let quotedBody = escapeSlackMrkdwn(truncatedBody)
     .split("\n")
     .map((line) => `> ${line}`)
     .join("\n");
+
+  if (quotedBody.length > SLACK_BLOCK_TEXT_LIMIT) {
+    quotedBody = `${quotedBody.slice(0, SLACK_BLOCK_TEXT_LIMIT - 3)}...`;
+  }
 
   return [
     {
@@ -145,4 +143,11 @@ export function buildDraftDismissedBlocks({
       ],
     },
   ];
+}
+
+function escapeSlackMrkdwn(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }

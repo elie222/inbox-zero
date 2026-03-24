@@ -8,54 +8,6 @@ import {
   buildDraftDismissedBlocks,
 } from "@/utils/messaging/providers/slack/messages/draft-notification";
 
-async function getNotificationAndProvider(
-  providerMessageId: string,
-  logger: Logger,
-) {
-  const notification = await prisma.pendingDraftNotification.findUnique({
-    where: { providerMessageId },
-    include: {
-      emailAccount: {
-        select: {
-          id: true,
-          account: { select: { provider: true } },
-        },
-      },
-      messagingChannel: {
-        select: { providerUserId: true, accessToken: true },
-      },
-    },
-  });
-
-  if (!notification) throw new Error("Draft notification not found");
-  if (notification.status !== DraftNotificationStatus.PENDING) {
-    throw new Error(`Draft already ${notification.status.toLowerCase()}`);
-  }
-
-  const accountProvider = notification.emailAccount.account?.provider;
-  if (!accountProvider) throw new Error("No provider found for email account");
-
-  const provider = await createEmailProvider({
-    emailAccountId: notification.emailAccount.id,
-    provider: accountProvider,
-    logger,
-  });
-
-  return { notification, provider };
-}
-
-function authorizeSlackUser(
-  notification: { messagingChannel: { providerUserId: string | null } },
-  slackUserId: string | undefined,
-) {
-  if (
-    !slackUserId ||
-    notification.messagingChannel.providerUserId !== slackUserId
-  ) {
-    throw new Error("Unauthorized: Slack user does not own this draft");
-  }
-}
-
 export async function handleDraftSend({
   providerMessageId,
   slackClient,
@@ -240,6 +192,54 @@ export async function handleDraftEditSubmit({
   }
 
   logger.info("Edited draft sent via Slack", { providerMessageId });
+}
+
+async function getNotificationAndProvider(
+  providerMessageId: string,
+  logger: Logger,
+) {
+  const notification = await prisma.pendingDraftNotification.findUnique({
+    where: { providerMessageId },
+    include: {
+      emailAccount: {
+        select: {
+          id: true,
+          account: { select: { provider: true } },
+        },
+      },
+      messagingChannel: {
+        select: { providerUserId: true, accessToken: true },
+      },
+    },
+  });
+
+  if (!notification) throw new Error("Draft notification not found");
+  if (notification.status !== DraftNotificationStatus.PENDING) {
+    throw new Error(`Draft already ${notification.status.toLowerCase()}`);
+  }
+
+  const accountProvider = notification.emailAccount.account?.provider;
+  if (!accountProvider) throw new Error("No provider found for email account");
+
+  const provider = await createEmailProvider({
+    emailAccountId: notification.emailAccount.id,
+    provider: accountProvider,
+    logger,
+  });
+
+  return { notification, provider };
+}
+
+function authorizeSlackUser(
+  notification: { messagingChannel: { providerUserId: string | null } },
+  slackUserId: string | undefined,
+) {
+  if (
+    !slackUserId ||
+    notification.messagingChannel.providerUserId !== slackUserId
+  ) {
+    throw new Error("Unauthorized: Slack user does not own this draft");
+  }
 }
 
 function plainTextToHtml(text: string): string {
