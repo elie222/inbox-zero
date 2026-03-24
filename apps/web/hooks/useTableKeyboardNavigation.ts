@@ -48,6 +48,7 @@ export function useTableKeyboardNavigation<T>({
           prev >= items.length - 1 ? items.length - 1 : prev + 1,
         );
       } else if (onKeyAction && selectedIndex >= 0) {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
         onKeyAction(selectedIndex, e.key);
       }
     },

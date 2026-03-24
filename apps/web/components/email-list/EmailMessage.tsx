@@ -63,10 +63,14 @@ export function EmailMessage({
   useEffect(() => {
     if (!expanded) return;
 
-    const handleMailReply = () => setShowReply(true);
+    const handleMailReply = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.threadId && detail.threadId !== message.threadId) return;
+      setShowReply(true);
+    };
     window.addEventListener("mail:reply", handleMailReply);
     return () => window.removeEventListener("mail:reply", handleMailReply);
-  }, [expanded]);
+  }, [expanded, message.threadId]);
   const [showForward, setShowForward] = useState(false);
   const onForward = useCallback(() => setShowForward(true), []);
 

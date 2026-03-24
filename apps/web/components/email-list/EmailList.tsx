@@ -288,7 +288,9 @@ export function EmailList({
       // Dispatch a custom event so EmailMessage can open its reply form.
       // Small delay to allow the panel to render before triggering reply.
       setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("mail:reply"));
+        window.dispatchEvent(
+          new CustomEvent("mail:reply", { detail: { threadId: thread.id } }),
+        );
       }, 100);
     },
     [threads, setOpenThreadId],
@@ -311,8 +313,13 @@ export function EmailList({
     });
 
   // Sync keyboard selection with the opened thread panel
+  const prevSelectedIndexRef = useRef(selectedIndex);
   useEffect(() => {
-    if (selectedIndex >= 0 && threads[selectedIndex]) {
+    if (
+      selectedIndex >= 0 &&
+      selectedIndex !== prevSelectedIndexRef.current &&
+      threads[selectedIndex]
+    ) {
       const thread = threads[selectedIndex];
       setOpenThreadId(thread.id);
       markReadThreads({
@@ -321,6 +328,7 @@ export function EmailList({
         emailAccountId,
       });
     }
+    prevSelectedIndexRef.current = selectedIndex;
   }, [selectedIndex, threads, setOpenThreadId, refetch, emailAccountId]);
 
   const onArchiveBulk = useCallback(async () => {
