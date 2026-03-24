@@ -40,8 +40,11 @@ describe("buildDraftNotificationBlocks", () => {
         "text" in b.text &&
         typeof b.text.text === "string" &&
         b.text.text.startsWith(">"),
-    );
+    ) as { text: { text: string } } | undefined;
     expect(bodySection).toBeDefined();
+    // 1500 chars + "..." + "> " prefix = body must be shorter than the 2000 input
+    expect(bodySection!.text.text.length).toBeLessThan(2000);
+    expect(bodySection!.text.text).toContain("...");
   });
 });
 

@@ -75,6 +75,7 @@ export const POST = withError("slack/interactions", async (request) => {
           triggerId: payload.trigger_id ?? "",
           slackClient,
           slackUserId,
+          logger,
         });
       } catch (error) {
         logger.error("Failed to open edit modal", { error });
@@ -93,6 +94,7 @@ export const POST = withError("slack/interactions", async (request) => {
             slackClient,
             channelId,
             slackUserId,
+            logger,
           });
         } else if (action.action_id === "draft_dismiss") {
           await handleDraftDismiss({
@@ -100,6 +102,7 @@ export const POST = withError("slack/interactions", async (request) => {
             slackClient,
             channelId,
             slackUserId,
+            logger,
           });
         }
       } catch (error) {
@@ -120,6 +123,7 @@ export const POST = withError("slack/interactions", async (request) => {
     const providerMessageId = payload.view.private_metadata ?? "";
     const newBody =
       payload.view.state?.values?.draft_body_block?.draft_body?.value ?? "";
+    const slackUserId = payload.user?.id;
 
     after(async () => {
       try {
@@ -129,6 +133,8 @@ export const POST = withError("slack/interactions", async (request) => {
           providerMessageId,
           newBody,
           slackClient,
+          slackUserId,
+          logger,
         });
       } catch (error) {
         logger.error("Failed to submit edited draft", { error });

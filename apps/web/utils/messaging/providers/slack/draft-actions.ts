@@ -2,15 +2,16 @@ import prisma from "@/utils/prisma";
 import type { WebClient } from "@slack/web-api";
 import { DraftNotificationStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import {
   buildDraftSentBlocks,
   buildDraftDismissedBlocks,
 } from "@/utils/messaging/providers/slack/messages/draft-notification";
 
-const logger = createScopedLogger("slack/draft-actions");
-
-async function getNotificationAndProvider(providerMessageId: string) {
+async function getNotificationAndProvider(
+  providerMessageId: string,
+  logger: Logger,
+) {
   const notification = await prisma.pendingDraftNotification.findUnique({
     where: { providerMessageId },
     include: {
@@ -60,14 +61,18 @@ export async function handleDraftSend({
   slackClient,
   channelId,
   slackUserId,
+  logger,
 }: {
   providerMessageId: string;
   slackClient: WebClient;
   channelId: string;
   slackUserId: string | undefined;
+  logger: Logger;
 }) {
-  const { notification, provider } =
-    await getNotificationAndProvider(providerMessageId);
+  const { notification, provider } = await getNotificationAndProvider(
+    providerMessageId,
+    logger,
+  );
   authorizeSlackUser(notification, slackUserId);
 
   await provider.sendDraft(notification.draftId);
@@ -95,14 +100,18 @@ export async function handleDraftEdit({
   triggerId,
   slackClient,
   slackUserId,
+  logger,
 }: {
   providerMessageId: string;
   triggerId: string;
   slackClient: WebClient;
   slackUserId: string | undefined;
+  logger: Logger;
 }) {
-  const { notification, provider } =
-    await getNotificationAndProvider(providerMessageId);
+  const { notification, provider } = await getNotificationAndProvider(
+    providerMessageId,
+    logger,
+  );
   authorizeSlackUser(notification, slackUserId);
 
   const draft = await provider.getDraft(notification.draftId);
@@ -146,14 +155,18 @@ export async function handleDraftDismiss({
   slackClient,
   channelId,
   slackUserId,
+  logger,
 }: {
   providerMessageId: string;
   slackClient: WebClient;
   channelId: string;
   slackUserId: string | undefined;
+  logger: Logger;
 }) {
-  const { notification, provider } =
-    await getNotificationAndProvider(providerMessageId);
+  const { notification, provider } = await getNotificationAndProvider(
+    providerMessageId,
+    logger,
+  );
   authorizeSlackUser(notification, slackUserId);
 
   try {
@@ -184,15 +197,23 @@ export async function handleDraftEditSubmit({
   providerMessageId,
   newBody,
   slackClient,
+  slackUserId,
+  logger,
 }: {
   providerMessageId: string;
   newBody: string;
   slackClient: WebClient;
+  slackUserId: string | undefined;
+  logger: Logger;
 }) {
-  const { notification, provider } =
-    await getNotificationAndProvider(providerMessageId);
+  const { notification, provider } = await getNotificationAndProvider(
+    providerMessageId,
+    logger,
+  );
+  authorizeSlackUser(notification, slackUserId);
 
-  await provider.updateDraft(notification.draftId, { messageHtml: newBody });
+  const htmlBody = plainTextToHtml(newBody);
+  await provider.updateDraft(notification.draftId, { messageHtml: htmlBody });
   await provider.sendDraft(notification.draftId);
 
   await prisma.pendingDraftNotification.update({
@@ -219,4 +240,12 @@ export async function handleDraftEditSubmit({
   }
 
   logger.info("Edited draft sent via Slack", { providerMessageId });
+}
+
+function plainTextToHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
 }

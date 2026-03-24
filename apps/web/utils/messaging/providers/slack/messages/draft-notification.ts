@@ -2,7 +2,14 @@ import type { KnownBlock, Block } from "@slack/types";
 
 const MAX_BODY_LENGTH = 1500;
 
-export type DraftNotificationBlocksParams = {
+function escapeSlackMrkdwn(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+type DraftNotificationBlocksParams = {
   recipient: string;
   subject: string;
   draftBody: string;
@@ -13,12 +20,15 @@ export function buildDraftNotificationBlocks({
   subject,
   draftBody,
 }: DraftNotificationBlocksParams): (KnownBlock | Block)[] {
+  const safeRecipient = escapeSlackMrkdwn(recipient);
+  const safeSubject = escapeSlackMrkdwn(subject);
+
   const truncatedBody =
     draftBody.length > MAX_BODY_LENGTH
       ? `${draftBody.slice(0, MAX_BODY_LENGTH)}...`
       : draftBody;
 
-  const quotedBody = truncatedBody
+  const quotedBody = escapeSlackMrkdwn(truncatedBody)
     .split("\n")
     .map((line) => `> ${line}`)
     .join("\n");
@@ -32,7 +42,7 @@ export function buildDraftNotificationBlocks({
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*To:* ${recipient}\n*Subject:* ${subject}`,
+        text: `*To:* ${safeRecipient}\n*Subject:* ${safeSubject}`,
       },
     },
     {
@@ -82,12 +92,15 @@ export function buildDraftSentBlocks({
   subject: string;
   edited?: boolean;
 }): (KnownBlock | Block)[] {
+  const safeRecipient = escapeSlackMrkdwn(recipient);
+  const safeSubject = escapeSlackMrkdwn(subject);
+
   return [
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*To:* ${recipient}\n*Subject:* ${subject}`,
+        text: `*To:* ${safeRecipient}\n*Subject:* ${safeSubject}`,
       },
     },
     {
@@ -111,12 +124,15 @@ export function buildDraftDismissedBlocks({
   recipient: string;
   subject: string;
 }): (KnownBlock | Block)[] {
+  const safeRecipient = escapeSlackMrkdwn(recipient);
+  const safeSubject = escapeSlackMrkdwn(subject);
+
   return [
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `~*To:* ${recipient}\n*Subject:* ${subject}~`,
+        text: `~*To:* ${safeRecipient}\n*Subject:* ${safeSubject}~`,
       },
     },
     {
