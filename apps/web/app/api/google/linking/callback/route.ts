@@ -8,7 +8,10 @@ import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
-import { fetchGoogleOpenIdProfile } from "@/utils/google/oauth";
+import {
+  fetchGoogleOpenIdProfile,
+  isGoogleOauthEmulationEnabled,
+} from "@/utils/google/oauth";
 import {
   acquireOAuthCodeLock,
   getOAuthCodeResult,
@@ -66,13 +69,14 @@ export const GET = withError("google/linking/callback", async (request) => {
       throw new SafeError("Missing access_token from Google response");
     }
 
-    const payload = await fetchGoogleOpenIdProfile(accessToken);
+    const payload = isGoogleOauthEmulationEnabled()
+      ? await fetchGoogleOpenIdProfile(accessToken)
+      : await verifyGoogleIdTokenPayload(googleAuth, tokens.id_token);
 
     const providerAccountId = payload.sub;
-    // Email is PII and should stay out of info-level logs.
     const providerEmail = payload.email;
 
-    logger.trace("Fetched Google profile for account linking", {
+    logger.info("Fetched Google profile for account linking", {
       providerAccountId,
       providerEmail,
     });
@@ -275,6 +279,34 @@ function createAccountsRedirectResponse(params?: Record<string, string>) {
   response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
 
   return response;
+}
+
+async function verifyGoogleIdTokenPayload(
+  googleAuth: ReturnType<typeof getLinkingOAuth2Client>,
+  idToken: string | null | undefined,
+) {
+  if (!idToken) {
+    throw new SafeError("Missing id_token from Google response");
+  }
+
+  try {
+    const ticket = await googleAuth.verifyIdToken({
+      idToken,
+      audience: env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload?.sub || !payload.email) {
+      throw new SafeError(
+        "ID token missing required subject (sub) or email claim.",
+      );
+    }
+
+    return payload;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    throw new SafeError(`ID token verification failed: ${message}`);
+  }
 }
 
 async function cacheSuccessAndRedirect(code: string, success: string) {

@@ -1,6 +1,10 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { fetchGoogleOpenIdProfile } from "@/utils/google/oauth";
+import {
+  fetchGoogleOpenIdProfile,
+  isGoogleOauthEmulationEnabled,
+} from "@/utils/google/oauth";
+import { env } from "@/env";
 import {
   getCalendarOAuth2Client,
   fetchGoogleCalendars,
@@ -25,7 +29,9 @@ export function createGoogleCalendarProvider(
         throw new Error("No refresh_token returned from Google");
       }
 
-      const payload = await fetchGoogleOpenIdProfile(access_token);
+      const payload = isGoogleOauthEmulationEnabled()
+        ? await fetchGoogleOpenIdProfile(access_token)
+        : await verifyGoogleIdTokenPayload(googleAuth, tokens.id_token);
 
       return {
         accessToken: access_token,
@@ -93,4 +99,25 @@ export function createGoogleCalendarProvider(
       }
     },
   };
+}
+
+async function verifyGoogleIdTokenPayload(
+  googleAuth: ReturnType<typeof getCalendarOAuth2Client>,
+  idToken: string | null | undefined,
+) {
+  if (!idToken) {
+    throw new Error("Missing id_token from Google response");
+  }
+
+  const ticket = await googleAuth.verifyIdToken({
+    idToken,
+    audience: env.GOOGLE_CLIENT_ID,
+  });
+  const payload = ticket.getPayload();
+
+  if (!payload?.email) {
+    throw new Error("Could not get email from ID token");
+  }
+
+  return payload;
 }

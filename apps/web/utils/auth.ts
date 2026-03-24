@@ -22,6 +22,7 @@ import {
 } from "@/utils/email/provider-types";
 import { encryptToken } from "@/utils/encryption";
 import { captureException } from "@/utils/error";
+import { getContactsClient } from "@/utils/gmail/client";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import { createScopedLogger } from "@/utils/logger";
 import {
@@ -360,12 +361,31 @@ export async function handleReferralOnSignUp({
 // TODO: move into email provider instead of checking the provider type
 async function getProfileData(providerId: string, accessToken: string) {
   if (isGoogleProvider(providerId)) {
-    const profile = await fetchGoogleOpenIdProfile(accessToken);
+    if (useGoogleOauthEmulator) {
+      const profile = await fetchGoogleOpenIdProfile(accessToken);
+
+      return {
+        email: profile.email?.toLowerCase(),
+        name: profile.name,
+        image: profile.picture,
+      };
+    }
+
+    const contactsClient = getContactsClient({ accessToken });
+    const profileResponse = await contactsClient.people.get({
+      resourceName: "people/me",
+      personFields: "emailAddresses,names,photos",
+    });
 
     return {
-      email: profile.email?.toLowerCase(),
-      name: profile.name,
-      image: profile.picture,
+      email: profileResponse.data.emailAddresses
+        ?.find((email) => email.metadata?.primary)
+        ?.value?.toLowerCase(),
+      name: profileResponse.data.names?.find((name) => name.metadata?.primary)
+        ?.displayName,
+      image: profileResponse.data.photos?.find(
+        (photo) => photo.metadata?.primary,
+      )?.url,
     };
   }
 

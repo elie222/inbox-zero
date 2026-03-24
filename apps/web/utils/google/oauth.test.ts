@@ -103,4 +103,32 @@ describe("Google API base URL helpers", () => {
       "https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=token",
     );
   });
+
+  it("does not route resource APIs through GOOGLE_OAUTH_BASE_URL alone", async () => {
+    vi.resetModules();
+    vi.doMock("@/env", () => ({
+      env: {
+        GOOGLE_BASE_URL: undefined,
+        GOOGLE_CLIENT_ID: "client-id",
+        GOOGLE_CLIENT_SECRET: "client-secret",
+        GOOGLE_OAUTH_BASE_URL: "http://localhost:4002",
+      },
+    }));
+
+    const oauth = await import("./oauth");
+
+    expect(oauth.getGoogleApiRootUrl()).toBe("https://www.googleapis.com/");
+    expect(oauth.getGoogleGmailApiRootUrl()).toBe(
+      "https://gmail.googleapis.com/",
+    );
+    expect(oauth.getGoogleGmailBatchUrl()).toBe(
+      "https://gmail.googleapis.com/batch/gmail/v1",
+    );
+    expect(oauth.getGooglePeopleApiRootUrl()).toBe(
+      "https://people.googleapis.com/",
+    );
+    expect(oauth.getGoogleTokenInfoUrl("token")).toBe(
+      "https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=token",
+    );
+  });
 });

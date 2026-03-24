@@ -3,6 +3,7 @@ import { env } from "@/env";
 import {
   fetchGoogleOpenIdProfile,
   getGoogleOauthClientOptions,
+  isGoogleOauthEmulationEnabled,
 } from "@/utils/google/oauth";
 import {
   GOOGLE_DRIVE_FULL_SCOPES,
@@ -56,7 +57,9 @@ export async function exchangeGoogleDriveCode(code: string) {
     throw new Error("No access or refresh token returned from Google");
   }
 
-  const profile = await fetchGoogleOpenIdProfile(tokens.access_token);
+  const profile = isGoogleOauthEmulationEnabled()
+    ? await fetchGoogleOpenIdProfile(tokens.access_token)
+    : await verifyGoogleIdTokenPayload(oauth2Client, tokens.id_token);
 
   return {
     accessToken: tokens.access_token,
@@ -64,6 +67,27 @@ export async function exchangeGoogleDriveCode(code: string) {
     expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
     email: profile.email,
   };
+}
+
+async function verifyGoogleIdTokenPayload(
+  oauth2Client: ReturnType<typeof getGoogleDriveOAuth2Client>,
+  idToken: string | null | undefined,
+) {
+  if (!idToken) {
+    throw new Error("No ID token returned from Google");
+  }
+
+  const ticket = await oauth2Client.verifyIdToken({
+    idToken,
+    audience: env.GOOGLE_CLIENT_ID,
+  });
+  const payload = ticket.getPayload();
+
+  if (!payload?.email) {
+    throw new Error("Could not get email from Google ID token");
+  }
+
+  return payload;
 }
 
 // ============================================================================
