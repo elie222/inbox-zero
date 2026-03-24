@@ -10,6 +10,7 @@ export const updateChannelFeaturesBody = z.object({
   channelId: z.string().min(1),
   sendMeetingBriefs: z.boolean().optional(),
   sendDocumentFilings: z.boolean().optional(),
+  notifyDraftEmail: z.boolean().optional(),
 });
 
 export const updateEmailDeliveryBody = z.object({

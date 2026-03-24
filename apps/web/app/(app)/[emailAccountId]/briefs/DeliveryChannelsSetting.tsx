@@ -160,6 +160,7 @@ function ChannelRow({
     channelId: string | null;
     channelName: string | null;
     sendMeetingBriefs: boolean;
+    notifyActions: string[];
   };
   emailAccountId: string;
   onUpdate: () => void;
@@ -299,16 +300,36 @@ function ChannelRow({
       {supportsBriefTargetSelection &&
         channel.channelId &&
         !selectingTarget && (
-          <Toggle
-            name={`briefs-${channel.id}`}
-            enabled={channel.sendMeetingBriefs}
-            onChange={(sendMeetingBriefs) =>
-              executeFeatures({
-                channelId: channel.id,
-                sendMeetingBriefs,
-              })
-            }
-          />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Briefs</span>
+              <Toggle
+                name={`briefs-${channel.id}`}
+                enabled={channel.sendMeetingBriefs}
+                onChange={(sendMeetingBriefs) =>
+                  executeFeatures({
+                    channelId: channel.id,
+                    sendMeetingBriefs,
+                  })
+                }
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                Draft notifications
+              </span>
+              <Toggle
+                name={`draft-notifs-${channel.id}`}
+                enabled={channel.notifyActions.includes("DRAFT_EMAIL")}
+                onChange={(notifyDraftEmail) =>
+                  executeFeatures({
+                    channelId: channel.id,
+                    notifyDraftEmail,
+                  })
+                }
+              />
+            </div>
+          </div>
         )}
     </div>
   );

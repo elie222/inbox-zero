@@ -29,6 +29,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       isConnected: true,
       sendMeetingBriefs: true,
       sendDocumentFilings: true,
+      notifyActions: true,
     },
     orderBy: { createdAt: "desc" },
   });
