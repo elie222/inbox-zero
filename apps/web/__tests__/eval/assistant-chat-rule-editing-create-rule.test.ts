@@ -190,6 +190,45 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule creation", () => {
 
       expect(pass).toBe(true);
     }, 120_000);
+
+    test("creates a terminal rule when the user wants matching emails left alone", async () => {
+      const prompt =
+        "Create a new rule so emails from @example.com stay in the inbox and no later rules touch them.";
+      const { toolCalls, actual } = await runAssistantChat({
+        emailAccount,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const createCall = getLastMatchingToolCall(
+        toolCalls,
+        "createRule",
+        isCreateRuleInput,
+      )?.input;
+
+      const pass =
+        !!createCall &&
+        createCall.stopProcessing === true &&
+        createCall.actions.length === 0 &&
+        !!createCall.condition.static?.from?.includes("example.com") &&
+        !toolCalls.some(
+          (toolCall) => toolCall.toolName === "updateRuleActions",
+        ) &&
+        !toolCalls.some(
+          (toolCall) => toolCall.toolName === "updateRuleConditions",
+        ) &&
+        !toolCalls.some(
+          (toolCall) => toolCall.toolName === "updateLearnedPatterns",
+        );
+
+      evalReporter.record({
+        testName: "create terminal stop processing rule",
+        model: model.label,
+        pass,
+        actual,
+      });
+
+      expect(pass).toBe(true);
+    }, 120_000);
   });
 
   afterAll(() => {
@@ -220,7 +259,11 @@ type CreateRuleInput = {
   name: string;
   condition: {
     aiInstructions?: string | null;
+    static?: {
+      from?: string | null;
+    } | null;
   };
+  stopProcessing?: boolean;
   actions: Array<{
     type: ActionType;
     fields?: {
