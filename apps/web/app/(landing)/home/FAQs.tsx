@@ -12,7 +12,11 @@ import {
 import { env } from "@/env";
 import { BRAND_NAME } from "@/utils/branding";
 
-const faqs = [
+const faqs: {
+  question: string;
+  answer: React.ReactNode;
+  answerText?: string;
+}[] = [
   {
     question: `Which email providers does ${BRAND_NAME} support?`,
     answer:
@@ -29,6 +33,8 @@ const faqs = [
         . We're happy to hear how we can improve your email experience.
       </span>
     ),
+    answerText:
+      "Email us or post an issue on GitHub. We're happy to hear how we can improve your email experience.",
   },
   {
     question: `Will ${BRAND_NAME} replace my current email client?`,
@@ -45,6 +51,8 @@ const faqs = [
         .
       </span>
     ),
+    answerText:
+      "Yes! You can see the entire source code for the inbox zero app in our GitHub repo.",
   },
   {
     question: "Do you offer refunds?",
@@ -55,6 +63,8 @@ const faqs = [
         within 14 days of upgrading and we'll refund you.
       </span>
     ),
+    answerText:
+      "Yes, if you don't think we provided you with value send us an email within 14 days of upgrading and we'll refund you.",
   },
   {
     question: `Can I try ${BRAND_NAME} for free?`,
@@ -63,9 +73,30 @@ const faqs = [
   },
 ];
 
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs
+    .map((faq) => {
+      const text = typeof faq.answer === "string" ? faq.answer : faq.answerText;
+      if (!text) return null;
+      return {
+        "@type": "Question" as const,
+        name: faq.question,
+        acceptedAnswer: { "@type": "Answer" as const, text },
+      };
+    })
+    .filter(Boolean),
+};
+
 export function FAQs() {
   return (
     <Section>
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify on controlled object is safe
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <SectionHeading>Frequently asked questions</SectionHeading>
       <SectionContent>
         <CardWrapper>

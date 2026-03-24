@@ -232,7 +232,7 @@ function TestimonialsContent() {
             <Image
               className="h-8 w-auto flex-none"
               src={featuredTestimonial.author.logoUrl}
-              alt=""
+              alt={featuredTestimonial.author.name}
               height={32}
               width={98}
               unoptimized
@@ -269,7 +269,7 @@ function TestimonialsContent() {
                       <Image
                         className="h-10 w-10 rounded-full bg-gray-50"
                         src={testimonial.author.imageUrl}
-                        alt=""
+                        alt={testimonial.author.name}
                         width={40}
                         height={40}
                       />

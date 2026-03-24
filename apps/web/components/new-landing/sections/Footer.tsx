@@ -82,35 +82,37 @@ export function Footer({ className, variant = "default" }: FooterProps) {
       <div
         className={cn("overflow-hidden px-6 py-20 sm:py-24 lg:px-8", className)}
       >
-        <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
-          <div>
-            <FooterList title="Product" items={footerNavigation.main} />
-          </div>
-          <div>
-            <FooterList title="Use Cases" items={footerNavigation.useCases} />
-            <div className="mt-6">
-              <FooterList
-                title="Industries"
-                items={footerNavigation.industries}
-              />
+        <nav aria-label="Footer">
+          <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
+            <div>
+              <FooterList title="Product" items={footerNavigation.main} />
+            </div>
+            <div>
+              <FooterList title="Use Cases" items={footerNavigation.useCases} />
+              <div className="mt-6">
+                <FooterList
+                  title="Industries"
+                  items={footerNavigation.industries}
+                />
+              </div>
+            </div>
+            <div>
+              <FooterList title="Support" items={footerNavigation.support} />
+              <div className="mt-6">
+                <FooterList title="Free Tools" items={footerNavigation.tools} />
+              </div>
+            </div>
+            <div>
+              <FooterList title="Company" items={footerNavigation.company} />
+            </div>
+            <div>
+              <FooterList title="Legal" items={footerNavigation.legal} />
+              <div className="mt-6">
+                <FooterList title="Compare" items={footerNavigation.compare} />
+              </div>
             </div>
           </div>
-          <div>
-            <FooterList title="Support" items={footerNavigation.support} />
-            <div className="mt-6">
-              <FooterList title="Free Tools" items={footerNavigation.tools} />
-            </div>
-          </div>
-          <div>
-            <FooterList title="Company" items={footerNavigation.company} />
-          </div>
-          <div>
-            <FooterList title="Legal" items={footerNavigation.legal} />
-            <div className="mt-6">
-              <FooterList title="Compare" items={footerNavigation.compare} />
-            </div>
-          </div>
-        </div>
+        </nav>
         <div className="mt-40 flex items-center justify-between">
           <Logo variant="glass" />
           <div className="flex items-center gap-4">

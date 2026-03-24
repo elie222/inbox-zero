@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import Script from "next/script";
+
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AxiomWebVitals } from "next-axiom";
@@ -134,10 +134,8 @@ export default async function RootLayout({
       <body
         className={`h-full ${env.NEXT_PUBLIC_USE_AEONIK_FONT ? aeonikFont.variable : ""} ${geist.variable} font-sans antialiased`}
       >
-        <Script
-          id="json-ld"
+        <script
           type="application/ld+json"
-          strategy="beforeInteractive"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify on controlled object is safe
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(jsonLd),
