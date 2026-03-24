@@ -2,7 +2,10 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import { publishDelete, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import type { Logger } from "@/utils/logger";
 import { withOutlookRetry } from "@/utils/outlook/retry";
-import { processThreadMessagesFallback } from "@/utils/outlook/thread-helpers";
+import {
+  processThreadMessagesFallback,
+  runThreadMessageMutation,
+} from "@/utils/outlook/thread-helpers";
 
 export async function trashThread(options: {
   client: OutlookClient;
@@ -24,27 +27,21 @@ export async function trashThread(options: {
       .filter(`conversationId eq '${escapedThreadId}'`)
       .get();
 
-    const trashPromise = Promise.all(
-      messages.value.map(async (message: { id: string }) => {
-        try {
-          return await withOutlookRetry(
-            () =>
-              client.getClient().api(`/me/messages/${message.id}/move`).post({
-                destinationId: "deleteditems",
-              }),
-            logger,
-          );
-        } catch (error) {
-          // Log the error but don't fail the entire operation
-          logger.warn("Failed to move message to trash", {
-            messageId: message.id,
-            threadId,
-            error,
-          });
-          return null;
-        }
-      }),
-    );
+    const trashPromise = runThreadMessageMutation({
+      messageIds: messages.value.map((message: { id: string }) => message.id),
+      threadId,
+      logger,
+      messageHandler: (messageId) =>
+        withOutlookRetry(
+          () =>
+            client.getClient().api(`/me/messages/${messageId}/move`).post({
+              destinationId: "deleteditems",
+            }),
+          logger,
+        ),
+      failureMessage: "Failed to move message to trash",
+      continueOnError: true,
+    });
 
     const publishPromise = publishDelete({
       ownerEmail,

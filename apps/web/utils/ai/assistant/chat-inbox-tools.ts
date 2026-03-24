@@ -15,6 +15,7 @@ import { runWithBoundedConcurrency } from "@/utils/async";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import {
+  type ManageInboxAction,
   manageInboxActions,
   requiresSenderEmails,
   requiresThreadIds,
@@ -646,6 +647,9 @@ export const manageInboxTool = ({
 
         const threadActionResults = await runThreadActionsInParallel({
           threadIds,
+          concurrency: getManageInboxThreadActionConcurrency(
+            parsedInput.action,
+          ),
           runAction: async (threadId) => {
             if (parsedInput.action === "archive_threads") {
               await emailProvider.archiveThreadWithLabel(
@@ -1172,15 +1176,16 @@ function createLabelLookupMap(labels: Array<{ id: string; name: string }>) {
 
 async function runThreadActionsInParallel({
   threadIds,
+  concurrency,
   runAction,
 }: {
   threadIds: string[];
+  concurrency: number;
   runAction: (threadId: string) => Promise<void>;
 }) {
-  const BATCH_SIZE = 10;
   const results = await runWithBoundedConcurrency({
     items: threadIds,
-    concurrency: BATCH_SIZE,
+    concurrency,
     run: async (threadId) => {
       await runAction(threadId);
     },
@@ -1206,7 +1211,7 @@ async function applyLabelToThread({
   const messages = await emailProvider.getThreadMessages(threadId);
   const results = await runWithBoundedConcurrency({
     items: messages,
-    concurrency: 10,
+    concurrency: LABEL_MESSAGE_CONCURRENCY,
     run: async (message) => {
       await emailProvider.labelMessage({
         messageId: message.id,
@@ -1382,6 +1387,14 @@ function normalizeSenderEmails(fromEmails: string[]) {
         .filter((fromEmail): fromEmail is string => Boolean(fromEmail)),
     ),
   ];
+}
+
+const LABEL_MESSAGE_CONCURRENCY = 1;
+
+function getManageInboxThreadActionConcurrency(action: ManageInboxAction) {
+  if (action === "label_threads") return 2;
+
+  return 3;
 }
 
 function getValidationErrorMessage(toolName: string, error: z.ZodError) {
