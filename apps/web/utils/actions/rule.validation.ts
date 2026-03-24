@@ -264,20 +264,6 @@ const createRuleBodySchema = z.object({
   systemType: zodSystemRule.nullish(),
 });
 
-export function addRuleActionRequirement(
-  data: { stopProcessing?: boolean | null; actions: unknown[] },
-  ctx: z.RefinementCtx,
-  message = "You must have at least one action unless this rule stops other rules.",
-) {
-  if (!data.stopProcessing && data.actions.length === 0) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message,
-      path: ["actions"],
-    });
-  }
-}
-
 export const createRuleBody = createRuleBodySchema.superRefine(
   addRuleActionRequirement,
 );
@@ -501,4 +487,18 @@ function addRecipientRequirementIssue({
     forwardMessage,
     sendEmailMessage,
   });
+}
+
+export function addRuleActionRequirement(
+  data: { stopProcessing?: boolean | null; actions: unknown[] },
+  ctx: z.RefinementCtx,
+  message = "You must have at least one action unless this rule stops other rules.",
+) {
+  if (!data.stopProcessing && data.actions.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message,
+      path: ["actions"],
+    });
+  }
 }
