@@ -76,14 +76,17 @@ const faqs: {
 const faqJsonLd = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  mainEntity: faqs.map((faq) => ({
-    "@type": "Question",
-    name: faq.question,
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: typeof faq.answer === "string" ? faq.answer : faq.answerText,
-    },
-  })),
+  mainEntity: faqs
+    .map((faq) => {
+      const text = typeof faq.answer === "string" ? faq.answer : faq.answerText;
+      if (!text) return null;
+      return {
+        "@type": "Question" as const,
+        name: faq.question,
+        acceptedAnswer: { "@type": "Answer" as const, text },
+      };
+    })
+    .filter(Boolean),
 };
 
 export function FAQs() {

@@ -82,14 +82,17 @@ const pricingFaqs: {
 const pricingFaqJsonLd = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  mainEntity: pricingFaqs.map((faq) => ({
-    "@type": "Question",
-    name: faq.question,
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: typeof faq.answer === "string" ? faq.answer : faq.answerText,
-    },
-  })),
+  mainEntity: pricingFaqs
+    .map((faq) => {
+      const text = typeof faq.answer === "string" ? faq.answer : faq.answerText;
+      if (!text) return null;
+      return {
+        "@type": "Question" as const,
+        name: faq.question,
+        acceptedAnswer: { "@type": "Answer" as const, text },
+      };
+    })
+    .filter(Boolean),
 };
 
 export function PricingFAQs() {
