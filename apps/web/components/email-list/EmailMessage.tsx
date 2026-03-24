@@ -1,4 +1,10 @@
-import { useCallback, useMemo, useState, useRef, useEffect } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from "react";
 import {
   ForwardIcon,
   ReplyIcon,
@@ -52,6 +58,15 @@ export function EmailMessage({
   const [showDetails, setShowDetails] = useState(false);
 
   const onReply = useCallback(() => setShowReply(true), []);
+
+  // Listen for keyboard shortcut reply event (R key from mail list)
+  useEffect(() => {
+    if (!expanded) return;
+
+    const handleMailReply = () => setShowReply(true);
+    window.addEventListener("mail:reply", handleMailReply);
+    return () => window.removeEventListener("mail:reply", handleMailReply);
+  }, [expanded]);
   const [showForward, setShowForward] = useState(false);
   const onForward = useCallback(() => setShowForward(true), []);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useMemo } from "react";
+import { useCallback, useRef, useState, useMemo, useEffect } from "react";
 import { useQueryState } from "nuqs";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -31,6 +31,7 @@ import {
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useMailKeyboardNavigation } from "@/hooks/useMailKeyboardNavigation";
 
 export function List({
   emails,
@@ -278,6 +279,50 @@ export function EmailList({
     setOpenThreadId(prevOrNextRowId);
   }
 
+  // Keyboard shortcuts: Arrow Up/Down to navigate, R to reply, E to archive
+  const onKeyboardReply = useCallback(
+    (index: number) => {
+      const thread = threads[index];
+      if (!thread) return;
+      setOpenThreadId(thread.id);
+      // Dispatch a custom event so EmailMessage can open its reply form.
+      // Small delay to allow the panel to render before triggering reply.
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("mail:reply"));
+      }, 100);
+    },
+    [threads, setOpenThreadId],
+  );
+
+  const onKeyboardArchive = useCallback(
+    (index: number) => {
+      const thread = threads[index];
+      if (!thread) return;
+      onArchive(thread);
+    },
+    [threads, onArchive],
+  );
+
+  const { selectedIndex, setSelectedIndex, getRefCallback } =
+    useMailKeyboardNavigation({
+      threads,
+      onReply: onKeyboardReply,
+      onArchive: onKeyboardArchive,
+    });
+
+  // Sync keyboard selection with the opened thread panel
+  useEffect(() => {
+    if (selectedIndex >= 0 && threads[selectedIndex]) {
+      const thread = threads[selectedIndex];
+      setOpenThreadId(thread.id);
+      markReadThreads({
+        threadIds: [thread.id],
+        onSuccess: () => refetch(),
+        emailAccountId,
+      });
+    }
+  }, [selectedIndex, threads, setOpenThreadId, refetch, emailAccountId]);
+
   const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
@@ -407,10 +452,11 @@ export function EmailList({
               className="divide-y divide-border overflow-y-auto scroll-smooth"
               ref={listRef}
             >
-              {threads.map((thread) => {
+              {threads.map((thread, index) => {
                 const onOpen = () => {
                   const alreadyOpen = !!openThreadId;
                   setOpenThreadId(thread.id);
+                  setSelectedIndex(index);
 
                   if (!alreadyOpen) scrollToId(thread.id);
 
@@ -420,6 +466,8 @@ export function EmailList({
                     emailAccountId,
                   });
                 };
+
+                const keyboardRefCallback = getRefCallback(index);
 
                 return (
                   <EmailListItem
@@ -431,6 +479,8 @@ export function EmailList({
                       } else {
                         map.delete(thread.id);
                       }
+                      // Also register with keyboard navigation
+                      keyboardRefCallback(node);
                     }}
                     userEmail={userEmail}
                     provider={provider}
