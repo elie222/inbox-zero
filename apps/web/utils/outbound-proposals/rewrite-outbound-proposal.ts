@@ -26,6 +26,8 @@ export async function aiRewriteOutboundProposal({
   currentContent: string;
   instructions: string;
 }) {
+  // Review-thread edits stay on a constrained one-shot rewrite path so we only
+  // revise the existing proposal content and avoid the broader assistant flow.
   const modelOptions = getModel(emailAccount.user, "chat");
   const generateText = createGenerateText({
     label: "Rewrite outbound proposal",
