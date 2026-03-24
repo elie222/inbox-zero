@@ -22,10 +22,7 @@ const getAuth = ({
 }: AuthOptions) => {
   const expiryDate = expiresAt ? expiresAt : rest.expiryDate;
 
-  const googleAuth = new auth.OAuth2({
-    clientId: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-  });
+  const googleAuth = new auth.OAuth2(getGoogleOauthClientOptions());
   googleAuth.setCredentials({
     access_token: accessToken,
     refresh_token: refreshToken,
