@@ -206,7 +206,7 @@ describe("InlineEmailCard", () => {
     expect(screen.getByText("Sender Two")).toBeTruthy();
     expect(screen.getByText("Subject Two")).toBeTruthy();
     expect(screen.getByText("Snippet Two")).toBeTruthy();
-    expect(screen.getByText("Must Handle Now")).toBeTruthy();
+    expect(screen.getByText(/Must Handle Now/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Archive" })).toBeTruthy();
   });
 
