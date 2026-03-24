@@ -632,8 +632,8 @@ importers:
         specifier: 11.0.0
         version: 11.0.0
       emulate:
-        specifier: 0.2.0
-        version: 0.2.0(hono@4.11.4)
+        specifier: npm:@inbox-zero/emulate@0.2.0-inboxzero.0
+        version: '@inbox-zero/emulate@0.2.0-inboxzero.0(hono@4.11.4)'
       jsdom:
         specifier: 27.3.0
         version: 27.3.0
@@ -2979,6 +2979,10 @@ packages:
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [x64]
     os: [win32]
+
+  '@inbox-zero/emulate@0.2.0-inboxzero.0':
+    resolution: {integrity: sha512-/uymkCKwNYhymXwmWDytuGSzC4AwNodCeNM2/kjajjPNjAyHW6NO1OYv8+2NKweOmWlNmZ5yyadbtTeyOtzqjg==}
+    hasBin: true
 
   '@inquirer/ansi@1.0.2':
     resolution: {integrity: sha512-S8qNSZiYzFd0wAcyG5AXCvUHC5Sr7xpZ9wZ2py9XR88jUz8wooStVx5M6dRzczbBWjic9NP7+rY0Xi7qqK/aMQ==}
@@ -7899,10 +7903,6 @@ packages:
   empathic@2.0.0:
     resolution: {integrity: sha512-i6UzDscO/XfAcNYD75CfICkmfLedpyPDdozrLMmQc5ORaQcdMoc21OnlEylMIqI7U8eniKrPMxxtj8k0vhmJhA==}
     engines: {node: '>=14'}
-
-  emulate@0.2.0:
-    resolution: {integrity: sha512-tjiJMgYc0U16g/UDB5jSZjN7QKBDPk1GmRRKOPGkH4GYyu7gx3s775zyJNhWQ2C6/eUTBuFkXjbyB75whS6wUA==}
-    hasBin: true
 
   encodeurl@1.0.2:
     resolution: {integrity: sha512-TPJXq8JqFaVYm2CWmPvnP2Iyo4ZSM7/QKcSmuMLDObfpH5fi7RUGmd/rTDf+rut/saiDiQEeVTNgAmJEdAOx0w==}
@@ -14733,6 +14733,15 @@ snapshots:
   '@img/sharp-win32-x64@0.34.5':
     optional: true
 
+  '@inbox-zero/emulate@0.2.0-inboxzero.0(hono@4.11.4)':
+    dependencies:
+      '@hono/node-server': 1.19.9(hono@4.11.4)
+      commander: 14.0.3
+      picocolors: 1.1.1
+      yaml: 2.8.2
+    transitivePeerDependencies:
+      - hono
+
   '@inquirer/ansi@1.0.2': {}
 
   '@inquirer/ansi@2.0.3': {}
@@ -20466,15 +20475,6 @@ snapshots:
   emoji-regex@9.2.2: {}
 
   empathic@2.0.0: {}
-
-  emulate@0.2.0(hono@4.11.4):
-    dependencies:
-      '@hono/node-server': 1.19.9(hono@4.11.4)
-      commander: 14.0.3
-      picocolors: 1.1.1
-      yaml: 2.8.2
-    transitivePeerDependencies:
-      - hono
 
   encodeurl@1.0.2: {}
 
