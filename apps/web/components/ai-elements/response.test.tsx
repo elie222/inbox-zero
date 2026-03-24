@@ -88,5 +88,6 @@ describe("Response", () => {
     expect(screen.getByRole("link").getAttribute("href")).toBe(
       "https://mail.google.com/mail/u/user@example.com/#all/msg-thread-1",
     );
+    expect(screen.getByRole("button", { name: "Archive" })).toBeTruthy();
   });
 });

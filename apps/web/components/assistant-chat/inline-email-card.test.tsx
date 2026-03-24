@@ -241,6 +241,16 @@ describe("InlineEmailCard", () => {
     expect(screen.getByText("Rendered plain body")).toBeTruthy();
   });
 
+  it("shows the archive action even when action is none", () => {
+    render(
+      <InlineEmailCard threadid="thread-1" action="none">
+        Second
+      </InlineEmailCard>,
+    );
+
+    expect(screen.getByRole("button", { name: "Archive" })).toBeTruthy();
+  });
+
   it("renders the preview when message headers are missing", () => {
     mockUseThread.mockReturnValue({
       data: {

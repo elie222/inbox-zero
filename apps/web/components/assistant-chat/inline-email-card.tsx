@@ -263,7 +263,6 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
 export function InlineEmailCard({
   id,
   threadid,
-  action,
   children,
 }: {
   id?: string;
@@ -317,7 +316,7 @@ export function InlineEmailCard({
   }
 
   const isDone = actionState === "done" || isArchived;
-  const showArchive = threadId && (!action || action === "archive");
+  const showArchive = Boolean(threadId);
 
   return (
     <div>

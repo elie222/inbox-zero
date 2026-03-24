@@ -53,20 +53,30 @@ export function Messages({
               <Fragment key={message.id}>
                 <Message from={message.role}>
                   <MessageContent variant="flat">
-                    {message.parts?.map((part, partIndex) => (
-                      <MessagePart
-                        key={`${message.id}-${partIndex}`}
-                        part={part}
-                        isStreaming={
-                          status === "streaming" &&
-                          partIndex === message.parts.length - 1
-                        }
-                        disableConfirm={disableConfirm}
-                        messageId={message.id}
-                        partIndex={partIndex}
-                        threadLookup={emailLookup}
-                      />
-                    ))}
+                    {(() => {
+                      const hideInlineEmailCards = message.parts?.some(
+                        (part) =>
+                          part.type === "tool-sendEmail" ||
+                          part.type === "tool-replyEmail" ||
+                          part.type === "tool-forwardEmail",
+                      );
+
+                      return message.parts?.map((part, partIndex) => (
+                        <MessagePart
+                          key={`${message.id}-${partIndex}`}
+                          part={part}
+                          isStreaming={
+                            status === "streaming" &&
+                            partIndex === message.parts.length - 1
+                          }
+                          disableConfirm={disableConfirm}
+                          hideInlineEmailCards={hideInlineEmailCards}
+                          messageId={message.id}
+                          partIndex={partIndex}
+                          threadLookup={emailLookup}
+                        />
+                      ));
+                    })()}
                   </MessageContent>
                 </Message>
                 {index === firstAssistantIndex && <MessagingChannelHint />}

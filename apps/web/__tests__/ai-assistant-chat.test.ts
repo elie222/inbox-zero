@@ -158,7 +158,13 @@ describe("aiProcessAssistantChat", () => {
       "These are app-side confirmations, not provider Drafts-folder saves.",
     );
     expect(args.messages[0].content).toContain(
-      "After calling these tools, briefly say the email is ready for them to review and send.",
+      "After calling these tools, briefly say the email is ready in the pending email card for review and send.",
+    );
+    expect(args.messages[0].content).toContain(
+      'Do not mention card position like "below" or "above".',
+    );
+    expect(args.messages[0].content).toContain(
+      "Do not include <email> or <emails> blocks in responses that use sendEmail, replyEmail, or forwardEmail.",
     );
     expect(args.tools.getAccountOverview).toBeDefined();
     expect(args.tools.getAssistantCapabilities).toBeDefined();
