@@ -313,22 +313,21 @@ export function EmailList({
     });
 
   // Sync keyboard selection with the opened thread panel
-  const prevSelectedIndexRef = useRef(selectedIndex);
+  const prevSelectionRef = useRef({ index: selectedIndex, threadId: "" });
   useEffect(() => {
-    if (
-      selectedIndex >= 0 &&
-      selectedIndex !== prevSelectedIndexRef.current &&
-      threads[selectedIndex]
-    ) {
-      const thread = threads[selectedIndex];
-      setOpenThreadId(thread.id);
-      markReadThreads({
-        threadIds: [thread.id],
-        onSuccess: () => refetch(),
-        emailAccountId,
-      });
-    }
-    prevSelectedIndexRef.current = selectedIndex;
+    const thread = selectedIndex >= 0 ? threads[selectedIndex] : null;
+    if (!thread) return;
+
+    const prev = prevSelectionRef.current;
+    if (prev.index === selectedIndex && prev.threadId === thread.id) return;
+
+    prevSelectionRef.current = { index: selectedIndex, threadId: thread.id };
+    setOpenThreadId(thread.id);
+    markReadThreads({
+      threadIds: [thread.id],
+      onSuccess: () => refetch(),
+      emailAccountId,
+    });
   }, [selectedIndex, threads, setOpenThreadId, refetch, emailAccountId]);
 
   const onArchiveBulk = useCallback(async () => {
