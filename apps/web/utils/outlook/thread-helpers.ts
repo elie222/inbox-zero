@@ -27,7 +27,14 @@ export async function runThreadMessageMutation({
     run: (messageId) => messageHandler(messageId),
   });
 
-  const failures = results.filter(({ result }) => result.status === "rejected");
+  const failures = results.filter(
+    (
+      entry,
+    ): entry is {
+      item: string;
+      result: PromiseRejectedResult;
+    } => entry.result.status === "rejected",
+  );
 
   for (const failure of failures) {
     logger.warn(failureMessage, {

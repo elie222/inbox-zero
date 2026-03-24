@@ -317,10 +317,10 @@ export async function removeThreadLabel({
     .get();
 
   // Remove the category from each message
-  const messagesWithCategory = messages.value.filter(
-    (message: { id: string; categories?: string[] }) =>
+  const messagesWithCategory: Array<{ id: string; categories?: string[] }> =
+    messages.value.filter((message: { id: string; categories?: string[] }) =>
       message.categories?.includes(categoryName),
-  );
+    );
 
   await runThreadMessageMutation({
     messageIds: messagesWithCategory.map(
