@@ -9,7 +9,18 @@ import {
 export const { signIn, signOut, signUp, useSession, getSession, sso } =
   createAuthClient({
     baseURL: env.NEXT_PUBLIC_BASE_URL,
-    // This client plugin is inert unless the server enables generic OAuth, but
-    // keeping it loaded ensures signIn.oauth2 is available when emulation is on.
-    plugins: [ssoClient(), organizationClient(), genericOAuthClient()],
+    plugins: [ssoClient(), organizationClient()],
   });
+
+export async function signInWithOauth2(
+  options: Parameters<
+    ReturnType<typeof createAuthClient>["signIn"]["oauth2"]
+  >[0],
+) {
+  const { signIn } = createAuthClient({
+    baseURL: env.NEXT_PUBLIC_BASE_URL,
+    plugins: [genericOAuthClient()],
+  });
+
+  return signIn.oauth2(options);
+}

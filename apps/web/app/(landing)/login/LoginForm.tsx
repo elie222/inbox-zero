@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { signIn } from "@/utils/auth-client";
+import { signIn, signInWithOauth2 } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 import { toastError } from "@/components/Toast";
 import { isInternalPath } from "@/utils/path";
@@ -39,7 +39,7 @@ export function LoginForm({
     setLoadingGoogle(true);
     try {
       if (useGoogleOauthEmulator) {
-        await signIn.oauth2({
+        await signInWithOauth2({
           providerId: "google",
           errorCallbackURL,
           callbackURL,
