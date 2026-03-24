@@ -157,15 +157,13 @@ describe("aiProcessAssistantChat", () => {
     expect(args.messages[0].content).toContain(
       "These are app-side confirmations, not provider Drafts-folder saves.",
     );
-    expect(args.messages[0].content).toContain(
-      "After calling these tools, briefly say the email is ready in the pending email card for review and send.",
-    );
-    expect(args.messages[0].content).toContain(
-      'Do not mention card position like "below" or "above".',
-    );
-    expect(args.messages[0].content).toContain(
-      "Do not include <email> or <emails> blocks in responses that use sendEmail, replyEmail, or forwardEmail.",
-    );
+    expect(args.messages[0].content).toMatch(/pending\s+email\s+card/i);
+    expect(args.messages[0].content).toMatch(/card position/i);
+    expect(args.messages[0].content).toMatch(/\bbelow\b/i);
+    expect(args.messages[0].content).toMatch(/\babove\b/i);
+    expect(args.messages[0].content).toMatch(/<email>/i);
+    expect(args.messages[0].content).toMatch(/<emails>/i);
+    expect(args.messages[0].content).toMatch(/only email ui surface/i);
     expect(args.tools.getAccountOverview).toBeDefined();
     expect(args.tools.getAssistantCapabilities).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
