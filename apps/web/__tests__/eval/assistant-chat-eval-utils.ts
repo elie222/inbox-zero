@@ -8,7 +8,12 @@ export type RecordedToolCall = {
   input: unknown;
 };
 
-export async function captureAssistantChatToolCalls({
+export type AssistantChatTrace = {
+  toolCalls: RecordedToolCall[];
+  stepTexts: string[];
+};
+
+export async function captureAssistantChatTrace({
   emailAccount,
   messages,
   logger,
@@ -20,6 +25,7 @@ export async function captureAssistantChatToolCalls({
   inboxStats?: { total: number; unread: number } | null;
 }) {
   const recordedToolCalls: RecordedToolCall[] = [];
+  const stepTexts: string[] = [];
 
   const result = await aiProcessAssistantChat({
     messages,
@@ -27,7 +33,11 @@ export async function captureAssistantChatToolCalls({
     user: emailAccount,
     inboxStats,
     logger,
-    onStepFinish: async ({ toolCalls }) => {
+    onStepFinish: async ({ text, toolCalls }) => {
+      if (text?.trim()) {
+        stepTexts.push(text.trim());
+      }
+
       for (const toolCall of toolCalls || []) {
         recordedToolCalls.push({
           toolName: toolCall.toolName,
@@ -39,7 +49,17 @@ export async function captureAssistantChatToolCalls({
 
   await result.consumeStream();
 
-  return recordedToolCalls;
+  return {
+    toolCalls: recordedToolCalls,
+    stepTexts,
+  };
+}
+
+export async function captureAssistantChatToolCalls(
+  args: Parameters<typeof captureAssistantChatTrace>[0],
+) {
+  const trace = await captureAssistantChatTrace(args);
+  return trace.toolCalls;
 }
 
 export function summarizeRecordedToolCalls(
