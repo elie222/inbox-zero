@@ -121,10 +121,7 @@ export function configureRuleEvalPrisma({
     const matchedRule = defaultRuleRowsByName.get(ruleName);
     if (!matchedRule) return null;
 
-    return {
-      ...matchedRule,
-      stopProcessing: matchedRule.stopProcessing ?? false,
-    };
+    return matchedRule;
   });
 }
 
