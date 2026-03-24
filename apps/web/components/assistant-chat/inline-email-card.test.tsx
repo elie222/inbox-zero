@@ -196,6 +196,20 @@ describe("InlineEmailCard", () => {
     ]);
   });
 
+  it("shows message metadata and keeps archive available inline", () => {
+    render(
+      <InlineEmailCard threadid="thread-1" action="archive">
+        Must Handle Now
+      </InlineEmailCard>,
+    );
+
+    expect(screen.getByText("Sender Two")).toBeTruthy();
+    expect(screen.getByText("Subject Two")).toBeTruthy();
+    expect(screen.getByText("Snippet Two")).toBeTruthy();
+    expect(screen.getByText("Must Handle Now")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Archive" })).toBeTruthy();
+  });
+
   it("renders the app email preview when expanded", () => {
     mockUseThread.mockReturnValue({
       data: {

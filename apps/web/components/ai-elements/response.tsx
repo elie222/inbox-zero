@@ -18,10 +18,10 @@ export const Response = memo(
   ({ className, ...props }: ResponseProps) =>
     createElement(Streamdown, {
       className: cn(
-        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-        "[&_[data-streamdown='heading-1']]:!mt-8",
-        "[&_[data-streamdown='heading-2']]:!mt-8",
-        "[&_[data-streamdown='heading-3']]:!mt-7",
+        "size-full [&>*+*]:mt-4 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 sm:[&>*+*]:mt-3",
+        "[&_[data-streamdown='heading-1']]:!mb-4 [&_[data-streamdown='heading-1']]:!mt-10",
+        "[&_[data-streamdown='heading-2']]:!mb-3 [&_[data-streamdown='heading-2']]:!mt-10",
+        "[&_[data-streamdown='heading-3']]:!mb-3 [&_[data-streamdown='heading-3']]:!mt-8",
         "[&_a]:!text-inherit [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:opacity-80",
         className,
       ),
