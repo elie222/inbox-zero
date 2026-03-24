@@ -8,13 +8,13 @@ const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 
 const googleOpenIdProfileSchema = z.object({
-  email: z.string(),
+  email: z.string().min(1),
   email_verified: z.boolean().optional(),
   family_name: z.string().optional(),
   given_name: z.string().optional(),
   name: z.string().optional(),
   picture: z.string().optional(),
-  sub: z.string(),
+  sub: z.string().min(1),
 });
 
 type GoogleOpenIdProfile = z.infer<typeof googleOpenIdProfileSchema>;

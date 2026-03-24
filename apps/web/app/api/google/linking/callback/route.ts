@@ -75,7 +75,6 @@ export const GET = withError("google/linking/callback", async (request) => {
     logger.trace("Fetched Google profile for account linking", {
       providerAccountId,
       providerEmail,
-      targetUserId,
     });
 
     const existingAccount = await prisma.account.findUnique({

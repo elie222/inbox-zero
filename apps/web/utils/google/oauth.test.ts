@@ -50,4 +50,18 @@ describe("fetchGoogleOpenIdProfile", () => {
       "Invalid Google profile response",
     );
   });
+
+  it("throws when required identity fields are empty strings", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        sub: "",
+        email: "",
+      }),
+    } as unknown as Response);
+
+    await expect(fetchGoogleOpenIdProfile("token")).rejects.toThrow(
+      "Invalid Google profile response",
+    );
+  });
 });
