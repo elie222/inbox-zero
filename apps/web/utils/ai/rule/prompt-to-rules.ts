@@ -70,8 +70,7 @@ If the rule is only matching exact sender addresses or domains, put those in sta
 If the user did not specify any sender or domain, leave static.from empty. Never fill it with placeholders like none, null, or @*.
 aiInstructions are only for semantic or content matching. Do not repeat sender lists, label names, or actions there.
 Example sender-only rule shape: static.from="@airbnb.com|@booking.com|@delta.com" and no aiInstructions.
-When the user says matching emails should be left alone, kept in the inbox, or should not be touched by later rules, set stopProcessing to true.
-If stopProcessing is true and the user did not ask for any label/archive/read behavior, actions may be empty.
+Follow the schema field descriptions closely, especially for optional control-flow fields.
 
 Output policy:
 - Return a JSON object only. No prose and no markdown.
@@ -82,6 +81,5 @@ Behavior anchors (minimal):
 - "When I get a newsletter, archive it and label it as Newsletter" -> one rule with aiInstructions plus ARCHIVE and LABEL actions.
 - "Label urgent emails from @company.com as Urgent" -> prefer aiInstructions for urgency and use static.from for @company.com with AND logic when both are present.
 - "If someone asks to set up a call, reply with this template ..." -> use the provided template content in fields.content, preserving key wording.
-- "Keep emails from @example.com in the inbox and don't let other rules touch them" -> use static.from="@example.com", stopProcessing=true, and no actions unless the user asked for an additional effect.
 `;
 }

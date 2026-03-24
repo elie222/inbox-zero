@@ -38,7 +38,9 @@ export function buildCreateRuleSchemaFromChatToolInput(
   return {
     name: input.name,
     condition: input.condition,
-    stopProcessing: input.stopProcessing ?? false,
+    ...(input.stopProcessing !== undefined && {
+      stopProcessing: input.stopProcessing,
+    }),
     actions: input.actions.map((action) => ({
       type: action.type,
       fields: action.fields
@@ -306,7 +308,7 @@ export const createRuleTool = ({
 }) =>
   tool({
     description:
-      'Create a new rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and put only the semantic part in condition.aiInstructions. Example: condition.static.from="@sender.com" with no condition.aiInstructions. Set stopProcessing=true when the user wants matching emails left alone or wants this rule to block later rules.',
+      'Create a new rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and put only the semantic part in condition.aiInstructions. Example: condition.static.from="@sender.com" with no condition.aiInstructions.',
     inputSchema: createRuleSchema(provider),
     execute: async ({ name, condition, stopProcessing, actions }) => {
       trackToolCall({ tool: "create_rule", email, logger });
@@ -368,7 +370,7 @@ export const updateRuleConditionsTool = ({
 }) =>
   tool({
     description:
-      "Update the conditions of an existing rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and put only the semantic part in condition.aiInstructions. Use stopProcessing when the user wants this rule to take priority and block later rules. Requires a fresh getUserRulesAndSettings call in the current request before writing.",
+      "Update the conditions of an existing rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and put only the semantic part in condition.aiInstructions. Requires a fresh getUserRulesAndSettings call in the current request before writing.",
     inputSchema: updateRuleConditionSchema,
     execute: async ({ ruleName, stopProcessing, condition }) => {
       trackToolCall({ tool: "update_rule_conditions", email, logger });

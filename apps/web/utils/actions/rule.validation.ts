@@ -42,7 +42,7 @@ export const updateRuleConditionSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "Whether this rule should stop other rules from applying after it matches. Use when the user wants matching emails left alone or wants this rule to take priority.",
+      "Optional. Set to true when this rule should stop later rules after it matches. Use it for exception or priority behavior, such as leaving matching emails untouched or preventing later rules from changing them. Omit this field when not changing that behavior.",
     ),
   condition: z.object({
     aiInstructions: z

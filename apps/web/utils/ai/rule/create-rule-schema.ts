@@ -152,7 +152,7 @@ export const createRuleSchema = (provider: string) =>
         .boolean()
         .optional()
         .describe(
-          "Set to true when this rule should prevent later rules from applying after it matches. Use this for exceptions like leaving matching emails untouched or in the inbox.",
+          "Optional. Set to true when this rule should stop later rules from applying after it matches. Use it for exceptions and priority overrides, such as leaving matching emails untouched, keeping them in the inbox, or preventing later rules from changing them. When this is true, actions may be empty if the intended behavior is only to stop later rules.",
         ),
       actions: z.array(actionSchema(provider)).describe("The actions to take"),
     })
