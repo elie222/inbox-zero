@@ -9,6 +9,10 @@ import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
 import {
+  fetchGoogleOpenIdProfile,
+  isGoogleOauthEmulationEnabled,
+} from "@/utils/google/oauth";
+import {
   acquireOAuthCodeLock,
   getOAuthCodeResult,
   setOAuthCodeResult,
@@ -68,37 +72,11 @@ export const GET = withError("google/linking/callback", async (request) => {
 
   try {
     const { tokens } = await googleAuth.getToken(code);
-    const { id_token } = tokens;
-
-    if (!id_token) {
-      throw new SafeError("Missing id_token from Google response");
-    }
-
-    let payload: {
-      sub?: string;
-      email?: string;
-      name?: string;
-      picture?: string;
-    };
-    try {
-      const ticket = await googleAuth.verifyIdToken({
-        idToken: id_token,
-        audience: env.GOOGLE_CLIENT_ID,
-      });
-      const verifiedPayload = ticket.getPayload();
-      if (!verifiedPayload) {
-        throw new SafeError(
-          "Could not get payload from verified ID token ticket.",
-        );
-      }
-      payload = verifiedPayload;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      logger.error("ID token verification failed using googleAuth:", {
-        error: err,
-      });
-      throw new SafeError(`ID token verification failed: ${message}`);
-    }
+    const payload = await getGoogleProfilePayload({
+      googleAuth,
+      tokens,
+      logger,
+    });
 
     const providerAccountId = payload.sub;
     const providerEmail = payload.email;
@@ -314,4 +292,47 @@ async function updateGoogleAccountTokens(
       id_token: tokens.id_token,
     },
   });
+}
+
+async function getGoogleProfilePayload({
+  googleAuth,
+  tokens,
+  logger,
+}: {
+  googleAuth: ReturnType<typeof getLinkingOAuth2Client>;
+  tokens: GoogleTokens;
+  logger: Parameters<typeof handleOAuthCallbackError>[0]["logger"];
+}) {
+  if (isGoogleOauthEmulationEnabled()) {
+    if (!tokens.access_token) {
+      throw new SafeError("Missing access_token from Google response");
+    }
+
+    return fetchGoogleOpenIdProfile(tokens.access_token);
+  }
+
+  if (!tokens.id_token) {
+    throw new SafeError("Missing id_token from Google response");
+  }
+
+  try {
+    const ticket = await googleAuth.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    if (!payload) {
+      throw new SafeError(
+        "Could not get payload from verified ID token ticket.",
+      );
+    }
+
+    return payload;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    logger.error("ID token verification failed using googleAuth:", {
+      error,
+    });
+    throw new SafeError(`ID token verification failed: ${message}`);
+  }
 }

@@ -1,0 +1,121 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+describe("google oauth helpers", () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    global.fetch = originalFetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    vi.doUnmock("@/env");
+  });
+
+  it("uses production OAuth endpoints by default", async () => {
+    const oauth = await importGoogleOauthModule();
+
+    expect(oauth.isGoogleOauthEmulationEnabled()).toBe(false);
+    expect(oauth.getGoogleOauthDiscoveryUrl()).toBe(
+      "https://accounts.google.com/.well-known/openid-configuration",
+    );
+    expect(oauth.getGoogleOauthIssuer()).toBe("https://accounts.google.com");
+    expect(
+      oauth.getGoogleOauthClientOptions("http://localhost:3000/callback"),
+    ).toEqual({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: "http://localhost:3000/callback",
+    });
+  });
+
+  it("uses emulator OAuth endpoints when configured", async () => {
+    const oauth = await importGoogleOauthModule({
+      GOOGLE_OAUTH_BASE_URL: "http://localhost:4444/",
+    });
+
+    expect(oauth.isGoogleOauthEmulationEnabled()).toBe(true);
+    expect(oauth.getGoogleOauthDiscoveryUrl()).toBe(
+      "http://localhost:4444/.well-known/openid-configuration",
+    );
+    expect(oauth.getGoogleOauthIssuer()).toBe("http://localhost:4444");
+    expect(
+      oauth.getGoogleOauthClientOptions("http://localhost:3000/callback"),
+    ).toEqual({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      redirectUri: "http://localhost:3000/callback",
+      endpoints: {
+        oauth2AuthBaseUrl: "http://localhost:4444/o/oauth2/v2/auth",
+        oauth2TokenUrl: "http://localhost:4444/oauth2/token",
+        oauth2RevokeUrl: "http://localhost:4444/oauth2/revoke",
+      },
+      issuers: ["http://localhost:4444"],
+    });
+  });
+
+  it("fetches and validates the OpenID profile", async () => {
+    const oauth = await importGoogleOauthModule({
+      GOOGLE_OAUTH_BASE_URL: "http://localhost:4444",
+    });
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        sub: "google-user-1",
+        email: "user@example.com",
+        picture: null,
+      }),
+    } as unknown as Response);
+
+    await expect(oauth.fetchGoogleOpenIdProfile("token")).resolves.toEqual({
+      sub: "google-user-1",
+      email: "user@example.com",
+      picture: null,
+    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://localhost:4444/oauth2/v2/userinfo",
+      {
+        headers: {
+          Authorization: "Bearer token",
+        },
+      },
+    );
+  });
+
+  it("throws when the OpenID profile is missing required fields", async () => {
+    const oauth = await importGoogleOauthModule();
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        sub: "google-user-1",
+      }),
+    } as unknown as Response);
+
+    await expect(oauth.fetchGoogleOpenIdProfile("token")).rejects.toThrow(
+      "Invalid Google profile response",
+    );
+  });
+});
+
+async function importGoogleOauthModule(
+  envOverrides?: Partial<{
+    GOOGLE_CLIENT_ID: string;
+    GOOGLE_CLIENT_SECRET: string;
+    GOOGLE_OAUTH_BASE_URL: string | undefined;
+  }>,
+) {
+  vi.doMock("@/env", () => ({
+    env: {
+      GOOGLE_CLIENT_ID: "client-id",
+      GOOGLE_CLIENT_SECRET: "client-secret",
+      GOOGLE_OAUTH_BASE_URL: undefined,
+      ...envOverrides,
+    },
+  }));
+
+  return import("./oauth");
+}
