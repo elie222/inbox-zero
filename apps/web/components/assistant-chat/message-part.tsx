@@ -535,9 +535,14 @@ export function MessagePart({
   return null;
 }
 
+const INLINE_EMAIL_SECTION_RE =
+  /\n{0,2}##[^\n]*\n\s*<emails>[\s\S]*?<\/emails>/g;
+const INLINE_EMAIL_BLOCK_RE = /\n{0,2}<emails>[\s\S]*?<\/emails>/g;
+
 function stripInlineEmailSections(text: string) {
   return text
-    .replace(/\n{0,2}(?:##[^\n]*\n\s*)?<emails>[\s\S]*?<\/emails>/g, "")
+    .replace(INLINE_EMAIL_SECTION_RE, "")
+    .replace(INLINE_EMAIL_BLOCK_RE, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
