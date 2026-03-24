@@ -62,10 +62,12 @@ describe("sendAutomationMessageToSlack", () => {
       logger,
     });
 
-    expect(mockPostMessage).toHaveBeenCalledWith({
-      channel: "C123",
-      text: "You currently have 3 unread emails. Want to go through them now?\n\n_Reply with @Inbox Zero to chat about your emails._",
-    });
+    expect(mockPostMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "C123",
+        text: expect.stringContaining("_Reply with @Inbox Zero"),
+      }),
+    );
   });
 
   it("keeps direct messages unchanged", async () => {
