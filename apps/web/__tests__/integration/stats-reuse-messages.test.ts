@@ -11,9 +11,8 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
-import { createEmulator, type Emulator } from "emulate";
-import { gmail, auth } from "@googleapis/gmail";
-import { GmailProvider } from "@/utils/email/google";
+import { createGmailTestHarness, type GmailTestHarness } from "./helpers";
+import type { GmailProvider } from "@/utils/email/google";
 import { saveBatch } from "@/utils/actions/stats";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -72,50 +71,24 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "Stats: reuse messages from pagination",
   { timeout: 30_000 },
   () => {
-    let emulator: Emulator;
+    let harness: GmailTestHarness;
     let provider: GmailProvider;
     let fetchSpy: ReturnType<typeof vi.spyOn>;
 
     beforeAll(async () => {
-      emulator = await createEmulator({
-        service: "google",
+      harness = await createGmailTestHarness({
         port: TEST_PORT,
-        seed: {
-          google: {
-            users: [{ email: TEST_EMAIL, name: "Stats Test" }],
-            oauth_clients: [
-              {
-                client_id: "test-client.apps.googleusercontent.com",
-                client_secret: "test-secret",
-                redirect_uris: ["http://localhost:3000/callback"],
-              },
-            ],
-            messages: SEED_MESSAGES,
-          },
-        },
+        email: TEST_EMAIL,
+        messages: SEED_MESSAGES,
       });
-
-      const oauth2Client = new auth.OAuth2(
-        "test-client.apps.googleusercontent.com",
-        "test-secret",
-      );
-      oauth2Client.setCredentials({ access_token: "emulator-token" });
-
-      const gmailClient = gmail({
-        version: "v1",
-        auth: oauth2Client,
-        rootUrl: emulator.url,
-      });
-
-      const logger = createScopedLogger("test");
-      provider = new GmailProvider(gmailClient, logger, "test-account-id");
+      provider = harness.provider;
 
       fetchSpy = vi.spyOn(globalThis, "fetch");
     });
 
     afterAll(async () => {
       fetchSpy?.mockRestore();
-      await emulator?.close();
+      await harness?.emulator.close();
     });
 
     test("saveBatch processes emulator messages and saves to DB", async () => {

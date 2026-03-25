@@ -11,9 +11,7 @@
 
 import http from "node:http";
 import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
-import { createEmulator, type Emulator } from "emulate";
-import { gmail, auth } from "@googleapis/gmail";
-import { GmailProvider } from "@/utils/email/google";
+import { createGmailTestHarness, type GmailTestHarness } from "./helpers";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
@@ -86,9 +84,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "CALL_WEBHOOK action",
   { timeout: 30_000 },
   () => {
-    let emulator: Emulator;
-    let gmailClient: ReturnType<typeof gmail>;
-    let provider: GmailProvider;
+    let harness: GmailTestHarness;
     let threadId: string;
 
     // Local HTTP server to receive webhook calls
@@ -116,53 +112,21 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         webhookServer.listen(WEBHOOK_PORT, resolve),
       );
 
-      // Start Gmail emulator
-      emulator = await createEmulator({
-        service: "google",
+      // Start Gmail emulator via shared harness
+      harness = await createGmailTestHarness({
         port: EMULATOR_PORT,
-        seed: {
-          google: {
-            users: [{ email: TEST_EMAIL, name: "Webhook Test User" }],
-            oauth_clients: [
-              {
-                client_id: "test-client.apps.googleusercontent.com",
-                client_secret: "test-secret",
-                redirect_uris: ["http://localhost:3000/callback"],
-              },
-            ],
-            messages: SEED_MESSAGES,
-          },
-        },
+        email: TEST_EMAIL,
+        messages: SEED_MESSAGES,
       });
 
-      const oauth2Client = new auth.OAuth2(
-        "test-client.apps.googleusercontent.com",
-        "test-secret",
-      );
-      oauth2Client.setCredentials({ access_token: "emulator-token" });
-
-      gmailClient = gmail({
-        version: "v1",
-        auth: oauth2Client,
-        rootUrl: emulator.url,
-      });
-
-      const logger = createScopedLogger("test");
-      provider = new GmailProvider(gmailClient, logger, "test-account-id");
-
-      // Resolve thread ID
-      const msg = await gmailClient.users.messages.get({
-        userId: "me",
-        id: "msg_webhook",
-      });
-      threadId = msg.data.threadId!;
+      threadId = harness.threadIds.msg_webhook;
     });
 
     afterAll(async () => {
       await new Promise<void>((resolve) =>
         webhookServer?.close(() => resolve()),
       );
-      await emulator?.close();
+      await harness?.emulator.close();
     });
 
     test("CALL_WEBHOOK delivers payload with correct structure and secret", async () => {
@@ -230,7 +194,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       };
 
       await executeAct({
-        client: provider,
+        client: harness.provider,
         executedRule,
         message,
         userEmail: TEST_EMAIL,
@@ -348,7 +312,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       };
 
       await executeAct({
-        client: provider,
+        client: harness.provider,
         executedRule,
         message,
         userEmail: TEST_EMAIL,
@@ -361,13 +325,15 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(receivedRequests).toHaveLength(1);
 
       // Label was created and applied in Gmail
-      const labels = await gmailClient.users.labels.list({ userId: "me" });
+      const labels = await harness.gmailClient.users.labels.list({
+        userId: "me",
+      });
       const webhookLabel = labels.data.labels?.find(
         (l) => l.name === "Webhooks",
       );
       expect(webhookLabel).toBeDefined();
 
-      const msg = await gmailClient.users.messages.get({
+      const msg = await harness.gmailClient.users.messages.get({
         userId: "me",
         id: "msg_webhook",
       });

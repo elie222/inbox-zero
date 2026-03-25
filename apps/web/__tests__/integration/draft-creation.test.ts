@@ -10,12 +10,9 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
-import { createEmulator, type Emulator } from "emulate";
-import { gmail, auth } from "@googleapis/gmail";
-import { GmailProvider } from "@/utils/email/google";
+import { createGmailTestHarness, type GmailTestHarness } from "./helpers";
 import { draftEmail } from "@/utils/gmail/mail";
 import { sendDraft } from "@/utils/gmail/draft";
-import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
 
@@ -50,47 +47,22 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "Draft creation & sending",
   { timeout: 30_000 },
   () => {
-    let emulator: Emulator;
-    let gmailClient: ReturnType<typeof gmail>;
-    let provider: GmailProvider;
+    let harness: GmailTestHarness;
+    let gmailClient: GmailTestHarness["gmailClient"];
+    let provider: GmailTestHarness["provider"];
 
     beforeAll(async () => {
-      emulator = await createEmulator({
-        service: "google",
+      harness = await createGmailTestHarness({
         port: TEST_PORT,
-        seed: {
-          google: {
-            users: [{ email: TEST_EMAIL, name: "Draft Test User" }],
-            oauth_clients: [
-              {
-                client_id: "test-client.apps.googleusercontent.com",
-                client_secret: "test-secret",
-                redirect_uris: ["http://localhost:3000/callback"],
-              },
-            ],
-            messages: SEED_MESSAGES,
-          },
-        },
+        email: TEST_EMAIL,
+        messages: SEED_MESSAGES,
       });
-
-      const oauth2Client = new auth.OAuth2(
-        "test-client.apps.googleusercontent.com",
-        "test-secret",
-      );
-      oauth2Client.setCredentials({ access_token: "emulator-token" });
-
-      gmailClient = gmail({
-        version: "v1",
-        auth: oauth2Client,
-        rootUrl: emulator.url,
-      });
-
-      const logger = createScopedLogger("test");
-      provider = new GmailProvider(gmailClient, logger, "test-account-id");
+      gmailClient = harness.gmailClient;
+      provider = harness.provider;
     });
 
     afterAll(async () => {
-      await emulator?.close();
+      await harness?.emulator?.close();
     });
 
     test("draftEmail creates a reply draft on a thread", async () => {
