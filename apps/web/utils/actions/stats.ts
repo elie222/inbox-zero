@@ -176,9 +176,7 @@ async function saveBatch({
     after,
   });
 
-  const messages = await emailProvider.getMessagesBatch(
-    res.messages?.map((m) => m.id).filter(isDefined) || [],
-  );
+  const messages = res.messages ?? [];
 
   const emailsToSave = messages
     .map((m) => {
