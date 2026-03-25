@@ -632,8 +632,8 @@ importers:
         specifier: 11.0.0
         version: 11.0.0
       emulate:
-        specifier: npm:@inbox-zero/emulate@0.2.0-inboxzero.0
-        version: '@inbox-zero/emulate@0.2.0-inboxzero.0(hono@4.11.4)'
+        specifier: npm:@inbox-zero/emulate@0.3.0-inboxzero.0
+        version: '@inbox-zero/emulate@0.3.0-inboxzero.0(hono@4.11.4)'
       jsdom:
         specifier: 27.3.0
         version: 27.3.0
@@ -695,7 +695,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 4.1.0
-        version: 4.1.0(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.1.0)(jsdom@28.1.0(@noble/hashes@2.0.1))(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.1.0(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.1.0)(jsdom@28.1.0(@noble/hashes@2.0.1))(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3))
 
   packages/cli:
     dependencies:
@@ -714,7 +714,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 4.1.0
-        version: 4.1.0(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.1.0)(jsdom@28.1.0(@noble/hashes@2.0.1))(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.1.0(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.1.0)(jsdom@28.1.0(@noble/hashes@2.0.1))(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3))
 
   packages/loops:
     dependencies:
@@ -2980,8 +2980,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@inbox-zero/emulate@0.2.0-inboxzero.0':
-    resolution: {integrity: sha512-/uymkCKwNYhymXwmWDytuGSzC4AwNodCeNM2/kjajjPNjAyHW6NO1OYv8+2NKweOmWlNmZ5yyadbtTeyOtzqjg==}
+  '@inbox-zero/emulate@0.3.0-inboxzero.0':
+    resolution: {integrity: sha512-R0XjJC4tpo8gkdkh4BNRoWhlYolijmces/c+AiQXkq4oxlANWrikE04NP/hVcU2JSrQtM/A9eZPo/1nrdqzCeA==}
     hasBin: true
 
   '@inquirer/ansi@1.0.2':
@@ -12453,6 +12453,11 @@ packages:
     engines: {node: '>= 14.6'}
     hasBin: true
 
+  yaml@2.8.3:
+    resolution: {integrity: sha512-AvbaCLOO2Otw/lW5bmh9d/WEdcDFdQp2Z2ZUH3pX9U2ihyUY0nvLv7J6TrWowklRGPYbB/IuIMfYgxaCPg5Bpg==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
   yn@3.1.1:
     resolution: {integrity: sha512-Ux4ygGWsu2c7isFWe8Yu1YluJmqVhxqK2cLXNQA5AcC3QfbGNpM7fu0Y8b/z16pXLnFxZYvWhd3fhBY9DLmC6Q==}
     engines: {node: '>=6'}
@@ -14733,12 +14738,12 @@ snapshots:
   '@img/sharp-win32-x64@0.34.5':
     optional: true
 
-  '@inbox-zero/emulate@0.2.0-inboxzero.0(hono@4.11.4)':
+  '@inbox-zero/emulate@0.3.0-inboxzero.0(hono@4.11.4)':
     dependencies:
       '@hono/node-server': 1.19.9(hono@4.11.4)
       commander: 14.0.3
       picocolors: 1.1.1
-      yaml: 2.8.2
+      yaml: 2.8.3
     transitivePeerDependencies:
       - hono
 
@@ -19015,6 +19020,14 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  '@vitest/mocker@4.1.0(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3))':
+    dependencies:
+      '@vitest/spy': 4.1.0
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3)
 
   '@vitest/pretty-format@4.1.0':
     dependencies:
@@ -25636,6 +25649,22 @@ snapshots:
       tsx: 4.21.0
       yaml: 2.8.2
 
+  vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3):
+    dependencies:
+      esbuild: 0.27.3
+      fdir: 6.5.0(picomatch@4.0.3)
+      picomatch: 4.0.3
+      postcss: 8.5.6
+      rollup: 4.50.0
+      tinyglobby: 0.2.15
+    optionalDependencies:
+      '@types/node': 24.10.1
+      fsevents: 2.3.3
+      jiti: 2.6.1
+      terser: 5.44.1
+      tsx: 4.21.0
+      yaml: 2.8.3
+
   vitest-mock-extended@3.1.0(typescript@5.9.3)(vitest@4.1.0):
     dependencies:
       ts-essentials: 10.1.1(typescript@5.9.3)
@@ -25672,10 +25701,10 @@ snapshots:
     transitivePeerDependencies:
       - msw
 
-  vitest@4.1.0(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.1.0)(jsdom@28.1.0(@noble/hashes@2.0.1))(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)):
+  vitest@4.1.0(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.1.0)(jsdom@28.1.0(@noble/hashes@2.0.1))(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3)):
     dependencies:
       '@vitest/expect': 4.1.0
-      '@vitest/mocker': 4.1.0(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
+      '@vitest/mocker': 4.1.0(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3))
       '@vitest/pretty-format': 4.1.0
       '@vitest/runner': 4.1.0
       '@vitest/snapshot': 4.1.0
@@ -25692,7 +25721,7 @@ snapshots:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vite: 7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
+      vite: 7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
@@ -25920,6 +25949,8 @@ snapshots:
   yaml@2.8.1: {}
 
   yaml@2.8.2: {}
+
+  yaml@2.8.3: {}
 
   yn@3.1.1:
     optional: true
