@@ -1,21 +1,22 @@
 /**
  * Integration test: webhook → processHistoryItem → action execution
  *
- * Tests the inbound email processing pipeline against a local Gmail emulator:
- * 1. Google sends webhook notification (simulated)
- * 2. processHistoryItem fetches the message via Gmail API
- * 3. Rules are matched (mocked AI) → actions are determined
- * 4. executeAct applies labels/archives via real Gmail API
- * 5. State changes verified in the emulator
- *
- * This is the fast-tier version: Prisma and AI are mocked, Gmail is real.
- * A slow-tier version with real Postgres + Redis would test the full pipeline.
+ * Tests the inbound email processing pipeline against a local Gmail emulator.
+ * Prisma and AI are mocked; Gmail API calls go through the real emulator.
  *
  * Usage:
  *   pnpm test-integration webhook-flow
  */
 
-import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
+import {
+  describe,
+  test,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterAll,
+  vi,
+} from "vitest";
 import { createEmulator, type Emulator } from "emulate";
 import { gmail, auth } from "@googleapis/gmail";
 import { GmailProvider } from "@/utils/email/google";
@@ -34,23 +35,18 @@ vi.mock("next/server", () => ({
   after: vi.fn((fn: () => void) => fn()),
 }));
 
-// Mock Prisma
 const mockExecutedRuleFindFirst = vi.fn().mockResolvedValue(null);
-const mockExecutedRuleCreate = vi.fn();
 const mockExecutedRuleUpdate = vi.fn().mockResolvedValue({});
-const mockNewsletterFindFirst = vi.fn().mockResolvedValue(null);
-const mockNewsletterFindUnique = vi.fn().mockResolvedValue(null);
 
 vi.mock("@/utils/prisma", () => ({
   default: {
     executedRule: {
       findFirst: (...args: unknown[]) => mockExecutedRuleFindFirst(...args),
-      create: (...args: unknown[]) => mockExecutedRuleCreate(...args),
       update: (...args: unknown[]) => mockExecutedRuleUpdate(...args),
     },
     newsletter: {
-      findFirst: (...args: unknown[]) => mockNewsletterFindFirst(...args),
-      findUnique: (...args: unknown[]) => mockNewsletterFindUnique(...args),
+      findFirst: vi.fn().mockResolvedValue(null),
+      findUnique: vi.fn().mockResolvedValue(null),
     },
     action: {
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
@@ -58,9 +54,8 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-// Mock runRules to intercept the rule matching and call executeAct directly
-// This lets us control WHICH rules match while still testing the real
-// Gmail API action execution path.
+// Mock runRules to intercept rule matching and call executeAct directly.
+// This lets us control WHICH rules match while testing real Gmail API execution.
 let capturedRunRulesCall: {
   message: unknown;
   provider: unknown;
@@ -77,7 +72,6 @@ vi.mock("@/utils/ai/choose-rule/run-rules", () => ({
 
     if (runRulesActions.length === 0) return [];
 
-    // Build an executedRule and call executeAct directly with real provider
     const executedRule = {
       id: "exec-flow-1",
       createdAt: new Date(),
@@ -136,7 +130,6 @@ vi.mock("@/utils/ai/choose-rule/run-rules", () => ({
   }),
 }));
 
-// Other mocks
 vi.mock("@/utils/encryption", () => ({
   encrypt: vi.fn((s: string) => s),
   decrypt: vi.fn((s: string) => s),
@@ -220,15 +213,31 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
     const logger = createScopedLogger("test");
 
-    function getTestEmailAccount() {
-      return {
-        ...getEmailAccount({ email: TEST_EMAIL }),
-        autoCategorizeSenders: false,
-        filingEnabled: false,
-        filingPrompt: null,
-        filingConfirmationSendEmail: false,
-        draftReplyConfidence: DraftReplyConfidence.ALL_EMAILS,
-      };
+    const testEmailAccount = {
+      ...getEmailAccount({ email: TEST_EMAIL }),
+      autoCategorizeSenders: false,
+      filingEnabled: false,
+      filingPrompt: null,
+      filingConfirmationSendEmail: false,
+      draftReplyConfidence: DraftReplyConfidence.ALL_EMAILS,
+    };
+
+    function callProcessHistoryItem(
+      messageId: string,
+      overrides?: Partial<Parameters<typeof processHistoryItem>[1]>,
+    ) {
+      return processHistoryItem(
+        { messageId, threadId: threadIds[messageId] },
+        {
+          provider,
+          rules: [],
+          hasAutomationRules: true,
+          hasAiAccess: true,
+          emailAccount: testEmailAccount,
+          logger,
+          ...overrides,
+        },
+      );
     }
 
     beforeAll(async () => {
@@ -264,15 +273,30 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       provider = new GmailProvider(gmailClient, logger, "test-account-id");
 
-      // Resolve thread IDs
-      threadIds = {};
-      for (const seed of SEED_MESSAGES) {
-        const msg = await gmailClient.users.messages.get({
-          userId: "me",
-          id: seed.id,
-        });
-        threadIds[seed.id] = msg.data.threadId!;
-      }
+      // Resolve thread IDs in parallel
+      const entries = await Promise.all(
+        SEED_MESSAGES.map(async (seed) => {
+          const msg = await gmailClient.users.messages.get({
+            userId: "me",
+            id: seed.id,
+          });
+          return [seed.id, msg.data.threadId!] as const;
+        }),
+      );
+      threadIds = Object.fromEntries(entries);
+    });
+
+    beforeEach(async () => {
+      capturedRunRulesCall = null;
+      runRulesActions = [];
+      mockExecutedRuleFindFirst.mockReset().mockResolvedValue(null);
+      mockExecutedRuleUpdate.mockReset().mockResolvedValue({});
+
+      // Clear handleOutboundMessage call history so toHaveBeenCalled is accurate
+      const { handleOutboundMessage } = await import(
+        "@/utils/reply-tracker/handle-outbound"
+      );
+      vi.mocked(handleOutboundMessage).mockClear();
     });
 
     afterAll(async () => {
@@ -280,13 +304,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
 
     test("inbound message: fetches from emulator, runs rules, applies LABEL + ARCHIVE", async () => {
-      capturedRunRulesCall = null;
       runRulesActions = [
         { type: ActionType.LABEL, label: "Support" },
         { type: ActionType.ARCHIVE },
       ];
 
-      // Verify message starts in INBOX with UNREAD
       const before = await gmailClient.users.messages.get({
         userId: "me",
         id: "msg_inbound",
@@ -294,36 +316,21 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(before.data.labelIds).toContain("INBOX");
       expect(before.data.labelIds).toContain("UNREAD");
 
-      // Simulate the webhook handler calling processHistoryItem
-      await processHistoryItem(
-        { messageId: "msg_inbound", threadId: threadIds.msg_inbound },
-        {
-          provider,
-          rules: [], // Rules are handled by the mocked runRules
-          hasAutomationRules: true,
-          hasAiAccess: true,
-          emailAccount: getTestEmailAccount(),
-          logger,
-        },
-      );
+      await callProcessHistoryItem("msg_inbound");
 
-      // Verify runRules was called with the parsed message from emulator
+      // Verify runRules received the parsed message from the emulator
       expect(capturedRunRulesCall).not.toBeNull();
       const capturedMessage = capturedRunRulesCall!.message as any;
       expect(capturedMessage.id).toBe("msg_inbound");
       expect(capturedMessage.headers.from).toContain("customer@external.com");
       expect(capturedMessage.headers.subject).toBe("Support request #1234");
 
-      // Verify actions were applied to the emulator
       const after = await gmailClient.users.messages.get({
         userId: "me",
         id: "msg_inbound",
       });
-
-      // INBOX removed (archived)
       expect(after.data.labelIds).not.toContain("INBOX");
 
-      // "Support" label created and applied
       const labels = await gmailClient.users.labels.list({ userId: "me" });
       const supportLabel = labels.data.labels?.find(
         (l) => l.name === "Support",
@@ -337,54 +344,22 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         "@/utils/reply-tracker/handle-outbound"
       );
 
-      capturedRunRulesCall = null;
-      runRulesActions = [];
+      await callProcessHistoryItem("msg_outbound");
 
-      await processHistoryItem(
-        { messageId: "msg_outbound", threadId: threadIds.msg_outbound },
-        {
-          provider,
-          rules: [],
-          hasAutomationRules: true,
-          hasAiAccess: true,
-          emailAccount: getTestEmailAccount(),
-          logger,
-        },
-      );
-
-      // Outbound messages don't trigger runRules
       expect(capturedRunRulesCall).toBeNull();
-
-      // But handleOutboundMessage is called for reply tracking
       expect(handleOutboundMessage).toHaveBeenCalled();
     });
 
     test("duplicate prevention: second call for same message is skipped", async () => {
-      capturedRunRulesCall = null;
       runRulesActions = [{ type: ActionType.MARK_READ }];
 
-      // Simulate that the rule was already executed for this message
+      // Simulate rule already executed for this message
       mockExecutedRuleFindFirst.mockResolvedValueOnce({ id: "existing-exec" });
 
-      await processHistoryItem(
-        {
-          messageId: "msg_second_inbound",
-          threadId: threadIds.msg_second_inbound,
-        },
-        {
-          provider,
-          rules: [],
-          hasAutomationRules: true,
-          hasAiAccess: true,
-          emailAccount: getTestEmailAccount(),
-          logger,
-        },
-      );
+      await callProcessHistoryItem("msg_second_inbound");
 
-      // runRules should NOT have been called (duplicate skipped)
       expect(capturedRunRulesCall).toBeNull();
 
-      // Message should still have UNREAD (no MARK_READ applied)
       const msg = await gmailClient.users.messages.get({
         userId: "me",
         id: "msg_second_inbound",
@@ -393,30 +368,14 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
 
     test("no AI access: message fetched but no rules run", async () => {
-      // Reset the executedRule mock to allow processing
-      mockExecutedRuleFindFirst.mockResolvedValue(null);
-      capturedRunRulesCall = null;
       runRulesActions = [{ type: ActionType.LABEL, label: "ShouldNotApply" }];
 
-      await processHistoryItem(
-        {
-          messageId: "msg_second_inbound",
-          threadId: threadIds.msg_second_inbound,
-        },
-        {
-          provider,
-          rules: [],
-          hasAutomationRules: true,
-          hasAiAccess: false, // No AI access
-          emailAccount: getTestEmailAccount(),
-          logger,
-        },
-      );
+      await callProcessHistoryItem("msg_second_inbound", {
+        hasAiAccess: false,
+      });
 
-      // runRules not called when no AI access
       expect(capturedRunRulesCall).toBeNull();
 
-      // No label should have been created
       const labels = await gmailClient.users.labels.list({ userId: "me" });
       const badLabel = labels.data.labels?.find(
         (l) => l.name === "ShouldNotApply",
@@ -425,32 +384,16 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
 
     test("MARK_READ action: processes and marks message as read", async () => {
-      capturedRunRulesCall = null;
       runRulesActions = [{ type: ActionType.MARK_READ }];
 
-      // Verify starts UNREAD
       const before = await gmailClient.users.messages.get({
         userId: "me",
         id: "msg_second_inbound",
       });
       expect(before.data.labelIds).toContain("UNREAD");
 
-      await processHistoryItem(
-        {
-          messageId: "msg_second_inbound",
-          threadId: threadIds.msg_second_inbound,
-        },
-        {
-          provider,
-          rules: [],
-          hasAutomationRules: true,
-          hasAiAccess: true,
-          emailAccount: getTestEmailAccount(),
-          logger,
-        },
-      );
+      await callProcessHistoryItem("msg_second_inbound");
 
-      // UNREAD should be removed
       const after = await gmailClient.users.messages.get({
         userId: "me",
         id: "msg_second_inbound",
