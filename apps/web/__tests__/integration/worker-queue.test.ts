@@ -259,6 +259,47 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
     });
 
+    it("processes mail bulk archive jobs with the default worker queues", async () => {
+      const serverInfo = await startTestServer(capturedRequests);
+      server = serverInfo.server;
+      setWorkerTestEnv(serverInfo.port);
+
+      const { startWorkerRuntime } = await import(
+        "../../../worker/src/runtime.mjs"
+      );
+      runtime = await startWorkerRuntime();
+
+      const { enqueueBackgroundJob } = await import("@/utils/queue/dispatch");
+
+      await enqueueBackgroundJob({
+        topic: "mail-bulk-archive",
+        body: {
+          emailAccountId: "account-3",
+          ownerEmail: "owner@example.com",
+          provider: "google",
+          sender: "sender@example.com",
+        },
+        qstash: {
+          queueName: "mail-bulk-archive",
+          parallelism: 1,
+          path: "/api/mail/bulk-archive",
+        },
+        logger: createScopedLogger("test"),
+      });
+
+      expect(capturedRequests).toHaveLength(1);
+      expect(capturedRequests[0]).toMatchObject({
+        body: {
+          emailAccountId: "account-3",
+          ownerEmail: "owner@example.com",
+          provider: "google",
+          sender: "sender@example.com",
+        },
+        method: "POST",
+        url: "/api/mail/bulk-archive",
+      });
+    });
+
     it("honors custom worker queue configuration", async () => {
       const serverInfo = await startTestServer(capturedRequests);
       server = serverInfo.server;

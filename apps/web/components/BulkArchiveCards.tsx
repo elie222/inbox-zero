@@ -30,8 +30,8 @@ import { useThreads } from "@/hooks/useThreads";
 import { formatShortDate } from "@/utils/date";
 import { cn } from "@/utils";
 import {
-  addToArchiveSenderQueue,
   useArchiveSenderStatus,
+  useArchiveSenderQueueActions,
 } from "@/store/archive-sender-queue";
 import {
   addToMarkReadSenderQueue,
@@ -60,6 +60,7 @@ export function BulkArchiveCards({
   onCategoryChange?: () => Promise<unknown>;
 }) {
   const { emailAccountId, userEmail } = useAccount();
+  const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
   const [expandedCategory, setExpandedCategory] = useQueryState("expanded");
   const [expandedSenders, setExpandedSenders] = useState<
     Record<string, boolean>
@@ -230,13 +231,15 @@ export function BulkArchiveCards({
             sender: sender.address,
             emailAccountId,
           });
-        } else {
-          await addToArchiveSenderQueue({
-            sender: sender.address,
-            emailAccountId,
-          });
         }
       }
+
+      if (bulkAction === "archive") {
+        await queueArchiveSenders({
+          senders: selectedToProcess.map((sender) => sender.address),
+        });
+      }
+
       setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
     } catch (_error) {
       toastError({
@@ -605,18 +608,14 @@ function SenderStatus({
   if (archiveStatus?.status) {
     switch (archiveStatus.status) {
       case "completed":
+        if (archiveStatus.queued) {
+          return <span className="text-sm text-blue-600">Queued</span>;
+        }
         return (
           <span className="text-sm text-green-600">
             {archiveStatus.threadsTotal
               ? `Archived ${archiveStatus.threadsTotal}!`
               : "Archived"}
-          </span>
-        );
-      case "processing":
-        return (
-          <span className="text-sm text-blue-600">
-            {archiveStatus.threadsTotal - archiveStatus.threadIds.length} /{" "}
-            {archiveStatus.threadsTotal}
           </span>
         );
       case "pending":
