@@ -773,13 +773,6 @@ export function useBulkArchive<T extends Row>({
 }) {
   const { executeAsync: executeBulkArchive, isExecuting } = useAction(
     bulkArchiveAction.bind(null, emailAccountId),
-    {
-      onSuccess: ({ data }) => {
-        if (data?.mode === "completed") {
-          mutate();
-        }
-      },
-    },
   );
 
   const onBulkArchive = (items: T[]) => {
@@ -937,6 +930,8 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   emailAccountId: string;
   userEmail: string;
 }) {
+  const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
+
   // perform actions using keyboard shortcuts
   // TODO make this available to command-K dialog too
   useEffect(() => {
@@ -997,6 +992,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
             await blockSender({
               sender: item.name,
               emailAccountId,
+              queueArchiveSenders,
             });
             await mutate();
             await refetchPremium();
@@ -1018,6 +1014,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
             mutate,
             refetchPremium,
             emailAccountId,
+            queueArchiveSenders,
           });
           if (!unsubscribed) return;
           return;
@@ -1047,6 +1044,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
     setSelectedRow,
     onOpenNewsletter,
     emailAccountId,
+    queueArchiveSenders,
   ]);
 }
 

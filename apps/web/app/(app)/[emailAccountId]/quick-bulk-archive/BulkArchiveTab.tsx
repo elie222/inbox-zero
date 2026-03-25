@@ -542,13 +542,6 @@ function ArchiveStatus({
       if (status.queued) {
         return <span className="text-sm text-blue-600">Queued</span>;
       }
-      if (status.threadsTotal) {
-        return (
-          <span className="text-sm text-green-600">
-            Archived {status.threadsTotal}!
-          </span>
-        );
-      }
       return <span className="text-sm text-muted-foreground">Archived</span>;
     case "pending":
       return <span className="text-sm text-muted-foreground">Pending...</span>;

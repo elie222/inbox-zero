@@ -105,7 +105,7 @@ describe("archive sender queue", () => {
     });
 
     act(() => {
-      vi.advanceTimersByTime(60_000);
+      vi.advanceTimersByTime(30_000);
     });
 
     expect(statusResult.current).toBeUndefined();

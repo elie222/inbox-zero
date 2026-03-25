@@ -572,13 +572,6 @@ function ArchiveStatusCell({
       if (status.queued) {
         return <span className="text-blue-500">Queued</span>;
       }
-      if (status.threadsTotal) {
-        return (
-          <span className="text-green-500">
-            Archived {status.threadsTotal} emails!
-          </span>
-        );
-      }
       return <span className="text-muted-foreground">Archived</span>;
     case "pending":
       return <span className="text-muted-foreground">Pending...</span>;

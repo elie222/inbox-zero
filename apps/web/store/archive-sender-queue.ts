@@ -13,8 +13,6 @@ type QueueStatus = "pending" | "completed";
 type QueueItem = {
   status: QueueStatus;
   queued?: boolean;
-  threadIds: string[];
-  threadsTotal: number;
 };
 
 const QUEUED_STATUS_TTL_MS = 30_000;
@@ -38,15 +36,7 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
   );
 
   const queueArchiveSenders = useCallback(
-    async ({
-      senders,
-      onSuccess,
-      onError,
-    }: {
-      senders: string[];
-      onSuccess?: (sender: string) => void;
-      onError?: (sender: string) => void;
-    }) => {
+    async ({ senders }: { senders: string[] }) => {
       const uniqueSenders = getUniqueSenders(senders);
       if (!uniqueSenders.length) return;
 
@@ -57,12 +47,7 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
           const queueKey = getQueueKey(emailAccountId, sender);
 
           clearQueueCleanupTimer(queueKey);
-          next.set(queueKey, {
-            status: "pending",
-            queued: false,
-            threadIds: [],
-            threadsTotal: 0,
-          });
+          next.set(queueKey, { status: "pending" });
         }
 
         return next;
@@ -84,10 +69,6 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
           return next;
         });
 
-        for (const sender of uniqueSenders) {
-          onError?.(sender);
-        }
-
         throw new Error(result.serverError);
       }
 
@@ -98,12 +79,7 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
         for (const sender of uniqueSenders) {
           const queueKey = getQueueKey(emailAccountId, sender);
 
-          next.set(queueKey, {
-            status: "completed",
-            queued,
-            threadIds: [],
-            threadsTotal: 0,
-          });
+          next.set(queueKey, { status: "completed", queued });
 
           if (queued) {
             scheduleQueuedStatusCleanup(queueKey);
@@ -114,10 +90,6 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
 
         return next;
       });
-
-      for (const sender of uniqueSenders) {
-        onSuccess?.(sender);
-      }
 
       return result?.data;
     },
