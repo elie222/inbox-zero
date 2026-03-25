@@ -156,6 +156,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       expect(page1.threads.length).toBeLessThanOrEqual(2);
 
+      // With 5 seeded messages and maxResults=2, pagination must exist
+      expect(page1.nextPageToken).toBeDefined();
+
       if (page1.nextPageToken) {
         const page2 = await getThreadsWithNextPageToken({
           gmail: gmailClient,
