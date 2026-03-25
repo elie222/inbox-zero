@@ -5,6 +5,8 @@ import {
   Card,
   CardText,
   type ActionEvent,
+  type CardElement,
+  type CardChild,
   type ModalResponse,
   type ModalSubmitEvent,
 } from "chat";
@@ -493,7 +495,7 @@ async function handleDraftEdit({
         id: SLACK_DRAFT_EDIT_FIELD_ID,
         label: "Draft",
         multiline: true,
-        value: initialContent,
+        initialValue: initialContent,
       },
     ],
   });
@@ -835,8 +837,8 @@ function buildNotificationCard({
   actionId: string;
   actionType: ActionType;
   content: NotificationContent;
-}) {
-  const children = [CardText(content.summary)];
+}): CardElement {
+  const children: CardChild[] = [CardText(content.summary)];
 
   if (content.preview) {
     children.push(CardText(content.preview));
@@ -891,7 +893,7 @@ function buildTerminalCard({
 }: {
   title: string;
   message: string;
-}) {
+}): CardElement {
   return Card({
     title,
     children: [CardText(message)],
@@ -970,7 +972,7 @@ async function postSlackCard({
   rootMessageId,
 }: {
   accessToken: string;
-  card: ReturnType<typeof Card>;
+  card: CardElement;
   channelId: string | null;
   destinationChannelId: string;
   rootMessageId: string | null;

@@ -64,10 +64,15 @@ export async function executeAct({
         actionFailures.push(actionFailure);
       }
 
-      if (action.type === ActionType.DRAFT_EMAIL && actionResult?.draftId) {
+      const draftId =
+        action.type === ActionType.DRAFT_EMAIL
+          ? getDraftId(actionResult)
+          : null;
+
+      if (draftId) {
         await updateExecutedActionWithDraftId({
           actionId: action.id,
-          draftId: actionResult.draftId,
+          draftId,
           logger,
         });
       }
@@ -173,4 +178,17 @@ function buildFailureReason(
 
   if (!existingReason) return failureReason;
   return `${existingReason}\n${failureReason}`;
+}
+
+function getDraftId(actionResult: unknown): string | null {
+  if (
+    !actionResult ||
+    typeof actionResult !== "object" ||
+    !("draftId" in actionResult) ||
+    typeof actionResult.draftId !== "string"
+  ) {
+    return null;
+  }
+
+  return actionResult.draftId;
 }
