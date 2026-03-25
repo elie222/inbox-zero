@@ -182,12 +182,15 @@ export async function createOutlookTestHarness({
 
     if (url.startsWith(graphBaseUrl)) {
       const rewritten = url.replace(graphBaseUrl, emulatorBaseUrl);
+      // Preserve Request metadata (method, body, headers) when rewriting
+      if (input instanceof Request) {
+        return realFetch(new Request(rewritten, input), init);
+      }
       return realFetch(rewritten, init);
     }
     return realFetch(input, init);
   }) as typeof fetch;
 
-  // Store the cleanup function so tests can restore fetch
   const restoreFetch = () => {
     globalThis.fetch = realFetch;
   };
