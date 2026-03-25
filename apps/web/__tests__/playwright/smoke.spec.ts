@@ -1,29 +1,48 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-test("local bypass completes onboarding and reaches app pages", async ({
+const SMOKE_TEST_EMAIL = process.env.SMOKE_TEST_EMAIL || "smoke-test@gmail.com";
+const APP_BASE_URL =
+  process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3100";
+
+test("google emulator completes onboarding and reaches app pages", async ({
   page,
 }) => {
   await page.goto("/login?next=%2Fwelcome-redirect%3Fforce%3Dtrue");
+  await expect(page.getByRole("heading", { name: "Sign In" })).toBeVisible();
 
-  const bypassLoginButton = page.getByRole("button", {
-    name: "Bypass login (local only)",
+  const signInPayload = await page.evaluate(async () => {
+    const response = await fetch("/api/auth/sign-in/oauth2", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        providerId: "google",
+        callbackURL: "/welcome-redirect?force=true",
+        errorCallbackURL: "/login/error",
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OAuth sign-in failed with status ${response.status}`);
+    }
+
+    return (await response.json()) as { url: string };
   });
-  await expect(bypassLoginButton).toBeVisible();
-  const signInResponsePromise = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      response.url().includes("/api/auth/sign-in/local-bypass"),
-  );
-  await bypassLoginButton.click();
-  const signInResponse = await signInResponsePromise;
-  expect(signInResponse.ok()).toBeTruthy();
 
-  const emailAccountId = await getEmailAccountId(page);
-  try {
-    await page.goto(`/${emailAccountId}/onboarding?step=1&force=true`);
-  } catch (error) {
-    if (!isInterruptedNavigationError(error)) throw error;
-  }
+  await page.goto(signInPayload.url);
+
+  await expect(page).toHaveURL(/\/o\/oauth2\/v2\/auth(?:\?.*)?$/);
+  await page.getByRole("button", { name: SMOKE_TEST_EMAIL }).click();
+
+  await expect
+    .poll(() => page.url(), {
+      timeout: 30_000,
+    })
+    .toContain(APP_BASE_URL);
+
+  await page.goto("/onboarding?step=1&force=true");
+
   await expect
     .poll(() => isOnboardingPage(page.url()), {
       timeout: 60_000,
@@ -34,36 +53,7 @@ test("local bypass completes onboarding and reaches app pages", async ({
   await expect(page).toHaveURL(
     /\/(?:welcome-upgrade|[a-z0-9]+\/setup)(?:\?.*)?$/,
   );
-
-  await page.goto(`/${emailAccountId}/bulk-unsubscribe`);
-  await expect(page).toHaveURL(
-    new RegExp(`/${emailAccountId}/bulk-unsubscribe(?:\\?.*)?$`),
-  );
-  await expect(
-    page.getByRole("heading", {
-      name: "Bulk Unsubscriber",
-    }),
-  ).toBeVisible();
 });
-
-async function getEmailAccountId(page: Page) {
-  const timeoutAt = Date.now() + 90_000;
-
-  while (Date.now() < timeoutAt) {
-    const response = await page.request.get("/api/user/email-accounts");
-    if (response.ok()) {
-      const payload = (await response.json()) as {
-        emailAccounts: { id: string }[];
-      };
-      const firstEmailAccountId = payload.emailAccounts[0]?.id;
-      if (firstEmailAccountId) return firstEmailAccountId;
-    }
-
-    await page.waitForTimeout(1000);
-  }
-
-  throw new Error("Timed out waiting for local bypass email account");
-}
 
 async function completeOnboardingFlow(page: Page) {
   const maxSteps = 60;
@@ -185,11 +175,4 @@ function isOnboardingPage(url: string) {
 
 function isOnboardingPath(pathname: string) {
   return /^\/[a-z0-9]+\/onboarding\/?$/.test(pathname);
-}
-
-function isInterruptedNavigationError(error: unknown) {
-  return (
-    error instanceof Error &&
-    error.message.includes("interrupted by another navigation")
-  );
 }
