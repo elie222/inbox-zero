@@ -46,6 +46,8 @@ export const env = createEnv({
     NEXTAUTH_SECRET: z.string().optional(),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
+    // Local Google emulation only; used for both OAuth and resource APIs.
+    GOOGLE_BASE_URL: z.string().url().optional(),
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
     MICROSOFT_TENANT_ID: z.string().optional().default("common"),

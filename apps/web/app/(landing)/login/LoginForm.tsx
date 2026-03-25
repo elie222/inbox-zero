@@ -14,13 +14,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { signIn } from "@/utils/auth-client";
+import { signIn, signInWithOauth2 } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 import { toastError } from "@/components/Toast";
 import { isInternalPath } from "@/utils/path";
 import { getPossessiveBrandName } from "@/utils/branding";
 
-export function LoginForm({ showLocalBypass }: { showLocalBypass: boolean }) {
+export function LoginForm({
+  showLocalBypass,
+  useGoogleOauthEmulator,
+}: {
+  showLocalBypass: boolean;
+  useGoogleOauthEmulator: boolean;
+}) {
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
   const { callbackURL, errorCallbackURL } = getAuthCallbackUrls(next);
@@ -30,13 +36,30 @@ export function LoginForm({ showLocalBypass }: { showLocalBypass: boolean }) {
   const [loadingLocalBypass, setLoadingLocalBypass] = useState(false);
 
   const handleGoogleSignIn = async () => {
-    await handleSocialSignIn({
-      provider: "google",
-      providerName: "Google",
-      callbackURL,
-      errorCallbackURL,
-      setLoading: setLoadingGoogle,
-    });
+    setLoadingGoogle(true);
+    try {
+      if (useGoogleOauthEmulator) {
+        await signInWithOauth2({
+          providerId: "google",
+          errorCallbackURL,
+          callbackURL,
+        });
+      } else {
+        await signIn.social({
+          provider: "google",
+          errorCallbackURL,
+          callbackURL,
+        });
+      }
+    } catch (error) {
+      console.error("Error signing in with Google:", error);
+      toastError({
+        title: "Error signing in with Google",
+        description: "Please try again or contact support",
+      });
+    } finally {
+      setLoadingGoogle(false);
+    }
   };
 
   const handleMicrosoftSignIn = async () => {

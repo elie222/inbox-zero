@@ -10,6 +10,7 @@ import { GoogleDriveProvider } from "@/utils/drive/providers/google";
 import { MICROSOFT_DRIVE_SCOPES } from "@/utils/drive/scopes";
 import { SafeError } from "@/utils/error";
 import { env } from "@/env";
+import { getGoogleOauthTokenUrl } from "@/utils/google/oauth";
 import prisma from "@/utils/prisma";
 
 type OAuthTokenResponse = {
@@ -187,7 +188,7 @@ async function refreshGoogleDriveToken(
     throw new Error("Google login not enabled - missing credentials");
   }
 
-  const response = await fetch("https://oauth2.googleapis.com/token", {
+  const response = await fetch(getGoogleOauthTokenUrl(), {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",

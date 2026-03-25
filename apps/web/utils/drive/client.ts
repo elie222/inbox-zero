@@ -1,6 +1,11 @@
 import { auth } from "@googleapis/drive";
 import { env } from "@/env";
 import {
+  fetchGoogleOpenIdProfile,
+  getGoogleOauthClientOptions,
+  isGoogleOauthEmulationEnabled,
+} from "@/utils/google/oauth";
+import {
   GOOGLE_DRIVE_FULL_SCOPES,
   GOOGLE_DRIVE_SCOPES,
   MICROSOFT_DRIVE_SCOPES,
@@ -14,11 +19,11 @@ import {
  * Creates an OAuth2 client for Google Drive authentication
  */
 export function getGoogleDriveOAuth2Client() {
-  return new auth.OAuth2({
-    clientId: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-    redirectUri: `${env.NEXT_PUBLIC_BASE_URL}/api/google/drive/callback`,
-  });
+  return new auth.OAuth2(
+    getGoogleOauthClientOptions(
+      `${env.NEXT_PUBLIC_BASE_URL}/api/google/drive/callback`,
+    ),
+  );
 }
 
 /**
@@ -52,13 +57,33 @@ export async function exchangeGoogleDriveCode(code: string) {
     throw new Error("No access or refresh token returned from Google");
   }
 
-  // Get user email from ID token
-  if (!tokens.id_token) {
+  const profile = isGoogleOauthEmulationEnabled()
+    ? await fetchGoogleOpenIdProfile(tokens.access_token)
+    : await verifyGoogleIdTokenPayload(oauth2Client, tokens.id_token);
+  const email = profile.email;
+
+  if (!email) {
+    throw new Error("Could not get email from Google profile");
+  }
+
+  return {
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token,
+    expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+    email,
+  };
+}
+
+async function verifyGoogleIdTokenPayload(
+  oauth2Client: ReturnType<typeof getGoogleDriveOAuth2Client>,
+  idToken: string | null | undefined,
+) {
+  if (!idToken) {
     throw new Error("No ID token returned from Google");
   }
 
   const ticket = await oauth2Client.verifyIdToken({
-    idToken: tokens.id_token,
+    idToken,
     audience: env.GOOGLE_CLIENT_ID,
   });
   const payload = ticket.getPayload();
@@ -67,12 +92,7 @@ export async function exchangeGoogleDriveCode(code: string) {
     throw new Error("Could not get email from Google ID token");
   }
 
-  return {
-    accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token,
-    expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-    email: payload.email,
-  };
+  return payload;
 }
 
 // ============================================================================
