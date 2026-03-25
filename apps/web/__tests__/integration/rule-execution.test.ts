@@ -11,9 +11,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
-import { createEmulator, type Emulator } from "emulate";
-import { gmail, auth } from "@googleapis/gmail";
-import { GmailProvider } from "@/utils/email/google";
+import { createGmailTestHarness, type GmailTestHarness } from "./helpers";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
@@ -104,58 +102,22 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "Rule execution (executeAct)",
   { timeout: 30_000 },
   () => {
-    let emulator: Emulator;
-    let gmailClient: ReturnType<typeof gmail>;
-    let provider: GmailProvider;
-    let threadIds: Record<string, string>;
+    let harness: GmailTestHarness;
+    let gmailClient: GmailTestHarness["gmailClient"];
+    let provider: GmailTestHarness["provider"];
+    let threadIds: GmailTestHarness["threadIds"];
 
     beforeAll(async () => {
-      emulator = await createEmulator({
-        service: "google",
+      harness = await createGmailTestHarness({
         port: TEST_PORT,
-        seed: {
-          google: {
-            users: [{ email: TEST_EMAIL, name: "Rules Test User" }],
-            oauth_clients: [
-              {
-                client_id: "test-client.apps.googleusercontent.com",
-                client_secret: "test-secret",
-                redirect_uris: ["http://localhost:3000/callback"],
-              },
-            ],
-            messages: SEED_MESSAGES,
-          },
-        },
+        email: TEST_EMAIL,
+        messages: SEED_MESSAGES,
       });
-
-      const oauth2Client = new auth.OAuth2(
-        "test-client.apps.googleusercontent.com",
-        "test-secret",
-      );
-      oauth2Client.setCredentials({ access_token: "emulator-token" });
-
-      gmailClient = gmail({
-        version: "v1",
-        auth: oauth2Client,
-        rootUrl: emulator.url,
-      });
-
-      const logger = createScopedLogger("test");
-      provider = new GmailProvider(gmailClient, logger, "test-account-id");
-
-      // Resolve thread IDs
-      threadIds = {};
-      for (const seed of SEED_MESSAGES) {
-        const msg = await gmailClient.users.messages.get({
-          userId: "me",
-          id: seed.id,
-        });
-        threadIds[seed.id] = msg.data.threadId!;
-      }
+      ({ gmailClient, provider, threadIds } = harness);
     });
 
     afterAll(async () => {
-      await emulator?.close();
+      await harness?.emulator.close();
     });
 
     function buildExecutedRule(

@@ -17,9 +17,7 @@ import {
   afterAll,
   vi,
 } from "vitest";
-import { createEmulator, type Emulator } from "emulate";
-import { gmail, auth } from "@googleapis/gmail";
-import { GmailProvider } from "@/utils/email/google";
+import { createGmailTestHarness, type GmailTestHarness } from "./helpers";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import {
@@ -206,10 +204,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "Webhook → processHistoryItem → action execution",
   { timeout: 30_000 },
   () => {
-    let emulator: Emulator;
-    let gmailClient: ReturnType<typeof gmail>;
-    let provider: GmailProvider;
-    let threadIds: Record<string, string>;
+    let harness: GmailTestHarness;
 
     const logger = createScopedLogger("test");
 
@@ -227,9 +222,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       overrides?: Partial<Parameters<typeof processHistoryItem>[1]>,
     ) {
       return processHistoryItem(
-        { messageId, threadId: threadIds[messageId] },
+        { messageId, threadId: harness.threadIds[messageId] },
         {
-          provider,
+          provider: harness.provider,
           rules: [],
           hasAutomationRules: true,
           hasAiAccess: true,
@@ -241,49 +236,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     }
 
     beforeAll(async () => {
-      emulator = await createEmulator({
-        service: "google",
+      harness = await createGmailTestHarness({
         port: TEST_PORT,
-        seed: {
-          google: {
-            users: [{ email: TEST_EMAIL, name: "Webhook Flow Test" }],
-            oauth_clients: [
-              {
-                client_id: "test-client.apps.googleusercontent.com",
-                client_secret: "test-secret",
-                redirect_uris: ["http://localhost:3000/callback"],
-              },
-            ],
-            messages: SEED_MESSAGES,
-          },
-        },
+        email: TEST_EMAIL,
+        messages: SEED_MESSAGES,
       });
-
-      const oauth2Client = new auth.OAuth2(
-        "test-client.apps.googleusercontent.com",
-        "test-secret",
-      );
-      oauth2Client.setCredentials({ access_token: "emulator-token" });
-
-      gmailClient = gmail({
-        version: "v1",
-        auth: oauth2Client,
-        rootUrl: emulator.url,
-      });
-
-      provider = new GmailProvider(gmailClient, logger, "test-account-id");
-
-      // Resolve thread IDs in parallel
-      const entries = await Promise.all(
-        SEED_MESSAGES.map(async (seed) => {
-          const msg = await gmailClient.users.messages.get({
-            userId: "me",
-            id: seed.id,
-          });
-          return [seed.id, msg.data.threadId!] as const;
-        }),
-      );
-      threadIds = Object.fromEntries(entries);
     });
 
     beforeEach(async () => {
@@ -300,7 +257,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
 
     afterAll(async () => {
-      await emulator?.close();
+      await harness?.emulator?.close();
     });
 
     test("inbound message: fetches from emulator, runs rules, applies LABEL + ARCHIVE", async () => {
@@ -309,7 +266,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         { type: ActionType.ARCHIVE },
       ];
 
-      const before = await gmailClient.users.messages.get({
+      const before = await harness.gmailClient.users.messages.get({
         userId: "me",
         id: "msg_inbound",
       });
@@ -325,13 +282,15 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(capturedMessage.headers.from).toContain("customer@external.com");
       expect(capturedMessage.headers.subject).toBe("Support request #1234");
 
-      const after = await gmailClient.users.messages.get({
+      const after = await harness.gmailClient.users.messages.get({
         userId: "me",
         id: "msg_inbound",
       });
       expect(after.data.labelIds).not.toContain("INBOX");
 
-      const labels = await gmailClient.users.labels.list({ userId: "me" });
+      const labels = await harness.gmailClient.users.labels.list({
+        userId: "me",
+      });
       const supportLabel = labels.data.labels?.find(
         (l) => l.name === "Support",
       );
@@ -360,7 +319,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       expect(capturedRunRulesCall).toBeNull();
 
-      const msg = await gmailClient.users.messages.get({
+      const msg = await harness.gmailClient.users.messages.get({
         userId: "me",
         id: "msg_second_inbound",
       });
@@ -376,7 +335,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       expect(capturedRunRulesCall).toBeNull();
 
-      const labels = await gmailClient.users.labels.list({ userId: "me" });
+      const labels = await harness.gmailClient.users.labels.list({
+        userId: "me",
+      });
       const badLabel = labels.data.labels?.find(
         (l) => l.name === "ShouldNotApply",
       );
@@ -386,7 +347,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     test("MARK_READ action: processes and marks message as read", async () => {
       runRulesActions = [{ type: ActionType.MARK_READ }];
 
-      const before = await gmailClient.users.messages.get({
+      const before = await harness.gmailClient.users.messages.get({
         userId: "me",
         id: "msg_second_inbound",
       });
@@ -394,7 +355,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       await callProcessHistoryItem("msg_second_inbound");
 
-      const after = await gmailClient.users.messages.get({
+      const after = await harness.gmailClient.users.messages.get({
         userId: "me",
         id: "msg_second_inbound",
       });
