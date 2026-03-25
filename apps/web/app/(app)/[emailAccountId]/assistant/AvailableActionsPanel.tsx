@@ -21,6 +21,7 @@ const actionNames: Record<ActionType, string> = {
   [ActionType.SEND_EMAIL]: "Send email",
   [ActionType.CALL_WEBHOOK]: "Call webhook",
   [ActionType.DIGEST]: "Add to digest",
+  [ActionType.NOTIFY_MESSAGING_CHANNEL]: "Notify via chat app",
   [ActionType.NOTIFY_SENDER]: "Notify sender",
 };
 

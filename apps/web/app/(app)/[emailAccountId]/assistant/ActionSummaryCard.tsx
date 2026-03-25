@@ -204,6 +204,10 @@ export function ActionSummaryCard({
       summaryContent = `Folder: ${action.folderName?.value || "unset"}`;
       break;
 
+    case ActionType.NOTIFY_MESSAGING_CHANNEL:
+      summaryContent = "Notify via chat app";
+      break;
+
     case ActionType.NOTIFY_SENDER:
       summaryContent = "Notify sender";
       tooltipText = `Sends an automated notification from ${BRAND_NAME} (not from your email) informing the sender their email was filtered as cold outreach.`;

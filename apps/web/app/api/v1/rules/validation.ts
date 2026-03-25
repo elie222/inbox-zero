@@ -40,12 +40,14 @@ const ruleActionTypeSchema = z.enum([
   ActionType.DIGEST,
   ActionType.CALL_WEBHOOK,
   ActionType.MOVE_FOLDER,
+  ActionType.NOTIFY_MESSAGING_CHANNEL,
   ActionType.NOTIFY_SENDER,
 ]);
 
 const actionSchema = z
   .object({
     type: ruleActionTypeSchema,
+    messagingChannelId: z.string().nullish(),
     fields: z
       .object({
         label: z.string().nullish(),
@@ -98,6 +100,15 @@ const actionSchema = z
       path: ["fields", "folderName"],
       ctx,
     });
+    addMissingActionFieldIssue({
+      actionType: action.type,
+      requiredActionType: ActionType.NOTIFY_MESSAGING_CHANNEL,
+      fieldValue: action.messagingChannelId,
+      message:
+        "NOTIFY_MESSAGING_CHANNEL requires a value in messagingChannelId.",
+      path: ["messagingChannelId"],
+      ctx,
+    });
   });
 
 export const rulePathParamsSchema = z.object({
@@ -113,6 +124,7 @@ export const ruleRequestBodySchema = z.object({
 
 const ruleActionResponseSchema = z.object({
   type: ruleActionTypeSchema,
+  messagingChannelId: z.string().nullable().optional(),
   fields: z.object({
     label: z.string().nullable(),
     to: z.string().nullable(),

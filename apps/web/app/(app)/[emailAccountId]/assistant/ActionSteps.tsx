@@ -47,6 +47,10 @@ import { MutedText } from "@/components/Typography";
 import { BRAND_NAME } from "@/utils/branding";
 import { ActionAttachmentsField } from "@/app/(app)/[emailAccountId]/assistant/ActionAttachmentsField";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import { getMessagingProviderName } from "@/utils/messaging/platforms";
+import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
+
+type MessagingChannelOption = GetMessagingChannelsResponse["channels"][number];
 
 export function ActionSteps({
   actionFields,
@@ -63,6 +67,7 @@ export function ActionSteps({
   typeOptions,
   folders,
   foldersLoading,
+  messagingChannels,
   append,
   attachmentSources,
   onAttachmentSourcesChange,
@@ -81,6 +86,7 @@ export function ActionSteps({
   typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
+  messagingChannels: MessagingChannelOption[];
   append: (action: CreateRuleBody["actions"][number]) => void;
   attachmentSources: AttachmentSourceInput[];
   onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
@@ -109,6 +115,7 @@ export function ActionSteps({
           typeOptions={typeOptions}
           folders={folders}
           foldersLoading={foldersLoading}
+          messagingChannels={messagingChannels}
           attachmentSources={attachmentSources}
           onAttachmentSourcesChange={onAttachmentSourcesChange}
         />
@@ -132,6 +139,7 @@ function ActionCard({
   typeOptions,
   folders,
   foldersLoading,
+  messagingChannels,
   attachmentSources,
   onAttachmentSourcesChange,
 }: {
@@ -150,6 +158,7 @@ function ActionCard({
   typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
+  messagingChannels: MessagingChannelOption[];
   attachmentSources: AttachmentSourceInput[];
   onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
@@ -174,6 +183,11 @@ function ActionCard({
 
   const delayValue = watch(`actions.${index}.delayInMinutes`);
   const delayEnabled = !!delayValue;
+  const selectedMessagingChannelId =
+    watch(`actions.${index}.messagingChannelId`) ?? null;
+  const selectedMessagingChannel = messagingChannels.find(
+    (channel) => channel.id === selectedMessagingChannelId,
+  );
 
   // Helper function to determine if a field can use variables based on context
   const canFieldUseVariables = (
@@ -549,6 +563,8 @@ function ActionCard({
     actionType === ActionType.DRAFT_EMAIL && !contentSetManually;
 
   const isNotifySender = actionType === ActionType.NOTIFY_SENDER;
+  const isMessagingNotification =
+    actionType === ActionType.NOTIFY_MESSAGING_CHANNEL;
 
   const supportsAttachments =
     actionType === ActionType.DRAFT_EMAIL ||
@@ -556,7 +572,9 @@ function ActionCard({
     actionType === ActionType.SEND_EMAIL;
   const supportsAiSelectedSources = actionType === ActionType.DRAFT_EMAIL;
   const canConfigureStaticAttachments =
-    actionType === ActionType.DRAFT_EMAIL ? contentSetManually : supportsAttachments;
+    actionType === ActionType.DRAFT_EMAIL
+      ? contentSetManually
+      : supportsAttachments;
 
   const staticAttachments = useWatch({
     control,
@@ -577,6 +595,30 @@ function ActionCard({
     />
   ) : null;
 
+  const connectedMessagingChannels = messagingChannels.filter(
+    (channel) => channel.isConnected && channel.hasSendDestination,
+  );
+
+  const deliveryField =
+    actionType === ActionType.DRAFT_EMAIL ? (
+      <MessagingChannelField
+        control={control}
+        index={index}
+        label="Deliver to"
+        includeEmailOption
+        messagingChannels={connectedMessagingChannels}
+        selectedChannel={selectedMessagingChannel}
+      />
+    ) : isMessagingNotification ? (
+      <MessagingChannelField
+        control={control}
+        index={index}
+        label="Send to"
+        messagingChannels={connectedMessagingChannels}
+        selectedChannel={selectedMessagingChannel}
+      />
+    ) : null;
+
   const rightContent = (
     <>
       {isNotifySender ? (
@@ -585,15 +627,19 @@ function ActionCard({
         </MutedText>
       ) : isDraftEmailWithoutManualContent ? (
         <Card className="p-4 space-y-4">
+          {deliveryField}
           <MutedText className="px-1 h-full flex items-center">
-            Our AI generates a draft reply from your email history and
-            knowledge base.
+            Our AI generates a draft reply from your email history and knowledge
+            base.
           </MutedText>
           {delayControls}
           {attachmentsField}
         </Card>
+      ) : isMessagingNotification ? (
+        <Card className="p-4 space-y-4">{deliveryField}</Card>
       ) : isEmailAction || actionType === ActionType.CALL_WEBHOOK ? (
         <Card className="p-4 space-y-4">
+          {deliveryField}
           {fieldsContent}
           {shouldShowProTip && <VariableProTip />}
           {delayControls}
@@ -666,6 +712,93 @@ function ActionCard({
       isManualMode={contentSetManually}
     />
   );
+}
+
+function MessagingChannelField({
+  control,
+  index,
+  label,
+  includeEmailOption = false,
+  messagingChannels,
+  selectedChannel,
+}: {
+  control: Control<CreateRuleBody>;
+  index: number;
+  label: string;
+  includeEmailOption?: boolean;
+  messagingChannels: MessagingChannelOption[];
+  selectedChannel?: MessagingChannelOption;
+}) {
+  return (
+    <FormField
+      control={control}
+      name={`actions.${index}.messagingChannelId`}
+      render={({ field, fieldState }) => {
+        const value = field.value ?? (includeEmailOption ? "email" : undefined);
+        const showDisconnectedOption =
+          !!selectedChannel &&
+          !messagingChannels.some(
+            (channel) => channel.id === selectedChannel.id,
+          );
+
+        return (
+          <div className="space-y-2">
+            <Label>{label}</Label>
+            <Select
+              value={value}
+              onValueChange={(nextValue) =>
+                field.onChange(nextValue === "email" ? null : nextValue)
+              }
+            >
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      messagingChannels.length > 0
+                        ? "Choose a destination"
+                        : "No connected destinations"
+                    }
+                  />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {includeEmailOption ? (
+                  <SelectItem value="email">Email</SelectItem>
+                ) : null}
+                {messagingChannels.map((channel) => (
+                  <SelectItem key={channel.id} value={channel.id}>
+                    {formatMessagingDestinationLabel(channel)}
+                  </SelectItem>
+                ))}
+                {showDisconnectedOption && selectedChannel ? (
+                  <SelectItem value={selectedChannel.id}>
+                    {formatMessagingDestinationLabel(selectedChannel)}{" "}
+                    (Disconnected)
+                  </SelectItem>
+                ) : null}
+              </SelectContent>
+            </Select>
+            {fieldState.error?.message ? (
+              <ErrorMessage message={fieldState.error.message} />
+            ) : null}
+          </div>
+        );
+      }}
+    />
+  );
+}
+
+function formatMessagingDestinationLabel(channel: MessagingChannelOption) {
+  const provider = getMessagingProviderName(channel.provider);
+
+  if (channel.isDm) return `${provider} DM`;
+  if (channel.channelName && channel.teamName) {
+    return `#${channel.channelName} (${channel.teamName})`;
+  }
+  if (channel.channelName) return `#${channel.channelName}`;
+  if (channel.teamName) return `${provider} (${channel.teamName})`;
+
+  return provider;
 }
 
 function VariableExamplesDialog() {

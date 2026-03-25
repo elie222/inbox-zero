@@ -12,6 +12,7 @@ import {
 } from "@/utils/attachments/draft-attachments";
 import { createScopedLogger } from "@/utils/logger";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
+import { sendSlackRuleNotification } from "@/utils/messaging/rule-notifications";
 import type { ParsedMessage } from "@/utils/types";
 vi.mock("server-only", () => ({}));
 
@@ -25,6 +26,10 @@ vi.mock("@/utils/attachments/draft-attachments", () => ({
     selectedAttachments: [],
     attachmentContext: null,
   }),
+}));
+
+vi.mock("@/utils/messaging/rule-notifications", () => ({
+  sendSlackRuleNotification: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("runActionFunction", () => {
@@ -167,6 +172,68 @@ describe("runActionFunction", () => {
       "user@example.com",
       expect.objectContaining({ id: "executed-rule-1" }),
     );
+  });
+
+  it("sends Slack-targeted drafts as messaging notifications instead of mailbox drafts", async () => {
+    const client = createMockEmailProvider();
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.DRAFT_EMAIL,
+        messagingChannelId: "channel-1",
+        content: "Draft in chat",
+      },
+      userEmail: "user@example.com",
+      userId: "user-1",
+      emailAccountId: "account-1",
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(sendSlackRuleNotification).toHaveBeenCalledWith({
+      executedActionId: "action-1",
+      email,
+      logger: expect.anything(),
+    });
+    expect(client.draftEmail).not.toHaveBeenCalled();
+  });
+
+  it("sends NOTIFY_MESSAGING_CHANNEL actions through the messaging notification path", async () => {
+    const client = createMockEmailProvider();
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+      },
+      userEmail: "user@example.com",
+      userId: "user-1",
+      emailAccountId: "account-1",
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(sendSlackRuleNotification).toHaveBeenCalledWith({
+      executedActionId: "action-1",
+      email,
+      logger: expect.anything(),
+    });
   });
 
   it("passes static attachments into replies", async () => {

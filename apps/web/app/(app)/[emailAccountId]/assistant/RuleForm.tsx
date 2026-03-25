@@ -30,6 +30,7 @@ import {
 import { Toggle } from "@/components/Toggle";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { useLabels } from "@/hooks/useLabels";
+import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { AlertError } from "@/components/Alert";
 import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -150,6 +151,7 @@ export function RuleForm({
   } = useFieldArray({ control, name: "actions" });
 
   const { userLabels, isLoading, mutate: mutateLabels } = useLabels();
+  const { data: messagingChannelsData } = useMessagingChannels(emailAccountId);
   const { folders, isLoading: foldersLoading } = useFolders(provider);
   const router = useRouter();
 
@@ -309,7 +311,8 @@ export function RuleForm({
       const actionError =
         formState.errors?.actions?.[index]?.url?.root?.message ||
         formState.errors?.actions?.[index]?.labelId?.root?.message ||
-        formState.errors?.actions?.[index]?.to?.root?.message;
+        formState.errors?.actions?.[index]?.to?.root?.message ||
+        formState.errors?.actions?.[index]?.messagingChannelId?.message;
       if (actionError) actionErrors.push(actionError);
     });
     return actionErrors;
@@ -325,6 +328,14 @@ export function RuleForm({
   }, [formState]);
 
   const typeOptions = useMemo(() => {
+    const connectedMessagingChannels =
+      messagingChannelsData?.channels.filter(
+        (channel) =>
+          channel.provider === "SLACK" &&
+          channel.isConnected &&
+          channel.hasSendDestination,
+      ) ?? [];
+
     const options: {
       label: string;
       value: ActionType;
@@ -392,6 +403,15 @@ export function RuleForm({
         value: ActionType.CALL_WEBHOOK,
         icon: getActionIcon(ActionType.CALL_WEBHOOK),
       },
+      ...(connectedMessagingChannels.length > 0
+        ? [
+            {
+              label: "Notify via chat app",
+              value: ActionType.NOTIFY_MESSAGING_CHANNEL,
+              icon: getActionIcon(ActionType.NOTIFY_MESSAGING_CHANNEL),
+            },
+          ]
+        : []),
       // NOTIFY_SENDER is only available for cold email rules
       ...(rule.systemType === SystemType.COLD_EMAIL &&
       env.NEXT_PUBLIC_IS_RESEND_CONFIGURED
@@ -406,7 +426,12 @@ export function RuleForm({
     ];
 
     return options;
-  }, [provider, terminology.label.action, rule.systemType]);
+  }, [
+    messagingChannelsData?.channels,
+    provider,
+    terminology.label.action,
+    rule.systemType,
+  ]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -519,6 +544,11 @@ export function RuleForm({
             typeOptions={typeOptions}
             folders={folders}
             foldersLoading={foldersLoading}
+            messagingChannels={
+              messagingChannelsData?.channels.filter(
+                (channel) => channel.provider === "SLACK",
+              ) ?? []
+            }
             attachmentSources={attachmentSources}
             onAttachmentSourcesChange={setAttachmentSources}
           />

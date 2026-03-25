@@ -17,6 +17,7 @@ export type EmailForAction = Pick<
 export type ActionItem = {
   id: ExecutedAction["id"];
   type: ExecutedAction["type"];
+  messagingChannelId?: ExecutedAction["messagingChannelId"];
   label?: ExecutedAction["label"];
   labelId?: ExecutedAction["labelId"];
   subject?: ExecutedAction["subject"];

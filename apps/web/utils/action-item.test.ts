@@ -41,6 +41,12 @@ describe("actionInputs", () => {
     expect(fields).toHaveLength(1);
     expect(fields[0].name).toBe("url");
   });
+
+  it("NOTIFY_MESSAGING_CHANNEL has no fields", () => {
+    expect(actionInputs[ActionType.NOTIFY_MESSAGING_CHANNEL].fields).toEqual(
+      [],
+    );
+  });
 });
 
 describe("getActionFields", () => {
@@ -130,6 +136,14 @@ describe("sanitizeActionFields", () => {
     it("returns base fields for NOTIFY_SENDER", () => {
       const result = sanitizeActionFields({ type: ActionType.NOTIFY_SENDER });
       expect(result.type).toBe(ActionType.NOTIFY_SENDER);
+    });
+
+    it("returns base fields for NOTIFY_MESSAGING_CHANNEL", () => {
+      const result = sanitizeActionFields({
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+      });
+      expect(result.type).toBe(ActionType.NOTIFY_MESSAGING_CHANNEL);
+      expect(result.messagingChannelId).toBeNull();
     });
   });
 
@@ -281,9 +295,10 @@ describe("sanitizeActionFields", () => {
   });
 
   describe("DRAFT_EMAIL action", () => {
-    it("preserves subject, content, to, cc, and bcc fields", () => {
+    it("preserves subject, content, to, cc, bcc, and messagingChannelId fields", () => {
       const result = sanitizeActionFields({
         type: ActionType.DRAFT_EMAIL,
+        messagingChannelId: "channel-1",
         subject: "Draft Subject",
         content: "Draft Content",
         to: "draft@test.com",
@@ -295,6 +310,20 @@ describe("sanitizeActionFields", () => {
       expect(result.to).toBe("draft@test.com");
       expect(result.cc).toBe("cc@test.com");
       expect(result.bcc).toBe("bcc@test.com");
+      expect(result.messagingChannelId).toBe("channel-1");
+    });
+  });
+
+  describe("NOTIFY_MESSAGING_CHANNEL action", () => {
+    it("preserves messagingChannelId", () => {
+      const result = sanitizeActionFields({
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+        content: "should be cleared",
+      });
+
+      expect(result.messagingChannelId).toBe("channel-1");
+      expect(result.content).toBeNull();
     });
   });
 

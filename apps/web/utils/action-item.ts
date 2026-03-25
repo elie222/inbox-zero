@@ -149,6 +149,9 @@ export const actionInputs: Record<
       },
     ],
   },
+  [ActionType.NOTIFY_MESSAGING_CHANNEL]: {
+    fields: [],
+  },
   [ActionType.NOTIFY_SENDER]: {
     fields: [],
   },
@@ -181,22 +184,22 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
   return res;
 }
 
-type ActionFieldsSelection = Pick<
-  Prisma.ActionCreateInput,
-  | "type"
-  | "label"
-  | "labelId"
-  | "subject"
-  | "content"
-  | "to"
-  | "cc"
-  | "bcc"
-  | "url"
-  | "folderName"
-  | "folderId"
-  | "delayInMinutes"
-  | "staticAttachments"
->;
+type ActionFieldsSelection = {
+  type: ActionType;
+  label: string | null;
+  labelId: string | null;
+  messagingChannelId: string | null;
+  subject: string | null;
+  content: string | null;
+  to: string | null;
+  cc: string | null;
+  bcc: string | null;
+  url: string | null;
+  folderName: string | null;
+  folderId: string | null;
+  delayInMinutes: number | null;
+  staticAttachments?: Prisma.JsonValue;
+};
 
 type SanitizableActionFields = Partial<
   Omit<ActionFieldsSelection, "staticAttachments">
@@ -217,6 +220,7 @@ export function sanitizeActionFields(
     type: action.type,
     label: null,
     labelId: null,
+    messagingChannelId: null,
     subject: null,
     content: null,
     to: null,
@@ -281,11 +285,18 @@ export function sanitizeActionFields(
     case ActionType.DRAFT_EMAIL: {
       return {
         ...base,
+        messagingChannelId: action.messagingChannelId ?? null,
         subject: action.subject ?? null,
         content: action.content ?? null,
         to: action.to ?? null,
         cc: action.cc ?? null,
         bcc: action.bcc ?? null,
+      };
+    }
+    case ActionType.NOTIFY_MESSAGING_CHANNEL: {
+      return {
+        ...base,
+        messagingChannelId: action.messagingChannelId ?? null,
       };
     }
     case ActionType.CALL_WEBHOOK: {

@@ -60,6 +60,9 @@ export function ruleToText(rule: RuleWithActions): string {
       case ActionType.DRAFT_EMAIL:
         actions.push("Draft a reply");
         break;
+      case ActionType.NOTIFY_MESSAGING_CHANNEL:
+        actions.push("Notify via chat app");
+        break;
       case ActionType.MARK_SPAM:
         actions.push("Mark as spam");
         break;

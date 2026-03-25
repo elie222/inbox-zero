@@ -179,6 +179,8 @@ function getActionLabel(type: ActionType, provider: string) {
       return "Mark as spam";
     case ActionType.MARK_READ:
       return "Mark as read";
+    case ActionType.NOTIFY_MESSAGING_CHANNEL:
+      return "Notify via chat app";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
     default:
@@ -226,6 +228,7 @@ export function getActionColor(actionType: ActionType): Color {
     case ActionType.CALL_WEBHOOK:
     case ActionType.DIGEST:
       return "purple";
+    case ActionType.NOTIFY_MESSAGING_CHANNEL:
     case ActionType.NOTIFY_SENDER:
       return "purple";
     default: {

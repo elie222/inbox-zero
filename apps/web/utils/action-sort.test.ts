@@ -55,6 +55,7 @@ describe("sortActionsByPriority", () => {
     it("maintains correct priority order for all action types", () => {
       const actions = [
         { type: ActionType.CALL_WEBHOOK },
+        { type: ActionType.NOTIFY_MESSAGING_CHANNEL },
         { type: ActionType.MARK_SPAM },
         { type: ActionType.DIGEST },
         { type: ActionType.FORWARD },
@@ -78,6 +79,7 @@ describe("sortActionsByPriority", () => {
         ActionType.SEND_EMAIL,
         ActionType.FORWARD,
         ActionType.DIGEST,
+        ActionType.NOTIFY_MESSAGING_CHANNEL,
         ActionType.MARK_SPAM,
         ActionType.CALL_WEBHOOK,
       ]);
@@ -165,6 +167,23 @@ describe("sortActionsByPriority", () => {
       expect(sorted[0].type).toBe(ActionType.LABEL);
       expect(sorted[1].type).toBe(ActionType.NOTIFY_SENDER);
       expect(sorted[2].type).toBe(ActionType.CALL_WEBHOOK);
+    });
+  });
+
+  describe("NOTIFY_MESSAGING_CHANNEL action type", () => {
+    it("places NOTIFY_MESSAGING_CHANNEL after DIGEST and before MARK_SPAM", () => {
+      const actions = [
+        { type: ActionType.MARK_SPAM },
+        { type: ActionType.DIGEST },
+        { type: ActionType.NOTIFY_MESSAGING_CHANNEL },
+      ];
+      const sorted = sortActionsByPriority(actions);
+
+      expect(sorted.map((action) => action.type)).toEqual([
+        ActionType.DIGEST,
+        ActionType.NOTIFY_MESSAGING_CHANNEL,
+        ActionType.MARK_SPAM,
+      ]);
     });
   });
 });

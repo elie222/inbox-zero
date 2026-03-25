@@ -382,7 +382,9 @@ async function executeMatchedRule(
     };
   }
 
-  const executedRule = await withPrismaRetry(
+  const executedRule: Prisma.ExecutedRuleGetPayload<{
+    include: { actionItems: true };
+  }> = await withPrismaRetry(
     () =>
       prisma.executedRule.create({
         data: {
@@ -397,6 +399,10 @@ async function executeMatchedRule(
                   } = sanitizeActionFields(item);
                   return {
                     ...executedActionFields,
+                    staticAttachments:
+                      item.staticAttachments != null
+                        ? (item.staticAttachments as Prisma.InputJsonValue)
+                        : undefined,
                     draftModelProvider: item.draftModelProvider ?? null,
                     draftModelName: item.draftModelName ?? null,
                     draftPipelineVersion:
@@ -729,12 +735,13 @@ function isConversationRule(ruleId: string): boolean {
 }
 
 /**
- * Limits the number of draft email actions to a single selection.
- * If there are multiple draft email actions, we prefer static drafts (with fixed content)
- * over fully dynamic drafts (no fixed content). When multiple static drafts exist, we
- * select the first one encountered.
+ * Limits drafting to a single rule selection.
+ * If there are multiple rules with draft email actions, we prefer the first static
+ * drafting rule (fixed content) over a fully dynamic drafting rule. Once a rule is
+ * selected, all of its DRAFT_EMAIL actions are preserved so the generated draft can
+ * fan out to multiple destinations.
  * If there are no draft email actions, we return the matches as is.
- * If there is only one draft email action, we return the matches as is.
+ * If only one rule contains draft email actions, we return the matches as is.
  */
 export function limitDraftEmailActions<
   T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
@@ -743,6 +750,7 @@ export function limitDraftEmailActions<
     match.rule.actions
       .filter((action) => action.type === ActionType.DRAFT_EMAIL)
       .map((action) => ({
+        ruleId: match.rule.id,
         action,
         hasFixedContent: Boolean(action.content?.trim()),
       })),
@@ -758,17 +766,20 @@ export function limitDraftEmailActions<
     draftCandidates.find((candidate) => candidate.hasFixedContent) ||
     draftCandidates[0];
 
-  const selectedDraftId = preferredCandidate.action.id;
+  const selectedDraftRuleId = preferredCandidate.ruleId;
 
-  logger.info("Limiting draft actions to a single selection", {
+  logger.info("Limiting draft actions to a single rule selection", {
     module: MODULE,
-    selectedDraftId,
+    selectedDraftRuleId,
   });
 
   return matches.map((match) => {
+    if (match.rule.id === selectedDraftRuleId) {
+      return match;
+    }
+
     const hasExtraDrafts = match.rule.actions.some(
-      (action) =>
-        action.type === ActionType.DRAFT_EMAIL && action.id !== selectedDraftId,
+      (action) => action.type === ActionType.DRAFT_EMAIL,
     );
 
     if (!hasExtraDrafts) {
@@ -780,9 +791,7 @@ export function limitDraftEmailActions<
       rule: {
         ...match.rule,
         actions: match.rule.actions.filter(
-          (action) =>
-            action.type !== ActionType.DRAFT_EMAIL ||
-            action.id === selectedDraftId,
+          (action) => action.type !== ActionType.DRAFT_EMAIL,
         ),
       },
     };

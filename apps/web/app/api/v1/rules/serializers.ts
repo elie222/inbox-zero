@@ -15,6 +15,7 @@ export const apiRuleSelect = {
   actions: {
     select: {
       type: true,
+      messagingChannelId: true,
       label: true,
       to: true,
       cc: true,
@@ -49,6 +50,7 @@ export function serializeRule(rule: ApiRuleRecord) {
     },
     actions: rule.actions.map((action) => ({
       type: action.type,
+      messagingChannelId: action.messagingChannelId ?? null,
       fields: {
         label: action.label ?? null,
         to: action.to ?? null,

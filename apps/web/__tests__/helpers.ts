@@ -36,6 +36,7 @@ export function getEmailAccount(
     multiRuleSelectionEnabled: overrides.multiRuleSelectionEnabled ?? false,
     timezone: null,
     calendarBookingLink: null,
+    draftReplyConfidence: overrides.draftReplyConfidence ?? "MEDIUM",
     user: {
       aiModel: null,
       aiProvider: null,
@@ -153,7 +154,9 @@ export function getAction(overrides: Partial<Action> = {}): Action {
     url: null,
     folderName: null,
     folderId: null,
+    messagingChannelId: null,
     delayInMinutes: null,
+    staticAttachments: null,
     ...overrides,
   };
 }

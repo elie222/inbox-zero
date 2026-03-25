@@ -15,26 +15,21 @@ import { extractEmailAddress } from "@/utils/email";
 import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
-import { resolveDraftAttachments } from "@/utils/attachments/draft-attachments";
-import { getReplyWithConfidence } from "@/utils/redis/reply";
-import {
-  type SelectedAttachment,
-  attachmentSourceInputSchema,
-} from "@/utils/attachments/source-schema";
-import { AttachmentSourceType } from "@/generated/prisma/enums";
+import { resolveActionAttachments } from "@/utils/ai/action-attachments";
+import { sendSlackRuleNotification } from "@/utils/messaging/rule-notifications";
 
 const MODULE = "ai-actions";
 
 type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
   client: EmailProvider;
   email: EmailForAction;
-  args: T;
+  args: T & Pick<ActionItem, "id">;
   userEmail: string;
   userId: string;
   emailAccountId: string;
   executedRule: ExecutedRule;
   logger: Logger;
-}) => Promise<any>;
+}) => Promise<unknown>;
 
 export const runActionFunction = async (options: {
   client: EmailProvider;
@@ -69,6 +64,8 @@ export const runActionFunction = async (options: {
       return label(opts);
     case ActionType.DRAFT_EMAIL:
       return draft(opts);
+    case ActionType.NOTIFY_MESSAGING_CHANNEL:
+      return notify_messaging_channel(opts);
     case ActionType.REPLY:
       ensureEmailSendingEnabled();
       return reply(opts);
@@ -161,6 +158,7 @@ const label: ActionFunction<{
 };
 
 const draft: ActionFunction<{
+  messagingChannelId?: string | null;
   subject?: string | null;
   content?: string | null;
   to?: string | null;
@@ -178,6 +176,17 @@ const draft: ActionFunction<{
   logger,
 }) => {
   if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) return;
+
+  if (args.messagingChannelId) {
+    if (!args.id) return;
+
+    await sendSlackRuleNotification({
+      executedActionId: args.id,
+      email,
+      logger,
+    });
+    return;
+  }
 
   const attachments = await resolveActionAttachments({
     email,
@@ -219,6 +228,18 @@ const draft: ActionFunction<{
     executedRule,
   );
   return { draftId: result.draftId };
+};
+
+const notify_messaging_channel: ActionFunction<{
+  messagingChannelId?: string | null;
+}> = async ({ email, args, logger }) => {
+  if (!args.messagingChannelId || !args.id) return;
+
+  await sendSlackRuleNotification({
+    executedActionId: args.id,
+    email,
+    logger,
+  });
 };
 
 const reply: ActionFunction<{
@@ -517,97 +538,6 @@ async function lazyUpdateActionLabelId({
   }
 }
 
-async function getDraftSelectedAttachments({
-  email,
-  emailAccountId,
-  executedRule,
-  logger,
-}: {
-  email: EmailForAction;
-  emailAccountId: string;
-  executedRule: ExecutedRule;
-  logger: Logger;
-}): Promise<SelectedAttachment[]> {
-  if (!executedRule.ruleId) return [];
-
-  const cachedDraft = await getReplyWithConfidence({
-    emailAccountId,
-    messageId: email.id,
-    ruleId: executedRule.ruleId,
-  });
-
-  if (cachedDraft) {
-    return cachedDraft.attachments ?? [];
-  }
-
-  // Do not re-run attachment selection on a cache miss. The draft content was
-  // generated based on a specific set of files; re-selecting could attach a
-  // different PDF than the draft references, causing a content/attachment mismatch.
-  logger.warn("Draft attachment cache missing, skipping attachments", {
-    messageId: email.id,
-    ruleId: executedRule.ruleId,
-  });
-  return [];
-}
-
-async function resolveActionAttachments({
-  email,
-  emailAccountId,
-  executedRule,
-  userId,
-  logger,
-  staticAttachments,
-  includeAiSelectedAttachments,
-}: {
-  email: EmailForAction;
-  emailAccountId: string;
-  executedRule: ExecutedRule;
-  userId: string;
-  logger: Logger;
-  staticAttachments?: ActionItem["staticAttachments"];
-  includeAiSelectedAttachments: boolean;
-}) {
-  const [aiSelectedAttachments, staticSelected] = await Promise.all([
-    includeAiSelectedAttachments
-      ? getDraftSelectedAttachments({
-          email,
-          emailAccountId,
-          executedRule,
-          logger,
-        })
-      : Promise.resolve([]),
-    Promise.resolve(parseStaticAttachments(staticAttachments)),
-  ]);
-
-  const allSelected = [
-    ...new Map(
-      [...aiSelectedAttachments, ...staticSelected].map((attachment) => [
-        `${attachment.driveConnectionId}:${attachment.fileId}`,
-        attachment,
-      ]),
-    ).values(),
-  ];
-
-  if (allSelected.length === 0) return [];
-
-  const attachments = await resolveDraftAttachments({
-    emailAccountId,
-    userId,
-    selectedAttachments: allSelected,
-    logger,
-  });
-
-  if (attachments.length === 0) {
-    logger.warn("Selected rule attachments could not be resolved", {
-      messageId: email.id,
-      ruleId: executedRule.ruleId,
-      selectedAttachmentCount: allSelected.length,
-    });
-  }
-
-  return attachments;
-}
-
 async function lazyUpdateActionFolderId({
   folderName,
   folderId,
@@ -641,21 +571,4 @@ async function lazyUpdateActionFolderId({
       error,
     });
   }
-}
-
-function parseStaticAttachments(raw: unknown): SelectedAttachment[] {
-  if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
-
-  const parsed = attachmentSourceInputSchema.array().safeParse(raw);
-
-  if (!parsed.success) return [];
-
-  return parsed.data
-    .filter((item) => item.type === AttachmentSourceType.FILE)
-    .map((item) => ({
-      driveConnectionId: item.driveConnectionId,
-      fileId: item.sourceId,
-      filename: item.name,
-      mimeType: "application/pdf",
-    }));
 }

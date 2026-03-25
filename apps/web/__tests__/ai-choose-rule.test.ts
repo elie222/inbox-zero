@@ -86,6 +86,8 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           folderName: null,
           delayInMinutes: null,
           folderId: null,
+          messagingChannelId: null,
+          staticAttachments: null,
         },
       ],
       "Joke requests",
