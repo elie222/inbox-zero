@@ -21,10 +21,8 @@ import { isInternalPath } from "@/utils/path";
 import { getPossessiveBrandName } from "@/utils/branding";
 
 export function LoginForm({
-  showLocalBypass,
   useGoogleOauthEmulator,
 }: {
-  showLocalBypass: boolean;
   useGoogleOauthEmulator: boolean;
 }) {
   const searchParams = useSearchParams();
@@ -33,7 +31,6 @@ export function LoginForm({
 
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
-  const [loadingLocalBypass, setLoadingLocalBypass] = useState(false);
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
@@ -70,40 +67,6 @@ export function LoginForm({
       errorCallbackURL,
       setLoading: setLoadingMicrosoft,
     });
-  };
-
-  const handleLocalBypassSignIn = async () => {
-    setLoadingLocalBypass(true);
-    try {
-      const response = await fetch("/api/auth/sign-in/local-bypass", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ callbackURL }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Local bypass login failed");
-      }
-
-      const result: { callbackURL?: string } = await response.json();
-
-      window.location.assign(
-        result.callbackURL && isInternalPath(result.callbackURL)
-          ? result.callbackURL
-          : callbackURL,
-      );
-    } catch (error) {
-      console.error("Error signing in with local bypass:", error);
-      toastError({
-        title: "Error bypassing login",
-        description:
-          "Ensure LOCAL_AUTH_BYPASS_ENABLED=true in your local environment.",
-      });
-    } finally {
-      setLoadingLocalBypass(false);
-    }
   };
 
   return (
@@ -171,17 +134,6 @@ export function LoginForm({
       >
         <Link href="/login/sso">Sign in with SSO</Link>
       </UIButton>
-
-      {showLocalBypass && (
-        <Button
-          size="2xl"
-          color="white"
-          loading={loadingLocalBypass}
-          onClick={handleLocalBypassSignIn}
-        >
-          Bypass login (local only)
-        </Button>
-      )}
     </div>
   );
 }

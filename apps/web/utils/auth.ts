@@ -10,11 +10,6 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { cookies, headers } from "next/headers";
 import { env } from "@/env";
-import { localBypassAuthPlugin } from "@/utils/auth/local-bypass-plugin";
-import {
-  isLocalAuthBypassEnabled,
-  isLocalBypassUserEmail,
-} from "@/utils/auth/local-bypass-config";
 import { trackDubSignUp } from "@/utils/dub";
 import {
   isGoogleProvider,
@@ -144,7 +139,6 @@ export const betterAuthConfig = betterAuth({
           }),
         ]
       : []),
-    ...(isLocalAuthBypassEnabled() ? [localBypassAuthPlugin()] : []),
     nextCookies(), // Must be last
   ],
   session: {
@@ -189,8 +183,6 @@ export const betterAuthConfig = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          if (isLocalBypassUserEmail(user.email)) return;
-
           await postSignUp({
             id: user.id,
             email: user.email,
