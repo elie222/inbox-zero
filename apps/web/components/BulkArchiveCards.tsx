@@ -435,7 +435,7 @@ function SenderRow({
   emailAccountId: string;
   onCategoryChange?: () => Promise<unknown>;
 }) {
-  const archiveStatus = useArchiveSenderStatus(sender.address);
+  const archiveStatus = useArchiveSenderStatus(emailAccountId, sender.address);
   const markReadStatus = useMarkReadSenderStatus(sender.address);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 

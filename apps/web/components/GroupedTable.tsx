@@ -149,7 +149,12 @@ export function GroupedTable({
       {
         accessorKey: "preview",
         cell: ({ row }) => {
-          return <ArchiveStatusCell sender={row.original.address} />;
+          return (
+            <ArchiveStatusCell
+              emailAccountId={emailAccountId}
+              sender={row.original.address}
+            />
+          );
         },
       },
       {
@@ -553,8 +558,14 @@ function ExpandedRows({
   );
 }
 
-function ArchiveStatusCell({ sender }: { sender: string }) {
-  const status = useArchiveSenderStatus(sender);
+function ArchiveStatusCell({
+  emailAccountId,
+  sender,
+}: {
+  emailAccountId: string;
+  sender: string;
+}) {
+  const status = useArchiveSenderStatus(emailAccountId, sender);
 
   switch (status?.status) {
     case "completed":

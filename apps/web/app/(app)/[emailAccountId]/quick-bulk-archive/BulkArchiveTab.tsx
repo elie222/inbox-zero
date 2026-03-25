@@ -438,6 +438,7 @@ export function BulkArchiveTab() {
                   {senders.map((candidate) => (
                     <SenderRow
                       key={candidate.address}
+                      emailAccountId={emailAccountId}
                       candidate={candidate}
                       isSelected={!!selectedSenders[candidate.address]}
                       isExpanded={!!expandedSenders[candidate.address]}
@@ -461,6 +462,7 @@ export function BulkArchiveTab() {
 }
 
 function SenderRow({
+  emailAccountId,
   candidate,
   isSelected,
   isExpanded,
@@ -468,6 +470,7 @@ function SenderRow({
   onToggleExpanded,
   userEmail,
 }: {
+  emailAccountId: string;
   candidate: ArchiveCandidate;
   isSelected: boolean;
   isExpanded: boolean;
@@ -475,7 +478,7 @@ function SenderRow({
   onToggleExpanded: () => void;
   userEmail: string;
 }) {
-  const status = useArchiveSenderStatus(candidate.address);
+  const status = useArchiveSenderStatus(emailAccountId, candidate.address);
 
   return (
     <div className={cn(!isSelected && "opacity-50")}>
