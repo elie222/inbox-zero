@@ -6,6 +6,7 @@
 - Lint: `pnpm lint`
 - Format: Biome (`pnpm check` / `pnpm fix` via ultracite)
 - Run all tests: `pnpm test`
+- Run integration tests: `pnpm test-integration`
 - Run AI tests: `pnpm test-ai`
 - Run single test: `pnpm test __tests__/test-file.test.ts`
 - Run specific AI test: `pnpm test-ai ai-categorize-senders`
@@ -28,7 +29,7 @@
 - Avoid low-value tests that mostly restate implementation details; prefer tests that catch a real behavioral regression.
 - Helper functions go at the bottom of files, not the top
 - All imports at the top of files, no mid-file dynamic imports
-- Co-locate test files next to source files (e.g., `utils/example.test.ts`). Only E2E and AI tests go in `__tests__/`.
+- Co-locate unit tests next to source files (e.g., `utils/example.test.ts`). Integration, E2E, and AI tests go in `__tests__/`.
 - Don't export types/interfaces only used within the same file
 - No re-export patterns. Import from the original source.
 - Prefer the `EmailProvider` abstraction; only use provider-type checks (`isGoogleProvider`, `isMicrosoftProvider`) at true provider boundary/integration code.
