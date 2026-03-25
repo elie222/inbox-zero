@@ -99,13 +99,74 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)("My test", { timeout: 30_000 }, () => {
 });
 ```
 
+### Slack emulator setup pattern
+
+The emulator also supports Slack (`service: "slack"`). Use port 4098 (Google uses 4099).
+
+```typescript
+import { createEmulator, type Emulator } from "emulate";
+import { WebClient } from "@slack/web-api";
+
+vi.mock("server-only", () => ({}));
+
+// Mock createSlackClient so production code uses the emulator-bound client
+let emulatorClient: WebClient;
+vi.mock("@/utils/messaging/providers/slack/client", () => ({
+  createSlackClient: () => emulatorClient,
+}));
+
+const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;
+
+describe.skipIf(!RUN_INTEGRATION_TESTS)("Slack test", { timeout: 30_000 }, () => {
+  let emulator: Emulator;
+
+  beforeAll(async () => {
+    emulator = await createEmulator({
+      service: "slack",
+      port: 4098,
+      seed: {
+        slack: {
+          team: { name: "TestWorkspace", domain: "test-workspace" },
+          users: [
+            { name: "alice", real_name: "Alice Smith", email: "alice@example.com" },
+          ],
+          channels: [
+            { name: "notifications", is_private: true, topic: "Alerts" },
+          ],
+        },
+      },
+    });
+
+    emulatorClient = new WebClient("emulator-token", {
+      slackApiUrl: `${emulator.url}/api/`,
+    });
+  });
+
+  afterAll(() => emulator?.close());
+
+  test("my test", async () => {
+    // Import and call Slack utility functions — they hit the emulator
+    // via the mocked createSlackClient
+  });
+});
+```
+
+**Slack seed config fields**: `team` (`name`, `domain`), `users` (array of `name`, `real_name?`, `email?`, `is_admin?`), `channels` (array of `name`, `is_private?`, `topic?`, `purpose?`), `bots`, `oauth_apps`, `incoming_webhooks`, `signing_secret`.
+
+**Default seed**: The emulator always creates team "Emulate", user "admin" (U000000001), and channels "general" (C000000001) + "random" (C000000002).
+
+**Supported endpoints**: `auth.test`, `team.info`, `chat.postMessage/update/delete`, `conversations.list/info/create/history/members/join/leave/replies`, `users.info/list/lookupByEmail`, `reactions.add/get/remove`, `oauth.v2.access`.
+
+**Limitation**: DM via `chat.postMessage({ channel: userId })` is not supported by the emulator — it only resolves channel IDs/names, not user IDs. Test DM flows by mocking at a higher level or by creating a named channel as a stand-in.
+
 ### Key points
 
 - **`describe.skipIf(!RUN_INTEGRATION_TESTS)`** — tests are skipped by default, safe in CI
-- **Seed data** via `createEmulator({ seed })` — messages, labels, calendars, drive items
-- **`rootUrl: emulator.url`** routes the googleapis client to the emulator
+- **Seed data** via `createEmulator({ seed })` — messages, labels, calendars, drive items (Google); team, users, channels (Slack)
+- **Google**: `rootUrl: emulator.url` routes the googleapis client to the emulator
+- **Slack**: `slackApiUrl: emulator.url + "/api/"` routes the `@slack/web-api` WebClient to the emulator; mock `createSlackClient` to return this client
 - **`emulator.reset()`** wipes state and replays seed data (use in `beforeEach` if needed)
 - **Mock Prisma** when the code under test writes to the database — assert on the mock calls
 - **Use `vi.spyOn(globalThis, "fetch")`** to verify API call patterns (e.g., no batch calls)
-- Pick a unique port per test file to avoid conflicts when running in parallel
+- Pick a unique port per test file to avoid conflicts when running in parallel (Google: 4099, Slack: 4098)
 - See the `emulate` package README for full seed config schema
