@@ -13,11 +13,13 @@ export const MAIL_BULK_ARCHIVE_PATH = "/api/mail/bulk-archive";
 export async function enqueueBulkArchiveSenderJobs({
   emailAccountId,
   ownerEmail,
+  provider,
   froms,
   logger,
 }: {
   emailAccountId: string;
   ownerEmail: string;
+  provider: "google" | "microsoft";
   froms: string[];
   logger: Logger;
 }) {
@@ -30,7 +32,7 @@ export async function enqueueBulkArchiveSenderJobs({
         body: bulkArchiveSenderJobSchema.parse({
           emailAccountId,
           ownerEmail,
-          provider: "google",
+          provider,
           sender,
         }),
         qstash: {
@@ -55,26 +57,34 @@ export async function executeBulkArchiveSenderJob({
 }: {
   emailAccountId: string;
   ownerEmail: string;
-  provider: string;
+  provider: "google" | "microsoft";
   sender: string;
   logger: Logger;
 }) {
-  if (!isGoogleProvider(provider)) {
-    throw new SafeError("Bulk archive queue only supports Google accounts");
-  }
-
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider,
     logger,
   });
 
-  if (!(emailProvider instanceof GmailProvider)) {
-    throw new SafeError("Failed to initialize Gmail provider for bulk archive");
+  if (isGoogleProvider(provider)) {
+    if (!(emailProvider instanceof GmailProvider)) {
+      throw new SafeError(
+        "Failed to initialize Gmail provider for bulk archive",
+      );
+    }
+
+    await emailProvider.bulkArchiveSenderOrThrow(
+      sender,
+      ownerEmail,
+      emailAccountId,
+    );
+
+    return;
   }
 
-  await emailProvider.bulkArchiveSenderOrThrow(
-    sender,
+  await emailProvider.bulkArchiveFromSenders(
+    [sender],
     ownerEmail,
     emailAccountId,
   );

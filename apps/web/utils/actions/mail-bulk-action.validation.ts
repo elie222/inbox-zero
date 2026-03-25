@@ -7,7 +7,7 @@ export const bulkSenderActionSchema = z.object({
 export const bulkArchiveSenderJobSchema = z.object({
   emailAccountId: z.string().min(1),
   ownerEmail: z.string().email(),
-  provider: z.literal("google"),
+  provider: z.enum(["google", "microsoft"]),
   sender: z.string().trim().min(1),
 });
 
