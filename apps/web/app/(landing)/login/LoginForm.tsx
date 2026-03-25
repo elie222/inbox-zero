@@ -6,10 +6,10 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/Button";
 import { Button as UIButton } from "@/components/ui/button";
-import { SectionDescription } from "@/components/Typography";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -127,7 +127,7 @@ export function LoginForm({
           <DialogHeader>
             <DialogTitle>Sign in</DialogTitle>
           </DialogHeader>
-          <SectionDescription>
+          <DialogDescription className="mt-1 text-sm leading-6 text-slate-700 dark:text-foreground">
             {getPossessiveBrandName()} use and transfer of information received
             from Google APIs to any other app will adhere to{" "}
             <a
@@ -137,7 +137,7 @@ export function LoginForm({
               Google API Services User Data
             </a>{" "}
             Policy, including the Limited Use requirements.
-          </SectionDescription>
+          </DialogDescription>
           <div>
             <Button loading={loadingGoogle} onClick={handleGoogleSignIn}>
               I agree
