@@ -47,7 +47,7 @@ const ruleActionTypeSchema = z.enum([
 const actionSchema = z
   .object({
     type: ruleActionTypeSchema,
-    messagingChannelId: z.string().nullish(),
+    messagingChannelId: z.string().cuid().nullish(),
     fields: z
       .object({
         label: z.string().nullish(),
@@ -124,7 +124,7 @@ export const ruleRequestBodySchema = z.object({
 
 const ruleActionResponseSchema = z.object({
   type: ruleActionTypeSchema,
-  messagingChannelId: z.string().nullable().optional(),
+  messagingChannelId: z.string().cuid().nullable().optional(),
   fields: z.object({
     label: z.string().nullable(),
     to: z.string().nullable(),

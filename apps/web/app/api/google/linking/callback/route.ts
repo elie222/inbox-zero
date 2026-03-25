@@ -131,10 +131,7 @@ export const GET = withError("google/linking/callback", async (request) => {
           logger.info(
             "Updating existing Google emulator account for same user and email",
             {
-              email: providerEmail,
-              targetUserId,
               accountId: existingEmulatedAccount.accountId,
-              providerAccountId,
             },
           );
 
