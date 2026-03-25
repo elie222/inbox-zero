@@ -191,10 +191,19 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
 
       // Batch endpoint would be a fetch to /batch/gmail/v1
-      const batchCalls = fetchSpy.mock.calls.filter(
-        (call) =>
-          typeof call[0] === "string" && call[0].includes("/batch/gmail/"),
-      );
+      // Extract URL string from any input type (string, URL, or Request)
+      const batchCalls = fetchSpy.mock.calls.filter((call) => {
+        const input = call[0];
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input instanceof Request
+                ? input.url
+                : "";
+        return url.includes("/batch/gmail/");
+      });
       expect(batchCalls).toHaveLength(0);
     });
   },
