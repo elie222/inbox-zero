@@ -71,4 +71,30 @@ describe("google calendar oauth", () => {
     expect(fetchGoogleOpenIdProfile).toHaveBeenCalledWith("access-token");
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
+
+  it("fails when emulator profile does not include an email", async () => {
+    vi.mocked(isGoogleOauthEmulationEnabled).mockReturnValue(true);
+    getToken.mockResolvedValue({
+      tokens: {
+        access_token: "access-token",
+        refresh_token: "refresh-token",
+      },
+    });
+    vi.mocked(fetchGoogleOpenIdProfile).mockResolvedValue({
+      sub: "sub-1",
+    } as any);
+
+    const provider = createGoogleCalendarProvider({
+      error: vi.fn(),
+      info: vi.fn(),
+      trace: vi.fn(),
+      warn: vi.fn(),
+      with: vi.fn(),
+    } as any);
+
+    await expect(provider.exchangeCodeForTokens("code")).rejects.toThrow(
+      "Could not get email from Google profile",
+    );
+    expect(verifyIdToken).not.toHaveBeenCalled();
+  });
 });

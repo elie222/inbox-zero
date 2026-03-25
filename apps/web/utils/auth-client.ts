@@ -12,15 +12,19 @@ export const { signIn, signOut, signUp, useSession, getSession, sso } =
     plugins: [ssoClient(), organizationClient()],
   });
 
-export async function signInWithOauth2(
-  options: Parameters<
-    ReturnType<typeof createAuthClient>["signIn"]["oauth2"]
-  >[0],
-) {
-  const { signIn } = createAuthClient({
+function createGenericOauthAuthClient() {
+  return createAuthClient({
     baseURL: env.NEXT_PUBLIC_BASE_URL,
     plugins: [genericOAuthClient()],
   });
+}
+
+export async function signInWithOauth2(
+  options: Parameters<
+    ReturnType<typeof createGenericOauthAuthClient>["signIn"]["oauth2"]
+  >[0],
+) {
+  const { signIn } = createGenericOauthAuthClient();
 
   return signIn.oauth2(options);
 }

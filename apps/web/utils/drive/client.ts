@@ -60,12 +60,17 @@ export async function exchangeGoogleDriveCode(code: string) {
   const profile = isGoogleOauthEmulationEnabled()
     ? await fetchGoogleOpenIdProfile(tokens.access_token)
     : await verifyGoogleIdTokenPayload(oauth2Client, tokens.id_token);
+  const email = profile.email;
+
+  if (!email) {
+    throw new Error("Could not get email from Google profile");
+  }
 
   return {
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,
     expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-    email: profile.email,
+    email,
   };
 }
 

@@ -71,4 +71,22 @@ describe("google drive oauth", () => {
     expect(fetchGoogleOpenIdProfile).toHaveBeenCalledWith("access-token");
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
+
+  it("fails when emulator profile does not include an email", async () => {
+    vi.mocked(isGoogleOauthEmulationEnabled).mockReturnValue(true);
+    getToken.mockResolvedValue({
+      tokens: {
+        access_token: "access-token",
+        refresh_token: "refresh-token",
+      },
+    });
+    vi.mocked(fetchGoogleOpenIdProfile).mockResolvedValue({
+      sub: "sub-1",
+    } as any);
+
+    await expect(exchangeGoogleDriveCode("code")).rejects.toThrow(
+      "Could not get email from Google profile",
+    );
+    expect(verifyIdToken).not.toHaveBeenCalled();
+  });
 });

@@ -32,12 +32,17 @@ export function createGoogleCalendarProvider(
       const payload = isGoogleOauthEmulationEnabled()
         ? await fetchGoogleOpenIdProfile(access_token)
         : await verifyGoogleIdTokenPayload(googleAuth, tokens.id_token);
+      const email = payload.email;
+
+      if (!email) {
+        throw new Error("Could not get email from Google profile");
+      }
 
       return {
         accessToken: access_token,
         refreshToken: refresh_token,
         expiresAt: expiry_date ? new Date(expiry_date) : null,
-        email: payload.email,
+        email,
       };
     },
 
