@@ -8,11 +8,23 @@
  *   pnpm test-integration slack-notifications
  */
 
-import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
+import {
+  describe,
+  test,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  vi,
+} from "vitest";
 import { createEmulator, type Emulator } from "emulate";
 import { WebClient } from "@slack/web-api";
+import prisma from "@/utils/__mocks__/prisma";
+import { createScopedLogger } from "@/utils/logger";
+import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/utils/prisma");
 
 // Mock createSlackClient so production functions use our emulator-bound client
 let emulatorClient: WebClient;
@@ -22,6 +34,7 @@ vi.mock("@/utils/messaging/providers/slack/client", () => ({
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;
 const TEST_PORT = 4098;
+const logger = createScopedLogger("test");
 
 describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "Slack notification flows",
@@ -78,6 +91,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
     afterAll(async () => {
       await emulator?.close();
+    });
+
+    beforeEach(() => {
+      vi.clearAllMocks();
     });
 
     test("sendChannelConfirmation delivers onboarding message", async () => {
@@ -230,5 +247,316 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         addReaction(emulatorClient, engChannelId, "9999999999.999999", "eyes"),
       ).resolves.toBeUndefined();
     });
+
+    test("sendSlackRuleNotification posts a draft card with interactive actions", async () => {
+      const { sendSlackRuleNotification } = await import(
+        "@/utils/messaging/rule-notifications"
+      );
+
+      const subject = getUniqueSubject("Draft card");
+      const postMessageSpy = vi.spyOn(emulatorClient.chat, "postMessage");
+
+      prisma.executedAction.findUnique.mockResolvedValue(
+        getNotificationContext({
+          id: "draft-action-1",
+          type: ActionType.DRAFT_EMAIL,
+          content: "Thanks for the note.\n\nI can help with that.",
+          channelId: notifChannelId,
+          threadId: "draft-thread-1",
+        }),
+      );
+      prisma.executedAction.findFirst.mockResolvedValue(null);
+      prisma.executedAction.update.mockResolvedValue({} as never);
+
+      await sendSlackRuleNotification({
+        executedActionId: "draft-action-1",
+        email: {
+          headers: {
+            from: "sender@example.com",
+            subject,
+          },
+          snippet: "Can you help with this request?",
+        },
+        logger,
+      });
+
+      const message = await findMessageBySubject({
+        channelId: notifChannelId,
+        subject,
+      });
+      const postArgs = postMessageSpy.mock.calls[0]?.[0];
+
+      expect(message).toBeDefined();
+      expect(message?.text).toContain("Draft reply");
+      expect(message?.text).toContain(`Subject: ${subject}`);
+      expect(getActionLabels(postArgs?.blocks)).toEqual(
+        expect.arrayContaining(["Send reply", "Edit draft", "Dismiss"]),
+      );
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: "draft-action-1" },
+        data: {
+          messagingMessageId: expect.any(String),
+          messagingMessageSentAt: expect.any(Date),
+          messagingMessageStatus: "SENT",
+        },
+      });
+    });
+
+    test("sendSlackRuleNotification posts a generic info card with archive actions", async () => {
+      const { sendSlackRuleNotification } = await import(
+        "@/utils/messaging/rule-notifications"
+      );
+
+      const subject = getUniqueSubject("Info card");
+      const postMessageSpy = vi.spyOn(emulatorClient.chat, "postMessage");
+
+      prisma.executedAction.findUnique.mockResolvedValue(
+        getNotificationContext({
+          id: "notify-action-1",
+          type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+          content: null,
+          channelId: engChannelId,
+          threadId: "notify-thread-1",
+        }),
+      );
+      prisma.executedAction.findFirst.mockResolvedValue(null);
+      prisma.executedAction.update.mockResolvedValue({} as never);
+
+      await sendSlackRuleNotification({
+        executedActionId: "notify-action-1",
+        email: {
+          headers: {
+            from: "updates@example.com",
+            subject,
+          },
+          snippet: "This is the latest account update.",
+        },
+        logger,
+      });
+
+      const message = await findMessageBySubject({
+        channelId: engChannelId,
+        subject,
+      });
+      const postArgs = postMessageSpy.mock.calls[0]?.[0];
+
+      expect(message).toBeDefined();
+      expect(message?.text).toContain("Email notification");
+      expect(message?.text).toContain(`Subject: ${subject}`);
+      expect(getActionLabels(postArgs?.blocks)).toEqual(
+        expect.arrayContaining(["Archive", "Mark read"]),
+      );
+    });
+
+    test("sendSlackRuleNotification replies in a thread for later actions on the same email thread", async () => {
+      const { sendSlackRuleNotification } = await import(
+        "@/utils/messaging/rule-notifications"
+      );
+
+      const firstSubject = getUniqueSubject("Thread root");
+      const secondSubject = getUniqueSubject("Thread reply");
+      let rootMessageId: string | null = null;
+
+      prisma.executedAction.findUnique.mockImplementation(async ({ where }) => {
+        const executedActionId = where?.id;
+        if (executedActionId === "thread-action-1") {
+          return getNotificationContext({
+            id: "thread-action-1",
+            type: ActionType.DRAFT_EMAIL,
+            content: "First draft content",
+            channelId: notifChannelId,
+            threadId: "shared-thread-1",
+          }) as never;
+        }
+
+        if (executedActionId === "thread-action-2") {
+          return getNotificationContext({
+            id: "thread-action-2",
+            type: ActionType.DRAFT_EMAIL,
+            content: "Second draft content",
+            channelId: notifChannelId,
+            threadId: "shared-thread-1",
+          }) as never;
+        }
+
+        return null;
+      });
+
+      prisma.executedAction.findFirst.mockImplementation(async ({ where }) => {
+        if (
+          where?.messagingChannelId === "channel-1" &&
+          where?.executedRule?.threadId === "shared-thread-1" &&
+          rootMessageId
+        ) {
+          return { messagingMessageId: rootMessageId } as never;
+        }
+
+        return null;
+      });
+
+      prisma.executedAction.update.mockImplementation(
+        async ({ data, where }) => {
+          if (
+            where?.id === "thread-action-1" &&
+            typeof data?.messagingMessageId === "string"
+          ) {
+            rootMessageId = data.messagingMessageId;
+          }
+          return {} as never;
+        },
+      );
+
+      await sendSlackRuleNotification({
+        executedActionId: "thread-action-1",
+        email: {
+          headers: {
+            from: "sender@example.com",
+            subject: firstSubject,
+          },
+          snippet: "First thread message",
+        },
+        logger,
+      });
+
+      await sendSlackRuleNotification({
+        executedActionId: "thread-action-2",
+        email: {
+          headers: {
+            from: "sender@example.com",
+            subject: secondSubject,
+          },
+          snippet: "Second thread message",
+        },
+        logger,
+      });
+
+      expect(rootMessageId).toBeTruthy();
+
+      const replies = await emulatorClient.conversations.replies({
+        channel: notifChannelId,
+        ts: rootMessageId!,
+      });
+
+      const texts =
+        replies.messages?.map((message) => message.text || "") || [];
+      expect(texts.some((text) => text.includes(firstSubject))).toBe(true);
+      expect(texts.some((text) => text.includes(secondSubject))).toBe(true);
+      expect(replies.messages).toHaveLength(2);
+      expect(prisma.executedAction.update).toHaveBeenLastCalledWith({
+        where: { id: "thread-action-2" },
+        data: {
+          messagingMessageId: rootMessageId,
+          messagingMessageSentAt: expect.any(Date),
+          messagingMessageStatus: "SENT",
+        },
+      });
+    });
   },
 );
+
+function getNotificationContext({
+  id,
+  type,
+  content,
+  channelId,
+  threadId,
+}: {
+  id: string;
+  type: ActionType;
+  content: string | null;
+  channelId: string;
+  threadId: string;
+}) {
+  return {
+    id,
+    type,
+    content,
+    subject: null,
+    to: null,
+    cc: null,
+    bcc: null,
+    draftId: null,
+    staticAttachments: null,
+    messagingChannelId: "channel-1",
+    messagingMessageStatus: null,
+    executedRule: {
+      id: `executed-rule-${id}`,
+      ruleId: "rule-1",
+      messageId: `message-${id}`,
+      threadId,
+      emailAccount: {
+        id: "email-account-1",
+        userId: "user-1",
+        email: "user@example.com",
+        account: {
+          provider: "google",
+        },
+      },
+      rule: {
+        systemType: null,
+      },
+    },
+    messagingChannel: {
+      id: "channel-1",
+      provider: MessagingProvider.SLACK,
+      isConnected: true,
+      teamId: "team-1",
+      providerUserId: null,
+      accessToken: "emulator-token",
+      channelId,
+    },
+  };
+}
+
+async function findMessageBySubject({
+  channelId,
+  subject,
+}: {
+  channelId: string;
+  subject: string;
+}) {
+  const history = await emulatorClient.conversations.history({
+    channel: channelId,
+  });
+
+  return history.messages?.find((message) =>
+    message.text?.includes(`Subject: ${subject}`),
+  );
+}
+
+function getActionLabels(blocks: unknown[] | undefined) {
+  if (!blocks) return [];
+
+  return blocks.flatMap((block) => {
+    if (
+      !block ||
+      typeof block !== "object" ||
+      !("type" in block) ||
+      block.type !== "actions" ||
+      !("elements" in block) ||
+      !Array.isArray(block.elements)
+    ) {
+      return [];
+    }
+
+    return block.elements.flatMap((element) => {
+      if (
+        !element ||
+        typeof element !== "object" ||
+        !("text" in element) ||
+        !element.text ||
+        typeof element.text !== "object" ||
+        !("text" in element.text) ||
+        typeof element.text.text !== "string"
+      ) {
+        return [];
+      }
+
+      return [element.text.text];
+    });
+  });
+}
+
+function getUniqueSubject(prefix: string) {
+  return `${prefix} ${Date.now()} ${Math.random().toString(36).slice(2, 8)}`;
+}
