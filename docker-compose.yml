@@ -81,8 +81,6 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public}
       DIRECT_URL: ${DIRECT_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public}
       UPSTASH_REDIS_URL: ${UPSTASH_REDIS_URL:-http://serverless-redis-http:80}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      QUEUE_BACKEND: ${QUEUE_BACKEND:-internal}
       INTERNAL_API_URL: ${INTERNAL_API_URL:-http://web:3000}
     restart: always
 
@@ -103,8 +101,6 @@ services:
       - inbox-zero-network
     environment:
       INTERNAL_API_URL: ${INTERNAL_API_URL:-http://web:3000}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      WORKER_QUEUES: ${WORKER_QUEUES:-automation-jobs:3,email-summary-all:3,email-digest-all:3}
     restart: always
     profiles:
       - queue-worker
