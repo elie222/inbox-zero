@@ -190,7 +190,6 @@ If you're already running Docker Compose with Redis, you can use the built-in wo
 ```bash
 QUEUE_BACKEND=bullmq
 REDIS_URL=redis://redis:6379
-WORKER_QUEUES=automation-jobs:3,email-summary-all:3,email-digest-all:3
 ```
 
 Then start the worker profile:
@@ -200,6 +199,8 @@ docker compose --profile queue-worker up -d
 ```
 
 This runs a separate worker process that pulls jobs from Redis and forwards them to the web app over the internal network.
+
+By default the worker subscribes to the built-in queues. If you need to tune which queues it listens to, or adjust concurrency, you can override `WORKER_QUEUES` in your environment.
 
 ## Building from Source (Optional)
 
