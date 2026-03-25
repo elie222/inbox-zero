@@ -4,6 +4,7 @@
   "scripts": {
     "build": "turbo build --filter=./apps/web",
     "dev": "turbo dev --filter=./apps/web",
+    "worker": "pnpm --filter @inboxzero/worker start",
     "test": "turbo run test --filter=./apps/web",
     "lint": "turbo lint",
     "postinstall": "sh clone-marketing.sh",

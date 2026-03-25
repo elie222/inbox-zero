@@ -1,0 +1,12 @@
+{
+  "name": "@inboxzero/worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.mjs"
+  },
+  "dependencies": {
+    "bullmq": "5.61.2",
+    "ioredis": "5.10.0"
+  }
+}
