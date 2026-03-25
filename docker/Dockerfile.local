@@ -20,6 +20,7 @@ RUN npm install -g pnpm@10.27.0
 # Copy lockfiles/workspace manifests for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY apps/web/package.json apps/web/package.json
+COPY apps/worker/package.json apps/worker/package.json
 COPY packages/loops/package.json packages/loops/package.json
 COPY packages/resend/package.json packages/resend/package.json
 COPY packages/tinybird/package.json packages/tinybird/package.json
@@ -86,7 +87,8 @@ RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
 RUN --mount=type=cache,target=/app/apps/web/.next/cache \
     cd apps/web && \
     ../../node_modules/.bin/next build --webpack && \
-    cd ../..
+    cd ../.. && \
+    pnpm --filter @inboxzero/worker deploy --prod /tmp/apps/worker
 
 # === Production image ===
 FROM node:24-alpine AS runner
@@ -100,6 +102,7 @@ COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder /app/apps/web/prisma ./apps/web/prisma
+COPY --from=builder /tmp/apps/worker ./apps/worker
 
 # Copy runtime scripts
 COPY docker/scripts /app/docker/scripts

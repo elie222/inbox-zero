@@ -38,7 +38,7 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | **Redis** ||||
 | `UPSTASH_REDIS_URL` | No* | Upstash Redis URL or any Upstash-compatible HTTP Redis endpoint (*required if not using Docker Compose with local Redis) | — |
 | `UPSTASH_REDIS_TOKEN` | No* | Upstash Redis token or serverless-redis-http token (*required if not using Docker Compose) | — |
-| `REDIS_URL` | No | Alternative Redis URL (for subscriptions) | — |
+| `REDIS_URL` | No | Redis URL for subscriptions and the optional BullMQ worker | — |
 | **LLM Provider Selection** ||||
 | `DEFAULT_LLM_PROVIDER` | Yes | Primary LLM provider (`anthropic`, `azure`, `vertex`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`) | — |
 | `DEFAULT_LLM_MODEL` | No | Model to use with default provider | Provider default |
@@ -84,6 +84,7 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `QSTASH_TOKEN` | No | QStash API token (optional; fallback runs jobs via internal API + cron) | — |
 | `QSTASH_CURRENT_SIGNING_KEY` | No | Current signing key for webhooks | — |
 | `QSTASH_NEXT_SIGNING_KEY` | No | Next signing key for key rotation | — |
+| `QUEUE_BACKEND` | No | Background job transport: `qstash`, `bullmq`, or `internal` | Auto-detect (`qstash` when configured, else `internal`) |
 | **Sentry** ||||
 | `SENTRY_AUTH_TOKEN` | No | Auth token for source maps | — |
 | `SENTRY_ORGANIZATION` | No | Organization slug | — |

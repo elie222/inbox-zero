@@ -1,8 +1,13 @@
 import { send } from "@vercel/queue";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
-import { publishToQstashQueue } from "@/utils/upstash";
+import {
+  publishToInternalApiInBackground,
+  publishToQstashQueue,
+} from "@/utils/upstash";
 import { isVercelQueueDispatchEnabled } from "@/utils/queue/vercel";
+import { enqueueBullmqHttpJob } from "@/utils/queue/bullmq";
+import { getQueueBackend } from "@/utils/queue/backend";
 
 export async function enqueueBackgroundJob<T>({
   topic,
@@ -18,18 +23,48 @@ export async function enqueueBackgroundJob<T>({
     path: string;
     headers?: HeadersInit;
   };
-  logger?: Logger;
+  logger: Logger;
 }) {
   if (isVercelQueueDispatchEnabled()) {
     try {
       await send(topic, body);
       return "vercel";
     } catch (error) {
-      logger?.error("Failed to enqueue Vercel queue message", {
+      logger.error("Failed to enqueue Vercel queue message", {
         topic,
         error,
       });
     }
+  }
+
+  const backend = getQueueBackend();
+
+  if (backend === "bullmq") {
+    if (env.REDIS_URL) {
+      await enqueueBullmqHttpJob({
+        queueName: qstash.queueName,
+        path: qstash.path,
+        body,
+        headers: qstash.headers,
+      });
+
+      return "bullmq";
+    }
+
+    logger.warn("QUEUE_BACKEND=bullmq but REDIS_URL is not configured", {
+      topic,
+      queueName: qstash.queueName,
+    });
+  }
+
+  if (backend === "internal") {
+    await publishToInternalApiInBackground({
+      path: qstash.path,
+      body,
+      headers: qstash.headers,
+    });
+
+    return "internal-fallback";
   }
 
   await publishToQstashQueue({
@@ -40,9 +75,5 @@ export async function enqueueBackgroundJob<T>({
     headers: qstash.headers,
   });
 
-  return shouldUseQstashQueue() ? "qstash" : "internal-fallback";
-}
-
-function shouldUseQstashQueue() {
-  return !!env.QSTASH_TOKEN;
+  return env.QSTASH_TOKEN ? "qstash" : "internal-fallback";
 }

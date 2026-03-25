@@ -84,6 +84,27 @@ services:
       INTERNAL_API_URL: ${INTERNAL_API_URL:-http://web:3000}
     restart: always
 
+  worker:
+    image: ghcr.io/elie222/inbox-zero:latest
+    pull_policy: always
+    command: ["/app/docker/scripts/start-worker.sh"]
+    env_file:
+      - path: ./apps/web/.env
+        required: false
+    depends_on:
+      web:
+        condition: service_started
+      redis:
+        condition: service_started
+        required: false
+    networks:
+      - inbox-zero-network
+    environment:
+      INTERNAL_API_URL: ${INTERNAL_API_URL:-http://web:3000}
+    restart: always
+    profiles:
+      - queue-worker
+
   cron:
     image: alpine:latest
     command: >
