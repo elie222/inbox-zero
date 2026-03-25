@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getMockEmailAccountWithAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { bulkArchiveAction } from "@/utils/actions/mail-bulk-action";
 
@@ -37,13 +38,13 @@ vi.mock("@/utils/email/provider", () => ({
 describe("bulkArchiveAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      email: "owner@example.com",
-      account: {
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      getMockEmailAccountWithAccount({
+        email: "owner@example.com",
         userId: "user-1",
         provider: "google",
-      },
-    } as any);
+      }),
+    );
     mockEnqueueBulkArchiveSenderJobs.mockResolvedValue(2);
   });
 
@@ -68,13 +69,13 @@ describe("bulkArchiveAction", () => {
   });
 
   it("queues Outlook sender archives through the backend queue", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue({
-      email: "owner@example.com",
-      account: {
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      getMockEmailAccountWithAccount({
+        email: "owner@example.com",
         userId: "user-1",
         provider: "microsoft",
-      },
-    } as any);
+      }),
+    );
 
     const result = await bulkArchiveAction("account-1", {
       froms: ["sender@example.com"],

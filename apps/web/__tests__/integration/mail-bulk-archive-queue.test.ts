@@ -41,7 +41,7 @@ vi.mock("@/utils/email/bulk-action-tracking", () => ({
   ) => mockPublishBulkActionToTinybird(...args),
 }));
 
-const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;
+const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";
 const TEST_EMAIL = "bulk-archive-test@example.com";
 const TEST_PORT = 4101;
 

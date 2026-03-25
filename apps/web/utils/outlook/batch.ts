@@ -107,12 +107,14 @@ async function moveMessagesInBatches({
   messageIds,
   destinationId,
   action,
+  stopOnError = false,
   logger,
 }: {
   client: OutlookClient;
   messageIds: string[];
   destinationId: string;
   action: "archive" | "trash";
+  stopOnError?: boolean;
   logger: Logger;
 }): Promise<void> {
   if (messageIds.length === 0) return;
@@ -138,7 +140,7 @@ async function moveMessagesInBatches({
   await batch({
     client,
     requests,
-    stopOnError: false,
+    stopOnError,
     context: {
       action,
       destinationId,
@@ -172,6 +174,7 @@ export async function moveMessagesForSenders({
   action,
   ownerEmail,
   emailAccountId,
+  continueOnError = true,
   logger,
 }: {
   client: OutlookClient;
@@ -180,6 +183,7 @@ export async function moveMessagesForSenders({
   action: "archive" | "trash";
   ownerEmail: string;
   emailAccountId: string;
+  continueOnError?: boolean;
   logger: Logger;
 }): Promise<void> {
   if (senders.length === 0) return;
@@ -196,6 +200,9 @@ export async function moveMessagesForSenders({
       logger.error(
         "Could not resolve inbox folder ID — aborting bulk archive to avoid archiving from all folders",
       );
+      if (!continueOnError) {
+        throw new Error("Could not resolve inbox folder ID for bulk archive");
+      }
       return;
     }
   }
@@ -255,6 +262,7 @@ export async function moveMessagesForSenders({
               messageIds,
               destinationId,
               action,
+              stopOnError: !continueOnError,
               logger,
             });
 
@@ -299,6 +307,7 @@ export async function moveMessagesForSenders({
               messageIds,
               error,
             });
+            if (!continueOnError) throw error;
           } finally {
             messageIds.forEach((id) => processedMessageIds.add(id));
           }
@@ -315,6 +324,7 @@ export async function moveMessagesForSenders({
           action,
           error,
         });
+        if (!continueOnError) throw error;
         nextLink = undefined;
       }
     } while (nextLink);

@@ -27,6 +27,13 @@ vi.mock("@/utils/email/google", () => ({
   },
 }));
 
+vi.mock("@/utils/email/microsoft", () => ({
+  OutlookProvider: class MockOutlookProvider {
+    bulkArchiveFromSenders = mockBulkArchiveFromSenders;
+    bulkArchiveSenderOrThrow = mockBulkArchiveSenderOrThrow;
+  },
+}));
+
 vi.mock("@/utils/queue/dispatch", () => ({
   enqueueBackgroundJob: (
     ...args: Parameters<typeof mockEnqueueBackgroundJob>
@@ -50,7 +57,8 @@ describe("enqueueBulkArchiveSenderJobs", () => {
       ownerEmail: "owner@example.com",
       provider: "google",
       froms: [
-        " sender@example.com ",
+        " Sender@example.com ",
+        "sender@example.com",
         "sender@example.com",
         "other@example.com",
         "",
@@ -66,7 +74,7 @@ describe("enqueueBulkArchiveSenderJobs", () => {
         emailAccountId: "account-1",
         ownerEmail: "owner@example.com",
         provider: "google",
-        sender: "sender@example.com",
+        sender: "Sender@example.com",
       },
       qstash: {
         queueName: MAIL_BULK_ARCHIVE_QUEUE_NAME,
@@ -150,12 +158,11 @@ describe("executeBulkArchiveSenderJob", () => {
     expect(mockBulkArchiveFromSenders).not.toHaveBeenCalled();
   });
 
-  it("uses the shared provider bulk archive path for Outlook jobs", async () => {
+  it("uses the Outlook sender archive path for Outlook jobs", async () => {
     const logger = createScopedLogger("bulk-archive-queue-test");
+    const { OutlookProvider } = await import("@/utils/email/microsoft");
 
-    mockCreateEmailProvider.mockResolvedValue({
-      bulkArchiveFromSenders: mockBulkArchiveFromSenders,
-    });
+    mockCreateEmailProvider.mockResolvedValue(new OutlookProvider());
 
     await executeBulkArchiveSenderJob({
       emailAccountId: "account-1",
@@ -165,11 +172,11 @@ describe("executeBulkArchiveSenderJob", () => {
       logger,
     });
 
-    expect(mockBulkArchiveFromSenders).toHaveBeenCalledWith(
-      ["sender@example.com"],
+    expect(mockBulkArchiveSenderOrThrow).toHaveBeenCalledWith(
+      "sender@example.com",
       "owner@example.com",
       "account-1",
     );
-    expect(mockBulkArchiveSenderOrThrow).not.toHaveBeenCalled();
+    expect(mockBulkArchiveFromSenders).not.toHaveBeenCalled();
   });
 });

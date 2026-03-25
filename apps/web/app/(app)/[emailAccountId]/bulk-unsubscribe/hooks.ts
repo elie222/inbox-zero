@@ -763,11 +763,9 @@ export function useBulkApprove<T extends Row>({
 }
 
 export function useBulkArchive<T extends Row>({
-  mutate,
   posthog,
   emailAccountId,
 }: {
-  mutate: () => Promise<unknown>;
   posthog: PostHog;
   emailAccountId: string;
 }) {
@@ -779,6 +777,12 @@ export function useBulkArchive<T extends Row>({
     posthog.capture("Clicked Bulk Archive");
     const promise = executeBulkArchive({
       froms: items.map((item) => item.name),
+    }).then((result) => {
+      if (result?.serverError) {
+        throw new Error(result.serverError);
+      }
+
+      return result;
     });
 
     const displayNames = formatSenderNames(items);
@@ -790,7 +794,10 @@ export function useBulkArchive<T extends Row>({
           ? `Queued archive for ${displayNames}`
           : `Archived emails from ${displayNames}`,
       error: (error) =>
-        error?.error?.serverError || "There was an error archiving the emails",
+        error instanceof Error
+          ? error.message
+          : error?.error?.serverError ||
+            "There was an error archiving the emails",
     });
   };
 

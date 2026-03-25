@@ -240,7 +240,9 @@ export function BulkArchiveCards({
         });
       }
 
-      setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
+      if (bulkAction === "markRead") {
+        setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
+      }
     } catch (_error) {
       toastError({
         description: `Failed to ${bulkAction === "markRead" ? "mark as read" : "archive"} some senders. Please try again.`,

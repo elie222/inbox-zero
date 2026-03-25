@@ -53,22 +53,17 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
         return next;
       });
 
-      const result = await executeAsync({ froms: uniqueSenders });
+      let result: Awaited<ReturnType<typeof executeAsync>>;
+
+      try {
+        result = await executeAsync({ froms: uniqueSenders });
+      } catch (error) {
+        clearQueueEntries(emailAccountId, uniqueSenders);
+        throw error;
+      }
 
       if (result?.serverError) {
-        jotaiStore.set(queueAtom, (prev) => {
-          const next = new Map(prev);
-
-          for (const sender of uniqueSenders) {
-            const queueKey = getQueueKey(emailAccountId, sender);
-
-            clearQueueCleanupTimer(queueKey);
-            next.delete(queueKey);
-          }
-
-          return next;
-        });
-
+        clearQueueEntries(emailAccountId, uniqueSenders);
         throw new Error(result.serverError);
       }
 
@@ -114,13 +109,20 @@ export function useArchiveSenderStatus(emailAccountId: string, sender: string) {
 }
 
 function getUniqueSenders(senders: string[]) {
-  return Array.from(
-    new Set(senders.map((sender) => sender.trim()).filter(Boolean)),
-  );
+  const uniqueSenders = new Map<string, string>();
+
+  for (const sender of senders) {
+    const normalizedSender = normalizeSender(sender);
+    if (!normalizedSender || uniqueSenders.has(normalizedSender)) continue;
+
+    uniqueSenders.set(normalizedSender, sender.trim());
+  }
+
+  return Array.from(uniqueSenders.values());
 }
 
 function getQueueKey(emailAccountId: string, sender: string) {
-  return `${emailAccountId}:${sender.trim().toLowerCase()}`;
+  return `${emailAccountId}:${normalizeSender(sender)}`;
 }
 
 function clearQueueCleanupTimer(queueKey: string) {
@@ -145,4 +147,22 @@ function scheduleQueuedStatusCleanup(queueKey: string) {
       queueCleanupTimers.delete(queueKey);
     }, QUEUED_STATUS_TTL_MS),
   );
+}
+
+function clearQueueEntries(emailAccountId: string, senders: string[]) {
+  jotaiStore.set(queueAtom, (prev) => {
+    const next = new Map(prev);
+
+    for (const sender of senders) {
+      const queueKey = getQueueKey(emailAccountId, sender);
+      clearQueueCleanupTimer(queueKey);
+      next.delete(queueKey);
+    }
+
+    return next;
+  });
+}
+
+function normalizeSender(sender: string) {
+  return sender.trim().toLowerCase();
 }

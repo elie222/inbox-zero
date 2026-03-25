@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { Provider } from "jotai";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { jotaiStore } from "@/store";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockExecuteAsync = vi.fn();
 
@@ -31,13 +30,23 @@ vi.mock("./sender-queue", () => ({
 
 describe("archive sender queue", () => {
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
     vi.useRealTimers();
   });
 
+  afterEach(() => {
+    if (vi.isFakeTimers()) {
+      vi.runOnlyPendingTimers();
+    }
+    vi.useRealTimers();
+  });
+
   it("keeps sender status scoped to the email account", async () => {
+    vi.useFakeTimers();
     mockExecuteAsync.mockResolvedValue({ data: { mode: "queued" } });
 
+    const { jotaiStore } = await import("@/store");
     const { useArchiveSenderQueueActions, useArchiveSenderStatus } =
       await import("./archive-sender-queue");
 
@@ -64,11 +73,9 @@ describe("archive sender queue", () => {
       });
     });
 
-    await waitFor(() => {
-      expect(firstAccountStatus.current).toMatchObject({
-        status: "completed",
-        queued: true,
-      });
+    expect(firstAccountStatus.current).toMatchObject({
+      status: "completed",
+      queued: true,
     });
     expect(secondAccountStatus.current).toBeUndefined();
   });
@@ -77,6 +84,7 @@ describe("archive sender queue", () => {
     vi.useFakeTimers();
     mockExecuteAsync.mockResolvedValue({ data: { mode: "queued" } });
 
+    const { jotaiStore } = await import("@/store");
     const { useArchiveSenderQueueActions, useArchiveSenderStatus } =
       await import("./archive-sender-queue");
 
@@ -109,5 +117,62 @@ describe("archive sender queue", () => {
     });
 
     expect(statusResult.current).toBeUndefined();
+  });
+
+  it("clears pending sender state when the action rejects", async () => {
+    mockExecuteAsync.mockRejectedValue(new Error("queue failed"));
+
+    const { jotaiStore } = await import("@/store");
+    const { useArchiveSenderQueueActions, useArchiveSenderStatus } =
+      await import("./archive-sender-queue");
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <Provider store={jotaiStore}>{children}</Provider>
+    );
+
+    const { result: actionResult } = renderHook(
+      () => useArchiveSenderQueueActions("account-1"),
+      { wrapper },
+    );
+    const { result: statusResult } = renderHook(
+      () => useArchiveSenderStatus("account-1", "sender@example.com"),
+      { wrapper },
+    );
+
+    await expect(
+      actionResult.current.queueArchiveSenders({
+        senders: ["sender@example.com"],
+      }),
+    ).rejects.toThrow("queue failed");
+
+    expect(statusResult.current).toBeUndefined();
+  });
+
+  it("dedupes sender queue requests case-insensitively", async () => {
+    mockExecuteAsync.mockResolvedValue({ data: { mode: "queued" } });
+
+    const { jotaiStore } = await import("@/store");
+    const { useArchiveSenderQueueActions } = await import(
+      "./archive-sender-queue"
+    );
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <Provider store={jotaiStore}>{children}</Provider>
+    );
+
+    const { result: actionResult } = renderHook(
+      () => useArchiveSenderQueueActions("account-1"),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await actionResult.current.queueArchiveSenders({
+        senders: ["Sender@example.com", " sender@example.com "],
+      });
+    });
+
+    expect(mockExecuteAsync).toHaveBeenCalledWith({
+      froms: ["Sender@example.com"],
+    });
   });
 });

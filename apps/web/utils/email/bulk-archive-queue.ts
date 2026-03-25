@@ -4,6 +4,7 @@ import { bulkArchiveSenderJobSchema } from "@/utils/actions/mail-bulk-action.val
 import { createEmailProvider } from "@/utils/email/provider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { GmailProvider } from "@/utils/email/google";
+import { OutlookProvider } from "@/utils/email/microsoft";
 import { SafeError } from "@/utils/error";
 
 export const MAIL_BULK_ARCHIVE_TOPIC = "mail-bulk-archive";
@@ -83,13 +84,32 @@ export async function executeBulkArchiveSenderJob({
     return;
   }
 
-  await emailProvider.bulkArchiveFromSenders(
-    [sender],
+  if (!(emailProvider instanceof OutlookProvider)) {
+    throw new SafeError(
+      "Failed to initialize Outlook provider for bulk archive",
+    );
+  }
+
+  await emailProvider.bulkArchiveSenderOrThrow(
+    sender,
     ownerEmail,
     emailAccountId,
   );
 }
 
 function getUniqueSenders(froms: string[]) {
-  return Array.from(new Set(froms.map((from) => from.trim()).filter(Boolean)));
+  const uniqueSenders = new Map<string, string>();
+
+  for (const from of froms) {
+    const normalizedSender = normalizeSender(from);
+    if (!normalizedSender || uniqueSenders.has(normalizedSender)) continue;
+
+    uniqueSenders.set(normalizedSender, from.trim());
+  }
+
+  return Array.from(uniqueSenders.values());
+}
+
+function normalizeSender(sender: string) {
+  return sender.trim().toLowerCase();
 }
