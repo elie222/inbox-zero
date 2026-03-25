@@ -152,7 +152,7 @@ async function loadEmails(
   return { pages };
 }
 
-async function saveBatch({
+export async function saveBatch({
   emailAccountId,
   emailProvider,
   logger,

@@ -15,6 +15,7 @@
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
     "test-e2e": "cross-env RUN_E2E_TESTS=true vitest --run",
+    "test-integration": "cross-env RUN_INTEGRATION_TESTS=true vitest --run --dir __tests__/integration",
     "test-e2e:flows": "cross-env RUN_E2E_FLOW_TESTS=true vitest --run --dir __tests__/e2e/flows --no-file-parallelism",
     "test:local-bypass-smoke": "playwright test -c playwright.local-bypass.config.mjs",
     "emulate:google": "emulate --service google --seed ../../emulate.config.yaml --port 4002",
