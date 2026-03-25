@@ -228,6 +228,37 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(capturedRequests[0].headers["x-custom-header"]).toBe("queue-test");
     });
 
+    it("processes digest jobs with the default worker queues", async () => {
+      const serverInfo = await startTestServer(capturedRequests);
+      server = serverInfo.server;
+      setWorkerTestEnv(serverInfo.port);
+
+      const { startWorkerRuntime } = await import(
+        "../../../worker/src/runtime.mjs"
+      );
+      runtime = await startWorkerRuntime();
+
+      const { enqueueBackgroundJob } = await import("@/utils/queue/dispatch");
+
+      await enqueueBackgroundJob({
+        topic: "ai-digest",
+        body: { emailAccountId: "account-2", message: { id: "msg-1" } },
+        qstash: {
+          queueName: "digest-item-summarize",
+          parallelism: 3,
+          path: "/api/ai/digest",
+        },
+        logger: createScopedLogger("test"),
+      });
+
+      expect(capturedRequests).toHaveLength(1);
+      expect(capturedRequests[0]).toMatchObject({
+        body: { emailAccountId: "account-2", message: { id: "msg-1" } },
+        method: "POST",
+        url: "/api/ai/digest",
+      });
+    });
+
     it("honors custom worker queue configuration", async () => {
       const serverInfo = await startTestServer(capturedRequests);
       server = serverInfo.server;

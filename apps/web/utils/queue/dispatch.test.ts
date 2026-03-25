@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockSend = vi.fn();
 const mockPublishToQstashQueue = vi.fn();
+const mockPublishToInternalApiInBackground = vi.fn();
 const mockEnqueueBullmqHttpJob = vi.fn();
 const mockIsVercelQueueDispatchEnabled = vi.fn();
 const mockLogger = {
@@ -34,6 +35,7 @@ async function loadDispatchModule({
   }));
 
   vi.doMock("@/utils/upstash", () => ({
+    publishToInternalApiInBackground: mockPublishToInternalApiInBackground,
     publishToQstashQueue: mockPublishToQstashQueue,
   }));
 
@@ -52,6 +54,7 @@ describe("enqueueBackgroundJob", () => {
   beforeEach(() => {
     mockLogger.error.mockReset();
     mockLogger.warn.mockReset();
+    mockPublishToInternalApiInBackground.mockReset();
     mockIsVercelQueueDispatchEnabled.mockReturnValue(false);
   });
 
@@ -135,5 +138,33 @@ describe("enqueueBackgroundJob", () => {
       headers: undefined,
     });
     expect(mockEnqueueBullmqHttpJob).not.toHaveBeenCalled();
+  });
+
+  it("honors the internal backend even when QStash is configured", async () => {
+    const { enqueueBackgroundJob } = await loadDispatchModule({
+      queueBackend: "internal",
+      qstashToken: "qstash-token",
+    });
+
+    mockPublishToInternalApiInBackground.mockResolvedValue(undefined);
+
+    const result = await enqueueBackgroundJob({
+      topic: "topic",
+      body: { id: "job-4" },
+      qstash: {
+        queueName: "email-digest-all",
+        parallelism: 3,
+        path: "/api/resend/digest",
+      },
+      logger: mockLogger as any,
+    });
+
+    expect(result).toBe("internal-fallback");
+    expect(mockPublishToInternalApiInBackground).toHaveBeenCalledWith({
+      path: "/api/resend/digest",
+      body: { id: "job-4" },
+      headers: undefined,
+    });
+    expect(mockPublishToQstashQueue).not.toHaveBeenCalled();
   });
 });

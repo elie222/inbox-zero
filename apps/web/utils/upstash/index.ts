@@ -100,6 +100,22 @@ export async function publishToQstashQueue<T>({
     }
   }
 
+  return publishToInternalApiInBackground<T>({
+    path,
+    body,
+    headers,
+  });
+}
+
+export async function publishToInternalApiInBackground<T>({
+  path,
+  body,
+  headers,
+}: {
+  path: string;
+  body: T;
+  headers?: HeadersInit;
+}) {
   const fallbackUrl = `${getInternalApiUrl()}${path}`;
   return fallbackPublishToQstash<T>(fallbackUrl, body, headers);
 }

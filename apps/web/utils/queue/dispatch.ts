@@ -1,7 +1,10 @@
 import { send } from "@vercel/queue";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
-import { publishToQstashQueue } from "@/utils/upstash";
+import {
+  publishToInternalApiInBackground,
+  publishToQstashQueue,
+} from "@/utils/upstash";
 import { isVercelQueueDispatchEnabled } from "@/utils/queue/vercel";
 import { enqueueBullmqHttpJob } from "@/utils/queue/bullmq";
 import { getQueueBackend } from "@/utils/queue/backend";
@@ -52,6 +55,16 @@ export async function enqueueBackgroundJob<T>({
       topic,
       queueName: qstash.queueName,
     });
+  }
+
+  if (backend === "internal") {
+    await publishToInternalApiInBackground({
+      path: qstash.path,
+      body,
+      headers: qstash.headers,
+    });
+
+    return "internal-fallback";
   }
 
   await publishToQstashQueue({
