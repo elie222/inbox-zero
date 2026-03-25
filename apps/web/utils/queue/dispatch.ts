@@ -20,14 +20,14 @@ export async function enqueueBackgroundJob<T>({
     path: string;
     headers?: HeadersInit;
   };
-  logger?: Logger;
+  logger: Logger;
 }) {
   if (isVercelQueueDispatchEnabled()) {
     try {
       await send(topic, body);
       return "vercel";
     } catch (error) {
-      logger?.error("Failed to enqueue Vercel queue message", {
+      logger.error("Failed to enqueue Vercel queue message", {
         topic,
         error,
       });
@@ -48,7 +48,7 @@ export async function enqueueBackgroundJob<T>({
       return "bullmq";
     }
 
-    logger?.warn("QUEUE_BACKEND=bullmq but REDIS_URL is not configured", {
+    logger.warn("QUEUE_BACKEND=bullmq but REDIS_URL is not configured", {
       topic,
       queueName: qstash.queueName,
     });
