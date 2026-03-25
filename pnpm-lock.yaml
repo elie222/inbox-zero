@@ -631,6 +631,9 @@ importers:
       dotenv-cli:
         specifier: 11.0.0
         version: 11.0.0
+      emulate:
+        specifier: npm:@inbox-zero/emulate@0.2.0-inboxzero.0
+        version: '@inbox-zero/emulate@0.2.0-inboxzero.0(hono@4.11.4)'
       jsdom:
         specifier: 27.3.0
         version: 27.3.0
@@ -2976,6 +2979,10 @@ packages:
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [x64]
     os: [win32]
+
+  '@inbox-zero/emulate@0.2.0-inboxzero.0':
+    resolution: {integrity: sha512-/uymkCKwNYhymXwmWDytuGSzC4AwNodCeNM2/kjajjPNjAyHW6NO1OYv8+2NKweOmWlNmZ5yyadbtTeyOtzqjg==}
+    hasBin: true
 
   '@inquirer/ansi@1.0.2':
     resolution: {integrity: sha512-S8qNSZiYzFd0wAcyG5AXCvUHC5Sr7xpZ9wZ2py9XR88jUz8wooStVx5M6dRzczbBWjic9NP7+rY0Xi7qqK/aMQ==}
@@ -14726,6 +14733,15 @@ snapshots:
   '@img/sharp-win32-x64@0.34.5':
     optional: true
 
+  '@inbox-zero/emulate@0.2.0-inboxzero.0(hono@4.11.4)':
+    dependencies:
+      '@hono/node-server': 1.19.9(hono@4.11.4)
+      commander: 14.0.3
+      picocolors: 1.1.1
+      yaml: 2.8.2
+    transitivePeerDependencies:
+      - hono
+
   '@inquirer/ansi@1.0.2': {}
 
   '@inquirer/ansi@2.0.3': {}
@@ -19027,7 +19043,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vitest: 4.1.0(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.1.0)(jsdom@27.3.0)(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
+      vitest: 4.1.0(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.1.0)(jsdom@28.1.0(@noble/hashes@2.0.1))(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
 
   '@vitest/utils@4.1.0':
     dependencies:
