@@ -1,9 +1,4 @@
----
-name: integration-test
-description: Write integration tests using the Google emulator (@inbox-zero/emulate)
----
-
-## Integration Tests
+# Integration Tests
 
 Integration tests live in `apps/web/__tests__/integration/`. They test real code paths against fake services using `@inbox-zero/emulate`. No real credentials, no network, runs in seconds.
 
