@@ -360,6 +360,7 @@ export class GmailProvider implements EmailProvider {
     senders: string[],
     ownerEmail: string,
     emailAccountId: string,
+    options?: { continueOnError?: boolean },
   ): Promise<void> {
     const log = this.logger.with({
       action: "archiveMessagesFromSenders",
@@ -367,6 +368,7 @@ export class GmailProvider implements EmailProvider {
       email: ownerEmail,
       sendersCount: senders.length,
     });
+    const continueOnError = options?.continueOnError ?? true;
 
     if (senders.length === 0) return;
 
@@ -429,6 +431,9 @@ export class GmailProvider implements EmailProvider {
             sender,
             error,
           });
+          if (!continueOnError) {
+            throw error;
+          }
           // continue processing remaining pages
           nextPageToken = undefined;
         }
@@ -561,6 +566,21 @@ export class GmailProvider implements EmailProvider {
       ownerEmail,
       emailAccountId,
     );
+  }
+
+  async bulkArchiveSenderOrThrow(
+    fromEmail: string,
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void> {
+    await this.withRateLimitTracking("bulk-archive-sender", async () => {
+      await this.archiveMessagesFromSenders(
+        [fromEmail],
+        ownerEmail,
+        emailAccountId,
+        { continueOnError: false },
+      );
+    });
   }
 
   async bulkTrashFromSenders(

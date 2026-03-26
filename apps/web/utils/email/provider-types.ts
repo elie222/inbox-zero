@@ -1,7 +1,11 @@
-export function isGoogleProvider(provider: string | null | undefined) {
+export function isGoogleProvider(
+  provider: string | null | undefined,
+): provider is "google" {
   return provider === "google";
 }
 
-export function isMicrosoftProvider(provider: string | null | undefined) {
+export function isMicrosoftProvider(
+  provider: string | null | undefined,
+): provider is "microsoft" {
   return provider === "microsoft";
 }
