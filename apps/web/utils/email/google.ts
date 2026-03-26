@@ -153,11 +153,7 @@ export class GmailProvider implements EmailProvider {
     return this.withRateLimitTracking("get-labels", async () => {
       const labels = await getLabels(this.client, { logger: this.logger });
       return (labels || [])
-        .filter(
-          (label) =>
-            label.type === "user" &&
-            label.labelListVisibility !== labelVisibility.labelHide,
-        )
+        .filter((label) => label.type === "user")
         .map((label) => ({
           id: label.id!,
           name: label.name!,

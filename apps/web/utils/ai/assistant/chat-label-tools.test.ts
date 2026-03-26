@@ -96,4 +96,42 @@ describe("chat label tools", () => {
       },
     });
   });
+
+  it("reuses a hidden label when it is already available from the provider", async () => {
+    const getLabels = vi.fn().mockResolvedValue([
+      {
+        id: "label-hidden",
+        name: "FYI",
+        type: "user",
+        labelListVisibility: "labelHide",
+      },
+    ]);
+    const createLabel = vi.fn();
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getLabels,
+      createLabel,
+    } as any);
+
+    const toolInstance = createOrGetLabelTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      name: "FYI",
+    });
+
+    expect(result).toEqual({
+      created: false,
+      label: {
+        id: "label-hidden",
+        name: "FYI",
+        type: "user",
+      },
+    });
+    expect(createLabel).not.toHaveBeenCalled();
+  });
 });
