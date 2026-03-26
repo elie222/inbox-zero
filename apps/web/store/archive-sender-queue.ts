@@ -38,12 +38,17 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
   const queueArchiveSenders = useCallback(
     async ({ senders }: { senders: string[] }) => {
       const uniqueSenders = getUniqueSenders(senders);
-      if (!uniqueSenders.length) return;
+      const sendersToQueue = getQueueableSenders({
+        emailAccountId,
+        senders: uniqueSenders,
+        queue: jotaiStore.get(queueAtom),
+      });
+      if (!sendersToQueue.length) return;
 
       jotaiStore.set(queueAtom, (prev) => {
         const next = new Map(prev);
 
-        for (const sender of uniqueSenders) {
+        for (const sender of sendersToQueue) {
           const queueKey = getQueueKey(emailAccountId, sender);
 
           clearQueueCleanupTimer(queueKey);
@@ -56,14 +61,14 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
       let result: Awaited<ReturnType<typeof executeAsync>>;
 
       try {
-        result = await executeAsync({ froms: uniqueSenders });
+        result = await executeAsync({ froms: sendersToQueue });
       } catch (error) {
-        clearQueueEntries(emailAccountId, uniqueSenders);
+        clearQueueEntries(emailAccountId, sendersToQueue);
         throw error;
       }
 
       if (result?.serverError) {
-        clearQueueEntries(emailAccountId, uniqueSenders);
+        clearQueueEntries(emailAccountId, sendersToQueue);
         throw new Error(result.serverError);
       }
 
@@ -71,7 +76,7 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
         const next = new Map(prev);
         const queued = result?.data?.mode === "queued";
 
-        for (const sender of uniqueSenders) {
+        for (const sender of sendersToQueue) {
           const queueKey = getQueueKey(emailAccountId, sender);
 
           next.set(queueKey, { status: "completed", queued });
@@ -125,6 +130,21 @@ function getQueueKey(emailAccountId: string, sender: string) {
   return `${emailAccountId}:${normalizeSender(sender)}`;
 }
 
+function getQueueableSenders({
+  emailAccountId,
+  senders,
+  queue,
+}: {
+  emailAccountId: string;
+  senders: string[];
+  queue: Map<string, QueueItem>;
+}) {
+  return senders.filter((sender) => {
+    const queueItem = queue.get(getQueueKey(emailAccountId, sender));
+    return !isActiveQueueItem(queueItem);
+  });
+}
+
 function clearQueueCleanupTimer(queueKey: string) {
   const timer = queueCleanupTimers.get(queueKey);
   if (timer) {
@@ -165,4 +185,8 @@ function clearQueueEntries(emailAccountId: string, senders: string[]) {
 
 function normalizeSender(sender: string) {
   return sender.trim().toLowerCase();
+}
+
+function isActiveQueueItem(queueItem?: QueueItem) {
+  return queueItem?.status === "pending" || queueItem?.queued === true;
 }

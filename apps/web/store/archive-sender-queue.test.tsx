@@ -175,4 +175,44 @@ describe("archive sender queue", () => {
       froms: ["Sender@example.com"],
     });
   });
+
+  it("does not enqueue senders that are already queued", async () => {
+    vi.useFakeTimers();
+    mockExecuteAsync.mockResolvedValue({ data: { mode: "queued" } });
+
+    const { jotaiStore } = await import("@/store");
+    const { useArchiveSenderQueueActions, useArchiveSenderStatus } =
+      await import("./archive-sender-queue");
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <Provider store={jotaiStore}>{children}</Provider>
+    );
+
+    const { result: actionResult } = renderHook(
+      () => useArchiveSenderQueueActions("account-1"),
+      { wrapper },
+    );
+    const { result: statusResult } = renderHook(
+      () => useArchiveSenderStatus("account-1", "sender@example.com"),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await actionResult.current.queueArchiveSenders({
+        senders: ["sender@example.com"],
+      });
+    });
+
+    await act(async () => {
+      await actionResult.current.queueArchiveSenders({
+        senders: ["sender@example.com"],
+      });
+    });
+
+    expect(mockExecuteAsync).toHaveBeenCalledTimes(1);
+    expect(statusResult.current).toMatchObject({
+      status: "completed",
+      queued: true,
+    });
+  });
 });
