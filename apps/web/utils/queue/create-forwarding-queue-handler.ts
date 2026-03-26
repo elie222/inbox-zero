@@ -16,7 +16,6 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
   invalidPayloadMessage,
   visibilityTimeoutSeconds,
   getLoggerContext,
-  getTraceContext,
 }: {
   loggerScope: string;
   schema: TSchema;
@@ -24,10 +23,6 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
   invalidPayloadMessage: string;
   visibilityTimeoutSeconds: number;
   getLoggerContext?: (
-    payload: z.infer<TSchema>,
-    metadata: QueueMetadata,
-  ) => Record<string, unknown>;
-  getTraceContext?: (
     payload: z.infer<TSchema>,
     metadata: QueueMetadata,
   ) => Record<string, unknown>;
@@ -50,11 +45,6 @@ export function createForwardingQueueHandler<TSchema extends z.ZodTypeAny>({
         queueMessageId: metadata.messageId,
         deliveryCount: metadata.deliveryCount,
       });
-
-      const traceContext = getTraceContext?.(parseResult.data, metadata);
-      if (traceContext) {
-        runLogger.trace("Forwarding queue message", traceContext);
-      }
 
       await forwardQueueMessageToInternalApi({
         path,

@@ -8,7 +8,6 @@ const DEFAULT_QUEUES = [
   { name: "digest-item-summarize", concurrency: 3 },
   { name: "email-summary-all", concurrency: 3 },
   { name: "email-digest-all", concurrency: 3 },
-  { name: "mail-bulk-archive", concurrency: 1 },
 ];
 
 export async function startWorkerRuntime({

@@ -26,8 +26,8 @@ import { EmailCell } from "@/components/EmailCell";
 import { LoadingContent } from "@/components/LoadingContent";
 import { cn } from "@/utils";
 import {
+  addToArchiveSenderQueue,
   useArchiveSenderStatus,
-  useArchiveSenderQueueActions,
 } from "@/store/archive-sender-queue";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useThreads } from "@/hooks/useThreads";
@@ -75,7 +75,6 @@ const confidenceConfig = {
 
 export function BulkArchiveTab() {
   const { emailAccountId, userEmail } = useAccount();
-  const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
 
   const { data, error, isLoading } = useSWR<CategorizedSendersResponse>(
     "/api/user/categorize/senders/categorized",
@@ -196,9 +195,12 @@ export function BulkArchiveTab() {
     const toArchive = candidates.filter((c) => selectedSenders[c.address]);
 
     try {
-      await queueArchiveSenders({
-        senders: toArchive.map((candidate) => candidate.address),
-      });
+      for (const candidate of toArchive) {
+        await addToArchiveSenderQueue({
+          sender: candidate.address,
+          emailAccountId,
+        });
+      }
       setArchiveComplete(true);
     } catch {
       toast.error("Failed to archive some senders. Please try again.");
@@ -438,7 +440,6 @@ export function BulkArchiveTab() {
                   {senders.map((candidate) => (
                     <SenderRow
                       key={candidate.address}
-                      emailAccountId={emailAccountId}
                       candidate={candidate}
                       isSelected={!!selectedSenders[candidate.address]}
                       isExpanded={!!expandedSenders[candidate.address]}
@@ -462,7 +463,6 @@ export function BulkArchiveTab() {
 }
 
 function SenderRow({
-  emailAccountId,
   candidate,
   isSelected,
   isExpanded,
@@ -470,7 +470,6 @@ function SenderRow({
   onToggleExpanded,
   userEmail,
 }: {
-  emailAccountId: string;
   candidate: ArchiveCandidate;
   isSelected: boolean;
   isExpanded: boolean;
@@ -478,7 +477,7 @@ function SenderRow({
   onToggleExpanded: () => void;
   userEmail: string;
 }) {
-  const status = useArchiveSenderStatus(emailAccountId, candidate.address);
+  const status = useArchiveSenderStatus(candidate.address);
 
   return (
     <div className={cn(!isSelected && "opacity-50")}>
@@ -539,10 +538,21 @@ function ArchiveStatus({
 }) {
   switch (status?.status) {
     case "completed":
-      if (status.queued) {
-        return <span className="text-sm text-blue-600">Queued</span>;
+      if (status.threadsTotal) {
+        return (
+          <span className="text-sm text-green-600">
+            Archived {status.threadsTotal}!
+          </span>
+        );
       }
       return <span className="text-sm text-muted-foreground">Archived</span>;
+    case "processing":
+      return (
+        <span className="text-sm text-blue-600">
+          {status.threadsTotal - status.threadIds.length} /{" "}
+          {status.threadsTotal}
+        </span>
+      );
     case "pending":
       return <span className="text-sm text-muted-foreground">Pending...</span>;
     default:
