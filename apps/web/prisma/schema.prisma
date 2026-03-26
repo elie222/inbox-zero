@@ -1016,7 +1016,7 @@ model Chat {
   emailAccountId String
   emailAccount   EmailAccount     @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  @@index([emailAccountId, updatedAt])
+  @@index([emailAccountId])
 }
 
 model ChatMessage {
