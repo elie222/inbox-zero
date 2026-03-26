@@ -30,6 +30,11 @@ export async function enqueueBulkArchiveSenderJobs({
 }) {
   const senders = getUniqueSenders(froms);
 
+  await saveBulkArchiveTotalItems({
+    emailAccountId,
+    totalItems: senders.length,
+  });
+
   await Promise.all(
     senders.map((sender) =>
       enqueueBackgroundJob({
@@ -49,11 +54,6 @@ export async function enqueueBulkArchiveSenderJobs({
       }),
     ),
   );
-
-  await saveBulkArchiveTotalItems({
-    emailAccountId,
-    totalItems: senders.length,
-  });
 
   return senders.length;
 }

@@ -2,14 +2,14 @@ import { z } from "zod";
 import { redis } from "@/utils/redis";
 
 const bulkArchiveProgressSchema = z.object({
-  totalItems: z.number().int().min(0),
-  completedItems: z.number().int().min(0),
+  totalItems: z.coerce.number().int().min(0),
+  completedItems: z.coerce.number().int().min(0),
 });
 
 type RedisBulkArchiveProgress = z.infer<typeof bulkArchiveProgressSchema>;
 
 const IN_PROGRESS_TTL_SECONDS = 5 * 60;
-const COMPLETED_TTL_SECONDS = 5;
+const COMPLETED_TTL_SECONDS = 30;
 
 function getKey({ emailAccountId }: { emailAccountId: string }) {
   return `bulk-archive-progress:${emailAccountId}`;
@@ -20,11 +20,15 @@ export async function getBulkArchiveProgress({
 }: {
   emailAccountId: string;
 }) {
-  const progress = await redis.get<RedisBulkArchiveProgress>(
+  const progress = await redis.hgetall<RedisBulkArchiveProgress>(
     getKey({ emailAccountId }),
   );
   if (!progress) return null;
-  return progress;
+
+  const parsedProgress = bulkArchiveProgressSchema.safeParse(progress);
+  if (!parsedProgress.success) return null;
+
+  return parsedProgress.data;
 }
 
 export async function saveBulkArchiveTotalItems({
@@ -51,9 +55,13 @@ export async function saveBulkArchiveTotalItems({
         completedItems: existingProgress.completedItems,
       };
 
-  await redis.set(getKey({ emailAccountId }), nextProgress, {
-    ex: IN_PROGRESS_TTL_SECONDS,
-  });
+  if (shouldResetProgress) {
+    await redis.hset(getKey({ emailAccountId }), nextProgress);
+  } else {
+    await redis.hincrby(getKey({ emailAccountId }), "totalItems", totalItems);
+  }
+
+  await redis.expire(getKey({ emailAccountId }), IN_PROGRESS_TTL_SECONDS);
 
   return nextProgress;
 }
@@ -71,20 +79,29 @@ export async function saveBulkArchiveProgress({
   if (!existingProgress) return null;
 
   const completedItems = Math.min(
-    existingProgress.completedItems + incrementCompleted,
+    await redis.hincrby(
+      getKey({ emailAccountId }),
+      "completedItems",
+      incrementCompleted,
+    ),
     existingProgress.totalItems,
   );
-  const nextProgress: RedisBulkArchiveProgress = {
+
+  if (completedItems < existingProgress.completedItems + incrementCompleted) {
+    await redis.hset(getKey({ emailAccountId }), {
+      completedItems,
+    });
+  }
+
+  await redis.expire(
+    getKey({ emailAccountId }),
+    completedItems >= existingProgress.totalItems
+      ? COMPLETED_TTL_SECONDS
+      : IN_PROGRESS_TTL_SECONDS,
+  );
+
+  return {
     totalItems: existingProgress.totalItems,
     completedItems,
   };
-
-  await redis.set(getKey({ emailAccountId }), nextProgress, {
-    ex:
-      completedItems >= existingProgress.totalItems
-        ? COMPLETED_TTL_SECONDS
-        : IN_PROGRESS_TTL_SECONDS,
-  });
-
-  return nextProgress;
 }

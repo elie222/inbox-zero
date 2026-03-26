@@ -115,6 +115,9 @@ describe("enqueueBulkArchiveSenderJobs", () => {
       emailAccountId: "account-1",
       totalItems: 2,
     });
+    expect(
+      mockSaveBulkArchiveTotalItems.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockEnqueueBackgroundJob.mock.invocationCallOrder[0]);
   });
 
   it("queues Outlook sender archives with the real provider", async () => {
