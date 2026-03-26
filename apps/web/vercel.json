@@ -47,6 +47,15 @@
           "retryAfterSeconds": 60
         }
       ]
+    },
+    "app/api/mail/bulk-archive/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "mail-bulk-archive",
+          "retryAfterSeconds": 60
+        }
+      ]
     }
   },
   "rewrites": [

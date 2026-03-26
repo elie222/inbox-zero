@@ -263,7 +263,6 @@ export function MoreDropdown<T extends Row>({
   const { provider } = useAccount();
   const terminology = getEmailTerminology(provider);
   const { onBulkArchive, isBulkArchiving } = useBulkArchive({
-    mutate,
     posthog,
     emailAccountId,
   });
