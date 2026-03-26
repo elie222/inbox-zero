@@ -24,6 +24,8 @@ vi.mock("server-only", () => ({}));
 
 const mockUpdateEmailMessagesForSender = vi.fn().mockResolvedValue(undefined);
 const mockPublishBulkActionToTinybird = vi.fn().mockResolvedValue(undefined);
+const mockSaveBulkArchiveProgress = vi.fn().mockResolvedValue(undefined);
+const mockSaveBulkArchiveTotalItems = vi.fn().mockResolvedValue(undefined);
 
 let gmailClient: gmail_v1.Gmail;
 
@@ -39,6 +41,15 @@ vi.mock("@/utils/email/bulk-action-tracking", () => ({
   publishBulkActionToTinybird: (
     ...args: Parameters<typeof mockPublishBulkActionToTinybird>
   ) => mockPublishBulkActionToTinybird(...args),
+}));
+
+vi.mock("@/utils/redis/bulk-archive-progress", () => ({
+  saveBulkArchiveProgress: (
+    ...args: Parameters<typeof mockSaveBulkArchiveProgress>
+  ) => mockSaveBulkArchiveProgress(...args),
+  saveBulkArchiveTotalItems: (
+    ...args: Parameters<typeof mockSaveBulkArchiveTotalItems>
+  ) => mockSaveBulkArchiveTotalItems(...args),
 }));
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";
@@ -119,6 +130,8 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       await emulator.reset();
       mockUpdateEmailMessagesForSender.mockClear();
       mockPublishBulkActionToTinybird.mockClear();
+      mockSaveBulkArchiveProgress.mockClear();
+      mockSaveBulkArchiveTotalItems.mockClear();
       vi.resetModules();
     });
 
@@ -180,6 +193,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           ownerEmail: TEST_EMAIL,
         }),
       );
+      expect(mockSaveBulkArchiveProgress).toHaveBeenCalledWith({
+        emailAccountId: "account-1",
+        incrementCompleted: 1,
+      });
     });
   },
 );
