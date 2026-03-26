@@ -61,7 +61,7 @@ export const POST = withError("slack/events", async (request) => {
 
   const slackEvent = parseSlackEventType(rawBody);
 
-  if (slackEvent?.type === "app_home_opened") {
+  if (slackEvent?.type === "app_home_opened" && slackEvent.tab === "home") {
     after(async () => {
       try {
         await publishAppHome({
@@ -112,7 +112,7 @@ export const POST = withError("slack/events", async (request) => {
 
 function parseSlackEventType(
   rawBody: string,
-): { type: string; teamId: string; userId: string } | null {
+): { type: string; teamId: string; userId: string; tab?: string } | null {
   try {
     const parsed = JSON.parse(rawBody) as {
       event?: { type?: string; user?: string; tab?: string };
@@ -126,7 +126,9 @@ function parseSlackEventType(
     const teamId = parsed.team_id ?? parsed.authorizations?.[0]?.team_id ?? "";
     const userId = parsed.event?.user ?? "";
 
-    return { type: eventType, teamId, userId };
+    const tab = parsed.event?.tab;
+
+    return { type: eventType, teamId, userId, tab };
   } catch {
     return null;
   }

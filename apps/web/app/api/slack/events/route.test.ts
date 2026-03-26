@@ -217,6 +217,21 @@ describe("Slack events route", () => {
     expect(slackWebhookMock).not.toHaveBeenCalled();
   });
 
+  it("skips publishAppHome for app_home_opened on messages tab", async () => {
+    const body = JSON.stringify({
+      type: "event_callback",
+      team_id: "T-TEAM",
+      event: { type: "app_home_opened", user: "U-USER", tab: "messages" },
+    });
+    const request = createRequest({ body });
+
+    const response = await POST(request as any, context);
+
+    expect(response.status).toBe(200);
+    expect(publishAppHomeMock).not.toHaveBeenCalled();
+    expect(slackWebhookMock).toHaveBeenCalledTimes(1);
+  });
+
   it("intercepts app_uninstalled and calls handleSlackAppUninstalled", async () => {
     handleSlackAppUninstalledMock.mockResolvedValue(undefined);
     const body = JSON.stringify({
