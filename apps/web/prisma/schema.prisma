@@ -1005,7 +1005,7 @@ model Chat {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  title     String?
+  name      String?
   starred   Boolean   @default(false)
   deletedAt DateTime?
 

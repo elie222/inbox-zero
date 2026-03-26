@@ -5,7 +5,7 @@ import { withEmailAccount } from "@/utils/middleware";
 
 export type GetChatResponse = Awaited<ReturnType<typeof getChat>>;
 const updateChatSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
+  name: z.string().trim().min(1).max(200).optional(),
   starred: z.boolean().optional(),
 });
 
@@ -56,7 +56,7 @@ export const PATCH = withEmailAccount(
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
 
-    if (data.title === undefined && data.starred === undefined) {
+    if (data.name === undefined && data.starred === undefined) {
       return NextResponse.json(
         { error: "At least one field must be provided." },
         { status: 400 },
@@ -66,7 +66,7 @@ export const PATCH = withEmailAccount(
     const updatedChat = await updateChat({
       chatId,
       emailAccountId,
-      title: data.title,
+      name: data.name,
       starred: data.starred,
     });
 
@@ -128,12 +128,12 @@ async function getChat({
 async function updateChat({
   chatId,
   emailAccountId,
-  title,
+  name,
   starred,
 }: {
   chatId: string;
   emailAccountId: string;
-  title?: string;
+  name?: string;
   starred?: boolean;
 }) {
   const result = await prisma.chat.updateMany({
@@ -143,7 +143,7 @@ async function updateChat({
       deletedAt: null,
     },
     data: {
-      ...(title !== undefined ? { title } : {}),
+      ...(name !== undefined ? { name } : {}),
       ...(starred !== undefined ? { starred } : {}),
     },
   });

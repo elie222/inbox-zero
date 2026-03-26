@@ -1,6 +1,6 @@
 -- AlterTable
 ALTER TABLE "Chat"
-ADD COLUMN "title" TEXT,
+ADD COLUMN "name" TEXT,
 ADD COLUMN "starred" BOOLEAN NOT NULL DEFAULT false,
 ADD COLUMN "deletedAt" TIMESTAMP(3);
 
