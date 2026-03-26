@@ -6,15 +6,49 @@
 display_information:
   name: Inbox Zero
   description: AI executive assistant
+  long_description: |
+    Inbox Zero is an AI email assistant that lives in Slack. Chat with it to get summaries, draft replies, triage your inbox, and stay on top of important emails — without switching apps.
+
+    Features:
+    - DM or @mention the bot to ask questions about your inbox
+    - Slash commands for common workflows: /summary, /draftreply, /cleanup, /followups
+    - Meeting briefs delivered to your channel before calendar events
+    - Automatic attachment filing with notifications
+    - AI-powered email automation rules
+    - Works with Gmail and Outlook
+    - SOC 2 compliant, open source, and privacy-first
   background_color: "#1a1a2e"
 
 features:
   app_home:
+    home_tab_enabled: true
     messages_tab_enabled: true
     messages_tab_read_only_enabled: false
   bot_user:
     display_name: Inbox Zero
     always_online: true
+  slash_commands:
+    - command: /summary
+      url: https://YOUR_DOMAIN/api/slack/commands
+      description: What needs your attention today
+      usage_hint: "[optional topic]"
+      should_escape: false
+    - command: /draftreply
+      url: https://YOUR_DOMAIN/api/slack/commands
+      description: Draft a reply to your top email
+      should_escape: false
+    - command: /cleanup
+      url: https://YOUR_DOMAIN/api/slack/commands
+      description: Suggestions to clean up your inbox
+      should_escape: false
+    - command: /followups
+      url: https://YOUR_DOMAIN/api/slack/commands
+      description: Emails to follow up on this week
+      should_escape: false
+    - command: /help
+      url: https://YOUR_DOMAIN/api/slack/commands
+      description: See all available Inbox Zero commands
+      should_escape: false
 
 oauth_config:
   scopes:
@@ -31,6 +65,7 @@ oauth_config:
       - reactions:write
       - users:read
       - users:read.email
+      - commands
   redirect_urls:
     - https://YOUR_DOMAIN/api/slack/callback
 
@@ -40,6 +75,9 @@ settings:
     bot_events:
       - message.im
       - app_mention
+      - app_home_opened
+      - app_uninstalled
+      - tokens_revoked
       - assistant_thread_started
       - assistant_thread_context_changed
   interactivity:
