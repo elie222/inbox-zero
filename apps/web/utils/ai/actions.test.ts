@@ -174,7 +174,39 @@ describe("runActionFunction", () => {
     );
   });
 
-  it("sends Slack-targeted drafts as messaging notifications instead of mailbox drafts", async () => {
+  it("sends chat drafts through the messaging notification path", async () => {
+    const client = createMockEmailProvider();
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+        content: "Draft in chat",
+      },
+      userEmail: "user@example.com",
+      userId: "user-1",
+      emailAccountId: "account-1",
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(sendSlackRuleNotification).toHaveBeenCalledWith({
+      executedActionId: "action-1",
+      email,
+      logger: expect.anything(),
+    });
+    expect(client.draftEmail).not.toHaveBeenCalled();
+  });
+
+  it("keeps legacy messaging-targeted mailbox drafts on the Slack notification path", async () => {
     const client = createMockEmailProvider();
 
     await runActionFunction({
@@ -194,6 +226,7 @@ describe("runActionFunction", () => {
         threadId: "thread-1",
         emailAccountId: "account-1",
         ruleId: "rule-1",
+        actionItems: [{ type: ActionType.DRAFT_EMAIL }],
       } as any,
       logger,
     });

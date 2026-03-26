@@ -58,6 +58,7 @@ export function ruleToText(rule: RuleWithActions): string {
         actions.push(`Send email${action.to ? ` to ${action.to}` : ""}`);
         break;
       case ActionType.DRAFT_EMAIL:
+      case ActionType.DRAFT_MESSAGING_CHANNEL:
         actions.push("Draft a reply");
         break;
       case ActionType.NOTIFY_MESSAGING_CHANNEL:

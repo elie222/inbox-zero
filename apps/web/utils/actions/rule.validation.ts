@@ -67,6 +67,7 @@ export const updateRuleConditionSchema = z.object({
 const zodActionType = z.enum([
   ActionType.ARCHIVE,
   ActionType.DRAFT_EMAIL,
+  ActionType.DRAFT_MESSAGING_CHANNEL,
   ActionType.FORWARD,
   ActionType.LABEL,
   ActionType.MARK_SPAM,
@@ -180,6 +181,17 @@ const zodAction = z
         code: z.ZodIssueCode.custom,
         message: "Please enter a webhook URL",
         path: ["url"],
+      });
+    }
+
+    if (
+      data.type === ActionType.DRAFT_MESSAGING_CHANNEL &&
+      !data.messagingChannelId
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please choose a chat destination",
+        path: ["messagingChannelId"],
       });
     }
 

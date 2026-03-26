@@ -53,7 +53,8 @@ export function ActionSummaryCard({
       break;
     }
 
-    case ActionType.DRAFT_EMAIL: {
+    case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL: {
       if (action.content?.setManually) {
         const contentValue = action.content?.value || "";
         summaryContent = (

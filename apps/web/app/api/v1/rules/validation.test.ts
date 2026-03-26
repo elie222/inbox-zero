@@ -42,7 +42,10 @@ describe("rule API validation", () => {
     expect(result.error?.issues[0]?.path).toEqual(expectedPath);
   });
 
-  it("rejects invalid messagingChannelId values in request actions", () => {
+  it.each([
+    ActionType.DRAFT_MESSAGING_CHANNEL,
+    ActionType.NOTIFY_MESSAGING_CHANNEL,
+  ])("rejects invalid messagingChannelId values in request %s actions", (type) => {
     const result = ruleRequestBodySchema.safeParse({
       name: "Rule",
       runOnThreads: true,
@@ -51,7 +54,7 @@ describe("rule API validation", () => {
       },
       actions: [
         {
-          type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+          type,
           messagingChannelId: "channel-1",
         },
       ],
@@ -107,7 +110,10 @@ describe("rule API validation", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects invalid messagingChannelId values in response actions", () => {
+  it.each([
+    ActionType.DRAFT_MESSAGING_CHANNEL,
+    ActionType.NOTIFY_MESSAGING_CHANNEL,
+  ])("rejects invalid messagingChannelId values in response %s actions", (type) => {
     const result = rulesResponseSchema.safeParse({
       rules: [
         {
@@ -128,7 +134,7 @@ describe("rule API validation", () => {
           },
           actions: [
             {
-              type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+              type,
               messagingChannelId: "channel-1",
               fields: {
                 label: null,

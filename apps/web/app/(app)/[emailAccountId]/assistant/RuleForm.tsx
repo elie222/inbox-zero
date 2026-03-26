@@ -54,6 +54,11 @@ import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps"
 import { RuleLoader } from "@/app/(app)/[emailAccountId]/assistant/RuleLoader";
 import { handleRuleAttachmentSourceSave } from "@/utils/attachments/rule";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import {
+  denormalizeDraftReplyActions,
+  normalizeDraftReplyActions,
+} from "@/app/(app)/[emailAccountId]/assistant/draftReplyActions";
+import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 export function Rule({
   ruleId,
@@ -107,18 +112,20 @@ export function RuleForm({
             (action) => action.type === ActionType.DIGEST,
           ),
           actions: [
-            ...rule.actions
-              .filter((action) => action.type !== ActionType.DIGEST)
-              .map((action) => ({
-                ...action,
-                delayInMinutes: action.delayInMinutes,
-                content: {
-                  ...action.content,
-                  setManually: !!action.content?.value,
-                },
-                folderName: action.folderName,
-                folderId: action.folderId,
-              })),
+            ...normalizeDraftReplyActions(
+              rule.actions
+                .filter((action) => action.type !== ActionType.DIGEST)
+                .map((action) => ({
+                  ...action,
+                  delayInMinutes: action.delayInMinutes,
+                  content: {
+                    ...action.content,
+                    setManually: !!action.content?.value,
+                  },
+                  folderName: action.folderName,
+                  folderId: action.folderId,
+                })),
+            ),
           ],
         }
       : undefined,
@@ -147,6 +154,7 @@ export function RuleForm({
   const {
     fields: actionFields,
     append,
+    insert,
     remove,
   } = useFieldArray({ control, name: "actions" });
 
@@ -172,19 +180,21 @@ export function RuleForm({
     async (data) => {
       // set content to empty string if it's not set manually
       for (const action of data.actions) {
-        if (action.type === ActionType.DRAFT_EMAIL) {
+        if (isDraftReplyActionType(action.type)) {
           if (!action.content?.setManually) {
             action.content = { value: "", ai: false };
           }
         }
       }
 
-      const hasDraftAction = data.actions.some(
-        (action) => action.type === ActionType.DRAFT_EMAIL,
+      const normalizedActions = denormalizeDraftReplyActions(data.actions);
+
+      const hasDraftAction = normalizedActions.some((action) =>
+        isDraftReplyActionType(action.type),
       );
 
       // Add DIGEST action if digest is enabled
-      const actionsToSubmit = [...data.actions];
+      const actionsToSubmit = [...normalizedActions];
       if (data.digest) {
         actionsToSubmit.push({ type: ActionType.DIGEST });
       }
@@ -335,6 +345,9 @@ export function RuleForm({
           channel.isConnected &&
           channel.hasSendDestination,
       ) ?? [];
+    const slackIsAvailable =
+      connectedMessagingChannels.length > 0 ||
+      messagingChannelsData?.availableProviders.includes("SLACK");
 
     const options: {
       label: string;
@@ -403,7 +416,7 @@ export function RuleForm({
         value: ActionType.CALL_WEBHOOK,
         icon: getActionIcon(ActionType.CALL_WEBHOOK),
       },
-      ...(connectedMessagingChannels.length > 0
+      ...(slackIsAvailable
         ? [
             {
               label: "Notify via chat app",
@@ -428,6 +441,7 @@ export function RuleForm({
     return options;
   }, [
     messagingChannelsData?.channels,
+    messagingChannelsData?.availableProviders,
     provider,
     terminology.label.action,
     rule.systemType,
@@ -535,6 +549,7 @@ export function RuleForm({
             setValue={setValue}
             append={append}
             remove={remove}
+            insert={insert}
             control={control}
             errors={errors}
             userLabels={userLabels}
@@ -548,6 +563,9 @@ export function RuleForm({
               messagingChannelsData?.channels.filter(
                 (channel) => channel.provider === "SLACK",
               ) ?? []
+            }
+            availableMessagingProviders={
+              messagingChannelsData?.availableProviders ?? []
             }
             attachmentSources={attachmentSources}
             onAttachmentSourcesChange={setAttachmentSources}

@@ -36,6 +36,17 @@ describe("actionInputs", () => {
     expect(fieldNames).toContain("bcc");
   });
 
+  it("DRAFT_MESSAGING_CHANNEL has subject, content, to, cc, bcc fields", () => {
+    const fieldNames = actionInputs[
+      ActionType.DRAFT_MESSAGING_CHANNEL
+    ].fields.map((f) => f.name);
+    expect(fieldNames).toContain("subject");
+    expect(fieldNames).toContain("content");
+    expect(fieldNames).toContain("to");
+    expect(fieldNames).toContain("cc");
+    expect(fieldNames).toContain("bcc");
+  });
+
   it("CALL_WEBHOOK has url field", () => {
     const fields = actionInputs[ActionType.CALL_WEBHOOK].fields;
     expect(fields).toHaveLength(1);
@@ -295,10 +306,9 @@ describe("sanitizeActionFields", () => {
   });
 
   describe("DRAFT_EMAIL action", () => {
-    it("preserves subject, content, to, cc, bcc, and messagingChannelId fields", () => {
+    it("preserves subject, content, to, cc, and bcc fields", () => {
       const result = sanitizeActionFields({
         type: ActionType.DRAFT_EMAIL,
-        messagingChannelId: "channel-1",
         subject: "Draft Subject",
         content: "Draft Content",
         to: "draft@test.com",
@@ -310,7 +320,70 @@ describe("sanitizeActionFields", () => {
       expect(result.to).toBe("draft@test.com");
       expect(result.cc).toBe("cc@test.com");
       expect(result.bcc).toBe("bcc@test.com");
+      expect(result.messagingChannelId).toBeNull();
+    });
+
+    it("preserves static attachments", () => {
+      const attachments = [
+        {
+          driveConnectionId: "drive-1",
+          name: "brief.pdf",
+          sourceId: "file-3",
+          sourcePath: "/Docs",
+          type: AttachmentSourceType.FILE,
+        },
+      ];
+
+      const result = sanitizeActionFields({
+        type: ActionType.DRAFT_EMAIL,
+        content: "Draft Content",
+        staticAttachments: attachments,
+      });
+
+      expect(result.staticAttachments).toEqual(attachments);
+    });
+  });
+
+  describe("DRAFT_MESSAGING_CHANNEL action", () => {
+    it("preserves messagingChannelId and draft fields", () => {
+      const result = sanitizeActionFields({
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+        subject: "Draft Subject",
+        content: "Draft Content",
+        to: "draft@test.com",
+        cc: "cc@test.com",
+        bcc: "bcc@test.com",
+      });
+
+      expect(result.type).toBe(ActionType.DRAFT_MESSAGING_CHANNEL);
+      expect(result.subject).toBe("Draft Subject");
+      expect(result.content).toBe("Draft Content");
+      expect(result.to).toBe("draft@test.com");
+      expect(result.cc).toBe("cc@test.com");
+      expect(result.bcc).toBe("bcc@test.com");
       expect(result.messagingChannelId).toBe("channel-1");
+    });
+
+    it("preserves static attachments", () => {
+      const attachments = [
+        {
+          driveConnectionId: "drive-1",
+          name: "brief.pdf",
+          sourceId: "file-4",
+          sourcePath: "/Docs",
+          type: AttachmentSourceType.FILE,
+        },
+      ];
+
+      const result = sanitizeActionFields({
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "channel-1",
+        content: "Draft Content",
+        staticAttachments: attachments,
+      });
+
+      expect(result.staticAttachments).toEqual(attachments);
     });
   });
 

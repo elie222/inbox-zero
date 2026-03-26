@@ -17,8 +17,13 @@ import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import { sendSlackRuleNotification } from "@/utils/messaging/rule-notifications";
+import { isMessagingDraftActionType } from "@/utils/actions/draft-reply";
 
 const MODULE = "ai-actions";
+
+type ExecutedRuleForAction = ExecutedRule & {
+  actionItems?: Pick<ActionItem, "type">[];
+};
 
 type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
   client: EmailProvider;
@@ -27,7 +32,7 @@ type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
   userEmail: string;
   userId: string;
   emailAccountId: string;
-  executedRule: ExecutedRule;
+  executedRule: ExecutedRuleForAction;
   logger: Logger;
 }) => Promise<unknown>;
 
@@ -38,7 +43,7 @@ export const runActionFunction = async (options: {
   userEmail: string;
   userId: string;
   emailAccountId: string;
-  executedRule: ExecutedRule;
+  executedRule: ExecutedRuleForAction;
   logger: Logger;
 }) => {
   const { action, userEmail, logger } = options;
@@ -64,6 +69,8 @@ export const runActionFunction = async (options: {
       return label(opts);
     case ActionType.DRAFT_EMAIL:
       return draft(opts);
+    case ActionType.DRAFT_MESSAGING_CHANNEL:
+      return draft_messaging_channel(opts);
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
       return notify_messaging_channel(opts);
     case ActionType.REPLY:
@@ -177,7 +184,12 @@ const draft: ActionFunction<{
 }) => {
   if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) return;
 
-  if (args.messagingChannelId) {
+  if (
+    isLegacyMessagingDraft({
+      executedRule,
+      messagingChannelId: args.messagingChannelId,
+    })
+  ) {
     if (!args.id) return;
 
     await sendSlackRuleNotification({
@@ -230,6 +242,18 @@ const draft: ActionFunction<{
   return { draftId: result.draftId };
 };
 
+const draft_messaging_channel: ActionFunction<{
+  messagingChannelId?: string | null;
+}> = async ({ email, args, logger }) => {
+  if (!args.messagingChannelId || !args.id) return;
+
+  await sendSlackRuleNotification({
+    executedActionId: args.id,
+    email,
+    logger,
+  });
+};
+
 const notify_messaging_channel: ActionFunction<{
   messagingChannelId?: string | null;
 }> = async ({ email, args, logger }) => {
@@ -241,6 +265,20 @@ const notify_messaging_channel: ActionFunction<{
     logger,
   });
 };
+
+function isLegacyMessagingDraft({
+  executedRule,
+  messagingChannelId,
+}: {
+  executedRule: ExecutedRuleForAction;
+  messagingChannelId?: string | null;
+}) {
+  if (!messagingChannelId) return false;
+
+  return !executedRule.actionItems?.some((action) =>
+    isMessagingDraftActionType(action.type),
+  );
+}
 
 const reply: ActionFunction<{
   content?: string | null;

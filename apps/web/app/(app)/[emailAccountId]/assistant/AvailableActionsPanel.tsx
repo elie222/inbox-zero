@@ -14,6 +14,7 @@ const actionNames: Record<ActionType, string> = {
   [ActionType.MOVE_FOLDER]: "Move to folder",
   [ActionType.ARCHIVE]: "Archive",
   [ActionType.DRAFT_EMAIL]: "Draft replies",
+  [ActionType.DRAFT_MESSAGING_CHANNEL]: "Draft replies",
   [ActionType.REPLY]: "Send replies",
   [ActionType.FORWARD]: "Forward",
   [ActionType.MARK_READ]: "Mark as read",

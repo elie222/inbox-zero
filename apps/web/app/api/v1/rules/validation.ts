@@ -33,6 +33,7 @@ const ruleActionTypeSchema = z.enum([
   ActionType.ARCHIVE,
   ActionType.MARK_READ,
   ActionType.DRAFT_EMAIL,
+  ActionType.DRAFT_MESSAGING_CHANNEL,
   ActionType.REPLY,
   ActionType.FORWARD,
   ActionType.SEND_EMAIL,
@@ -98,6 +99,15 @@ const actionSchema = z
       fieldValue: action.fields?.folderName,
       message: "MOVE_FOLDER requires a value in fields.folderName.",
       path: ["fields", "folderName"],
+      ctx,
+    });
+    addMissingActionFieldIssue({
+      actionType: action.type,
+      requiredActionType: ActionType.DRAFT_MESSAGING_CHANNEL,
+      fieldValue: action.messagingChannelId,
+      message:
+        "DRAFT_MESSAGING_CHANNEL requires a value in messagingChannelId.",
+      path: ["messagingChannelId"],
       ctx,
     });
     addMissingActionFieldIssue({

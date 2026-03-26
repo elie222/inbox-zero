@@ -37,6 +37,7 @@ import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import { formatReplySubject } from "@/utils/email/subject";
 import { extractDraftPlainText } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
+import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 const DRAFT_PREVIEW_MAX_CHARS = 900;
 const SUMMARY_PREVIEW_MAX_CHARS = 280;
@@ -793,7 +794,7 @@ function buildNotificationContent({
   systemType: SystemType | string | null;
   draftContent?: string | null;
 }): NotificationContent {
-  if (actionType === ActionType.DRAFT_EMAIL) {
+  if (isDraftReplyActionType(actionType)) {
     return {
       title: "Draft reply",
       summary: buildEmailSummary(email),
@@ -846,7 +847,7 @@ function buildNotificationCard({
 
   children.push(
     Actions(
-      actionType === ActionType.DRAFT_EMAIL
+      isDraftReplyActionType(actionType)
         ? [
             Button({
               id: SLACK_DRAFT_SEND_ACTION_ID,

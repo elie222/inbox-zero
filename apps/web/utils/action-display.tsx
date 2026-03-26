@@ -31,6 +31,7 @@ export function getActionDisplay(
   const terminology = getEmailTerminology(provider);
   switch (action.type) {
     case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL:
       if (action.content) {
         return `Draft Reply: ${truncate(action.content, 10)}`;
       }
@@ -97,6 +98,7 @@ export function getActionIcon(actionType: ActionType) {
     case ActionType.MOVE_FOLDER:
       return FolderInputIcon;
     case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL:
       return FileTextIcon;
     case ActionType.REPLY:
       return ReplyIcon;

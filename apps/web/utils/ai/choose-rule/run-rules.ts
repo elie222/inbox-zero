@@ -46,6 +46,7 @@ import {
   getBlockedLowTrustStaticFromActionTypes,
   LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
 } from "@/utils/rule/static-from-risk";
+import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 const MODULE = "ai/choose-rule";
 
@@ -405,12 +406,11 @@ async function executeMatchedRule(
                         : undefined,
                     draftModelProvider: item.draftModelProvider ?? null,
                     draftModelName: item.draftModelName ?? null,
-                    draftPipelineVersion:
-                      item.type === ActionType.DRAFT_EMAIL
-                        ? (item.draftPipelineVersion ?? null)
-                        : null,
+                    draftPipelineVersion: isDraftReplyActionType(item.type)
+                      ? (item.draftPipelineVersion ?? null)
+                      : null,
                     draftContextMetadata:
-                      item.type === ActionType.DRAFT_EMAIL &&
+                      isDraftReplyActionType(item.type) &&
                       item.draftContextMetadata
                         ? (item.draftContextMetadata as Prisma.InputJsonValue)
                         : undefined,
@@ -736,19 +736,19 @@ function isConversationRule(ruleId: string): boolean {
 
 /**
  * Limits drafting to a single rule selection.
- * If there are multiple rules with draft email actions, we prefer the first static
+ * If there are multiple rules with draft reply actions, we prefer the first static
  * drafting rule (fixed content) over a fully dynamic drafting rule. Once a rule is
- * selected, all of its DRAFT_EMAIL actions are preserved so the generated draft can
+ * selected, all of its draft reply actions are preserved so the generated draft can
  * fan out to multiple destinations.
- * If there are no draft email actions, we return the matches as is.
- * If only one rule contains draft email actions, we return the matches as is.
+ * If there are no draft reply actions, we return the matches as is.
+ * If only one rule contains draft reply actions, we return the matches as is.
  */
 export function limitDraftEmailActions<
   T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
 >(matches: T[], logger: Logger): T[] {
   const draftCandidates = matches.flatMap((match) =>
     match.rule.actions
-      .filter((action) => action.type === ActionType.DRAFT_EMAIL)
+      .filter((action) => isDraftReplyActionType(action.type))
       .map((action) => ({
         ruleId: match.rule.id,
         action,
@@ -778,8 +778,8 @@ export function limitDraftEmailActions<
       return match;
     }
 
-    const hasExtraDrafts = match.rule.actions.some(
-      (action) => action.type === ActionType.DRAFT_EMAIL,
+    const hasExtraDrafts = match.rule.actions.some((action) =>
+      isDraftReplyActionType(action.type),
     );
 
     if (!hasExtraDrafts) {
@@ -791,7 +791,7 @@ export function limitDraftEmailActions<
       rule: {
         ...match.rule,
         actions: match.rule.actions.filter(
-          (action) => action.type !== ActionType.DRAFT_EMAIL,
+          (action) => !isDraftReplyActionType(action.type),
         ),
       },
     };

@@ -1,6 +1,14 @@
 import { ActionType } from "@/generated/prisma/enums";
 import type { Action, ExecutedAction, Prisma } from "@/generated/prisma/client";
 
+const DRAFT_REPLY_FIELDS = [
+  { name: "subject" as const, label: "Subject", expandable: true },
+  { name: "content" as const, label: "Content", textArea: true },
+  { name: "to" as const, label: "To", expandable: true },
+  { name: "cc" as const, label: "CC", expandable: true },
+  { name: "bcc" as const, label: "BCC", expandable: true },
+];
+
 export const actionInputs: Record<
   ActionType,
   {
@@ -32,35 +40,8 @@ export const actionInputs: Record<
     ],
   },
   [ActionType.DIGEST]: { fields: [] },
-  [ActionType.DRAFT_EMAIL]: {
-    fields: [
-      {
-        name: "subject",
-        label: "Subject",
-        expandable: true,
-      },
-      {
-        name: "content",
-        label: "Content",
-        textArea: true,
-      },
-      {
-        name: "to",
-        label: "To",
-        expandable: true,
-      },
-      {
-        name: "cc",
-        label: "CC",
-        expandable: true,
-      },
-      {
-        name: "bcc",
-        label: "BCC",
-        expandable: true,
-      },
-    ],
-  },
+  [ActionType.DRAFT_EMAIL]: { fields: DRAFT_REPLY_FIELDS },
+  [ActionType.DRAFT_MESSAGING_CHANNEL]: { fields: DRAFT_REPLY_FIELDS },
   [ActionType.REPLY]: {
     fields: [
       {
@@ -213,6 +194,7 @@ export function sanitizeActionFields(
 ): ActionFieldsSelection {
   const supportsStaticAttachments =
     action.type === ActionType.DRAFT_EMAIL ||
+    action.type === ActionType.DRAFT_MESSAGING_CHANNEL ||
     action.type === ActionType.REPLY ||
     action.type === ActionType.SEND_EMAIL;
 
@@ -282,7 +264,8 @@ export function sanitizeActionFields(
         bcc: action.bcc ?? null,
       };
     }
-    case ActionType.DRAFT_EMAIL: {
+    case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL: {
       return {
         ...base,
         messagingChannelId: action.messagingChannelId ?? null,

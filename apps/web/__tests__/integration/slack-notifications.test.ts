@@ -259,7 +259,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       prisma.executedAction.findUnique.mockResolvedValue(
         getNotificationContext({
           id: "draft-action-1",
-          type: ActionType.DRAFT_EMAIL,
+          type: ActionType.DRAFT_MESSAGING_CHANNEL,
           content: "Thanks for the note.\n\nI can help with that.",
           channelId: notifChannelId,
           threadId: "draft-thread-1",
@@ -362,7 +362,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         if (executedActionId === "thread-action-1") {
           return getNotificationContext({
             id: "thread-action-1",
-            type: ActionType.DRAFT_EMAIL,
+            type: ActionType.DRAFT_MESSAGING_CHANNEL,
             content: "First draft content",
             channelId: notifChannelId,
             threadId: "shared-thread-1",
@@ -372,7 +372,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         if (executedActionId === "thread-action-2") {
           return getNotificationContext({
             id: "thread-action-2",
-            type: ActionType.DRAFT_EMAIL,
+            type: ActionType.DRAFT_MESSAGING_CHANNEL,
             content: "Second draft content",
             channelId: notifChannelId,
             threadId: "shared-thread-1",

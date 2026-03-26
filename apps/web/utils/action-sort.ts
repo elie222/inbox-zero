@@ -13,6 +13,7 @@ const ACTION_TYPE_PRIORITY_ORDER: ActionType[] = [
   ActionType.MARK_READ,
 
   ActionType.DRAFT_EMAIL,
+  ActionType.DRAFT_MESSAGING_CHANNEL,
   ActionType.REPLY,
   ActionType.SEND_EMAIL,
   ActionType.FORWARD,

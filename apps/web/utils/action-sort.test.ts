@@ -24,9 +24,10 @@ describe("sortActionsByPriority", () => {
       expect(sorted[1].type).toBe(ActionType.REPLY);
     });
 
-    it("sorts email actions (DRAFT_EMAIL, REPLY, SEND_EMAIL, FORWARD) together", () => {
+    it("sorts draft and email actions together", () => {
       const actions = [
         { type: ActionType.FORWARD },
+        { type: ActionType.DRAFT_MESSAGING_CHANNEL },
         { type: ActionType.DRAFT_EMAIL },
         { type: ActionType.SEND_EMAIL },
         { type: ActionType.REPLY },
@@ -34,6 +35,7 @@ describe("sortActionsByPriority", () => {
       const sorted = sortActionsByPriority(actions);
       expect(sorted.map((a) => a.type)).toEqual([
         ActionType.DRAFT_EMAIL,
+        ActionType.DRAFT_MESSAGING_CHANNEL,
         ActionType.REPLY,
         ActionType.SEND_EMAIL,
         ActionType.FORWARD,
@@ -61,6 +63,7 @@ describe("sortActionsByPriority", () => {
         { type: ActionType.FORWARD },
         { type: ActionType.SEND_EMAIL },
         { type: ActionType.REPLY },
+        { type: ActionType.DRAFT_MESSAGING_CHANNEL },
         { type: ActionType.DRAFT_EMAIL },
         { type: ActionType.MARK_READ },
         { type: ActionType.ARCHIVE },
@@ -75,6 +78,7 @@ describe("sortActionsByPriority", () => {
         ActionType.ARCHIVE,
         ActionType.MARK_READ,
         ActionType.DRAFT_EMAIL,
+        ActionType.DRAFT_MESSAGING_CHANNEL,
         ActionType.REPLY,
         ActionType.SEND_EMAIL,
         ActionType.FORWARD,
