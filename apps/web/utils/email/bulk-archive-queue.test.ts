@@ -14,6 +14,8 @@ const mockEnqueueBackgroundJob = vi.fn();
 const mockCreateEmailProvider = vi.fn();
 const mockBulkArchiveFromSenders = vi.fn();
 const mockBulkArchiveSenderOrThrow = vi.fn();
+const mockSaveBulkArchiveTotalItems = vi.fn();
+const mockSaveBulkArchiveProgress = vi.fn();
 
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: (...args: Parameters<typeof mockCreateEmailProvider>) =>
@@ -40,6 +42,15 @@ vi.mock("@/utils/queue/dispatch", () => ({
   ) => mockEnqueueBackgroundJob(...args),
 }));
 
+vi.mock("@/utils/redis/bulk-archive-progress", () => ({
+  saveBulkArchiveTotalItems: (
+    ...args: Parameters<typeof mockSaveBulkArchiveTotalItems>
+  ) => mockSaveBulkArchiveTotalItems(...args),
+  saveBulkArchiveProgress: (
+    ...args: Parameters<typeof mockSaveBulkArchiveProgress>
+  ) => mockSaveBulkArchiveProgress(...args),
+}));
+
 describe("enqueueBulkArchiveSenderJobs", () => {
   beforeEach(() => {
     mockEnqueueBackgroundJob.mockReset();
@@ -47,6 +58,8 @@ describe("enqueueBulkArchiveSenderJobs", () => {
     mockCreateEmailProvider.mockReset();
     mockBulkArchiveFromSenders.mockReset();
     mockBulkArchiveSenderOrThrow.mockReset();
+    mockSaveBulkArchiveTotalItems.mockReset();
+    mockSaveBulkArchiveProgress.mockReset();
   });
 
   it("queues one background job per unique sender", async () => {
@@ -98,6 +111,10 @@ describe("enqueueBulkArchiveSenderJobs", () => {
       },
       logger,
     });
+    expect(mockSaveBulkArchiveTotalItems).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      totalItems: 2,
+    });
   });
 
   it("queues Outlook sender archives with the real provider", async () => {
@@ -134,6 +151,7 @@ describe("executeBulkArchiveSenderJob", () => {
     mockCreateEmailProvider.mockReset();
     mockBulkArchiveFromSenders.mockReset();
     mockBulkArchiveSenderOrThrow.mockReset();
+    mockSaveBulkArchiveProgress.mockReset();
   });
 
   it("uses the Gmail-specific archive path for Google jobs", async () => {
@@ -156,6 +174,10 @@ describe("executeBulkArchiveSenderJob", () => {
       "account-1",
     );
     expect(mockBulkArchiveFromSenders).not.toHaveBeenCalled();
+    expect(mockSaveBulkArchiveProgress).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      incrementCompleted: 1,
+    });
   });
 
   it("uses the Outlook sender archive path for Outlook jobs", async () => {
@@ -178,5 +200,9 @@ describe("executeBulkArchiveSenderJob", () => {
       "account-1",
     );
     expect(mockBulkArchiveFromSenders).not.toHaveBeenCalled();
+    expect(mockSaveBulkArchiveProgress).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      incrementCompleted: 1,
+    });
   });
 });

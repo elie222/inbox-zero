@@ -1,25 +1,49 @@
 "use client";
 
 import { memo, useEffect } from "react";
+import useSWR from "swr";
+import type { BulkArchiveProgress } from "@/app/api/user/bulk-archive/progress/route";
 import { resetTotalThreads, useQueueState } from "@/store/archive-queue";
 import { ProgressPanel } from "@/components/ProgressPanel";
 
 export const ArchiveProgress = memo(() => {
   const { totalThreads, activeThreads } = useQueueState();
+  const { data: bulkArchiveProgress } = useSWR<BulkArchiveProgress>(
+    "/api/user/bulk-archive/progress",
+    {
+      refreshInterval: 1000,
+    },
+  );
 
-  // Make sure activeThreads is an object as this was causing an error.
+  const hasBackendProgress = Boolean(bulkArchiveProgress?.totalItems);
   const threadsRemaining = Object.values(activeThreads || {}).length;
   const totalProcessed = totalThreads - threadsRemaining;
-  const progress = (totalProcessed / totalThreads) * 100;
-  const isCompleted = progress === 100;
+  const localProgress =
+    totalThreads > 0 ? (totalProcessed / totalThreads) * 100 : 0;
+  const isLocalCompleted = localProgress === 100;
 
   useEffect(() => {
-    if (isCompleted) {
+    if (isLocalCompleted) {
       setTimeout(() => {
         resetTotalThreads();
       }, 5000);
     }
-  }, [isCompleted]);
+  }, [isLocalCompleted]);
+
+  if (hasBackendProgress) {
+    return (
+      <ProgressPanel
+        totalItems={bulkArchiveProgress?.totalItems || 0}
+        remainingItems={
+          (bulkArchiveProgress?.totalItems || 0) -
+          (bulkArchiveProgress?.completedItems || 0)
+        }
+        inProgressText="Archiving senders..."
+        completedText="Archiving complete!"
+        itemLabel="senders"
+      />
+    );
+  }
 
   return (
     <ProgressPanel
