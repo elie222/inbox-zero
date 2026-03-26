@@ -6,6 +6,10 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { GmailProvider } from "@/utils/email/google";
 import { OutlookProvider } from "@/utils/email/microsoft";
 import { SafeError } from "@/utils/error";
+import {
+  saveBulkArchiveProgress,
+  saveBulkArchiveTotalItems,
+} from "@/utils/redis/bulk-archive-progress";
 
 export const MAIL_BULK_ARCHIVE_TOPIC = "mail-bulk-archive";
 export const MAIL_BULK_ARCHIVE_QUEUE_NAME = "mail-bulk-archive";
@@ -46,6 +50,11 @@ export async function enqueueBulkArchiveSenderJobs({
     ),
   );
 
+  await saveBulkArchiveTotalItems({
+    emailAccountId,
+    totalItems: senders.length,
+  });
+
   return senders.length;
 }
 
@@ -80,21 +89,24 @@ export async function executeBulkArchiveSenderJob({
       ownerEmail,
       emailAccountId,
     );
+  } else {
+    if (!(emailProvider instanceof OutlookProvider)) {
+      throw new SafeError(
+        "Failed to initialize Outlook provider for bulk archive",
+      );
+    }
 
-    return;
-  }
-
-  if (!(emailProvider instanceof OutlookProvider)) {
-    throw new SafeError(
-      "Failed to initialize Outlook provider for bulk archive",
+    await emailProvider.bulkArchiveSenderOrThrow(
+      sender,
+      ownerEmail,
+      emailAccountId,
     );
   }
 
-  await emailProvider.bulkArchiveSenderOrThrow(
-    sender,
-    ownerEmail,
+  await saveBulkArchiveProgress({
     emailAccountId,
-  );
+    incrementCompleted: 1,
+  });
 }
 
 function getUniqueSenders(froms: string[]) {
