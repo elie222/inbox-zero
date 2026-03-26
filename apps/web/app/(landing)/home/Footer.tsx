@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import Link from "next/link";
 import { env } from "@/env";
 import { EXTENSION_URL } from "@/utils/config";
-import { BRAND_NAME, SUPPORT_EMAIL } from "@/utils/branding";
+import { BRAND_NAME } from "@/utils/branding";
 
 export const footerNavigation = {
   main: [
@@ -30,7 +30,7 @@ export const footerNavigation = {
     { name: "Small Business", href: "/small-business" },
     { name: "Content Creator", href: "/creator" },
     { name: "Realtor", href: "/real-estate" },
-    { name: "Customer Support", href: "/support" },
+    { name: "Customer Support", href: "/customer-support" },
     { name: "E-commerce", href: "/ecommerce" },
   ],
   industries: [
@@ -61,11 +61,7 @@ export const footerNavigation = {
   ],
   support: [
     { name: "Pricing", href: "/pricing" },
-    {
-      name: "Contact",
-      href: `mailto:${SUPPORT_EMAIL}`,
-      target: "_blank",
-    },
+    { name: "Support", href: "/support" },
     {
       name: "Documentation",
       href: "https://docs.getinboxzero.com",
