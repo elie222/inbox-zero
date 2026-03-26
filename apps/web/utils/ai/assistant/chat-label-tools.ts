@@ -97,6 +97,21 @@ export const createOrGetLabelTool = ({
           };
         }
 
+        const existingHiddenLabel = await emailProvider.getLabelByName(
+          input.name,
+        );
+
+        if (existingHiddenLabel) {
+          return {
+            created: false,
+            label: {
+              id: existingHiddenLabel.id,
+              name: existingHiddenLabel.name,
+              type: existingHiddenLabel.type,
+            },
+          };
+        }
+
         const createdLabel = await emailProvider.createLabel(input.name);
 
         return {

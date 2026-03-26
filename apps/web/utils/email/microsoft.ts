@@ -132,7 +132,9 @@ export class OutlookProvider implements EmailProvider {
     }
   }
 
-  async getLabels(): Promise<EmailLabel[]> {
+  async getLabels(_options?: {
+    includeHidden?: boolean;
+  }): Promise<EmailLabel[]> {
     const labels = await getLabels(this.client);
     return labels.map((label) => ({
       id: label.id || "",

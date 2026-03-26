@@ -101,7 +101,7 @@ describe("GmailProvider.getLatestMessageInThread", () => {
 });
 
 describe("GmailProvider.getLabels", () => {
-  it("returns hidden user labels so callers can decide how to display them", async () => {
+  it("returns visible user labels by default", async () => {
     vi.spyOn(gmailLabelModule, "getLabels").mockResolvedValue([
       {
         id: "label-visible",
@@ -129,6 +129,38 @@ describe("GmailProvider.getLabels", () => {
     const provider = new GmailProvider({} as any);
 
     await expect(provider.getLabels()).resolves.toEqual([
+      {
+        id: "label-visible",
+        name: "Visible",
+        type: "user",
+        threadsTotal: undefined,
+        labelListVisibility: "labelShow",
+        messageListVisibility: "show",
+      },
+    ]);
+  });
+
+  it("can include hidden user labels for hidden-aware callers", async () => {
+    vi.spyOn(gmailLabelModule, "getLabels").mockResolvedValue([
+      {
+        id: "label-visible",
+        name: "Visible",
+        type: "user",
+        labelListVisibility: "labelShow",
+        messageListVisibility: "show",
+      },
+      {
+        id: "label-hidden",
+        name: "Hidden",
+        type: "user",
+        labelListVisibility: "labelHide",
+        messageListVisibility: "show",
+      },
+    ] as any);
+
+    const provider = new GmailProvider({} as any);
+
+    await expect(provider.getLabels({ includeHidden: true })).resolves.toEqual([
       {
         id: "label-visible",
         name: "Visible",

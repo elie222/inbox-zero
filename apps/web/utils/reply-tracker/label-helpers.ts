@@ -37,7 +37,7 @@ export async function removeConflictingThreadStatusLabels({
 }): Promise<boolean> {
   const [dbLabels, providerLabels] = await Promise.all([
     providedDbLabels ?? getLabelsFromDb(emailAccountId),
-    providedProviderLabels ?? provider.getLabels(),
+    providedProviderLabels ?? provider.getLabels({ includeHidden: true }),
   ]);
 
   const removeLabelIds: string[] = [];
@@ -136,7 +136,7 @@ export async function applyThreadStatusLabel({
 }): Promise<void> {
   const [dbLabels, providerLabels] = await Promise.all([
     getLabelsFromDb(emailAccountId),
-    provider.getLabels(),
+    provider.getLabels({ includeHidden: true }),
   ]);
 
   const addLabel = async (): Promise<boolean> => {

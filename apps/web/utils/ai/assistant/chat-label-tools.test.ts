@@ -56,6 +56,7 @@ describe("chat label tools", () => {
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       getLabels,
+      getLabelByName: vi.fn().mockResolvedValue(null),
       createLabel,
     } as any);
 
@@ -97,19 +98,19 @@ describe("chat label tools", () => {
     });
   });
 
-  it("reuses a hidden label when it is already available from the provider", async () => {
-    const getLabels = vi.fn().mockResolvedValue([
-      {
-        id: "label-hidden",
-        name: "FYI",
-        type: "user",
-        labelListVisibility: "labelHide",
-      },
-    ]);
+  it("reuses a hidden label when exact-name lookup finds one", async () => {
+    const getLabels = vi.fn().mockResolvedValue([]);
+    const getLabelByName = vi.fn().mockResolvedValue({
+      id: "label-hidden",
+      name: "FYI",
+      type: "user",
+      labelListVisibility: "labelHide",
+    });
     const createLabel = vi.fn();
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       getLabels,
+      getLabelByName,
       createLabel,
     } as any);
 
@@ -133,5 +134,6 @@ describe("chat label tools", () => {
       },
     });
     expect(createLabel).not.toHaveBeenCalled();
+    expect(getLabelByName).toHaveBeenCalledWith("FYI");
   });
 });

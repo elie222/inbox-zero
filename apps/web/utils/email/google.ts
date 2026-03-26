@@ -149,11 +149,18 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async getLabels(): Promise<EmailLabel[]> {
+  async getLabels(options?: {
+    includeHidden?: boolean;
+  }): Promise<EmailLabel[]> {
     return this.withRateLimitTracking("get-labels", async () => {
       const labels = await getLabels(this.client, { logger: this.logger });
       return (labels || [])
-        .filter((label) => label.type === "user")
+        .filter(
+          (label) =>
+            label.type === "user" &&
+            (options?.includeHidden ||
+              label.labelListVisibility !== labelVisibility.labelHide),
+        )
         .map((label) => ({
           id: label.id!,
           name: label.name!,
