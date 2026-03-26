@@ -164,30 +164,31 @@ export async function applyThreadStatusLabel({
       return false;
     }
 
-    return labelMessageAndSync({
-      provider,
-      messageId,
-      labelId: targetLabel.labelId,
-      labelName: targetLabel.label,
-      emailAccountId,
-      logger,
-    })
-      .then(() => true)
-      .catch(async (error) => {
-        await logReplyTrackerError({
-          logger,
-          emailAccountId,
-          scope: "label-helpers",
-          message: "Failed to apply thread status label",
-          operation: "apply-thread-status-label",
-          error,
-          context: {
-            labelId: targetLabel.labelId,
-            labelName: targetLabel.label,
-          },
-        });
-        return false;
+    try {
+      await labelMessageAndSync({
+        provider,
+        messageId,
+        labelId: targetLabel.labelId,
+        labelName: targetLabel.label,
+        emailAccountId,
+        logger,
       });
+      return true;
+    } catch (error) {
+      await logReplyTrackerError({
+        logger,
+        emailAccountId,
+        scope: "label-helpers",
+        message: "Failed to apply thread status label",
+        operation: "apply-thread-status-label",
+        error,
+        context: {
+          labelId: targetLabel.labelId,
+          labelName: targetLabel.label,
+        },
+      });
+      return false;
+    }
   };
 
   const [removedConflicts, addedTargetLabel] = await Promise.all([
