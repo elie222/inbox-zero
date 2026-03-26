@@ -1,6 +1,6 @@
 import { createSlackClient } from "./client";
 import { buildAppHomeBlocks } from "./messages/app-home";
-import { prisma } from "@/utils/prisma";
+import prisma from "@/utils/prisma";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 

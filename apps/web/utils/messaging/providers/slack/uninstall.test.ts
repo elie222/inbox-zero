@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/utils/prisma", () => ({
-  prisma: {
+  default: {
     messagingChannel: {
       updateMany: vi.fn().mockResolvedValue({ count: 2 }),
     },
@@ -20,7 +20,7 @@ vi.mock("@/utils/messaging/chat-sdk/bot", () => ({
 }));
 
 import { handleSlackAppUninstalled } from "./uninstall";
-import { prisma } from "@/utils/prisma";
+import prisma from "@/utils/prisma";
 import { getMessagingChatSdkBot } from "@/utils/messaging/chat-sdk/bot";
 import { createScopedLogger } from "@/utils/logger";
 

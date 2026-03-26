@@ -1,4 +1,4 @@
-import { prisma } from "@/utils/prisma";
+import prisma from "@/utils/prisma";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import { getMessagingChatSdkBot } from "@/utils/messaging/chat-sdk/bot";
 import type { Logger } from "@/utils/logger";
