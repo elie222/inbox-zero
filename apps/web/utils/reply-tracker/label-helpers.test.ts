@@ -1,5 +1,8 @@
-import { describe, expect, test, vi, beforeEach } from "vitest";
-import { applyThreadStatusLabel } from "./label-helpers";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  applyThreadStatusLabel,
+  removeConflictingThreadStatusLabels,
+} from "./label-helpers";
 import type { EmailProvider } from "@/utils/email/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -166,12 +169,11 @@ describe("applyThreadStatusLabel", () => {
     });
   });
 
-  test("handles errors gracefully", async () => {
+  test("skips adding the new label when removing conflicts fails", async () => {
     vi.mocked(mockProvider.removeThreadLabels).mockRejectedValueOnce(
       new Error("Failed to remove labels"),
     );
 
-    // Should not throw
     await expect(
       applyThreadStatusLabel({
         emailAccountId,
@@ -182,6 +184,8 @@ describe("applyThreadStatusLabel", () => {
         logger,
       }),
     ).resolves.not.toThrow();
+
+    expect(mockProvider.labelMessage).not.toHaveBeenCalled();
   });
 
   test("uses provider label when label ID not in database", async () => {
@@ -316,14 +320,15 @@ describe("applyThreadStatusLabel", () => {
     expect(mockProvider.labelMessage).not.toHaveBeenCalled();
   });
 
-  test("executes remove and add operations in parallel", async () => {
-    const removePromise = vi.fn().mockResolvedValue(undefined);
-    const labelPromise = vi.fn().mockResolvedValue(undefined);
+  test("removes conflicting labels before adding the next status", async () => {
+    const callOrder: string[] = [];
 
-    vi.mocked(mockProvider.removeThreadLabels).mockImplementation(
-      removePromise,
-    );
-    vi.mocked(mockProvider.labelMessage).mockImplementation(labelPromise);
+    vi.mocked(mockProvider.removeThreadLabels).mockImplementation(async () => {
+      callOrder.push("remove");
+    });
+    vi.mocked(mockProvider.labelMessage).mockImplementation(async () => {
+      callOrder.push("add");
+    });
 
     await applyThreadStatusLabel({
       emailAccountId,
@@ -334,9 +339,7 @@ describe("applyThreadStatusLabel", () => {
       logger,
     });
 
-    // Both operations should have been called
-    expect(removePromise).toHaveBeenCalled();
-    expect(labelPromise).toHaveBeenCalled();
+    expect(callOrder).toEqual(["remove", "add"]);
   });
 
   test("removes exactly 3 labels (all except target)", async () => {
@@ -353,5 +356,45 @@ describe("applyThreadStatusLabel", () => {
 
     // Should remove exactly 3 labels (all 4 conversation statuses minus the target)
     expect(removeCall[1]).toHaveLength(3);
+  });
+});
+
+describe("removeConflictingThreadStatusLabels", () => {
+  const emailAccountId = "test-account-id";
+  const threadId = "test-thread-id";
+
+  test("returns false when provider removal fails", async () => {
+    const mockProvider = {
+      getLabels: vi.fn().mockResolvedValue([
+        { id: "label-fyi", name: "FYI", type: "user" },
+        { id: "label-actioned", name: "Actioned", type: "user" },
+      ]),
+      removeThreadLabels: vi
+        .fn()
+        .mockRejectedValue(new Error("Failed to remove labels")),
+    } as unknown as EmailProvider;
+
+    vi.mocked(prisma.rule.findMany).mockResolvedValue([
+      {
+        id: "rule-3",
+        systemType: "FYI",
+        actions: [{ id: "action-3", type: "LABEL", labelId: "label-fyi" }],
+      },
+      {
+        id: "rule-4",
+        systemType: "ACTIONED",
+        actions: [{ id: "action-4", type: "LABEL", labelId: "label-actioned" }],
+      },
+    ] as any);
+
+    await expect(
+      removeConflictingThreadStatusLabels({
+        emailAccountId,
+        threadId,
+        systemType: "FYI",
+        provider: mockProvider,
+        logger,
+      }),
+    ).resolves.toBe(false);
   });
 });

@@ -34,7 +34,7 @@ export async function removeConflictingThreadStatusLabels({
   dbLabels?: LabelIds;
   providerLabels?: EmailLabel[];
   logger: Logger;
-}): Promise<void> {
+}): Promise<boolean> {
   const [dbLabels, providerLabels] = await Promise.all([
     providedDbLabels ?? getLabelsFromDb(emailAccountId),
     providedProviderLabels ?? provider.getLabels(),
@@ -76,11 +76,12 @@ export async function removeConflictingThreadStatusLabels({
 
   if (removeLabelIds.length === 0) {
     logger.info("No conflicting labels to remove");
-    return;
+    return true;
   }
 
-  await provider
+  const removedLabels = await provider
     .removeThreadLabels(threadId, removeLabelIds)
+    .then(() => true)
     .catch(async (error) => {
       await logReplyTrackerError({
         logger,
@@ -93,11 +94,18 @@ export async function removeConflictingThreadStatusLabels({
           removeLabelCount: removeLabelIds.length,
         },
       });
+
+      return false;
     });
+
+  if (!removedLabels) {
+    return false;
+  }
 
   logger.info("Removed conflicting thread status labels", {
     removedCount: removeLabelIds.length,
   });
+  return true;
 }
 
 /**
@@ -175,18 +183,22 @@ export async function applyThreadStatusLabel({
     );
   };
 
-  await Promise.all([
-    removeConflictingThreadStatusLabels({
-      emailAccountId,
-      threadId,
+  const removedConflictingLabels = await removeConflictingThreadStatusLabels({
+    emailAccountId,
+    threadId,
+    systemType,
+    provider,
+    dbLabels,
+    providerLabels,
+    logger,
+  });
+  if (!removedConflictingLabels) {
+    logger.warn("Skipping thread status label add because conflicting labels remain", {
       systemType,
-      provider,
-      dbLabels,
-      providerLabels,
-      logger,
-    }),
-    addLabel(),
-  ]);
+    });
+    return;
+  }
+  await addLabel();
 
   logger.info("Thread status label applied successfully");
 }

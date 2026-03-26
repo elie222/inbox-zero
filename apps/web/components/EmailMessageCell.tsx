@@ -15,8 +15,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMemo } from "react";
 import { isDefined } from "@/utils/types";
 import { isGoogleProvider } from "@/utils/email/provider-types";
-import { getRuleLabel } from "@/utils/rule/consts";
-import { SystemType } from "@/generated/prisma/enums";
+import { getLabelsToDisplay } from "./EmailMessageCell.utils";
 
 export function EmailMessageCell({
   sender,
@@ -43,46 +42,11 @@ export function EmailMessageCell({
   const { provider } = useAccount();
 
   const labelsToDisplay = useMemo(() => {
-    const labels = labelIds
-      ?.map((idOrName) => {
-        // First try to find by ID
-        let label = userLabels[idOrName];
-
-        // If not found by ID, try to find by name
-        if (!label) {
-          const foundLabel = Object.values(userLabels).find(
-            (l) => l.name.toLowerCase() === idOrName.toLowerCase(),
-          );
-          if (foundLabel) {
-            label = foundLabel;
-          }
-        }
-
-        if (!label) return null;
-        return { id: label.id, name: label.name };
-      })
-      .filter(isDefined)
-      .filter((label) => {
-        if (filterReplyTrackerLabels) {
-          if (
-            label.name === getRuleLabel(SystemType.TO_REPLY) ||
-            label.name === getRuleLabel(SystemType.AWAITING_REPLY)
-          ) {
-            return false;
-          }
-        }
-
-        if (label.name.includes("/")) {
-          return false;
-        }
-        return true;
-      });
-
-    if (labelIds && !labelIds.includes("INBOX")) {
-      labels?.unshift({ id: "ARCHIVE", name: "Archived" });
-    }
-
-    return labels;
+    return getLabelsToDisplay({
+      labelIds,
+      userLabels,
+      filterReplyTrackerLabels,
+    }).filter(isDefined);
   }, [labelIds, userLabels, filterReplyTrackerLabels]);
 
   return (
