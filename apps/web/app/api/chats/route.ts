@@ -14,7 +14,6 @@ async function getChats({ emailAccountId }: { emailAccountId: string }) {
   const chats = await prisma.chat.findMany({
     where: {
       emailAccountId,
-      deletedAt: null,
     },
     orderBy: { updatedAt: "desc" },
   });

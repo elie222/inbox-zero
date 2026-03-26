@@ -6,7 +6,6 @@ import { withEmailAccount } from "@/utils/middleware";
 export type GetChatResponse = Awaited<ReturnType<typeof getChat>>;
 const updateChatSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
-  starred: z.boolean().optional(),
 });
 
 export const GET = withEmailAccount(
@@ -56,7 +55,7 @@ export const PATCH = withEmailAccount(
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
 
-    if (data.name === undefined && data.starred === undefined) {
+    if (data.name === undefined) {
       return NextResponse.json(
         { error: "At least one field must be provided." },
         { status: 400 },
@@ -67,7 +66,6 @@ export const PATCH = withEmailAccount(
       chatId,
       emailAccountId,
       name: data.name,
-      starred: data.starred,
     });
 
     if (!updatedChat) {
@@ -91,7 +89,7 @@ export const DELETE = withEmailAccount(
       );
     }
 
-    const deleted = await softDeleteChat({ chatId, emailAccountId });
+    const deleted = await deleteChat({ chatId, emailAccountId });
     if (!deleted) {
       return NextResponse.json({ error: "Chat not found." }, { status: 404 });
     }
@@ -111,7 +109,6 @@ async function getChat({
     where: {
       id: chatId,
       emailAccountId,
-      deletedAt: null,
     },
     include: {
       messages: {
@@ -129,22 +126,18 @@ async function updateChat({
   chatId,
   emailAccountId,
   name,
-  starred,
 }: {
   chatId: string;
   emailAccountId: string;
   name?: string;
-  starred?: boolean;
 }) {
   const result = await prisma.chat.updateMany({
     where: {
       id: chatId,
       emailAccountId,
-      deletedAt: null,
     },
     data: {
       ...(name !== undefined ? { name } : {}),
-      ...(starred !== undefined ? { starred } : {}),
     },
   });
 
@@ -154,7 +147,6 @@ async function updateChat({
     where: {
       id: chatId,
       emailAccountId,
-      deletedAt: null,
     },
     include: {
       messages: {
@@ -166,21 +158,17 @@ async function updateChat({
   });
 }
 
-async function softDeleteChat({
+async function deleteChat({
   chatId,
   emailAccountId,
 }: {
   chatId: string;
   emailAccountId: string;
 }) {
-  const result = await prisma.chat.updateMany({
+  const result = await prisma.chat.deleteMany({
     where: {
       id: chatId,
       emailAccountId,
-      deletedAt: null,
-    },
-    data: {
-      deletedAt: new Date(),
     },
   });
 

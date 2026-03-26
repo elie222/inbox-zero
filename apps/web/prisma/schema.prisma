@@ -1006,8 +1006,6 @@ model Chat {
   updatedAt DateTime @updatedAt
 
   name      String?
-  starred   Boolean   @default(false)
-  deletedAt DateTime?
 
   compactionCount Int @default(0)
   lastSeenRulesRevision Int?
@@ -1018,7 +1016,7 @@ model Chat {
   emailAccountId String
   emailAccount   EmailAccount     @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  @@index([emailAccountId, deletedAt, updatedAt])
+  @@index([emailAccountId, updatedAt])
 }
 
 model ChatMessage {
