@@ -127,6 +127,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/contact",
+        destination: "/support",
+        permanent: true,
+      },
+      {
         source: "/waitlist",
         destination: "https://go.getinboxzero.com/waitlist",
         permanent: true,
