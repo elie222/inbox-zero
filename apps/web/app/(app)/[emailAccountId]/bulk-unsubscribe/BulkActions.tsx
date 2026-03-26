@@ -130,6 +130,7 @@ export function BulkActions({
   });
 
   const { onBulkArchive, isBulkArchiving } = useBulkArchive({
+    mutate,
     posthog,
     emailAccountId,
   });

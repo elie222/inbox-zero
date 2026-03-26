@@ -30,8 +30,8 @@ import { useThreads } from "@/hooks/useThreads";
 import { formatShortDate } from "@/utils/date";
 import { cn } from "@/utils";
 import {
+  addToArchiveSenderQueue,
   useArchiveSenderStatus,
-  useArchiveSenderQueueActions,
 } from "@/store/archive-sender-queue";
 import {
   addToMarkReadSenderQueue,
@@ -60,7 +60,6 @@ export function BulkArchiveCards({
   onCategoryChange?: () => Promise<unknown>;
 }) {
   const { emailAccountId, userEmail } = useAccount();
-  const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
   const [expandedCategory, setExpandedCategory] = useQueryState("expanded");
   const [expandedSenders, setExpandedSenders] = useState<
     Record<string, boolean>
@@ -231,18 +230,14 @@ export function BulkArchiveCards({
             sender: sender.address,
             emailAccountId,
           });
+        } else {
+          await addToArchiveSenderQueue({
+            sender: sender.address,
+            emailAccountId,
+          });
         }
       }
-
-      if (bulkAction === "archive") {
-        await queueArchiveSenders({
-          senders: selectedToProcess.map((sender) => sender.address),
-        });
-      }
-
-      if (bulkAction === "markRead") {
-        setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
-      }
+      setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
     } catch (_error) {
       toastError({
         description: `Failed to ${bulkAction === "markRead" ? "mark as read" : "archive"} some senders. Please try again.`,
@@ -437,7 +432,7 @@ function SenderRow({
   emailAccountId: string;
   onCategoryChange?: () => Promise<unknown>;
 }) {
-  const archiveStatus = useArchiveSenderStatus(emailAccountId, sender.address);
+  const archiveStatus = useArchiveSenderStatus(sender.address);
   const markReadStatus = useMarkReadSenderStatus(sender.address);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -610,10 +605,20 @@ function SenderStatus({
   if (archiveStatus?.status) {
     switch (archiveStatus.status) {
       case "completed":
-        if (archiveStatus.queued) {
-          return <span className="text-sm text-blue-600">Queued</span>;
-        }
-        return <span className="text-sm text-green-600">Archived</span>;
+        return (
+          <span className="text-sm text-green-600">
+            {archiveStatus.threadsTotal
+              ? `Archived ${archiveStatus.threadsTotal}!`
+              : "Archived"}
+          </span>
+        );
+      case "processing":
+        return (
+          <span className="text-sm text-blue-600">
+            {archiveStatus.threadsTotal - archiveStatus.threadIds.length} /{" "}
+            {archiveStatus.threadsTotal}
+          </span>
+        );
       case "pending":
         return (
           <span className="text-sm text-muted-foreground">Pending...</span>

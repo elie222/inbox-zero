@@ -28,20 +28,17 @@ type GraphBatchResponse<TBody = unknown> = {
   responses?: GraphBatchResponseItem<TBody>[];
 };
 
-type MoveMessagesBatchResult = {
-  movedMessageIds: string[];
-  hasErrors: boolean;
-};
-
 async function batch<TRequestBody = unknown, TResponseBody = unknown>({
   client,
   requests,
+  stopOnError = false,
   onFailure,
   context,
   logger,
 }: {
   client: OutlookClient;
   requests: GraphBatchRequestItem<TRequestBody>[];
+  stopOnError?: boolean;
   onFailure?: (params: {
     request?: GraphBatchRequestItem<TRequestBody>;
     response: GraphBatchResponseItem<TResponseBody>;
@@ -80,6 +77,18 @@ async function batch<TRequestBody = unknown, TResponseBody = unknown>({
           });
         }
       });
+
+      if (stopOnError) {
+        const errors = responses.filter((res) => res.status >= 400);
+        if (errors.length > 0) {
+          logger.error("Graph batch responses contain errors", {
+            ...context,
+            errorCount: errors.length,
+            statuses: errors.map((res) => res.status),
+          });
+          throw new Error("Graph batch returned one or more error responses.");
+        }
+      }
     } catch (error) {
       logger.error("Graph batch request failed", {
         ...context,
@@ -98,19 +107,15 @@ async function moveMessagesInBatches({
   messageIds,
   destinationId,
   action,
-  stopOnError = false,
   logger,
 }: {
   client: OutlookClient;
   messageIds: string[];
   destinationId: string;
   action: "archive" | "trash";
-  stopOnError?: boolean;
   logger: Logger;
-}): Promise<MoveMessagesBatchResult> {
-  if (messageIds.length === 0) {
-    return { movedMessageIds: [], hasErrors: false };
-  }
+}): Promise<void> {
+  if (messageIds.length === 0) return;
 
   const requestIdToMessageId = new Map<string, string>();
   const requests = messageIds.map((messageId, index) => {
@@ -130,9 +135,10 @@ async function moveMessagesInBatches({
     };
   });
 
-  const responses = await batch({
+  await batch({
     client,
     requests,
+    stopOnError: false,
     context: {
       action,
       destinationId,
@@ -157,31 +163,6 @@ async function moveMessagesInBatches({
       });
     },
   });
-
-  const movedMessageIds = responses.flatMap((response) => {
-    if (response.status >= 400) return [];
-
-    const messageId = requestIdToMessageId.get(response.id);
-    return messageId ? [messageId] : [];
-  });
-  const hasErrors = responses.some((response) => response.status >= 400);
-
-  if (hasErrors && stopOnError) {
-    logger.error("Graph batch responses contain errors", {
-      action,
-      destinationId,
-      errorCount: responses.filter((response) => response.status >= 400).length,
-      messageCount: messageIds.length,
-      statuses: responses
-        .filter((response) => response.status >= 400)
-        .map((response) => response.status),
-    });
-  }
-
-  return {
-    movedMessageIds,
-    hasErrors,
-  };
 }
 
 export async function moveMessagesForSenders({
@@ -191,7 +172,6 @@ export async function moveMessagesForSenders({
   action,
   ownerEmail,
   emailAccountId,
-  continueOnError = true,
   logger,
 }: {
   client: OutlookClient;
@@ -200,7 +180,6 @@ export async function moveMessagesForSenders({
   action: "archive" | "trash";
   ownerEmail: string;
   emailAccountId: string;
-  continueOnError?: boolean;
   logger: Logger;
 }): Promise<void> {
   if (senders.length === 0) return;
@@ -217,9 +196,6 @@ export async function moveMessagesForSenders({
       logger.error(
         "Could not resolve inbox folder ID — aborting bulk archive to avoid archiving from all folders",
       );
-      if (!continueOnError) {
-        throw new Error("Could not resolve inbox folder ID for bulk archive");
-      }
       return;
     }
   }
@@ -274,38 +250,30 @@ export async function moveMessagesForSenders({
 
         if (messageIds.length > 0) {
           try {
-            const { movedMessageIds, hasErrors } = await moveMessagesInBatches({
+            await moveMessagesInBatches({
               client,
               messageIds,
               destinationId,
               action,
-              stopOnError: !continueOnError,
               logger,
             });
 
-            const movedMessageIdSet = new Set(movedMessageIds);
             const batchThreadIds = new Set(
-              allMessages
-                .filter((message) => movedMessageIdSet.has(message.id))
-                .map((message) => message.conversationId),
+              allMessages.map((msg) => msg.conversationId),
             );
 
             const newThreadIds = Array.from(batchThreadIds).filter(
               (threadId) => !publishedThreadIds.has(threadId),
             );
 
-            const promises: Promise<unknown>[] = [];
-
-            if (movedMessageIds.length > 0) {
-              promises.push(
-                updateEmailMessagesForSender({
-                  sender,
-                  messageIds: movedMessageIds,
-                  emailAccountId,
-                  action,
-                }),
-              );
-            }
+            const promises = [
+              updateEmailMessagesForSender({
+                sender,
+                messageIds,
+                emailAccountId,
+                action,
+              }),
+            ];
 
             if (newThreadIds.length > 0) {
               promises.push(
@@ -322,12 +290,6 @@ export async function moveMessagesForSenders({
             newThreadIds.forEach((threadId) =>
               publishedThreadIds.add(threadId),
             );
-
-            if (hasErrors && !continueOnError) {
-              throw new Error(
-                "Graph batch returned one or more error responses.",
-              );
-            }
           } catch (error) {
             logger.error("Failed to move or track messages", {
               action,
@@ -337,7 +299,6 @@ export async function moveMessagesForSenders({
               messageIds,
               error,
             });
-            if (!continueOnError) throw error;
           } finally {
             messageIds.forEach((id) => processedMessageIds.add(id));
           }
@@ -354,7 +315,6 @@ export async function moveMessagesForSenders({
           action,
           error,
         });
-        if (!continueOnError) throw error;
         nextLink = undefined;
       }
     } while (nextLink);

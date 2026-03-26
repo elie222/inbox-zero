@@ -1,47 +1,42 @@
 "use server";
 
+import { z } from "zod";
 import { actionClient } from "@/utils/actions/safe-action";
-import { bulkSenderActionSchema } from "@/utils/actions/mail-bulk-action.validation";
 import { createEmailProvider } from "@/utils/email/provider";
-import { enqueueBulkArchiveSenderJobs } from "@/utils/email/bulk-archive-queue";
-import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
-import { SafeError } from "@/utils/error";
 
 export const bulkArchiveAction = actionClient
   .metadata({ name: "bulkArchive" })
-  .inputSchema(bulkSenderActionSchema)
+  .inputSchema(
+    z.object({
+      froms: z.array(z.string()),
+    }),
+  )
   .action(
     async ({
       ctx: { emailAccountId, provider, emailAccount, logger },
       parsedInput: { froms },
     }) => {
-      if (!isGoogleProvider(provider) && !isMicrosoftProvider(provider)) {
-        throw new SafeError(
-          "Bulk archive is only supported for email providers",
-        );
-      }
-
-      const queuedSenders = await enqueueBulkArchiveSenderJobs({
+      const emailProvider = await createEmailProvider({
         emailAccountId,
-        ownerEmail: emailAccount.email,
         provider,
-        froms,
         logger,
       });
 
-      return {
-        mode: "queued" as const,
-        queuedSenders,
-      };
+      await emailProvider.bulkArchiveFromSenders(
+        froms,
+        emailAccount.email,
+        emailAccountId,
+      );
     },
   );
 
 export const bulkTrashAction = actionClient
   .metadata({ name: "bulkTrash" })
-  .inputSchema(bulkSenderActionSchema)
+  .inputSchema(
+    z.object({
+      froms: z.array(z.string()),
+    }),
+  )
   .action(
     async ({
       ctx: { emailAccountId, provider, emailAccount, logger },
