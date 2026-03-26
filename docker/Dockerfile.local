@@ -88,7 +88,7 @@ RUN --mount=type=cache,target=/app/apps/web/.next/cache \
     cd apps/web && \
     ../../node_modules/.bin/next build --webpack && \
     cd ../.. && \
-    pnpm --filter @inboxzero/worker deploy --prod /tmp/apps/worker
+    pnpm --filter @inboxzero/worker deploy --legacy --prod /tmp/apps/worker
 
 # === Production image ===
 FROM node:24-alpine AS runner

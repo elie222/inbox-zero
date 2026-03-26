@@ -75,7 +75,7 @@ RUN npx prisma generate --schema=apps/web/prisma/schema.prisma \
  && cd apps/web \
  && pnpm exec next build \
  && cd ../.. \
- && pnpm --filter @inboxzero/worker deploy --prod /tmp/apps/worker \
+ && pnpm --filter @inboxzero/worker deploy --legacy --prod /tmp/apps/worker \
  && cd /app \
  && rm -rf apps/web/.next/cache
 
