@@ -100,7 +100,12 @@ export const updateChannelFeaturesAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { channelId, sendMeetingBriefs, sendDocumentFilings },
+      parsedInput: {
+        channelId,
+        sendMeetingBriefs,
+        sendDocumentFilings,
+        notifyDraftEmail,
+      },
     }) => {
       const channel = await prisma.messagingChannel.findUnique({
         where: { id: channelId },
@@ -115,11 +120,31 @@ export const updateChannelFeaturesAction = actionClient
       }
 
       const enablingFeature =
-        sendMeetingBriefs === true || sendDocumentFilings === true;
+        sendMeetingBriefs === true ||
+        sendDocumentFilings === true ||
+        notifyDraftEmail === true;
       if (enablingFeature && !channel.channelId) {
         throw new SafeError(
           "Please select a target channel before enabling features",
         );
+      }
+
+      // Build notifyActions array update
+      let notifyActionsUpdate: { notifyActions: string[] } | undefined;
+      if (notifyDraftEmail !== undefined) {
+        const currentActions = channel.notifyActions ?? [];
+        if (notifyDraftEmail && !currentActions.includes("DRAFT_EMAIL")) {
+          notifyActionsUpdate = {
+            notifyActions: [...currentActions, "DRAFT_EMAIL"],
+          };
+        } else if (
+          !notifyDraftEmail &&
+          currentActions.includes("DRAFT_EMAIL")
+        ) {
+          notifyActionsUpdate = {
+            notifyActions: currentActions.filter((a) => a !== "DRAFT_EMAIL"),
+          };
+        }
       }
 
       await prisma.messagingChannel.update({
@@ -127,6 +152,7 @@ export const updateChannelFeaturesAction = actionClient
         data: {
           ...(sendMeetingBriefs !== undefined && { sendMeetingBriefs }),
           ...(sendDocumentFilings !== undefined && { sendDocumentFilings }),
+          ...notifyActionsUpdate,
         },
       });
     },
@@ -162,6 +188,7 @@ export const disconnectChannelAction = actionClient
         channelName: null,
         sendMeetingBriefs: false,
         sendDocumentFilings: false,
+        notifyActions: [],
       },
     });
   });

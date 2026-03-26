@@ -164,7 +164,7 @@ model EmailAccount {
   followUpNeedsReplyDays    Float?
   followUpAutoDraftEnabled  Boolean @default(true)
 
-  digestSchedule Schedule?
+  digestSchedule      Schedule?
   learnedWritingStyle String?
 
   userId    String
@@ -192,17 +192,18 @@ model EmailAccount {
   scheduledActions ScheduledAction[]
   responseTimes    ResponseTime[]
 
-  members             Member[]
-  invitations         Invitation[]
-  ssoproviders        SsoProvider[]
-  calendarConnections CalendarConnection[]
-  mcpConnections      McpConnection[]
-  meetingBriefings    MeetingBriefing[]
-  driveConnections    DriveConnection[]
-  messagingChannels   MessagingChannel[]
-  documentFilings     DocumentFiling[]
-  filingFolders       FilingFolder[]
-  apiKeys             ApiKey[]
+  members                   Member[]
+  invitations               Invitation[]
+  ssoproviders              SsoProvider[]
+  calendarConnections       CalendarConnection[]
+  mcpConnections            McpConnection[]
+  meetingBriefings          MeetingBriefing[]
+  driveConnections          DriveConnection[]
+  messagingChannels         MessagingChannel[]
+  documentFilings           DocumentFiling[]
+  filingFolders             FilingFolder[]
+  apiKeys                   ApiKey[]
+  pendingDraftNotifications PendingDraftNotification[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -546,8 +547,9 @@ model ExecutedRule {
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  actionItems      ExecutedAction[]
-  scheduledActions ScheduledAction[]
+  actionItems               ExecutedAction[]
+  scheduledActions          ScheduledAction[]
+  pendingDraftNotifications PendingDraftNotification[]
 
   @@index([emailAccountId, threadId, messageId, ruleId])
   @@index([emailAccountId, messageId])
@@ -856,11 +858,11 @@ model ReplyMemory {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  content    String
-  kind       ReplyMemoryKind
-  scopeType  ReplyMemoryScopeType
-  scopeValue String
-  isLearnedStyleEvidence Boolean @default(false)
+  content                String
+  kind                   ReplyMemoryKind
+  scopeType              ReplyMemoryScopeType
+  scopeValue             String
+  isLearnedStyleEvidence Boolean              @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount        @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -872,7 +874,7 @@ model ReplyMemory {
 }
 
 model ReplyMemorySource {
-  createdAt DateTime @default(now())
+  createdAt                     DateTime  @default(now())
   learnedWritingStyleAnalyzedAt DateTime?
 
   replyMemoryId String
@@ -1110,17 +1112,46 @@ model MessagingChannel {
   channelName String?
 
   // Feature toggles
-  sendMeetingBriefs   Boolean @default(false)
-  sendDocumentFilings Boolean @default(false)
+  sendMeetingBriefs   Boolean  @default(false)
+  sendDocumentFilings Boolean  @default(false)
+  notifyActions       String[] @default([])
 
   emailAccountId String
   emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   automationJobs AutomationJob[]
 
+  pendingDraftNotifications PendingDraftNotification[]
+
   @@unique([emailAccountId, provider, teamId])
   @@unique([id, emailAccountId])
   @@index([emailAccountId])
   @@index([provider, teamId])
+}
+
+model PendingDraftNotification {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  providerMessageId String                  @unique
+  draftId           String
+  threadId          String
+  messageId         String
+  subject           String
+  recipient         String
+  status            DraftNotificationStatus @default(PENDING)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  executedRuleId String?
+  executedRule   ExecutedRule? @relation(fields: [executedRuleId], references: [id])
+
+  messagingChannelId String
+  messagingChannel   MessagingChannel @relation(fields: [messagingChannelId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId])
+  @@index([messagingChannelId])
 }
 
 model AutomationJob {
@@ -1590,4 +1621,10 @@ enum AutomationJobRunStatus {
   SENT
   SKIPPED
   FAILED
+}
+
+enum DraftNotificationStatus {
+  PENDING
+  SENT
+  DISMISSED
 }
