@@ -2237,6 +2237,10 @@ describe("findMatchingRules - Integration Tests", () => {
 
     // Rule should not match because it's a thread and runOnThreads=false
     expect(result.matches).toHaveLength(0);
+    expect(result.selectionMetadata).toMatchObject({
+      isThread: true,
+      skippedThreadRuleNames: ["Rule Name"],
+    });
   });
 
   describe("filterMultipleSystemRules branches", () => {
@@ -2539,6 +2543,10 @@ describe("findMatchingRules - Integration Tests", () => {
       // Should NOT match and AI should not be called
       expect(result.matches).toHaveLength(0);
       expect(aiChooseRule).not.toHaveBeenCalled();
+      expect(result.selectionMetadata).toMatchObject({
+        isThread: true,
+        skippedThreadRuleNames: ["Rule Name"],
+      });
     });
   });
 

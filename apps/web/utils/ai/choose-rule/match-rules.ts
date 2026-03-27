@@ -19,6 +19,7 @@ import type { Logger } from "@/utils/logger";
 import type {
   MatchReason,
   MatchingRuleResult,
+  RuleSelectionMetadata,
 } from "@/utils/ai/choose-rule/types";
 import {
   extractEmailAddress,
@@ -51,6 +52,7 @@ type MatchingRulesResult = {
     matchReasons?: MatchReason[];
   }[];
   reasoning: string;
+  selectionMetadata: RuleSelectionMetadata;
 };
 
 export async function findMatchingRules({
@@ -94,6 +96,9 @@ export async function findMatchingRules({
           },
         ],
         reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
+        selectionMetadata: createRuleSelectionMetadata({
+          isThread: provider.isReplyInThread(message),
+        }),
       };
     }
   }
@@ -299,6 +304,14 @@ async function findPotentialMatchingRules({
     potentialAiMatches: hasLearnedPatternMatch
       ? []
       : filteredPotentialAiMatches,
+    selectionMetadata: createRuleSelectionMetadata({
+      isThread,
+      skippedThreadRuleNames,
+      continuedThreadRuleNames,
+      filteredConversationRuleNames: conversationStatusFilter.filteredRuleNames,
+      conversationFilterReason: conversationStatusFilter.filterReason,
+      remainingAiRuleNames: filteredPotentialAiMatches.map((rule) => rule.name),
+    }),
   };
 }
 
@@ -421,6 +434,31 @@ function joinLogValues(values: (string | null | undefined)[]) {
   return values.filter((value): value is string => !!value).join(", ");
 }
 
+function createRuleSelectionMetadata({
+  isThread,
+  skippedThreadRuleNames = [],
+  continuedThreadRuleNames = [],
+  filteredConversationRuleNames = [],
+  conversationFilterReason,
+  remainingAiRuleNames = [],
+}: {
+  isThread: boolean;
+  skippedThreadRuleNames?: string[];
+  continuedThreadRuleNames?: string[];
+  filteredConversationRuleNames?: string[];
+  conversationFilterReason?: string;
+  remainingAiRuleNames?: string[];
+}): RuleSelectionMetadata {
+  return {
+    isThread,
+    skippedThreadRuleNames,
+    continuedThreadRuleNames,
+    filteredConversationRuleNames,
+    conversationFilterReason,
+    remainingAiRuleNames,
+  };
+}
+
 async function findMatchingRulesWithReasons(
   rules: RuleWithActions[],
   message: ParsedMessage,
@@ -431,14 +469,15 @@ async function findMatchingRulesWithReasons(
 ): Promise<MatchingRulesResult> {
   const isThread = provider.isReplyInThread(message);
 
-  const { matches, potentialAiMatches } = await findPotentialMatchingRules({
-    rules,
-    message,
-    isThread,
-    provider,
-    emailAccountId: emailAccount.id,
-    logger,
-  });
+  const { matches, potentialAiMatches, selectionMetadata } =
+    await findPotentialMatchingRules({
+      rules,
+      message,
+      isThread,
+      provider,
+      emailAccountId: emailAccount.id,
+      logger,
+    });
 
   if (potentialAiMatches.length) {
     const fullResult = await aiChooseRule({
@@ -494,6 +533,7 @@ async function findMatchingRulesWithReasons(
     return {
       matches: combinedMatches,
       reasoning: combinedReasoning,
+      selectionMetadata,
     };
   } else {
     return {
@@ -502,6 +542,7 @@ async function findMatchingRulesWithReasons(
         .map((m) => getMatchReason(m.matchReasons))
         .filter((r): r is string => !!r)
         .join(", "),
+      selectionMetadata,
     };
   }
 }

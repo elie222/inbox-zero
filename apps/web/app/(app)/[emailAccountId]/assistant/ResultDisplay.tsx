@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { MessageText, MutedText } from "@/components/Typography";
 import { EyeIcon } from "lucide-react";
 import { useRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
+import { ThreadSkipHint } from "@/app/(app)/[emailAccountId]/assistant/ThreadSkipHint";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
@@ -93,6 +94,8 @@ function ResultDisplay({
 
 export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
   const { rule, status, reason } = result;
+  const skippedThreadRuleNames =
+    result.selectionMetadata?.skippedThreadRuleNames ?? [];
 
   const { ruleDialog, RuleDialogComponent } = useRuleDialog();
   const { provider } = useAccount();
@@ -152,6 +155,13 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
           <div className="text-muted-foreground text-sm">No actions taken</div>
         )}
       </div>
+
+      {status === ExecutedRuleStatus.SKIPPED && (
+        <ThreadSkipHint
+          skippedThreadRuleNames={skippedThreadRuleNames}
+          className="mt-3"
+        />
+      )}
 
       {!!reason && (
         <div className="mt-4 space-y-2 bg-muted p-2 rounded-md">
