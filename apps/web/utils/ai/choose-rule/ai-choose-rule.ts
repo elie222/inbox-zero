@@ -7,6 +7,7 @@ import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
 import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { sortRulesForAutomation } from "@/utils/rule/sort";
+import type { Logger } from "@/utils/logger";
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
@@ -22,11 +23,13 @@ export async function aiChooseRule<
   rules,
   emailAccount,
   modelType,
+  logger,
 }: {
   email: EmailForLLM;
   rules: T[];
   emailAccount: EmailAccountWithAI;
   modelType?: ModelType;
+  logger: Logger;
 }): Promise<{
   rules: { rule: T; isPrimary?: boolean }[];
   reason: string;
@@ -42,13 +45,6 @@ export async function aiChooseRule<
     modelType,
   });
 
-  if (aiResponse.noMatchFound) {
-    return {
-      rules: [],
-      reason: aiResponse.reasoning || "AI determined no rules matched",
-    };
-  }
-
   const rulesWithMetadata = aiResponse.matchedRules
     .map((match) => {
       if (!match.ruleName) return undefined;
@@ -58,6 +54,20 @@ export async function aiChooseRule<
       return rule ? { rule, isPrimary: match.isPrimary } : undefined;
     })
     .filter(isDefined);
+
+  logAiChooseRuleResult({
+    aiResponse,
+    logger,
+    orderedRules,
+    rulesWithMetadata,
+  });
+
+  if (aiResponse.noMatchFound) {
+    return {
+      rules: [],
+      reason: aiResponse.reasoning || "AI determined no rules matched",
+    };
+  }
 
   return {
     rules: rulesWithMetadata,
@@ -308,3 +318,60 @@ ${stringifyEmail(email, 500)}
 
 const METADATA_GUIDELINE =
   "- Consider email metadata (e.g. List-Unsubscribe headers) alongside content.";
+
+function logAiChooseRuleResult<
+  T extends { name: string; systemType?: string | null },
+>({
+  aiResponse,
+  logger,
+  orderedRules,
+  rulesWithMetadata,
+}: {
+  aiResponse: {
+    matchedRules: { ruleName: string; isPrimary?: boolean }[];
+    reasoning: string;
+    noMatchFound: boolean;
+  };
+  logger: Logger;
+  orderedRules: T[];
+  rulesWithMetadata: { rule: T; isPrimary?: boolean }[];
+}) {
+  const candidateRuleNames = orderedRules.map((rule) => rule.name);
+  const returnedRuleNames = aiResponse.matchedRules
+    .map((match) => match.ruleName)
+    .filter(Boolean);
+  const resolvedRuleNames = rulesWithMetadata.map(({ rule }) => rule.name);
+  const unresolvedRuleNames = returnedRuleNames.filter(
+    (ruleName) =>
+      !orderedRules.some(
+        (rule) => rule.name.toLowerCase() === ruleName.toLowerCase(),
+      ),
+  );
+
+  const logPayload = {
+    candidateRuleNames,
+    candidateRuleCount: candidateRuleNames.length,
+    candidateSystemTypes: orderedRules.map(
+      (rule) => rule.systemType ?? "custom",
+    ),
+    returnedRuleNames,
+    returnedRuleCount: returnedRuleNames.length,
+    resolvedRuleNames,
+    resolvedRuleCount: resolvedRuleNames.length,
+    unresolvedRuleNames,
+    noMatchFound: aiResponse.noMatchFound,
+    reasoningPresent: !!aiResponse.reasoning,
+  };
+
+  if (resolvedRuleNames.length === 0) {
+    logger.warn("AI choose rule returned no usable rule", logPayload);
+  } else {
+    logger.info("AI choose rule completed", logPayload);
+  }
+
+  if (aiResponse.reasoning) {
+    logger.trace("AI choose rule reasoning", {
+      reasoning: aiResponse.reasoning,
+    });
+  }
+}

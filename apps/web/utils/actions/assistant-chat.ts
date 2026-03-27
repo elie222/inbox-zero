@@ -175,7 +175,7 @@ export async function confirmAssistantEmailActionForAccount({
   }
 
   try {
-    await persistConfirmedAssistantEmailPart({
+    await persistConfirmedAssistantEmailActionPart({
       chatMessageId: reservation.chatMessageId,
       emailAccountId,
       toolCallId,
@@ -920,7 +920,7 @@ function updateAssistantEmailPartOutput({
   });
 }
 
-async function persistConfirmedAssistantEmailPart({
+async function persistConfirmedAssistantEmailActionPart({
   chatMessageId,
   emailAccountId,
   toolCallId,
