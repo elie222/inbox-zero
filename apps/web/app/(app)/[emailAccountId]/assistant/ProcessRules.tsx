@@ -164,7 +164,6 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
           testMode,
           serverError: true,
         });
-        await logger.flush();
         toastError({
           title: "There was an error processing the email",
           description: result.serverError,
@@ -178,7 +177,6 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
           testMode,
           ...summarizeRunRulesResult(result.data),
         });
-        await logger.flush();
         setResultsMap((prev) => ({ ...prev, [message.id]: result.data! }));
       } else {
         logger.warn("runRulesAction returned empty response", {
@@ -188,8 +186,8 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
           rerun: !!rerun,
           testMode,
         });
-        await logger.flush();
       }
+      await logger.flush();
       setIsRunning((prev) => ({ ...prev, [message.id]: false }));
     },
     [testMode, emailAccountId],
@@ -361,7 +359,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 function summarizeRunRulesResult(results: RunRulesResult[]) {
   const allSelectionMetadata = results
     .map((result) => result.selectionMetadata)
-    .filter((metadata) => !!metadata);
+    .filter((metadata): metadata is NonNullable<typeof metadata> => !!metadata);
 
   return {
     resultCount: results.length,
