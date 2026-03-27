@@ -45,6 +45,10 @@ vi.mock("@/utils/usage", () => ({
   saveAiUsage: mockSaveAiUsage,
 }));
 
+vi.mock("@/utils/sleep", () => ({
+  sleep: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("@/utils/error-messages", () => ({
   addUserErrorMessageWithNotification: vi.fn(),
   ErrorType: {},
@@ -89,6 +93,34 @@ async function createTestGenerateObject() {
       providerOptions: undefined,
       hasUserApiKey: false,
       fallbackModels: [],
+    } as any,
+  });
+}
+
+async function createGenerateObjectWithFallback() {
+  const { createGenerateObject } = await import("./index");
+
+  return createGenerateObject({
+    emailAccount: {
+      id: "account-1",
+      email: "user@example.com",
+      userId: "user-1",
+    },
+    label: "test",
+    modelOptions: {
+      provider: "openai",
+      modelName: "gpt-test",
+      model: {} as any,
+      providerOptions: undefined,
+      hasUserApiKey: false,
+      fallbackModels: [
+        {
+          provider: "anthropic",
+          modelName: "claude-test",
+          model: {} as any,
+          providerOptions: undefined,
+        },
+      ],
     } as any,
   });
 }
@@ -186,6 +218,84 @@ describe("createGenerateObject repairText", () => {
         looksCodeFenced: false,
         candidateKindsTried: ["trimmed"],
       }),
+    );
+  });
+
+  it("marks repair as successful when normalization succeeded before the request still failed", async () => {
+    mockGenerateObject.mockImplementationOnce(async (options) => {
+      await options.experimental_repairText({
+        text: `'{"category":"updates",}'`,
+      });
+      throw new Error("generation failed");
+    });
+
+    const generateObject = await createTestGenerateObject();
+
+    await expect(
+      generateObject({
+        system: "Return JSON.",
+        prompt: "Return JSON.",
+        schema: {} as any,
+      } as any),
+    ).rejects.toBeDefined();
+
+    expect(mockAttachLlmRepairMetadata).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        attempted: true,
+        successful: true,
+        successfulCandidateKind: "unwrapped",
+      }),
+    );
+  });
+
+  it("clears stale repair metadata before trying a fallback model", async () => {
+    const createNetworkError = () => {
+      const error = new Error("read ECONNRESET");
+      (
+        error as Error & {
+          cause?: { code: string; message: string };
+        }
+      ).cause = { code: "ECONNRESET", message: "read ECONNRESET" };
+      return error;
+    };
+
+    mockGenerateObject
+      .mockImplementationOnce(async (options) => {
+        await options.experimental_repairText({ text: "'not json" });
+        throw createNetworkError();
+      })
+      .mockRejectedValueOnce(createNetworkError())
+      .mockRejectedValueOnce(createNetworkError())
+      .mockImplementationOnce(async () => {
+        throw new Error("final failure");
+      })
+      .mockRejectedValueOnce(new Error("final failure"));
+
+    const generateObject = await createGenerateObjectWithFallback();
+
+    await expect(
+      generateObject({
+        system: "Return JSON.",
+        prompt: "Return JSON.",
+        schema: {} as any,
+      } as any),
+    ).rejects.toBeDefined();
+
+    expect(mockAttachLlmRepairMetadata).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      expect.objectContaining({
+        provider: "openai",
+        model: "gpt-test",
+        candidateKindsTried: ["trimmed"],
+      }),
+    );
+
+    expect(mockAttachLlmRepairMetadata).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      undefined,
     );
   });
 });

@@ -330,6 +330,7 @@ export function createGenerateObject({
     for (let index = 0; index < modelCandidates.length; index++) {
       const candidate = modelCandidates[index];
       const nextCandidate = modelCandidates[index + 1];
+      latestRepairAttempt = undefined;
 
       try {
         return await withLLMRetry(
@@ -347,7 +348,7 @@ export function createGenerateObject({
           error,
           latestRepairAttempt && {
             attempted: true,
-            successful: false,
+            successful: Boolean(latestRepairAttempt.successfulCandidateKind),
             label,
             provider: candidate.provider,
             model: candidate.modelName,
