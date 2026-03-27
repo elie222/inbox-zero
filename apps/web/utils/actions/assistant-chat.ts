@@ -263,15 +263,25 @@ export async function confirmAssistantCreateRuleForAccount({
 
       if (existingRule) {
         const confirmedAt = new Date().toISOString();
-        await persistConfirmedAssistantCreateRulePart({
-          chatMessageId: reservation.chatMessageId,
-          emailAccountId,
-          toolCallId,
-          riskMessages: reservation.output.riskMessages,
-          ruleId: existingRule.id,
-          confirmedAt,
-          logger,
-        });
+        try {
+          await persistConfirmedAssistantCreateRulePart({
+            chatMessageId: reservation.chatMessageId,
+            emailAccountId,
+            toolCallId,
+            riskMessages: reservation.output.riskMessages,
+            ruleId: existingRule.id,
+            confirmedAt,
+            logger,
+          });
+        } catch (persistError) {
+          logger.error("Failed to persist confirmed assistant create rule", {
+            error: persistError,
+            ruleId: existingRule.id,
+          });
+          throw new SafeError(
+            "Rule was created but confirmation state could not be saved. Please refresh and try again.",
+          );
+        }
 
         return {
           success: true,
@@ -299,15 +309,25 @@ export async function confirmAssistantCreateRuleForAccount({
   }
 
   const confirmedAt = new Date().toISOString();
-  await persistConfirmedAssistantCreateRulePart({
-    chatMessageId: reservation.chatMessageId,
-    emailAccountId,
-    toolCallId,
-    riskMessages: reservation.output.riskMessages,
-    ruleId: rule.id,
-    confirmedAt,
-    logger,
-  });
+  try {
+    await persistConfirmedAssistantCreateRulePart({
+      chatMessageId: reservation.chatMessageId,
+      emailAccountId,
+      toolCallId,
+      riskMessages: reservation.output.riskMessages,
+      ruleId: rule.id,
+      confirmedAt,
+      logger,
+    });
+  } catch (persistError) {
+    logger.error("Failed to persist confirmed assistant create rule", {
+      error: persistError,
+      ruleId: rule.id,
+    });
+    throw new SafeError(
+      "Rule was created but confirmation state could not be saved. Please refresh and try again.",
+    );
+  }
 
   return {
     success: true,
@@ -1102,32 +1122,27 @@ async function persistConfirmedAssistantCreateRulePart({
   confirmedAt: string;
   logger: Logger;
 }) {
-  try {
-    await persistConfirmedAssistantPart({
-      chatMessageId,
-      emailAccountId,
-      logger: logger.with({ chatMessageId, toolCallId, ruleId }),
-      findPart: (parts) =>
-        findPendingAssistantCreateRulePart({
-          parts,
-          toolCallId,
-        }),
-      isConfirmed: (lookup) =>
-        lookup.output.confirmationState === "confirmed" &&
-        lookup.output.ruleId === ruleId,
-      buildParts: ({ parts, partIndex }) =>
-        buildConfirmedAssistantCreateRuleParts({
-          parts,
-          partIndex,
-          riskMessages,
-          ruleId,
-          confirmedAt,
-        }),
-    });
-    return;
-  } catch (error) {
-    logger.error("Failed to persist confirmed create rule", { error, ruleId });
-  }
+  await persistConfirmedAssistantPart({
+    chatMessageId,
+    emailAccountId,
+    logger: logger.with({ chatMessageId, toolCallId, ruleId }),
+    findPart: (parts) =>
+      findPendingAssistantCreateRulePart({
+        parts,
+        toolCallId,
+      }),
+    isConfirmed: (lookup) =>
+      lookup.output.confirmationState === "confirmed" &&
+      lookup.output.ruleId === ruleId,
+    buildParts: ({ parts, partIndex }) =>
+      buildConfirmedAssistantCreateRuleParts({
+        parts,
+        partIndex,
+        riskMessages,
+        ruleId,
+        confirmedAt,
+      }),
+  });
 }
 
 async function persistConfirmedAssistantPart<

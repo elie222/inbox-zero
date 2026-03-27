@@ -120,7 +120,7 @@ describe("confirmAssistantCreateRule", () => {
     expect(updatedParts[0].output.ruleId).toBe("rule-created-1");
   });
 
-  it("returns the created rule when confirmation persistence fails", async () => {
+  it("returns an error when confirmation persistence fails", async () => {
     const logger = createScopedLogger("assistant-chat-create-rule.test");
 
     prisma.chatMessage.findFirst.mockResolvedValue({
@@ -134,17 +134,19 @@ describe("confirmAssistantCreateRule", () => {
       .mockResolvedValueOnce({ count: 1 } as never)
       .mockResolvedValue({ count: 0 } as never);
 
-    const result = await confirmAssistantCreateRuleForAccount({
-      chatId: "chat-1",
-      chatMessageId: "cm-1",
-      toolCallId: "tool-cr-1",
-      emailAccountId: "ea_1",
-      provider: "google",
-      logger,
-    });
+    await expect(
+      confirmAssistantCreateRuleForAccount({
+        chatId: "chat-1",
+        chatMessageId: "cm-1",
+        toolCallId: "tool-cr-1",
+        emailAccountId: "ea_1",
+        provider: "google",
+        logger,
+      }),
+    ).rejects.toThrow(
+      "Rule was created but confirmation state could not be saved. Please refresh and try again.",
+    );
 
-    expect(result.ruleId).toBe("rule-created-1");
-    expect(result.confirmationState).toBe("confirmed");
     expect(createRuleMock).toHaveBeenCalledTimes(1);
     expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(4);
   });
