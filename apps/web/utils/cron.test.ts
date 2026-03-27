@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { hasCronSecret } from "./cron";
 import type { RequestWithLogger } from "@/utils/middleware";
-import { createScopedLogger } from "@/utils/logger";
+import { testLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = testLogger;
 
 vi.mock("server-only", () => ({}));
 

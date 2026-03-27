@@ -10,9 +10,9 @@ import {
   resolveDraftAttachments,
   selectDraftAttachmentsForRule,
 } from "@/utils/attachments/draft-attachments";
-import { createScopedLogger } from "@/utils/logger";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
 import type { ParsedMessage } from "@/utils/types";
+import { testLogger } from "@/__tests__/helpers";
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/redis/reply", () => ({
@@ -28,7 +28,7 @@ vi.mock("@/utils/attachments/draft-attachments", () => ({
 }));
 
 describe("runActionFunction", () => {
-  const logger = createScopedLogger("test");
+  const logger = testLogger;
   const email = {
     id: "message-1",
     threadId: "thread-1",

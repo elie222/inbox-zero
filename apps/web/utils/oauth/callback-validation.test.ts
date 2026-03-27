@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { validateOAuthCallback } from "./callback-validation";
-import { createScopedLogger } from "@/utils/logger";
 import { parseOAuthState } from "@/utils/oauth/state";
+import { testLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = testLogger;
 
 vi.mock("@/utils/oauth/state");
 

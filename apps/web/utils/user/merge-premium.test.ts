@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PremiumTier } from "@/generated/prisma/enums";
 import { transferPremiumDuringMerge } from "./merge-premium";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { testLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = testLogger;
 
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));
