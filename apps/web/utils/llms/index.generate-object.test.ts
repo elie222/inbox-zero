@@ -2,12 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { mockGenerateObject, mockSaveAiUsage, mockShouldForceNanoModel } =
-  vi.hoisted(() => ({
-    mockGenerateObject: vi.fn(),
-    mockSaveAiUsage: vi.fn(),
-    mockShouldForceNanoModel: vi.fn(),
-  }));
+const {
+  mockAttachLlmRepairMetadata,
+  mockGenerateObject,
+  mockSaveAiUsage,
+  mockShouldForceNanoModel,
+} = vi.hoisted(() => ({
+  mockAttachLlmRepairMetadata: vi.fn(),
+  mockGenerateObject: vi.fn(),
+  mockSaveAiUsage: vi.fn(),
+  mockShouldForceNanoModel: vi.fn(),
+}));
 
 vi.mock("ai", () => ({
   APICallError: { isInstance: () => false },
@@ -32,6 +37,7 @@ vi.mock("@/env", () => ({
     NANO_LLM_PROVIDER: "",
     NANO_LLM_MODEL: "",
     NEXT_PUBLIC_POSTHOG_KEY: "",
+    EMAIL_ENCRYPT_SALT: "test-salt",
   },
 }));
 
@@ -45,6 +51,7 @@ vi.mock("@/utils/error-messages", () => ({
 }));
 
 vi.mock("@/utils/error", () => ({
+  attachLlmRepairMetadata: mockAttachLlmRepairMetadata,
   captureException: vi.fn(),
   isAnthropicInsufficientBalanceError: vi.fn(() => false),
   isIncorrectOpenAIAPIKeyError: vi.fn(() => false),
@@ -147,5 +154,38 @@ describe("createGenerateObject repairText", () => {
       object: { ok: true },
       usage: null,
     });
+  });
+
+  it("attaches repair metadata to the final error after a failed repair attempt", async () => {
+    mockGenerateObject.mockImplementationOnce(async (options) => {
+      await options.experimental_repairText({ text: "'not json" });
+      throw new Error("generation failed");
+    });
+
+    const generateObject = await createTestGenerateObject();
+
+    await expect(
+      generateObject({
+        system: "Return JSON.",
+        prompt: "Return JSON.",
+        schema: {} as any,
+      } as any),
+    ).rejects.toBeDefined();
+
+    expect(mockAttachLlmRepairMetadata).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        attempted: true,
+        successful: false,
+        label: "test",
+        provider: "openai",
+        model: "gpt-test",
+        startsWithQuote: true,
+        startsWithBrace: false,
+        startsWithBracket: false,
+        looksCodeFenced: false,
+        candidateKindsTried: ["trimmed"],
+      }),
+    );
   });
 });

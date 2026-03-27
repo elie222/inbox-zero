@@ -52,6 +52,33 @@ export type CaptureExceptionContext = {
   sampleRate?: number;
 };
 
+export type LlmRepairMetadata = {
+  attempted: true;
+  successful: boolean;
+  label: string;
+  provider: string;
+  model: string;
+  inputLength: number;
+  inputFingerprint: string;
+  startsWithQuote: boolean;
+  startsWithBrace: boolean;
+  startsWithBracket: boolean;
+  looksCodeFenced: boolean;
+  candidateKindsTried: string[];
+  successfulCandidateKind?: string;
+};
+
+const LLM_REPAIR_METADATA_KEY = "__llmRepairMetadata";
+
+export function attachLlmRepairMetadata(
+  error: unknown,
+  metadata: LlmRepairMetadata | undefined,
+) {
+  if (!metadata || typeof error !== "object" || error === null) return;
+
+  (error as Record<string, unknown>)[LLM_REPAIR_METADATA_KEY] = metadata;
+}
+
 export function captureException(
   error: unknown,
   context: CaptureExceptionContext = {},
@@ -73,8 +100,10 @@ export function captureException(
 
   if (userEmail) setUser({ email: userEmail });
 
+  const llmRepair = getLlmRepairMetadata(error);
   const sentryExtra = {
     ...extra,
+    ...(llmRepair ? { llmRepair } : {}),
     ...(emailAccountId && { emailAccountId }),
     ...(userId && { userId }),
   };
@@ -82,6 +111,15 @@ export function captureException(
   sentryCaptureException(error, {
     extra: Object.keys(sentryExtra).length > 0 ? sentryExtra : undefined,
   });
+}
+
+function getLlmRepairMetadata(error: unknown): LlmRepairMetadata | undefined {
+  if (typeof error !== "object" || error === null) return;
+
+  const metadata = (error as Record<string, unknown>)[LLM_REPAIR_METADATA_KEY];
+  if (!metadata || typeof metadata !== "object") return;
+
+  return metadata as LlmRepairMetadata;
 }
 
 export type ActionError<E extends object = Record<string, unknown>> = {
