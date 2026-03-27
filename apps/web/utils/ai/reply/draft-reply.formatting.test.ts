@@ -279,6 +279,31 @@ Representative edits:
     expect(callArgs.prompt).not.toContain("<learned_writing_style>");
   });
 
+  it("keeps learned writing style advisory when explicit style is present", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Thanks for your message.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    await aiDraftReplyWithConfidence({
+      ...getDraftParams(),
+      writingStyle: "Be warm, concise, and confident.",
+      learnedWritingStyle: `Observed patterns:
+- Keep replies terse and low ceremony.
+Representative edits:
+- Remove filler and greetings.`,
+    });
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+
+    expect(callArgs.prompt).toContain("<writing_style>");
+    expect(callArgs.prompt).toContain("Be warm, concise, and confident.");
+    expect(callArgs.prompt).toContain("<learned_writing_style>");
+    expect(callArgs.prompt).toContain("Keep replies terse and low ceremony.");
+  });
+
   it("defaults invalid confidence values to ALL_EMAILS", async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {
