@@ -137,9 +137,9 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
   IMPORTANT: Follow these instructions carefully when selecting a rule:
 
   <priority>
-  1. Match the email to the MOST SPECIFIC available rule, whether it is user-defined or a built-in system rule.
+  1. Match the email to a SPECIFIC user-defined rule that addresses the email's exact content or purpose.
   2. If the email doesn't match any specific rule but the user has a catch-all rule (like "emails that don't match other criteria"), use that catch-all rule.
-  3. Only set "noMatchFound" to true if none of the available rules can reasonably apply.
+  3. Only set "noMatchFound" to true if no user-defined rule can reasonably apply.
   4. Be concise in your reasoning - avoid repetitive explanations.
   5. Provide only the exact rule name from the list below.
   </priority>
@@ -147,8 +147,6 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
   <guidelines>
   - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
   - When multiple rules match, choose the more specific one that best matches the email's content.
-  - Built-in system rules like Notification, Newsletter, Marketing, Calendar, Receipt, and Conversations are valid choices when they fit better than a custom rule.
-  - Automated system alerts, account-status updates, and service notices usually belong to Notification, even when the email includes a List-Unsubscribe header.
   - Rules about requiring replies should be prioritized when the email clearly needs a response.
   ${METADATA_GUIDELINE}
   </guidelines>
@@ -248,8 +246,6 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
   - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
   - Do not be greedy - only select rules that add meaningful context.
   - Be concise in your reasoning - avoid repetitive explanations.
-  - Built-in system rules like Notification, Newsletter, Marketing, Calendar, Receipt, and Conversations are valid choices when they fit better than a custom rule.
-  - Automated system alerts, account-status updates, and service notices usually belong to Notification, even when the email includes a List-Unsubscribe header.
   ${METADATA_GUIDELINE}
   </guidelines>
 </instructions>
