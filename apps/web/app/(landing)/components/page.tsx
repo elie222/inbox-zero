@@ -690,6 +690,7 @@ export default function Components() {
                     continuedThreadRuleNames: [],
                     learnedPatternExcludedRules: [
                       {
+                        ruleId: "notification-rule",
                         ruleName: "Notification",
                         groupId: "notification-group",
                         groupName: "Notification",

@@ -18,12 +18,11 @@ vi.mock("@/app/(app)/[emailAccountId]/assistant/RuleDialog", () => ({
   useRuleDialog: () => mockUseRuleDialog(),
 }));
 
-vi.mock(
-  "@/app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns",
-  () => ({
-    ViewLearnedPatterns: () => null,
-  }),
-);
+vi.mock("@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns", () => ({
+  LearnedPatternsDialog: () => (
+    <button type="button">View learned patterns</button>
+  ),
+}));
 
 import { ResultDisplayContent } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 
@@ -122,6 +121,7 @@ describe("ResultDisplayContent", () => {
             continuedThreadRuleNames: [],
             learnedPatternExcludedRules: [
               {
+                ruleId: "rule-1",
                 ruleName: "Notification",
                 groupId: "group-1",
                 groupName: "Notification",

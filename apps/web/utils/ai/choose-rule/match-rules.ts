@@ -215,6 +215,7 @@ async function findPotentialMatchingRules({
         if (ruleExcluded) {
           if (group && excludedItem) {
             learnedPatternExcludedRules.push({
+              ruleId: rule.id,
               ruleName: rule.name,
               groupId: group.id,
               groupName: group.name,

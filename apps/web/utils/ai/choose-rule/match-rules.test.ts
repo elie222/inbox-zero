@@ -2511,6 +2511,7 @@ describe("findMatchingRules - Integration Tests", () => {
       expect(result.matches).toHaveLength(0);
       expect(result.selectionMetadata.learnedPatternExcludedRules).toEqual([
         {
+          ruleId: "notification-rule",
           ruleName: "Notification",
           groupId: "notification-group",
           groupName: "Notification",
