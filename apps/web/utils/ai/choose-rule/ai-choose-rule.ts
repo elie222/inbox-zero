@@ -349,16 +349,17 @@ function logAiChooseRuleResult<
   );
 
   const logPayload = {
-    candidateRuleNames,
     candidateRuleCount: candidateRuleNames.length,
-    candidateSystemTypes: orderedRules.map(
-      (rule) => rule.systemType ?? "custom",
+    candidateRuleNames: joinLogValues(candidateRuleNames),
+    candidateSystemTypes: joinLogValues(
+      orderedRules.map((rule) => rule.systemType ?? "custom"),
     ),
-    returnedRuleNames,
     returnedRuleCount: returnedRuleNames.length,
-    resolvedRuleNames,
+    returnedRuleNames: joinLogValues(returnedRuleNames),
     resolvedRuleCount: resolvedRuleNames.length,
-    unresolvedRuleNames,
+    resolvedRuleNames: joinLogValues(resolvedRuleNames),
+    unresolvedRuleCount: unresolvedRuleNames.length,
+    unresolvedRuleNames: joinLogValues(unresolvedRuleNames),
     noMatchFound: aiResponse.noMatchFound,
     reasoningPresent: !!aiResponse.reasoning,
   };
@@ -374,4 +375,8 @@ function logAiChooseRuleResult<
       reasoning: aiResponse.reasoning,
     });
   }
+}
+
+function joinLogValues(values: (string | null | undefined)[]) {
+  return values.filter(isDefined).join(", ");
 }
