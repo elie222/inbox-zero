@@ -85,14 +85,11 @@ describe("chat label tools", () => {
     });
     expect(createLabel).not.toHaveBeenCalled();
     expect(getLabels).toHaveBeenCalledTimes(1);
-    expect(getLabels).toHaveBeenCalledWith();
+    expect(getLabels).toHaveBeenCalledWith({ includeHidden: true });
   });
 
   it("creates a label when no visible or hidden normalized match exists", async () => {
-    const getLabels = vi
-      .fn()
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
+    const getLabels = vi.fn().mockResolvedValue([]);
     const createLabel = vi.fn().mockResolvedValue({
       id: "label-2",
       name: "Work-Items_/2026.Report",
@@ -126,23 +123,19 @@ describe("chat label tools", () => {
         type: "user",
       },
     });
-    expect(getLabels).toHaveBeenCalledTimes(2);
-    expect(getLabels).toHaveBeenNthCalledWith(1);
-    expect(getLabels).toHaveBeenNthCalledWith(2, { includeHidden: true });
+    expect(getLabels).toHaveBeenCalledTimes(1);
+    expect(getLabels).toHaveBeenCalledWith({ includeHidden: true });
   });
 
   it("reuses a hidden normalized label before creating a new one", async () => {
-    const getLabels = vi
-      .fn()
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        {
-          id: "label-hidden",
-          name: "Foo-Bar",
-          type: "user",
-          labelListVisibility: "labelHide",
-        },
-      ]);
+    const getLabels = vi.fn().mockResolvedValue([
+      {
+        id: "label-hidden",
+        name: "Foo-Bar",
+        type: "user",
+        labelListVisibility: "labelHide",
+      },
+    ]);
     const createLabel = vi.fn();
 
     vi.mocked(createEmailProvider).mockResolvedValue(
@@ -172,8 +165,7 @@ describe("chat label tools", () => {
       },
     });
     expect(createLabel).not.toHaveBeenCalled();
-    expect(getLabels).toHaveBeenCalledTimes(2);
-    expect(getLabels).toHaveBeenNthCalledWith(1);
-    expect(getLabels).toHaveBeenNthCalledWith(2, { includeHidden: true });
+    expect(getLabels).toHaveBeenCalledTimes(1);
+    expect(getLabels).toHaveBeenCalledWith({ includeHidden: true });
   });
 });

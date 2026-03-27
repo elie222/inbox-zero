@@ -77,25 +77,15 @@ export const createOrGetLabelTool = ({
           logger,
         });
         const normalizedName = normalizeLabelName(input.name);
-        const labels = await emailProvider.getLabels();
+        const labels = await emailProvider.getLabels({
+          includeHidden: true,
+        });
         const existingLabel = findNormalizedLabel(labels, normalizedName);
 
         if (existingLabel) {
-          return { created: false, label: pickLabelFields(existingLabel) };
-        }
-
-        const hiddenAwareLabels = await emailProvider.getLabels({
-          includeHidden: true,
-        });
-        const existingHiddenLabel = findNormalizedLabel(
-          hiddenAwareLabels,
-          normalizedName,
-        );
-
-        if (existingHiddenLabel) {
           return {
             created: false,
-            label: pickLabelFields(existingHiddenLabel),
+            label: pickLabelFields(existingLabel),
           };
         }
 
