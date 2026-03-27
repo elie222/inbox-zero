@@ -676,6 +676,40 @@ export default function Components() {
                 }}
               />
             </div>
+
+            <div className="p-4 border border-border rounded mt-4">
+              <ResultDisplayContent
+                result={{
+                  createdAt: new Date("2025-01-01"),
+                  reason:
+                    "A learned exclusion removed the expected system rule before AI matching.",
+                  status: ExecutedRuleStatus.SKIPPED,
+                  selectionMetadata: {
+                    isThread: false,
+                    skippedThreadRuleNames: [],
+                    continuedThreadRuleNames: [],
+                    learnedPatternExcludedRules: [
+                      {
+                        ruleName: "Notification",
+                        groupId: "notification-group",
+                        groupName: "Notification",
+                        itemType: "FROM",
+                        itemValue: "updates@example.com",
+                      },
+                    ],
+                    filteredConversationRuleNames: [],
+                    conversationFilterReason: undefined,
+                    remainingAiRuleNames: [
+                      "Calendar",
+                      "Receipt",
+                      "Marketing",
+                      "Newsletter",
+                      "Conversations",
+                    ],
+                  },
+                }}
+              />
+            </div>
           </div>
         </div>
 
