@@ -45,13 +45,6 @@ export async function aiChooseRule<
     modelType,
   });
 
-  if (aiResponse.noMatchFound) {
-    return {
-      rules: [],
-      reason: aiResponse.reasoning || "AI determined no rules matched",
-    };
-  }
-
   const rulesWithMetadata = aiResponse.matchedRules
     .map((match) => {
       if (!match.ruleName) return undefined;
@@ -68,6 +61,13 @@ export async function aiChooseRule<
     orderedRules,
     rulesWithMetadata,
   });
+
+  if (aiResponse.noMatchFound) {
+    return {
+      rules: [],
+      reason: aiResponse.reasoning || "AI determined no rules matched",
+    };
+  }
 
   return {
     rules: rulesWithMetadata,
