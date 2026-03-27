@@ -846,6 +846,7 @@ describe("aiProcessAssistantChat", () => {
       emailAccountId: "email-account-id",
       user: getEmailAccount(),
       chatLastSeenRulesRevision: 1,
+      chatHasHistory: true,
       onRulesStateExposed,
       logger,
     });
@@ -881,6 +882,107 @@ describe("aiProcessAssistantChat", () => {
           instructions: "Updated instructions",
         }),
       }),
+    );
+  });
+
+  it("injects fresh rule state for legacy chats with history but no cursor", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+    const onRulesStateExposed = vi.fn();
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+    mockPrisma.emailAccount.findUnique
+      .mockResolvedValueOnce({
+        rulesRevision: 0,
+      })
+      .mockResolvedValueOnce({
+        about: "About",
+        rulesRevision: 0,
+        rules: [
+          {
+            name: "Newsletter",
+            instructions: "Archive newsletters",
+            updatedAt: new Date("2026-02-13T10:00:00.000Z"),
+            from: null,
+            to: null,
+            subject: null,
+            conditionalOperator: null,
+            enabled: true,
+            runOnThreads: true,
+            actions: [],
+          },
+        ],
+      });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      chatLastSeenRulesRevision: null,
+      chatHasHistory: true,
+      onRulesStateExposed,
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const freshRuleContext = args.messages.find(
+      (message: { role: string; content: string }) =>
+        message.role === "user" &&
+        message.content.includes("[Fresh rule state update"),
+    );
+
+    expect(freshRuleContext?.content).toContain('"rulesRevision": 0');
+    expect(freshRuleContext?.content).toContain('"name": "Newsletter"');
+    expect(onRulesStateExposed).toHaveBeenCalledWith(0);
+  });
+
+  it("does not inject fresh rule state for new chats without a cursor", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      chatLastSeenRulesRevision: null,
+      chatHasHistory: false,
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const freshRuleContext = args.messages.find(
+      (message: { role: string; content: string }) =>
+        message.role === "user" &&
+        message.content.includes("[Fresh rule state update"),
+    );
+
+    expect(freshRuleContext).toBeUndefined();
+    expect(mockPrisma.emailAccount.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("requires explicit chatHasHistory when a rules cursor is provided", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    await expect(
+      aiProcessAssistantChat({
+        messages: baseMessages,
+        emailAccountId: "email-account-id",
+        user: getEmailAccount(),
+        chatLastSeenRulesRevision: null,
+        logger,
+      }),
+    ).rejects.toThrow(
+      "chatHasHistory must be provided when chatLastSeenRulesRevision is set",
     );
   });
 

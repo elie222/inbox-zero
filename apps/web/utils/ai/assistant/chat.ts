@@ -97,6 +97,7 @@ export async function aiProcessAssistantChat({
   context,
   chatId,
   chatLastSeenRulesRevision,
+  chatHasHistory,
   memories,
   inboxStats,
   responseSurface = "web",
@@ -111,6 +112,7 @@ export async function aiProcessAssistantChat({
   context?: MessageContext;
   chatId?: string;
   chatLastSeenRulesRevision?: number | null;
+  chatHasHistory?: boolean;
   memories?: { content: string; date: string }[];
   inboxStats?: { total: number; unread: number } | null;
   responseSurface?: "web" | "messaging";
@@ -119,6 +121,12 @@ export async function aiProcessAssistantChat({
   onStepFinish?: AssistantChatOnStepFinish;
   logger: Logger;
 }) {
+  if (chatLastSeenRulesRevision !== undefined && chatHasHistory === undefined) {
+    throw new Error(
+      "chatHasHistory must be provided when chatLastSeenRulesRevision is set",
+    );
+  }
+
   const emailSendToolsEnabled = env.NEXT_PUBLIC_EMAIL_SEND_ENABLED;
   let ruleReadState: RuleReadState | null = null;
 
@@ -323,6 +331,7 @@ Behavior anchors (minimal examples):
     const freshRuleState = await loadFreshRuleContext({
       emailAccountId,
       chatLastSeenRulesRevision,
+      chatHasHistory: chatHasHistory ?? false,
     });
 
     if (freshRuleState) {
@@ -531,21 +540,25 @@ Behavior anchors (minimal examples):
 async function loadFreshRuleContext({
   emailAccountId,
   chatLastSeenRulesRevision,
+  chatHasHistory,
 }: {
   emailAccountId: string;
   chatLastSeenRulesRevision?: number | null;
+  chatHasHistory?: boolean;
 }) {
-  if (chatLastSeenRulesRevision == null) return null;
+  if (chatLastSeenRulesRevision == null && !chatHasHistory) return null;
+
+  const knownRulesRevision = chatLastSeenRulesRevision ?? -1;
 
   const currentRulesRevision = await loadCurrentRulesRevision({
     emailAccountId,
   });
 
-  if (currentRulesRevision <= chatLastSeenRulesRevision) return null;
+  if (currentRulesRevision <= knownRulesRevision) return null;
 
   const snapshot = await loadAssistantRuleSnapshot({ emailAccountId });
 
-  if (snapshot.rulesRevision <= chatLastSeenRulesRevision) return null;
+  if (snapshot.rulesRevision <= knownRulesRevision) return null;
 
   return {
     snapshot,

@@ -27,6 +27,10 @@ import {
   assistantInputSchema,
 } from "@/utils/actions/assistant-chat.validation";
 import { buildInlineEmailActionSystemMessage } from "@/utils/ai/assistant/inline-email-actions";
+import {
+  mergeSeenRulesRevision,
+  saveLastSeenRulesRevision,
+} from "@/utils/ai/assistant/chat-seen-rules-revision";
 import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard";
 
 export const maxDuration = 120;
@@ -71,6 +75,8 @@ export const POST = withEmailAccount("chat", async (request) => {
     );
   }
 
+  const chatHasHistory =
+    chat.messages.length > 0 || chat.compactions.length > 0;
   const { message, context, inlineActions } = data;
 
   const hiddenInlineActionMessage =
@@ -207,13 +213,14 @@ export const POST = withEmailAccount("chat", async (request) => {
       context,
       chatId: chat.id,
       chatLastSeenRulesRevision: chat.lastSeenRulesRevision,
+      chatHasHistory,
       memories,
       inboxStats,
       onRulesStateExposed: (rulesRevision) => {
-        seenRulesRevision =
-          seenRulesRevision == null
-            ? rulesRevision
-            : Math.max(seenRulesRevision, rulesRevision);
+        seenRulesRevision = mergeSeenRulesRevision(
+          seenRulesRevision,
+          rulesRevision,
+        );
       },
       logger: request.logger,
     });
@@ -247,7 +254,11 @@ export const POST = withEmailAccount("chat", async (request) => {
         await saveChatMessages(messages, chat.id, request.logger);
 
         if (seenRulesRevision != null) {
-          await saveLastSeenRulesRevision(chat.id, seenRulesRevision);
+          await saveLastSeenRulesRevision({
+            chatId: chat.id,
+            rulesRevision: seenRulesRevision,
+            logger: request.logger,
+          });
         }
       },
     });
@@ -316,24 +327,6 @@ async function saveChatMessages(
     captureException(error, { extra: { chatId } });
     throw error;
   }
-}
-
-async function saveLastSeenRulesRevision(
-  chatId: string,
-  rulesRevision: number,
-) {
-  await prisma.chat.updateMany({
-    where: {
-      id: chatId,
-      OR: [
-        { lastSeenRulesRevision: null },
-        { lastSeenRulesRevision: { lt: rulesRevision } },
-      ],
-    },
-    data: {
-      lastSeenRulesRevision: rulesRevision,
-    },
-  });
 }
 
 function buildHiddenInlineActionMessage(

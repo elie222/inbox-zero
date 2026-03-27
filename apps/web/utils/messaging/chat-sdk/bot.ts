@@ -40,6 +40,10 @@ import type { AssistantPendingEmailActionType } from "@/utils/actions/assistant-
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import { getRecentChatMemories } from "@/utils/ai/assistant/get-recent-chat-memories";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
+import {
+  mergeSeenRulesRevision,
+  saveLastSeenRulesRevision,
+} from "@/utils/ai/assistant/chat-seen-rules-revision";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { consumeMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code-consume";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
@@ -575,9 +579,15 @@ async function processMessagingAssistantMessage({
       update: {},
       select: {
         id: true,
+        lastSeenRulesRevision: true,
         messages: {
           orderBy: { createdAt: "desc" },
           take: MAX_CHAT_CONTEXT_MESSAGES,
+        },
+        compactions: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { id: true },
         },
       },
     });
@@ -649,6 +659,7 @@ async function processMessagingAssistantMessage({
       }
 
       const inboxStats = await inboxStatsPromise;
+      let seenRulesRevision: number | null = null;
       const result = await aiProcessAssistantChat({
         messages: await convertToModelMessages([
           ...existingMessages,
@@ -657,10 +668,19 @@ async function processMessagingAssistantMessage({
         emailAccountId: context.emailAccountId,
         user: emailAccountUser,
         chatId: chat.id,
+        chatLastSeenRulesRevision: chat.lastSeenRulesRevision,
+        chatHasHistory:
+          existingMessages.length > 0 || chat.compactions.length > 0,
         memories: await memoriesPromise,
         inboxStats,
         responseSurface: "messaging",
         messagingPlatform: context.provider,
+        onRulesStateExposed: (rulesRevision) => {
+          seenRulesRevision = mergeSeenRulesRevision(
+            seenRulesRevision,
+            rulesRevision,
+          );
+        },
         logger: threadLogger,
       });
 
@@ -705,6 +725,14 @@ async function processMessagingAssistantMessage({
           return true;
         }
         throw error;
+      }
+
+      if (seenRulesRevision != null) {
+        await saveLastSeenRulesRevision({
+          chatId: chat.id,
+          rulesRevision: seenRulesRevision,
+          logger: threadLogger,
+        });
       }
 
       if (pendingToolPart) {
