@@ -58,6 +58,7 @@ import {
   ActivityLog,
   type ActivityLogEntry,
 } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
+import { HoverCard } from "@/components/HoverCard";
 
 export const maxDuration = 3;
 
@@ -652,6 +653,10 @@ export default function Components() {
                 }}
               />
             </div>
+
+            <div className="p-4 border border-border rounded mt-4">
+              <ThreadSkipHintDemo />
+            </div>
           </div>
         </div>
 
@@ -998,6 +1003,55 @@ function EmailRowExample() {
           </TableRow>
         </TableBody>
       </Table>
+    </div>
+  );
+}
+
+function ThreadSkipHintDemo() {
+  const skippedRuleNames = ["Notification", "Newsletter", "Marketing"];
+
+  return (
+    <div id="thread-skip-hint-demo" className="space-y-3">
+      <div className="flex justify-between font-medium">
+        No match found
+        <Badge color="red">No match found</Badge>
+      </div>
+
+      <div className="text-muted-foreground text-sm">No actions taken</div>
+
+      <div className="rounded-md bg-muted p-2">
+        <div className="font-medium text-sm">
+          Reason for choosing this rule:
+        </div>
+        <MessageText>
+          The email looks automated and part of an existing thread, so no
+          eligible rule was selected.
+        </MessageText>
+      </div>
+
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span>
+          Some rules were skipped because this email is part of a thread.
+        </span>
+        <HoverCard
+          content={
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Skipped for threads</div>
+              <div className="text-sm text-muted-foreground">
+                {skippedRuleNames.join(", ")}
+              </div>
+            </div>
+          }
+          className="w-64"
+        >
+          <button
+            type="button"
+            className="font-medium text-foreground underline decoration-dotted underline-offset-4"
+          >
+            View skipped rules
+          </button>
+        </HoverCard>
+      </div>
     </div>
   );
 }
