@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { ActionType } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 
 vi.mock("@/utils/prisma");
@@ -31,8 +30,9 @@ vi.mock("@/utils/prisma-helpers", () => ({
 }));
 
 import { createRule, deleteRule, updateRule, updateRuleActions } from "./rule";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("deleteRule", () => {
   beforeEach(() => {

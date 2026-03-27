@@ -14,9 +14,9 @@ import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import { findOldMessage } from "@/__tests__/e2e/helpers";
 import type { EmailProvider } from "@/utils/email/types";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_OUTLOOK_EMAIL = process.env.TEST_OUTLOOK_EMAIL;
 

@@ -5,8 +5,7 @@ import {
   getMockParsedMessage,
   ErrorProviders,
 } from "@/__tests__/mocks/email-provider.mock";
-import { getEmailAccount } from "@/__tests__/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 
@@ -40,7 +39,7 @@ vi.mock("@/utils/reply-tracker/handle-outbound", () => ({
   handleOutboundMessage: vi.fn().mockResolvedValue(undefined),
 }));
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("Provider Edge Cases", () => {
   beforeEach(() => {

@@ -2,12 +2,11 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import type { EmailForLLM } from "@/utils/types";
-import { getEmailAccount } from "@/__tests__/helpers";
+import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import type { Prisma } from "@/generated/prisma/client";
-import { createScopedLogger } from "@/utils/logger";
 import type { BusyPeriod } from "@/utils/calendar/availability-types";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 // Run with: pnpm test-ai calendar-availability
 

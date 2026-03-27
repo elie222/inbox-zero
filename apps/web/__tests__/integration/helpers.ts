@@ -9,10 +9,10 @@
 import { createEmulator, type Emulator } from "emulate";
 import { gmail, auth } from "@googleapis/gmail";
 import { Client } from "@microsoft/microsoft-graph-client";
+import { createTestLogger } from "@/__tests__/helpers";
 import { GmailProvider } from "@/utils/email/google";
 import { OutlookProvider } from "@/utils/email/microsoft";
 import { OutlookClient } from "@/utils/outlook/client";
-import { createScopedLogger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 
 type GmailSeedMessage = {
@@ -111,7 +111,7 @@ export async function createGmailTestHarness({
     rootUrl: emulator.url,
   });
 
-  const logger = createScopedLogger("test");
+  const logger = createTestLogger();
   const provider = new GmailProvider(gmailClient, logger, "test-account-id");
 
   // Resolve thread IDs in parallel
@@ -206,8 +206,7 @@ export async function createOutlookTestHarness({
     },
   });
 
-  const logger = createScopedLogger("test");
-
+  const logger = createTestLogger();
   // OutlookClient wraps a Graph client — we need to replace its internal
   // client with one that points at the emulator instead of graph.microsoft.com
   const outlookClient = new OutlookClient("emulator-token", logger);

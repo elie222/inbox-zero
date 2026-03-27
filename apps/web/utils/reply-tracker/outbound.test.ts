@@ -4,8 +4,11 @@ import prisma from "@/utils/__mocks__/prisma";
 import { aiDetermineThreadStatus } from "@/utils/ai/reply/determine-thread-status";
 import { applyThreadStatusLabel } from "./label-helpers";
 import { updateThreadTrackers } from "@/utils/reply-tracker/handle-conversation-status";
-import { getEmailAccount, getMockMessage } from "@/__tests__/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import {
+  getEmailAccount,
+  getMockMessage,
+  createTestLogger,
+} from "@/__tests__/helpers";
 import { SystemType } from "@/generated/prisma/enums";
 import {
   acquireOutboundThreadStatusLock,
@@ -25,7 +28,7 @@ vi.mock("@/utils/redis/outbound-thread-status", () => ({
 vi.mock("server-only", () => ({}));
 
 describe("handleOutboundReply", () => {
-  const logger = createScopedLogger("test");
+  const logger = createTestLogger();
   const emailAccount = getEmailAccount();
   const provider = {
     getThreadMessages: vi.fn(),

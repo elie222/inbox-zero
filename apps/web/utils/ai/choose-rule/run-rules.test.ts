@@ -14,12 +14,16 @@ import type { Action } from "@/generated/prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
 import type { RuleWithActions } from "@/utils/types";
-import { getAction, getEmailAccount, getEmail } from "@/__tests__/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import {
+  getAction,
+  getEmail,
+  getEmailAccount,
+  createTestLogger,
+} from "@/__tests__/helpers";
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));
@@ -518,7 +522,7 @@ describe("limitDraftEmailActions", () => {
       },
     ];
 
-    const result = limitDraftEmailActions(matches, createScopedLogger("test"));
+    const result = limitDraftEmailActions(matches, createTestLogger());
 
     expect(result).toBe(matches);
   });

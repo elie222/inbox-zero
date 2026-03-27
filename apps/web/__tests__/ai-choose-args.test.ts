@@ -1,13 +1,17 @@
 import { describe, expect, test, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
-import { getEmailAccount, getAction, getRule } from "@/__tests__/helpers";
+import {
+  getAction,
+  getEmailAccount,
+  getRule,
+  createTestLogger,
+} from "@/__tests__/helpers";
 import { ActionType, DraftReplyConfidence } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai ai-choose-args
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

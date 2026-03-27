@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMicrosoftAvailabilityProvider } from "./microsoft-availability";
-import { createScopedLogger } from "@/utils/logger";
 import type { Client } from "@microsoft/microsoft-graph-client";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/outlook/calendar-client", () => ({
   getCalendarClientWithRefresh: vi.fn(),
 }));
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("createMicrosoftAvailabilityProvider", () => {
   let mockClient: Partial<Client>;

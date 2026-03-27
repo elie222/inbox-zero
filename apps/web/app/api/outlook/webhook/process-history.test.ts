@@ -8,12 +8,12 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import { captureException } from "@/utils/error";
-import { createScopedLogger } from "@/utils/logger";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
 import { learnFromOutlookLabelRemoval } from "./learn-label-removal";
 import prisma from "@/utils/prisma";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 vi.spyOn(logger, "with").mockReturnValue(logger);
 
 vi.mock("server-only", () => ({}));

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { generateFollowUpDraft } from "./generate-draft";
-import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
@@ -57,6 +56,7 @@ vi.mock("@/env", () => ({
 }));
 
 import prisma from "@/utils/prisma";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const mockLogger = {
   info: vi.fn(),
@@ -329,7 +329,7 @@ describe("generateFollowUpDraft", () => {
       }),
     });
 
-    const logger = createScopedLogger("test");
+    const logger = createTestLogger();
 
     // Should NOT throw even though tracker update fails
     await generateFollowUpDraft({

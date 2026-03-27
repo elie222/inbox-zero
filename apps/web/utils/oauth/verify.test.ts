@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { verifyEmailAccountAccess } from "./verify";
 import { RedirectError } from "./redirect";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -11,9 +10,10 @@ vi.mock("@/utils/auth", () => ({
 }));
 
 import { auth } from "@/utils/auth";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const mockAuth = vi.mocked(auth);
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("verifyEmailAccountAccess", () => {
   const emailAccountId = "email-account-123";

@@ -15,14 +15,14 @@ import { NextRequest } from "next/server";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { GmailProvider } from "@/utils/email/google";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   ensureCatchAllTestRule,
   ensureTestPremiumAccount,
   findOldMessage,
 } from "@/__tests__/e2e/helpers";
-import { createScopedLogger } from "@/utils/logger";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES

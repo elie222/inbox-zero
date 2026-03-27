@@ -22,10 +22,10 @@ vi.mock("@/utils/messaging/chat-sdk/bot", () => ({
 import { handleSlackAppUninstalled } from "./uninstall";
 import prisma from "@/utils/prisma";
 import { getMessagingChatSdkBot } from "@/utils/messaging/chat-sdk/bot";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 describe("handleSlackAppUninstalled", () => {
-  const logger = createScopedLogger("test");
+  const logger = createTestLogger();
 
   beforeEach(() => {
     vi.clearAllMocks();

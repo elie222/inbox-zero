@@ -2,10 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { checkSenderRuleHistory } from "@/utils/rule/check-sender-rule-history";
 import prisma from "@/utils/__mocks__/prisma";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
-import { getMockMessage, getMockExecutedRule } from "@/__tests__/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import {
+  getMockExecutedRule,
+  getMockMessage,
+  createTestLogger,
+} from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 

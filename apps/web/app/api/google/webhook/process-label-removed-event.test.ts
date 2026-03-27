@@ -3,15 +3,15 @@ import { HistoryEventType } from "./types";
 import { handleLabelRemovedEvent } from "./process-label-removed-event";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
-import { createScopedLogger } from "@/utils/logger";
 import {
   GroupItemSource,
   GroupItemType,
   SystemType,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("server-only", () => ({}));
 

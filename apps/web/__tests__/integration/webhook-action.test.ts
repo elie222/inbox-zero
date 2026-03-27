@@ -14,7 +14,7 @@ import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
 import { createGmailTestHarness, type GmailTestHarness } from "./helpers";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -200,7 +200,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         userEmail: TEST_EMAIL,
         userId: "test-user-id",
         emailAccountId: "test-account-id",
-        logger: createScopedLogger("test"),
+        logger: createTestLogger(),
       });
 
       // Verify webhook was called
@@ -318,7 +318,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         userEmail: TEST_EMAIL,
         userId: "test-user-id",
         emailAccountId: "test-account-id",
-        logger: createScopedLogger("test"),
+        logger: createTestLogger(),
       });
 
       // Webhook was called

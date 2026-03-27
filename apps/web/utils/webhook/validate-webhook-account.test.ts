@@ -5,10 +5,10 @@ import {
 } from "./validate-webhook-account";
 import type { ValidatedWebhookAccountData } from "./validate-webhook-account";
 import { DraftReplyConfidence, PremiumTier } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("@/utils/premium");
 vi.mock("@/app/api/watch/controller");
