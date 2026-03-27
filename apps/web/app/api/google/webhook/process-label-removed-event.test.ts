@@ -57,6 +57,11 @@ vi.mock("@/utils/gmail/label", () => ({
     "IMPORTANT",
     "STARRED",
     "UNREAD",
+    "CATEGORY_PERSONAL",
+    "CATEGORY_SOCIAL",
+    "CATEGORY_PROMOTIONS",
+    "CATEGORY_FORUMS",
+    "CATEGORY_UPDATES",
   ],
 }));
 
@@ -177,6 +182,18 @@ describe("process-label-removed-event", () => {
       const historyItem = {
         message: { id: "draft-123", threadId: "thread-123" },
         labelIds: ["DRAFT"], // Draft was sent - message no longer exists
+      } as gmail_v1.Schema$HistoryLabelRemoved;
+
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
+
+      expect(mockProvider.getMessage).not.toHaveBeenCalled();
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+    });
+
+    it("should skip processing when only Gmail category labels are removed", async () => {
+      const historyItem = {
+        message: { id: "msg-123", threadId: "thread-123" },
+        labelIds: ["CATEGORY_PROMOTIONS", "CATEGORY_UPDATES"],
       } as gmail_v1.Schema$HistoryLabelRemoved;
 
       await handleLabelRemovedEvent(historyItem, defaultOptions, logger);

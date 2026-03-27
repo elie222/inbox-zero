@@ -109,6 +109,7 @@ describe("getClassificationFeedback", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           sender: "test@example.com",
+          rule: { enabled: true },
         }),
       }),
     );
@@ -224,6 +225,19 @@ describe("findRuleByLabelId", () => {
     });
 
     expect(result).toEqual({ id: "rule-1", systemType: "NEWSLETTER" });
+    expect(prisma.rule.findFirst).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "acc-1",
+        enabled: true,
+        actions: {
+          some: {
+            labelId: "label-123",
+            type: "LABEL",
+          },
+        },
+      },
+      select: { id: true, systemType: true },
+    });
   });
 
   it("returns null when no rule matches", async () => {

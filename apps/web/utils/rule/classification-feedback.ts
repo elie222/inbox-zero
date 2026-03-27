@@ -77,6 +77,7 @@ export async function getClassificationFeedback({
     where: {
       emailAccountId,
       sender: senderEmail.toLowerCase(),
+      rule: { enabled: true },
     },
     orderBy: { createdAt: "desc" },
     take: MAX_FEEDBACK_FOR_PROMPT,
@@ -112,6 +113,7 @@ export async function findRuleByLabelId({
   return prisma.rule.findFirst({
     where: {
       emailAccountId,
+      enabled: true,
       actions: {
         some: {
           labelId,

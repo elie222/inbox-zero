@@ -44,6 +44,11 @@ vi.mock("@/utils/gmail/label", () => ({
     SPAM: "SPAM",
     TRASH: "TRASH",
     DRAFT: "DRAFT",
+    PERSONAL: "CATEGORY_PERSONAL",
+    SOCIAL: "CATEGORY_SOCIAL",
+    PROMOTIONS: "CATEGORY_PROMOTIONS",
+    FORUMS: "CATEGORY_FORUMS",
+    UPDATES: "CATEGORY_UPDATES",
   },
   GMAIL_SYSTEM_LABELS: [
     "INBOX",
@@ -54,6 +59,11 @@ vi.mock("@/utils/gmail/label", () => ({
     "IMPORTANT",
     "STARRED",
     "UNREAD",
+    "CATEGORY_PERSONAL",
+    "CATEGORY_SOCIAL",
+    "CATEGORY_PROMOTIONS",
+    "CATEGORY_FORUMS",
+    "CATEGORY_UPDATES",
   ],
 }));
 
@@ -128,6 +138,17 @@ describe("process-label-added-event", () => {
     it("should skip when added label is a system label", async () => {
       await handleLabelAddedEvent(
         createLabelAddedItem("123", "thread-123", ["STARRED"]),
+        defaultOptions,
+        logger,
+      );
+
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+      expect(saveClassificationFeedback).not.toHaveBeenCalled();
+    });
+
+    it("should skip when added label is a Gmail category label", async () => {
+      await handleLabelAddedEvent(
+        createLabelAddedItem("123", "thread-123", ["CATEGORY_PROMOTIONS"]),
         defaultOptions,
         logger,
       );

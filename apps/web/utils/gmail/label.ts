@@ -44,6 +44,11 @@ export const GMAIL_SYSTEM_LABELS = [
   GmailLabel.IMPORTANT,
   GmailLabel.STARRED,
   GmailLabel.UNREAD,
+  GmailLabel.PERSONAL,
+  GmailLabel.SOCIAL,
+  GmailLabel.PROMOTIONS,
+  GmailLabel.FORUMS,
+  GmailLabel.UPDATES,
 ];
 
 export async function labelThread(options: {
