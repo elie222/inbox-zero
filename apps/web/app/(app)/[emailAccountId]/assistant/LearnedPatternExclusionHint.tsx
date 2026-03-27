@@ -1,5 +1,6 @@
 "use client";
 
+import uniqBy from "lodash/uniqBy";
 import { HoverCard } from "@/components/HoverCard";
 import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
 import { cn } from "@/utils";
@@ -14,7 +15,7 @@ export function LearnedPatternExclusionHint({
 }) {
   if (!learnedPatternExcludedRules.length) return null;
 
-  const uniqueGroups = getUniqueGroups(learnedPatternExcludedRules);
+  const uniqueGroups = uniqBy(learnedPatternExcludedRules, (e) => e.groupId);
 
   return (
     <div className={cn("text-sm text-muted-foreground", className)}>
@@ -51,21 +52,4 @@ export function LearnedPatternExclusionHint({
       </HoverCard>
     </div>
   );
-}
-
-function getUniqueGroups(
-  learnedPatternExcludedRules: RuleSelectionMetadata["learnedPatternExcludedRules"],
-) {
-  const groups = new Map<
-    string,
-    RuleSelectionMetadata["learnedPatternExcludedRules"][number]
-  >();
-
-  for (const exclusion of learnedPatternExcludedRules) {
-    if (!groups.has(exclusion.groupId)) {
-      groups.set(exclusion.groupId, exclusion);
-    }
-  }
-
-  return Array.from(groups.values());
 }
