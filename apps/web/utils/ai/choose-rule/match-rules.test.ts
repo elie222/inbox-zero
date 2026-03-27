@@ -2467,6 +2467,61 @@ describe("findMatchingRules - Integration Tests", () => {
       expect(prisma.executedRule.findMany).not.toHaveBeenCalled();
     });
 
+    it("captures learned-pattern exclusions in selection metadata", async () => {
+      const notificationRule = getRule({
+        id: "notification-rule",
+        name: "Notification",
+        groupId: "notification-group",
+        runOnThreads: false,
+        systemType: SystemType.NOTIFICATION,
+        instructions: "Notifications and system messages",
+      });
+
+      prisma.group.findMany.mockResolvedValue([
+        getGroup({
+          id: "notification-group",
+          name: "Notification",
+          items: [
+            getGroupItem({
+              groupId: "notification-group",
+              type: GroupItemType.FROM,
+              value: "updates@example.com",
+              exclude: true,
+            }),
+          ],
+          rule: notificationRule,
+        }),
+      ]);
+
+      const providerNoThread = {
+        isReplyInThread: vi.fn().mockReturnValue(false),
+      } as unknown as EmailProvider;
+
+      const result = await findMatchingRules({
+        rules: [notificationRule],
+        message: getMessage({
+          headers: getHeaders({ from: "updates@example.com" }),
+        }),
+        emailAccount: getEmailAccount(),
+        provider: providerNoThread,
+        modelType: "default",
+        logger,
+      });
+
+      expect(result.matches).toHaveLength(0);
+      expect(result.selectionMetadata.learnedPatternExcludedRules).toEqual([
+        {
+          ruleId: "notification-rule",
+          ruleName: "Notification",
+          groupId: "notification-group",
+          groupName: "Notification",
+          itemType: GroupItemType.FROM,
+          itemValue: "updates@example.com",
+        },
+      ]);
+      expect(result.selectionMetadata.remainingAiRuleNames).toEqual([]);
+    });
+
     it("should allow learned pattern match in thread when runOnThreads=true", async () => {
       const rule = getRule({
         id: "thread-ok-rule",

@@ -1,4 +1,4 @@
-import type { SystemType } from "@/generated/prisma/enums";
+import type { GroupItemType, SystemType } from "@/generated/prisma/enums";
 import type { Group, GroupItem } from "@/generated/prisma/client";
 import type { ConditionType } from "@/utils/config";
 import type { RuleWithActions } from "@/utils/types";
@@ -46,6 +46,14 @@ export type RuleSelectionMetadata = {
   filteredConversationRuleNames: string[];
   conversationFilterReason?: string;
   remainingAiRuleNames: string[];
+  learnedPatternExcludedRules: {
+    ruleId: string;
+    ruleName: string;
+    groupId: string;
+    groupName: string;
+    itemType: GroupItemType;
+    itemValue: string;
+  }[];
 };
 
 /**

@@ -34,8 +34,16 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { useChat } from "@/providers/ChatProvider";
 import { MutedText } from "@/components/Typography";
+import { createClientLogger } from "@/utils/logger-client";
+import { isDefined } from "@/utils/types";
+import {
+  getSelectionMetadataTraceDetails,
+  summarizeSelectionMetadata,
+} from "@/utils/ai/choose-rule/selection-metadata-summary";
 
 type Message = MessagesResponse["messages"][number];
+
+const logger = createClientLogger("automation-test");
 
 export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const [searchQuery, setSearchQuery] = useQueryState("search");
@@ -152,13 +160,37 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         isTest: testMode,
         rerun,
       });
+      const logContext = {
+        emailAccountId,
+        messageId: message.id,
+        threadId: message.threadId,
+        rerun: !!rerun,
+        testMode,
+      };
       if (result?.serverError) {
+        logger.error("runRulesAction returned server error", {
+          ...logContext,
+          serverError: true,
+        });
         toastError({
           title: "There was an error processing the email",
           description: result.serverError,
         });
       } else if (result?.data) {
+        const resultSummary = summarizeRunRulesResult(result.data);
+        logger.info("runRulesAction returned results", {
+          ...logContext,
+          ...resultSummary,
+        });
+        logger.trace("runRulesAction returned result details", {
+          ...logContext,
+          ...getSelectionMetadataTraceDetails(
+            result.data.map((item) => item.selectionMetadata),
+          ),
+        });
         setResultsMap((prev) => ({ ...prev, [message.id]: result.data! }));
+      } else {
+        logger.warn("runRulesAction returned empty response", logContext);
       }
       setIsRunning((prev) => ({ ...prev, [message.id]: false }));
     },
@@ -326,6 +358,22 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       </LoadingContent>
     </div>
   );
+}
+
+function summarizeRunRulesResult(results: RunRulesResult[]) {
+  const selectionMetadataSummary = summarizeSelectionMetadata(
+    results.map((result) => result.selectionMetadata),
+  );
+
+  return {
+    resultCount: results.length,
+    matchedRuleNames: results
+      .map((result) => result.rule?.name)
+      .filter(isDefined)
+      .join(", "),
+    statuses: results.map((result) => result.status).join(", "),
+    ...selectionMetadataSummary,
+  };
 }
 
 function ProcessRulesRow({

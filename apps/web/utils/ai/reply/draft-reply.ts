@@ -74,8 +74,6 @@ const getUserPrompt = ({
   meetingContext: string | null;
   attachmentContext: string | null;
 }) => {
-  const normalizedWritingStyle = writingStyle?.trim() || null;
-  const normalizedLearnedWritingStyle = learnedWritingStyle?.trim() || null;
   const userAbout = emailAccount.about
     ? `Context about the user:
 
@@ -131,20 +129,20 @@ ${emailHistoryContext.notes || "No notes"}
 `
     : "";
 
-  const writingStylePrompt = normalizedWritingStyle
+  const writingStylePrompt = writingStyle
     ? `Writing style:
 
 <writing_style>
-${normalizedWritingStyle}
+${writingStyle}
 </writing_style>
 `
     : "";
 
-  const learnedWritingStylePrompt = normalizedLearnedWritingStyle
+  const learnedWritingStylePrompt = learnedWritingStyle
     ? `Learned writing style from prior draft edits. This is advisory and lower priority than any explicit writing style provided by the user.
 
 <learned_writing_style>
-${normalizedLearnedWritingStyle}
+${learnedWritingStyle}
 </learned_writing_style>
 `
     : "";

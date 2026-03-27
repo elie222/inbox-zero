@@ -12,6 +12,7 @@ import { MessageText, MutedText } from "@/components/Typography";
 import { EyeIcon } from "lucide-react";
 import { useRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { ThreadSkipHint } from "@/app/(app)/[emailAccountId]/assistant/ThreadSkipHint";
+import { LearnedPatternExclusionHint } from "@/app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
@@ -96,6 +97,8 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
   const { rule, status, reason } = result;
   const skippedThreadRuleNames =
     result.selectionMetadata?.skippedThreadRuleNames ?? [];
+  const learnedPatternExcludedRules =
+    result.selectionMetadata?.learnedPatternExcludedRules ?? [];
 
   const { ruleDialog, RuleDialogComponent } = useRuleDialog();
   const { provider } = useAccount();
@@ -156,11 +159,18 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
         )}
       </div>
 
-      {status === ExecutedRuleStatus.SKIPPED && (
-        <ThreadSkipHint
-          skippedThreadRuleNames={skippedThreadRuleNames}
-          className="mt-3"
-        />
+      {(status === ExecutedRuleStatus.SKIPPED ||
+        learnedPatternExcludedRules.length > 0) && (
+        <div className="mt-3 space-y-2">
+          {status === ExecutedRuleStatus.SKIPPED && (
+            <ThreadSkipHint skippedThreadRuleNames={skippedThreadRuleNames} />
+          )}
+          {learnedPatternExcludedRules.length > 0 && (
+            <LearnedPatternExclusionHint
+              learnedPatternExcludedRules={learnedPatternExcludedRules}
+            />
+          )}
+        </div>
       )}
 
       {!!reason && (
