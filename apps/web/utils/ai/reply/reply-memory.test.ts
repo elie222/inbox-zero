@@ -480,6 +480,61 @@ describe("reply-memory", () => {
     expect(mockGenerateObject).toHaveBeenCalledTimes(1);
   });
 
+  it("warns and skips unknown existing memory ids returned by extraction", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText:
+          "Thanks for reaching out. Pricing depends on seat count and annual billing.",
+      }),
+    ] as any);
+    vi.mocked(prisma.replyMemory.findMany)
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "existing-pricing-memory",
+          content:
+            "Mention that enterprise pricing depends on seat count and annual billing.",
+          kind: ReplyMemoryKind.FACT,
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+          createdAt: new Date("2026-03-10T09:00:00.000Z"),
+          updatedAt: new Date("2026-03-10T09:00:00.000Z"),
+        }),
+      ] as any)
+      .mockResolvedValueOnce([] as any);
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        memories: [existingReplyMemoryDecision("missing-pricing-memory")],
+      },
+    });
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+    const testLogger = createScopedLogger("reply-memory-test-unknown-id");
+    const warnSpy = vi.spyOn(testLogger, "warn").mockImplementation(() => {});
+
+    await syncReplyMemoriesFromDraftSendLogs({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger: testLogger,
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Reply memory extraction returned unknown existing memory id",
+      {
+        emailAccountId: "account-1",
+        draftSendLogId: "draft-send-log-1",
+        matchingExistingMemoryId: "missing-pricing-memory",
+      },
+    );
+    expect(prisma.replyMemory.update).not.toHaveBeenCalled();
+    expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
+    expect(prisma.replyMemorySource.upsert).not.toHaveBeenCalled();
+  });
+
   it("does not refresh learned writing style before enough preference evidence exists", async () => {
     vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
       count: 0,
