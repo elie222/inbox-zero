@@ -10,6 +10,7 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { aiExtractReplyMemoriesFromDraftEdit } from "./extract-reply-memories";
+import { aiFindMatchingReplyMemoryId } from "./match-reply-memory";
 import { aiSummarizeLearnedWritingStyle } from "./summarize-learned-writing-style";
 
 const REPLY_MEMORY_RETENTION_DAYS = 7;
@@ -18,6 +19,7 @@ const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
 const MAX_EXISTING_PREFERENCE_MEMORIES_IN_PROMPT = 4;
 const MAX_RETRIEVED_REPLY_MEMORIES = 6;
 const MAX_RETRIEVED_TOPIC_REPLY_MEMORIES = 3;
+const MAX_REPLY_MEMORY_MATCH_CANDIDATES = 20;
 const PROMPTABLE_REPLY_MEMORY_KINDS = [
   ReplyMemoryKind.FACT,
   ReplyMemoryKind.PROCEDURE,
@@ -427,21 +429,36 @@ async function processReplyMemoryDraftSendLog({
     const isLearnedStyleEvidence =
       normalizedMemory.kind === ReplyMemoryKind.PREFERENCE;
 
-    const persistedMemory = await prisma.replyMemory.upsert({
-      where,
-      create: {
-        emailAccountId,
-        content: normalizedMemory.content,
-        kind: normalizedMemory.kind,
-        scopeType: normalizedMemory.scopeType,
-        scopeValue: normalizedScopeValue,
-        isLearnedStyleEvidence,
-      },
-      update: {
-        content: normalizedMemory.content,
-        isLearnedStyleEvidence,
-      },
+    const matchingExistingMemory = await findMatchingExistingReplyMemory({
+      emailAccount,
+      emailAccountId,
+      logger,
+      memory: normalizedMemory,
+      normalizedScopeValue,
     });
+
+    const persistedMemory = matchingExistingMemory
+      ? await prisma.replyMemory.update({
+          where: { id: matchingExistingMemory.id },
+          data: {
+            isLearnedStyleEvidence,
+          },
+        })
+      : await prisma.replyMemory.upsert({
+          where,
+          create: {
+            emailAccountId,
+            content: normalizedMemory.content,
+            kind: normalizedMemory.kind,
+            scopeType: normalizedMemory.scopeType,
+            scopeValue: normalizedScopeValue,
+            isLearnedStyleEvidence,
+          },
+          update: {
+            content: normalizedMemory.content,
+            isLearnedStyleEvidence,
+          },
+        });
 
     await prisma.replyMemorySource.upsert({
       where: {
@@ -791,4 +808,54 @@ function truncatePreferenceEvidenceText(value: string) {
   return normalized.length > 280
     ? `${normalized.slice(0, 277).trimEnd()}...`
     : normalized;
+}
+
+async function findMatchingExistingReplyMemory({
+  emailAccount,
+  emailAccountId,
+  logger,
+  memory,
+  normalizedScopeValue,
+}: {
+  emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
+  emailAccountId: string;
+  logger: Logger;
+  memory: Pick<ReplyMemory, "content" | "kind" | "scopeType">;
+  normalizedScopeValue: string;
+}) {
+  const candidates = await prisma.replyMemory.findMany({
+    where: {
+      emailAccountId,
+      kind: memory.kind,
+      scopeType: memory.scopeType,
+      scopeValue: normalizedScopeValue,
+    },
+    orderBy: { updatedAt: "desc" },
+    take: MAX_REPLY_MEMORY_MATCH_CANDIDATES,
+  });
+
+  if (!candidates.length) return null;
+
+  try {
+    const matchingExistingMemoryId = await aiFindMatchingReplyMemoryId({
+      emailAccount,
+      memory,
+      normalizedScopeValue,
+      candidates,
+    });
+    if (!matchingExistingMemoryId) return null;
+    return (
+      candidates.find(
+        (candidate) => candidate.id === matchingExistingMemoryId,
+      ) ?? null
+    );
+  } catch (error) {
+    logger.warn("Failed to match reply memory against existing memories", {
+      error,
+      emailAccountId,
+      replyMemoryKind: memory.kind,
+      replyMemoryScopeType: memory.scopeType,
+    });
+    return null;
+  }
 }
