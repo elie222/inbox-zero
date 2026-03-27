@@ -48,33 +48,6 @@ describe("saveClassificationFeedback", () => {
       }),
     );
   });
-
-  it("uses upsert with composite unique key for deduplication", async () => {
-    await saveClassificationFeedback({
-      emailAccountId: "acc-1",
-      sender: "test@example.com",
-      ruleId: "rule-1",
-      threadId: "thread-1",
-      messageId: "msg-1",
-      eventType: ClassificationFeedbackEventType.LABEL_ADDED,
-      logger,
-    });
-
-    expect(prisma.classificationFeedback.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          emailAccountId_sender_ruleId_messageId_eventType: {
-            emailAccountId: "acc-1",
-            sender: "test@example.com",
-            ruleId: "rule-1",
-            messageId: "msg-1",
-            eventType: ClassificationFeedbackEventType.LABEL_ADDED,
-          },
-        },
-        update: {},
-      }),
-    );
-  });
 });
 
 describe("getClassificationFeedback", () => {

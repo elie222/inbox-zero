@@ -6,6 +6,7 @@ import { GroupItemSource } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import { saveClassificationFeedback } from "@/utils/rule/classification-feedback";
+import { fetchSenderFromMessage } from "@/app/api/google/webhook/fetch-sender-from-message";
 
 const logger = createTestLogger();
 
@@ -194,9 +195,6 @@ describe("process-label-added-event", () => {
     });
 
     it("should skip when sender cannot be extracted", async () => {
-      const { fetchSenderFromMessage } = await import(
-        "@/app/api/google/webhook/fetch-sender-from-message"
-      );
       vi.mocked(fetchSenderFromMessage).mockResolvedValueOnce(null);
 
       await handleLabelAddedEvent(
