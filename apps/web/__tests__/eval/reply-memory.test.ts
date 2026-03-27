@@ -14,6 +14,7 @@ import {
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
 import { aiExtractReplyMemoriesFromDraftEdit } from "@/utils/ai/reply/extract-reply-memories";
 import { aiSummarizeLearnedWritingStyle } from "@/utils/ai/reply/summarize-learned-writing-style";
+import { isDefined } from "@/utils/types";
 
 // pnpm test-ai eval/reply-memory
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/reply-memory
@@ -776,14 +777,7 @@ function summarizeMemories(
 function getCreatedMemoriesFromDecisions(
   decisions: Awaited<ReturnType<typeof aiExtractReplyMemoriesFromDraftEdit>>,
 ) {
-  return decisions
-    .map((decision) => decision.newMemory)
-    .filter(
-      (
-        memory,
-      ): memory is NonNullable<(typeof decisions)[number]["newMemory"]> =>
-        memory !== null,
-    );
+  return decisions.map((decision) => decision.newMemory).filter(isDefined);
 }
 
 function buildPreferenceMemoryEvidence(

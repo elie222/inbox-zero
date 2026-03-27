@@ -9,6 +9,7 @@ import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { extractDomainFromEmail } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
+import { isDefined } from "@/utils/types";
 import type { getEmailAccountWithAi } from "@/utils/user/get";
 
 const MAX_MEMORIES_PER_EDIT = 3;
@@ -106,16 +107,9 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
     schema: replyMemorySchema,
   });
 
-  const existingMemoryIds = new Set(
-    existingMemories.map((memory) => memory.id.trim()),
-  );
-
   return result.object.memories
     .map((decision) => {
-      if (
-        decision.matchingExistingMemoryId &&
-        existingMemoryIds.has(decision.matchingExistingMemoryId)
-      ) {
+      if (decision.matchingExistingMemoryId) {
         return {
           matchingExistingMemoryId: decision.matchingExistingMemoryId,
           newMemory: null,
@@ -286,8 +280,4 @@ Rules:
 - Be conservative about matching existing memories. Only match when the existing memory clearly already covers the same durable idea.
 - Work language-agnostically. The memories may be written in any language.
 - If nothing durable was learned, return an empty array.`;
-}
-
-function isDefined<T>(value: T | null): value is T {
-  return value !== null;
 }
