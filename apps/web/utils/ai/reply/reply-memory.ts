@@ -3,17 +3,14 @@ import {
   ReplyMemoryScopeType,
 } from "@/generated/prisma/enums";
 import type { Prisma, ReplyMemory } from "@/generated/prisma/client";
-import { z } from "zod";
-import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { extractDomainFromEmail, extractEmailAddress } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { createGenerateObject } from "@/utils/llms";
-import { getModel } from "@/utils/llms/model";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { aiExtractReplyMemoriesFromDraftEdit } from "./extract-reply-memories";
+import { aiFindMatchingReplyMemoryId } from "./match-reply-memory";
 import { aiSummarizeLearnedWritingStyle } from "./summarize-learned-writing-style";
 
 const REPLY_MEMORY_RETENTION_DAYS = 7;
@@ -30,9 +27,6 @@ const PROMPTABLE_REPLY_MEMORY_KINDS = [
 const MIN_PREFERENCE_EVIDENCE_FOR_LEARNED_STYLE = 10;
 const PREFERENCE_EVIDENCE_PER_LEARNED_STYLE_REFRESH = 5;
 const MAX_PREFERENCE_EVIDENCE_FOR_LEARNED_STYLE = 25;
-const replyMemoryMatchSchema = z.object({
-  matchingExistingMemoryId: z.string().trim().nullable(),
-});
 
 export async function saveDraftSendLogReplyMemory({
   draftSendLogId,
@@ -842,64 +836,19 @@ async function findMatchingExistingReplyMemory({
 
   if (!candidates.length) return null;
 
-  const modelOptions = getModel(emailAccount.user, "economy");
-  const generateObject = createGenerateObject({
-    emailAccount,
-    label: "Reply memory merge matching",
-    modelOptions,
-  });
-
   try {
-    const prompt = `<new_memory>
-kind: ${memory.kind}
-scope_type: ${memory.scopeType}
-scope_value: ${normalizedScopeValue || "(global)"}
-content: ${memory.content}
-</new_memory>
-
-<existing_memories>
-${candidates
-  .map(
-    (candidate, index) =>
-      `${index + 1}. id=${candidate.id}\ncontent: ${candidate.content}`,
-  )
-  .join("\n\n")}
-</existing_memories>
-
-Choose the existing memory id if one existing memory already captures the same durable idea as the new memory. Otherwise return null.`;
-    const system = `You decide whether a newly extracted reply memory should attach to an existing reply memory instead of creating a new one.
-
-${PROMPT_SECURITY_INSTRUCTIONS}
-
-Work language-agnostically. The memories may be written in any language.
-
-Match an existing memory when:
-- it captures the same durable instruction, fact, or procedure
-- differences are only phrasing, wording, examples, or minor emphasis
-- the new memory would be redundant if stored separately
-
-Return null when:
-- the new memory adds a meaningfully different rule, fact, or workflow
-- two memories are related but should still remain separate
-- no candidate is a strong semantic match
-
-Rules:
-- Only return an id from the provided candidate list.
-- Be conservative: pick an id only when the match is clearly the same memory.
-- Ignore exact wording; focus on semantic equivalence.
-- Do not invent or rewrite memory text.`;
-
-    const result = await generateObject({
-      ...modelOptions,
-      system,
-      prompt,
-      schema: replyMemoryMatchSchema,
+    const matchingExistingMemoryId = await aiFindMatchingReplyMemoryId({
+      emailAccount,
+      memory,
+      normalizedScopeValue,
+      candidates,
     });
-
-    const matchingId = result.object.matchingExistingMemoryId;
-    if (!matchingId) return null;
-
-    return candidates.find((candidate) => candidate.id === matchingId) ?? null;
+    if (!matchingExistingMemoryId) return null;
+    return (
+      candidates.find(
+        (candidate) => candidate.id === matchingExistingMemoryId,
+      ) ?? null
+    );
   } catch (error) {
     logger.warn("Failed to match reply memory against existing memories", {
       error,
