@@ -187,7 +187,7 @@ export async function processAccountFollowUps({
 
   const [dbLabels, providerLabels] = await Promise.all([
     getLabelsFromDb(emailAccountId),
-    provider.getLabels(),
+    provider.getLabels({ includeHidden: true }),
   ]);
   const followUpLabel = await getOrCreateFollowUpLabel(
     provider,

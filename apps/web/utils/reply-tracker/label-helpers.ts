@@ -35,10 +35,12 @@ export async function removeConflictingThreadStatusLabels({
   providerLabels?: EmailLabel[];
   logger: Logger;
 }): Promise<boolean> {
-  const [dbLabels, providerLabels] = await Promise.all([
-    providedDbLabels ?? getLabelsFromDb(emailAccountId),
-    providedProviderLabels ?? provider.getLabels(),
-  ]);
+  const [dbLabels, providerLabels] = await fetchThreadStatusLabels({
+    emailAccountId,
+    provider,
+    dbLabels: providedDbLabels,
+    providerLabels: providedProviderLabels,
+  });
 
   const removeLabelIds: string[] = [];
   const providerLabelIds = new Set(providerLabels.map((l) => l.id));
@@ -134,10 +136,10 @@ export async function applyThreadStatusLabel({
   provider: EmailProvider;
   logger: Logger;
 }): Promise<void> {
-  const [dbLabels, providerLabels] = await Promise.all([
-    getLabelsFromDb(emailAccountId),
-    provider.getLabels(),
-  ]);
+  const [dbLabels, providerLabels] = await fetchThreadStatusLabels({
+    emailAccountId,
+    provider,
+  });
 
   const addLabel = async (): Promise<boolean> => {
     let targetLabel = dbLabels[systemType];
@@ -251,4 +253,21 @@ export async function getLabelsFromDb(
   }
 
   return dbLabels;
+}
+
+async function fetchThreadStatusLabels({
+  emailAccountId,
+  provider,
+  dbLabels,
+  providerLabels,
+}: {
+  emailAccountId: string;
+  provider: EmailProvider;
+  dbLabels?: LabelIds;
+  providerLabels?: EmailLabel[];
+}): Promise<[LabelIds, EmailLabel[]]> {
+  return Promise.all([
+    dbLabels ?? getLabelsFromDb(emailAccountId),
+    providerLabels ?? provider.getLabels({ includeHidden: true }),
+  ]);
 }
