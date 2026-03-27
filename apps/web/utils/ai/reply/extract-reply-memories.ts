@@ -22,23 +22,16 @@ const newReplyMemorySchema = z.object({
   scopeValue: z.string().trim().max(200),
 });
 
-const replyMemoryDecisionSchema = z
-  .object({
-    matchingExistingMemoryId: z.string().trim().min(1).nullable(),
-    newMemory: newReplyMemorySchema.nullable(),
-  })
-  .superRefine((decision, ctx) => {
-    const hasExistingId = Boolean(decision.matchingExistingMemoryId);
-    const hasNewMemory = Boolean(decision.newMemory);
-
-    if (hasExistingId === hasNewMemory) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "Each reply memory decision must include exactly one of matchingExistingMemoryId or newMemory.",
-      });
-    }
-  });
+const replyMemoryDecisionSchema = z.union([
+  z.object({
+    matchingExistingMemoryId: z.string().trim().min(1),
+    newMemory: z.null(),
+  }),
+  z.object({
+    matchingExistingMemoryId: z.null(),
+    newMemory: newReplyMemorySchema,
+  }),
+]);
 
 const replyMemorySchema = z.object({
   memories: z.array(replyMemoryDecisionSchema).max(MAX_MEMORIES_PER_EDIT),
