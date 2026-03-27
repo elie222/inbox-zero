@@ -1,4 +1,4 @@
-import { runActionFunction } from "@/utils/ai/actions";
+import { type DraftActionResult, runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { ExecutedRuleStatus, ActionType } from "@/generated/prisma/enums";
@@ -7,6 +7,8 @@ import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";
 import type { EmailProvider } from "@/utils/email/types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { createOutboundProposal } from "@/utils/outbound-proposals/create-outbound-proposal";
+import { emitOutboundProposalReadyNotification } from "@/utils/messaging-notifications/dispatch";
 
 const MODULE = "ai-execute-act";
 
@@ -64,12 +66,40 @@ export async function executeAct({
         actionFailures.push(actionFailure);
       }
 
-      if (action.type === ActionType.DRAFT_EMAIL && actionResult?.draftId) {
-        await updateExecutedActionWithDraftId({
-          actionId: action.id,
-          draftId: actionResult.draftId,
-          logger,
-        });
+      if (action.type === ActionType.DRAFT_EMAIL) {
+        const draftResult = getDraftActionResult(actionResult);
+
+        if (draftResult?.draftId) {
+          await updateExecutedActionWithDraftId({
+            actionId: action.id,
+            draftId: draftResult.draftId,
+            logger,
+          });
+        }
+
+        if (draftResult) {
+          const proposal = await createOutboundProposal({
+            executedActionId: action.id,
+            emailAccountId,
+            threadId: executedRule.threadId,
+            messageId: executedRule.messageId,
+            materializationMode: draftResult.materializationMode,
+            draftId: draftResult.draftId,
+            to: action.to ?? null,
+            cc: action.cc ?? null,
+            bcc: action.bcc ?? null,
+            subject: action.subject ?? null,
+            originalContent: action.content ?? null,
+            selectedAttachments: draftResult.selectedAttachments,
+          });
+
+          await emitOutboundProposalReadyNotification({
+            emailAccountId,
+            outboundProposalId: proposal.id,
+            executedActionId: action.id,
+            logger: log,
+          });
+        }
       }
     } catch (error) {
       await logErrorWithDedupe({
@@ -130,6 +160,14 @@ export async function executeAct({
     .catch((error) => {
       log.error("Failed to update executed rule", { error });
     });
+}
+
+function getDraftActionResult(actionResult: unknown): DraftActionResult | null {
+  if (!actionResult || typeof actionResult !== "object") return null;
+
+  if (!("materializationMode" in actionResult)) return null;
+
+  return actionResult as DraftActionResult;
 }
 
 function getActionFailure(

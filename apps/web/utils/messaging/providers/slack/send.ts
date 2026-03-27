@@ -1,5 +1,5 @@
 import type { KnownBlock, Block } from "@slack/types";
-import type { WebClient } from "@slack/web-api";
+import type { ChatPostMessageResponse, WebClient } from "@slack/web-api";
 import { createSlackClient } from "./client";
 import {
   buildMeetingBriefingBlocks,
@@ -148,19 +148,64 @@ export async function resolveSlackDestination({
   return null;
 }
 
+export async function sendBlocksToSlack({
+  accessToken,
+  channelId,
+  providerUserId,
+  text,
+  blocks,
+}: {
+  accessToken: string;
+  channelId: string | null;
+  providerUserId: string | null;
+  text: string;
+  blocks: Blocks;
+}): Promise<
+  { ok: true; channelId: string; ts: string } | { ok: false; error: string }
+> {
+  const resolvedChannelId = await resolveSlackDestination({
+    accessToken,
+    channelId,
+    providerUserId,
+  });
+
+  if (!resolvedChannelId) {
+    return { ok: false, error: "No Slack destination configured" };
+  }
+
+  try {
+    const client = createSlackClient(accessToken);
+    const response = await postMessageWithJoin(client, resolvedChannelId, {
+      text,
+      blocks,
+    });
+
+    if (!response.ts) {
+      return { ok: false, error: "Slack response missing message timestamp" };
+    }
+
+    return { ok: true, channelId: resolvedChannelId, ts: response.ts };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Slack send failed",
+    };
+  }
+}
+
 type Blocks = (KnownBlock | Block)[];
 
 async function postMessageWithJoin(
   client: WebClient,
   channelId: string,
   message: { text: string; blocks?: Blocks },
-): Promise<void> {
+): Promise<ChatPostMessageResponse> {
   const args = message.blocks
     ? { channel: channelId, blocks: message.blocks, text: message.text }
     : { channel: channelId, text: message.text };
 
   try {
-    await client.chat.postMessage(args);
+    return await client.chat.postMessage(args);
   } catch (error: unknown) {
     if (isSlackError(error) && error.data?.error === "not_in_channel") {
       try {
@@ -176,8 +221,7 @@ async function postMessageWithJoin(
         }
         throw joinError;
       }
-      await client.chat.postMessage(args);
-      return;
+      return await client.chat.postMessage(args);
     }
     throw error;
   }

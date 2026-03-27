@@ -1,6 +1,7 @@
 import { AboutSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/AboutSetting";
 import { DigestSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DigestSetting";
 import { DraftConfidenceSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting";
+import { DraftReviewDeliverySetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftReviewDeliverySetting";
 import { DraftReplies } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftReplies";
 import { DraftKnowledgeSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting";
 import { FollowUpRemindersSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting";
@@ -22,6 +23,7 @@ export function SettingsTab() {
       {!autoDraftDisabled && (
         <div className="space-y-2">
           <DraftReplies />
+          <DraftReviewDeliverySetting />
           <DraftConfidenceSetting />
         </div>
       )}

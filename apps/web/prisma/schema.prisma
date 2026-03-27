@@ -140,17 +140,18 @@ model EmailAccount {
   timezone                       String? // User's timezone (IANA tz database format, e.g., "America/Los_Angeles", "Asia/Jerusalem") - handles DST automatically
   calendarBookingLink            String? // User's calendar booking link
 
-  statsEmailFrequency       Frequency            @default(WEEKLY)
-  summaryEmailFrequency     Frequency            @default(WEEKLY)
+  statsEmailFrequency       Frequency                @default(WEEKLY)
+  summaryEmailFrequency     Frequency                @default(WEEKLY)
   lastSummaryEmailAt        DateTime?
   coldEmailBlocker          ColdEmailSetting? // @deprecated
-  coldEmailDigest           Boolean              @default(false) // @deprecated
+  coldEmailDigest           Boolean                  @default(false) // @deprecated
   coldEmailPrompt           String? // @deprecated
   rulesPrompt               String? // @deprecated
-  autoCategorizeSenders     Boolean              @default(false)
-  multiRuleSelectionEnabled Boolean              @default(false)
-  draftReplyConfidence      DraftReplyConfidence @default(ALL_EMAILS)
-  allowHiddenAiDraftLinks   Boolean              @default(false)
+  autoCategorizeSenders     Boolean                  @default(false)
+  multiRuleSelectionEnabled Boolean                  @default(false)
+  draftReplyConfidence      DraftReplyConfidence     @default(ALL_EMAILS)
+  draftMaterializationMode  DraftMaterializationMode @default(MAILBOX_DRAFT)
+  allowHiddenAiDraftLinks   Boolean                  @default(false)
 
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
@@ -164,7 +165,7 @@ model EmailAccount {
   followUpNeedsReplyDays    Float?
   followUpAutoDraftEnabled  Boolean @default(true)
 
-  digestSchedule Schedule?
+  digestSchedule      Schedule?
   learnedWritingStyle String?
 
   userId    String
@@ -172,25 +173,28 @@ model EmailAccount {
   accountId String  @unique
   account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
-  labels           Label[]
-  rules            Rule[]
-  executedRules    ExecutedRule[]
-  newsletters      Newsletter[]
-  coldEmails       ColdEmail[] // @deprecated - kept for backward compatibility during migration
-  groups           Group[]
-  categories       Category[]
-  threadTrackers   ThreadTracker[]
-  cleanupJobs      CleanupJob[]
-  cleanupThreads   CleanupThread[]
-  emailMessages    EmailMessage[]
-  emailTokens      EmailToken[]
-  knowledge        Knowledge[]
-  replyMemories    ReplyMemory[]
-  chats            Chat[]
-  chatMemories     ChatMemory[]
-  digests          Digest[]
-  scheduledActions ScheduledAction[]
-  responseTimes    ResponseTime[]
+  labels                             Label[]
+  rules                              Rule[]
+  executedRules                      ExecutedRule[]
+  newsletters                        Newsletter[]
+  coldEmails                         ColdEmail[] // @deprecated - kept for backward compatibility during migration
+  groups                             Group[]
+  categories                         Category[]
+  threadTrackers                     ThreadTracker[]
+  cleanupJobs                        CleanupJob[]
+  cleanupThreads                     CleanupThread[]
+  emailMessages                      EmailMessage[]
+  emailTokens                        EmailToken[]
+  knowledge                          Knowledge[]
+  replyMemories                      ReplyMemory[]
+  outboundProposals                  OutboundProposal[]
+  messagingNotifications             MessagingNotification[]
+  messagingNotificationSubscriptions MessagingNotificationSubscription[]
+  chats                              Chat[]
+  chatMemories                       ChatMemory[]
+  digests                            Digest[]
+  scheduledActions                   ScheduledAction[]
+  responseTimes                      ResponseTime[]
 
   members             Member[]
   invitations         Invitation[]
@@ -586,6 +590,7 @@ model ExecutedAction {
   draftPipelineVersion Int?
   draftContextMetadata Json?
   draftSendLog         DraftSendLog? // Will exist if the draft was sent
+  outboundProposal     OutboundProposal?
   digestItems          DigestItem[] // Relation to digest items created by this action
   scheduledAction      ScheduledAction? // Reverse relation for delayed actions
 
@@ -877,11 +882,11 @@ model ReplyMemory {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  content    String
-  kind       ReplyMemoryKind
-  scopeType  ReplyMemoryScopeType
-  scopeValue String
-  isLearnedStyleEvidence Boolean @default(false)
+  content                String
+  kind                   ReplyMemoryKind
+  scopeType              ReplyMemoryScopeType
+  scopeValue             String
+  isLearnedStyleEvidence Boolean              @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount        @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -893,7 +898,7 @@ model ReplyMemory {
 }
 
 model ReplyMemorySource {
-  createdAt DateTime @default(now())
+  createdAt                     DateTime  @default(now())
   learnedWritingStyleAnalyzedAt DateTime?
 
   replyMemoryId String
@@ -990,6 +995,111 @@ model DraftSendLog {
 
   @@index([executedActionId])
   @@index([replyMemoryProcessedAt, replyMemoryAttemptCount, createdAt])
+}
+
+model OutboundProposal {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  status              OutboundProposalStatus       @default(OPEN)
+  closeReason         OutboundProposalCloseReason?
+  revision            Int                          @default(1)
+  materializationMode DraftMaterializationMode
+
+  draftId             String?
+  to                  String?
+  cc                  String?
+  bcc                 String?
+  subject             String?
+  originalContent     String?
+  currentContent      String?
+  selectedAttachments Json?
+
+  chatId            String?   @unique
+  providerMessageId String?
+  providerThreadId  String?
+  resolvedAt        DateTime?
+  sentMessageId     String?
+  sentThreadId      String?
+
+  threadId  String
+  messageId String
+
+  executedActionId String         @unique
+  executedAction   ExecutedAction @relation(fields: [executedActionId], references: [id], onDelete: Cascade)
+
+  messagingChannelId String?
+  messagingChannel   MessagingChannel? @relation(fields: [messagingChannelId], references: [id], onDelete: SetNull)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId, status, createdAt])
+  @@index([emailAccountId, threadId, status])
+  @@index([messagingChannelId, status])
+}
+
+model MessagingNotification {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  eventType  MessagingNotificationEventType
+  sourceType String
+  sourceId   String
+  payload    Json
+  dedupeKey  String                         @unique
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  deliveries MessagingNotificationDelivery[]
+
+  @@index([emailAccountId, eventType, createdAt])
+  @@index([sourceType, sourceId])
+}
+
+model MessagingNotificationDelivery {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  status MessagingNotificationDeliveryStatus @default(PENDING)
+
+  providerMessageId String?
+  providerThreadId  String?
+  chatId            String?
+  error             String?   @db.Text
+  sentAt            DateTime?
+
+  notificationId String
+  notification   MessagingNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  messagingChannelId String
+  messagingChannel   MessagingChannel @relation(fields: [messagingChannelId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, messagingChannelId])
+  @@index([status, createdAt])
+  @@index([messagingChannelId, createdAt])
+}
+
+model MessagingNotificationSubscription {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  eventType MessagingNotificationEventType
+  enabled   Boolean                        @default(true)
+  filters   Json?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  messagingChannelId String
+  messagingChannel   MessagingChannel @relation(fields: [messagingChannelId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, messagingChannelId, eventType])
+  @@index([emailAccountId, eventType, enabled])
 }
 
 model Chat {
@@ -1134,9 +1244,12 @@ model MessagingChannel {
   sendMeetingBriefs   Boolean @default(false)
   sendDocumentFilings Boolean @default(false)
 
-  emailAccountId String
-  emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  automationJobs AutomationJob[]
+  emailAccountId            String
+  emailAccount              EmailAccount                        @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  automationJobs            AutomationJob[]
+  outboundProposals         OutboundProposal[]
+  notificationDeliveries    MessagingNotificationDelivery[]
+  notificationSubscriptions MessagingNotificationSubscription[]
 
   @@unique([emailAccountId, provider, teamId])
   @@unique([id, emailAccountId])
@@ -1441,6 +1554,11 @@ enum DraftReplyConfidence {
   HIGH_CONFIDENCE
 }
 
+enum DraftMaterializationMode {
+  MAILBOX_DRAFT
+  MESSAGING_ONLY
+}
+
 enum ReplyMemoryKind {
   FACT
   PREFERENCE
@@ -1608,6 +1726,31 @@ enum MessagingProvider {
   SLACK
   TEAMS
   TELEGRAM
+}
+
+enum MessagingNotificationEventType {
+  OUTBOUND_PROPOSAL_READY
+}
+
+enum MessagingNotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum OutboundProposalStatus {
+  OPEN
+  PROCESSING
+  SENT
+  DISMISSED
+  CLOSED
+}
+
+enum OutboundProposalCloseReason {
+  SUPERSEDED
+  DRAFT_MISSING
+  SENT_EXTERNALLY
 }
 
 enum AutomationJobRunStatus {

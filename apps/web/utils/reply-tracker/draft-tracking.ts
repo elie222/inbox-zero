@@ -12,6 +12,7 @@ import {
   saveDraftSendLogReplyMemory,
   syncReplyMemoriesFromDraftSendLogs,
 } from "@/utils/ai/reply/reply-memory";
+import { markOutboundProposalSentExternally } from "@/utils/outbound-proposals/review";
 import { logReplyTrackerError } from "./error-logging";
 
 /**
@@ -152,6 +153,16 @@ export async function trackSentDraftStatus({
     "Successfully created draft send log and updated action status via transaction",
     { executedActionId },
   );
+
+  await markOutboundProposalSentExternally({
+    draftId: executedAction.draftId,
+  }).catch((error) => {
+    logger.error("Failed to close outbound proposal after external send", {
+      error,
+      executedActionId,
+      draftId: executedAction.draftId,
+    });
+  });
 
   queueReplyMemoryLearning({
     emailAccountId,

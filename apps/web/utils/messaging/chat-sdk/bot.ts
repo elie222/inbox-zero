@@ -41,6 +41,10 @@ import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import { getRecentChatMemories } from "@/utils/ai/assistant/get-recent-chat-memories";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import { createScopedLogger, type Logger } from "@/utils/logger";
+import {
+  decodeOutboundProposalActionValue,
+  encodeOutboundProposalActionValue,
+} from "@/utils/messaging-notifications/execute";
 import { consumeMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code-consume";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import { buildPendingEmailPreview } from "@/utils/messaging/pending-email-preview";
@@ -51,6 +55,14 @@ import {
   getHelpText,
   isHelpCommand,
 } from "@/utils/messaging/prompt-commands";
+import {
+  dismissOutboundProposal,
+  findOpenOutboundProposalByChatId,
+  OUTBOUND_PROPOSAL_DISMISS_ACTION_ID,
+  OUTBOUND_PROPOSAL_SEND_ACTION_ID,
+  rewriteOutboundProposal,
+  sendOutboundProposal,
+} from "@/utils/outbound-proposals/review";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import { getEmailUrlForMessage } from "@/utils/url";
@@ -449,6 +461,13 @@ function registerMessagingHandlers({
       await handlePendingEmailConfirmAction({ event, logger: handlerLogger });
     },
   );
+  bot.onAction(
+    [OUTBOUND_PROPOSAL_SEND_ACTION_ID, OUTBOUND_PROPOSAL_DISMISS_ACTION_ID],
+    async (event) => {
+      const handlerLogger = getHandlerLogger();
+      await handleOutboundProposalAction({ event, logger: handlerLogger });
+    },
+  );
 
   if (adapters.slack) {
     bot.onAssistantThreadStarted(async ({ channelId, threadTs }) => {
@@ -533,6 +552,18 @@ async function processMessagingAssistantMessage({
     });
 
     if (!context) return false;
+
+    const proposal = await findOpenOutboundProposalByChatId(context.chatId);
+    if (proposal) {
+      return handleOutboundProposalThreadMessage({
+        thread,
+        message,
+        provider: context.provider,
+        proposal,
+        context,
+        logger,
+      });
+    }
 
     if (context.hasUnsupportedAttachments) {
       try {
@@ -1047,6 +1078,150 @@ function getPendingEmailToolParts(parts: unknown[]): PendingEmailToolPart[] {
   return pendingParts;
 }
 
+async function handleOutboundProposalThreadMessage({
+  thread,
+  message,
+  provider,
+  proposal,
+  context,
+  logger,
+}: {
+  thread: Thread;
+  message: Message;
+  provider: SupportedPlatform;
+  proposal: Awaited<ReturnType<typeof findOpenOutboundProposalByChatId>>;
+  context: ResolvedMessagingContext;
+  logger: Logger;
+}) {
+  if (!proposal) return false;
+
+  if (context.hasUnsupportedAttachments || context.imageParts.length > 0) {
+    await postMessagingThreadMessage({
+      thread,
+      logger,
+      message:
+        "Draft review only supports text edits in-thread right now. Send the edit as a text reply.",
+      errorLogMessage: "Failed to post outbound proposal attachment guidance",
+      logMeta: { provider, proposalId: proposal.id },
+    });
+    return true;
+  }
+
+  const instruction = context.messageText.trim();
+  if (!instruction) return true;
+
+  const chat = await prisma.chat.upsert({
+    where: { id: context.chatId },
+    create: {
+      id: context.chatId,
+      emailAccountId: context.emailAccountId,
+    },
+    update: {},
+    select: { id: true },
+  });
+
+  const userMessageId = `${context.provider}-${message.id}`;
+  const userParts: UIMessage["parts"] = [{ type: "text", text: instruction }];
+
+  await prisma.chatMessage.upsert({
+    where: { id: userMessageId },
+    create: {
+      id: userMessageId,
+      chat: { connect: { id: chat.id } },
+      role: "user",
+      parts: userParts as Prisma.InputJsonValue,
+    },
+    update: {},
+  });
+
+  const assistantMessageId = `${userMessageId}-proposal-review`;
+  const existingAssistantMessage = await prisma.chatMessage.findUnique({
+    where: { id: assistantMessageId },
+    select: { id: true },
+  });
+  if (existingAssistantMessage) return true;
+
+  try {
+    const rewriteResult = await rewriteOutboundProposal({
+      proposalId: proposal.id,
+      instructions: instruction,
+      logger,
+    });
+
+    if (rewriteResult.status === "draft-missing") {
+      await thread.post(
+        getMessagingAssistantPostPayload({
+          provider,
+          text: "That draft was already sent or removed elsewhere.",
+        }),
+      );
+      return true;
+    }
+
+    if (rewriteResult.status !== "updated") {
+      await thread.post(
+        getMessagingAssistantPostPayload({
+          provider,
+          text: "That draft is no longer active. Ask me to draft a new reply.",
+        }),
+      );
+      return true;
+    }
+
+    const updatedProposal = {
+      ...proposal,
+      ...rewriteResult.proposal,
+    };
+
+    const responseText = `Updated draft.\n\n${buildOutboundProposalCardPreview({
+      content:
+        updatedProposal.currentContent ||
+        updatedProposal.originalContent ||
+        proposal.executedAction.content,
+      openInInboxUrl: updatedProposal.draftId
+        ? getEmailUrlForMessage(
+            updatedProposal.messageId,
+            updatedProposal.threadId,
+            proposal.emailAccount.email,
+            proposal.emailAccount.account.provider,
+          )
+        : undefined,
+    })}`;
+
+    await prisma.chatMessage.create({
+      data: {
+        id: assistantMessageId,
+        chat: { connect: { id: chat.id } },
+        role: "assistant",
+        parts: [{ type: "text", text: responseText }] as Prisma.InputJsonValue,
+      },
+    });
+
+    await postOutboundProposalReviewCard({
+      thread,
+      proposal: updatedProposal,
+      accountEmail: proposal.emailAccount.email,
+      accountProvider: proposal.emailAccount.account.provider,
+      title: "Updated draft",
+      provider,
+    });
+    return true;
+  } catch (error) {
+    logger.error("Failed to rewrite outbound proposal from messaging thread", {
+      error,
+      proposalId: proposal.id,
+      provider,
+    });
+    await thread.post(
+      getMessagingAssistantPostPayload({
+        provider,
+        text: "I couldn't update that draft right now. Please try again.",
+      }),
+    );
+    return true;
+  }
+}
+
 function pendingActionTypeFromToolPartType(
   type: PendingEmailToolPart["type"],
 ): AssistantPendingEmailActionType {
@@ -1175,6 +1350,163 @@ async function postPendingEmailActionFeedback({
     logger.warn("Failed to post messaging action feedback", {
       provider,
       error,
+    });
+  }
+}
+
+async function handleOutboundProposalAction({
+  event,
+  logger,
+}: {
+  event: ActionEvent;
+  logger: Logger;
+}) {
+  const thread = event.thread;
+  if (!thread) {
+    logger.warn("Missing thread for outbound proposal action");
+    return;
+  }
+
+  const provider = getSupportedPlatform(thread.adapter.name);
+  if (!provider) return;
+
+  const parsed = decodeOutboundProposalActionValue(event.value);
+  if (!parsed) {
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "That action is invalid or expired.",
+      logger,
+    });
+    return;
+  }
+
+  const proposal = await prisma.outboundProposal.findUnique({
+    where: { id: parsed.proposalId },
+    include: {
+      messagingChannel: true,
+      emailAccount: {
+        select: {
+          email: true,
+          account: { select: { provider: true } },
+        },
+      },
+    },
+  });
+
+  if (!proposal?.messagingChannel) {
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "That draft is no longer available.",
+      logger,
+    });
+    return;
+  }
+
+  const teamId = getTeamIdFromActionEvent({ provider, event });
+  if (
+    proposal.messagingChannel.providerUserId !== event.user.userId ||
+    (teamId &&
+      proposal.messagingChannel.teamId &&
+      proposal.messagingChannel.teamId !== teamId)
+  ) {
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "You don't have permission to manage this draft.",
+      logger,
+    });
+    return;
+  }
+
+  if (proposal.revision !== parsed.revision) {
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "Use the latest draft card in the thread.",
+      logger,
+    });
+    return;
+  }
+
+  try {
+    if (event.actionId === OUTBOUND_PROPOSAL_SEND_ACTION_ID) {
+      const result = await sendOutboundProposal({
+        proposalId: proposal.id,
+        logger,
+      });
+
+      if (result.status === "draft-missing") {
+        await postPendingEmailActionFeedback({
+          event,
+          provider,
+          text: "That draft was already sent or removed elsewhere.",
+          logger,
+        });
+        return;
+      }
+
+      if (result.status !== "sent") {
+        await postPendingEmailActionFeedback({
+          event,
+          provider,
+          text: "That draft is no longer active.",
+          logger,
+        });
+        return;
+      }
+
+      const emailUrl = getEmailUrlForMessage(
+        result.sendResult.messageId || proposal.messageId,
+        result.sendResult.threadId || proposal.threadId,
+        proposal.emailAccount.email,
+        proposal.emailAccount.account.provider,
+      );
+      const mailbox =
+        proposal.emailAccount.account.provider === "microsoft"
+          ? "Outlook"
+          : "Gmail";
+
+      await postPendingEmailActionFeedback({
+        event,
+        provider,
+        text: `Sent. Open in ${mailbox}: ${emailUrl}`,
+        logger,
+      });
+      return;
+    }
+
+    const result = await dismissOutboundProposal({
+      proposalId: proposal.id,
+      logger,
+    });
+
+    const text =
+      result.status === "draft-missing"
+        ? "That draft was already sent or removed elsewhere."
+        : result.status === "dismissed"
+          ? "Dismissed the draft."
+          : "That draft is no longer active.";
+
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text,
+      logger,
+    });
+  } catch (error) {
+    logger.warn("Outbound proposal action failed", {
+      provider,
+      actionId: event.actionId,
+      proposalId: proposal.id,
+      error,
+    });
+    await postPendingEmailActionFeedback({
+      event,
+      provider,
+      text: "I couldn't process that draft action. Please try again.",
+      logger,
     });
   }
 }
@@ -2318,6 +2650,105 @@ function getMessagingAssistantPostPayload({
   }
 
   return { markdown: text };
+}
+
+async function postOutboundProposalReviewCard({
+  thread,
+  proposal,
+  accountEmail,
+  accountProvider,
+  title,
+  provider,
+}: {
+  thread: Thread;
+  proposal: {
+    id: string;
+    revision: number;
+    to: string | null;
+    subject: string | null;
+    draftId: string | null;
+    messageId: string;
+    threadId: string;
+    currentContent: string | null;
+    originalContent: string | null;
+  };
+  accountEmail: string | null;
+  accountProvider: string | null;
+  title: string;
+  provider: SupportedPlatform;
+}) {
+  const summary = proposal.subject
+    ? `Subject: ${proposal.subject}`
+    : proposal.to
+      ? `Draft reply to ${proposal.to}`
+      : "Draft reply";
+  const preview = buildOutboundProposalCardPreview({
+    content: proposal.currentContent || proposal.originalContent,
+    openInInboxUrl: proposal.draftId
+      ? getEmailUrlForMessage(
+          proposal.messageId,
+          proposal.threadId,
+          accountEmail,
+          accountProvider || undefined,
+        )
+      : undefined,
+  });
+
+  const cardChildren: CardChild[] = [CardText(summary)];
+  if (preview) cardChildren.push(CardText(preview));
+  cardChildren.push(
+    Actions([
+      Button({
+        id: OUTBOUND_PROPOSAL_SEND_ACTION_ID,
+        label: "Send",
+        style: "primary",
+        value: encodeOutboundProposalActionValue({
+          proposalId: proposal.id,
+          revision: proposal.revision,
+        }),
+      }),
+      Button({
+        id: OUTBOUND_PROPOSAL_DISMISS_ACTION_ID,
+        label: "Dismiss",
+        value: encodeOutboundProposalActionValue({
+          proposalId: proposal.id,
+          revision: proposal.revision,
+        }),
+      }),
+    ]),
+  );
+
+  await thread.post(
+    provider === "slack"
+      ? Card({ title, children: cardChildren })
+      : getMessagingAssistantPostPayload({
+          provider,
+          text: `${title}\n\n${summary}\n\n${preview}`,
+        }),
+  );
+}
+
+function buildOutboundProposalCardPreview({
+  content,
+  openInInboxUrl,
+}: {
+  content?: string | null;
+  openInInboxUrl?: string;
+}) {
+  const normalizedContent = (content || "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  const preview = normalizedContent
+    ? normalizedContent.slice(0, 500)
+    : "No draft content available.";
+
+  return openInInboxUrl
+    ? `${preview}\n\nOpen in inbox: ${openInInboxUrl}`
+    : preview;
 }
 
 function toMessagingProvider(provider: SupportedPlatform) {
