@@ -159,12 +159,17 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
         )}
       </div>
 
-      {status === ExecutedRuleStatus.SKIPPED && (
+      {(status === ExecutedRuleStatus.SKIPPED ||
+        learnedPatternExcludedRules.length > 0) && (
         <div className="mt-3 space-y-2">
-          <ThreadSkipHint skippedThreadRuleNames={skippedThreadRuleNames} />
-          <LearnedPatternExclusionHint
-            learnedPatternExcludedRules={learnedPatternExcludedRules}
-          />
+          {status === ExecutedRuleStatus.SKIPPED && (
+            <ThreadSkipHint skippedThreadRuleNames={skippedThreadRuleNames} />
+          )}
+          {learnedPatternExcludedRules.length > 0 && (
+            <LearnedPatternExclusionHint
+              learnedPatternExcludedRules={learnedPatternExcludedRules}
+            />
+          )}
         </div>
       )}
 

@@ -42,6 +42,10 @@ import {
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { getClassificationFeedback } from "@/utils/rule/classification-feedback";
+import {
+  getSelectionMetadataTraceDetails,
+  summarizeSelectionMetadata,
+} from "@/utils/ai/choose-rule/selection-metadata-summary";
 
 const MODULE = "match-rules";
 
@@ -284,6 +288,21 @@ async function findPotentialMatchingRules({
     conversationStatusFilter.filteredRuleNames.length ||
     !matches.length
   ) {
+    const selectionMetadataSummary = summarizeSelectionMetadata([
+      createRuleSelectionMetadata({
+        isThread,
+        skippedThreadRuleNames,
+        continuedThreadRuleNames,
+        learnedPatternExcludedRules,
+        filteredConversationRuleNames:
+          conversationStatusFilter.filteredRuleNames,
+        conversationFilterReason: conversationStatusFilter.filterReason,
+        remainingAiRuleNames: filteredPotentialAiMatches.map(
+          (rule) => rule.name,
+        ),
+      }),
+    ]);
+
     logger.info("Built rule candidates", {
       isThread,
       matchedRuleCount: matches.length,
@@ -297,15 +316,6 @@ async function findPotentialMatchingRules({
       continuedThreadRuleCount: continuedThreadRuleNames.length,
       continuedThreadRuleNames: joinLogValues(continuedThreadRuleNames),
       learnedPatternExcludedRuleCount: learnedPatternExcludedRules.length,
-      learnedPatternExcludedRuleNames: joinLogValues(
-        learnedPatternExcludedRules.map((rule) => rule.ruleName),
-      ),
-      learnedPatternExcludedRuleDetails: joinLogValues(
-        learnedPatternExcludedRules.map(
-          (rule) =>
-            `${rule.ruleName}:${rule.itemType}:${rule.itemValue}:${rule.groupName}`,
-        ),
-      ),
       filteredConversationRuleCount:
         conversationStatusFilter.filteredRuleNames.length,
       filteredConversationRuleNames: joinLogValues(
@@ -317,6 +327,25 @@ async function findPotentialMatchingRules({
         filteredPotentialAiMatches.map((rule) => rule.name),
       ),
       hasLearnedPatternMatch,
+      learnedPatternExcludedRules:
+        selectionMetadataSummary.learnedPatternExcludedRules,
+    });
+
+    logger.trace("Built rule candidate details", {
+      ...getSelectionMetadataTraceDetails([
+        createRuleSelectionMetadata({
+          isThread,
+          skippedThreadRuleNames,
+          continuedThreadRuleNames,
+          learnedPatternExcludedRules,
+          filteredConversationRuleNames:
+            conversationStatusFilter.filteredRuleNames,
+          conversationFilterReason: conversationStatusFilter.filterReason,
+          remainingAiRuleNames: filteredPotentialAiMatches.map(
+            (rule) => rule.name,
+          ),
+        }),
+      ]),
     });
   }
 
@@ -704,7 +733,12 @@ function matchesGroupRule(
   }
 
   if (result.matchingItem) {
-    return { ...result, excludedItem: null, ruleExcluded: false };
+    return {
+      group: result.group,
+      matchingItem: result.matchingItem,
+      excludedItem: null,
+      ruleExcluded: false,
+    };
   }
 
   return {

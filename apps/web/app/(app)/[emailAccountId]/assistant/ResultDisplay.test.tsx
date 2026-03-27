@@ -144,4 +144,52 @@ describe("ResultDisplayContent", () => {
       screen.getByRole("button", { name: "View exclusions" }),
     ).toBeTruthy();
   });
+
+  it("shows learned-pattern exclusions for applied results", () => {
+    render(
+      <ResultDisplayContent
+        result={{
+          createdAt: new Date("2025-01-01"),
+          status: ExecutedRuleStatus.APPLIED,
+          reason:
+            "A matching rule was applied after exclusions removed others.",
+          rule: {
+            id: "rule-2",
+            name: "Marketing",
+            from: null,
+            to: null,
+            subject: null,
+            body: null,
+            instructions: "Promotional emails",
+            conditionalOperator: "AND",
+          } as any,
+          selectionMetadata: {
+            isThread: false,
+            skippedThreadRuleNames: [],
+            continuedThreadRuleNames: [],
+            learnedPatternExcludedRules: [
+              {
+                ruleId: "rule-1",
+                ruleName: "Notification",
+                groupId: "group-1",
+                groupName: "Notification",
+                itemType: "FROM",
+                itemValue: "updates@example.com",
+              },
+            ],
+            filteredConversationRuleNames: [],
+            conversationFilterReason: undefined,
+            remainingAiRuleNames: ["Marketing"],
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText("Some rules were excluded by learned patterns."),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "View exclusions" }),
+    ).toBeTruthy();
+  });
 });

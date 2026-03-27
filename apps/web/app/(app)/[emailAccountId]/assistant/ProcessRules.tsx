@@ -35,6 +35,11 @@ import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat"
 import { useChat } from "@/providers/ChatProvider";
 import { MutedText } from "@/components/Typography";
 import { createClientLogger } from "@/utils/logger-client";
+import { isDefined } from "@/utils/types";
+import {
+  getSelectionMetadataTraceDetails,
+  summarizeSelectionMetadata,
+} from "@/utils/ai/choose-rule/selection-metadata-summary";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -155,13 +160,16 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         isTest: testMode,
         rerun,
       });
+      const logContext = {
+        emailAccountId,
+        messageId: message.id,
+        threadId: message.threadId,
+        rerun: !!rerun,
+        testMode,
+      };
       if (result?.serverError) {
         logger.error("runRulesAction returned server error", {
-          emailAccountId,
-          messageId: message.id,
-          threadId: message.threadId,
-          rerun: !!rerun,
-          testMode,
+          ...logContext,
           serverError: true,
         });
         toastError({
@@ -169,25 +177,21 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
           description: result.serverError,
         });
       } else if (result?.data) {
+        const resultSummary = summarizeRunRulesResult(result.data);
         logger.info("runRulesAction returned results", {
-          emailAccountId,
-          messageId: message.id,
-          threadId: message.threadId,
-          rerun: !!rerun,
-          testMode,
-          ...summarizeRunRulesResult(result.data),
+          ...logContext,
+          ...resultSummary,
+        });
+        logger.trace("runRulesAction returned result details", {
+          ...logContext,
+          ...getSelectionMetadataTraceDetails(
+            result.data.map((item) => item.selectionMetadata),
+          ),
         });
         setResultsMap((prev) => ({ ...prev, [message.id]: result.data! }));
       } else {
-        logger.warn("runRulesAction returned empty response", {
-          emailAccountId,
-          messageId: message.id,
-          threadId: message.threadId,
-          rerun: !!rerun,
-          testMode,
-        });
+        logger.warn("runRulesAction returned empty response", logContext);
       }
-      await logger.flush();
       setIsRunning((prev) => ({ ...prev, [message.id]: false }));
     },
     [testMode, emailAccountId],
@@ -357,40 +361,18 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 }
 
 function summarizeRunRulesResult(results: RunRulesResult[]) {
-  const allSelectionMetadata = results
-    .map((result) => result.selectionMetadata)
-    .filter((metadata): metadata is NonNullable<typeof metadata> => !!metadata);
+  const selectionMetadataSummary = summarizeSelectionMetadata(
+    results.map((result) => result.selectionMetadata),
+  );
 
   return {
     resultCount: results.length,
     matchedRuleNames: results
       .map((result) => result.rule?.name)
-      .filter((name): name is string => !!name)
+      .filter(isDefined)
       .join(", "),
     statuses: results.map((result) => result.status).join(", "),
-    skippedThreadRuleNames: allSelectionMetadata
-      .flatMap((metadata) => metadata.skippedThreadRuleNames)
-      .join(", "),
-    learnedPatternExcludedRuleNames: allSelectionMetadata
-      .flatMap((metadata) =>
-        metadata.learnedPatternExcludedRules.map((rule) => rule.ruleName),
-      )
-      .join(", "),
-    learnedPatternExcludedRuleDetails: allSelectionMetadata
-      .flatMap((metadata) =>
-        metadata.learnedPatternExcludedRules.map(
-          (rule) =>
-            `${rule.ruleName}:${rule.itemType}:${rule.itemValue}:${rule.groupName}`,
-        ),
-      )
-      .join(", "),
-    remainingAiRuleNames: allSelectionMetadata
-      .flatMap((metadata) => metadata.remainingAiRuleNames)
-      .join(", "),
-    conversationFilterReason: allSelectionMetadata
-      .map((metadata) => metadata.conversationFilterReason)
-      .filter((reason): reason is string => !!reason)
-      .join(", "),
+    ...selectionMetadataSummary,
   };
 }
 
