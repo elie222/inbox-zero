@@ -1,6 +1,7 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as outlookMessageModule from "@/utils/outlook/message";
+import * as outlookLabelModule from "@/utils/outlook/label";
 import { OutlookProvider } from "./microsoft";
 
 vi.mock("server-only", () => ({}));
@@ -183,6 +184,57 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     ]);
   });
 
+  it("keeps paging until explicit labelIds produce enough matching threads", async () => {
+    getFolderIdsMock.mockResolvedValue({
+      inbox: "folder-inbox",
+      archive: "folder-archive",
+      drafts: "folder-drafts",
+      deleteditems: "folder-trash",
+      junkemail: "folder-spam",
+      sentitems: "folder-sent",
+    });
+    vi.spyOn(outlookMessageModule, "getCategoryMap").mockResolvedValue(
+      new Map([["To Reply", "label-to-reply"]]),
+    );
+
+    const provider = new OutlookProvider(
+      createMockOutlookClient([], {
+        responsesByApiPath: {
+          "/me/messages": {
+            value: [
+              createMessage({
+                id: "message-first-page",
+                conversationId: "thread-first-page",
+                parentFolderId: "folder-inbox",
+              }),
+            ],
+            "@odata.nextLink":
+              "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=next",
+          },
+          "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=next": {
+            value: [
+              createMessage({
+                id: "message-second-page",
+                conversationId: "thread-second-page",
+                categories: ["To Reply"],
+                parentFolderId: "folder-inbox",
+              }),
+            ],
+          },
+        },
+      }),
+    );
+
+    const result = await provider.getThreadsWithQuery({
+      query: { labelIds: ["label-to-reply"] },
+      maxResults: 1,
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual([
+      "thread-second-page",
+    ]);
+  });
+
   it("excludes threads with matching label names", async () => {
     getFolderIdsMock.mockResolvedValue({
       inbox: "folder-inbox",
@@ -316,6 +368,60 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     expect(result.threads[0]?.messages[0]?.labelIds).toContain("SENT");
   });
 
+  it("does not emit a folder filter when category lookup for labelId fails", async () => {
+    getFolderIdsMock.mockResolvedValue({
+      inbox: "folder-inbox",
+      archive: "folder-archive",
+      drafts: "folder-drafts",
+      deleteditems: "folder-trash",
+      junkemail: "folder-spam",
+      sentitems: "folder-sent",
+    });
+    vi.spyOn(outlookMessageModule, "getCategoryMap").mockResolvedValue(
+      new Map([["To Reply", "label-to-reply"]]),
+    );
+    vi.spyOn(outlookLabelModule, "getLabelById").mockRejectedValue(
+      new Error("lookup failed"),
+    );
+
+    const client = createMockOutlookClient([
+      createMessage({
+        id: "message-with-category",
+        conversationId: "thread-with-category",
+        categories: ["To Reply"],
+        parentFolderId: "folder-inbox",
+      }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    const result = await provider.getThreadsWithQuery({
+      query: { labelId: "label-to-reply" },
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual([
+      "thread-with-category",
+    ]);
+    expect(client.getRequestLog()[0]?.filter).toBeUndefined();
+  });
+
+  it("excludes folder-backed labels when excludeLabelNames targets them", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([
+        createMessage({
+          id: "sent-message",
+          conversationId: "thread-sent",
+          parentFolderId: "sent-folder-id",
+        }),
+      ]),
+    );
+
+    const result = await provider.getThreadsWithQuery({
+      query: { type: "sent", excludeLabelNames: ["SENT"] },
+    });
+
+    expect(result.threads).toEqual([]);
+  });
+
   it("skips category lookup when the query does not need category labels", async () => {
     const getCategoryMapSpy = vi.spyOn(outlookMessageModule, "getCategoryMap");
 
@@ -343,20 +449,34 @@ function createMockOutlookClient(
   options?: {
     categoryMapCache?: Map<string, string> | null;
     folderIdCache?: Record<string, string> | null;
+    responsesByApiPath?: Record<
+      string,
+      { value: Message[]; "@odata.nextLink"?: string }
+    >;
   },
 ) {
   let categoryMapCache = options?.categoryMapCache ?? null;
   let folderIdCache = options?.folderIdCache ?? null;
+  const requestLog: Array<{ apiPath: string; filter?: string }> = [];
 
   return {
     getClient: () => ({
-      api: () => {
+      api: (apiPath: string) => {
+        let filterValue: string | undefined;
         const request = {
-          filter: () => request,
+          filter: (value: string) => {
+            filterValue = value;
+            return request;
+          },
           select: () => request,
           top: () => request,
           orderby: () => request,
-          get: async () => ({ value: messages }),
+          get: async () => {
+            requestLog.push({ apiPath, filter: filterValue });
+            return (
+              options?.responsesByApiPath?.[apiPath] || { value: messages }
+            );
+          },
         };
 
         return request;
@@ -370,6 +490,7 @@ function createMockOutlookClient(
     setFolderIdCache: (value: Record<string, string>) => {
       folderIdCache = value;
     },
+    getRequestLog: () => requestLog,
   } as any;
 }
 
