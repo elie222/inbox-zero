@@ -494,7 +494,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     vi.spyOn(outlookLabelModule, "getLabelById").mockResolvedValue({
       id: "label-to-reply",
       displayName: "To Reply",
-    } as any);
+    } as Awaited<ReturnType<typeof outlookLabelModule.getLabelById>>);
 
     const provider = new OutlookProvider(
       createMockOutlookClient([
@@ -509,6 +509,54 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
 
     const result = await provider.getThreadsWithQuery({
       query: { labelIds: ["label-to-reply"] },
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual([
+      "thread-with-category",
+    ]);
+  });
+
+  it("ignores unresolved required category labelIds when only some IDs can be resolved", async () => {
+    getFolderIdsMock.mockResolvedValue({
+      inbox: "folder-inbox",
+      archive: "folder-archive",
+      drafts: "folder-drafts",
+      deleteditems: "folder-trash",
+      junkemail: "folder-spam",
+      sentitems: "folder-sent",
+    });
+    vi.spyOn(outlookMessageModule, "getCategoryMap").mockResolvedValue(
+      new Map(),
+    );
+    vi.spyOn(outlookLabelModule, "getLabelById").mockImplementation(
+      async ({ id }) => {
+        if (id === "label-to-reply") {
+          return {
+            id,
+            displayName: "To Reply",
+          } as Awaited<ReturnType<typeof outlookLabelModule.getLabelById>>;
+        }
+
+        return {
+          id,
+          displayName: undefined,
+        } as Awaited<ReturnType<typeof outlookLabelModule.getLabelById>>;
+      },
+    );
+
+    const provider = new OutlookProvider(
+      createMockOutlookClient([
+        createMessage({
+          id: "message-with-category",
+          conversationId: "thread-with-category",
+          categories: ["To Reply"],
+          parentFolderId: "folder-inbox",
+        }),
+      ]),
+    );
+
+    const result = await provider.getThreadsWithQuery({
+      query: { labelIds: ["label-to-reply", "label-without-name"] },
     });
 
     expect(result.threads.map((thread) => thread.id)).toEqual([

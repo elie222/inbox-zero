@@ -1486,19 +1486,26 @@ export class OutlookProvider implements EmailProvider {
     let categoryMap = needsCategoryMapForFiltering
       ? await getCategoryMap(this.client, this.logger)
       : cachedCategoryMap;
-    categoryMap = await ensureOutlookRequiredCategoryMap({
-      client: this.client,
-      logger: this.logger,
-      requiredLabelIds: requiredLabelIdsForLocalFiltering,
-      folderIds: resolvedFolderIds,
-      categoryMap,
-    });
+    const { categoryMap: ensuredCategoryMap, unresolvedRequiredLabelIds } =
+      await ensureOutlookRequiredCategoryMap({
+        client: this.client,
+        logger: this.logger,
+        requiredLabelIds: requiredLabelIdsForLocalFiltering,
+        folderIds: resolvedFolderIds,
+        categoryMap,
+      });
+    categoryMap = ensuredCategoryMap;
+    const effectiveRequiredLabelIdsForLocalFiltering =
+      requiredLabelIdsForLocalFiltering?.filter(
+        (labelId) => !unresolvedRequiredLabelIds.includes(labelId),
+      );
     const excludedLabelIds = getExcludedOutlookThreadLabelIds(
       excludeLabelNames,
       categoryMap,
     );
     const requiresLocalLabelFiltering = Boolean(
-      excludedLabelIds.size || requiredLabelIdsForLocalFiltering?.length,
+      excludedLabelIds.size ||
+        effectiveRequiredLabelIdsForLocalFiltering?.length,
     );
     const maxResults = options.maxResults || 50;
 
@@ -1606,7 +1613,7 @@ export class OutlookProvider implements EmailProvider {
         folderIds: resolvedFolderIds,
         categoryMap,
         excludedLabelIds,
-        requiredLabelIds: requiredLabelIdsForLocalFiltering,
+        requiredLabelIds: effectiveRequiredLabelIdsForLocalFiltering,
         logger: this.logger,
       });
 
@@ -1621,7 +1628,7 @@ export class OutlookProvider implements EmailProvider {
       folderIds: resolvedFolderIds,
       categoryMap,
       excludedLabelIds,
-      requiredLabelIds: requiredLabelIdsForLocalFiltering,
+      requiredLabelIds: effectiveRequiredLabelIdsForLocalFiltering,
       logger: this.logger,
     });
 
@@ -2312,8 +2319,16 @@ async function ensureOutlookRequiredCategoryMap({
   requiredLabelIds?: string[];
   folderIds: Record<string, string>;
   categoryMap?: Map<string, string>;
-}): Promise<Map<string, string> | undefined> {
-  if (!requiredLabelIds?.length) return categoryMap;
+}): Promise<{
+  categoryMap?: Map<string, string>;
+  unresolvedRequiredLabelIds: string[];
+}> {
+  if (!requiredLabelIds?.length) {
+    return {
+      categoryMap,
+      unresolvedRequiredLabelIds: [],
+    };
+  }
 
   const missingCategoryIds = requiredLabelIds.filter(
     (labelId) =>
@@ -2321,25 +2336,41 @@ async function ensureOutlookRequiredCategoryMap({
       !Array.from(categoryMap?.values() || []).includes(labelId),
   );
 
-  if (!missingCategoryIds.length) return categoryMap;
+  if (!missingCategoryIds.length) {
+    return {
+      categoryMap,
+      unresolvedRequiredLabelIds: [],
+    };
+  }
 
   const resolvedCategoryMap = new Map(categoryMap?.entries() || []);
+  const unresolvedRequiredLabelIds: string[] = [];
 
   for (const labelId of missingCategoryIds) {
     try {
       const label = await getLabelById({ client, id: labelId });
       if (label.displayName) {
         resolvedCategoryMap.set(label.displayName, labelId);
+      } else {
+        logger.warn("Outlook required category has no displayName", {
+          labelId,
+        });
+        unresolvedRequiredLabelIds.push(labelId);
       }
     } catch (error) {
       logger.warn("Failed to resolve Outlook required category", {
         labelId,
         error,
       });
+      unresolvedRequiredLabelIds.push(labelId);
     }
   }
 
-  return resolvedCategoryMap.size > 0 ? resolvedCategoryMap : categoryMap;
+  return {
+    categoryMap:
+      resolvedCategoryMap.size > 0 ? resolvedCategoryMap : categoryMap,
+    unresolvedRequiredLabelIds,
+  };
 }
 
 const OUTLOOK_THREAD_PAGE_TOKEN_PREFIX = "outlook-threads:";
