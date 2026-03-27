@@ -235,6 +235,81 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     ]);
   });
 
+  it("returns a resumable token when a buffered page has more matches than fit in maxResults", async () => {
+    getFolderIdsMock.mockResolvedValue({
+      inbox: "folder-inbox",
+      archive: "folder-archive",
+      drafts: "folder-drafts",
+      deleteditems: "folder-trash",
+      junkemail: "folder-spam",
+      sentitems: "folder-sent",
+    });
+    vi.spyOn(outlookMessageModule, "getCategoryMap").mockResolvedValue(
+      new Map([["To Reply", "label-to-reply"]]),
+    );
+
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/messages": {
+          value: [
+            createMessage({
+              id: "message-first-page",
+              conversationId: "thread-first-page",
+              parentFolderId: "folder-inbox",
+            }),
+          ],
+          "@odata.nextLink":
+            "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=page-2",
+        },
+        "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=page-2": {
+          value: [
+            createMessage({
+              id: "message-second-page-a",
+              conversationId: "thread-second-page-a",
+              categories: ["To Reply"],
+              parentFolderId: "folder-inbox",
+            }),
+            createMessage({
+              id: "message-second-page-b",
+              conversationId: "thread-second-page-b",
+              categories: ["To Reply"],
+              parentFolderId: "folder-inbox",
+            }),
+          ],
+          "@odata.nextLink":
+            "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=page-3",
+        },
+        "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=page-3": {
+          value: [],
+        },
+      },
+    });
+    const provider = new OutlookProvider(client);
+
+    const firstPage = await provider.getThreadsWithQuery({
+      query: { labelIds: ["label-to-reply"] },
+      maxResults: 1,
+    });
+
+    expect(firstPage.threads.map((thread) => thread.id)).toEqual([
+      "thread-second-page-a",
+    ]);
+    expect(firstPage.nextPageToken).toContain("outlook-threads:");
+
+    const secondPage = await provider.getThreadsWithQuery({
+      query: { labelIds: ["label-to-reply"] },
+      maxResults: 1,
+      pageToken: firstPage.nextPageToken,
+    });
+
+    expect(secondPage.threads.map((thread) => thread.id)).toEqual([
+      "thread-second-page-b",
+    ]);
+    expect(secondPage.nextPageToken).toBe(
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=page-3",
+    );
+  });
+
   it("excludes threads with matching label names", async () => {
     getFolderIdsMock.mockResolvedValue({
       inbox: "folder-inbox",
@@ -402,6 +477,43 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
       "thread-with-category",
     ]);
     expect(client.getRequestLog()[0]?.filter).toBeUndefined();
+  });
+
+  it("matches explicit category labelIds even when the category map is unavailable", async () => {
+    getFolderIdsMock.mockResolvedValue({
+      inbox: "folder-inbox",
+      archive: "folder-archive",
+      drafts: "folder-drafts",
+      deleteditems: "folder-trash",
+      junkemail: "folder-spam",
+      sentitems: "folder-sent",
+    });
+    vi.spyOn(outlookMessageModule, "getCategoryMap").mockResolvedValue(
+      new Map(),
+    );
+    vi.spyOn(outlookLabelModule, "getLabelById").mockResolvedValue({
+      id: "label-to-reply",
+      displayName: "To Reply",
+    } as any);
+
+    const provider = new OutlookProvider(
+      createMockOutlookClient([
+        createMessage({
+          id: "message-with-category",
+          conversationId: "thread-with-category",
+          categories: ["To Reply"],
+          parentFolderId: "folder-inbox",
+        }),
+      ]),
+    );
+
+    const result = await provider.getThreadsWithQuery({
+      query: { labelIds: ["label-to-reply"] },
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual([
+      "thread-with-category",
+    ]);
   });
 
   it("excludes folder-backed labels when excludeLabelNames targets them", async () => {

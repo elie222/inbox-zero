@@ -1483,9 +1483,16 @@ export class OutlookProvider implements EmailProvider {
       requiredLabelIds: requiredLabelIdsForLocalFiltering,
       folderIds: resolvedFolderIds,
     });
-    const categoryMap = needsCategoryMapForFiltering
+    let categoryMap = needsCategoryMapForFiltering
       ? await getCategoryMap(this.client, this.logger)
       : cachedCategoryMap;
+    categoryMap = await ensureOutlookRequiredCategoryMap({
+      client: this.client,
+      logger: this.logger,
+      requiredLabelIds: requiredLabelIdsForLocalFiltering,
+      folderIds: resolvedFolderIds,
+      categoryMap,
+    });
     const excludedLabelIds = getExcludedOutlookThreadLabelIds(
       excludeLabelNames,
       categoryMap,
@@ -1562,12 +1569,32 @@ export class OutlookProvider implements EmailProvider {
       return await request.get();
     };
 
-    let nextPageTokenToFetch = options.pageToken;
+    const localPageState = parseOutlookThreadPageToken(options.pageToken);
+    let nextPageTokenToFetch =
+      localPageState?.pageToken ?? (options.pageToken || undefined);
     let nextPageToken: string | undefined;
     const collectedMessages: Message[] = [];
+    const fetchedPages: Array<{ pageToken?: string; nextPageToken?: string }> =
+      [];
+    const threadFirstPageIndex = new Map<string, number>();
 
     do {
       const response = await fetchThreadPage(nextPageTokenToFetch);
+      const currentPageIndex = fetchedPages.length;
+      fetchedPages.push({
+        pageToken: nextPageTokenToFetch,
+        nextPageToken: response["@odata.nextLink"],
+      });
+
+      for (const message of response.value) {
+        if (
+          message.conversationId &&
+          !threadFirstPageIndex.has(message.conversationId)
+        ) {
+          threadFirstPageIndex.set(message.conversationId, currentPageIndex);
+        }
+      }
+
       collectedMessages.push(...response.value);
       nextPageToken = response["@odata.nextLink"];
 
@@ -1588,7 +1615,7 @@ export class OutlookProvider implements EmailProvider {
       nextPageTokenToFetch = nextPageToken;
     } while (nextPageTokenToFetch);
 
-    const threads = buildOutlookThreadsFromMessages({
+    let threads = buildOutlookThreadsFromMessages({
       messages: collectedMessages,
       fromEmail,
       folderIds: resolvedFolderIds,
@@ -1596,7 +1623,37 @@ export class OutlookProvider implements EmailProvider {
       excludedLabelIds,
       requiredLabelIds: requiredLabelIdsForLocalFiltering,
       logger: this.logger,
-    }).slice(0, maxResults);
+    });
+
+    if (localPageState?.skipThreadIds.length) {
+      const skippedThreadIds = new Set(localPageState.skipThreadIds);
+      threads = threads.filter((thread) => {
+        const firstPageIndex = threadFirstPageIndex.get(thread.id);
+        return !(firstPageIndex === 0 && skippedThreadIds.has(thread.id));
+      });
+    }
+
+    if (threads.length > maxResults && fetchedPages.length > 0) {
+      const resumePageIndex =
+        threadFirstPageIndex.get(threads[maxResults]!.id) ??
+        fetchedPages.length - 1;
+      const resumePage = fetchedPages[resumePageIndex];
+      const skipThreadIds = threads
+        .slice(0, maxResults)
+        .filter(
+          (thread) => threadFirstPageIndex.get(thread.id) === resumePageIndex,
+        )
+        .map((thread) => thread.id);
+
+      nextPageToken = skipThreadIds.length
+        ? encodeOutlookThreadPageToken({
+            pageToken: resumePage?.pageToken,
+            skipThreadIds,
+          })
+        : resumePage?.pageToken;
+    }
+
+    threads = threads.slice(0, maxResults);
 
     return {
       threads,
@@ -2241,4 +2298,87 @@ function buildOutlookThreadsFromMessages({
         messageHasAllThreadLabels(message, requiredLabelIds),
       );
     });
+}
+
+async function ensureOutlookRequiredCategoryMap({
+  client,
+  logger,
+  requiredLabelIds,
+  folderIds,
+  categoryMap,
+}: {
+  client: OutlookClient;
+  logger: Logger;
+  requiredLabelIds?: string[];
+  folderIds: Record<string, string>;
+  categoryMap?: Map<string, string>;
+}): Promise<Map<string, string> | undefined> {
+  if (!requiredLabelIds?.length) return categoryMap;
+
+  const missingCategoryIds = requiredLabelIds.filter(
+    (labelId) =>
+      !isOutlookFolderBackedLabelId(labelId, folderIds) &&
+      !Array.from(categoryMap?.values() || []).includes(labelId),
+  );
+
+  if (!missingCategoryIds.length) return categoryMap;
+
+  const resolvedCategoryMap = new Map(categoryMap?.entries() || []);
+
+  for (const labelId of missingCategoryIds) {
+    try {
+      const label = await getLabelById({ client, id: labelId });
+      if (label.displayName) {
+        resolvedCategoryMap.set(label.displayName, labelId);
+      }
+    } catch (error) {
+      logger.warn("Failed to resolve Outlook required category", {
+        labelId,
+        error,
+      });
+    }
+  }
+
+  return resolvedCategoryMap.size > 0 ? resolvedCategoryMap : categoryMap;
+}
+
+const OUTLOOK_THREAD_PAGE_TOKEN_PREFIX = "outlook-threads:";
+
+type OutlookThreadPageToken = {
+  pageToken?: string;
+  skipThreadIds: string[];
+};
+
+function encodeOutlookThreadPageToken(token: OutlookThreadPageToken): string {
+  return `${OUTLOOK_THREAD_PAGE_TOKEN_PREFIX}${Buffer.from(
+    JSON.stringify(token),
+  ).toString("base64url")}`;
+}
+
+function parseOutlookThreadPageToken(
+  pageToken?: string,
+): OutlookThreadPageToken | undefined {
+  if (!pageToken?.startsWith(OUTLOOK_THREAD_PAGE_TOKEN_PREFIX)) {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(
+        pageToken.slice(OUTLOOK_THREAD_PAGE_TOKEN_PREFIX.length),
+        "base64url",
+      ).toString("utf8"),
+    ) as Partial<OutlookThreadPageToken>;
+
+    return {
+      pageToken: parsed.pageToken,
+      skipThreadIds: Array.isArray(parsed.skipThreadIds)
+        ? parsed.skipThreadIds.filter(
+            (threadId): threadId is string => typeof threadId === "string",
+          )
+        : [],
+    };
+  } catch {
+    return undefined;
+  }
 }
