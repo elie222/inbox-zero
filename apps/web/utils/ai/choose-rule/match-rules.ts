@@ -96,6 +96,14 @@ export async function findMatchingRules({
           },
         ],
         reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
+        selectionMetadata: {
+          isThread: provider.isReplyInThread(message),
+          skippedThreadRuleNames: [],
+          continuedThreadRuleNames: [],
+          filteredConversationRuleNames: [],
+          conversationFilterReason: undefined,
+          remainingAiRuleNames: [],
+        },
       };
     }
   }
