@@ -850,42 +850,7 @@ async function findMatchingExistingReplyMemory({
   });
 
   try {
-    const result = await generateObject({
-      ...modelOptions,
-      system: getReplyMemoryMatchSystemPrompt(),
-      prompt: getReplyMemoryMatchPrompt({
-        memory,
-        normalizedScopeValue,
-        candidates,
-      }),
-      schema: replyMemoryMatchSchema,
-    });
-
-    const matchingId = result.object.matchingExistingMemoryId;
-    if (!matchingId) return null;
-
-    return candidates.find((candidate) => candidate.id === matchingId) ?? null;
-  } catch (error) {
-    logger.warn("Failed to match reply memory against existing memories", {
-      error,
-      emailAccountId,
-      replyMemoryKind: memory.kind,
-      replyMemoryScopeType: memory.scopeType,
-    });
-    return null;
-  }
-}
-
-function getReplyMemoryMatchPrompt({
-  memory,
-  normalizedScopeValue,
-  candidates,
-}: {
-  memory: Pick<ReplyMemory, "content" | "kind" | "scopeType">;
-  normalizedScopeValue: string;
-  candidates: ReplyMemory[];
-}) {
-  return `<new_memory>
+    const prompt = `<new_memory>
 kind: ${memory.kind}
 scope_type: ${memory.scopeType}
 scope_value: ${normalizedScopeValue || "(global)"}
@@ -902,10 +867,7 @@ ${candidates
 </existing_memories>
 
 Choose the existing memory id if one existing memory already captures the same durable idea as the new memory. Otherwise return null.`;
-}
-
-function getReplyMemoryMatchSystemPrompt() {
-  return `You decide whether a newly extracted reply memory should attach to an existing reply memory instead of creating a new one.
+    const system = `You decide whether a newly extracted reply memory should attach to an existing reply memory instead of creating a new one.
 
 ${PROMPT_SECURITY_INSTRUCTIONS}
 
@@ -926,4 +888,25 @@ Rules:
 - Be conservative: pick an id only when the match is clearly the same memory.
 - Ignore exact wording; focus on semantic equivalence.
 - Do not invent or rewrite memory text.`;
+
+    const result = await generateObject({
+      ...modelOptions,
+      system,
+      prompt,
+      schema: replyMemoryMatchSchema,
+    });
+
+    const matchingId = result.object.matchingExistingMemoryId;
+    if (!matchingId) return null;
+
+    return candidates.find((candidate) => candidate.id === matchingId) ?? null;
+  } catch (error) {
+    logger.warn("Failed to match reply memory against existing memories", {
+      error,
+      emailAccountId,
+      replyMemoryKind: memory.kind,
+      replyMemoryScopeType: memory.scopeType,
+    });
+    return null;
+  }
 }
