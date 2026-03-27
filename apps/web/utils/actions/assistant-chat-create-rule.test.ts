@@ -90,7 +90,6 @@ describe("confirmAssistantCreateRule", () => {
     } as never);
 
     prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as never);
-    prisma.chatMessage.update.mockResolvedValue({ id: "cm-1" } as never);
 
     const result = await confirmAssistantCreateRule(
       "ea_1" as never,
@@ -113,7 +112,7 @@ describe("confirmAssistantCreateRule", () => {
     expect(result?.data?.confirmationState).toBe("confirmed");
 
     const updatedParts = (
-      prisma.chatMessage.update.mock.calls[0][0] as {
+      prisma.chatMessage.updateMany.mock.calls[1][0] as {
         data: { parts: { output: Record<string, unknown> }[] };
       }
     ).data.parts;
@@ -124,15 +123,16 @@ describe("confirmAssistantCreateRule", () => {
   it("returns the created rule when confirmation persistence fails", async () => {
     const logger = createScopedLogger("assistant-chat-create-rule.test");
 
-    prisma.chatMessage.findFirst.mockResolvedValueOnce({
+    prisma.chatMessage.findFirst.mockResolvedValue({
       id: "cm-1",
       chatId: "chat-1",
       updatedAt: new Date("2026-02-23T00:00:00.000Z"),
       parts: [buildPendingCreateRulePart()],
     } as never);
 
-    prisma.chatMessage.updateMany.mockResolvedValueOnce({ count: 1 } as never);
-    prisma.chatMessage.update.mockRejectedValue(new Error("write failed"));
+    prisma.chatMessage.updateMany
+      .mockResolvedValueOnce({ count: 1 } as never)
+      .mockResolvedValue({ count: 0 } as never);
 
     const result = await confirmAssistantCreateRuleForAccount({
       chatId: "chat-1",
@@ -146,7 +146,7 @@ describe("confirmAssistantCreateRule", () => {
     expect(result.ruleId).toBe("rule-created-1");
     expect(result.confirmationState).toBe("confirmed");
     expect(createRuleMock).toHaveBeenCalledTimes(1);
-    expect(prisma.chatMessage.update).toHaveBeenCalledTimes(3);
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(4);
   });
 
   it("does not clear processing when a newer confirmed state already exists", async () => {

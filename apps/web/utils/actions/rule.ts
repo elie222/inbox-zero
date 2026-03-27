@@ -204,15 +204,16 @@ export const enableDraftRepliesAction = actionClient
       }
 
       const rule =
-        existingRule ||
-        (await toggleRule({
-          emailAccountId,
-          enabled: enable,
-          systemType: SystemType.TO_REPLY,
-          provider,
-          ruleId: undefined,
-          logger,
-        }));
+        existingRule && existingRule.enabled === enable
+          ? existingRule
+          : await toggleRule({
+              emailAccountId,
+              enabled: enable,
+              systemType: SystemType.TO_REPLY,
+              provider,
+              ruleId: undefined,
+              logger,
+            });
 
       if (enable) {
         const alreadyDraftingReplies = rule.actions.find(

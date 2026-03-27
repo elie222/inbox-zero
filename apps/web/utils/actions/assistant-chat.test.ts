@@ -34,9 +34,6 @@ describe("confirmAssistantEmailAction", () => {
     } as any);
 
     prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
-    prisma.chatMessage.update.mockResolvedValue({
-      id: "chat-message-1",
-    } as any);
 
     const sendEmailWithHtml = vi.fn().mockResolvedValue({
       messageId: "msg-1",
@@ -78,7 +75,7 @@ describe("confirmAssistantEmailAction", () => {
     ).data.parts as any[];
     expect(processingParts[0].output.confirmationState).toBe("processing");
 
-    const updatedParts = (prisma.chatMessage.update.mock.calls[0][0] as any)
+    const updatedParts = (prisma.chatMessage.updateMany.mock.calls[1][0] as any)
       .data.parts as any[];
     expect(updatedParts[0].output.confirmationState).toBe("confirmed");
     expect(updatedParts[0].output.confirmationResult.actionType).toBe(
@@ -100,9 +97,6 @@ describe("confirmAssistantEmailAction", () => {
     } as any);
 
     prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
-    prisma.chatMessage.update.mockResolvedValue({
-      id: "chat-message-1",
-    } as any);
 
     const sourceMessage = {
       id: "source-message-1",
@@ -158,9 +152,6 @@ describe("confirmAssistantEmailAction", () => {
     } as any);
 
     prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
-    prisma.chatMessage.update.mockResolvedValue({
-      id: "chat-message-1",
-    } as any);
 
     const sourceMessage = {
       id: "source-message-1",
@@ -259,7 +250,6 @@ describe("confirmAssistantEmailAction", () => {
 
     expect(createEmailProvider).not.toHaveBeenCalled();
     expect(prisma.chatMessage.updateMany).not.toHaveBeenCalled();
-    expect(prisma.chatMessage.update).not.toHaveBeenCalled();
     expect(result?.data?.confirmationResult).toMatchObject({
       messageId: "msg-1",
       threadId: "thr-1",
@@ -321,9 +311,6 @@ describe("confirmAssistantEmailAction", () => {
     } as any);
 
     prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
-    prisma.chatMessage.update.mockResolvedValue({
-      id: "chat-message-1",
-    } as any);
 
     const sendEmailWithHtml = vi.fn().mockResolvedValue({
       messageId: "msg-1",
@@ -344,7 +331,7 @@ describe("confirmAssistantEmailAction", () => {
     );
 
     expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
-    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(2);
     expect(result?.data?.confirmationState).toBe("confirmed");
   });
 
@@ -395,7 +382,14 @@ describe("confirmAssistantEmailAction", () => {
         email: "owner@example.com",
       });
 
-    prisma.chatMessage.findFirst.mockResolvedValue(null as any);
+    prisma.chatMessage.findFirst
+      .mockResolvedValueOnce(null as any)
+      .mockResolvedValue({
+        id: "assistant-message-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:01:00.000Z"),
+        parts: [buildProcessingSendPart()],
+      } as any);
     prisma.chatMessage.findMany.mockResolvedValue([
       {
         id: "assistant-message-1",
@@ -406,9 +400,6 @@ describe("confirmAssistantEmailAction", () => {
     ] as any);
 
     prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
-    prisma.chatMessage.update.mockResolvedValue({
-      id: "assistant-message-1",
-    } as any);
 
     const sendEmailWithHtml = vi.fn().mockResolvedValue({
       messageId: "msg-1",
@@ -517,9 +508,6 @@ describe("confirmAssistantEmailAction", () => {
       } as any);
 
     prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
-    prisma.chatMessage.update.mockResolvedValue({
-      id: "chat-message-1",
-    } as any);
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       sendEmailWithHtml: vi.fn().mockRejectedValue(new Error("send failed")),
@@ -543,7 +531,7 @@ describe("confirmAssistantEmailAction", () => {
     expect(revertedParts[0].output.confirmationState).toBe("pending");
   });
 
-  it("retries persisting confirmed state before succeeding", async () => {
+  it("merges confirmation into the latest parts after a concurrent update", async () => {
     (prisma.emailAccount.findUnique as any)
       .mockResolvedValueOnce({
         email: "owner@example.com",
@@ -554,18 +542,23 @@ describe("confirmAssistantEmailAction", () => {
         email: "owner@example.com",
       });
 
-    prisma.chatMessage.findFirst.mockResolvedValue({
-      id: "chat-message-1",
-      chatId: "chat-1",
-      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
-      parts: [buildPendingSendPart()],
-    } as any);
+    prisma.chatMessage.findFirst
+      .mockResolvedValueOnce({
+        id: "chat-message-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+        parts: [buildPendingSendPart()],
+      } as any)
+      .mockResolvedValueOnce({
+        id: "chat-message-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:01:00.000Z"),
+        parts: [buildProcessingSendPart(), buildTextPart("Newer context")],
+      } as any);
 
-    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
-    prisma.chatMessage.update
-      .mockRejectedValueOnce(new Error("transient-1"))
-      .mockRejectedValueOnce(new Error("transient-2"))
-      .mockResolvedValueOnce({ id: "chat-message-1" } as any);
+    prisma.chatMessage.updateMany
+      .mockResolvedValueOnce({ count: 1 } as any)
+      .mockResolvedValueOnce({ count: 1 } as any);
 
     const sendEmailWithHtml = vi.fn().mockResolvedValue({
       messageId: "msg-1",
@@ -586,7 +579,19 @@ describe("confirmAssistantEmailAction", () => {
     );
 
     expect(result?.data?.confirmationState).toBe("confirmed");
-    expect(prisma.chatMessage.update).toHaveBeenCalledTimes(3);
+
+    const updatedParts = (prisma.chatMessage.updateMany.mock.calls[1][0] as any)
+      .data.parts as any[];
+    expect(updatedParts).toHaveLength(2);
+    expect(updatedParts[0].output.confirmationState).toBe("confirmed");
+    expect(updatedParts[1]).toEqual(buildTextPart("Newer context"));
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          updatedAt: new Date("2026-02-23T00:01:00.000Z"),
+        }),
+      }),
+    );
   });
 });
 
@@ -624,6 +629,13 @@ function buildProcessingSendPart({
       confirmationState: "processing",
       confirmationProcessingAt: processingAt,
     },
+  };
+}
+
+function buildTextPart(text: string) {
+  return {
+    type: "text",
+    text,
   };
 }
 
