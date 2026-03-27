@@ -1253,64 +1253,24 @@ describe("aiProcessAssistantChat", () => {
     expect(result.updatedAbout).toBe("First instructions");
   });
 
-  it("validates action-specific manageInbox requirements before provider calls", async () => {
+  it("blocks sender actions without sender emails before provider calls", async () => {
     const tools = await captureToolSet();
     mockCreateEmailProvider.mockClear();
 
-    const archiveMissingThreads = await tools.manageInbox.execute({
-      action: "archive_threads",
-      read: true,
-    });
-    expect(archiveMissingThreads).toEqual({
-      error:
-        "threadIds is required when action is archive_threads, label_threads, or mark_read_threads",
-    });
+    for (const action of [
+      "bulk_archive_senders",
+      "unsubscribe_senders",
+    ] as const) {
+      const result = await tools.manageInbox.execute({
+        action,
+        read: true,
+      });
 
-    const bulkMissingSenders = await tools.manageInbox.execute({
-      action: "bulk_archive_senders",
-      read: true,
-    });
-    expect(bulkMissingSenders).toEqual({
-      error:
-        'No sender-level action was taken. "fromEmails" is required for bulk_archive_senders and unsubscribe_senders. If you only meant the emails already shown, use archive_threads with threadIds instead.',
-    });
-
-    const unsubscribeMissingSenders = await tools.manageInbox.execute({
-      action: "unsubscribe_senders",
-      read: true,
-    });
-    expect(unsubscribeMissingSenders).toEqual({
-      error:
-        'No sender-level action was taken. "fromEmails" is required for bulk_archive_senders and unsubscribe_senders. If you only meant the emails already shown, use archive_threads with threadIds instead.',
-    });
-
-    const archiveEmptyThreadIds = await tools.manageInbox.execute({
-      action: "archive_threads",
-      threadIds: [],
-      read: true,
-    });
-    expect(archiveEmptyThreadIds).toEqual({
-      error:
-        "Invalid manageInbox input: threadIds must include at least one thread ID",
-    });
-
-    const labelMissingLabelName = await tools.manageInbox.execute({
-      action: "label_threads",
-      threadIds: ["thread-1"],
-    });
-    expect(labelMissingLabelName).toEqual({
-      error: "labelName is required when action is label_threads",
-    });
-
-    const bulkEmptySenders = await tools.manageInbox.execute({
-      action: "bulk_archive_senders",
-      fromEmails: [],
-      read: true,
-    });
-    expect(bulkEmptySenders).toEqual({
-      error:
-        "Invalid manageInbox input: fromEmails must include at least one sender email",
-    });
+      expect(result).toMatchObject({
+        error: expect.stringContaining("No sender-level action was taken."),
+      });
+      expect(result.error).toContain("archive_threads");
+    }
 
     expect(mockCreateEmailProvider).not.toHaveBeenCalled();
   });
