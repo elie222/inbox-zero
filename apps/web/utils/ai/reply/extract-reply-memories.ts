@@ -14,17 +14,33 @@ import type { getEmailAccountWithAi } from "@/utils/user/get";
 const MAX_MEMORIES_PER_EDIT = 3;
 const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
 
+const newReplyMemorySchema = z.object({
+  content: z.string().trim().min(1).max(400),
+  kind: z.nativeEnum(ReplyMemoryKind),
+  scopeType: z.nativeEnum(ReplyMemoryScopeType),
+  scopeValue: z.string().trim().max(200),
+});
+
+const replyMemoryDecisionSchema = z
+  .object({
+    matchingExistingMemoryId: z.string().trim().min(1).nullable(),
+    newMemory: newReplyMemorySchema.nullable(),
+  })
+  .superRefine((decision, ctx) => {
+    const hasExistingId = Boolean(decision.matchingExistingMemoryId);
+    const hasNewMemory = Boolean(decision.newMemory);
+
+    if (hasExistingId === hasNewMemory) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Each reply memory decision must include exactly one of matchingExistingMemoryId or newMemory.",
+      });
+    }
+  });
+
 const replyMemorySchema = z.object({
-  memories: z
-    .array(
-      z.object({
-        content: z.string().trim().min(1).max(400),
-        kind: z.nativeEnum(ReplyMemoryKind),
-        scopeType: z.nativeEnum(ReplyMemoryScopeType),
-        scopeValue: z.string().trim().max(200),
-      }),
-    )
-    .max(MAX_MEMORIES_PER_EDIT),
+  memories: z.array(replyMemoryDecisionSchema).max(MAX_MEMORIES_PER_EDIT),
 });
 
 export async function aiExtractReplyMemoriesFromDraftEdit({
@@ -43,7 +59,7 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
   senderEmail: string;
   existingMemories: Pick<
     ReplyMemory,
-    "content" | "kind" | "scopeType" | "scopeValue"
+    "id" | "content" | "kind" | "scopeType" | "scopeValue"
   >[];
   writingStyle?: string | null;
   learnedWritingStyle?: string | null;
@@ -90,25 +106,51 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
     schema: replyMemorySchema,
   });
 
+  const existingMemoryIds = new Set(
+    existingMemories.map((memory) => memory.id.trim()),
+  );
+
   return result.object.memories
-    .map((memory) => ({
-      content: memory.content.trim(),
-      kind: memory.kind,
-      scopeType:
-        memory.kind === ReplyMemoryKind.PREFERENCE
-          ? ReplyMemoryScopeType.GLOBAL
-          : memory.scopeType,
-      scopeValue:
-        memory.kind === ReplyMemoryKind.PREFERENCE ||
-        memory.scopeType === ReplyMemoryScopeType.GLOBAL
-          ? ""
-          : memory.scopeValue.trim(),
-    }))
-    .filter(
-      (memory) =>
-        memory.scopeType !== ReplyMemoryScopeType.TOPIC ||
-        memory.scopeValue.length > 0,
-    )
+    .map((decision) => {
+      if (
+        decision.matchingExistingMemoryId &&
+        existingMemoryIds.has(decision.matchingExistingMemoryId)
+      ) {
+        return {
+          matchingExistingMemoryId: decision.matchingExistingMemoryId,
+          newMemory: null,
+        };
+      }
+
+      if (!decision.newMemory) return null;
+
+      const newMemory = {
+        content: decision.newMemory.content.trim(),
+        kind: decision.newMemory.kind,
+        scopeType:
+          decision.newMemory.kind === ReplyMemoryKind.PREFERENCE
+            ? ReplyMemoryScopeType.GLOBAL
+            : decision.newMemory.scopeType,
+        scopeValue:
+          decision.newMemory.kind === ReplyMemoryKind.PREFERENCE ||
+          decision.newMemory.scopeType === ReplyMemoryScopeType.GLOBAL
+            ? ""
+            : decision.newMemory.scopeValue.trim(),
+      };
+
+      if (
+        newMemory.scopeType === ReplyMemoryScopeType.TOPIC &&
+        !newMemory.scopeValue.length
+      ) {
+        return null;
+      }
+
+      return {
+        matchingExistingMemoryId: null,
+        newMemory,
+      };
+    })
+    .filter(isDefined)
     .slice(0, MAX_MEMORIES_PER_EDIT);
 }
 
@@ -130,7 +172,7 @@ function getPrompt({
   sentText: string;
   existingMemories: Pick<
     ReplyMemory,
-    "content" | "kind" | "scopeType" | "scopeValue"
+    "id" | "content" | "kind" | "scopeType" | "scopeValue"
   >[];
   writingStyle: string | null;
   learnedWritingStyle: string | null;
@@ -183,7 +225,7 @@ Extract reusable reply memories from this draft edit.`;
 function formatExistingMemories(
   memories: Pick<
     ReplyMemory,
-    "content" | "kind" | "scopeType" | "scopeValue"
+    "id" | "content" | "kind" | "scopeType" | "scopeValue"
   >[],
 ) {
   if (!memories.length) return "None";
@@ -192,7 +234,7 @@ function formatExistingMemories(
     .slice(0, MAX_EXISTING_MEMORIES_IN_PROMPT)
     .map(
       (memory, index) =>
-        `${index + 1}. [${memory.kind} | ${memory.scopeType}${
+        `${index + 1}. id=${memory.id}\n[${memory.kind} | ${memory.scopeType}${
           memory.scopeValue ? `:${memory.scopeValue}` : ""
         }] ${memory.content}`,
     )
@@ -238,6 +280,14 @@ Rules:
 - For DOMAIN scope, use the exact sender domain from the context.
 - For TOPIC scope, use a short stable topic phrase such as "pricing" or "refunds".
 - Always include a scopeValue field. Use an empty string for GLOBAL scope.
-- Avoid duplicating an existing memory if the same idea is already covered.
+- If an existing memory already captures the same durable idea, return its id in matchingExistingMemoryId and set newMemory to null.
+- If the edit teaches a new durable memory, set matchingExistingMemoryId to null and fill newMemory.
+- Only return ids from the provided existing memory list.
+- Be conservative about matching existing memories. Only match when the existing memory clearly already covers the same durable idea.
+- Work language-agnostically. The memories may be written in any language.
 - If nothing durable was learned, return an empty array.`;
+}
+
+function isDefined<T>(value: T | null): value is T {
+  return value !== null;
 }
