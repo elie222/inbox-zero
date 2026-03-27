@@ -35,6 +35,22 @@ export const GmailLabel = {
   UPDATES: "CATEGORY_UPDATES",
 };
 
+export const GMAIL_SYSTEM_LABELS = [
+  GmailLabel.INBOX,
+  GmailLabel.SENT,
+  GmailLabel.DRAFT,
+  GmailLabel.SPAM,
+  GmailLabel.TRASH,
+  GmailLabel.IMPORTANT,
+  GmailLabel.STARRED,
+  GmailLabel.UNREAD,
+  GmailLabel.PERSONAL,
+  GmailLabel.SOCIAL,
+  GmailLabel.PROMOTIONS,
+  GmailLabel.FORUMS,
+  GmailLabel.UPDATES,
+];
+
 export async function labelThread(options: {
   gmail: gmail_v1.Gmail;
   threadId: string;
