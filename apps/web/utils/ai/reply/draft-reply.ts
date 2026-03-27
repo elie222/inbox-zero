@@ -74,6 +74,8 @@ const getUserPrompt = ({
   meetingContext: string | null;
   attachmentContext: string | null;
 }) => {
+  const normalizedWritingStyle = writingStyle?.trim() || null;
+  const normalizedLearnedWritingStyle = learnedWritingStyle?.trim() || null;
   const userAbout = emailAccount.about
     ? `Context about the user:
 
@@ -129,20 +131,20 @@ ${emailHistoryContext.notes || "No notes"}
 `
     : "";
 
-  const writingStylePrompt = writingStyle
+  const writingStylePrompt = normalizedWritingStyle
     ? `Writing style:
 
 <writing_style>
-${writingStyle}
+${normalizedWritingStyle}
 </writing_style>
 `
     : "";
 
-  const learnedWritingStylePrompt = learnedWritingStyle
+  const learnedWritingStylePrompt = normalizedLearnedWritingStyle
     ? `Learned writing style from prior draft edits. This is advisory and lower priority than any explicit writing style provided by the user.
 
 <learned_writing_style>
-${learnedWritingStyle}
+${normalizedLearnedWritingStyle}
 </learned_writing_style>
 `
     : "";
@@ -251,7 +253,15 @@ export async function aiDraftReplyWithConfidence({
       : null,
   });
 
-  const effectiveWritingStyle = writingStyle || defaultWritingStyle;
+  const normalizedWritingStyle = writingStyle?.trim() || null;
+  const normalizedLearnedWritingStyle = learnedWritingStyle?.trim() || null;
+  const effectiveWritingStyle =
+    normalizedWritingStyle ||
+    normalizedLearnedWritingStyle ||
+    defaultWritingStyle;
+  const advisoryLearnedWritingStyle = normalizedWritingStyle
+    ? normalizedLearnedWritingStyle
+    : null;
 
   const prompt = getUserPrompt({
     messages,
@@ -262,7 +272,7 @@ export async function aiDraftReplyWithConfidence({
     emailHistoryContext,
     calendarAvailability,
     writingStyle: effectiveWritingStyle,
-    learnedWritingStyle,
+    learnedWritingStyle: advisoryLearnedWritingStyle,
     mcpContext,
     meetingContext,
     attachmentContext,
