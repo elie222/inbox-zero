@@ -4,25 +4,21 @@ import { OutlookProvider } from "./microsoft";
 
 vi.mock("server-only", () => ({}));
 
-const { envMock, outlookMailMock, getFolderIdsMock, getCategoryMapMock } =
-  vi.hoisted(() => ({
-    envMock: {
-      NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
-      EMAIL_ENCRYPT_SECRET: "test-encrypt-secret",
-      EMAIL_ENCRYPT_SALT: "test-encrypt-salt",
-    },
-    outlookMailMock: {
-      draftEmail: vi.fn().mockResolvedValue({ id: "draft-1" }),
-      forwardEmail: vi.fn(),
-      replyToEmail: vi.fn(),
-      sendEmailWithPlainText: vi.fn(),
-      sendEmailWithHtml: vi.fn(),
-    },
-    getFolderIdsMock: vi.fn().mockResolvedValue({ inbox: "inbox-folder-id" }),
-    getCategoryMapMock: vi
-      .fn()
-      .mockResolvedValue(new Map([["Priority", "category-1"]])),
-  }));
+const { envMock, outlookMailMock, getFolderIdsMock } = vi.hoisted(() => ({
+  envMock: {
+    NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
+    EMAIL_ENCRYPT_SECRET: "test-encrypt-secret",
+    EMAIL_ENCRYPT_SALT: "test-encrypt-salt",
+  },
+  outlookMailMock: {
+    draftEmail: vi.fn().mockResolvedValue({ id: "draft-1" }),
+    forwardEmail: vi.fn(),
+    replyToEmail: vi.fn(),
+    sendEmailWithPlainText: vi.fn(),
+    sendEmailWithHtml: vi.fn(),
+  },
+  getFolderIdsMock: vi.fn().mockResolvedValue({ inbox: "inbox-folder-id" }),
+}));
 
 vi.mock("@/env", () => ({
   env: envMock,
@@ -38,7 +34,6 @@ vi.mock("@/utils/outlook/message", async () => {
   return {
     ...actual,
     getFolderIds: getFolderIdsMock,
-    getCategoryMap: getCategoryMapMock,
   };
 });
 
@@ -48,7 +43,6 @@ afterEach(() => {
   vi.clearAllMocks();
   outlookMailMock.draftEmail.mockResolvedValue({ id: "draft-1" });
   getFolderIdsMock.mockResolvedValue({ inbox: "inbox-folder-id" });
-  getCategoryMapMock.mockResolvedValue(new Map([["Priority", "category-1"]]));
 });
 
 describe("OutlookProvider.getLatestMessageInThread", () => {
@@ -153,7 +147,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
       id: "message-1",
       threadId: "thread-1",
       bodyContentType: "html",
-      labelIds: ["INBOX", "category-1"],
+      labelIds: ["INBOX", "Priority"],
       headers: {
         from: "Sender <sender@example.com>",
         to: "Recipient <recipient@example.com>",

@@ -8,7 +8,6 @@ import {
   queryBatchMessages,
   queryMessagesWithAttachments,
   getFolderIds,
-  getCategoryMap,
   convertMessage,
   MESSAGE_SELECT_FIELDS,
   sanitizeKqlValue,
@@ -1467,6 +1466,7 @@ export class OutlookProvider implements EmailProvider {
     } = options.query || {};
 
     const client = this.client.getClient();
+    let resolvedFolderIds: Record<string, string> | undefined;
 
     let response: { value: Message[]; "@odata.nextLink"?: string };
 
@@ -1483,35 +1483,35 @@ export class OutlookProvider implements EmailProvider {
       if (type === "sent") {
         endpoint = "/me/mailFolders('sentitems')/messages";
       } else {
-        const folderIds = await getFolderIds(this.client, this.logger, {
+        resolvedFolderIds = await getFolderIds(this.client, this.logger, {
           includeDrafts: false,
         });
 
         if (labelId) {
           // labelId may be a well-known label name (e.g. "INBOX") or an actual folder GUID
           const resolvedFolderId =
-            resolveOutlookFolderId(labelId, folderIds) ?? labelId;
+            resolveOutlookFolderId(labelId, resolvedFolderIds) ?? labelId;
           filters.push(
             `parentFolderId eq '${escapeODataString(resolvedFolderId)}'`,
           );
         } else if (type === "all") {
           const folderClauses: string[] = [];
-          if (folderIds.inbox) {
+          if (resolvedFolderIds.inbox) {
             folderClauses.push(
-              `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`,
+              `parentFolderId eq '${escapeODataString(resolvedFolderIds.inbox)}'`,
             );
           }
-          if (folderIds.archive) {
+          if (resolvedFolderIds.archive) {
             folderClauses.push(
-              `parentFolderId eq '${escapeODataString(folderIds.archive)}'`,
+              `parentFolderId eq '${escapeODataString(resolvedFolderIds.archive)}'`,
             );
           }
           if (folderClauses.length > 0) {
             filters.push(`(${folderClauses.join(" or ")})`);
           }
-        } else if (folderIds.inbox) {
+        } else if (resolvedFolderIds.inbox) {
           filters.push(
-            `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`,
+            `parentFolderId eq '${escapeODataString(resolvedFolderIds.inbox)}'`,
           );
         }
       }
@@ -1568,11 +1568,6 @@ export class OutlookProvider implements EmailProvider {
       );
     }
 
-    const [folderIds, categoryMap] = await Promise.all([
-      getFolderIds(this.client, this.logger, { includeDrafts: false }),
-      getCategoryMap(this.client, this.logger),
-    ]);
-
     // Group messages by conversationId to create threads
     const messagesByThread = new Map<string, Message[]>();
     sortedMessages.forEach((message: Message) => {
@@ -1594,7 +1589,7 @@ export class OutlookProvider implements EmailProvider {
       .filter(([_threadId, messages]) => messages.length > 0) // Filter out empty threads
       .map(([threadId, messages]) => {
         const parsedMessages: ParsedMessage[] = messages.map((message) =>
-          convertMessage(message, folderIds, categoryMap, this.logger),
+          convertMessage(message, resolvedFolderIds, undefined, this.logger),
         );
 
         return {
