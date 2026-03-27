@@ -8,6 +8,7 @@ import {
   queryBatchMessages,
   queryMessagesWithAttachments,
   getFolderIds,
+  getCategoryMap,
   convertMessage,
   MESSAGE_SELECT_FIELDS,
   sanitizeKqlValue,
@@ -1467,19 +1468,7 @@ export class OutlookProvider implements EmailProvider {
 
     const client = this.client.getClient();
 
-    type GraphMessage = {
-      conversationId: string;
-      conversationIndex?: string;
-      id: string;
-      bodyPreview: string;
-      body: { content: string };
-      from: { emailAddress: { address: string } };
-      toRecipients: { emailAddress: { address: string } }[];
-      receivedDateTime: string;
-      subject: string;
-    };
-
-    let response: { value: GraphMessage[]; "@odata.nextLink"?: string };
+    let response: { value: Message[]; "@odata.nextLink"?: string };
 
     // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
     if (options.pageToken?.startsWith("http")) {
@@ -1573,92 +1562,45 @@ export class OutlookProvider implements EmailProvider {
     let sortedMessages = response.value;
     if (fromEmail) {
       sortedMessages = response.value.sort(
-        (a: { receivedDateTime: string }, b: { receivedDateTime: string }) =>
+        (a: Message, b: Message) =>
           new Date(b.receivedDateTime).getTime() -
           new Date(a.receivedDateTime).getTime(),
       );
     }
 
-    // Group messages by conversationId to create threads
-    const messagesByThread = new Map<
-      string,
-      {
-        conversationId: string;
-        conversationIndex?: string;
-        id: string;
-        bodyPreview: string;
-        body: { content: string };
-        from: { emailAddress: { address: string } };
-        toRecipients: { emailAddress: { address: string } }[];
-        receivedDateTime: string;
-        subject: string;
-      }[]
-    >();
-    sortedMessages.forEach(
-      (message: {
-        conversationId: string;
-        id: string;
-        bodyPreview: string;
-        body: { content: string };
-        from: { emailAddress: { address: string } };
-        toRecipients: { emailAddress: { address: string } }[];
-        receivedDateTime: string;
-        subject: string;
-      }) => {
-        // Skip messages without conversationId
-        if (!message.conversationId) {
-          this.logger.warn("Message missing conversationId", {
-            messageId: message.id,
-          });
-          return;
-        }
+    const [folderIds, categoryMap] = await Promise.all([
+      getFolderIds(this.client, this.logger, { includeDrafts: false }),
+      getCategoryMap(this.client, this.logger),
+    ]);
 
-        const messages = messagesByThread.get(message.conversationId) || [];
-        messages.push(message);
-        messagesByThread.set(message.conversationId, messages);
-      },
-    );
+    // Group messages by conversationId to create threads
+    const messagesByThread = new Map<string, Message[]>();
+    sortedMessages.forEach((message: Message) => {
+      // Skip messages without conversationId
+      if (!message.conversationId) {
+        this.logger.warn("Message missing conversationId", {
+          messageId: message.id,
+        });
+        return;
+      }
+
+      const messages = messagesByThread.get(message.conversationId) || [];
+      messages.push(message);
+      messagesByThread.set(message.conversationId, messages);
+    });
 
     // Convert to EmailThread format
     const threads: EmailThread[] = Array.from(messagesByThread.entries())
       .filter(([_threadId, messages]) => messages.length > 0) // Filter out empty threads
       .map(([threadId, messages]) => {
-        // Convert messages to ParsedMessage format
-        const parsedMessages: ParsedMessage[] = messages.map((message) => {
-          const subject = message.subject || "";
-          const date = message.receivedDateTime || new Date().toISOString();
-
-          // Add proper null checks for from and toRecipients
-          const fromAddress = message.from?.emailAddress?.address || "";
-          const toAddress =
-            message.toRecipients?.[0]?.emailAddress?.address || "";
-
-          return {
-            id: message.id || "",
-            threadId: message.conversationId || "",
-            snippet: message.bodyPreview || "",
-            textPlain: message.body?.content || "",
-            textHtml: message.body?.content || "",
-            headers: {
-              from: fromAddress,
-              to: toAddress,
-              subject,
-              date,
-            },
-            subject,
-            date,
-            labelIds: [],
-            internalDate: date,
-            historyId: "",
-            inline: [],
-            conversationIndex: message.conversationIndex,
-          };
-        });
+        const parsedMessages: ParsedMessage[] = messages.map((message) =>
+          convertMessage(message, folderIds, categoryMap, this.logger),
+        );
 
         return {
           id: threadId,
           messages: parsedMessages,
-          snippet: messages[0]?.bodyPreview || "",
+          snippet: parsedMessages[0]?.snippet || "",
         };
       });
 
