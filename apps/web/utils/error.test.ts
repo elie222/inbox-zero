@@ -1,7 +1,19 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { APICallError } from "ai";
 import { createScopedLogger } from "@/utils/logger";
+const { mockSentryCaptureException, mockSetUser } = vi.hoisted(() => ({
+  mockSentryCaptureException: vi.fn(),
+  mockSetUser: vi.fn(),
+}));
+
+vi.mock("@sentry/nextjs", () => ({
+  captureException: mockSentryCaptureException,
+  setUser: mockSetUser,
+}));
+
 import {
+  attachLlmRepairMetadata,
+  captureException,
   checkCommonErrors,
   getActionErrorMessage,
   getUserFacingErrorMessage,
@@ -64,6 +76,56 @@ describe("getUserFacingErrorMessage", () => {
     const result = getUserFacingErrorMessage({}, "Fallback");
 
     expect(result).toBe("Fallback");
+  });
+});
+
+describe("captureException", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("forwards attached LLM repair metadata to Sentry extra context", () => {
+    const error = new Error("generation failed");
+    attachLlmRepairMetadata(error, {
+      attempted: true,
+      successful: false,
+      label: "Categorize sender",
+      provider: "openai",
+      model: "gpt-test",
+      inputLength: 12,
+      inputFingerprint: "abc123",
+      startsWithQuote: true,
+      startsWithBrace: false,
+      startsWithBracket: false,
+      looksCodeFenced: false,
+      candidateKindsTried: ["trimmed", "original"],
+    });
+
+    captureException(error, {
+      userEmail: "user@example.com",
+      extra: { operation: "test" },
+    });
+
+    expect(mockSetUser).toHaveBeenCalledWith({ email: "user@example.com" });
+    expect(mockSentryCaptureException).toHaveBeenCalledWith(error, {
+      extra: {
+        operation: "test",
+        llmRepair: {
+          attempted: true,
+          successful: false,
+          label: "Categorize sender",
+          provider: "openai",
+          model: "gpt-test",
+          inputLength: 12,
+          inputFingerprint: "abc123",
+          startsWithQuote: true,
+          startsWithBrace: false,
+          startsWithBracket: false,
+          looksCodeFenced: false,
+          candidateKindsTried: ["trimmed", "original"],
+        },
+      },
+    });
   });
 });
 
