@@ -56,7 +56,6 @@ describe("chat label tools", () => {
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       getLabels,
-      getLabelByName: vi.fn().mockResolvedValue(null),
       createLabel,
     } as any);
 
@@ -80,37 +79,23 @@ describe("chat label tools", () => {
       },
     });
     expect(createLabel).not.toHaveBeenCalled();
-
-    getLabels.mockResolvedValueOnce([]);
-
-    const createdResult = await (toolInstance.execute as any)({
-      name: "Work-Items_/2026.Report",
-    });
-
-    expect(createLabel).toHaveBeenCalledWith("Work-Items_/2026.Report");
-    expect(createdResult).toEqual({
-      created: true,
-      label: {
-        id: "label-2",
-        name: "Work-Items_/2026.Report",
-        type: "user",
-      },
-    });
+    expect(getLabels).toHaveBeenCalledTimes(1);
+    expect(getLabels).toHaveBeenCalledWith();
   });
 
-  it("reuses a hidden label when exact-name lookup finds one", async () => {
-    const getLabels = vi.fn().mockResolvedValue([]);
-    const getLabelByName = vi.fn().mockResolvedValue({
-      id: "label-hidden",
-      name: "FYI",
+  it("creates a label when no visible or hidden normalized match exists", async () => {
+    const getLabels = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    const createLabel = vi.fn().mockResolvedValue({
+      id: "label-2",
+      name: "Work-Items_/2026.Report",
       type: "user",
-      labelListVisibility: "labelHide",
     });
-    const createLabel = vi.fn();
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       getLabels,
-      getLabelByName,
       createLabel,
     } as any);
 
@@ -122,18 +107,64 @@ describe("chat label tools", () => {
     });
 
     const result = await (toolInstance.execute as any)({
-      name: "FYI",
+      name: "Work-Items_/2026.Report",
+    });
+
+    expect(createLabel).toHaveBeenCalledWith("Work-Items_/2026.Report");
+    expect(result).toEqual({
+      created: true,
+      label: {
+        id: "label-2",
+        name: "Work-Items_/2026.Report",
+        type: "user",
+      },
+    });
+    expect(getLabels).toHaveBeenCalledTimes(2);
+    expect(getLabels).toHaveBeenNthCalledWith(1);
+    expect(getLabels).toHaveBeenNthCalledWith(2, { includeHidden: true });
+  });
+
+  it("reuses a hidden normalized label before creating a new one", async () => {
+    const getLabels = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "label-hidden",
+          name: "Foo-Bar",
+          type: "user",
+          labelListVisibility: "labelHide",
+        },
+      ]);
+    const createLabel = vi.fn();
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getLabels,
+      createLabel,
+    } as any);
+
+    const toolInstance = createOrGetLabelTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      name: "foo bar",
     });
 
     expect(result).toEqual({
       created: false,
       label: {
         id: "label-hidden",
-        name: "FYI",
+        name: "Foo-Bar",
         type: "user",
       },
     });
     expect(createLabel).not.toHaveBeenCalled();
-    expect(getLabelByName).toHaveBeenCalledWith("FYI");
+    expect(getLabels).toHaveBeenCalledTimes(2);
+    expect(getLabels).toHaveBeenNthCalledWith(1);
+    expect(getLabels).toHaveBeenNthCalledWith(2, { includeHidden: true });
   });
 });
