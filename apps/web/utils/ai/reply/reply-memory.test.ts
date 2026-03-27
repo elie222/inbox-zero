@@ -64,6 +64,7 @@ describe("reply-memory", () => {
     vi.mocked(prisma.emailAccount.update).mockResolvedValue({} as any);
     vi.mocked(prisma.replyMemory.findMany).mockResolvedValue([] as any);
     vi.mocked(prisma.replyMemory.count).mockResolvedValue(0 as any);
+    vi.mocked(prisma.replyMemory.update).mockResolvedValue({} as any);
     vi.mocked(prisma.replyMemory.updateMany).mockResolvedValue({
       count: 0,
     } as any);
@@ -406,6 +407,102 @@ describe("reply-memory", () => {
       data: {
         replyMemoryProcessedAt: expect.any(Date),
       },
+    });
+  });
+
+  it("attaches new evidence to an existing semantically equivalent memory", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText:
+          "Thanks for reaching out. Please complete the Recruit Questionnaire, keep us posted on your schedule, and let us know if you can attend camp.",
+      }),
+    ] as any);
+    vi.mocked(prisma.replyMemory.findMany)
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "existing-procedure-memory",
+          content:
+            "For initial recruit inquiries, ask them to complete the Recruit Questionnaire, keep staff updated on their schedule, mention camps, and sign as Coach Schmid.",
+          kind: ReplyMemoryKind.PROCEDURE,
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+          createdAt: new Date("2026-03-10T09:00:00.000Z"),
+          updatedAt: new Date("2026-03-10T09:00:00.000Z"),
+        }),
+      ] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "existing-procedure-memory",
+          content:
+            "For initial recruit inquiries, ask them to complete the Recruit Questionnaire, keep staff updated on their schedule, mention camps, and sign as Coach Schmid.",
+          kind: ReplyMemoryKind.PROCEDURE,
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+          createdAt: new Date("2026-03-10T09:00:00.000Z"),
+          updatedAt: new Date("2026-03-10T09:00:00.000Z"),
+        }),
+      ] as any);
+    vi.mocked(prisma.replyMemory.update).mockResolvedValue(
+      createReplyMemory({
+        id: "existing-procedure-memory",
+        content:
+          "For initial recruit inquiries, ask them to complete the Recruit Questionnaire, keep staff updated on their schedule, mention camps, and sign as Coach Schmid.",
+        kind: ReplyMemoryKind.PROCEDURE,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+      }) as any,
+    );
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
+    mockGenerateObject
+      .mockResolvedValueOnce({
+        object: {
+          memories: [
+            {
+              content:
+                "When replying to an initial recruit inquiry, ask the prospect to complete the Recruit Questionnaire, keep you updated on their schedule, mention upcoming camps, and close as Coach Schmid.",
+              kind: ReplyMemoryKind.PROCEDURE,
+              scopeType: ReplyMemoryScopeType.GLOBAL,
+              scopeValue: "",
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        object: {
+          matchingExistingMemoryId: "existing-procedure-memory",
+        },
+      });
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+
+    await syncReplyMemoriesFromDraftSendLogs({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
+    expect(prisma.replyMemory.update).toHaveBeenCalledWith({
+      where: { id: "existing-procedure-memory" },
+      data: {
+        isLearnedStyleEvidence: false,
+      },
+    });
+    expect(prisma.replyMemorySource.upsert).toHaveBeenCalledWith({
+      where: {
+        replyMemoryId_draftSendLogId: {
+          replyMemoryId: "existing-procedure-memory",
+          draftSendLogId: "draft-send-log-1",
+        },
+      },
+      create: {
+        replyMemoryId: "existing-procedure-memory",
+        draftSendLogId: "draft-send-log-1",
+      },
+      update: {},
     });
   });
 

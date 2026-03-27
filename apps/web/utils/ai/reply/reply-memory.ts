@@ -3,9 +3,13 @@ import {
   ReplyMemoryScopeType,
 } from "@/generated/prisma/enums";
 import type { Prisma, ReplyMemory } from "@/generated/prisma/client";
+import { z } from "zod";
+import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { extractDomainFromEmail, extractEmailAddress } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { createGenerateObject } from "@/utils/llms";
+import { getModel } from "@/utils/llms/model";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -18,6 +22,7 @@ const MAX_EXISTING_MEMORIES_IN_PROMPT = 12;
 const MAX_EXISTING_PREFERENCE_MEMORIES_IN_PROMPT = 4;
 const MAX_RETRIEVED_REPLY_MEMORIES = 6;
 const MAX_RETRIEVED_TOPIC_REPLY_MEMORIES = 3;
+const MAX_REPLY_MEMORY_MATCH_CANDIDATES = 20;
 const PROMPTABLE_REPLY_MEMORY_KINDS = [
   ReplyMemoryKind.FACT,
   ReplyMemoryKind.PROCEDURE,
@@ -25,6 +30,9 @@ const PROMPTABLE_REPLY_MEMORY_KINDS = [
 const MIN_PREFERENCE_EVIDENCE_FOR_LEARNED_STYLE = 10;
 const PREFERENCE_EVIDENCE_PER_LEARNED_STYLE_REFRESH = 5;
 const MAX_PREFERENCE_EVIDENCE_FOR_LEARNED_STYLE = 25;
+const replyMemoryMatchSchema = z.object({
+  matchingExistingMemoryId: z.string().trim().nullable(),
+});
 
 export async function saveDraftSendLogReplyMemory({
   draftSendLogId,
@@ -427,21 +435,36 @@ async function processReplyMemoryDraftSendLog({
     const isLearnedStyleEvidence =
       normalizedMemory.kind === ReplyMemoryKind.PREFERENCE;
 
-    const persistedMemory = await prisma.replyMemory.upsert({
-      where,
-      create: {
-        emailAccountId,
-        content: normalizedMemory.content,
-        kind: normalizedMemory.kind,
-        scopeType: normalizedMemory.scopeType,
-        scopeValue: normalizedScopeValue,
-        isLearnedStyleEvidence,
-      },
-      update: {
-        content: normalizedMemory.content,
-        isLearnedStyleEvidence,
-      },
+    const matchingExistingMemory = await findMatchingExistingReplyMemory({
+      emailAccount,
+      emailAccountId,
+      logger,
+      memory: normalizedMemory,
+      normalizedScopeValue,
     });
+
+    const persistedMemory = matchingExistingMemory
+      ? await prisma.replyMemory.update({
+          where: { id: matchingExistingMemory.id },
+          data: {
+            isLearnedStyleEvidence,
+          },
+        })
+      : await prisma.replyMemory.upsert({
+          where,
+          create: {
+            emailAccountId,
+            content: normalizedMemory.content,
+            kind: normalizedMemory.kind,
+            scopeType: normalizedMemory.scopeType,
+            scopeValue: normalizedScopeValue,
+            isLearnedStyleEvidence,
+          },
+          update: {
+            content: normalizedMemory.content,
+            isLearnedStyleEvidence,
+          },
+        });
 
     await prisma.replyMemorySource.upsert({
       where: {
@@ -791,4 +814,116 @@ function truncatePreferenceEvidenceText(value: string) {
   return normalized.length > 280
     ? `${normalized.slice(0, 277).trimEnd()}...`
     : normalized;
+}
+
+async function findMatchingExistingReplyMemory({
+  emailAccount,
+  emailAccountId,
+  logger,
+  memory,
+  normalizedScopeValue,
+}: {
+  emailAccount: NonNullable<Awaited<ReturnType<typeof getEmailAccountWithAi>>>;
+  emailAccountId: string;
+  logger: Logger;
+  memory: Pick<ReplyMemory, "content" | "kind" | "scopeType">;
+  normalizedScopeValue: string;
+}) {
+  const candidates = await prisma.replyMemory.findMany({
+    where: {
+      emailAccountId,
+      kind: memory.kind,
+      scopeType: memory.scopeType,
+      scopeValue: normalizedScopeValue,
+    },
+    orderBy: { updatedAt: "desc" },
+    take: MAX_REPLY_MEMORY_MATCH_CANDIDATES,
+  });
+
+  if (!candidates.length) return null;
+
+  const modelOptions = getModel(emailAccount.user, "economy");
+  const generateObject = createGenerateObject({
+    emailAccount,
+    label: "Reply memory merge matching",
+    modelOptions,
+  });
+
+  try {
+    const result = await generateObject({
+      ...modelOptions,
+      system: getReplyMemoryMatchSystemPrompt(),
+      prompt: getReplyMemoryMatchPrompt({
+        memory,
+        normalizedScopeValue,
+        candidates,
+      }),
+      schema: replyMemoryMatchSchema,
+    });
+
+    const matchingId = result.object.matchingExistingMemoryId;
+    if (!matchingId) return null;
+
+    return candidates.find((candidate) => candidate.id === matchingId) ?? null;
+  } catch (error) {
+    logger.warn("Failed to match reply memory against existing memories", {
+      error,
+      emailAccountId,
+      replyMemoryKind: memory.kind,
+      replyMemoryScopeType: memory.scopeType,
+    });
+    return null;
+  }
+}
+
+function getReplyMemoryMatchPrompt({
+  memory,
+  normalizedScopeValue,
+  candidates,
+}: {
+  memory: Pick<ReplyMemory, "content" | "kind" | "scopeType">;
+  normalizedScopeValue: string;
+  candidates: ReplyMemory[];
+}) {
+  return `<new_memory>
+kind: ${memory.kind}
+scope_type: ${memory.scopeType}
+scope_value: ${normalizedScopeValue || "(global)"}
+content: ${memory.content}
+</new_memory>
+
+<existing_memories>
+${candidates
+  .map(
+    (candidate, index) =>
+      `${index + 1}. id=${candidate.id}\ncontent: ${candidate.content}`,
+  )
+  .join("\n\n")}
+</existing_memories>
+
+Choose the existing memory id if one existing memory already captures the same durable idea as the new memory. Otherwise return null.`;
+}
+
+function getReplyMemoryMatchSystemPrompt() {
+  return `You decide whether a newly extracted reply memory should attach to an existing reply memory instead of creating a new one.
+
+${PROMPT_SECURITY_INSTRUCTIONS}
+
+Work language-agnostically. The memories may be written in any language.
+
+Match an existing memory when:
+- it captures the same durable instruction, fact, or procedure
+- differences are only phrasing, wording, examples, or minor emphasis
+- the new memory would be redundant if stored separately
+
+Return null when:
+- the new memory adds a meaningfully different rule, fact, or workflow
+- two memories are related but should still remain separate
+- no candidate is a strong semantic match
+
+Rules:
+- Only return an id from the provided candidate list.
+- Be conservative: pick an id only when the match is clearly the same memory.
+- Ignore exact wording; focus on semantic equivalence.
+- Do not invent or rewrite memory text.`;
 }
