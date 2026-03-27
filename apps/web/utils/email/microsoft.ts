@@ -1563,8 +1563,8 @@ export class OutlookProvider implements EmailProvider {
     if (fromEmail) {
       sortedMessages = response.value.sort(
         (a: Message, b: Message) =>
-          new Date(b.receivedDateTime).getTime() -
-          new Date(a.receivedDateTime).getTime(),
+          new Date(b.receivedDateTime || 0).getTime() -
+          new Date(a.receivedDateTime || 0).getTime(),
       );
     }
 
