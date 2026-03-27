@@ -786,7 +786,7 @@ describe("aiProcessAssistantChat", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("call getUserRulesAndSettings");
+    expect(result.error).toContain("Call getUserRulesAndSettings");
     expect(mockPrisma.rule.findUnique).not.toHaveBeenCalled();
   });
 
@@ -1272,7 +1272,7 @@ describe("aiProcessAssistantChat", () => {
     });
     expect(bulkMissingSenders).toEqual({
       error:
-        "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
+        'No sender-level action was taken. "fromEmails" is required for bulk_archive_senders and unsubscribe_senders. If you only meant the emails already shown, use archive_threads with threadIds instead.',
     });
 
     const unsubscribeMissingSenders = await tools.manageInbox.execute({
@@ -1281,7 +1281,7 @@ describe("aiProcessAssistantChat", () => {
     });
     expect(unsubscribeMissingSenders).toEqual({
       error:
-        "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
+        'No sender-level action was taken. "fromEmails" is required for bulk_archive_senders and unsubscribe_senders. If you only meant the emails already shown, use archive_threads with threadIds instead.',
     });
 
     const archiveEmptyThreadIds = await tools.manageInbox.execute({

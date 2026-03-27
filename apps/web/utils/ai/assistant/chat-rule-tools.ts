@@ -951,11 +951,11 @@ function validateRuleWasReadRecently({
   const ruleReadState = getRuleReadState?.() || null;
 
   if (!ruleReadState) {
-    return "Before updating an existing rule, call getUserRulesAndSettings immediately beforehand.";
+    return "No rule was changed. Call getUserRulesAndSettings immediately before updating this rule.";
   }
 
   if (Date.now() - ruleReadState.readAt > RULE_READ_FRESHNESS_WINDOW_MS) {
-    return "Rules may be stale. Call getUserRulesAndSettings again immediately before updating the rule.";
+    return "No rule was changed. Rules may be stale. Call getUserRulesAndSettings again immediately before updating the rule.";
   }
 
   if (!currentRuleUpdatedAt) return null;
@@ -964,11 +964,11 @@ function validateRuleWasReadRecently({
     ruleReadState.ruleUpdatedAtByName.get(ruleName) || null;
 
   if (!lastReadRuleUpdatedAt) {
-    return "Rule details are stale or missing. Call getUserRulesAndSettings again before updating this rule.";
+    return "No rule was changed. Rule details are stale or missing. Call getUserRulesAndSettings again before updating this rule.";
   }
 
   if (lastReadRuleUpdatedAt !== currentRuleUpdatedAt.toISOString()) {
-    return "Rule changed since the last read. Call getUserRulesAndSettings again, then apply the update.";
+    return "No rule was changed. Rule changed since the last read. Call getUserRulesAndSettings again, then apply the update.";
   }
 
   return null;
