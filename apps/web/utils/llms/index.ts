@@ -33,6 +33,7 @@ import {
   isIncorrectOpenAIAPIKeyError,
   isInsufficientCreditsError,
   isInvalidAIModelError,
+  type LlmRepairMetadata,
   isOpenAIAPIKeyDeactivatedError,
   isAiQuotaExceededError,
   markAsHandledUserKeyError,
@@ -346,14 +347,12 @@ export function createGenerateObject({
       } catch (error) {
         attachLlmRepairMetadata(
           error,
-          latestRepairAttempt && {
-            attempted: true,
-            successful: Boolean(latestRepairAttempt.successfulCandidateKind),
+          buildRepairMetadata({
+            attempt: latestRepairAttempt,
             label,
             provider: candidate.provider,
             model: candidate.modelName,
-            ...latestRepairAttempt,
-          },
+          }),
         );
 
         if (nextCandidate && shouldFallbackToNextModel(error)) {
@@ -1181,6 +1180,29 @@ function createRepairAttemptState(text: string): RepairAttemptState {
     startsWithBracket: /^[\s]*\[/.test(text),
     looksCodeFenced: /^[\s]*```/.test(text),
     candidateKindsTried: [],
+  };
+}
+
+function buildRepairMetadata({
+  attempt,
+  label,
+  provider,
+  model,
+}: {
+  attempt: RepairAttemptState | undefined;
+  label: string;
+  provider: string;
+  model: string;
+}): LlmRepairMetadata | undefined {
+  if (!attempt) return;
+
+  return {
+    attempted: true,
+    successful: Boolean(attempt.successfulCandidateKind),
+    label,
+    provider,
+    model,
+    ...attempt,
   };
 }
 
