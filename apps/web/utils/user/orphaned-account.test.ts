@@ -3,10 +3,10 @@ import { cleanupOrphanedAccount } from "./orphaned-account";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   getMockAccountWithEmailAccount,
-  testLogger,
+  createTestLogger,
 } from "@/__tests__/helpers";
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 

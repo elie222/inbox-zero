@@ -12,7 +12,7 @@ import {
 } from "@/utils/attachments/draft-attachments";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
 import type { ParsedMessage } from "@/utils/types";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/redis/reply", () => ({
@@ -28,7 +28,7 @@ vi.mock("@/utils/attachments/draft-attachments", () => ({
 }));
 
 describe("runActionFunction", () => {
-  const logger = testLogger;
+  const logger = createTestLogger();
   const email = {
     id: "message-1",
     threadId: "thread-1",

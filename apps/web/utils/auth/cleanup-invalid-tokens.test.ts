@@ -3,9 +3,9 @@ import prisma from "@/utils/__mocks__/prisma";
 import { cleanupInvalidTokens } from "./cleanup-invalid-tokens";
 import { sendReconnectionEmail } from "@inboxzero/resend";
 import { addUserErrorMessage } from "@/utils/error-messages";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 vi.mock("@inboxzero/resend", () => ({

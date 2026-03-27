@@ -5,11 +5,11 @@ import {
   calculateDistribution,
 } from "./calculate";
 import { getMockMessage as getMockMessageHelper } from "../../../../../__tests__/helpers";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 describe("Response Time Stats", () => {
   describe("calculateResponseTimes", () => {

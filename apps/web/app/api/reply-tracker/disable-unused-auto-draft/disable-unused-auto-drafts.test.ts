@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { disableUnusedAutoDrafts } from "./disable-unused-auto-drafts";
 import { ActionType } from "@/generated/prisma/enums";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));

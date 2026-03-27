@@ -10,10 +10,10 @@ vi.mock("@/utils/auth", () => ({
 }));
 
 import { auth } from "@/utils/auth";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const mockAuth = vi.mocked(auth);
-const logger = testLogger;
+const logger = createTestLogger();
 
 describe("verifyEmailAccountAccess", () => {
   const emailAccountId = "email-account-123";

@@ -5,9 +5,9 @@ import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { extractEmailAddress } from "@/utils/email";
 import { GroupItemSource } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 vi.mock("server-only", () => ({}));
 

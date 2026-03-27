@@ -9,7 +9,7 @@ import prisma from "@/utils/prisma";
 import { ActionType } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -29,7 +29,7 @@ describe("handlePreviousDraftDeletion", () => {
     getDraft: mockGetDraft,
     deleteDraft: mockDeleteDraft,
   } as unknown as EmailProvider;
-  const logger = testLogger;
+  const logger = createTestLogger();
   const mockExecutedRule = {
     id: "rule-123",
     threadId: "thread-456",
@@ -551,7 +551,7 @@ describe("stripQuotedContent", () => {
 });
 
 describe("isDraftUnmodified", () => {
-  const logger = testLogger;
+  const logger = createTestLogger();
 
   it("should return true when content matches exactly", () => {
     const originalContent = "Hello, this is a test";

@@ -56,7 +56,7 @@ vi.mock("@/env", () => ({
 }));
 
 import prisma from "@/utils/prisma";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const mockLogger = {
   info: vi.fn(),
@@ -329,7 +329,7 @@ describe("generateFollowUpDraft", () => {
       }),
     });
 
-    const logger = testLogger;
+    const logger = createTestLogger();
 
     // Should NOT throw even though tracker update fails
     await generateFollowUpDraft({

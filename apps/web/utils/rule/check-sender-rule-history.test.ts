@@ -5,10 +5,10 @@ import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import {
   getMockExecutedRule,
   getMockMessage,
-  testLogger,
+  createTestLogger,
 } from "@/__tests__/helpers";
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 

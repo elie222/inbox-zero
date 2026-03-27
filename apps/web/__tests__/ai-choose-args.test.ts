@@ -5,13 +5,13 @@ import {
   getAction,
   getEmailAccount,
   getRule,
-  testLogger,
+  createTestLogger,
 } from "@/__tests__/helpers";
 import { ActionType, DraftReplyConfidence } from "@/generated/prisma/enums";
 
 // pnpm test-ai ai-choose-args
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 

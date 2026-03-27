@@ -6,7 +6,9 @@ import type { Action, Prisma } from "@/generated/prisma/client";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { createScopedLogger } from "@/utils/logger";
 
-export const testLogger = createScopedLogger("test");
+export function createTestLogger() {
+  return createScopedLogger("test");
+}
 
 type EmailAccountSelect = {
   id: string;

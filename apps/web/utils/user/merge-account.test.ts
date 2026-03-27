@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mergeAccount } from "./merge-account";
 import prisma from "@/utils/__mocks__/prisma";
-import { getMockUserSelect, testLogger } from "@/__tests__/helpers";
+import { getMockUserSelect, createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/user/merge-premium");
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 describe("mergeAccount", () => {
   beforeEach(() => {

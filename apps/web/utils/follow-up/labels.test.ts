@@ -6,13 +6,13 @@ import {
   hasFollowUpLabel,
   clearFollowUpLabel,
 } from "./labels";
-import { getMockMessage, testLogger } from "@/__tests__/helpers";
+import { getMockMessage, createTestLogger } from "@/__tests__/helpers";
 import { createMockEmailProvider } from "@/__tests__/mocks/email-provider.mock";
 import prisma from "@/utils/__mocks__/prisma";
 
 vi.mock("@/utils/prisma");
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 describe("getOrCreateFollowUpLabel", () => {
   beforeEach(() => {

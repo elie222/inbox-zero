@@ -18,12 +18,12 @@ import {
   getAction,
   getEmail,
   getEmailAccount,
-  testLogger,
+  createTestLogger,
 } from "@/__tests__/helpers";
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));
@@ -522,7 +522,7 @@ describe("limitDraftEmailActions", () => {
       },
     ];
 
-    const result = limitDraftEmailActions(matches, testLogger);
+    const result = limitDraftEmailActions(matches, createTestLogger());
 
     expect(result).toBe(matches);
   });

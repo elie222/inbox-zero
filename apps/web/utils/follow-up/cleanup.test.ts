@@ -11,11 +11,11 @@ vi.mock("./labels", () => ({
 }));
 
 import { hasFollowUpLabel } from "./labels";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
 const mockHasFollowUpLabel = vi.mocked(hasFollowUpLabel);
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 describe("cleanupStaleDrafts", () => {
   beforeEach(() => {

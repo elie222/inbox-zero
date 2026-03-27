@@ -11,9 +11,9 @@ import { captureException } from "@/utils/error";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
 import { learnFromOutlookLabelRemoval } from "./learn-label-removal";
 import prisma from "@/utils/prisma";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = testLogger;
+const logger = createTestLogger();
 vi.spyOn(logger, "with").mockReturnValue(logger);
 
 vi.mock("server-only", () => ({}));

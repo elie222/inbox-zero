@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ActionType, ScheduledActionStatus } from "@/generated/prisma/enums";
 import { executeScheduledAction } from "./executor";
 import prisma from "@/utils/__mocks__/prisma";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
 // Run with: pnpm test utils/scheduled-actions/executor.test.ts
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");

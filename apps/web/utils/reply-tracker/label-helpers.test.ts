@@ -2,9 +2,9 @@ import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
 import { applyThreadStatusLabel } from "./label-helpers";
 import type { EmailProvider } from "@/utils/email/types";
 import prisma from "@/utils/__mocks__/prisma";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");

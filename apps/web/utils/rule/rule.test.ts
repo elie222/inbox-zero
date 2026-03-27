@@ -30,9 +30,9 @@ vi.mock("@/utils/prisma-helpers", () => ({
 }));
 
 import { createRule, deleteRule, updateRule, updateRuleActions } from "./rule";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 describe("deleteRule", () => {
   beforeEach(() => {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { trackError } from "@/utils/posthog";
 import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/posthog", () => ({
@@ -13,7 +13,7 @@ vi.mock("@/utils/email/rate-limit", () => ({
 }));
 
 describe("handleWebhookError", () => {
-  const logger = testLogger;
+  const logger = createTestLogger();
   const baseOptions = {
     email: "test@example.com",
     emailAccountId: "acc-123",

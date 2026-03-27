@@ -7,7 +7,7 @@ import { updateThreadTrackers } from "@/utils/reply-tracker/handle-conversation-
 import {
   getEmailAccount,
   getMockMessage,
-  testLogger,
+  createTestLogger,
 } from "@/__tests__/helpers";
 import { SystemType } from "@/generated/prisma/enums";
 import {
@@ -28,7 +28,7 @@ vi.mock("@/utils/redis/outbound-thread-status", () => ({
 vi.mock("server-only", () => ({}));
 
 describe("handleOutboundReply", () => {
-  const logger = testLogger;
+  const logger = createTestLogger();
   const emailAccount = getEmailAccount();
   const provider = {
     getThreadMessages: vi.fn(),

@@ -20,7 +20,7 @@ import type {
 import type { EmailProvider } from "@/utils/email/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { getEmailAccount, testLogger } from "@/__tests__/helpers";
+import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { ConditionType } from "@/utils/config";
 import {
   getColdEmailRule,
@@ -31,7 +31,7 @@ import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 // Run with:
 // pnpm test match-rules.test.ts
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 const provider = {
   isReplyInThread: vi.fn().mockReturnValue(false),

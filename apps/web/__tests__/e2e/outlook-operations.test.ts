@@ -24,9 +24,9 @@ import {
 } from "@/__tests__/e2e/helpers";
 import { sleep } from "@/utils/sleep";
 import type { EmailProvider } from "@/utils/email/types";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES

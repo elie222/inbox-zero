@@ -5,11 +5,11 @@ import type {
   CalendarEventProvider,
 } from "@/utils/calendar/event-types";
 import { fetchUpcomingEvents } from "./fetch-upcoming-events";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/calendar/event-provider");
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 describe("fetchUpcomingEvents", () => {
   beforeEach(() => {

@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleAccountLinking } from "./account-linking";
 import prisma from "@/utils/__mocks__/prisma";
-import { getMockEmailAccountSelect, testLogger } from "@/__tests__/helpers";
+import {
+  getMockEmailAccountSelect,
+  createTestLogger,
+} from "@/__tests__/helpers";
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 vi.mock("@/env", () => ({
   env: {

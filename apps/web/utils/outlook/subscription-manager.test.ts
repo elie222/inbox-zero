@@ -3,9 +3,9 @@ import { OutlookSubscriptionManager } from "@/utils/outlook/subscription-manager
 import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
 import type { SubscriptionHistoryEntry } from "@/utils/outlook/subscription-history";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 // Mock dependencies
 vi.mock("server-only", () => ({}));

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleLoopsEvents } from "./loops-events";
-import { testLogger } from "@/__tests__/helpers";
+import { createTestLogger } from "@/__tests__/helpers";
 import {
   createContact,
   completedTrial,
@@ -8,7 +8,7 @@ import {
   cancelledPremium,
 } from "@inboxzero/loops";
 
-const logger = testLogger;
+const logger = createTestLogger();
 
 vi.mock("@inboxzero/loops", () => ({
   createContact: vi.fn().mockResolvedValue({ success: true }),
