@@ -71,6 +71,8 @@ export const POST = withEmailAccount("chat", async (request) => {
     );
   }
 
+  const chatHasHistory =
+    chat.messages.length > 0 || chat.compactions.length > 0;
   const { message, context, inlineActions } = data;
 
   const hiddenInlineActionMessage =
@@ -207,6 +209,7 @@ export const POST = withEmailAccount("chat", async (request) => {
       context,
       chatId: chat.id,
       chatLastSeenRulesRevision: chat.lastSeenRulesRevision,
+      chatHasHistory,
       memories,
       inboxStats,
       onRulesStateExposed: (rulesRevision) => {
@@ -247,7 +250,11 @@ export const POST = withEmailAccount("chat", async (request) => {
         await saveChatMessages(messages, chat.id, request.logger);
 
         if (seenRulesRevision != null) {
-          await saveLastSeenRulesRevision(chat.id, seenRulesRevision);
+          await saveLastSeenRulesRevision(
+            chat.id,
+            seenRulesRevision,
+            request.logger,
+          );
         }
       },
     });
@@ -321,19 +328,25 @@ async function saveChatMessages(
 async function saveLastSeenRulesRevision(
   chatId: string,
   rulesRevision: number,
+  logger: Logger,
 ) {
-  await prisma.chat.updateMany({
-    where: {
-      id: chatId,
-      OR: [
-        { lastSeenRulesRevision: null },
-        { lastSeenRulesRevision: { lt: rulesRevision } },
-      ],
-    },
-    data: {
-      lastSeenRulesRevision: rulesRevision,
-    },
-  });
+  try {
+    await prisma.chat.updateMany({
+      where: {
+        id: chatId,
+        OR: [
+          { lastSeenRulesRevision: null },
+          { lastSeenRulesRevision: { lt: rulesRevision } },
+        ],
+      },
+      data: {
+        lastSeenRulesRevision: rulesRevision,
+      },
+    });
+  } catch (error) {
+    logger.error("Failed to save rules revision", { error, chatId });
+    throw error;
+  }
 }
 
 function buildHiddenInlineActionMessage(

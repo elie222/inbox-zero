@@ -97,6 +97,7 @@ export async function aiProcessAssistantChat({
   context,
   chatId,
   chatLastSeenRulesRevision,
+  chatHasHistory = false,
   memories,
   inboxStats,
   responseSurface = "web",
@@ -111,6 +112,7 @@ export async function aiProcessAssistantChat({
   context?: MessageContext;
   chatId?: string;
   chatLastSeenRulesRevision?: number | null;
+  chatHasHistory?: boolean;
   memories?: { content: string; date: string }[];
   inboxStats?: { total: number; unread: number } | null;
   responseSurface?: "web" | "messaging";
@@ -323,6 +325,7 @@ Behavior anchors (minimal examples):
     const freshRuleState = await loadFreshRuleContext({
       emailAccountId,
       chatLastSeenRulesRevision,
+      chatHasHistory,
     });
 
     if (freshRuleState) {
@@ -531,21 +534,25 @@ Behavior anchors (minimal examples):
 async function loadFreshRuleContext({
   emailAccountId,
   chatLastSeenRulesRevision,
+  chatHasHistory,
 }: {
   emailAccountId: string;
   chatLastSeenRulesRevision?: number | null;
+  chatHasHistory?: boolean;
 }) {
-  if (chatLastSeenRulesRevision == null) return null;
+  if (chatLastSeenRulesRevision == null && !chatHasHistory) return null;
+
+  const knownRulesRevision = chatLastSeenRulesRevision ?? -1;
 
   const currentRulesRevision = await loadCurrentRulesRevision({
     emailAccountId,
   });
 
-  if (currentRulesRevision <= chatLastSeenRulesRevision) return null;
+  if (currentRulesRevision <= knownRulesRevision) return null;
 
   const snapshot = await loadAssistantRuleSnapshot({ emailAccountId });
 
-  if (snapshot.rulesRevision <= chatLastSeenRulesRevision) return null;
+  if (snapshot.rulesRevision <= knownRulesRevision) return null;
 
   return {
     snapshot,

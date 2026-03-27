@@ -185,6 +185,7 @@ describe("chat route rule freshness persistence", () => {
       expect.objectContaining({
         chatId: "chat-1",
         chatLastSeenRulesRevision: 2,
+        chatHasHistory: false,
       }),
     );
     expect(prisma.chat.updateMany).toHaveBeenCalledWith({
@@ -219,6 +220,7 @@ describe("chat route rule freshness persistence", () => {
     expect(mockAiProcessAssistantChat).toHaveBeenCalledWith(
       expect.objectContaining({
         chatLastSeenRulesRevision: null,
+        chatHasHistory: false,
       }),
     );
     expect(prisma.chat.updateMany).toHaveBeenCalledWith({
@@ -239,6 +241,51 @@ describe("chat route rule freshness persistence", () => {
     await POST(createRequest());
 
     expect(prisma.chat.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("marks chats with prior messages as having history", async () => {
+    prisma.chat.findUnique.mockResolvedValueOnce({
+      id: "chat-1",
+      emailAccountId: "email-account-id",
+      lastSeenRulesRevision: null,
+      messages: [
+        {
+          id: "assistant-message-1",
+          role: "assistant",
+          parts: [{ type: "text", text: "Earlier reply" }],
+          createdAt: new Date("2026-03-27T10:00:00.000Z"),
+        },
+      ],
+      compactions: [],
+    });
+
+    await POST(createRequest());
+
+    expect(mockAiProcessAssistantChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatHasHistory: true,
+      }),
+    );
+  });
+
+  it("logs and rethrows when saving the rules revision fails", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    prisma.chat.updateMany.mockRejectedValueOnce(new Error("db down"));
+    mockAiProcessAssistantChat.mockImplementationOnce(async (args) => {
+      args.onRulesStateExposed?.(3);
+      return createAssistantStreamResult();
+    });
+
+    await expect(POST(createRequest())).rejects.toThrow("db down");
+    expect(consoleErrorSpy.mock.calls.flat()).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Failed to save rules revision"),
+      ]),
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 });
 
