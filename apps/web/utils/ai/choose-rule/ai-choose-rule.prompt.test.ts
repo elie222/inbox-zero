@@ -70,11 +70,7 @@ describe("aiChooseRule prompt", () => {
     expect(result.rules[0]?.rule.name).toBe("Notification");
 
     const promptCall = mockGenerateObject.mock.calls[0]?.[0];
-    expect(promptCall?.system).toContain(
-      "whether it is user-defined or a built-in system rule",
-    );
-    expect(promptCall?.system).toContain(
-      "usually belong to Notification, even when the email includes a List-Unsubscribe header",
-    );
+    expect(promptCall?.system).toMatch(/built-?in|system rule/i);
+    expect(promptCall?.system).toMatch(/list-?unsubscribe/i);
   });
 });

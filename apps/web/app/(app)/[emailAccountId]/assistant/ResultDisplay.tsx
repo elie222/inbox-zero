@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { MessageText, MutedText } from "@/components/Typography";
 import { EyeIcon } from "lucide-react";
 import { useRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
+import { ThreadSkipHint } from "@/app/(app)/[emailAccountId]/assistant/ThreadSkipHint";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
@@ -155,23 +156,12 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
         )}
       </div>
 
-      {status === ExecutedRuleStatus.SKIPPED &&
-        skippedThreadRuleNames.length > 0 && (
-          <div className="mt-3 text-sm text-muted-foreground">
-            Some rules were skipped because this email is part of a thread.{" "}
-            <HoverCard
-              content={
-                <div className="max-w-xs text-sm">
-                  Skipped: {skippedThreadRuleNames.join(", ")}
-                </div>
-              }
-            >
-              <button className="underline underline-offset-2" type="button">
-                View skipped rules
-              </button>
-            </HoverCard>
-          </div>
-        )}
+      {status === ExecutedRuleStatus.SKIPPED && (
+        <ThreadSkipHint
+          skippedThreadRuleNames={skippedThreadRuleNames}
+          className="mt-3"
+        />
+      )}
 
       {!!reason && (
         <div className="mt-4 space-y-2 bg-muted p-2 rounded-md">

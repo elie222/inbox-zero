@@ -96,14 +96,9 @@ export async function findMatchingRules({
           },
         ],
         reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
-        selectionMetadata: {
+        selectionMetadata: createRuleSelectionMetadata({
           isThread: provider.isReplyInThread(message),
-          skippedThreadRuleNames: [],
-          continuedThreadRuleNames: [],
-          filteredConversationRuleNames: [],
-          conversationFilterReason: undefined,
-          remainingAiRuleNames: [],
-        },
+        }),
       };
     }
   }
@@ -309,14 +304,14 @@ async function findPotentialMatchingRules({
     potentialAiMatches: hasLearnedPatternMatch
       ? []
       : filteredPotentialAiMatches,
-    selectionMetadata: {
+    selectionMetadata: createRuleSelectionMetadata({
       isThread,
       skippedThreadRuleNames,
       continuedThreadRuleNames,
       filteredConversationRuleNames: conversationStatusFilter.filteredRuleNames,
       conversationFilterReason: conversationStatusFilter.filterReason,
       remainingAiRuleNames: filteredPotentialAiMatches.map((rule) => rule.name),
-    },
+    }),
   };
 }
 
@@ -437,6 +432,31 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
 
 function joinLogValues(values: (string | null | undefined)[]) {
   return values.filter((value): value is string => !!value).join(", ");
+}
+
+function createRuleSelectionMetadata({
+  isThread,
+  skippedThreadRuleNames = [],
+  continuedThreadRuleNames = [],
+  filteredConversationRuleNames = [],
+  conversationFilterReason,
+  remainingAiRuleNames = [],
+}: {
+  isThread: boolean;
+  skippedThreadRuleNames?: string[];
+  continuedThreadRuleNames?: string[];
+  filteredConversationRuleNames?: string[];
+  conversationFilterReason?: string;
+  remainingAiRuleNames?: string[];
+}): RuleSelectionMetadata {
+  return {
+    isThread,
+    skippedThreadRuleNames,
+    continuedThreadRuleNames,
+    filteredConversationRuleNames,
+    conversationFilterReason,
+    remainingAiRuleNames,
+  };
 }
 
 async function findMatchingRulesWithReasons(

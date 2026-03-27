@@ -54,11 +54,11 @@ import {
   ResultsDisplay,
   ResultDisplayContent,
 } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
+import { ThreadSkipHint } from "@/app/(app)/[emailAccountId]/assistant/ThreadSkipHint";
 import {
   ActivityLog,
   type ActivityLogEntry,
 } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
-import { HoverCard } from "@/components/HoverCard";
 
 export const maxDuration = 3;
 
@@ -1029,29 +1029,7 @@ function ThreadSkipHintDemo() {
         </MessageText>
       </div>
 
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span>
-          Some rules were skipped because this email is part of a thread.
-        </span>
-        <HoverCard
-          content={
-            <div className="space-y-2">
-              <div className="text-sm font-medium">Skipped for threads</div>
-              <div className="text-sm text-muted-foreground">
-                {skippedRuleNames.join(", ")}
-              </div>
-            </div>
-          }
-          className="w-64"
-        >
-          <button
-            type="button"
-            className="font-medium text-foreground underline decoration-dotted underline-offset-4"
-          >
-            View skipped rules
-          </button>
-        </HoverCard>
-      </div>
+      <ThreadSkipHint skippedThreadRuleNames={skippedRuleNames} />
     </div>
   );
 }
