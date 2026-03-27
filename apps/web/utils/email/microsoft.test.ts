@@ -221,15 +221,7 @@ function createMockOutlookClient(messages: Message[]) {
   } as any;
 }
 
-function createMessage({
-  id,
-  conversationId = "thread-1",
-  receivedDateTime = "2026-01-01T00:00:00.000Z",
-  isDraft = false,
-  categories = [],
-  parentFolderId,
-  isRead = true,
-}: {
+function createMessage(input: {
   id: string;
   conversationId?: string;
   receivedDateTime?: string | undefined;
@@ -238,6 +230,18 @@ function createMessage({
   parentFolderId?: string;
   isRead?: boolean;
 }): Message {
+  const {
+    id,
+    conversationId = "thread-1",
+    isDraft = false,
+    categories = [],
+    parentFolderId,
+    isRead = true,
+  } = input;
+  const receivedDateTime = Object.hasOwn(input, "receivedDateTime")
+    ? input.receivedDateTime
+    : "2026-01-01T00:00:00.000Z";
+
   return {
     id,
     conversationId,
