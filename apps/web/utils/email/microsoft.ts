@@ -1474,21 +1474,11 @@ export class OutlookProvider implements EmailProvider {
     const requiredLabelIdsForLocalFiltering = hasExplicitLabelFilters
       ? requiredLabelIds
       : undefined;
-
-    type GraphMessage = {
-      conversationId: string;
-      conversationIndex?: string;
-      id: string;
-      bodyPreview: string;
-      body: { content: string };
-      from: { emailAddress: { address: string } };
-      toRecipients: { emailAddress: { address: string } }[];
-      receivedDateTime: string;
-      subject: string;
-    };
-
-    let response: { value: GraphMessage[]; "@odata.nextLink"?: string };
-    let folderIds: Record<string, string> | undefined;
+    const resolvedFolderIds = await getFolderIds(this.client, this.logger, {
+      includeDrafts: false,
+    });
+    const cachedCategoryMap = this.client.getCategoryMapCache() || undefined;
+    let response: { value: Message[]; "@odata.nextLink"?: string };
 
     // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
     if (options.pageToken?.startsWith("http")) {
@@ -1503,20 +1493,16 @@ export class OutlookProvider implements EmailProvider {
       if (type === "sent" && !hasExplicitLabelFilters) {
         endpoint = "/me/mailFolders('sentitems')/messages";
       } else {
-        folderIds = await getFolderIds(this.client, this.logger, {
-          includeDrafts: false,
-        });
-
         if (labelId) {
           const labelFilter = await resolveOutlookThreadQueryFilter({
             client: this.client,
-            folderIds,
+            folderIds: resolvedFolderIds,
             labelId,
           });
           if (labelFilter) filters.push(labelFilter);
         } else if (!hasExplicitLabelFilters) {
           const defaultFolderFilter = getDefaultOutlookThreadFolderFilter({
-            folderIds,
+            folderIds: resolvedFolderIds,
             type,
           });
           if (defaultFolderFilter) filters.push(defaultFolderFilter);
@@ -1565,15 +1551,6 @@ export class OutlookProvider implements EmailProvider {
       response = await request.get();
     }
 
-    const needsFolderIdsForFiltering = Boolean(
-      folderIds || requiredLabelIdsForLocalFiltering?.length,
-    );
-    const resolvedFolderIds = needsFolderIdsForFiltering
-      ? folderIds ||
-        (await getFolderIds(this.client, this.logger, {
-          includeDrafts: false,
-        }))
-      : {};
     const needsCategoryMapForFiltering = shouldFetchOutlookCategoryMap({
       excludeLabelNames,
       requiredLabelIds: requiredLabelIdsForLocalFiltering,
@@ -1581,7 +1558,7 @@ export class OutlookProvider implements EmailProvider {
     });
     const categoryMap = needsCategoryMapForFiltering
       ? await getCategoryMap(this.client, this.logger)
-      : undefined;
+      : cachedCategoryMap;
     const excludedLabelIds = getExcludedOutlookThreadLabelIds(
       excludeLabelNames,
       categoryMap,
@@ -1591,15 +1568,15 @@ export class OutlookProvider implements EmailProvider {
     let sortedMessages = response.value;
     if (fromEmail) {
       sortedMessages = response.value.sort(
-        (a: { receivedDateTime: string }, b: { receivedDateTime: string }) =>
-          new Date(b.receivedDateTime).getTime() -
-          new Date(a.receivedDateTime).getTime(),
+        (a: Message, b: Message) =>
+          new Date(b.receivedDateTime || 0).getTime() -
+          new Date(a.receivedDateTime || 0).getTime(),
       );
     }
 
     // Group messages by conversationId to create threads
-    const messagesByThread = new Map<string, ParsedMessage[]>();
-    sortedMessages.forEach((message) => {
+    const messagesByThread = new Map<string, Message[]>();
+    sortedMessages.forEach((message: Message) => {
       // Skip messages without conversationId
       if (!message.conversationId) {
         this.logger.warn("Message missing conversationId", {
@@ -1609,32 +1586,38 @@ export class OutlookProvider implements EmailProvider {
       }
 
       const messages = messagesByThread.get(message.conversationId) || [];
-      messages.push(convertMessage(message, resolvedFolderIds, categoryMap));
+      messages.push(message);
       messagesByThread.set(message.conversationId, messages);
     });
 
     // Convert to EmailThread format
     const threads: EmailThread[] = Array.from(messagesByThread.entries())
-      .filter(([_threadId, messages]) => {
-        if (messages.length === 0) return false;
+      .filter(([_threadId, messages]) => messages.length > 0)
+      .map(([threadId, messages]) => {
+        const parsedMessages: ParsedMessage[] = messages.map((message) =>
+          convertMessage(message, resolvedFolderIds, categoryMap, this.logger),
+        );
+
+        return {
+          id: threadId,
+          messages: parsedMessages,
+          snippet: parsedMessages[0]?.snippet || "",
+        };
+      })
+      .filter((thread) => {
         if (
           excludedLabelIds.size > 0 &&
-          messages.some((message) =>
+          thread.messages.some((message) =>
             messageHasAnyThreadLabel(message, excludedLabelIds),
           )
         ) {
           return false;
         }
         if (!requiredLabelIdsForLocalFiltering?.length) return true;
-        return messages.some((message) =>
+        return thread.messages.some((message) =>
           messageHasAllThreadLabels(message, requiredLabelIdsForLocalFiltering),
         );
-      })
-      .map(([threadId, messages]) => ({
-        id: threadId,
-        messages,
-        snippet: messages[0]?.snippet || "",
-      }));
+      });
 
     return {
       threads,

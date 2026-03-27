@@ -1,11 +1,11 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as outlookMessageModule from "@/utils/outlook/message";
 import { OutlookProvider } from "./microsoft";
 
 vi.mock("server-only", () => ({}));
 
-const { envMock, outlookMailMock } = vi.hoisted(() => ({
+const { envMock, outlookMailMock, getFolderIdsMock } = vi.hoisted(() => ({
   envMock: {
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
     EMAIL_ENCRYPT_SECRET: "test-encrypt-secret",
@@ -18,6 +18,14 @@ const { envMock, outlookMailMock } = vi.hoisted(() => ({
     sendEmailWithPlainText: vi.fn(),
     sendEmailWithHtml: vi.fn(),
   },
+  getFolderIdsMock: vi.fn().mockResolvedValue({
+    inbox: "inbox-folder-id",
+    archive: "archive-folder-id",
+    drafts: "drafts-folder-id",
+    deleteditems: "trash-folder-id",
+    junkemail: "spam-folder-id",
+    sentitems: "sent-folder-id",
+  }),
 }));
 
 vi.mock("@/env", () => ({
@@ -26,17 +34,33 @@ vi.mock("@/env", () => ({
 
 vi.mock("@/utils/outlook/mail", () => outlookMailMock);
 
+vi.mock("@/utils/outlook/message", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/utils/outlook/message")
+  >("@/utils/outlook/message");
+
+  return {
+    ...actual,
+    getFolderIds: getFolderIdsMock,
+  };
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
+  vi.clearAllMocks();
+  outlookMailMock.draftEmail.mockResolvedValue({ id: "draft-1" });
+  getFolderIdsMock.mockResolvedValue({
+    inbox: "inbox-folder-id",
+    archive: "archive-folder-id",
+    drafts: "drafts-folder-id",
+    deleteditems: "trash-folder-id",
+    junkemail: "spam-folder-id",
+    sentitems: "sent-folder-id",
+  });
+});
+
 describe("OutlookProvider.getLatestMessageInThread", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
-  });
-
   it("uses converted date fallback when receivedDateTime is missing", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-02-24T00:00:00Z"));
@@ -116,13 +140,8 @@ describe("OutlookProvider.getLatestMessageInThread", () => {
 });
 
 describe("OutlookProvider.getThreadsWithQuery", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-    vi.clearAllMocks();
-  });
-
   it("filters returned threads by explicit labelIds", async () => {
-    vi.spyOn(outlookMessageModule, "getFolderIds").mockResolvedValue({
+    getFolderIdsMock.mockResolvedValue({
       inbox: "folder-inbox",
       archive: "folder-archive",
       drafts: "folder-drafts",
@@ -165,7 +184,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
   });
 
   it("excludes threads with matching label names", async () => {
-    vi.spyOn(outlookMessageModule, "getFolderIds").mockResolvedValue({
+    getFolderIdsMock.mockResolvedValue({
       inbox: "folder-inbox",
       archive: "folder-archive",
       drafts: "folder-drafts",
@@ -203,8 +222,101 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     expect(result.threads.map((thread) => thread.id)).toEqual(["thread-clean"]);
   });
 
-  it("skips folder and category lookups when the query does not need labels", async () => {
-    const getFolderIdsSpy = vi.spyOn(outlookMessageModule, "getFolderIds");
+  it("reuses the shared Outlook message conversion path", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient(
+        [
+          createMessage({
+            id: "message-1",
+            receivedDateTime: "2026-01-01T00:00:00.000Z",
+            isDraft: false,
+            bodyContentType: "html",
+            bodyContent: "<p>Hello</p>",
+            categories: ["Priority"],
+            parentFolderId: "inbox-folder-id",
+          }),
+        ],
+        {
+          categoryMapCache: new Map([["Priority", "category-1"]]),
+        },
+      ),
+    );
+
+    const result = await provider.getThreadsWithQuery({ query: {} });
+    const message = result.threads[0]?.messages[0];
+
+    expect(message).toMatchObject({
+      id: "message-1",
+      threadId: "thread-1",
+      bodyContentType: "html",
+      labelIds: ["INBOX", "category-1"],
+      headers: {
+        from: "Sender <sender@example.com>",
+        to: "Recipient <recipient@example.com>",
+        subject: "Subject",
+        date: "2026-01-01T00:00:00.000Z",
+        "message-id": "<message-1@example.com>",
+      },
+      rawRecipients: {
+        from: {
+          emailAddress: {
+            name: "Sender",
+            address: "sender@example.com",
+          },
+        },
+        toRecipients: [
+          {
+            emailAddress: {
+              name: "Recipient",
+              address: "recipient@example.com",
+            },
+          },
+        ],
+        ccRecipients: [],
+      },
+    });
+  });
+
+  it("preserves folder labels on paginated pages", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([
+        createMessage({
+          id: "message-2",
+          receivedDateTime: "2026-01-02T00:00:00.000Z",
+          isDraft: false,
+          parentFolderId: "inbox-folder-id",
+        }),
+      ]),
+    );
+
+    const result = await provider.getThreadsWithQuery({
+      query: {},
+      pageToken: "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=abc",
+    });
+
+    expect(result.threads[0]?.messages[0]?.labelIds).toContain("INBOX");
+  });
+
+  it("preserves sent labels for sent queries", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([
+        createMessage({
+          id: "message-3",
+          receivedDateTime: "2026-01-03T00:00:00.000Z",
+          isDraft: false,
+          parentFolderId: "sent-folder-id",
+        }),
+      ]),
+    );
+
+    const result = await provider.getThreadsWithQuery({
+      query: { type: "sent" },
+    });
+
+    expect(result.threads[0]?.messages[0]?.labelIds).toContain("SENT");
+  });
+
+  it("skips category lookup when the query does not need category labels", async () => {
     const getCategoryMapSpy = vi.spyOn(outlookMessageModule, "getCategoryMap");
 
     const provider = new OutlookProvider(
@@ -212,6 +324,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
         createMessage({
           id: "sent-message",
           conversationId: "thread-sent",
+          parentFolderId: "sent-folder-id",
         }),
       ]),
     );
@@ -221,25 +334,42 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     });
 
     expect(result.threads.map((thread) => thread.id)).toEqual(["thread-sent"]);
-    expect(getFolderIdsSpy).not.toHaveBeenCalled();
     expect(getCategoryMapSpy).not.toHaveBeenCalled();
   });
 });
 
-function createMockOutlookClient(messages: Message[]) {
-  const request = {
-    filter: vi.fn().mockReturnThis(),
-    select: vi.fn().mockReturnThis(),
-    top: vi.fn().mockReturnThis(),
-    orderby: vi.fn().mockReturnThis(),
-    expand: vi.fn().mockReturnThis(),
-    get: vi.fn().mockResolvedValue({ value: messages }),
-  };
+function createMockOutlookClient(
+  messages: Message[],
+  options?: {
+    categoryMapCache?: Map<string, string> | null;
+    folderIdCache?: Record<string, string> | null;
+  },
+) {
+  let categoryMapCache = options?.categoryMapCache ?? null;
+  let folderIdCache = options?.folderIdCache ?? null;
 
   return {
     getClient: () => ({
-      api: () => request,
+      api: () => {
+        const request = {
+          filter: () => request,
+          select: () => request,
+          top: () => request,
+          orderby: () => request,
+          get: async () => ({ value: messages }),
+        };
+
+        return request;
+      },
     }),
+    getCategoryMapCache: () => categoryMapCache,
+    setCategoryMapCache: (value: Map<string, string>) => {
+      categoryMapCache = value;
+    },
+    getFolderIdCache: () => folderIdCache,
+    setFolderIdCache: (value: Record<string, string>) => {
+      folderIdCache = value;
+    },
   } as any;
 }
 
@@ -248,6 +378,8 @@ function createMessage(input: {
   conversationId?: string;
   receivedDateTime?: string | undefined;
   isDraft?: boolean;
+  bodyContentType?: "text" | "html";
+  bodyContent?: string;
   categories?: string[];
   parentFolderId?: string;
   isRead?: boolean;
@@ -256,6 +388,8 @@ function createMessage(input: {
     id,
     conversationId = "thread-1",
     isDraft = false,
+    bodyContentType = "text",
+    bodyContent = "",
     categories = [],
     parentFolderId,
     isRead = true,
@@ -291,8 +425,8 @@ function createMessage(input: {
     isDraft,
     isRead,
     body: {
-      contentType: "text",
-      content: "",
+      contentType: bodyContentType,
+      content: bodyContent,
     },
     categories,
     parentFolderId,

@@ -174,17 +174,14 @@ export async function confirmAssistantEmailActionForAccount({
     throw new SafeError(getAssistantEmailActionErrorMessage(actionType));
   }
 
-  const updatedParts = updateAssistantEmailPartWithConfirmation({
-    parts: reservation.parts,
-    partIndex: reservation.partIndex,
-    confirmationResult,
-    contentOverride,
-  });
-
   try {
-    await persistConfirmedAssistantEmailPart({
+    await persistConfirmedAssistantEmailActionPart({
       chatMessageId: reservation.chatMessageId,
-      parts: updatedParts,
+      emailAccountId,
+      toolCallId,
+      actionType,
+      confirmationResult,
+      contentOverride,
     });
   } catch (error) {
     logger.error("Failed to persist confirmed assistant email action", {
@@ -946,6 +943,100 @@ async function persistConfirmedAssistantEmailPart({
         data: { parts: parts as Prisma.InputJsonValue },
       });
       return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
+
+async function persistConfirmedAssistantEmailActionPart({
+  chatMessageId,
+  emailAccountId,
+  toolCallId,
+  actionType,
+  confirmationResult,
+  contentOverride,
+}: {
+  chatMessageId: string;
+  emailAccountId: string;
+  toolCallId: string;
+  actionType: AssistantPendingEmailActionType;
+  confirmationResult: AssistantEmailConfirmationResult;
+  contentOverride?: string;
+}) {
+  let lastError: unknown;
+
+  for (
+    let attempt = 1;
+    attempt <= CONFIRMATION_PERSIST_MAX_ATTEMPTS;
+    attempt++
+  ) {
+    try {
+      const latestMessage = await prisma.chatMessage.findFirst({
+        where: {
+          id: chatMessageId,
+          chat: { emailAccountId },
+        },
+        select: {
+          id: true,
+          chatId: true,
+          updatedAt: true,
+          parts: true,
+        },
+      });
+
+      if (!latestMessage) {
+        throw new Error(
+          "Assistant email confirmation chat message not found while persisting",
+        );
+      }
+
+      const latestLookup = findPendingAssistantEmailPart({
+        parts: latestMessage.parts,
+        toolCallId,
+        actionType,
+      });
+
+      if (!latestLookup) {
+        throw new Error(
+          "Assistant email confirmation part not found while persisting",
+        );
+      }
+
+      if (
+        latestLookup.output.confirmationState === "confirmed" &&
+        latestLookup.output.confirmationResult
+      ) {
+        return;
+      }
+
+      const reconciledParts = updateAssistantEmailPartWithConfirmation({
+        parts: latestLookup.parts,
+        partIndex: latestLookup.index,
+        confirmationResult,
+        contentOverride,
+      });
+
+      const updateResult = await prisma.chatMessage.updateMany({
+        where: {
+          id: latestMessage.id,
+          chatId: latestMessage.chatId,
+          updatedAt: latestMessage.updatedAt,
+        },
+        data: {
+          parts: reconciledParts as Prisma.InputJsonValue,
+        },
+      });
+
+      if (updateResult.count === 1) {
+        return;
+      }
+
+      lastError = new Error(
+        "Assistant email confirmation state changed before it could be saved",
+      );
     } catch (error) {
       lastError = error;
     }
