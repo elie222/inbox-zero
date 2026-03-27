@@ -198,6 +198,7 @@ export const POST = withEmailAccount("chat", async (request) => {
 
   try {
     const inboxStats = await inboxStatsPromise;
+    let seenRulesRevision: number | null = null;
 
     const result = await aiProcessAssistantChat({
       messages: modelMessages,
@@ -205,8 +206,15 @@ export const POST = withEmailAccount("chat", async (request) => {
       user,
       context,
       chatId: chat.id,
+      chatLastSeenRulesRevision: chat.lastSeenRulesRevision,
       memories,
       inboxStats,
+      onRulesStateExposed: (rulesRevision) => {
+        seenRulesRevision =
+          seenRulesRevision == null
+            ? rulesRevision
+            : Math.max(seenRulesRevision, rulesRevision);
+      },
       logger: request.logger,
     });
 
@@ -237,6 +245,10 @@ export const POST = withEmailAccount("chat", async (request) => {
       },
       onFinish: async ({ messages }) => {
         await saveChatMessages(messages, chat.id, request.logger);
+
+        if (seenRulesRevision != null) {
+          await saveLastSeenRulesRevision(chat.id, seenRulesRevision);
+        }
       },
     });
 
@@ -304,6 +316,24 @@ async function saveChatMessages(
     captureException(error, { extra: { chatId } });
     throw error;
   }
+}
+
+async function saveLastSeenRulesRevision(
+  chatId: string,
+  rulesRevision: number,
+) {
+  await prisma.chat.updateMany({
+    where: {
+      id: chatId,
+      OR: [
+        { lastSeenRulesRevision: null },
+        { lastSeenRulesRevision: { lt: rulesRevision } },
+      ],
+    },
+    data: {
+      lastSeenRulesRevision: rulesRevision,
+    },
+  });
 }
 
 function buildHiddenInlineActionMessage(
