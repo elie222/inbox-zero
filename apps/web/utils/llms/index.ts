@@ -1185,14 +1185,14 @@ function createRepairAttemptState(text: string): RepairAttemptState {
 
 function dedupeRepairCandidates(
   candidates: Array<{ kind: RepairCandidateKind; text: string | undefined }>,
-) {
+): Array<{ kind: RepairCandidateKind; text: string }> {
   const seen = new Set<string>();
 
   return candidates.flatMap((candidate) => {
     if (!candidate.text || seen.has(candidate.text)) return [];
 
     seen.add(candidate.text);
-    return candidate;
+    return [{ kind: candidate.kind, text: candidate.text }];
   });
 }
 
