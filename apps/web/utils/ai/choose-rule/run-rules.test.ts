@@ -483,6 +483,61 @@ describe("runRules outbound guardrails", () => {
   });
 });
 
+describe("runRules selection metadata", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("preserves skipped-thread metadata on no-match results", async () => {
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [],
+      reasoning: "No rules matched",
+      selectionMetadata: {
+        isThread: true,
+        skippedThreadRuleNames: ["Notification"],
+        continuedThreadRuleNames: [],
+        filteredConversationRuleNames: [],
+        conversationFilterReason: undefined,
+        remainingAiRuleNames: [],
+      },
+    } as any);
+
+    const result = await runRules({
+      provider: {} as any,
+      message: {
+        ...getEmail(),
+        id: "message-1",
+        threadId,
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        attachments: [],
+        headers: {
+          from: "alerts@example.com",
+          to: "user@example.com",
+          subject: "Subject",
+          date: "Mon, 1 Jan 2026 12:00:00 +0000",
+          "message-id": "<message-1>",
+        },
+      } as any,
+      rules: [regularRule],
+      emailAccount: getEmailAccount(),
+      isTest: true,
+      modelType: "default" as any,
+      logger,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      status: ExecutedRuleStatus.SKIPPED,
+      selectionMetadata: {
+        isThread: true,
+        skippedThreadRuleNames: ["Notification"],
+      },
+    });
+  });
+});
+
 describe("limitDraftEmailActions", () => {
   it("returns original matches when there are no draft actions", () => {
     const matches = [

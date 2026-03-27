@@ -36,6 +36,16 @@ export type MatchingRuleResult = {
   potentialAiMatches: (RuleWithActions & {
     instructions: string;
   })[];
+  selectionMetadata: RuleSelectionMetadata;
+};
+
+export type RuleSelectionMetadata = {
+  isThread: boolean;
+  skippedThreadRuleNames: string[];
+  continuedThreadRuleNames: string[];
+  filteredConversationRuleNames: string[];
+  conversationFilterReason?: string;
+  remainingAiRuleNames: string[];
 };
 
 /**

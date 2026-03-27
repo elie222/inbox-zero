@@ -16,7 +16,10 @@ import {
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import prisma from "@/utils/prisma";
 import { withPrismaRetry } from "@/utils/prisma-retry";
-import type { MatchReason } from "@/utils/ai/choose-rule/types";
+import type {
+  MatchReason,
+  RuleSelectionMetadata,
+} from "@/utils/ai/choose-rule/types";
 import { serializeMatchReasons } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
@@ -67,6 +70,7 @@ export type RunRulesResult = {
   reason?: string | null;
   status: ExecutedRuleStatus;
   matchReasons?: MatchReason[];
+  selectionMetadata?: RuleSelectionMetadata;
   existing?: boolean;
   createdAt: Date;
 };
@@ -207,6 +211,7 @@ export async function runRules({
         rule: null,
         reason,
         status: ExecutedRuleStatus.SKIPPED,
+        selectionMetadata: results.selectionMetadata,
         createdAt: batchTimestamp,
       },
     ];
@@ -246,6 +251,7 @@ export async function runRules({
 
     executedRules.push({
       ...executedRule,
+      selectionMetadata: results.selectionMetadata,
       status:
         executedRule.status ||
         executedRule.executedRule?.status ||

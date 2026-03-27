@@ -19,6 +19,7 @@ import type { Logger } from "@/utils/logger";
 import type {
   MatchReason,
   MatchingRuleResult,
+  RuleSelectionMetadata,
 } from "@/utils/ai/choose-rule/types";
 import {
   extractEmailAddress,
@@ -51,6 +52,7 @@ type MatchingRulesResult = {
     matchReasons?: MatchReason[];
   }[];
   reasoning: string;
+  selectionMetadata: RuleSelectionMetadata;
 };
 
 export async function findMatchingRules({
@@ -299,6 +301,14 @@ async function findPotentialMatchingRules({
     potentialAiMatches: hasLearnedPatternMatch
       ? []
       : filteredPotentialAiMatches,
+    selectionMetadata: {
+      isThread,
+      skippedThreadRuleNames,
+      continuedThreadRuleNames,
+      filteredConversationRuleNames: conversationStatusFilter.filteredRuleNames,
+      conversationFilterReason: conversationStatusFilter.filterReason,
+      remainingAiRuleNames: filteredPotentialAiMatches.map((rule) => rule.name),
+    },
   };
 }
 
@@ -431,14 +441,15 @@ async function findMatchingRulesWithReasons(
 ): Promise<MatchingRulesResult> {
   const isThread = provider.isReplyInThread(message);
 
-  const { matches, potentialAiMatches } = await findPotentialMatchingRules({
-    rules,
-    message,
-    isThread,
-    provider,
-    emailAccountId: emailAccount.id,
-    logger,
-  });
+  const { matches, potentialAiMatches, selectionMetadata } =
+    await findPotentialMatchingRules({
+      rules,
+      message,
+      isThread,
+      provider,
+      emailAccountId: emailAccount.id,
+      logger,
+    });
 
   if (potentialAiMatches.length) {
     const fullResult = await aiChooseRule({
@@ -494,6 +505,7 @@ async function findMatchingRulesWithReasons(
     return {
       matches: combinedMatches,
       reasoning: combinedReasoning,
+      selectionMetadata,
     };
   } else {
     return {
@@ -502,6 +514,7 @@ async function findMatchingRulesWithReasons(
         .map((m) => getMatchReason(m.matchReasons))
         .filter((r): r is string => !!r)
         .join(", "),
+      selectionMetadata,
     };
   }
 }

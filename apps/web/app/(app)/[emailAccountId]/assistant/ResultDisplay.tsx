@@ -93,6 +93,8 @@ function ResultDisplay({
 
 export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
   const { rule, status, reason } = result;
+  const skippedThreadRuleNames =
+    result.selectionMetadata?.skippedThreadRuleNames ?? [];
 
   const { ruleDialog, RuleDialogComponent } = useRuleDialog();
   const { provider } = useAccount();
@@ -152,6 +154,24 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
           <div className="text-muted-foreground text-sm">No actions taken</div>
         )}
       </div>
+
+      {status === ExecutedRuleStatus.SKIPPED &&
+        skippedThreadRuleNames.length > 0 && (
+          <div className="mt-3 text-sm text-muted-foreground">
+            Some rules were skipped because this email is part of a thread.{" "}
+            <HoverCard
+              content={
+                <div className="max-w-xs text-sm">
+                  Skipped: {skippedThreadRuleNames.join(", ")}
+                </div>
+              }
+            >
+              <button className="underline underline-offset-2" type="button">
+                View skipped rules
+              </button>
+            </HoverCard>
+          </div>
+        )}
 
       {!!reason && (
         <div className="mt-4 space-y-2 bg-muted p-2 rounded-md">
