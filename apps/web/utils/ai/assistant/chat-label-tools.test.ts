@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { createScopedLogger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 import { createOrGetLabelTool, listLabelsTool } from "./chat-label-tools";
@@ -18,12 +19,14 @@ describe("chat label tools", () => {
   });
 
   it("lists all labels without filtering or limiting", async () => {
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      getLabels: vi.fn().mockResolvedValue([
-        { id: "label-1", name: "Work-Items_/2026.Report", type: "user" },
-        { id: "label-2", name: "Receipts", type: "user" },
-      ]),
-    } as any);
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getLabels: vi.fn().mockResolvedValue([
+          { id: "label-1", name: "Work-Items_/2026.Report", type: "user" },
+          { id: "label-2", name: "Receipts", type: "user" },
+        ]),
+      }),
+    );
 
     const toolInstance = listLabelsTool({
       email: TEST_EMAIL,
@@ -54,10 +57,12 @@ describe("chat label tools", () => {
       type: "user",
     });
 
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      getLabels,
-      createLabel,
-    } as any);
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getLabels,
+        createLabel,
+      }),
+    );
 
     const toolInstance = createOrGetLabelTool({
       email: TEST_EMAIL,
@@ -94,10 +99,12 @@ describe("chat label tools", () => {
       type: "user",
     });
 
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      getLabels,
-      createLabel,
-    } as any);
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getLabels,
+        createLabel,
+      }),
+    );
 
     const toolInstance = createOrGetLabelTool({
       email: TEST_EMAIL,
@@ -138,10 +145,12 @@ describe("chat label tools", () => {
       ]);
     const createLabel = vi.fn();
 
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      getLabels,
-      createLabel,
-    } as any);
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getLabels,
+        createLabel,
+      }),
+    );
 
     const toolInstance = createOrGetLabelTool({
       email: TEST_EMAIL,
