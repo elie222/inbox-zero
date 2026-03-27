@@ -19,10 +19,7 @@ import { AllRulesDisabledBanner } from "@/app/(app)/[emailAccountId]/assistant/A
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { DismissibleVideoCard } from "@/components/VideoCard";
-import {
-  STEP_KEYS,
-  getStepNumber,
-} from "@/app/(app)/[emailAccountId]/onboarding/steps";
+import { STEP_KEYS } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -73,10 +70,7 @@ export default async function AutomationPage({
 
     if (!hasRule) {
       redirect(
-        prefixPath(
-          emailAccountId,
-          `/onboarding?step=${getStepNumber(STEP_KEYS.LABELS)}`,
-        ),
+        prefixPath(emailAccountId, `/onboarding?step=${STEP_KEYS.LABELS}`),
       );
     }
   }

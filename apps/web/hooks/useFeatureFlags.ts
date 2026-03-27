@@ -87,3 +87,12 @@ export function useWelcomePricingVariant() {
     ) as WelcomePricingVariant) || "control"
   );
 }
+
+export type OnboardingFlowVariant = "control" | "fast-5";
+
+export function useOnboardingFlowVariant() {
+  return (
+    (useFeatureFlagVariantKey("onboarding-flow") as OnboardingFlowVariant) ||
+    "control"
+  );
+}

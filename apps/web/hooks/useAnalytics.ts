@@ -10,6 +10,7 @@ type OnboardingAnalyticsProps = {
   nextStepKey?: string;
   destination?: string;
   isOptional?: boolean;
+  flowVariant?: string;
 };
 
 export function useOnboardingAnalytics(variant: "onboarding" | "welcome") {

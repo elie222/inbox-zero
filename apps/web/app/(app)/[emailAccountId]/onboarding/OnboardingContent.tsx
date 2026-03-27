@@ -30,12 +30,16 @@ import { StepInviteTeam } from "@/app/(app)/[emailAccountId]/onboarding/StepInvi
 import { usePremium } from "@/components/PremiumAlert";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
 import {
+  getOnboardingStepIndex,
+  getVisibleOnboardingStepKeys,
+  isOptionalOnboardingStep,
+  ONBOARDING_FLOW_VARIANTS,
   STEP_KEYS,
-  STEP_ORDER,
-} from "@/app/(app)/[emailAccountId]/onboarding/steps";
+} from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
+import { useOnboardingFlowVariant } from "@/hooks/useFeatureFlags";
 
 interface OnboardingContentProps {
-  step: number;
+  step?: string;
 }
 
 export function OnboardingContent({ step }: OnboardingContentProps) {
@@ -46,12 +50,16 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   useSignUpEvent();
 
-  const canInviteTeam =
+  const canInviteTeam = Boolean(
     (membership?.isOwner && membership?.organizationId) ||
-    (!membership?.organizationId && !membership?.hasPendingInvitationToOrg);
+      (!membership?.organizationId && !membership?.hasPendingInvitationToOrg),
+  );
+  const flowVariant = useOnboardingFlowVariant();
 
   const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
-    [STEP_KEYS.WELCOME]: () => <StepWelcome onNext={onNext} />,
+    [STEP_KEYS.WELCOME]: () => (
+      <StepWelcome flowVariant={flowVariant} onNext={onNext} />
+    ),
     [STEP_KEYS.EMAILS_SORTED]: () => <StepEmailsSorted onNext={onNext} />,
     [STEP_KEYS.DRAFT_REPLIES]: env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
       ? undefined
@@ -76,12 +84,12 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     [STEP_KEYS.DRAFT]: env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
       ? undefined
       : () => (
-      <StepDraft
-        provider={provider}
-        emailAccountId={emailAccountId}
-        onNext={onNext}
-      />
-    ),
+          <StepDraft
+            provider={provider}
+            emailAccountId={emailAccountId}
+            onNext={onNext}
+          />
+        ),
     [STEP_KEYS.CUSTOM_RULES]: () => (
       <StepCustomRules provider={provider} onNext={onNext} />
     ),
@@ -99,14 +107,23 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     [STEP_KEYS.INBOX_PROCESSED]: () => <StepInboxProcessed onNext={onNext} />,
   };
 
-  const visibleStepKeys = STEP_ORDER.filter((key) => isDefined(stepMap[key]));
+  const visibleStepKeys = getVisibleOnboardingStepKeys({
+    flowVariant:
+      flowVariant === ONBOARDING_FLOW_VARIANTS.FAST_5
+        ? ONBOARDING_FLOW_VARIANTS.FAST_5
+        : ONBOARDING_FLOW_VARIANTS.CONTROL,
+    canInviteTeam,
+    autoDraftDisabled: Boolean(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED),
+  }).filter((key) => isDefined(stepMap[key]));
   const steps = visibleStepKeys.map((key) => stepMap[key]).filter(isDefined);
 
   const { data, mutate } = usePersona();
-  const clampedStep = Math.min(Math.max(step, 1), steps.length);
+  const currentStepIndex = getOnboardingStepIndex(step, visibleStepKeys);
+  const clampedStep = currentStepIndex + 1;
   const totalSteps = visibleStepKeys.length;
-  const currentStepKey = visibleStepKeys[clampedStep - 1];
-  const nextStepKey = visibleStepKeys[clampedStep];
+  const currentStepKey = visibleStepKeys[currentStepIndex];
+  const nextStepKey = visibleStepKeys[currentStepIndex + 1];
+  const analyticsProps = { flowVariant };
 
   const router = useRouter();
   const analytics = useOnboardingAnalytics("onboarding");
@@ -122,6 +139,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
         step: clampedStep,
         stepKey: currentStepKey,
         totalSteps,
+        ...analyticsProps,
       });
     }
 
@@ -129,9 +147,17 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
       step: clampedStep,
       stepKey: currentStepKey,
       totalSteps,
-      isOptional: currentStepKey === STEP_KEYS.INVITE_TEAM,
+      isOptional: isOptionalOnboardingStep(currentStepKey),
+      ...analyticsProps,
     });
-  }, [analytics, clampedStep, currentStepKey, isMembershipLoading, totalSteps]);
+  }, [
+    analytics,
+    analyticsProps.flowVariant,
+    clampedStep,
+    currentStepKey,
+    isMembershipLoading,
+    totalSteps,
+  ]);
 
   const onNext = useCallback(async () => {
     if (!currentStepKey) return;
@@ -142,12 +168,15 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
       totalSteps,
       nextStep: clampedStep < steps.length ? clampedStep + 1 : undefined,
       nextStepKey,
-      isOptional: currentStepKey === STEP_KEYS.INVITE_TEAM,
+      isOptional: isOptionalOnboardingStep(currentStepKey),
+      ...analyticsProps,
     });
 
     if (clampedStep < steps.length) {
+      if (!nextStepKey) return;
+
       router.push(
-        prefixPath(emailAccountId, `/onboarding?step=${clampedStep + 1}`),
+        prefixPath(emailAccountId, `/onboarding?step=${nextStepKey}`),
       );
     } else {
       analytics.onComplete({
@@ -155,6 +184,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
         stepKey: currentStepKey,
         totalSteps,
         destination: isPremium ? "setup" : "welcome-upgrade",
+        ...analyticsProps,
       });
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
       await completedOnboardingAction();
@@ -174,6 +204,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     nextStepKey,
     steps.length,
     isPremium,
+    analyticsProps,
   ]);
 
   const onSkipInviteTeam = useCallback(() => {
@@ -186,14 +217,16 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
       nextStep: clampedStep < steps.length ? clampedStep + 1 : undefined,
       nextStepKey,
       isOptional: true,
+      ...analyticsProps,
     });
 
     // Navigate directly — do not call onNext() which would also fire completion analytics.
-    router.push(
-      prefixPath(emailAccountId, `/onboarding?step=${clampedStep + 1}`),
-    );
+    if (!nextStepKey) return;
+
+    router.push(prefixPath(emailAccountId, `/onboarding?step=${nextStepKey}`));
   }, [
     analytics,
+    analyticsProps,
     router,
     emailAccountId,
     clampedStep,
@@ -218,7 +251,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     }
   }, [clampedStep, emailAccountId, data?.personaAnalysis, mutate]);
 
-  const renderStep = steps[clampedStep - 1] || steps[0];
+  const renderStep = steps[currentStepIndex] || steps[0];
 
   // Show loading if provider is needed but not loaded yet
   if (isLoading && !provider) {

@@ -25,8 +25,6 @@ export default async function OnboardingPage(props: {
     cookies(),
   ]);
 
-  const step = searchParams.step ? Number.parseInt(searchParams.step, 10) : 1;
-
   const utmValues = registerUtmTracking({
     authPromise: auth(),
     cookieStore,
@@ -42,7 +40,7 @@ export default async function OnboardingPage(props: {
 
   return (
     <Suspense>
-      <OnboardingContent step={step} />
+      <OnboardingContent step={searchParams.step} />
     </Suspense>
   );
 }

@@ -7,10 +7,7 @@ import { ActionCard } from "@/components/ui/card";
 import { useRules } from "@/hooks/useRules";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
-import {
-  STEP_KEYS,
-  getStepNumber,
-} from "@/app/(app)/[emailAccountId]/onboarding/steps";
+import { STEP_KEYS } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 
 export function AllRulesDisabledBanner() {
   const { data: rules, isLoading } = useRules();
@@ -34,7 +31,7 @@ export function AllRulesDisabledBanner() {
           <Link
             href={prefixPath(
               emailAccountId,
-              `/onboarding?step=${getStepNumber(STEP_KEYS.LABELS)}&force=true`,
+              `/onboarding?step=${STEP_KEYS.LABELS}&force=true`,
             )}
           >
             Set up rules
