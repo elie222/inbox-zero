@@ -1,5 +1,6 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as outlookMessageModule from "@/utils/outlook/message";
 import { OutlookProvider } from "./microsoft";
 
 vi.mock("server-only", () => ({}));
@@ -26,6 +27,11 @@ vi.mock("@/env", () => ({
 vi.mock("@/utils/outlook/mail", () => outlookMailMock);
 
 describe("OutlookProvider.getLatestMessageInThread", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
   afterEach(() => {
     vi.useRealTimers();
     envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;
@@ -109,32 +115,132 @@ describe("OutlookProvider.getLatestMessageInThread", () => {
   });
 });
 
+describe("OutlookProvider.getThreadsWithQuery", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
+  it("filters returned threads by explicit labelIds", async () => {
+    vi.spyOn(outlookMessageModule, "getFolderIds").mockResolvedValue({
+      inbox: "folder-inbox",
+      archive: "folder-archive",
+      drafts: "folder-drafts",
+      deleteditems: "folder-trash",
+      junkemail: "folder-spam",
+      sentitems: "folder-sent",
+    });
+    vi.spyOn(outlookMessageModule, "getCategoryMap").mockResolvedValue(
+      new Map([
+        ["To Reply", "label-to-reply"],
+        ["Processed", "label-processed"],
+      ]),
+    );
+
+    const provider = new OutlookProvider(
+      createMockOutlookClient([
+        createMessage({
+          id: "message-with-label",
+          conversationId: "thread-with-label",
+          categories: ["To Reply"],
+          parentFolderId: "folder-inbox",
+          isRead: false,
+        }),
+        createMessage({
+          id: "message-without-label",
+          conversationId: "thread-without-label",
+          parentFolderId: "folder-inbox",
+          isRead: false,
+        }),
+      ]),
+    );
+
+    const result = await provider.getThreadsWithQuery({
+      query: { labelIds: ["label-to-reply"] },
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual([
+      "thread-with-label",
+    ]);
+  });
+
+  it("excludes threads with matching label names", async () => {
+    vi.spyOn(outlookMessageModule, "getFolderIds").mockResolvedValue({
+      inbox: "folder-inbox",
+      archive: "folder-archive",
+      drafts: "folder-drafts",
+      deleteditems: "folder-trash",
+      junkemail: "folder-spam",
+      sentitems: "folder-sent",
+    });
+    vi.spyOn(outlookMessageModule, "getCategoryMap").mockResolvedValue(
+      new Map([
+        ["To Reply", "label-to-reply"],
+        ["Processed", "label-processed"],
+      ]),
+    );
+
+    const provider = new OutlookProvider(
+      createMockOutlookClient([
+        createMessage({
+          id: "processed-message",
+          conversationId: "thread-processed",
+          categories: ["Processed"],
+          parentFolderId: "folder-inbox",
+        }),
+        createMessage({
+          id: "clean-message",
+          conversationId: "thread-clean",
+          parentFolderId: "folder-inbox",
+        }),
+      ]),
+    );
+
+    const result = await provider.getThreadsWithQuery({
+      query: { excludeLabelNames: ["Processed"] },
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual(["thread-clean"]);
+  });
+});
+
 function createMockOutlookClient(messages: Message[]) {
+  const request = {
+    filter: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    top: vi.fn().mockReturnThis(),
+    orderby: vi.fn().mockReturnThis(),
+    expand: vi.fn().mockReturnThis(),
+    get: vi.fn().mockResolvedValue({ value: messages }),
+  };
+
   return {
     getClient: () => ({
-      api: () => ({
-        filter: () => ({
-          select: () => ({
-            get: async () => ({ value: messages }),
-          }),
-        }),
-      }),
+      api: () => request,
     }),
   } as any;
 }
 
 function createMessage({
   id,
-  receivedDateTime,
-  isDraft,
+  conversationId = "thread-1",
+  receivedDateTime = "2026-01-01T00:00:00.000Z",
+  isDraft = false,
+  categories = [],
+  parentFolderId,
+  isRead = true,
 }: {
   id: string;
-  receivedDateTime: string | undefined;
-  isDraft: boolean;
+  conversationId?: string;
+  receivedDateTime?: string | undefined;
+  isDraft?: boolean;
+  categories?: string[];
+  parentFolderId?: string;
+  isRead?: boolean;
 }): Message {
   return {
     id,
-    conversationId: "thread-1",
+    conversationId,
     conversationIndex: null,
     internetMessageId: `<${id}@example.com>`,
     subject: "Subject",
@@ -157,13 +263,13 @@ function createMessage({
     ccRecipients: [],
     receivedDateTime,
     isDraft,
-    isRead: true,
+    isRead,
     body: {
       contentType: "text",
       content: "",
     },
-    categories: [],
-    parentFolderId: undefined,
+    categories,
+    parentFolderId,
     hasAttachments: false,
   };
 }

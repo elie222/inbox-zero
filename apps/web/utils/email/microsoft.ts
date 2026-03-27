@@ -7,6 +7,7 @@ import {
   getMessages,
   queryBatchMessages,
   queryMessagesWithAttachments,
+  getCategoryMap,
   getFolderIds,
   convertMessage,
   MESSAGE_SELECT_FIELDS,
@@ -1459,13 +1460,17 @@ export class OutlookProvider implements EmailProvider {
       isUnread,
       type,
       labelId,
-      // biome-ignore lint/correctness/noUnusedVariables: to do
       labelIds,
-      // biome-ignore lint/correctness/noUnusedVariables: to do
       excludeLabelNames,
     } = options.query || {};
 
     const client = this.client.getClient();
+    const hasExplicitLabelFilters = Boolean(labelId || labelIds?.length);
+    const requiredLabelIds = getRequiredOutlookThreadLabelIds({
+      labelId,
+      labelIds,
+      type,
+    });
 
     type GraphMessage = {
       conversationId: string;
@@ -1480,6 +1485,7 @@ export class OutlookProvider implements EmailProvider {
     };
 
     let response: { value: GraphMessage[]; "@odata.nextLink"?: string };
+    let folderIds: Record<string, string> | undefined;
 
     // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
     if (options.pageToken?.startsWith("http")) {
@@ -1491,39 +1497,26 @@ export class OutlookProvider implements EmailProvider {
 
       // Route to appropriate endpoint based on type
       // parentFolderId on messages is a GUID, not a well-known name — always resolve
-      if (type === "sent") {
+      if (type === "sent" && !hasExplicitLabelFilters) {
         endpoint = "/me/mailFolders('sentitems')/messages";
       } else {
-        const folderIds = await getFolderIds(this.client, this.logger, {
+        folderIds = await getFolderIds(this.client, this.logger, {
           includeDrafts: false,
         });
 
         if (labelId) {
-          // labelId may be a well-known label name (e.g. "INBOX") or an actual folder GUID
-          const resolvedFolderId =
-            resolveOutlookFolderId(labelId, folderIds) ?? labelId;
-          filters.push(
-            `parentFolderId eq '${escapeODataString(resolvedFolderId)}'`,
-          );
-        } else if (type === "all") {
-          const folderClauses: string[] = [];
-          if (folderIds.inbox) {
-            folderClauses.push(
-              `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`,
-            );
-          }
-          if (folderIds.archive) {
-            folderClauses.push(
-              `parentFolderId eq '${escapeODataString(folderIds.archive)}'`,
-            );
-          }
-          if (folderClauses.length > 0) {
-            filters.push(`(${folderClauses.join(" or ")})`);
-          }
-        } else if (folderIds.inbox) {
-          filters.push(
-            `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`,
-          );
+          const labelFilter = await resolveOutlookThreadQueryFilter({
+            client: this.client,
+            folderIds,
+            labelId,
+          });
+          if (labelFilter) filters.push(labelFilter);
+        } else if (!hasExplicitLabelFilters) {
+          const defaultFolderFilter = getDefaultOutlookThreadFolderFilter({
+            folderIds,
+            type,
+          });
+          if (defaultFolderFilter) filters.push(defaultFolderFilter);
         }
       }
 
@@ -1569,6 +1562,17 @@ export class OutlookProvider implements EmailProvider {
       response = await request.get();
     }
 
+    const [resolvedFolderIds, categoryMap] = await Promise.all([
+      folderIds
+        ? Promise.resolve(folderIds)
+        : getFolderIds(this.client, this.logger, { includeDrafts: false }),
+      getCategoryMap(this.client, this.logger),
+    ]);
+    const excludedLabelIds = getExcludedOutlookThreadLabelIds(
+      excludeLabelNames,
+      categoryMap,
+    );
+
     // Sort messages by receivedDateTime if we filtered by fromEmail (since we couldn't use orderby)
     let sortedMessages = response.value;
     if (fromEmail) {
@@ -1580,87 +1584,43 @@ export class OutlookProvider implements EmailProvider {
     }
 
     // Group messages by conversationId to create threads
-    const messagesByThread = new Map<
-      string,
-      {
-        conversationId: string;
-        conversationIndex?: string;
-        id: string;
-        bodyPreview: string;
-        body: { content: string };
-        from: { emailAddress: { address: string } };
-        toRecipients: { emailAddress: { address: string } }[];
-        receivedDateTime: string;
-        subject: string;
-      }[]
-    >();
-    sortedMessages.forEach(
-      (message: {
-        conversationId: string;
-        id: string;
-        bodyPreview: string;
-        body: { content: string };
-        from: { emailAddress: { address: string } };
-        toRecipients: { emailAddress: { address: string } }[];
-        receivedDateTime: string;
-        subject: string;
-      }) => {
-        // Skip messages without conversationId
-        if (!message.conversationId) {
-          this.logger.warn("Message missing conversationId", {
-            messageId: message.id,
-          });
-          return;
-        }
+    const messagesByThread = new Map<string, ParsedMessage[]>();
+    sortedMessages.forEach((message) => {
+      // Skip messages without conversationId
+      if (!message.conversationId) {
+        this.logger.warn("Message missing conversationId", {
+          messageId: message.id,
+        });
+        return;
+      }
 
-        const messages = messagesByThread.get(message.conversationId) || [];
-        messages.push(message);
-        messagesByThread.set(message.conversationId, messages);
-      },
-    );
+      const messages = messagesByThread.get(message.conversationId) || [];
+      messages.push(convertMessage(message, resolvedFolderIds, categoryMap));
+      messagesByThread.set(message.conversationId, messages);
+    });
 
     // Convert to EmailThread format
     const threads: EmailThread[] = Array.from(messagesByThread.entries())
-      .filter(([_threadId, messages]) => messages.length > 0) // Filter out empty threads
-      .map(([threadId, messages]) => {
-        // Convert messages to ParsedMessage format
-        const parsedMessages: ParsedMessage[] = messages.map((message) => {
-          const subject = message.subject || "";
-          const date = message.receivedDateTime || new Date().toISOString();
-
-          // Add proper null checks for from and toRecipients
-          const fromAddress = message.from?.emailAddress?.address || "";
-          const toAddress =
-            message.toRecipients?.[0]?.emailAddress?.address || "";
-
-          return {
-            id: message.id || "",
-            threadId: message.conversationId || "",
-            snippet: message.bodyPreview || "",
-            textPlain: message.body?.content || "",
-            textHtml: message.body?.content || "",
-            headers: {
-              from: fromAddress,
-              to: toAddress,
-              subject,
-              date,
-            },
-            subject,
-            date,
-            labelIds: [],
-            internalDate: date,
-            historyId: "",
-            inline: [],
-            conversationIndex: message.conversationIndex,
-          };
-        });
-
-        return {
-          id: threadId,
-          messages: parsedMessages,
-          snippet: messages[0]?.bodyPreview || "",
-        };
-      });
+      .filter(([_threadId, messages]) => {
+        if (messages.length === 0) return false;
+        if (
+          excludedLabelIds.size > 0 &&
+          messages.some((message) =>
+            messageHasAnyThreadLabel(message, excludedLabelIds),
+          )
+        ) {
+          return false;
+        }
+        if (!requiredLabelIds?.length) return true;
+        return messages.some((message) =>
+          messageHasAllThreadLabels(message, requiredLabelIds),
+        );
+      })
+      .map(([threadId, messages]) => ({
+        id: threadId,
+        messages,
+        snippet: messages[0]?.snippet || "",
+      }));
 
     return {
       threads,
@@ -2029,4 +1989,164 @@ function resolveOutlookFolderId(
 ): string | undefined {
   const folderKey = LABEL_TO_FOLDER_KEY[labelId.toUpperCase()];
   return folderKey ? folderIds[folderKey] : undefined;
+}
+
+function getRequiredOutlookThreadLabelIds({
+  labelId,
+  labelIds,
+  type,
+}: Pick<ThreadsQuery, "labelId" | "labelIds" | "type">): string[] | undefined {
+  if (labelId) return [labelId];
+  if (labelIds?.length) return labelIds;
+
+  switch (type) {
+    case "all":
+      return undefined;
+    case "archive":
+      return ["ARCHIVE"];
+    case "draft":
+      return ["DRAFT"];
+    case "sent":
+      return ["SENT"];
+    case "spam":
+      return ["SPAM"];
+    case "trash":
+      return ["TRASH"];
+    case "unread":
+      return ["UNREAD"];
+    case "inbox":
+    case undefined:
+    case null:
+    case "undefined":
+    case "null":
+      return ["INBOX"];
+    default:
+      return [type];
+  }
+}
+
+function getDefaultOutlookThreadFolderFilter({
+  folderIds,
+  type,
+}: {
+  folderIds: Record<string, string>;
+  type?: string | null;
+}): string | undefined {
+  switch (type) {
+    case "all": {
+      const folderClauses: string[] = [];
+      if (folderIds.inbox) {
+        folderClauses.push(
+          `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`,
+        );
+      }
+      if (folderIds.archive) {
+        folderClauses.push(
+          `parentFolderId eq '${escapeODataString(folderIds.archive)}'`,
+        );
+      }
+      return folderClauses.length > 0
+        ? `(${folderClauses.join(" or ")})`
+        : undefined;
+    }
+    case "archive":
+      return folderIds.archive
+        ? `parentFolderId eq '${escapeODataString(folderIds.archive)}'`
+        : undefined;
+    case "draft":
+      return folderIds.drafts
+        ? `parentFolderId eq '${escapeODataString(folderIds.drafts)}'`
+        : undefined;
+    case "spam":
+      return folderIds.junkemail
+        ? `parentFolderId eq '${escapeODataString(folderIds.junkemail)}'`
+        : undefined;
+    case "trash":
+      return folderIds.deleteditems
+        ? `parentFolderId eq '${escapeODataString(folderIds.deleteditems)}'`
+        : undefined;
+    case "unread":
+    case "inbox":
+    case undefined:
+    case null:
+    case "undefined":
+    case "null":
+      return folderIds.inbox
+        ? `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`
+        : undefined;
+    default:
+      return undefined;
+  }
+}
+
+function getExcludedOutlookThreadLabelIds(
+  excludeLabelNames: string[] | null | undefined,
+  categoryMap: Map<string, string>,
+): Set<string> {
+  const excludedLabels = new Set<string>();
+  if (!excludeLabelNames?.length) return excludedLabels;
+
+  const categoryEntries = Array.from(categoryMap.entries());
+
+  for (const labelName of excludeLabelNames) {
+    const trimmedLabelName = labelName.trim();
+    if (!trimmedLabelName) continue;
+
+    excludedLabels.add(trimmedLabelName);
+    excludedLabels.add(trimmedLabelName.toUpperCase());
+
+    for (const [categoryName, categoryId] of categoryEntries) {
+      if (categoryName.toLowerCase() === trimmedLabelName.toLowerCase()) {
+        excludedLabels.add(categoryId);
+      }
+    }
+  }
+
+  return excludedLabels;
+}
+
+function messageHasAllThreadLabels(
+  message: Pick<ParsedMessage, "labelIds">,
+  requiredLabelIds: string[],
+): boolean {
+  if (!requiredLabelIds.length) return true;
+
+  const messageLabelIds = new Set(message.labelIds || []);
+  return requiredLabelIds.every((labelId) => messageLabelIds.has(labelId));
+}
+
+function messageHasAnyThreadLabel(
+  message: Pick<ParsedMessage, "labelIds">,
+  labelIds: Set<string>,
+): boolean {
+  if (!message.labelIds?.length || labelIds.size === 0) return false;
+  return message.labelIds.some((labelId) => labelIds.has(labelId));
+}
+
+async function resolveOutlookThreadQueryFilter({
+  client,
+  folderIds,
+  labelId,
+}: {
+  client: OutlookClient;
+  folderIds: Record<string, string>;
+  labelId: string;
+}): Promise<string | undefined> {
+  const resolvedFolderId = resolveOutlookFolderId(labelId, folderIds);
+  if (resolvedFolderId) {
+    return `parentFolderId eq '${escapeODataString(resolvedFolderId)}'`;
+  }
+
+  if (Object.values(folderIds).includes(labelId)) {
+    return `parentFolderId eq '${escapeODataString(labelId)}'`;
+  }
+
+  try {
+    const label = await getLabelById({ client, id: labelId });
+    if (label.displayName) {
+      return `categories/any(c:c eq '${escapeODataString(label.displayName)}')`;
+    }
+  } catch {}
+
+  return `parentFolderId eq '${escapeODataString(labelId)}'`;
 }
