@@ -28,7 +28,7 @@ describe("getToolFailureWarning", () => {
     ).toContain("Some tool calls failed during this request.");
   });
 
-  it("does not add a warning when the assistant already acknowledges the failure", () => {
+  it("still adds a warning when the assistant already acknowledges the failure", () => {
     expect(
       getToolFailureWarning({
         parts: [
@@ -46,10 +46,10 @@ describe("getToolFailureWarning", () => {
           },
         ],
       }),
-    ).toBeNull();
+    ).toContain("Some tool calls failed during this request.");
   });
 
-  it("does not treat a generic mention of an error as sufficient acknowledgment", () => {
+  it("does not depend on the assistant's wording", () => {
     expect(
       getToolFailureWarning({
         parts: [
