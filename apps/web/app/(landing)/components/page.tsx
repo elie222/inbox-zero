@@ -54,7 +54,6 @@ import {
   ResultsDisplay,
   ResultDisplayContent,
 } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
-import { ThreadSkipHint } from "@/app/(app)/[emailAccountId]/assistant/ThreadSkipHint";
 import {
   ActivityLog,
   type ActivityLogEntry,
@@ -655,7 +654,26 @@ export default function Components() {
             </div>
 
             <div className="p-4 border border-border rounded mt-4">
-              <ThreadSkipHintDemo />
+              <ResultDisplayContent
+                result={{
+                  createdAt: new Date("2025-01-01"),
+                  reason:
+                    "The email looks automated and part of an existing thread, so no eligible rule was selected.",
+                  status: ExecutedRuleStatus.SKIPPED,
+                  selectionMetadata: {
+                    isThread: true,
+                    skippedThreadRuleNames: [
+                      "Notification",
+                      "Newsletter",
+                      "Marketing",
+                    ],
+                    continuedThreadRuleNames: [],
+                    filteredConversationRuleNames: [],
+                    conversationFilterReason: undefined,
+                    remainingAiRuleNames: [],
+                  },
+                }}
+              />
             </div>
           </div>
         </div>
@@ -1003,33 +1021,6 @@ function EmailRowExample() {
           </TableRow>
         </TableBody>
       </Table>
-    </div>
-  );
-}
-
-function ThreadSkipHintDemo() {
-  const skippedRuleNames = ["Notification", "Newsletter", "Marketing"];
-
-  return (
-    <div id="thread-skip-hint-demo" className="space-y-3">
-      <div className="flex justify-between font-medium">
-        No match found
-        <Badge color="red">No match found</Badge>
-      </div>
-
-      <div className="text-muted-foreground text-sm">No actions taken</div>
-
-      <div className="rounded-md bg-muted p-2">
-        <div className="font-medium text-sm">
-          Reason for choosing this rule:
-        </div>
-        <MessageText>
-          The email looks automated and part of an existing thread, so no
-          eligible rule was selected.
-        </MessageText>
-      </div>
-
-      <ThreadSkipHint skippedThreadRuleNames={skippedRuleNames} />
     </div>
   );
 }

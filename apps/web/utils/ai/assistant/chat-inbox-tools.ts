@@ -511,7 +511,7 @@ export const manageInboxTool = ({
       if (isSenderAction && !parsedInput.fromEmails?.length) {
         return {
           error:
-            "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
+            'No sender-level action was taken. "fromEmails" is required for bulk_archive_senders and unsubscribe_senders. If you only meant the emails already shown, use archive_threads with threadIds instead.',
         };
       }
 
@@ -545,7 +545,7 @@ export const manageInboxTool = ({
           if (!normalizedFromEmails.length) {
             return {
               error:
-                "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
+                'No sender-level action was taken. "fromEmails" is required for bulk_archive_senders and unsubscribe_senders. If you only meant the emails already shown, use archive_threads with threadIds instead.',
             };
           }
 
