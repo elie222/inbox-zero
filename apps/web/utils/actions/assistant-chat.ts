@@ -182,6 +182,7 @@ export async function confirmAssistantEmailActionForAccount({
       actionType,
       confirmationResult,
       contentOverride,
+      logger,
     });
   } catch (error) {
     logger.error("Failed to persist confirmed assistant email action", {
@@ -926,6 +927,7 @@ async function persistConfirmedAssistantEmailPart({
   actionType,
   confirmationResult,
   contentOverride,
+  logger,
 }: {
   chatMessageId: string;
   emailAccountId: string;
@@ -933,10 +935,12 @@ async function persistConfirmedAssistantEmailPart({
   actionType: AssistantPendingEmailActionType;
   confirmationResult: AssistantEmailConfirmationResult;
   contentOverride?: string;
+  logger: Logger;
 }) {
   await persistConfirmedAssistantPart({
     chatMessageId,
     emailAccountId,
+    logger: logger.with({ chatMessageId, toolCallId, actionType }),
     findPart: (parts) =>
       findPendingAssistantEmailPart({ parts, toolCallId, actionType }),
     isConfirmed: (lookup) =>
@@ -1102,6 +1106,7 @@ async function persistConfirmedAssistantCreateRulePart({
     await persistConfirmedAssistantPart({
       chatMessageId,
       emailAccountId,
+      logger: logger.with({ chatMessageId, toolCallId, ruleId }),
       findPart: (parts) =>
         findPendingAssistantCreateRulePart({
           parts,
@@ -1130,12 +1135,14 @@ async function persistConfirmedAssistantPart<
 >({
   chatMessageId,
   emailAccountId,
+  logger,
   findPart,
   isConfirmed,
   buildParts,
 }: {
   chatMessageId: string;
   emailAccountId: string;
+  logger: Logger;
   findPart: (parts: unknown) => TLookup | null;
   isConfirmed?: (lookup: TLookup) => boolean;
   buildParts: (args: { parts: unknown[]; partIndex: number }) => unknown[];
@@ -1192,8 +1199,16 @@ async function persistConfirmedAssistantPart<
       if (persisted.count === 1) {
         return;
       }
+
+      logger.warn("Assistant confirmation persistence lost update race", {
+        attempt,
+      });
     } catch (error) {
       lastError = error;
+      logger.warn("Assistant confirmation persistence attempt failed", {
+        attempt,
+        error,
+      });
     }
   }
 
