@@ -1466,7 +1466,10 @@ export class OutlookProvider implements EmailProvider {
     } = options.query || {};
 
     const client = this.client.getClient();
-    let resolvedFolderIds: Record<string, string> | undefined;
+    const resolvedFolderIds = await getFolderIds(this.client, this.logger, {
+      includeDrafts: false,
+    });
+    const categoryMap = this.client.getCategoryMapCache() || undefined;
 
     let response: { value: Message[]; "@odata.nextLink"?: string };
 
@@ -1483,10 +1486,6 @@ export class OutlookProvider implements EmailProvider {
       if (type === "sent") {
         endpoint = "/me/mailFolders('sentitems')/messages";
       } else {
-        resolvedFolderIds = await getFolderIds(this.client, this.logger, {
-          includeDrafts: false,
-        });
-
         if (labelId) {
           // labelId may be a well-known label name (e.g. "INBOX") or an actual folder GUID
           const resolvedFolderId =
@@ -1589,7 +1588,7 @@ export class OutlookProvider implements EmailProvider {
       .filter(([_threadId, messages]) => messages.length > 0) // Filter out empty threads
       .map(([threadId, messages]) => {
         const parsedMessages: ParsedMessage[] = messages.map((message) =>
-          convertMessage(message, resolvedFolderIds, undefined, this.logger),
+          convertMessage(message, resolvedFolderIds, categoryMap, this.logger),
         );
 
         return {
