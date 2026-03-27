@@ -97,7 +97,7 @@ export async function aiProcessAssistantChat({
   context,
   chatId,
   chatLastSeenRulesRevision,
-  chatHasHistory = false,
+  chatHasHistory,
   memories,
   inboxStats,
   responseSurface = "web",
@@ -121,6 +121,12 @@ export async function aiProcessAssistantChat({
   onStepFinish?: AssistantChatOnStepFinish;
   logger: Logger;
 }) {
+  if (chatLastSeenRulesRevision !== undefined && chatHasHistory === undefined) {
+    throw new Error(
+      "chatHasHistory must be provided when chatLastSeenRulesRevision is set",
+    );
+  }
+
   const emailSendToolsEnabled = env.NEXT_PUBLIC_EMAIL_SEND_ENABLED;
   let ruleReadState: RuleReadState | null = null;
 
@@ -325,7 +331,7 @@ Behavior anchors (minimal examples):
     const freshRuleState = await loadFreshRuleContext({
       emailAccountId,
       chatLastSeenRulesRevision,
-      chatHasHistory,
+      chatHasHistory: chatHasHistory ?? false,
     });
 
     if (freshRuleState) {

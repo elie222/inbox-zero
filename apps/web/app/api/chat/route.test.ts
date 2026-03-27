@@ -278,14 +278,16 @@ describe("chat route rule freshness persistence", () => {
       return createAssistantStreamResult();
     });
 
-    await expect(POST(createRequest())).rejects.toThrow("db down");
-    expect(consoleErrorSpy.mock.calls.flat()).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining("Failed to save rules revision"),
-      ]),
-    );
-
-    consoleErrorSpy.mockRestore();
+    try {
+      await expect(POST(createRequest())).rejects.toThrow("db down");
+      expect(consoleErrorSpy.mock.calls.flat()).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("Failed to save rules revision"),
+        ]),
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 });
 

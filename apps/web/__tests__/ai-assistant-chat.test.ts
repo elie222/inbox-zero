@@ -846,6 +846,7 @@ describe("aiProcessAssistantChat", () => {
       emailAccountId: "email-account-id",
       user: getEmailAccount(),
       chatLastSeenRulesRevision: 1,
+      chatHasHistory: true,
       onRulesStateExposed,
       logger,
     });
@@ -965,6 +966,24 @@ describe("aiProcessAssistantChat", () => {
 
     expect(freshRuleContext).toBeUndefined();
     expect(mockPrisma.emailAccount.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("requires explicit chatHasHistory when a rules cursor is provided", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    await expect(
+      aiProcessAssistantChat({
+        messages: baseMessages,
+        emailAccountId: "email-account-id",
+        user: getEmailAccount(),
+        chatLastSeenRulesRevision: null,
+        logger,
+      }),
+    ).rejects.toThrow(
+      "chatHasHistory must be provided when chatLastSeenRulesRevision is set",
+    );
   });
 
   it("rejects stale rule reads when the rules revision changed", async () => {
