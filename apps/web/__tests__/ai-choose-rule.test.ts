@@ -2,10 +2,12 @@ import { describe, expect, test, vi } from "vitest";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { ActionType } from "@/generated/prisma/enums";
 import { getEmail, getEmailAccount, getRule } from "@/__tests__/helpers";
+import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai ai-choose-rule
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
+const logger = createScopedLogger("test");
 
 vi.mock("server-only", () => ({}));
 
@@ -15,6 +17,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
       rules: [],
       email: getEmail(),
       emailAccount: getEmailAccount(),
+      logger,
     });
 
     expect(result).toEqual({ rules: [], reason: "No rules to evaluate" });
@@ -29,6 +32,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
       email: getEmail({ subject: "test" }),
       rules: [rule],
       emailAccount: getEmailAccount(),
+      logger,
     });
 
     expect(result.rules).toHaveLength(1);
@@ -53,6 +57,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
       rules: [rule1, rule2],
       email: getEmail({ subject: "remember that call" }),
       emailAccount: getEmailAccount(),
+      logger,
     });
 
     expect(result.rules).toHaveLength(1);
@@ -98,6 +103,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         content: "Tell me a joke about sheep",
       }),
       emailAccount: getEmailAccount(),
+      logger,
     });
 
     expect(result.rules).toHaveLength(1);
@@ -197,6 +203,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           content: "LMK\n\n--\nAlice Smith,\nCEO, The Boring Fund",
         }),
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       expect(result.rules).toHaveLength(1);
@@ -213,6 +220,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
             "We're experiencing critical server issues affecting production.",
         }),
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       // Log if multiple rules were matched
@@ -243,6 +251,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           content: "Please find attached your invoice for services rendered.",
         }),
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       expect(result.rules).toHaveLength(1);
@@ -259,6 +268,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
             "I came across your profile and think you'd be perfect for...",
         }),
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       expect(result.rules).toHaveLength(1);
@@ -274,6 +284,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           content: "Attached is the contract for your review and signature.",
         }),
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       // Log if multiple rules were matched
@@ -304,6 +315,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           content: "Would you like to join us for team lunch tomorrow at 12pm?",
         }),
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       // Log if multiple rules were matched
@@ -336,6 +348,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           content: "We're excited to announce our new AI features...",
         }),
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       expect(result.rules).toHaveLength(1);
@@ -351,6 +364,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           content: "Don't miss out on our biggest sale of the season!",
         }),
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       expect(result.rules).toHaveLength(1);
@@ -366,6 +380,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           content: "Here's what the team accomplished this week...",
         }),
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       expect(result.rules).toHaveLength(1);
@@ -381,6 +396,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           content: "I've been experiencing slow loading times...",
         }),
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       // Log if multiple rules were matched
@@ -411,6 +427,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           content: "You're invited to speak at our annual conference...",
         }),
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       // Log if multiple rules were matched
@@ -456,6 +473,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
             "Today's forecast: Clear skies with temperatures reaching 75°F. Perfect day for outdoor activities!\n\nUV Index: Moderate\nWind: 5-10 mph",
         }),
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       // This is a weather notification that doesn't match any of our business rules
