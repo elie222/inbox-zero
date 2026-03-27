@@ -163,6 +163,8 @@ async function findPotentialMatchingRules({
   const potentialAiMatches: (RuleWithActions & { instructions: string })[] = [];
   const skippedThreadRuleNames: string[] = [];
   const continuedThreadRuleNames: string[] = [];
+  const learnedPatternExcludedRules: RuleSelectionMetadata["learnedPatternExcludedRules"] =
+    [];
 
   const learnedPatternsLoader = new LearnedPatternsLoader();
   const previousRulesLoader = new PreviousThreadRulesLoader({
@@ -206,14 +208,22 @@ async function findPotentialMatchingRules({
     if (rule.groupId) {
       const groups = await learnedPatternsLoader.getGroups(rule.emailAccountId);
       if (groups?.length) {
-        const { matchingItem, group, ruleExcluded } = matchesGroupRule(
-          rule,
-          groups,
-          message,
-        );
+        const { matchingItem, group, excludedItem, ruleExcluded } =
+          matchesGroupRule(rule, groups, message);
 
         // If this rule is excluded by an exclusion pattern, skip it entirely
-        if (ruleExcluded) continue;
+        if (ruleExcluded) {
+          if (group && excludedItem) {
+            learnedPatternExcludedRules.push({
+              ruleName: rule.name,
+              groupId: group.id,
+              groupName: group.name,
+              itemType: excludedItem.type,
+              itemValue: excludedItem.value,
+            });
+          }
+          continue;
+        }
 
         if (matchingItem) {
           // Group matched - add to matches and skip other condition checks
@@ -269,6 +279,7 @@ async function findPotentialMatchingRules({
     potentialAiMatches.length ||
     skippedThreadRuleNames.length ||
     continuedThreadRuleNames.length ||
+    learnedPatternExcludedRules.length ||
     conversationStatusFilter.filteredRuleNames.length ||
     !matches.length
   ) {
@@ -284,6 +295,16 @@ async function findPotentialMatchingRules({
       skippedThreadRuleNames: joinLogValues(skippedThreadRuleNames),
       continuedThreadRuleCount: continuedThreadRuleNames.length,
       continuedThreadRuleNames: joinLogValues(continuedThreadRuleNames),
+      learnedPatternExcludedRuleCount: learnedPatternExcludedRules.length,
+      learnedPatternExcludedRuleNames: joinLogValues(
+        learnedPatternExcludedRules.map((rule) => rule.ruleName),
+      ),
+      learnedPatternExcludedRuleDetails: joinLogValues(
+        learnedPatternExcludedRules.map(
+          (rule) =>
+            `${rule.ruleName}:${rule.itemType}:${rule.itemValue}:${rule.groupName}`,
+        ),
+      ),
       filteredConversationRuleCount:
         conversationStatusFilter.filteredRuleNames.length,
       filteredConversationRuleNames: joinLogValues(
@@ -309,6 +330,7 @@ async function findPotentialMatchingRules({
       isThread,
       skippedThreadRuleNames,
       continuedThreadRuleNames,
+      learnedPatternExcludedRules,
       filteredConversationRuleNames: conversationStatusFilter.filteredRuleNames,
       conversationFilterReason: conversationStatusFilter.filterReason,
       remainingAiRuleNames: filteredPotentialAiMatches.map((rule) => rule.name),
@@ -439,6 +461,7 @@ function createRuleSelectionMetadata({
   isThread,
   skippedThreadRuleNames = [],
   continuedThreadRuleNames = [],
+  learnedPatternExcludedRules = [],
   filteredConversationRuleNames = [],
   conversationFilterReason,
   remainingAiRuleNames = [],
@@ -446,6 +469,7 @@ function createRuleSelectionMetadata({
   isThread: boolean;
   skippedThreadRuleNames?: string[];
   continuedThreadRuleNames?: string[];
+  learnedPatternExcludedRules?: RuleSelectionMetadata["learnedPatternExcludedRules"];
   filteredConversationRuleNames?: string[];
   conversationFilterReason?: string;
   remainingAiRuleNames?: string[];
@@ -454,6 +478,7 @@ function createRuleSelectionMetadata({
     isThread,
     skippedThreadRuleNames,
     continuedThreadRuleNames,
+    learnedPatternExcludedRules,
     filteredConversationRuleNames,
     conversationFilterReason,
     remainingAiRuleNames,
@@ -659,20 +684,34 @@ function matchesGroupRule(
 ) {
   const ruleGroup = groups.find((g) => g.id === rule.groupId);
   if (!ruleGroup)
-    return { group: null, matchingItem: null, ruleExcluded: false };
+    return {
+      group: null,
+      matchingItem: null,
+      excludedItem: null,
+      ruleExcluded: false,
+    };
 
   const result = findMatchingGroup(message, ruleGroup);
 
   if (result.excluded) {
-    // Return a special flag to indicate this rule should be completely excluded
-    return { group: null, matchingItem: null, ruleExcluded: true };
+    return {
+      group: result.group,
+      matchingItem: null,
+      excludedItem: result.excludedItem,
+      ruleExcluded: true,
+    };
   }
 
   if (result.matchingItem) {
-    return { ...result, ruleExcluded: false };
+    return { ...result, excludedItem: null, ruleExcluded: false };
   }
 
-  return { group: null, matchingItem: null, ruleExcluded: false };
+  return {
+    group: null,
+    matchingItem: null,
+    excludedItem: null,
+    ruleExcluded: false,
+  };
 }
 
 export async function filterConversationStatusRules<

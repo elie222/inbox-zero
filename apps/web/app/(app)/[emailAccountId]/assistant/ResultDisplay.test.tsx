@@ -18,6 +18,13 @@ vi.mock("@/app/(app)/[emailAccountId]/assistant/RuleDialog", () => ({
   useRuleDialog: () => mockUseRuleDialog(),
 }));
 
+vi.mock(
+  "@/app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns",
+  () => ({
+    ViewLearnedPatterns: () => null,
+  }),
+);
+
 import { ResultDisplayContent } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 
 afterEach(() => {
@@ -52,6 +59,7 @@ describe("ResultDisplayContent", () => {
             isThread: true,
             skippedThreadRuleNames: ["Notification", "Newsletter"],
             continuedThreadRuleNames: [],
+            learnedPatternExcludedRules: [],
             filteredConversationRuleNames: [],
             conversationFilterReason: undefined,
             remainingAiRuleNames: [],
@@ -82,6 +90,7 @@ describe("ResultDisplayContent", () => {
             isThread: true,
             skippedThreadRuleNames: [],
             continuedThreadRuleNames: [],
+            learnedPatternExcludedRules: [],
             filteredConversationRuleNames: [],
             conversationFilterReason: undefined,
             remainingAiRuleNames: [],
@@ -98,5 +107,41 @@ describe("ResultDisplayContent", () => {
     expect(
       screen.queryByRole("button", { name: "View skipped rules" }),
     ).toBeNull();
+  });
+
+  it("shows learned-pattern exclusions for skipped results", () => {
+    render(
+      <ResultDisplayContent
+        result={{
+          createdAt: new Date("2025-01-01"),
+          reason: "A learned exclusion removed the expected system rule.",
+          status: ExecutedRuleStatus.SKIPPED,
+          selectionMetadata: {
+            isThread: false,
+            skippedThreadRuleNames: [],
+            continuedThreadRuleNames: [],
+            learnedPatternExcludedRules: [
+              {
+                ruleName: "Notification",
+                groupId: "group-1",
+                groupName: "Notification",
+                itemType: "FROM",
+                itemValue: "updates@example.com",
+              },
+            ],
+            filteredConversationRuleNames: [],
+            conversationFilterReason: undefined,
+            remainingAiRuleNames: ["Conversations"],
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText("Some rules were excluded by learned patterns."),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "View exclusions" }),
+    ).toBeTruthy();
   });
 });

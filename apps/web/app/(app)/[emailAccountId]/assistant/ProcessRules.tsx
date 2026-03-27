@@ -34,8 +34,11 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { useChat } from "@/providers/ChatProvider";
 import { MutedText } from "@/components/Typography";
+import { createClientLogger } from "@/utils/logger-client";
 
 type Message = MessagesResponse["messages"][number];
+
+const logger = createClientLogger("automation-test");
 
 export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const [searchQuery, setSearchQuery] = useQueryState("search");
@@ -153,12 +156,39 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         rerun,
       });
       if (result?.serverError) {
+        logger.error("runRulesAction returned server error", {
+          emailAccountId,
+          messageId: message.id,
+          threadId: message.threadId,
+          rerun: !!rerun,
+          testMode,
+          serverError: true,
+        });
+        await logger.flush();
         toastError({
           title: "There was an error processing the email",
           description: result.serverError,
         });
       } else if (result?.data) {
+        logger.info("runRulesAction returned results", {
+          emailAccountId,
+          messageId: message.id,
+          threadId: message.threadId,
+          rerun: !!rerun,
+          testMode,
+          ...summarizeRunRulesResult(result.data),
+        });
+        await logger.flush();
         setResultsMap((prev) => ({ ...prev, [message.id]: result.data! }));
+      } else {
+        logger.warn("runRulesAction returned empty response", {
+          emailAccountId,
+          messageId: message.id,
+          threadId: message.threadId,
+          rerun: !!rerun,
+          testMode,
+        });
+        await logger.flush();
       }
       setIsRunning((prev) => ({ ...prev, [message.id]: false }));
     },
@@ -326,6 +356,44 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       </LoadingContent>
     </div>
   );
+}
+
+function summarizeRunRulesResult(results: RunRulesResult[]) {
+  const allSelectionMetadata = results
+    .map((result) => result.selectionMetadata)
+    .filter((metadata) => !!metadata);
+
+  return {
+    resultCount: results.length,
+    matchedRuleNames: results
+      .map((result) => result.rule?.name)
+      .filter((name): name is string => !!name)
+      .join(", "),
+    statuses: results.map((result) => result.status).join(", "),
+    skippedThreadRuleNames: allSelectionMetadata
+      .flatMap((metadata) => metadata.skippedThreadRuleNames)
+      .join(", "),
+    learnedPatternExcludedRuleNames: allSelectionMetadata
+      .flatMap((metadata) =>
+        metadata.learnedPatternExcludedRules.map((rule) => rule.ruleName),
+      )
+      .join(", "),
+    learnedPatternExcludedRuleDetails: allSelectionMetadata
+      .flatMap((metadata) =>
+        metadata.learnedPatternExcludedRules.map(
+          (rule) =>
+            `${rule.ruleName}:${rule.itemType}:${rule.itemValue}:${rule.groupName}`,
+        ),
+      )
+      .join(", "),
+    remainingAiRuleNames: allSelectionMetadata
+      .flatMap((metadata) => metadata.remainingAiRuleNames)
+      .join(", "),
+    conversationFilterReason: allSelectionMetadata
+      .map((metadata) => metadata.conversationFilterReason)
+      .filter((reason): reason is string => !!reason)
+      .join(", "),
+  };
 }
 
 function ProcessRulesRow({

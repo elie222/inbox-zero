@@ -46,6 +46,13 @@ export type RuleSelectionMetadata = {
   filteredConversationRuleNames: string[];
   conversationFilterReason?: string;
   remainingAiRuleNames: string[];
+  learnedPatternExcludedRules: {
+    ruleName: string;
+    groupId: string;
+    groupName: string;
+    itemType: string;
+    itemValue: string;
+  }[];
 };
 
 /**

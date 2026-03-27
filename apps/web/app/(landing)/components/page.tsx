@@ -668,6 +668,7 @@ export default function Components() {
                       "Marketing",
                     ],
                     continuedThreadRuleNames: [],
+                    learnedPatternExcludedRules: [],
                     filteredConversationRuleNames: [],
                     conversationFilterReason: undefined,
                     remainingAiRuleNames: [],

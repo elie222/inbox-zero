@@ -496,6 +496,7 @@ describe("runRules selection metadata", () => {
         isThread: true,
         skippedThreadRuleNames: ["Notification"],
         continuedThreadRuleNames: [],
+        learnedPatternExcludedRules: [],
         filteredConversationRuleNames: [],
         conversationFilterReason: undefined,
         remainingAiRuleNames: [],
