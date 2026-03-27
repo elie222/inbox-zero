@@ -233,6 +233,26 @@ const testCases = [
   },
   {
     email: getEmail({
+      from: "no-reply@accounts.google.com",
+      subject: "Security alert",
+      content:
+        "A new sign-in to your account was detected from Chrome on macOS. If this was you, no action is needed. If this was not you, review your security settings immediately.",
+    }),
+    expectedRule: "Notification",
+  },
+  {
+    email: getEmail({
+      from: "updates@saas-notify.example",
+      subject: "Account status update",
+      listUnsubscribe:
+        "<https://saas-notify.example/unsubscribe?id=account-updates>",
+      content:
+        "Your account status changed after a recent billing check. No reply is required. Review the update in your dashboard and contact support from the app if you need help.",
+    }),
+    expectedRule: "Notification",
+  },
+  {
+    email: getEmail({
       from: "receipts@rides.example",
       subject: "Your trip receipt for Tuesday evening",
       content:

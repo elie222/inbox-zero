@@ -15,6 +15,7 @@ import { createRulesBody } from "@/utils/actions/rule.validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { createRule, setRuleRunOnThreads } from "@/utils/rule/rule";
 import { actionClient } from "@/utils/actions/safe-action";
+import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -95,6 +96,19 @@ export const runRulesAction = actionClient
         modelType: "chat",
       });
 
+      logger.info("runRules completed", {
+        resultCount: result.length,
+        matchedCount: result.filter((item) => !!item.rule).length,
+        skippedCount: result.filter((item) => !item.rule).length,
+      });
+
+      if (isTest) {
+        await flushLoggerSafely(logger, {
+          action: "runRules",
+          flushReason: "test-mode",
+        });
+      }
+
       return result;
     },
   );
@@ -152,6 +166,17 @@ export const testAiCustomContentAction = actionClient
         rules,
         emailAccount,
         modelType: "chat",
+      });
+
+      logger.info("testAiCustomContent completed", {
+        resultCount: result.length,
+        matchedCount: result.filter((item) => !!item.rule).length,
+        skippedCount: result.filter((item) => !item.rule).length,
+      });
+
+      await flushLoggerSafely(logger, {
+        action: "testAiCustomContent",
+        flushReason: "test-mode",
       });
 
       return result;

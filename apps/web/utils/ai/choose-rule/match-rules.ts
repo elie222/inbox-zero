@@ -260,20 +260,34 @@ async function findPotentialMatchingRules({
   );
 
   if (
+    potentialAiMatches.length ||
     skippedThreadRuleNames.length ||
     continuedThreadRuleNames.length ||
     conversationStatusFilter.filteredRuleNames.length ||
-    (!matches.length && !filteredPotentialAiMatches.length)
+    !matches.length
   ) {
     logger.info("Built rule candidates", {
       isThread,
-      matchedRuleNames: matches.map((match) => match.rule.name),
-      potentialAiRuleNames: potentialAiMatches.map((rule) => rule.name),
-      skippedThreadRuleNames,
-      continuedThreadRuleNames,
-      filteredConversationRuleNames: conversationStatusFilter.filteredRuleNames,
+      matchedRuleCount: matches.length,
+      matchedRuleNames: joinLogValues(matches.map((match) => match.rule.name)),
+      potentialAiRuleCount: potentialAiMatches.length,
+      potentialAiRuleNames: joinLogValues(
+        potentialAiMatches.map((rule) => rule.name),
+      ),
+      skippedThreadRuleCount: skippedThreadRuleNames.length,
+      skippedThreadRuleNames: joinLogValues(skippedThreadRuleNames),
+      continuedThreadRuleCount: continuedThreadRuleNames.length,
+      continuedThreadRuleNames: joinLogValues(continuedThreadRuleNames),
+      filteredConversationRuleCount:
+        conversationStatusFilter.filteredRuleNames.length,
+      filteredConversationRuleNames: joinLogValues(
+        conversationStatusFilter.filteredRuleNames,
+      ),
       conversationFilterReason: conversationStatusFilter.filterReason,
-      remainingAiRuleNames: filteredPotentialAiMatches.map((rule) => rule.name),
+      remainingAiRuleCount: filteredPotentialAiMatches.length,
+      remainingAiRuleNames: joinLogValues(
+        filteredPotentialAiMatches.map((rule) => rule.name),
+      ),
       hasLearnedPatternMatch,
     });
   }
@@ -401,6 +415,10 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
       }
     })
     .join(", ");
+}
+
+function joinLogValues(values: (string | null | undefined)[]) {
+  return values.filter((value): value is string => !!value).join(", ");
 }
 
 async function findMatchingRulesWithReasons(
