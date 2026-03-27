@@ -1471,6 +1471,9 @@ export class OutlookProvider implements EmailProvider {
       labelIds,
       type,
     });
+    const requiredLabelIdsForLocalFiltering = hasExplicitLabelFilters
+      ? requiredLabelIds
+      : undefined;
 
     type GraphMessage = {
       conversationId: string;
@@ -1562,12 +1565,23 @@ export class OutlookProvider implements EmailProvider {
       response = await request.get();
     }
 
-    const [resolvedFolderIds, categoryMap] = await Promise.all([
-      folderIds
-        ? Promise.resolve(folderIds)
-        : getFolderIds(this.client, this.logger, { includeDrafts: false }),
-      getCategoryMap(this.client, this.logger),
-    ]);
+    const needsFolderIdsForFiltering = Boolean(
+      folderIds || requiredLabelIdsForLocalFiltering?.length,
+    );
+    const resolvedFolderIds = needsFolderIdsForFiltering
+      ? folderIds ||
+        (await getFolderIds(this.client, this.logger, {
+          includeDrafts: false,
+        }))
+      : {};
+    const needsCategoryMapForFiltering = shouldFetchOutlookCategoryMap({
+      excludeLabelNames,
+      requiredLabelIds: requiredLabelIdsForLocalFiltering,
+      folderIds: resolvedFolderIds,
+    });
+    const categoryMap = needsCategoryMapForFiltering
+      ? await getCategoryMap(this.client, this.logger)
+      : undefined;
     const excludedLabelIds = getExcludedOutlookThreadLabelIds(
       excludeLabelNames,
       categoryMap,
@@ -1611,9 +1625,9 @@ export class OutlookProvider implements EmailProvider {
         ) {
           return false;
         }
-        if (!requiredLabelIds?.length) return true;
+        if (!requiredLabelIdsForLocalFiltering?.length) return true;
         return messages.some((message) =>
-          messageHasAllThreadLabels(message, requiredLabelIds),
+          messageHasAllThreadLabels(message, requiredLabelIdsForLocalFiltering),
         );
       })
       .map(([threadId, messages]) => ({
@@ -2081,12 +2095,12 @@ function getDefaultOutlookThreadFolderFilter({
 
 function getExcludedOutlookThreadLabelIds(
   excludeLabelNames: string[] | null | undefined,
-  categoryMap: Map<string, string>,
+  categoryMap?: Map<string, string>,
 ): Set<string> {
   const excludedLabels = new Set<string>();
   if (!excludeLabelNames?.length) return excludedLabels;
 
-  const categoryEntries = Array.from(categoryMap.entries());
+  const categoryEntries = Array.from(categoryMap?.entries() || []);
 
   for (const labelName of excludeLabelNames) {
     const trimmedLabelName = labelName.trim();
@@ -2103,6 +2117,41 @@ function getExcludedOutlookThreadLabelIds(
   }
 
   return excludedLabels;
+}
+
+function shouldFetchOutlookCategoryMap({
+  excludeLabelNames,
+  requiredLabelIds,
+  folderIds,
+}: {
+  excludeLabelNames: string[] | null | undefined;
+  requiredLabelIds: string[] | undefined;
+  folderIds?: Record<string, string>;
+}): boolean {
+  if (excludeLabelNames?.length) return true;
+  if (!requiredLabelIds?.length) return false;
+
+  return requiredLabelIds.some(
+    (labelId) => !isOutlookFolderBackedLabelId(labelId, folderIds),
+  );
+}
+
+function doesOutlookThreadLabelRequireFolderIds(labelId: string): boolean {
+  return (
+    labelId === "INBOX" ||
+    labelId === "SENT" ||
+    labelId === "ARCHIVE" ||
+    labelId === "TRASH" ||
+    labelId === "SPAM"
+  );
+}
+
+function isOutlookFolderBackedLabelId(
+  labelId: string,
+  folderIds?: Record<string, string>,
+): boolean {
+  if (doesOutlookThreadLabelRequireFolderIds(labelId)) return true;
+  return folderIds ? Object.values(folderIds).includes(labelId) : false;
 }
 
 function messageHasAllThreadLabels(

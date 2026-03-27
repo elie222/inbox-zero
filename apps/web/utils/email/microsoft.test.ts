@@ -202,6 +202,28 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
 
     expect(result.threads.map((thread) => thread.id)).toEqual(["thread-clean"]);
   });
+
+  it("skips folder and category lookups when the query does not need labels", async () => {
+    const getFolderIdsSpy = vi.spyOn(outlookMessageModule, "getFolderIds");
+    const getCategoryMapSpy = vi.spyOn(outlookMessageModule, "getCategoryMap");
+
+    const provider = new OutlookProvider(
+      createMockOutlookClient([
+        createMessage({
+          id: "sent-message",
+          conversationId: "thread-sent",
+        }),
+      ]),
+    );
+
+    const result = await provider.getThreadsWithQuery({
+      query: { type: "sent" },
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual(["thread-sent"]);
+    expect(getFolderIdsSpy).not.toHaveBeenCalled();
+    expect(getCategoryMapSpy).not.toHaveBeenCalled();
+  });
 });
 
 function createMockOutlookClient(messages: Message[]) {
