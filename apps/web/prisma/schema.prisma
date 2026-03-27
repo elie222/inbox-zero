@@ -151,6 +151,7 @@ model EmailAccount {
   multiRuleSelectionEnabled Boolean              @default(false)
   draftReplyConfidence      DraftReplyConfidence @default(ALL_EMAILS)
   allowHiddenAiDraftLinks   Boolean              @default(false)
+  rulesRevision             Int                  @default(0)
 
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
@@ -997,7 +998,8 @@ model Chat {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  compactionCount Int @default(0)
+  compactionCount      Int  @default(0)
+  lastSeenRulesRevision Int?
 
   messages       ChatMessage[]
   compactions    ChatCompaction[]
