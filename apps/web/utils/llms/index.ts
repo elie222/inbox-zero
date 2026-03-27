@@ -267,8 +267,7 @@ export function createGenerateObject({
         {
           experimental_repairText: async ({ text }) => {
             logger.info("Repairing text", { label });
-            const fixed = jsonrepair(text);
-            return fixed;
+            return repairObjectText(text, label);
           },
           ...options,
           ...commonOptions,
@@ -1061,6 +1060,70 @@ function normalizeOpenRouterReasoningOptions({
 
 function isOpenRouterXaiGrokModel(modelName?: string) {
   return modelName?.toLowerCase().startsWith("x-ai/grok-");
+}
+
+function repairObjectText(text: string, label: string) {
+  let lastError: unknown;
+
+  for (const candidate of getRepairCandidates(text)) {
+    try {
+      const repaired = jsonrepair(candidate);
+      const normalized = normalizeRepairedObjectText(repaired);
+
+      if (normalized) return normalized;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  logger.warn("Failed to repair invalid JSON response", {
+    label,
+    length: text.length,
+    startsWithQuote: /^[\s]*['"`]/.test(text),
+    startsWithBrace: /^[\s]*\{/.test(text),
+    startsWithBracket: /^[\s]*\[/.test(text),
+    error: lastError,
+  });
+
+  return text;
+}
+
+function getRepairCandidates(text: string) {
+  const trimmed = text.trim();
+  const unwrapped = unwrapQuotedJson(trimmed);
+
+  return [...new Set([unwrapped, trimmed, text].filter(Boolean))];
+}
+
+function unwrapQuotedJson(text: string) {
+  if (text.length < 2) return;
+
+  const wrapChar = text[0];
+  const supportedWrapChars = new Set(["'", '"', "`"]);
+
+  if (!supportedWrapChars.has(wrapChar) || text.at(-1) !== wrapChar) return;
+
+  const inner = text.slice(1, -1).trim();
+
+  if (!inner.startsWith("{") && !inner.startsWith("[")) return;
+
+  return inner;
+}
+
+function normalizeRepairedObjectText(text: string) {
+  const trimmed = text.trim();
+
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) return trimmed;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (typeof parsed !== "string") return;
+
+    const inner = parsed.trim();
+    if (inner.startsWith("{") || inner.startsWith("[")) return inner;
+  } catch {
+    return;
+  }
 }
 
 function isJsonObject(
