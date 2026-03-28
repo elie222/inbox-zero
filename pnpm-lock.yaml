@@ -635,8 +635,8 @@ importers:
         specifier: 11.0.0
         version: 11.0.0
       emulate:
-        specifier: npm:@inbox-zero/emulate@0.4.0-inboxzero.0
-        version: '@inbox-zero/emulate@0.4.0-inboxzero.0(hono@4.11.4)'
+        specifier: npm:@inbox-zero/emulate@0.4.5
+        version: '@inbox-zero/emulate@0.4.5(hono@4.11.4)'
       jsdom:
         specifier: 27.3.0
         version: 27.3.0
@@ -2992,8 +2992,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@inbox-zero/emulate@0.4.0-inboxzero.0':
-    resolution: {integrity: sha512-amgSJyZqvmSdHJ97T6npkpdYUKxf1yZ0Aa4WE6p9XxpcvzOSNPGXCV7VnCUW2gu6ABxSkkeVxKadn8HZlAiRqQ==}
+  '@inbox-zero/emulate@0.4.5':
+    resolution: {integrity: sha512-xd6HANmTYlx32wDGf6GI3DztfdsHC8zzwrtJtXeET7WDe1vfHOhTiyKrZl2BYh5nS71PTihqXx5nE+sYLu55qA==}
     hasBin: true
 
   '@inquirer/ansi@1.0.2':
@@ -14805,7 +14805,7 @@ snapshots:
   '@img/sharp-win32-x64@0.34.5':
     optional: true
 
-  '@inbox-zero/emulate@0.4.0-inboxzero.0(hono@4.11.4)':
+  '@inbox-zero/emulate@0.4.5(hono@4.11.4)':
     dependencies:
       '@hono/node-server': 1.19.9(hono@4.11.4)
       commander: 14.0.3
