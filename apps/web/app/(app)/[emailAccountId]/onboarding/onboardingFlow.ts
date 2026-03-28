@@ -1,3 +1,5 @@
+import { prefixPath } from "@/utils/path";
+
 export const STEP_KEYS = {
   WELCOME: "welcome",
   EMAILS_SORTED: "emailsSorted",
@@ -77,6 +79,27 @@ export function getOnboardingFlowVariant(
 
   const variants = Object.values(ONBOARDING_FLOW_VARIANTS);
   return variants.find((variant) => variant === variantParam);
+}
+
+export function getOnboardingStepHref(
+  emailAccountId: string,
+  stepKey: StepKey,
+  options?: {
+    force?: boolean;
+    variant?: OnboardingFlowVariant;
+  },
+) {
+  const searchParams = new URLSearchParams({ step: stepKey });
+
+  if (options?.force) {
+    searchParams.set("force", "true");
+  }
+
+  if (options?.variant) {
+    searchParams.set("variant", options.variant);
+  }
+
+  return prefixPath(emailAccountId, `/onboarding?${searchParams.toString()}`);
 }
 
 export function getOnboardingStepIndex(

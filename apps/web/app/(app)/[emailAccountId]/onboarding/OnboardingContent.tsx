@@ -30,18 +30,19 @@ import { StepInviteTeam } from "@/app/(app)/[emailAccountId]/onboarding/StepInvi
 import { usePremium } from "@/components/PremiumAlert";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
 import {
-  getOnboardingFlowVariant,
+  getOnboardingStepHref,
   getOnboardingStepIndex,
   getVisibleOnboardingStepKeys,
   isOptionalOnboardingStep,
   ONBOARDING_FLOW_VARIANTS,
   STEP_KEYS,
+  type StepKey,
 } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { useOnboardingFlowVariant } from "@/hooks/useFeatureFlags";
 
 interface OnboardingContentProps {
   step?: string;
-  variant?: string;
+  variant?: OnboardingFlowVariant;
 }
 
 export function OnboardingContent({ step, variant }: OnboardingContentProps) {
@@ -57,8 +58,7 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
       (!membership?.organizationId && !membership?.hasPendingInvitationToOrg),
   );
   const flaggedFlowVariant = useOnboardingFlowVariant();
-  const forcedFlowVariant = getOnboardingFlowVariant(variant);
-  const flowVariant = forcedFlowVariant ?? flaggedFlowVariant;
+  const flowVariant = variant ?? flaggedFlowVariant;
 
   const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
     [STEP_KEYS.WELCOME]: () => <StepWelcome onNext={onNext} />,
@@ -135,17 +135,11 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
 
   const getOnboardingStepPath = useCallback(
     (stepKey: string) => {
-      const searchParams = new URLSearchParams({ step: stepKey });
-      if (forcedFlowVariant) {
-        searchParams.set("variant", forcedFlowVariant);
-      }
-
-      return prefixPath(
-        emailAccountId,
-        `/onboarding?${searchParams.toString()}`,
-      );
+      return getOnboardingStepHref(emailAccountId, stepKey as StepKey, {
+        variant,
+      });
     },
-    [emailAccountId, forcedFlowVariant],
+    [emailAccountId, variant],
   );
 
   useEffect(() => {

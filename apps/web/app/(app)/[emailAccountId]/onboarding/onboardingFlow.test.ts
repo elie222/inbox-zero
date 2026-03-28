@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getOnboardingFlowVariant,
+  getOnboardingStepHref,
   getOnboardingStepIndex,
   getVisibleOnboardingStepKeys,
   ONBOARDING_FLOW_VARIANTS,
@@ -100,5 +101,16 @@ describe("getOnboardingFlowVariant", () => {
 
   it("ignores unknown variants", () => {
     expect(getOnboardingFlowVariant("test")).toBeUndefined();
+  });
+});
+
+describe("getOnboardingStepHref", () => {
+  it("builds a labels step URL with optional params", () => {
+    expect(
+      getOnboardingStepHref("acc_123", STEP_KEYS.LABELS, {
+        force: true,
+        variant: ONBOARDING_FLOW_VARIANTS.FAST_5,
+      }),
+    ).toBe("/acc_123/onboarding?step=labels&force=true&variant=fast-5");
   });
 });

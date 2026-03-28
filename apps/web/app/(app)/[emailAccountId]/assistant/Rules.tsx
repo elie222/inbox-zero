@@ -57,7 +57,10 @@ import {
   getDefaultActions,
 } from "@/utils/rule/consts";
 import { sortRulesForAutomation } from "@/utils/rule/sort";
-import { STEP_KEYS } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
+import {
+  STEP_KEYS,
+  getOnboardingStepHref,
+} from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 
 export function Rules({
   showAddRuleButton = true,
@@ -418,10 +421,7 @@ function NoRules() {
         <div>
           <Button asChild size="sm">
             <Link
-              href={prefixPath(
-                emailAccountId,
-                `/onboarding?step=${STEP_KEYS.LABELS}`,
-              )}
+              href={getOnboardingStepHref(emailAccountId, STEP_KEYS.LABELS)}
             >
               Set up default rules
             </Link>

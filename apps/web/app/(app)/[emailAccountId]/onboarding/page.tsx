@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { OnboardingContent } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
+import { getOnboardingFlowVariant } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { registerUtmTracking } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
 import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
@@ -17,13 +18,21 @@ export const metadata: Metadata = {
 
 export default async function OnboardingPage(props: {
   params: Promise<{ emailAccountId: string }>;
-  searchParams: Promise<{ step?: string; force?: string; variant?: string }>;
+  searchParams: Promise<{
+    step?: string | string[];
+    force?: string | string[];
+    variant?: string | string[];
+  }>;
 }) {
   const [searchParams, { emailAccountId }, cookieStore] = await Promise.all([
     props.searchParams,
     props.params,
     cookies(),
   ]);
+  const step = getSingleSearchParamValue(searchParams.step);
+  const force = getSingleSearchParamValue(searchParams.force);
+  const variant = getSingleSearchParamValue(searchParams.variant);
+  const flowVariant = getOnboardingFlowVariant(variant);
 
   const utmValues = registerUtmTracking({
     authPromise: auth(),
@@ -32,19 +41,20 @@ export default async function OnboardingPage(props: {
 
   if (
     utmValues.utmSource === "briefmymeeting" &&
-    !searchParams.force &&
-    !searchParams.step &&
-    !searchParams.variant
+    !force &&
+    !step &&
+    !flowVariant
   ) {
     redirect(`/${emailAccountId}/onboarding-brief`);
   }
 
   return (
     <Suspense>
-      <OnboardingContent
-        step={searchParams.step}
-        variant={searchParams.variant}
-      />
+      <OnboardingContent step={step} variant={flowVariant} />
     </Suspense>
   );
+}
+
+function getSingleSearchParamValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }

@@ -29,7 +29,10 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { EXTENSION_URL } from "@/utils/config";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { STEP_KEYS } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
+import {
+  STEP_KEYS,
+  getOnboardingStepHref,
+} from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { BRAND_NAME } from "@/utils/branding";
 import { dismissHintAction } from "@/utils/actions/hints";
@@ -339,10 +342,7 @@ function Checklist({
       </div>
 
       <StepItem
-        href={prefixPath(
-          emailAccountId,
-          `/onboarding?step=${STEP_KEYS.LABELS}`,
-        )}
+        href={getOnboardingStepHref(emailAccountId, STEP_KEYS.LABELS)}
         icon={<BotIcon size={18} />}
         title="Set up your Personal Assistant"
         timeEstimate="5 minutes"
