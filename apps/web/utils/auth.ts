@@ -1,6 +1,7 @@
 import { sso } from "@better-auth/sso";
 import { expo } from "@better-auth/expo";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
+import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
 import { oAuthProxy } from "better-auth/plugins";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
@@ -73,7 +74,7 @@ const microsoftSocialProvider = !useMicrosoftOauthEmulator
       }),
     }
   : null;
-const genericOauthConfig = [
+const genericOauthConfig: GenericOAuthConfig[] = [
   ...(useGoogleOauthEmulator
     ? [
         {
@@ -85,7 +86,7 @@ const genericOauthConfig = [
           scopes: [...GMAIL_SCOPES],
           pkce: true,
           accessType: "offline" as const,
-          prompt: "select_account consent",
+          prompt: "select_account consent" as const,
           ...(env.OAUTH_PROXY_URL && {
             redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/google`,
           }),
@@ -102,7 +103,7 @@ const genericOauthConfig = [
           clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
           scopes: [...OUTLOOK_SCOPES],
           pkce: true,
-          prompt: "consent",
+          prompt: "consent" as const,
           ...(env.OAUTH_PROXY_URL && {
             redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/microsoft`,
           }),
