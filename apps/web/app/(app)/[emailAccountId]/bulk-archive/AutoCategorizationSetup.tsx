@@ -78,6 +78,11 @@ export function AutoCategorizationSetup({
     <SetupDialog
       open={open}
       onOpenChange={onOpenChange}
+      dialogContentProps={{
+        hideCloseButton: true,
+        onInteractOutside: (event) => event.preventDefault(),
+        onEscapeKeyDown: (event) => event.preventDefault(),
+      }}
       imageSrc="/images/illustrations/working-vacation.svg"
       imageAlt="Bulk Archive"
       title="Bulk Archive"

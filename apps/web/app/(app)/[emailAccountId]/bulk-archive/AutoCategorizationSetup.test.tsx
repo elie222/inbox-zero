@@ -67,7 +67,7 @@ describe("AutoCategorizationSetup", () => {
     });
   });
 
-  it("allows the setup dialog to be dismissed", async () => {
+  it("prevents dismissal before setup starts", async () => {
     const { AutoCategorizationSetup } = await import(
       "@/app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup"
     );
@@ -76,7 +76,15 @@ describe("AutoCategorizationSetup", () => {
 
     const setupDialogProps = mockSetupDialog.mock.calls[0]?.[0];
 
-    expect(setupDialogProps.dialogContentProps).toBeUndefined();
+    expect(setupDialogProps.dialogContentProps.hideCloseButton).toBe(true);
+
+    const interactOutsideEvent = { preventDefault: vi.fn() };
+    setupDialogProps.dialogContentProps.onInteractOutside(interactOutsideEvent);
+    expect(interactOutsideEvent.preventDefault).toHaveBeenCalledTimes(1);
+
+    const escapeKeyEvent = { preventDefault: vi.fn() };
+    setupDialogProps.dialogContentProps.onEscapeKeyDown(escapeKeyEvent);
+    expect(escapeKeyEvent.preventDefault).toHaveBeenCalledTimes(1);
   });
 
   it("dismisses the setup dialog after a premium access error", async () => {
