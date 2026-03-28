@@ -370,6 +370,12 @@ async function cleanWorktree() {
 
 function buildRuntimeEnv(state: WorktreeState) {
   const baseEnv = { ...process.env };
+  if (!existsSync(SHARED_ENV_LOCAL_PATH)) {
+    throw new Error(
+      `Missing shared env file: ${SHARED_ENV_LOCAL_PATH}. Run \`pnpm dev-setup init\` first or remove \`--skip-init\`.`,
+    );
+  }
+
   const localEnv = readEnvFile(SHARED_ENV_LOCAL_PATH);
   const overrides: Record<string, string> = {
     NEXT_PUBLIC_BASE_URL: state.baseUrl,
@@ -493,7 +499,11 @@ async function resolvePort(
 ) {
   if (explicitPort != null) return explicitPort;
   if (urlMode === "conductor" && process.env.CONDUCTOR_PORT) {
-    return Number.parseInt(process.env.CONDUCTOR_PORT, 10);
+    const conductorPort = Number.parseInt(process.env.CONDUCTOR_PORT, 10);
+    if (!Number.isInteger(conductorPort) || conductorPort <= 0) {
+      throw new Error(`Invalid CONDUCTOR_PORT: ${process.env.CONDUCTOR_PORT}`);
+    }
+    return conductorPort;
   }
   if (storedPort != null) return storedPort;
 
@@ -1002,7 +1012,10 @@ async function checkPortBinding(port: number, host: string) {
       server.unref();
 
       server.once("error", (error: NodeJS.ErrnoException) => {
-        if (error.code === "EAFNOSUPPORT") {
+        if (
+          error.code === "EAFNOSUPPORT" ||
+          error.code === "EADDRNOTAVAIL"
+        ) {
           resolvePromise("unsupported");
           return;
         }
