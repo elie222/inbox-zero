@@ -52,13 +52,21 @@ export function AutoCategorizationSetup({
         throw new Error(result.serverError);
       }
 
-      if (result?.data?.totalUncategorizedSenders) {
+      if (!result?.data?.hasSyncedMessages) {
+        toastSuccess({
+          description: "No emails have been synced yet.",
+        });
+        setIsBulkCategorizing(false);
+        onOpenChange?.(false);
+      } else if (result.data.totalUncategorizedSenders) {
         toastSuccess({
           description: `Categorizing ${result.data.totalUncategorizedSenders} senders... This may take a few minutes.`,
         });
         onOpenChange?.(false);
       } else {
-        toastSuccess({ description: "No uncategorized senders found." });
+        toastSuccess({
+          description: "All current senders are already categorized.",
+        });
         setIsBulkCategorizing(false);
         onOpenChange?.(false);
       }

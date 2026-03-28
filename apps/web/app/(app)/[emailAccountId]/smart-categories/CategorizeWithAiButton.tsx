@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -45,19 +45,31 @@ export function CategorizeWithAiButton({
 
                 if (result?.serverError) {
                   setIsCategorizing(false);
+                  setIsBulkCategorizing(false);
                   throw new Error(result.serverError);
+                }
+
+                const totalUncategorizedSenders =
+                  result?.data?.totalUncategorizedSenders || 0;
+
+                if (totalUncategorizedSenders === 0) {
+                  setIsBulkCategorizing(false);
                 }
 
                 setIsCategorizing(false);
 
-                return result?.data?.totalUncategorizedSenders || 0;
+                return result?.data;
               },
               {
                 loading: "Categorizing senders... This might take a while.",
-                success: (totalUncategorizedSenders) => {
-                  return totalUncategorizedSenders
-                    ? `Categorizing ${totalUncategorizedSenders} senders...`
-                    : "There are no more senders to categorize.";
+                success: (data) => {
+                  if (!data?.hasSyncedMessages) {
+                    return "No emails have been synced yet.";
+                  }
+
+                  return data.totalUncategorizedSenders
+                    ? `Categorizing ${data.totalUncategorizedSenders} senders...`
+                    : "All current senders are already categorized.";
                 },
                 error: (err) => {
                   return `Error categorizing senders: ${err.message}`;
@@ -85,7 +97,7 @@ function CategorizeWithAiButtonTooltip({
   hasAiAccess,
   openPremiumModal,
 }: {
-  children: React.ReactElement<any>;
+  children: ReactElement;
   hasAiAccess: boolean;
   openPremiumModal: () => void;
 }) {

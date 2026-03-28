@@ -30,6 +30,14 @@ export const bulkCategorizeSendersAction = actionClient
   .action(async ({ ctx: { emailAccountId, logger } }) => {
     await validateUserAndAiAccess({ emailAccountId });
 
+    const hasSyncedMessages = !!(await prisma.emailMessage.findFirst({
+      where: {
+        emailAccountId,
+        sent: false,
+      },
+      select: { id: true },
+    }));
+
     // Ensure default categories exist before categorizing
     const categoriesToCreate = Object.values(defaultCategory)
       .filter((c) => c.enabled)
@@ -101,7 +109,7 @@ export const bulkCategorizeSendersAction = actionClient
       totalUncategorizedSenders,
     });
 
-    return { totalUncategorizedSenders };
+    return { totalUncategorizedSenders, hasSyncedMessages };
   });
 
 export const categorizeSenderAction = actionClient
