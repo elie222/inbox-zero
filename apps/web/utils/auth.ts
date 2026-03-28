@@ -1,6 +1,7 @@
 import { sso } from "@better-auth/sso";
 import { expo } from "@better-auth/expo";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
+import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
 import { oAuthProxy } from "better-auth/plugins";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
@@ -26,6 +27,11 @@ import {
   isGoogleOauthEmulationEnabled,
 } from "@/utils/google/oauth";
 import { createScopedLogger } from "@/utils/logger";
+import {
+  getMicrosoftOauthDiscoveryUrl,
+  getMicrosoftOauthIssuer,
+  isMicrosoftEmulationEnabled,
+} from "@/utils/microsoft/oauth";
 import { createOutlookClient } from "@/utils/outlook/client";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import {
@@ -37,6 +43,7 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
 const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
+const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
 
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
@@ -55,9 +62,21 @@ const googleSocialProvider = !useGoogleOauthEmulator
       }),
     }
   : null;
-const googleOauthPlugin = useGoogleOauthEmulator
-  ? genericOAuth({
-      config: [
+const microsoftSocialProvider = !useMicrosoftOauthEmulator
+  ? {
+      clientId: env.MICROSOFT_CLIENT_ID || "",
+      clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
+      scope: [...OUTLOOK_SCOPES],
+      tenantId: env.MICROSOFT_TENANT_ID,
+      disableIdTokenSignIn: true,
+      ...(env.OAUTH_PROXY_URL && {
+        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
+      }),
+    }
+  : null;
+const genericOauthConfig: GenericOAuthConfig[] = [
+  ...(useGoogleOauthEmulator
+    ? [
         {
           providerId: "google",
           discoveryUrl: getGoogleOauthDiscoveryUrl(),
@@ -66,29 +85,42 @@ const googleOauthPlugin = useGoogleOauthEmulator
           clientSecret: env.GOOGLE_CLIENT_SECRET,
           scopes: [...GMAIL_SCOPES],
           pkce: true,
-          accessType: "offline",
-          prompt: "select_account consent",
+          accessType: "offline" as const,
+          prompt: "select_account consent" as const,
           ...(env.OAUTH_PROXY_URL && {
             redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/google`,
           }),
         },
-      ],
-    })
-  : null;
+      ]
+    : []),
+  ...(useMicrosoftOauthEmulator
+    ? [
+        {
+          providerId: "microsoft",
+          discoveryUrl: getMicrosoftOauthDiscoveryUrl(),
+          issuer: getMicrosoftOauthIssuer(),
+          clientId: env.MICROSOFT_CLIENT_ID || "",
+          clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
+          scopes: [...OUTLOOK_SCOPES],
+          pkce: true,
+          prompt: "consent" as const,
+          ...(env.OAUTH_PROXY_URL && {
+            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/microsoft`,
+          }),
+        },
+      ]
+    : []),
+];
+const genericOauthPlugin =
+  genericOauthConfig.length > 0
+    ? genericOAuth({
+        config: genericOauthConfig,
+      })
+    : null;
 
 const socialProviders = {
   ...(googleSocialProvider ? { google: googleSocialProvider } : {}),
-  microsoft: {
-    clientId: env.MICROSOFT_CLIENT_ID || "",
-    clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
-    scope: [...OUTLOOK_SCOPES],
-    tenantId: env.MICROSOFT_TENANT_ID,
-    disableIdTokenSignIn: true,
-    // For preview deployments, redirect through staging (which proxies back to preview URL)
-    ...(env.OAUTH_PROXY_URL && {
-      redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
-    }),
-  },
+  ...(microsoftSocialProvider ? { microsoft: microsoftSocialProvider } : {}),
 };
 
 export const betterAuthConfig = betterAuth({
@@ -129,7 +161,7 @@ export const betterAuthConfig = betterAuth({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
-    ...(googleOauthPlugin ? [googleOauthPlugin] : []),
+    ...(genericOauthPlugin ? [genericOauthPlugin] : []),
     ...(mobileAuthOrigins.length > 0 ? [expo()] : []),
     // OAuth proxy for preview deployments (Google doesn't allow wildcard redirect URIs)
     ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER

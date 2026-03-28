@@ -45,7 +45,17 @@ The fastest way to get started is using [devcontainers](https://containers.dev/)
    pnpm install
    ```
 
-3. **Set up environment variables** using one of these methods:
+3. **Optional: start the local Google emulator** if you want to develop against emulated Google OAuth/Gmail instead of real credentials:
+   ```bash
+   docker compose -f docker-compose.dev.yml --profile google-emulator up -d
+   ```
+
+4. **Optional: start the local Microsoft emulator** if you want to develop against emulated Microsoft OAuth/Graph instead of real credentials:
+   ```bash
+   docker compose -f docker-compose.dev.yml --profile microsoft-emulator up -d
+   ```
+
+5. **Set up environment variables** using one of these methods:
 
    **Interactive CLI** (recommended) - guides you through each step and auto-generates secrets:
    ```bash
@@ -58,13 +68,29 @@ The fastest way to get started is using [devcontainers](https://containers.dev/)
    # Generate secrets with: openssl rand -hex 32
    ```
 
-4. **Run database migrations:**
+   To use the local Google emulator, set these values in `apps/web/.env`:
+
+   ```bash
+   GOOGLE_BASE_URL=http://localhost:4002
+   GOOGLE_CLIENT_ID=emulate-google-client.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=emulate-google-secret
+   ```
+
+   To use the local Microsoft emulator, set these values in `apps/web/.env`:
+
+   ```bash
+   MICROSOFT_BASE_URL=http://localhost:4003
+   MICROSOFT_CLIENT_ID=emulate-microsoft-client-id
+   MICROSOFT_CLIENT_SECRET=emulate-microsoft-secret
+   ```
+
+6. **Run database migrations:**
    ```bash
    cd apps/web
    pnpm prisma migrate dev
    ```
 
-5. **Start the development server:**
+7. **Start the development server:**
    ```bash
    pnpm dev
    ```
@@ -79,6 +105,66 @@ You'll need to configure at least one OAuth provider and an AI provider. The set
 - [Google PubSub](/hosting/google-pubsub)
 - [Microsoft OAuth](/hosting/microsoft-oauth)
 - [LLM](/hosting/llm-setup)
+
+## Parallel Branch Development
+
+If you regularly work in multiple Git worktrees or branch-specific local copies, use the dev setup helper instead of reusing a single shared app/database setup.
+
+### Why this helps
+
+- Each branch gets its own local Postgres database, so schema changes on one branch do not break another branch.
+- The helper picks a branch-specific app port, which makes it easier to run multiple local copies at once.
+- It can start local Postgres and Redis automatically when they are not already running.
+- It wires emulator-based Google and Microsoft auth for local development, which is useful when you do not want to depend on real OAuth callbacks during day-to-day work.
+
+### Shared env files
+
+The helper expects shared local env files in `~/.config/inbox-zero` and symlinks them into `apps/web`:
+
+- `~/.config/inbox-zero/.env.local`
+- `~/.config/inbox-zero/.env.test`
+- `~/.config/inbox-zero/.env.e2e`
+
+This keeps secrets in one place while still letting each branch use its own derived runtime values, such as database name and local port.
+
+### Common commands
+
+Initialize the current branch for local development:
+
+```bash
+pnpm dev-setup init
+```
+
+Start the current branch with the saved local settings:
+
+```bash
+pnpm dev-setup dev
+```
+
+Start with a fresh empty database instead of cloning from the main local database:
+
+```bash
+pnpm dev-setup init --db empty
+```
+
+Run against Conductor's assigned port:
+
+```bash
+pnpm dev-setup dev --url conductor
+```
+
+Drop the branch-local database and remove cached state when you are done:
+
+```bash
+pnpm dev-setup clean
+```
+
+### Recommended usage
+
+- Use `clone-main` mode when you want realistic local data and faster setup.
+- Use `empty` mode when you are working on schema changes or want a clean migration path.
+- Use emulator auth for most local development.
+- Reserve real OAuth flows for cases where you specifically need to test real provider behavior.
 
 ## Local Production Build
 

@@ -11,18 +11,52 @@ const withMDX = nextMdx({
   },
 });
 
+const isDevelopment = process.env.NODE_ENV === "development";
+const isProductionBuild = process.env.NODE_ENV === "production";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   allowedDevOrigins: ["127.0.0.1"],
   logging: {
     browserToTerminal: true,
   },
+  experimental:
+    isDevelopment || isProductionBuild
+      ? {
+          ...(isDevelopment
+            ? {
+                // This app has a large route graph. Avoid front-loading all
+                // route modules into memory at startup during local
+                // development.
+                preloadEntriesOnStart: false,
+              }
+            : {}),
+          ...(isProductionBuild
+            ? {
+                // Keep the static build from fanning out too many workers at
+                // once. This trades a bit of build time for lower peak RAM.
+                staticGenerationMaxConcurrency: 4,
+                staticGenerationMinPagesPerWorker: 100,
+              }
+            : {}),
+        }
+      : undefined,
+  onDemandEntries: isDevelopment
+    ? {
+        maxInactiveAge: 25 * 1000,
+        pagesBufferLength: 2,
+      }
+    : undefined,
   output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
   // Skip TypeScript checking during E2E CI builds to save memory
   typescript: {
     ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === "true",
   },
-  serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
+  serverExternalPackages: [
+    "@sentry/nextjs",
+    "@sentry/node",
+    "mammoth",
+    "unpdf",
+  ],
   turbopack: {
     rules: {
       "*.svg": {

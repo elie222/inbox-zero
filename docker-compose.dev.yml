@@ -41,7 +41,56 @@ services:
       - redis
     restart: unless-stopped
 
+  google-emulator:
+    image: node:24-alpine
+    container_name: inbox-zero-dev-google-emulator
+    working_dir: /workspace
+    command:
+      - sh
+      - -c
+      - >-
+        corepack enable &&
+        pnpm --dir /workspace/apps/web emulate:google
+    volumes:
+      - .:/workspace
+    ports:
+      - "${GOOGLE_EMULATOR_PORT:-4002}:4002"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O - http://127.0.0.1:4002/.well-known/openid-configuration >/dev/null 2>&1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - google-emulator
+    restart: unless-stopped
+
+  microsoft-emulator:
+    image: node:24-alpine
+    container_name: inbox-zero-dev-microsoft-emulator
+    working_dir: /workspace
+    command:
+      - sh
+      - -c
+      - >-
+        corepack enable &&
+        pnpm --dir /workspace/apps/web emulate:microsoft
+    volumes:
+      - .:/workspace
+    ports:
+      - "${MICROSOFT_EMULATOR_PORT:-4003}:4003"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O - http://127.0.0.1:4003/.well-known/openid-configuration >/dev/null 2>&1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - microsoft-emulator
+    restart: unless-stopped
+
 volumes:
   dev-database-data:
   dev-redis-data:
-

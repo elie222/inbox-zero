@@ -12,6 +12,7 @@
     "ncu": "ncu -u -ws",
     "check": "ultracite check",
     "fix": "ultracite fix",
+    "dev-setup": "tsx scripts/dev-setup.ts",
     "setup": "tsx packages/cli/src/main.ts setup",
     "setup-aws": "tsx packages/cli/src/main.ts setup-aws",
     "setup-terraform": "tsx packages/cli/src/main.ts setup-terraform",
