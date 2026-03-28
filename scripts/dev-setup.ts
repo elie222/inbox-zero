@@ -64,7 +64,7 @@ const SHARED_ENV_DIR = resolve(homedir(), ".config/inbox-zero");
 const SHARED_ENV_LOCAL_PATH = resolve(SHARED_ENV_DIR, ".env.local");
 const SHARED_ENV_TEST_PATH = resolve(SHARED_ENV_DIR, ".env.test");
 const SHARED_ENV_E2E_PATH = resolve(SHARED_ENV_DIR, ".env.e2e");
-const STATE_PATH = resolve(CONTEXT_DIR, "worktree-dev.json");
+const STATE_PATH = resolve(CONTEXT_DIR, "dev-setup.json");
 const LOCAL_DATABASE_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
 const LOCAL_REDIS_HOST = "127.0.0.1";
 const LOCAL_REDIS_HTTP_PORT = 8079;
@@ -103,7 +103,7 @@ async function main() {
     switch (cli.command) {
       case "init": {
         const state = await ensureWorktreeReady(cli.options);
-        printStateSummary("Initialized worktree", state);
+        printStateSummary("Initialized dev setup", state);
         break;
       }
       case "dev": {
@@ -116,7 +116,7 @@ async function main() {
       }
       case "exec": {
         if (!cli.commandArgs.length) {
-          throw new Error("Provide a command after `pnpm worktree exec --`.");
+          throw new Error("Provide a command after `pnpm dev-setup exec --`.");
         }
 
         const state = cli.options.skipInit
@@ -136,7 +136,7 @@ async function main() {
     }
   } catch (error) {
     console.error(
-      error instanceof Error ? error.message : "Unknown worktree script error",
+      error instanceof Error ? error.message : "Unknown dev setup script error",
     );
     process.exit(1);
   }
@@ -308,7 +308,7 @@ async function ensureWorktreeDatabase(
 
   if (!sourceDatabaseUrl) {
     throw new Error(
-      `Missing DATABASE_URL in ${SHARED_ENV_LOCAL_PATH}. The worktree script needs a local database template.`,
+      `Missing DATABASE_URL in ${SHARED_ENV_LOCAL_PATH}. The dev setup script needs a local database template.`,
     );
   }
 
@@ -317,7 +317,7 @@ async function ensureWorktreeDatabase(
 
   const sourceDatabaseName = getDatabaseName(sourceDatabaseUrl);
   if (sourceDatabaseName === state.dbName) {
-    throw new Error("Refusing to reuse the template database as the worktree database.");
+    throw new Error("Refusing to reuse the template database as the branch database.");
   }
 
   const adminUrl = toCliDatabaseUrl(sourceDatabaseUrl, "postgres");
@@ -349,7 +349,7 @@ async function ensureWorktreeDatabase(
 }
 
 async function runDev(state: WorktreeState) {
-  printStateSummary("Starting worktree dev", state);
+  printStateSummary("Starting dev setup", state);
 
   const childProcesses: Array<ReturnType<typeof spawn>> = [];
   const registerChild = (child: ReturnType<typeof spawn>) => {
@@ -483,7 +483,7 @@ async function cleanWorktree() {
 
   if (!sourceDatabaseUrl) {
     throw new Error(
-      `Missing DATABASE_URL in ${SHARED_ENV_LOCAL_PATH}. Cannot clean worktree database.`,
+      `Missing DATABASE_URL in ${SHARED_ENV_LOCAL_PATH}. Cannot clean the branch database.`,
     );
   }
 
@@ -496,7 +496,7 @@ async function cleanWorktree() {
   rmSync(GENERATED_EMULATE_CONFIG_PATH, { force: true });
   rmSync(STATE_PATH, { force: true });
 
-  log(`Removed worktree database ${dbName}`);
+  log(`Removed branch database ${dbName}`);
 }
 
 function buildRuntimeEnv(state: WorktreeState) {
@@ -632,7 +632,7 @@ async function resolvePort(
     if (await isPortFree(port)) return port;
   }
 
-  throw new Error("Unable to find a free local worktree port.");
+  throw new Error("Unable to find a free local development port.");
 }
 
 function resolveUrlMode(
@@ -965,13 +965,13 @@ function printStateSummary(prefix: string, state: WorktreeState) {
 }
 
 function printHelp() {
-  console.log(`Usage: pnpm worktree <command> [options]
+  console.log(`Usage: pnpm dev-setup <command> [options]
 
 Commands:
-  init                 Prepare env symlinks, database, and emulator seed config
+  init                 Prepare env symlinks, the branch database, and emulator seed config
   dev                  Start the app, and emulator processes when auth=emulate
-  exec -- <command>    Run a command with the worktree runtime env injected
-  clean                Drop the worktree database and remove cached state
+  exec -- <command>    Run a command with the branch dev env injected
+  clean                Drop the branch database and remove cached state
 
 Options:
   --db <clone-main|empty>
@@ -995,7 +995,7 @@ function assertSafeLocalDatabaseUrl(databaseUrl: string) {
   const hostname = new URL(databaseUrl).hostname;
   if (!LOCAL_DATABASE_HOSTS.has(hostname)) {
     throw new Error(
-      `Refusing to manage a non-local database host: ${hostname}. Update ${SHARED_ENV_LOCAL_PATH} to use localhost for worktree development.`,
+      `Refusing to manage a non-local database host: ${hostname}. Update ${SHARED_ENV_LOCAL_PATH} to use localhost for branch development.`,
     );
   }
 }
@@ -1043,7 +1043,7 @@ function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-  return slug || "worktree";
+  return slug || "branch";
 }
 
 function shellQuote(value: string) {
@@ -1051,7 +1051,7 @@ function shellQuote(value: string) {
 }
 
 function log(message: string) {
-  console.log(`[worktree] ${message}`);
+  console.log(`[dev-setup] ${message}`);
 }
 
 function delay(ms: number) {

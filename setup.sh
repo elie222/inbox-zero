@@ -1,3 +1,3 @@
 #!/bin/bash
 
-pnpm install && pnpm worktree init
+pnpm install && pnpm dev-setup init
