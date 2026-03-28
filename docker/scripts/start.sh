@@ -79,5 +79,7 @@ if [ -n "$DATABASE_URL" ] || [ -n "$PREVIEW_DATABASE_URL_UNPOOLED" ] || [ -n "$D
 fi
 
 # Start the Next.js application
+# Ensure Node.js has enough heap memory (default is too low for this app)
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1024}"
 echo "✅ Configuration complete. Starting server..."
 exec node apps/web/server.js

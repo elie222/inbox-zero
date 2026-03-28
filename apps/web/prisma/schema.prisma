@@ -206,6 +206,12 @@ model EmailAccount {
   apiKeys               ApiKey[]
   classificationFeedback ClassificationFeedback[]
 
+  // Chief of Staff relations
+  chiefOfStaffConfig  ChiefOfStaffConfig?
+  autonomyLevels      AutonomyLevel[]
+  processedEmails     ProcessedEmail[]
+  cosPendingDrafts    CosPendingDraft[]
+
   @@index([userId])
   @@index([lastSummaryEmailAt])
 }
@@ -1618,4 +1624,185 @@ enum AutomationJobRunStatus {
   SENT
   SKIPPED
   FAILED
+}
+
+// ==========================================
+// Chief of Staff Pipeline
+// ==========================================
+
+enum CosCategory {
+  scheduling
+  scheduling_cancel
+  client_parent
+  business
+  urgent
+  notification
+  low_priority
+}
+
+enum AutonomyMode {
+  auto_handle
+  draft_approve
+  flag_only
+}
+
+enum CosVenture {
+  smart_college
+  praxis
+  personal
+}
+
+enum ProcessedEmailStatus {
+  processing
+  completed
+  failed
+  dead_letter
+}
+
+enum CosDraftStatus {
+  pending
+  approved
+  edited
+  rejected
+}
+
+enum CosFilterReason {
+  gmail_category
+  blocklist
+  mailing_list
+  bounce
+  shipping
+  batch_summary
+}
+
+enum ClientGroupSource {
+  auto
+  manual
+}
+
+model ChiefOfStaffConfig {
+  id                   String       @id @default(cuid())
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  emailAccountId       String       @unique
+  emailAccount         EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  venture              CosVenture
+  voiceTone            Json
+  signatureHtml        String?      @db.Text
+  signatureLastFetched DateTime?
+  enabled              Boolean      @default(true)
+
+  @@index([emailAccountId])
+}
+
+model AutonomyLevel {
+  id              String       @id @default(cuid())
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  emailAccountId  String
+  emailAccount    EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  category        CosCategory
+  mode            AutonomyMode
+
+  @@unique([emailAccountId, category])
+  @@index([emailAccountId])
+}
+
+model CosPendingDraft {
+  id                String         @id @default(cuid())
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  slackMessageTs    String         @unique
+  slackChannelId    String
+  gmailDraftId      String
+  gmailThreadId     String
+  emailAccountId    String
+  emailAccount      EmailAccount   @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  toAddress         String
+  subject           String
+  bodyHtml          String         @db.Text
+  category          CosCategory
+  status            CosDraftStatus @default(pending)
+  claudeResponse    Json
+  processedEmailId  String?        @unique
+  processedEmail    ProcessedEmail? @relation(fields: [processedEmailId], references: [id])
+
+  @@index([emailAccountId])
+  @@index([status])
+}
+
+model ProcessedEmail {
+  id              String               @id @default(cuid())
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  messageId       String               @unique
+  threadId        String
+  emailAccountId  String
+  emailAccount    EmailAccount         @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  category        CosCategory?
+  status          ProcessedEmailStatus @default(processing)
+  failedStage     String?
+  retryCount      Int                  @default(0)
+  actionTaken     String?
+  pendingDraft    CosPendingDraft?
+
+  @@index([emailAccountId])
+  @@index([status])
+}
+
+model VipCache {
+  id             String       @id @default(cuid())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  clientEmail    String       @unique
+  clientGroupId  String?
+  clientGroup    ClientGroup? @relation(fields: [clientGroupId], references: [id])
+  bookingCount   Int
+  isVip          Boolean
+  lastChecked    DateTime
+}
+
+model ClientGroup {
+  id          String              @id @default(cuid())
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  primaryName String
+  members     ClientGroupMember[]
+  vipCaches   VipCache[]
+}
+
+model ClientGroupMember {
+  id             String            @id @default(cuid())
+  createdAt      DateTime          @default(now())
+  clientGroupId  String
+  clientGroup    ClientGroup       @relation(fields: [clientGroupId], references: [id], onDelete: Cascade)
+  email          String            @unique
+  name           String
+  source         ClientGroupSource
+
+  @@index([clientGroupId])
+}
+
+model CosFilteredEmail {
+  id              String          @id @default(cuid())
+  createdAt       DateTime        @default(now())
+  messageId       String          @unique
+  emailAccountId  String
+  sender          String
+  subject         String?
+  filterReason    CosFilterReason
+
+  @@index([emailAccountId])
+  @@index([createdAt])
+}
+
+model ShippingEvent {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  messageId        String   @unique
+  emailAccountId   String
+  calendarEventId  String
+  itemDescription  String
+
+  @@index([emailAccountId])
 }
