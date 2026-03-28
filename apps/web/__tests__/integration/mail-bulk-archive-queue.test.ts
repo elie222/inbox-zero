@@ -182,10 +182,13 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(mockUpdateEmailMessagesForSender).toHaveBeenCalledTimes(1);
       expect(mockUpdateEmailMessagesForSender).toHaveBeenCalledWith({
         sender: "target@example.com",
-        messageIds: ["msg_1", "msg_2"],
+        messageIds: expect.arrayContaining(["msg_1", "msg_2"]),
         emailAccountId: "account-1",
         action: "archive",
       });
+      expect(
+        mockUpdateEmailMessagesForSender.mock.calls[0]?.[0]?.messageIds,
+      ).toHaveLength(2);
       expect(mockPublishBulkActionToTinybird).toHaveBeenCalledTimes(1);
       expect(mockPublishBulkActionToTinybird).toHaveBeenCalledWith(
         expect.objectContaining({

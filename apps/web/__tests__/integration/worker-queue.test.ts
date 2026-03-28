@@ -284,7 +284,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           parallelism: 1,
           path: "/api/mail/bulk-archive",
         },
-        logger: createScopedLogger("test"),
+        logger: createTestLogger(),
       });
 
       expect(capturedRequests).toHaveLength(1);
