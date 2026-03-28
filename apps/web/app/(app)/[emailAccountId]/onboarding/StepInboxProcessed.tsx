@@ -5,7 +5,10 @@ import { PageHeading, TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { EmailsSortedIllustration } from "@/app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration";
 import { InboxReadyIllustration } from "@/app/(app)/[emailAccountId]/onboarding/illustrations/InboxReadyIllustration";
-import type { OnboardingFlowVariant } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
+import {
+  ONBOARDING_FLOW_VARIANTS,
+  type OnboardingFlowVariant,
+} from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { usePremium } from "@/components/PremiumAlert";
 
@@ -17,7 +20,7 @@ export function StepInboxProcessed({
   onNext: () => void;
 }) {
   const { isPremium } = usePremium();
-  const isFastFlow = flowVariant === "fast-5";
+  const isFastFlow = flowVariant === ONBOARDING_FLOW_VARIANTS.FAST_5;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
