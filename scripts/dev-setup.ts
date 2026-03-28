@@ -52,6 +52,21 @@ type WorktreeState = {
   version: 1;
 };
 
+class CommandExecutionError extends Error {
+  exitCode?: number;
+  signal?: NodeJS.Signals;
+
+  constructor(
+    message: string,
+    options?: { exitCode?: number; signal?: NodeJS.Signals },
+  ) {
+    super(message);
+    this.name = "CommandExecutionError";
+    this.exitCode = options?.exitCode;
+    this.signal = options?.signal;
+  }
+}
+
 const ROOT_DIR = process.cwd();
 const APP_DIR = resolve(ROOT_DIR, "apps/web");
 const CONTEXT_DIR = resolve(ROOT_DIR, ".context");
@@ -138,160 +153,8 @@ async function main() {
     console.error(
       error instanceof Error ? error.message : "Unknown dev setup script error",
     );
-    process.exit(1);
+    process.exit(getErrorExitCode(error));
   }
-}
-
-function parseCli(args: string[]): CliConfig {
-  const [rawCommand, ...rest] = args;
-  if (!rawCommand || rawCommand === "--help" || rawCommand === "-h") {
-    printHelp();
-    process.exit(0);
-  }
-
-  if (!isCommand(rawCommand)) {
-    throw new Error(`Unknown command: ${rawCommand}`);
-  }
-
-  const options: CliOptions = {};
-  const commandArgs: string[] = [];
-
-  for (let index = 0; index < rest.length; index += 1) {
-    const argument = rest[index];
-    if (argument === "--") {
-      commandArgs.push(...rest.slice(index + 1));
-      break;
-    }
-
-    if (argument === "--reset-db") {
-      options.forceReset = true;
-      continue;
-    }
-
-    if (argument === "--skip-init") {
-      options.skipInit = true;
-      continue;
-    }
-
-    const [flag, inlineValue] = argument.split("=", 2);
-    const nextValue = inlineValue ?? rest[index + 1];
-    const consumesNext = inlineValue == null;
-
-    switch (flag) {
-      case "--auth":
-        assertOptionValue(flag, nextValue);
-        if (!isAuthMode(nextValue)) {
-          throw new Error(`Invalid auth mode: ${nextValue}`);
-        }
-        options.authMode = nextValue;
-        if (consumesNext) index += 1;
-        break;
-      case "--db":
-        assertOptionValue(flag, nextValue);
-        if (!isDbMode(nextValue)) {
-          throw new Error(`Invalid db mode: ${nextValue}`);
-        }
-        options.dbMode = nextValue;
-        if (consumesNext) index += 1;
-        break;
-      case "--url":
-        assertOptionValue(flag, nextValue);
-        if (!isUrlMode(nextValue)) {
-          throw new Error(`Invalid url mode: ${nextValue}`);
-        }
-        options.urlMode = nextValue;
-        if (consumesNext) index += 1;
-        break;
-      case "--port":
-        assertOptionValue(flag, nextValue);
-        options.explicitPort = Number.parseInt(nextValue, 10);
-        if (!Number.isInteger(options.explicitPort) || options.explicitPort <= 0) {
-          throw new Error(`Invalid port: ${nextValue}`);
-        }
-        if (consumesNext) index += 1;
-        break;
-      case "--portless-name":
-        assertOptionValue(flag, nextValue);
-        options.portlessName = nextValue;
-        if (consumesNext) index += 1;
-        break;
-      default:
-        throw new Error(`Unknown option: ${argument}`);
-    }
-  }
-
-  return { command: rawCommand, commandArgs, options };
-}
-
-async function ensureWorktreeReady(options: CliOptions) {
-  mkdirSync(CONTEXT_DIR, { recursive: true });
-  ensureSharedEnvLinks();
-  const state = await resolveWorktreeState(options);
-  const localEnv = readEnvFile(SHARED_ENV_LOCAL_PATH);
-
-  await ensureLocalDependencies(localEnv);
-  await ensureWorktreeDatabase(state, localEnv, options.forceReset === true);
-  writeState(state);
-
-  if (state.authMode === "emulate") {
-    writeGeneratedEmulateConfig(state.baseUrl);
-  }
-
-  return state;
-}
-
-async function resolveWorktreeState(options: CliOptions): Promise<WorktreeState> {
-  const existingState = readState();
-  const branch = await getCurrentBranch();
-  const repoName = basename(ROOT_DIR);
-  const urlMode = resolveUrlMode(options.urlMode, existingState?.urlMode);
-  const authMode = resolveAuthMode(options.authMode, existingState?.authMode);
-  const port = await resolvePort(urlMode, options.explicitPort, existingState?.port);
-
-  if (
-    authMode === "real" &&
-    (urlMode !== "localhost" || port !== 3000)
-  ) {
-    throw new Error(
-      "Real OAuth mode is only supported on http://localhost:3000 in this first pass.",
-    );
-  }
-
-  const dbMode = options.dbMode ?? existingState?.dbMode ?? "clone-main";
-  const dbName = buildDatabaseName(branch);
-  const portlessName =
-    options.portlessName ?? existingState?.portlessName ?? slugify(repoName);
-  const baseUrl = buildBaseUrl({
-    branch,
-    port,
-    portlessName,
-    urlMode,
-  });
-  const googleEmulatorPort = authMode === "emulate" ? port + 2 : undefined;
-  const microsoftEmulatorPort = authMode === "emulate" ? port + 3 : undefined;
-
-  return {
-    authMode,
-    baseUrl,
-    branch,
-    dbMode,
-    dbName,
-    googleBaseUrl:
-      googleEmulatorPort != null
-        ? `http://localhost:${googleEmulatorPort}`
-        : undefined,
-    googleEmulatorPort,
-    microsoftBaseUrl:
-      microsoftEmulatorPort != null
-        ? `http://localhost:${microsoftEmulatorPort}`
-        : undefined,
-    microsoftEmulatorPort,
-    port,
-    portlessName,
-    repoName,
-    urlMode,
-    version: 1,
-  };
 }
 
 async function ensureWorktreeDatabase(
@@ -299,18 +162,7 @@ async function ensureWorktreeDatabase(
   localEnv: Record<string, string>,
   forceReset: boolean,
 ) {
-  const sourceDatabaseUrl =
-    localEnv.PREVIEW_DATABASE_URL ||
-    localEnv.DATABASE_URL ||
-    localEnv.DIRECT_URL ||
-    localEnv.DATABASE_URL_UNPOOLED ||
-    localEnv.PREVIEW_DATABASE_URL_UNPOOLED;
-
-  if (!sourceDatabaseUrl) {
-    throw new Error(
-      `Missing DATABASE_URL in ${SHARED_ENV_LOCAL_PATH}. The dev setup script needs a local database template.`,
-    );
-  }
+  const sourceDatabaseUrl = resolveTemplateDatabaseUrl(localEnv);
 
   assertSafeLocalDatabaseUrl(sourceDatabaseUrl);
   assertSafeWorktreeDatabaseName(state.dbName);
@@ -330,7 +182,14 @@ async function ensureWorktreeDatabase(
 
   const databaseExists = await checkDatabaseExists(adminUrl, state.dbName);
 
-  if (!databaseExists) {
+  if (state.dbMode === "empty") {
+    if (databaseExists) {
+      log(`Resetting database ${state.dbName} for empty mode`);
+      await dropDatabase(adminUrl, state.dbName);
+    }
+
+    await createDatabase(adminUrl, state.dbName);
+  } else if (!databaseExists) {
     await createDatabase(adminUrl, state.dbName);
 
     if (state.dbMode === "clone-main") {
@@ -447,16 +306,35 @@ async function runDev(state: WorktreeState) {
       }),
     );
 
+    app.once("error", (error) => {
+      cleanupChildren();
+      reject(
+        new CommandExecutionError(
+          error.message || `Failed to start ${appCommand.command}`,
+          { exitCode: 1 },
+        ),
+      );
+    });
+
     app.on("exit", (code, signal) => {
       cleanupChildren();
 
       if (signal) {
-        reject(new Error(`Dev process exited from signal ${signal}`));
+        reject(
+          new CommandExecutionError(
+            `Dev process exited from signal ${signal}`,
+            { signal },
+          ),
+        );
         return;
       }
 
       if (code && code !== 0) {
-        reject(new Error(`Dev process exited with code ${code}`));
+        reject(
+          new CommandExecutionError(`Dev process exited with code ${code}`, {
+            exitCode: code,
+          }),
+        );
         return;
       }
 
@@ -474,18 +352,9 @@ async function cleanWorktree() {
 
   const localEnv = readEnvFile(SHARED_ENV_LOCAL_PATH);
   await ensureLocalDependencies(localEnv);
-  const sourceDatabaseUrl =
-    localEnv.PREVIEW_DATABASE_URL ||
-    localEnv.DATABASE_URL ||
-    localEnv.DIRECT_URL ||
-    localEnv.DATABASE_URL_UNPOOLED ||
-    localEnv.PREVIEW_DATABASE_URL_UNPOOLED;
-
-  if (!sourceDatabaseUrl) {
-    throw new Error(
-      `Missing DATABASE_URL in ${SHARED_ENV_LOCAL_PATH}. Cannot clean the branch database.`,
-    );
-  }
+  const sourceDatabaseUrl = resolveTemplateDatabaseUrl(localEnv, {
+    purpose: "clean the branch database",
+  });
 
   assertSafeLocalDatabaseUrl(sourceDatabaseUrl);
   assertSafeWorktreeDatabaseName(dbName);
@@ -708,7 +577,7 @@ async function needsLocalRedisService(redisUrl: string) {
 
   const defaultPort = parsedUrl.protocol.startsWith("http") ? "8079" : "6380";
   const port = Number.parseInt(parsedUrl.port || defaultPort, 10);
-  return !(await canConnectToPort(port));
+  return !(await canConnectToPort(port, parsedUrl.hostname));
 }
 
 async function getCurrentBranch() {
@@ -754,13 +623,15 @@ async function dropDatabase(adminUrl: string, databaseName: string) {
   ]);
 }
 
-async function waitForPort(port: number) {
+async function waitForPort(port: number, host = "localhost") {
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    if (await canConnectToPort(port)) return;
+    if (await canConnectToPort(port, host)) return;
     await delay(500);
   }
 
-  throw new Error(`Timed out waiting for port ${port} to accept connections.`);
+  throw new Error(
+    `Timed out waiting for ${host}:${port} to accept connections.`,
+  );
 }
 
 async function ensureLocalDependencies(localEnv: Record<string, string>) {
@@ -769,20 +640,14 @@ async function ensureLocalDependencies(localEnv: Record<string, string>) {
 }
 
 async function ensureLocalPostgres(localEnv: Record<string, string>) {
-  const databaseUrl =
-    localEnv.PREVIEW_DATABASE_URL ||
-    localEnv.DATABASE_URL ||
-    localEnv.DIRECT_URL ||
-    localEnv.DATABASE_URL_UNPOOLED ||
-    localEnv.PREVIEW_DATABASE_URL_UNPOOLED;
-
+  const databaseUrl = resolveTemplateDatabaseUrl(localEnv, { required: false });
   if (!databaseUrl) return;
 
   const parsedUrl = new URL(databaseUrl);
   if (!LOCAL_DATABASE_HOSTS.has(parsedUrl.hostname)) return;
 
   const port = Number.parseInt(parsedUrl.port || "5432", 10);
-  if (await canConnectToPort(port)) return;
+  if (await canConnectToPort(port, parsedUrl.hostname)) return;
 
   log(`Starting local Postgres on port ${port} with docker compose`);
 
@@ -802,7 +667,7 @@ async function ensureLocalPostgres(localEnv: Record<string, string>) {
     },
   );
 
-  await waitForPort(port);
+  await waitForPort(port, parsedUrl.hostname);
   await waitForPostgres(databaseUrl);
 }
 
@@ -833,38 +698,30 @@ async function ensureLocalRedis() {
     },
   );
 
-  await waitForPort(LOCAL_REDIS_PORT);
-  await waitForPort(LOCAL_REDIS_HTTP_PORT);
+  await waitForPort(LOCAL_REDIS_PORT, LOCAL_REDIS_HOST);
+  await waitForPort(LOCAL_REDIS_HTTP_PORT, LOCAL_REDIS_HOST);
 }
 
 async function isPortFree(port: number) {
   await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 10));
 
-  return new Promise<boolean>((resolvePromise) => {
-    const server = net.createServer();
-    server.unref();
+  const results = await Promise.all(
+    ["127.0.0.1", "::1"].map((host) => checkPortBinding(port, host)),
+  );
 
-    server.on("error", () => resolvePromise(false));
-    server.listen(port, "127.0.0.1", () => {
-      server.close(() => resolvePromise(true));
-    });
-  });
+  return results.every((result) => result !== "in-use");
 }
 
-async function canConnectToPort(port: number) {
-  return await new Promise<boolean>((resolvePromise) => {
-    const socket = net.connect({ host: "127.0.0.1", port });
+async function canConnectToPort(port: number, host = "localhost") {
+  const hosts = host === "localhost" ? ["127.0.0.1", "::1"] : [host];
 
-    socket.once("connect", () => {
-      socket.end();
-      resolvePromise(true);
-    });
+  for (const candidateHost of hosts) {
+    if (await canConnectToHost(port, candidateHost)) {
+      return true;
+    }
+  }
 
-    socket.once("error", () => {
-      socket.destroy();
-      resolvePromise(false);
-    });
-  });
+  return false;
 }
 
 async function waitForPostgres(databaseUrl: string) {
@@ -903,14 +760,31 @@ async function runCommand(
       stdio: "inherit",
     });
 
+    child.once("error", (error) => {
+      reject(
+        new CommandExecutionError(
+          error.message || `Failed to start ${command}`,
+          { exitCode: 1 },
+        ),
+      );
+    });
+
     child.on("exit", (code, signal) => {
       if (signal) {
-        reject(new Error(`${command} exited with signal ${signal}`));
+        reject(
+          new CommandExecutionError(`${command} exited with signal ${signal}`, {
+            signal,
+          }),
+        );
         return;
       }
 
       if (code && code !== 0) {
-        reject(new Error(`${command} exited with code ${code}`));
+        reject(
+          new CommandExecutionError(`${command} exited with code ${code}`, {
+            exitCode: code,
+          }),
+        );
         return;
       }
 
@@ -936,14 +810,32 @@ async function captureCommand(command: string, args: string[]) {
       stderr += chunk.toString();
     });
 
+    child.once("error", (error) => {
+      reject(
+        new CommandExecutionError(
+          error.message || `Failed to start ${command}`,
+          { exitCode: 1 },
+        ),
+      );
+    });
+
     child.on("exit", (code, signal) => {
       if (signal) {
-        reject(new Error(`${command} exited with signal ${signal}`));
+        reject(
+          new CommandExecutionError(`${command} exited with signal ${signal}`, {
+            signal,
+          }),
+        );
         return;
       }
 
       if (code && code !== 0) {
-        reject(new Error(stderr.trim() || `${command} exited with code ${code}`));
+        reject(
+          new CommandExecutionError(
+            stderr.trim() || `${command} exited with code ${code}`,
+            { exitCode: code },
+          ),
+        );
         return;
       }
 
@@ -1058,6 +950,73 @@ function delay(ms: number) {
   return new Promise<void>((resolvePromise) => setTimeout(resolvePromise, ms));
 }
 
+function resolveTemplateDatabaseUrl(
+  localEnv: Record<string, string>,
+  options?: { purpose?: string; required?: boolean },
+) {
+  const databaseUrl =
+    localEnv.PREVIEW_DATABASE_URL ||
+    localEnv.DATABASE_URL ||
+    localEnv.DIRECT_URL ||
+    localEnv.DATABASE_URL_UNPOOLED ||
+    localEnv.PREVIEW_DATABASE_URL_UNPOOLED;
+
+  if (databaseUrl || options?.required === false) {
+    return databaseUrl;
+  }
+
+  const purpose = options?.purpose ?? "use as a local database template";
+  throw new Error(
+    `Missing DATABASE_URL in ${SHARED_ENV_LOCAL_PATH}. Cannot ${purpose}.`,
+  );
+}
+
+function getErrorExitCode(error: unknown) {
+  if (error instanceof CommandExecutionError && error.exitCode != null) {
+    return error.exitCode;
+  }
+
+  return 1;
+}
+
+async function canConnectToHost(port: number, host: string) {
+  return await new Promise<boolean>((resolvePromise) => {
+    const socket = net.connect({ host, port });
+
+    socket.once("connect", () => {
+      socket.end();
+      resolvePromise(true);
+    });
+
+    socket.once("error", () => {
+      socket.destroy();
+      resolvePromise(false);
+    });
+  });
+}
+
+async function checkPortBinding(port: number, host: string) {
+  return await new Promise<"free" | "in-use" | "unsupported">(
+    (resolvePromise) => {
+      const server = net.createServer();
+      server.unref();
+
+      server.once("error", (error: NodeJS.ErrnoException) => {
+        if (error.code === "EAFNOSUPPORT") {
+          resolvePromise("unsupported");
+          return;
+        }
+
+        resolvePromise("in-use");
+      });
+
+      server.listen(port, host, () => {
+        server.close(() => resolvePromise("free"));
+      });
+    },
+  );
+}
+
 function isCommand(value: string): value is Command {
   return (
     value === "init" ||
@@ -1077,4 +1036,156 @@ function isDbMode(value: string): value is DbMode {
 
 function isUrlMode(value: string): value is UrlMode {
   return value === "conductor" || value === "localhost" || value === "portless";
+}
+
+function parseCli(args: string[]): CliConfig {
+  const [rawCommand, ...rest] = args;
+  if (!rawCommand || rawCommand === "--help" || rawCommand === "-h") {
+    printHelp();
+    process.exit(0);
+  }
+
+  if (!isCommand(rawCommand)) {
+    throw new Error(`Unknown command: ${rawCommand}`);
+  }
+
+  const options: CliOptions = {};
+  const commandArgs: string[] = [];
+
+  for (let index = 0; index < rest.length; index += 1) {
+    const argument = rest[index];
+    if (argument === "--") {
+      commandArgs.push(...rest.slice(index + 1));
+      break;
+    }
+
+    if (argument === "--reset-db") {
+      options.forceReset = true;
+      continue;
+    }
+
+    if (argument === "--skip-init") {
+      options.skipInit = true;
+      continue;
+    }
+
+    const [flag, inlineValue] = argument.split("=", 2);
+    const nextValue = inlineValue ?? rest[index + 1];
+    const consumesNext = inlineValue == null;
+
+    switch (flag) {
+      case "--auth":
+        assertOptionValue(flag, nextValue);
+        if (!isAuthMode(nextValue)) {
+          throw new Error(`Invalid auth mode: ${nextValue}`);
+        }
+        options.authMode = nextValue;
+        if (consumesNext) index += 1;
+        break;
+      case "--db":
+        assertOptionValue(flag, nextValue);
+        if (!isDbMode(nextValue)) {
+          throw new Error(`Invalid db mode: ${nextValue}`);
+        }
+        options.dbMode = nextValue;
+        if (consumesNext) index += 1;
+        break;
+      case "--url":
+        assertOptionValue(flag, nextValue);
+        if (!isUrlMode(nextValue)) {
+          throw new Error(`Invalid url mode: ${nextValue}`);
+        }
+        options.urlMode = nextValue;
+        if (consumesNext) index += 1;
+        break;
+      case "--port":
+        assertOptionValue(flag, nextValue);
+        options.explicitPort = Number.parseInt(nextValue, 10);
+        if (!Number.isInteger(options.explicitPort) || options.explicitPort <= 0) {
+          throw new Error(`Invalid port: ${nextValue}`);
+        }
+        if (consumesNext) index += 1;
+        break;
+      case "--portless-name":
+        assertOptionValue(flag, nextValue);
+        options.portlessName = nextValue;
+        if (consumesNext) index += 1;
+        break;
+      default:
+        throw new Error(`Unknown option: ${argument}`);
+    }
+  }
+
+  return { command: rawCommand, commandArgs, options };
+}
+
+async function ensureWorktreeReady(options: CliOptions) {
+  mkdirSync(CONTEXT_DIR, { recursive: true });
+  ensureSharedEnvLinks();
+  const state = await resolveWorktreeState(options);
+  const localEnv = readEnvFile(SHARED_ENV_LOCAL_PATH);
+
+  await ensureLocalDependencies(localEnv);
+  await ensureWorktreeDatabase(state, localEnv, options.forceReset === true);
+  writeState(state);
+
+  if (state.authMode === "emulate") {
+    writeGeneratedEmulateConfig(state.baseUrl);
+  }
+
+  return state;
+}
+
+async function resolveWorktreeState(options: CliOptions): Promise<WorktreeState> {
+  const existingState = readState();
+  const branch = await getCurrentBranch();
+  const repoName = basename(ROOT_DIR);
+  const urlMode = resolveUrlMode(options.urlMode, existingState?.urlMode);
+  const authMode = resolveAuthMode(options.authMode, existingState?.authMode);
+  const port = await resolvePort(urlMode, options.explicitPort, existingState?.port);
+
+  if (
+    authMode === "real" &&
+    (urlMode !== "localhost" || port !== 3000)
+  ) {
+    throw new Error(
+      "Real OAuth mode is only supported on http://localhost:3000 in this first pass.",
+    );
+  }
+
+  const dbMode = options.dbMode ?? existingState?.dbMode ?? "clone-main";
+  const dbName = buildDatabaseName(branch);
+  const portlessName =
+    options.portlessName ?? existingState?.portlessName ?? slugify(repoName);
+  const baseUrl = buildBaseUrl({
+    branch,
+    port,
+    portlessName,
+    urlMode,
+  });
+  const googleEmulatorPort = authMode === "emulate" ? port + 2 : undefined;
+  const microsoftEmulatorPort = authMode === "emulate" ? port + 3 : undefined;
+
+  return {
+    authMode,
+    baseUrl,
+    branch,
+    dbMode,
+    dbName,
+    googleBaseUrl:
+      googleEmulatorPort != null
+        ? `http://localhost:${googleEmulatorPort}`
+        : undefined,
+    googleEmulatorPort,
+    microsoftBaseUrl:
+      microsoftEmulatorPort != null
+        ? `http://localhost:${microsoftEmulatorPort}`
+        : undefined,
+    microsoftEmulatorPort,
+    port,
+    portlessName,
+    repoName,
+    urlMode,
+    version: 1,
+  };
 }
