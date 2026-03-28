@@ -39,7 +39,6 @@ describe("getVisibleOnboardingStepKeys", () => {
         autoDraftDisabled: false,
       }),
     ).toEqual([
-      STEP_KEYS.WELCOME,
       STEP_KEYS.WHO,
       STEP_KEYS.COMPANY_SIZE,
       STEP_KEYS.LABELS,
@@ -76,7 +75,7 @@ describe("getOnboardingStepIndex", () => {
   });
 
   it("resolves descriptive step keys directly", () => {
-    expect(getOnboardingStepIndex(STEP_KEYS.LABELS, fastFlowKeys)).toBe(3);
+    expect(getOnboardingStepIndex(STEP_KEYS.LABELS, fastFlowKeys)).toBe(2);
   });
 
   it("supports legacy numeric step params", () => {
@@ -84,7 +83,11 @@ describe("getOnboardingStepIndex", () => {
   });
 
   it("clamps oversized numeric steps to the last visible step", () => {
-    expect(getOnboardingStepIndex("99", fastFlowKeys)).toBe(4);
+    expect(getOnboardingStepIndex("99", fastFlowKeys)).toBe(3);
+  });
+
+  it("falls back to the first visible fast-flow step for removed steps", () => {
+    expect(getOnboardingStepIndex(STEP_KEYS.WELCOME, fastFlowKeys)).toBe(0);
   });
 });
 

@@ -61,9 +61,7 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
   const flowVariant = forcedFlowVariant ?? flaggedFlowVariant;
 
   const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
-    [STEP_KEYS.WELCOME]: () => (
-      <StepWelcome flowVariant={flowVariant} onNext={onNext} />
-    ),
+    [STEP_KEYS.WELCOME]: () => <StepWelcome onNext={onNext} />,
     [STEP_KEYS.EMAILS_SORTED]: () => <StepEmailsSorted onNext={onNext} />,
     [STEP_KEYS.DRAFT_REPLIES]: env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
       ? undefined
@@ -108,7 +106,9 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
           />
         )
       : undefined,
-    [STEP_KEYS.INBOX_PROCESSED]: () => <StepInboxProcessed onNext={onNext} />,
+    [STEP_KEYS.INBOX_PROCESSED]: () => (
+      <StepInboxProcessed flowVariant={flowVariant} onNext={onNext} />
+    ),
   };
 
   const visibleStepKeys = getVisibleOnboardingStepKeys({
