@@ -319,9 +319,6 @@ export function BulkArchiveCards({
                     <p className="text-sm text-muted-foreground">
                       {senders.length} senders
                       {isArchived && " archived"}
-                      {!isArchived &&
-                        (category?.description || defaultCat?.description) &&
-                        ` · ${category?.description || defaultCat?.description}`}
                     </p>
                   </div>
                 </div>
