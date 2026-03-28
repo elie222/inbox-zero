@@ -65,7 +65,7 @@ export const loadEmailStatsAction = actionClient
     },
   );
 
-async function loadEmails(
+export async function loadEmails(
   {
     emailAccountId,
     emailProvider,
@@ -75,7 +75,10 @@ async function loadEmails(
     emailProvider: EmailProvider;
     logger: Logger;
   },
-  { loadBefore }: { loadBefore: boolean },
+  {
+    loadBefore,
+    maxPages = MAX_PAGES,
+  }: { loadBefore: boolean; maxPages?: number },
 ) {
   let pages = 0;
 
@@ -89,7 +92,7 @@ async function loadEmails(
 
   // First pagination loop - load emails after the newest saved email
   let nextPageToken: string | undefined;
-  while (pages < MAX_PAGES) {
+  while (pages < maxPages) {
     logger.info("After Page", { pages, nextPageToken });
     const res = await saveBatch({
       emailAccountId,
@@ -127,7 +130,7 @@ async function loadEmails(
   // Second pagination loop - load emails before the oldest saved email
   // Reset nextPageToken for this new pagination sequence
   nextPageToken = undefined;
-  while (pages < MAX_PAGES) {
+  while (pages < maxPages) {
     logger.info("Before Page", { pages, nextPageToken });
     const res = await saveBatch({
       emailAccountId,

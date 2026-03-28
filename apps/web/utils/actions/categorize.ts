@@ -24,19 +24,65 @@ import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progr
 import { getUncategorizedSenders } from "@/app/api/user/categorize/senders/uncategorized/get-uncategorized-senders";
 import { actionClient } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
+import { loadEmails } from "@/utils/actions/stats";
 
 export const bulkCategorizeSendersAction = actionClient
   .metadata({ name: "bulkCategorizeSenders" })
   .action(async ({ ctx: { emailAccountId, logger } }) => {
     await validateUserAndAiAccess({ emailAccountId });
 
-    const hasSyncedMessages = !!(await prisma.emailMessage.findFirst({
+    let hasSyncedMessages = !!(await prisma.emailMessage.findFirst({
       where: {
         emailAccountId,
         sent: false,
       },
       select: { id: true },
     }));
+
+    if (!hasSyncedMessages) {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: {
+          account: {
+            select: { provider: true },
+          },
+        },
+      });
+
+      if (!emailAccount?.account?.provider) {
+        throw new SafeError("Email account or provider not found");
+      }
+
+      logger.info("Bootstrapping recent emails before categorization", {
+        maxPages: 5,
+      });
+
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider: emailAccount.account.provider,
+        logger,
+      });
+
+      await loadEmails(
+        {
+          emailAccountId,
+          emailProvider,
+          logger,
+        },
+        {
+          loadBefore: false,
+          maxPages: 5,
+        },
+      );
+
+      hasSyncedMessages = !!(await prisma.emailMessage.findFirst({
+        where: {
+          emailAccountId,
+          sent: false,
+        },
+        select: { id: true },
+      }));
+    }
 
     // Ensure default categories exist before categorizing
     const categoriesToCreate = Object.values(defaultCategory)
