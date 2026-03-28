@@ -4,6 +4,11 @@ import { saveTokens } from "@/utils/auth";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
+import {
+  getMicrosoftGraphClientOptions,
+  getMicrosoftOauthAuthorizeUrl,
+  requestMicrosoftToken,
+} from "@/utils/microsoft/oauth";
 import { SCOPES } from "@/utils/outlook/scopes";
 import { SafeError } from "@/utils/error";
 
@@ -21,15 +26,18 @@ export class OutlookClient {
   constructor(accessToken: string, logger: Logger) {
     this.accessToken = accessToken;
     this.logger = logger;
+    const graphClientOptions = getMicrosoftGraphClientOptions(accessToken);
     this.client = Client.init({
       authProvider: (done) => {
         done(null, this.accessToken);
       },
       defaultVersion: "v1.0",
+      ...graphClientOptions,
       // Use immutable IDs to ensure message IDs remain stable
       // https://learn.microsoft.com/en-us/graph/outlook-immutable-id
       fetchOptions: {
         headers: {
+          ...(graphClientOptions.fetchOptions?.headers ?? {}),
           Prefer: 'IdType="ImmutableId"',
         },
       },
@@ -130,21 +138,12 @@ export const getOutlookClientWithRefresh = async ({
       throw new Error("Microsoft login not enabled - missing credentials");
     }
 
-    const response = await fetch(
-      `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/token`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          client_id: env.MICROSOFT_CLIENT_ID,
-          client_secret: env.MICROSOFT_CLIENT_SECRET,
-          refresh_token: refreshToken,
-          grant_type: "refresh_token",
-        }),
-      },
-    );
+    const response = await requestMicrosoftToken({
+      client_id: env.MICROSOFT_CLIENT_ID,
+      client_secret: env.MICROSOFT_CLIENT_SECRET,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    });
 
     const tokens = await response.json();
 
@@ -251,7 +250,6 @@ export function getLinkingOAuth2Url() {
     throw new Error("Microsoft login not enabled - missing client ID");
   }
 
-  const baseUrl = `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/authorize`;
   const params = new URLSearchParams({
     client_id: env.MICROSOFT_CLIENT_ID,
     response_type: "code",
@@ -261,7 +259,7 @@ export function getLinkingOAuth2Url() {
     prompt: "consent",
   });
 
-  return `${baseUrl}?${params.toString()}`;
+  return `${getMicrosoftOauthAuthorizeUrl()}?${params.toString()}`;
 }
 
 // Helper types for common Microsoft Graph operations

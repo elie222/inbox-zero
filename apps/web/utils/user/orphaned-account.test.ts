@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { cleanupOrphanedAccount } from "./orphaned-account";
 import prisma from "@/utils/__mocks__/prisma";
-import { createScopedLogger } from "@/utils/logger";
-import { getMockAccountWithEmailAccount } from "@/__tests__/helpers";
+import {
+  getMockAccountWithEmailAccount,
+  createTestLogger,
+} from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 

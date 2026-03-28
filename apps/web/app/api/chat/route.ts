@@ -1,4 +1,9 @@
-import { convertToModelMessages, type UIMessage } from "ai";
+import {
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  type UIMessage,
+} from "ai";
 import { withEmailAccount } from "@/utils/middleware";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { NextResponse } from "next/server";
@@ -22,6 +27,11 @@ import {
   assistantInputSchema,
 } from "@/utils/actions/assistant-chat.validation";
 import { buildInlineEmailActionSystemMessage } from "@/utils/ai/assistant/inline-email-actions";
+import {
+  mergeSeenRulesRevision,
+  saveLastSeenRulesRevision,
+} from "@/utils/ai/assistant/chat-seen-rules-revision";
+import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard";
 
 export const maxDuration = 120;
 
@@ -65,6 +75,8 @@ export const POST = withEmailAccount("chat", async (request) => {
     );
   }
 
+  const chatHasHistory =
+    chat.messages.length > 0 || chat.compactions.length > 0;
   const { message, context, inlineActions } = data;
 
   const hiddenInlineActionMessage =
@@ -192,6 +204,7 @@ export const POST = withEmailAccount("chat", async (request) => {
 
   try {
     const inboxStats = await inboxStatsPromise;
+    let seenRulesRevision: number | null = null;
 
     const result = await aiProcessAssistantChat({
       messages: modelMessages,
@@ -199,16 +212,58 @@ export const POST = withEmailAccount("chat", async (request) => {
       user,
       context,
       chatId: chat.id,
+      chatLastSeenRulesRevision: chat.lastSeenRulesRevision,
+      chatHasHistory,
       memories,
       inboxStats,
+      onRulesStateExposed: (rulesRevision) => {
+        seenRulesRevision = mergeSeenRulesRevision(
+          seenRulesRevision,
+          rulesRevision,
+        );
+      },
       logger: request.logger,
     });
 
-    return result.toUIMessageStreamResponse({
+    const stream = createUIMessageStream({
+      execute: async ({ writer }) => {
+        let responseMessage: UIMessage | null = null;
+
+        for await (const chunk of result.toUIMessageStream({
+          sendFinish: false,
+          onFinish: ({ responseMessage: finishedResponseMessage }) => {
+            responseMessage = finishedResponseMessage;
+          },
+        })) {
+          writer.write(chunk);
+        }
+
+        const warning = getToolFailureWarning(responseMessage);
+        if (!warning) return;
+
+        const warningPartId = crypto.randomUUID();
+        writer.write({ type: "text-start", id: warningPartId });
+        writer.write({
+          type: "text-delta",
+          id: warningPartId,
+          delta: `\n\n${warning}`,
+        });
+        writer.write({ type: "text-end", id: warningPartId });
+      },
       onFinish: async ({ messages }) => {
         await saveChatMessages(messages, chat.id, request.logger);
+
+        if (seenRulesRevision != null) {
+          await saveLastSeenRulesRevision({
+            chatId: chat.id,
+            rulesRevision: seenRulesRevision,
+            logger: request.logger,
+          });
+        }
       },
     });
+
+    return createUIMessageStreamResponse({ stream });
   } catch (error) {
     request.logger.error("Error in assistant chat", { error });
     return NextResponse.json(

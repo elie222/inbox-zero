@@ -28,6 +28,12 @@ import {
 } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
+import {
+  buildRuleReadState,
+  getVisibleRulesFromSnapshot,
+  loadAssistantRuleSnapshot,
+  type RuleReadState,
+} from "./chat-rule-state";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 
@@ -103,26 +109,23 @@ type GetUserRulesAndSettingsOutput =
 
 const RULE_READ_FRESHNESS_WINDOW_MS = 2 * 60 * 1000;
 
-export type RuleReadState = {
-  readAt: number;
-  ruleUpdatedAtByName: Map<string, string>;
-};
-
 // tools
 export const getUserRulesAndSettingsTool = ({
   email,
   emailAccountId,
   logger,
   setRuleReadState,
+  onRulesStateExposed,
 }: {
   email: string;
   emailAccountId: string;
   logger: Logger;
   setRuleReadState?: (state: RuleReadState) => void;
+  onRulesStateExposed?: (rulesRevision: number) => void;
 }) =>
   tool<z.infer<typeof emptyInputSchema>, GetUserRulesAndSettingsOutput>({
     description:
-      "Retrieve all existing rules for the user, and their about information. Always call this immediately before updating any existing rule.",
+      "Retrieve the latest rules and about information for the user.",
     inputSchema: emptyInputSchema,
     execute: async (_input: z.infer<typeof emptyInputSchema>) => {
       trackToolCall({
@@ -131,91 +134,14 @@ export const getUserRulesAndSettingsTool = ({
         logger,
       });
       try {
-        const emailAccount = await prisma.emailAccount.findUnique({
-          where: { id: emailAccountId },
-          select: {
-            about: true,
-            rules: {
-              select: {
-                name: true,
-                instructions: true,
-                updatedAt: true,
-                from: true,
-                to: true,
-                subject: true,
-                conditionalOperator: true,
-                enabled: true,
-                runOnThreads: true,
-                actions: {
-                  select: {
-                    type: true,
-                    content: true,
-                    label: true,
-                    to: true,
-                    cc: true,
-                    bcc: true,
-                    subject: true,
-                    url: true,
-                    folderName: true,
-                    delayInMinutes: true,
-                  },
-                },
-              },
-            },
-          },
-        });
+        const snapshot = await loadAssistantRuleSnapshot({ emailAccountId });
 
-        setRuleReadState?.({
-          readAt: Date.now(),
-          ruleUpdatedAtByName: new Map(
-            (emailAccount?.rules || []).map((rule) => [
-              rule.name,
-              rule.updatedAt.toISOString(),
-            ]),
-          ),
-        });
+        setRuleReadState?.(buildRuleReadState(snapshot));
+        onRulesStateExposed?.(snapshot.rulesRevision);
 
         return {
-          about: emailAccount?.about || "Not set",
-          rules: emailAccount?.rules.map((rule) => {
-            const staticFilter = filterNullProperties({
-              from: rule.from,
-              to: rule.to,
-              subject: rule.subject,
-            });
-
-            const staticConditions =
-              Object.keys(staticFilter).length > 0 ? staticFilter : undefined;
-
-            return {
-              name: rule.name,
-              conditions: {
-                aiInstructions: rule.instructions,
-                static: staticConditions,
-                // only need to show conditional operator if there are multiple conditions
-                conditionalOperator:
-                  rule.instructions && staticConditions
-                    ? rule.conditionalOperator
-                    : undefined,
-              },
-              actions: rule.actions.map((action) => ({
-                type: action.type,
-                fields: filterNullProperties({
-                  label: action.label,
-                  content: action.content,
-                  to: action.to,
-                  cc: action.cc,
-                  bcc: action.bcc,
-                  subject: action.subject,
-                  webhookUrl: action.url,
-                  folderName: action.folderName,
-                }),
-                delayInMinutes: action.delayInMinutes,
-              })),
-              enabled: rule.enabled,
-              runOnThreads: rule.runOnThreads,
-            };
-          }),
+          about: snapshot.about,
+          rules: getVisibleRulesFromSnapshot(snapshot),
         };
       } catch (error) {
         logger.error("Failed to load rules and settings", { error });
@@ -364,7 +290,7 @@ export const updateRuleConditionsTool = ({
 }) =>
   tool({
     description:
-      "Update the conditions of an existing rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and put only the semantic part in condition.aiInstructions. Requires a fresh getUserRulesAndSettings call in the current request before writing.",
+      "Update the conditions of an existing rule. For sender-only or domain-only matching, put the sender list in condition.static.from and leave condition.aiInstructions empty. If the user also adds semantic matching like urgency, keep the sender list in condition.static.from and put only the semantic part in condition.aiInstructions. Requires fresh rule state in the current request before writing.",
     inputSchema: updateRuleConditionSchema,
     execute: async ({ ruleName, condition }) => {
       trackToolCall({ tool: "update_rule_conditions", email, logger });
@@ -387,6 +313,11 @@ export const updateRuleConditionsTool = ({
             id: true,
             name: true,
             updatedAt: true,
+            emailAccount: {
+              select: {
+                rulesRevision: true,
+              },
+            },
             instructions: true,
             from: true,
             to: true,
@@ -406,6 +337,7 @@ export const updateRuleConditionsTool = ({
         const staleReadError = validateRuleWasReadRecently({
           ruleName,
           getRuleReadState,
+          currentRulesRevision: rule.emailAccount.rulesRevision,
           currentRuleUpdatedAt: rule.updatedAt,
         });
         if (staleReadError) {
@@ -568,6 +500,11 @@ export const updateRuleActionsTool = ({
             id: true,
             name: true,
             updatedAt: true,
+            emailAccount: {
+              select: {
+                rulesRevision: true,
+              },
+            },
             actions: {
               select: {
                 type: true,
@@ -596,6 +533,7 @@ export const updateRuleActionsTool = ({
         const staleReadError = validateRuleWasReadRecently({
           ruleName,
           getRuleReadState,
+          currentRulesRevision: rule.emailAccount.rulesRevision,
           currentRuleUpdatedAt: rule.updatedAt,
         });
         if (staleReadError) {
@@ -734,7 +672,16 @@ export const updateLearnedPatternsTool = ({
 
         const rule = await prisma.rule.findUnique({
           where: { name_emailAccountId: { name: ruleName, emailAccountId } },
-          select: { id: true, name: true, updatedAt: true },
+          select: {
+            id: true,
+            name: true,
+            updatedAt: true,
+            emailAccount: {
+              select: {
+                rulesRevision: true,
+              },
+            },
+          },
         });
 
         if (!rule) {
@@ -748,6 +695,7 @@ export const updateLearnedPatternsTool = ({
         const staleReadError = validateRuleWasReadRecently({
           ruleName,
           getRuleReadState,
+          currentRulesRevision: rule.emailAccount.rulesRevision,
           currentRuleUpdatedAt: rule.updatedAt,
         });
         if (staleReadError) {
@@ -942,20 +890,29 @@ async function trackToolCall({
 function validateRuleWasReadRecently({
   ruleName,
   getRuleReadState,
+  currentRulesRevision,
   currentRuleUpdatedAt,
 }: {
   ruleName: string;
   getRuleReadState?: () => RuleReadState | null;
+  currentRulesRevision?: number;
   currentRuleUpdatedAt?: Date;
 }) {
   const ruleReadState = getRuleReadState?.() || null;
 
   if (!ruleReadState) {
-    return "Before updating an existing rule, call getUserRulesAndSettings immediately beforehand.";
+    return "No rule was changed. Call getUserRulesAndSettings immediately before updating this rule.";
   }
 
   if (Date.now() - ruleReadState.readAt > RULE_READ_FRESHNESS_WINDOW_MS) {
-    return "Rules may be stale. Call getUserRulesAndSettings again immediately before updating the rule.";
+    return "No rule was changed. Rules may be stale. Call getUserRulesAndSettings again immediately before updating the rule.";
+  }
+
+  if (
+    currentRulesRevision !== undefined &&
+    ruleReadState.rulesRevision !== currentRulesRevision
+  ) {
+    return "No rule was changed. Rule state changed since the last read. Call getUserRulesAndSettings again, then apply the update.";
   }
 
   if (!currentRuleUpdatedAt) return null;
@@ -964,11 +921,11 @@ function validateRuleWasReadRecently({
     ruleReadState.ruleUpdatedAtByName.get(ruleName) || null;
 
   if (!lastReadRuleUpdatedAt) {
-    return "Rule details are stale or missing. Call getUserRulesAndSettings again before updating this rule.";
+    return "No rule was changed. Rule details are stale or missing. Call getUserRulesAndSettings again before updating this rule.";
   }
 
   if (lastReadRuleUpdatedAt !== currentRuleUpdatedAt.toISOString()) {
-    return "Rule changed since the last read. Call getUserRulesAndSettings again, then apply the update.";
+    return "No rule was changed. Rule changed since the last read. Call getUserRulesAndSettings again, then apply the update.";
   }
 
   return null;

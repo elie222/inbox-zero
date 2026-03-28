@@ -251,7 +251,15 @@ export async function aiDraftReplyWithConfidence({
       : null,
   });
 
-  const effectiveWritingStyle = writingStyle || defaultWritingStyle;
+  const normalizedWritingStyle = writingStyle?.trim() || null;
+  const normalizedLearnedWritingStyle = learnedWritingStyle?.trim() || null;
+  const effectiveWritingStyle =
+    normalizedWritingStyle ||
+    normalizedLearnedWritingStyle ||
+    defaultWritingStyle;
+  const advisoryLearnedWritingStyle = normalizedWritingStyle
+    ? normalizedLearnedWritingStyle
+    : null;
 
   const prompt = getUserPrompt({
     messages,
@@ -262,7 +270,7 @@ export async function aiDraftReplyWithConfidence({
     emailHistoryContext,
     calendarAvailability,
     writingStyle: effectiveWritingStyle,
-    learnedWritingStyle,
+    learnedWritingStyle: advisoryLearnedWritingStyle,
     mcpContext,
     meetingContext,
     attachmentContext,

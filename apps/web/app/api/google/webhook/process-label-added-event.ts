@@ -1,26 +1,28 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import {
+  ActionType,
   GroupItemSource,
   GroupItemType,
+  ClassificationFeedbackEventType,
   SystemType,
 } from "@/generated/prisma/enums";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
-import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
-import { GmailLabel } from "@/utils/gmail/label";
+import { GMAIL_SYSTEM_LABELS, GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { isEligibleForClassificationFeedback } from "@/utils/rule/consts";
 import {
-  isGmailRateLimitExceededError,
-  isGmailQuotaExceededError,
-  isGmailInsufficientPermissionsError,
-} from "@/utils/error";
+  findRuleByLabelId,
+  saveClassificationFeedback,
+} from "@/utils/rule/classification-feedback";
+import { fetchSenderFromMessage } from "@/app/api/google/webhook/fetch-sender-from-message";
 
 /**
- * When the SPAM label is added (e.g. user marks as junk in Mail.app),
- * learn this sender as a cold email so future emails from them are
- * caught at Tier 1 without an AI call.
+ * When labels are added to an email:
+ * - SPAM label: learn sender as cold email (existing behavior)
+ * - Other labels that map to rules: record as classification feedback
  */
 export async function handleLabelAddedEvent(
   message: gmail_v1.Schema$HistoryLabelAdded,
@@ -43,21 +45,64 @@ export async function handleLabelAddedEvent(
     return;
   }
 
-  // Only learn from SPAM label additions
-  if (!addedLabelIds.includes(GmailLabel.SPAM)) {
-    logger.trace("Label added event is not SPAM, skipping", {
+  const hasSpam = addedLabelIds.includes(GmailLabel.SPAM);
+  const classifiableLabelIds = addedLabelIds.filter(
+    (labelId) => !GMAIL_SYSTEM_LABELS.includes(labelId),
+  );
+
+  if (!hasSpam && classifiableLabelIds.length === 0) {
+    logger.trace("No actionable labels added, skipping", {
       messageId,
       addedLabelIds,
     });
     return;
   }
 
+  const sender = await fetchSenderFromMessage(messageId, provider, logger);
+  if (!sender) return;
+
+  if (hasSpam) {
+    await learnColdEmailFromSpam({
+      sender,
+      messageId,
+      threadId,
+      emailAccountId,
+      logger,
+    });
+  }
+
+  await Promise.all(
+    classifiableLabelIds.map((labelId) =>
+      recordClassificationFromLabelAdd({
+        labelId,
+        sender,
+        messageId,
+        threadId,
+        emailAccountId,
+        logger,
+      }),
+    ),
+  );
+}
+
+async function learnColdEmailFromSpam({
+  sender,
+  messageId,
+  threadId,
+  emailAccountId,
+  logger,
+}: {
+  sender: string;
+  messageId: string;
+  threadId: string;
+  emailAccountId: string;
+  logger: Logger;
+}) {
   logger.info("SPAM label added, learning cold email pattern", {
     messageId,
     threadId,
   });
 
-  // Find the Cold Email rule for this account
   const coldEmailRule = await prisma.rule.findFirst({
     where: {
       emailAccountId,
@@ -69,49 +114,6 @@ export async function handleLabelAddedEvent(
 
   if (!coldEmailRule) {
     logger.info("No Cold Email rule found for account, skipping");
-    return;
-  }
-
-  let sender: string | null = null;
-
-  try {
-    const parsedMessage = await provider.getMessage(messageId);
-    sender = extractEmailAddress(parsedMessage.headers.from);
-  } catch (error) {
-    const errorObj = error as {
-      message?: string;
-      error?: { message?: string };
-    };
-    const errorMessage = errorObj?.message || errorObj?.error?.message;
-    if (errorMessage === "Requested entity was not found.") {
-      logger.warn("Message not found - may have been deleted", { messageId });
-      return;
-    }
-
-    if (isGmailRateLimitExceededError(error)) {
-      logger.warn("Rate limit exceeded", { messageId });
-      return;
-    }
-
-    if (isGmailQuotaExceededError(error)) {
-      logger.warn("Quota exceeded", { messageId });
-      return;
-    }
-
-    if (isGmailInsufficientPermissionsError(error)) {
-      logger.warn("Insufficient permissions", { messageId });
-      return;
-    }
-
-    logger.error("Error getting sender for label added", {
-      messageId,
-      error,
-    });
-    return;
-  }
-
-  if (!sender) {
-    logger.info("No sender found, skipping learning");
     return;
   }
 
@@ -151,4 +153,74 @@ export async function handleLabelAddedEvent(
     reason: "Marked as spam by user",
     source: GroupItemSource.LABEL_ADDED,
   });
+}
+
+async function recordClassificationFromLabelAdd({
+  labelId,
+  sender,
+  messageId,
+  threadId,
+  emailAccountId,
+  logger,
+}: {
+  labelId: string;
+  sender: string;
+  messageId: string;
+  threadId: string;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const rule = await findRuleByLabelId({ labelId, emailAccountId });
+
+  if (!rule) return;
+
+  if (!isEligibleForClassificationFeedback(rule.systemType)) return;
+
+  // Self-labeling filter: skip if Inbox Zero already applied this label
+  const systemApplied = await wasLabelAppliedBySystem({
+    messageId,
+    emailAccountId,
+    labelId,
+  });
+
+  if (systemApplied) {
+    logger.trace("Label was applied by system, skipping classification", {
+      labelId,
+    });
+    return;
+  }
+
+  await saveClassificationFeedback({
+    emailAccountId,
+    sender,
+    ruleId: rule.id,
+    threadId,
+    messageId,
+    eventType: ClassificationFeedbackEventType.LABEL_ADDED,
+    logger,
+  });
+}
+
+async function wasLabelAppliedBySystem({
+  messageId,
+  emailAccountId,
+  labelId,
+}: {
+  messageId: string;
+  emailAccountId: string;
+  labelId: string;
+}): Promise<boolean> {
+  const executedAction = await prisma.executedAction.findFirst({
+    where: {
+      labelId,
+      type: ActionType.LABEL,
+      executedRule: {
+        messageId,
+        emailAccountId,
+      },
+    },
+    select: { id: true },
+  });
+
+  return !!executedAction;
 }

@@ -4,14 +4,13 @@ import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recur
 import type { EmailForLLM } from "@/utils/types";
 import { getRuleName, getRuleConfig } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
-import { getEmailAccount } from "@/__tests__/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { formatUtcDate } from "@/utils/date";
 
 // Run with: pnpm test-ai ai-detect-recurring-pattern
 
 const TIMEOUT = 15_000;
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/braintrust", () => ({

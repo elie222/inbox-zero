@@ -14,6 +14,7 @@ import {
 import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
 import { aiExtractReplyMemoriesFromDraftEdit } from "@/utils/ai/reply/extract-reply-memories";
 import { aiSummarizeLearnedWritingStyle } from "@/utils/ai/reply/summarize-learned-writing-style";
+import { isDefined } from "@/utils/types";
 
 // pnpm test-ai eval/reply-memory
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/reply-memory
@@ -44,17 +45,18 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
           senderEmail: "buyer@example.com",
           existingMemories: [],
         });
+        const createdMemories = getCreatedMemoriesFromDecisions(result);
 
         const hasExpectedStructure =
-          result.length > 0 &&
-          result.length <= 3 &&
-          result.some(
+          createdMemories.length > 0 &&
+          createdMemories.length <= 3 &&
+          createdMemories.some(
             (memory) =>
               memory.kind === ReplyMemoryKind.FACT &&
               (memory.scopeType === ReplyMemoryScopeType.TOPIC ||
                 memory.scopeType === ReplyMemoryScopeType.GLOBAL),
           );
-        const summary = summarizeMemories(result);
+        const summary = summarizeMemories(createdMemories);
         const judgeResult = await judgeBinary({
           input: buildJudgeInput({
             incomingEmailContent:
@@ -109,14 +111,15 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
           senderEmail: "prospect@example.com",
           existingMemories: [],
         });
+        const createdMemories = getCreatedMemoriesFromDecisions(result);
 
-        const hasExpectedStructure = result.some(
+        const hasExpectedStructure = createdMemories.some(
           (memory) =>
             memory.kind === ReplyMemoryKind.PROCEDURE &&
             (memory.scopeType === ReplyMemoryScopeType.TOPIC ||
               memory.scopeType === ReplyMemoryScopeType.GLOBAL),
         );
-        const summary = summarizeMemories(result);
+        const summary = summarizeMemories(createdMemories);
         const judgeResult = await judgeBinary({
           input: buildJudgeInput({
             incomingEmailContent,
@@ -162,15 +165,16 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
           senderEmail: "partner@example.com",
           existingMemories: [],
         });
+        const createdMemories = getCreatedMemoriesFromDecisions(result);
 
-        const pass = result.length === 0;
+        const pass = createdMemories.length === 0;
 
         evalReporter.record({
           testName: "one-off scheduling edit ignored",
           model: model.label,
           pass,
           expected: "no memory",
-          actual: summarizeMemories(result),
+          actual: summarizeMemories(createdMemories),
         });
 
         expect(pass).toBe(true);
@@ -191,13 +195,14 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
           senderEmail: "colleague@example.com",
           existingMemories: [],
         });
+        const createdMemories = getCreatedMemoriesFromDecisions(result);
 
-        const hasExpectedStructure = result.some(
+        const hasExpectedStructure = createdMemories.some(
           (memory) =>
             memory.kind === ReplyMemoryKind.PREFERENCE &&
             memory.scopeType === ReplyMemoryScopeType.GLOBAL,
         );
-        const summary = summarizeMemories(result);
+        const summary = summarizeMemories(createdMemories);
         const judgeResult = await judgeBinary({
           input: buildJudgeInput({
             incomingEmailContent:
@@ -229,6 +234,48 @@ describe.runIf(shouldRunEval)("reply memory eval", () => {
 
         expect(hasExpectedStructure).toBe(true);
         expect(judgeResult.pass).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "returns an existing memory id when the same durable idea is already covered",
+      async () => {
+        const result = await aiExtractReplyMemoriesFromDraftEdit({
+          emailAccount: replyMemoryEmailAccount,
+          incomingEmailContent:
+            "Can you resend the short enterprise pricing explanation for a larger team?",
+          draftText:
+            "Thanks for reaching out. Pricing is available on our website.",
+          sentText:
+            "Enterprise pricing depends on seat count and whether the customer wants annual billing.",
+          senderEmail: "buyer@example.com",
+          existingMemories: [
+            {
+              id: "pricing-memory-1",
+              content:
+                "When asked about enterprise pricing, explain that it depends on seat count and whether the customer wants annual billing.",
+              kind: ReplyMemoryKind.FACT,
+              scopeType: ReplyMemoryScopeType.TOPIC,
+              scopeValue: "pricing",
+            },
+          ],
+        });
+
+        const pass =
+          result.length === 1 &&
+          result[0].matchingExistingMemoryId === "pricing-memory-1" &&
+          result[0].newMemory === null;
+
+        evalReporter.record({
+          testName: "existing pricing memory matched by id",
+          model: model.label,
+          pass,
+          expected: "pricing-memory-1",
+          actual: result[0]?.matchingExistingMemoryId ?? "null",
+        });
+
+        expect(pass).toBe(true);
       },
       TIMEOUT,
     );
@@ -725,6 +772,12 @@ function summarizeMemories(
         `[${memory.kind}|${memory.scopeType}${memory.scopeValue ? `:${memory.scopeValue}` : ""}] ${memory.content}`,
     )
     .join(" || ");
+}
+
+function getCreatedMemoriesFromDecisions(
+  decisions: Awaited<ReturnType<typeof aiExtractReplyMemoriesFromDraftEdit>>,
+) {
+  return decisions.map((decision) => decision.newMemory).filter(isDefined);
 }
 
 function buildPreferenceMemoryEvidence(

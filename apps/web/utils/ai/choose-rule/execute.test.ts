@@ -4,8 +4,8 @@ import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
-import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -22,7 +22,7 @@ vi.mock("@/utils/prisma", () => ({
 }));
 
 describe("executeAct", () => {
-  const logger = createScopedLogger("test");
+  const logger = createTestLogger();
   const mockClient = {} as EmailProvider;
   const message: ParsedMessage = {
     id: "message-id-1",

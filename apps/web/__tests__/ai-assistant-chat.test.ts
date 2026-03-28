@@ -27,6 +27,7 @@ const {
     },
     rule: {
       findUnique: vi.fn(),
+      update: vi.fn(),
     },
     knowledge: {
       create: vi.fn(),
@@ -786,15 +787,211 @@ describe("aiProcessAssistantChat", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("call getUserRulesAndSettings");
+    expect(result.error).toContain("Call getUserRulesAndSettings");
     expect(mockPrisma.rule.findUnique).not.toHaveBeenCalled();
   });
 
-  it("rejects stale rule reads before updating rule conditions", async () => {
+  it("injects fresh rule state for chats that have already seen rules", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+    const onRulesStateExposed = vi.fn();
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+    mockPrisma.emailAccount.findUnique
+      .mockResolvedValueOnce({
+        rulesRevision: 2,
+      })
+      .mockResolvedValueOnce({
+        about: "About",
+        rulesRevision: 2,
+        rules: [
+          {
+            name: "To Reply",
+            instructions: "Emails I need to respond to",
+            updatedAt: new Date("2026-02-13T10:00:00.000Z"),
+            from: null,
+            to: null,
+            subject: null,
+            conditionalOperator: null,
+            enabled: true,
+            runOnThreads: true,
+            actions: [],
+          },
+        ],
+      });
+    mockPrisma.rule.findUnique.mockResolvedValue({
+      id: "rule-1",
+      name: "To Reply",
+      updatedAt: new Date("2026-02-13T10:00:00.000Z"),
+      emailAccount: {
+        rulesRevision: 2,
+      },
+      instructions: "Emails I need to respond to",
+      from: null,
+      to: null,
+      subject: null,
+      conditionalOperator: "AND",
+    });
+    mockPrisma.rule.update.mockResolvedValue({
+      id: "rule-1",
+      actions: [],
+      group: null,
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      chatLastSeenRulesRevision: 1,
+      chatHasHistory: true,
+      onRulesStateExposed,
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const freshRuleContext = args.messages.find(
+      (message: { role: string; content: string }) =>
+        message.role === "user" &&
+        message.content.includes("[Fresh rule state update"),
+    );
+
+    expect(freshRuleContext?.content).toContain('"rulesRevision": 2');
+    expect(freshRuleContext?.content).toContain('"name": "To Reply"');
+    expect(onRulesStateExposed).toHaveBeenCalledWith(2);
+
+    const result = await args.tools.updateRuleConditions.execute({
+      ruleName: "To Reply",
+      condition: {
+        aiInstructions: "Updated instructions",
+      },
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        ruleId: "rule-1",
+      }),
+    );
+    expect(mockPrisma.rule.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "rule-1" },
+        data: expect.objectContaining({
+          instructions: "Updated instructions",
+        }),
+      }),
+    );
+  });
+
+  it("injects fresh rule state for legacy chats with history but no cursor", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+    const onRulesStateExposed = vi.fn();
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+    mockPrisma.emailAccount.findUnique
+      .mockResolvedValueOnce({
+        rulesRevision: 0,
+      })
+      .mockResolvedValueOnce({
+        about: "About",
+        rulesRevision: 0,
+        rules: [
+          {
+            name: "Newsletter",
+            instructions: "Archive newsletters",
+            updatedAt: new Date("2026-02-13T10:00:00.000Z"),
+            from: null,
+            to: null,
+            subject: null,
+            conditionalOperator: null,
+            enabled: true,
+            runOnThreads: true,
+            actions: [],
+          },
+        ],
+      });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      chatLastSeenRulesRevision: null,
+      chatHasHistory: true,
+      onRulesStateExposed,
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const freshRuleContext = args.messages.find(
+      (message: { role: string; content: string }) =>
+        message.role === "user" &&
+        message.content.includes("[Fresh rule state update"),
+    );
+
+    expect(freshRuleContext?.content).toContain('"rulesRevision": 0');
+    expect(freshRuleContext?.content).toContain('"name": "Newsletter"');
+    expect(onRulesStateExposed).toHaveBeenCalledWith(0);
+  });
+
+  it("does not inject fresh rule state for new chats without a cursor", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      chatLastSeenRulesRevision: null,
+      chatHasHistory: false,
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const freshRuleContext = args.messages.find(
+      (message: { role: string; content: string }) =>
+        message.role === "user" &&
+        message.content.includes("[Fresh rule state update"),
+    );
+
+    expect(freshRuleContext).toBeUndefined();
+    expect(mockPrisma.emailAccount.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("requires explicit chatHasHistory when a rules cursor is provided", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    await expect(
+      aiProcessAssistantChat({
+        messages: baseMessages,
+        emailAccountId: "email-account-id",
+        user: getEmailAccount(),
+        chatLastSeenRulesRevision: null,
+        logger,
+      }),
+    ).rejects.toThrow(
+      "chatHasHistory must be provided when chatLastSeenRulesRevision is set",
+    );
+  });
+
+  it("rejects stale rule reads when the rules revision changed", async () => {
     const tools = await captureToolSet(true, "google");
 
     mockPrisma.emailAccount.findUnique.mockResolvedValue({
       about: "About",
+      rulesRevision: 1,
       rules: [
         {
           name: "To Reply",
@@ -816,7 +1013,10 @@ describe("aiProcessAssistantChat", () => {
     mockPrisma.rule.findUnique.mockResolvedValue({
       id: "rule-1",
       name: "To Reply",
-      updatedAt: new Date("2026-02-13T12:00:00.000Z"),
+      updatedAt: new Date("2026-02-13T10:00:00.000Z"),
+      emailAccount: {
+        rulesRevision: 2,
+      },
       instructions: "Emails I need to respond to",
       from: null,
       to: null,
@@ -832,7 +1032,7 @@ describe("aiProcessAssistantChat", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("Rule changed since the last read");
+    expect(result.error).toContain("Rule state changed since the last read");
   });
   it("returns cleared filing prompt in updateInboxFeatures response", async () => {
     const tools = await captureToolSet(true, "google");
@@ -1253,64 +1453,24 @@ describe("aiProcessAssistantChat", () => {
     expect(result.updatedAbout).toBe("First instructions");
   });
 
-  it("validates action-specific manageInbox requirements before provider calls", async () => {
+  it("blocks sender actions without sender emails before provider calls", async () => {
     const tools = await captureToolSet();
     mockCreateEmailProvider.mockClear();
 
-    const archiveMissingThreads = await tools.manageInbox.execute({
-      action: "archive_threads",
-      read: true,
-    });
-    expect(archiveMissingThreads).toEqual({
-      error:
-        "threadIds is required when action is archive_threads, label_threads, or mark_read_threads",
-    });
+    for (const action of [
+      "bulk_archive_senders",
+      "unsubscribe_senders",
+    ] as const) {
+      const result = await tools.manageInbox.execute({
+        action,
+        read: true,
+      });
 
-    const bulkMissingSenders = await tools.manageInbox.execute({
-      action: "bulk_archive_senders",
-      read: true,
-    });
-    expect(bulkMissingSenders).toEqual({
-      error:
-        "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
-    });
-
-    const unsubscribeMissingSenders = await tools.manageInbox.execute({
-      action: "unsubscribe_senders",
-      read: true,
-    });
-    expect(unsubscribeMissingSenders).toEqual({
-      error:
-        "fromEmails is required when action is bulk_archive_senders or unsubscribe_senders",
-    });
-
-    const archiveEmptyThreadIds = await tools.manageInbox.execute({
-      action: "archive_threads",
-      threadIds: [],
-      read: true,
-    });
-    expect(archiveEmptyThreadIds).toEqual({
-      error:
-        "Invalid manageInbox input: threadIds must include at least one thread ID",
-    });
-
-    const labelMissingLabelName = await tools.manageInbox.execute({
-      action: "label_threads",
-      threadIds: ["thread-1"],
-    });
-    expect(labelMissingLabelName).toEqual({
-      error: "labelName is required when action is label_threads",
-    });
-
-    const bulkEmptySenders = await tools.manageInbox.execute({
-      action: "bulk_archive_senders",
-      fromEmails: [],
-      read: true,
-    });
-    expect(bulkEmptySenders).toEqual({
-      error:
-        "Invalid manageInbox input: fromEmails must include at least one sender email",
-    });
+      expect(result).toMatchObject({
+        error: expect.stringContaining("No sender-level action was taken."),
+      });
+      expect(result.error).toContain("archive_threads");
+    }
 
     expect(mockCreateEmailProvider).not.toHaveBeenCalled();
   });

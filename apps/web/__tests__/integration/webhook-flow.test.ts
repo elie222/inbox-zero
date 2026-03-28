@@ -25,8 +25,7 @@ import {
   ExecutedRuleStatus,
   DraftReplyConfidence,
 } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
-import { getEmailAccount } from "@/__tests__/helpers";
+import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
@@ -206,7 +205,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
   () => {
     let harness: GmailTestHarness;
 
-    const logger = createScopedLogger("test");
+    const logger = createTestLogger();
 
     const testEmailAccount = {
       ...getEmailAccount({ email: TEST_EMAIL }),

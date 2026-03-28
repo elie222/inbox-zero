@@ -49,6 +49,7 @@
 
 ## LLM Features
 - Stay AI-first: fix general failure modes, not exact eval wording, and avoid brittle keyword or regex rules unless the product needs a hard guard.
+- Never gate context injection or tool behavior on ad hoc user-text keyword matching; use structured state, metadata, or explicit events instead.
 
 ## Component Guidelines
 - Use shadcn/ui components when available

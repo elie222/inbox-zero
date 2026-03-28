@@ -1,11 +1,10 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import type { Knowledge } from "@/generated/prisma/client";
-import { getEmailAccount } from "@/__tests__/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 
 const TIMEOUT = 30_000;
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 // pnpm test-ai ai-extract-knowledge
 

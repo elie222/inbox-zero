@@ -8,11 +8,10 @@ import {
 import type { gmail_v1 } from "@googleapis/gmail";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { GmailLabel } from "@/utils/gmail/label";
-import { getEmailAccount } from "@/__tests__/helpers";
+import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
-import { createScopedLogger } from "@/utils/logger";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({

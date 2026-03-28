@@ -391,15 +391,69 @@ async function processReplyMemoryDraftSendLog({
     emailAccount,
   });
 
-  for (const memory of extracted) {
+  let attachedExistingCount = 0;
+  let createdMemoryCount = 0;
+
+  for (const extractedMemory of extracted) {
+    const matchingExistingMemory = extractedMemory.matchingExistingMemoryId
+      ? (existingMemories.find(
+          (memory) => memory.id === extractedMemory.matchingExistingMemoryId,
+        ) ?? null)
+      : null;
+
+    if (
+      extractedMemory.matchingExistingMemoryId &&
+      !matchingExistingMemory &&
+      !extractedMemory.newMemory
+    ) {
+      logger.warn(
+        "Reply memory extraction returned unknown existing memory id",
+        {
+          emailAccountId,
+          draftSendLogId: draftSendLog.id,
+          matchingExistingMemoryId: extractedMemory.matchingExistingMemoryId,
+        },
+      );
+      continue;
+    }
+
+    if (matchingExistingMemory) {
+      const persistedMemory = await prisma.replyMemory.update({
+        where: { id: matchingExistingMemory.id },
+        data: {
+          isLearnedStyleEvidence:
+            matchingExistingMemory.kind === ReplyMemoryKind.PREFERENCE,
+        },
+      });
+
+      await prisma.replyMemorySource.upsert({
+        where: {
+          replyMemoryId_draftSendLogId: {
+            replyMemoryId: persistedMemory.id,
+            draftSendLogId: draftSendLog.id,
+          },
+        },
+        create: {
+          replyMemoryId: persistedMemory.id,
+          draftSendLogId: draftSendLog.id,
+        },
+        update: {},
+      });
+
+      attachedExistingCount += 1;
+      continue;
+    }
+
+    if (!extractedMemory.newMemory) continue;
+
     const normalizedMemory =
-      memory.kind === ReplyMemoryKind.PREFERENCE
+      extractedMemory.newMemory.kind === ReplyMemoryKind.PREFERENCE
         ? {
-            ...memory,
+            ...extractedMemory.newMemory,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             scopeValue: "",
           }
-        : memory;
+        : extractedMemory.newMemory;
 
     const normalizedScopeValue = getNormalizedReplyMemoryScopeValue({
       memory: normalizedMemory,
@@ -455,6 +509,18 @@ async function processReplyMemoryDraftSendLog({
         draftSendLogId: draftSendLog.id,
       },
       update: {},
+    });
+
+    createdMemoryCount += 1;
+  }
+
+  if (extracted.length > 0) {
+    logger.info("Processed reply memory extraction decisions", {
+      emailAccountId,
+      draftSendLogId: draftSendLog.id,
+      decisionCount: extracted.length,
+      attachedExistingCount,
+      createdMemoryCount,
     });
   }
 

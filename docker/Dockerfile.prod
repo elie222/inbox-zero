@@ -4,7 +4,7 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 
 RUN apk add --no-cache openssl
-RUN npm install -g pnpm@10.22.0
+RUN npm install -g pnpm@10.32.1
 
 # Copy lockfiles/workspace manifests for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
@@ -75,7 +75,7 @@ RUN npx prisma generate --schema=apps/web/prisma/schema.prisma \
  && cd apps/web \
  && pnpm exec next build \
  && cd ../.. \
- && pnpm --filter @inboxzero/worker deploy --prod /tmp/apps/worker \
+ && pnpm --filter @inboxzero/worker deploy --legacy --prod /tmp/apps/worker \
  && cd /app \
  && rm -rf apps/web/.next/cache
 

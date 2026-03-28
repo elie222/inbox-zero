@@ -16,7 +16,6 @@ import {
   createRuleTool,
   getLearnedPatternsTool,
   getUserRulesAndSettingsTool,
-  type RuleReadState,
   updatePersonalInstructionsTool,
   updateLearnedPatternsTool,
   updateRuleActionsTool,
@@ -42,6 +41,13 @@ import { createOrGetLabelTool, listLabelsTool } from "./chat-label-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import { getCalendarEventsTool } from "./chat-calendar-tools";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
+import {
+  buildFreshRuleContextMessage,
+  buildRuleReadState,
+  loadCurrentRulesRevision,
+  loadAssistantRuleSnapshot,
+  type RuleReadState,
+} from "./chat-rule-state";
 
 export const maxDuration = 120;
 
@@ -90,10 +96,13 @@ export async function aiProcessAssistantChat({
   user,
   context,
   chatId,
+  chatLastSeenRulesRevision,
+  chatHasHistory,
   memories,
   inboxStats,
   responseSurface = "web",
   messagingPlatform,
+  onRulesStateExposed,
   onStepFinish,
   logger,
 }: {
@@ -102,13 +111,22 @@ export async function aiProcessAssistantChat({
   user: EmailAccountWithAI;
   context?: MessageContext;
   chatId?: string;
+  chatLastSeenRulesRevision?: number | null;
+  chatHasHistory?: boolean;
   memories?: { content: string; date: string }[];
   inboxStats?: { total: number; unread: number } | null;
   responseSurface?: "web" | "messaging";
   messagingPlatform?: MessagingPlatform;
+  onRulesStateExposed?: (rulesRevision: number) => void;
   onStepFinish?: AssistantChatOnStepFinish;
   logger: Logger;
 }) {
+  if (chatLastSeenRulesRevision !== undefined && chatHasHistory === undefined) {
+    throw new Error(
+      "chatHasHistory must be provided when chatLastSeenRulesRevision is set",
+    );
+  }
+
   const emailSendToolsEnabled = env.NEXT_PUBLIC_EMAIL_SEND_ENABLED;
   let ruleReadState: RuleReadState | null = null;
 
@@ -172,8 +190,8 @@ ${emailSendToolsEnabled ? '- For pending email actions, do not treat "prepared" 
 - Choose the tool that matches what the user actually asked for. Do not default to bulk archive when the user is referring to specific emails.
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
 - For ambiguous destructive requests (for example archive vs trash vs mark read), ask a brief clarification question before writing.
-- Before changing an existing rule, call getUserRulesAndSettings immediately before the write.
-- If a rule has changed since that read, call getUserRulesAndSettings again and then apply the update.
+- Use the latest rule state already provided in this request. If the current rule state is not available yet, call getUserRulesAndSettings before changing an existing rule.
+- If a rule write reports stale rule state, refresh with getUserRulesAndSettings and then retry from that latest state.
 
 Provider context:
 - Current provider: ${user.account.provider}.
@@ -304,7 +322,28 @@ Behavior anchors (minimal examples):
       ruleReadState = state;
     },
     getRuleReadState: () => ruleReadState,
+    onRulesStateExposed,
   };
+
+  let freshRuleContextMessage: ModelMessage[] = [];
+
+  try {
+    const freshRuleState = await loadFreshRuleContext({
+      emailAccountId,
+      chatLastSeenRulesRevision,
+      chatHasHistory: chatHasHistory ?? false,
+    });
+
+    if (freshRuleState) {
+      ruleReadState = freshRuleState.ruleReadState;
+      onRulesStateExposed?.(freshRuleState.snapshot.rulesRevision);
+      freshRuleContextMessage = [
+        buildFreshRuleContextMessage(freshRuleState.snapshot),
+      ];
+    }
+  } catch (error) {
+    logger.warn("Failed to load fresh rule state for chat", { error });
+  }
 
   const hasConversationStatusInResults =
     context?.type === "fix-rule"
@@ -374,6 +413,7 @@ Behavior anchors (minimal examples):
           },
         ]
       : []),
+    ...freshRuleContextMessage,
     ...hiddenContextMessage,
   ];
 
@@ -495,6 +535,35 @@ Behavior anchors (minimal examples):
   });
 
   return result;
+}
+
+async function loadFreshRuleContext({
+  emailAccountId,
+  chatLastSeenRulesRevision,
+  chatHasHistory,
+}: {
+  emailAccountId: string;
+  chatLastSeenRulesRevision?: number | null;
+  chatHasHistory?: boolean;
+}) {
+  if (chatLastSeenRulesRevision == null && !chatHasHistory) return null;
+
+  const knownRulesRevision = chatLastSeenRulesRevision ?? -1;
+
+  const currentRulesRevision = await loadCurrentRulesRevision({
+    emailAccountId,
+  });
+
+  if (currentRulesRevision <= knownRulesRevision) return null;
+
+  const snapshot = await loadAssistantRuleSnapshot({ emailAccountId });
+
+  if (snapshot.rulesRevision <= knownRulesRevision) return null;
+
+  return {
+    snapshot,
+    ruleReadState: buildRuleReadState(snapshot),
+  };
 }
 
 function buildCacheOptimizedMessages({

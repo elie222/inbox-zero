@@ -22,9 +22,9 @@ import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { GmailProvider } from "@/utils/email/google";
 import { findOldMessage } from "@/__tests__/e2e/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES

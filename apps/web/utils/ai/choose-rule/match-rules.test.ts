@@ -20,19 +20,18 @@ import type {
 import type { EmailProvider } from "@/utils/email/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { getEmailAccount } from "@/__tests__/helpers";
+import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { ConditionType } from "@/utils/config";
 import {
   getColdEmailRule,
   isColdEmailRuleEnabled,
 } from "@/utils/cold-email/cold-email-rule";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
-import { createScopedLogger } from "@/utils/logger";
 
 // Run with:
 // pnpm test match-rules.test.ts
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 const provider = {
   isReplyInThread: vi.fn().mockReturnValue(false),
@@ -2238,6 +2237,10 @@ describe("findMatchingRules - Integration Tests", () => {
 
     // Rule should not match because it's a thread and runOnThreads=false
     expect(result.matches).toHaveLength(0);
+    expect(result.selectionMetadata).toMatchObject({
+      isThread: true,
+      skippedThreadRuleNames: ["Rule Name"],
+    });
   });
 
   describe("filterMultipleSystemRules branches", () => {
@@ -2464,6 +2467,61 @@ describe("findMatchingRules - Integration Tests", () => {
       expect(prisma.executedRule.findMany).not.toHaveBeenCalled();
     });
 
+    it("captures learned-pattern exclusions in selection metadata", async () => {
+      const notificationRule = getRule({
+        id: "notification-rule",
+        name: "Notification",
+        groupId: "notification-group",
+        runOnThreads: false,
+        systemType: SystemType.NOTIFICATION,
+        instructions: "Notifications and system messages",
+      });
+
+      prisma.group.findMany.mockResolvedValue([
+        getGroup({
+          id: "notification-group",
+          name: "Notification",
+          items: [
+            getGroupItem({
+              groupId: "notification-group",
+              type: GroupItemType.FROM,
+              value: "updates@example.com",
+              exclude: true,
+            }),
+          ],
+          rule: notificationRule,
+        }),
+      ]);
+
+      const providerNoThread = {
+        isReplyInThread: vi.fn().mockReturnValue(false),
+      } as unknown as EmailProvider;
+
+      const result = await findMatchingRules({
+        rules: [notificationRule],
+        message: getMessage({
+          headers: getHeaders({ from: "updates@example.com" }),
+        }),
+        emailAccount: getEmailAccount(),
+        provider: providerNoThread,
+        modelType: "default",
+        logger,
+      });
+
+      expect(result.matches).toHaveLength(0);
+      expect(result.selectionMetadata.learnedPatternExcludedRules).toEqual([
+        {
+          ruleId: "notification-rule",
+          ruleName: "Notification",
+          groupId: "notification-group",
+          groupName: "Notification",
+          itemType: GroupItemType.FROM,
+          itemValue: "updates@example.com",
+        },
+      ]);
+      expect(result.selectionMetadata.remainingAiRuleNames).toEqual([]);
+    });
+
     it("should allow learned pattern match in thread when runOnThreads=true", async () => {
       const rule = getRule({
         id: "thread-ok-rule",
@@ -2540,6 +2598,10 @@ describe("findMatchingRules - Integration Tests", () => {
       // Should NOT match and AI should not be called
       expect(result.matches).toHaveLength(0);
       expect(aiChooseRule).not.toHaveBeenCalled();
+      expect(result.selectionMetadata).toMatchObject({
+        isThread: true,
+        skippedThreadRuleNames: ["Rule Name"],
+      });
     });
   });
 

@@ -14,12 +14,16 @@ import type { Action } from "@/generated/prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
 import type { RuleWithActions } from "@/utils/types";
-import { getAction, getEmailAccount, getEmail } from "@/__tests__/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import {
+  getAction,
+  getEmail,
+  getEmailAccount,
+  createTestLogger,
+} from "@/__tests__/helpers";
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));
@@ -479,6 +483,62 @@ describe("runRules outbound guardrails", () => {
   });
 });
 
+describe("runRules selection metadata", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("preserves skipped-thread metadata on no-match results", async () => {
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [],
+      reasoning: "No rules matched",
+      selectionMetadata: {
+        isThread: true,
+        skippedThreadRuleNames: ["Notification"],
+        continuedThreadRuleNames: [],
+        learnedPatternExcludedRules: [],
+        filteredConversationRuleNames: [],
+        conversationFilterReason: undefined,
+        remainingAiRuleNames: [],
+      },
+    } as any);
+
+    const result = await runRules({
+      provider: {} as any,
+      message: {
+        ...getEmail(),
+        id: "message-1",
+        threadId,
+        snippet: "",
+        historyId: "history-1",
+        inline: [],
+        attachments: [],
+        headers: {
+          from: "alerts@example.com",
+          to: "user@example.com",
+          subject: "Subject",
+          date: "Mon, 1 Jan 2026 12:00:00 +0000",
+          "message-id": "<message-1>",
+        },
+      } as any,
+      rules: [regularRule],
+      emailAccount: getEmailAccount(),
+      isTest: true,
+      modelType: "default" as any,
+      logger,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      status: ExecutedRuleStatus.SKIPPED,
+      selectionMetadata: {
+        isThread: true,
+        skippedThreadRuleNames: ["Notification"],
+      },
+    });
+  });
+});
+
 describe("limitDraftEmailActions", () => {
   it("returns original matches when there are no draft actions", () => {
     const matches = [
@@ -518,7 +578,7 @@ describe("limitDraftEmailActions", () => {
       },
     ];
 
-    const result = limitDraftEmailActions(matches, createScopedLogger("test"));
+    const result = limitDraftEmailActions(matches, createTestLogger());
 
     expect(result).toBe(matches);
   });

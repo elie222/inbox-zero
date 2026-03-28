@@ -9,6 +9,7 @@ import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/ai/choose-rule/run-rules";
 import { getRuleConfig } from "@/utils/rule/consts";
 import { getEmail, getRule } from "@/__tests__/helpers";
+import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai eval/choose-rule
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/choose-rule
@@ -17,6 +18,7 @@ vi.mock("server-only", () => ({}));
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
+const logger = createScopedLogger("eval-choose-rule");
 
 // Default system rules — mirrors what aiChooseRule actually receives in production.
 // Cold email is handled in a prior step and conversation status (to_reply/fyi/etc)
@@ -231,6 +233,26 @@ const testCases = [
   },
   {
     email: getEmail({
+      from: "no-reply@accounts.google.com",
+      subject: "Security alert",
+      content:
+        "A new sign-in to your account was detected from Chrome on macOS. If this was you, no action is needed. If this was not you, review your security settings immediately.",
+    }),
+    expectedRule: "Notification",
+  },
+  {
+    email: getEmail({
+      from: "updates@saas-notify.example",
+      subject: "Account status update",
+      listUnsubscribe:
+        "<https://saas-notify.example/unsubscribe?id=account-updates>",
+      content:
+        "Your account status changed after a recent billing check. No reply is required. Review the update in your dashboard and contact support from the app if you need help.",
+    }),
+    expectedRule: "Notification",
+  },
+  {
+    email: getEmail({
       from: "receipts@rides.example",
       subject: "Your trip receipt for Tuesday evening",
       content:
@@ -348,6 +370,7 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
             email: tc.email,
             rules,
             emailAccount,
+            logger,
           });
 
           const primaryRule = result.rules.find((r) => r.isPrimary);

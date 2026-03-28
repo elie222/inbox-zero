@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFolderPath } from "./folder-utils";
 import type { DriveProvider, DriveFolder } from "./types";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -54,7 +54,7 @@ function createMockProvider(
   };
 }
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 describe("createFolderPath", () => {
   beforeEach(() => {

@@ -15,7 +15,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { once } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -214,7 +214,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
             "x-custom-header": "queue-test",
           },
         },
-        logger: createScopedLogger("test"),
+        logger: createTestLogger(),
       });
 
       expect(result).toBe("bullmq");
@@ -248,7 +248,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           parallelism: 3,
           path: "/api/ai/digest",
         },
-        logger: createScopedLogger("test"),
+        logger: createTestLogger(),
       });
 
       expect(capturedRequests).toHaveLength(1);
@@ -281,7 +281,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           parallelism: 1,
           path: "/api/internal/custom-queue",
         },
-        logger: createScopedLogger("test"),
+        logger: createTestLogger(),
       });
 
       expect(capturedRequests).toHaveLength(1);

@@ -6,6 +6,11 @@ import {
   isGoogleOauthEmulationEnabled,
 } from "@/utils/google/oauth";
 import {
+  getMicrosoftGraphUrl,
+  getMicrosoftOauthAuthorizeUrl,
+  requestMicrosoftToken,
+} from "@/utils/microsoft/oauth";
+import {
   GOOGLE_DRIVE_FULL_SCOPES,
   GOOGLE_DRIVE_SCOPES,
   MICROSOFT_DRIVE_SCOPES,
@@ -107,7 +112,6 @@ export function getMicrosoftDriveOAuth2Url(state: string): string {
     throw new Error("Microsoft login not enabled - missing client ID");
   }
 
-  const baseUrl = `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/authorize`;
   const params = new URLSearchParams({
     client_id: env.MICROSOFT_CLIENT_ID,
     response_type: "code",
@@ -117,7 +121,7 @@ export function getMicrosoftDriveOAuth2Url(state: string): string {
     state,
   });
 
-  return `${baseUrl}?${params.toString()}`;
+  return `${getMicrosoftOauthAuthorizeUrl()}?${params.toString()}`;
 }
 
 /**
@@ -128,23 +132,14 @@ export async function exchangeMicrosoftDriveCode(code: string) {
     throw new Error("Microsoft login not enabled - missing credentials");
   }
 
-  const response = await fetch(
-    `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/token`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        client_id: env.MICROSOFT_CLIENT_ID,
-        client_secret: env.MICROSOFT_CLIENT_SECRET,
-        code,
-        redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/drive/callback`,
-        grant_type: "authorization_code",
-        scope: MICROSOFT_DRIVE_SCOPES.join(" "),
-      }),
-    },
-  );
+  const response = await requestMicrosoftToken({
+    client_id: env.MICROSOFT_CLIENT_ID,
+    client_secret: env.MICROSOFT_CLIENT_SECRET,
+    code,
+    redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/drive/callback`,
+    grant_type: "authorization_code",
+    scope: MICROSOFT_DRIVE_SCOPES.join(" "),
+  });
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
@@ -158,7 +153,7 @@ export async function exchangeMicrosoftDriveCode(code: string) {
   }
 
   // Get user email from Microsoft Graph
-  const profileResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+  const profileResponse = await fetch(getMicrosoftGraphUrl("/me"), {
     headers: {
       Authorization: `Bearer ${tokens.access_token}`,
     },

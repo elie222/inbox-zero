@@ -10,10 +10,10 @@ import {
   resolveDraftAttachments,
   selectDraftAttachmentsForRule,
 } from "@/utils/attachments/draft-attachments";
-import { createScopedLogger } from "@/utils/logger";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
 import { sendSlackRuleNotification } from "@/utils/messaging/rule-notifications";
 import type { ParsedMessage } from "@/utils/types";
+import { createTestLogger } from "@/__tests__/helpers";
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/redis/reply", () => ({
@@ -33,7 +33,7 @@ vi.mock("@/utils/messaging/rule-notifications", () => ({
 }));
 
 describe("runActionFunction", () => {
-  const logger = createScopedLogger("test");
+  const logger = createTestLogger();
   const email = {
     id: "message-1",
     threadId: "thread-1",

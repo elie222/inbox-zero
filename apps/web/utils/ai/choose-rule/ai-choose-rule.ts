@@ -7,12 +7,15 @@ import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
 import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { sortRulesForAutomation } from "@/utils/rule/sort";
+import type { Logger } from "@/utils/logger";
+import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
   rules: { name: string; instructions: string; systemType?: string | null }[];
   modelType?: ModelType;
+  classificationFeedback?: ClassificationFeedbackItem[] | null;
 };
 
 export async function aiChooseRule<
@@ -22,11 +25,15 @@ export async function aiChooseRule<
   rules,
   emailAccount,
   modelType,
+  logger,
+  classificationFeedback,
 }: {
   email: EmailForLLM;
   rules: T[];
   emailAccount: EmailAccountWithAI;
   modelType?: ModelType;
+  logger: Logger;
+  classificationFeedback?: ClassificationFeedbackItem[] | null;
 }): Promise<{
   rules: { rule: T; isPrimary?: boolean }[];
   reason: string;
@@ -40,14 +47,8 @@ export async function aiChooseRule<
     rules: orderedRules,
     emailAccount,
     modelType,
+    classificationFeedback,
   });
-
-  if (aiResponse.noMatchFound) {
-    return {
-      rules: [],
-      reason: aiResponse.reasoning || "AI determined no rules matched",
-    };
-  }
 
   const rulesWithMetadata = aiResponse.matchedRules
     .map((match) => {
@@ -58,6 +59,20 @@ export async function aiChooseRule<
       return rule ? { rule, isPrimary: match.isPrimary } : undefined;
     })
     .filter(isDefined);
+
+  logAiChooseRuleResult({
+    aiResponse,
+    logger,
+    orderedRules,
+    rulesWithMetadata,
+  });
+
+  if (aiResponse.noMatchFound) {
+    return {
+      rules: [],
+      reason: aiResponse.reasoning || "AI determined no rules matched",
+    };
+  }
 
   return {
     rules: rulesWithMetadata,
@@ -73,7 +88,13 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
   };
   modelOptions: ReturnType<typeof getModel>;
 }> {
-  const { email, emailAccount, rules, modelType = "default" } = options;
+  const {
+    email,
+    emailAccount,
+    rules,
+    modelType = "default",
+    classificationFeedback,
+  } = options;
 
   const modelOptions = getModel(emailAccount.user, modelType);
 
@@ -92,6 +113,7 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
       rules,
       modelOptions,
       generateObject,
+      classificationFeedback,
     });
 
     return { result, modelOptions };
@@ -102,6 +124,7 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
       rules,
       modelOptions,
       generateObject,
+      classificationFeedback,
     });
   }
 }
@@ -112,12 +135,14 @@ async function getAiResponseSingleRule({
   rules,
   modelOptions,
   generateObject,
+  classificationFeedback,
 }: {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
   rules: GetAiResponseOptions["rules"];
   modelOptions: ReturnType<typeof getModel>;
   generateObject: ReturnType<typeof createGenerateObject>;
+  classificationFeedback?: ClassificationFeedbackItem[] | null;
 }) {
   const system = `You are an AI assistant that helps people manage their emails.
 
@@ -143,6 +168,8 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
 </instructions>
 
 ${getUserRulesPrompt({ rules })}
+
+${formatClassificationFeedback(classificationFeedback)}
 
 ${getUserInfoPrompt({ emailAccount })}
 
@@ -200,12 +227,14 @@ async function getAiResponseMultiRule({
   rules,
   modelOptions,
   generateObject,
+  classificationFeedback,
 }: {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
   rules: GetAiResponseOptions["rules"];
   modelOptions: ReturnType<typeof getModel>;
   generateObject: ReturnType<typeof createGenerateObject>;
+  classificationFeedback?: ClassificationFeedbackItem[] | null;
 }) {
   const rulesSection = rules
     .map(
@@ -243,6 +272,8 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
 <available_rules>
 ${rulesSection}
 </available_rules>
+
+${formatClassificationFeedback(classificationFeedback)}
 
 ${getUserInfoPrompt({ emailAccount })}
 
@@ -308,3 +339,87 @@ ${stringifyEmail(email, 500)}
 
 const METADATA_GUIDELINE =
   "- Consider email metadata (e.g. List-Unsubscribe headers) alongside content.";
+
+function logAiChooseRuleResult<
+  T extends { name: string; systemType?: string | null },
+>({
+  aiResponse,
+  logger,
+  orderedRules,
+  rulesWithMetadata,
+}: {
+  aiResponse: {
+    matchedRules: { ruleName: string; isPrimary?: boolean }[];
+    reasoning: string;
+    noMatchFound: boolean;
+  };
+  logger: Logger;
+  orderedRules: T[];
+  rulesWithMetadata: { rule: T; isPrimary?: boolean }[];
+}) {
+  const candidateRuleNames = orderedRules.map((rule) => rule.name);
+  const returnedRuleNames = aiResponse.matchedRules
+    .map((match) => match.ruleName)
+    .filter(Boolean);
+  const resolvedRuleNames = rulesWithMetadata.map(({ rule }) => rule.name);
+  const unresolvedRuleNames = returnedRuleNames.filter(
+    (ruleName) =>
+      !orderedRules.some(
+        (rule) => rule.name.toLowerCase() === ruleName.toLowerCase(),
+      ),
+  );
+
+  const logPayload = {
+    candidateRuleCount: candidateRuleNames.length,
+    candidateRuleNames: joinLogValues(candidateRuleNames),
+    candidateSystemTypes: joinLogValues(
+      orderedRules.map((rule) => rule.systemType ?? "custom"),
+    ),
+    returnedRuleCount: returnedRuleNames.length,
+    returnedRuleNames: joinLogValues(returnedRuleNames),
+    resolvedRuleCount: resolvedRuleNames.length,
+    resolvedRuleNames: joinLogValues(resolvedRuleNames),
+    unresolvedRuleCount: unresolvedRuleNames.length,
+    unresolvedRuleNames: joinLogValues(unresolvedRuleNames),
+    noMatchFound: aiResponse.noMatchFound,
+    reasoningPresent: !!aiResponse.reasoning,
+  };
+
+  if (resolvedRuleNames.length === 0) {
+    logger.warn("AI choose rule returned no usable rule", logPayload);
+  } else {
+    logger.info("AI choose rule completed", logPayload);
+  }
+
+  if (aiResponse.reasoning) {
+    logger.trace("AI choose rule reasoning", {
+      reasoning: aiResponse.reasoning,
+    });
+  }
+}
+
+function joinLogValues(values: (string | null | undefined)[]) {
+  return values.filter(isDefined).join(", ");
+}
+
+function formatClassificationFeedback(
+  feedback: ClassificationFeedbackItem[] | null | undefined,
+): string {
+  if (!feedback?.length) return "";
+
+  const lines = feedback.map((entry) => {
+    const subject = entry.subject
+      ? `"${entry.subject}"`
+      : "(email no longer available)";
+    if (entry.eventType === "LABEL_ADDED") {
+      return `- ${subject} → ${entry.ruleName}`;
+    }
+    return `- ${subject} removed from ${entry.ruleName}`;
+  });
+
+  return `<classification_feedback>
+User has manually classified emails from this sender into these rules:
+${lines.join("\n")}
+These are hints from past user actions. Still evaluate the current email on its own merits.
+</classification_feedback>`;
+}

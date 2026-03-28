@@ -2,12 +2,13 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import { handleLabelAddedEvent } from "./process-label-added-event";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
-import { extractEmailAddress } from "@/utils/email";
-import { createScopedLogger } from "@/utils/logger";
 import { GroupItemSource } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
+import { createTestLogger } from "@/__tests__/helpers";
+import { saveClassificationFeedback } from "@/utils/rule/classification-feedback";
+import { fetchSenderFromMessage } from "@/app/api/google/webhook/fetch-sender-from-message";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("server-only", () => ({}));
 
@@ -19,11 +20,19 @@ vi.mock("@/utils/prisma", () => ({
     groupItem: {
       findUnique: vi.fn().mockResolvedValue(null),
     },
+    executedAction: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
   },
 }));
 
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/utils/rule/classification-feedback", () => ({
+  saveClassificationFeedback: vi.fn().mockResolvedValue(undefined),
+  findRuleByLabelId: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("@/utils/gmail/label", () => ({
@@ -36,21 +45,39 @@ vi.mock("@/utils/gmail/label", () => ({
     SPAM: "SPAM",
     TRASH: "TRASH",
     DRAFT: "DRAFT",
+    PERSONAL: "CATEGORY_PERSONAL",
+    SOCIAL: "CATEGORY_SOCIAL",
+    PROMOTIONS: "CATEGORY_PROMOTIONS",
+    FORUMS: "CATEGORY_FORUMS",
+    UPDATES: "CATEGORY_UPDATES",
   },
+  GMAIL_SYSTEM_LABELS: [
+    "INBOX",
+    "SENT",
+    "DRAFT",
+    "SPAM",
+    "TRASH",
+    "IMPORTANT",
+    "STARRED",
+    "UNREAD",
+    "CATEGORY_PERSONAL",
+    "CATEGORY_SOCIAL",
+    "CATEGORY_PROMOTIONS",
+    "CATEGORY_FORUMS",
+    "CATEGORY_UPDATES",
+  ],
 }));
 
 vi.mock("@/utils/email", () => ({
   extractEmailAddress: vi.fn().mockReturnValue("sender@example.com"),
 }));
 
-vi.mock("@/utils/error", () => ({
-  isGmailRateLimitExceededError: vi.fn().mockImplementation((error) => {
-    return error?.errors?.[0]?.reason === "rateLimitExceeded";
-  }),
-  isGmailQuotaExceededError: vi.fn().mockImplementation((error) => {
-    return error?.errors?.[0]?.reason === "quotaExceeded";
-  }),
-  isGmailInsufficientPermissionsError: vi.fn().mockReturnValue(false),
+vi.mock("@/app/api/google/webhook/fetch-sender-from-message", () => ({
+  fetchSenderFromMessage: vi.fn().mockResolvedValue("sender@example.com"),
+}));
+
+vi.mock("@/utils/rule/consts", () => ({
+  isEligibleForClassificationFeedback: vi.fn().mockReturnValue(true),
 }));
 
 describe("process-label-added-event", () => {
@@ -109,15 +136,26 @@ describe("process-label-added-event", () => {
       });
     });
 
-    it("should skip when added label is not SPAM", async () => {
+    it("should skip when added label is a system label", async () => {
       await handleLabelAddedEvent(
         createLabelAddedItem("123", "thread-123", ["STARRED"]),
         defaultOptions,
         logger,
       );
 
-      expect(prisma.rule.findFirst).not.toHaveBeenCalled();
       expect(saveLearnedPattern).not.toHaveBeenCalled();
+      expect(saveClassificationFeedback).not.toHaveBeenCalled();
+    });
+
+    it("should skip when added label is a Gmail category label", async () => {
+      await handleLabelAddedEvent(
+        createLabelAddedItem("123", "thread-123", ["CATEGORY_PROMOTIONS"]),
+        defaultOptions,
+        logger,
+      );
+
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+      expect(saveClassificationFeedback).not.toHaveBeenCalled();
     });
 
     it("should skip when no Cold Email rule exists", async () => {
@@ -156,47 +194,8 @@ describe("process-label-added-event", () => {
       expect(saveLearnedPattern).not.toHaveBeenCalled();
     });
 
-    it("should handle message not found gracefully", async () => {
-      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
-        id: "rule-123",
-      } as any);
-      mockProvider.getMessage.mockRejectedValueOnce(
-        new Error("Requested entity was not found."),
-      );
-
-      await handleLabelAddedEvent(
-        createLabelAddedItem(),
-        defaultOptions,
-        logger,
-      );
-
-      expect(saveLearnedPattern).not.toHaveBeenCalled();
-    });
-
-    it("should handle rate limit error gracefully", async () => {
-      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
-        id: "rule-123",
-      } as any);
-      mockProvider.getMessage.mockRejectedValueOnce(
-        Object.assign(new Error("Rate limit exceeded"), {
-          errors: [{ reason: "rateLimitExceeded" }],
-        }),
-      );
-
-      await handleLabelAddedEvent(
-        createLabelAddedItem(),
-        defaultOptions,
-        logger,
-      );
-
-      expect(saveLearnedPattern).not.toHaveBeenCalled();
-    });
-
     it("should skip when sender cannot be extracted", async () => {
-      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
-        id: "rule-123",
-      } as any);
-      vi.mocked(extractEmailAddress).mockReturnValueOnce(null as any);
+      vi.mocked(fetchSenderFromMessage).mockResolvedValueOnce(null);
 
       await handleLabelAddedEvent(
         createLabelAddedItem(),

@@ -325,13 +325,12 @@ describe("reply-memory", () => {
     mockGenerateObject.mockResolvedValue({
       object: {
         memories: [
-          {
-            title: "pricing answer",
+          newReplyMemoryDecision({
             content: "Mention that pricing depends on seat count.",
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.TOPIC,
             scopeValue: "pricing",
-          },
+          }),
         ],
       },
     });
@@ -409,6 +408,133 @@ describe("reply-memory", () => {
     });
   });
 
+  it("attaches evidence to an existing memory when extraction returns an existing memory id", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText:
+          "Thanks for reaching out. Pricing depends on seat count and annual billing.",
+      }),
+    ] as any);
+    vi.mocked(prisma.replyMemory.findMany)
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "existing-pricing-memory",
+          content:
+            "Mention that enterprise pricing depends on seat count and annual billing.",
+          kind: ReplyMemoryKind.FACT,
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+          createdAt: new Date("2026-03-10T09:00:00.000Z"),
+          updatedAt: new Date("2026-03-10T09:00:00.000Z"),
+        }),
+      ] as any)
+      .mockResolvedValueOnce([] as any);
+    vi.mocked(prisma.replyMemory.update).mockResolvedValue(
+      createReplyMemory({
+        id: "existing-pricing-memory",
+        content:
+          "Mention that enterprise pricing depends on seat count and annual billing.",
+        kind: ReplyMemoryKind.FACT,
+        scopeType: ReplyMemoryScopeType.GLOBAL,
+      }) as any,
+    );
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        memories: [existingReplyMemoryDecision("existing-pricing-memory")],
+      },
+    });
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+
+    await syncReplyMemoriesFromDraftSendLogs({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+    });
+
+    expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
+    expect(prisma.replyMemory.update).toHaveBeenCalledWith({
+      where: { id: "existing-pricing-memory" },
+      data: {
+        isLearnedStyleEvidence: false,
+      },
+    });
+    expect(prisma.replyMemorySource.upsert).toHaveBeenCalledWith({
+      where: {
+        replyMemoryId_draftSendLogId: {
+          replyMemoryId: "existing-pricing-memory",
+          draftSendLogId: "draft-send-log-1",
+        },
+      },
+      create: {
+        replyMemoryId: "existing-pricing-memory",
+        draftSendLogId: "draft-send-log-1",
+      },
+      update: {},
+    });
+    expect(mockGenerateObject).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns and skips unknown existing memory ids returned by extraction", async () => {
+    vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
+      count: 0,
+    });
+    vi.mocked(prisma.draftSendLog.findMany).mockResolvedValue([
+      createDraftSendLog({
+        replyMemorySentText:
+          "Thanks for reaching out. Pricing depends on seat count and annual billing.",
+      }),
+    ] as any);
+    vi.mocked(prisma.replyMemory.findMany)
+      .mockResolvedValueOnce([
+        createReplyMemory({
+          id: "existing-pricing-memory",
+          content:
+            "Mention that enterprise pricing depends on seat count and annual billing.",
+          kind: ReplyMemoryKind.FACT,
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+          createdAt: new Date("2026-03-10T09:00:00.000Z"),
+          updatedAt: new Date("2026-03-10T09:00:00.000Z"),
+        }),
+      ] as any)
+      .mockResolvedValueOnce([] as any);
+    vi.mocked(prisma.draftSendLog.update).mockResolvedValue({} as any);
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        memories: [existingReplyMemoryDecision("missing-pricing-memory")],
+      },
+    });
+
+    const provider = {
+      getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+    };
+    const testLogger = createScopedLogger("reply-memory-test-unknown-id");
+    const warnSpy = vi.spyOn(testLogger, "warn").mockImplementation(() => {});
+
+    await syncReplyMemoriesFromDraftSendLogs({
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger: testLogger,
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Reply memory extraction returned unknown existing memory id",
+      {
+        emailAccountId: "account-1",
+        draftSendLogId: "draft-send-log-1",
+        matchingExistingMemoryId: "missing-pricing-memory",
+      },
+    );
+    expect(prisma.replyMemory.update).not.toHaveBeenCalled();
+    expect(prisma.replyMemory.upsert).not.toHaveBeenCalled();
+    expect(prisma.replyMemorySource.upsert).not.toHaveBeenCalled();
+  });
+
   it("does not refresh learned writing style before enough preference evidence exists", async () => {
     vi.mocked(prisma.draftSendLog.updateMany).mockResolvedValue({
       count: 0,
@@ -437,13 +563,12 @@ describe("reply-memory", () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {
         memories: [
-          {
-            title: "concise tone",
+          newReplyMemoryDecision({
             content: "Keep replies short and remove filler.",
             kind: ReplyMemoryKind.PREFERENCE,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             scopeValue: "",
-          },
+          }),
         ],
       },
     });
@@ -483,12 +608,12 @@ describe("reply-memory", () => {
     mockGenerateObject.mockResolvedValue({
       object: {
         memories: [
-          {
+          newReplyMemoryDecision({
             content: "Keep routine replies direct and low ceremony.",
             kind: ReplyMemoryKind.PREFERENCE,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             scopeValue: "",
-          },
+          }),
         ],
       },
     });
@@ -607,13 +732,12 @@ describe("reply-memory", () => {
       .mockResolvedValueOnce({
         object: {
           memories: [
-            {
-              title: "concise tone",
+            newReplyMemoryDecision({
               content: "Keep replies short and remove filler.",
               kind: ReplyMemoryKind.PREFERENCE,
               scopeType: ReplyMemoryScopeType.GLOBAL,
               scopeValue: "",
-            },
+            }),
           ],
         },
       })
@@ -677,13 +801,12 @@ describe("reply-memory", () => {
     mockGenerateObject.mockResolvedValue({
       object: {
         memories: [
-          {
-            title: "concise tone",
+          newReplyMemoryDecision({
             content: "Keep replies short and remove filler.",
             kind: ReplyMemoryKind.PREFERENCE,
             scopeType: ReplyMemoryScopeType.TOPIC,
             scopeValue: "pricing",
-          },
+          }),
         ],
       },
     });
@@ -715,12 +838,12 @@ describe("reply-memory", () => {
     });
 
     expect(result).toEqual([
-      {
+      newReplyMemoryDecision({
         content: "Keep replies short and remove filler.",
         kind: ReplyMemoryKind.PREFERENCE,
         scopeType: ReplyMemoryScopeType.GLOBAL,
         scopeValue: "",
-      },
+      }),
     ]);
   });
 
@@ -772,13 +895,12 @@ describe("reply-memory", () => {
     mockGenerateObject.mockResolvedValue({
       object: {
         memories: [
-          {
-            title: "pricing answer",
+          newReplyMemoryDecision({
             content: "Mention that pricing depends on seat count.",
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.TOPIC,
             scopeValue: "pricing",
-          },
+          }),
         ],
       },
     });
@@ -953,13 +1075,12 @@ describe("reply-memory", () => {
     mockGenerateObject.mockResolvedValue({
       object: {
         memories: [
-          {
-            title: "pricing answer",
+          newReplyMemoryDecision({
             content: "Mention that pricing depends on seat count.",
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.TOPIC,
             scopeValue: "pricing",
-          },
+          }),
         ],
       },
     });
@@ -1033,13 +1154,12 @@ describe("reply-memory", () => {
     mockGenerateObject.mockResolvedValue({
       object: {
         memories: [
-          {
-            title: "sender preference",
+          newReplyMemoryDecision({
             content: "Mention annual billing first.",
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.SENDER,
             scopeValue: "   ",
-          },
+          }),
         ],
       },
     });
@@ -1087,13 +1207,12 @@ describe("reply-memory", () => {
     mockGenerateObject.mockResolvedValue({
       object: {
         memories: [
-          {
-            title: "pricing guidance",
+          newReplyMemoryDecision({
             content: "Mention that pricing depends on seat count.",
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.TOPIC,
             scopeValue: "   ",
-          },
+          }),
         ],
       },
     });
@@ -1128,20 +1247,18 @@ describe("reply-memory", () => {
     mockGenerateObject.mockResolvedValue({
       object: {
         memories: [
-          {
-            title: "sender guidance",
+          newReplyMemoryDecision({
             content: "Mention annual billing first.",
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.SENDER,
             scopeValue: "attacker@example.com",
-          },
-          {
-            title: "domain guidance",
+          }),
+          newReplyMemoryDecision({
             content: "Reference the enterprise plan.",
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.DOMAIN,
             scopeValue: "evil.example",
-          },
+          }),
         ],
       },
     });
@@ -1180,13 +1297,12 @@ describe("reply-memory", () => {
     mockGenerateObject.mockResolvedValue({
       object: {
         memories: [
-          {
-            title: " pricing answer ",
+          newReplyMemoryDecision({
             content: " Mention that pricing depends on seat count. ",
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             scopeValue: "ignored for global scope",
-          },
+          }),
         ],
       },
     });
@@ -1219,12 +1335,12 @@ describe("reply-memory", () => {
     });
 
     expect(result).toEqual([
-      {
+      newReplyMemoryDecision({
         content: "Mention that pricing depends on seat count.",
         kind: ReplyMemoryKind.FACT,
         scopeType: ReplyMemoryScopeType.GLOBAL,
         scopeValue: "",
-      },
+      }),
     ]);
   });
 
@@ -1232,34 +1348,30 @@ describe("reply-memory", () => {
     mockGenerateObject.mockResolvedValue({
       object: {
         memories: [
-          {
-            title: "memory 1",
+          newReplyMemoryDecision({
             content: "First memory.",
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             scopeValue: "",
-          },
-          {
-            title: "memory 2",
+          }),
+          newReplyMemoryDecision({
             content: "Second memory.",
             kind: ReplyMemoryKind.FACT,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             scopeValue: "",
-          },
-          {
-            title: "memory 3",
+          }),
+          newReplyMemoryDecision({
             content: "Third memory.",
             kind: ReplyMemoryKind.PREFERENCE,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             scopeValue: "",
-          },
-          {
-            title: "memory 4",
+          }),
+          newReplyMemoryDecision({
             content: "Fourth memory.",
             kind: ReplyMemoryKind.PREFERENCE,
             scopeType: ReplyMemoryScopeType.GLOBAL,
             scopeValue: "",
-          },
+          }),
         ],
       },
     });
@@ -1291,10 +1403,59 @@ describe("reply-memory", () => {
     });
 
     expect(result).toHaveLength(3);
-    expect(result.map((memory) => memory.content)).toEqual([
+    expect(result.map((memory) => memory.newMemory?.content ?? null)).toEqual([
       "First memory.",
       "Second memory.",
       "Third memory.",
+    ]);
+  });
+
+  it("returns an existing memory id when the model matches an existing memory", async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        memories: [existingReplyMemoryDecision("existing-pricing-memory")],
+      },
+    });
+
+    const result = await aiExtractReplyMemoriesFromDraftEdit({
+      emailAccount: {
+        id: "account-1",
+        userId: "user-1",
+        email: "user@example.com",
+        about: null,
+        multiRuleSelectionEnabled: false,
+        timezone: "UTC",
+        calendarBookingLink: null,
+        name: "User",
+        user: {
+          aiProvider: null,
+          aiModel: null,
+          aiApiKey: null,
+        },
+        account: {
+          provider: "google",
+        },
+      } as any,
+      incomingEmailContent:
+        "Can you resend the enterprise pricing summary for larger teams?",
+      draftText: "Pricing is on our website.",
+      sentText:
+        "Enterprise pricing depends on seat count and whether the customer wants annual billing.",
+      senderEmail: "partner@example.com",
+      existingMemories: [
+        {
+          id: "existing-pricing-memory",
+          content:
+            "Enterprise pricing depends on seat count and whether the customer wants annual billing.",
+          kind: ReplyMemoryKind.FACT,
+          scopeType: ReplyMemoryScopeType.GLOBAL,
+          scopeValue: "",
+        },
+      ],
+    });
+
+    expect(result).toEqual([
+      existingReplyMemoryDecision("existing-pricing-memory"),
     ]);
   });
 
@@ -1447,5 +1608,24 @@ function createDraftSendLog(
         messageId: overrides.sourceMessageId ?? "source-1",
       },
     },
+  };
+}
+
+function newReplyMemoryDecision(newMemory: {
+  content: string;
+  kind: ReplyMemoryKind;
+  scopeType: ReplyMemoryScopeType;
+  scopeValue: string;
+}) {
+  return {
+    matchingExistingMemoryId: null,
+    newMemory,
+  };
+}
+
+function existingReplyMemoryDecision(matchingExistingMemoryId: string) {
+  return {
+    matchingExistingMemoryId,
+    newMemory: null,
   };
 }

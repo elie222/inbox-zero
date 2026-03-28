@@ -117,7 +117,7 @@ export interface EmailProvider {
   getInboxStats(): Promise<{ total: number; unread: number }>;
   getLabelById(labelId: string): Promise<EmailLabel | null>;
   getLabelByName(name: string): Promise<EmailLabel | null>;
-  getLabels(): Promise<EmailLabel[]>;
+  getLabels(options?: { includeHidden?: boolean }): Promise<EmailLabel[]>;
   getLatestMessageFromThreadSnapshot(
     thread: Pick<EmailThread, "id" | "messages">,
   ): Promise<ParsedMessage | null>;

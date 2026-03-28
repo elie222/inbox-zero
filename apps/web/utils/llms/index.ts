@@ -27,16 +27,19 @@ import {
   ErrorType,
 } from "@/utils/error-messages";
 import {
+  attachLlmRepairMetadata,
   captureException,
   isAnthropicInsufficientBalanceError,
   isIncorrectOpenAIAPIKeyError,
   isInsufficientCreditsError,
   isInvalidAIModelError,
+  type LlmRepairMetadata,
   isOpenAIAPIKeyDeactivatedError,
   isAiQuotaExceededError,
   markAsHandledUserKeyError,
   SafeError,
 } from "@/utils/error";
+import { hash } from "@/utils/hash";
 import {
   getModel,
   type ModelType,
@@ -65,6 +68,18 @@ const NO_USER_AI_FIELDS: UserAIFields = {
 };
 
 type LLMProviderOptions = Record<string, Record<string, JSONValue>>;
+type RepairCandidateKind = "original" | "trimmed" | "unwrapped";
+type RepairResultKind = "object-or-array" | "string-wrapped-object-or-array";
+type RepairAttemptState = {
+  inputLength: number;
+  inputFingerprint: string;
+  startsWithQuote: boolean;
+  startsWithBrace: boolean;
+  startsWithBracket: boolean;
+  looksCodeFenced: boolean;
+  candidateKindsTried: RepairCandidateKind[];
+  successfulCandidateKind?: RepairCandidateKind;
+};
 
 const commonOptions: {
   experimental_telemetry: { isEnabled: boolean };
@@ -230,6 +245,7 @@ export function createGenerateObject({
         emailAccountId: emailAccount.id,
         label,
       });
+    let latestRepairAttempt: RepairAttemptState | undefined;
 
     const generate = async (candidate: ResolvedModel) => {
       const systemText =
@@ -267,8 +283,9 @@ export function createGenerateObject({
         {
           experimental_repairText: async ({ text }) => {
             logger.info("Repairing text", { label });
-            const fixed = jsonrepair(text);
-            return fixed;
+            const repairResult = repairObjectText(text, label);
+            latestRepairAttempt = repairResult.attempt;
+            return repairResult.text;
           },
           ...options,
           ...commonOptions,
@@ -314,6 +331,7 @@ export function createGenerateObject({
     for (let index = 0; index < modelCandidates.length; index++) {
       const candidate = modelCandidates[index];
       const nextCandidate = modelCandidates[index + 1];
+      latestRepairAttempt = undefined;
 
       try {
         return await withLLMRetry(
@@ -327,6 +345,16 @@ export function createGenerateObject({
           { label },
         );
       } catch (error) {
+        attachLlmRepairMetadata(
+          error,
+          buildRepairMetadata({
+            attempt: latestRepairAttempt,
+            label,
+            provider: candidate.provider,
+            model: candidate.modelName,
+          }),
+        );
+
         if (nextCandidate && shouldFallbackToNextModel(error)) {
           logger.warn("LLM object generation failed, trying fallback model", {
             label,
@@ -1061,6 +1089,134 @@ function normalizeOpenRouterReasoningOptions({
 
 function isOpenRouterXaiGrokModel(modelName?: string) {
   return modelName?.toLowerCase().startsWith("x-ai/grok-");
+}
+
+function repairObjectText(text: string, label: string) {
+  const attempt = createRepairAttemptState(text);
+  let lastError: unknown;
+
+  for (const candidate of getRepairCandidates(text)) {
+    attempt.candidateKindsTried.push(candidate.kind);
+
+    try {
+      const repaired = jsonrepair(candidate.text);
+      const normalized = normalizeRepairedObjectText(repaired);
+
+      if (normalized) {
+        attempt.successfulCandidateKind = candidate.kind;
+        return { text: normalized.text, attempt };
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  logger.warn("Failed to repair invalid JSON response", {
+    label,
+    length: text.length,
+    startsWithQuote: /^[\s]*['"`]/.test(text),
+    startsWithBrace: /^[\s]*\{/.test(text),
+    startsWithBracket: /^[\s]*\[/.test(text),
+    error: lastError,
+  });
+
+  return { text, attempt };
+}
+
+function getRepairCandidates(text: string) {
+  const trimmed = text.trim();
+  const unwrapped = unwrapQuotedJson(trimmed);
+
+  return dedupeRepairCandidates([
+    { kind: "unwrapped", text: unwrapped },
+    { kind: "trimmed", text: trimmed },
+    { kind: "original", text },
+  ]);
+}
+
+function unwrapQuotedJson(text: string) {
+  if (text.length < 2) return;
+
+  const wrapChar = text[0];
+  const supportedWrapChars = new Set(["'", '"', "`"]);
+
+  if (!supportedWrapChars.has(wrapChar) || text.at(-1) !== wrapChar) return;
+
+  const inner = text.slice(1, -1).trim();
+
+  if (!inner.startsWith("{") && !inner.startsWith("[")) return;
+
+  return inner;
+}
+
+function normalizeRepairedObjectText(
+  text: string,
+): { text: string; kind: RepairResultKind } | undefined {
+  const trimmed = text.trim();
+
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    return { text: trimmed, kind: "object-or-array" };
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (typeof parsed !== "string") return;
+
+    const inner = parsed.trim();
+    if (inner.startsWith("{") || inner.startsWith("[")) {
+      return { text: inner, kind: "string-wrapped-object-or-array" };
+    }
+  } catch {
+    return;
+  }
+}
+
+function createRepairAttemptState(text: string): RepairAttemptState {
+  return {
+    inputLength: text.length,
+    inputFingerprint: hash(text) || "",
+    startsWithQuote: /^[\s]*['"`]/.test(text),
+    startsWithBrace: /^[\s]*\{/.test(text),
+    startsWithBracket: /^[\s]*\[/.test(text),
+    looksCodeFenced: /^[\s]*```/.test(text),
+    candidateKindsTried: [],
+  };
+}
+
+function buildRepairMetadata({
+  attempt,
+  label,
+  provider,
+  model,
+}: {
+  attempt: RepairAttemptState | undefined;
+  label: string;
+  provider: string;
+  model: string;
+}): LlmRepairMetadata | undefined {
+  if (!attempt) return;
+
+  return {
+    attempted: true,
+    successful: Boolean(attempt.successfulCandidateKind),
+    label,
+    provider,
+    model,
+    ...attempt,
+  };
+}
+
+function dedupeRepairCandidates(
+  candidates: Array<{ kind: RepairCandidateKind; text: string | undefined }>,
+): Array<{ kind: RepairCandidateKind; text: string }> {
+  const seen = new Set<string>();
+
+  return candidates.flatMap((candidate) => {
+    if (!candidate.text || seen.has(candidate.text)) return [];
+
+    seen.add(candidate.text);
+    return [{ kind: candidate.kind, text: candidate.text }];
+  });
 }
 
 function isJsonObject(

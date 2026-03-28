@@ -2,13 +2,12 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
 import type { EmailForLLM } from "@/utils/types";
-import { getEmailAccount } from "@/__tests__/helpers";
-import { createScopedLogger } from "@/utils/logger";
+import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 
 // pnpm test-ai extract-from-email-history
 
 const TIMEOUT = 15_000;
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 
 vi.mock("server-only", () => ({}));
 

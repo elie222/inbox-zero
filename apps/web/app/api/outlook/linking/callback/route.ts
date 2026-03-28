@@ -16,6 +16,10 @@ import {
   parseMicrosoftScopes,
 } from "@/utils/oauth/microsoft-oauth";
 import {
+  getMicrosoftGraphUrl,
+  requestMicrosoftToken,
+} from "@/utils/microsoft/oauth";
+import {
   acquireOAuthCodeLock,
   getOAuthCodeResult,
   setOAuthCodeResult,
@@ -100,22 +104,13 @@ export const GET = withError("outlook/linking/callback", async (request) => {
 
   try {
     // Exchange code for tokens
-    const tokenResponse = await fetch(
-      `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/token`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          client_id: env.MICROSOFT_CLIENT_ID,
-          client_secret: env.MICROSOFT_CLIENT_SECRET,
-          code,
-          grant_type: "authorization_code",
-          redirect_uri: linkingRedirectUri,
-        }),
-      },
-    );
+    const tokenResponse = await requestMicrosoftToken({
+      client_id: env.MICROSOFT_CLIENT_ID,
+      client_secret: env.MICROSOFT_CLIENT_SECRET,
+      code,
+      grant_type: "authorization_code",
+      redirect_uri: linkingRedirectUri,
+    });
 
     const tokens = await tokenResponse.json();
 
@@ -136,7 +131,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     }
 
     // Get user profile using the access token
-    const profileResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+    const profileResponse = await fetch(getMicrosoftGraphUrl("/me"), {
       headers: {
         Authorization: `Bearer ${tokens.access_token}`,
       },
@@ -220,7 +215,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       let profileImage = null;
       try {
         const photoResponse = await fetch(
-          "https://graph.microsoft.com/v1.0/me/photo/$value",
+          getMicrosoftGraphUrl("/me/photo/$value"),
           {
             headers: {
               Authorization: `Bearer ${tokens.access_token}`,

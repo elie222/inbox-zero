@@ -2,6 +2,10 @@ import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import {
+  getMicrosoftGraphUrl,
+  requestMicrosoftToken,
+} from "@/utils/microsoft/oauth";
+import {
   fetchMicrosoftCalendars,
   getCalendarClientWithRefresh,
 } from "@/utils/outlook/calendar-client";
@@ -20,22 +24,13 @@ export function createMicrosoftCalendarProvider(
       }
 
       // Exchange code for tokens
-      const tokenResponse = await fetch(
-        `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/token`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            client_id: env.MICROSOFT_CLIENT_ID,
-            client_secret: env.MICROSOFT_CLIENT_SECRET,
-            code,
-            grant_type: "authorization_code",
-            redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/calendar/callback`,
-          }),
-        },
-      );
+      const tokenResponse = await requestMicrosoftToken({
+        client_id: env.MICROSOFT_CLIENT_ID,
+        client_secret: env.MICROSOFT_CLIENT_SECRET,
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/calendar/callback`,
+      });
 
       const tokens = await tokenResponse.json();
 
@@ -46,14 +41,11 @@ export function createMicrosoftCalendarProvider(
       }
 
       // Get user profile using the access token
-      const profileResponse = await fetch(
-        "https://graph.microsoft.com/v1.0/me",
-        {
-          headers: {
-            Authorization: `Bearer ${tokens.access_token}`,
-          },
+      const profileResponse = await fetch(getMicrosoftGraphUrl("/me"), {
+        headers: {
+          Authorization: `Bearer ${tokens.access_token}`,
         },
-      );
+      });
 
       if (!profileResponse.ok) {
         throw new Error("Failed to fetch user profile");

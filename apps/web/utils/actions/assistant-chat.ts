@@ -174,17 +174,15 @@ export async function confirmAssistantEmailActionForAccount({
     throw new SafeError(getAssistantEmailActionErrorMessage(actionType));
   }
 
-  const updatedParts = updateAssistantEmailPartWithConfirmation({
-    parts: reservation.parts,
-    partIndex: reservation.partIndex,
-    confirmationResult,
-    contentOverride,
-  });
-
   try {
-    await persistConfirmedAssistantEmailPart({
+    await persistConfirmedAssistantEmailActionPart({
       chatMessageId: reservation.chatMessageId,
-      parts: updatedParts,
+      emailAccountId,
+      toolCallId,
+      actionType,
+      confirmationResult,
+      contentOverride,
+      logger,
     });
   } catch (error) {
     logger.error("Failed to persist confirmed assistant email action", {
@@ -265,17 +263,25 @@ export async function confirmAssistantCreateRuleForAccount({
 
       if (existingRule) {
         const confirmedAt = new Date().toISOString();
-        await persistConfirmedAssistantCreateRulePart({
-          chatMessageId: reservation.chatMessageId,
-          emailAccountId,
-          toolCallId,
-          parts: reservation.parts,
-          partIndex: reservation.partIndex,
-          riskMessages: reservation.output.riskMessages,
-          ruleId: existingRule.id,
-          confirmedAt,
-          logger,
-        });
+        try {
+          await persistConfirmedAssistantCreateRulePart({
+            chatMessageId: reservation.chatMessageId,
+            emailAccountId,
+            toolCallId,
+            riskMessages: reservation.output.riskMessages,
+            ruleId: existingRule.id,
+            confirmedAt,
+            logger,
+          });
+        } catch (persistError) {
+          logger.error("Failed to persist confirmed assistant create rule", {
+            error: persistError,
+            ruleId: existingRule.id,
+          });
+          throw new SafeError(
+            "Rule was created but confirmation state could not be saved. Please refresh and try again.",
+          );
+        }
 
         return {
           success: true,
@@ -303,17 +309,25 @@ export async function confirmAssistantCreateRuleForAccount({
   }
 
   const confirmedAt = new Date().toISOString();
-  await persistConfirmedAssistantCreateRulePart({
-    chatMessageId: reservation.chatMessageId,
-    emailAccountId,
-    toolCallId,
-    parts: reservation.parts,
-    partIndex: reservation.partIndex,
-    riskMessages: reservation.output.riskMessages,
-    ruleId: rule.id,
-    confirmedAt,
-    logger,
-  });
+  try {
+    await persistConfirmedAssistantCreateRulePart({
+      chatMessageId: reservation.chatMessageId,
+      emailAccountId,
+      toolCallId,
+      riskMessages: reservation.output.riskMessages,
+      ruleId: rule.id,
+      confirmedAt,
+      logger,
+    });
+  } catch (persistError) {
+    logger.error("Failed to persist confirmed assistant create rule", {
+      error: persistError,
+      ruleId: rule.id,
+    });
+    throw new SafeError(
+      "Rule was created but confirmation state could not be saved. Please refresh and try again.",
+    );
+  }
 
   return {
     success: true,
@@ -926,32 +940,40 @@ function updateAssistantEmailPartOutput({
   });
 }
 
-async function persistConfirmedAssistantEmailPart({
+async function persistConfirmedAssistantEmailActionPart({
   chatMessageId,
-  parts,
+  emailAccountId,
+  toolCallId,
+  actionType,
+  confirmationResult,
+  contentOverride,
+  logger,
 }: {
   chatMessageId: string;
-  parts: unknown[];
+  emailAccountId: string;
+  toolCallId: string;
+  actionType: AssistantPendingEmailActionType;
+  confirmationResult: AssistantEmailConfirmationResult;
+  contentOverride?: string;
+  logger: Logger;
 }) {
-  let lastError: unknown;
-
-  for (
-    let attempt = 1;
-    attempt <= CONFIRMATION_PERSIST_MAX_ATTEMPTS;
-    attempt++
-  ) {
-    try {
-      await prisma.chatMessage.update({
-        where: { id: chatMessageId },
-        data: { parts: parts as Prisma.InputJsonValue },
-      });
-      return;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError;
+  await persistConfirmedAssistantPart({
+    chatMessageId,
+    emailAccountId,
+    logger: logger.with({ chatMessageId, toolCallId, actionType }),
+    findPart: (parts) =>
+      findPendingAssistantEmailPart({ parts, toolCallId, actionType }),
+    isConfirmed: (lookup) =>
+      lookup.output.confirmationState === "confirmed" &&
+      !!lookup.output.confirmationResult,
+    buildParts: ({ parts, partIndex }) =>
+      updateAssistantEmailPartWithConfirmation({
+        parts,
+        partIndex,
+        confirmationResult,
+        contentOverride,
+      }),
+  });
 }
 
 function hasProcessingLeaseExpired(processingAt?: string | null) {
@@ -1087,8 +1109,6 @@ async function persistConfirmedAssistantCreateRulePart({
   chatMessageId,
   emailAccountId,
   toolCallId,
-  parts,
-  partIndex,
   riskMessages,
   ruleId,
   confirmedAt,
@@ -1097,83 +1117,117 @@ async function persistConfirmedAssistantCreateRulePart({
   chatMessageId: string;
   emailAccountId: string;
   toolCallId: string;
-  parts: unknown[];
-  partIndex: number;
   riskMessages?: string[];
   ruleId: string;
   confirmedAt: string;
   logger: Logger;
 }) {
-  const updatedParts = buildConfirmedAssistantCreateRuleParts({
-    parts,
-    partIndex,
-    riskMessages,
-    ruleId,
-    confirmedAt,
+  await persistConfirmedAssistantPart({
+    chatMessageId,
+    emailAccountId,
+    logger: logger.with({ chatMessageId, toolCallId, ruleId }),
+    findPart: (parts) =>
+      findPendingAssistantCreateRulePart({
+        parts,
+        toolCallId,
+      }),
+    isConfirmed: (lookup) =>
+      lookup.output.confirmationState === "confirmed" &&
+      lookup.output.ruleId === ruleId,
+    buildParts: ({ parts, partIndex }) =>
+      buildConfirmedAssistantCreateRuleParts({
+        parts,
+        partIndex,
+        riskMessages,
+        ruleId,
+        confirmedAt,
+      }),
   });
+}
 
-  try {
-    await persistConfirmedAssistantEmailPart({
-      chatMessageId,
-      parts: updatedParts,
-    });
-    return;
-  } catch (error) {
-    logger.error("Failed to persist confirmed create rule", { error, ruleId });
-  }
+async function persistConfirmedAssistantPart<
+  TLookup extends { index: number; parts: unknown[] },
+>({
+  chatMessageId,
+  emailAccountId,
+  logger,
+  findPart,
+  isConfirmed,
+  buildParts,
+}: {
+  chatMessageId: string;
+  emailAccountId: string;
+  logger: Logger;
+  findPart: (parts: unknown) => TLookup | null;
+  isConfirmed?: (lookup: TLookup) => boolean;
+  buildParts: (args: { parts: unknown[]; partIndex: number }) => unknown[];
+}) {
+  let lastError: unknown;
 
-  try {
-    const latestMessage = await prisma.chatMessage.findFirst({
-      where: {
-        id: chatMessageId,
-        chat: { emailAccountId },
-      },
-      select: {
-        id: true,
-        chatId: true,
-        updatedAt: true,
-        parts: true,
-      },
-    });
+  for (
+    let attempt = 1;
+    attempt <= CONFIRMATION_PERSIST_MAX_ATTEMPTS;
+    attempt++
+  ) {
+    try {
+      const chatMessage = await prisma.chatMessage.findFirst({
+        where: {
+          id: chatMessageId,
+          chat: { emailAccountId },
+        },
+        select: {
+          id: true,
+          chatId: true,
+          updatedAt: true,
+          parts: true,
+        },
+      });
 
-    if (!latestMessage) return;
+      if (!chatMessage) {
+        throw new Error("Chat message not found");
+      }
 
-    const latestLookup = findPendingAssistantCreateRulePart({
-      parts: latestMessage.parts,
-      toolCallId,
-    });
+      const lookup = findPart(chatMessage.parts);
 
-    if (!latestLookup) return;
+      if (!lookup) {
+        throw new Error("Pending assistant action not found");
+      }
 
-    if (
-      latestLookup.output.confirmationState === "confirmed" &&
-      latestLookup.output.ruleId === ruleId
-    ) {
-      return;
+      if (isConfirmed?.(lookup)) {
+        return;
+      }
+
+      const updatedParts = buildParts({
+        parts: lookup.parts,
+        partIndex: lookup.index,
+      });
+
+      const persisted = await prisma.chatMessage.updateMany({
+        where: {
+          id: chatMessage.id,
+          chatId: chatMessage.chatId,
+          updatedAt: chatMessage.updatedAt,
+        },
+        data: { parts: updatedParts as Prisma.InputJsonValue },
+      });
+
+      if (persisted.count === 1) {
+        return;
+      }
+
+      logger.warn("Assistant confirmation persistence lost update race", {
+        attempt,
+      });
+    } catch (error) {
+      lastError = error;
+      logger.warn("Assistant confirmation persistence attempt failed", {
+        attempt,
+        error,
+      });
     }
-
-    const reconciledParts = buildConfirmedAssistantCreateRuleParts({
-      parts: latestLookup.parts,
-      partIndex: latestLookup.index,
-      riskMessages,
-      ruleId,
-      confirmedAt,
-    });
-
-    await prisma.chatMessage.updateMany({
-      where: {
-        id: latestMessage.id,
-        chatId: latestMessage.chatId,
-        updatedAt: latestMessage.updatedAt,
-      },
-      data: { parts: reconciledParts as Prisma.InputJsonValue },
-    });
-  } catch (error) {
-    logger.error("Failed to reconcile confirmed create rule part", {
-      error,
-      ruleId,
-    });
   }
+
+  throw lastError ?? new Error("Failed to persist confirmed assistant action");
 }
 
 function buildConfirmedAssistantCreateRuleParts({

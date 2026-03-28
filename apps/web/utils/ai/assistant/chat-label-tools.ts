@@ -41,11 +41,7 @@ export const listLabelsTool = ({
         const labels = await emailProvider.getLabels();
 
         return {
-          labels: labels.map((label) => ({
-            id: label.id,
-            name: label.name,
-            type: label.type,
-          })),
+          labels: labels.map(pickLabelFields),
         };
       } catch (error) {
         logger.error("Failed to list labels", { error });
@@ -80,33 +76,32 @@ export const createOrGetLabelTool = ({
           provider,
           logger,
         });
-        const labels = await emailProvider.getLabels();
         const normalizedName = normalizeLabelName(input.name);
-        const existingLabel = labels.find(
-          (label) => normalizeLabelName(label.name) === normalizedName,
-        );
+        const labels = await emailProvider.getLabels();
+        const existingLabel = findNormalizedLabel(labels, normalizedName);
 
         if (existingLabel) {
+          return { created: false, label: pickLabelFields(existingLabel) };
+        }
+
+        const hiddenAwareLabels = await emailProvider.getLabels({
+          includeHidden: true,
+        });
+        const existingHiddenLabel = findNormalizedLabel(
+          hiddenAwareLabels,
+          normalizedName,
+        );
+
+        if (existingHiddenLabel) {
           return {
             created: false,
-            label: {
-              id: existingLabel.id,
-              name: existingLabel.name,
-              type: existingLabel.type,
-            },
+            label: pickLabelFields(existingHiddenLabel),
           };
         }
 
         const createdLabel = await emailProvider.createLabel(input.name);
 
-        return {
-          created: true,
-          label: {
-            id: createdLabel.id,
-            name: createdLabel.name,
-            type: createdLabel.type,
-          },
-        };
+        return { created: true, label: pickLabelFields(createdLabel) };
       } catch (error) {
         logger.error("Failed to create or get label", { error });
         return {
@@ -120,6 +115,19 @@ export type ListLabelsTool = InferUITool<ReturnType<typeof listLabelsTool>>;
 export type CreateOrGetLabelTool = InferUITool<
   ReturnType<typeof createOrGetLabelTool>
 >;
+
+function pickLabelFields(label: { id: string; name: string; type: string }) {
+  return { id: label.id, name: label.name, type: label.type };
+}
+
+function findNormalizedLabel<T extends { name: string }>(
+  labels: T[],
+  normalizedName: string,
+): T | undefined {
+  return labels.find(
+    (label) => normalizeLabelName(label.name) === normalizedName,
+  );
+}
 
 async function trackToolCall({
   tool,

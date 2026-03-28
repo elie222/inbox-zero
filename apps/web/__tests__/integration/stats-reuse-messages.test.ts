@@ -14,7 +14,7 @@ import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
 import { createGmailTestHarness, type GmailTestHarness } from "./helpers";
 import type { GmailProvider } from "@/utils/email/google";
 import { saveBatch } from "@/utils/actions/stats";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -94,7 +94,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     test("saveBatch processes emulator messages and saves to DB", async () => {
       mockCreateMany.mockClear();
 
-      const logger = createScopedLogger("test");
+      const logger = createTestLogger();
 
       const result = await saveBatch({
         emailAccountId: "test-account-id",
@@ -152,7 +152,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     test("no batch API call is made", async () => {
       fetchSpy.mockClear();
 
-      const logger = createScopedLogger("test");
+      const logger = createTestLogger();
 
       await saveBatch({
         emailAccountId: "test-account-id",

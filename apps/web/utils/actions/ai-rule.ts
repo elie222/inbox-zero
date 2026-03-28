@@ -15,6 +15,7 @@ import { createRulesBody } from "@/utils/actions/rule.validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { createRule, setRuleRunOnThreads } from "@/utils/rule/rule";
 import { actionClient } from "@/utils/actions/safe-action";
+import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -30,24 +31,51 @@ export const runRulesAction = actionClient
     }): Promise<RunRulesResult[]> => {
       const logger = ctxLogger.with({ messageId, threadId });
 
+      logger.info("runRulesAction started", { isTest, rerun });
+
+      logger.info("Loading email account for rule execution");
       const emailAccount = await getEmailAccountForRuleExecution({
         emailAccountId,
+      }).catch((error) => {
+        logger.error("Failed to load email account for rule execution", {
+          error,
+        });
+        throw error;
+      });
+      logger.info("Loaded email account for rule execution", {
+        emailAccountFound: Boolean(emailAccount),
       });
 
       if (!emailAccount) throw new SafeError("Email account not found");
       if (!provider) throw new SafeError("Provider not found");
 
+      logger.info("Creating email provider");
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
         logger,
+      }).catch((error) => {
+        logger.error("Failed to create email provider", { error });
+        throw error;
       });
-      const message = await emailProvider.getMessage(messageId);
+      logger.info("Created email provider");
+
+      logger.info("Fetching message for rule execution");
+      const message = await emailProvider
+        .getMessage(messageId)
+        .catch((error) => {
+          logger.error("Failed to fetch message for rule execution", { error });
+          throw error;
+        });
+      logger.info("Fetched message for rule execution", {
+        fetchedThreadId: message.threadId,
+      });
 
       const fetchExecutedRule = !isTest && !rerun;
 
-      const executedRules = fetchExecutedRule
-        ? await prisma.executedRule.findMany({
+      logger.info("Loading existing executed rules", { fetchExecutedRule });
+      const executedRules = await (fetchExecutedRule
+        ? prisma.executedRule.findMany({
             where: {
               emailAccountId,
               threadId,
@@ -62,7 +90,14 @@ export const runRulesAction = actionClient
               status: true,
             },
           })
-        : [];
+        : Promise.resolve([])
+      ).catch((error) => {
+        logger.error("Failed to load existing executed rules", { error });
+        throw error;
+      });
+      logger.info("Loaded existing executed rules", {
+        executedRuleCount: executedRules.length,
+      });
 
       if (executedRules.length > 0) {
         logger.info("Skipping. Rule already exists.");
@@ -77,14 +112,24 @@ export const runRulesAction = actionClient
         }));
       }
 
-      const rules = await prisma.rule.findMany({
-        where: {
-          emailAccountId,
-          enabled: true,
-        },
-        include: { actions: true },
+      logger.info("Loading enabled rules for execution");
+      const rules = await prisma.rule
+        .findMany({
+          where: {
+            emailAccountId,
+            enabled: true,
+          },
+          include: { actions: true },
+        })
+        .catch((error) => {
+          logger.error("Failed to load enabled rules for execution", { error });
+          throw error;
+        });
+      logger.info("Loaded enabled rules for execution", {
+        ruleCount: rules.length,
       });
 
+      logger.info("Invoking runRules");
       const result = await runRules({
         isTest,
         provider: emailProvider,
@@ -93,7 +138,23 @@ export const runRulesAction = actionClient
         emailAccount,
         logger,
         modelType: "chat",
+      }).catch((error) => {
+        logger.error("runRules failed", { error });
+        throw error;
       });
+
+      logger.info("runRules completed", {
+        resultCount: result.length,
+        matchedCount: result.filter((item) => !!item.rule).length,
+        skippedCount: result.filter((item) => !item.rule).length,
+      });
+
+      if (isTest) {
+        await flushLoggerSafely(logger, {
+          action: "runRules",
+          flushReason: "test-mode",
+        });
+      }
 
       return result;
     },
@@ -152,6 +213,17 @@ export const testAiCustomContentAction = actionClient
         rules,
         emailAccount,
         modelType: "chat",
+      });
+
+      logger.info("testAiCustomContent completed", {
+        resultCount: result.length,
+        matchedCount: result.filter((item) => !!item.rule).length,
+        skippedCount: result.filter((item) => !item.rule).length,
+      });
+
+      await flushLoggerSafely(logger, {
+        action: "testAiCustomContent",
+        flushReason: "test-mode",
       });
 
       return result;

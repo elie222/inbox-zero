@@ -18,9 +18,9 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { extractEmailAddress, extractDomainFromEmail } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
-import { createScopedLogger } from "@/utils/logger";
+import { createTestLogger } from "@/__tests__/helpers";
 
-const logger = createScopedLogger("test");
+const logger = createTestLogger();
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
 
