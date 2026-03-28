@@ -19,6 +19,7 @@ import { WELCOME_PATH } from "@/utils/config";
 import { toastError } from "@/components/Toast";
 import { isInternalPath } from "@/utils/path";
 import { getPossessiveBrandName } from "@/utils/branding";
+import { AlertBasic } from "@/components/Alert";
 
 export function LoginForm({
   useGoogleOauthEmulator,
@@ -31,16 +32,19 @@ export function LoginForm({
 
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
+    setGoogleError(null);
     try {
       if (useGoogleOauthEmulator) {
-        await signInWithOauth2({
+        const result = await signInWithOauth2({
           providerId: "google",
           errorCallbackURL,
           callbackURL,
         });
+        window.location.href = result.url;
       } else {
         await signIn.social({
           provider: "google",
@@ -49,10 +53,12 @@ export function LoginForm({
         });
       }
     } catch (error) {
+      const description = getSocialSignInErrorMessage(error);
       console.error("Error signing in with Google:", error);
+      setGoogleError(description);
       toastError({
         title: "Error signing in with Google",
-        description: "Please try again or contact support",
+        description,
       });
     } finally {
       setLoadingGoogle(false);
@@ -101,6 +107,13 @@ export function LoginForm({
             </a>{" "}
             Policy, including the Limited Use requirements.
           </DialogDescription>
+          {googleError ? (
+            <AlertBasic
+              variant="destructive"
+              title="Failed to start Google sign-in"
+              description={googleError}
+            />
+          ) : null}
           <div>
             <Button loading={loadingGoogle} onClick={handleGoogleSignIn}>
               I agree
@@ -173,12 +186,21 @@ async function handleSocialSignIn({
       callbackURL,
     });
   } catch (error) {
+    const description = getSocialSignInErrorMessage(error);
     console.error(`Error signing in with ${providerName}:`, error);
     toastError({
       title: `Error signing in with ${providerName}`,
-      description: "Please try again or contact support",
+      description,
     });
   } finally {
     setLoading(false);
   }
+}
+
+function getSocialSignInErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Please try again or contact support.";
 }
