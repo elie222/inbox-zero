@@ -36,6 +36,7 @@ import {
   isOptionalOnboardingStep,
   ONBOARDING_FLOW_VARIANTS,
   STEP_KEYS,
+  type OnboardingFlowVariant,
   type StepKey,
 } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { useOnboardingFlowVariant } from "@/hooks/useFeatureFlags";
