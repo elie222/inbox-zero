@@ -65,20 +65,19 @@ export function AutoCategorizationSetup({
         description: `Failed to enable feature: ${error instanceof Error ? error.message : "Unknown error"}`,
       });
       setIsBulkCategorizing(false);
+
+      if (isUpgradeError(error)) {
+        onOpenChange?.(false);
+      }
     } finally {
       setIsEnabling(false);
     }
-  }, [emailAccountId, setIsBulkCategorizing]);
+  }, [emailAccountId, onOpenChange, setIsBulkCategorizing]);
 
   return (
     <SetupDialog
       open={open}
       onOpenChange={onOpenChange}
-      dialogContentProps={{
-        hideCloseButton: true,
-        onInteractOutside: (event) => event.preventDefault(),
-        onEscapeKeyDown: (event) => event.preventDefault(),
-      }}
       imageSrc="/images/illustrations/working-vacation.svg"
       imageAlt="Bulk Archive"
       title="Bulk Archive"
@@ -90,4 +89,8 @@ export function AutoCategorizationSetup({
       </Button>
     </SetupDialog>
   );
+}
+
+function isUpgradeError(error: unknown) {
+  return error instanceof Error && error.message.includes("Please upgrade");
 }
