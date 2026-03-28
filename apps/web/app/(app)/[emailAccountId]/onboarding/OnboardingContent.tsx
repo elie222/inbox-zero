@@ -137,10 +137,10 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
   const getOnboardingStepPath = useCallback(
     (stepKey: string) => {
       return getOnboardingStepHref(emailAccountId, stepKey as StepKey, {
-        variant,
+        variant: flowVariant,
       });
     },
-    [emailAccountId, variant],
+    [emailAccountId, flowVariant],
   );
 
   useEffect(() => {
