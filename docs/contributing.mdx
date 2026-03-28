@@ -45,7 +45,17 @@ The fastest way to get started is using [devcontainers](https://containers.dev/)
    pnpm install
    ```
 
-3. **Set up environment variables** using one of these methods:
+3. **Optional: start the local Google emulator** if you want to develop against emulated Google OAuth/Gmail instead of real credentials:
+   ```bash
+   docker compose -f docker-compose.dev.yml --profile google-emulator up -d
+   ```
+
+4. **Optional: start the local Microsoft emulator** if you want to develop against emulated Microsoft OAuth/Graph instead of real credentials:
+   ```bash
+   docker compose -f docker-compose.dev.yml --profile microsoft-emulator up -d
+   ```
+
+5. **Set up environment variables** using one of these methods:
 
    **Interactive CLI** (recommended) - guides you through each step and auto-generates secrets:
    ```bash
@@ -58,13 +68,29 @@ The fastest way to get started is using [devcontainers](https://containers.dev/)
    # Generate secrets with: openssl rand -hex 32
    ```
 
-4. **Run database migrations:**
+   To use the local Google emulator, set these values in `apps/web/.env`:
+
+   ```bash
+   GOOGLE_BASE_URL=http://localhost:4002
+   GOOGLE_CLIENT_ID=emulate-google-client.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=emulate-google-secret
+   ```
+
+   To use the local Microsoft emulator, set these values in `apps/web/.env`:
+
+   ```bash
+   MICROSOFT_BASE_URL=http://localhost:4003
+   MICROSOFT_CLIENT_ID=emulate-microsoft-client-id
+   MICROSOFT_CLIENT_SECRET=emulate-microsoft-secret
+   ```
+
+6. **Run database migrations:**
    ```bash
    cd apps/web
    pnpm prisma migrate dev
    ```
 
-5. **Start the development server:**
+7. **Start the development server:**
    ```bash
    pnpm dev
    ```

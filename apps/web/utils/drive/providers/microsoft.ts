@@ -2,6 +2,10 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import type { DriveItem } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
 import { createScopedLogger } from "@/utils/logger";
+import {
+  getMicrosoftGraphClientOptions,
+  getMicrosoftGraphUrl,
+} from "@/utils/microsoft/oauth";
 import { isNotFoundError } from "@/utils/outlook/errors";
 import type {
   DriveProvider,
@@ -27,6 +31,7 @@ export class OneDriveProvider implements DriveProvider {
         done(null, this.accessToken);
       },
       defaultVersion: "v1.0",
+      ...getMicrosoftGraphClientOptions(accessToken),
     });
   }
 
@@ -232,7 +237,7 @@ export class OneDriveProvider implements DriveProvider {
     if (!file) return null;
 
     const response = await fetch(
-      `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/content`,
+      getMicrosoftGraphUrl(`/me/drive/items/${fileId}/content`),
       {
         headers: {
           Authorization: `Bearer ${this.accessToken}`,

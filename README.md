@@ -119,6 +119,34 @@ pnpm dev
 
 Open http://localhost:3000
 
+After `pnpm install`, if you want to use the local Google emulator, start it with:
+
+```bash
+docker compose -f docker-compose.dev.yml --profile google-emulator up -d
+```
+
+Then point `apps/web/.env` at it with:
+
+```bash
+GOOGLE_BASE_URL=http://localhost:4002
+GOOGLE_CLIENT_ID=emulate-google-client.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=emulate-google-secret
+```
+
+If you want to use the local Microsoft emulator, start it with:
+
+```bash
+docker compose -f docker-compose.dev.yml --profile microsoft-emulator up -d
+```
+
+Then point `apps/web/.env` at it with:
+
+```bash
+MICROSOFT_BASE_URL=http://localhost:4003
+MICROSOFT_CLIENT_ID=emulate-microsoft-client-id
+MICROSOFT_CLIENT_SECRET=emulate-microsoft-secret
+```
+
 See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for more details including devcontainer setup.
 
 ## Contributing
