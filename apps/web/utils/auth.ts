@@ -26,6 +26,11 @@ import {
   isGoogleOauthEmulationEnabled,
 } from "@/utils/google/oauth";
 import { createScopedLogger } from "@/utils/logger";
+import {
+  getMicrosoftOauthDiscoveryUrl,
+  getMicrosoftOauthIssuer,
+  isMicrosoftEmulationEnabled,
+} from "@/utils/microsoft/oauth";
 import { createOutlookClient } from "@/utils/outlook/client";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import {
@@ -37,6 +42,7 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
 const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
+const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
 
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
@@ -75,20 +81,41 @@ const googleOauthPlugin = useGoogleOauthEmulator
       ],
     })
   : null;
+const microsoftSocialProvider = !useMicrosoftOauthEmulator
+  ? {
+      clientId: env.MICROSOFT_CLIENT_ID || "",
+      clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
+      scope: [...OUTLOOK_SCOPES],
+      tenantId: env.MICROSOFT_TENANT_ID,
+      disableIdTokenSignIn: true,
+      ...(env.OAUTH_PROXY_URL && {
+        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
+      }),
+    }
+  : null;
+const microsoftOauthPlugin = useMicrosoftOauthEmulator
+  ? genericOAuth({
+      config: [
+        {
+          providerId: "microsoft",
+          discoveryUrl: getMicrosoftOauthDiscoveryUrl(),
+          issuer: getMicrosoftOauthIssuer(),
+          clientId: env.MICROSOFT_CLIENT_ID || "",
+          clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
+          scopes: [...OUTLOOK_SCOPES],
+          pkce: true,
+          prompt: "consent",
+          ...(env.OAUTH_PROXY_URL && {
+            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/microsoft`,
+          }),
+        },
+      ],
+    })
+  : null;
 
 const socialProviders = {
   ...(googleSocialProvider ? { google: googleSocialProvider } : {}),
-  microsoft: {
-    clientId: env.MICROSOFT_CLIENT_ID || "",
-    clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
-    scope: [...OUTLOOK_SCOPES],
-    tenantId: env.MICROSOFT_TENANT_ID,
-    disableIdTokenSignIn: true,
-    // For preview deployments, redirect through staging (which proxies back to preview URL)
-    ...(env.OAUTH_PROXY_URL && {
-      redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
-    }),
-  },
+  ...(microsoftSocialProvider ? { microsoft: microsoftSocialProvider } : {}),
 };
 
 export const betterAuthConfig = betterAuth({
@@ -130,6 +157,7 @@ export const betterAuthConfig = betterAuth({
       organizationProvisioning: { disabled: true },
     }),
     ...(googleOauthPlugin ? [googleOauthPlugin] : []),
+    ...(microsoftOauthPlugin ? [microsoftOauthPlugin] : []),
     ...(mobileAuthOrigins.length > 0 ? [expo()] : []),
     // OAuth proxy for preview deployments (Google doesn't allow wildcard redirect URIs)
     ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER

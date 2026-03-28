@@ -1,5 +1,10 @@
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
+import {
+  getMicrosoftGraphClientOptions,
+  getMicrosoftOauthAuthorizeUrl,
+  requestMicrosoftToken,
+} from "@/utils/microsoft/oauth";
 import { CALENDAR_SCOPES } from "@/utils/outlook/scopes";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
@@ -25,7 +30,6 @@ export function getCalendarOAuth2Url(state: string): string {
     throw new Error("Microsoft login not enabled - missing client ID");
   }
 
-  const baseUrl = `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/authorize`;
   const params = new URLSearchParams({
     client_id: env.MICROSOFT_CLIENT_ID,
     response_type: "code",
@@ -34,7 +38,7 @@ export function getCalendarOAuth2Url(state: string): string {
     state,
   });
 
-  return `${baseUrl}?${params.toString()}`;
+  return `${getMicrosoftOauthAuthorizeUrl()}?${params.toString()}`;
 }
 
 export const getCalendarClientWithRefresh = async ({
@@ -55,7 +59,10 @@ export const getCalendarClientWithRefresh = async ({
   // Check if token is still valid
   if (expiresAt && expiresAt > Date.now() && accessToken) {
     const authProvider = new CalendarAuthProvider(accessToken);
-    return Client.initWithMiddleware({ authProvider });
+    return Client.initWithMiddleware({
+      authProvider,
+      ...getMicrosoftGraphClientOptions(accessToken),
+    });
   }
 
   // Token is expired or missing, need to refresh
@@ -64,22 +71,13 @@ export const getCalendarClientWithRefresh = async ({
       throw new Error("Microsoft login not enabled - missing credentials");
     }
 
-    const response = await fetch(
-      `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/token`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          client_id: env.MICROSOFT_CLIENT_ID,
-          client_secret: env.MICROSOFT_CLIENT_SECRET,
-          refresh_token: refreshToken,
-          grant_type: "refresh_token",
-          scope: CALENDAR_SCOPES.join(" "),
-        }),
-      },
-    );
+    const response = await requestMicrosoftToken({
+      client_id: env.MICROSOFT_CLIENT_ID,
+      client_secret: env.MICROSOFT_CLIENT_SECRET,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+      scope: CALENDAR_SCOPES.join(" "),
+    });
 
     const tokens = await response.json();
 
@@ -117,7 +115,10 @@ export const getCalendarClientWithRefresh = async ({
     }
 
     const authProvider = new CalendarAuthProvider(tokens.access_token);
-    return Client.initWithMiddleware({ authProvider });
+    return Client.initWithMiddleware({
+      authProvider,
+      ...getMicrosoftGraphClientOptions(tokens.access_token),
+    });
   } catch (error) {
     const isInvalidGrantError =
       error instanceof Error && error.message.includes("invalid_grant");
