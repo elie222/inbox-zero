@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getOnboardingFlowVariant,
   getOnboardingStepIndex,
   getVisibleOnboardingStepKeys,
   ONBOARDING_FLOW_VARIANTS,
@@ -84,5 +85,17 @@ describe("getOnboardingStepIndex", () => {
 
   it("clamps oversized numeric steps to the last visible step", () => {
     expect(getOnboardingStepIndex("99", fastFlowKeys)).toBe(4);
+  });
+});
+
+describe("getOnboardingFlowVariant", () => {
+  it("returns a supported variant from the URL param", () => {
+    expect(getOnboardingFlowVariant("fast-5")).toBe(
+      ONBOARDING_FLOW_VARIANTS.FAST_5,
+    );
+  });
+
+  it("ignores unknown variants", () => {
+    expect(getOnboardingFlowVariant("test")).toBeUndefined();
   });
 });

@@ -30,6 +30,7 @@ import { StepInviteTeam } from "@/app/(app)/[emailAccountId]/onboarding/StepInvi
 import { usePremium } from "@/components/PremiumAlert";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
 import {
+  getOnboardingFlowVariant,
   getOnboardingStepIndex,
   getVisibleOnboardingStepKeys,
   isOptionalOnboardingStep,
@@ -40,9 +41,10 @@ import { useOnboardingFlowVariant } from "@/hooks/useFeatureFlags";
 
 interface OnboardingContentProps {
   step?: string;
+  variant?: string;
 }
 
-export function OnboardingContent({ step }: OnboardingContentProps) {
+export function OnboardingContent({ step, variant }: OnboardingContentProps) {
   const { emailAccountId, provider, isLoading } = useAccount();
   const { isPremium } = usePremium();
   const { data: membership, isLoading: isMembershipLoading } =
@@ -54,7 +56,9 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     (membership?.isOwner && membership?.organizationId) ||
       (!membership?.organizationId && !membership?.hasPendingInvitationToOrg),
   );
-  const flowVariant = useOnboardingFlowVariant();
+  const flaggedFlowVariant = useOnboardingFlowVariant();
+  const forcedFlowVariant = getOnboardingFlowVariant(variant);
+  const flowVariant = forcedFlowVariant ?? flaggedFlowVariant;
 
   const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
     [STEP_KEYS.WELCOME]: () => (
@@ -129,6 +133,21 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   const analytics = useOnboardingAnalytics("onboarding");
   const hasTrackedStart = useRef(false);
 
+  const getOnboardingStepPath = useCallback(
+    (stepKey: string) => {
+      const searchParams = new URLSearchParams({ step: stepKey });
+      if (forcedFlowVariant) {
+        searchParams.set("variant", forcedFlowVariant);
+      }
+
+      return prefixPath(
+        emailAccountId,
+        `/onboarding?${searchParams.toString()}`,
+      );
+    },
+    [emailAccountId, forcedFlowVariant],
+  );
+
   useEffect(() => {
     // Wait for membership data before firing — totalSteps can be wrong while loading
     if (isMembershipLoading || !currentStepKey) return;
@@ -175,9 +194,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     if (clampedStep < steps.length) {
       if (!nextStepKey) return;
 
-      router.push(
-        prefixPath(emailAccountId, `/onboarding?step=${nextStepKey}`),
-      );
+      router.push(getOnboardingStepPath(nextStepKey));
     } else {
       analytics.onComplete({
         step: clampedStep,
@@ -205,6 +222,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     steps.length,
     isPremium,
     analyticsProps,
+    getOnboardingStepPath,
   ]);
 
   const onSkipInviteTeam = useCallback(() => {
@@ -223,17 +241,17 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     // Navigate directly — do not call onNext() which would also fire completion analytics.
     if (!nextStepKey) return;
 
-    router.push(prefixPath(emailAccountId, `/onboarding?step=${nextStepKey}`));
+    router.push(getOnboardingStepPath(nextStepKey));
   }, [
     analytics,
     analyticsProps,
     router,
-    emailAccountId,
     clampedStep,
     currentStepKey,
     totalSteps,
     nextStepKey,
     steps.length,
+    getOnboardingStepPath,
   ]);
 
   // Trigger persona analysis on mount (first step only)

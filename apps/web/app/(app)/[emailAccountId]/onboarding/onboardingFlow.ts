@@ -71,6 +71,15 @@ export function getVisibleOnboardingStepKeys({
   });
 }
 
+export function getOnboardingFlowVariant(
+  variantParam: string | undefined,
+): OnboardingFlowVariant | undefined {
+  if (!variantParam) return undefined;
+
+  const variants = Object.values(ONBOARDING_FLOW_VARIANTS);
+  return variants.find((variant) => variant === variantParam);
+}
+
 export function getOnboardingStepIndex(
   stepParam: string | undefined,
   visibleStepKeys: readonly StepKey[],

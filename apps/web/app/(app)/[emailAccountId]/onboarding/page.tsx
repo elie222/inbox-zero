@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 export default async function OnboardingPage(props: {
   params: Promise<{ emailAccountId: string }>;
-  searchParams: Promise<{ step?: string; force?: string }>;
+  searchParams: Promise<{ step?: string; force?: string; variant?: string }>;
 }) {
   const [searchParams, { emailAccountId }, cookieStore] = await Promise.all([
     props.searchParams,
@@ -33,14 +33,18 @@ export default async function OnboardingPage(props: {
   if (
     utmValues.utmSource === "briefmymeeting" &&
     !searchParams.force &&
-    !searchParams.step
+    !searchParams.step &&
+    !searchParams.variant
   ) {
     redirect(`/${emailAccountId}/onboarding-brief`);
   }
 
   return (
     <Suspense>
-      <OnboardingContent step={searchParams.step} />
+      <OnboardingContent
+        step={searchParams.step}
+        variant={searchParams.variant}
+      />
     </Suspense>
   );
 }
