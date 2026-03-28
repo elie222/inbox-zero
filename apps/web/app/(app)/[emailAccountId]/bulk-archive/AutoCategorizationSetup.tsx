@@ -56,9 +56,11 @@ export function AutoCategorizationSetup({
         toastSuccess({
           description: `Categorizing ${result.data.totalUncategorizedSenders} senders... This may take a few minutes.`,
         });
+        onOpenChange?.(false);
       } else {
         toastSuccess({ description: "No uncategorized senders found." });
         setIsBulkCategorizing(false);
+        onOpenChange?.(false);
       }
     } catch (error) {
       toastError({
