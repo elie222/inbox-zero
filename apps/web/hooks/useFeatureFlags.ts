@@ -69,16 +69,6 @@ export function useTestimonialsVariant() {
   );
 }
 
-export type HeroLayoutVariant = "control" | "social-proof-first";
-
-export function useHeroLayoutVariant() {
-  return (
-    (useFeatureFlagVariantKey(
-      "hero-social-proof-position",
-    ) as HeroLayoutVariant) || "control"
-  );
-}
-
 export type WelcomePricingVariant = "control" | "two-tiers";
 
 export function useWelcomePricingVariant() {
