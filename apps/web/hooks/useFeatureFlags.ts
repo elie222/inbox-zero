@@ -2,6 +2,7 @@ import {
   useFeatureFlagEnabled,
   useFeatureFlagVariantKey,
 } from "posthog-js/react";
+import type { OnboardingFlowVariant } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { env } from "@/env";
 
 export function useCleanerEnabled() {
@@ -85,5 +86,12 @@ export function useWelcomePricingVariant() {
     (useFeatureFlagVariantKey(
       "welcome-pricing-tiers",
     ) as WelcomePricingVariant) || "control"
+  );
+}
+
+export function useOnboardingFlowVariant() {
+  return (
+    (useFeatureFlagVariantKey("onboarding-flow") as OnboardingFlowVariant) ||
+    "control"
   );
 }
