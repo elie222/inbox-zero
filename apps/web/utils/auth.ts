@@ -61,26 +61,6 @@ const googleSocialProvider = !useGoogleOauthEmulator
       }),
     }
   : null;
-const googleOauthPlugin = useGoogleOauthEmulator
-  ? genericOAuth({
-      config: [
-        {
-          providerId: "google",
-          discoveryUrl: getGoogleOauthDiscoveryUrl(),
-          issuer: getGoogleOauthIssuer(),
-          clientId: env.GOOGLE_CLIENT_ID,
-          clientSecret: env.GOOGLE_CLIENT_SECRET,
-          scopes: [...GMAIL_SCOPES],
-          pkce: true,
-          accessType: "offline",
-          prompt: "select_account consent",
-          ...(env.OAUTH_PROXY_URL && {
-            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/google`,
-          }),
-        },
-      ],
-    })
-  : null;
 const microsoftSocialProvider = !useMicrosoftOauthEmulator
   ? {
       clientId: env.MICROSOFT_CLIENT_ID || "",
@@ -93,9 +73,27 @@ const microsoftSocialProvider = !useMicrosoftOauthEmulator
       }),
     }
   : null;
-const microsoftOauthPlugin = useMicrosoftOauthEmulator
-  ? genericOAuth({
-      config: [
+const genericOauthConfig = [
+  ...(useGoogleOauthEmulator
+    ? [
+        {
+          providerId: "google",
+          discoveryUrl: getGoogleOauthDiscoveryUrl(),
+          issuer: getGoogleOauthIssuer(),
+          clientId: env.GOOGLE_CLIENT_ID,
+          clientSecret: env.GOOGLE_CLIENT_SECRET,
+          scopes: [...GMAIL_SCOPES],
+          pkce: true,
+          accessType: "offline" as const,
+          prompt: "select_account consent",
+          ...(env.OAUTH_PROXY_URL && {
+            redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/google`,
+          }),
+        },
+      ]
+    : []),
+  ...(useMicrosoftOauthEmulator
+    ? [
         {
           providerId: "microsoft",
           discoveryUrl: getMicrosoftOauthDiscoveryUrl(),
@@ -109,9 +107,15 @@ const microsoftOauthPlugin = useMicrosoftOauthEmulator
             redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/oauth2/callback/microsoft`,
           }),
         },
-      ],
-    })
-  : null;
+      ]
+    : []),
+];
+const genericOauthPlugin =
+  genericOauthConfig.length > 0
+    ? genericOAuth({
+        config: genericOauthConfig,
+      })
+    : null;
 
 const socialProviders = {
   ...(googleSocialProvider ? { google: googleSocialProvider } : {}),
@@ -156,8 +160,7 @@ export const betterAuthConfig = betterAuth({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
-    ...(googleOauthPlugin ? [googleOauthPlugin] : []),
-    ...(microsoftOauthPlugin ? [microsoftOauthPlugin] : []),
+    ...(genericOauthPlugin ? [genericOauthPlugin] : []),
     ...(mobileAuthOrigins.length > 0 ? [expo()] : []),
     // OAuth proxy for preview deployments (Google doesn't allow wildcard redirect URIs)
     ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER

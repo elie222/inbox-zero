@@ -1,5 +1,6 @@
 {
   "scripts": {
-    "run": "pnpm dev"
+    "run": "pnpm worktree dev --url conductor",
+    "archive": "pnpm worktree clean"
   }
 }
