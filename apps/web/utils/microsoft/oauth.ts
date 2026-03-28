@@ -47,6 +47,16 @@ export function getMicrosoftOauthTokenUrl() {
     : `${MICROSOFT_LOGIN_BASE_URL}/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/token`;
 }
 
+export function requestMicrosoftToken(form: Record<string, string>) {
+  return fetch(getMicrosoftOauthTokenUrl(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams(form),
+  });
+}
+
 export function getMicrosoftGraphApiRootUrl() {
   const baseUrl = getMicrosoftBaseUrl();
   return baseUrl

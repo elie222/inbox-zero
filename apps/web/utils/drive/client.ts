@@ -8,7 +8,7 @@ import {
 import {
   getMicrosoftGraphUrl,
   getMicrosoftOauthAuthorizeUrl,
-  getMicrosoftOauthTokenUrl,
+  requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 import {
   GOOGLE_DRIVE_FULL_SCOPES,
@@ -132,19 +132,13 @@ export async function exchangeMicrosoftDriveCode(code: string) {
     throw new Error("Microsoft login not enabled - missing credentials");
   }
 
-  const response = await fetch(getMicrosoftOauthTokenUrl(), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      client_id: env.MICROSOFT_CLIENT_ID,
-      client_secret: env.MICROSOFT_CLIENT_SECRET,
-      code,
-      redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/drive/callback`,
-      grant_type: "authorization_code",
-      scope: MICROSOFT_DRIVE_SCOPES.join(" "),
-    }),
+  const response = await requestMicrosoftToken({
+    client_id: env.MICROSOFT_CLIENT_ID,
+    client_secret: env.MICROSOFT_CLIENT_SECRET,
+    code,
+    redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/drive/callback`,
+    grant_type: "authorization_code",
+    scope: MICROSOFT_DRIVE_SCOPES.join(" "),
   });
 
   if (!response.ok) {

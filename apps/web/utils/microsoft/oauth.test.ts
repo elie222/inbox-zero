@@ -8,6 +8,7 @@ describe("microsoft oauth helpers", () => {
 
   afterEach(() => {
     vi.doUnmock("@/env");
+    vi.unstubAllGlobals();
   });
 
   it("uses production Microsoft endpoints by default", async () => {
@@ -67,6 +68,33 @@ describe("microsoft oauth helpers", () => {
         },
       },
     });
+  });
+
+  it("posts token requests to the emulator token endpoint", async () => {
+    const oauth = await importMicrosoftOauthModule({
+      MICROSOFT_BASE_URL: "http://localhost:4003",
+    });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await oauth.requestMicrosoftToken({
+      client_id: "client-id",
+      grant_type: "refresh_token",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:4003/oauth2/v2.0/token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: "client-id",
+          grant_type: "refresh_token",
+        }),
+      },
+    );
   });
 });
 

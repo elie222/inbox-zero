@@ -7,7 +7,7 @@ import type { Logger } from "@/utils/logger";
 import {
   getMicrosoftGraphClientOptions,
   getMicrosoftOauthAuthorizeUrl,
-  getMicrosoftOauthTokenUrl,
+  requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 import { SCOPES } from "@/utils/outlook/scopes";
 import { SafeError } from "@/utils/error";
@@ -138,17 +138,11 @@ export const getOutlookClientWithRefresh = async ({
       throw new Error("Microsoft login not enabled - missing credentials");
     }
 
-    const response = await fetch(getMicrosoftOauthTokenUrl(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        client_id: env.MICROSOFT_CLIENT_ID,
-        client_secret: env.MICROSOFT_CLIENT_SECRET,
-        refresh_token: refreshToken,
-        grant_type: "refresh_token",
-      }),
+    const response = await requestMicrosoftToken({
+      client_id: env.MICROSOFT_CLIENT_ID,
+      client_secret: env.MICROSOFT_CLIENT_SECRET,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
     });
 
     const tokens = await response.json();

@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import {
   getMicrosoftGraphUrl,
-  getMicrosoftOauthTokenUrl,
+  requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 import {
   fetchMicrosoftCalendars,
@@ -24,18 +24,12 @@ export function createMicrosoftCalendarProvider(
       }
 
       // Exchange code for tokens
-      const tokenResponse = await fetch(getMicrosoftOauthTokenUrl(), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          client_id: env.MICROSOFT_CLIENT_ID,
-          client_secret: env.MICROSOFT_CLIENT_SECRET,
-          code,
-          grant_type: "authorization_code",
-          redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/calendar/callback`,
-        }),
+      const tokenResponse = await requestMicrosoftToken({
+        client_id: env.MICROSOFT_CLIENT_ID,
+        client_secret: env.MICROSOFT_CLIENT_SECRET,
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/calendar/callback`,
       });
 
       const tokens = await tokenResponse.json();
