@@ -610,6 +610,7 @@ async function mapActionFields(
 
       return {
         type: a.type,
+        messagingChannelId: a.messagingChannelId ?? null,
         label,
         labelId,
         to,
