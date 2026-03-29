@@ -314,6 +314,7 @@ export const toggleRuleChannelAction = actionClient
           select: {
             emailAccountId: true,
             isConnected: true,
+            provider: true,
             channelId: true,
             providerUserId: true,
           },
@@ -331,7 +332,11 @@ export const toggleRuleChannelAction = actionClient
         if (!channel.isConnected) {
           throw new SafeError("Messaging channel is not connected");
         }
-        if (!channel.channelId && !channel.providerUserId) {
+        const hasDestination =
+          channel.provider === MessagingProvider.SLACK
+            ? Boolean(channel.channelId)
+            : Boolean(channel.providerUserId || channel.channelId);
+        if (!hasDestination) {
           throw new SafeError(
             "Please select a target channel before enabling notifications",
           );

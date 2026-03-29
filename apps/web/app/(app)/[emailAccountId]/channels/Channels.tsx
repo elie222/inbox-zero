@@ -347,7 +347,7 @@ function ChannelCard({
           <Icon className="h-4 w-4 text-muted-foreground" />
           <span>{config.name}</span>
           <span className="text-muted-foreground font-normal">
-            &middot; {channel.teamName ?? "Workspace"}
+            &middot; {channel.teamName ?? (isSlack ? "Slack workspace" : "Workspace")}
           </span>
           {isSlack ? (
             <SlackTargetSelect
