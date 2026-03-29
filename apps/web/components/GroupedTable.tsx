@@ -568,11 +568,14 @@ function ArchiveStatusCell({
   const status = useArchiveSenderStatus(emailAccountId, sender);
 
   switch (status?.status) {
+    case "queued":
+      return <span className="text-blue-500">Queued</span>;
+    case "processing":
+      return <span className="text-blue-500">Archiving...</span>;
     case "completed":
-      if (status.queued) {
-        return <span className="text-blue-500">Queued</span>;
-      }
       return <span className="text-muted-foreground">Archived</span>;
+    case "failed":
+      return <span className="text-red-500">Failed</span>;
     case "pending":
       return <span className="text-muted-foreground">Pending...</span>;
     default:

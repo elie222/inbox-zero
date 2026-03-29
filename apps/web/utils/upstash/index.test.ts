@@ -17,10 +17,12 @@ async function loadUpstashModule({
   qstashToken,
   nextPublicBaseUrl = "https://public.example.com",
   internalApiUrl = "https://worker.example.com",
+  webhookUrl,
 }: {
   qstashToken?: string;
   nextPublicBaseUrl?: string;
   internalApiUrl?: string;
+  webhookUrl?: string;
 }) {
   vi.resetModules();
   vi.clearAllMocks();
@@ -50,6 +52,8 @@ async function loadUpstashModule({
     env: {
       QSTASH_TOKEN: qstashToken,
       NEXT_PUBLIC_BASE_URL: nextPublicBaseUrl,
+      INTERNAL_API_URL: internalApiUrl,
+      WEBHOOK_URL: webhookUrl,
       INTERNAL_API_KEY: "internal-api-key",
     },
   }));
@@ -100,6 +104,7 @@ describe("publishToQstash", () => {
     const upstash = await loadUpstashModule({
       qstashToken: "token",
       internalApiUrl: "http://localhost:3000",
+      nextPublicBaseUrl: "http://localhost:3000",
     });
 
     await upstash.publishToQstash("/api/process", { id: 1 });
@@ -109,6 +114,25 @@ describe("publishToQstash", () => {
       "http://localhost:3000/api/process",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("uses WEBHOOK_URL for QStash callbacks when the internal base is loopback", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({
+      qstashToken: "token",
+      internalApiUrl: "http://localhost:3000",
+      nextPublicBaseUrl: "http://localhost:3000",
+      webhookUrl: "https://example.ngrok-free.app",
+    });
+
+    await upstash.publishToQstash("/api/process", { id: 1 });
+
+    expect(mockPublishJSON).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://example.ngrok-free.app/api/process",
+      }),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("handles trailing slash on INTERNAL_API_URL", async () => {
@@ -204,6 +228,7 @@ describe("publishToQstashQueue", () => {
     const upstash = await loadUpstashModule({
       qstashToken: "token",
       internalApiUrl: "http://localhost:3000",
+      nextPublicBaseUrl: "http://localhost:3000",
     });
 
     await upstash.publishToQstashQueue({
@@ -219,6 +244,30 @@ describe("publishToQstashQueue", () => {
       "http://localhost:3000/api/task",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("uses WEBHOOK_URL for queue publishing when the internal base is loopback", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({
+      qstashToken: "token",
+      internalApiUrl: "http://localhost:3000",
+      nextPublicBaseUrl: "http://localhost:3000",
+      webhookUrl: "https://example.ngrok-free.app",
+    });
+
+    await upstash.publishToQstashQueue({
+      queueName: "test",
+      parallelism: 1,
+      path: "/api/task",
+      body: { id: "a" },
+    });
+
+    expect(mockQueueEnqueueJSON).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://example.ngrok-free.app/api/task",
+      }),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("falls back to internal URL when QStash client is unavailable", async () => {

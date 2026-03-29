@@ -607,10 +607,11 @@ function SenderStatus({
   // Show archive status if it exists
   if (archiveStatus?.status) {
     switch (archiveStatus.status) {
+      case "queued":
+        return <span className="text-sm text-blue-600">Queued</span>;
+      case "processing":
+        return <span className="text-sm text-blue-600">Archiving...</span>;
       case "completed":
-        if (archiveStatus.queued) {
-          return <span className="text-sm text-blue-600">Queued</span>;
-        }
         return (
           <span className="text-sm text-green-600">
             {archiveStatus.archivedCount
@@ -618,6 +619,8 @@ function SenderStatus({
               : "Archived"}
           </span>
         );
+      case "failed":
+        return <span className="text-sm text-red-600">Failed</span>;
       case "pending":
         return (
           <span className="text-sm text-muted-foreground">Pending...</span>

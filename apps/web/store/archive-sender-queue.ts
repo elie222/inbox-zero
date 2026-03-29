@@ -11,10 +11,10 @@ import { createSenderQueue } from "./sender-queue";
 import type { BulkArchiveSenderStatuses } from "@/app/api/user/bulk-archive/sender-status/route";
 
 type QueueStatus = "pending" | "completed";
+type SenderQueueStatus = QueueStatus | "queued" | "processing" | "failed";
 
 type QueueItem = {
-  status: QueueStatus;
-  queued?: boolean;
+  status: SenderQueueStatus;
   archivedCount?: number;
 };
 
@@ -31,6 +31,12 @@ const { addToQueue: addToArchiveSenderThreadQueue } =
 export { addToArchiveSenderThreadQueue };
 
 export function useArchiveSenderQueueActions(emailAccountId: string) {
+  const { data: senderStatuses } = useSWR<BulkArchiveSenderStatuses>(
+    "/api/user/bulk-archive/sender-status",
+    {
+      refreshInterval: 1000,
+    },
+  );
   const { executeAsync, isExecuting } = useAction(
     bulkArchiveAction.bind(null, emailAccountId),
   );
@@ -42,6 +48,7 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
         emailAccountId,
         senders: uniqueSenders,
         queue: jotaiStore.get(queueAtom),
+        senderStatuses,
       });
       if (!sendersToQueue.length) return;
 
@@ -77,7 +84,7 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
         for (const sender of sendersToQueue) {
           const queueKey = getQueueKey(emailAccountId, sender);
 
-          next.set(queueKey, { status: "completed", queued });
+          next.set(queueKey, { status: queued ? "queued" : "completed" });
         }
 
         return next;
@@ -85,7 +92,7 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
 
       return result?.data;
     },
-    [emailAccountId, executeAsync],
+    [emailAccountId, executeAsync, senderStatuses],
   );
 
   return useMemo(
@@ -145,14 +152,19 @@ function getQueueableSenders({
   emailAccountId,
   senders,
   queue,
+  senderStatuses,
 }: {
   emailAccountId: string;
   senders: string[];
   queue: Map<string, QueueItem>;
+  senderStatuses?: BulkArchiveSenderStatuses;
 }) {
   return senders.filter((sender) => {
     const queueItem = queue.get(getQueueKey(emailAccountId, sender));
-    return !isActiveQueueItem(queueItem);
+    const backendStatus = senderStatuses?.[normalizeSender(sender)];
+    return (
+      !isActiveQueueItem(queueItem) && !isActiveSenderStatus(backendStatus)
+    );
   });
 }
 
@@ -174,5 +186,17 @@ function normalizeSender(sender: string) {
 }
 
 function isActiveQueueItem(queueItem?: QueueItem) {
-  return queueItem?.status === "pending" || queueItem?.queued === true;
+  return (
+    queueItem?.status === "pending" ||
+    queueItem?.status === "queued" ||
+    queueItem?.status === "processing"
+  );
+}
+
+function isActiveSenderStatus(
+  senderStatus?: BulkArchiveSenderStatuses[string],
+) {
+  return (
+    senderStatus?.status === "queued" || senderStatus?.status === "processing"
+  );
 }

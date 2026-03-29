@@ -539,10 +539,11 @@ function ArchiveStatus({
   status: ReturnType<typeof useArchiveSenderStatus>;
 }) {
   switch (status?.status) {
+    case "queued":
+      return <span className="text-sm text-blue-600">Queued</span>;
+    case "processing":
+      return <span className="text-sm text-blue-600">Archiving...</span>;
     case "completed":
-      if (status.queued) {
-        return <span className="text-sm text-blue-600">Queued</span>;
-      }
       return (
         <span className="text-sm text-muted-foreground">
           {status.archivedCount
@@ -550,6 +551,8 @@ function ArchiveStatus({
             : "Archived"}
         </span>
       );
+    case "failed":
+      return <span className="text-sm text-red-600">Failed</span>;
     case "pending":
       return <span className="text-sm text-muted-foreground">Pending...</span>;
     default:

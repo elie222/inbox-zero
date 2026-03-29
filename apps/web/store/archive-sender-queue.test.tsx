@@ -80,8 +80,7 @@ describe("archive sender queue", () => {
     });
 
     expect(firstAccountStatus.current).toMatchObject({
-      status: "completed",
-      queued: true,
+      status: "queued",
     });
     expect(secondAccountStatus.current).toBeUndefined();
   });
@@ -116,8 +115,7 @@ describe("archive sender queue", () => {
     });
 
     expect(statusResult.current).toMatchObject({
-      status: "completed",
-      queued: true,
+      status: "queued",
     });
 
     act(() => {
@@ -219,8 +217,7 @@ describe("archive sender queue", () => {
 
     expect(mockExecuteAsync).toHaveBeenCalledTimes(1);
     expect(statusResult.current).toMatchObject({
-      status: "completed",
-      queued: true,
+      status: "queued",
     });
   });
 
@@ -229,7 +226,6 @@ describe("archive sender queue", () => {
       data: {
         "sender@example.com": {
           status: "completed",
-          queued: false,
           archivedCount: 9,
         },
       },
@@ -249,8 +245,40 @@ describe("archive sender queue", () => {
 
     expect(result.current).toEqual({
       status: "completed",
-      queued: false,
       archivedCount: 9,
     });
+  });
+
+  it("treats backend processing and queued senders as active", async () => {
+    mockUseSWR.mockReturnValue({
+      data: {
+        "sender@example.com": {
+          status: "processing",
+        },
+      },
+    });
+    mockExecuteAsync.mockResolvedValue({ data: { mode: "queued" } });
+
+    const { jotaiStore } = await import("@/store");
+    const { useArchiveSenderQueueActions } = await import(
+      "./archive-sender-queue"
+    );
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <Provider store={jotaiStore}>{children}</Provider>
+    );
+
+    const { result } = renderHook(
+      () => useArchiveSenderQueueActions("account-1"),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.queueArchiveSenders({
+        senders: ["sender@example.com"],
+      });
+    });
+
+    expect(mockExecuteAsync).not.toHaveBeenCalled();
   });
 });

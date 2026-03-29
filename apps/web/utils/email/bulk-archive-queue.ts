@@ -8,6 +8,8 @@ import { OutlookProvider } from "@/utils/email/microsoft";
 import { SafeError } from "@/utils/error";
 import {
   saveCompletedBulkArchiveSenderStatus,
+  saveFailedBulkArchiveSenderStatus,
+  saveProcessingBulkArchiveSenderStatus,
   saveQueuedBulkArchiveSenderStatuses,
 } from "@/utils/redis/bulk-archive-sender-status";
 import {
@@ -79,50 +81,64 @@ export async function executeBulkArchiveSenderJob({
   sender: string;
   logger: Logger;
 }) {
-  let archivedCount = 0;
-
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider,
-    logger,
-  });
-
-  if (isGoogleProvider(provider)) {
-    if (!(emailProvider instanceof GmailProvider)) {
-      throw new SafeError(
-        "Failed to initialize Gmail provider for bulk archive",
-      );
-    }
-
-    archivedCount = await emailProvider.bulkArchiveSenderOrThrow(
-      sender,
-      ownerEmail,
-      emailAccountId,
-    );
-  } else {
-    if (!(emailProvider instanceof OutlookProvider)) {
-      throw new SafeError(
-        "Failed to initialize Outlook provider for bulk archive",
-      );
-    }
-
-    archivedCount = await emailProvider.bulkArchiveSenderOrThrow(
-      sender,
-      ownerEmail,
-      emailAccountId,
-    );
-  }
-
-  await saveCompletedBulkArchiveSenderStatus({
+  await saveProcessingBulkArchiveSenderStatus({
     emailAccountId,
     sender,
-    archivedCount,
   });
 
-  await saveBulkArchiveProgress({
-    emailAccountId,
-    incrementCompleted: 1,
-  });
+  try {
+    let archivedCount = 0;
+
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+      logger,
+    });
+
+    if (isGoogleProvider(provider)) {
+      if (!(emailProvider instanceof GmailProvider)) {
+        throw new SafeError(
+          "Failed to initialize Gmail provider for bulk archive",
+        );
+      }
+
+      archivedCount = await emailProvider.bulkArchiveSenderOrThrow(
+        sender,
+        ownerEmail,
+        emailAccountId,
+      );
+    } else {
+      if (!(emailProvider instanceof OutlookProvider)) {
+        throw new SafeError(
+          "Failed to initialize Outlook provider for bulk archive",
+        );
+      }
+
+      archivedCount = await emailProvider.bulkArchiveSenderOrThrow(
+        sender,
+        ownerEmail,
+        emailAccountId,
+      );
+    }
+
+    await saveCompletedBulkArchiveSenderStatus({
+      emailAccountId,
+      sender,
+      archivedCount,
+    });
+  } catch (error) {
+    await saveFailedBulkArchiveSenderStatus({
+      emailAccountId,
+      sender,
+    });
+
+    throw error;
+  } finally {
+    await saveBulkArchiveProgress({
+      emailAccountId,
+      incrementCompleted: 1,
+    });
+  }
 }
 
 function getUniqueSenders(froms: string[]) {

@@ -17,7 +17,9 @@ const mockBulkArchiveSenderOrThrow = vi.fn();
 const mockSaveBulkArchiveTotalItems = vi.fn();
 const mockSaveBulkArchiveProgress = vi.fn();
 const mockSaveQueuedBulkArchiveSenderStatuses = vi.fn();
+const mockSaveProcessingBulkArchiveSenderStatus = vi.fn();
 const mockSaveCompletedBulkArchiveSenderStatus = vi.fn();
+const mockSaveFailedBulkArchiveSenderStatus = vi.fn();
 
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: (...args: Parameters<typeof mockCreateEmailProvider>) =>
@@ -57,9 +59,15 @@ vi.mock("@/utils/redis/bulk-archive-sender-status", () => ({
   saveQueuedBulkArchiveSenderStatuses: (
     ...args: Parameters<typeof mockSaveQueuedBulkArchiveSenderStatuses>
   ) => mockSaveQueuedBulkArchiveSenderStatuses(...args),
+  saveProcessingBulkArchiveSenderStatus: (
+    ...args: Parameters<typeof mockSaveProcessingBulkArchiveSenderStatus>
+  ) => mockSaveProcessingBulkArchiveSenderStatus(...args),
   saveCompletedBulkArchiveSenderStatus: (
     ...args: Parameters<typeof mockSaveCompletedBulkArchiveSenderStatus>
   ) => mockSaveCompletedBulkArchiveSenderStatus(...args),
+  saveFailedBulkArchiveSenderStatus: (
+    ...args: Parameters<typeof mockSaveFailedBulkArchiveSenderStatus>
+  ) => mockSaveFailedBulkArchiveSenderStatus(...args),
 }));
 
 describe("enqueueBulkArchiveSenderJobs", () => {
@@ -72,7 +80,9 @@ describe("enqueueBulkArchiveSenderJobs", () => {
     mockSaveBulkArchiveTotalItems.mockReset();
     mockSaveBulkArchiveProgress.mockReset();
     mockSaveQueuedBulkArchiveSenderStatuses.mockReset();
+    mockSaveProcessingBulkArchiveSenderStatus.mockReset();
     mockSaveCompletedBulkArchiveSenderStatus.mockReset();
+    mockSaveFailedBulkArchiveSenderStatus.mockReset();
   });
 
   it("queues one background job per unique sender", async () => {
@@ -172,7 +182,9 @@ describe("executeBulkArchiveSenderJob", () => {
     mockBulkArchiveFromSenders.mockReset();
     mockBulkArchiveSenderOrThrow.mockReset();
     mockSaveBulkArchiveProgress.mockReset();
+    mockSaveProcessingBulkArchiveSenderStatus.mockReset();
     mockSaveCompletedBulkArchiveSenderStatus.mockReset();
+    mockSaveFailedBulkArchiveSenderStatus.mockReset();
   });
 
   it("uses the Gmail-specific archive path for Google jobs", async () => {
@@ -195,6 +207,10 @@ describe("executeBulkArchiveSenderJob", () => {
       "owner@example.com",
       "account-1",
     );
+    expect(mockSaveProcessingBulkArchiveSenderStatus).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      sender: "sender@example.com",
+    });
     expect(mockBulkArchiveFromSenders).not.toHaveBeenCalled();
     expect(mockSaveBulkArchiveProgress).toHaveBeenCalledWith({
       emailAccountId: "account-1",
@@ -227,6 +243,10 @@ describe("executeBulkArchiveSenderJob", () => {
       "owner@example.com",
       "account-1",
     );
+    expect(mockSaveProcessingBulkArchiveSenderStatus).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      sender: "sender@example.com",
+    });
     expect(mockBulkArchiveFromSenders).not.toHaveBeenCalled();
     expect(mockSaveBulkArchiveProgress).toHaveBeenCalledWith({
       emailAccountId: "account-1",
@@ -236,6 +256,38 @@ describe("executeBulkArchiveSenderJob", () => {
       emailAccountId: "account-1",
       sender: "sender@example.com",
       archivedCount: 3,
+    });
+  });
+
+  it("marks sender jobs as failed and advances progress when the provider throws", async () => {
+    const logger = createScopedLogger("bulk-archive-queue-test");
+    const { GmailProvider } = await import("@/utils/email/google");
+
+    mockBulkArchiveSenderOrThrow.mockRejectedValue(new Error("archive failed"));
+    mockCreateEmailProvider.mockResolvedValue(new GmailProvider());
+
+    await expect(
+      executeBulkArchiveSenderJob({
+        emailAccountId: "account-1",
+        ownerEmail: "owner@example.com",
+        provider: "google",
+        sender: "sender@example.com",
+        logger,
+      }),
+    ).rejects.toThrow("archive failed");
+
+    expect(mockSaveProcessingBulkArchiveSenderStatus).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      sender: "sender@example.com",
+    });
+    expect(mockSaveFailedBulkArchiveSenderStatus).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      sender: "sender@example.com",
+    });
+    expect(mockSaveCompletedBulkArchiveSenderStatus).not.toHaveBeenCalled();
+    expect(mockSaveBulkArchiveProgress).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      incrementCompleted: 1,
     });
   });
 });

@@ -183,5 +183,16 @@ function normalizeBaseUrl(url: string) {
 }
 
 function getQstashCallbackBaseUrl() {
+  const candidateUrls = [
+    env.INTERNAL_API_URL,
+    env.WEBHOOK_URL,
+    env.NEXT_PUBLIC_BASE_URL,
+  ].filter((value): value is string => Boolean(value));
+
+  const safeExternalUrl = candidateUrls.find((value) =>
+    isSafeExternalHttpUrl(value),
+  );
+  if (safeExternalUrl) return normalizeBaseUrl(safeExternalUrl);
+
   return normalizeBaseUrl(getInternalApiUrl());
 }
