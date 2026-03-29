@@ -29,6 +29,14 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       isConnected: true,
       sendMeetingBriefs: true,
       sendDocumentFilings: true,
+      actions: {
+        select: {
+          id: true,
+          type: true,
+          ruleId: true,
+          rule: { select: { id: true, name: true } },
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
