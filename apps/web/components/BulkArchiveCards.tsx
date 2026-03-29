@@ -611,7 +611,13 @@ function SenderStatus({
         if (archiveStatus.queued) {
           return <span className="text-sm text-blue-600">Queued</span>;
         }
-        return <span className="text-sm text-green-600">Archived</span>;
+        return (
+          <span className="text-sm text-green-600">
+            {archiveStatus.archivedCount
+              ? `Archived ${archiveStatus.archivedCount}`
+              : "Archived"}
+          </span>
+        );
       case "pending":
         return (
           <span className="text-sm text-muted-foreground">Pending...</span>

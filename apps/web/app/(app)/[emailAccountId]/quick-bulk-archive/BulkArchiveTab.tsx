@@ -543,7 +543,13 @@ function ArchiveStatus({
       if (status.queued) {
         return <span className="text-sm text-blue-600">Queued</span>;
       }
-      return <span className="text-sm text-muted-foreground">Archived</span>;
+      return (
+        <span className="text-sm text-muted-foreground">
+          {status.archivedCount
+            ? `Archived ${status.archivedCount}`
+            : "Archived"}
+        </span>
+      );
     case "pending":
       return <span className="text-sm text-muted-foreground">Pending...</span>;
     default:

@@ -202,8 +202,8 @@ export async function moveMessagesForSenders({
   emailAccountId: string;
   continueOnError?: boolean;
   logger: Logger;
-}): Promise<void> {
-  if (senders.length === 0) return;
+}): Promise<number> {
+  if (senders.length === 0) return 0;
 
   // Resolve the actual inbox folder ID for archive filtering
   // parentFolderId on messages is the real folder ID (a GUID), not the well-known name
@@ -220,9 +220,11 @@ export async function moveMessagesForSenders({
       if (!continueOnError) {
         throw new Error("Could not resolve inbox folder ID for bulk archive");
       }
-      return;
+      return 0;
     }
   }
+
+  let movedMessagesCount = 0;
 
   for (const sender of senders) {
     if (!sender) continue;
@@ -297,6 +299,7 @@ export async function moveMessagesForSenders({
             const promises: Promise<unknown>[] = [];
 
             if (movedMessageIds.length > 0) {
+              movedMessagesCount += movedMessageIds.length;
               promises.push(
                 updateEmailMessagesForSender({
                   sender,
@@ -359,4 +362,6 @@ export async function moveMessagesForSenders({
       }
     } while (nextLink);
   }
+
+  return movedMessagesCount;
 }

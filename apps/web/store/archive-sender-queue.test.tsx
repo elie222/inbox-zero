@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockExecuteAsync = vi.fn();
+const mockUseSWR = vi.fn();
 
 vi.mock("@/utils/actions/mail-bulk-action", () => ({
   bulkArchiveAction: vi.fn(),
@@ -28,11 +29,16 @@ vi.mock("./sender-queue", () => ({
   }),
 }));
 
+vi.mock("swr", () => ({
+  default: (...args: Parameters<typeof mockUseSWR>) => mockUseSWR(...args),
+}));
+
 describe("archive sender queue", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.useRealTimers();
+    mockUseSWR.mockReturnValue({ data: undefined });
   });
 
   afterEach(() => {
@@ -215,6 +221,36 @@ describe("archive sender queue", () => {
     expect(statusResult.current).toMatchObject({
       status: "completed",
       queued: true,
+    });
+  });
+
+  it("prefers backend sender status when available", async () => {
+    mockUseSWR.mockReturnValue({
+      data: {
+        "sender@example.com": {
+          status: "completed",
+          queued: false,
+          archivedCount: 9,
+        },
+      },
+    });
+
+    const { jotaiStore } = await import("@/store");
+    const { useArchiveSenderStatus } = await import("./archive-sender-queue");
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <Provider store={jotaiStore}>{children}</Provider>
+    );
+
+    const { result } = renderHook(
+      () => useArchiveSenderStatus("account-1", "sender@example.com"),
+      { wrapper },
+    );
+
+    expect(result.current).toEqual({
+      status: "completed",
+      queued: false,
+      archivedCount: 9,
     });
   });
 });

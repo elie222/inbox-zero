@@ -7,6 +7,10 @@ import { GmailProvider } from "@/utils/email/google";
 import { OutlookProvider } from "@/utils/email/microsoft";
 import { SafeError } from "@/utils/error";
 import {
+  saveCompletedBulkArchiveSenderStatus,
+  saveQueuedBulkArchiveSenderStatuses,
+} from "@/utils/redis/bulk-archive-sender-status";
+import {
   saveBulkArchiveProgress,
   saveBulkArchiveTotalItems,
 } from "@/utils/redis/bulk-archive-progress";
@@ -33,6 +37,10 @@ export async function enqueueBulkArchiveSenderJobs({
   await saveBulkArchiveTotalItems({
     emailAccountId,
     totalItems: senders.length,
+  });
+  await saveQueuedBulkArchiveSenderStatuses({
+    emailAccountId,
+    senders,
   });
 
   await Promise.all(
@@ -71,6 +79,8 @@ export async function executeBulkArchiveSenderJob({
   sender: string;
   logger: Logger;
 }) {
+  let archivedCount = 0;
+
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider,
@@ -84,7 +94,7 @@ export async function executeBulkArchiveSenderJob({
       );
     }
 
-    await emailProvider.bulkArchiveSenderOrThrow(
+    archivedCount = await emailProvider.bulkArchiveSenderOrThrow(
       sender,
       ownerEmail,
       emailAccountId,
@@ -96,12 +106,18 @@ export async function executeBulkArchiveSenderJob({
       );
     }
 
-    await emailProvider.bulkArchiveSenderOrThrow(
+    archivedCount = await emailProvider.bulkArchiveSenderOrThrow(
       sender,
       ownerEmail,
       emailAccountId,
     );
   }
+
+  await saveCompletedBulkArchiveSenderStatus({
+    emailAccountId,
+    sender,
+    archivedCount,
+  });
 
   await saveBulkArchiveProgress({
     emailAccountId,

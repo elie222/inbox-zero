@@ -361,7 +361,7 @@ export class GmailProvider implements EmailProvider {
     ownerEmail: string,
     emailAccountId: string,
     options?: { continueOnError?: boolean },
-  ): Promise<void> {
+  ): Promise<number> {
     const log = this.logger.with({
       action: "archiveMessagesFromSenders",
       emailAccountId,
@@ -371,6 +371,8 @@ export class GmailProvider implements EmailProvider {
     const continueOnError = options?.continueOnError ?? true;
 
     if (senders.length === 0) return;
+
+    let archivedMessagesCount = 0;
 
     for (const sender of senders) {
       if (!sender) continue;
@@ -394,6 +396,7 @@ export class GmailProvider implements EmailProvider {
 
           if (batchMessageIds.length > 0) {
             await this.archiveMessagesBulk(batchMessageIds);
+            archivedMessagesCount += batchMessageIds.length;
 
             const newThreadIds = Array.from(batchThreadIds).filter(
               (threadId) => !publishedThreadIds.has(threadId),
@@ -441,6 +444,7 @@ export class GmailProvider implements EmailProvider {
     }
 
     log.info("Completed bulk archive from senders");
+    return archivedMessagesCount;
   }
 
   private async trashThreadsFromSenders(
@@ -572,9 +576,9 @@ export class GmailProvider implements EmailProvider {
     fromEmail: string,
     ownerEmail: string,
     emailAccountId: string,
-  ): Promise<void> {
-    await this.withRateLimitTracking("bulk-archive-sender", async () => {
-      await this.archiveMessagesFromSenders(
+  ): Promise<number> {
+    return this.withRateLimitTracking("bulk-archive-sender", async () => {
+      return await this.archiveMessagesFromSenders(
         [fromEmail],
         ownerEmail,
         emailAccountId,

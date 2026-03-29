@@ -2,17 +2,20 @@
 
 import { useCallback, useMemo } from "react";
 import { atom, useAtomValue } from "jotai";
+import useSWR from "swr";
 import { useAction } from "next-safe-action/hooks";
 import { jotaiStore } from "@/store";
 import { bulkArchiveAction } from "@/utils/actions/mail-bulk-action";
 import { archiveEmails } from "./archive-queue";
 import { createSenderQueue } from "./sender-queue";
+import type { BulkArchiveSenderStatuses } from "@/app/api/user/bulk-archive/sender-status/route";
 
 type QueueStatus = "pending" | "completed";
 
 type QueueItem = {
   status: QueueStatus;
   queued?: boolean;
+  archivedCount?: number;
 };
 
 const queueAtom = atom<Map<string, QueueItem>>(new Map());
@@ -96,9 +99,15 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
 
 export function useArchiveSenderStatus(emailAccountId: string, sender: string) {
   const getStatus = useAtomValue(statusAtom);
+  const { data } = useSWR<BulkArchiveSenderStatuses>(
+    "/api/user/bulk-archive/sender-status",
+    {
+      refreshInterval: 1000,
+    },
+  );
   return useMemo(
-    () => getStatus(emailAccountId, sender),
-    [emailAccountId, getStatus, sender],
+    () => data?.[normalizeSender(sender)] || getStatus(emailAccountId, sender),
+    [data, emailAccountId, getStatus, sender],
   );
 }
 
