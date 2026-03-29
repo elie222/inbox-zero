@@ -17,8 +17,12 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { PageHeading } from "@/components/Typography";
+import { EmailStatsPreloader } from "@/components/EmailStatsPreloader";
+import { clearArchiveSenderStatuses } from "@/store/archive-sender-queue";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function BulkArchive() {
+  const { emailAccountId } = useAccount();
   const { isBulkCategorizing } = useCategorizeProgress();
   const [onboarding] = useQueryState("onboarding", parseAsBoolean);
   const [bulkAction, setBulkAction] = useState<BulkActionType>("archive");
@@ -46,8 +50,9 @@ export function BulkArchive() {
   );
 
   const handleProgressComplete = useCallback(() => {
+    clearArchiveSenderStatuses(emailAccountId);
     mutate();
-  }, [mutate]);
+  }, [emailAccountId, mutate]);
 
   const [setupDismissed, setSetupDismissed] = useState(false);
 
@@ -58,6 +63,7 @@ export function BulkArchive() {
 
   return (
     <LoadingContent loading={isLoading} error={error}>
+      <EmailStatsPreloader />
       <PageWrapper>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

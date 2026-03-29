@@ -1933,6 +1933,23 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
+  async bulkArchiveSenderOrThrow(
+    fromEmail: string,
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<number> {
+    return moveMessagesForSenders({
+      client: this.client,
+      senders: [fromEmail],
+      destinationId: "archive",
+      action: "archive",
+      ownerEmail,
+      emailAccountId,
+      logger: this.logger,
+      continueOnError: false,
+    });
+  }
+
   async bulkTrashFromSenders(
     fromEmails: string[],
     ownerEmail: string,

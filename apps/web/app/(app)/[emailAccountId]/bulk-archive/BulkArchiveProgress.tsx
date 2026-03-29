@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import useSWR from "swr";
 import { ProgressPanel } from "@/components/ProgressPanel";
 import type { CategorizeProgress } from "@/app/api/user/categorize/senders/progress/route";
 import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress";
-import { useInterval } from "@/hooks/useInterval";
 
 export function BulkArchiveProgress({
   onComplete,
@@ -13,7 +12,6 @@ export function BulkArchiveProgress({
   onComplete?: () => void;
 }) {
   const { isBulkCategorizing, setIsBulkCategorizing } = useCategorizeProgress();
-  const [fakeProgress, setFakeProgress] = useState(0);
 
   // Check if there's active progress (categorization in progress from server)
   const { data } = useSWR<CategorizeProgress>(
@@ -26,7 +24,10 @@ export function BulkArchiveProgress({
   // Categorization is active if explicitly set OR if server shows incomplete progress
   const hasActiveProgress =
     data?.totalItems && data.completedItems < data.totalItems;
-  const isCategorizationActive = isBulkCategorizing || hasActiveProgress;
+  const hasCompletedProgress =
+    !!data?.totalItems && data.completedItems === data.totalItems;
+  const isCategorizationVisible =
+    isBulkCategorizing || hasActiveProgress || hasCompletedProgress;
 
   // Sync local state with server state
   useEffect(() => {
@@ -34,25 +35,6 @@ export function BulkArchiveProgress({
       setIsBulkCategorizing(true);
     }
   }, [hasActiveProgress, isBulkCategorizing, setIsBulkCategorizing]);
-
-  // Fake progress animation to make it feel responsive
-  useInterval(
-    () => {
-      if (!data?.totalItems) return;
-
-      setFakeProgress((prev) => {
-        const realCompleted = data.completedItems || 0;
-        if (realCompleted > prev) return realCompleted;
-
-        const maxProgress = Math.min(
-          Math.floor(data.totalItems * 0.9),
-          realCompleted + 30,
-        );
-        return prev < maxProgress ? prev + 1 : prev;
-      });
-    },
-    isCategorizationActive ? 1500 : null,
-  );
 
   // Handle completion
   useEffect(() => {
@@ -64,7 +46,6 @@ export function BulkArchiveProgress({
     ) {
       timeoutId = setTimeout(() => {
         setIsBulkCategorizing(false);
-        setFakeProgress(0);
         onComplete?.();
       }, 3000);
     }
@@ -78,19 +59,19 @@ export function BulkArchiveProgress({
     onComplete,
   ]);
 
-  if (!isCategorizationActive || !data?.totalItems) {
+  if (!isCategorizationVisible || !data?.totalItems) {
     return null;
   }
 
   const totalItems = data.totalItems || 0;
-  const displayedProgress = Math.max(data.completedItems || 0, fakeProgress);
+  const completedItems = data.completedItems || 0;
 
   return (
     <ProgressPanel
       totalItems={totalItems}
-      remainingItems={totalItems - displayedProgress}
+      remainingItems={totalItems - completedItems}
       inProgressText="Categorizing senders..."
-      completedText={`Categorization complete! ${displayedProgress} senders categorized!`}
+      completedText={`Categorization complete! ${completedItems} senders categorized!`}
       itemLabel="senders"
     />
   );
