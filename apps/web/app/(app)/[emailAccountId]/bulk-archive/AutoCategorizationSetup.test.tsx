@@ -146,4 +146,22 @@ describe("AutoCategorizationSetup", () => {
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
   });
+
+  it("dismisses the setup dialog when the action resolves without data", async () => {
+    mockBulkCategorizeSendersAction.mockResolvedValue({});
+
+    const onOpenChange = vi.fn();
+
+    const { AutoCategorizationSetup } = await import(
+      "@/app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup"
+    );
+
+    render(<AutoCategorizationSetup open onOpenChange={onOpenChange} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Get Started" }));
+
+    await waitFor(() => {
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+  });
 });

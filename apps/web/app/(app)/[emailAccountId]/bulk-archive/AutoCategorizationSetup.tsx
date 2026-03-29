@@ -52,7 +52,12 @@ export function AutoCategorizationSetup({
         throw new Error(result.serverError);
       }
 
-      if (result?.data?.totalUncategorizedSenders) {
+      if (!result?.data) {
+        toastSuccess({
+          description: "Categorization started.",
+        });
+        onOpenChange?.(false);
+      } else if (result.data.totalUncategorizedSenders) {
         toastSuccess({
           description: `Categorizing ${result.data.totalUncategorizedSenders} senders... This may take a few minutes.`,
         });

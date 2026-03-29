@@ -63,12 +63,20 @@ export function CategorizeWithAiButton({
               {
                 loading: "Categorizing senders... This might take a while.",
                 success: (data) => {
+                  if (!data) {
+                    return "Categorization started.";
+                  }
+
                   return data.totalUncategorizedSenders
                     ? `Categorizing ${data.totalUncategorizedSenders} senders...`
                     : "No more senders to categorize right now.";
                 },
                 error: (err) => {
-                  return `Error categorizing senders: ${err.message}`;
+                  const message =
+                    err instanceof Error
+                      ? err.message
+                      : "An unknown error occurred.";
+                  return `Error categorizing senders: ${message}`;
                 },
               },
             );

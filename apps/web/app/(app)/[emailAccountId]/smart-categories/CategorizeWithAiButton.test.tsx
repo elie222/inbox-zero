@@ -119,4 +119,24 @@ describe("CategorizeWithAiButton", () => {
       }),
     ).toBe("No more senders to categorize right now.");
   });
+
+  it("shows a fallback success message when the action resolves without data", async () => {
+    mockBulkCategorizeSendersAction.mockResolvedValue({});
+
+    const { CategorizeWithAiButton } = await import(
+      "@/app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton"
+    );
+
+    render(<CategorizeWithAiButton />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Categorize" }));
+
+    await waitFor(() => {
+      expect(mockSetIsBulkCategorizing).toHaveBeenNthCalledWith(1, true);
+      expect(mockSetIsBulkCategorizing).toHaveBeenNthCalledWith(2, false);
+    });
+
+    const [, toastMessages] = mockToastPromise.mock.calls[0];
+    expect(toastMessages.success(undefined)).toBe("Categorization started.");
+  });
 });
