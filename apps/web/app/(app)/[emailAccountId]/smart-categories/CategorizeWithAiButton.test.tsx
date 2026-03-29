@@ -88,9 +88,14 @@ describe("CategorizeWithAiButton", () => {
     vi.clearAllMocks();
 
     mockToastPromise.mockImplementation(async (runner, messages) => {
-      const result = await runner();
-      messages?.success?.(result);
-      return result;
+      try {
+        const result = await runner();
+        messages?.success?.(result);
+        return result;
+      } catch (error) {
+        messages?.error?.(error);
+        throw error;
+      }
     });
   });
 
@@ -138,5 +143,29 @@ describe("CategorizeWithAiButton", () => {
 
     const [, toastMessages] = mockToastPromise.mock.calls[0];
     expect(toastMessages.success(undefined)).toBe("Categorization started.");
+  });
+
+  it("stops bulk categorizing when the action throws", async () => {
+    mockBulkCategorizeSendersAction.mockRejectedValue(
+      new Error("Queue publish failed"),
+    );
+
+    const { CategorizeWithAiButton } = await import(
+      "@/app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton"
+    );
+
+    render(<CategorizeWithAiButton />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Categorize" }));
+
+    await waitFor(() => {
+      expect(mockSetIsBulkCategorizing).toHaveBeenNthCalledWith(1, true);
+      expect(mockSetIsBulkCategorizing).toHaveBeenNthCalledWith(2, false);
+    });
+
+    const [, toastMessages] = mockToastPromise.mock.calls[0];
+    expect(toastMessages.error(new Error("Queue publish failed"))).toBe(
+      "Error categorizing senders: Queue publish failed",
+    );
   });
 });

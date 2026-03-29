@@ -40,25 +40,28 @@ export function CategorizeWithAiButton({
               async () => {
                 setIsCategorizing(true);
                 setIsBulkCategorizing(true);
-                const result =
-                  await bulkCategorizeSendersAction(emailAccountId);
+                try {
+                  const result =
+                    await bulkCategorizeSendersAction(emailAccountId);
 
-                if (result?.serverError) {
+                  if (result?.serverError) {
+                    throw new Error(result.serverError);
+                  }
+
+                  const totalUncategorizedSenders =
+                    result?.data?.totalUncategorizedSenders || 0;
+
+                  if (totalUncategorizedSenders === 0) {
+                    setIsBulkCategorizing(false);
+                  }
+
+                  return result?.data;
+                } catch (error) {
+                  setIsBulkCategorizing(false);
+                  throw error;
+                } finally {
                   setIsCategorizing(false);
-                  setIsBulkCategorizing(false);
-                  throw new Error(result.serverError);
                 }
-
-                const totalUncategorizedSenders =
-                  result?.data?.totalUncategorizedSenders || 0;
-
-                if (totalUncategorizedSenders === 0) {
-                  setIsBulkCategorizing(false);
-                }
-
-                setIsCategorizing(false);
-
-                return result?.data;
               },
               {
                 loading: "Categorizing senders... This might take a while.",
