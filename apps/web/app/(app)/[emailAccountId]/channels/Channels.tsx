@@ -112,8 +112,6 @@ export function Channels() {
     (p) => !connectedProviders.has(p),
   );
 
-  const hasAnyChannel = connectedChannels.length > 0;
-
   const onUpdate = () => {
     mutateChannels();
     mutateRules();
@@ -156,12 +154,6 @@ export function Channels() {
                 <MutedText>No channels available.</MutedText>
               </ItemCard>
             )}
-
-          {hasAnyChannel && (
-            <SectionGroup title="Scheduled check-ins">
-              <ProactiveUpdatesSetting />
-            </SectionGroup>
-          )}
         </div>
       </LoadingContent>
     </div>
@@ -232,37 +224,36 @@ function ConnectedChannelSection({
       icon={<Icon className="size-5" />}
       title={config.name}
       badge={
-        <Badge variant="secondary" className="text-xs font-normal">
+        <Badge className="border-green-200 bg-green-50 text-green-700 text-xs font-normal dark:border-green-800 dark:bg-green-950 dark:text-green-400">
           Connected
         </Badge>
       }
     >
-      <ItemCard>
-        {isSlack && (
-          <>
-            <Item size="sm">
-              <ItemContent>
-                <ItemTitle>Deliver to</ItemTitle>
-                <ItemDescription>
-                  Choose where Inbox Zero sends notifications.
-                </ItemDescription>
-              </ItemContent>
-              <ItemActions>
-                <SlackTargetSelect
-                  channelId={channel.id}
-                  targetId={channel.channelId}
-                  channelName={channel.channelName}
-                  isDm={channel.isDm}
-                  canSendAsDm={channel.canSendAsDm}
-                  emailAccountId={emailAccountId}
-                  onUpdate={onUpdate}
-                />
-              </ItemActions>
-            </Item>
-            <ItemSeparator />
-          </>
-        )}
+      {isSlack && (
+        <ItemCard>
+          <Item size="sm">
+            <ItemContent>
+              <ItemTitle>Deliver to</ItemTitle>
+              <ItemDescription>
+                Choose where Inbox Zero sends notifications.
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <SlackTargetSelect
+                channelId={channel.id}
+                targetId={channel.channelId}
+                channelName={channel.channelName}
+                isDm={channel.isDm}
+                canSendAsDm={channel.canSendAsDm}
+                emailAccountId={emailAccountId}
+                onUpdate={onUpdate}
+              />
+            </ItemActions>
+          </Item>
+        </ItemCard>
+      )}
 
+      <ItemCard>
         <SectionLabel>Rules</SectionLabel>
         {rules.length > 0 ? (
           rules.map((rule) => (
@@ -282,8 +273,9 @@ function ConnectedChannelSection({
             </ItemContent>
           </Item>
         )}
+      </ItemCard>
 
-        <ItemSeparator />
+      <ItemCard>
         <SectionLabel>Other</SectionLabel>
         <FeatureToggle
           name="Meeting briefs"
@@ -303,6 +295,8 @@ function ConnectedChannelSection({
           onUpdate={onUpdate}
           disabled={!hasTarget}
         />
+        <ItemSeparator />
+        <ProactiveUpdatesSetting />
       </ItemCard>
     </SectionGroup>
   );
