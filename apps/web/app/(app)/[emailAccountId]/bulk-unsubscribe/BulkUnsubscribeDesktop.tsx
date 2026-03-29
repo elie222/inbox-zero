@@ -49,7 +49,7 @@ export function BulkUnsubscribeDesktop({
           <TableHead className="pl-8">
             <span className="text-sm font-medium">From</span>
           </TableHead>
-          <TableHead>
+          <TableHead className="whitespace-nowrap">
             <HeaderButton
               sorted={sortColumn === "emails"}
               sortDirection={
@@ -60,7 +60,7 @@ export function BulkUnsubscribeDesktop({
               Emails
             </HeaderButton>
           </TableHead>
-          <TableHead>
+          <TableHead className="whitespace-nowrap">
             <HeaderButton
               sorted={sortColumn === "unread"}
               sortDirection={
@@ -71,7 +71,7 @@ export function BulkUnsubscribeDesktop({
               Read
             </HeaderButton>
           </TableHead>
-          <TableHead />
+          <TableHead className="w-[196px]" />
         </TableRow>
       </TableHeader>
       <TableBody>{tableRows}</TableBody>
@@ -114,40 +114,30 @@ export function BulkUnsubscribeRowDesktop({
           onChange={(shiftKey) => onToggleSelect?.(item.name, shiftKey)}
         />
       </TableCell>
-      <TableCell className="max-w-[250px] py-3 pl-8">
+      <TableCell className="max-w-[200px] min-w-0 py-3 pl-8 lg:max-w-[350px]">
         <div className="flex items-center gap-2">
           <DomainIcon domain={domain} size={32} variant="circular" />
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-baseline gap-2">
-              <span className="truncate font-medium">
-                {item.fromName || item.name}
-              </span>
-              {item.fromName && (
-                <span
-                  aria-hidden="true"
-                  className="shrink-0 text-muted-foreground"
-                >
-                  ·
-                </span>
-              )}
-              {item.fromName && (
-                <span className="truncate text-sm text-muted-foreground">
-                  {item.name}
-                </span>
-              )}
+          <div className="min-w-0 lg:flex lg:items-baseline lg:gap-2">
+            <div className="truncate font-medium">
+              {item.fromName || item.name}
             </div>
+            {item.fromName && (
+              <div className="truncate text-xs text-muted-foreground lg:text-sm">
+                {item.name}
+              </div>
+            )}
           </div>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="whitespace-nowrap">
         <span className="font-medium text-foreground/80">{item.value}</span>
       </TableCell>
-      <TableCell>
+      <TableCell className="whitespace-nowrap">
         <span className="font-medium text-foreground/80">
           {Math.round(readPercentage)}%
         </span>
       </TableCell>
-      <TableCell className="p-1">
+      <TableCell className="w-[196px] p-1">
         <div className="flex justify-end items-center gap-2">
           <ActionCell
             item={item}
