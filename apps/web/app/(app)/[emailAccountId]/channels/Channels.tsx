@@ -77,7 +77,7 @@ export function Channels() {
     isLoading: isLoadingChannels,
     error: channelsError,
     mutate: mutateChannels,
-  } = useMessagingChannels();
+  } = useMessagingChannels(emailAccountId);
   const {
     data: rulesData,
     isLoading: isLoadingRules,
@@ -96,18 +96,12 @@ export function Channels() {
   );
 
   const availableProviders = channelsData?.availableProviders ?? [];
-  const hasSlack = connectedChannels.some((c) => c.provider === "SLACK");
-  const hasTeams = connectedChannels.some((c) => c.provider === "TEAMS");
-  const hasTelegram = connectedChannels.some(
-    (c) => c.provider === "TELEGRAM",
+  const connectedProviders = new Set(
+    connectedChannels.map((c) => c.provider),
   );
-
-  const unconnectedProviders = availableProviders.filter((p) => {
-    if (p === "SLACK") return !hasSlack;
-    if (p === "TEAMS") return !hasTeams;
-    if (p === "TELEGRAM") return !hasTelegram;
-    return false;
-  });
+  const unconnectedProviders = availableProviders.filter(
+    (p) => !connectedProviders.has(p),
+  );
 
   return (
     <>
@@ -448,7 +442,7 @@ function SlackTargetSelect({
     mutate: mutateTargets,
   } = useChannelTargets(loadTargets ? channelId : null, emailAccountId);
 
-  const privateTargets = targetsData?.targets.filter((t) => t.isPrivate) ?? [];
+  const privateTargets = targetsData?.targets ?? [];
   const hasError = Boolean(error || targetsData?.error);
 
   const { execute, status } = useAction(

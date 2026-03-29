@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
+import type { Logger } from "@/utils/logger";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import { listChannels } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
@@ -28,7 +29,7 @@ async function getData({
 }: {
   emailAccountId: string;
   channelId: string;
-  logger: { error: (msg: string, ctx?: Record<string, unknown>) => void };
+  logger: Logger;
 }) {
   const channel = await prisma.messagingChannel.findFirst({
     where: {
@@ -52,11 +53,13 @@ async function getData({
         const client = createSlackClient(channel.accessToken);
         const channels = await listChannels(client);
         return {
-          targets: channels.map((c) => ({
-            id: c.id,
-            name: c.name,
-            isPrivate: c.isPrivate,
-          })),
+          targets: channels
+            .filter((c) => c.isPrivate)
+            .map((c) => ({
+              id: c.id,
+              name: c.name,
+              isPrivate: c.isPrivate,
+            })),
         };
       }
       default:

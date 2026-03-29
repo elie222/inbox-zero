@@ -333,8 +333,7 @@ function ConnectedChannelRow({
     error: targetsError,
     mutate: mutateTargets,
   } = useChannelTargets(shouldLoadTargets ? channel.id : null, emailAccountId);
-  const privateTargets =
-    targetsData?.targets.filter((target) => target.isPrivate) ?? [];
+  const privateTargets = targetsData?.targets ?? [];
   const hasTargetLoadError = Boolean(targetsError || targetsData?.error);
 
   const { execute: executeDisconnect, status: disconnectStatus } = useAction(
