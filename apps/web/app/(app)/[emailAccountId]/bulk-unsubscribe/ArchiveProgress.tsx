@@ -1,19 +1,15 @@
 "use client";
 
 import { memo, useEffect } from "react";
-import useSWR from "swr";
-import type { BulkArchiveProgress } from "@/app/api/user/bulk-archive/progress/route";
 import { resetTotalThreads, useQueueState } from "@/store/archive-queue";
+import { useArchiveQueueProgress } from "@/store/archive-sender-queue";
 import { ProgressPanel } from "@/components/ProgressPanel";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export const ArchiveProgress = memo(() => {
+  const { emailAccountId } = useAccount();
   const { totalThreads, activeThreads } = useQueueState();
-  const { data: bulkArchiveProgress } = useSWR<BulkArchiveProgress>(
-    "/api/user/bulk-archive/progress",
-    {
-      refreshInterval: 1000,
-    },
-  );
+  const bulkArchiveProgress = useArchiveQueueProgress(emailAccountId);
 
   const hasBackendProgress = Boolean(bulkArchiveProgress?.totalItems);
   const threadsRemaining = Object.values(activeThreads || {}).length;

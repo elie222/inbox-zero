@@ -9,8 +9,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-
 const SKELETON_ROW_COUNT = 10;
 
 function SkeletonCheckbox() {
@@ -78,36 +76,3 @@ export function BulkUnsubscribeDesktopSkeleton() {
   );
 }
 
-function SkeletonMobileCard() {
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader>
-        <Skeleton className="h-5 w-40" />
-        <Skeleton className="h-4 w-48 mt-1" />
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="grid grid-cols-3 gap-2">
-          <Skeleton className="h-6 w-full rounded-full" />
-          <Skeleton className="h-6 w-full rounded-full" />
-          <Skeleton className="h-6 w-full rounded-full" />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Skeleton className="h-9 w-full rounded" />
-          <Skeleton className="h-9 w-full rounded" />
-          <Skeleton className="h-9 w-full rounded" />
-          <Skeleton className="h-9 w-full rounded" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-export function BulkUnsubscribeMobileSkeleton() {
-  return (
-    <div className="mx-2 mt-2 grid gap-2">
-      {Array.from({ length: SKELETON_ROW_COUNT }).map((_, index) => (
-        <SkeletonMobileCard key={index} />
-      ))}
-    </div>
-  );
-}

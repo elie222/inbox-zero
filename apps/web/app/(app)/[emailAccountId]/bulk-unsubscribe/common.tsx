@@ -276,6 +276,7 @@ export function MoreDropdown<T extends Row>({
   const { onBulkArchive, isBulkArchiving } = useBulkArchive({
     posthog,
     emailAccountId,
+    mutate,
   });
   const { onBulkDelete, isBulkDeleting } = useBulkDelete({
     mutate,

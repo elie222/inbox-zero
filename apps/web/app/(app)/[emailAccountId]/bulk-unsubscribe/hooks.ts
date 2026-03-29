@@ -45,9 +45,7 @@ type MutateFn = (
   opts?: { revalidate?: boolean },
 ) => Promise<void>;
 
-type QueueArchiveSendersFn = (params: {
-  senders: string[];
-}) => Promise<unknown>;
+type QueueArchiveSendersFn = (params: { senders: string[] }) => Promise<number>;
 
 function pluralize(count: number, singular: string): string {
   return count === 1 ? singular : `${singular}s`;
@@ -765,9 +763,11 @@ export function useBulkApprove<T extends Row>({
 export function useBulkArchive<T extends Row>({
   posthog,
   emailAccountId,
+  mutate,
 }: {
   posthog: PostHog;
   emailAccountId: string;
+  mutate?: MutateFn;
 }) {
   const { executeAsync: executeBulkArchive, isExecuting } = useAction(
     bulkArchiveAction.bind(null, emailAccountId),
@@ -777,11 +777,12 @@ export function useBulkArchive<T extends Row>({
     posthog.capture("Clicked Bulk Archive");
     const promise = executeBulkArchive({
       froms: items.map((item) => item.name),
-    }).then((result) => {
+    }).then(async (result) => {
       if (result?.serverError) {
         throw new Error(result.serverError);
       }
 
+      await mutate?.(undefined, { revalidate: true });
       return result;
     });
 

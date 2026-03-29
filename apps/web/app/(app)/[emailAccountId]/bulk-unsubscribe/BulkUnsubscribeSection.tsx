@@ -34,17 +34,10 @@ import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
 import {
-  BulkUnsubscribeMobile,
-  BulkUnsubscribeRowMobile,
-} from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeMobile";
-import {
   BulkUnsubscribeDesktop,
   BulkUnsubscribeRowDesktop,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeDesktop";
-import {
-  BulkUnsubscribeDesktopSkeleton,
-  BulkUnsubscribeMobileSkeleton,
-} from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSkeleton";
+import { BulkUnsubscribeDesktopSkeleton } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSkeleton";
 import { Card } from "@/components/ui/card";
 import { SearchBar } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/SearchBar";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
@@ -52,7 +45,6 @@ import { BulkActions } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkA
 import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress";
 import { ClientOnly } from "@/components/ClientOnly";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { useWindowSize } from "usehooks-ts";
 import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
@@ -115,9 +107,6 @@ const selectOptions = [
 const defaultSelected = selectOptions[2];
 
 export function BulkUnsubscribe() {
-  const windowSize = useWindowSize();
-  const isMobile = windowSize.width < 768;
-
   const [dateDropdown, setDateDropdown] = useState<string>(
     defaultSelected.label,
   );
@@ -244,10 +233,6 @@ export function BulkUnsubscribe() {
 
   const { PremiumModal, openModal } = usePremiumModal();
 
-  const RowComponent = isMobile
-    ? BulkUnsubscribeRowMobile
-    : BulkUnsubscribeRowDesktop;
-
   // Data is now filtered, sorted, and limited by the backend
   const rows = data?.newsletters;
 
@@ -273,12 +258,9 @@ export function BulkUnsubscribe() {
   const tableRows = rows?.map((item) => {
     const readPercentage =
       item.value > 0 ? (item.readEmails / item.value) * 100 : 0;
-    const archivedEmails = item.value - item.inboxEmails;
-    const archivedPercentage =
-      item.value > 0 ? (archivedEmails / item.value) * 100 : 0;
 
     return (
-      <RowComponent
+      <BulkUnsubscribeRowDesktop
         key={item.name}
         item={item}
         userEmail={userEmail}
@@ -295,8 +277,6 @@ export function BulkUnsubscribe() {
         checked={selected.get(item.name) || false}
         onToggleSelect={onToggleSelect}
         readPercentage={readPercentage}
-        archivedEmails={archivedEmails}
-        archivedPercentage={archivedPercentage}
         filter={filter}
       />
     );
@@ -395,46 +375,27 @@ export function BulkUnsubscribe() {
         totalCount={rows?.length ?? 0}
       />
 
-      <Card className="mt-2 md:mt-4">
-        {isStatsLoading && !isLoading && !data?.newsletters.length ? (
-          isMobile ? (
-            <BulkUnsubscribeMobileSkeleton />
-          ) : (
-            <BulkUnsubscribeDesktopSkeleton />
-          )
-        ) : showSkeleton ? (
-          isMobile ? (
-            <BulkUnsubscribeMobileSkeleton />
-          ) : (
-            <BulkUnsubscribeDesktopSkeleton />
-          )
+      <Card className="mt-2 md:mt-4 max-sm:border-0 max-sm:shadow-none">
+        {(isStatsLoading && !isLoading && !data?.newsletters.length) ||
+        showSkeleton ? (
+          <BulkUnsubscribeDesktopSkeleton />
         ) : (
           <LoadingContent
             loading={!data && isLoading}
             error={error}
-            loadingComponent={
-              isMobile ? (
-                <BulkUnsubscribeMobileSkeleton />
-              ) : (
-                <BulkUnsubscribeDesktopSkeleton />
-              )
-            }
+            loadingComponent={<BulkUnsubscribeDesktopSkeleton />}
           >
             {tableRows?.length ? (
               <>
-                {isMobile ? (
-                  <BulkUnsubscribeMobile tableRows={tableRows} />
-                ) : (
-                  <BulkUnsubscribeDesktop
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={handleSort}
-                    tableRows={tableRows}
-                    isAllSelected={isAllSelected}
-                    isSomeSelected={isSomeSelected}
-                    onToggleSelectAll={onToggleSelectAll}
-                  />
-                )}
+                <BulkUnsubscribeDesktop
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                  tableRows={tableRows}
+                  isAllSelected={isAllSelected}
+                  isSomeSelected={isSomeSelected}
+                  onToggleSelectAll={onToggleSelectAll}
+                />
                 {/* Only show expand/collapse when there might be more results */}
                 {(expanded || (rows && rows.length >= 50)) && (
                   <div className="mt-2 px-6 pb-6">

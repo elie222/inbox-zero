@@ -4,13 +4,9 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ArchiveProgress } from "./ArchiveProgress";
 
-const mockUseSWR = vi.fn();
+const mockUseArchiveQueueProgress = vi.fn();
 const mockUseQueueState = vi.fn();
 const mockResetTotalThreads = vi.fn();
-
-vi.mock("swr", () => ({
-  default: (...args: Parameters<typeof mockUseSWR>) => mockUseSWR(...args),
-}));
 
 vi.mock("@/store/archive-queue", () => ({
   useQueueState: (...args: Parameters<typeof mockUseQueueState>) =>
@@ -19,17 +15,26 @@ vi.mock("@/store/archive-queue", () => ({
     mockResetTotalThreads(...args),
 }));
 
+vi.mock("@/store/archive-sender-queue", () => ({
+  useArchiveQueueProgress: (
+    ...args: Parameters<typeof mockUseArchiveQueueProgress>
+  ) => mockUseArchiveQueueProgress(...args),
+}));
+
+vi.mock("@/providers/EmailAccountProvider", () => ({
+  useAccount: () => ({ emailAccountId: "account-1" }),
+}));
+
 describe("ArchiveProgress", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseArchiveQueueProgress.mockReturnValue(undefined);
   });
 
-  it("prefers backend bulk archive progress when present", () => {
-    mockUseSWR.mockReturnValue({
-      data: {
-        totalItems: 3,
-        completedItems: 1,
-      },
+  it("prefers sender archive progress when present", () => {
+    mockUseArchiveQueueProgress.mockReturnValue({
+      totalItems: 3,
+      completedItems: 1,
     });
     mockUseQueueState.mockReturnValue({
       totalThreads: 4,
@@ -46,7 +51,6 @@ describe("ArchiveProgress", () => {
   });
 
   it("falls back to the local archive queue progress", () => {
-    mockUseSWR.mockReturnValue({ data: null });
     mockUseQueueState.mockReturnValue({
       totalThreads: 4,
       activeThreads: {

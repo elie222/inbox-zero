@@ -44,6 +44,9 @@ export function LoginForm({
           errorCallbackURL,
           callbackURL,
         });
+        if (!result.url) {
+          throw new Error("Missing Google sign-in redirect URL");
+        }
         window.location.href = result.url;
       } else {
         await signIn.social({

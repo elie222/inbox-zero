@@ -36,7 +36,7 @@ export function BulkUnsubscribeDesktop({
   onToggleSelectAll: () => void;
 }) {
   return (
-    <Table>
+    <Table className="bulk-unsub-table">
       <TableHeader>
         <TableRow>
           <TableHead className="w-10 pr-0">
@@ -108,14 +108,17 @@ export function BulkUnsubscribeRowDesktop({
       onMouseEnter={onSelectRow}
       onDoubleClick={onDoubleClick}
     >
-      <TableCell className="w-10 pr-0">
+      <TableCell className="w-10 pr-0" data-cell="checkbox">
         <ButtonCheckbox
           checked={checked}
           onChange={(shiftKey) => onToggleSelect?.(item.name, shiftKey)}
         />
       </TableCell>
-      <TableCell className="max-w-[200px] min-w-0 py-3 pl-8 lg:max-w-[350px]">
-        <div className="flex items-center gap-2">
+      <TableCell
+        className="max-w-[200px] min-w-0 py-3 pl-8 lg:max-w-[350px]"
+        data-cell="from"
+      >
+        <div className="flex items-center gap-2 min-w-0">
           <DomainIcon domain={domain} size={32} variant="circular" />
           <div className="min-w-0 lg:flex lg:items-baseline lg:gap-2">
             <div className="truncate font-medium">
@@ -129,15 +132,15 @@ export function BulkUnsubscribeRowDesktop({
           </div>
         </div>
       </TableCell>
-      <TableCell className="whitespace-nowrap">
+      <TableCell className="whitespace-nowrap" data-label="Emails">
         <span className="font-medium text-foreground/80">{item.value}</span>
       </TableCell>
-      <TableCell className="whitespace-nowrap">
+      <TableCell className="whitespace-nowrap" data-label="Read">
         <span className="font-medium text-foreground/80">
           {Math.round(readPercentage)}%
         </span>
       </TableCell>
-      <TableCell className="w-[196px] p-1">
+      <TableCell className="w-auto sm:w-[196px] p-1" data-cell="actions">
         <div className="flex justify-end items-center gap-2">
           <ActionCell
             item={item}

@@ -4,15 +4,10 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockUseSWR = vi.fn();
 const mockProgressPanel = vi.fn();
-const mockUseCategorizeProgress = vi.fn();
+const mockUseArchiveQueueProgress = vi.fn();
 
 (globalThis as { React?: typeof React }).React = React;
-
-vi.mock("swr", () => ({
-  default: (...args: Parameters<typeof mockUseSWR>) => mockUseSWR(...args),
-}));
 
 vi.mock("@/components/ProgressPanel", () => ({
   ProgressPanel: (props: {
@@ -29,26 +24,24 @@ vi.mock("@/components/ProgressPanel", () => ({
   },
 }));
 
-vi.mock(
-  "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress",
-  () => ({
-    useCategorizeProgress: () => mockUseCategorizeProgress(),
-  }),
-);
+vi.mock("@/store/archive-sender-queue", () => ({
+  useArchiveQueueProgress: () => mockUseArchiveQueueProgress(),
+}));
+
+vi.mock("@/providers/EmailAccountProvider", () => ({
+  useAccount: () => ({ emailAccountId: "account-1" }),
+}));
 
 describe("BulkArchiveProgress", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    mockUseCategorizeProgress.mockReturnValue({
-      isBulkCategorizing: false,
-      setIsBulkCategorizing: vi.fn(),
-    });
+    mockUseArchiveQueueProgress.mockReturnValue(undefined);
   });
 
-  it("shows completed backend progress after a refresh", async () => {
-    mockUseSWR.mockReturnValue({
-      data: { totalItems: 8, completedItems: 8 },
+  it("shows completed local queue progress", async () => {
+    mockUseArchiveQueueProgress.mockReturnValue({
+      totalItems: 8,
+      completedItems: 8,
     });
 
     const { BulkArchiveProgress } = await import(
@@ -62,7 +55,7 @@ describe("BulkArchiveProgress", () => {
       expect.objectContaining({
         totalItems: 8,
         remainingItems: 0,
-        completedText: "Categorization complete! 8 senders categorized!",
+        completedText: "Archiving complete! 8 senders processed!",
       }),
     );
   });

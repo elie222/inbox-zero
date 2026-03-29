@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import Link from "next/link";
 import {
   ArchiveIcon,
-  CheckIcon,
   ChevronDownIcon,
   InboxIcon,
   MailIcon,
@@ -29,6 +28,7 @@ import {
   useArchiveSenderStatus,
   useArchiveSenderQueueActions,
 } from "@/store/archive-sender-queue";
+import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useThreads } from "@/hooks/useThreads";
 import { formatShortDate } from "@/utils/date";
@@ -106,7 +106,6 @@ export function BulkArchiveTab() {
     low: false,
   });
   const [isArchiving, setIsArchiving] = useState(false);
-  const [archiveComplete, setArchiveComplete] = useState(false);
   const [hasInitializedSelection, setHasInitializedSelection] = useState(false);
 
   const candidates = useMemo(
@@ -196,10 +195,12 @@ export function BulkArchiveTab() {
     const toArchive = candidates.filter((c) => selectedSenders[c.address]);
 
     try {
-      await queueArchiveSenders({
+      const queuedSenders = await queueArchiveSenders({
         senders: toArchive.map((candidate) => candidate.address),
       });
-      setArchiveComplete(true);
+      if (!queuedSenders) {
+        toast.info("No new senders to archive");
+      }
     } catch {
       toast.error("Failed to archive some senders. Please try again.");
     } finally {
@@ -223,38 +224,6 @@ export function BulkArchiveTab() {
     );
   }
 
-  if (archiveComplete) {
-    return (
-      <div className="py-4">
-        <Card className="border-green-200 bg-green-50 p-8 text-center dark:border-green-900 dark:bg-green-950/30">
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
-            <CheckIcon className="size-8 text-green-600" />
-          </div>
-          <h2 className="mb-2 text-xl font-semibold text-green-900 dark:text-green-100">
-            Archive Started!
-          </h2>
-          <p className="mb-4 text-green-700 dark:text-green-300">
-            {selectedCount} senders are being archived in the background.
-          </p>
-          <p className="text-sm text-green-600 dark:text-green-400">
-            Emails are archived, not deleted. You can find them in Gmail
-            anytime.
-          </p>
-          <Button
-            variant="outline"
-            className="mt-6"
-            onClick={() => {
-              setArchiveComplete(false);
-              setSelectedSenders({});
-            }}
-          >
-            Done
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
   if (totalCount === 0) {
     return (
       <div className="py-4">
@@ -274,6 +243,8 @@ export function BulkArchiveTab() {
 
   return (
     <div className="py-4">
+      <ArchiveProgress />
+
       {/* Hero Card */}
       <Card className="mb-6 overflow-hidden">
         <div className="p-6">

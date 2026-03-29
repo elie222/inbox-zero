@@ -240,7 +240,7 @@ export function BulkArchiveCards({
         });
       }
 
-      if (bulkAction === "markRead") {
+      if (bulkAction === "archive" || bulkAction === "markRead") {
         setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
       }
     } catch (_error) {
@@ -608,15 +608,23 @@ function SenderStatus({
   if (archiveStatus?.status) {
     switch (archiveStatus.status) {
       case "queued":
-        return <span className="text-sm text-blue-600">Queued</span>;
+        return <span className="text-sm text-muted-foreground">Queued</span>;
       case "processing":
-        return <span className="text-sm text-blue-600">Archiving...</span>;
+        return (
+          <span className="text-sm text-blue-600">
+            {archiveStatus.threadsTotal
+              ? `${archiveStatus.threadsTotal - archiveStatus.threadIds.length} / ${archiveStatus.threadsTotal}`
+              : "Archiving..."}
+          </span>
+        );
       case "completed":
         return (
           <span className="text-sm text-green-600">
             {archiveStatus.archivedCount
               ? `Archived ${archiveStatus.archivedCount}`
-              : "Archived"}
+              : archiveStatus.threadsTotal
+                ? `Archived ${archiveStatus.threadsTotal}!`
+                : "Archived"}
           </span>
         );
       case "failed":

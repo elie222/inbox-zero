@@ -1,120 +1,179 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
 import { atom, useAtomValue } from "jotai";
-import useSWR from "swr";
-import { useAction } from "next-safe-action/hooks";
+import { useCallback, useMemo } from "react";
+import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { jotaiStore } from "@/store";
-import { bulkArchiveAction } from "@/utils/actions/mail-bulk-action";
+import { fetchWithAccount } from "@/utils/fetch";
+import { isDefined } from "@/utils/types";
 import { archiveEmails } from "./archive-queue";
-import { createSenderQueue } from "./sender-queue";
-import type { BulkArchiveSenderStatuses } from "@/app/api/user/bulk-archive/sender-status/route";
 
-type QueueStatus = "pending" | "completed";
-type SenderQueueStatus = QueueStatus | "queued" | "processing" | "failed";
+type QueueStatus = "pending" | "processing" | "completed";
 
 type QueueItem = {
-  status: SenderQueueStatus;
-  archivedCount?: number;
+  status: QueueStatus;
+  threadIds: string[];
+  threadsTotal: number;
+};
+
+type QueueProgress = {
+  totalItems: number;
+  completedItems: number;
 };
 
 const queueAtom = atom<Map<string, QueueItem>>(new Map());
+
 const statusAtom = atom((get) => {
   const queue = get(queueAtom);
   return (emailAccountId: string, sender: string) =>
     queue.get(getQueueKey(emailAccountId, sender));
 });
 
-const { addToQueue: addToArchiveSenderThreadQueue } =
-  createSenderQueue(archiveEmails);
+const progressAtom = atom((get) => {
+  const queue = get(queueAtom);
+  return (emailAccountId: string): QueueProgress | undefined => {
+    let totalItems = 0;
+    let completedItems = 0;
 
-export { addToArchiveSenderThreadQueue };
+    for (const [queueKey, item] of queue.entries()) {
+      if (!queueKey.startsWith(`${emailAccountId}:`)) continue;
+
+      totalItems += 1;
+      if (item.status === "completed") {
+        completedItems += 1;
+      }
+    }
+
+    if (!totalItems) return undefined;
+
+    return { totalItems, completedItems };
+  };
+});
+
+export async function addToArchiveSenderThreadQueue({
+  sender,
+  labelId,
+  emailAccountId,
+}: {
+  sender: string;
+  labelId?: string;
+  emailAccountId: string;
+}) {
+  const queueKey = getQueueKey(emailAccountId, sender);
+
+  jotaiStore.set(queueAtom, (prev) => {
+    if (prev.has(queueKey)) return prev;
+
+    const next = new Map(prev);
+    next.set(queueKey, {
+      status: "pending",
+      threadIds: [],
+      threadsTotal: 0,
+    });
+    return next;
+  });
+
+  try {
+    const data = await fetchSenderThreads({
+      sender,
+      emailAccountId,
+    });
+    const threads = data.threads;
+    const threadIds = threads
+      .map((thread: { id: string }) => thread.id)
+      .filter(isDefined);
+
+    jotaiStore.set(queueAtom, (prev) => {
+      const next = new Map(prev);
+      next.set(queueKey, {
+        status: threadIds.length > 0 ? "processing" : "completed",
+        threadIds,
+        threadsTotal: threads.length,
+      });
+      return next;
+    });
+
+    if (!threadIds.length) return;
+
+    await archiveEmails({
+      threadIds,
+      labelId,
+      emailAccountId,
+      onSuccess: (threadId) => {
+        markThreadProcessed({
+          emailAccountId,
+          sender,
+          threadId,
+        });
+      },
+      onError: (threadId) => {
+        markThreadProcessed({
+          emailAccountId,
+          sender,
+          threadId,
+        });
+      },
+    });
+  } catch (error) {
+    jotaiStore.set(queueAtom, (prev) => {
+      const next = new Map(prev);
+      next.delete(queueKey);
+      return next;
+    });
+    throw error;
+  }
+}
 
 export function useArchiveSenderQueueActions(emailAccountId: string) {
-  const { data: senderStatuses } = useSWR<BulkArchiveSenderStatuses>(
-    "/api/user/bulk-archive/sender-status",
-    {
-      refreshInterval: 1000,
-    },
-  );
-  const { executeAsync, isExecuting } = useAction(
-    bulkArchiveAction.bind(null, emailAccountId),
-  );
+  const getProgress = useAtomValue(progressAtom);
+  const progress = getProgress(emailAccountId);
 
   const queueArchiveSenders = useCallback(
     async ({ senders }: { senders: string[] }) => {
       const uniqueSenders = getUniqueSenders(senders);
-      const sendersToQueue = getQueueableSenders({
-        emailAccountId,
-        senders: uniqueSenders,
-        queue: jotaiStore.get(queueAtom),
-        senderStatuses,
-      });
-      if (!sendersToQueue.length) return;
+      let queuedSenders = 0;
 
-      jotaiStore.set(queueAtom, (prev) => {
-        const next = new Map(prev);
+      for (const sender of uniqueSenders) {
+        if (hasQueuedSender(emailAccountId, sender)) continue;
 
-        for (const sender of sendersToQueue) {
-          const queueKey = getQueueKey(emailAccountId, sender);
-          next.set(queueKey, { status: "pending" });
-        }
-
-        return next;
-      });
-
-      let result: Awaited<ReturnType<typeof executeAsync>>;
-
-      try {
-        result = await executeAsync({ froms: sendersToQueue });
-      } catch (error) {
-        clearQueueEntries(emailAccountId, sendersToQueue);
-        throw error;
+        await addToArchiveSenderThreadQueue({
+          sender,
+          emailAccountId,
+        });
+        queuedSenders += 1;
       }
 
-      if (result?.serverError) {
-        clearQueueEntries(emailAccountId, sendersToQueue);
-        throw new Error(result.serverError);
-      }
-
-      jotaiStore.set(queueAtom, (prev) => {
-        const next = new Map(prev);
-        const queued = result?.data?.mode === "queued";
-
-        for (const sender of sendersToQueue) {
-          const queueKey = getQueueKey(emailAccountId, sender);
-
-          next.set(queueKey, { status: queued ? "queued" : "completed" });
-        }
-
-        return next;
-      });
-
-      return result?.data;
+      return queuedSenders;
     },
-    [emailAccountId, executeAsync, senderStatuses],
+    [emailAccountId],
   );
 
   return useMemo(
     () => ({
       queueArchiveSenders,
-      isQueueArchiving: isExecuting,
+      isQueueArchiving: Boolean(
+        progress && progress.completedItems < progress.totalItems,
+      ),
     }),
-    [isExecuting, queueArchiveSenders],
+    [progress, queueArchiveSenders],
   );
 }
 
 export function useArchiveSenderStatus(emailAccountId: string, sender: string) {
   const getStatus = useAtomValue(statusAtom);
-  const { data } = useSWR<BulkArchiveSenderStatuses>(
-    "/api/user/bulk-archive/sender-status",
-    {
-      refreshInterval: 1000,
-    },
-  );
+
   return useMemo(
-    () => data?.[normalizeSender(sender)] || getStatus(emailAccountId, sender),
-    [data, emailAccountId, getStatus, sender],
+    () => getStatus(emailAccountId, sender),
+    [emailAccountId, getStatus, sender],
+  );
+}
+
+export function useArchiveQueueProgress(emailAccountId: string) {
+  const getProgress = useAtomValue(progressAtom);
+
+  return useMemo(
+    () => getProgress(emailAccountId),
+    [emailAccountId, getProgress],
   );
 }
 
@@ -129,6 +188,38 @@ export function clearArchiveSenderStatuses(emailAccountId: string) {
 
     return next;
   });
+}
+
+function markThreadProcessed({
+  emailAccountId,
+  sender,
+  threadId,
+}: {
+  emailAccountId: string;
+  sender: string;
+  threadId: string;
+}) {
+  const queueKey = getQueueKey(emailAccountId, sender);
+
+  jotaiStore.set(queueAtom, (prev) => {
+    const queueItem = prev.get(queueKey);
+    if (!queueItem) return prev;
+
+    const nextThreadIds = queueItem.threadIds.filter((id) => id !== threadId);
+    const next = new Map(prev);
+
+    next.set(queueKey, {
+      ...queueItem,
+      threadIds: nextThreadIds,
+      status: nextThreadIds.length ? "processing" : "completed",
+    });
+
+    return next;
+  });
+}
+
+function hasQueuedSender(emailAccountId: string, sender: string) {
+  return jotaiStore.get(queueAtom).has(getQueueKey(emailAccountId, sender));
 }
 
 function getUniqueSenders(senders: string[]) {
@@ -148,55 +239,25 @@ function getQueueKey(emailAccountId: string, sender: string) {
   return `${emailAccountId}:${normalizeSender(sender)}`;
 }
 
-function getQueueableSenders({
-  emailAccountId,
-  senders,
-  queue,
-  senderStatuses,
-}: {
-  emailAccountId: string;
-  senders: string[];
-  queue: Map<string, QueueItem>;
-  senderStatuses?: BulkArchiveSenderStatuses;
-}) {
-  return senders.filter((sender) => {
-    const queueItem = queue.get(getQueueKey(emailAccountId, sender));
-    const backendStatus = senderStatuses?.[normalizeSender(sender)];
-    return (
-      !isActiveQueueItem(queueItem) && !isActiveSenderStatus(backendStatus)
-    );
-  });
-}
-
-function clearQueueEntries(emailAccountId: string, senders: string[]) {
-  jotaiStore.set(queueAtom, (prev) => {
-    const next = new Map(prev);
-
-    for (const sender of senders) {
-      const queueKey = getQueueKey(emailAccountId, sender);
-      next.delete(queueKey);
-    }
-
-    return next;
-  });
-}
-
 function normalizeSender(sender: string) {
   return sender.trim().toLowerCase();
 }
 
-function isActiveQueueItem(queueItem?: QueueItem) {
-  return (
-    queueItem?.status === "pending" ||
-    queueItem?.status === "queued" ||
-    queueItem?.status === "processing"
-  );
-}
+async function fetchSenderThreads({
+  sender,
+  emailAccountId,
+}: {
+  sender: string;
+  emailAccountId: string;
+}) {
+  const url = `/api/threads/basic?fromEmail=${encodeURIComponent(sender)}&labelId=INBOX`;
+  const response = await fetchWithAccount({ url, emailAccountId });
 
-function isActiveSenderStatus(
-  senderStatus?: BulkArchiveSenderStatuses[string],
-) {
-  return (
-    senderStatus?.status === "queued" || senderStatus?.status === "processing"
-  );
+  if (!response.ok) {
+    throw new Error("Failed to fetch threads");
+  }
+
+  const data: GetThreadsResponse = await response.json();
+
+  return data;
 }

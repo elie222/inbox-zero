@@ -11,23 +11,17 @@ vi.mock("@/utils/auth", () => ({
   })),
 }));
 
-const { envMock, mockEnqueueBulkArchiveSenderJobs, mockCreateEmailProvider } =
+const { envMock, mockBulkArchiveFromSenders, mockCreateEmailProvider } =
   vi.hoisted(() => ({
     envMock: {
       NODE_ENV: "test",
     },
-    mockEnqueueBulkArchiveSenderJobs: vi.fn(),
+    mockBulkArchiveFromSenders: vi.fn(),
     mockCreateEmailProvider: vi.fn(),
   }));
 
 vi.mock("@/env", () => ({
   env: envMock,
-}));
-
-vi.mock("@/utils/email/bulk-archive-queue", () => ({
-  enqueueBulkArchiveSenderJobs: (
-    ...args: Parameters<typeof mockEnqueueBulkArchiveSenderJobs>
-  ) => mockEnqueueBulkArchiveSenderJobs(...args),
 }));
 
 vi.mock("@/utils/email/provider", () => ({
@@ -45,30 +39,31 @@ describe("bulkArchiveAction", () => {
         provider: "google",
       }),
     );
-    mockEnqueueBulkArchiveSenderJobs.mockResolvedValue(2);
+    mockCreateEmailProvider.mockResolvedValue({
+      bulkArchiveFromSenders: mockBulkArchiveFromSenders,
+    });
   });
 
-  it("queues Gmail sender archives through the backend queue", async () => {
+  it("archives Gmail senders directly with the provider", async () => {
     const result = await bulkArchiveAction("account-1", {
       froms: ["first@example.com", "second@example.com"],
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(result?.data).toEqual({
-      mode: "queued",
-      queuedSenders: 2,
-    });
-    expect(mockEnqueueBulkArchiveSenderJobs).toHaveBeenCalledWith({
+    expect(result?.data).toBeUndefined();
+    expect(mockCreateEmailProvider).toHaveBeenCalledWith({
       emailAccountId: "account-1",
-      ownerEmail: "owner@example.com",
       provider: "google",
-      froms: ["first@example.com", "second@example.com"],
       logger: expect.anything(),
     });
-    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+    expect(mockBulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["first@example.com", "second@example.com"],
+      "owner@example.com",
+      "account-1",
+    );
   });
 
-  it("queues Outlook sender archives through the backend queue", async () => {
+  it("archives Outlook senders directly with the provider", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(
       getMockEmailAccountWithAccount({
         email: "owner@example.com",
@@ -82,17 +77,16 @@ describe("bulkArchiveAction", () => {
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(result?.data).toEqual({
-      mode: "queued",
-      queuedSenders: 2,
-    });
-    expect(mockEnqueueBulkArchiveSenderJobs).toHaveBeenCalledWith({
+    expect(result?.data).toBeUndefined();
+    expect(mockCreateEmailProvider).toHaveBeenCalledWith({
       emailAccountId: "account-1",
-      ownerEmail: "owner@example.com",
       provider: "microsoft",
-      froms: ["sender@example.com"],
       logger: expect.anything(),
     });
-    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+    expect(mockBulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["sender@example.com"],
+      "owner@example.com",
+      "account-1",
+    );
   });
 });

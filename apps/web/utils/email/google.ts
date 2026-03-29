@@ -370,7 +370,7 @@ export class GmailProvider implements EmailProvider {
     });
     const continueOnError = options?.continueOnError ?? true;
 
-    if (senders.length === 0) return;
+    if (senders.length === 0) return 0;
 
     let archivedMessagesCount = 0;
 
