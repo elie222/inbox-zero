@@ -43,6 +43,7 @@ describe("getVisibleOnboardingStepKeys", () => {
       STEP_KEYS.WHO,
       STEP_KEYS.COMPANY_SIZE,
       STEP_KEYS.LABELS,
+      STEP_KEYS.DRAFT,
       STEP_KEYS.INBOX_PROCESSED,
     ]);
   });
@@ -84,7 +85,7 @@ describe("getOnboardingStepIndex", () => {
   });
 
   it("clamps oversized numeric steps to the last visible step", () => {
-    expect(getOnboardingStepIndex("99", fastFlowKeys)).toBe(3);
+    expect(getOnboardingStepIndex("99", fastFlowKeys)).toBe(4);
   });
 
   it("falls back to the first visible fast-flow step for removed steps", () => {
