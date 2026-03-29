@@ -269,11 +269,7 @@ export async function handleSlackRuleNotificationModalSubmit({
 
   if (siblingDraftAction?.draftId) {
     try {
-      const provider = await createEmailProvider({
-        emailAccountId: context.executedRule.emailAccount.id,
-        provider: context.executedRule.emailAccount.account.provider,
-        logger,
-      });
+      const provider = await createProviderForContext(context, logger);
 
       await provider.updateDraft(siblingDraftAction.draftId, {
         messageHtml: convertNewlinesToBr(escapeHtml(nextContent)),
@@ -346,11 +342,7 @@ async function handleDraftSend({
     return;
   }
 
-  const provider = await createEmailProvider({
-    emailAccountId: context.executedRule.emailAccount.id,
-    provider: context.executedRule.emailAccount.account.provider,
-    logger,
-  });
+  const provider = await createProviderForContext(context, logger);
 
   const siblingDraftAction = await getSiblingEmailDraftAction({
     executedActionId: context.id,
@@ -469,11 +461,7 @@ async function handleDraftEdit({
     return;
   }
 
-  const provider = await createEmailProvider({
-    emailAccountId: context.executedRule.emailAccount.id,
-    provider: context.executedRule.emailAccount.account.provider,
-    logger,
-  });
+  const provider = await createProviderForContext(context, logger);
 
   const siblingDraftAction = await getSiblingEmailDraftAction({
     executedActionId: context.id,
@@ -546,11 +534,7 @@ async function handleArchiveNotification({
   event: ActionEvent;
   logger: Logger;
 }) {
-  const provider = await createEmailProvider({
-    emailAccountId: context.executedRule.emailAccount.id,
-    provider: context.executedRule.emailAccount.account.provider,
-    logger,
-  });
+  const provider = await createProviderForContext(context, logger);
 
   await provider.archiveThread(
     context.executedRule.threadId,
@@ -578,11 +562,7 @@ async function handleMarkReadNotification({
   event: ActionEvent;
   logger: Logger;
 }) {
-  const provider = await createEmailProvider({
-    emailAccountId: context.executedRule.emailAccount.id,
-    provider: context.executedRule.emailAccount.account.provider,
-    logger,
-  });
+  const provider = await createProviderForContext(context, logger);
 
   await provider.markRead(context.executedRule.threadId);
 
@@ -764,11 +744,7 @@ async function getSourceMessageSummary(
   context: NotificationContext,
   logger: Logger,
 ) {
-  const provider = await createEmailProvider({
-    emailAccountId: context.executedRule.emailAccount.id,
-    provider: context.executedRule.emailAccount.account.provider,
-    logger,
-  });
+  const provider = await createProviderForContext(context, logger);
   const message = await provider.getMessage(context.executedRule.messageId);
 
   return {
@@ -928,6 +904,17 @@ function buildEmailPreview(email: { snippet: string; textPlain?: string }) {
   if (!preview) return null;
 
   return truncate(preview, SUMMARY_PREVIEW_MAX_CHARS);
+}
+
+function createProviderForContext(
+  context: NotificationContext,
+  logger: Logger,
+) {
+  return createEmailProvider({
+    emailAccountId: context.executedRule.emailAccount.id,
+    provider: context.executedRule.emailAccount.account.provider,
+    logger,
+  });
 }
 
 function getInfoNotificationTitle(systemType: SystemType | string | null) {
