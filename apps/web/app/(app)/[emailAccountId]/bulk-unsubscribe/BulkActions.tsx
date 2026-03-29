@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { usePostHog } from "posthog-js/react";
 import {
   ArchiveIcon,
+  ArchiveRestoreIcon,
   Loader2Icon,
   MailXIcon,
   ThumbsDownIcon,
@@ -46,6 +47,7 @@ function ActionButton({
   onClick,
   loading,
   danger,
+  showLabelOnMobile,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -53,12 +55,14 @@ function ActionButton({
   onClick: () => void;
   loading?: boolean;
   danger?: boolean;
+  showLabelOnMobile?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={loading}
+      title={label}
       className={cn(
         "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap",
         "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
@@ -71,7 +75,9 @@ function ActionButton({
       ) : (
         <Icon className="size-4" />
       )}
-      {loading && loadingLabel ? loadingLabel : label}
+      <span className={showLabelOnMobile ? undefined : "hidden sm:inline"}>
+        {loading && loadingLabel ? loadingLabel : label}
+      </span>
     </button>
   );
 }
@@ -130,9 +136,9 @@ export function BulkActions({
   });
 
   const { onBulkArchive, isBulkArchiving } = useBulkArchive({
-    mutate,
     posthog,
     emailAccountId,
+    mutate,
   });
 
   const { onBulkDelete, isBulkDeleting } = useBulkDelete({
@@ -198,9 +204,9 @@ export function BulkActions({
               showTooltip={!hasUnsubscribeAccess}
               openModal={openModal}
             >
-              <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex items-center justify-between gap-3">
+              <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg px-2 sm:px-3 py-2 flex items-center justify-between gap-1 sm:gap-3">
                 {/* Left side: Close button and selection count */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 sm:gap-3 shrink-0">
                   <button
                     type="button"
                     onClick={onClearSelection}
@@ -208,22 +214,24 @@ export function BulkActions({
                   >
                     <XIcon className="size-4" />
                   </button>
-                  <span className="text-sm text-gray-600">
-                    {selectedCount} of {totalCount} selected
+                  <span className="text-sm text-gray-600 whitespace-nowrap">
+                    {selectedCount} of {totalCount}
+                    <span className="hidden sm:inline"> selected</span>
                   </span>
                 </div>
 
                 {/* Right side: Action Buttons */}
-                <div className="flex items-center gap-1 flex-nowrap">
+                <div className="flex items-center gap-0 sm:gap-1 flex-nowrap">
                   {allSelectedCanUnsubscribe && (
                     <ActionButton
                       icon={MailXIcon}
                       label={unsubscribeLabel}
+                      showLabelOnMobile
                       onClick={() => onBulkUnsubscribe(getSelectedValues())}
                     />
                   )}
                   <ActionButton
-                    icon={ArchiveIcon}
+                    icon={ArchiveRestoreIcon}
                     label="Auto Archive"
                     onClick={() => setAutoArchiveDialogOpen(true)}
                   />

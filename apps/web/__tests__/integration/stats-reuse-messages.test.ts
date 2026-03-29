@@ -28,7 +28,7 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;
+const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";
 const TEST_EMAIL = "stats-test@example.com";
 const TEST_PORT = 4099;
 

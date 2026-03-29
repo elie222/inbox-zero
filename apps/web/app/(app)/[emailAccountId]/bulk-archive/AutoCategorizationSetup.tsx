@@ -52,23 +52,36 @@ export function AutoCategorizationSetup({
         throw new Error(result.serverError);
       }
 
-      if (result?.data?.totalUncategorizedSenders) {
+      if (!result?.data) {
+        toastSuccess({
+          description: "Categorization started.",
+        });
+        onOpenChange?.(false);
+      } else if (result.data.totalUncategorizedSenders) {
         toastSuccess({
           description: `Categorizing ${result.data.totalUncategorizedSenders} senders... This may take a few minutes.`,
         });
+        onOpenChange?.(false);
       } else {
-        toastSuccess({ description: "No uncategorized senders found." });
+        toastSuccess({
+          description: "No more senders to categorize right now.",
+        });
         setIsBulkCategorizing(false);
+        onOpenChange?.(false);
       }
     } catch (error) {
       toastError({
         description: `Failed to enable feature: ${error instanceof Error ? error.message : "Unknown error"}`,
       });
       setIsBulkCategorizing(false);
+
+      if (isUpgradeError(error)) {
+        onOpenChange?.(false);
+      }
     } finally {
       setIsEnabling(false);
     }
-  }, [emailAccountId, setIsBulkCategorizing]);
+  }, [emailAccountId, onOpenChange, setIsBulkCategorizing]);
 
   return (
     <SetupDialog
@@ -90,4 +103,8 @@ export function AutoCategorizationSetup({
       </Button>
     </SetupDialog>
   );
+}
+
+function isUpgradeError(error: unknown) {
+  return error instanceof Error && error.message.includes("Please upgrade");
 }

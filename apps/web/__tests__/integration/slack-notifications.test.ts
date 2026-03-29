@@ -32,7 +32,7 @@ vi.mock("@/utils/messaging/providers/slack/client", () => ({
   createSlackClient: () => emulatorClient,
 }));
 
-const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;
+const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";
 const TEST_PORT = 4098;
 const logger = createScopedLogger("test");
 

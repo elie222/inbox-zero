@@ -15,8 +15,6 @@ export type Row = {
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
 export interface RowProps {
-  archivedEmails: number;
-  archivedPercentage: number;
   checked: boolean;
   emailAccountId: string;
   filter: NewsletterFilterType;

@@ -155,7 +155,7 @@ vi.mock("ioredis", () => ({
   },
 }));
 
-const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;
+const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";
 const TEST_ENV_KEYS = [
   "INTERNAL_API_KEY",
   "INTERNAL_API_URL",

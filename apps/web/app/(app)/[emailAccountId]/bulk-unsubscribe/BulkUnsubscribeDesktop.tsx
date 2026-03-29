@@ -36,7 +36,7 @@ export function BulkUnsubscribeDesktop({
   onToggleSelectAll: () => void;
 }) {
   return (
-    <Table>
+    <Table className="bulk-unsub-table">
       <TableHeader>
         <TableRow>
           <TableHead className="w-10 pr-0">
@@ -49,7 +49,7 @@ export function BulkUnsubscribeDesktop({
           <TableHead className="pl-8">
             <span className="text-sm font-medium">From</span>
           </TableHead>
-          <TableHead>
+          <TableHead className="whitespace-nowrap">
             <HeaderButton
               sorted={sortColumn === "emails"}
               sortDirection={
@@ -60,7 +60,7 @@ export function BulkUnsubscribeDesktop({
               Emails
             </HeaderButton>
           </TableHead>
-          <TableHead>
+          <TableHead className="whitespace-nowrap">
             <HeaderButton
               sorted={sortColumn === "unread"}
               sortDirection={
@@ -71,7 +71,7 @@ export function BulkUnsubscribeDesktop({
               Read
             </HeaderButton>
           </TableHead>
-          <TableHead />
+          <TableHead className="w-[196px]" />
         </TableRow>
       </TableHeader>
       <TableBody>{tableRows}</TableBody>
@@ -108,36 +108,39 @@ export function BulkUnsubscribeRowDesktop({
       onMouseEnter={onSelectRow}
       onDoubleClick={onDoubleClick}
     >
-      <TableCell className="w-10 pr-0">
+      <TableCell className="w-10 pr-0" data-cell="checkbox">
         <ButtonCheckbox
           checked={checked}
           onChange={(shiftKey) => onToggleSelect?.(item.name, shiftKey)}
         />
       </TableCell>
-      <TableCell className="max-w-[250px] py-3 pl-8">
-        <div className="flex items-center gap-2">
+      <TableCell
+        className="max-w-[200px] min-w-0 py-3 pl-8 lg:max-w-[350px]"
+        data-cell="from"
+      >
+        <div className="flex items-center gap-2 min-w-0">
           <DomainIcon domain={domain} size={32} variant="circular" />
-          <div className="flex flex-col min-w-0">
-            <span className="font-medium truncate">
+          <div className="min-w-0 lg:flex lg:items-baseline lg:gap-2">
+            <div className="truncate font-medium">
               {item.fromName || item.name}
-            </span>
+            </div>
             {item.fromName && (
-              <span className="text-xs text-muted-foreground truncate">
+              <div className="truncate text-xs text-muted-foreground lg:text-sm">
                 {item.name}
-              </span>
+              </div>
             )}
           </div>
         </div>
       </TableCell>
-      <TableCell>
-        <span className="text-muted-foreground">{item.value}</span>
+      <TableCell className="whitespace-nowrap" data-label="Emails">
+        <span className="font-medium text-foreground/80">{item.value}</span>
       </TableCell>
-      <TableCell>
-        <span className="text-muted-foreground">
+      <TableCell className="whitespace-nowrap" data-label="Read">
+        <span className="font-medium text-foreground/80">
           {Math.round(readPercentage)}%
         </span>
       </TableCell>
-      <TableCell className="p-1">
+      <TableCell className="w-auto sm:w-[196px] p-1" data-cell="actions">
         <div className="flex justify-end items-center gap-2">
           <ActionCell
             item={item}

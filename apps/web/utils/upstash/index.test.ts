@@ -16,11 +16,13 @@ function setupFetchMock() {
 async function loadUpstashModule({
   qstashToken,
   nextPublicBaseUrl = "https://public.example.com",
-  internalApiUrl = "http://web:3000",
+  internalApiUrl = "https://worker.example.com",
+  webhookUrl,
 }: {
   qstashToken?: string;
   nextPublicBaseUrl?: string;
   internalApiUrl?: string;
+  webhookUrl?: string;
 }) {
   vi.resetModules();
   vi.clearAllMocks();
@@ -50,6 +52,8 @@ async function loadUpstashModule({
     env: {
       QSTASH_TOKEN: qstashToken,
       NEXT_PUBLIC_BASE_URL: nextPublicBaseUrl,
+      INTERNAL_API_URL: internalApiUrl,
+      WEBHOOK_URL: webhookUrl,
       INTERNAL_API_KEY: "internal-api-key",
     },
   }));
@@ -75,7 +79,7 @@ describe("publishToQstash", () => {
 
     expect(mockPublishJSON).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "http://web:3000/api/process",
+        url: "https://worker.example.com/api/process",
       }),
     );
     expect(fetchMock).not.toHaveBeenCalled();
@@ -90,15 +94,51 @@ describe("publishToQstash", () => {
     expect(mockPublishJSON).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://web:3000/api/process",
+      "https://worker.example.com/api/process",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("falls back when the QStash callback URL resolves to loopback", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({
+      qstashToken: "token",
+      internalApiUrl: "http://localhost:3000",
+      nextPublicBaseUrl: "http://localhost:3000",
+    });
+
+    await upstash.publishToQstash("/api/process", { id: 1 });
+
+    expect(mockPublishJSON).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/process",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("uses WEBHOOK_URL for QStash callbacks when the internal base is loopback", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({
+      qstashToken: "token",
+      internalApiUrl: "http://localhost:3000",
+      nextPublicBaseUrl: "http://localhost:3000",
+      webhookUrl: "https://example.ngrok-free.app",
+    });
+
+    await upstash.publishToQstash("/api/process", { id: 1 });
+
+    expect(mockPublishJSON).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://example.ngrok-free.app/api/process",
+      }),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("handles trailing slash on INTERNAL_API_URL", async () => {
     const upstash = await loadUpstashModule({
       qstashToken: "token",
-      internalApiUrl: "http://web:3000/",
+      internalApiUrl: "https://worker.example.com/",
     });
     setupFetchMock();
 
@@ -106,7 +146,7 @@ describe("publishToQstash", () => {
 
     expect(mockPublishJSON).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "http://web:3000/api/process",
+        url: "https://worker.example.com/api/process",
       }),
     );
   });
@@ -131,8 +171,8 @@ describe("bulkPublishToQstash", () => {
     expect(mockBatchJSON).toHaveBeenCalledTimes(1);
     const [batchItems] = mockBatchJSON.mock.calls[0];
     expect(batchItems).toHaveLength(2);
-    expect(batchItems[0].url).toBe("http://web:3000/api/task-one");
-    expect(batchItems[1].url).toBe("http://web:3000/api/task-two");
+    expect(batchItems[0].url).toBe("https://worker.example.com/api/task-one");
+    expect(batchItems[1].url).toBe("https://worker.example.com/api/task-two");
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -151,11 +191,11 @@ describe("bulkPublishToQstash", () => {
     expect(mockBatchJSON).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://web:3000/api/task-one",
+      "https://worker.example.com/api/task-one",
       expect.objectContaining({ method: "POST" }),
     );
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://web:3000/api/task-two",
+      "https://worker.example.com/api/task-two",
       expect.objectContaining({ method: "POST" }),
     );
   });
@@ -178,7 +218,54 @@ describe("publishToQstashQueue", () => {
     });
 
     expect(mockQueueEnqueueJSON).toHaveBeenCalledWith(
-      expect.objectContaining({ url: "http://web:3000/api/task" }),
+      expect.objectContaining({ url: "https://worker.example.com/api/task" }),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back for queue publishing when callback URL resolves to loopback", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({
+      qstashToken: "token",
+      internalApiUrl: "http://localhost:3000",
+      nextPublicBaseUrl: "http://localhost:3000",
+    });
+
+    await upstash.publishToQstashQueue({
+      queueName: "test",
+      parallelism: 1,
+      path: "/api/task",
+      body: { id: "a" },
+    });
+
+    expect(mockQueueUpsert).not.toHaveBeenCalled();
+    expect(mockQueueEnqueueJSON).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/task",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("uses WEBHOOK_URL for queue publishing when the internal base is loopback", async () => {
+    const fetchMock = setupFetchMock();
+    const upstash = await loadUpstashModule({
+      qstashToken: "token",
+      internalApiUrl: "http://localhost:3000",
+      nextPublicBaseUrl: "http://localhost:3000",
+      webhookUrl: "https://example.ngrok-free.app",
+    });
+
+    await upstash.publishToQstashQueue({
+      queueName: "test",
+      parallelism: 1,
+      path: "/api/task",
+      body: { id: "a" },
+    });
+
+    expect(mockQueueEnqueueJSON).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://example.ngrok-free.app/api/task",
+      }),
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -198,7 +285,7 @@ describe("publishToQstashQueue", () => {
     expect(mockQueueEnqueueJSON).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://web:3000/api/task",
+      "https://worker.example.com/api/task",
       expect.objectContaining({ method: "POST" }),
     );
   });

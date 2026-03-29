@@ -30,8 +30,8 @@ import { useThreads } from "@/hooks/useThreads";
 import { formatShortDate } from "@/utils/date";
 import { cn } from "@/utils";
 import {
-  addToArchiveSenderQueue,
   useArchiveSenderStatus,
+  useArchiveSenderQueueActions,
 } from "@/store/archive-sender-queue";
 import {
   addToMarkReadSenderQueue,
@@ -60,6 +60,7 @@ export function BulkArchiveCards({
   onCategoryChange?: () => Promise<unknown>;
 }) {
   const { emailAccountId, userEmail } = useAccount();
+  const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
   const [expandedCategory, setExpandedCategory] = useQueryState("expanded");
   const [expandedSenders, setExpandedSenders] = useState<
     Record<string, boolean>
@@ -230,14 +231,18 @@ export function BulkArchiveCards({
             sender: sender.address,
             emailAccountId,
           });
-        } else {
-          await addToArchiveSenderQueue({
-            sender: sender.address,
-            emailAccountId,
-          });
         }
       }
-      setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
+
+      if (bulkAction === "archive") {
+        await queueArchiveSenders({
+          senders: selectedToProcess.map((sender) => sender.address),
+        });
+      }
+
+      if (bulkAction === "markRead") {
+        setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
+      }
     } catch (_error) {
       toastError({
         description: `Failed to ${bulkAction === "markRead" ? "mark as read" : "archive"} some senders. Please try again.`,
@@ -314,9 +319,6 @@ export function BulkArchiveCards({
                     <p className="text-sm text-muted-foreground">
                       {senders.length} senders
                       {isArchived && " archived"}
-                      {!isArchived &&
-                        (category?.description || defaultCat?.description) &&
-                        ` · ${category?.description || defaultCat?.description}`}
                     </p>
                   </div>
                 </div>
@@ -432,7 +434,7 @@ function SenderRow({
   emailAccountId: string;
   onCategoryChange?: () => Promise<unknown>;
 }) {
-  const archiveStatus = useArchiveSenderStatus(sender.address);
+  const archiveStatus = useArchiveSenderStatus(emailAccountId, sender.address);
   const markReadStatus = useMarkReadSenderStatus(sender.address);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -440,7 +442,7 @@ function SenderRow({
     <div>
       {/* Sender row */}
       <div
-        className="flex cursor-pointer items-center gap-3 p-4 transition-colors hover:bg-muted/50"
+        className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
         onClick={onToggle}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -459,7 +461,8 @@ function SenderRow({
           <EmailCell
             emailAddress={sender.address}
             name={sender.name}
-            className="flex flex-col"
+            className="min-w-0"
+            singleLine
           />
         </div>
         <div className="mr-2 text-right">
@@ -604,6 +607,16 @@ function SenderStatus({
   // Show archive status if it exists
   if (archiveStatus?.status) {
     switch (archiveStatus.status) {
+      case "pending":
+        return <span className="text-sm text-muted-foreground">Queued</span>;
+      case "processing":
+        return (
+          <span className="text-sm text-blue-600">
+            {archiveStatus.threadsTotal
+              ? `${archiveStatus.threadsTotal - archiveStatus.threadIds.length} / ${archiveStatus.threadsTotal}`
+              : "Archiving..."}
+          </span>
+        );
       case "completed":
         return (
           <span className="text-sm text-green-600">
@@ -612,17 +625,8 @@ function SenderStatus({
               : "Archived"}
           </span>
         );
-      case "processing":
-        return (
-          <span className="text-sm text-blue-600">
-            {archiveStatus.threadsTotal - archiveStatus.threadIds.length} /{" "}
-            {archiveStatus.threadsTotal}
-          </span>
-        );
-      case "pending":
-        return (
-          <span className="text-sm text-muted-foreground">Pending...</span>
-        );
+      case "failed":
+        return <span className="text-sm text-red-600">Failed</span>;
     }
   }
 

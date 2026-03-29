@@ -2,24 +2,44 @@
 
 import { memo, useEffect } from "react";
 import { resetTotalThreads, useQueueState } from "@/store/archive-queue";
+import { useArchiveQueueProgress } from "@/store/archive-sender-queue";
 import { ProgressPanel } from "@/components/ProgressPanel";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export const ArchiveProgress = memo(() => {
+  const { emailAccountId } = useAccount();
   const { totalThreads, activeThreads } = useQueueState();
+  const bulkArchiveProgress = useArchiveQueueProgress(emailAccountId);
 
-  // Make sure activeThreads is an object as this was causing an error.
+  const hasBackendProgress = Boolean(bulkArchiveProgress?.totalItems);
   const threadsRemaining = Object.values(activeThreads || {}).length;
   const totalProcessed = totalThreads - threadsRemaining;
-  const progress = (totalProcessed / totalThreads) * 100;
-  const isCompleted = progress === 100;
+  const localProgress =
+    totalThreads > 0 ? (totalProcessed / totalThreads) * 100 : 0;
+  const isLocalCompleted = localProgress === 100;
 
   useEffect(() => {
-    if (isCompleted) {
+    if (isLocalCompleted) {
       setTimeout(() => {
         resetTotalThreads();
       }, 5000);
     }
-  }, [isCompleted]);
+  }, [isLocalCompleted]);
+
+  if (hasBackendProgress) {
+    return (
+      <ProgressPanel
+        totalItems={bulkArchiveProgress?.totalItems || 0}
+        remainingItems={
+          (bulkArchiveProgress?.totalItems || 0) -
+          (bulkArchiveProgress?.completedItems || 0)
+        }
+        inProgressText="Archiving senders..."
+        completedText="Archiving complete!"
+        itemLabel="senders"
+      />
+    );
+  }
 
   return (
     <ProgressPanel
