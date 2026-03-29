@@ -6,11 +6,21 @@ import {
   getInternalApiUrl,
 } from "@/utils/internal-api";
 import { createScopedLogger } from "@/utils/logger";
+import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
 
 const logger = createScopedLogger("upstash");
 
 function getQstashClient() {
   if (!env.QSTASH_TOKEN) return null;
+  if (!isSafeExternalHttpUrl(getQstashCallbackBaseUrl())) {
+    logger.warn(
+      "Qstash callback URL is not externally reachable; using fallback",
+      {
+        qstashCallbackBaseUrl: getQstashCallbackBaseUrl(),
+      },
+    );
+    return null;
+  }
   return new Client({ token: env.QSTASH_TOKEN });
 }
 
