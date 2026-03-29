@@ -552,6 +552,7 @@ function validateLowTrustStaticFromOutboundActions({
 
 async function mapActionFields(
   actions: (CreateOrUpdateRuleSchema["actions"][number] & {
+    messagingChannelId?: string | null;
     labelId?: string | null;
     folderId?: string | null;
   })[],
