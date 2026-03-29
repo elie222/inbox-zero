@@ -117,15 +117,25 @@ export function BulkUnsubscribeRowDesktop({
       <TableCell className="max-w-[250px] py-3 pl-8">
         <div className="flex items-center gap-2">
           <DomainIcon domain={domain} size={32} variant="circular" />
-          <div className="flex flex-col min-w-0">
-            <span className="font-medium truncate">
-              {item.fromName || item.name}
-            </span>
-            {item.fromName && (
-              <span className="text-xs text-muted-foreground truncate">
-                {item.name}
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-baseline gap-2">
+              <span className="truncate font-medium">
+                {item.fromName || item.name}
               </span>
-            )}
+              {item.fromName && (
+                <span
+                  aria-hidden="true"
+                  className="shrink-0 text-muted-foreground"
+                >
+                  ·
+                </span>
+              )}
+              {item.fromName && (
+                <span className="truncate text-sm text-muted-foreground">
+                  {item.name}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </TableCell>
