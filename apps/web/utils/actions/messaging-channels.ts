@@ -311,7 +311,12 @@ export const toggleRuleChannelAction = actionClient
         }),
         prisma.messagingChannel.findUnique({
           where: { id: messagingChannelId },
-          select: { emailAccountId: true },
+          select: {
+            emailAccountId: true,
+            isConnected: true,
+            channelId: true,
+            providerUserId: true,
+          },
         }),
       ]);
 
@@ -323,16 +328,20 @@ export const toggleRuleChannelAction = actionClient
       }
 
       if (enabled) {
+        if (!channel.isConnected) {
+          throw new SafeError("Messaging channel is not connected");
+        }
+        if (!channel.channelId && !channel.providerUserId) {
+          throw new SafeError(
+            "Please select a target channel before enabling notifications",
+          );
+        }
+
         const existing = await prisma.action.findFirst({
           where: {
             ruleId,
             messagingChannelId,
-            type: {
-              in: [
-                ActionType.NOTIFY_MESSAGING_CHANNEL,
-                ActionType.DRAFT_MESSAGING_CHANNEL,
-              ],
-            },
+            type: ActionType.NOTIFY_MESSAGING_CHANNEL,
           },
         });
 
@@ -350,12 +359,7 @@ export const toggleRuleChannelAction = actionClient
           where: {
             ruleId,
             messagingChannelId,
-            type: {
-              in: [
-                ActionType.NOTIFY_MESSAGING_CHANNEL,
-                ActionType.DRAFT_MESSAGING_CHANNEL,
-              ],
-            },
+            type: ActionType.NOTIFY_MESSAGING_CHANNEL,
           },
         });
       }

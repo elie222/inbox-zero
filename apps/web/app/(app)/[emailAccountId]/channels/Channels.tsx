@@ -329,7 +329,7 @@ function ChannelCard({
 }) {
   const config = PROVIDER_CONFIG[channel.provider];
   const Icon = config.icon;
-  const hasTarget = Boolean(channel.channelId) || channel.isDm;
+  const hasTarget = channel.hasSendDestination;
   const isSlack = channel.provider === "SLACK";
 
   const channelRuleIds = useMemo(() => {
@@ -346,14 +346,13 @@ function ChannelCard({
         <div className="flex items-center gap-2 text-sm font-medium">
           <Icon className="h-4 w-4 text-muted-foreground" />
           <span>{config.name}</span>
-          {channel.teamName && (
-            <span className="text-muted-foreground font-normal">
-              &middot; {channel.teamName}
-            </span>
-          )}
+          <span className="text-muted-foreground font-normal">
+            &middot; {channel.teamName ?? "Workspace"}
+          </span>
           {isSlack ? (
             <SlackTargetSelect
               channelId={channel.id}
+              targetId={channel.channelId}
               channelName={channel.channelName}
               isDm={channel.isDm}
               canSendAsDm={channel.canSendAsDm}
@@ -426,6 +425,7 @@ function ChannelCard({
 
 function SlackTargetSelect({
   channelId,
+  targetId,
   channelName,
   isDm,
   canSendAsDm,
@@ -433,6 +433,7 @@ function SlackTargetSelect({
   onUpdate,
 }: {
   channelId: string;
+  targetId: string | null;
   channelName: string | null;
   isDm: boolean;
   canSendAsDm: boolean;
@@ -468,7 +469,7 @@ function SlackTargetSelect({
 
   return (
     <Select
-      value={isDm ? "dm" : (channelName ?? "")}
+      value={isDm ? "dm" : (targetId ?? "")}
       onValueChange={(value) => {
         execute({ channelId, targetId: value === "dm" ? "dm" : value });
       }}
