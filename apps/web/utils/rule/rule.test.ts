@@ -227,3 +227,64 @@ describe("outbound action guardrails", () => {
     expect(prisma.rule.update).not.toHaveBeenCalled();
   });
 });
+
+describe("draft messaging actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("preserves messagingChannelId when updating a draft messaging rule", async () => {
+    prisma.rule.update.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+
+    await updateRule({
+      ruleId: "rule-id",
+      result: {
+        name: "To Reply",
+        condition: {
+          aiInstructions: null,
+          conditionalOperator: null,
+          static: {
+            from: null,
+            to: null,
+            subject: null,
+          },
+        },
+        actions: [
+          {
+            type: ActionType.DRAFT_MESSAGING_CHANNEL,
+            messagingChannelId: "cmessagingchannel1234567890123",
+            fields: {
+              content: "",
+            } as any,
+            delayInMinutes: null,
+          },
+        ],
+      },
+      emailAccountId: "email-account-id",
+      provider: "gmail",
+      logger,
+    });
+
+    expect(prisma.rule.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          actions: {
+            deleteMany: {},
+            createMany: {
+              data: [
+                expect.objectContaining({
+                  type: ActionType.DRAFT_MESSAGING_CHANNEL,
+                  messagingChannelId: "cmessagingchannel1234567890123",
+                }),
+              ],
+            },
+          },
+        }),
+      }),
+    );
+  });
+});
