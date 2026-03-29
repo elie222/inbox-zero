@@ -18,8 +18,11 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { PageHeading } from "@/components/Typography";
 import { EmailStatsPreloader } from "@/components/EmailStatsPreloader";
+import { clearArchiveSenderStatuses } from "@/store/archive-sender-queue";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function BulkArchive() {
+  const { emailAccountId } = useAccount();
   const { isBulkCategorizing } = useCategorizeProgress();
   const [onboarding] = useQueryState("onboarding", parseAsBoolean);
   const [bulkAction, setBulkAction] = useState<BulkActionType>("archive");
@@ -47,8 +50,9 @@ export function BulkArchive() {
   );
 
   const handleProgressComplete = useCallback(() => {
+    clearArchiveSenderStatuses(emailAccountId);
     mutate();
-  }, [mutate]);
+  }, [emailAccountId, mutate]);
 
   const [setupDismissed, setSetupDismissed] = useState(false);
 

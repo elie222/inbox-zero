@@ -15,15 +15,12 @@ type QueueItem = {
   queued?: boolean;
 };
 
-const QUEUED_STATUS_TTL_MS = 30_000;
-
 const queueAtom = atom<Map<string, QueueItem>>(new Map());
 const statusAtom = atom((get) => {
   const queue = get(queueAtom);
   return (emailAccountId: string, sender: string) =>
     queue.get(getQueueKey(emailAccountId, sender));
 });
-const queueCleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 const { addToQueue: addToArchiveSenderThreadQueue } =
   createSenderQueue(archiveEmails);
@@ -50,8 +47,6 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
 
         for (const sender of sendersToQueue) {
           const queueKey = getQueueKey(emailAccountId, sender);
-
-          clearQueueCleanupTimer(queueKey);
           next.set(queueKey, { status: "pending" });
         }
 
@@ -80,12 +75,6 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
           const queueKey = getQueueKey(emailAccountId, sender);
 
           next.set(queueKey, { status: "completed", queued });
-
-          if (queued) {
-            scheduleQueuedStatusCleanup(queueKey);
-          } else {
-            clearQueueCleanupTimer(queueKey);
-          }
         }
 
         return next;
@@ -111,6 +100,19 @@ export function useArchiveSenderStatus(emailAccountId: string, sender: string) {
     () => getStatus(emailAccountId, sender),
     [emailAccountId, getStatus, sender],
   );
+}
+
+export function clearArchiveSenderStatuses(emailAccountId: string) {
+  jotaiStore.set(queueAtom, (prev) => {
+    const next = new Map(prev);
+
+    for (const queueKey of next.keys()) {
+      if (!queueKey.startsWith(`${emailAccountId}:`)) continue;
+      next.delete(queueKey);
+    }
+
+    return next;
+  });
 }
 
 function getUniqueSenders(senders: string[]) {
@@ -145,37 +147,12 @@ function getQueueableSenders({
   });
 }
 
-function clearQueueCleanupTimer(queueKey: string) {
-  const timer = queueCleanupTimers.get(queueKey);
-  if (timer) {
-    clearTimeout(timer);
-    queueCleanupTimers.delete(queueKey);
-  }
-}
-
-function scheduleQueuedStatusCleanup(queueKey: string) {
-  clearQueueCleanupTimer(queueKey);
-
-  queueCleanupTimers.set(
-    queueKey,
-    setTimeout(() => {
-      jotaiStore.set(queueAtom, (prev) => {
-        const next = new Map(prev);
-        next.delete(queueKey);
-        return next;
-      });
-      queueCleanupTimers.delete(queueKey);
-    }, QUEUED_STATUS_TTL_MS),
-  );
-}
-
 function clearQueueEntries(emailAccountId: string, senders: string[]) {
   jotaiStore.set(queueAtom, (prev) => {
     const next = new Map(prev);
 
     for (const sender of senders) {
       const queueKey = getQueueKey(emailAccountId, sender);
-      clearQueueCleanupTimer(queueKey);
       next.delete(queueKey);
     }
 

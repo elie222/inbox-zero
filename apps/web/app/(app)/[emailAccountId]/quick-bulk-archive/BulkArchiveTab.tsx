@@ -506,9 +506,10 @@ function SenderRow({
           <EmailCell
             emailAddress={candidate.address}
             className={cn(
-              "flex flex-col",
+              "min-w-0",
               !isSelected && "text-muted-foreground line-through",
             )}
+            singleLine
           />
         </div>
         <div className="flex items-center gap-3">

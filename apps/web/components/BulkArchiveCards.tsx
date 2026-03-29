@@ -461,7 +461,8 @@ function SenderRow({
           <EmailCell
             emailAddress={sender.address}
             name={sender.name}
-            className="flex flex-col"
+            className="min-w-0"
+            singleLine
           />
         </div>
         <div className="mr-2 text-right">

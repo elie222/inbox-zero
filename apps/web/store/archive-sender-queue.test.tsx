@@ -80,13 +80,15 @@ describe("archive sender queue", () => {
     expect(secondAccountStatus.current).toBeUndefined();
   });
 
-  it("clears queued sender status after a short delay", async () => {
-    vi.useFakeTimers();
+  it("clears queued sender status when the account run completes", async () => {
     mockExecuteAsync.mockResolvedValue({ data: { mode: "queued" } });
 
     const { jotaiStore } = await import("@/store");
-    const { useArchiveSenderQueueActions, useArchiveSenderStatus } =
-      await import("./archive-sender-queue");
+    const {
+      clearArchiveSenderStatuses,
+      useArchiveSenderQueueActions,
+      useArchiveSenderStatus,
+    } = await import("./archive-sender-queue");
 
     const wrapper = ({ children }: { children: ReactNode }) => (
       <Provider store={jotaiStore}>{children}</Provider>
@@ -113,7 +115,7 @@ describe("archive sender queue", () => {
     });
 
     act(() => {
-      vi.advanceTimersByTime(30_000);
+      clearArchiveSenderStatuses("account-cleanup");
     });
 
     expect(statusResult.current).toBeUndefined();
