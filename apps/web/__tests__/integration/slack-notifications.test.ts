@@ -25,6 +25,9 @@ import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/rule/rule-history", () => ({
+  createRuleHistory: vi.fn().mockResolvedValue(undefined),
+}));
 
 // Mock createSlackClient so production functions use our emulator-bound client
 let emulatorClient: WebClient;
@@ -451,6 +454,167 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         },
       });
     });
+
+    test("updating a draft messaging rule preserves the Slack destination through execution", async () => {
+      const { updateRule } = await import("@/utils/rule/rule");
+      const { runActionFunction } = await import("@/utils/ai/actions");
+
+      const subject = getUniqueSubject("Persisted draft");
+      const threadId = "persisted-thread-1";
+      const emailAccountId = "email-account-1";
+      const persistedRuleActionId = "persisted-rule-action-1";
+      const executedActionId = "executed-action-1";
+      let persistedMessagingChannelId: string | null = null;
+
+      prisma.rule.update.mockImplementation(async ({ where, data }) => {
+        const savedAction = {
+          id: persistedRuleActionId,
+          type: data.actions.createMany.data[0].type,
+          messagingChannelId:
+            data.actions.createMany.data[0].messagingChannelId ?? null,
+          label: null,
+          labelId: null,
+          subject: data.actions.createMany.data[0].subject ?? null,
+          content: data.actions.createMany.data[0].content ?? null,
+          to: data.actions.createMany.data[0].to ?? null,
+          cc: data.actions.createMany.data[0].cc ?? null,
+          bcc: data.actions.createMany.data[0].bcc ?? null,
+          url: data.actions.createMany.data[0].url ?? null,
+          folderName: null,
+          folderId: null,
+          staticAttachments: null,
+          delayInMinutes: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ruleId: where.id,
+        };
+
+        persistedMessagingChannelId = savedAction.messagingChannelId;
+
+        return {
+          id: where.id,
+          name: data.name ?? "To Reply",
+          instructions: data.instructions ?? null,
+          enabled: true,
+          automate: true,
+          runOnThreads: true,
+          conditionalOperator: "AND",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          emailAccountId,
+          groupId: null,
+          from: null,
+          to: null,
+          subject: null,
+          body: null,
+          categoryFilterType: null,
+          systemType: null,
+          promptText: null,
+          actions: [savedAction],
+          group: null,
+        } as never;
+      });
+
+      prisma.executedAction.findUnique.mockImplementation(async ({ where }) => {
+        if (where?.id !== executedActionId) return null;
+
+        return getNotificationContext({
+          id: executedActionId,
+          type: ActionType.DRAFT_MESSAGING_CHANNEL,
+          content: "Thanks for the note.\n\nI'll follow up shortly.",
+          channelId: notifChannelId,
+          threadId,
+          messagingChannelId: persistedMessagingChannelId,
+        }) as never;
+      });
+      prisma.executedAction.findFirst.mockResolvedValue(null);
+      prisma.executedAction.update.mockResolvedValue({} as never);
+
+      const updatedRule = await updateRule({
+        ruleId: "rule-1",
+        result: {
+          name: "To Reply",
+          condition: {
+            aiInstructions: null,
+            conditionalOperator: null,
+            static: {
+              from: null,
+              to: null,
+              subject: null,
+            },
+          },
+          actions: [
+            {
+              type: ActionType.DRAFT_MESSAGING_CHANNEL,
+              messagingChannelId: "channel-1",
+              fields: {
+                content: "Thanks for the note.\n\nI'll follow up shortly.",
+              } as any,
+              delayInMinutes: null,
+            },
+          ],
+        },
+        emailAccountId,
+        provider: "gmail",
+        logger,
+      });
+
+      const persistedAction = updatedRule.actions[0];
+      expect(persistedAction?.messagingChannelId).toBe("channel-1");
+
+      await runActionFunction({
+        client: {} as never,
+        email: {
+          id: "message-1",
+          threadId,
+          headers: {
+            from: "sender@example.com",
+            to: "user@example.com",
+            subject,
+            date: "2026-01-01T12:00:00.000Z",
+            "message-id": "<message-1@example.com>",
+          },
+          textPlain: "Please reply when you can.",
+          textHtml: "<p>Please reply when you can.</p>",
+          snippet: "Please reply when you can.",
+          attachments: [],
+          internalDate: "1700000000000",
+          rawRecipients: [],
+        },
+        action: {
+          id: executedActionId,
+          type: persistedAction.type,
+          messagingChannelId: persistedAction.messagingChannelId,
+          content: persistedAction.content,
+        },
+        userEmail: "user@example.com",
+        userId: "user-1",
+        emailAccountId,
+        executedRule: {
+          id: "executed-rule-1",
+          threadId,
+          emailAccountId,
+          ruleId: updatedRule.id,
+        } as any,
+        logger,
+      });
+
+      const message = await findMessageBySubject({
+        channelId: notifChannelId,
+        subject,
+      });
+
+      expect(message).toBeDefined();
+      expect(message?.text).toContain("Draft reply");
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: executedActionId },
+        data: {
+          messagingMessageId: expect.any(String),
+          messagingMessageSentAt: expect.any(Date),
+          messagingMessageStatus: "SENT",
+        },
+      });
+    });
   },
 );
 
@@ -460,12 +624,14 @@ function getNotificationContext({
   content,
   channelId,
   threadId,
+  messagingChannelId = "channel-1",
 }: {
   id: string;
   type: ActionType;
   content: string | null;
   channelId: string;
   threadId: string;
+  messagingChannelId?: string | null;
 }) {
   return {
     id,
@@ -477,7 +643,7 @@ function getNotificationContext({
     bcc: null,
     draftId: null,
     staticAttachments: null,
-    messagingChannelId: "channel-1",
+    messagingChannelId,
     messagingMessageStatus: null,
     executedRule: {
       id: `executed-rule-${id}`,
@@ -496,15 +662,17 @@ function getNotificationContext({
         systemType: null,
       },
     },
-    messagingChannel: {
-      id: "channel-1",
-      provider: MessagingProvider.SLACK,
-      isConnected: true,
-      teamId: "team-1",
-      providerUserId: null,
-      accessToken: "emulator-token",
-      channelId,
-    },
+    messagingChannel: messagingChannelId
+      ? {
+          id: messagingChannelId,
+          provider: MessagingProvider.SLACK,
+          isConnected: true,
+          teamId: "team-1",
+          providerUserId: null,
+          accessToken: "emulator-token",
+          channelId,
+        }
+      : null,
   };
 }
 
