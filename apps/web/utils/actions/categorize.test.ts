@@ -201,4 +201,44 @@ describe("bulkCategorizeSendersAction", () => {
       totalUncategorizedSenders: 0,
     });
   });
+
+  it("dedupes queued senders case-insensitively across sync passes", async () => {
+    mockGetUncategorizedSenders
+      .mockResolvedValueOnce({
+        uncategorizedSenders: [{ email: "Sender@example.com", name: "Sender" }],
+      })
+      .mockResolvedValueOnce({
+        uncategorizedSenders: [
+          { email: " sender@example.com ", name: "Sender duplicate" },
+          { email: "second@example.com", name: "Second" },
+        ],
+      });
+
+    mockLoadEmails
+      .mockResolvedValueOnce({
+        pages: 1,
+        loadedAfterMessages: 0,
+        loadedBeforeMessages: 10,
+        hasMoreAfter: false,
+        hasMoreBefore: true,
+      })
+      .mockResolvedValueOnce({
+        pages: 1,
+        loadedAfterMessages: 0,
+        loadedBeforeMessages: 0,
+        hasMoreAfter: false,
+        hasMoreBefore: false,
+      });
+
+    await bulkCategorizeSendersAction("account-1");
+
+    expect(mockPublishToAiCategorizeSendersQueue).toHaveBeenNthCalledWith(1, {
+      emailAccountId: "account-1",
+      senders: [{ email: "Sender@example.com", name: "Sender" }],
+    });
+    expect(mockPublishToAiCategorizeSendersQueue).toHaveBeenNthCalledWith(2, {
+      emailAccountId: "account-1",
+      senders: [{ email: "second@example.com", name: "Second" }],
+    });
+  });
 });

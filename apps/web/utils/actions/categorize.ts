@@ -108,8 +108,9 @@ export const bulkCategorizeSendersAction = actionClient
         });
 
         const sendersToQueue = result.uncategorizedSenders.filter((sender) => {
-          if (queuedSenderEmails.has(sender.email)) return false;
-          queuedSenderEmails.add(sender.email);
+          const senderKey = sender.email.trim().toLowerCase();
+          if (queuedSenderEmails.has(senderKey)) return false;
+          queuedSenderEmails.add(senderKey);
           return true;
         });
 

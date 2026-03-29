@@ -584,6 +584,8 @@ function ArchiveStatusCell({
           {status.threadsTotal ? `Archived ${status.threadsTotal}` : "Archived"}
         </span>
       );
+    case "failed":
+      return <span className="text-red-500">Failed</span>;
     default:
       return null;
   }

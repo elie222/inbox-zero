@@ -240,7 +240,7 @@ export function BulkArchiveCards({
         });
       }
 
-      if (bulkAction === "archive" || bulkAction === "markRead") {
+      if (bulkAction === "markRead") {
         setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
       }
     } catch (_error) {
@@ -625,6 +625,8 @@ function SenderStatus({
               : "Archived"}
           </span>
         );
+      case "failed":
+        return <span className="text-sm text-red-600">Failed</span>;
     }
   }
 

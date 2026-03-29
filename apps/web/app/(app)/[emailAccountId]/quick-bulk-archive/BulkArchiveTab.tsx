@@ -526,6 +526,8 @@ function ArchiveStatus({
           {status.threadsTotal ? `Archived ${status.threadsTotal}` : "Archived"}
         </span>
       );
+    case "failed":
+      return <span className="text-sm text-red-600">Failed</span>;
     default:
       return null;
   }

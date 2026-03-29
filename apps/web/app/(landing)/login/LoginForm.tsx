@@ -20,6 +20,9 @@ import { toastError } from "@/components/Toast";
 import { isInternalPath } from "@/utils/path";
 import { getPossessiveBrandName } from "@/utils/branding";
 import { AlertBasic } from "@/components/Alert";
+import { createClientLogger } from "@/utils/logger-client";
+
+const logger = createClientLogger("login/LoginForm");
 
 export function LoginForm({
   useGoogleOauthEmulator,
@@ -57,7 +60,7 @@ export function LoginForm({
       }
     } catch (error) {
       const description = getSocialSignInErrorMessage(error);
-      console.error("Error signing in with Google:", error);
+      logger.error("Error signing in with Google", { error });
       setGoogleError(description);
       toastError({
         title: "Error signing in with Google",
@@ -190,7 +193,7 @@ async function handleSocialSignIn({
     });
   } catch (error) {
     const description = getSocialSignInErrorMessage(error);
-    console.error(`Error signing in with ${providerName}:`, error);
+    logger.error(`Error signing in with ${providerName}`, { error });
     toastError({
       title: `Error signing in with ${providerName}`,
       description,

@@ -34,7 +34,9 @@ export async function signInWithOauth2(
 
   const payload = await parseOauth2Response(response);
   if (!response.ok) {
-    throw new Error(payload.error);
+    throw new Error(
+      payload.error || `Request failed with status ${response.status}`,
+    );
   }
 
   return payload;
@@ -50,10 +52,7 @@ async function parseOauth2Response(response: Response) {
 
     return {
       url: data.url,
-      error:
-        data.error ||
-        data.message ||
-        `Request failed with status ${response.status}`,
+      error: data.error || data.message,
     };
   } catch {
     return {

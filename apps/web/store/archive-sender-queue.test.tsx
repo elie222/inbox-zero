@@ -282,4 +282,67 @@ describe("archive sender queue", () => {
 
     expect(queuedSenders).toBe(0);
   });
+
+  it("keeps failed senders visible and allows retrying them", async () => {
+    mockFetchWithAccount
+      .mockRejectedValueOnce(new Error("Failed to fetch threads"))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: [] }),
+      });
+
+    const { jotaiStore } = await import("@/store");
+    const {
+      useArchiveQueueProgress,
+      useArchiveSenderQueueActions,
+      useArchiveSenderStatus,
+    } = await import("./archive-sender-queue");
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <Provider store={jotaiStore}>{children}</Provider>
+    );
+
+    const { result: actionResult } = renderHook(
+      () => useArchiveSenderQueueActions("account-1"),
+      { wrapper },
+    );
+    const { result: statusResult } = renderHook(
+      () => useArchiveSenderStatus("account-1", "sender@example.com"),
+      { wrapper },
+    );
+    const { result: progressResult } = renderHook(
+      () => useArchiveQueueProgress("account-1"),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await expect(
+        actionResult.current.queueArchiveSenders({
+          senders: ["sender@example.com"],
+        }),
+      ).rejects.toThrow("Failed to fetch threads");
+    });
+
+    expect(statusResult.current).toMatchObject({
+      status: "failed",
+      threadsTotal: 0,
+    });
+    expect(progressResult.current).toEqual({
+      totalItems: 1,
+      completedItems: 1,
+    });
+
+    let queuedSenders = 0;
+    await act(async () => {
+      queuedSenders = await actionResult.current.queueArchiveSenders({
+        senders: ["sender@example.com"],
+      });
+    });
+
+    expect(queuedSenders).toBe(1);
+    expect(statusResult.current).toMatchObject({
+      status: "completed",
+      threadsTotal: 0,
+    });
+  });
 });
