@@ -2,26 +2,19 @@
 
 import { useMemo, useState } from "react";
 import {
-  HashIcon,
   LockIcon,
   MessageCircleIcon,
   MessageSquareIcon,
-  PlusIcon,
   SendIcon,
+  SlackIcon,
 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Toggle } from "@/components/Toggle";
 import { MutedText } from "@/components/Typography";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -30,11 +23,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CopyInput } from "@/components/CopyInput";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import {
-  useMessagingChannels,
-  useChannelTargets,
-} from "@/hooks/useMessagingChannels";
+  Item,
+  ItemActions,
+  ItemCard,
+  ItemContent,
+  ItemDescription,
+  ItemSeparator,
+  ItemTitle,
+} from "@/components/ui/item";
 import {
   Select,
   SelectContent,
@@ -42,6 +39,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import {
+  useMessagingChannels,
+  useChannelTargets,
+} from "@/hooks/useMessagingChannels";
 import { useRules } from "@/hooks/useRules";
 import { useSlackConnect } from "@/hooks/useSlackConnect";
 import {
@@ -60,11 +62,16 @@ type LinkableProvider = "TEAMS" | "TELEGRAM";
 
 const PROVIDER_CONFIG: Record<
   MessagingProvider,
-  { name: string; icon: typeof MessageSquareIcon }
+  { name: string; icon: typeof SlackIcon }
 > = {
-  SLACK: { name: "Slack", icon: HashIcon },
+  SLACK: { name: "Slack", icon: SlackIcon },
   TEAMS: { name: "Teams", icon: MessageCircleIcon },
   TELEGRAM: { name: "Telegram", icon: SendIcon },
+};
+
+const FEATURE_DESCRIPTIONS: Record<string, string> = {
+  sendMeetingBriefs: "Get a summary before your meetings.",
+  sendDocumentFilings: "Notifications when documents are auto-filed.",
 };
 
 type ChannelFromResponse =
@@ -103,68 +110,173 @@ export function Channels() {
     (p) => !connectedProviders.has(p),
   );
 
+  const onUpdate = () => {
+    mutateChannels();
+    mutateRules();
+  };
+
   return (
-    <>
-      <div className="flex items-center justify-between">
-        <PageHeader
-          title="Channels"
-          description="Manage what gets delivered to your chat apps."
-        />
-        {unconnectedProviders.length > 0 && (
-          <ConnectAppButton
-            providers={unconnectedProviders}
-            emailAccountId={emailAccountId}
-            onConnected={mutateChannels}
-          />
-        )}
-      </div>
+    <div className="mx-auto max-w-2xl space-y-6">
+      <PageHeader
+        title="Channels"
+        description="Manage what gets delivered to your chat apps."
+      />
 
-      <div className="mt-6 space-y-4">
-        <LoadingContent
-          loading={isLoadingChannels || isLoadingRules}
-          error={channelsError || rulesError}
-        >
-          {connectedChannels.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center">
-                <MutedText>
-                  No channels connected.
-                  {unconnectedProviders.length > 0
-                    ? " Connect an app to get started."
-                    : ""}
-                </MutedText>
-              </CardContent>
-            </Card>
-          ) : (
-            connectedChannels.map((channel) => (
-              <ChannelCard
-                key={channel.id}
-                channel={channel}
-                rules={rulesData ?? []}
-                emailAccountId={emailAccountId}
-                onUpdate={() => {
-                  mutateChannels();
-                  mutateRules();
-                }}
-              />
-            ))
-          )}
-        </LoadingContent>
+      <LoadingContent
+        loading={isLoadingChannels || isLoadingRules}
+        error={channelsError || rulesError}
+      >
+        <div className="space-y-6">
+          {connectedChannels.map((channel) => (
+            <ConnectedChannelCard
+              key={channel.id}
+              channel={channel}
+              rules={rulesData ?? []}
+              emailAccountId={emailAccountId}
+              onUpdate={onUpdate}
+            />
+          ))}
 
-      </div>
-    </>
+          {unconnectedProviders.map((provider) => (
+            <UnconnectedProviderCard
+              key={provider}
+              provider={provider}
+              emailAccountId={emailAccountId}
+              onConnected={mutateChannels}
+            />
+          ))}
+
+          {connectedChannels.length === 0 &&
+            unconnectedProviders.length === 0 && (
+              <ItemCard className="py-8 text-center">
+                <MutedText>No channels available.</MutedText>
+              </ItemCard>
+            )}
+        </div>
+      </LoadingContent>
+    </div>
   );
 }
 
-function ConnectAppButton({
-  providers,
+function ConnectedChannelCard({
+  channel,
+  rules,
+  emailAccountId,
+  onUpdate,
+}: {
+  channel: ChannelFromResponse;
+  rules: Array<{ id: string; name: string }>;
+  emailAccountId: string;
+  onUpdate: () => void;
+}) {
+  const config = PROVIDER_CONFIG[channel.provider];
+  const Icon = config.icon;
+  const hasTarget = channel.hasSendDestination;
+  const isSlack = channel.provider === "SLACK";
+
+  const channelRuleIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const action of channel.actions) {
+      if (action.ruleId) ids.add(action.ruleId);
+    }
+    return ids;
+  }, [channel.actions]);
+
+  return (
+    <ItemCard>
+      <Item size="sm">
+        <Icon className="h-5 w-5" />
+        <ItemContent>
+          <ItemTitle>
+            {config.name}
+            <Badge variant="secondary" className="text-xs font-normal">
+              Connected
+            </Badge>
+          </ItemTitle>
+        </ItemContent>
+      </Item>
+
+      {isSlack && (
+        <>
+          <ItemSeparator />
+          <Item size="sm">
+            <ItemContent>
+              <ItemTitle>Deliver to</ItemTitle>
+              <ItemDescription>
+                Choose where Inbox Zero sends notifications.
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <SlackTargetSelect
+                channelId={channel.id}
+                targetId={channel.channelId}
+                channelName={channel.channelName}
+                isDm={channel.isDm}
+                canSendAsDm={channel.canSendAsDm}
+                emailAccountId={emailAccountId}
+                onUpdate={onUpdate}
+              />
+            </ItemActions>
+          </Item>
+        </>
+      )}
+
+      <ItemSeparator />
+      <SectionLabel>Rules</SectionLabel>
+      {rules.length > 0 ? (
+        rules.map((rule) => (
+          <RuleToggle
+            key={rule.id}
+            rule={rule}
+            channelId={channel.id}
+            enabled={channelRuleIds.has(rule.id)}
+            emailAccountId={emailAccountId}
+            onUpdate={onUpdate}
+          />
+        ))
+      ) : (
+        <Item size="sm">
+          <ItemContent>
+            <MutedText className="text-sm">No rules</MutedText>
+          </ItemContent>
+        </Item>
+      )}
+
+      <ItemSeparator />
+      <SectionLabel>Other</SectionLabel>
+      <FeatureToggle
+        name="Meeting briefs"
+        channelId={channel.id}
+        enabled={channel.sendMeetingBriefs}
+        featureKey="sendMeetingBriefs"
+        emailAccountId={emailAccountId}
+        onUpdate={onUpdate}
+        disabled={!hasTarget}
+      />
+      <FeatureToggle
+        name="Document filing alerts"
+        channelId={channel.id}
+        enabled={channel.sendDocumentFilings}
+        featureKey="sendDocumentFilings"
+        emailAccountId={emailAccountId}
+        onUpdate={onUpdate}
+        disabled={!hasTarget}
+      />
+    </ItemCard>
+  );
+}
+
+function UnconnectedProviderCard({
+  provider,
   emailAccountId,
   onConnected,
 }: {
-  providers: MessagingProvider[];
+  provider: MessagingProvider;
   emailAccountId: string;
   onConnected: () => void;
 }) {
+  const config = PROVIDER_CONFIG[provider];
+  const Icon = config.icon;
   const { connect: connectSlack, connecting: connectingSlack } =
     useSlackConnect({ emailAccountId, onConnected });
 
@@ -194,7 +306,7 @@ function ConnectAppButton({
     },
   );
 
-  const handleConnect = (provider: MessagingProvider) => {
+  const handleConnect = () => {
     if (provider === "SLACK") {
       connectSlack();
     } else {
@@ -202,58 +314,37 @@ function ConnectAppButton({
     }
   };
 
-  if (providers.length === 1) {
-    const provider = providers[0];
-    const config = PROVIDER_CONFIG[provider];
-    const Icon = config.icon;
-    return (
-      <>
-        <Button
-          variant="default"
-          size="sm"
-          disabled={connectingSlack || linkCodeStatus === "executing"}
-          onClick={() => handleConnect(provider)}
-        >
-          <Icon className="mr-2 h-4 w-4" />
-          Connect {config.name}
-        </Button>
-        <LinkCodeDialog
-          dialog={linkCodeDialog}
-          onClose={() => setLinkCodeDialog(null)}
-        />
-      </>
-    );
-  }
+  const isLoading = connectingSlack || linkCodeStatus === "executing";
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="default"
-            size="sm"
-            disabled={connectingSlack || linkCodeStatus === "executing"}
-          >
-            <PlusIcon className="mr-2 h-4 w-4" />
-            Connect app
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {providers.map((provider) => {
-            const config = PROVIDER_CONFIG[provider];
-            const Icon = config.icon;
-            return (
-              <DropdownMenuItem
-                key={provider}
-                onClick={() => handleConnect(provider)}
-              >
-                <Icon className="mr-2 h-4 w-4" />
-                {config.name}
-              </DropdownMenuItem>
-            );
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ItemCard>
+        <Item size="sm">
+          <Icon className="h-5 w-5" />
+          <ItemContent>
+            <ItemTitle>{config.name}</ItemTitle>
+          </ItemContent>
+        </Item>
+        <ItemSeparator />
+        <Item size="sm">
+          <ItemContent>
+            <ItemTitle>Connect {config.name}</ItemTitle>
+            <ItemDescription>
+              Receive notifications via {config.name}.
+            </ItemDescription>
+          </ItemContent>
+          <ItemActions>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+              onClick={handleConnect}
+            >
+              Connect
+            </Button>
+          </ItemActions>
+        </Item>
+      </ItemCard>
       <LinkCodeDialog
         dialog={linkCodeDialog}
         onClose={() => setLinkCodeDialog(null)}
@@ -310,110 +401,13 @@ function LinkCodeDialog({
   );
 }
 
-function ChannelCard({
-  channel,
-  rules,
-  emailAccountId,
-  onUpdate,
-}: {
-  channel: ChannelFromResponse;
-  rules: Array<{ id: string; name: string }>;
-  emailAccountId: string;
-  onUpdate: () => void;
-}) {
-  const config = PROVIDER_CONFIG[channel.provider];
-  const Icon = config.icon;
-  const hasTarget = channel.hasSendDestination;
-  const isSlack = channel.provider === "SLACK";
-
-  const channelRuleIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const action of channel.actions) {
-      if (action.ruleId) ids.add(action.ruleId);
-    }
-    return ids;
-  }, [channel.actions]);
-
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <Card>
-      <CardContent className="p-4 space-y-4">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Icon className="h-4 w-4 text-muted-foreground" />
-          <span>{config.name}</span>
-          <span className="text-muted-foreground font-normal">
-            &middot; {channel.teamName ?? (isSlack ? "Slack workspace" : "Workspace")}
-          </span>
-          {isSlack ? (
-            <SlackTargetSelect
-              channelId={channel.id}
-              targetId={channel.channelId}
-              channelName={channel.channelName}
-              isDm={channel.isDm}
-              canSendAsDm={channel.canSendAsDm}
-              emailAccountId={emailAccountId}
-              onUpdate={onUpdate}
-            />
-          ) : (
-            <>
-              {channel.channelName && (
-                <span className="text-muted-foreground font-normal">
-                  &middot; #{channel.channelName}
-                </span>
-              )}
-              {channel.isDm && (
-                <span className="text-muted-foreground font-normal">
-                  &middot; Direct message
-                </span>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Rules
-          </div>
-          {rules.length > 0 ? (
-            rules.map((rule) => (
-              <RuleToggle
-                key={rule.id}
-                rule={rule}
-                channelId={channel.id}
-                enabled={channelRuleIds.has(rule.id)}
-                emailAccountId={emailAccountId}
-                onUpdate={onUpdate}
-              />
-            ))
-          ) : (
-            <MutedText className="text-sm">No rules</MutedText>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Other
-          </div>
-          <FeatureToggle
-            name="Meeting briefs"
-            channelId={channel.id}
-            enabled={channel.sendMeetingBriefs}
-            featureKey="sendMeetingBriefs"
-            emailAccountId={emailAccountId}
-            onUpdate={onUpdate}
-            disabled={!hasTarget}
-          />
-          <FeatureToggle
-            name="Document filing alerts"
-            channelId={channel.id}
-            enabled={channel.sendDocumentFilings}
-            featureKey="sendDocumentFilings"
-            emailAccountId={emailAccountId}
-            onUpdate={onUpdate}
-            disabled={!hasTarget}
-          />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="px-4 pt-2 pb-0">
+      <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        {children}
+      </span>
+    </div>
   );
 }
 
@@ -472,7 +466,7 @@ function SlackTargetSelect({
         if (open) setLoadTargets(true);
       }}
     >
-      <SelectTrigger className="h-7 w-auto gap-1 border-none bg-transparent px-1.5 text-xs text-muted-foreground shadow-none hover:bg-muted">
+      <SelectTrigger className="h-8 w-[180px]">
         <SelectValue
           placeholder={
             isLoading
@@ -558,21 +552,25 @@ function RuleToggle({
   );
 
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm">{rule.name}</span>
-      <Toggle
-        name={`rule-${rule.id}-${channelId}`}
-        enabled={enabled}
-        disabled={status === "executing"}
-        onChange={(value) =>
-          execute({
-            ruleId: rule.id,
-            messagingChannelId: channelId,
-            enabled: value,
-          })
-        }
-      />
-    </div>
+    <Item size="sm">
+      <ItemContent>
+        <ItemTitle>{rule.name}</ItemTitle>
+      </ItemContent>
+      <ItemActions>
+        <Toggle
+          name={`rule-${rule.id}-${channelId}`}
+          enabled={enabled}
+          disabled={status === "executing"}
+          onChange={(value) =>
+            execute({
+              ruleId: rule.id,
+              messagingChannelId: channelId,
+              enabled: value,
+            })
+          }
+        />
+      </ItemActions>
+    </Item>
   );
 }
 
@@ -610,16 +608,21 @@ function FeatureToggle({
   );
 
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm">{name}</span>
-      <Toggle
-        name={`feature-${featureKey}-${channelId}`}
-        enabled={enabled}
-        disabled={disabled || status === "executing"}
-        onChange={(value) =>
-          execute({ channelId, [featureKey]: value })
-        }
-      />
-    </div>
+    <Item size="sm">
+      <ItemContent>
+        <ItemTitle>{name}</ItemTitle>
+        <ItemDescription>{FEATURE_DESCRIPTIONS[featureKey]}</ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <Toggle
+          name={`feature-${featureKey}-${channelId}`}
+          enabled={enabled}
+          disabled={disabled || status === "executing"}
+          onChange={(value) =>
+            execute({ channelId, [featureKey]: value })
+          }
+        />
+      </ItemActions>
+    </Item>
   );
 }
