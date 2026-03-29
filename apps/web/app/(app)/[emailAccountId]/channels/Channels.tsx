@@ -53,10 +53,11 @@ import {
   createMessagingLinkCodeAction,
 } from "@/utils/actions/messaging-channels";
 import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
+import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
-import type { MessagingProvider } from "@/generated/prisma/enums";
 import { env } from "@/env";
+import type { MessagingProvider } from "@/generated/prisma/enums";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 
 type LinkableProvider = "TEAMS" | "TELEGRAM";
@@ -111,13 +112,15 @@ export function Channels() {
     (p) => !connectedProviders.has(p),
   );
 
+  const hasAnyChannel = connectedChannels.length > 0;
+
   const onUpdate = () => {
     mutateChannels();
     mutateRules();
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-10">
       <PageHeader
         title="Channels"
         description="Manage what gets delivered to your chat apps."
@@ -127,9 +130,9 @@ export function Channels() {
         loading={isLoadingChannels || isLoadingRules}
         error={channelsError || rulesError}
       >
-        <div className="space-y-6">
+        <div className="space-y-10">
           {connectedChannels.map((channel) => (
-            <ConnectedChannelCard
+            <ConnectedChannelSection
               key={channel.id}
               channel={channel}
               rules={rulesData ?? []}
@@ -139,7 +142,7 @@ export function Channels() {
           ))}
 
           {unconnectedProviders.map((provider) => (
-            <UnconnectedProviderCard
+            <UnconnectedProviderSection
               key={provider}
               provider={provider}
               emailAccountId={emailAccountId}
@@ -153,13 +156,54 @@ export function Channels() {
                 <MutedText>No channels available.</MutedText>
               </ItemCard>
             )}
+
+          {hasAnyChannel && (
+            <SectionGroup title="Scheduled check-ins">
+              <ProactiveUpdatesSetting />
+            </SectionGroup>
+          )}
         </div>
       </LoadingContent>
     </div>
   );
 }
 
-function ConnectedChannelCard({
+function SectionGroup({
+  icon,
+  title,
+  badge,
+  children,
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  badge?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        {icon}
+        <h2 className="text-sm font-medium uppercase tracking-wide">
+          {title}
+        </h2>
+        {badge}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-4 pt-2 pb-0">
+      <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        {children}
+      </span>
+    </div>
+  );
+}
+
+function ConnectedChannelSection({
   channel,
   rules,
   emailAccountId,
@@ -184,90 +228,87 @@ function ConnectedChannelCard({
   }, [channel.actions]);
 
   return (
-    <ItemCard>
-      <Item size="sm">
-        <Icon className="h-5 w-5" />
-        <ItemContent>
-          <ItemTitle>
-            {config.name}
-            <Badge variant="secondary" className="text-xs font-normal">
-              Connected
-            </Badge>
-          </ItemTitle>
-        </ItemContent>
-      </Item>
+    <SectionGroup
+      icon={<Icon className="size-5" />}
+      title={config.name}
+      badge={
+        <Badge variant="secondary" className="text-xs font-normal">
+          Connected
+        </Badge>
+      }
+    >
+      <ItemCard>
+        {isSlack && (
+          <>
+            <Item size="sm">
+              <ItemContent>
+                <ItemTitle>Deliver to</ItemTitle>
+                <ItemDescription>
+                  Choose where Inbox Zero sends notifications.
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <SlackTargetSelect
+                  channelId={channel.id}
+                  targetId={channel.channelId}
+                  channelName={channel.channelName}
+                  isDm={channel.isDm}
+                  canSendAsDm={channel.canSendAsDm}
+                  emailAccountId={emailAccountId}
+                  onUpdate={onUpdate}
+                />
+              </ItemActions>
+            </Item>
+            <ItemSeparator />
+          </>
+        )}
 
-      {isSlack && (
-        <>
-          <ItemSeparator />
+        <SectionLabel>Rules</SectionLabel>
+        {rules.length > 0 ? (
+          rules.map((rule) => (
+            <RuleToggle
+              key={rule.id}
+              rule={rule}
+              channelId={channel.id}
+              enabled={channelRuleIds.has(rule.id)}
+              emailAccountId={emailAccountId}
+              onUpdate={onUpdate}
+            />
+          ))
+        ) : (
           <Item size="sm">
             <ItemContent>
-              <ItemTitle>Deliver to</ItemTitle>
-              <ItemDescription>
-                Choose where Inbox Zero sends notifications.
-              </ItemDescription>
+              <MutedText className="text-sm">No rules</MutedText>
             </ItemContent>
-            <ItemActions>
-              <SlackTargetSelect
-                channelId={channel.id}
-                targetId={channel.channelId}
-                channelName={channel.channelName}
-                isDm={channel.isDm}
-                canSendAsDm={channel.canSendAsDm}
-                emailAccountId={emailAccountId}
-                onUpdate={onUpdate}
-              />
-            </ItemActions>
           </Item>
-        </>
-      )}
+        )}
 
-      <ItemSeparator />
-      <SectionLabel>Rules</SectionLabel>
-      {rules.length > 0 ? (
-        rules.map((rule) => (
-          <RuleToggle
-            key={rule.id}
-            rule={rule}
-            channelId={channel.id}
-            enabled={channelRuleIds.has(rule.id)}
-            emailAccountId={emailAccountId}
-            onUpdate={onUpdate}
-          />
-        ))
-      ) : (
-        <Item size="sm">
-          <ItemContent>
-            <MutedText className="text-sm">No rules</MutedText>
-          </ItemContent>
-        </Item>
-      )}
-
-      <ItemSeparator />
-      <SectionLabel>Other</SectionLabel>
-      <FeatureToggle
-        name="Meeting briefs"
-        channelId={channel.id}
-        enabled={channel.sendMeetingBriefs}
-        featureKey="sendMeetingBriefs"
-        emailAccountId={emailAccountId}
-        onUpdate={onUpdate}
-        disabled={!hasTarget}
-      />
-      <FeatureToggle
-        name="Document filing alerts"
-        channelId={channel.id}
-        enabled={channel.sendDocumentFilings}
-        featureKey="sendDocumentFilings"
-        emailAccountId={emailAccountId}
-        onUpdate={onUpdate}
-        disabled={!hasTarget}
-      />
-    </ItemCard>
+        <ItemSeparator />
+        <SectionLabel>Other</SectionLabel>
+        <FeatureToggle
+          name="Meeting briefs"
+          channelId={channel.id}
+          enabled={channel.sendMeetingBriefs}
+          featureKey="sendMeetingBriefs"
+          emailAccountId={emailAccountId}
+          onUpdate={onUpdate}
+          disabled={!hasTarget}
+        />
+        <FeatureToggle
+          name="Document filing alerts"
+          channelId={channel.id}
+          enabled={channel.sendDocumentFilings}
+          featureKey="sendDocumentFilings"
+          emailAccountId={emailAccountId}
+          onUpdate={onUpdate}
+          disabled={!hasTarget}
+        />
+      </ItemCard>
+    </SectionGroup>
   );
 }
 
-function UnconnectedProviderCard({
+function UnconnectedProviderSection({
   provider,
   emailAccountId,
   onConnected,
@@ -319,33 +360,31 @@ function UnconnectedProviderCard({
 
   return (
     <>
-      <ItemCard>
-        <Item size="sm">
-          <Icon className="h-5 w-5" />
-          <ItemContent>
-            <ItemTitle>{config.name}</ItemTitle>
-          </ItemContent>
-        </Item>
-        <ItemSeparator />
-        <Item size="sm">
-          <ItemContent>
-            <ItemTitle>Connect {config.name}</ItemTitle>
-            <ItemDescription>
-              Receive notifications via {config.name}.
-            </ItemDescription>
-          </ItemContent>
-          <ItemActions>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isLoading}
-              onClick={handleConnect}
-            >
-              Connect
-            </Button>
-          </ItemActions>
-        </Item>
-      </ItemCard>
+      <SectionGroup
+        icon={<Icon className="size-5" />}
+        title={config.name}
+      >
+        <ItemCard>
+          <Item size="sm">
+            <ItemContent>
+              <ItemTitle>Connect {config.name}</ItemTitle>
+              <ItemDescription>
+                Receive notifications via {config.name}.
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoading}
+                onClick={handleConnect}
+              >
+                Connect
+              </Button>
+            </ItemActions>
+          </Item>
+        </ItemCard>
+      </SectionGroup>
       <LinkCodeDialog
         dialog={linkCodeDialog}
         onClose={() => setLinkCodeDialog(null)}
@@ -399,16 +438,6 @@ function LinkCodeDialog({
         )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="px-4 pt-2 pb-0">
-      <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        {children}
-      </span>
-    </div>
   );
 }
 
@@ -506,7 +535,9 @@ function SlackTargetSelect({
             </div>
             <div>
               Invite the bot with{" "}
-              <code className="rounded bg-muted px-1">/invite @{env.NEXT_PUBLIC_SLACK_BOT_NAME}</code>
+              <code className="rounded bg-muted px-1">
+                /invite @{env.NEXT_PUBLIC_SLACK_BOT_NAME}
+              </code>
             </div>
           </div>
         )}
