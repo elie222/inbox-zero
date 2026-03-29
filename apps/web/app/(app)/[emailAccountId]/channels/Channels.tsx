@@ -498,11 +498,15 @@ function SlackTargetSelect({
         ))}
         {!isLoading && !hasError && (
           <div className="border-t px-2 py-1.5 text-xs text-muted-foreground">
-            {privateTargets.length === 0
-              ? "No channels found. "
-              : "Don't see your channel? "}
-            Invite the bot with{" "}
-            <code className="rounded bg-muted px-1">/invite @InboxZero</code>
+            <div>
+              {privateTargets.length === 0
+                ? "No channels found."
+                : "Don't see your channel?"}
+            </div>
+            <div>
+              Invite the bot with{" "}
+              <code className="rounded bg-muted px-1">/invite @InboxZero</code>
+            </div>
           </div>
         )}
         {hasError && (
@@ -552,7 +556,7 @@ function RuleToggle({
   );
 
   return (
-    <Item size="sm">
+    <Item size="sm" className="py-1.5">
       <ItemContent>
         <ItemTitle>{rule.name}</ItemTitle>
       </ItemContent>
