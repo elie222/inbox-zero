@@ -1032,7 +1032,7 @@ function formatMessagingDestinationLabel(channel: MessagingChannelOption) {
   if (channel.channelName) return `#${channel.channelName}`;
   if (channel.teamName) return `${provider} (${channel.teamName})`;
 
-  return provider;
+  return provider === "Slack" ? "Slack workspace" : provider;
 }
 
 type DraftReplyDeliverySelection = {
@@ -1059,6 +1059,9 @@ function updateActionType({
 
   if (nextType === ActionType.DRAFT_EMAIL) {
     setValue(`actions.${index}`, buildDraftEmailAction(primaryAction));
+    if (draftMessagingIndex != null) {
+      remove(draftMessagingIndex);
+    }
     return;
   }
 

@@ -95,9 +95,9 @@ export async function sendSlackRuleNotification({
     attachments?: Array<{ filename: string }>;
   };
   logger: Logger;
-}) {
+}): Promise<boolean> {
   const context = await getNotificationContext(executedActionId);
-  if (!context) return;
+  if (!context) return false;
 
   if (
     !context.messagingChannel ||
@@ -109,7 +109,7 @@ export async function sendSlackRuleNotification({
       executedActionId,
       messagingChannelId: context.messagingChannelId,
     });
-    return;
+    return false;
   }
 
   const destinationChannelId = await resolveSlackDestination({
@@ -123,7 +123,7 @@ export async function sendSlackRuleNotification({
       executedActionId,
       messagingChannelId: context.messagingChannelId,
     });
-    return;
+    return false;
   }
 
   const content = buildNotificationContent({
@@ -163,15 +163,13 @@ export async function sendSlackRuleNotification({
         messagingMessageStatus: MessagingMessageStatus.SENT,
       },
     });
+    return true;
   } catch (error) {
-    await prisma.executedAction.update({
-      where: { id: context.id },
-      data: {
-        messagingMessageStatus: MessagingMessageStatus.FAILED,
-      },
+    logger.warn("Failed to send Slack rule notification", {
+      executedActionId,
+      error,
     });
-
-    throw error;
+    return false;
   }
 }
 
@@ -403,17 +401,6 @@ async function handleDraftSend({
       });
     }
 
-    await prisma.executedAction.updateMany({
-      where: {
-        id: {
-          in: [context.id, siblingDraftAction?.id].filter(Boolean) as string[],
-        },
-      },
-      data: {
-        wasDraftSent: false,
-      },
-    });
-
     await prisma.executedAction.update({
       where: { id: context.id },
       data: {
@@ -421,6 +408,15 @@ async function handleDraftSend({
         wasDraftSent: true,
       },
     });
+
+    if (siblingDraftAction?.id) {
+      await prisma.executedAction.update({
+        where: { id: siblingDraftAction.id },
+        data: {
+          wasDraftSent: true,
+        },
+      });
+    }
 
     await event.adapter.editMessage(
       event.threadId,
@@ -499,7 +495,7 @@ async function handleDraftDismiss({
   event: ActionEvent;
   logger: Logger;
 }) {
-  if (!canDismissDraft(context.messagingMessageStatus)) {
+  if (!canSendDraft(context.messagingMessageStatus)) {
     await postNotificationFeedback({
       event,
       logger,
@@ -1081,10 +1077,6 @@ function canSendDraft(status: MessagingMessageStatus | null) {
 }
 
 function canEditDraft(status: MessagingMessageStatus | null) {
-  return canSendDraft(status);
-}
-
-function canDismissDraft(status: MessagingMessageStatus | null) {
   return canSendDraft(status);
 }
 

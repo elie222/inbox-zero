@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, MessagingMessageStatus } from "@/generated/prisma/enums";
 import type { ExecutedRule } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
@@ -190,14 +190,22 @@ const draft: ActionFunction<{
       messagingChannelId: args.messagingChannelId,
     })
   ) {
-    if (!args.id) return;
+    if (args.id) {
+      const delivered = await sendSlackRuleNotification({
+        executedActionId: args.id,
+        email,
+        logger,
+      });
 
-    await sendSlackRuleNotification({
-      executedActionId: args.id,
-      email,
-      logger,
-    });
-    return;
+      if (delivered) return;
+
+      logger.warn(
+        "Falling back to mailbox draft after messaging delivery failure",
+        {
+          actionId: args.id,
+        },
+      );
+    }
   }
 
   const attachments = await resolveActionAttachments({
@@ -245,40 +253,62 @@ const draft: ActionFunction<{
 const draft_messaging_channel: ActionFunction<{
   messagingChannelId?: string | null;
 }> = async ({ email, args, logger }) => {
-  if (!args.messagingChannelId || !args.id) return;
+  if (!args.id) {
+    throw new Error("Missing action id for DRAFT_MESSAGING_CHANNEL");
+  }
 
-  await sendSlackRuleNotification({
+  if (!args.messagingChannelId) {
+    await failMessagingAction({
+      actionId: args.id,
+      logger,
+      reason: "Missing messaging channel for DRAFT_MESSAGING_CHANNEL",
+    });
+  }
+
+  const delivered = await sendSlackRuleNotification({
     executedActionId: args.id,
     email,
     logger,
+  });
+
+  if (delivered) return;
+
+  await failMessagingAction({
+    actionId: args.id,
+    logger,
+    reason: "Failed to deliver DRAFT_MESSAGING_CHANNEL notification",
   });
 };
 
 const notify_messaging_channel: ActionFunction<{
   messagingChannelId?: string | null;
 }> = async ({ email, args, logger }) => {
-  if (!args.messagingChannelId || !args.id) return;
+  if (!args.id) {
+    throw new Error("Missing action id for NOTIFY_MESSAGING_CHANNEL");
+  }
 
-  await sendSlackRuleNotification({
+  if (!args.messagingChannelId) {
+    await failMessagingAction({
+      actionId: args.id,
+      logger,
+      reason: "Missing messaging channel for NOTIFY_MESSAGING_CHANNEL",
+    });
+  }
+
+  const delivered = await sendSlackRuleNotification({
     executedActionId: args.id,
     email,
     logger,
   });
+
+  if (delivered) return;
+
+  await failMessagingAction({
+    actionId: args.id,
+    logger,
+    reason: "Failed to deliver NOTIFY_MESSAGING_CHANNEL notification",
+  });
 };
-
-function isLegacyMessagingDraft({
-  executedRule,
-  messagingChannelId,
-}: {
-  executedRule: ExecutedRuleForAction;
-  messagingChannelId?: string | null;
-}) {
-  if (!messagingChannelId) return false;
-
-  return !executedRule.actionItems?.some((action) =>
-    isMessagingDraftActionType(action.type),
-  );
-}
 
 const reply: ActionFunction<{
   content?: string | null;
@@ -609,4 +639,44 @@ async function lazyUpdateActionFolderId({
       error,
     });
   }
+}
+
+async function failMessagingAction({
+  actionId,
+  logger,
+  reason,
+}: {
+  actionId: string;
+  logger: Logger;
+  reason: string;
+}): Promise<never> {
+  try {
+    await prisma.executedAction.update({
+      where: { id: actionId },
+      data: {
+        messagingMessageStatus: MessagingMessageStatus.FAILED,
+      },
+    });
+  } catch (error) {
+    logger.warn("Failed to mark messaging action as failed", {
+      actionId,
+      error,
+    });
+  }
+
+  throw new Error(reason);
+}
+
+function isLegacyMessagingDraft({
+  executedRule,
+  messagingChannelId,
+}: {
+  executedRule: ExecutedRuleForAction;
+  messagingChannelId?: string | null;
+}) {
+  if (!messagingChannelId) return false;
+
+  return !executedRule.actionItems?.some((action) =>
+    isMessagingDraftActionType(action.type),
+  );
 }

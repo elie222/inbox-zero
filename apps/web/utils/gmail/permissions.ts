@@ -36,7 +36,18 @@ async function checkGmailPermissions({
   }
 
   if (isGoogleOauthEmulationEnabled()) {
-    const grantedScopes = grantedScope?.split(" ").filter(Boolean) || [];
+    if (!grantedScope?.trim()) {
+      logger.warn(
+        "Missing stored Gmail scope in emulation, assuming permissions granted",
+        { emailAccountId },
+      );
+      return {
+        hasAllPermissions: true,
+        missingScopes: [],
+      };
+    }
+
+    const grantedScopes = grantedScope.split(" ").filter(Boolean);
     const missingScopes = SCOPES.filter(
       (scope) => !grantedScopes.includes(scope),
     );

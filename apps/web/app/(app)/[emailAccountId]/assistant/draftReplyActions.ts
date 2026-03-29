@@ -2,7 +2,7 @@ import { ActionType } from "@/generated/prisma/enums";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
-export type RuleFormAction = CreateRuleBody["actions"][number];
+type RuleFormAction = CreateRuleBody["actions"][number];
 export type DraftReplyDelivery = "EMAIL" | "SLACK" | "EMAIL_AND_SLACK";
 
 export function normalizeDraftReplyActions(actions: RuleFormAction[]) {

@@ -65,6 +65,24 @@ describe("handleGmailPermissionsCheck", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("keeps older emulated accounts working when stored scope is missing", async () => {
+    const oauth = await import("@/utils/google/oauth");
+    vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(true);
+
+    const result = await handleGmailPermissionsCheck({
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      emailAccountId: "email-account-1",
+      grantedScope: null,
+    });
+
+    expect(result).toEqual({
+      hasAllPermissions: true,
+      missingScopes: [],
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("uses tokeninfo outside Google OAuth emulation", async () => {
     const oauth = await import("@/utils/google/oauth");
     vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(false);
