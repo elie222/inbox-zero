@@ -35,7 +35,8 @@ export async function saveCategorizationTotalItems({
     key,
     {
       ...existingProgress,
-      totalItems: (existingProgress?.totalItems || 0) + totalItems,
+      totalItems,
+      completedItems: existingProgress?.completedItems || 0,
     },
     { ex: 2 * 60 },
   );

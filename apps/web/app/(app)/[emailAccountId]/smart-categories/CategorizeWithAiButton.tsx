@@ -63,13 +63,9 @@ export function CategorizeWithAiButton({
               {
                 loading: "Categorizing senders... This might take a while.",
                 success: (data) => {
-                  if (!data?.hasSyncedMessages) {
-                    return "No emails have been synced yet.";
-                  }
-
                   return data.totalUncategorizedSenders
                     ? `Categorizing ${data.totalUncategorizedSenders} senders...`
-                    : "All current senders are already categorized.";
+                    : "No more senders to categorize right now.";
                 },
                 error: (err) => {
                   return `Error categorizing senders: ${err.message}`;

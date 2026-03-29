@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress";
 import { BulkArchiveTab } from "@/app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab";
+import { EmailStatsPreloader } from "@/components/EmailStatsPreloader";
 
 export default function QuickBulkArchivePage() {
   return (
@@ -18,6 +19,7 @@ export default function QuickBulkArchivePage() {
         <PageHeader title="Quick Bulk Archive" />
 
         <ClientOnly>
+          <EmailStatsPreloader />
           <BulkArchiveTab />
         </ClientOnly>
       </PageWrapper>

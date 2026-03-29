@@ -81,6 +81,10 @@ export async function loadEmails(
   }: { loadBefore: boolean; maxPages?: number },
 ) {
   let pages = 0;
+  let loadedAfterMessages = 0;
+  let loadedBeforeMessages = 0;
+  let hasMoreAfter = false;
+  let hasMoreBefore = false;
 
   const newestEmailSaved = await prisma.emailMessage.findFirst({
     where: { emailAccountId },
@@ -104,17 +108,34 @@ export async function loadEmails(
     });
 
     nextPageToken = res.data.nextPageToken ?? undefined;
+    loadedAfterMessages += res.data.messages?.length || 0;
 
-    if (!res.data.messages || res.data.messages.length < PAGE_SIZE) break;
+    if (!res.data.messages || res.data.messages.length < PAGE_SIZE) {
+      hasMoreAfter = false;
+      break;
+    }
 
     pages++;
 
-    if (!nextPageToken) break;
+    if (!nextPageToken) {
+      hasMoreAfter = false;
+      break;
+    }
+
+    hasMoreAfter = true;
   }
 
   logger.info("Completed emails after", { after, pages });
 
-  if (!loadBefore || !newestEmailSaved) return { pages };
+  if (!loadBefore || !newestEmailSaved) {
+    return {
+      pages,
+      loadedAfterMessages,
+      loadedBeforeMessages,
+      hasMoreAfter,
+      hasMoreBefore,
+    };
+  }
 
   const oldestEmailSaved = await prisma.emailMessage.findFirst({
     where: { emailAccountId },
@@ -142,17 +163,32 @@ export async function loadEmails(
     });
 
     nextPageToken = res.data.nextPageToken ?? undefined;
+    loadedBeforeMessages += res.data.messages?.length || 0;
 
-    if (!res.data.messages || res.data.messages.length < PAGE_SIZE) break;
+    if (!res.data.messages || res.data.messages.length < PAGE_SIZE) {
+      hasMoreBefore = false;
+      break;
+    }
 
     pages++;
 
-    if (!nextPageToken) break;
+    if (!nextPageToken) {
+      hasMoreBefore = false;
+      break;
+    }
+
+    hasMoreBefore = true;
   }
 
   logger.info("Completed emails before", { before, pages });
 
-  return { pages };
+  return {
+    pages,
+    loadedAfterMessages,
+    loadedBeforeMessages,
+    hasMoreAfter,
+    hasMoreBefore,
+  };
 }
 
 export async function saveBatch({

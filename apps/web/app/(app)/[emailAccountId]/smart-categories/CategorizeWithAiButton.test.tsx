@@ -94,36 +94,9 @@ describe("CategorizeWithAiButton", () => {
     });
   });
 
-  it("stops bulk categorizing and shows an empty-sync message when no emails have synced yet", async () => {
-    mockBulkCategorizeSendersAction.mockResolvedValue({
-      data: { totalUncategorizedSenders: 0, hasSyncedMessages: false },
-    });
-
-    const { CategorizeWithAiButton } = await import(
-      "@/app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton"
-    );
-
-    render(<CategorizeWithAiButton />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Categorize" }));
-
-    await waitFor(() => {
-      expect(mockSetIsBulkCategorizing).toHaveBeenNthCalledWith(1, true);
-      expect(mockSetIsBulkCategorizing).toHaveBeenNthCalledWith(2, false);
-    });
-
-    const [, toastMessages] = mockToastPromise.mock.calls[0];
-    expect(
-      toastMessages.success({
-        totalUncategorizedSenders: 0,
-        hasSyncedMessages: false,
-      }),
-    ).toBe("No emails have been synced yet.");
-  });
-
   it("stops bulk categorizing and shows an already-categorized message when no work is left", async () => {
     mockBulkCategorizeSendersAction.mockResolvedValue({
-      data: { totalUncategorizedSenders: 0, hasSyncedMessages: true },
+      data: { totalUncategorizedSenders: 0 },
     });
 
     const { CategorizeWithAiButton } = await import(
@@ -143,8 +116,7 @@ describe("CategorizeWithAiButton", () => {
     expect(
       toastMessages.success({
         totalUncategorizedSenders: 0,
-        hasSyncedMessages: true,
       }),
-    ).toBe("All current senders are already categorized.");
+    ).toBe("No more senders to categorize right now.");
   });
 });

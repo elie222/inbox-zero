@@ -91,17 +91,83 @@ describe("bulkCategorizeSendersAction", () => {
     mockSaveCategorizationTotalItems.mockResolvedValue(undefined);
     mockPublishToAiCategorizeSendersQueue.mockResolvedValue(undefined);
     mockCreateEmailProvider.mockResolvedValue({} as never);
-    mockLoadEmails.mockResolvedValue({ pages: 1 });
+    mockLoadEmails.mockResolvedValue({
+      pages: 1,
+      loadedAfterMessages: 0,
+      loadedBeforeMessages: 0,
+      hasMoreAfter: false,
+      hasMoreBefore: false,
+    });
   });
 
-  it("bootstraps recent emails before categorizing when no local messages exist", async () => {
-    prisma.emailMessage.findFirst
-      .mockResolvedValueOnce(null as never)
-      .mockResolvedValueOnce({ id: "message-1" } as never);
+  it("loads more email history and only queues newly discovered senders", async () => {
+    mockGetUncategorizedSenders
+      .mockResolvedValueOnce({
+        uncategorizedSenders: [{ email: "first@example.com", name: "First" }],
+      })
+      .mockResolvedValueOnce({
+        uncategorizedSenders: [
+          { email: "first@example.com", name: "First" },
+          { email: "second@example.com", name: "Second" },
+        ],
+      });
 
-    mockGetUncategorizedSenders.mockResolvedValueOnce({
-      uncategorizedSenders: [{ email: "sender@example.com", name: "Sender" }],
+    mockLoadEmails
+      .mockResolvedValueOnce({
+        pages: 1,
+        loadedAfterMessages: 0,
+        loadedBeforeMessages: 20,
+        hasMoreAfter: false,
+        hasMoreBefore: true,
+      })
+      .mockResolvedValueOnce({
+        pages: 1,
+        loadedAfterMessages: 0,
+        loadedBeforeMessages: 0,
+        hasMoreAfter: false,
+        hasMoreBefore: false,
+      });
+
+    const result = await bulkCategorizeSendersAction("account-1");
+
+    expect(mockLoadEmails).toHaveBeenCalledTimes(2);
+    expect(mockPublishToAiCategorizeSendersQueue).toHaveBeenNthCalledWith(1, {
+      emailAccountId: "account-1",
+      senders: [{ email: "first@example.com", name: "First" }],
     });
+    expect(mockPublishToAiCategorizeSendersQueue).toHaveBeenNthCalledWith(2, {
+      emailAccountId: "account-1",
+      senders: [{ email: "second@example.com", name: "Second" }],
+    });
+    expect(result?.data).toEqual({
+      totalUncategorizedSenders: 2,
+    });
+  });
+
+  it("loads more email history before categorizing when the first pass finds no senders", async () => {
+    mockGetUncategorizedSenders
+      .mockResolvedValueOnce({
+        uncategorizedSenders: [],
+      })
+      .mockResolvedValueOnce({
+        uncategorizedSenders: [{ email: "sender@example.com", name: "Sender" }],
+      });
+
+    mockLoadEmails
+      .mockResolvedValueOnce({
+        pages: 1,
+        loadedAfterMessages: 20,
+        loadedBeforeMessages: 0,
+        hasMoreAfter: true,
+        hasMoreBefore: false,
+      })
+      .mockResolvedValueOnce({
+        pages: 1,
+        loadedAfterMessages: 0,
+        loadedBeforeMessages: 0,
+        hasMoreAfter: false,
+        hasMoreBefore: false,
+      });
 
     const result = await bulkCategorizeSendersAction("account-1");
 
@@ -111,7 +177,7 @@ describe("bulkCategorizeSendersAction", () => {
         emailProvider: expect.anything(),
         logger: expect.anything(),
       },
-      { loadBefore: false, maxPages: 5 },
+      { loadBefore: true, maxPages: 5 },
     );
     expect(mockPublishToAiCategorizeSendersQueue).toHaveBeenCalledWith({
       emailAccountId: "account-1",
@@ -119,16 +185,11 @@ describe("bulkCategorizeSendersAction", () => {
     });
     expect(result?.data).toEqual({
       totalUncategorizedSenders: 1,
-      hasSyncedMessages: true,
     });
   });
 
-  it("returns no-synced-messages when bootstrap sync still finds nothing", async () => {
-    prisma.emailMessage.findFirst
-      .mockResolvedValueOnce(null as never)
-      .mockResolvedValueOnce(null as never);
-
-    mockGetUncategorizedSenders.mockResolvedValueOnce({
+  it("returns zero when categorization exhausts the available email history", async () => {
+    mockGetUncategorizedSenders.mockResolvedValue({
       uncategorizedSenders: [],
     });
 
@@ -138,7 +199,6 @@ describe("bulkCategorizeSendersAction", () => {
     expect(mockPublishToAiCategorizeSendersQueue).not.toHaveBeenCalled();
     expect(result?.data).toEqual({
       totalUncategorizedSenders: 0,
-      hasSyncedMessages: false,
     });
   });
 });
