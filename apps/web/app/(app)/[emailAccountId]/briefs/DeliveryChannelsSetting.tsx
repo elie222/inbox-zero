@@ -36,6 +36,7 @@ import {
 } from "@/utils/actions/messaging-channels";
 import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
+import { env } from "@/env";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 
 const PROVIDER_CONFIG: Record<
@@ -266,7 +267,7 @@ function ChannelRow({
                   Pick a channel to receive meeting briefs. Create a private
                   Slack channel, then type{" "}
                   <code className="bg-muted px-1 rounded">
-                    /invite @InboxZero
+                    /invite @{env.NEXT_PUBLIC_SLACK_BOT_NAME}
                   </code>{" "}
                   in it. The channel will appear above once the bot is invited.
                 </MutedText>

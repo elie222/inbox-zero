@@ -56,6 +56,7 @@ import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/Con
 import { toastSuccess, toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import type { MessagingProvider } from "@/generated/prisma/enums";
+import { env } from "@/env";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 
 type LinkableProvider = "TEAMS" | "TELEGRAM";
@@ -505,7 +506,7 @@ function SlackTargetSelect({
             </div>
             <div>
               Invite the bot with{" "}
-              <code className="rounded bg-muted px-1">/invite @InboxZero</code>
+              <code className="rounded bg-muted px-1">/invite @{env.NEXT_PUBLIC_SLACK_BOT_NAME}</code>
             </div>
           </div>
         )}
