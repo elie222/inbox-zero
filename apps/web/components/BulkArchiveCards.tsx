@@ -442,7 +442,7 @@ function SenderRow({
     <div>
       {/* Sender row */}
       <div
-        className="flex cursor-pointer items-center gap-3 p-4 transition-colors hover:bg-muted/50"
+        className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
         onClick={onToggle}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {

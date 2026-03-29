@@ -140,10 +140,10 @@ export function BulkUnsubscribeRowDesktop({
         </div>
       </TableCell>
       <TableCell>
-        <span className="text-muted-foreground">{item.value}</span>
+        <span className="font-medium text-foreground/80">{item.value}</span>
       </TableCell>
       <TableCell>
-        <span className="text-muted-foreground">
+        <span className="font-medium text-foreground/80">
           {Math.round(readPercentage)}%
         </span>
       </TableCell>

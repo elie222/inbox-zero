@@ -483,7 +483,7 @@ function SenderRow({
   return (
     <div className={cn(!isSelected && "opacity-50")}>
       <div
-        className="flex cursor-pointer items-center gap-3 p-4 transition-colors hover:bg-muted/50"
+        className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
         onClick={onToggleExpanded}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
