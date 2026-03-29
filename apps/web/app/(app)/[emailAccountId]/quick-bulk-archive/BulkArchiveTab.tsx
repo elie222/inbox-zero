@@ -510,22 +510,22 @@ function ArchiveStatus({
   status: ReturnType<typeof useArchiveSenderStatus>;
 }) {
   switch (status?.status) {
-    case "queued":
-      return <span className="text-sm text-blue-600">Queued</span>;
+    case "pending":
+      return <span className="text-sm text-muted-foreground">Queued</span>;
     case "processing":
-      return <span className="text-sm text-blue-600">Archiving...</span>;
+      return (
+        <span className="text-sm text-blue-600">
+          {status.threadsTotal
+            ? `${status.threadsTotal - status.threadIds.length} / ${status.threadsTotal}`
+            : "Archiving..."}
+        </span>
+      );
     case "completed":
       return (
         <span className="text-sm text-muted-foreground">
-          {status.archivedCount
-            ? `Archived ${status.archivedCount}`
-            : "Archived"}
+          {status.threadsTotal ? `Archived ${status.threadsTotal}` : "Archived"}
         </span>
       );
-    case "failed":
-      return <span className="text-sm text-red-600">Failed</span>;
-    case "pending":
-      return <span className="text-sm text-muted-foreground">Pending...</span>;
     default:
       return null;
   }

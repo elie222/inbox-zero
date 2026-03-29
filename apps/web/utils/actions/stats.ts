@@ -146,7 +146,15 @@ export async function loadEmails(
   logger.info("Loading emails before", { before });
 
   // shouldn't happen, but prevents TS errors
-  if (!before) return { pages };
+  if (!before) {
+    return {
+      pages,
+      loadedAfterMessages,
+      loadedBeforeMessages,
+      hasMoreAfter,
+      hasMoreBefore,
+    };
+  }
 
   // Second pagination loop - load emails before the oldest saved email
   // Reset nextPageToken for this new pagination sequence

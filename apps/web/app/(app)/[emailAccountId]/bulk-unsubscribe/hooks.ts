@@ -43,7 +43,7 @@ type MutateFn = (
   // biome-ignore lint/suspicious/noExplicitAny: SWR mutate signature
   data?: any,
   opts?: { revalidate?: boolean },
-) => Promise<void>;
+) => Promise<unknown>;
 
 type QueueArchiveSendersFn = (params: { senders: string[] }) => Promise<number>;
 
@@ -790,10 +790,7 @@ export function useBulkArchive<T extends Row>({
 
     toast.promise(promise, {
       loading: `Archiving emails from ${displayNames}...`,
-      success: (result) =>
-        result?.data?.mode === "queued"
-          ? `Queued archive for ${displayNames}`
-          : `Archived emails from ${displayNames}`,
+      success: () => `Archived emails from ${displayNames}`,
       error: (error) =>
         error instanceof Error
           ? error.message
