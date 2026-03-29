@@ -43,6 +43,7 @@ const flowStepOrders: Record<OnboardingFlowVariant, readonly StepKey[]> = {
     STEP_KEYS.WHO,
     STEP_KEYS.COMPANY_SIZE,
     STEP_KEYS.LABELS,
+    STEP_KEYS.DRAFT,
     STEP_KEYS.INBOX_PROCESSED,
   ],
 };
