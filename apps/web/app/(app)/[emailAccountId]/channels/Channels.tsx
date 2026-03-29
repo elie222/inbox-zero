@@ -154,6 +154,12 @@ export function Channels() {
                 <MutedText>No channels available.</MutedText>
               </ItemCard>
             )}
+
+          {connectedChannels.length > 0 && (
+            <SectionGroup title="Scheduled check-ins">
+              <ProactiveUpdatesSetting />
+            </SectionGroup>
+          )}
         </div>
       </LoadingContent>
     </div>
@@ -295,8 +301,6 @@ function ConnectedChannelSection({
           onUpdate={onUpdate}
           disabled={!hasTarget}
         />
-        <ItemSeparator />
-        <ProactiveUpdatesSetting />
       </ItemCard>
     </SectionGroup>
   );
