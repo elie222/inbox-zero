@@ -482,6 +482,8 @@ model Action {
   type      ActionType
   ruleId    String
   rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  messagingChannelId String?
+  messagingChannel   MessagingChannel? @relation(fields: [messagingChannelId], references: [id], onDelete: SetNull)
 
   label             String? // labelName - labelId is the source of truth, and we use it when set
   labelId           String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
@@ -559,12 +561,17 @@ model ExecutedRule {
 }
 
 model ExecutedAction {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  type           ActionType
-  executedRuleId String
-  executedRule   ExecutedRule @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
+  id                     String            @id @default(cuid())
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  type                   ActionType
+  executedRuleId         String
+  executedRule           ExecutedRule      @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
+  messagingChannelId     String?
+  messagingChannel       MessagingChannel? @relation(fields: [messagingChannelId], references: [id], onDelete: SetNull)
+  messagingMessageId     String?
+  messagingMessageSentAt DateTime?
+  messagingMessageStatus MessagingMessageStatus?
 
   // optional extra fields to be used with the action
   label             String?
@@ -878,10 +885,10 @@ model ReplyMemory {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  content    String
-  kind       ReplyMemoryKind
-  scopeType  ReplyMemoryScopeType
-  scopeValue String
+  content                String
+  kind                   ReplyMemoryKind
+  scopeType              ReplyMemoryScopeType
+  scopeValue             String
   isLearnedStyleEvidence Boolean @default(false)
 
   emailAccountId String
@@ -1139,6 +1146,8 @@ model MessagingChannel {
   emailAccountId String
   emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   automationJobs AutomationJob[]
+  actions        Action[]
+  executedActions ExecutedAction[]
 
   @@unique([emailAccountId, provider, teamId])
   @@unique([id, emailAccountId])
@@ -1416,6 +1425,8 @@ enum ActionType {
   SEND_EMAIL
   FORWARD
   DRAFT_EMAIL
+  DRAFT_MESSAGING_CHANNEL
+  NOTIFY_MESSAGING_CHANNEL
   MARK_SPAM
   CALL_WEBHOOK
   MARK_READ
@@ -1427,6 +1438,15 @@ enum ActionType {
   // SNOOZE
   // ADD_TO_DO
   // INTEGRATION // for example, add to Notion
+}
+
+enum MessagingMessageStatus {
+  SENT
+  DRAFT_SENT
+  DRAFT_EDITED
+  DISMISSED
+  EXPIRED
+  FAILED
 }
 
 enum Frequency {

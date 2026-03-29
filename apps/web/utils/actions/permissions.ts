@@ -39,6 +39,7 @@ export const checkPermissionsAction = actionClient
         accessToken,
         refreshToken: tokens.refreshToken,
         emailAccountId,
+        grantedScope: tokens.scope,
       });
 
       if (error) throw new SafeError(error);
@@ -86,6 +87,7 @@ export const adminCheckPermissionsAction = adminActionClient
         accessToken,
         refreshToken: tokens.refreshToken,
         emailAccountId,
+        grantedScope: tokens.scope,
       });
       if (error) throw new SafeError(error);
       return { hasAllPermissions };

@@ -55,6 +55,12 @@ import {
   getHelpText,
   isHelpCommand,
 } from "@/utils/messaging/prompt-commands";
+import {
+  handleSlackRuleNotificationAction,
+  handleSlackRuleNotificationModalSubmit,
+  SLACK_DRAFT_EDIT_MODAL_ID,
+  SLACK_RULE_NOTIFICATION_ACTION_IDS,
+} from "@/utils/messaging/rule-notifications";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import { getEmailUrlForMessage } from "@/utils/url";
@@ -453,6 +459,22 @@ function registerMessagingHandlers({
       await handlePendingEmailConfirmAction({ event, logger: handlerLogger });
     },
   );
+
+  bot.onAction([...SLACK_RULE_NOTIFICATION_ACTION_IDS], async (event) => {
+    const handlerLogger = getHandlerLogger();
+    await handleSlackRuleNotificationAction({
+      event,
+      logger: handlerLogger,
+    });
+  });
+
+  bot.onModalSubmit(SLACK_DRAFT_EDIT_MODAL_ID, async (event) => {
+    const handlerLogger = getHandlerLogger();
+    return handleSlackRuleNotificationModalSubmit({
+      event,
+      logger: handlerLogger,
+    });
+  });
 
   if (adapters.slack) {
     bot.onAssistantThreadStarted(async ({ channelId, threadTs }) => {

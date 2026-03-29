@@ -122,7 +122,12 @@ async function getTokens({ emailAccountId }: { emailAccountId: string }) {
     where: { id: emailAccountId },
     select: {
       account: {
-        select: { access_token: true, refresh_token: true, expires_at: true },
+        select: {
+          access_token: true,
+          refresh_token: true,
+          expires_at: true,
+          scope: true,
+        },
       },
     },
   });
@@ -131,6 +136,7 @@ async function getTokens({ emailAccountId }: { emailAccountId: string }) {
     accessToken: emailAccount?.account.access_token,
     refreshToken: emailAccount?.account.refresh_token,
     expiresAt: emailAccount?.account.expires_at?.getTime() ?? null,
+    scope: emailAccount?.account.scope,
   };
 }
 

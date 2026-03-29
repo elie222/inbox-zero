@@ -49,6 +49,7 @@ import {
   getBlockedLowTrustStaticFromActionTypes,
   LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
 } from "@/utils/rule/static-from-risk";
+import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 const MODULE = "ai/choose-rule";
 
@@ -388,7 +389,9 @@ async function executeMatchedRule(
     };
   }
 
-  const executedRule = await withPrismaRetry(
+  const executedRule: Prisma.ExecutedRuleGetPayload<{
+    include: { actionItems: true };
+  }> = await withPrismaRetry(
     () =>
       prisma.executedRule.create({
         data: {
@@ -403,14 +406,17 @@ async function executeMatchedRule(
                   } = sanitizeActionFields(item);
                   return {
                     ...executedActionFields,
+                    staticAttachments:
+                      item.staticAttachments != null
+                        ? (item.staticAttachments as Prisma.InputJsonValue)
+                        : undefined,
                     draftModelProvider: item.draftModelProvider ?? null,
                     draftModelName: item.draftModelName ?? null,
-                    draftPipelineVersion:
-                      item.type === ActionType.DRAFT_EMAIL
-                        ? (item.draftPipelineVersion ?? null)
-                        : null,
+                    draftPipelineVersion: isDraftReplyActionType(item.type)
+                      ? (item.draftPipelineVersion ?? null)
+                      : null,
                     draftContextMetadata:
-                      item.type === ActionType.DRAFT_EMAIL &&
+                      isDraftReplyActionType(item.type) &&
                       item.draftContextMetadata
                         ? (item.draftContextMetadata as Prisma.InputJsonValue)
                         : undefined,
@@ -735,20 +741,22 @@ function isConversationRule(ruleId: string): boolean {
 }
 
 /**
- * Limits the number of draft email actions to a single selection.
- * If there are multiple draft email actions, we prefer static drafts (with fixed content)
- * over fully dynamic drafts (no fixed content). When multiple static drafts exist, we
- * select the first one encountered.
- * If there are no draft email actions, we return the matches as is.
- * If there is only one draft email action, we return the matches as is.
+ * Limits drafting to a single rule selection.
+ * If there are multiple rules with draft reply actions, we prefer the first static
+ * drafting rule (fixed content) over a fully dynamic drafting rule. Once a rule is
+ * selected, all of its draft reply actions are preserved so the generated draft can
+ * fan out to multiple destinations.
+ * If there are no draft reply actions, we return the matches as is.
+ * If only one rule contains draft reply actions, we return the matches as is.
  */
 export function limitDraftEmailActions<
   T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
 >(matches: T[], logger: Logger): T[] {
   const draftCandidates = matches.flatMap((match) =>
     match.rule.actions
-      .filter((action) => action.type === ActionType.DRAFT_EMAIL)
+      .filter((action) => isDraftReplyActionType(action.type))
       .map((action) => ({
+        ruleId: match.rule.id,
         action,
         hasFixedContent: Boolean(action.content?.trim()),
       })),
@@ -764,17 +772,20 @@ export function limitDraftEmailActions<
     draftCandidates.find((candidate) => candidate.hasFixedContent) ||
     draftCandidates[0];
 
-  const selectedDraftId = preferredCandidate.action.id;
+  const selectedDraftRuleId = preferredCandidate.ruleId;
 
-  logger.info("Limiting draft actions to a single selection", {
+  logger.info("Limiting draft actions to a single rule selection", {
     module: MODULE,
-    selectedDraftId,
+    selectedDraftRuleId,
   });
 
   return matches.map((match) => {
-    const hasExtraDrafts = match.rule.actions.some(
-      (action) =>
-        action.type === ActionType.DRAFT_EMAIL && action.id !== selectedDraftId,
+    if (match.rule.id === selectedDraftRuleId) {
+      return match;
+    }
+
+    const hasExtraDrafts = match.rule.actions.some((action) =>
+      isDraftReplyActionType(action.type),
     );
 
     if (!hasExtraDrafts) {
@@ -786,9 +797,7 @@ export function limitDraftEmailActions<
       rule: {
         ...match.rule,
         actions: match.rule.actions.filter(
-          (action) =>
-            action.type !== ActionType.DRAFT_EMAIL ||
-            action.id === selectedDraftId,
+          (action) => !isDraftReplyActionType(action.type),
         ),
       },
     };

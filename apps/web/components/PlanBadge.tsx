@@ -132,6 +132,7 @@ export function ActionBadgeExpanded({
         </div>
       );
     case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL:
       return (
         <div>
           <Badge color="pink">Draft reply</Badge>
@@ -172,6 +173,7 @@ function getActionLabel(type: ActionType, provider: string) {
     case ActionType.SEND_EMAIL:
       return "Send";
     case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL:
       return "Draft";
     case ActionType.CALL_WEBHOOK:
       return "Webhook";
@@ -179,6 +181,8 @@ function getActionLabel(type: ActionType, provider: string) {
       return "Mark as spam";
     case ActionType.MARK_READ:
       return "Mark as read";
+    case ActionType.NOTIFY_MESSAGING_CHANNEL:
+      return "Notify via chat app";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
     default:
@@ -213,6 +217,7 @@ export function getActionColor(actionType: ActionType): Color {
     case ActionType.FORWARD:
     case ActionType.SEND_EMAIL:
     case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL:
       return "green";
     case ActionType.ARCHIVE:
     case ActionType.MARK_READ:
@@ -226,6 +231,7 @@ export function getActionColor(actionType: ActionType): Color {
     case ActionType.CALL_WEBHOOK:
     case ActionType.DIGEST:
       return "purple";
+    case ActionType.NOTIFY_MESSAGING_CHANNEL:
     case ActionType.NOTIFY_SENDER:
       return "purple";
     default: {
@@ -245,6 +251,7 @@ function getPlanColor(plan: Plan | null, executed: boolean): Color {
     case ActionType.FORWARD:
     case ActionType.SEND_EMAIL:
     case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL:
       return "blue";
     case ActionType.ARCHIVE:
       return "yellow";

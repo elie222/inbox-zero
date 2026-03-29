@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ModelType } from "@/utils/llms/model";
-import { ActionType } from "@/generated/prisma/enums";
 import type { DraftReplyConfidence } from "@/generated/prisma/enums";
 import type { Action } from "@/generated/prisma/client";
 import {
@@ -19,6 +18,7 @@ import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metadata";
+import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 const MODULE = "choose-args";
 export type EmailAccountForDrafting = EmailAccountWithAI & {
@@ -54,8 +54,8 @@ export async function getActionItemsWithAiArgs({
   const log = logger.with({ module: MODULE });
   // Draft content is handled via its own AI call
   // We provide a lot more context to the AI to draft the content
-  const draftEmailActions = selectedRule.actions.filter(
-    (action) => action.type === ActionType.DRAFT_EMAIL && !action.content,
+  const draftReplyActions = selectedRule.actions.filter(
+    (action) => isDraftReplyActionType(action.type) && !action.content,
   );
 
   let draft: string | null = null;
@@ -63,7 +63,7 @@ export async function getActionItemsWithAiArgs({
   let draftAttribution: DraftAttribution | null = null;
   let draftContextMetadata: DraftContextMetadata | null = null;
 
-  if (draftEmailActions.length) {
+  if (draftReplyActions.length) {
     try {
       log.info("Generating draft", {
         email: emailAccount.email,
@@ -153,7 +153,7 @@ export function combineActionsWithAiArgs(
     const updatedAction: ActionWithDraftAttribution = { ...action };
 
     // Add draft content to DRAFT_EMAIL actions if available
-    if (draft && action.type === ActionType.DRAFT_EMAIL) {
+    if (draft && isDraftReplyActionType(action.type)) {
       updatedAction.content = draft;
       updatedAction.draftModelProvider = draftAttribution?.provider ?? null;
       updatedAction.draftModelName = draftAttribution?.modelName ?? null;
@@ -167,7 +167,7 @@ export function combineActionsWithAiArgs(
     if (!aiAction) return updatedAction;
 
     if (
-      action.type === ActionType.DRAFT_EMAIL &&
+      isDraftReplyActionType(action.type) &&
       typeof action.content === "string" &&
       aiAction.content
     ) {
@@ -210,7 +210,7 @@ export function filterIncompleteDraftActions<T extends Action>(
   actions: T[],
 ): T[] {
   return actions.filter((action) => {
-    if (action.type !== ActionType.DRAFT_EMAIL) return true;
+    if (!isDraftReplyActionType(action.type)) return true;
     return !!action.content?.trim();
   });
 }

@@ -115,6 +115,43 @@ export const GET = withError("google/linking/callback", async (request) => {
     }
 
     if (linkingResult.type === "continue_create") {
+      if (isGoogleOauthEmulationEnabled()) {
+        const existingEmulatedAccount = await prisma.emailAccount.findFirst({
+          where: {
+            email: providerEmail.trim().toLowerCase(),
+            userId: targetUserId,
+            account: {
+              provider: "google",
+            },
+          },
+          select: { accountId: true },
+        });
+
+        if (existingEmulatedAccount) {
+          logger.info(
+            "Updating existing Google emulator account for same user and email",
+            {
+              accountId: existingEmulatedAccount.accountId,
+            },
+          );
+
+          await updateGoogleAccount({
+            accountId: existingEmulatedAccount.accountId,
+            providerAccountId,
+            tokens,
+          });
+
+          await setOAuthCodeResult(code, { success: "tokens_updated" });
+
+          const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+          successUrl.searchParams.set("success", "tokens_updated");
+          const successResponse = NextResponse.redirect(successUrl);
+          successResponse.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
+
+          return successResponse;
+        }
+      }
+
       logger.info("Creating new Google account and linking to current user", {
         email: providerEmail,
         targetUserId,
@@ -173,7 +210,10 @@ export const GET = withError("google/linking/callback", async (request) => {
               },
             );
 
-            await updateGoogleAccountTokens(accountNow.id, tokens);
+            await updateGoogleAccount({
+              accountId: accountNow.id,
+              tokens,
+            });
           } else {
             throw createError;
           }
@@ -199,7 +239,10 @@ export const GET = withError("google/linking/callback", async (request) => {
         accountId: linkingResult.existingAccountId,
       });
 
-      await updateGoogleAccountTokens(linkingResult.existingAccountId, tokens);
+      await updateGoogleAccount({
+        accountId: linkingResult.existingAccountId,
+        tokens,
+      });
 
       logger.info("Successfully updated tokens for Google account", {
         email: providerEmail,
@@ -275,13 +318,21 @@ interface GoogleTokens {
   token_type?: string | null;
 }
 
-async function updateGoogleAccountTokens(
-  accountId: string,
-  tokens: GoogleTokens,
-) {
+async function updateGoogleAccount({
+  accountId,
+  providerAccountId,
+  tokens,
+}: {
+  accountId: string;
+  providerAccountId?: string;
+  tokens: GoogleTokens;
+}) {
   await prisma.account.update({
     where: { id: accountId },
     data: {
+      ...(providerAccountId && {
+        providerAccountId,
+      }),
       access_token: tokens.access_token,
       ...(tokens.refresh_token != null && {
         refresh_token: tokens.refresh_token,

@@ -14,6 +14,7 @@ const actionNames: Record<ActionType, string> = {
   [ActionType.MOVE_FOLDER]: "Move to folder",
   [ActionType.ARCHIVE]: "Archive",
   [ActionType.DRAFT_EMAIL]: "Draft replies",
+  [ActionType.DRAFT_MESSAGING_CHANNEL]: "Draft replies",
   [ActionType.REPLY]: "Send replies",
   [ActionType.FORWARD]: "Forward",
   [ActionType.MARK_READ]: "Mark as read",
@@ -21,6 +22,7 @@ const actionNames: Record<ActionType, string> = {
   [ActionType.SEND_EMAIL]: "Send email",
   [ActionType.CALL_WEBHOOK]: "Call webhook",
   [ActionType.DIGEST]: "Add to digest",
+  [ActionType.NOTIFY_MESSAGING_CHANNEL]: "Notify via chat app",
   [ActionType.NOTIFY_SENDER]: "Notify sender",
 };
 
