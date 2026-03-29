@@ -31,11 +31,11 @@ describe("PATCH /api/chats/[chatId]", () => {
     vi.clearAllMocks();
   });
 
-  it("rejects starred-only payloads", async () => {
+  it("returns 400 when only unknown fields are provided", async () => {
     const request = new Request("http://localhost/api/chats/chat-1", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ starred: true }),
+      body: JSON.stringify({ unsupportedField: true }),
     });
 
     const response = await PATCH(request as never, {
