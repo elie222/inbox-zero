@@ -22,9 +22,11 @@ export type RuleAction = {
     | "DIGEST"
     | "CALL_WEBHOOK"
     | "MOVE_FOLDER"
+    | "NOTIFY_MESSAGING_CHANNEL"
     | "NOTIFY_SENDER";
   fields: RuleActionFields;
   delayInMinutes: number | null;
+  messagingChannelId?: string | null;
 };
 
 export type RuleCondition = {

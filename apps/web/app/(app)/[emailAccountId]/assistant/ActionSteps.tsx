@@ -1,6 +1,12 @@
+import Link from "next/link";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import TextareaAutosize from "react-textarea-autosize";
-import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  MessageSquareIcon,
+  PaperclipIcon,
+} from "lucide-react";
 import type {
   useForm,
   Control,
@@ -36,6 +42,7 @@ import {
 } from "@/components/ui/select";
 import { FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { FolderSelector } from "@/components/FolderSelector";
 import { cn } from "@/utils";
@@ -47,6 +54,22 @@ import { MutedText } from "@/components/Typography";
 import { BRAND_NAME } from "@/utils/branding";
 import { ActionAttachmentsField } from "@/app/(app)/[emailAccountId]/assistant/ActionAttachmentsField";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import { getMessagingProviderName } from "@/utils/messaging/platforms";
+import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
+import { prefixPath } from "@/utils/path";
+import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import {
+  buildDraftEmailAction,
+  buildDraftMessagingAction,
+  buildVisibleDraftReplyGroups,
+  getDraftReplyDelivery,
+  getDraftReplyMessagingChannelId,
+  type DraftReplyDelivery,
+} from "@/app/(app)/[emailAccountId]/assistant/draftReplyActions";
+
+type MessagingChannelOption = GetMessagingChannelsResponse["channels"][number];
+type MessagingProviderOption =
+  GetMessagingChannelsResponse["availableProviders"][number];
 
 export function ActionSteps({
   actionFields,
@@ -60,9 +83,12 @@ export function ActionSteps({
   mutate,
   emailAccountId,
   remove,
+  insert,
   typeOptions,
   folders,
   foldersLoading,
+  messagingChannels,
+  availableMessagingProviders,
   append,
   attachmentSources,
   onAttachmentSourcesChange,
@@ -77,25 +103,34 @@ export function ActionSteps({
   isLoading: boolean;
   mutate: () => Promise<unknown>;
   emailAccountId: string;
-  remove: (index: number) => void;
+  remove: (index?: number | number[]) => void;
+  insert: (index: number, action: CreateRuleBody["actions"][number]) => void;
   typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
+  messagingChannels: MessagingChannelOption[];
+  availableMessagingProviders: MessagingProviderOption[];
   append: (action: CreateRuleBody["actions"][number]) => void;
   attachmentSources: AttachmentSourceInput[];
   onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
+  const actions = useWatch({ control, name: "actions" }) ?? [];
+  const visibleActionGroups = useMemo(
+    () => buildVisibleDraftReplyGroups(actions),
+    [actions],
+  );
+
   return (
     <RuleSteps
       onAdd={() => append({ type: ActionType.LABEL })}
       addButtonLabel="Add Action"
       addButtonDisabled={false}
     >
-      {actionFields?.map((field, i) => (
+      {visibleActionGroups.map(({ primaryIndex, draftMessagingIndex }) => (
         <ActionCard
-          key={field.id}
-          action={field}
-          index={i}
+          key={actionFields[primaryIndex]?.id ?? `action-${primaryIndex}`}
+          index={primaryIndex}
+          draftMessagingIndex={draftMessagingIndex}
           register={register}
           watch={watch}
           setValue={setValue}
@@ -106,9 +141,12 @@ export function ActionSteps({
           mutate={mutate}
           emailAccountId={emailAccountId}
           remove={remove}
+          insert={insert}
           typeOptions={typeOptions}
           folders={folders}
           foldersLoading={foldersLoading}
+          messagingChannels={messagingChannels}
+          availableMessagingProviders={availableMessagingProviders}
           attachmentSources={attachmentSources}
           onAttachmentSourcesChange={onAttachmentSourcesChange}
         />
@@ -119,6 +157,7 @@ export function ActionSteps({
 
 function ActionCard({
   index,
+  draftMessagingIndex,
   register,
   watch,
   setValue,
@@ -129,14 +168,17 @@ function ActionCard({
   mutate,
   emailAccountId,
   remove,
+  insert,
   typeOptions,
   folders,
   foldersLoading,
+  messagingChannels,
+  availableMessagingProviders,
   attachmentSources,
   onAttachmentSourcesChange,
 }: {
-  action: CreateRuleBody["actions"][number];
   index: number;
+  draftMessagingIndex: number | null;
   register: ReturnType<typeof useForm<CreateRuleBody>>["register"];
   watch: ReturnType<typeof useForm<CreateRuleBody>>["watch"];
   setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
@@ -146,26 +188,41 @@ function ActionCard({
   isLoading: boolean;
   mutate: () => Promise<unknown>;
   emailAccountId: string;
-  remove: (index: number) => void;
+  remove: (index?: number | number[]) => void;
+  insert: (index: number, action: CreateRuleBody["actions"][number]) => void;
   typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
+  messagingChannels: MessagingChannelOption[];
+  availableMessagingProviders: MessagingProviderOption[];
   attachmentSources: AttachmentSourceInput[];
   onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
-  // Watch the action type from the form to ensure reactivity
-  const actionType = watch(`actions.${index}.type`);
+  const primaryAction = watch(`actions.${index}`);
+  const draftMessagingAction =
+    draftMessagingIndex != null
+      ? watch(`actions.${draftMessagingIndex}`)
+      : undefined;
+  const rawActionType = primaryAction?.type ?? ActionType.LABEL;
+  const actionType = isDraftReplyActionType(rawActionType)
+    ? ActionType.DRAFT_EMAIL
+    : rawActionType;
   const fields = actionInputs[actionType].fields;
+  const selectedTypeOption = typeOptions.find(
+    (option) => option.value === actionType,
+  );
+  const SelectedTypeIcon = selectedTypeOption?.icon;
   const [expandedFields, setExpandedFields] = useState(false);
+  const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false);
+  const [attachmentsDialogOpen, setAttachmentsDialogOpen] = useState(false);
 
   // Get expandable fields that should be visible regardless of expanded state
   const hasExpandableFields = fields.some((field) => field.expandable);
 
   // Precompute content setManually state
-  const contentSetManually =
-    actionType === ActionType.DRAFT_EMAIL
-      ? !!watch(`actions.${index}.content.setManually`)
-      : false;
+  const contentSetManually = isDraftReplyActionType(rawActionType)
+    ? !!watch(`actions.${index}.content.setManually`)
+    : false;
 
   const actionCanBeDelayed = useMemo(
     () => canActionBeDelayed(actionType),
@@ -174,6 +231,17 @@ function ActionCard({
 
   const delayValue = watch(`actions.${index}.delayInMinutes`);
   const delayEnabled = !!delayValue;
+  const selectedMessagingChannelId = getDraftReplyMessagingChannelId({
+    primaryAction,
+    draftMessagingAction,
+  });
+  const selectedMessagingChannel = messagingChannels.find(
+    (channel) => channel.id === selectedMessagingChannelId,
+  );
+  const draftReplyDelivery = getDraftReplyDelivery({
+    primaryAction,
+    draftMessagingAction,
+  });
 
   // Helper function to determine if a field can use variables based on context
   const canFieldUseVariables = (
@@ -187,8 +255,7 @@ function ActionCard({
       return isFieldAiGenerated;
     }
 
-    // For draft email content, only allow variables if set manually
-    if (field.name === "content" && actionType === ActionType.DRAFT_EMAIL) {
+    if (field.name === "content" && isDraftReplyActionType(rawActionType)) {
       return contentSetManually;
     }
 
@@ -217,8 +284,7 @@ function ActionCard({
 
     if (!isFieldVisible) return false;
 
-    // For draft email content, only show variables if set manually
-    if (field.name === "content" && actionType === ActionType.DRAFT_EMAIL) {
+    if (field.name === "content" && isDraftReplyActionType(rawActionType)) {
       return contentSetManually;
     }
 
@@ -227,52 +293,51 @@ function ActionCard({
   });
 
   const leftContent = (
-    <FormField
-      control={control}
-      name={`actions.${index}.type`}
-      render={({ field }) => {
-        const selectedOption = typeOptions.find(
-          (opt) => opt.value === field.value,
-        );
-        const SelectedIcon = selectedOption?.icon;
-
-        return (
-          <FormItem>
-            <Select value={field.value} onValueChange={field.onChange}>
-              <FormControl>
-                <SelectTrigger className="w-[180px]">
-                  {selectedOption ? (
-                    <div className="flex items-center gap-2">
-                      {SelectedIcon && <SelectedIcon className="size-4" />}
-                      <span>{selectedOption.label}</span>
-                    </div>
-                  ) : (
-                    <SelectValue placeholder="Select action" />
-                  )}
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {typeOptions.map((option) => {
-                  const Icon = option.icon;
-                  return (
-                    <SelectItem key={option.value} value={option.value}>
-                      <div className="flex items-center gap-2">
-                        {Icon && <Icon className="size-4" />}
-                        {option.label}
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </FormItem>
-        );
-      }}
-    />
+    <FormItem>
+      <Select
+        value={actionType}
+        onValueChange={(nextValue) =>
+          updateActionType({
+            nextType: nextValue as ActionType,
+            index,
+            draftMessagingIndex,
+            primaryAction,
+            setValue,
+            remove,
+          })
+        }
+      >
+        <FormControl>
+          <SelectTrigger className="w-[180px]">
+            {selectedTypeOption ? (
+              <div className="flex items-center gap-2">
+                {SelectedTypeIcon && <SelectedTypeIcon className="size-4" />}
+                <span>{selectedTypeOption.label}</span>
+              </div>
+            ) : (
+              <SelectValue placeholder="Select action" />
+            )}
+          </SelectTrigger>
+        </FormControl>
+        <SelectContent>
+          {typeOptions.map((option) => {
+            const Icon = option.icon;
+            return (
+              <SelectItem key={option.value} value={option.value}>
+                <div className="flex items-center gap-2">
+                  {Icon && <Icon className="size-4" />}
+                  {option.label}
+                </div>
+              </SelectItem>
+            );
+          })}
+        </SelectContent>
+      </Select>
+    </FormItem>
   );
 
   const isEmailAction =
-    actionType === ActionType.DRAFT_EMAIL ||
+    isDraftReplyActionType(rawActionType) ||
     actionType === ActionType.REPLY ||
     actionType === ActionType.SEND_EMAIL ||
     actionType === ActionType.FORWARD;
@@ -292,12 +357,9 @@ function ActionCard({
     const setManually = !!watch(`actions.${index}.${field.name}.setManually`);
 
     // Show field if it's not expandable, or it's expanded, or it has a value
-    // For Draft Email, always show expandable fields (no expand/collapse)
+    const isDraftReplyAction = isDraftReplyActionType(rawActionType);
     const showField =
-      !field.expandable ||
-      actionType === ActionType.DRAFT_EMAIL ||
-      expandedFields ||
-      !!value;
+      !field.expandable || isDraftReplyAction || expandedFields || !!value;
 
     if (!showField) return null;
 
@@ -308,7 +370,7 @@ function ActionCard({
           "space-y-4 mx-auto w-full",
           field.expandable &&
             !value &&
-            actionType !== ActionType.DRAFT_EMAIL &&
+            !isDraftReplyActionType(rawActionType) &&
             "opacity-80",
         )}
       >
@@ -395,7 +457,7 @@ function ActionCard({
               />
             </div>
           ) : field.name === "content" &&
-            actionType === ActionType.DRAFT_EMAIL &&
+            isDraftReplyActionType(rawActionType) &&
             !setManually ? null : field.textArea ? (
             <div>
               {isEmailAction && (
@@ -488,8 +550,8 @@ function ActionCard({
   const fieldsContent = (
     <>
       {renderFieldRows(nonExpandableFields, renderField)}
-      {actionType === ActionType.DRAFT_EMAIL
-        ? // For Draft Email, show all fields directly without expand/collapse
+      {isDraftReplyActionType(rawActionType)
+        ? // Draft reply actions always show all configurable fields.
           renderFieldRows(expandableFields, renderField)
         : hasExpandableFields &&
           expandableFields.length > 0 && (
@@ -546,17 +608,20 @@ function ActionCard({
     ) : null;
 
   const isDraftEmailWithoutManualContent =
-    actionType === ActionType.DRAFT_EMAIL && !contentSetManually;
+    isDraftReplyActionType(rawActionType) && !contentSetManually;
 
   const isNotifySender = actionType === ActionType.NOTIFY_SENDER;
+  const isMessagingNotification =
+    actionType === ActionType.NOTIFY_MESSAGING_CHANNEL;
 
   const supportsAttachments =
-    actionType === ActionType.DRAFT_EMAIL ||
+    isDraftReplyActionType(rawActionType) ||
     actionType === ActionType.REPLY ||
     actionType === ActionType.SEND_EMAIL;
-  const supportsAiSelectedSources = actionType === ActionType.DRAFT_EMAIL;
-  const canConfigureStaticAttachments =
-    actionType === ActionType.DRAFT_EMAIL ? contentSetManually : supportsAttachments;
+  const supportsAiSelectedSources = isDraftReplyActionType(rawActionType);
+  const canConfigureStaticAttachments = isDraftReplyActionType(rawActionType)
+    ? contentSetManually
+    : supportsAttachments;
 
   const staticAttachments = useWatch({
     control,
@@ -577,6 +642,83 @@ function ActionCard({
     />
   ) : null;
 
+  const connectedMessagingChannels = messagingChannels.filter(
+    (channel) => channel.isConnected && channel.hasSendDestination,
+  );
+  const canConnectSlack = availableMessagingProviders.includes("SLACK");
+
+  const deliveryField = isDraftReplyActionType(rawActionType) ? (
+    <DraftReplyDeliveryField
+      label="Deliver to"
+      delivery={draftReplyDelivery}
+      messagingChannels={connectedMessagingChannels}
+      selectedChannelId={selectedMessagingChannelId}
+      selectedChannel={selectedMessagingChannel}
+      errorMessage={getMessagingChannelError({
+        errors,
+        primaryIndex: index,
+        draftMessagingIndex,
+      })}
+      onChange={(nextValue) =>
+        updateDraftReplyDelivery({
+          delivery: nextValue,
+          index,
+          draftMessagingIndex,
+          primaryAction,
+          draftMessagingAction,
+          selectedChannelId: selectedMessagingChannelId,
+          setValue,
+          insert,
+          remove,
+          fallbackChannelId: connectedMessagingChannels[0]?.id ?? null,
+        })
+      }
+    />
+  ) : isMessagingNotification ? (
+    <MessagingChannelField
+      control={control}
+      index={index}
+      label="Send to"
+      messagingChannels={connectedMessagingChannels}
+      selectedChannel={selectedMessagingChannel}
+    />
+  ) : null;
+
+  const deliverySummary = isDraftReplyActionType(rawActionType) ? (
+    <MutedText className="px-1">
+      Deliver to{" "}
+      <span className="font-medium text-foreground">
+        {formatDraftReplyDeliverySummary({
+          delivery: draftReplyDelivery,
+          selectedChannel: selectedMessagingChannel,
+        })}
+      </span>
+    </MutedText>
+  ) : isMessagingNotification ? (
+    <MutedText className="px-1">
+      {selectedMessagingChannel ? (
+        <>
+          Send to{" "}
+          <span className="font-medium text-foreground">
+            {formatMessagingDestinationLabel(selectedMessagingChannel)}
+          </span>
+        </>
+      ) : (
+        "Choose a delivery destination from More options."
+      )}
+    </MutedText>
+  ) : null;
+
+  const attachmentsSummary =
+    supportsAttachments && staticAttachments?.length ? (
+      <MutedText className="px-1">
+        Attachments:{" "}
+        <span className="font-medium text-foreground">
+          {staticAttachments.length}
+        </span>
+      </MutedText>
+    ) : null;
+
   const rightContent = (
     <>
       {isNotifySender ? (
@@ -585,19 +727,23 @@ function ActionCard({
         </MutedText>
       ) : isDraftEmailWithoutManualContent ? (
         <Card className="p-4 space-y-4">
+          {deliverySummary}
           <MutedText className="px-1 h-full flex items-center">
-            Our AI generates a draft reply from your email history and
-            knowledge base.
+            Our AI generates a draft reply from your email history and knowledge
+            base.
           </MutedText>
           {delayControls}
-          {attachmentsField}
+          {attachmentsSummary}
         </Card>
+      ) : isMessagingNotification ? (
+        <Card className="p-4 space-y-4">{deliverySummary}</Card>
       ) : isEmailAction || actionType === ActionType.CALL_WEBHOOK ? (
         <Card className="p-4 space-y-4">
+          {deliverySummary}
           {fieldsContent}
           {shouldShowProTip && <VariableProTip />}
           {delayControls}
-          {attachmentsField}
+          {attachmentsSummary}
         </Card>
       ) : (
         <>
@@ -647,25 +793,447 @@ function ActionCard({
   const isLabelAction = actionType === ActionType.LABEL;
   const labelIdValue = watch(`actions.${index}.labelId`);
   const isPromptMode = !!labelIdValue?.ai;
-  const isDraftEmailAction = actionType === ActionType.DRAFT_EMAIL;
+  const isDraftReplyAction = isDraftReplyActionType(rawActionType);
+  const showDeliveryActions = isDraftReplyAction || isMessagingNotification;
+  const showAttachmentsAction = supportsAttachments;
+  const moreOptions = (
+    <>
+      {showDeliveryActions ? (
+        <DropdownMenuItem
+          onClick={(event) => {
+            event.preventDefault();
+            setDeliveryDialogOpen(true);
+          }}
+        >
+          <MessageSquareIcon className="mr-2 size-4" />
+          {deliverySummary ? "Delivery options" : "Configure delivery"}
+        </DropdownMenuItem>
+      ) : null}
+      {showAttachmentsAction ? (
+        <DropdownMenuItem
+          onClick={(event) => {
+            event.preventDefault();
+            setAttachmentsDialogOpen(true);
+          }}
+        >
+          <PaperclipIcon className="mr-2 size-4" />
+          Configure attachments
+        </DropdownMenuItem>
+      ) : null}
+    </>
+  );
 
   return (
-    <RuleStep
-      onRemove={() => remove(index)}
-      removeAriaLabel="Remove action"
-      leftContent={leftContent}
-      rightContent={rightContent}
-      onAddDelay={actionCanBeDelayed ? handleAddDelay : undefined}
-      onRemoveDelay={actionCanBeDelayed ? handleRemoveDelay : undefined}
-      hasDelay={delayEnabled}
-      onUsePrompt={isLabelAction ? handleUsePrompt : undefined}
-      onUseLabel={isLabelAction ? handleUseLabel : undefined}
-      isPromptMode={isPromptMode}
-      onSetManually={isDraftEmailAction ? handleSetManually : undefined}
-      onUseAiDraft={isDraftEmailAction ? handleUseAiDraft : undefined}
-      isManualMode={contentSetManually}
+    <>
+      <RuleStep
+        onRemove={() =>
+          remove(
+            draftMessagingIndex != null ? [index, draftMessagingIndex] : index,
+          )
+        }
+        removeAriaLabel="Remove action"
+        leftContent={leftContent}
+        rightContent={rightContent}
+        onAddDelay={actionCanBeDelayed ? handleAddDelay : undefined}
+        onRemoveDelay={actionCanBeDelayed ? handleRemoveDelay : undefined}
+        hasDelay={delayEnabled}
+        onUsePrompt={isLabelAction ? handleUsePrompt : undefined}
+        onUseLabel={isLabelAction ? handleUseLabel : undefined}
+        isPromptMode={isPromptMode}
+        onSetManually={isDraftReplyAction ? handleSetManually : undefined}
+        onUseAiDraft={isDraftReplyAction ? handleUseAiDraft : undefined}
+        isManualMode={contentSetManually}
+        extraOptions={moreOptions}
+      />
+
+      <Dialog open={deliveryDialogOpen} onOpenChange={setDeliveryDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isDraftReplyAction ? "Delivery options" : "Delivery destination"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {deliveryField}
+            {connectedMessagingChannels.length === 0 && canConnectSlack ? (
+              <div className="rounded-md border bg-muted/40 p-3 space-y-3">
+                <MutedText>
+                  Connect Slack in Settings to deliver outside email.
+                </MutedText>
+                <div className="flex flex-wrap gap-2">
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={prefixPath(emailAccountId, "/settings")}>
+                      Connect Slack
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={attachmentsDialogOpen}
+        onOpenChange={setAttachmentsDialogOpen}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Attachments</DialogTitle>
+          </DialogHeader>
+          {attachmentsField}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function DraftReplyDeliveryField({
+  label,
+  delivery,
+  messagingChannels,
+  selectedChannelId,
+  selectedChannel,
+  errorMessage,
+  onChange,
+}: {
+  label: string;
+  delivery: DraftReplyDelivery;
+  messagingChannels: MessagingChannelOption[];
+  selectedChannelId: string | null;
+  selectedChannel?: MessagingChannelOption;
+  errorMessage?: string;
+  onChange: (value: DraftReplyDeliverySelection) => void;
+}) {
+  const options = buildDraftReplyDeliveryOptions({
+    messagingChannels,
+    selectedChannelId,
+    selectedChannel,
+  });
+  const selectedValue =
+    options.find(
+      (option) =>
+        option.delivery === delivery &&
+        option.messagingChannelId === selectedChannelId,
+    )?.value ?? (delivery === "EMAIL" ? "email" : undefined);
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Select
+        value={selectedValue}
+        onValueChange={(nextValue) =>
+          onChange(parseDraftReplyDeliverySelection(nextValue))
+        }
+      >
+        <FormControl>
+          <SelectTrigger>
+            <SelectValue
+              placeholder={
+                messagingChannels.length > 0 ? "Choose a destination" : "Email"
+              }
+            />
+          </SelectTrigger>
+        </FormControl>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {errorMessage ? <ErrorMessage message={errorMessage} /> : null}
+    </div>
+  );
+}
+
+function MessagingChannelField({
+  control,
+  index,
+  label,
+  includeEmailOption = false,
+  messagingChannels,
+  selectedChannel,
+}: {
+  control: Control<CreateRuleBody>;
+  index: number;
+  label: string;
+  includeEmailOption?: boolean;
+  messagingChannels: MessagingChannelOption[];
+  selectedChannel?: MessagingChannelOption;
+}) {
+  return (
+    <FormField
+      control={control}
+      name={`actions.${index}.messagingChannelId`}
+      render={({ field, fieldState }) => {
+        const value = field.value ?? (includeEmailOption ? "email" : undefined);
+        const showDisconnectedOption =
+          !!selectedChannel &&
+          !messagingChannels.some(
+            (channel) => channel.id === selectedChannel.id,
+          );
+
+        return (
+          <div className="space-y-2">
+            <Label>{label}</Label>
+            <Select
+              value={value}
+              onValueChange={(nextValue) =>
+                field.onChange(nextValue === "email" ? null : nextValue)
+              }
+            >
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      messagingChannels.length > 0
+                        ? "Choose a destination"
+                        : "No connected destinations"
+                    }
+                  />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {includeEmailOption ? (
+                  <SelectItem value="email">Email</SelectItem>
+                ) : null}
+                {messagingChannels.map((channel) => (
+                  <SelectItem key={channel.id} value={channel.id}>
+                    {formatMessagingDestinationLabel(channel)}
+                  </SelectItem>
+                ))}
+                {showDisconnectedOption && selectedChannel ? (
+                  <SelectItem value={selectedChannel.id}>
+                    {formatMessagingDestinationLabel(selectedChannel)}{" "}
+                    (Disconnected)
+                  </SelectItem>
+                ) : null}
+              </SelectContent>
+            </Select>
+            {fieldState.error?.message ? (
+              <ErrorMessage message={fieldState.error.message} />
+            ) : null}
+          </div>
+        );
+      }}
     />
   );
+}
+
+function formatMessagingDestinationLabel(channel: MessagingChannelOption) {
+  const provider = getMessagingProviderName(channel.provider);
+
+  if (channel.isDm) return `${provider} DM`;
+  if (channel.channelName && channel.teamName) {
+    return `#${channel.channelName} (${channel.teamName})`;
+  }
+  if (channel.channelName) return `#${channel.channelName}`;
+  if (channel.teamName) return `${provider} (${channel.teamName})`;
+
+  return provider === "Slack" ? "Slack workspace" : provider;
+}
+
+type DraftReplyDeliverySelection = {
+  delivery: DraftReplyDelivery;
+  messagingChannelId: string | null;
+};
+
+function updateActionType({
+  nextType,
+  index,
+  draftMessagingIndex,
+  primaryAction,
+  setValue,
+  remove,
+}: {
+  nextType: ActionType;
+  index: number;
+  draftMessagingIndex: number | null;
+  primaryAction?: CreateRuleBody["actions"][number];
+  setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
+  remove: (index?: number | number[]) => void;
+}) {
+  if (!primaryAction) return;
+
+  if (nextType === ActionType.DRAFT_EMAIL) {
+    setValue(`actions.${index}`, buildDraftEmailAction(primaryAction));
+    if (draftMessagingIndex != null) {
+      remove(draftMessagingIndex);
+    }
+    return;
+  }
+
+  setValue(`actions.${index}.type`, nextType);
+  setValue(`actions.${index}.messagingChannelId`, null);
+  if (draftMessagingIndex != null) {
+    remove(draftMessagingIndex);
+  }
+}
+
+function updateDraftReplyDelivery({
+  delivery,
+  index,
+  draftMessagingIndex,
+  primaryAction,
+  draftMessagingAction,
+  selectedChannelId,
+  setValue,
+  insert,
+  remove,
+  fallbackChannelId,
+}: {
+  delivery: DraftReplyDeliverySelection;
+  index: number;
+  draftMessagingIndex: number | null;
+  primaryAction?: CreateRuleBody["actions"][number];
+  draftMessagingAction?: CreateRuleBody["actions"][number];
+  selectedChannelId: string | null;
+  setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
+  insert: (index: number, action: CreateRuleBody["actions"][number]) => void;
+  remove: (index?: number | number[]) => void;
+  fallbackChannelId: string | null;
+}) {
+  if (!primaryAction) return;
+
+  const messagingChannelId =
+    delivery.messagingChannelId ?? selectedChannelId ?? fallbackChannelId;
+
+  if (delivery.delivery === "EMAIL") {
+    setValue(`actions.${index}`, buildDraftEmailAction(primaryAction));
+    if (draftMessagingIndex != null) {
+      remove(draftMessagingIndex);
+    }
+    return;
+  }
+
+  if (delivery.delivery === "SLACK") {
+    setValue(
+      `actions.${index}`,
+      buildDraftMessagingAction({
+        action: primaryAction,
+        sourceAction: primaryAction,
+        messagingChannelId,
+      }),
+    );
+    if (draftMessagingIndex != null) {
+      remove(draftMessagingIndex);
+    }
+    return;
+  }
+
+  setValue(`actions.${index}`, buildDraftEmailAction(primaryAction));
+  const nextDraftMessagingAction = buildDraftMessagingAction({
+    action: draftMessagingAction ?? primaryAction,
+    sourceAction: primaryAction,
+    messagingChannelId,
+  });
+
+  if (draftMessagingIndex != null) {
+    setValue(`actions.${draftMessagingIndex}`, nextDraftMessagingAction);
+    return;
+  }
+
+  insert(index + 1, nextDraftMessagingAction);
+}
+
+function getMessagingChannelError({
+  errors,
+  primaryIndex,
+  draftMessagingIndex,
+}: {
+  errors: FieldErrors<CreateRuleBody>;
+  primaryIndex: number;
+  draftMessagingIndex: number | null;
+}) {
+  return (
+    errors.actions?.[
+      draftMessagingIndex ?? primaryIndex
+    ]?.messagingChannelId?.message?.toString() || undefined
+  );
+}
+
+function formatDraftReplyDeliverySummary({
+  delivery,
+  selectedChannel,
+}: {
+  delivery: DraftReplyDelivery;
+  selectedChannel?: MessagingChannelOption;
+}) {
+  if (delivery === "EMAIL") return "Email";
+  if (!selectedChannel) {
+    return delivery === "SLACK" ? "Slack" : "Email + Slack";
+  }
+
+  return delivery === "SLACK"
+    ? `Slack · ${formatMessagingDestinationLabel(selectedChannel)}`
+    : `Email + Slack · ${formatMessagingDestinationLabel(selectedChannel)}`;
+}
+
+function buildDraftReplyDeliveryOptions({
+  messagingChannels,
+  selectedChannelId,
+  selectedChannel,
+}: {
+  messagingChannels: MessagingChannelOption[];
+  selectedChannelId: string | null;
+  selectedChannel?: MessagingChannelOption;
+}) {
+  const options: Array<{
+    value: string;
+    label: string;
+    delivery: DraftReplyDelivery;
+    messagingChannelId: string | null;
+  }> = [
+    {
+      value: "email",
+      label: "Email",
+      delivery: "EMAIL",
+      messagingChannelId: null,
+    },
+  ];
+
+  const channels = [...messagingChannels];
+  if (
+    selectedChannelId &&
+    selectedChannel &&
+    !channels.some((channel) => channel.id === selectedChannelId)
+  ) {
+    channels.push(selectedChannel);
+  }
+
+  for (const channel of channels) {
+    const destination = formatMessagingDestinationLabel(channel);
+    options.push({
+      value: `slack:${channel.id}`,
+      label: `Slack · ${destination}`,
+      delivery: "SLACK",
+      messagingChannelId: channel.id,
+    });
+    options.push({
+      value: `email+slack:${channel.id}`,
+      label: `Email + Slack · ${destination}`,
+      delivery: "EMAIL_AND_SLACK",
+      messagingChannelId: channel.id,
+    });
+  }
+
+  return options;
+}
+
+function parseDraftReplyDeliverySelection(
+  value: string,
+): DraftReplyDeliverySelection {
+  if (value === "email") {
+    return { delivery: "EMAIL", messagingChannelId: null };
+  }
+
+  const [delivery, messagingChannelId] = value.split(":");
+  return {
+    delivery: delivery === "email+slack" ? "EMAIL_AND_SLACK" : "SLACK",
+    messagingChannelId: messagingChannelId || null,
+  };
 }
 
 function VariableExamplesDialog() {

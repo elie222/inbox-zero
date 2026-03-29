@@ -30,6 +30,7 @@ import {
 import { Toggle } from "@/components/Toggle";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { useLabels } from "@/hooks/useLabels";
+import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { AlertError } from "@/components/Alert";
 import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -53,6 +54,11 @@ import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps"
 import { RuleLoader } from "@/app/(app)/[emailAccountId]/assistant/RuleLoader";
 import { handleRuleAttachmentSourceSave } from "@/utils/attachments/rule";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import {
+  denormalizeDraftReplyActions,
+  normalizeDraftReplyActions,
+} from "@/app/(app)/[emailAccountId]/assistant/draftReplyActions";
+import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 export function Rule({
   ruleId,
@@ -106,18 +112,20 @@ export function RuleForm({
             (action) => action.type === ActionType.DIGEST,
           ),
           actions: [
-            ...rule.actions
-              .filter((action) => action.type !== ActionType.DIGEST)
-              .map((action) => ({
-                ...action,
-                delayInMinutes: action.delayInMinutes,
-                content: {
-                  ...action.content,
-                  setManually: !!action.content?.value,
-                },
-                folderName: action.folderName,
-                folderId: action.folderId,
-              })),
+            ...normalizeDraftReplyActions(
+              rule.actions
+                .filter((action) => action.type !== ActionType.DIGEST)
+                .map((action) => ({
+                  ...action,
+                  delayInMinutes: action.delayInMinutes,
+                  content: {
+                    ...action.content,
+                    setManually: !!action.content?.value,
+                  },
+                  folderName: action.folderName,
+                  folderId: action.folderId,
+                })),
+            ),
           ],
         }
       : undefined,
@@ -146,10 +154,12 @@ export function RuleForm({
   const {
     fields: actionFields,
     append,
+    insert,
     remove,
   } = useFieldArray({ control, name: "actions" });
 
   const { userLabels, isLoading, mutate: mutateLabels } = useLabels();
+  const { data: messagingChannelsData } = useMessagingChannels(emailAccountId);
   const { folders, isLoading: foldersLoading } = useFolders(provider);
   const router = useRouter();
 
@@ -170,19 +180,21 @@ export function RuleForm({
     async (data) => {
       // set content to empty string if it's not set manually
       for (const action of data.actions) {
-        if (action.type === ActionType.DRAFT_EMAIL) {
+        if (isDraftReplyActionType(action.type)) {
           if (!action.content?.setManually) {
             action.content = { value: "", ai: false };
           }
         }
       }
 
-      const hasDraftAction = data.actions.some(
-        (action) => action.type === ActionType.DRAFT_EMAIL,
+      const normalizedActions = denormalizeDraftReplyActions(data.actions);
+
+      const hasDraftAction = normalizedActions.some((action) =>
+        isDraftReplyActionType(action.type),
       );
 
       // Add DIGEST action if digest is enabled
-      const actionsToSubmit = [...data.actions];
+      const actionsToSubmit = [...normalizedActions];
       if (data.digest) {
         actionsToSubmit.push({ type: ActionType.DIGEST });
       }
@@ -309,7 +321,8 @@ export function RuleForm({
       const actionError =
         formState.errors?.actions?.[index]?.url?.root?.message ||
         formState.errors?.actions?.[index]?.labelId?.root?.message ||
-        formState.errors?.actions?.[index]?.to?.root?.message;
+        formState.errors?.actions?.[index]?.to?.root?.message ||
+        formState.errors?.actions?.[index]?.messagingChannelId?.message;
       if (actionError) actionErrors.push(actionError);
     });
     return actionErrors;
@@ -325,6 +338,17 @@ export function RuleForm({
   }, [formState]);
 
   const typeOptions = useMemo(() => {
+    const connectedMessagingChannels =
+      messagingChannelsData?.channels.filter(
+        (channel) =>
+          channel.provider === "SLACK" &&
+          channel.isConnected &&
+          channel.hasSendDestination,
+      ) ?? [];
+    const slackIsAvailable =
+      connectedMessagingChannels.length > 0 ||
+      messagingChannelsData?.availableProviders.includes("SLACK");
+
     const options: {
       label: string;
       value: ActionType;
@@ -392,6 +416,15 @@ export function RuleForm({
         value: ActionType.CALL_WEBHOOK,
         icon: getActionIcon(ActionType.CALL_WEBHOOK),
       },
+      ...(slackIsAvailable
+        ? [
+            {
+              label: "Notify via chat app",
+              value: ActionType.NOTIFY_MESSAGING_CHANNEL,
+              icon: getActionIcon(ActionType.NOTIFY_MESSAGING_CHANNEL),
+            },
+          ]
+        : []),
       // NOTIFY_SENDER is only available for cold email rules
       ...(rule.systemType === SystemType.COLD_EMAIL &&
       env.NEXT_PUBLIC_IS_RESEND_CONFIGURED
@@ -406,7 +439,13 @@ export function RuleForm({
     ];
 
     return options;
-  }, [provider, terminology.label.action, rule.systemType]);
+  }, [
+    messagingChannelsData?.channels,
+    messagingChannelsData?.availableProviders,
+    provider,
+    terminology.label.action,
+    rule.systemType,
+  ]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -510,6 +549,7 @@ export function RuleForm({
             setValue={setValue}
             append={append}
             remove={remove}
+            insert={insert}
             control={control}
             errors={errors}
             userLabels={userLabels}
@@ -519,6 +559,14 @@ export function RuleForm({
             typeOptions={typeOptions}
             folders={folders}
             foldersLoading={foldersLoading}
+            messagingChannels={
+              messagingChannelsData?.channels.filter(
+                (channel) => channel.provider === "SLACK",
+              ) ?? []
+            }
+            availableMessagingProviders={
+              messagingChannelsData?.availableProviders ?? []
+            }
             attachmentSources={attachmentSources}
             onAttachmentSourcesChange={setAttachmentSources}
           />

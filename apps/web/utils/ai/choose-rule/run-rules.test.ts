@@ -810,6 +810,48 @@ describe("limitDraftEmailActions", () => {
     expect(typedResult[1].resolvedReason).toBe("Needs reply");
   });
 
+  it("keeps every DRAFT_EMAIL action on the selected drafting rule", () => {
+    const guestsRule = createRule("guests-rule", null, [
+      getAction({
+        id: "draft-email",
+        type: ActionType.DRAFT_EMAIL,
+        content: "Thanks for your note.",
+        ruleId: "guests-rule",
+      }),
+      getAction({
+        id: "draft-slack",
+        type: ActionType.DRAFT_EMAIL,
+        content: "Thanks for your note.",
+        ruleId: "guests-rule",
+      }),
+    ]);
+
+    const toReplyRuleResolved = createRule(
+      "to-reply-resolved",
+      SystemType.TO_REPLY,
+      [
+        getAction({
+          id: "draft-to-reply",
+          type: ActionType.DRAFT_EMAIL,
+          content: null,
+          ruleId: "to-reply-resolved",
+        }),
+      ],
+    );
+
+    const result = limitDraftEmailActions(
+      [{ rule: guestsRule }, { rule: toReplyRuleResolved }],
+      logger,
+    );
+
+    expect(
+      result[0].rule.actions.filter((a) => a.type === ActionType.DRAFT_EMAIL),
+    ).toHaveLength(2);
+    expect(
+      result[1].rule.actions.some((a) => a.type === ActionType.DRAFT_EMAIL),
+    ).toBe(false);
+  });
+
   it("keeps first draft when both rules have AI-generated DRAFT_EMAIL", () => {
     const guestsRule = createRule("guests-rule", null, [
       getAction({

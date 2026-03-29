@@ -89,6 +89,7 @@ export function useDraftReplies() {
                       delayInMinutes: null,
                       folderName: null,
                       folderId: null,
+                      messagingChannelId: null,
                       staticAttachments: null,
                       createdAt: new Date(),
                       updatedAt: new Date(),

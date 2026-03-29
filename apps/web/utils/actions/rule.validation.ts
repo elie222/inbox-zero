@@ -67,9 +67,11 @@ export const updateRuleConditionSchema = z.object({
 const zodActionType = z.enum([
   ActionType.ARCHIVE,
   ActionType.DRAFT_EMAIL,
+  ActionType.DRAFT_MESSAGING_CHANNEL,
   ActionType.FORWARD,
   ActionType.LABEL,
   ActionType.MARK_SPAM,
+  ActionType.NOTIFY_MESSAGING_CHANNEL,
   ActionType.REPLY,
   ActionType.SEND_EMAIL,
   ActionType.CALL_WEBHOOK,
@@ -127,6 +129,7 @@ const zodAction = z
   .object({
     id: z.string().optional(),
     type: zodActionType,
+    messagingChannelId: z.string().cuid().nullish(),
     labelId: zodField,
     subject: zodField,
     content: zodField,
@@ -178,6 +181,28 @@ const zodAction = z
         code: z.ZodIssueCode.custom,
         message: "Please enter a webhook URL",
         path: ["url"],
+      });
+    }
+
+    if (
+      data.type === ActionType.DRAFT_MESSAGING_CHANNEL &&
+      !data.messagingChannelId
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please choose a chat destination",
+        path: ["messagingChannelId"],
+      });
+    }
+
+    if (
+      data.type === ActionType.NOTIFY_MESSAGING_CHANNEL &&
+      !data.messagingChannelId
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please choose a chat destination",
+        path: ["messagingChannelId"],
       });
     }
     if (

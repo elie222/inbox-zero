@@ -9,7 +9,6 @@ import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { EmailProvider } from "@/providers/EmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
-import { prefixPath } from "@/utils/path";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
 import { TabSelect } from "@/components/TabSelect";
@@ -21,8 +20,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { DismissibleVideoCard } from "@/components/VideoCard";
 import {
   STEP_KEYS,
-  getStepNumber,
-} from "@/app/(app)/[emailAccountId]/onboarding/steps";
+  getOnboardingStepHref,
+} from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -72,12 +71,7 @@ export default async function AutomationPage({
     });
 
     if (!hasRule) {
-      redirect(
-        prefixPath(
-          emailAccountId,
-          `/onboarding?step=${getStepNumber(STEP_KEYS.LABELS)}`,
-        ),
-      );
+      redirect(getOnboardingStepHref(emailAccountId, STEP_KEYS.LABELS));
     }
   }
 

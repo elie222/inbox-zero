@@ -33,6 +33,7 @@ const ruleActionTypeSchema = z.enum([
   ActionType.ARCHIVE,
   ActionType.MARK_READ,
   ActionType.DRAFT_EMAIL,
+  ActionType.DRAFT_MESSAGING_CHANNEL,
   ActionType.REPLY,
   ActionType.FORWARD,
   ActionType.SEND_EMAIL,
@@ -40,12 +41,14 @@ const ruleActionTypeSchema = z.enum([
   ActionType.DIGEST,
   ActionType.CALL_WEBHOOK,
   ActionType.MOVE_FOLDER,
+  ActionType.NOTIFY_MESSAGING_CHANNEL,
   ActionType.NOTIFY_SENDER,
 ]);
 
 const actionSchema = z
   .object({
     type: ruleActionTypeSchema,
+    messagingChannelId: z.string().cuid().nullish(),
     fields: z
       .object({
         label: z.string().nullish(),
@@ -98,6 +101,24 @@ const actionSchema = z
       path: ["fields", "folderName"],
       ctx,
     });
+    addMissingActionFieldIssue({
+      actionType: action.type,
+      requiredActionType: ActionType.DRAFT_MESSAGING_CHANNEL,
+      fieldValue: action.messagingChannelId,
+      message:
+        "DRAFT_MESSAGING_CHANNEL requires a value in messagingChannelId.",
+      path: ["messagingChannelId"],
+      ctx,
+    });
+    addMissingActionFieldIssue({
+      actionType: action.type,
+      requiredActionType: ActionType.NOTIFY_MESSAGING_CHANNEL,
+      fieldValue: action.messagingChannelId,
+      message:
+        "NOTIFY_MESSAGING_CHANNEL requires a value in messagingChannelId.",
+      path: ["messagingChannelId"],
+      ctx,
+    });
   });
 
 export const rulePathParamsSchema = z.object({
@@ -113,6 +134,7 @@ export const ruleRequestBodySchema = z.object({
 
 const ruleActionResponseSchema = z.object({
   type: ruleActionTypeSchema,
+  messagingChannelId: z.string().cuid().nullable().optional(),
   fields: z.object({
     label: z.string().nullable(),
     to: z.string().nullable(),

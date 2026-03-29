@@ -14,6 +14,7 @@ export function toRuleWriteInput(body: RuleRequestBody) {
     },
     actions: body.actions.map((action) => ({
       type: action.type,
+      messagingChannelId: action.messagingChannelId ?? null,
       fields: action.fields
         ? {
             label: action.fields.label ?? null,

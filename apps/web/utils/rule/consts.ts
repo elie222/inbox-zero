@@ -187,6 +187,7 @@ export function getDefaultActions(
   url: string | null;
   cc: string | null;
   bcc: string | null;
+  messagingChannelId: string | null;
   delayInMinutes: number | null;
   staticAttachments: null;
   createdAt: Date;
@@ -209,6 +210,7 @@ export function getDefaultActions(
     url: string | null;
     cc: string | null;
     bcc: string | null;
+    messagingChannelId: string | null;
     delayInMinutes: number | null;
     staticAttachments: null;
     createdAt: Date;
@@ -230,6 +232,7 @@ export function getDefaultActions(
       url: null,
       cc: null,
       bcc: null,
+      messagingChannelId: null,
       delayInMinutes: null,
       staticAttachments: null,
       createdAt: now,
@@ -250,6 +253,7 @@ export function getDefaultActions(
       url: null,
       cc: null,
       bcc: null,
+      messagingChannelId: null,
       delayInMinutes: null,
       staticAttachments: null,
       createdAt: now,
@@ -272,6 +276,7 @@ export function getDefaultActions(
       url: null,
       cc: null,
       bcc: null,
+      messagingChannelId: null,
       delayInMinutes: null,
       staticAttachments: null,
       createdAt: now,
@@ -294,6 +299,7 @@ export function getDefaultActions(
       url: null,
       cc: null,
       bcc: null,
+      messagingChannelId: null,
       delayInMinutes: null,
       staticAttachments: null,
       createdAt: now,

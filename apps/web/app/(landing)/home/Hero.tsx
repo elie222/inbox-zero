@@ -28,7 +28,6 @@ import {
   Badge,
   type BadgeVariant,
 } from "@/components/new-landing/common/Badge";
-import { useHeroLayoutVariant } from "@/hooks/useFeatureFlags";
 import { BrandScroller } from "@/components/new-landing/BrandScroller";
 
 interface HeroProps {
@@ -130,21 +129,10 @@ export function HeroVideoPlayer() {
 }
 
 export function HeroContent() {
-  const variant = useHeroLayoutVariant();
-
-  if (variant === "social-proof-first") {
-    return (
-      <>
-        <BrandScroller />
-        <HeroVideoPlayer />
-      </>
-    );
-  }
-
   return (
     <>
-      <HeroVideoPlayer />
       <BrandScroller />
+      <HeroVideoPlayer />
     </>
   );
 }

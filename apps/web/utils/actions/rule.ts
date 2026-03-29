@@ -764,6 +764,7 @@ async function toggleRule({
 
 function mapActionToSanitizedFields(action: {
   type: ActionType;
+  messagingChannelId?: string | null;
   labelId?: {
     name?: string | null;
     value?: string | null;
@@ -782,6 +783,7 @@ function mapActionToSanitizedFields(action: {
 }) {
   const sanitized = sanitizeActionFields({
     type: action.type,
+    messagingChannelId: action.messagingChannelId ?? null,
     label: action.labelId?.name,
     labelId: action.labelId?.value,
     subject: action.subject?.value,
@@ -810,6 +812,7 @@ function mapActionToSanitizedFields(action: {
       webhookUrl: sanitized.url ?? null,
       folderName: sanitized.folderName ?? null,
     },
+    messagingChannelId: sanitized.messagingChannelId ?? null,
     labelId: sanitized.labelId ?? null,
     folderId: sanitized.folderId ?? null,
     delayInMinutes: sanitized.delayInMinutes ?? null,

@@ -1,6 +1,14 @@
 import { ActionType } from "@/generated/prisma/enums";
 import type { Action, ExecutedAction, Prisma } from "@/generated/prisma/client";
 
+const DRAFT_REPLY_FIELDS = [
+  { name: "subject" as const, label: "Subject", expandable: true },
+  { name: "content" as const, label: "Content", textArea: true },
+  { name: "to" as const, label: "To", expandable: true },
+  { name: "cc" as const, label: "CC", expandable: true },
+  { name: "bcc" as const, label: "BCC", expandable: true },
+];
+
 export const actionInputs: Record<
   ActionType,
   {
@@ -32,35 +40,8 @@ export const actionInputs: Record<
     ],
   },
   [ActionType.DIGEST]: { fields: [] },
-  [ActionType.DRAFT_EMAIL]: {
-    fields: [
-      {
-        name: "subject",
-        label: "Subject",
-        expandable: true,
-      },
-      {
-        name: "content",
-        label: "Content",
-        textArea: true,
-      },
-      {
-        name: "to",
-        label: "To",
-        expandable: true,
-      },
-      {
-        name: "cc",
-        label: "CC",
-        expandable: true,
-      },
-      {
-        name: "bcc",
-        label: "BCC",
-        expandable: true,
-      },
-    ],
-  },
+  [ActionType.DRAFT_EMAIL]: { fields: DRAFT_REPLY_FIELDS },
+  [ActionType.DRAFT_MESSAGING_CHANNEL]: { fields: DRAFT_REPLY_FIELDS },
   [ActionType.REPLY]: {
     fields: [
       {
@@ -149,6 +130,9 @@ export const actionInputs: Record<
       },
     ],
   },
+  [ActionType.NOTIFY_MESSAGING_CHANNEL]: {
+    fields: [],
+  },
   [ActionType.NOTIFY_SENDER]: {
     fields: [],
   },
@@ -181,22 +165,22 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
   return res;
 }
 
-type ActionFieldsSelection = Pick<
-  Prisma.ActionCreateInput,
-  | "type"
-  | "label"
-  | "labelId"
-  | "subject"
-  | "content"
-  | "to"
-  | "cc"
-  | "bcc"
-  | "url"
-  | "folderName"
-  | "folderId"
-  | "delayInMinutes"
-  | "staticAttachments"
->;
+type ActionFieldsSelection = {
+  type: ActionType;
+  label: string | null;
+  labelId: string | null;
+  messagingChannelId: string | null;
+  subject: string | null;
+  content: string | null;
+  to: string | null;
+  cc: string | null;
+  bcc: string | null;
+  url: string | null;
+  folderName: string | null;
+  folderId: string | null;
+  delayInMinutes: number | null;
+  staticAttachments?: Prisma.JsonValue;
+};
 
 type SanitizableActionFields = Partial<
   Omit<ActionFieldsSelection, "staticAttachments">
@@ -210,6 +194,7 @@ export function sanitizeActionFields(
 ): ActionFieldsSelection {
   const supportsStaticAttachments =
     action.type === ActionType.DRAFT_EMAIL ||
+    action.type === ActionType.DRAFT_MESSAGING_CHANNEL ||
     action.type === ActionType.REPLY ||
     action.type === ActionType.SEND_EMAIL;
 
@@ -217,6 +202,7 @@ export function sanitizeActionFields(
     type: action.type,
     label: null,
     labelId: null,
+    messagingChannelId: null,
     subject: null,
     content: null,
     to: null,
@@ -278,14 +264,22 @@ export function sanitizeActionFields(
         bcc: action.bcc ?? null,
       };
     }
-    case ActionType.DRAFT_EMAIL: {
+    case ActionType.DRAFT_EMAIL:
+    case ActionType.DRAFT_MESSAGING_CHANNEL: {
       return {
         ...base,
+        messagingChannelId: action.messagingChannelId ?? null,
         subject: action.subject ?? null,
         content: action.content ?? null,
         to: action.to ?? null,
         cc: action.cc ?? null,
         bcc: action.bcc ?? null,
+      };
+    }
+    case ActionType.NOTIFY_MESSAGING_CHANNEL: {
+      return {
+        ...base,
+        messagingChannelId: action.messagingChannelId ?? null,
       };
     }
     case ActionType.CALL_WEBHOOK: {

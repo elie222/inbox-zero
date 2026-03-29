@@ -2,6 +2,7 @@ import {
   useFeatureFlagEnabled,
   useFeatureFlagVariantKey,
 } from "posthog-js/react";
+import type { OnboardingFlowVariant } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { env } from "@/env";
 
 export function useCleanerEnabled() {
@@ -68,16 +69,6 @@ export function useTestimonialsVariant() {
   );
 }
 
-export type HeroLayoutVariant = "control" | "social-proof-first";
-
-export function useHeroLayoutVariant() {
-  return (
-    (useFeatureFlagVariantKey(
-      "hero-social-proof-position",
-    ) as HeroLayoutVariant) || "control"
-  );
-}
-
 export type WelcomePricingVariant = "control" | "two-tiers";
 
 export function useWelcomePricingVariant() {
@@ -85,5 +76,12 @@ export function useWelcomePricingVariant() {
     (useFeatureFlagVariantKey(
       "welcome-pricing-tiers",
     ) as WelcomePricingVariant) || "control"
+  );
+}
+
+export function useOnboardingFlowVariant() {
+  return (
+    (useFeatureFlagVariantKey("onboarding-flow") as OnboardingFlowVariant) ||
+    "control"
   );
 }

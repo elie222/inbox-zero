@@ -44,6 +44,7 @@ function OptionsMenu({
   onSetManually,
   onUseAiDraft,
   isManualMode,
+  extraOptions,
 }: {
   onAddDelay?: () => void;
   onRemoveDelay?: () => void;
@@ -54,6 +55,7 @@ function OptionsMenu({
   onSetManually?: () => void;
   onUseAiDraft?: () => void;
   isManualMode?: boolean;
+  extraOptions?: React.ReactNode;
 }) {
   const hasOptions =
     onAddDelay ||
@@ -61,7 +63,8 @@ function OptionsMenu({
     onUsePrompt ||
     onUseLabel ||
     onSetManually ||
-    onUseAiDraft;
+    onUseAiDraft ||
+    extraOptions;
 
   if (!hasOptions) return null;
 
@@ -78,6 +81,7 @@ function OptionsMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {extraOptions}
         {onUsePrompt && !isPromptMode && (
           <DropdownMenuItem onClick={onUsePrompt}>
             <SparklesIcon className="mr-2 size-4" />
@@ -131,6 +135,7 @@ function ActionButtons({
   onSetManually,
   onUseAiDraft,
   isManualMode,
+  extraOptions,
 }: {
   onRemove: () => void;
   removeAriaLabel: string;
@@ -143,6 +148,7 @@ function ActionButtons({
   onSetManually?: () => void;
   onUseAiDraft?: () => void;
   isManualMode?: boolean;
+  extraOptions?: React.ReactNode;
 }) {
   return (
     <div className="flex items-start">
@@ -156,6 +162,7 @@ function ActionButtons({
         onSetManually={onSetManually}
         onUseAiDraft={onUseAiDraft}
         isManualMode={isManualMode}
+        extraOptions={extraOptions}
       />
       <DeleteButton onClick={onRemove} ariaLabel={removeAriaLabel} />
     </div>
@@ -192,6 +199,7 @@ export function RuleStep({
   onSetManually,
   onUseAiDraft,
   isManualMode,
+  extraOptions,
 }: {
   onRemove: () => void;
   leftContent: React.ReactNode | null;
@@ -206,6 +214,7 @@ export function RuleStep({
   onSetManually?: () => void;
   onUseAiDraft?: () => void;
   isManualMode?: boolean;
+  extraOptions?: React.ReactNode;
 }) {
   return (
     <div className="flex items-start gap-3">
@@ -225,6 +234,7 @@ export function RuleStep({
             onSetManually={onSetManually}
             onUseAiDraft={onUseAiDraft}
             isManualMode={isManualMode}
+            extraOptions={extraOptions}
           />
         </CardLayout>
       </div>

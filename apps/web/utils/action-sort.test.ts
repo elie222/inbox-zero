@@ -24,9 +24,10 @@ describe("sortActionsByPriority", () => {
       expect(sorted[1].type).toBe(ActionType.REPLY);
     });
 
-    it("sorts email actions (DRAFT_EMAIL, REPLY, SEND_EMAIL, FORWARD) together", () => {
+    it("sorts draft and email actions together", () => {
       const actions = [
         { type: ActionType.FORWARD },
+        { type: ActionType.DRAFT_MESSAGING_CHANNEL },
         { type: ActionType.DRAFT_EMAIL },
         { type: ActionType.SEND_EMAIL },
         { type: ActionType.REPLY },
@@ -34,6 +35,7 @@ describe("sortActionsByPriority", () => {
       const sorted = sortActionsByPriority(actions);
       expect(sorted.map((a) => a.type)).toEqual([
         ActionType.DRAFT_EMAIL,
+        ActionType.DRAFT_MESSAGING_CHANNEL,
         ActionType.REPLY,
         ActionType.SEND_EMAIL,
         ActionType.FORWARD,
@@ -55,11 +57,13 @@ describe("sortActionsByPriority", () => {
     it("maintains correct priority order for all action types", () => {
       const actions = [
         { type: ActionType.CALL_WEBHOOK },
+        { type: ActionType.NOTIFY_MESSAGING_CHANNEL },
         { type: ActionType.MARK_SPAM },
         { type: ActionType.DIGEST },
         { type: ActionType.FORWARD },
         { type: ActionType.SEND_EMAIL },
         { type: ActionType.REPLY },
+        { type: ActionType.DRAFT_MESSAGING_CHANNEL },
         { type: ActionType.DRAFT_EMAIL },
         { type: ActionType.MARK_READ },
         { type: ActionType.ARCHIVE },
@@ -74,10 +78,12 @@ describe("sortActionsByPriority", () => {
         ActionType.ARCHIVE,
         ActionType.MARK_READ,
         ActionType.DRAFT_EMAIL,
+        ActionType.DRAFT_MESSAGING_CHANNEL,
         ActionType.REPLY,
         ActionType.SEND_EMAIL,
         ActionType.FORWARD,
         ActionType.DIGEST,
+        ActionType.NOTIFY_MESSAGING_CHANNEL,
         ActionType.MARK_SPAM,
         ActionType.CALL_WEBHOOK,
       ]);
@@ -165,6 +171,23 @@ describe("sortActionsByPriority", () => {
       expect(sorted[0].type).toBe(ActionType.LABEL);
       expect(sorted[1].type).toBe(ActionType.NOTIFY_SENDER);
       expect(sorted[2].type).toBe(ActionType.CALL_WEBHOOK);
+    });
+  });
+
+  describe("NOTIFY_MESSAGING_CHANNEL action type", () => {
+    it("places NOTIFY_MESSAGING_CHANNEL after DIGEST and before MARK_SPAM", () => {
+      const actions = [
+        { type: ActionType.MARK_SPAM },
+        { type: ActionType.DIGEST },
+        { type: ActionType.NOTIFY_MESSAGING_CHANNEL },
+      ];
+      const sorted = sortActionsByPriority(actions);
+
+      expect(sorted.map((action) => action.type)).toEqual([
+        ActionType.DIGEST,
+        ActionType.NOTIFY_MESSAGING_CHANNEL,
+        ActionType.MARK_SPAM,
+      ]);
     });
   });
 });
