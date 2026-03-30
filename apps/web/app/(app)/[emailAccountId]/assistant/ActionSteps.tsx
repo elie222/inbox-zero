@@ -1,12 +1,7 @@
 import Link from "next/link";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import TextareaAutosize from "react-textarea-autosize";
-import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  MessageSquareIcon,
-  PaperclipIcon,
-} from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, PaperclipIcon } from "lucide-react";
 import type {
   useForm,
   Control,
@@ -863,7 +858,7 @@ function ActionCard({
   const labelIdValue = watch(`actions.${index}.labelId`);
   const isPromptMode = !!labelIdValue?.ai;
   const isDraftReplyAction = isDraftReplyActionType(rawActionType);
-  const showDeliveryActions = isDraftReplyAction || isMessagingNotification;
+  const showDeliveryActions = isMessagingNotification;
   const showAttachmentsAction = supportsAttachments;
   const moreOptions = (
     <>
@@ -874,7 +869,6 @@ function ActionCard({
             setDeliveryDialogOpen(true);
           }}
         >
-          <MessageSquareIcon className="mr-2 size-4" />
           {deliverySummary ? "Delivery options" : "Configure delivery"}
         </DropdownMenuItem>
       ) : null}
