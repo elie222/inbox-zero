@@ -203,10 +203,17 @@ function EmailAccountSettingsCard({
 
   return (
     <ItemCard>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left"
         onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
       >
         <Avatar className="size-8 rounded-full">
           <AvatarImage
@@ -248,7 +255,7 @@ function EmailAccountSettingsCard({
             expanded && "rotate-90",
           )}
         />
-      </button>
+      </div>
 
       {expanded && (
         <>
