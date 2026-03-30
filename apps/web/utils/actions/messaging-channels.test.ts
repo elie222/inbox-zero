@@ -16,7 +16,9 @@ const { mockEnv, generateMessagingLinkCodeMock } = vi.hoisted(() => ({
     TEAMS_BOT_APP_PASSWORD: "teams-app-password",
     TELEGRAM_BOT_TOKEN: "telegram-bot-token" as string | undefined,
   },
-  generateMessagingLinkCodeMock: vi.fn(() => "test-link-code"),
+  generateMessagingLinkCodeMock: vi.fn(
+    (_args: { emailAccountId: string; provider: string }) => "test-link-code",
+  ),
 }));
 
 vi.mock("@/env", () => ({

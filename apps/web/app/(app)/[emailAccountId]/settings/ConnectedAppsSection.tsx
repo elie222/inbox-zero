@@ -57,6 +57,7 @@ import { fetchWithAccount } from "@/utils/fetch";
 import { captureException } from "@/utils/error";
 import { getActionErrorMessage } from "@/utils/error";
 import type { GetSlackAuthUrlResponse } from "@/app/api/slack/auth-url/route";
+import { env } from "@/env";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 
 type LinkableMessagingProvider = "TEAMS" | "TELEGRAM";
@@ -333,8 +334,7 @@ function ConnectedChannelRow({
     error: targetsError,
     mutate: mutateTargets,
   } = useChannelTargets(shouldLoadTargets ? channel.id : null, emailAccountId);
-  const privateTargets =
-    targetsData?.targets.filter((target) => target.isPrivate) ?? [];
+  const privateTargets = targetsData?.targets ?? [];
   const hasTargetLoadError = Boolean(targetsError || targetsData?.error);
 
   const { execute: executeDisconnect, status: disconnectStatus } = useAction(
@@ -449,7 +449,7 @@ function ConnectedChannelRow({
                     : "Don't see your channel? "}
                   Invite the bot with{" "}
                   <code className="rounded bg-muted px-1">
-                    /invite @InboxZero
+                    /invite @{env.NEXT_PUBLIC_SLACK_BOT_NAME}
                   </code>
                 </div>
               )}

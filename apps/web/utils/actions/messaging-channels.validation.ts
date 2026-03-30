@@ -27,3 +27,17 @@ export const linkSlackWorkspaceBody = z.object({
 export const createMessagingLinkCodeBody = z.object({
   provider: z.enum(LINKABLE_MESSAGING_PROVIDERS),
 });
+
+export const messagingActionTypeEnum = z.enum([
+  "NOTIFY_MESSAGING_CHANNEL",
+  "DRAFT_MESSAGING_CHANNEL",
+]);
+
+export type MessagingActionType = z.infer<typeof messagingActionTypeEnum>;
+
+export const toggleRuleChannelBody = z.object({
+  ruleId: z.string().min(1),
+  messagingChannelId: z.string().min(1),
+  enabled: z.boolean(),
+  actionType: messagingActionTypeEnum.optional(),
+});

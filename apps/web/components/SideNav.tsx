@@ -94,6 +94,11 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/automation"),
         icon: SparklesIcon,
       },
+      {
+        name: "Channels",
+        href: prefixPath(currentEmailAccountId, "/channels"),
+        icon: MessagesSquareIcon,
+      },
     ],
     [currentEmailAccountId],
   );
