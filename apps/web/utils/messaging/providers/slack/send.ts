@@ -45,14 +45,16 @@ export async function sendMeetingBriefingToSlack({
 export async function sendChannelConfirmation({
   accessToken,
   channelId,
+  botUserId,
 }: {
   accessToken: string;
   channelId: string;
+  botUserId?: string | null;
 }): Promise<void> {
   const client = createSlackClient(accessToken);
 
   await postMessageWithJoin(client, channelId, {
-    text: "Inbox Zero connected! You can @mention me here to chat about your emails. If you enable meeting briefs or attachment filing notifications, I can send those in this channel too.",
+    text: `Inbox Zero connected! You can ${formatSlackAppMention(botUserId)} here to chat about your emails. If you enable meeting briefs or attachment filing notifications, I can send those in this channel too.`,
   });
 }
 
@@ -146,6 +148,10 @@ export async function resolveSlackDestination({
   }
 
   return null;
+}
+
+export function formatSlackAppMention(botUserId: string | null | undefined) {
+  return botUserId ? `<@${botUserId}>` : "@Inbox Zero";
 }
 
 type Blocks = (KnownBlock | Block)[];

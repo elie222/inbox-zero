@@ -55,6 +55,7 @@ describe("sendAutomationMessageToSlack", () => {
       channel: {
         provider: MessagingProvider.SLACK,
         accessToken: "xoxb-token",
+        botUserId: "UAPP123",
         providerUserId: "U123",
         channelId: "C123",
       },
@@ -65,7 +66,7 @@ describe("sendAutomationMessageToSlack", () => {
     expect(mockPostMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         channel: "C123",
-        text: expect.stringContaining("_Reply with @Inbox Zero"),
+        text: expect.stringContaining("_Reply with <@UAPP123>"),
       }),
     );
   });

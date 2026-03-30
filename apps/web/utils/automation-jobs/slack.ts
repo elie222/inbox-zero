@@ -2,6 +2,7 @@ import { MessagingProvider } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 import {
+  formatSlackAppMention,
   isSlackDmChannel,
   resolveSlackDestination,
 } from "@/utils/messaging/providers/slack/send";
@@ -9,6 +10,7 @@ import {
 type SlackMessagingChannel = {
   provider: MessagingProvider;
   accessToken: string | null;
+  botUserId?: string | null;
   providerUserId: string | null;
   channelId: string | null;
 };
@@ -56,7 +58,7 @@ export async function sendAutomationMessageToSlack({
   const client = createSlackClient(channel.accessToken);
   const formattedText = isSlackDmChannel(channel.channelId)
     ? text
-    : `${text}\n\n_Reply with @Inbox Zero to chat about your emails._`;
+    : `${text}\n\n_Reply with ${formatSlackAppMention(channel.botUserId)} to chat about your emails._`;
 
   slackLogger.info("Sending Slack automation message");
 

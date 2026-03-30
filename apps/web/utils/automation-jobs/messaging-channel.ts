@@ -10,6 +10,7 @@ export type AutomationMessagingChannel = {
   provider: MessagingProvider;
   isConnected: boolean;
   accessToken: string | null;
+  botUserId?: string | null;
   providerUserId: string | null;
   channelId: string | null;
 };
