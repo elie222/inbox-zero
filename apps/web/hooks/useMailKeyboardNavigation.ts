@@ -15,12 +15,12 @@ export function useMailKeyboardNavigation({
   const handleKeyAction = useCallback(
     (index: number, key: string, event: KeyboardEvent) => {
       // Skip modified key combos to avoid conflicts with browser/OS shortcuts
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey)
-        return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
 
-      if (key === "r") {
+      const normalizedKey = key.toLowerCase();
+      if (normalizedKey === "r") {
         onReply(index);
-      } else if (key === "e") {
+      } else if (normalizedKey === "e") {
         onArchive(index);
       }
     },

@@ -504,11 +504,11 @@ function useReplyTrackerKeyboardNav(
 ) {
   const handleKeyAction = useCallback(
     (index: number, key: string, event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey)
-        return;
-      if (key === "r") onAction(index, "reply");
-      else if (key === "d") onAction(index, "resolve");
-      else if (key === "n") onAction(index, "unresolve");
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const normalizedKey = key.toLowerCase();
+      if (normalizedKey === "r") onAction(index, "reply");
+      else if (normalizedKey === "d") onAction(index, "resolve");
+      else if (normalizedKey === "n") onAction(index, "unresolve");
     },
     [onAction],
   );
