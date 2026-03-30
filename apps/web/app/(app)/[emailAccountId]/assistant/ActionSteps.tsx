@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import TextareaAutosize from "react-textarea-autosize";
@@ -43,6 +44,8 @@ import {
 import { FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { FolderSelector } from "@/components/FolderSelector";
 import { cn } from "@/utils";
@@ -55,6 +58,7 @@ import { BRAND_NAME } from "@/utils/branding";
 import { ActionAttachmentsField } from "@/app/(app)/[emailAccountId]/assistant/ActionAttachmentsField";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
+import { ACTION_TYPE_TEXT_COLORS } from "@/app/(app)/[emailAccountId]/assistant/constants";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import { prefixPath } from "@/utils/path";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
@@ -241,6 +245,11 @@ function ActionCard({
   const draftReplyDelivery = getDraftReplyDelivery({
     primaryAction,
     draftMessagingAction,
+  });
+  const deliveryErrorMessage = getMessagingChannelError({
+    errors,
+    primaryIndex: index,
+    draftMessagingIndex,
   });
 
   // Helper function to determine if a field can use variables based on context
@@ -654,11 +663,7 @@ function ActionCard({
       messagingChannels={connectedMessagingChannels}
       selectedChannelId={selectedMessagingChannelId}
       selectedChannel={selectedMessagingChannel}
-      errorMessage={getMessagingChannelError({
-        errors,
-        primaryIndex: index,
-        draftMessagingIndex,
-      })}
+      errorMessage={deliveryErrorMessage}
       onChange={(nextValue) =>
         updateDraftReplyDelivery({
           delivery: nextValue,
@@ -719,6 +724,47 @@ function ActionCard({
       </MutedText>
     ) : null;
 
+  const hasInlineDraftReplyReviewSection =
+    connectedMessagingChannels.length > 0 ||
+    !!selectedMessagingChannel ||
+    canConnectSlack;
+
+  const handleDraftReplyReviewToggle = useCallback(
+    (checked: boolean) => {
+      updateDraftReplyDelivery({
+        delivery: {
+          delivery: checked
+            ? draftReplyDelivery === "SLACK"
+              ? "SLACK"
+              : "EMAIL_AND_SLACK"
+            : "EMAIL",
+          messagingChannelId: selectedMessagingChannelId,
+        },
+        index,
+        draftMessagingIndex,
+        primaryAction,
+        draftMessagingAction,
+        selectedChannelId: selectedMessagingChannelId,
+        setValue,
+        insert,
+        remove,
+        fallbackChannelId: connectedMessagingChannels[0]?.id ?? null,
+      });
+    },
+    [
+      connectedMessagingChannels,
+      draftMessagingAction,
+      draftMessagingIndex,
+      draftReplyDelivery,
+      index,
+      insert,
+      primaryAction,
+      remove,
+      selectedMessagingChannelId,
+      setValue,
+    ],
+  );
+
   const rightContent = (
     <>
       {isNotifySender ? (
@@ -726,14 +772,91 @@ function ActionCard({
           {`Sends an automated notification from ${BRAND_NAME} informing the sender their email was filtered as cold outreach.`}
         </MutedText>
       ) : isDraftEmailWithoutManualContent ? (
-        <Card className="p-4 space-y-4">
-          {deliverySummary}
-          <MutedText className="px-1 h-full flex items-center">
-            Our AI generates a draft reply from your email history and knowledge
-            base.
-          </MutedText>
-          {delayControls}
-          {attachmentsSummary}
+        <Card className="overflow-hidden rounded-2xl border bg-background shadow-sm">
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+            <FormItem className="shrink-0">
+              <Select
+                value={actionType}
+                onValueChange={(nextValue) =>
+                  updateActionType({
+                    nextType: nextValue as ActionType,
+                    index,
+                    draftMessagingIndex,
+                    primaryAction,
+                    setValue,
+                    remove,
+                  })
+                }
+              >
+                <FormControl>
+                  <SelectTrigger className="h-16 w-full rounded-2xl border-border/80 px-4 text-base shadow-none sm:w-[250px]">
+                    {selectedTypeOption ? (
+                      <div className="flex items-center gap-3">
+                        {SelectedTypeIcon && (
+                          <SelectedTypeIcon
+                            className={cn(
+                              "size-5",
+                              ACTION_TYPE_TEXT_COLORS[actionType],
+                            )}
+                          />
+                        )}
+                        <span className="font-medium text-foreground">
+                          {selectedTypeOption.label}
+                        </span>
+                      </div>
+                    ) : (
+                      <SelectValue placeholder="Select action" />
+                    )}
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {typeOptions.map((option) => {
+                    const Icon = option.icon;
+                    return (
+                      <SelectItem key={option.value} value={option.value}>
+                        <div className="flex items-center gap-2">
+                          {Icon && <Icon className="size-4" />}
+                          {option.label}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </FormItem>
+
+            <p className="text-base leading-relaxed text-muted-foreground sm:pr-2">
+              Our AI generates a draft reply from your email history and
+              knowledge base.
+            </p>
+          </div>
+
+          {hasInlineDraftReplyReviewSection ||
+          delayControls ||
+          attachmentsSummary ? (
+            <>
+              <Separator className="bg-border/70" />
+              <div className="space-y-4 bg-muted/20 px-4 py-4">
+                {hasInlineDraftReplyReviewSection ? (
+                  <DraftReplyReviewChannelsSection
+                    emailAccountId={emailAccountId}
+                    delivery={draftReplyDelivery}
+                    selectedChannel={selectedMessagingChannel}
+                    connectedChannels={connectedMessagingChannels}
+                    canConnectSlack={canConnectSlack}
+                    errorMessage={deliveryErrorMessage}
+                    onToggle={handleDraftReplyReviewToggle}
+                  />
+                ) : null}
+                {delayControls || attachmentsSummary ? (
+                  <div className="space-y-3 border-t border-border/70 pt-4">
+                    {delayControls}
+                    {attachmentsSummary}
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </Card>
       ) : isMessagingNotification ? (
         <Card className="p-4 space-y-4">{deliverySummary}</Card>
@@ -832,7 +955,7 @@ function ActionCard({
           )
         }
         removeAriaLabel="Remove action"
-        leftContent={leftContent}
+        leftContent={isDraftEmailWithoutManualContent ? null : leftContent}
         rightContent={rightContent}
         onAddDelay={actionCanBeDelayed ? handleAddDelay : undefined}
         onRemoveDelay={actionCanBeDelayed ? handleRemoveDelay : undefined}
@@ -948,6 +1071,91 @@ function DraftReplyDeliveryField({
   );
 }
 
+function DraftReplyReviewChannelsSection({
+  emailAccountId,
+  delivery,
+  selectedChannel,
+  connectedChannels,
+  canConnectSlack,
+  errorMessage,
+  onToggle,
+}: {
+  emailAccountId: string;
+  delivery: DraftReplyDelivery;
+  selectedChannel?: MessagingChannelOption;
+  connectedChannels: MessagingChannelOption[];
+  canConnectSlack: boolean;
+  errorMessage?: string;
+  onToggle: (checked: boolean) => void;
+}) {
+  const hasSlackDestination = connectedChannels.length > 0 || !!selectedChannel;
+  const canToggleSlackReview =
+    connectedChannels.length > 0 || !!selectedChannel?.isConnected;
+
+  return (
+    <div className="space-y-4">
+      <div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground/80">
+        Also send for review via
+      </div>
+
+      {hasSlackDestination ? (
+        <div
+          className={cn(
+            "flex items-start gap-3 rounded-xl",
+            !canToggleSlackReview && "opacity-60",
+          )}
+        >
+          <Checkbox
+            checked={delivery !== "EMAIL"}
+            disabled={!canToggleSlackReview}
+            onCheckedChange={(checked) => onToggle(checked === true)}
+            className="mt-1"
+            aria-label="Toggle Slack draft review"
+          />
+
+          <Image
+            src="/images/slack.svg"
+            alt="Slack"
+            width={20}
+            height={20}
+            className="mt-0.5 size-5 shrink-0"
+          />
+
+          <div className="min-w-0 flex-1 text-sm">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-medium text-foreground">
+                {formatDraftReplyReviewChannelLabel(selectedChannel)}
+              </span>
+              <span className="text-muted-foreground">
+                {delivery === "SLACK"
+                  ? "Draft reply is delivered in Slack only"
+                  : selectedChannel?.isConnected === false
+                    ? "Reconnect in Settings to keep reviewing in Slack"
+                    : "Approve or edit without leaving Slack"}
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {!hasSlackDestination && canConnectSlack ? (
+        <MutedText className="text-sm">
+          Connect Slack in{" "}
+          <Link
+            href={prefixPath(emailAccountId, "/settings")}
+            className="font-medium text-foreground underline underline-offset-2"
+          >
+            Settings
+          </Link>{" "}
+          to review drafts outside email.
+        </MutedText>
+      ) : null}
+
+      {errorMessage ? <ErrorMessage message={errorMessage} /> : null}
+    </div>
+  );
+}
+
 function MessagingChannelField({
   control,
   index,
@@ -1033,6 +1241,13 @@ function formatMessagingDestinationLabel(channel: MessagingChannelOption) {
   if (channel.teamName) return `${provider} (${channel.teamName})`;
 
   return provider === "Slack" ? "Slack workspace" : provider;
+}
+
+function formatDraftReplyReviewChannelLabel(channel?: MessagingChannelOption) {
+  if (!channel) return "Slack";
+
+  const destination = formatMessagingDestinationLabel(channel);
+  return channel.isConnected ? destination : `${destination} (Disconnected)`;
 }
 
 type DraftReplyDeliverySelection = {
