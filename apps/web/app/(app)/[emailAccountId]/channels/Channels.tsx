@@ -65,6 +65,7 @@ import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/
 import { toastSuccess, toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import { env } from "@/env";
+import { sortRulesForAutomation } from "@/utils/rule/sort";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import type { RulesResponse } from "@/app/api/user/rules/route";
@@ -86,8 +87,9 @@ const FEATURE_DESCRIPTIONS: Record<string, string> = {
   sendDocumentFilings: "Notifications when documents are auto-filed.",
 };
 
-type ChannelFromResponse =
-  GetMessagingChannelsResponse["channels"][number];
+const PROVIDER_ORDER: MessagingProvider[] = ["SLACK", "TEAMS", "TELEGRAM"];
+
+type ChannelFromResponse = GetMessagingChannelsResponse["channels"][number];
 
 type Rule = RulesResponse[number];
 
@@ -112,17 +114,27 @@ export function Channels() {
   });
 
   const connectedChannels = useMemo(
-    () => channelsData?.channels.filter((c) => c.isConnected) ?? [],
+    () =>
+      sortChannelsByProvider(
+        channelsData?.channels.filter((c) => c.isConnected) ?? [],
+      ),
     [channelsData],
   );
 
   const availableProviders = channelsData?.availableProviders ?? [];
-  const connectedProviders = new Set(
-    connectedChannels.map((c) => c.provider),
+  const visibleRules = useMemo(
+    () =>
+      sortRulesForAutomation((rulesData ?? []).filter((rule) => rule.enabled)),
+    [rulesData],
   );
-  const unconnectedProviders = availableProviders.filter(
-    (p) => !connectedProviders.has(p),
+  const connectedProviders = new Set(connectedChannels.map((c) => c.provider));
+  const unconnectedProviders = sortProviders(
+    availableProviders.filter((p) => !connectedProviders.has(p)),
   );
+  const orderedProviders = sortProviders([
+    ...connectedProviders,
+    ...unconnectedProviders,
+  ]);
 
   const onUpdate = () => {
     mutateChannels();
@@ -141,24 +153,36 @@ export function Channels() {
         error={channelsError || rulesError}
       >
         <div className="space-y-10">
-          {connectedChannels.map((channel) => (
-            <ConnectedChannelSection
-              key={channel.id}
-              channel={channel}
-              rules={rulesData ?? []}
-              emailAccountId={emailAccountId}
-              onUpdate={onUpdate}
-            />
-          ))}
+          {orderedProviders.map((provider) => {
+            const providerChannels = connectedChannels.filter(
+              (channel) => channel.provider === provider,
+            );
 
-          {unconnectedProviders.map((provider) => (
-            <UnconnectedProviderSection
-              key={provider}
-              provider={provider}
-              emailAccountId={emailAccountId}
-              onConnected={mutateChannels}
-            />
-          ))}
+            if (providerChannels.length > 0) {
+              return providerChannels.map((channel) => (
+                <ConnectedChannelSection
+                  key={channel.id}
+                  channel={channel}
+                  rules={visibleRules}
+                  emailAccountId={emailAccountId}
+                  onUpdate={onUpdate}
+                />
+              ));
+            }
+
+            if (unconnectedProviders.includes(provider)) {
+              return (
+                <UnconnectedProviderSection
+                  key={provider}
+                  provider={provider}
+                  emailAccountId={emailAccountId}
+                  onConnected={mutateChannels}
+                />
+              );
+            }
+
+            return null;
+          })}
 
           {connectedChannels.length === 0 &&
             unconnectedProviders.length === 0 && (
@@ -193,16 +217,13 @@ function SectionGroup({
     <section className="space-y-4">
       <div className="flex items-center gap-2 text-muted-foreground">
         {icon}
-        <h2 className="text-sm font-medium uppercase tracking-wide">
-          {title}
-        </h2>
+        <h2 className="text-sm font-medium uppercase tracking-wide">{title}</h2>
         {badge}
       </div>
       {children}
     </section>
   );
 }
-
 
 function ConnectedChannelSection({
   channel,
@@ -320,24 +341,26 @@ function ConnectedChannelSection({
           </ItemContent>
         </Item>
         <ItemSeparator />
-        {rules.length > 0 ? (
-          rules.map((rule) => (
-            <RuleToggle
-              key={rule.id}
-              rule={rule}
-              channelId={channel.id}
-              currentActionType={channelRuleActions.get(rule.id) ?? null}
-              emailAccountId={emailAccountId}
-              onUpdate={onUpdate}
-            />
-          ))
-        ) : (
-          <Item size="sm">
-            <ItemContent>
-              <MutedText className="text-sm">No rules</MutedText>
-            </ItemContent>
-          </Item>
-        )}
+        <div className="max-h-80 overflow-y-auto">
+          {rules.length > 0 ? (
+            rules.map((rule) => (
+              <RuleToggle
+                key={rule.id}
+                rule={rule}
+                channelId={channel.id}
+                currentActionType={channelRuleActions.get(rule.id) ?? null}
+                emailAccountId={emailAccountId}
+                onUpdate={onUpdate}
+              />
+            ))
+          ) : (
+            <Item size="sm">
+              <ItemContent>
+                <MutedText className="text-sm">No rules</MutedText>
+              </ItemContent>
+            </Item>
+          )}
+        </div>
       </ItemCard>
 
       <ItemCard>
@@ -491,11 +514,7 @@ function LinkCodeDialog({
         {dialog.provider === "TELEGRAM" && dialog.botUrl && (
           <div className="pt-1">
             <Button asChild size="sm">
-              <a
-                href={dialog.botUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <a href={dialog.botUrl} target="_blank" rel="noopener noreferrer">
                 Open Telegram bot
               </a>
             </Button>
@@ -656,8 +675,7 @@ function RuleToggle({
       },
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ?? "Failed to update",
+          description: getActionErrorMessage(error.error) ?? "Failed to update",
         });
       },
     },
@@ -680,9 +698,7 @@ function RuleToggle({
       <ItemContent>
         <div className="flex items-center gap-2">
           <ItemTitle>{rule.name}</ItemTitle>
-          {isDraft && (
-            <Badge color="green">Draft reply</Badge>
-          )}
+          {isDraft && <Badge color="green">Draft reply</Badge>}
         </div>
       </ItemContent>
       <ItemActions>
@@ -764,8 +780,7 @@ function FeatureToggle({
       },
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ?? "Failed to update",
+          description: getActionErrorMessage(error.error) ?? "Failed to update",
         });
       },
     },
@@ -782,11 +797,27 @@ function FeatureToggle({
           name={`feature-${featureKey}-${channelId}`}
           enabled={enabled}
           disabled={disabled || status === "executing"}
-          onChange={(value) =>
-            execute({ channelId, [featureKey]: value })
-          }
+          onChange={(value) => execute({ channelId, [featureKey]: value })}
         />
       </ItemActions>
     </Item>
   );
+}
+
+function sortChannelsByProvider(channels: ChannelFromResponse[]) {
+  return [...channels].sort(
+    (a, b) =>
+      getProviderOrderIndex(a.provider) - getProviderOrderIndex(b.provider),
+  );
+}
+
+function sortProviders(providers: MessagingProvider[]) {
+  return [...providers].sort(
+    (a, b) => getProviderOrderIndex(a) - getProviderOrderIndex(b),
+  );
+}
+
+function getProviderOrderIndex(provider: MessagingProvider) {
+  const index = PROVIDER_ORDER.indexOf(provider);
+  return index === -1 ? PROVIDER_ORDER.length : index;
 }
