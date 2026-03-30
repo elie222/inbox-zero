@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useRef,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
   ForwardIcon,
   ReplyIcon,
@@ -42,6 +36,7 @@ export function EmailMessage({
   expanded,
   onExpand,
   onSendSuccess,
+  isLastMessage,
   generateNudge,
 }: {
   message: ThreadMessage;
@@ -52,6 +47,7 @@ export function EmailMessage({
   expanded: boolean;
   onExpand: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
+  isLastMessage?: boolean;
   generateNudge?: boolean;
 }) {
   const [showReply, setShowReply] = useState(defaultShowReply || false);
@@ -59,9 +55,11 @@ export function EmailMessage({
 
   const onReply = useCallback(() => setShowReply(true), []);
 
-  // Listen for keyboard shortcut reply event (R key from mail list)
+  // Listen for keyboard shortcut reply event (R key from mail list).
+  // Only the last expanded message in the thread should handle this to avoid
+  // multiple messages opening their reply forms simultaneously.
   useEffect(() => {
-    if (!expanded) return;
+    if (!expanded || !isLastMessage) return;
 
     const handleMailReply = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -70,7 +68,7 @@ export function EmailMessage({
     };
     window.addEventListener("mail:reply", handleMailReply);
     return () => window.removeEventListener("mail:reply", handleMailReply);
-  }, [expanded, message.threadId]);
+  }, [expanded, isLastMessage, message.threadId]);
   const [showForward, setShowForward] = useState(false);
   const onForward = useCallback(() => setShowForward(true), []);
 

@@ -312,10 +312,16 @@ export function EmailList({
       onArchive: onKeyboardArchive,
     });
 
-  // Sync keyboard selection with the opened thread panel
+  // Sync keyboard selection with the opened thread panel.
+  // Use a ref for threads to avoid re-triggering on thread list updates
+  // (e.g. after refetch), which would cause repeated mark-read/refetch cycles.
   const prevSelectionRef = useRef({ index: selectedIndex, threadId: "" });
+  const threadsRef = useRef(threads);
+  threadsRef.current = threads;
+
   useEffect(() => {
-    const thread = selectedIndex >= 0 ? threads[selectedIndex] : null;
+    const currentThreads = threadsRef.current;
+    const thread = selectedIndex >= 0 ? currentThreads[selectedIndex] : null;
     if (!thread) return;
 
     const prev = prevSelectionRef.current;
@@ -325,10 +331,9 @@ export function EmailList({
     setOpenThreadId(thread.id);
     markReadThreads({
       threadIds: [thread.id],
-      onSuccess: () => refetch(),
       emailAccountId,
     });
-  }, [selectedIndex, threads, setOpenThreadId, refetch, emailAccountId]);
+  }, [selectedIndex, setOpenThreadId, emailAccountId]);
 
   const onArchiveBulk = useCallback(async () => {
     toast.promise(

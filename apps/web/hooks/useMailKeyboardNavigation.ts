@@ -2,9 +2,9 @@ import { useCallback } from "react";
 import { useTableKeyboardNavigation } from "@/hooks/useTableKeyboardNavigation";
 
 interface UseMailKeyboardNavigationOptions {
-  threads: { id: string }[];
-  onReply: (index: number) => void;
   onArchive: (index: number) => void;
+  onReply: (index: number) => void;
+  threads: { id: string }[];
 }
 
 export function useMailKeyboardNavigation({
@@ -13,10 +13,14 @@ export function useMailKeyboardNavigation({
   onArchive,
 }: UseMailKeyboardNavigationOptions) {
   const handleKeyAction = useCallback(
-    (index: number, key: string) => {
-      if (key === "r" || key === "R") {
+    (index: number, key: string, event: KeyboardEvent) => {
+      // Skip modified key combos to avoid conflicts with browser/OS shortcuts
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey)
+        return;
+
+      if (key === "r") {
         onReply(index);
-      } else if (key === "e" || key === "E") {
+      } else if (key === "e") {
         onArchive(index);
       }
     },
