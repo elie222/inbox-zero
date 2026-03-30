@@ -44,7 +44,6 @@ import { FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { FolderSelector } from "@/components/FolderSelector";
 import { cn } from "@/utils";
@@ -765,38 +764,45 @@ function ActionCard({
     ],
   );
 
+  const draftReplyDeliverySection = isDraftReplyActionType(rawActionType) ? (
+    <div className="space-y-4 border-t border-border pt-4">
+      <DraftReplyReviewChannelsSection
+        emailAccountId={emailAccountId}
+        delivery={draftReplyDelivery}
+        selectedChannel={selectedMessagingChannel}
+        connectedChannels={connectedMessagingChannels}
+        errorMessage={deliveryErrorMessage}
+        onChange={handleDraftReplyDeliveryChange}
+      />
+      {delayControls || attachmentsSummary ? (
+        <div className="space-y-3 border-t border-border pt-4">
+          {delayControls}
+          {attachmentsSummary}
+        </div>
+      ) : null}
+    </div>
+  ) : null;
+
   const rightContent = (
     <>
       {isNotifySender ? (
         <MutedText className="px-1 h-full flex items-center">
           {`Sends an automated notification from ${BRAND_NAME} informing the sender their email was filtered as cold outreach.`}
         </MutedText>
-      ) : isDraftEmailWithoutManualContent ? (
-        <Card className="overflow-hidden rounded-2xl border bg-background shadow-sm">
-          <div className="p-4">
-            <p className="px-1 text-base leading-relaxed text-muted-foreground">
+      ) : isDraftReplyActionType(rawActionType) ? (
+        <Card className="p-4 space-y-4">
+          {isDraftEmailWithoutManualContent ? (
+            <MutedText className="px-1">
               Our AI generates a draft reply from your email history and
               knowledge base.
-            </p>
-          </div>
-
-          <Separator className="bg-border/70" />
-          <div className="space-y-4 bg-muted/20 px-4 py-4">
-            <DraftReplyReviewChannelsSection
-              emailAccountId={emailAccountId}
-              delivery={draftReplyDelivery}
-              selectedChannel={selectedMessagingChannel}
-              connectedChannels={connectedMessagingChannels}
-              errorMessage={deliveryErrorMessage}
-              onChange={handleDraftReplyDeliveryChange}
-            />
-            {delayControls || attachmentsSummary ? (
-              <div className="space-y-3 border-t border-border/70 pt-4">
-                {delayControls}
-                {attachmentsSummary}
-              </div>
-            ) : null}
-          </div>
+            </MutedText>
+          ) : (
+            <>
+              {fieldsContent}
+              {shouldShowProTip && <VariableProTip />}
+            </>
+          )}
+          {draftReplyDeliverySection}
         </Card>
       ) : isMessagingNotification ? (
         <Card className="p-4 space-y-4">{deliverySummary}</Card>
