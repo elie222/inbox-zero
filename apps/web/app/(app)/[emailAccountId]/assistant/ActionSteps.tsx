@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import TextareaAutosize from "react-textarea-autosize";
@@ -723,15 +722,23 @@ function ActionCard({
       </MutedText>
     ) : null;
 
-  const handleDraftReplyReviewToggle = useCallback(
-    (checked: boolean) => {
+  const handleDraftReplyDeliveryChange = useCallback(
+    ({
+      includeEmail,
+      includeSlack,
+    }: {
+      includeEmail: boolean;
+      includeSlack: boolean;
+    }) => {
+      if (!includeEmail && !includeSlack) return;
+
       updateDraftReplyDelivery({
         delivery: {
-          delivery: checked
-            ? draftReplyDelivery === "SLACK"
-              ? "SLACK"
-              : "EMAIL_AND_SLACK"
-            : "EMAIL",
+          delivery: includeEmail
+            ? includeSlack
+              ? "EMAIL_AND_SLACK"
+              : "EMAIL"
+            : "SLACK",
           messagingChannelId: selectedMessagingChannelId,
         },
         index,
@@ -749,7 +756,6 @@ function ActionCard({
       connectedMessagingChannels,
       draftMessagingAction,
       draftMessagingIndex,
-      draftReplyDelivery,
       index,
       insert,
       primaryAction,
@@ -782,7 +788,7 @@ function ActionCard({
               selectedChannel={selectedMessagingChannel}
               connectedChannels={connectedMessagingChannels}
               errorMessage={deliveryErrorMessage}
-              onToggle={handleDraftReplyReviewToggle}
+              onChange={handleDraftReplyDeliveryChange}
             />
             {delayControls || attachmentsSummary ? (
               <div className="space-y-3 border-t border-border/70 pt-4">
@@ -1011,55 +1017,82 @@ function DraftReplyReviewChannelsSection({
   selectedChannel,
   connectedChannels,
   errorMessage,
-  onToggle,
+  onChange,
 }: {
   emailAccountId: string;
   delivery: DraftReplyDelivery;
   selectedChannel?: MessagingChannelOption;
   connectedChannels: MessagingChannelOption[];
   errorMessage?: string;
-  onToggle: (checked: boolean) => void;
+  onChange: (value: { includeEmail: boolean; includeSlack: boolean }) => void;
 }) {
-  const hasSlackDestination = connectedChannels.length > 0 || !!selectedChannel;
-  const canToggleSlackReview =
+  const hasConnectedSlackDestination =
     connectedChannels.length > 0 || !!selectedChannel?.isConnected;
+  const hasSlackDestination = hasConnectedSlackDestination || !!selectedChannel;
+  const includeEmail = delivery !== "SLACK";
+  const includeSlack = delivery !== "EMAIL";
+  const canToggleEmail = includeSlack;
+  const canToggleSlack = hasConnectedSlackDestination && includeEmail;
 
   return (
     <div className="space-y-4">
-      <MutedText className="text-sm">Also send for review via</MutedText>
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="font-medium text-foreground">Draft to</span>
+        </div>
 
-      {hasSlackDestination ? (
         <div
           className={cn(
-            "flex items-start gap-3 rounded-xl",
-            !canToggleSlackReview && "opacity-60",
+            "flex items-center gap-2 text-sm",
+            !canToggleEmail && "opacity-60",
           )}
         >
           <Checkbox
-            checked={delivery !== "EMAIL"}
-            disabled={!canToggleSlackReview}
-            onCheckedChange={(checked) => onToggle(checked === true)}
-            className="mt-1"
-            aria-label="Toggle Slack draft review"
+            checked={includeEmail}
+            disabled={!canToggleEmail}
+            onCheckedChange={(checked) =>
+              onChange({
+                includeEmail: checked === true,
+                includeSlack,
+              })
+            }
+            aria-label="Toggle email draft delivery"
           />
+          <div className="min-w-0">
+            <span className="font-medium text-foreground">Email</span>
+            <span className="text-muted-foreground">
+              {" "}
+              — Draft appears in your inbox
+            </span>
+          </div>
+        </div>
 
-          <Image
-            src="/images/slack.svg"
-            alt="Slack"
-            width={20}
-            height={20}
-            className="mt-0.5 size-5 shrink-0"
-          />
-
-          <div className="min-w-0 flex-1 text-sm">
+        {hasSlackDestination ? (
+          <div
+            className={cn(
+              "flex items-center gap-2 text-sm",
+              !canToggleSlack && "opacity-60",
+            )}
+          >
+            <Checkbox
+              checked={includeSlack}
+              disabled={!canToggleSlack}
+              onCheckedChange={(checked) =>
+                onChange({
+                  includeEmail,
+                  includeSlack: checked === true,
+                })
+              }
+              aria-label="Toggle Slack draft delivery"
+            />
             <span className="font-medium text-foreground">
               {formatDraftReplyReviewChannelLabel(selectedChannel)}
             </span>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
-      {!hasSlackDestination ? (
+      {!hasConnectedSlackDestination ? (
         <Button asChild size="sm" variant="outline" className="w-fit">
           <Link href={prefixPath(emailAccountId, "/channels")}>
             Connect app
@@ -1163,7 +1196,8 @@ function formatDraftReplyReviewChannelLabel(channel?: MessagingChannelOption) {
   if (!channel) return "Slack";
 
   const destination = formatMessagingDestinationLabel(channel);
-  return channel.isConnected ? destination : `${destination} (Disconnected)`;
+  const label = channel.isDm ? destination : `Slack · ${destination}`;
+  return channel.isConnected ? label : `${label} (Disconnected)`;
 }
 
 type DraftReplyDeliverySelection = {
