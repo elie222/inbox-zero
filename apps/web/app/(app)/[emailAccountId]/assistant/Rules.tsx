@@ -391,9 +391,11 @@ export function ActionBadges({
   provider: string;
   labels: Array<{ id: string; name: string }>;
 }) {
+  const visibleActions = getVisibleActions(actions);
+
   return (
     <div className="flex gap-1 sm:gap-2 flex-wrap min-w-0 justify-start">
-      {sortActionsByPriority(actions).map((action) => {
+      {visibleActions.map((action) => {
         const Icon = getActionIcon(action.type);
 
         return (
@@ -408,6 +410,17 @@ export function ActionBadges({
         );
       })}
     </div>
+  );
+}
+
+function getVisibleActions<T extends { type: ActionType }>(actions: T[]): T[] {
+  const sortedActions = sortActionsByPriority(actions);
+  const hasEmailDraft = sortedActions.some(
+    (action) => action.type === "DRAFT_EMAIL",
+  );
+
+  return sortedActions.filter(
+    (action) => !(action.type === "DRAFT_MESSAGING_CHANNEL" && hasEmailDraft),
   );
 }
 

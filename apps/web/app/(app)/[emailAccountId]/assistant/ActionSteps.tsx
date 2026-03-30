@@ -1,12 +1,7 @@
 import Link from "next/link";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import TextareaAutosize from "react-textarea-autosize";
-import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  MessageSquareIcon,
-  PaperclipIcon,
-} from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, PaperclipIcon } from "lucide-react";
 import type {
   useForm,
   Control,
@@ -43,6 +38,7 @@ import {
 import { FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { FolderSelector } from "@/components/FolderSelector";
 import { cn } from "@/utils";
@@ -241,6 +237,11 @@ function ActionCard({
   const draftReplyDelivery = getDraftReplyDelivery({
     primaryAction,
     draftMessagingAction,
+  });
+  const deliveryErrorMessage = getMessagingChannelError({
+    errors,
+    primaryIndex: index,
+    draftMessagingIndex,
   });
 
   // Helper function to determine if a field can use variables based on context
@@ -654,11 +655,7 @@ function ActionCard({
       messagingChannels={connectedMessagingChannels}
       selectedChannelId={selectedMessagingChannelId}
       selectedChannel={selectedMessagingChannel}
-      errorMessage={getMessagingChannelError({
-        errors,
-        primaryIndex: index,
-        draftMessagingIndex,
-      })}
+      errorMessage={deliveryErrorMessage}
       onChange={(nextValue) =>
         updateDraftReplyDelivery({
           delivery: nextValue,
@@ -719,21 +716,88 @@ function ActionCard({
       </MutedText>
     ) : null;
 
+  const handleDraftReplyDeliveryChange = useCallback(
+    ({
+      includeEmail,
+      includeSlack,
+    }: {
+      includeEmail: boolean;
+      includeSlack: boolean;
+    }) => {
+      if (!includeEmail && !includeSlack) return;
+
+      updateDraftReplyDelivery({
+        delivery: {
+          delivery: includeEmail
+            ? includeSlack
+              ? "EMAIL_AND_SLACK"
+              : "EMAIL"
+            : "SLACK",
+          messagingChannelId: selectedMessagingChannelId,
+        },
+        index,
+        draftMessagingIndex,
+        primaryAction,
+        draftMessagingAction,
+        selectedChannelId: selectedMessagingChannelId,
+        setValue,
+        insert,
+        remove,
+        fallbackChannelId: connectedMessagingChannels[0]?.id ?? null,
+      });
+    },
+    [
+      connectedMessagingChannels,
+      draftMessagingAction,
+      draftMessagingIndex,
+      index,
+      insert,
+      primaryAction,
+      remove,
+      selectedMessagingChannelId,
+      setValue,
+    ],
+  );
+
+  const draftReplyDeliverySection = isDraftReplyActionType(rawActionType) ? (
+    <div className="space-y-4 border-t border-border pt-4">
+      <DraftReplyReviewChannelsSection
+        emailAccountId={emailAccountId}
+        delivery={draftReplyDelivery}
+        selectedChannel={selectedMessagingChannel}
+        connectedChannels={connectedMessagingChannels}
+        errorMessage={deliveryErrorMessage}
+        onChange={handleDraftReplyDeliveryChange}
+      />
+      {delayControls || attachmentsSummary ? (
+        <div className="space-y-3 border-t border-border pt-4">
+          {delayControls}
+          {attachmentsSummary}
+        </div>
+      ) : null}
+    </div>
+  ) : null;
+
   const rightContent = (
     <>
       {isNotifySender ? (
         <MutedText className="px-1 h-full flex items-center">
           {`Sends an automated notification from ${BRAND_NAME} informing the sender their email was filtered as cold outreach.`}
         </MutedText>
-      ) : isDraftEmailWithoutManualContent ? (
+      ) : isDraftReplyActionType(rawActionType) ? (
         <Card className="p-4 space-y-4">
-          {deliverySummary}
-          <MutedText className="px-1 h-full flex items-center">
-            Our AI generates a draft reply from your email history and knowledge
-            base.
-          </MutedText>
-          {delayControls}
-          {attachmentsSummary}
+          {isDraftEmailWithoutManualContent ? (
+            <MutedText className="px-1">
+              Our AI generates a draft reply from your email history and
+              knowledge base.
+            </MutedText>
+          ) : (
+            <>
+              {fieldsContent}
+              {shouldShowProTip && <VariableProTip />}
+            </>
+          )}
+          {draftReplyDeliverySection}
         </Card>
       ) : isMessagingNotification ? (
         <Card className="p-4 space-y-4">{deliverySummary}</Card>
@@ -794,7 +858,7 @@ function ActionCard({
   const labelIdValue = watch(`actions.${index}.labelId`);
   const isPromptMode = !!labelIdValue?.ai;
   const isDraftReplyAction = isDraftReplyActionType(rawActionType);
-  const showDeliveryActions = isDraftReplyAction || isMessagingNotification;
+  const showDeliveryActions = isMessagingNotification;
   const showAttachmentsAction = supportsAttachments;
   const moreOptions = (
     <>
@@ -805,7 +869,6 @@ function ActionCard({
             setDeliveryDialogOpen(true);
           }}
         >
-          <MessageSquareIcon className="mr-2 size-4" />
           {deliverySummary ? "Delivery options" : "Configure delivery"}
         </DropdownMenuItem>
       ) : null}
@@ -948,6 +1011,100 @@ function DraftReplyDeliveryField({
   );
 }
 
+function DraftReplyReviewChannelsSection({
+  emailAccountId,
+  delivery,
+  selectedChannel,
+  connectedChannels,
+  errorMessage,
+  onChange,
+}: {
+  emailAccountId: string;
+  delivery: DraftReplyDelivery;
+  selectedChannel?: MessagingChannelOption;
+  connectedChannels: MessagingChannelOption[];
+  errorMessage?: string;
+  onChange: (value: { includeEmail: boolean; includeSlack: boolean }) => void;
+}) {
+  const hasConnectedSlackDestination =
+    connectedChannels.length > 0 || !!selectedChannel?.isConnected;
+  const hasSlackDestination = hasConnectedSlackDestination || !!selectedChannel;
+  const includeEmail = delivery !== "SLACK";
+  const includeSlack = delivery !== "EMAIL";
+  const canToggleEmail = includeSlack;
+  const canToggleSlack = hasConnectedSlackDestination && includeEmail;
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="font-medium text-foreground">Draft to</span>
+        </div>
+
+        <div
+          className={cn(
+            "flex items-center gap-2 text-sm",
+            !canToggleEmail && "opacity-60",
+          )}
+        >
+          <Checkbox
+            checked={includeEmail}
+            disabled={!canToggleEmail}
+            onCheckedChange={(checked) =>
+              onChange({
+                includeEmail: checked === true,
+                includeSlack,
+              })
+            }
+            aria-label="Toggle email draft delivery"
+          />
+          <div className="min-w-0">
+            <span className="font-medium text-foreground">Email</span>
+            <span className="text-muted-foreground">
+              {" "}
+              — Draft appears in your inbox
+            </span>
+          </div>
+        </div>
+
+        {hasSlackDestination ? (
+          <div
+            className={cn(
+              "flex items-center gap-2 text-sm",
+              !canToggleSlack && "opacity-60",
+            )}
+          >
+            <Checkbox
+              checked={includeSlack}
+              disabled={!canToggleSlack}
+              onCheckedChange={(checked) =>
+                onChange({
+                  includeEmail,
+                  includeSlack: checked === true,
+                })
+              }
+              aria-label="Toggle Slack draft delivery"
+            />
+            <span className="font-medium text-foreground">
+              {formatDraftReplyReviewChannelLabel(selectedChannel)}
+            </span>
+          </div>
+        ) : null}
+      </div>
+
+      {!hasConnectedSlackDestination ? (
+        <Button asChild size="sm" variant="outline" className="w-fit">
+          <Link href={prefixPath(emailAccountId, "/channels")}>
+            Connect app
+          </Link>
+        </Button>
+      ) : null}
+
+      {errorMessage ? <ErrorMessage message={errorMessage} /> : null}
+    </div>
+  );
+}
+
 function MessagingChannelField({
   control,
   index,
@@ -1033,6 +1190,14 @@ function formatMessagingDestinationLabel(channel: MessagingChannelOption) {
   if (channel.teamName) return `${provider} (${channel.teamName})`;
 
   return provider === "Slack" ? "Slack workspace" : provider;
+}
+
+function formatDraftReplyReviewChannelLabel(channel?: MessagingChannelOption) {
+  if (!channel) return "Slack";
+
+  const destination = formatMessagingDestinationLabel(channel);
+  const label = channel.isDm ? destination : `Slack · ${destination}`;
+  return channel.isConnected ? label : `${label} (Disconnected)`;
 }
 
 type DraftReplyDeliverySelection = {
