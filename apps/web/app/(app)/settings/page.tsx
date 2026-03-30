@@ -15,14 +15,10 @@ import {
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
-import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
 import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
-import {
-  ConnectedAppsSection,
-  useSlackNotifications,
-} from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
+import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
@@ -36,13 +32,6 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Item,
@@ -240,17 +229,18 @@ function EmailAccountSettingsCard({
           </Badge>
         ))}
         {hasUnconnectedProvider && (
-          <Badge
-            variant="outline"
-            className="gap-1 text-xs font-normal cursor-pointer hover:bg-muted"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!expanded) onToggle();
-            }}
+          <Link
+            href={`/${emailAccount.id}/channels`}
+            onClick={(e) => e.stopPropagation()}
           >
-            <PlugIcon className="size-3" />
-            Connect Apps
-          </Badge>
+            <Badge
+              variant="outline"
+              className="gap-1 text-xs font-normal cursor-pointer hover:bg-muted"
+            >
+              <PlugIcon className="size-3" />
+              Connect Apps
+            </Badge>
+          </Link>
         )}
         <ChevronRightIcon
           className={cn(
@@ -262,15 +252,16 @@ function EmailAccountSettingsCard({
 
       {expanded && (
         <>
-          <ConnectedAppsSection emailAccountId={emailAccount.id} />
-          <div className="px-4 py-3">
-            <ProactiveUpdatesSetting emailAccountId={emailAccount.id} />
-          </div>
-          <AdvancedSettingsSection
+          <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
+          <ToggleAllRulesSection emailAccountId={emailAccount.id} />
+          <RuleImportExportSetting emailAccountId={emailAccount.id} />
+          <CopyRulesSection
             emailAccountId={emailAccount.id}
             emailAccountEmail={emailAccount.email}
             allAccounts={allAccounts}
           />
+          <CleanupDraftsSection emailAccountId={emailAccount.id} />
+          <ResetAnalyticsSection emailAccountId={emailAccount.id} />
         </>
       )}
     </ItemCard>
@@ -302,52 +293,6 @@ function ProviderIcon({
   }
 }
 
-function AdvancedSettingsSection({
-  emailAccountId,
-  emailAccountEmail,
-  allAccounts,
-}: {
-  emailAccountId: string;
-  emailAccountEmail: string;
-  allAccounts: GetEmailAccountsResponse["emailAccounts"];
-}) {
-  return (
-    <>
-      <ItemSeparator />
-      <Item size="sm">
-        <ItemContent>
-          <ItemTitle>Advanced</ItemTitle>
-        </ItemContent>
-        <ItemActions>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                View
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Advanced Settings</DialogTitle>
-              </DialogHeader>
-              <ItemCard className="[&>[data-slot=item-separator]:first-child]:hidden">
-                <OrgAnalyticsConsentSection emailAccountId={emailAccountId} />
-                <ToggleAllRulesSection emailAccountId={emailAccountId} />
-                <RuleImportExportSetting emailAccountId={emailAccountId} />
-                <CopyRulesSection
-                  emailAccountId={emailAccountId}
-                  emailAccountEmail={emailAccountEmail}
-                  allAccounts={allAccounts}
-                />
-                <CleanupDraftsSection emailAccountId={emailAccountId} />
-                <ResetAnalyticsSection emailAccountId={emailAccountId} />
-              </ItemCard>
-            </DialogContent>
-          </Dialog>
-        </ItemActions>
-      </Item>
-    </>
-  );
-}
 
 function SettingsGroup({
   icon,

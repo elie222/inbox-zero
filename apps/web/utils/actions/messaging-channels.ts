@@ -13,6 +13,11 @@ import {
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
+
+const MESSAGING_ACTION_TYPES = [
+  ActionType.NOTIFY_MESSAGING_CHANNEL,
+  ActionType.DRAFT_MESSAGING_CHANNEL,
+] as const;
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
 import { env } from "@/env";
 import { getChannelInfo } from "@/utils/messaging/providers/slack/channels";
@@ -302,7 +307,12 @@ export const toggleRuleChannelAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { ruleId, messagingChannelId, enabled },
+      parsedInput: {
+        ruleId,
+        messagingChannelId,
+        enabled,
+        actionType: requestedType,
+      },
     }) => {
       const [rule, channel] = await Promise.all([
         prisma.rule.findUnique({
@@ -328,6 +338,9 @@ export const toggleRuleChannelAction = actionClient
         throw new SafeError("Messaging channel not found");
       }
 
+      const actionType: ActionType =
+        requestedType ?? ActionType.NOTIFY_MESSAGING_CHANNEL;
+
       if (enabled) {
         if (!channel.isConnected) {
           throw new SafeError("Messaging channel is not connected");
@@ -342,29 +355,28 @@ export const toggleRuleChannelAction = actionClient
           );
         }
 
-        const existing = await prisma.action.findFirst({
+        // Remove any existing messaging channel actions for this rule+channel
+        await prisma.action.deleteMany({
           where: {
             ruleId,
             messagingChannelId,
-            type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+            type: { in: [...MESSAGING_ACTION_TYPES] },
           },
         });
 
-        if (!existing) {
-          await prisma.action.create({
-            data: {
-              type: ActionType.NOTIFY_MESSAGING_CHANNEL,
-              ruleId,
-              messagingChannelId,
-            },
-          });
-        }
+        await prisma.action.create({
+          data: {
+            type: actionType,
+            ruleId,
+            messagingChannelId,
+          },
+        });
       } else {
         await prisma.action.deleteMany({
           where: {
             ruleId,
             messagingChannelId,
-            type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+            type: { in: [...MESSAGING_ACTION_TYPES] },
           },
         });
       }

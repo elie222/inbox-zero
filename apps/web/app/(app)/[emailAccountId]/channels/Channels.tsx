@@ -2,18 +2,19 @@
 
 import { useMemo, useState } from "react";
 import {
+  CheckIcon,
   LockIcon,
-  MessageCircleIcon,
+  LogOutIcon,
   MessageSquareIcon,
-  SendIcon,
-  SlackIcon,
+  MoreVerticalIcon,
 } from "lucide-react";
+import Image from "next/image";
 import { useAction } from "next-safe-action/hooks";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Toggle } from "@/components/Toggle";
 import { MutedText } from "@/components/Typography";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/Badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,6 +23,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { CopyInput } from "@/components/CopyInput";
 import {
   Item,
@@ -51,6 +58,7 @@ import {
   updateSlackChannelAction,
   toggleRuleChannelAction,
   createMessagingLinkCodeAction,
+  disconnectChannelAction,
 } from "@/utils/actions/messaging-channels";
 import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
@@ -59,16 +67,18 @@ import { getActionErrorMessage } from "@/utils/error";
 import { env } from "@/env";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
+import type { RulesResponse } from "@/app/api/user/rules/route";
+import type { MessagingActionType } from "@/utils/actions/messaging-channels.validation";
 
 type LinkableProvider = "TEAMS" | "TELEGRAM";
 
 const PROVIDER_CONFIG: Record<
   MessagingProvider,
-  { name: string; icon: typeof SlackIcon }
+  { name: string; logo: string }
 > = {
-  SLACK: { name: "Slack", icon: SlackIcon },
-  TEAMS: { name: "Teams", icon: MessageCircleIcon },
-  TELEGRAM: { name: "Telegram", icon: SendIcon },
+  SLACK: { name: "Slack", logo: "/images/slack.svg" },
+  TEAMS: { name: "Teams", logo: "/images/teams.png" },
+  TELEGRAM: { name: "Telegram", logo: "/images/telegram.svg" },
 };
 
 const FEATURE_DESCRIPTIONS: Record<string, string> = {
@@ -78,6 +88,8 @@ const FEATURE_DESCRIPTIONS: Record<string, string> = {
 
 type ChannelFromResponse =
   GetMessagingChannelsResponse["channels"][number];
+
+type Rule = RulesResponse[number];
 
 export function Channels() {
   const { emailAccountId } = useAccount();
@@ -191,15 +203,6 @@ function SectionGroup({
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="px-4 pt-2 pb-0">
-      <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        {children}
-      </span>
-    </div>
-  );
-}
 
 function ConnectedChannelSection({
   channel,
@@ -208,31 +211,82 @@ function ConnectedChannelSection({
   onUpdate,
 }: {
   channel: ChannelFromResponse;
-  rules: Array<{ id: string; name: string }>;
+  rules: Rule[];
   emailAccountId: string;
   onUpdate: () => void;
 }) {
   const config = PROVIDER_CONFIG[channel.provider];
-  const Icon = config.icon;
   const hasTarget = channel.hasSendDestination;
   const isSlack = channel.provider === "SLACK";
 
-  const channelRuleIds = useMemo(() => {
-    const ids = new Set<string>();
+  const { execute: executeDisconnect, status: disconnectStatus } = useAction(
+    disconnectChannelAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: `${config.name} disconnected` });
+        onUpdate();
+      },
+      onError: (error) => {
+        toastError({
+          description:
+            getActionErrorMessage(error.error) ?? "Failed to disconnect",
+        });
+      },
+    },
+  );
+
+  const channelRuleActions = useMemo(() => {
+    const map = new Map<string, MessagingActionType>();
     for (const action of channel.actions) {
-      if (action.ruleId) ids.add(action.ruleId);
+      if (
+        action.ruleId &&
+        (action.type === "NOTIFY_MESSAGING_CHANNEL" ||
+          action.type === "DRAFT_MESSAGING_CHANNEL")
+      ) {
+        map.set(action.ruleId, action.type as MessagingActionType);
+      }
     }
-    return ids;
+    return map;
   }, [channel.actions]);
 
   return (
     <SectionGroup
-      icon={<Icon className="size-5" />}
+      icon={
+        <Image
+          src={config.logo}
+          alt={config.name}
+          width={20}
+          height={20}
+          className="size-5"
+          unoptimized
+        />
+      }
       title={config.name}
       badge={
-        <Badge className="border-green-200 bg-green-50 text-green-700 text-xs font-normal dark:border-green-800 dark:bg-green-950 dark:text-green-400">
-          Connected
-        </Badge>
+        <div className="flex items-center gap-1">
+          <Badge color="green">Connected</Badge>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                disabled={disconnectStatus === "executing"}
+              >
+                <MoreVerticalIcon className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => executeDisconnect({ channelId: channel.id })}
+                className="text-destructive focus:text-destructive"
+              >
+                <LogOutIcon className="mr-2 h-4 w-4" />
+                Disconnect {config.name}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       }
     >
       {isSlack && (
@@ -240,9 +294,6 @@ function ConnectedChannelSection({
           <Item size="sm">
             <ItemContent>
               <ItemTitle>Deliver to</ItemTitle>
-              <ItemDescription>
-                Choose where Inbox Zero sends notifications.
-              </ItemDescription>
             </ItemContent>
             <ItemActions>
               <SlackTargetSelect
@@ -260,14 +311,22 @@ function ConnectedChannelSection({
       )}
 
       <ItemCard>
-        <SectionLabel>Rules</SectionLabel>
+        <Item size="sm">
+          <ItemContent>
+            <ItemTitle>Rules</ItemTitle>
+            <ItemDescription>
+              Choose which rules send notifications to this channel.
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+        <ItemSeparator />
         {rules.length > 0 ? (
           rules.map((rule) => (
             <RuleToggle
               key={rule.id}
               rule={rule}
               channelId={channel.id}
-              enabled={channelRuleIds.has(rule.id)}
+              currentActionType={channelRuleActions.get(rule.id) ?? null}
               emailAccountId={emailAccountId}
               onUpdate={onUpdate}
             />
@@ -282,7 +341,6 @@ function ConnectedChannelSection({
       </ItemCard>
 
       <ItemCard>
-        <SectionLabel>Other</SectionLabel>
         <FeatureToggle
           name="Meeting briefs"
           channelId={channel.id}
@@ -292,6 +350,7 @@ function ConnectedChannelSection({
           onUpdate={onUpdate}
           disabled={!hasTarget}
         />
+        <ItemSeparator />
         <FeatureToggle
           name="Document filing alerts"
           channelId={channel.id}
@@ -316,7 +375,6 @@ function UnconnectedProviderSection({
   onConnected: () => void;
 }) {
   const config = PROVIDER_CONFIG[provider];
-  const Icon = config.icon;
   const { connect: connectSlack, connecting: connectingSlack } =
     useSlackConnect({ emailAccountId, onConnected });
 
@@ -359,7 +417,16 @@ function UnconnectedProviderSection({
   return (
     <>
       <SectionGroup
-        icon={<Icon className="size-5" />}
+        icon={
+          <Image
+            src={config.logo}
+            alt={config.name}
+            width={20}
+            height={20}
+            className="size-5"
+            unoptimized
+          />
+        }
         title={config.name}
       >
         <ItemCard>
@@ -559,16 +626,27 @@ function SlackTargetSelect({
 function RuleToggle({
   rule,
   channelId,
-  enabled,
+  currentActionType,
   emailAccountId,
   onUpdate,
 }: {
-  rule: { id: string; name: string };
+  rule: Rule;
   channelId: string;
-  enabled: boolean;
+  currentActionType: MessagingActionType | null;
   emailAccountId: string;
   onUpdate: () => void;
 }) {
+  const enabled = currentActionType !== null;
+  const isDraft = currentActionType === "DRAFT_MESSAGING_CHANNEL";
+
+  // Smart default: if the rule already has a DRAFT_EMAIL action, default to draft mode
+  const hasDraftEmailAction = rule.actions.some(
+    (a) => a.type === "DRAFT_EMAIL",
+  );
+  const defaultActionType: MessagingActionType = hasDraftEmailAction
+    ? "DRAFT_MESSAGING_CHANNEL"
+    : "NOTIFY_MESSAGING_CHANNEL";
+
   const { execute, status } = useAction(
     toggleRuleChannelAction.bind(null, emailAccountId),
     {
@@ -585,24 +663,76 @@ function RuleToggle({
     },
   );
 
+  const isExecuting = status === "executing";
+
+  const switchMode = (newType: MessagingActionType) => {
+    if (newType === currentActionType) return;
+    execute({
+      ruleId: rule.id,
+      messagingChannelId: channelId,
+      enabled: true,
+      actionType: newType,
+    });
+  };
+
   return (
     <Item size="sm" className="py-1.5">
       <ItemContent>
-        <ItemTitle>{rule.name}</ItemTitle>
+        <div className="flex items-center gap-2">
+          <ItemTitle>{rule.name}</ItemTitle>
+          {isDraft && (
+            <Badge color="green">Draft reply</Badge>
+          )}
+        </div>
       </ItemContent>
       <ItemActions>
-        <Toggle
-          name={`rule-${rule.id}-${channelId}`}
-          enabled={enabled}
-          disabled={status === "executing"}
-          onChange={(value) =>
-            execute({
-              ruleId: rule.id,
-              messagingChannelId: channelId,
-              enabled: value,
-            })
-          }
-        />
+        <div className="flex items-center gap-1">
+          <Toggle
+            name={`rule-${rule.id}-${channelId}`}
+            enabled={enabled}
+            disabled={isExecuting}
+            onChange={(value) =>
+              execute({
+                ruleId: rule.id,
+                messagingChannelId: channelId,
+                enabled: value,
+                actionType: value ? defaultActionType : undefined,
+              })
+            }
+          />
+          {enabled && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={isExecuting}
+                >
+                  <MoreVerticalIcon className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => switchMode("NOTIFY_MESSAGING_CHANNEL")}
+                >
+                  <CheckIcon
+                    className={`mr-2 h-4 w-4 ${isDraft ? "invisible" : ""}`}
+                  />
+                  Notify only
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => switchMode("DRAFT_MESSAGING_CHANNEL")}
+                >
+                  <CheckIcon
+                    className={`mr-2 h-4 w-4 ${!isDraft ? "invisible" : ""}`}
+                  />
+                  Draft reply in chat
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </ItemActions>
     </Item>
   );
