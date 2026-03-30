@@ -1026,9 +1026,7 @@ function DraftReplyReviewChannelsSection({
 
   return (
     <div className="space-y-4">
-      <div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground/80">
-        Also send for review via
-      </div>
+      <MutedText className="text-sm">Also send for review via</MutedText>
 
       {hasSlackDestination ? (
         <div
