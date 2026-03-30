@@ -87,6 +87,7 @@ export const updateSlackChannelAction = actionClient
         await sendChannelConfirmation({
           accessToken: channel.accessToken,
           channelId: targetId,
+          botUserId: channel.botUserId,
         });
       } catch (error) {
         logger.error("Failed to send channel confirmation", { error });

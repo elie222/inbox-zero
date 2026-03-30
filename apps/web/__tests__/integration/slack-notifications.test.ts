@@ -108,6 +108,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       await sendChannelConfirmation({
         accessToken: "emulator-token",
         channelId: notifChannelId,
+        botUserId: "UAPP123",
       });
 
       const history = await emulatorClient.conversations.history({
@@ -117,6 +118,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         m.text?.includes("Inbox Zero connected"),
       );
       expect(msg).toBeDefined();
+      expect(msg?.text).toContain("<@UAPP123>");
     });
 
     test("sendMeetingBriefingToSlack delivers structured briefing with guest data", async () => {
