@@ -6,14 +6,12 @@ import {
   isSlackDmChannel,
   resolveSlackDestination,
 } from "@/utils/messaging/providers/slack/send";
+import type { AutomationMessagingChannel } from "./messaging-channel";
 
-type SlackMessagingChannel = {
-  provider: MessagingProvider;
-  accessToken: string | null;
-  botUserId?: string | null;
-  providerUserId: string | null;
-  channelId: string | null;
-};
+type SlackMessagingChannel = Pick<
+  AutomationMessagingChannel,
+  "provider" | "accessToken" | "botUserId" | "providerUserId" | "channelId"
+>;
 
 export class AutomationJobConfigurationError extends Error {
   constructor(message: string) {
