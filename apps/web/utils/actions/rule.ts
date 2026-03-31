@@ -276,6 +276,11 @@ export const deleteRuleAction = actionClient
     if (!rule) return; // already deleted
     if (rule.emailAccountId !== emailAccountId)
       throw new SafeError("You don't have permission to delete this rule");
+    if (rule.systemType) {
+      throw new SafeError(
+        "Default rules cannot be deleted. Disable them instead.",
+      );
+    }
 
     try {
       await deleteRule({
