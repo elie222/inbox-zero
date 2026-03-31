@@ -12,6 +12,7 @@ import { MessagingProvider } from "@/generated/prisma/enums";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
+import { getMessagingDeliveryTargetWhere } from "@/utils/messaging/delivery-target";
 import {
   resolveSlackDestination,
   sendMeetingBriefingToSlack,
@@ -62,7 +63,7 @@ export async function sendBriefing({
       emailAccountId,
       isConnected: true,
       sendMeetingBriefs: true,
-      OR: [{ channelId: { not: null } }, { providerUserId: { not: null } }],
+      ...getMessagingDeliveryTargetWhere(),
     },
     select: {
       provider: true,

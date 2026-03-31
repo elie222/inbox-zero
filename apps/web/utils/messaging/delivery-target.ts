@@ -1,3 +1,4 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { MessagingProvider } from "@/generated/prisma/enums";
 
 export function hasMessagingDeliveryTarget(channel: {
@@ -10,4 +11,23 @@ export function hasMessagingDeliveryTarget(channel: {
   }
 
   return Boolean(channel.providerUserId);
+}
+
+export function getMessagingDeliveryTargetWhere(): Prisma.MessagingChannelWhereInput {
+  return {
+    OR: [
+      {
+        provider: MessagingProvider.SLACK,
+        channelId: { not: null },
+      },
+      {
+        provider: MessagingProvider.TEAMS,
+        providerUserId: { not: null },
+      },
+      {
+        provider: MessagingProvider.TELEGRAM,
+        providerUserId: { not: null },
+      },
+    ],
+  };
 }

@@ -7,6 +7,7 @@ import {
 } from "@/utils/messaging/providers/slack/send";
 import type { Logger } from "@/utils/logger";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
+import { getMessagingDeliveryTargetWhere } from "@/utils/messaging/delivery-target";
 
 export async function sendFilingSlackNotifications({
   emailAccountId,
@@ -24,7 +25,7 @@ export async function sendFilingSlackNotifications({
       emailAccountId,
       isConnected: true,
       sendDocumentFilings: true,
-      OR: [{ channelId: { not: null } }, { providerUserId: { not: null } }],
+      ...getMessagingDeliveryTargetWhere(),
     },
     select: {
       provider: true,

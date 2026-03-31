@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { MessagingProvider } from "@/generated/prisma/enums";
-import { hasMessagingDeliveryTarget } from "./delivery-target";
+import {
+  getMessagingDeliveryTargetWhere,
+  hasMessagingDeliveryTarget,
+} from "./delivery-target";
 
 describe("hasMessagingDeliveryTarget", () => {
   it("requires an explicit Slack destination", () => {
@@ -41,5 +44,24 @@ describe("hasMessagingDeliveryTarget", () => {
         channelId: null,
       }),
     ).toBe(false);
+  });
+
+  it("builds a provider-specific query for persisted delivery targets", () => {
+    expect(getMessagingDeliveryTargetWhere()).toEqual({
+      OR: [
+        {
+          provider: MessagingProvider.SLACK,
+          channelId: { not: null },
+        },
+        {
+          provider: MessagingProvider.TEAMS,
+          providerUserId: { not: null },
+        },
+        {
+          provider: MessagingProvider.TELEGRAM,
+          providerUserId: { not: null },
+        },
+      ],
+    });
   });
 });
