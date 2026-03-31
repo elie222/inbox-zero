@@ -1166,16 +1166,11 @@ function buildPendingEmailSuccessFeedback({
   accountEmail?: string | null;
   accountProvider?: string | null;
 }) {
-  const emailProvider =
-    accountProvider === "google" || accountProvider === "microsoft"
-      ? accountProvider
-      : undefined;
-
   const emailUrl = getEmailUrlForOptionalMessage({
     messageId: confirmationResult?.messageId,
     threadId: confirmationResult?.threadId,
     emailAddress: accountEmail,
-    provider: emailProvider,
+    provider: accountProvider || undefined,
   });
   if (!emailUrl) return "Sent.";
 

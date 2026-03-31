@@ -1563,14 +1563,11 @@ function getExternalMessageUrl({
   userEmail?: string | null;
   provider?: string;
 }) {
-  const emailProvider =
-    provider === "google" || provider === "microsoft" ? provider : undefined;
-
   return getEmailUrlForOptionalMessage({
     messageId,
     threadId,
     emailAddress: userEmail,
-    provider: emailProvider,
+    provider,
   });
 }
 
