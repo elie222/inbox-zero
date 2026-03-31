@@ -107,6 +107,7 @@ export async function aiGenerateMeetingBriefing({
     emailAccount,
     label: "Meeting Briefing",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "full" },
   });
 
   let result: BriefingContent | null = null;
@@ -218,6 +219,7 @@ async function buildSearchTools({
               fallbackModels: [],
               hasUserApiKey: false,
             },
+            promptHardening: { trust: "untrusted", level: "full" },
           });
 
           const searchResult = await perplexityGenerateText({
@@ -354,6 +356,7 @@ function createWebSearchTool({
           emailAccount,
           label: "Web Search",
           modelOptions,
+          promptHardening: { trust: "untrusted", level: "full" },
         });
 
         const searchResult = await webGenerateText({

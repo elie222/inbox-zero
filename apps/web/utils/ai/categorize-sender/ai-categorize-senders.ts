@@ -92,6 +92,7 @@ ${formatCategoriesForPrompt(categories)}
     emailAccount,
     label: "Categorize senders bulk",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "compact" },
   });
 
   const aiResponse = await generateObject({

@@ -34,6 +34,7 @@ ${cleanedPromptFile}
     emailAccount,
     label: "Prompt to rules",
     modelOptions,
+    promptHardening: { trust: "trusted" },
   });
 
   const aiResponse = await generateObject({

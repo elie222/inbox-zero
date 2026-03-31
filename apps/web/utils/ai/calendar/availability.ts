@@ -114,6 +114,7 @@ ${threadContent}
     emailAccount,
     label: "Calendar availability analysis",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "full" },
   });
 
   let result: CalendarAvailabilityContext | null = null;

@@ -81,6 +81,7 @@ export async function compactMessages({
     emailAccount: user,
     label: "chat-compaction",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "compact" },
   });
 
   const result = await generateText({
@@ -143,6 +144,7 @@ export async function extractMemories({
     emailAccount: user,
     label: "chat-memory-extraction",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "full" },
   });
 
   const result = await generateObject({

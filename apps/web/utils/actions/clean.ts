@@ -84,29 +84,8 @@ export const cleanInboxAction = actionClient
         },
       });
 
-      // const getLabels = async (instructions?: string) => {
-      //   if (!instructions) return [];
-      //   let labels: { id: string; name: string }[] | undefined;
-      //   const labelNames = await aiCleanSelectLabels({ user, instructions });
-      //   if (labelNames) {
-      //     const gmailLabels = await getOrCreateLabels({
-      //       names: labelNames,
-      //       gmail,
-      //     });
-      //     labels = gmailLabels
-      //       .map((label) => ({
-      //         id: label.id || "",
-      //         name: label.name || "",
-      //       }))
-      //       .filter((label) => label.id && label.name);
-      //   }
-      //   return labels;
-      // };
-
       const process = async () => {
         const { type } = await getUnhandledCount(emailProvider);
-
-        // const labels = await getLabels(data.instructions);
 
         let nextPageToken: string | undefined | null;
 

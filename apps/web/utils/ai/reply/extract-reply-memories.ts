@@ -5,7 +5,6 @@ import {
 } from "@/generated/prisma/enums";
 import type { ReplyMemory } from "@/generated/prisma/client";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
-import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { extractDomainFromEmail } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
@@ -91,6 +90,7 @@ export async function aiExtractReplyMemoriesFromDraftEdit({
     emailAccount,
     label: "Reply memory extraction",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "full" },
   });
 
   const result = await generateObject({
@@ -234,8 +234,6 @@ function normalizeMemoryText(value: string) {
 
 function getSystemPrompt() {
   return `You analyze how a user edits AI-generated email reply drafts and turn durable patterns into reusable drafting memories.
-
-${PROMPT_SECURITY_INSTRUCTIONS}
 
 Return only memories that are likely to help with future drafts.
 

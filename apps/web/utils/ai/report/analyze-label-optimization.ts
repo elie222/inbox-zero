@@ -3,10 +3,7 @@ import { createGenerateObject } from "@/utils/llms";
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
-import { createScopedLogger } from "@/utils/logger";
 import { getModel } from "@/utils/llms/model";
-
-const logger = createScopedLogger("email-report-label-analysis");
 
 const labelAnalysisSchema = z.object({
   optimizationSuggestions: z.array(
@@ -58,6 +55,7 @@ Each suggestion should include the reason and expected impact.`;
     emailAccount,
     label: "email-report-label-analysis",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "none" },
   });
 
   const result = await generateObject({

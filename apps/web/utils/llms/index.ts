@@ -51,6 +51,11 @@ import { Provider } from "@/utils/llms/config";
 import { createScopedLogger } from "@/utils/logger";
 import { getPosthogLlmClient, isPosthogLlmEvalApproved } from "@/utils/posthog";
 import {
+  applyPromptHardeningToMessages,
+  applyPromptHardeningToSystem,
+  type PromptHardening,
+} from "@/utils/ai/security";
+import {
   extractLLMErrorInfo,
   isTransientNetworkError,
   withNetworkRetry,
@@ -91,11 +96,13 @@ export function createGenerateText({
   emailAccount,
   label,
   modelOptions,
+  promptHardening,
   onModelUsed,
 }: {
   emailAccount: Pick<EmailAccountWithAI, "email" | "id" | "userId">;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
+  promptHardening: PromptHardening;
   onModelUsed?: (candidate: {
     provider: string;
     modelName: string;
@@ -113,11 +120,14 @@ export function createGenerateText({
       });
 
     const generate = async (candidate: ResolvedModel) => {
-      const systemText =
-        typeof options.system === "string" ? options.system : undefined;
+      const systemText = applyPromptHardeningToSystem({
+        system: typeof options.system === "string" ? options.system : undefined,
+        promptHardening,
+      });
 
       logger.trace("Generating text", {
         label,
+        promptHardening,
         system: systemText?.slice(0, MAX_LOG_LENGTH),
         prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
@@ -139,6 +149,7 @@ export function createGenerateText({
       const result = await generateText(
         {
           ...options,
+          system: systemText,
           ...commonOptions,
           providerOptions,
           model: withPosthogTracing({
@@ -225,11 +236,13 @@ export function createGenerateObject({
   emailAccount,
   label,
   modelOptions,
+  promptHardening,
   onModelUsed,
 }: {
   emailAccount: Pick<EmailAccountWithAI, "email" | "id" | "userId">;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
+  promptHardening: PromptHardening;
   onModelUsed?: (candidate: {
     provider: string;
     modelName: string;
@@ -248,11 +261,14 @@ export function createGenerateObject({
     let latestRepairAttempt: RepairAttemptState | undefined;
 
     const generate = async (candidate: ResolvedModel) => {
-      const systemText =
-        typeof options.system === "string" ? options.system : undefined;
+      const systemText = applyPromptHardeningToSystem({
+        system: typeof options.system === "string" ? options.system : undefined,
+        promptHardening,
+      });
 
       logger.trace("Generating object", {
         label,
+        promptHardening,
         system: systemText?.slice(0, MAX_LOG_LENGTH),
         prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
@@ -288,6 +304,7 @@ export function createGenerateObject({
             return repairResult.text;
           },
           ...options,
+          system: systemText,
           ...commonOptions,
           providerOptions,
           model: withPosthogTracing({
@@ -388,6 +405,7 @@ export async function chatCompletionStream({
   userAi,
   modelType,
   messages,
+  promptHardening,
   tools,
   maxSteps,
   userId,
@@ -401,6 +419,7 @@ export async function chatCompletionStream({
   userAi: UserAIFields;
   modelType?: ModelType;
   messages: ModelMessage[];
+  promptHardening: PromptHardening;
   tools?: Record<string, Tool>;
   maxSteps?: number;
   userId?: string;
@@ -417,6 +436,10 @@ export async function chatCompletionStream({
     userId,
     emailAccountId,
     label,
+  });
+  const hardenedMessages = applyPromptHardeningToMessages({
+    messages,
+    promptHardening,
   });
 
   for (let index = 0; index < modelCandidates.length; index++) {
@@ -446,7 +469,7 @@ export async function chatCompletionStream({
     try {
       return streamText({
         model,
-        messages,
+        messages: hardenedMessages,
         tools,
         stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
         ...commonOptions,
@@ -526,6 +549,7 @@ export async function toolCallAgentStream({
   userAi,
   modelType,
   messages,
+  promptHardening,
   tools,
   activeTools,
   prepareStep,
@@ -541,6 +565,7 @@ export async function toolCallAgentStream({
   userAi: UserAIFields;
   modelType?: ModelType;
   messages: ModelMessage[];
+  promptHardening: PromptHardening;
   tools?: Record<string, Tool>;
   activeTools?: Array<string>;
   prepareStep?: PrepareStepFunction<Record<string, Tool>>;
@@ -559,6 +584,10 @@ export async function toolCallAgentStream({
     userId,
     emailAccountId,
     label,
+  });
+  const hardenedMessages = applyPromptHardeningToMessages({
+    messages,
+    promptHardening,
   });
 
   for (let index = 0; index < modelCandidates.length; index++) {
@@ -656,7 +685,7 @@ export async function toolCallAgentStream({
 
     try {
       return await agent.stream({
-        messages,
+        messages: hardenedMessages,
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish: onStepFinish
           ? async (stepResult) => {

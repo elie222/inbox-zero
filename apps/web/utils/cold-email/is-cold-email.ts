@@ -144,6 +144,7 @@ ${stringifyEmail(email, 500)}
     emailAccount,
     label: "Cold email check",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "compact" },
   });
 
   const response = await generateObject({

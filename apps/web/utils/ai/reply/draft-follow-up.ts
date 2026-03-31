@@ -99,6 +99,11 @@ export async function aiDraftFollowUp({
     emailAccount,
     label: "Draft follow-up",
     modelOptions,
+    promptHardening: {
+      trust: "untrusted",
+      level: "full",
+      outputConstraint: "plain-text",
+    },
   });
 
   const result = await generateObject({

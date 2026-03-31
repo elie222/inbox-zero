@@ -14,10 +14,6 @@ import {
   createDraftAttributionTracker,
   type DraftAttribution,
 } from "@/utils/ai/reply/draft-attribution";
-import {
-  PLAIN_TEXT_OUTPUT_INSTRUCTION,
-  PROMPT_SECURITY_INSTRUCTIONS,
-} from "@/utils/ai/security";
 
 // Bump this when template-based draft generation changes in a way that would
 // affect attribution comparisons for rule-generated draft content.
@@ -105,6 +101,11 @@ export async function aiGenerateArgs({
     label: "Args for rule",
     emailAccount,
     modelOptions,
+    promptHardening: {
+      trust: "untrusted",
+      level: "full",
+      outputConstraint: "plain-text",
+    },
     onModelUsed: attributionTracker.onModelUsed,
   });
 
@@ -147,8 +148,6 @@ export async function aiGenerateArgs({
 function getSystemPrompt() {
   return `You are an AI assistant that helps people manage their emails.
 
-${PROMPT_SECURITY_INSTRUCTIONS}
-
 <key_instructions>
 - Never mention you are an AI assistant in responses
 - Use empty strings for missing information (no placeholders like <UNKNOWN> or [PLACEHOLDER], unless explicitly allowed in the user's rule instructions)
@@ -160,7 +159,6 @@ ${PROMPT_SECURITY_INSTRUCTIONS}
 - IMPORTANT: For content and subject fields:
   - Use proper capitalization and punctuation (start sentences with capital letters)
   - Ensure the generated text flows naturally with surrounding template content
-- IMPORTANT: ${PLAIN_TEXT_OUTPUT_INSTRUCTION}
 </key_instructions>`;
 }
 

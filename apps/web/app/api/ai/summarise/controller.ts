@@ -22,6 +22,7 @@ export async function summarise({
     userAi: userAi.user,
     userId: userAi.userId,
     emailAccountId: userAi.id,
+    promptHardening: { trust: "untrusted", level: "compact" },
     messages: [
       {
         role: "system",

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
 import type { getEmailAccountWithAi } from "@/utils/user/get";
@@ -26,6 +25,7 @@ Summarize the user's learned writing style from this preference evidence.`;
     emailAccount,
     label: "Learned writing style compaction",
     modelOptions,
+    promptHardening: { trust: "trusted" },
   });
 
   const result = await generateObject({
@@ -40,8 +40,6 @@ Summarize the user's learned writing style from this preference evidence.`;
 
 function getSystemPrompt() {
   return `You maintain a compact learned writing-style summary for an email user based on accumulated preference memories from prior draft edits.
-
-${PROMPT_SECURITY_INSTRUCTIONS}
 
 Return a concise prompt-ready style guide that helps draft future emails.
 

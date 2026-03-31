@@ -5,7 +5,6 @@ import { isDefined, type EmailForLLM } from "@/utils/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
-import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { sortRulesForAutomation } from "@/utils/rule/sort";
 import type { Logger } from "@/utils/logger";
 import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
@@ -102,6 +101,7 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
     emailAccount,
     label: "Choose rule",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "full" },
   });
 
   const hasCustomRules = rules.some((rule) => !rule.systemType);
@@ -145,8 +145,6 @@ async function getAiResponseSingleRule({
   classificationFeedback?: ClassificationFeedbackItem[] | null;
 }) {
   const system = `You are an AI assistant that helps people manage their emails.
-
-${PROMPT_SECURITY_INSTRUCTIONS}
 
 <instructions>
   IMPORTANT: Follow these instructions carefully when selecting a rule:
@@ -244,8 +242,6 @@ async function getAiResponseMultiRule({
     .join("\n");
 
   const system = `You are an AI assistant that helps people manage their emails.
-
-${PROMPT_SECURITY_INSTRUCTIONS}
 
 <instructions>
   IMPORTANT: Follow these instructions carefully when selecting rules:

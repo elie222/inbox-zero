@@ -93,6 +93,7 @@ export async function aiExtractFromEmailHistory({
       emailAccount,
       label: "Email history extraction",
       modelOptions,
+      promptHardening: { trust: "trusted" },
     });
 
     const result = await generateObject({
