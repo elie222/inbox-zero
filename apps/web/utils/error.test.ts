@@ -127,6 +127,37 @@ describe("captureException", () => {
       },
     });
   });
+
+  it("ignores LLM repair metadata for non-extensible errors", () => {
+    const error = Object.preventExtensions(new Error("generation failed"));
+
+    expect(() =>
+      attachLlmRepairMetadata(error, {
+        attempted: true,
+        successful: false,
+        label: "Categorize sender",
+        provider: "openai",
+        model: "gpt-test",
+        inputLength: 12,
+        inputFingerprint: "abc123",
+        startsWithQuote: true,
+        startsWithBrace: false,
+        startsWithBracket: false,
+        looksCodeFenced: false,
+        candidateKindsTried: ["trimmed", "original"],
+      }),
+    ).not.toThrow();
+
+    captureException(error, {
+      extra: { operation: "test" },
+    });
+
+    expect(mockSentryCaptureException).toHaveBeenCalledWith(error, {
+      extra: {
+        operation: "test",
+      },
+    });
+  });
 });
 
 function createAPICallError({
