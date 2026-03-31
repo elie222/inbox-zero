@@ -806,19 +806,20 @@ function buildNotificationContent({
       truncate(he.decode(email.headers.subject), 80),
     );
 
+    const emailPreview = buildEmailPreview(email);
+    const draftPreview = buildDraftPreview(draftContent);
+
+    const parts = [`You got an email from *${senderName}* about "${subject}".`];
+
+    if (emailPreview) {
+      parts.push(`They wrote:\n${blockquote(emailPreview)}`);
+    }
+
+    parts.push(`I drafted a reply for you:\n${blockquote(draftPreview)}`);
+
     return {
       title: "Draft reply",
-      summary: `You received an email from *${senderName}* re "${subject}". Here's a drafted reply:`,
-      details: [
-        buildNotificationDetailSection({
-          label: "Original email",
-          value: buildEmailPreview(email),
-        }),
-        buildNotificationDetailSection({
-          label: "Draft reply",
-          value: buildDraftPreview(draftContent),
-        }),
-      ].filter(Boolean) as string[],
+      summary: parts.join("\n\n"),
     };
   }
 
@@ -1213,4 +1214,11 @@ function toCalendarPreviewMessage(
     textPlain: email.textPlain,
     threadId: "",
   };
+}
+
+function blockquote(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => `>${line}`)
+    .join("\n");
 }

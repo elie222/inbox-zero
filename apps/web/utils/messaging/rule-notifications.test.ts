@@ -109,10 +109,10 @@ describe("handleSlackRuleNotificationAction", () => {
 
     expect(cardText).toContain("Draft reply");
     expect(cardText).toContain("*sender@example.com*");
-    expect(cardText).toContain('re \\"Test subject\\"');
-    expect(cardText).toContain("*Original email*");
+    expect(cardText).toContain('about \\"Test subject\\"');
+    expect(cardText).toContain("They wrote:");
     expect(cardText).toContain("Original message body");
-    expect(cardText).toContain("*Draft reply*");
+    expect(cardText).toContain("I drafted a reply for you:");
     expect(cardText).toContain('Try opening the \\"Test\\" tab.');
     expect(cardText).toContain(
       "Drafted by <https://getinboxzero.com/?ref=ABC|Inbox Zero>.",
