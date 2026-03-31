@@ -896,16 +896,6 @@ function buildTerminalCard({
   });
 }
 
-function buildNotificationCardBody(content: NotificationContent): CardChild[] {
-  const children: CardChild[] = [CardText(content.summary)];
-
-  if (content.preview) {
-    children.push(CardText(content.preview));
-  }
-
-  return children;
-}
-
 function buildHandledNotificationCard({
   content,
   status,
@@ -929,6 +919,16 @@ function buildDraftPreview(content?: string | null) {
     removeExcessiveWhitespace(richTextToSlackMrkdwn(content)).trim(),
     DRAFT_PREVIEW_MAX_CHARS,
   );
+}
+
+function buildNotificationCardBody(content: NotificationContent): CardChild[] {
+  const children: CardChild[] = [CardText(content.summary)];
+
+  if (content.preview) {
+    children.push(CardText(content.preview));
+  }
+
+  return children;
 }
 
 function buildEmailSummary(email: {
