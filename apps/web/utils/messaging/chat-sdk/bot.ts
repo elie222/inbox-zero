@@ -1168,9 +1168,21 @@ function buildPendingEmailSuccessFeedback({
 }) {
   const messageId = confirmationResult?.messageId || undefined;
   const threadId = confirmationResult?.threadId || undefined;
+  if (accountProvider === "microsoft") {
+    if (!messageId) return "Sent.";
+
+    const emailUrl = getEmailUrlForMessage(
+      messageId,
+      threadId || messageId,
+      accountEmail,
+      accountProvider || undefined,
+    );
+
+    return `Sent. Open in Outlook: ${emailUrl}`;
+  }
+
   const resolvedMessageId = messageId || threadId;
   const resolvedThreadId = threadId || messageId;
-
   if (!resolvedMessageId || !resolvedThreadId) return "Sent.";
 
   const emailUrl = getEmailUrlForMessage(
@@ -1179,9 +1191,8 @@ function buildPendingEmailSuccessFeedback({
     accountEmail,
     accountProvider || undefined,
   );
-  const mailbox = accountProvider === "microsoft" ? "Outlook" : "Gmail";
 
-  return `Sent. Open in ${mailbox}: ${emailUrl}`;
+  return `Sent. Open in Gmail: ${emailUrl}`;
 }
 
 function getSlackTeamIdFromActionRaw(raw: unknown): string | null {

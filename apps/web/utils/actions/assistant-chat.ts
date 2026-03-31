@@ -405,10 +405,15 @@ async function confirmPendingSendEmailAction({
     messageHtml,
     ...(from ? { from } : {}),
   });
+  const messageId = await resolveSentMessageId({
+    emailProvider,
+    messageId: result.messageId,
+    threadId: result.threadId,
+  });
 
   return {
     actionType: output.actionType,
-    messageId: result.messageId || null,
+    messageId,
     threadId: result.threadId || null,
     to: output.pendingAction.to,
     subject: output.pendingAction.subject,
@@ -881,6 +886,31 @@ async function getLatestMessageInThreadSafe(
   }
 }
 
+async function resolveSentMessageId({
+  emailProvider,
+  messageId,
+  threadId,
+}: {
+  emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
+  messageId?: string | null;
+  threadId?: string | null;
+}) {
+  if (messageId) return messageId;
+  if (!threadId) return null;
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const latestMessage = await getLatestMessageInThreadSafe(
+      emailProvider,
+      threadId,
+    );
+
+    if (latestMessage?.id) return latestMessage.id;
+    if (attempt < 4) await wait(500);
+  }
+
+  return null;
+}
+
 function getAssistantEmailActionErrorMessage(
   actionType: AssistantPendingEmailActionType,
 ) {
@@ -1333,6 +1363,10 @@ function getPendingActionContentPatch(
     return { messageHtml: convertNewlinesToBr(escapeHtml(contentOverride)) };
   }
   return { content: contentOverride };
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

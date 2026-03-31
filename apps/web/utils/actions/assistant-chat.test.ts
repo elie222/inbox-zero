@@ -83,6 +83,56 @@ describe("confirmAssistantEmailAction", () => {
     );
   });
 
+  it("resolves the sent message id from the thread when the provider omits it", async () => {
+    (prisma.emailAccount.findUnique as any)
+      .mockResolvedValueOnce({
+        email: "owner@example.com",
+        account: { userId: "u1", provider: "microsoft" },
+      })
+      .mockResolvedValueOnce({
+        name: "Owner",
+        email: "owner@example.com",
+      });
+
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildPendingSendPart()],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+
+    const sendEmailWithHtml = vi.fn().mockResolvedValue({
+      messageId: "",
+      threadId: "thr-1",
+    });
+    const getLatestMessageInThread = vi.fn().mockResolvedValue({
+      id: "msg-from-thread",
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      sendEmailWithHtml,
+      getLatestMessageInThread,
+    } as any);
+
+    const result = await confirmAssistantEmailAction(
+      "ea_1" as any,
+      {
+        chatId: "chat-1",
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+        actionType: "send_email",
+      } as any,
+    );
+
+    expect(getLatestMessageInThread).toHaveBeenCalledWith("thr-1");
+    expect(result?.data?.confirmationResult).toMatchObject({
+      actionType: "send_email",
+      messageId: "msg-from-thread",
+      threadId: "thr-1",
+    });
+  });
+
   it("sends a pending prepared reply and persists confirmed output", async () => {
     (prisma.emailAccount.findUnique as any).mockResolvedValueOnce({
       email: "owner@example.com",

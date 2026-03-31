@@ -1563,6 +1563,17 @@ function getExternalMessageUrl({
   userEmail?: string | null;
   provider?: string;
 }) {
+  if (provider === "microsoft") {
+    if (!messageId) return null;
+
+    return getEmailUrlForMessage(
+      messageId,
+      threadId || messageId,
+      userEmail,
+      provider,
+    );
+  }
+
   const resolvedMessageId = messageId || threadId;
   const resolvedThreadId = threadId || messageId;
   if (!resolvedMessageId || !resolvedThreadId) return null;
