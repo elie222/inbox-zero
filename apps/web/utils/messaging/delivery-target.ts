@@ -5,9 +5,14 @@ export function hasMessagingDeliveryTarget(channel: {
   provider: MessagingProvider;
   providerUserId: string | null;
   channelId: string | null;
+  teamId?: string | null;
 }) {
   if (channel.provider === MessagingProvider.SLACK) {
     return Boolean(channel.channelId);
+  }
+
+  if (channel.provider === MessagingProvider.TELEGRAM) {
+    return Boolean(channel.teamId || channel.providerUserId);
   }
 
   return Boolean(channel.providerUserId);
@@ -26,7 +31,7 @@ export function getMessagingDeliveryTargetWhere(): Prisma.MessagingChannelWhereI
       },
       {
         provider: MessagingProvider.TELEGRAM,
-        providerUserId: { not: null },
+        teamId: { not: "" },
       },
     ],
   };

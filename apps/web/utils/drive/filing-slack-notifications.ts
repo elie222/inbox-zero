@@ -30,6 +30,7 @@ export async function sendFilingSlackNotifications({
     select: {
       provider: true,
       accessToken: true,
+      teamId: true,
       channelId: true,
       providerUserId: true,
     },

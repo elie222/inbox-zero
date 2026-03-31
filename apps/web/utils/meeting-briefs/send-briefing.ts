@@ -68,6 +68,7 @@ export async function sendBriefing({
     select: {
       provider: true,
       accessToken: true,
+      teamId: true,
       channelId: true,
       providerUserId: true,
     },
@@ -268,6 +269,7 @@ async function sendBriefingViaMessagingApp({
   channel: {
     provider: MessagingProvider;
     accessToken: string | null;
+    teamId: string | null;
     channelId: string | null;
     providerUserId: string | null;
   };

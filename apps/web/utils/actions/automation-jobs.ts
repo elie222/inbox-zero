@@ -105,6 +105,7 @@ export const saveAutomationJobAction = actionClient
           provider: true,
           isConnected: true,
           accessToken: true,
+          teamId: true,
           providerUserId: true,
           channelId: true,
         },
@@ -177,6 +178,7 @@ export const triggerTestCheckInAction = actionClient
             provider: true,
             isConnected: true,
             accessToken: true,
+            teamId: true,
             providerUserId: true,
             channelId: true,
           },
@@ -233,6 +235,7 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
       provider: true,
       isConnected: true,
       accessToken: true,
+      teamId: true,
       providerUserId: true,
       channelId: true,
     },
@@ -256,6 +259,7 @@ function getAutomationMessagingChannelValidationError(channel: {
   provider: MessagingProvider;
   isConnected: boolean;
   accessToken: string | null;
+  teamId?: string | null;
   providerUserId: string | null;
   channelId: string | null;
 }) {

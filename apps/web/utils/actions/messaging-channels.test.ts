@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { createMessagingLinkCodeAction } from "@/utils/actions/messaging-channels";
+import {
+  createMessagingLinkCodeAction,
+  updateChannelFeaturesAction,
+} from "@/utils/actions/messaging-channels";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -122,5 +125,64 @@ describe("createMessagingLinkCodeAction", () => {
 
     expect(result?.serverError).toBe("Telegram integration is not configured");
     expect(generateMessagingLinkCodeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateChannelFeaturesAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      account: {
+        userId: "user-1",
+        provider: "google",
+      },
+    } as any);
+  });
+
+  it("allows Telegram features when the DM chat id is present", async () => {
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      id: "channel-1",
+      emailAccountId: "email-account-1",
+      provider: "TELEGRAM",
+      isConnected: true,
+      teamId: "telegram-chat-1",
+      providerUserId: null,
+      channelId: null,
+    } as any);
+
+    const result = await updateChannelFeaturesAction("email-account-1" as any, {
+      channelId: "channel-1",
+      sendMeetingBriefs: true,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.messagingChannel.update).toHaveBeenCalledWith({
+      where: { id: "channel-1" },
+      data: { sendMeetingBriefs: true },
+    });
+  });
+
+  it("still requires a provider user id for Teams features", async () => {
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      id: "channel-1",
+      emailAccountId: "email-account-1",
+      provider: "TEAMS",
+      isConnected: true,
+      teamId: "teams-thread-1",
+      providerUserId: null,
+      channelId: null,
+    } as any);
+
+    const result = await updateChannelFeaturesAction("email-account-1" as any, {
+      channelId: "channel-1",
+      sendMeetingBriefs: true,
+    });
+
+    expect(result?.serverError).toBe(
+      "Please select a target channel before enabling features",
+    );
+    expect(prisma.messagingChannel.update).not.toHaveBeenCalled();
   });
 });
