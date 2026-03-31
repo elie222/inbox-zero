@@ -33,6 +33,9 @@ const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
 const CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
 const CONFIRMATION_PERSIST_MAX_ATTEMPTS = 3;
+const SENT_MESSAGE_RESOLVE_MAX_ATTEMPTS = 5;
+const SENT_MESSAGE_RESOLVE_RETRY_MS = 500;
+const SENT_MESSAGE_RESOLVE_LOOKBACK_MS = 60 * 1000;
 
 const ASSISTANT_EMAIL_ACTION_METADATA: Record<
   AssistantPendingEmailActionType,
@@ -895,11 +898,19 @@ async function resolveSentMessageId({
   if (messageId) return messageId;
   if (!threadId || !sentAfter) return null;
 
-  for (let attempt = 0; attempt < 5; attempt++) {
+  const sentAfterWithLookback = new Date(
+    sentAfter.getTime() - SENT_MESSAGE_RESOLVE_LOOKBACK_MS,
+  );
+
+  for (
+    let attempt = 0;
+    attempt < SENT_MESSAGE_RESOLVE_MAX_ATTEMPTS;
+    attempt++
+  ) {
     try {
       const sentMessageIds = await emailProvider.getSentMessageIds({
         maxResults: 20,
-        after: sentAfter,
+        after: sentAfterWithLookback,
         before: new Date(),
       });
 
@@ -914,11 +925,11 @@ async function resolveSentMessageId({
       if (matchingThreadIds.length > 1) {
         return null;
       }
-    } catch {
-      return null;
-    }
+    } catch {}
 
-    if (attempt < 4) await wait(500);
+    if (attempt < SENT_MESSAGE_RESOLVE_MAX_ATTEMPTS - 1) {
+      await wait(SENT_MESSAGE_RESOLVE_RETRY_MS);
+    }
   }
 
   return null;

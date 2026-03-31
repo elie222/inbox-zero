@@ -1,3 +1,5 @@
+import type { EmailProvider } from "@/utils/email/types";
+
 function getGmailBaseUrl(emailAddress?: string | null) {
   return `https://mail.google.com/mail/u/${emailAddress || 0}`;
 }
@@ -96,7 +98,7 @@ export function getEmailUrlForOptionalMessage({
   messageId?: string | null;
   threadId?: string | null;
   emailAddress?: string | null;
-  provider?: string;
+  provider?: EmailProvider["name"];
 }) {
   const config = getProviderConfig(provider);
   if (config.requiresMessageId && !messageId) return null;
