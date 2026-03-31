@@ -24,3 +24,25 @@ export function markdownToSlackMrkdwn(text: string): string {
       .replace(/^(\s*)[*-]\s+/gm, "$1• ")
   );
 }
+
+/**
+ * Normalizes lightweight HTML that can leak into draft previews before
+ * converting the result to Slack mrkdwn.
+ */
+export function richTextToSlackMrkdwn(text: string): string {
+  return markdownToSlackMrkdwn(
+    text
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|blockquote|section|article)>/gi, "\n")
+      .replace(/<li\b[^>]*>/gi, "• ")
+      .replace(
+        /<a\b[^>]*href=(["'])(.*?)\1[^>]*>(.*?)<\/a>/gis,
+        (_match, _quote, href: string, label: string) => {
+          const normalizedLabel = label.replace(/<[^>]+>/g, "").trim() || href;
+          return `[${normalizedLabel}](${href})`;
+        },
+      )
+      .replace(/<[^>]+>/g, "")
+      .trim(),
+  );
+}

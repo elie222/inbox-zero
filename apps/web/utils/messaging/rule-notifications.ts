@@ -17,6 +17,7 @@ import {
   isSlackDmChannel,
   resolveSlackDestination,
 } from "@/utils/messaging/providers/slack/send";
+import { richTextToSlackMrkdwn } from "@/utils/messaging/providers/slack/format";
 import {
   ActionType,
   MessagingMessageStatus,
@@ -348,6 +349,22 @@ async function handleDraftSend({
   });
 
   try {
+    const finalDraftContent = await getEditableDraftContent({
+      context,
+      provider,
+      siblingDraftAction,
+    });
+    const sourceMessageSummary = await getSourceMessageSummaryForProvider({
+      context,
+      provider,
+    });
+    const notificationContent = buildNotificationContent({
+      actionType: context.type,
+      email: sourceMessageSummary,
+      systemType: context.executedRule.rule?.systemType ?? null,
+      draftContent: finalDraftContent,
+    });
+
     if (siblingDraftAction?.draftId) {
       await provider.sendDraft(siblingDraftAction.draftId);
     } else {
@@ -421,9 +438,9 @@ async function handleDraftSend({
     await event.adapter.editMessage(
       event.threadId,
       event.messageId,
-      buildTerminalCard({
-        title: "Draft reply",
-        message: "Reply sent.",
+      buildHandledNotificationCard({
+        content: notificationContent,
+        status: "Reply sent.",
       }),
     );
   } catch (error) {
@@ -741,6 +758,16 @@ async function getSourceMessageSummary(
   logger: Logger,
 ) {
   const provider = await createProviderForContext(context, logger);
+  return getSourceMessageSummaryForProvider({ context, provider });
+}
+
+async function getSourceMessageSummaryForProvider({
+  context,
+  provider,
+}: {
+  context: NotificationContext;
+  provider: Awaited<ReturnType<typeof createEmailProvider>>;
+}) {
   const message = await provider.getMessage(context.executedRule.messageId);
 
   return {
@@ -873,11 +900,32 @@ function buildTerminalCard({
   });
 }
 
+function buildHandledNotificationCard({
+  content,
+  status,
+}: {
+  content: NotificationContent;
+  status: string;
+}): CardElement {
+  const children: CardChild[] = [CardText(content.summary)];
+
+  if (content.preview) {
+    children.push(CardText(content.preview));
+  }
+
+  children.push(CardText(`Status: ${status}`));
+
+  return Card({
+    title: content.title,
+    children,
+  });
+}
+
 function buildDraftPreview(content?: string | null) {
   if (!content?.trim()) return "No draft preview available.";
 
   return truncate(
-    removeExcessiveWhitespace(content).trim(),
+    removeExcessiveWhitespace(richTextToSlackMrkdwn(content)).trim(),
     DRAFT_PREVIEW_MAX_CHARS,
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { markdownToSlackMrkdwn } from "./format";
+import { markdownToSlackMrkdwn, richTextToSlackMrkdwn } from "./format";
 
 describe("markdownToSlackMrkdwn", () => {
   it("converts bold **text** to *text*", () => {
@@ -97,5 +97,23 @@ describe("markdownToSlackMrkdwn", () => {
 
   it("preserves code blocks", () => {
     expect(markdownToSlackMrkdwn("`code`")).toBe("`code`");
+  });
+});
+
+describe("richTextToSlackMrkdwn", () => {
+  it("converts HTML anchor tags to Slack links", () => {
+    expect(
+      richTextToSlackMrkdwn(
+        'Drafted by <a href="https://example.com/ref">Inbox Zero</a>.',
+      ),
+    ).toBe("Drafted by <https://example.com/ref|Inbox Zero>.");
+  });
+
+  it("strips layout tags while preserving line breaks", () => {
+    expect(
+      richTextToSlackMrkdwn(
+        "<div>Hello there</div><div>Second line<br>Third line</div>",
+      ),
+    ).toBe("Hello there\nSecond line\nThird line");
   });
 });
