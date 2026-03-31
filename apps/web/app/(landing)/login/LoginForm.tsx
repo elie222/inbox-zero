@@ -17,7 +17,7 @@ import {
 import { signIn, signInWithOauth2 } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 import { toastError } from "@/components/Toast";
-import { isInternalPath } from "@/utils/path";
+import { normalizeInternalPath } from "@/utils/path";
 import { getPossessiveBrandName } from "@/utils/branding";
 import { AlertBasic } from "@/components/Alert";
 import { createClientLogger } from "@/utils/logger-client";
@@ -158,7 +158,7 @@ export function LoginForm({
 }
 
 function getAuthCallbackUrls(next: string | null) {
-  const callbackURL = next && isInternalPath(next) ? next : WELCOME_PATH;
+  const callbackURL = normalizeInternalPath(next) ?? WELCOME_PATH;
   const errorCallbackURL = isOrganizationInvitationPath(callbackURL)
     ? "/login/error?reason=org_invite"
     : "/login/error";
