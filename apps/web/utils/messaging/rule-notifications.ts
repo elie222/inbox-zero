@@ -63,8 +63,8 @@ type NotificationContext = NonNullable<
 >;
 
 type NotificationContent = {
+  details?: string[];
   summary: string;
-  preview?: string | null;
   title: string;
 };
 
@@ -797,7 +797,16 @@ function buildNotificationContent({
     return {
       title: "Draft reply",
       summary: buildEmailSummary(email),
-      preview: buildDraftPreview(draftContent),
+      details: [
+        buildNotificationDetailSection({
+          label: "Original email",
+          value: buildEmailPreview(email),
+        }),
+        buildNotificationDetailSection({
+          label: "Draft reply",
+          value: buildDraftPreview(draftContent),
+        }),
+      ].filter(Boolean) as string[],
     };
   }
 
@@ -818,14 +827,18 @@ function buildNotificationContent({
     return {
       title: "Calendar invite",
       summary: lines.join("\n"),
-      preview: null,
     };
   }
 
   return {
     title: "Email notification",
     summary: buildEmailSummary(email),
-    preview: buildEmailPreview(email),
+    details: [
+      buildNotificationDetailSection({
+        label: "Preview",
+        value: buildEmailPreview(email),
+      }),
+    ].filter(Boolean) as string[],
   };
 }
 
@@ -916,7 +929,9 @@ function buildDraftPreview(content?: string | null) {
   if (!content?.trim()) return "No draft preview available.";
 
   return truncate(
-    removeExcessiveWhitespace(richTextToSlackMrkdwn(content)).trim(),
+    removeExcessiveWhitespace(
+      richTextToSlackMrkdwn(decodeSlackNotificationEntities(content)),
+    ).trim(),
     DRAFT_PREVIEW_MAX_CHARS,
   );
 }
@@ -924,8 +939,8 @@ function buildDraftPreview(content?: string | null) {
 function buildNotificationCardBody(content: NotificationContent): CardChild[] {
   const children: CardChild[] = [CardText(content.summary)];
 
-  if (content.preview) {
-    children.push(CardText(content.preview));
+  for (const detail of content.details ?? []) {
+    children.push(CardText(detail));
   }
 
   return children;
@@ -938,8 +953,8 @@ function buildEmailSummary(email: {
   };
 }) {
   return [
-    `From: ${email.headers.from}`,
-    `Subject: ${email.headers.subject}`,
+    `*From:* ${email.headers.from}`,
+    `*Subject:* ${email.headers.subject}`,
   ].join("\n");
 }
 
@@ -949,6 +964,26 @@ function buildEmailPreview(email: { snippet: string; textPlain?: string }) {
   if (!preview) return null;
 
   return truncate(preview, SUMMARY_PREVIEW_MAX_CHARS);
+}
+
+function buildNotificationDetailSection({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) {
+  const normalizedValue = value?.trim();
+  if (!normalizedValue) return null;
+
+  return `*${label}*\n${normalizedValue}`;
+}
+
+function decodeSlackNotificationEntities(value: string) {
+  return value
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'")
+    .replaceAll("&apos;", "'");
 }
 
 function createProviderForContext(

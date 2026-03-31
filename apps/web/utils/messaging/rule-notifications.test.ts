@@ -25,7 +25,7 @@ describe("handleSlackRuleNotificationAction", () => {
         id: "draft-1",
         threadId: "thread-1",
         textPlain:
-          'Thanks for the note.\n\nDrafted by <a href="https://getinboxzero.com/?ref=ABC">Inbox Zero</a>.',
+          'Thanks for the note.\n\nTry opening the &quot;Test&quot; tab.\n\nDrafted by <a href="https://getinboxzero.com/?ref=ABC">Inbox Zero</a>.',
         subject: "Re: Test subject",
         date: new Date().toISOString(),
         snippet: "Thanks for the note.",
@@ -70,7 +70,7 @@ describe("handleSlackRuleNotificationAction", () => {
         id: "action-1",
         type: ActionType.DRAFT_MESSAGING_CHANNEL,
         content:
-          'Thanks for the note.\n\nDrafted by <a href="https://getinboxzero.com/?ref=ABC">Inbox Zero</a>.',
+          'Thanks for the note.\n\nTry opening the &quot;Test&quot; tab.\n\nDrafted by <a href="https://getinboxzero.com/?ref=ABC">Inbox Zero</a>.',
       }) as never,
     );
     prisma.executedAction.findFirst.mockResolvedValue({
@@ -108,7 +108,12 @@ describe("handleSlackRuleNotificationAction", () => {
     const cardText = JSON.stringify(card);
 
     expect(cardText).toContain("Draft reply");
-    expect(cardText).toContain("Thanks for the note.");
+    expect(cardText).toContain("*From:* sender@example.com");
+    expect(cardText).toContain("*Subject:* Test subject");
+    expect(cardText).toContain("*Original email*");
+    expect(cardText).toContain("Original message body");
+    expect(cardText).toContain("*Draft reply*");
+    expect(cardText).toContain('Try opening the \\"Test\\" tab.');
     expect(cardText).toContain(
       "Drafted by <https://getinboxzero.com/?ref=ABC|Inbox Zero>.",
     );

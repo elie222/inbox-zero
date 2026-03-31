@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   buildPendingEmailCardFallbackText,
+  getPendingEmailHandledOpenText,
+  getPendingEmailHandledStatus,
+  getPendingEmailHandledTitle,
   buildPendingEmailSummary,
   ensureSlackTeamInstallation,
   hasUnsupportedMessagingAttachment,
@@ -120,6 +123,38 @@ describe("buildPendingEmailCardFallbackText", () => {
     const input =
       "This draft is pending confirmation.\n\nI couldn't show the Send button right now. Ask me to prepare the draft again.";
     expect(buildPendingEmailCardFallbackText(input)).toBe(input);
+  });
+});
+
+describe("pending email handled state helpers", () => {
+  it("uses reply-specific sent copy", () => {
+    expect(getPendingEmailHandledTitle("reply_email")).toBe("Reply sent");
+    expect(getPendingEmailHandledStatus("reply_email")).toBe("Reply sent.");
+  });
+
+  it("builds a mailbox deep link when confirmation ids are present", () => {
+    expect(
+      getPendingEmailHandledOpenText({
+        accountEmail: "user@example.com",
+        accountProvider: "google",
+        confirmationResult: {
+          messageId: "message-1",
+          threadId: "thread-1",
+        },
+      }),
+    ).toBe(
+      "Open in Gmail: https://mail.google.com/mail/u/user@example.com/#all/message-1",
+    );
+  });
+
+  it("returns null when the sent message ids are unavailable", () => {
+    expect(
+      getPendingEmailHandledOpenText({
+        accountEmail: "user@example.com",
+        accountProvider: "google",
+        confirmationResult: null,
+      }),
+    ).toBeNull();
   });
 });
 
