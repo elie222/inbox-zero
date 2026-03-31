@@ -293,57 +293,61 @@ export function Rules({
                                   History
                                 </Link>
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
+                              {!rule.systemType && (
+                                <>
+                                  <DropdownMenuSeparator />
 
-                              <DropdownMenuItem
-                                onClick={async () => {
-                                  const yes = confirm(
-                                    `Are you sure you want to delete the rule "${rule.name}"?`,
-                                  );
-                                  if (yes) {
-                                    toast.promise(
-                                      async () => {
-                                        const res = await deleteRuleAction(
-                                          emailAccountId,
-                                          { id: rule.id },
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      const yes = confirm(
+                                        `Are you sure you want to delete the rule "${rule.name}"?`,
+                                      );
+                                      if (yes) {
+                                        toast.promise(
+                                          async () => {
+                                            const res = await deleteRuleAction(
+                                              emailAccountId,
+                                              { id: rule.id },
+                                            );
+
+                                            if (
+                                              res?.serverError ||
+                                              res?.validationErrors
+                                            ) {
+                                              throw new Error(
+                                                res?.serverError ||
+                                                  "There was an error deleting your rule",
+                                              );
+                                            }
+
+                                            mutate(
+                                              (currentRules) =>
+                                                currentRules?.filter(
+                                                  (currentRule) =>
+                                                    currentRule.id !== rule.id,
+                                                ),
+                                              { revalidate: false },
+                                            );
+                                            mutate();
+                                          },
+                                          {
+                                            loading: "Deleting rule...",
+                                            success: "Rule deleted",
+                                            error: (error) =>
+                                              `Error deleting rule. ${error.message}`,
+                                            finally: () => {
+                                              mutate();
+                                            },
+                                          },
                                         );
-
-                                        if (
-                                          res?.serverError ||
-                                          res?.validationErrors
-                                        ) {
-                                          throw new Error(
-                                            res?.serverError ||
-                                              "There was an error deleting your rule",
-                                          );
-                                        }
-
-                                        mutate(
-                                          (currentRules) =>
-                                            currentRules?.filter(
-                                              (currentRule) =>
-                                                currentRule.id !== rule.id,
-                                            ),
-                                          { revalidate: false },
-                                        );
-                                        mutate();
-                                      },
-                                      {
-                                        loading: "Deleting rule...",
-                                        success: "Rule deleted",
-                                        error: (error) =>
-                                          `Error deleting rule. ${error.message}`,
-                                        finally: () => {
-                                          mutate();
-                                        },
-                                      },
-                                    );
-                                  }
-                                }}
-                              >
-                                <Trash2Icon className="mr-2 size-4" />
-                                Delete
-                              </DropdownMenuItem>
+                                      }
+                                    }}
+                                  >
+                                    <Trash2Icon className="mr-2 size-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}

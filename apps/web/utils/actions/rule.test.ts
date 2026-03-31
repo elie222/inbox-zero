@@ -19,7 +19,10 @@ vi.mock("@/utils/auth", () => ({
 }));
 
 import prisma from "@/utils/__mocks__/prisma";
-import { enableDraftRepliesAction } from "@/utils/actions/rule";
+import {
+  deleteRuleAction,
+  enableDraftRepliesAction,
+} from "@/utils/actions/rule";
 
 describe("enableDraftRepliesAction", () => {
   beforeEach(() => {
@@ -96,5 +99,40 @@ describe("enableDraftRepliesAction", () => {
         type: ActionType.DRAFT_EMAIL,
       },
     });
+  });
+});
+
+describe("deleteRuleAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects deleting default rules", async () => {
+    (
+      prisma.emailAccount.findUnique as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.rule.findUnique.mockResolvedValue({
+      id: "rule-1",
+      emailAccountId: "ea_1",
+      systemType: SystemType.NEWSLETTER,
+      groupId: null,
+    } as never);
+
+    const result = await deleteRuleAction(
+      "ea_1" as never,
+      {
+        id: "rule-1",
+      } as never,
+    );
+
+    expect(result?.serverError).toBe(
+      "Default rules cannot be deleted. Disable them instead.",
+    );
+    expect(prisma.rule.delete).not.toHaveBeenCalled();
+    expect(prisma.group.deleteMany).not.toHaveBeenCalled();
   });
 });

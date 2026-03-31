@@ -627,7 +627,7 @@ export function RuleForm({
                   </div>
                 )}
 
-                {rule.id && (
+                {rule.id && !rule.systemType && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -677,6 +677,12 @@ export function RuleForm({
                   >
                     Delete rule
                   </Button>
+                )}
+
+                {rule.id && rule.systemType && (
+                  <p className="text-sm text-muted-foreground">
+                    Default rules can be disabled from the rules list.
+                  </p>
                 )}
               </div>
             </DialogContent>
