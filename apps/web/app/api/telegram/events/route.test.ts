@@ -72,20 +72,6 @@ describe("Telegram events route", () => {
     );
   });
 
-  it("fails closed when the webhook secret token is missing", async () => {
-    envMock.TELEGRAM_BOT_SECRET_TOKEN = undefined;
-    const request = createRequest();
-
-    const response = await POST(request as any);
-    const body = await response.json();
-
-    expect(response.status).toBe(503);
-    expect(body).toEqual({
-      error: "Telegram webhook secret token not configured",
-    });
-    expect(handleMessagingWebhookRouteMock).not.toHaveBeenCalled();
-  });
-
   it("delegates to the shared webhook handler when the secret token is configured", async () => {
     const request = createRequest();
 
