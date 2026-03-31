@@ -63,7 +63,7 @@ import {
 } from "@/utils/messaging/rule-notifications";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
-import { getEmailUrlForMessage } from "@/utils/url";
+import { getEmailUrlForOptionalMessage } from "@/utils/url";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const MAX_CHAT_CONTEXT_MESSAGES = 12;
@@ -1166,33 +1166,15 @@ function buildPendingEmailSuccessFeedback({
   accountEmail?: string | null;
   accountProvider?: string | null;
 }) {
-  const messageId = confirmationResult?.messageId || undefined;
-  const threadId = confirmationResult?.threadId || undefined;
-  if (accountProvider === "microsoft") {
-    if (!messageId) return "Sent.";
+  const emailUrl = getEmailUrlForOptionalMessage({
+    messageId: confirmationResult?.messageId,
+    threadId: confirmationResult?.threadId,
+    emailAddress: accountEmail,
+    provider: accountProvider || undefined,
+  });
+  if (!emailUrl) return "Sent.";
 
-    const emailUrl = getEmailUrlForMessage(
-      messageId,
-      threadId || messageId,
-      accountEmail,
-      accountProvider || undefined,
-    );
-
-    return `Sent. Open in Outlook: ${emailUrl}`;
-  }
-
-  const resolvedMessageId = messageId || threadId;
-  const resolvedThreadId = threadId || messageId;
-  if (!resolvedMessageId || !resolvedThreadId) return "Sent.";
-
-  const emailUrl = getEmailUrlForMessage(
-    resolvedMessageId,
-    resolvedThreadId,
-    accountEmail,
-    accountProvider || undefined,
-  );
-
-  return `Sent. Open in Gmail: ${emailUrl}`;
+  return `Sent. Open message: ${emailUrl}`;
 }
 
 function getSlackTeamIdFromActionRaw(raw: unknown): string | null {

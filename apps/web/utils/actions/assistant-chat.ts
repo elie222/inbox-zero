@@ -396,6 +396,7 @@ async function confirmPendingSendEmailAction({
   const messageHtml = contentOverride
     ? convertNewlinesToBr(escapeHtml(contentOverride))
     : output.pendingAction.messageHtml;
+  const sentAfter = new Date();
 
   const result = await emailProvider.sendEmailWithHtml({
     to: output.pendingAction.to,
@@ -409,6 +410,7 @@ async function confirmPendingSendEmailAction({
     emailProvider,
     messageId: result.messageId,
     threadId: result.threadId,
+    sentAfter,
   });
 
   return {
@@ -435,19 +437,21 @@ async function confirmPendingReplyEmailAction({
   const message = await emailProvider.getMessage(
     output.pendingAction.messageId,
   );
+  const sentAfter = new Date();
   await emailProvider.replyToEmail(
     message,
     contentOverride || output.pendingAction.content,
   );
 
-  const latestMessage = await getLatestMessageInThreadSafe(
+  const messageId = await resolveSentMessageId({
     emailProvider,
-    message.threadId,
-  );
+    threadId: message.threadId,
+    sentAfter,
+  });
 
   return {
     actionType: output.actionType,
-    messageId: latestMessage?.id || message.id || null,
+    messageId,
     threadId: message.threadId || null,
     to: message.headers["reply-to"] || message.headers.from || null,
     subject: message.subject || message.headers.subject || null,
@@ -469,6 +473,7 @@ async function confirmPendingForwardEmailAction({
   const message = await emailProvider.getMessage(
     output.pendingAction.messageId,
   );
+  const sentAfter = new Date();
   await emailProvider.forwardEmail(message, {
     to: output.pendingAction.to,
     cc: output.pendingAction.cc || undefined,
@@ -476,14 +481,15 @@ async function confirmPendingForwardEmailAction({
     content: contentOverride || output.pendingAction.content || undefined,
   });
 
-  const latestMessage = await getLatestMessageInThreadSafe(
+  const messageId = await resolveSentMessageId({
     emailProvider,
-    message.threadId,
-  );
+    threadId: message.threadId,
+    sentAfter,
+  });
 
   return {
     actionType: output.actionType,
-    messageId: latestMessage?.id || null,
+    messageId,
     threadId: message.threadId || null,
     to: output.pendingAction.to,
     subject: message.subject || message.headers.subject || null,
@@ -875,36 +881,43 @@ async function clearPendingPartProcessing({
   });
 }
 
-async function getLatestMessageInThreadSafe(
-  emailProvider: Awaited<ReturnType<typeof createEmailProvider>>,
-  threadId: string,
-) {
-  try {
-    return await emailProvider.getLatestMessageInThread(threadId);
-  } catch {
-    return null;
-  }
-}
-
 async function resolveSentMessageId({
   emailProvider,
   messageId,
   threadId,
+  sentAfter,
 }: {
   emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
   messageId?: string | null;
   threadId?: string | null;
+  sentAfter?: Date;
 }) {
   if (messageId) return messageId;
-  if (!threadId) return null;
+  if (!threadId || !sentAfter) return null;
 
   for (let attempt = 0; attempt < 5; attempt++) {
-    const latestMessage = await getLatestMessageInThreadSafe(
-      emailProvider,
-      threadId,
-    );
+    try {
+      const sentMessageIds = await emailProvider.getSentMessageIds({
+        maxResults: 20,
+        after: sentAfter,
+        before: new Date(),
+      });
 
-    if (latestMessage?.id) return latestMessage.id;
+      const matchingThreadIds = sentMessageIds.filter(
+        (sentMessage) => sentMessage.threadId === threadId,
+      );
+
+      if (matchingThreadIds.length === 1) {
+        return matchingThreadIds[0].id;
+      }
+
+      if (matchingThreadIds.length > 1) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+
     if (attempt < 4) await wait(500);
   }
 

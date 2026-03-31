@@ -59,7 +59,7 @@ import { getActionColor } from "@/components/PlanBadge";
 import type { ActionType } from "@/generated/prisma/enums";
 import { formatShortDate } from "@/utils/date";
 import { trimToNonEmptyString } from "@/utils/string";
-import { getEmailSearchUrl, getEmailUrlForMessage } from "@/utils/url";
+import { getEmailSearchUrl, getEmailUrlForOptionalMessage } from "@/utils/url";
 import {
   isManageInboxAction,
   type ManageInboxAction,
@@ -1563,27 +1563,12 @@ function getExternalMessageUrl({
   userEmail?: string | null;
   provider?: string;
 }) {
-  if (provider === "microsoft") {
-    if (!messageId) return null;
-
-    return getEmailUrlForMessage(
-      messageId,
-      threadId || messageId,
-      userEmail,
-      provider,
-    );
-  }
-
-  const resolvedMessageId = messageId || threadId;
-  const resolvedThreadId = threadId || messageId;
-  if (!resolvedMessageId || !resolvedThreadId) return null;
-
-  return getEmailUrlForMessage(
-    resolvedMessageId,
-    resolvedThreadId,
-    userEmail,
+  return getEmailUrlForOptionalMessage({
+    messageId,
+    threadId,
+    emailAddress: userEmail,
     provider,
-  );
+  });
 }
 
 function htmlToText(html: string) {

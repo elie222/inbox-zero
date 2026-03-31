@@ -83,7 +83,7 @@ describe("confirmAssistantEmailAction", () => {
     );
   });
 
-  it("resolves the sent message id from the thread when the provider omits it", async () => {
+  it("resolves the sent message id from sent mail when the provider omits it", async () => {
     (prisma.emailAccount.findUnique as any)
       .mockResolvedValueOnce({
         email: "owner@example.com",
@@ -107,12 +107,12 @@ describe("confirmAssistantEmailAction", () => {
       messageId: "",
       threadId: "thr-1",
     });
-    const getLatestMessageInThread = vi.fn().mockResolvedValue({
-      id: "msg-from-thread",
-    });
+    const getSentMessageIds = vi
+      .fn()
+      .mockResolvedValue([{ id: "msg-from-sent", threadId: "thr-1" }]);
     vi.mocked(createEmailProvider).mockResolvedValue({
       sendEmailWithHtml,
-      getLatestMessageInThread,
+      getSentMessageIds,
     } as any);
 
     const result = await confirmAssistantEmailAction(
@@ -125,10 +125,58 @@ describe("confirmAssistantEmailAction", () => {
       } as any,
     );
 
-    expect(getLatestMessageInThread).toHaveBeenCalledWith("thr-1");
+    expect(getSentMessageIds).toHaveBeenCalledTimes(1);
     expect(result?.data?.confirmationResult).toMatchObject({
       actionType: "send_email",
-      messageId: "msg-from-thread",
+      messageId: "msg-from-sent",
+      threadId: "thr-1",
+    });
+  });
+
+  it("keeps the sent message id unset when sent mail lookup is ambiguous", async () => {
+    (prisma.emailAccount.findUnique as any)
+      .mockResolvedValueOnce({
+        email: "owner@example.com",
+        account: { userId: "u1", provider: "microsoft" },
+      })
+      .mockResolvedValueOnce({
+        name: "Owner",
+        email: "owner@example.com",
+      });
+
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+      parts: [buildPendingSendPart()],
+    } as any);
+
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      sendEmailWithHtml: vi.fn().mockResolvedValue({
+        messageId: "",
+        threadId: "thr-1",
+      }),
+      getSentMessageIds: vi.fn().mockResolvedValue([
+        { id: "msg-1", threadId: "thr-1" },
+        { id: "msg-2", threadId: "thr-1" },
+      ]),
+    } as any);
+
+    const result = await confirmAssistantEmailAction(
+      "ea_1" as any,
+      {
+        chatId: "chat-1",
+        chatMessageId: "chat-message-1",
+        toolCallId: "tool-1",
+        actionType: "send_email",
+      } as any,
+    );
+
+    expect(result?.data?.confirmationResult).toMatchObject({
+      actionType: "send_email",
+      messageId: null,
       threadId: "thr-1",
     });
   });
@@ -162,9 +210,9 @@ describe("confirmAssistantEmailAction", () => {
     vi.mocked(createEmailProvider).mockResolvedValue({
       getMessage: vi.fn().mockResolvedValue(sourceMessage),
       replyToEmail,
-      getLatestMessageInThread: vi.fn().mockResolvedValue({
-        id: "reply-message-2",
-      }),
+      getSentMessageIds: vi
+        .fn()
+        .mockResolvedValue([{ id: "reply-message-2", threadId: "thread-1" }]),
     } as any);
 
     const result = await confirmAssistantEmailAction(
@@ -216,9 +264,9 @@ describe("confirmAssistantEmailAction", () => {
     vi.mocked(createEmailProvider).mockResolvedValue({
       getMessage: vi.fn().mockResolvedValue(sourceMessage),
       forwardEmail,
-      getLatestMessageInThread: vi.fn().mockResolvedValue({
-        id: "forward-message-2",
-      }),
+      getSentMessageIds: vi
+        .fn()
+        .mockResolvedValue([{ id: "forward-message-2", threadId: "thread-1" }]),
     } as any);
 
     const result = await confirmAssistantEmailAction(
