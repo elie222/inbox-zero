@@ -33,11 +33,7 @@ export default async function AuthenticationPage(props: {
   const nextPath = normalizeInternalPath(searchParams?.next);
 
   if (session?.user && !searchParams?.error) {
-    if (nextPath) {
-      redirect(nextPath);
-    } else {
-      redirect(WELCOME_PATH);
-    }
+    redirect(nextPath ?? WELCOME_PATH);
   }
 
   return (
