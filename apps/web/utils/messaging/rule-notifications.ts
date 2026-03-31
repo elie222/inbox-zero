@@ -17,7 +17,10 @@ import {
   isSlackDmChannel,
   resolveSlackDestination,
 } from "@/utils/messaging/providers/slack/send";
-import { richTextToSlackMrkdwn } from "@/utils/messaging/providers/slack/format";
+import {
+  escapeSlackText,
+  richTextToSlackMrkdwn,
+} from "@/utils/messaging/providers/slack/format";
 import {
   ActionType,
   MessagingMessageStatus,
@@ -796,8 +799,12 @@ function buildNotificationContent({
   draftContent?: string | null;
 }): NotificationContent {
   if (isDraftReplyActionType(actionType)) {
-    const senderName = extractNameFromEmail(email.headers.from);
-    const subject = truncate(he.decode(email.headers.subject), 80);
+    const senderName = escapeSlackText(
+      extractNameFromEmail(email.headers.from),
+    );
+    const subject = escapeSlackText(
+      truncate(he.decode(email.headers.subject), 80),
+    );
 
     return {
       title: "Draft reply",
