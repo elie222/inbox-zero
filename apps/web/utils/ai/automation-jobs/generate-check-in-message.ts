@@ -7,7 +7,6 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
-import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import type { Logger } from "@/utils/logger";
 
 const MAX_INBOX_MESSAGES_FOR_PROMPT = 8;
@@ -61,6 +60,11 @@ export async function aiGenerateAutomationCheckInMessage({
     emailAccount,
     label: "Automation check-in message",
     modelOptions,
+    promptHardening: {
+      trust: "untrusted",
+      level: "full",
+      outputConstraint: "plain-text",
+    },
   });
 
   const aiResponse = await withRetry(
@@ -68,8 +72,6 @@ export async function aiGenerateAutomationCheckInMessage({
       generateObject({
         ...modelOptions,
         system: `You generate concise Slack check-in messages about the user's inbox.
-
-${PROMPT_SECURITY_INSTRUCTIONS}
 
 Follow the user's custom instructions while prioritizing the most actionable and important emails.
 Return plain text only and keep the message short.`,

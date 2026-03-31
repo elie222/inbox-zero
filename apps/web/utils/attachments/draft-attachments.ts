@@ -577,6 +577,7 @@ async function aiSelectRelevantAttachments({
       emailAccount,
       label: "Draft attachment selection",
       modelOptions,
+      promptHardening: { trust: "untrusted", level: "full" },
     });
 
     const result = await generateObject({

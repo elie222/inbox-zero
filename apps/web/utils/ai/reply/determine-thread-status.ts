@@ -136,6 +136,7 @@ Based on the full thread context above, determine the current status of this thr
     emailAccount,
     label: "Determine thread status",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "compact" },
   });
 
   // If user sent the last email, exclude FYI from options

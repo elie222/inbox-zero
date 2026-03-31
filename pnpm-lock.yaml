@@ -354,9 +354,6 @@ importers:
       date-fns:
         specifier: 4.1.0
         version: 4.1.0
-      diff:
-        specifier: 8.0.3
-        version: 8.0.3
       dompurify:
         specifier: 3.3.3
         version: 3.3.3
@@ -577,9 +574,6 @@ importers:
       '@testing-library/react':
         specifier: 16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@types/diff':
-        specifier: 8.0.0
-        version: 8.0.0
       '@types/email-reply-parser':
         specifier: 1.4.2
         version: 1.4.2
@@ -6209,10 +6203,6 @@ packages:
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
 
-  '@types/diff@8.0.0':
-    resolution: {integrity: sha512-o7jqJM04gfaYrdCecCVMbZhNdG6T1MHg/oQoRFdERLV+4d+V7FijhiEAbFu0Usww84Yijk9yH58U4Jk4HbtzZw==}
-    deprecated: This is a stub types definition. diff provides its own type definitions, so you do not need this installed.
-
   '@types/email-reply-parser@1.4.2':
     resolution: {integrity: sha512-kmMoK9WMX4zXf3c0D3tkWHDl0E50V2dv6fVirdTQd/mkvE/Jixh0DZAh3kBgpltr1eaWM3W+kAf4A2c2Z2iU2A==}
 
@@ -7721,10 +7711,6 @@ packages:
 
   diff@4.0.2:
     resolution: {integrity: sha512-58lmxKSA4BNyLz+HHMUzlOEpg09FV+ev6ZMe3vJihgdxzgcwZ8VoEEPmALCZG9LmqfVoNMMKpttIYTVG6uDY7A==}
-    engines: {node: '>=0.3.1'}
-
-  diff@8.0.3:
-    resolution: {integrity: sha512-qejHi7bcSD4hQAZE0tNAawRK1ZtafHDmMTMkrrIGgSLl7hTnQHmKCeB45xAcbfTqK2zowkM3j3bHt/4b/ARbYQ==}
     engines: {node: '>=0.3.1'}
 
   dingbat-to-unicode@1.0.1:
@@ -18796,10 +18782,6 @@ snapshots:
 
   '@types/deep-eql@4.0.2': {}
 
-  '@types/diff@8.0.0':
-    dependencies:
-      diff: 8.0.3
-
   '@types/email-reply-parser@1.4.2': {}
 
   '@types/eslint-scope@3.7.7':
@@ -20430,8 +20412,6 @@ snapshots:
 
   diff@4.0.2:
     optional: true
-
-  diff@8.0.3: {}
 
   dingbat-to-unicode@1.0.1: {}
 

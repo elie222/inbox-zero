@@ -61,6 +61,7 @@ ${getEmailListPrompt({ messages, messageMaxLength: 1000, maxMessages: 5 })}
     emailAccount,
     label: "MCP Agent",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "full" },
   });
 
   const result = await generateText({

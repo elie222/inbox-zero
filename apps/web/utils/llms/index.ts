@@ -4,6 +4,9 @@ import {
   type Tool,
   ToolLoopAgent,
   type JSONValue,
+  type FlexibleSchema,
+  type InferSchema,
+  type GenerateObjectResult,
   generateObject,
   generateText,
   RetryError,
@@ -51,6 +54,11 @@ import { Provider } from "@/utils/llms/config";
 import { createScopedLogger } from "@/utils/logger";
 import { getPosthogLlmClient, isPosthogLlmEvalApproved } from "@/utils/posthog";
 import {
+  applyPromptHardeningToMessages,
+  applyPromptHardeningToSystem,
+  type PromptHardening,
+} from "@/utils/ai/security";
+import {
   extractLLMErrorInfo,
   isTransientNetworkError,
   withNetworkRetry,
@@ -91,11 +99,13 @@ export function createGenerateText({
   emailAccount,
   label,
   modelOptions,
+  promptHardening,
   onModelUsed,
 }: {
   emailAccount: Pick<EmailAccountWithAI, "email" | "id" | "userId">;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
+  promptHardening: PromptHardening;
   onModelUsed?: (candidate: {
     provider: string;
     modelName: string;
@@ -113,11 +123,14 @@ export function createGenerateText({
       });
 
     const generate = async (candidate: ResolvedModel) => {
-      const systemText =
-        typeof options.system === "string" ? options.system : undefined;
+      const systemText = applyPromptHardeningToSystem({
+        system: typeof options.system === "string" ? options.system : undefined,
+        promptHardening,
+      });
 
       logger.trace("Generating text", {
         label,
+        promptHardening,
         system: systemText?.slice(0, MAX_LOG_LENGTH),
         prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
@@ -139,6 +152,7 @@ export function createGenerateText({
       const result = await generateText(
         {
           ...options,
+          system: systemText,
           ...commonOptions,
           providerOptions,
           model: withPosthogTracing({
@@ -225,18 +239,31 @@ export function createGenerateObject({
   emailAccount,
   label,
   modelOptions,
+  promptHardening,
   onModelUsed,
 }: {
   emailAccount: Pick<EmailAccountWithAI, "email" | "id" | "userId">;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
+  promptHardening: PromptHardening;
   onModelUsed?: (candidate: {
     provider: string;
     modelName: string;
   }) => void | Promise<void>;
 }): typeof generateObject {
-  return async (...args) => {
-    const [options, ...restArgs] = args;
+  return async function generateWithFallback<
+    SCHEMA extends FlexibleSchema<unknown> = FlexibleSchema<JSONValue>,
+    OUTPUT extends
+      | "object"
+      | "array"
+      | "enum"
+      | "no-schema" = InferSchema<SCHEMA> extends string ? "enum" : "object",
+    RESULT = OUTPUT extends "array"
+      ? Array<InferSchema<SCHEMA>>
+      : InferSchema<SCHEMA>,
+  >(
+    options: Parameters<typeof generateObject<SCHEMA, OUTPUT, RESULT>>[0],
+  ): Promise<GenerateObjectResult<RESULT>> {
     const { modelOptions: effectiveModelOptions, modelCandidates } =
       await resolveModelCandidates({
         modelOptions,
@@ -248,11 +275,14 @@ export function createGenerateObject({
     let latestRepairAttempt: RepairAttemptState | undefined;
 
     const generate = async (candidate: ResolvedModel) => {
-      const systemText =
-        typeof options.system === "string" ? options.system : undefined;
+      const systemText = applyPromptHardeningToSystem({
+        system: typeof options.system === "string" ? options.system : undefined,
+        promptHardening,
+      });
 
       logger.trace("Generating object", {
         label,
+        promptHardening,
         system: systemText?.slice(0, MAX_LOG_LENGTH),
         prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
@@ -279,29 +309,31 @@ export function createGenerateObject({
         emailAccountId: emailAccount.id,
       });
 
-      const result = await generateObject(
-        {
-          experimental_repairText: async ({ text }) => {
-            logger.info("Repairing text", { label });
-            const repairResult = repairObjectText(text, label);
-            latestRepairAttempt = repairResult.attempt;
-            return repairResult.text;
-          },
-          ...options,
-          ...commonOptions,
-          providerOptions,
-          model: withPosthogTracing({
-            model: candidate.model,
-            userEmail: emailAccount.email,
-            userId: emailAccount.userId,
-            emailAccountId: emailAccount.id,
-            label,
-            provider: candidate.provider,
-            modelName: candidate.modelName,
-          }),
+      const request = {
+        experimental_repairText: async ({ text }: { text: string }) => {
+          logger.info("Repairing text", { label });
+          const repairResult = repairObjectText(text, label);
+          latestRepairAttempt = repairResult.attempt;
+          return repairResult.text;
         },
-        ...restArgs,
-      );
+        ...options,
+        system: systemText,
+        ...commonOptions,
+        providerOptions,
+        model: withPosthogTracing({
+          model: candidate.model,
+          userEmail: emailAccount.email,
+          userId: emailAccount.userId,
+          emailAccountId: emailAccount.id,
+          label,
+          provider: candidate.provider,
+          modelName: candidate.modelName,
+        }),
+      } as unknown as Parameters<
+        typeof generateObject<SCHEMA, OUTPUT, RESULT>
+      >[0];
+
+      const result = await generateObject<SCHEMA, OUTPUT, RESULT>(request);
 
       await onModelUsed?.({
         provider: candidate.provider,
@@ -388,6 +420,7 @@ export async function chatCompletionStream({
   userAi,
   modelType,
   messages,
+  promptHardening,
   tools,
   maxSteps,
   userId,
@@ -401,6 +434,7 @@ export async function chatCompletionStream({
   userAi: UserAIFields;
   modelType?: ModelType;
   messages: ModelMessage[];
+  promptHardening: PromptHardening;
   tools?: Record<string, Tool>;
   maxSteps?: number;
   userId?: string;
@@ -417,6 +451,10 @@ export async function chatCompletionStream({
     userId,
     emailAccountId,
     label,
+  });
+  const hardenedMessages = applyPromptHardeningToMessages({
+    messages,
+    promptHardening,
   });
 
   for (let index = 0; index < modelCandidates.length; index++) {
@@ -446,7 +484,7 @@ export async function chatCompletionStream({
     try {
       return streamText({
         model,
-        messages,
+        messages: hardenedMessages,
         tools,
         stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
         ...commonOptions,
@@ -526,6 +564,7 @@ export async function toolCallAgentStream({
   userAi,
   modelType,
   messages,
+  promptHardening,
   tools,
   activeTools,
   prepareStep,
@@ -541,6 +580,7 @@ export async function toolCallAgentStream({
   userAi: UserAIFields;
   modelType?: ModelType;
   messages: ModelMessage[];
+  promptHardening: PromptHardening;
   tools?: Record<string, Tool>;
   activeTools?: Array<string>;
   prepareStep?: PrepareStepFunction<Record<string, Tool>>;
@@ -559,6 +599,10 @@ export async function toolCallAgentStream({
     userId,
     emailAccountId,
     label,
+  });
+  const hardenedMessages = applyPromptHardeningToMessages({
+    messages,
+    promptHardening,
   });
 
   for (let index = 0; index < modelCandidates.length; index++) {
@@ -656,7 +700,7 @@ export async function toolCallAgentStream({
 
     try {
       return await agent.stream({
-        messages,
+        messages: hardenedMessages,
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish: onStepFinish
           ? async (stepResult) => {

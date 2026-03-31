@@ -78,6 +78,7 @@ export async function analyzeDocument({
     emailAccount,
     label: "Document filing",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "compact" },
   });
 
   const result = await generateObject({

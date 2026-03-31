@@ -500,6 +500,7 @@ Behavior anchors (minimal examples):
     userEmail: user.email,
     modelType: "chat",
     usageLabel: "assistant-chat",
+    promptHardening: { trust: "untrusted", level: "full" },
     providerOptions: getChatProviderOptionsForCaching({ chatId }),
     messages: messagesWithCacheControl,
     onStepFinish: async (step) => {

@@ -95,6 +95,7 @@ ${getTodayForLLM()}`;
       emailAccount,
       label: "Reply context collector",
       modelOptions,
+      promptHardening: { trust: "untrusted", level: "full" },
     });
 
     let result: ReplyContextCollectorResult | null = null;

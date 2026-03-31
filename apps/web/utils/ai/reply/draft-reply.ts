@@ -7,7 +7,6 @@ import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
-import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { normalizeDraftReplyConfidence } from "@/utils/ai/reply/draft-confidence";
 import {
@@ -20,8 +19,6 @@ const DRAFT_OUTPUT_INSTRUCTION =
   "Return plain text only. Do not use HTML tags. If a clickable link is necessary, use markdown links in the format [Label](https://example.com/path) or [Label](mailto:name@example.com).";
 
 const systemPrompt = `You are an expert assistant that drafts email replies.
-
-${PROMPT_SECURITY_INSTRUCTIONS}
 
 Use context from the previous emails and the provided knowledge base to make it relevant and accurate.
 IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't add anything to the conversation to repeat back to them what they just said.
@@ -283,6 +280,7 @@ export async function aiDraftReplyWithConfidence({
     emailAccount,
     label: "Draft reply",
     modelOptions,
+    promptHardening: { trust: "untrusted", level: "full" },
     onModelUsed: attributionTracker.onModelUsed,
   });
 
