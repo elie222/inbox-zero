@@ -76,7 +76,17 @@ export function attachLlmRepairMetadata(
 ) {
   if (!metadata || typeof error !== "object" || error === null) return;
 
-  (error as Record<string, unknown>)[LLM_REPAIR_METADATA_KEY] = metadata;
+  const target = error as Record<string, unknown>;
+
+  // Diagnostic metadata must never turn the original model error into a
+  // webhook-processing failure for frozen or otherwise immutable errors.
+  if (!Object.isExtensible(target)) return;
+
+  try {
+    target[LLM_REPAIR_METADATA_KEY] = metadata;
+  } catch {
+    return;
+  }
 }
 
 export function captureException(
