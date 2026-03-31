@@ -8,7 +8,7 @@ describe("buildVercelEnvValues", () => {
       DEFAULT_LLM_PROVIDER: "openai",
       DEFAULT_LLM_MODEL: "gpt-5.1",
       ECONOMY_LLM_PROVIDER: "openai",
-      ECONOMY_LLM_MODEL: "gpt-5.1-mini",
+      ECONOMY_LLM_MODEL: "gpt-5-mini",
       LLM_API_KEY: "replace-me",
     };
 
@@ -64,7 +64,7 @@ describe("buildVercelEnvValues", () => {
       DEFAULT_LLM_PROVIDER: "openai",
       DEFAULT_LLM_MODEL: "gpt-5.1",
       ECONOMY_LLM_PROVIDER: "openai",
-      ECONOMY_LLM_MODEL: "gpt-5.1-mini",
+      ECONOMY_LLM_MODEL: "gpt-5-mini",
       LLM_API_KEY: "replace-me",
     };
 
@@ -89,6 +89,7 @@ describe("buildVercelEnvValues", () => {
           value.key === "AUTH_SECRET" && value.environment === "production",
       ),
     ).toMatchObject({
+      createValue: expect.any(Function),
       sensitive: true,
     });
 
@@ -110,6 +111,7 @@ describe("buildVercelEnvValues", () => {
           value.environment === "development",
       ),
     ).toMatchObject({
+      createValue: expect.any(Function),
       sensitive: true,
     });
   });
@@ -122,7 +124,7 @@ describe("seedLlmPlaceholderCredentials", () => {
     seedLlmPlaceholderCredentials("bedrock", env);
 
     expect(env).toMatchObject({
-      DEFAULT_LLM_MODEL: "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      DEFAULT_LLM_MODEL: "global.anthropic.claude-sonnet-4-6",
       ECONOMY_LLM_PROVIDER: "bedrock",
       ECONOMY_LLM_MODEL: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
       BEDROCK_ACCESS_KEY: "replace-me",

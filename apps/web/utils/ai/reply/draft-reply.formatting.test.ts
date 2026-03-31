@@ -367,7 +367,7 @@ Representative edits:
       return vi.fn().mockImplementationOnce(async () => {
         await onModelUsed?.({
           provider: "openai",
-          modelName: "gpt-5.1-mini",
+          modelName: "gpt-5-mini",
         });
 
         return {
@@ -383,7 +383,7 @@ Representative edits:
 
     expect(result.attribution).toEqual({
       provider: "openai",
-      modelName: "gpt-5.1-mini",
+      modelName: "gpt-5-mini",
       pipelineVersion: DRAFT_PIPELINE_VERSION,
     });
   });

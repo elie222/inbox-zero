@@ -28,7 +28,7 @@ vi.mock("@/utils/llms", () => ({
 vi.mock("@/utils/llms/model", () => ({
   getModel: vi.fn(() => ({
     provider: "openai",
-    modelName: "gpt-5.1-mini",
+    modelName: "gpt-5-mini",
     model: {},
     providerOptions: undefined,
     fallbackModels: [],

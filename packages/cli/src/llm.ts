@@ -36,21 +36,21 @@ const LLM_LINKS: Record<string, string> = {
 
 const DEFAULT_MODELS: Record<string, { default: string; economy: string }> = {
   anthropic: {
-    default: "claude-sonnet-4-5-20250929",
+    default: "claude-sonnet-4-6",
     economy: "claude-haiku-4-5-20251001",
   },
-  openai: { default: "gpt-5.1", economy: "gpt-5.1-mini" },
+  openai: { default: "gpt-5.1", economy: "gpt-5-mini" },
   google: { default: "gemini-3-flash", economy: "gemini-2-5-flash" },
   openrouter: {
-    default: "anthropic/claude-sonnet-4.5",
+    default: "anthropic/claude-sonnet-4.6",
     economy: "anthropic/claude-haiku-4.5",
   },
   aigateway: {
-    default: "anthropic/claude-sonnet-4.5",
+    default: "anthropic/claude-sonnet-4.6",
     economy: "anthropic/claude-haiku-4.5",
   },
   bedrock: {
-    default: "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    default: "global.anthropic.claude-sonnet-4-6",
     economy: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   },
   groq: {

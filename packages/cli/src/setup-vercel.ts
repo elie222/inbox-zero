@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import * as p from "@clack/prompts";
@@ -12,8 +12,9 @@ import {
 type VercelEnvironment = "production" | "preview" | "development";
 
 type VercelEnvValue = {
+  createValue?: () => string;
   key: string;
-  value: string;
+  value?: string;
   environment: VercelEnvironment;
   sensitive: boolean;
 };
@@ -72,11 +73,13 @@ export function buildVercelEnvValues(config: {
     key: string,
     value: string | undefined,
     environments: readonly VercelEnvironment[],
+    createValue?: () => string,
   ) => {
-    if (value === undefined) return;
+    if (value === undefined && !createValue) return;
 
     for (const environment of environments) {
       envValues.push({
+        createValue,
         key,
         value,
         environment,
@@ -86,13 +89,6 @@ export function buildVercelEnvValues(config: {
   };
 
   const sharedEnv: EnvConfig = {
-    AUTH_SECRET: generateSecret(32),
-    EMAIL_ENCRYPT_SECRET: generateSecret(32),
-    EMAIL_ENCRYPT_SALT: generateSecret(16),
-    INTERNAL_API_KEY: generateSecret(32),
-    API_KEY_SALT: generateSecret(32),
-    CRON_SECRET: generateSecret(32),
-    GOOGLE_PUBSUB_VERIFICATION_TOKEN: generateSecret(32),
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
     GOOGLE_CLIENT_ID: config.google?.clientId || "skipped",
     GOOGLE_CLIENT_SECRET: config.google?.clientSecret || "skipped",
@@ -101,15 +97,32 @@ export function buildVercelEnvValues(config: {
     MICROSOFT_CLIENT_ID: config.microsoft?.clientId,
     MICROSOFT_CLIENT_SECRET: config.microsoft?.clientSecret,
     MICROSOFT_TENANT_ID: config.microsoft?.tenantId,
-    MICROSOFT_WEBHOOK_CLIENT_STATE: config.microsoft?.clientId
-      ? generateSecret(32)
-      : undefined,
     ...config.authSecrets,
     ...config.llmEnv,
+  };
+  const generatedEnvValueFactories: Partial<Record<string, () => string>> = {
+    AUTH_SECRET: () => generateSecret(32),
+    EMAIL_ENCRYPT_SECRET: () => generateSecret(32),
+    EMAIL_ENCRYPT_SALT: () => generateSecret(16),
+    INTERNAL_API_KEY: () => generateSecret(32),
+    API_KEY_SALT: () => generateSecret(32),
+    CRON_SECRET: () => generateSecret(32),
+    GOOGLE_PUBSUB_VERIFICATION_TOKEN: () => generateSecret(32),
+    MICROSOFT_WEBHOOK_CLIENT_STATE: config.microsoft?.clientId
+      ? () => generateSecret(32)
+      : undefined,
   };
 
   for (const [key, value] of Object.entries(sharedEnv)) {
     addTargets(key, value, ["production", "preview", "development"]);
+  }
+  for (const [key, createValue] of Object.entries(generatedEnvValueFactories)) {
+    addTargets(
+      key,
+      undefined,
+      ["production", "preview", "development"],
+      createValue,
+    );
   }
 
   addTargets("NEXT_PUBLIC_BASE_URL", config.baseUrl, ["production", "preview"]);
@@ -202,31 +215,81 @@ export async function runVercelSetup(
 
   const envSpinner = p.spinner();
   envSpinner.start("Setting Vercel environment variables");
+  let skippedEnvCount = 0;
   for (const envValue of envValues) {
+    const inputValue = resolveEnvValue(envValue);
     const result = await runVercelProcess(
       [
         "env",
         "add",
         envValue.key,
         envValue.environment,
-        "--force",
         "--yes",
         ...(envValue.sensitive ? ["--sensitive"] : []),
       ],
       {
         cwd: projectDir,
         scope: options.scope,
-        input: `${envValue.value}\n`,
+        input: `${inputValue}\n`,
       },
     );
 
-    if (result.status !== 0) {
+    if (result.status === 0) continue;
+
+    if (envValueAlreadyExists(result)) {
+      if (options.yes) {
+        skippedEnvCount += 1;
+        continue;
+      }
+
+      const overwrite = await p.confirm({
+        message: `${envValue.key} already exists for ${envValue.environment}. Overwrite it?`,
+        initialValue: false,
+      });
+      if (p.isCancel(overwrite)) cancelSetup();
+
+      if (!overwrite) {
+        skippedEnvCount += 1;
+        continue;
+      }
+
+      const updateResult = await runVercelProcess(
+        [
+          "env",
+          "update",
+          envValue.key,
+          envValue.environment,
+          "--yes",
+          ...(envValue.sensitive ? ["--sensitive"] : []),
+        ],
+        {
+          cwd: projectDir,
+          scope: options.scope,
+          input: `${resolveEnvValue(envValue)}\n`,
+        },
+      );
+
+      if (updateResult.status === 0) continue;
+
       envSpinner.stop("Failed to set Vercel environment variables");
-      p.log.error(result.stderr || result.stdout || "Unknown Vercel CLI error");
+      p.log.error(
+        updateResult.stderr ||
+          updateResult.stdout ||
+          "Unknown Vercel CLI error",
+      );
       process.exit(1);
     }
+
+    envSpinner.stop("Failed to set Vercel environment variables");
+    p.log.error(result.stderr || result.stdout || "Unknown Vercel CLI error");
+    process.exit(1);
   }
   envSpinner.stop("Vercel environment variables configured");
+  if (skippedEnvCount > 0) {
+    p.log.info(
+      `Skipped ${skippedEnvCount} existing environment variable${skippedEnvCount === 1 ? "" : "s"}.`,
+    );
+  }
 
   if (deployNow) {
     await runVercelCommand(["deploy", "--prod"], {
@@ -294,7 +357,11 @@ async function resolveProjectName(
   linkedProject: boolean,
 ) {
   if (linkedProject) {
-    return sanitizeProjectName(options.project || basename(projectDir));
+    return sanitizeProjectName(
+      options.project ||
+        readLinkedProjectName(projectDir) ||
+        getDefaultProjectName(projectDir),
+    );
   }
 
   if (options.project) return sanitizeProjectName(options.project);
@@ -606,6 +673,15 @@ function getVercelGlobalArgs(scope?: string) {
   return scope ? ["--scope", scope] : [];
 }
 
+function resolveEnvValue(envValue: VercelEnvValue) {
+  return envValue.value ?? envValue.createValue?.() ?? "";
+}
+
+function envValueAlreadyExists(result: { stderr: string; stdout: string }) {
+  const output = `${result.stdout}\n${result.stderr}`.toLowerCase();
+  return output.includes("already exists");
+}
+
 function sanitizeProjectName(value: string) {
   return value
     .trim()
@@ -623,6 +699,20 @@ function getDefaultProjectName(projectDir: string) {
   }
 
   return currentName;
+}
+
+function readLinkedProjectName(projectDir: string) {
+  const projectFile = resolve(projectDir, ".vercel/project.json");
+  if (!existsSync(projectFile)) return undefined;
+
+  try {
+    const parsed = JSON.parse(readFileSync(projectFile, "utf8")) as {
+      projectName?: string;
+    };
+    return parsed.projectName?.trim() || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function cancelSetup(): never {
