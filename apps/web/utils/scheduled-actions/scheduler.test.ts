@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ActionType, ScheduledActionStatus } from "@/generated/prisma/enums";
-import { cancelScheduledActions } from "./scheduler";
+import {
+  cancelAwaitingConfirmationScheduledAction,
+  cancelScheduledActions,
+  markAwaitingConfirmationActionAsExecuting,
+  markScheduledActionAwaitingConfirmation,
+  revertScheduledActionAwaitingConfirmation,
+} from "./scheduler";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import prisma from "@/utils/__mocks__/prisma";
 
@@ -57,7 +63,12 @@ describe("scheduler", () => {
           where: expect.objectContaining({
             emailAccountId: "account-123",
             messageId: "msg-123",
-            status: ScheduledActionStatus.PENDING,
+            status: {
+              in: [
+                ScheduledActionStatus.PENDING,
+                ScheduledActionStatus.AWAITING_CONFIRMATION,
+              ],
+            },
             executedRule: { ruleId: "rule-123" },
           }),
         }),
@@ -67,7 +78,12 @@ describe("scheduler", () => {
           where: expect.objectContaining({
             emailAccountId: "account-123",
             messageId: "msg-123",
-            status: ScheduledActionStatus.PENDING,
+            status: {
+              in: [
+                ScheduledActionStatus.PENDING,
+                ScheduledActionStatus.AWAITING_CONFIRMATION,
+              ],
+            },
             executedRule: { ruleId: "rule-123" },
           }),
           data: { status: ScheduledActionStatus.CANCELLED },
@@ -112,6 +128,79 @@ describe("scheduler", () => {
           where: expect.objectContaining({ threadId: "thread-123" }),
         }),
       );
+    });
+  });
+
+  describe("approval status transitions", () => {
+    it("marks a pending action as awaiting confirmation", async () => {
+      prisma.scheduledAction.updateMany.mockResolvedValue({ count: 1 } as any);
+
+      const result = await markScheduledActionAwaitingConfirmation("action-1");
+
+      expect(result).toBe(true);
+      expect(prisma.scheduledAction.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "action-1",
+          status: ScheduledActionStatus.PENDING,
+        },
+        data: {
+          status: ScheduledActionStatus.AWAITING_CONFIRMATION,
+        },
+      });
+    });
+
+    it("reverts an awaiting-confirmation action back to pending", async () => {
+      prisma.scheduledAction.updateMany.mockResolvedValue({ count: 1 } as any);
+
+      const result =
+        await revertScheduledActionAwaitingConfirmation("action-1");
+
+      expect(result).toBe(true);
+      expect(prisma.scheduledAction.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "action-1",
+          status: ScheduledActionStatus.AWAITING_CONFIRMATION,
+        },
+        data: {
+          status: ScheduledActionStatus.PENDING,
+        },
+      });
+    });
+
+    it("marks an awaiting-confirmation action as executing", async () => {
+      prisma.scheduledAction.updateMany.mockResolvedValue({ count: 1 } as any);
+
+      const result =
+        await markAwaitingConfirmationActionAsExecuting("action-1");
+
+      expect(result).toBe(true);
+      expect(prisma.scheduledAction.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "action-1",
+          status: ScheduledActionStatus.AWAITING_CONFIRMATION,
+        },
+        data: {
+          status: ScheduledActionStatus.EXECUTING,
+        },
+      });
+    });
+
+    it("cancels an awaiting-confirmation action", async () => {
+      prisma.scheduledAction.updateMany.mockResolvedValue({ count: 1 } as any);
+
+      const result =
+        await cancelAwaitingConfirmationScheduledAction("action-1");
+
+      expect(result).toBe(true);
+      expect(prisma.scheduledAction.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "action-1",
+          status: ScheduledActionStatus.AWAITING_CONFIRMATION,
+        },
+        data: {
+          status: ScheduledActionStatus.CANCELLED,
+        },
+      });
     });
   });
 });

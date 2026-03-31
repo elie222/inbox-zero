@@ -75,7 +75,10 @@ export async function executeScheduledAction(
     });
 
     await markActionCompleted(scheduledAction.id, executedAction?.id, log);
-    await checkAndCompleteExecutedRule(scheduledAction.executedRuleId, log);
+    await finalizeExecutedRuleIfNoPendingActions(
+      scheduledAction.executedRuleId,
+      log,
+    );
 
     log.info("Successfully executed scheduled action", {
       scheduledActionId: scheduledAction.id,
@@ -271,7 +274,7 @@ async function markActionFailed(
  * Check if all scheduled actions for an ExecutedRule are complete
  * and update the ExecutedRule status accordingly
  */
-async function checkAndCompleteExecutedRule(
+export async function finalizeExecutedRuleIfNoPendingActions(
   executedRuleId: string,
   log: Logger,
 ) {
@@ -279,7 +282,11 @@ async function checkAndCompleteExecutedRule(
     where: {
       executedRuleId,
       status: {
-        in: [ScheduledActionStatus.PENDING, ScheduledActionStatus.EXECUTING],
+        in: [
+          ScheduledActionStatus.PENDING,
+          ScheduledActionStatus.AWAITING_CONFIRMATION,
+          ScheduledActionStatus.EXECUTING,
+        ],
       },
     },
   });

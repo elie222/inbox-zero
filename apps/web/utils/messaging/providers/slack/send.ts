@@ -156,7 +156,7 @@ export function formatSlackAppMention(botUserId: string | null | undefined) {
 
 type Blocks = (KnownBlock | Block)[];
 
-async function postMessageWithJoin(
+export async function postMessageWithJoin(
   client: WebClient,
   channelId: string,
   message: { text: string; blocks?: Blocks },
