@@ -6,6 +6,8 @@ import {
   sendDocumentAskToSlack,
 } from "@/utils/messaging/providers/slack/send";
 import type { Logger } from "@/utils/logger";
+import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
+import { getMessagingDeliveryTargetWhere } from "@/utils/messaging/delivery-target";
 
 export async function sendFilingSlackNotifications({
   emailAccountId,
@@ -23,7 +25,7 @@ export async function sendFilingSlackNotifications({
       emailAccountId,
       isConnected: true,
       sendDocumentFilings: true,
-      channelId: { not: null },
+      ...getMessagingDeliveryTargetWhere(),
     },
     select: {
       provider: true,
@@ -47,13 +49,12 @@ export async function sendFilingSlackNotifications({
     return;
   }
 
-  const deliveryPromises: Promise<void>[] = [];
+  const deliveryPromises: Promise<unknown>[] = [];
 
   for (const channel of channels) {
-    if (!channel.accessToken) continue;
-
     switch (channel.provider) {
       case MessagingProvider.SLACK: {
+        if (!channel.accessToken) continue;
         const destination = await resolveSlackDestination({
           accessToken: channel.accessToken,
           channelId: channel.channelId,
@@ -86,6 +87,26 @@ export async function sendFilingSlackNotifications({
         }
         break;
       }
+      case MessagingProvider.TEAMS:
+      case MessagingProvider.TELEGRAM: {
+        deliveryPromises.push(
+          sendAutomationMessage({
+            channel,
+            text: filing.wasAsked
+              ? formatDocumentAskText({
+                  filename: filing.filename,
+                  reasoning: filing.reasoning,
+                })
+              : formatDocumentFiledText({
+                  filename: filing.filename,
+                  folderPath: filing.folderPath,
+                  driveProvider: filing.driveConnection.provider,
+                }),
+            logger: log,
+          }),
+        );
+        break;
+      }
     }
   }
 
@@ -97,4 +118,28 @@ export async function sendFilingSlackNotifications({
       reason: (failure as PromiseRejectedResult).reason,
     });
   }
+}
+
+function formatDocumentAskText({
+  filename,
+  reasoning,
+}: {
+  filename: string;
+  reasoning: string | null;
+}) {
+  return reasoning
+    ? `Where should I file ${filename}?\n\nReason: ${reasoning}`
+    : `Where should I file ${filename}?`;
+}
+
+function formatDocumentFiledText({
+  filename,
+  folderPath,
+  driveProvider,
+}: {
+  filename: string;
+  folderPath: string;
+  driveProvider: string;
+}) {
+  return `Filed ${filename} to ${folderPath} on ${driveProvider}.`;
 }

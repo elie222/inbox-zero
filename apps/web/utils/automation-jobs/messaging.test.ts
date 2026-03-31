@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import {
-  hasAutomationMessagingDestination,
   isAutomationMessagingChannelReady,
   isSupportedAutomationMessagingProvider,
 } from "@/utils/automation-jobs/messaging-channel";
+import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
 
 describe("automation job messaging channel helpers", () => {
   it("accepts supported providers", () => {
@@ -19,23 +19,30 @@ describe("automation job messaging channel helpers", () => {
     ).toBe(true);
   });
 
-  it("requires slack destination via DM user or channel", () => {
+  it("requires an explicit Slack destination", () => {
     expect(
-      hasAutomationMessagingDestination({
+      hasMessagingDeliveryTarget({
         provider: MessagingProvider.SLACK,
         providerUserId: null,
         channelId: "C123",
       }),
     ).toBe(true);
     expect(
-      hasAutomationMessagingDestination({
+      hasMessagingDeliveryTarget({
+        provider: MessagingProvider.SLACK,
+        providerUserId: "U123",
+        channelId: "DM",
+      }),
+    ).toBe(true);
+    expect(
+      hasMessagingDeliveryTarget({
         provider: MessagingProvider.SLACK,
         providerUserId: "U123",
         channelId: null,
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
-      hasAutomationMessagingDestination({
+      hasMessagingDeliveryTarget({
         provider: MessagingProvider.SLACK,
         providerUserId: null,
         channelId: null,
@@ -45,21 +52,21 @@ describe("automation job messaging channel helpers", () => {
 
   it("requires providerUserId for Teams and Telegram destinations", () => {
     expect(
-      hasAutomationMessagingDestination({
+      hasMessagingDeliveryTarget({
         provider: MessagingProvider.TEAMS,
         providerUserId: "29:teams-user",
         channelId: null,
       }),
     ).toBe(true);
     expect(
-      hasAutomationMessagingDestination({
+      hasMessagingDeliveryTarget({
         provider: MessagingProvider.TELEGRAM,
         providerUserId: "12345",
         channelId: null,
       }),
     ).toBe(true);
     expect(
-      hasAutomationMessagingDestination({
+      hasMessagingDeliveryTarget({
         provider: MessagingProvider.TEAMS,
         providerUserId: null,
         channelId: "channel-id-is-not-enough",
@@ -74,7 +81,7 @@ describe("automation job messaging channel helpers", () => {
         isConnected: true,
         accessToken: "xoxb-token",
         providerUserId: "U123",
-        channelId: null,
+        channelId: "DM",
       }),
     ).toBe(true);
 
@@ -84,7 +91,7 @@ describe("automation job messaging channel helpers", () => {
         isConnected: true,
         accessToken: null,
         providerUserId: "U123",
-        channelId: null,
+        channelId: "DM",
       }),
     ).toBe(false);
   });

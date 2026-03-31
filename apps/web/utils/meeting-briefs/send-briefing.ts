@@ -9,8 +9,10 @@ import MeetingBriefingEmail, {
   type InternalTeamMember,
 } from "@inboxzero/resend/emails/meeting-briefing";
 import { MessagingProvider } from "@/generated/prisma/enums";
+import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
+import { getMessagingDeliveryTargetWhere } from "@/utils/messaging/delivery-target";
 import {
   resolveSlackDestination,
   sendMeetingBriefingToSlack,
@@ -61,7 +63,7 @@ export async function sendBriefing({
       emailAccountId,
       isConnected: true,
       sendMeetingBriefs: true,
-      channelId: { not: null },
+      ...getMessagingDeliveryTargetWhere(),
     },
     select: {
       provider: true,
@@ -88,15 +90,28 @@ export async function sendBriefing({
   }
 
   for (const channel of channels) {
-    if (!channel.accessToken) continue;
-
     switch (channel.provider) {
       case MessagingProvider.SLACK:
+        if (!channel.accessToken) continue;
         deliveryPromises.push(
           sendBriefingViaSlack({
             accessToken: channel.accessToken,
             channelId: channel.channelId,
             providerUserId: channel.providerUserId,
+            meetingTitle: event.title,
+            formattedTime,
+            videoConferenceLink: event.videoConferenceLink ?? undefined,
+            eventUrl: event.eventUrl ?? undefined,
+            briefingContent: briefingContentWithTeam,
+            logger,
+          }),
+        );
+        break;
+      case MessagingProvider.TEAMS:
+      case MessagingProvider.TELEGRAM:
+        deliveryPromises.push(
+          sendBriefingViaMessagingApp({
+            channel,
             meetingTitle: event.title,
             formattedTime,
             videoConferenceLink: event.videoConferenceLink ?? undefined,
@@ -239,4 +254,96 @@ async function sendBriefingViaSlack({
     briefingContent,
   });
   logger.info("Briefing sent successfully to Slack");
+}
+
+async function sendBriefingViaMessagingApp({
+  channel,
+  meetingTitle,
+  formattedTime,
+  videoConferenceLink,
+  eventUrl,
+  briefingContent,
+  logger,
+}: {
+  channel: {
+    provider: MessagingProvider;
+    accessToken: string | null;
+    channelId: string | null;
+    providerUserId: string | null;
+  };
+  meetingTitle: string;
+  formattedTime: string;
+  videoConferenceLink?: string;
+  eventUrl?: string;
+  briefingContent: BriefingContent;
+  logger: Logger;
+}) {
+  logger.info("Sending briefing to messaging app", {
+    provider: channel.provider,
+  });
+
+  await sendAutomationMessage({
+    channel,
+    text: formatMeetingBriefingText({
+      meetingTitle,
+      formattedTime,
+      videoConferenceLink,
+      eventUrl,
+      briefingContent,
+    }),
+    logger,
+  });
+
+  logger.info("Briefing sent successfully to messaging app", {
+    provider: channel.provider,
+  });
+}
+
+function formatMeetingBriefingText({
+  meetingTitle,
+  formattedTime,
+  videoConferenceLink,
+  eventUrl,
+  briefingContent,
+}: {
+  meetingTitle: string;
+  formattedTime: string;
+  videoConferenceLink?: string;
+  eventUrl?: string;
+  briefingContent: BriefingContent;
+}) {
+  const sections = [
+    `Briefing for ${meetingTitle}`,
+    `Starting at ${formattedTime}`,
+  ];
+
+  if (videoConferenceLink) {
+    sections.push(`Join link: ${videoConferenceLink}`);
+  }
+
+  if (eventUrl) {
+    sections.push(`Calendar link: ${eventUrl}`);
+  }
+
+  for (const guest of briefingContent.guests) {
+    sections.push(
+      [guest.name ? `${guest.name} (${guest.email})` : guest.email]
+        .concat(guest.bullets.map((bullet) => `- ${bullet}`))
+        .join("\n"),
+    );
+  }
+
+  if (briefingContent.internalTeamMembers?.length) {
+    sections.push(
+      `Also attending: ${briefingContent.internalTeamMembers
+        .map((member) => member.name || member.email)
+        .join(", ")} (internal team)`,
+    );
+  }
+
+  sections.push(
+    "AI-generated briefing from Inbox Zero. May contain inaccuracies.",
+  );
+
+  return sections.join("\n\n");
 }
