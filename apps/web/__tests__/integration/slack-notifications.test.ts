@@ -293,7 +293,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       expect(message).toBeDefined();
       expect(message?.text).toContain("Draft reply");
-      expect(message?.text).toContain(`Subject: ${subject}`);
+      expect(message?.text).toContain(`*Subject:* ${subject}`);
+      expect(message?.text).toContain("*Original email*");
+      expect(message?.text).toContain("Can you help with this request?");
+      expect(message?.text).toContain("*Draft reply*");
       expect(getActionLabels(postArgs?.blocks)).toEqual(
         expect.arrayContaining(["Send reply", "Edit draft", "Dismiss"]),
       );
@@ -347,7 +350,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       expect(message).toBeDefined();
       expect(message?.text).toContain("Email notification");
-      expect(message?.text).toContain(`Subject: ${subject}`);
+      expect(message?.text).toContain(`*Subject:* ${subject}`);
       expect(getActionLabels(postArgs?.blocks)).toEqual(
         expect.arrayContaining(["Archive", "Mark read"]),
       );
@@ -689,9 +692,7 @@ async function findMessageBySubject({
     channel: channelId,
   });
 
-  return history.messages?.find((message) =>
-    message.text?.includes(`Subject: ${subject}`),
-  );
+  return history.messages?.find((message) => message.text?.includes(subject));
 }
 
 function getActionLabels(blocks: unknown[] | undefined) {
