@@ -11,7 +11,7 @@ import {
   selectDraftAttachmentsForRule,
 } from "@/utils/attachments/draft-attachments";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
-import { sendSlackRuleNotification } from "@/utils/messaging/rule-notifications";
+import { sendMessagingRuleNotification } from "@/utils/messaging/rule-notifications";
 import type { ParsedMessage } from "@/utils/types";
 import { createTestLogger } from "@/__tests__/helpers";
 vi.mock("server-only", () => ({}));
@@ -29,7 +29,7 @@ vi.mock("@/utils/attachments/draft-attachments", () => ({
 }));
 
 vi.mock("@/utils/messaging/rule-notifications", () => ({
-  sendSlackRuleNotification: vi.fn().mockResolvedValue(true),
+  sendMessagingRuleNotification: vi.fn().mockResolvedValue(true),
 }));
 
 describe("runActionFunction", () => {
@@ -198,7 +198,7 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(sendSlackRuleNotification).toHaveBeenCalledWith({
+    expect(sendMessagingRuleNotification).toHaveBeenCalledWith({
       executedActionId: "action-1",
       email,
       logger: expect.anything(),
@@ -231,7 +231,7 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(sendSlackRuleNotification).toHaveBeenCalledWith({
+    expect(sendMessagingRuleNotification).toHaveBeenCalledWith({
       executedActionId: "action-1",
       email,
       logger: expect.anything(),
@@ -241,7 +241,7 @@ describe("runActionFunction", () => {
 
   it("falls back to mailbox drafts when legacy chat delivery is unavailable", async () => {
     const client = createMockEmailProvider();
-    vi.mocked(sendSlackRuleNotification).mockResolvedValueOnce(false);
+    vi.mocked(sendMessagingRuleNotification).mockResolvedValueOnce(false);
 
     await runActionFunction({
       client,
@@ -265,7 +265,7 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(sendSlackRuleNotification).toHaveBeenCalledWith({
+    expect(sendMessagingRuleNotification).toHaveBeenCalledWith({
       executedActionId: "action-1",
       email,
       logger: expect.anything(),
@@ -275,7 +275,7 @@ describe("runActionFunction", () => {
 
   it("throws when chat draft delivery cannot be completed", async () => {
     const client = createMockEmailProvider();
-    vi.mocked(sendSlackRuleNotification).mockResolvedValueOnce(false);
+    vi.mocked(sendMessagingRuleNotification).mockResolvedValueOnce(false);
 
     await expect(
       runActionFunction({
@@ -324,7 +324,7 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(sendSlackRuleNotification).toHaveBeenCalledWith({
+    expect(sendMessagingRuleNotification).toHaveBeenCalledWith({
       executedActionId: "action-1",
       email,
       logger: expect.anything(),

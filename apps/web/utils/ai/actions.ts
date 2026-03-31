@@ -16,7 +16,7 @@ import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { resolveActionAttachments } from "@/utils/ai/action-attachments";
-import { sendSlackRuleNotification } from "@/utils/messaging/rule-notifications";
+import { sendMessagingRuleNotification } from "@/utils/messaging/rule-notifications";
 import { isMessagingDraftActionType } from "@/utils/actions/draft-reply";
 
 const MODULE = "ai-actions";
@@ -191,7 +191,7 @@ const draft: ActionFunction<{
     })
   ) {
     if (args.id) {
-      const delivered = await sendSlackRuleNotification({
+      const delivered = await sendMessagingRuleNotification({
         executedActionId: args.id,
         email,
         logger,
@@ -265,7 +265,7 @@ const draft_messaging_channel: ActionFunction<{
     });
   }
 
-  const delivered = await sendSlackRuleNotification({
+  const delivered = await sendMessagingRuleNotification({
     executedActionId: args.id,
     email,
     logger,
@@ -295,7 +295,7 @@ const notify_messaging_channel: ActionFunction<{
     });
   }
 
-  const delivered = await sendSlackRuleNotification({
+  const delivered = await sendMessagingRuleNotification({
     executedActionId: args.id,
     email,
     logger,

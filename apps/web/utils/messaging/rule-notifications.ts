@@ -17,6 +17,7 @@ import {
   isSlackDmChannel,
   resolveSlackDestination,
 } from "@/utils/messaging/providers/slack/send";
+import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import {
   escapeSlackText,
   richTextToSlackMrkdwn,
@@ -84,6 +85,42 @@ type NotificationEmailPreview = {
   attachments?: Array<{ filename: string }>;
 };
 
+export async function sendMessagingRuleNotification({
+  executedActionId,
+  email,
+  logger,
+}: {
+  executedActionId: string;
+  email: {
+    headers: {
+      from: string;
+      subject: string;
+    };
+    snippet: string;
+    textPlain?: string;
+    textHtml?: string;
+    attachments?: Array<{ filename: string }>;
+  };
+  logger: Logger;
+}): Promise<boolean> {
+  const context = await getNotificationContext(executedActionId);
+  if (!context) return false;
+
+  if (context.messagingChannel?.provider === MessagingProvider.SLACK) {
+    return sendSlackRuleNotificationWithContext({
+      context,
+      email,
+      logger,
+    });
+  }
+
+  return sendLinkedRuleNotification({
+    context,
+    email,
+    logger,
+  });
+}
+
 export async function sendSlackRuleNotification({
   executedActionId,
   email,
@@ -105,6 +142,31 @@ export async function sendSlackRuleNotification({
   const context = await getNotificationContext(executedActionId);
   if (!context) return false;
 
+  return sendSlackRuleNotificationWithContext({
+    context,
+    email,
+    logger,
+  });
+}
+
+async function sendSlackRuleNotificationWithContext({
+  context,
+  email,
+  logger,
+}: {
+  context: NotificationContext;
+  email: {
+    headers: {
+      from: string;
+      subject: string;
+    };
+    snippet: string;
+    textPlain?: string;
+    textHtml?: string;
+    attachments?: Array<{ filename: string }>;
+  };
+  logger: Logger;
+}): Promise<boolean> {
   if (
     !context.messagingChannel ||
     !context.messagingChannel.isConnected ||
@@ -112,7 +174,7 @@ export async function sendSlackRuleNotification({
     !context.messagingChannel.accessToken
   ) {
     logger.warn("Skipping messaging notification with inactive Slack channel", {
-      executedActionId,
+      executedActionId: context.id,
       messagingChannelId: context.messagingChannelId,
     });
     return false;
@@ -126,7 +188,7 @@ export async function sendSlackRuleNotification({
 
   if (!destinationChannelId) {
     logger.warn("Skipping messaging notification with no Slack destination", {
-      executedActionId,
+      executedActionId: context.id,
       messagingChannelId: context.messagingChannelId,
     });
     return false;
@@ -141,7 +203,7 @@ export async function sendSlackRuleNotification({
 
   const rootMessageId =
     (await findSlackRootMessageId({
-      executedActionId,
+      executedActionId: context.id,
       messagingChannelId: context.messagingChannel.id,
       threadId: context.executedRule.threadId,
     })) ?? null;
@@ -172,7 +234,70 @@ export async function sendSlackRuleNotification({
     return true;
   } catch (error) {
     logger.warn("Failed to send Slack rule notification", {
-      executedActionId,
+      executedActionId: context.id,
+      error,
+    });
+    return false;
+  }
+}
+
+async function sendLinkedRuleNotification({
+  context,
+  email,
+  logger,
+}: {
+  context: NotificationContext;
+  email: NotificationEmailPreview;
+  logger: Logger;
+}): Promise<boolean> {
+  if (
+    !context.messagingChannel ||
+    !context.messagingChannel.isConnected ||
+    (context.messagingChannel.provider !== MessagingProvider.TEAMS &&
+      context.messagingChannel.provider !== MessagingProvider.TELEGRAM)
+  ) {
+    logger.warn(
+      "Skipping messaging notification with inactive linked channel",
+      {
+        executedActionId: context.id,
+        messagingChannelId: context.messagingChannelId,
+      },
+    );
+    return false;
+  }
+
+  const content = buildNotificationContent({
+    actionType: context.type,
+    email,
+    systemType: context.executedRule.rule?.systemType ?? null,
+    draftContent: context.content,
+  });
+  const text = buildMessagingRuleNotificationText({
+    actionType: context.type,
+    content,
+    provider: context.messagingChannel.provider,
+  });
+
+  try {
+    const response = await sendAutomationMessage({
+      channel: context.messagingChannel,
+      text,
+      logger,
+    });
+
+    await prisma.executedAction.update({
+      where: { id: context.id },
+      data: {
+        messagingMessageId: response.messageId ?? response.channelId ?? null,
+        messagingMessageSentAt: new Date(),
+        messagingMessageStatus: MessagingMessageStatus.SENT,
+      },
+    });
+    return true;
+  } catch (error) {
+    logger.warn("Failed to send linked messaging rule notification", {
+      executedActionId: context.id,
+      provider: context.messagingChannel.provider,
       error,
     });
     return false;
@@ -957,6 +1082,32 @@ function buildNotificationCardBody(content: NotificationContent): CardChild[] {
   return children;
 }
 
+export function buildMessagingRuleNotificationText({
+  actionType,
+  content,
+  provider,
+}: {
+  actionType: ActionType;
+  content: NotificationContent;
+  provider: MessagingProvider.TEAMS | MessagingProvider.TELEGRAM;
+}) {
+  const sections = [
+    content.title,
+    stripSlackFormatting(content.summary),
+    ...(content.details?.map(stripSlackFormatting) ?? []),
+  ].filter(Boolean);
+
+  const limitation = getLinkedProviderLimitationText({
+    actionType,
+    provider,
+  });
+  if (limitation) {
+    sections.push(limitation);
+  }
+
+  return sections.join("\n\n");
+}
+
 function buildEmailSummary(email: {
   headers: {
     from: string;
@@ -1221,4 +1372,27 @@ function blockquote(text: string): string {
     .split("\n")
     .map((line) => `>${line}`)
     .join("\n");
+}
+
+function stripSlackFormatting(text: string) {
+  return text
+    .replace(/<([^|>]+)\|([^>]+)>/g, "$2: $1")
+    .replace(/\*([^*]+)\*/g, "$1");
+}
+
+function getLinkedProviderLimitationText({
+  actionType,
+  provider,
+}: {
+  actionType: ActionType;
+  provider: MessagingProvider.TEAMS | MessagingProvider.TELEGRAM;
+}) {
+  const providerName =
+    provider === MessagingProvider.TEAMS ? "Teams" : "Telegram";
+
+  if (isDraftReplyActionType(actionType)) {
+    return "One-click draft editing and sending are Slack-only right now. Use Inbox Zero or Slack if you want to edit or send this draft from chat.";
+  }
+
+  return `Quick actions like archive and mark read are Slack-only right now, so this ${providerName} message is view-only.`;
 }
