@@ -983,10 +983,7 @@ function decodeSlackNotificationEntities(value: string) {
   return value
     .replaceAll("&quot;", '"')
     .replaceAll("&#39;", "'")
-    .replaceAll("&apos;", "'")
-    .replaceAll("&amp;", "&")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">");
+    .replaceAll("&apos;", "'");
 }
 
 function createProviderForContext(
