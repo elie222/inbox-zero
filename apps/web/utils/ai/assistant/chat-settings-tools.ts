@@ -280,7 +280,7 @@ const accountSettingsSnapshotRawSelect = {
         },
         {
           provider: MessagingProvider.TELEGRAM,
-          teamId: { not: "" },
+          OR: [{ teamId: { not: "" } }, { providerUserId: { not: null } }],
         },
       ],
     },

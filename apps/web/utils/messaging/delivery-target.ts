@@ -31,7 +31,7 @@ export function getMessagingDeliveryTargetWhere(): Prisma.MessagingChannelWhereI
       },
       {
         provider: MessagingProvider.TELEGRAM,
-        teamId: { not: "" },
+        OR: [{ teamId: { not: "" } }, { providerUserId: { not: null } }],
       },
     ],
   };

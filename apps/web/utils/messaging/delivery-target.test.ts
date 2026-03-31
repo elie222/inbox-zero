@@ -70,7 +70,7 @@ describe("hasMessagingDeliveryTarget", () => {
         },
         {
           provider: MessagingProvider.TELEGRAM,
-          teamId: { not: "" },
+          OR: [{ teamId: { not: "" } }, { providerUserId: { not: null } }],
         },
       ],
     });
