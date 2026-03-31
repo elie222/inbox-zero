@@ -3,6 +3,7 @@ import { withAuth } from "@/utils/middleware";
 import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { SCOPES } from "@/utils/gmail/scopes";
+import { hasActiveAccountLinkingUser } from "@/utils/oauth/account-linking";
 import {
   generateOAuthState,
   oauthStateCookieOptions,
@@ -27,6 +28,18 @@ const getAuthUrl = ({ userId }: { userId: string }) => {
 
 export const GET = withAuth("google/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
+  const hasActiveUser = await hasActiveAccountLinkingUser({
+    targetUserId: userId,
+    logger: request.logger,
+  });
+
+  if (!hasActiveUser) {
+    return NextResponse.json(
+      { error: "Unauthorized", isKnownError: true, redirectTo: "/logout" },
+      { status: 401 },
+    );
+  }
+
   const { url: authUrl, state } = getAuthUrl({ userId });
 
   const response = NextResponse.json({ url: authUrl });
