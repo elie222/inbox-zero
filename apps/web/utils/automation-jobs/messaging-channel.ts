@@ -22,21 +22,12 @@ export function isSupportedAutomationMessagingProvider(
   return SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS.includes(provider);
 }
 
-export function hasAutomationMessagingDestination(
-  channel: Pick<
-    AutomationMessagingChannel,
-    "provider" | "providerUserId" | "channelId"
-  >,
-) {
-  return hasMessagingDeliveryTarget(channel);
-}
-
 export function isAutomationMessagingChannelReady(
   channel: AutomationMessagingChannel,
 ) {
   if (!channel.isConnected) return false;
   if (!isSupportedAutomationMessagingProvider(channel.provider)) return false;
-  if (!hasAutomationMessagingDestination(channel)) return false;
+  if (!hasMessagingDeliveryTarget(channel)) return false;
 
   if (channel.provider === MessagingProvider.SLACK && !channel.accessToken) {
     return false;
