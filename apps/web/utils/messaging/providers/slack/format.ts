@@ -32,30 +32,23 @@ export function markdownToSlackMrkdwn(text: string): string {
 export function richTextToSlackMrkdwn(text: string): string {
   const links: string[] = [];
 
-  const normalized = stripHtmlTags(
-    text
-      .replace(
-        /<a\b[^>]*href=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi,
-        (_match, _quote, href: string, label: string) => {
-          const safeHref = sanitizeSlackLinkHref(href);
-          const safeLabel = sanitizeSlackText(
-            stripHtmlTags(label).trim() || href,
-          );
+  const normalized = normalizeSlackRichText(
+    text.replace(
+      /<a\b[^>]*href=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi,
+      (_match, _quote, href: string, label: string) => {
+        const safeHref = sanitizeSlackLinkHref(href);
+        const safeLabel = normalizeSlackRichText(label).trim() || href;
 
-          if (!safeHref) return safeLabel;
+        if (!safeHref) return safeLabel;
 
-          const token = `SLACK_LINK_TOKEN_${links.length}`;
-          links.push(`<${safeHref}|${safeLabel || safeHref}>`);
-          return token;
-        },
-      )
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/li>/gi, "\n")
-      .replace(/<\/(p|div|blockquote|section|article)>/gi, "\n")
-      .replace(/<li\b[^>]*>/gi, "• "),
+        const token = `SLACK_LINK_TOKEN_${links.length}`;
+        links.push(`<${safeHref}|${safeLabel || safeHref}>`);
+        return token;
+      },
+    ),
   ).trim();
 
-  const mrkdwn = markdownToSlackMrkdwn(sanitizeSlackText(normalized));
+  const mrkdwn = markdownToSlackMrkdwn(normalized);
 
   return links.reduce(
     (result, link, index) =>
@@ -64,12 +57,14 @@ export function richTextToSlackMrkdwn(text: string): string {
   );
 }
 
-function stripHtmlTags(text: string): string {
+function normalizeSlackRichText(text: string): string {
   let result = "";
 
   for (let index = 0; index < text.length; index += 1) {
-    if (text[index] !== "<") {
-      result += text[index];
+    const char = text[index];
+
+    if (char !== "<") {
+      result += escapeSlackTextCharacter(char);
       continue;
     }
 
@@ -80,21 +75,43 @@ function stripHtmlTags(text: string): string {
       (newlineIndex === -1 || closingIndex < newlineIndex);
 
     if (hasClosingTagOnSameLine) {
+      const tagName = getHtmlTagName(text.slice(index + 1, closingIndex));
+
+      if (tagName === "br" || tagName === "/li") {
+        result += "\n";
+      } else if (tagName === "li") {
+        result += "• ";
+      } else if (
+        tagName === "/p" ||
+        tagName === "/div" ||
+        tagName === "/blockquote" ||
+        tagName === "/section" ||
+        tagName === "/article"
+      ) {
+        result += "\n";
+      }
+
       index = closingIndex;
       continue;
     }
 
-    result += text[index];
+    result += "&lt;";
   }
 
   return result;
 }
 
-function sanitizeSlackText(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+function getHtmlTagName(tagContents: string): string {
+  const normalized = tagContents.trim().replace(/\/$/, "");
+  const match = normalized.match(/^\/?[a-z0-9-]+/i);
+  return match ? match[0].toLowerCase() : "";
+}
+
+function escapeSlackTextCharacter(char: string): string {
+  if (char === "&") return "&amp;";
+  if (char === ">") return "&gt;";
+  if (char === "<") return "&lt;";
+  return char;
 }
 
 function sanitizeSlackLinkHref(href: string): string | null {
