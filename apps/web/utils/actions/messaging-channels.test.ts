@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   createMessagingLinkCodeAction,
+  toggleRuleChannelAction,
   updateChannelFeaturesAction,
 } from "@/utils/actions/messaging-channels";
 
@@ -184,5 +185,55 @@ describe("updateChannelFeaturesAction", () => {
       "Please select a target channel before enabling features",
     );
     expect(prisma.messagingChannel.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("toggleRuleChannelAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      account: {
+        userId: "user-1",
+        provider: "google",
+      },
+    } as any);
+  });
+
+  it("allows Telegram notifications when the DM chat id is present", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-1",
+    } as any);
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-1",
+      provider: "TELEGRAM",
+      isConnected: true,
+      teamId: "telegram-chat-1",
+      providerUserId: null,
+      channelId: null,
+    } as any);
+
+    const result = await toggleRuleChannelAction("email-account-1" as any, {
+      ruleId: "rule-1",
+      messagingChannelId: "channel-1",
+      enabled: true,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.action.deleteMany).toHaveBeenCalledWith({
+      where: {
+        ruleId: "rule-1",
+        messagingChannelId: "channel-1",
+        type: { in: ["NOTIFY_MESSAGING_CHANNEL", "DRAFT_MESSAGING_CHANNEL"] },
+      },
+    });
+    expect(prisma.action.create).toHaveBeenCalledWith({
+      data: {
+        type: "NOTIFY_MESSAGING_CHANNEL",
+        ruleId: "rule-1",
+        messagingChannelId: "channel-1",
+      },
+    });
   });
 });
