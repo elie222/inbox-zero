@@ -838,11 +838,7 @@ function buildNotificationCard({
   actionType: ActionType;
   content: NotificationContent;
 }): CardElement {
-  const children: CardChild[] = [CardText(content.summary)];
-
-  if (content.preview) {
-    children.push(CardText(content.preview));
-  }
+  const children = buildNotificationCardBody(content);
 
   children.push(
     Actions(
@@ -900,6 +896,16 @@ function buildTerminalCard({
   });
 }
 
+function buildNotificationCardBody(content: NotificationContent): CardChild[] {
+  const children: CardChild[] = [CardText(content.summary)];
+
+  if (content.preview) {
+    children.push(CardText(content.preview));
+  }
+
+  return children;
+}
+
 function buildHandledNotificationCard({
   content,
   status,
@@ -907,12 +913,7 @@ function buildHandledNotificationCard({
   content: NotificationContent;
   status: string;
 }): CardElement {
-  const children: CardChild[] = [CardText(content.summary)];
-
-  if (content.preview) {
-    children.push(CardText(content.preview));
-  }
-
+  const children = buildNotificationCardBody(content);
   children.push(CardText(`Status: ${status}`));
 
   return Card({

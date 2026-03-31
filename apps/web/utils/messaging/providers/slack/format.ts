@@ -30,19 +30,61 @@ export function markdownToSlackMrkdwn(text: string): string {
  * converting the result to Slack mrkdwn.
  */
 export function richTextToSlackMrkdwn(text: string): string {
-  return markdownToSlackMrkdwn(
-    text
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/(p|div|blockquote|section|article)>/gi, "\n")
-      .replace(/<li\b[^>]*>/gi, "• ")
-      .replace(
-        /<a\b[^>]*href=(["'])(.*?)\1[^>]*>(.*?)<\/a>/gis,
-        (_match, _quote, href: string, label: string) => {
-          const normalizedLabel = label.replace(/<[^>]+>/g, "").trim() || href;
-          return `[${normalizedLabel}](${href})`;
-        },
-      )
-      .replace(/<[^>]+>/g, "")
-      .trim(),
+  const links: string[] = [];
+
+  const normalized = text
+    .replace(
+      /<a\b[^>]*href=(["'])(.*?)\1[^>]*>(.*?)<\/a>/gis,
+      (_match, _quote, href: string, label: string) => {
+        const safeHref = sanitizeSlackLinkHref(href);
+        const safeLabel = sanitizeSlackText(
+          stripHtmlTags(label).trim() || href,
+        );
+
+        if (!safeHref) return safeLabel;
+
+        const token = `SLACK_LINK_TOKEN_${links.length}`;
+        links.push(`<${safeHref}|${safeLabel || safeHref}>`);
+        return token;
+      },
+    )
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<\/(p|div|blockquote|section|article)>/gi, "\n")
+    .replace(/<li\b[^>]*>/gi, "• ")
+    .replace(/<[^>\n]+>/g, "")
+    .trim();
+
+  const mrkdwn = markdownToSlackMrkdwn(sanitizeSlackText(normalized));
+
+  return links.reduce(
+    (result, link, index) =>
+      result.replaceAll(`SLACK_LINK_TOKEN_${index}`, link),
+    mrkdwn,
   );
+}
+
+function stripHtmlTags(text: string): string {
+  return text.replace(/<[^>\n]+>/g, "");
+}
+
+function sanitizeSlackText(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function sanitizeSlackLinkHref(href: string): string | null {
+  try {
+    const url = new URL(href);
+
+    if (!["http:", "https:", "mailto:"].includes(url.protocol)) {
+      return null;
+    }
+
+    return url.toString().replace(/[|<>]/g, encodeURIComponent);
+  } catch {
+    return null;
+  }
 }

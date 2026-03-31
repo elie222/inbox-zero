@@ -116,4 +116,16 @@ describe("richTextToSlackMrkdwn", () => {
       ),
     ).toBe("Hello there\nSecond line\nThird line");
   });
+
+  it("separates adjacent list items", () => {
+    expect(
+      richTextToSlackMrkdwn("<ul><li>First item</li><li>Second item</li></ul>"),
+    ).toBe("• First item\n• Second item");
+  });
+
+  it("escapes unmatched angle brackets in plain text", () => {
+    expect(richTextToSlackMrkdwn("Hello <script world")).toBe(
+      "Hello &lt;script world",
+    );
+  });
 });
