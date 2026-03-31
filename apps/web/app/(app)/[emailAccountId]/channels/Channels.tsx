@@ -703,19 +703,6 @@ function RuleToggle({
       </ItemContent>
       <ItemActions>
         <div className="flex items-center gap-1">
-          <Toggle
-            name={`rule-${rule.id}-${channelId}`}
-            enabled={enabled}
-            disabled={isExecuting}
-            onChange={(value) =>
-              execute({
-                ruleId: rule.id,
-                messagingChannelId: channelId,
-                enabled: value,
-                actionType: value ? defaultActionType : undefined,
-              })
-            }
-          />
           {enabled && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -748,6 +735,19 @@ function RuleToggle({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          <Toggle
+            name={`rule-${rule.id}-${channelId}`}
+            enabled={enabled}
+            disabled={isExecuting}
+            onChange={(value) =>
+              execute({
+                ruleId: rule.id,
+                messagingChannelId: channelId,
+                enabled: value,
+                actionType: value ? defaultActionType : undefined,
+              })
+            }
+          />
         </div>
       </ItemActions>
     </Item>
