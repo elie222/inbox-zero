@@ -73,7 +73,7 @@ async function watchAllEmails(logger: Logger) {
 
       const userHasAiAccess = hasAiAccess(
         emailAccount.user.premium?.tier || null,
-        emailAccount.user.aiApiKey,
+        !!emailAccount.user.aiApiKey,
       );
 
       if (!userHasAiAccess) {

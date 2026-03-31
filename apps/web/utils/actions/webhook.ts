@@ -12,6 +12,8 @@ export const regenerateWebhookSecretAction = actionClientUser
       where: { id: userId },
       data: { webhookSecret },
     });
+
+    return { webhookSecret };
   });
 
 function generateWebhookSecret(length = 32) {

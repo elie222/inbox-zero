@@ -72,8 +72,12 @@ async function getUser({
     })),
   );
 
+  const { aiApiKey, webhookSecret, ...publicUser } = user;
+
   return {
-    ...user,
+    ...publicUser,
+    hasAiApiKey: !!aiApiKey,
+    hasWebhookSecret: !!webhookSecret,
     members,
   };
 }

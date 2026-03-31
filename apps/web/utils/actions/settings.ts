@@ -53,12 +53,32 @@ export const updateAiSettingsAction = actionClientUser
         );
       }
 
+      const providedAiApiKey = aiApiKey?.trim() || null;
+
+      let nextAiApiKey: string | null = providedAiApiKey;
+
+      if (!nextAiApiKey && aiProvider !== DEFAULT_PROVIDER) {
+        const existingUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { aiProvider: true, aiApiKey: true },
+        });
+
+        if (!existingUser) throw new SafeError("User not found");
+
+        nextAiApiKey =
+          existingUser.aiProvider === aiProvider ? existingUser.aiApiKey : null;
+
+        if (!nextAiApiKey) {
+          throw new SafeError("You must provide an API key for this provider");
+        }
+      }
+
       const result = await prisma.user.updateMany({
         where: { id: userId },
         data:
           aiProvider === DEFAULT_PROVIDER
             ? { aiProvider: null, aiModel: null, aiApiKey: null }
-            : { aiProvider, aiModel, aiApiKey },
+            : { aiProvider, aiModel, aiApiKey: nextAiApiKey },
       });
 
       if (result.count === 0) {

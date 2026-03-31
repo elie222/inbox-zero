@@ -34,7 +34,7 @@ export function ModelSection() {
 
   const { data: dataModels, isLoading: isLoadingModels } =
     useSWR<OpenAiModelsResponse>(
-      data?.aiApiKey && data.aiProvider === Provider.OPEN_AI
+      data?.hasAiApiKey && data.aiProvider === Provider.OPEN_AI
         ? "/api/ai/models"
         : null,
     );
@@ -46,7 +46,7 @@ export function ModelSection() {
           <ModelSectionForm
             aiProvider={data.aiProvider}
             aiModel={data.aiModel}
-            aiApiKey={data.aiApiKey}
+            hasAiApiKey={data.hasAiApiKey}
             models={dataModels}
             refetchUser={mutate}
             emailAccountId={emailAccountId}
@@ -60,7 +60,7 @@ export function ModelSection() {
 function ModelSectionForm(props: {
   aiProvider: SaveAiSettingsBody["aiProvider"] | null;
   aiModel: SaveAiSettingsBody["aiModel"] | null;
-  aiApiKey: SaveAiSettingsBody["aiApiKey"] | null;
+  hasAiApiKey: boolean;
   models?: OpenAiModelsResponse;
   refetchUser: () => void;
   emailAccountId: string;
@@ -77,11 +77,15 @@ function ModelSectionForm(props: {
     defaultValues: {
       aiProvider: props.aiProvider ?? DEFAULT_PROVIDER,
       aiModel: props.aiModel ?? "",
-      aiApiKey: props.aiApiKey ?? undefined,
+      aiApiKey: undefined,
     },
   });
 
   const aiProvider = watch("aiProvider");
+  const aiApiKey = watch("aiApiKey");
+  const hasStoredAiApiKey =
+    props.hasAiApiKey && props.aiProvider === aiProvider;
+  const hasAnyApiKey = !!aiApiKey || hasStoredAiApiKey;
 
   const onSubmit: SubmitHandler<SaveAiSettingsBody> = useCallback(
     async (data) => {
@@ -89,7 +93,7 @@ function ModelSectionForm(props: {
 
       if (res?.serverError) {
         toastError({
-          description: "There was an error updating the settings.",
+          description: res.serverError,
         });
       } else {
         toastSuccess({
@@ -106,7 +110,7 @@ function ModelSectionForm(props: {
   const globalError = (errors as Record<string, { message?: string }>)[""];
 
   const modelSelectOptions =
-    aiProvider === Provider.OPEN_AI && watch("aiApiKey")
+    aiProvider === Provider.OPEN_AI && hasAnyApiKey
       ? props.models?.map((model) => ({
           label: model.id,
           value: model.id,
@@ -122,7 +126,7 @@ function ModelSectionForm(props: {
         error={errors.aiProvider}
       />
 
-      {watch("aiProvider") !== DEFAULT_PROVIDER && (
+      {aiProvider !== DEFAULT_PROVIDER && (
         <>
           {modelSelectOptions.length ? (
             <Select
@@ -147,6 +151,16 @@ function ModelSectionForm(props: {
             label="API Key"
             registerProps={register("aiApiKey")}
             error={errors.aiApiKey}
+            placeholder={
+              hasStoredAiApiKey
+                ? "Leave blank to keep the current key"
+                : undefined
+            }
+            explainText={
+              hasStoredAiApiKey
+                ? "Leave this blank to keep the current API key, or enter a new key to replace it."
+                : undefined
+            }
           />
         </>
       )}
@@ -155,10 +169,10 @@ function ModelSectionForm(props: {
         <AlertError title="Error saving" description={globalError.message} />
       )}
 
-      {watch("aiProvider") === Provider.OPEN_AI &&
-        watch("aiApiKey") &&
+      {aiProvider === Provider.OPEN_AI &&
+        hasAnyApiKey &&
         modelSelectOptions.length === 0 &&
-        (props.aiApiKey ? (
+        (hasStoredAiApiKey ? (
           <AlertError
             title="Invalid API Key"
             description="We couldn't validate your API key. Please try again."

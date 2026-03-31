@@ -186,7 +186,10 @@ export async function validateWebhookAccount(
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
 
-  const userHasAiAccess = hasAiAccess(premium.tier, emailAccount.user.aiApiKey);
+  const userHasAiAccess = hasAiAccess(
+    premium.tier,
+    !!emailAccount.user.aiApiKey,
+  );
 
   if (!userHasAiAccess) {
     logger.info("Does not have ai access - unwatching", {
