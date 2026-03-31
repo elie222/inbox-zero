@@ -797,10 +797,7 @@ function buildNotificationContent({
 }): NotificationContent {
   if (isDraftReplyActionType(actionType)) {
     const senderName = extractNameFromEmail(email.headers.from);
-    const subject = truncate(
-      decodeSlackNotificationEntities(email.headers.subject),
-      80,
-    );
+    const subject = truncate(he.decode(email.headers.subject), 80);
 
     return {
       title: "Draft reply",
@@ -937,9 +934,7 @@ function buildDraftPreview(content?: string | null) {
   if (!content?.trim()) return "No draft preview available.";
 
   return truncate(
-    removeExcessiveWhitespace(
-      richTextToSlackMrkdwn(decodeSlackNotificationEntities(content)),
-    ).trim(),
+    removeExcessiveWhitespace(richTextToSlackMrkdwn(he.decode(content))).trim(),
     DRAFT_PREVIEW_MAX_CHARS,
   );
 }
@@ -985,10 +980,6 @@ function buildNotificationDetailSection({
   if (!normalizedValue) return null;
 
   return `*${label}*\n${normalizedValue}`;
-}
-
-function decodeSlackNotificationEntities(value: string) {
-  return he.decode(value);
 }
 
 function createProviderForContext(
