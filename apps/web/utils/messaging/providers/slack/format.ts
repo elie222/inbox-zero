@@ -32,28 +32,28 @@ export function markdownToSlackMrkdwn(text: string): string {
 export function richTextToSlackMrkdwn(text: string): string {
   const links: string[] = [];
 
-  const normalized = text
-    .replace(
-      /<a\b[^>]*href=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi,
-      (_match, _quote, href: string, label: string) => {
-        const safeHref = sanitizeSlackLinkHref(href);
-        const safeLabel = sanitizeSlackText(
-          stripHtmlTags(label).trim() || href,
-        );
+  const normalized = stripHtmlTags(
+    text
+      .replace(
+        /<a\b[^>]*href=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi,
+        (_match, _quote, href: string, label: string) => {
+          const safeHref = sanitizeSlackLinkHref(href);
+          const safeLabel = sanitizeSlackText(
+            stripHtmlTags(label).trim() || href,
+          );
 
-        if (!safeHref) return safeLabel;
+          if (!safeHref) return safeLabel;
 
-        const token = `SLACK_LINK_TOKEN_${links.length}`;
-        links.push(`<${safeHref}|${safeLabel || safeHref}>`);
-        return token;
-      },
-    )
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<\/(p|div|blockquote|section|article)>/gi, "\n")
-    .replace(/<li\b[^>]*>/gi, "• ")
-    .replace(/<[^>\n]+>/g, "")
-    .trim();
+          const token = `SLACK_LINK_TOKEN_${links.length}`;
+          links.push(`<${safeHref}|${safeLabel || safeHref}>`);
+          return token;
+        },
+      )
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/li>/gi, "\n")
+      .replace(/<\/(p|div|blockquote|section|article)>/gi, "\n")
+      .replace(/<li\b[^>]*>/gi, "• "),
+  ).trim();
 
   const mrkdwn = markdownToSlackMrkdwn(sanitizeSlackText(normalized));
 
@@ -65,7 +65,29 @@ export function richTextToSlackMrkdwn(text: string): string {
 }
 
 function stripHtmlTags(text: string): string {
-  return text.replace(/<[^>\n]+>/g, "");
+  let result = "";
+
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] !== "<") {
+      result += text[index];
+      continue;
+    }
+
+    const closingIndex = text.indexOf(">", index + 1);
+    const newlineIndex = text.indexOf("\n", index + 1);
+    const hasClosingTagOnSameLine =
+      closingIndex !== -1 &&
+      (newlineIndex === -1 || closingIndex < newlineIndex);
+
+    if (hasClosingTagOnSameLine) {
+      index = closingIndex;
+      continue;
+    }
+
+    result += text[index];
+  }
+
+  return result;
 }
 
 function sanitizeSlackText(text: string): string {
