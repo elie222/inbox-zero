@@ -61,7 +61,7 @@ export function richTextToSlackMrkdwn(text: string): string {
 }
 
 function normalizeSlackRichText(text: string): string {
-  let result = "";
+  const parts: string[] = [];
 
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
@@ -70,13 +70,13 @@ function normalizeSlackRichText(text: string): string {
       if (char === "&") {
         const entity = readHtmlEntity(text, index);
         if (entity) {
-          result += entity;
+          parts.push(entity);
           index += entity.length - 1;
           continue;
         }
       }
 
-      result += escapeSlackTextCharacter(char);
+      parts.push(escapeSlackTextCharacter(char));
       continue;
     }
 
@@ -90,9 +90,9 @@ function normalizeSlackRichText(text: string): string {
       const tagName = getHtmlTagName(text.slice(index + 1, closingIndex));
 
       if (tagName === "br" || tagName === "/li") {
-        result += "\n";
+        parts.push("\n");
       } else if (tagName === "li") {
-        result += "• ";
+        parts.push("• ");
       } else if (
         tagName === "p" ||
         tagName === "div" ||
@@ -112,19 +112,19 @@ function normalizeSlackRichText(text: string): string {
         tagName === "/ul" ||
         tagName === "/ol"
       ) {
-        result += "\n";
+        parts.push("\n");
       } else {
-        result += escapeSlackText(text.slice(index, closingIndex + 1));
+        parts.push(escapeSlackText(text.slice(index, closingIndex + 1)));
       }
 
       index = closingIndex;
       continue;
     }
 
-    result += "&lt;";
+    parts.push("&lt;");
   }
 
-  return result;
+  return parts.join("");
 }
 
 function getHtmlTagName(tagContents: string): string {
@@ -134,13 +134,11 @@ function getHtmlTagName(tagContents: string): string {
 }
 
 function escapeSlackText(text: string): string {
-  let result = "";
-
-  for (const char of text) {
-    result += escapeSlackTextCharacter(char);
-  }
-
-  return result;
+  return text.replace(/[&<>]/g, (char) => {
+    if (char === "&") return "&amp;";
+    if (char === "<") return "&lt;";
+    return "&gt;";
+  });
 }
 
 function escapeSlackTextCharacter(char: string): string {
