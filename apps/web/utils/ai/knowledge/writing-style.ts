@@ -71,7 +71,7 @@ ${getUserInfoPrompt({ emailAccount })}`;
     emailAccount,
     label: "Writing Style Analysis",
     modelOptions,
-    promptHardening: { trust: "trusted" },
+    promptHardening: { trust: "untrusted", level: "none" },
   });
 
   const result = await generateObject({

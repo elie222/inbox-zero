@@ -84,7 +84,7 @@ ${getUserInfoPrompt({ emailAccount })}`;
       emailAccount,
       label: "Summarize email",
       modelOptions,
-      promptHardening: { trust: "untrusted", level: "none" },
+      promptHardening: { trust: "untrusted", level: "compact" },
     });
 
     const aiResponse = await generateObject({
