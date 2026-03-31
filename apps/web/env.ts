@@ -31,7 +31,7 @@ const getBaseUrl = (): string | undefined => {
   return process.env.NEXT_PUBLIC_BASE_URL;
 };
 
-export const env = createEnv({
+const parsedEnv = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
     DATABASE_URL: z.string().url(),
@@ -380,3 +380,11 @@ export const env = createEnv({
     NEXT_PUBLIC_TABS_EXTENSION_ID: process.env.NEXT_PUBLIC_TABS_EXTENSION_ID,
   },
 });
+
+if (parsedEnv.TELEGRAM_BOT_TOKEN && !parsedEnv.TELEGRAM_BOT_SECRET_TOKEN) {
+  throw new Error(
+    "TELEGRAM_BOT_SECRET_TOKEN is required when TELEGRAM_BOT_TOKEN is set.",
+  );
+}
+
+export const env = parsedEnv;
