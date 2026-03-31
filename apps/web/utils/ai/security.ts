@@ -54,7 +54,7 @@ export function applyPromptHardeningToMessages({
 }: {
   messages: ModelMessage[];
   promptHardening: PromptHardening;
-}) {
+}): ModelMessage[] {
   const hardeningText = buildPromptHardeningText(promptHardening);
   if (!hardeningText) return messages;
 
@@ -76,7 +76,7 @@ export function applyPromptHardeningToMessages({
     {
       role: "system",
       content: hardeningText,
-    },
+    } satisfies ModelMessage,
     ...messages,
   ];
 }
