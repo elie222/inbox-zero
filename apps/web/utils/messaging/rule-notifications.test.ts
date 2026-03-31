@@ -108,8 +108,8 @@ describe("handleSlackRuleNotificationAction", () => {
     const cardText = JSON.stringify(card);
 
     expect(cardText).toContain("Draft reply");
-    expect(cardText).toContain("*From:* sender@example.com");
-    expect(cardText).toContain("*Subject:* Test subject");
+    expect(cardText).toContain("*sender@example.com*");
+    expect(cardText).toContain('re \\"Test subject\\"');
     expect(cardText).toContain("*Original email*");
     expect(cardText).toContain("Original message body");
     expect(cardText).toContain("*Draft reply*");

@@ -38,7 +38,9 @@ import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import { formatReplySubject } from "@/utils/email/subject";
 import { extractDraftPlainText } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
+import he from "he";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import { extractNameFromEmail } from "@/utils/email";
 
 const DRAFT_PREVIEW_MAX_CHARS = 900;
 const SUMMARY_PREVIEW_MAX_CHARS = 280;
@@ -794,9 +796,15 @@ function buildNotificationContent({
   draftContent?: string | null;
 }): NotificationContent {
   if (isDraftReplyActionType(actionType)) {
+    const senderName = extractNameFromEmail(email.headers.from);
+    const subject = truncate(
+      decodeSlackNotificationEntities(email.headers.subject),
+      80,
+    );
+
     return {
       title: "Draft reply",
-      summary: buildEmailSummary(email),
+      summary: `You received an email from *${senderName}* re "${subject}". Here's a drafted reply:`,
       details: [
         buildNotificationDetailSection({
           label: "Original email",
@@ -980,10 +988,7 @@ function buildNotificationDetailSection({
 }
 
 function decodeSlackNotificationEntities(value: string) {
-  return value
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'")
-    .replaceAll("&apos;", "'");
+  return he.decode(value);
 }
 
 function createProviderForContext(
