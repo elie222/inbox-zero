@@ -17,7 +17,10 @@ import {
   isSlackDmChannel,
   resolveSlackDestination,
 } from "@/utils/messaging/providers/slack/send";
-import { richTextToSlackMrkdwn } from "@/utils/messaging/providers/slack/format";
+import {
+  escapeSlackText,
+  richTextToSlackMrkdwn,
+} from "@/utils/messaging/providers/slack/format";
 import {
   ActionType,
   MessagingMessageStatus,
@@ -38,7 +41,9 @@ import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import { formatReplySubject } from "@/utils/email/subject";
 import { extractDraftPlainText } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
+import he from "he";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import { extractNameFromEmail } from "@/utils/email";
 
 const DRAFT_PREVIEW_MAX_CHARS = 900;
 const SUMMARY_PREVIEW_MAX_CHARS = 280;
@@ -794,19 +799,27 @@ function buildNotificationContent({
   draftContent?: string | null;
 }): NotificationContent {
   if (isDraftReplyActionType(actionType)) {
+    const senderName = escapeSlackText(
+      extractNameFromEmail(email.headers.from),
+    );
+    const subject = escapeSlackText(
+      truncate(he.decode(email.headers.subject), 80),
+    );
+
+    const emailPreview = buildEmailPreview(email);
+    const draftPreview = buildDraftPreview(draftContent);
+
+    const parts = [`You got an email from *${senderName}* about "${subject}".`];
+
+    if (emailPreview) {
+      parts.push(`They wrote:\n${blockquote(emailPreview)}`);
+    }
+
+    parts.push(`I drafted a reply for you:\n${blockquote(draftPreview)}`);
+
     return {
       title: "Draft reply",
-      summary: buildEmailSummary(email),
-      details: [
-        buildNotificationDetailSection({
-          label: "Original email",
-          value: buildEmailPreview(email),
-        }),
-        buildNotificationDetailSection({
-          label: "Draft reply",
-          value: buildDraftPreview(draftContent),
-        }),
-      ].filter(Boolean) as string[],
+      summary: parts.join("\n\n"),
     };
   }
 
@@ -929,9 +942,7 @@ function buildDraftPreview(content?: string | null) {
   if (!content?.trim()) return "No draft preview available.";
 
   return truncate(
-    removeExcessiveWhitespace(
-      richTextToSlackMrkdwn(decodeSlackNotificationEntities(content)),
-    ).trim(),
+    removeExcessiveWhitespace(richTextToSlackMrkdwn(he.decode(content))).trim(),
     DRAFT_PREVIEW_MAX_CHARS,
   );
 }
@@ -977,13 +988,6 @@ function buildNotificationDetailSection({
   if (!normalizedValue) return null;
 
   return `*${label}*\n${normalizedValue}`;
-}
-
-function decodeSlackNotificationEntities(value: string) {
-  return value
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'")
-    .replaceAll("&apos;", "'");
 }
 
 function createProviderForContext(
@@ -1210,4 +1214,11 @@ function toCalendarPreviewMessage(
     textPlain: email.textPlain,
     threadId: "",
   };
+}
+
+function blockquote(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => `>${line}`)
+    .join("\n");
 }

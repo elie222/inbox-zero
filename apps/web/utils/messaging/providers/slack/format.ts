@@ -133,7 +133,7 @@ function getHtmlTagName(tagContents: string): string {
   return match ? match[0].toLowerCase() : "";
 }
 
-function escapeSlackText(text: string): string {
+export function escapeSlackText(text: string): string {
   return text.replace(/[&<>]/g, (char) => {
     if (char === "&") return "&amp;";
     if (char === "<") return "&lt;";
