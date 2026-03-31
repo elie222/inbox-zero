@@ -90,7 +90,7 @@ export async function sendFilingSlackNotifications({
       case MessagingProvider.TEAMS:
       case MessagingProvider.TELEGRAM: {
         deliveryPromises.push(
-          sendAutomationMessage({
+          sendFilingNotificationToMessagingApp({
             channel,
             text: filing.wasAsked
               ? formatDocumentAskText({
@@ -118,6 +118,27 @@ export async function sendFilingSlackNotifications({
       reason: (failure as PromiseRejectedResult).reason,
     });
   }
+}
+
+async function sendFilingNotificationToMessagingApp({
+  channel,
+  text,
+  logger,
+}: {
+  channel: {
+    provider: MessagingProvider;
+    accessToken: string | null;
+    channelId: string | null;
+    providerUserId: string | null;
+  };
+  text: string;
+  logger: Logger;
+}) {
+  await sendAutomationMessage({
+    channel,
+    text,
+    logger,
+  });
 }
 
 function formatDocumentAskText({
