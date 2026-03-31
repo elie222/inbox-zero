@@ -932,6 +932,12 @@ async function handlePendingEmailConfirmAction({
     return;
   }
 
+  const pendingToolPart = await getPendingEmailToolPartForAction({
+    chatId,
+    chatMessageId: pendingAction.chatMessageId,
+    toolCallId: pendingAction.toolCallId,
+  });
+
   try {
     const confirmation = await confirmAssistantEmailActionForAccount({
       chatId,
@@ -948,6 +954,20 @@ async function handlePendingEmailConfirmAction({
       accountEmail: emailAccount.email,
       accountProvider: emailAccount.account.provider,
     });
+
+    if (
+      pendingToolPart &&
+      (await replacePendingEmailConfirmationCard({
+        accountEmail: emailAccount.email,
+        accountProvider: emailAccount.account.provider,
+        confirmationResult: confirmation.confirmationResult,
+        event,
+        logger,
+        part: pendingToolPart,
+      }))
+    ) {
+      return;
+    }
 
     await postPendingEmailActionFeedback({
       event,
@@ -1031,6 +1051,44 @@ async function postPendingEmailCard({
       error,
       provider,
       actionType,
+    });
+    return false;
+  }
+}
+
+async function replacePendingEmailConfirmationCard({
+  accountEmail,
+  accountProvider,
+  confirmationResult,
+  event,
+  logger,
+  part,
+}: {
+  accountEmail?: string | null;
+  accountProvider?: string | null;
+  confirmationResult?: {
+    messageId?: string | null;
+    threadId?: string | null;
+  } | null;
+  event: ActionEvent;
+  logger: Logger;
+  part: PendingEmailToolPart;
+}) {
+  try {
+    await event.adapter.editMessage(
+      event.threadId,
+      event.messageId,
+      buildHandledPendingEmailCard({
+        accountEmail,
+        accountProvider,
+        confirmationResult,
+        part,
+      }),
+    );
+    return true;
+  } catch (error) {
+    logger.warn("Failed to replace messaging pending email confirmation card", {
+      error,
     });
     return false;
   }
@@ -1182,6 +1240,104 @@ function buildPendingEmailSuccessFeedback({
   const mailbox = accountProvider === "microsoft" ? "Outlook" : "Gmail";
 
   return `Sent. Open in ${mailbox}: ${emailUrl}`;
+}
+
+function buildHandledPendingEmailCard({
+  accountEmail,
+  accountProvider,
+  confirmationResult,
+  part,
+}: {
+  accountEmail?: string | null;
+  accountProvider?: string | null;
+  confirmationResult?: {
+    messageId?: string | null;
+    threadId?: string | null;
+  } | null;
+  part: PendingEmailToolPart;
+}) {
+  const actionType = pendingActionTypeFromToolPartType(part.type);
+  const subject = part.output?.pendingAction?.subject?.trim();
+  const to = part.output?.pendingAction?.to?.trim();
+  const referenceFrom = part.output?.reference?.from?.trim() || undefined;
+  const referenceSubject = part.output?.reference?.subject?.trim() || undefined;
+  const summary = buildPendingEmailSummary({
+    actionType,
+    to,
+    subject,
+    referenceFrom,
+    referenceSubject,
+  });
+  const preview = buildPendingEmailPreview(part);
+  const children: CardChild[] = [CardText(summary)];
+
+  if (preview) {
+    children.push(CardText(preview));
+  }
+
+  children.push(
+    CardText(`Status: ${getPendingEmailHandledStatus(actionType)}`),
+  );
+
+  const openText = getPendingEmailHandledOpenText({
+    accountEmail,
+    accountProvider,
+    confirmationResult,
+  });
+  if (openText) {
+    children.push(CardText(openText));
+  }
+
+  return Card({
+    title: getPendingEmailHandledTitle(actionType),
+    children,
+  });
+}
+
+export function getPendingEmailHandledTitle(
+  actionType: AssistantPendingEmailActionType,
+) {
+  if (actionType === "send_email") return "Email sent";
+  if (actionType === "reply_email") return "Reply sent";
+  return "Email forwarded";
+}
+
+export function getPendingEmailHandledStatus(
+  actionType: AssistantPendingEmailActionType,
+) {
+  if (actionType === "send_email") return "Email sent.";
+  if (actionType === "reply_email") return "Reply sent.";
+  return "Email forwarded.";
+}
+
+export function getPendingEmailHandledOpenText({
+  accountEmail,
+  accountProvider,
+  confirmationResult,
+}: {
+  accountEmail?: string | null;
+  accountProvider?: string | null;
+  confirmationResult?: {
+    messageId?: string | null;
+    threadId?: string | null;
+  } | null;
+}) {
+  const messageId = confirmationResult?.messageId || undefined;
+  const threadId = confirmationResult?.threadId || undefined;
+  const resolvedMessageId = messageId || threadId;
+  const resolvedThreadId = threadId || messageId;
+
+  if (!resolvedMessageId || !resolvedThreadId) return null;
+
+  const emailUrl = getEmailUrlForMessage(
+    resolvedMessageId,
+    resolvedThreadId,
+    accountEmail,
+    accountProvider || undefined,
+  );
+  const mailbox = accountProvider === "microsoft" ? "Outlook" : "Gmail";
+
+  return `Open in ${mailbox}: ${emailUrl}`;
 }
 
 function getSlackTeamIdFromActionRaw(raw: unknown): string | null {
@@ -1389,6 +1545,47 @@ async function resolvePendingEmailActionFromToken({
         toolCallId: part.toolCallId,
       };
     }
+  }
+
+  return null;
+}
+
+async function getPendingEmailToolPartForAction({
+  chatId,
+  chatMessageId,
+  toolCallId,
+}: {
+  chatId: string;
+  chatMessageId: string;
+  toolCallId: string;
+}): Promise<PendingEmailToolPart | null> {
+  const chatMessage = await prisma.chatMessage.findFirst({
+    where: { id: chatMessageId, chatId },
+    select: { parts: true },
+  });
+
+  if (!chatMessage || !Array.isArray(chatMessage.parts)) return null;
+
+  return getEmailToolPartByToolCallId(chatMessage.parts, toolCallId);
+}
+
+function getEmailToolPartByToolCallId(
+  parts: unknown[],
+  toolCallId: string,
+): PendingEmailToolPart | null {
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index] as PendingEmailToolPart | undefined;
+    if (!part || part.state !== "output-available") continue;
+    if (part.toolCallId !== toolCallId) continue;
+    if (
+      part.type !== "tool-sendEmail" &&
+      part.type !== "tool-replyEmail" &&
+      part.type !== "tool-forwardEmail"
+    ) {
+      continue;
+    }
+
+    return part;
   }
 
   return null;
