@@ -274,9 +274,13 @@ const accountSettingsSnapshotRawSelect = {
         },
         {
           provider: {
-            in: [MessagingProvider.TEAMS, MessagingProvider.TELEGRAM],
+            in: [MessagingProvider.TEAMS],
           },
           providerUserId: { not: null },
+        },
+        {
+          provider: MessagingProvider.TELEGRAM,
+          OR: [{ teamId: { not: "" } }, { providerUserId: { not: null } }],
         },
       ],
     },
@@ -286,6 +290,7 @@ const accountSettingsSnapshotRawSelect = {
       channelName: true,
       teamName: true,
       isConnected: true,
+      teamId: true,
       providerUserId: true,
       channelId: true,
     },

@@ -14,7 +14,12 @@ export async function sendAutomationMessage({
 }: {
   channel: Pick<
     AutomationMessagingChannel,
-    "provider" | "accessToken" | "botUserId" | "providerUserId" | "channelId"
+    | "provider"
+    | "accessToken"
+    | "botUserId"
+    | "providerUserId"
+    | "channelId"
+    | "teamId"
   >;
   text: string;
   logger: Logger;
@@ -36,6 +41,7 @@ export async function sendAutomationMessage({
     }
     case MessagingProvider.TELEGRAM: {
       return sendAutomationMessageToTelegram({
+        teamId: channel.teamId,
         providerUserId: channel.providerUserId,
         text,
         logger,
@@ -100,17 +106,21 @@ async function sendAutomationMessageToTeams({
 }
 
 async function sendAutomationMessageToTelegram({
+  teamId,
   providerUserId,
   text,
   logger,
 }: {
+  teamId: string | null | undefined;
   providerUserId: string | null;
   text: string;
   logger: Logger;
 }) {
-  if (!providerUserId) {
+  const destination = teamId || providerUserId;
+
+  if (!destination) {
     throw new AutomationJobConfigurationError(
-      "Telegram channel is missing provider user ID",
+      "Telegram channel is missing a direct-message target",
     );
   }
 
@@ -133,12 +143,12 @@ async function sendAutomationMessageToTelegram({
 
   const telegramLogger = logger.with({
     component: "sendAutomationMessageToTelegram",
-    destination: providerUserId,
+    destination,
   });
 
   telegramLogger.info("Sending Telegram automation message");
 
-  const threadId = await telegramAdapter.openDM(providerUserId);
+  const threadId = await telegramAdapter.openDM(destination);
   const response = await telegramAdapter.postMessage(threadId, text);
 
   telegramLogger.info("Telegram automation message sent");

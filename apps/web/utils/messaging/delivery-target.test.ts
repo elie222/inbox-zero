@@ -36,7 +36,18 @@ describe("hasMessagingDeliveryTarget", () => {
     ).toBe(true);
   });
 
-  it("rejects Telegram channels without a linked user", () => {
+  it("accepts Telegram channels with a persisted DM chat id", () => {
+    expect(
+      hasMessagingDeliveryTarget({
+        provider: MessagingProvider.TELEGRAM,
+        providerUserId: null,
+        teamId: "telegram-chat-1",
+        channelId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects Telegram channels without a direct-message target", () => {
     expect(
       hasMessagingDeliveryTarget({
         provider: MessagingProvider.TELEGRAM,
@@ -59,7 +70,7 @@ describe("hasMessagingDeliveryTarget", () => {
         },
         {
           provider: MessagingProvider.TELEGRAM,
-          providerUserId: { not: null },
+          OR: [{ teamId: { not: "" } }, { providerUserId: { not: null } }],
         },
       ],
     });

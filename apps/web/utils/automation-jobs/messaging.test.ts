@@ -50,7 +50,7 @@ describe("automation job messaging channel helpers", () => {
     ).toBe(false);
   });
 
-  it("requires providerUserId for Teams and Telegram destinations", () => {
+  it("requires providerUserId for Teams destinations", () => {
     expect(
       hasMessagingDeliveryTarget({
         provider: MessagingProvider.TEAMS,
@@ -62,6 +62,14 @@ describe("automation job messaging channel helpers", () => {
       hasMessagingDeliveryTarget({
         provider: MessagingProvider.TELEGRAM,
         providerUserId: "12345",
+        channelId: null,
+      }),
+    ).toBe(true);
+    expect(
+      hasMessagingDeliveryTarget({
+        provider: MessagingProvider.TELEGRAM,
+        providerUserId: null,
+        teamId: "telegram-chat-1",
         channelId: null,
       }),
     ).toBe(true);
@@ -112,7 +120,8 @@ describe("automation job messaging channel helpers", () => {
         provider: MessagingProvider.TELEGRAM,
         isConnected: true,
         accessToken: null,
-        providerUserId: "12345",
+        providerUserId: null,
+        teamId: "telegram-chat-1",
         channelId: null,
       }),
     ).toBe(true);

@@ -327,6 +327,7 @@ export const toggleRuleChannelAction = actionClient
             emailAccountId: true,
             isConnected: true,
             provider: true,
+            teamId: true,
             channelId: true,
             providerUserId: true,
           },
