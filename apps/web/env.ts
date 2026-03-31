@@ -381,7 +381,7 @@ const parsedEnv = createEnv({
   },
 });
 
-if (parsedEnv.TELEGRAM_BOT_TOKEN && !parsedEnv.TELEGRAM_BOT_SECRET_TOKEN) {
+if (process.env.TELEGRAM_BOT_TOKEN && !process.env.TELEGRAM_BOT_SECRET_TOKEN) {
   throw new Error(
     "TELEGRAM_BOT_SECRET_TOKEN is required when TELEGRAM_BOT_TOKEN is set.",
   );
