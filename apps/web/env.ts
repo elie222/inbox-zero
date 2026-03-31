@@ -60,7 +60,7 @@ const parsedEnv = createEnv({
       // custom is deprecated
       .enum([...llmProviderEnum.options, "custom"]),
     DEFAULT_LLM_MODEL: z.string().optional(),
-    DEFAULT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain; explicit model required (e.g., "openrouter:anthropic/claude-sonnet-4.5,openai:gpt-5.1")
+    DEFAULT_LLM_FALLBACKS: z.string().optional(), // Comma-separated provider:model chain; explicit model required (e.g., "openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.1")
     DEFAULT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for default model (e.g., "Google Vertex,Anthropic")
     // Set this to a cheaper model like Gemini Flash
     ECONOMY_LLM_PROVIDER: llmProviderEnum.optional(),

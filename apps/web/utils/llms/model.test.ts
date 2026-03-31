@@ -837,10 +837,9 @@ describe("Models", () => {
       };
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
-      vi.mocked(env).DEFAULT_LLM_MODEL =
-        "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "global.anthropic.claude-sonnet-4-6";
       vi.mocked(env).DEFAULT_LLM_FALLBACKS =
-        "openrouter:anthropic/claude-sonnet-4.5,openai:gpt-5.1";
+        "openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.1";
       vi.mocked(env).BEDROCK_ACCESS_KEY = "test-bedrock-key";
       vi.mocked(env).BEDROCK_SECRET_KEY = "test-bedrock-secret";
       vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
@@ -852,7 +851,7 @@ describe("Models", () => {
       expect(result.fallbackModels).toHaveLength(2);
       expect(result.fallbackModels[0]).toMatchObject({
         provider: Provider.OPENROUTER,
-        modelName: "anthropic/claude-sonnet-4.5",
+        modelName: "anthropic/claude-sonnet-4.6",
       });
       expect(result.fallbackModels[1]).toMatchObject({
         provider: Provider.OPEN_AI,
@@ -890,11 +889,11 @@ describe("Models", () => {
       const userAi: UserAIFields = {
         aiApiKey: "user-api-key",
         aiProvider: Provider.BEDROCK,
-        aiModel: "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        aiModel: "global.anthropic.claude-sonnet-4-6",
       };
 
       vi.mocked(env).DEFAULT_LLM_FALLBACKS =
-        "openrouter:anthropic/claude-sonnet-4.5,openai:gpt-5.1";
+        "openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.1";
 
       const result = getModel(userAi);
 
@@ -909,8 +908,7 @@ describe("Models", () => {
       };
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
-      vi.mocked(env).DEFAULT_LLM_MODEL =
-        "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "global.anthropic.claude-sonnet-4-6";
       vi.mocked(env).DEFAULT_LLM_FALLBACKS = "openrouter,openai:gpt-5.1";
       vi.mocked(env).BEDROCK_ACCESS_KEY = "test-bedrock-key";
       vi.mocked(env).BEDROCK_SECRET_KEY = "test-bedrock-secret";
@@ -934,8 +932,7 @@ describe("Models", () => {
       };
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
-      vi.mocked(env).DEFAULT_LLM_MODEL =
-        "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "global.anthropic.claude-sonnet-4-6";
       vi.mocked(env).DEFAULT_LLM_FALLBACKS = "openai:gpt-5.1";
       vi.mocked(env).BEDROCK_ACCESS_KEY = "test-bedrock-key";
       vi.mocked(env).BEDROCK_SECRET_KEY = "test-bedrock-secret";
@@ -959,8 +956,7 @@ describe("Models", () => {
       };
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
-      vi.mocked(env).DEFAULT_LLM_MODEL =
-        "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "global.anthropic.claude-sonnet-4-6";
       vi.mocked(env).DEFAULT_LLM_FALLBACKS = "openrouter,openai:gpt-5.1";
       vi.mocked(env).BEDROCK_ACCESS_KEY = "test-bedrock-key";
       vi.mocked(env).BEDROCK_SECRET_KEY = "test-bedrock-secret";
