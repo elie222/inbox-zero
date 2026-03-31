@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { CopyInput } from "@/components/CopyInput";
 import { RegenerateSecretButton } from "@/app/(app)/[emailAccountId]/settings/WebhookGenerate";
 import { useUser } from "@/hooks/useUser";
@@ -22,6 +23,8 @@ import {
 
 export function WebhookSection() {
   const { data, isLoading, error, mutate } = useUser();
+  const [generatedSecret, setGeneratedSecret] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   return (
     <Item size="sm">
@@ -29,10 +32,16 @@ export function WebhookSection() {
         <ItemTitle>Webhook Secret</ItemTitle>
       </ItemContent>
       <ItemActions>
-        <Dialog>
+        <Dialog
+          open={open}
+          onOpenChange={(nextOpen) => {
+            setOpen(nextOpen);
+            if (!nextOpen) setGeneratedSecret(null);
+          }}
+        >
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
-              View Secret
+              {data?.hasWebhookSecret ? "Manage Secret" : "Generate Secret"}
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -40,19 +49,25 @@ export function WebhookSection() {
               <DialogTitle>Webhook Secret</DialogTitle>
               <DialogDescription>
                 Include this in the X-Webhook-Secret header when setting up
-                webhook endpoints. Set webhook URLs for individual rules in
-                Assistant &gt; Rules.
+                webhook endpoints. Existing secrets are not shown again. When
+                you generate a new secret, copy it before closing this dialog.
               </DialogDescription>
             </DialogHeader>
             <LoadingContent loading={isLoading} error={error}>
               {data && (
                 <div className="space-y-4">
-                  {!!data.webhookSecret && (
-                    <CopyInput value={data.webhookSecret} masked />
+                  {generatedSecret ? (
+                    <CopyInput value={generatedSecret} masked />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Generate a new webhook secret to reveal it once for
+                      copying.
+                    </p>
                   )}
                   <RegenerateSecretButton
-                    hasSecret={!!data.webhookSecret}
+                    hasSecret={data.hasWebhookSecret}
                     mutate={mutate}
+                    onGenerated={setGeneratedSecret}
                   />
                 </div>
               )}

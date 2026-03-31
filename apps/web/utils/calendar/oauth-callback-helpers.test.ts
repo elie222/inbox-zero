@@ -134,6 +134,12 @@ describe("calendar OAuth callback helpers", () => {
       );
     });
 
+    it("ignores control-character redirect bypass attempts", () => {
+      expect(
+        getCalendarRedirectPath("acc_123", encodeURIComponent("/\t/r3d.fi")),
+      ).toBe("/acc_123/calendars");
+    });
+
     it("rejects overlapping account ID prefixes", () => {
       expect(
         getCalendarRedirectPath(

@@ -17,7 +17,7 @@ export function usePremium() {
   const { data } = swrResponse;
 
   const premium = data?.premium;
-  const aiApiKey = data?.aiApiKey;
+  const hasAiApiKey = data?.hasAiApiKey;
 
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
     return {
@@ -38,7 +38,7 @@ export function usePremium() {
 
   const isProPlanWithoutApiKey =
     (premium?.tier === "PRO_MONTHLY" || premium?.tier === "PRO_ANNUALLY") &&
-    !aiApiKey;
+    !hasAiApiKey;
 
   return {
     ...swrResponse,
@@ -47,7 +47,7 @@ export function usePremium() {
     hasUnsubscribeAccess:
       isUserPremium ||
       hasUnsubscribeAccess(premium?.tier || null, premium?.unsubscribeCredits),
-    hasAiAccess: hasAiAccess(premium?.tier || null, aiApiKey),
+    hasAiAccess: hasAiAccess(premium?.tier || null, hasAiApiKey),
     isProPlanWithoutApiKey,
     tier: premium?.tier,
   };
@@ -159,7 +159,7 @@ export function PremiumAlertWithData({
 }
 
 export function PremiumTooltip(props: {
-  children: React.ReactElement<any>;
+  children: React.ReactElement;
   showTooltip: boolean;
   openModal: () => void;
 }) {

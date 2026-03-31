@@ -133,7 +133,7 @@ async function watchEmailAccount(
 
   const userHasAiAccess = hasAiAccess(
     user.premium?.tier || null,
-    user.aiApiKey,
+    !!user.aiApiKey,
   );
 
   if (!userHasAiAccess) {

@@ -7,7 +7,7 @@ import {
   CALENDAR_STATE_COOKIE_NAME,
 } from "@/utils/calendar/constants";
 import { parseOAuthState } from "@/utils/oauth/state";
-import { isInternalPath, prefixPath } from "@/utils/path";
+import { normalizeInternalPath, prefixPath } from "@/utils/path";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import type {
@@ -154,10 +154,11 @@ export function getCalendarRedirectPath(
     return defaultPath;
   }
 
-  if (!isInternalPath(decodedPath)) return defaultPath;
+  const internalPath = normalizeInternalPath(decodedPath);
+  if (!internalPath) return defaultPath;
 
   // Normalize to prevent path traversal (e.g. /acc_123/../acc_456/briefs)
-  const normalizedUrl = new URL(decodedPath, env.NEXT_PUBLIC_BASE_URL);
+  const normalizedUrl = new URL(internalPath, env.NEXT_PUBLIC_BASE_URL);
   const normalizedPath = normalizedUrl.pathname;
 
   // Only allow return paths scoped to the same email account
