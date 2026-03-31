@@ -293,7 +293,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       expect(message).toBeDefined();
       expect(message?.text).toContain("Draft reply");
-      expect(message?.text).toContain(`*Subject:* ${subject}`);
+      expect(message?.text).toContain("*sender@example.com*");
+      expect(message?.text).toContain(`re "${subject}"`);
+      expect(message?.text).toContain("Here's a drafted reply:");
       expect(message?.text).toContain("*Original email*");
       expect(message?.text).toContain("Can you help with this request?");
       expect(message?.text).toContain("*Draft reply*");
