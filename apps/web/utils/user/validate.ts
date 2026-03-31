@@ -44,7 +44,7 @@ export async function validateUserAndAiAccess({
 
   const userHasAiAccess = hasAiAccess(
     emailAccount.user.premium?.tier || null,
-    emailAccount.user.aiApiKey,
+    !!emailAccount.user.aiApiKey,
   );
   if (!userHasAiAccess) throw new SafeError("Please upgrade for AI access");
 

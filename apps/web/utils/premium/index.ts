@@ -100,7 +100,7 @@ export const hasUnsubscribeAccess = (
 
 export const hasAiAccess = (
   tier: PremiumTier | null,
-  aiApiKey?: string | null,
+  hasApiKey?: boolean | null,
 ) => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
 
@@ -110,7 +110,7 @@ export const hasAiAccess = (
 
   const hasAiAccess = !!(
     ranking >= tierRanking.STARTER_MONTHLY ||
-    (ranking >= tierRanking.PRO_MONTHLY && aiApiKey)
+    (ranking >= tierRanking.PRO_MONTHLY && hasApiKey)
   );
 
   return hasAiAccess;
