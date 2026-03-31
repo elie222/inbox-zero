@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   getEmailUrl,
   getEmailUrlForMessage,
+  getEmailUrlForOptionalMessage,
   getEmailSearchUrl,
   getGmailUrl,
   getGmailSearchUrl,
@@ -110,6 +111,39 @@ describe("getEmailUrlForMessage", () => {
       );
       expect(result).toContain("threadId456");
     });
+  });
+});
+
+describe("getEmailUrlForOptionalMessage", () => {
+  it("returns null for Microsoft when messageId is missing", () => {
+    const result = getEmailUrlForOptionalMessage({
+      threadId: "threadId456",
+      emailAddress: "user@outlook.com",
+      provider: "microsoft",
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("falls back to threadId for default providers", () => {
+    const result = getEmailUrlForOptionalMessage({
+      threadId: "threadId456",
+      emailAddress: "user@example.com",
+    });
+
+    expect(result).toContain("threadId456");
+  });
+
+  it("uses messageId when available", () => {
+    const result = getEmailUrlForOptionalMessage({
+      messageId: "messageId123",
+      threadId: "threadId456",
+      emailAddress: "user@gmail.com",
+      provider: "google",
+    });
+
+    expect(result).toContain("messageId123");
+    expect(result).not.toContain("threadId456");
   });
 });
 

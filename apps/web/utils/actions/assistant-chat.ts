@@ -33,6 +33,9 @@ const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
 const CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
 const CONFIRMATION_PERSIST_MAX_ATTEMPTS = 3;
+const SENT_MESSAGE_RESOLVE_MAX_ATTEMPTS = 5;
+const SENT_MESSAGE_RESOLVE_RETRY_MS = 500;
+const SENT_MESSAGE_RESOLVE_LOOKBACK_MS = 60 * 1000;
 
 const ASSISTANT_EMAIL_ACTION_METADATA: Record<
   AssistantPendingEmailActionType,
@@ -396,6 +399,7 @@ async function confirmPendingSendEmailAction({
   const messageHtml = contentOverride
     ? convertNewlinesToBr(escapeHtml(contentOverride))
     : output.pendingAction.messageHtml;
+  const sentAfter = new Date();
 
   const result = await emailProvider.sendEmailWithHtml({
     to: output.pendingAction.to,
@@ -405,10 +409,16 @@ async function confirmPendingSendEmailAction({
     messageHtml,
     ...(from ? { from } : {}),
   });
+  const messageId = await resolveSentMessageId({
+    emailProvider,
+    messageId: result.messageId,
+    threadId: result.threadId,
+    sentAfter,
+  });
 
   return {
     actionType: output.actionType,
-    messageId: result.messageId || null,
+    messageId,
     threadId: result.threadId || null,
     to: output.pendingAction.to,
     subject: output.pendingAction.subject,
@@ -430,19 +440,21 @@ async function confirmPendingReplyEmailAction({
   const message = await emailProvider.getMessage(
     output.pendingAction.messageId,
   );
+  const sentAfter = new Date();
   await emailProvider.replyToEmail(
     message,
     contentOverride || output.pendingAction.content,
   );
 
-  const latestMessage = await getLatestMessageInThreadSafe(
+  const messageId = await resolveSentMessageId({
     emailProvider,
-    message.threadId,
-  );
+    threadId: message.threadId,
+    sentAfter,
+  });
 
   return {
     actionType: output.actionType,
-    messageId: latestMessage?.id || message.id || null,
+    messageId,
     threadId: message.threadId || null,
     to: message.headers["reply-to"] || message.headers.from || null,
     subject: message.subject || message.headers.subject || null,
@@ -464,6 +476,7 @@ async function confirmPendingForwardEmailAction({
   const message = await emailProvider.getMessage(
     output.pendingAction.messageId,
   );
+  const sentAfter = new Date();
   await emailProvider.forwardEmail(message, {
     to: output.pendingAction.to,
     cc: output.pendingAction.cc || undefined,
@@ -471,14 +484,15 @@ async function confirmPendingForwardEmailAction({
     content: contentOverride || output.pendingAction.content || undefined,
   });
 
-  const latestMessage = await getLatestMessageInThreadSafe(
+  const messageId = await resolveSentMessageId({
     emailProvider,
-    message.threadId,
-  );
+    threadId: message.threadId,
+    sentAfter,
+  });
 
   return {
     actionType: output.actionType,
-    messageId: latestMessage?.id || null,
+    messageId,
     threadId: message.threadId || null,
     to: output.pendingAction.to,
     subject: message.subject || message.headers.subject || null,
@@ -870,15 +884,55 @@ async function clearPendingPartProcessing({
   });
 }
 
-async function getLatestMessageInThreadSafe(
-  emailProvider: Awaited<ReturnType<typeof createEmailProvider>>,
-  threadId: string,
-) {
-  try {
-    return await emailProvider.getLatestMessageInThread(threadId);
-  } catch {
-    return null;
+async function resolveSentMessageId({
+  emailProvider,
+  messageId,
+  threadId,
+  sentAfter,
+}: {
+  emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
+  messageId?: string | null;
+  threadId?: string | null;
+  sentAfter?: Date;
+}) {
+  if (messageId) return messageId;
+  if (!threadId || !sentAfter) return null;
+
+  const sentAfterWithLookback = new Date(
+    sentAfter.getTime() - SENT_MESSAGE_RESOLVE_LOOKBACK_MS,
+  );
+
+  for (
+    let attempt = 0;
+    attempt < SENT_MESSAGE_RESOLVE_MAX_ATTEMPTS;
+    attempt++
+  ) {
+    try {
+      const sentMessageIds = await emailProvider.getSentMessageIds({
+        maxResults: 20,
+        after: sentAfterWithLookback,
+        before: new Date(),
+      });
+
+      const matchingThreadIds = sentMessageIds.filter(
+        (sentMessage) => sentMessage.threadId === threadId,
+      );
+
+      if (matchingThreadIds.length === 1) {
+        return matchingThreadIds[0].id;
+      }
+
+      if (matchingThreadIds.length > 1) {
+        return null;
+      }
+    } catch {}
+
+    if (attempt < SENT_MESSAGE_RESOLVE_MAX_ATTEMPTS - 1) {
+      await wait(SENT_MESSAGE_RESOLVE_RETRY_MS);
+    }
   }
+
+  return null;
 }
 
 function getAssistantEmailActionErrorMessage(
@@ -1333,6 +1387,10 @@ function getPendingActionContentPatch(
     return { messageHtml: convertNewlinesToBr(escapeHtml(contentOverride)) };
   }
   return { content: contentOverride };
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

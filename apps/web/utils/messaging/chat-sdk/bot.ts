@@ -63,7 +63,7 @@ import {
 } from "@/utils/messaging/rule-notifications";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
-import { getEmailUrlForMessage } from "@/utils/url";
+import { getEmailUrlForOptionalMessage } from "@/utils/url";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const MAX_CHAT_CONTEXT_MESSAGES = 12;
@@ -1224,22 +1224,15 @@ function buildPendingEmailSuccessFeedback({
   accountEmail?: string | null;
   accountProvider?: string | null;
 }) {
-  const messageId = confirmationResult?.messageId || undefined;
-  const threadId = confirmationResult?.threadId || undefined;
-  const resolvedMessageId = messageId || threadId;
-  const resolvedThreadId = threadId || messageId;
+  const emailUrl = getEmailUrlForOptionalMessage({
+    messageId: confirmationResult?.messageId,
+    threadId: confirmationResult?.threadId,
+    emailAddress: accountEmail,
+    provider: accountProvider || undefined,
+  });
+  if (!emailUrl) return "Sent.";
 
-  if (!resolvedMessageId || !resolvedThreadId) return "Sent.";
-
-  const emailUrl = getEmailUrlForMessage(
-    resolvedMessageId,
-    resolvedThreadId,
-    accountEmail,
-    accountProvider || undefined,
-  );
-  const mailbox = accountProvider === "microsoft" ? "Outlook" : "Gmail";
-
-  return `Sent. Open in ${mailbox}: ${emailUrl}`;
+  return `Sent. Open message: ${emailUrl}`;
 }
 
 function buildHandledPendingEmailCard({
