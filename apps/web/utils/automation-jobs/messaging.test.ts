@@ -19,7 +19,7 @@ describe("automation job messaging channel helpers", () => {
     ).toBe(true);
   });
 
-  it("requires slack destination via DM user or channel", () => {
+  it("requires an explicit Slack destination", () => {
     expect(
       hasAutomationMessagingDestination({
         provider: MessagingProvider.SLACK,
@@ -31,9 +31,16 @@ describe("automation job messaging channel helpers", () => {
       hasAutomationMessagingDestination({
         provider: MessagingProvider.SLACK,
         providerUserId: "U123",
-        channelId: null,
+        channelId: "DM",
       }),
     ).toBe(true);
+    expect(
+      hasAutomationMessagingDestination({
+        provider: MessagingProvider.SLACK,
+        providerUserId: "U123",
+        channelId: null,
+      }),
+    ).toBe(false);
     expect(
       hasAutomationMessagingDestination({
         provider: MessagingProvider.SLACK,
@@ -74,7 +81,7 @@ describe("automation job messaging channel helpers", () => {
         isConnected: true,
         accessToken: "xoxb-token",
         providerUserId: "U123",
-        channelId: null,
+        channelId: "DM",
       }),
     ).toBe(true);
 
@@ -84,7 +91,7 @@ describe("automation job messaging channel helpers", () => {
         isConnected: true,
         accessToken: null,
         providerUserId: "U123",
-        channelId: null,
+        channelId: "DM",
       }),
     ).toBe(false);
   });

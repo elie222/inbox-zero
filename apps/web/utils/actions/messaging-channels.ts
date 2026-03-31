@@ -13,6 +13,7 @@ import {
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
+import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
 
 const MESSAGING_ACTION_TYPES = [
   ActionType.NOTIFY_MESSAGING_CHANNEL,
@@ -123,7 +124,7 @@ export const updateChannelFeaturesAction = actionClient
 
       const enablingFeature =
         sendMeetingBriefs === true || sendDocumentFilings === true;
-      if (enablingFeature && !channel.channelId) {
+      if (enablingFeature && !hasMessagingDeliveryTarget(channel)) {
         throw new SafeError(
           "Please select a target channel before enabling features",
         );
@@ -346,11 +347,7 @@ export const toggleRuleChannelAction = actionClient
         if (!channel.isConnected) {
           throw new SafeError("Messaging channel is not connected");
         }
-        const hasDestination =
-          channel.provider === MessagingProvider.SLACK
-            ? Boolean(channel.channelId)
-            : Boolean(channel.providerUserId || channel.channelId);
-        if (!hasDestination) {
+        if (!hasMessagingDeliveryTarget(channel)) {
           throw new SafeError(
             "Please select a target channel before enabling notifications",
           );

@@ -1,4 +1,5 @@
 import { MessagingProvider } from "@/generated/prisma/enums";
+import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
 
 export const SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS: MessagingProvider[] = [
   MessagingProvider.SLACK,
@@ -27,11 +28,7 @@ export function hasAutomationMessagingDestination(
     "provider" | "providerUserId" | "channelId"
   >,
 ) {
-  if (channel.provider === MessagingProvider.SLACK) {
-    return Boolean(channel.providerUserId || channel.channelId);
-  }
-
-  return Boolean(channel.providerUserId);
+  return hasMessagingDeliveryTarget(channel);
 }
 
 export function isAutomationMessagingChannelReady(
