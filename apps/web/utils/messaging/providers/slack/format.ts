@@ -34,7 +34,7 @@ export function richTextToSlackMrkdwn(text: string): string {
 
   const normalized = text
     .replace(
-      /<a\b[^>]*href=(["'])(.*?)\1[^>]*>(.*?)<\/a>/gis,
+      /<a\b[^>]*href=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi,
       (_match, _quote, href: string, label: string) => {
         const safeHref = sanitizeSlackLinkHref(href);
         const safeLabel = sanitizeSlackText(
