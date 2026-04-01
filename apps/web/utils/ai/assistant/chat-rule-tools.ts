@@ -360,6 +360,7 @@ export const updateRuleConditionsTool = ({
 
         await partialUpdateRule({
           ruleId: rule.id,
+          emailAccountId,
           data: {
             instructions: condition.aiInstructions,
             from: condition.static?.from,

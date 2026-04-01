@@ -250,7 +250,7 @@ describe("copyRulesFromAccountAction", () => {
     expect(prisma.rule.update).toHaveBeenCalledTimes(1);
     expect(prisma.rule.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "existing-rule-id" },
+        where: expect.objectContaining({ id: "existing-rule-id" }),
         include: { actions: true, group: true },
         data: expect.objectContaining({
           instructions: "Updated instructions",
@@ -305,7 +305,7 @@ describe("copyRulesFromAccountAction", () => {
     expect(result?.data).toEqual({ copiedCount: 0, replacedCount: 1 });
     expect(prisma.rule.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "target-system-rule" },
+        where: expect.objectContaining({ id: "target-system-rule" }),
         include: { actions: true, group: true },
         data: expect.objectContaining({
           instructions: "System rule instructions",
