@@ -70,13 +70,15 @@ type RuleRecordData = {
 
 export function partialUpdateRule({
   ruleId,
+  emailAccountId,
   data,
 }: {
   ruleId: string;
+  emailAccountId: string;
   data: Partial<Rule>;
 }) {
   return prisma.rule.update({
-    where: { id: ruleId },
+    where: { id: ruleId, emailAccountId },
     data,
     include: { actions: true, group: true },
   });
@@ -168,10 +170,12 @@ export async function createRuleWithResolvedActions({
 
 export async function replaceRuleWithResolvedActions({
   ruleId,
+  emailAccountId,
   data,
   actions,
 }: {
   ruleId: string;
+  emailAccountId: string;
   data: RuleRecordData;
   actions: Prisma.ActionCreateManyRuleInput[];
 }): Promise<RuleWithRelations> {
@@ -181,7 +185,7 @@ export async function replaceRuleWithResolvedActions({
   });
 
   const rule = await prisma.rule.update({
-    where: { id: ruleId },
+    where: { id: ruleId, emailAccountId },
     data: {
       name: data.name,
       systemType: data.systemType,
@@ -313,6 +317,7 @@ export async function updateRule({
 
     const rule = await replaceRuleWithResolvedActions({
       ruleId,
+      emailAccountId,
       data: {
         name: result.name,
         conditionalOperator: result.condition.conditionalOperator ?? undefined,
@@ -379,6 +384,7 @@ export async function upsertSystemRule({
 
     const rule = await replaceRuleWithResolvedActions({
       ruleId: existingRule.id,
+      emailAccountId,
       data: {
         ...data,
       },
@@ -412,6 +418,7 @@ export async function upsertSystemRule({
 
       const rule = await replaceRuleWithResolvedActions({
         ruleId: existing.id,
+        emailAccountId,
         data: {
           ...data,
         },
