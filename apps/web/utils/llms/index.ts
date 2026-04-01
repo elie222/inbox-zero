@@ -666,6 +666,7 @@ export async function toolCallAgentStream({
       stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
       ...commonOptions,
       providerOptions,
+      experimental_context: experimentalContext,
       onFinish: async (result) => {
         const usagePromise = saveAiUsage({
           email: userEmail,
@@ -703,7 +704,6 @@ export async function toolCallAgentStream({
     try {
       return await agent.stream({
         messages: hardenedMessages,
-        experimental_context: experimentalContext,
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish: onStepFinish
           ? async (stepResult) => {
