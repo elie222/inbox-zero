@@ -302,6 +302,7 @@ export async function processAttachment({
       await sendFilingSlackNotifications({
         emailAccountId: emailAccount.id,
         filingId: filing.id,
+        senderEmail: message.headers.from,
         logger: log,
       });
     } catch (slackError) {
