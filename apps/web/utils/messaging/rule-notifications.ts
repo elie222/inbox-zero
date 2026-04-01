@@ -13,6 +13,7 @@ import {
 import { cardToBlockKit, cardToFallbackText } from "@chat-adapter/slack";
 import prisma from "@/utils/prisma";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
+import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
 import {
   isSlackDmChannel,
   resolveSlackDestination,
@@ -264,7 +265,14 @@ async function sendLinkedRuleNotification({
     return { delivered: false, kind: "none" };
   }
 
-  if (!hasLinkedNotificationTarget(context.messagingChannel)) {
+  if (
+    !hasMessagingDeliveryTarget({
+      provider: context.messagingChannel.provider,
+      providerUserId: context.messagingChannel.providerUserId,
+      channelId: null,
+      teamId: context.messagingChannel.teamId,
+    })
+  ) {
     logger.warn(
       "Skipping messaging notification with incomplete linked channel",
       {
@@ -1405,20 +1413,4 @@ function getLinkedProviderLimitationText({
   }
 
   return `Quick actions like archive and mark read are Slack-only right now, so this ${providerName} message is view-only.`;
-}
-
-function hasLinkedNotificationTarget(channel: {
-  provider: MessagingProvider;
-  providerUserId: string | null;
-  teamId: string | null;
-}) {
-  if (channel.provider === MessagingProvider.TEAMS) {
-    return Boolean(channel.providerUserId);
-  }
-
-  if (channel.provider === MessagingProvider.TELEGRAM) {
-    return Boolean(channel.teamId || channel.providerUserId);
-  }
-
-  return false;
 }
