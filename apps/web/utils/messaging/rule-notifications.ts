@@ -85,6 +85,11 @@ type NotificationEmailPreview = {
   attachments?: Array<{ filename: string }>;
 };
 
+type MessagingRuleNotificationResult = {
+  delivered: boolean;
+  kind: "interactive" | "view_only" | "none";
+};
+
 export async function sendMessagingRuleNotification({
   executedActionId,
   email,
@@ -94,8 +99,26 @@ export async function sendMessagingRuleNotification({
   email: NotificationEmailPreview;
   logger: Logger;
 }): Promise<boolean> {
+  const result = await getMessagingRuleNotificationResult({
+    executedActionId,
+    email,
+    logger,
+  });
+
+  return result.delivered;
+}
+
+export async function getMessagingRuleNotificationResult({
+  executedActionId,
+  email,
+  logger,
+}: {
+  executedActionId: string;
+  email: NotificationEmailPreview;
+  logger: Logger;
+}): Promise<MessagingRuleNotificationResult> {
   const context = await getNotificationContext(executedActionId);
-  if (!context) return false;
+  if (!context) return { delivered: false, kind: "none" };
 
   if (context.messagingChannel?.provider === MessagingProvider.SLACK) {
     return sendSlackRuleNotificationWithContext({
@@ -124,11 +147,13 @@ export async function sendSlackRuleNotification({
   const context = await getNotificationContext(executedActionId);
   if (!context) return false;
 
-  return sendSlackRuleNotificationWithContext({
+  const result = await sendSlackRuleNotificationWithContext({
     context,
     email,
     logger,
   });
+
+  return result.delivered;
 }
 
 async function sendSlackRuleNotificationWithContext({
@@ -139,7 +164,7 @@ async function sendSlackRuleNotificationWithContext({
   context: NotificationContext;
   email: NotificationEmailPreview;
   logger: Logger;
-}): Promise<boolean> {
+}): Promise<MessagingRuleNotificationResult> {
   if (
     !context.messagingChannel ||
     !context.messagingChannel.isConnected ||
@@ -150,7 +175,7 @@ async function sendSlackRuleNotificationWithContext({
       executedActionId: context.id,
       messagingChannelId: context.messagingChannelId,
     });
-    return false;
+    return { delivered: false, kind: "none" };
   }
 
   const destinationChannelId = await resolveSlackDestination({
@@ -164,7 +189,7 @@ async function sendSlackRuleNotificationWithContext({
       executedActionId: context.id,
       messagingChannelId: context.messagingChannelId,
     });
-    return false;
+    return { delivered: false, kind: "none" };
   }
 
   const content = buildNotificationContent({
@@ -204,13 +229,13 @@ async function sendSlackRuleNotificationWithContext({
         messagingMessageStatus: MessagingMessageStatus.SENT,
       },
     });
-    return true;
+    return { delivered: true, kind: "interactive" };
   } catch (error) {
     logger.warn("Failed to send Slack rule notification", {
       executedActionId: context.id,
       error,
     });
-    return false;
+    return { delivered: false, kind: "none" };
   }
 }
 
@@ -222,7 +247,7 @@ async function sendLinkedRuleNotification({
   context: NotificationContext;
   email: NotificationEmailPreview;
   logger: Logger;
-}): Promise<boolean> {
+}): Promise<MessagingRuleNotificationResult> {
   if (
     !context.messagingChannel ||
     !context.messagingChannel.isConnected ||
@@ -236,7 +261,19 @@ async function sendLinkedRuleNotification({
         messagingChannelId: context.messagingChannelId,
       },
     );
-    return false;
+    return { delivered: false, kind: "none" };
+  }
+
+  if (!hasLinkedNotificationTarget(context.messagingChannel)) {
+    logger.warn(
+      "Skipping messaging notification with incomplete linked channel",
+      {
+        executedActionId: context.id,
+        messagingChannelId: context.messagingChannelId,
+        provider: context.messagingChannel.provider,
+      },
+    );
+    return { delivered: false, kind: "none" };
   }
 
   const content = buildNotificationContent({
@@ -266,14 +303,14 @@ async function sendLinkedRuleNotification({
         messagingMessageStatus: MessagingMessageStatus.SENT,
       },
     });
-    return true;
+    return { delivered: true, kind: "view_only" };
   } catch (error) {
     logger.warn("Failed to send linked messaging rule notification", {
       executedActionId: context.id,
       provider: context.messagingChannel.provider,
       error,
     });
-    return false;
+    return { delivered: false, kind: "none" };
   }
 }
 
@@ -1368,4 +1405,16 @@ function getLinkedProviderLimitationText({
   }
 
   return `Quick actions like archive and mark read are Slack-only right now, so this ${providerName} message is view-only.`;
+}
+
+function hasLinkedNotificationTarget(channel: {
+  provider: MessagingProvider.TEAMS | MessagingProvider.TELEGRAM;
+  providerUserId: string | null;
+  teamId: string | null;
+}) {
+  if (channel.provider === MessagingProvider.TEAMS) {
+    return Boolean(channel.providerUserId);
+  }
+
+  return Boolean(channel.teamId || channel.providerUserId);
 }

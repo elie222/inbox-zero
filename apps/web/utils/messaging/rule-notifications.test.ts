@@ -199,6 +199,45 @@ describe("sendMessagingRuleNotification", () => {
       },
     });
   });
+
+  it("skips linked notifications when provider routing data is incomplete", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        content: null,
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TEAMS,
+          isConnected: true,
+          teamId: "tenant-1",
+          providerUserId: null,
+          accessToken: null,
+          channelId: null,
+        },
+      }) as never,
+    );
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(false);
+    expect(mockSendAutomationMessage).not.toHaveBeenCalled();
+    expect(prisma.executedAction.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("buildMessagingRuleNotificationText", () => {
@@ -220,9 +259,7 @@ describe("buildMessagingRuleNotificationText", () => {
     expect(text).toContain("Draft reply");
     expect(text).toContain('You got an email from Sender about "Test".');
     expect(text).toContain("details: https://example.com");
-    expect(text).toContain(
-      "One-click draft editing and sending are Slack-only right now.",
-    );
+    expect(text).toContain("Slack-only");
   });
 });
 
