@@ -3,7 +3,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import { getMicrosoftDriveOAuth2Url } from "@/utils/drive/client";
 import { DRIVE_STATE_COOKIE_NAME } from "@/utils/drive/constants";
 import {
-  generateOAuthState,
+  generateSignedOAuthState,
   oauthStateCookieOptions,
 } from "@/utils/oauth/state";
 
@@ -22,7 +22,7 @@ export const GET = withEmailAccount(async (request) => {
 });
 
 const getAuthUrl = ({ emailAccountId }: { emailAccountId: string }) => {
-  const state = generateOAuthState({
+  const state = generateSignedOAuthState({
     emailAccountId,
     type: "drive",
   });

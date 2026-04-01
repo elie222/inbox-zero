@@ -3,14 +3,14 @@ import { withEmailAccount } from "@/utils/middleware";
 import { getCalendarOAuth2Url } from "@/utils/outlook/calendar-client";
 import { CALENDAR_STATE_COOKIE_NAME } from "@/utils/calendar/constants";
 import {
-  generateOAuthState,
+  generateSignedOAuthState,
   oauthStateCookieOptions,
 } from "@/utils/oauth/state";
 
 export type GetCalendarAuthUrlResponse = { url: string };
 
 const getAuthUrl = ({ emailAccountId }: { emailAccountId: string }) => {
-  const state = generateOAuthState({
+  const state = generateSignedOAuthState({
     emailAccountId,
     type: "calendar",
   });

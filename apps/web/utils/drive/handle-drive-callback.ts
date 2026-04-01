@@ -17,7 +17,7 @@ import {
 } from "@/utils/redis/oauth-code";
 import { DRIVE_STATE_COOKIE_NAME } from "./constants";
 import prisma from "@/utils/prisma";
-import { parseOAuthState } from "@/utils/oauth/state";
+import { validateSignedOAuthState } from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
 
 const driveOAuthStateSchema = z.object({
@@ -25,6 +25,8 @@ const driveOAuthStateSchema = z.object({
   type: z.literal("drive"),
   nonce: z.string().min(8).max(128),
 });
+
+type DriveOAuthState = z.infer<typeof driveOAuthStateSchema>;
 
 /**
  * Unified handler for drive OAuth callbacks
@@ -41,7 +43,7 @@ export async function handleDriveCallback(
 
   try {
     // Step 1: Validate OAuth callback parameters
-    const { code, redirectUrl, response } = await validateOAuthCallback(
+    const { code, driveState, response } = await validateOAuthCallback(
       request,
       logger,
     );
@@ -75,21 +77,7 @@ export async function handleDriveCallback(
       );
     }
 
-    // The validated state is in the request query params
-    const receivedState = request.nextUrl.searchParams.get("state");
-    if (!receivedState) {
-      throw new Error("Missing validated state");
-    }
-
-    // Step 2: Parse and validate the OAuth state
-    const decodedState = parseAndValidateDriveState(
-      receivedState,
-      logger,
-      redirectUrl,
-      response.headers,
-    );
-
-    const { emailAccountId } = decodedState;
+    const { emailAccountId } = driveState;
 
     // Step 3: Update redirect URL to include emailAccountId
     const finalRedirectUrl = buildDriveRedirectUrl(emailAccountId);
@@ -179,7 +167,7 @@ async function validateOAuthCallback(
   logger: Logger,
 ): Promise<{
   code: string;
-  redirectUrl: URL;
+  driveState: DriveOAuthState;
   response: NextResponse;
 }> {
   const searchParams = request.nextUrl.searchParams;
@@ -198,40 +186,39 @@ async function validateOAuthCallback(
     throw new RedirectError(redirectUrl, response.headers);
   }
 
-  if (!storedState || !receivedState || storedState !== receivedState) {
+  const stateValidation = validateSignedOAuthState<{
+    emailAccountId: string;
+    type: "drive";
+  }>({
+    receivedState,
+    storedState,
+  });
+  if (!stateValidation.success) {
     logger.warn("Invalid state during drive callback", {
       receivedState,
       hasStoredState: !!storedState,
+      error: stateValidation.error,
     });
-    redirectUrl.searchParams.set("error", "invalid_state");
+    redirectUrl.searchParams.set("error", stateValidation.error);
     throw new RedirectError(redirectUrl, response.headers);
   }
 
-  return { code, redirectUrl, response };
+  const driveState = parseAndValidateDriveState(
+    stateValidation.state,
+    logger,
+    redirectUrl,
+    response.headers,
+  );
+
+  return { code, driveState, response };
 }
 
 function parseAndValidateDriveState(
-  storedState: string,
+  rawState: unknown,
   logger: Logger,
   redirectUrl: URL,
   responseHeaders: Headers,
-): {
-  emailAccountId: string;
-  type: "drive";
-  nonce: string;
-} {
-  let rawState: unknown;
-  try {
-    rawState = parseOAuthState<{
-      emailAccountId: string;
-      type: "drive";
-    }>(storedState);
-  } catch (error) {
-    logger.error("Failed to decode state", { error });
-    redirectUrl.searchParams.set("error", "invalid_state_format");
-    throw new RedirectError(redirectUrl, responseHeaders);
-  }
-
+): DriveOAuthState {
   const validationResult = driveOAuthStateSchema.safeParse(rawState);
   if (!validationResult.success) {
     logger.error("State validation failed", {
