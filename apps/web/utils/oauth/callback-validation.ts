@@ -1,3 +1,4 @@
+import type { NextResponse } from "next/server";
 import type { Logger } from "@/utils/logger";
 import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
 import { parseSignedOAuthState } from "@/utils/oauth/state";
