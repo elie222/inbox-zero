@@ -26,8 +26,8 @@ const { mockAuthContext, mockMakeSignature, mockRedis } = vi.hoisted(() => ({
   mockMakeSignature: vi.fn(),
   mockRedis: {
     del: vi.fn(),
+    expire: vi.fn(),
     incr: vi.fn(),
-    set: vi.fn(),
   },
 }));
 
@@ -67,7 +67,7 @@ describe("createMobileReviewSession", () => {
       token: "session-token",
     });
     mockMakeSignature.mockResolvedValue("cookie-signature");
-    mockRedis.set.mockResolvedValue("OK");
+    mockRedis.incr.mockResolvedValue(1);
   });
 
   it("creates a signed Better Auth session cookie", async () => {
@@ -91,6 +91,10 @@ describe("createMobileReviewSession", () => {
       "session-token",
       "test-secret",
     );
+    expect(mockRedis.expire).toHaveBeenCalledWith(
+      expect.stringContaining("mobile-review:attempts:"),
+      15 * 60,
+    );
     expect(result).toEqual({
       emailAccountId: "account-1",
       sessionCookie: {
@@ -113,7 +117,6 @@ describe("createMobileReviewSession", () => {
   });
 
   it("blocks excessive attempts before checking the code", async () => {
-    mockRedis.set.mockResolvedValue(null);
     mockRedis.incr.mockResolvedValue(6);
 
     const { createMobileReviewSession } = await import("./mobile-review");

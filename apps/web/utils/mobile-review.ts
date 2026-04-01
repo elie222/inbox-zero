@@ -108,16 +108,11 @@ async function assertWithinRateLimit(rateLimitKey: string) {
     return;
   }
 
-  const created = await redis.set(rateLimitKey, "1", {
-    ex: RATE_LIMIT_WINDOW_SECONDS,
-    nx: true,
-  });
-
-  if (created === "OK") {
-    return;
-  }
-
   const attempts = await redis.incr(rateLimitKey);
+
+  if (attempts === 1) {
+    await redis.expire(rateLimitKey, RATE_LIMIT_WINDOW_SECONDS);
+  }
 
   if (attempts > RATE_LIMIT_MAX_ATTEMPTS) {
     throw new SafeError(
