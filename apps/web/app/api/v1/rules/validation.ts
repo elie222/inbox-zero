@@ -2,6 +2,10 @@ import { z } from "zod";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
+import {
+  isWebhookActionEnabled,
+  WEBHOOK_ACTION_DISABLED_MESSAGE,
+} from "@/utils/webhook-action";
 
 const conditionSchema = z
   .object({
@@ -68,6 +72,15 @@ const actionSchema = z
       .nullish(),
   })
   .superRefine((action, ctx) => {
+    if (action.type === ActionType.CALL_WEBHOOK && !isWebhookActionEnabled()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: WEBHOOK_ACTION_DISABLED_MESSAGE,
+        path: ["type"],
+      });
+      return;
+    }
+
     addMissingRecipientIssue({
       actionType: action.type,
       recipient: action.fields?.to,

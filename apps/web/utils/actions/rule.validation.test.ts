@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import {
   delayInMinutesSchema,
   createRuleBody,
@@ -8,6 +8,21 @@ import {
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
+import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
+
+const { mockEnv } = vi.hoisted(() => ({
+  mockEnv: {
+    webhookActionsEnabled: true,
+  },
+}));
+
+vi.mock("@/env", () => ({
+  env: {
+    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
+      return mockEnv.webhookActionsEnabled;
+    },
+  },
+}));
 
 describe("delayInMinutesSchema", () => {
   describe("valid values", () => {
@@ -189,6 +204,10 @@ describe("createRuleBody", () => {
   });
 
   describe("action-specific validation (superRefine)", () => {
+    beforeEach(() => {
+      mockEnv.webhookActionsEnabled = true;
+    });
+
     describe("LABEL action", () => {
       it("requires labelId value for LABEL action", () => {
         const result = createRuleBody.safeParse({
@@ -311,6 +330,28 @@ describe("createRuleBody", () => {
           ],
         });
         expect(result.success).toBe(true);
+      });
+
+      it("rejects CALL_WEBHOOK when webhook actions are disabled", () => {
+        mockEnv.webhookActionsEnabled = false;
+
+        const result = createRuleBody.safeParse({
+          ...validRule,
+          actions: [
+            {
+              type: ActionType.CALL_WEBHOOK,
+              url: { value: "https://api.example.com/webhook" },
+            },
+          ],
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.issues[0].message).toBe(
+            WEBHOOK_ACTION_DISABLED_MESSAGE,
+          );
+          expect(result.error.issues[0].path).toEqual(["actions", 0, "type"]);
+        }
       });
     });
 

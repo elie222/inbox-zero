@@ -135,20 +135,22 @@ export default function SettingsPage() {
           </ItemCard>
         </SettingsGroup>
 
-        <SettingsGroup
-          icon={<WebhookIcon className="size-5" />}
-          title="Developer"
-        >
-          <ItemCard>
-            <WebhookSection />
-            {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && (
-              <>
-                <ItemSeparator />
-                <ApiKeysSection />
-              </>
-            )}
-          </ItemCard>
-        </SettingsGroup>
+        {(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
+          env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) && (
+          <SettingsGroup
+            icon={<WebhookIcon className="size-5" />}
+            title="Developer"
+          >
+            <ItemCard>
+              {env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false && (
+                <WebhookSection />
+              )}
+              {env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false &&
+                env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <ItemSeparator />}
+              {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <ApiKeysSection />}
+            </ItemCard>
+          </SettingsGroup>
+        )}
 
         <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
           <ItemCard>

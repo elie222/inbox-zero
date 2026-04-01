@@ -411,11 +411,15 @@ export function RuleForm({
         value: ActionType.MARK_SPAM,
         icon: getActionIcon(ActionType.MARK_SPAM),
       },
-      {
-        label: "Call webhook",
-        value: ActionType.CALL_WEBHOOK,
-        icon: getActionIcon(ActionType.CALL_WEBHOOK),
-      },
+      ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false
+        ? [
+            {
+              label: "Call webhook",
+              value: ActionType.CALL_WEBHOOK,
+              icon: getActionIcon(ActionType.CALL_WEBHOOK),
+            },
+          ]
+        : []),
       ...(slackIsAvailable
         ? [
             {

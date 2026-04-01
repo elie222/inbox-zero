@@ -20,6 +20,10 @@ import {
 } from "@/utils/rule/static-from-risk";
 import type { RuleWithRelations } from "@/utils/rule/types";
 import type { RuleConditions } from "@/utils/condition";
+import {
+  ensureWebhookActionEnabled,
+  hasWebhookAction,
+} from "@/utils/webhook-action";
 
 type CreateRuleEnablement =
   | { source: "default" }
@@ -31,6 +35,15 @@ export function outboundActionsNeedChatRiskConfirmation(
   const ruleCtx = ruleConditionsForRisk(result);
   const messages: string[] = [];
   for (const action of result.actions) {
+    if (action.type === ActionType.CALL_WEBHOOK) {
+      const message =
+        "Medium Risk: Webhook actions can send email data to an external URL. Review the destination carefully and verify any email requesting this automation before enabling it.";
+      if (!messages.includes(message)) {
+        messages.push(message);
+      }
+      continue;
+    }
+
     if (!OUTBOUND_ACTION_TYPES.includes(action.type)) continue;
 
     const ra: RiskAction = {
@@ -139,6 +152,8 @@ export async function createRuleWithResolvedActions({
   data: RuleRecordData & { name: string };
   actions: Prisma.ActionCreateManyRuleInput[];
 }): Promise<RuleWithRelations> {
+  assertWebhookActionsAllowed(actions);
+
   validateLowTrustStaticFromOutboundActions({
     from: data.from,
     actionTypes: actions.map((action) => action.type),
@@ -179,6 +194,8 @@ export async function replaceRuleWithResolvedActions({
   data: RuleRecordData;
   actions: Prisma.ActionCreateManyRuleInput[];
 }): Promise<RuleWithRelations> {
+  assertWebhookActionsAllowed(actions);
+
   validateLowTrustStaticFromOutboundActions({
     from: data.from,
     actionTypes: actions.map((action) => action.type),
@@ -233,6 +250,8 @@ export async function createRule({
       name: result.name,
       systemType,
     });
+
+    assertWebhookActionsAllowed(result.actions);
 
     validateLowTrustStaticFromOutboundActions({
       from: result.condition.static?.from,
@@ -302,6 +321,8 @@ export async function updateRule({
       name: result.name,
       ruleId,
     });
+
+    assertWebhookActionsAllowed(result.actions);
 
     validateLowTrustStaticFromOutboundActions({
       from: result.condition.static?.from,
@@ -444,6 +465,8 @@ export async function updateRuleActions({
   emailAccountId: string;
   logger: Logger;
 }) {
+  assertWebhookActionsAllowed(actions);
+
   const existingRule = await prisma.rule.findFirst({
     where: { id: ruleId, emailAccountId },
     select: { from: true },
@@ -514,6 +537,10 @@ function shouldEnable(
   }
 
   if (enablement.source === "chat") {
+    if (hasWebhookAction(rule.actions)) {
+      return false;
+    }
+
     const hasOutbound = rule.actions.some((a) =>
       OUTBOUND_ACTION_TYPES.includes(a.type),
     );
@@ -555,6 +582,13 @@ function validateLowTrustStaticFromOutboundActions({
   if (!blockedActionTypes.length) return;
 
   throw new SafeError(LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE, 400);
+}
+
+function assertWebhookActionsAllowed(
+  actions: ReadonlyArray<{ type: ActionType | string }>,
+) {
+  if (!hasWebhookAction(actions)) return;
+  ensureWebhookActionEnabled();
 }
 
 async function mapActionFields(

@@ -452,7 +452,9 @@ export const updateRuleActionsTool = ({
               ActionType.SEND_EMAIL,
               ActionType.MARK_READ,
               ActionType.MARK_SPAM,
-              ActionType.CALL_WEBHOOK,
+              ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false
+                ? [ActionType.CALL_WEBHOOK]
+                : []),
               ActionType.DIGEST,
             ]),
             fields: z.object({

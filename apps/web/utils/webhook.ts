@@ -4,6 +4,7 @@ import prisma from "@/utils/prisma";
 import { sleep } from "@/utils/sleep";
 import type { ExecutedRule } from "@/generated/prisma/client";
 import { validateWebhookUrl } from "@/utils/webhook-validation";
+import { ensureWebhookActionEnabled } from "@/utils/webhook-action";
 
 const logger = createScopedLogger("webhook");
 
@@ -28,6 +29,8 @@ export const callWebhook = async (
   url: string,
   payload: WebhookPayload,
 ) => {
+  ensureWebhookActionEnabled();
+
   if (!url) throw new Error("Webhook URL is required");
 
   // Validate URL to prevent SSRF attacks

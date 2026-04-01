@@ -15,6 +15,7 @@ const {
 } = vi.hoisted(() => ({
   envState: {
     sendEmailEnabled: true,
+    webhookActionsEnabled: true,
   },
   mockToolCallAgentStream: vi.fn(),
   mockCreateEmailProvider: vi.fn(),
@@ -65,6 +66,9 @@ vi.mock("@/env", () => ({
     get NEXT_PUBLIC_EMAIL_SEND_ENABLED() {
       return envState.sendEmailEnabled;
     },
+    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
+      return envState.webhookActionsEnabled;
+    },
   },
 }));
 
@@ -77,8 +81,15 @@ const baseMessages: ModelMessage[] = [
   },
 ];
 
-async function loadAssistantChatModule({ emailSend }: { emailSend: boolean }) {
+async function loadAssistantChatModule({
+  emailSend,
+  webhookActions = true,
+}: {
+  emailSend: boolean;
+  webhookActions?: boolean;
+}) {
   envState.sendEmailEnabled = emailSend;
+  envState.webhookActionsEnabled = webhookActions;
   vi.resetModules();
   return await import("@/utils/ai/assistant/chat");
 }
@@ -111,6 +122,7 @@ describe("aiProcessAssistantChat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envState.sendEmailEnabled = true;
+    envState.webhookActionsEnabled = true;
   });
 
   it("includes expanded prompt guidance and new tool set when email sending is enabled", async () => {
@@ -232,6 +244,30 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     expect(args.tools.sendEmail).toBeUndefined();
     expect(args.tools.forwardEmail).toBeUndefined();
+  });
+
+  it("omits webhook action guidance when webhook actions are disabled", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+      webhookActions: false,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+    expect(args.messages[0].content).not.toContain("- Call a webhook");
+    expect(args.messages[0].content).not.toContain(
+      "When createRule includes a webhook action",
+    );
   });
 
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
