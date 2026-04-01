@@ -14,6 +14,8 @@
         "PREVIEW_DATABASE_URL_UNPOOLED",
         "NEXTAUTH_SECRET",
         "AUTH_SECRET",
+        "AUTH_ALLOWED_EMAILS",
+        "AUTH_ALLOWED_EMAIL_DOMAINS",
 
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
@@ -212,6 +214,8 @@
         "NODE_ENV",
         "DATABASE_URL",
         "AUTH_SECRET",
+        "AUTH_ALLOWED_EMAILS",
+        "AUTH_ALLOWED_EMAIL_DOMAINS",
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
         "GOOGLE_BASE_URL",
