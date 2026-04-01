@@ -611,6 +611,7 @@ export const copyRulesFromAccountAction = actionClientUser
         if (existingRuleId) {
           await replaceRuleWithResolvedActions({
             ruleId: existingRuleId,
+            emailAccountId: targetEmailAccountId,
             data: {
               instructions: sourceRule.instructions,
               enabled: sourceRule.enabled,
@@ -1066,6 +1067,7 @@ export const importRulesAction = actionClient
           if (existingRuleId) {
             await replaceRuleWithResolvedActions({
               ruleId: existingRuleId,
+              emailAccountId,
               data: {
                 instructions: rule.instructions,
                 enabled: rule.enabled ?? true,

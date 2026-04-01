@@ -29,7 +29,13 @@ vi.mock("@/utils/prisma-helpers", () => ({
   isDuplicateError: vi.fn(() => false),
 }));
 
-import { createRule, deleteRule, updateRule, updateRuleActions } from "./rule";
+import {
+  createRule,
+  deleteRule,
+  partialUpdateRule,
+  updateRule,
+  updateRuleActions,
+} from "./rule";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const logger = createTestLogger();
@@ -225,6 +231,66 @@ describe("outbound action guardrails", () => {
     ).rejects.toThrow("Rule not found");
 
     expect(prisma.rule.update).not.toHaveBeenCalled();
+  });
+
+  it("scopes full rule updates to the email account", async () => {
+    prisma.rule.update.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+
+    await updateRule({
+      ruleId: "rule-id",
+      result: {
+        name: "Archive rule",
+        condition: {
+          aiInstructions: null,
+          conditionalOperator: null,
+          static: {
+            from: "sender@example.com",
+            to: null,
+            subject: null,
+          },
+        },
+        actions: [
+          {
+            type: ActionType.ARCHIVE,
+            fields: null,
+            delayInMinutes: null,
+          },
+        ],
+      },
+      emailAccountId: "email-account-id",
+      provider: "gmail",
+      logger,
+    });
+
+    expect(prisma.rule.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "rule-id", emailAccountId: "email-account-id" },
+      }),
+    );
+  });
+
+  it("scopes partial rule updates to the email account", async () => {
+    prisma.rule.update.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+
+    await partialUpdateRule({
+      ruleId: "rule-id",
+      emailAccountId: "email-account-id",
+      data: { instructions: "updated instructions" } as any,
+    });
+
+    expect(prisma.rule.update).toHaveBeenCalledWith({
+      where: { id: "rule-id", emailAccountId: "email-account-id" },
+      data: { instructions: "updated instructions" },
+      include: { actions: true, group: true },
+    });
   });
 });
 

@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
+import { ConditionType } from "@/utils/config";
 
-const setRuleEnabledMock = vi.hoisted(() => vi.fn());
+const { createEmailProviderMock, createRuleHistoryMock, setRuleEnabledMock } =
+  vi.hoisted(() => ({
+    createEmailProviderMock: vi.fn(),
+    createRuleHistoryMock: vi.fn(),
+    setRuleEnabledMock: vi.fn(),
+  }));
 
 vi.mock("@/utils/rule/rule", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/utils/rule/rule")>();
@@ -14,19 +20,28 @@ vi.mock("@/utils/rule/rule", async (importOriginal) => {
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/email/provider", () => ({
+  createEmailProvider: createEmailProviderMock,
+}));
+vi.mock("@/utils/rule/rule-history", () => ({
+  createRuleHistory: createRuleHistoryMock,
+}));
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({ user: { id: "u1", email: "owner@example.com" } })),
 }));
 
 import prisma from "@/utils/__mocks__/prisma";
+import { createEmailProvider } from "@/utils/email/provider";
 import {
   deleteRuleAction,
   enableDraftRepliesAction,
+  updateRuleAction,
 } from "@/utils/actions/rule";
 
 describe("enableDraftRepliesAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(createEmailProvider).mockResolvedValue({} as any);
   });
 
   it("re-enables the existing to-reply rule before adding draft actions", async () => {
@@ -105,6 +120,7 @@ describe("enableDraftRepliesAction", () => {
 describe("deleteRuleAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(createEmailProvider).mockResolvedValue({} as any);
   });
 
   it("rejects deleting default rules", async () => {
@@ -134,5 +150,77 @@ describe("deleteRuleAction", () => {
     );
     expect(prisma.rule.delete).not.toHaveBeenCalled();
     expect(prisma.group.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateRuleAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(createEmailProvider).mockResolvedValue({} as any);
+  });
+
+  it("scopes the rule update to the bound email account", async () => {
+    (
+      prisma.emailAccount.findUnique as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+
+    prisma.rule.update.mockResolvedValue({
+      id: "victim-rule",
+      actions: [],
+      group: null,
+    } as never);
+
+    const result = await updateRuleAction(
+      "attacker-account" as never,
+      {
+        id: "victim-rule",
+        name: "Updated rule",
+        instructions: null,
+        groupId: null,
+        runOnThreads: true,
+        digest: false,
+        actions: [
+          {
+            type: ActionType.ARCHIVE,
+            messagingChannelId: null,
+            labelId: null,
+            subject: null,
+            content: null,
+            to: null,
+            cc: null,
+            bcc: null,
+            url: null,
+            folderName: null,
+            folderId: null,
+            delayInMinutes: null,
+          },
+        ],
+        conditions: [
+          {
+            type: ConditionType.STATIC,
+            instructions: null,
+            to: null,
+            from: "sender@example.com",
+            subject: null,
+            body: null,
+          },
+        ],
+        conditionalOperator: "AND",
+        systemType: null,
+      } as never,
+    );
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.rule.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "victim-rule",
+          emailAccountId: "attacker-account",
+        },
+      }),
+    );
   });
 });
