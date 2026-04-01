@@ -146,9 +146,9 @@ function normalizeCode(code: string): Buffer {
 }
 
 function normalizeSameSite(
-  sameSite: "Strict" | "Lax" | "None" | "strict" | "lax" | "none",
+  sameSite: "Strict" | "Lax" | "None" | "strict" | "lax" | "none" | undefined,
 ) {
-  return sameSite.toLowerCase() as "strict" | "lax" | "none";
+  return sameSite?.toLowerCase() as "strict" | "lax" | "none" | undefined;
 }
 
 function getRateLimitKey(ipAddress: string | null, userAgent: string | null) {
