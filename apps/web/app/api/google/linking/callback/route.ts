@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { hash } from "@/utils/hash";
@@ -7,6 +6,7 @@ import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { withError } from "@/utils/middleware";
 import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
+import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
 import {
   hashOAuthAuditIdentifier,
   logOAuthLinkingCallbackValidation,
@@ -63,11 +63,10 @@ export const GET = withError("google/linking/callback", async (request) => {
   });
 
   if (actorUserId && actorUserId !== targetUserId) {
-    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-    redirectUrl.searchParams.set("error", "invalid_state");
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-    return response;
+    return createAccountLinkingRedirect({
+      query: { error: "invalid_state" },
+      stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+    });
   }
 
   const cachedResult = await getOAuthCodeResult(code);
@@ -75,13 +74,10 @@ export const GET = withError("google/linking/callback", async (request) => {
     logger.info("OAuth code already processed, returning cached result", {
       targetUserId,
     });
-    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-    for (const [key, value] of Object.entries(cachedResult.params)) {
-      redirectUrl.searchParams.set(key, value);
-    }
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-    return response;
+    return createAccountLinkingRedirect({
+      query: cachedResult.params,
+      stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+    });
   }
 
   const acquiredLock = await acquireOAuthCodeLock(code);
@@ -89,10 +85,9 @@ export const GET = withError("google/linking/callback", async (request) => {
     logger.info("OAuth code is being processed by another request", {
       targetUserId,
     });
-    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-    return response;
+    return createAccountLinkingRedirect({
+      stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+    });
   }
 
   const googleAuth = getLinkingOAuth2Client();
@@ -169,13 +164,10 @@ export const GET = withError("google/linking/callback", async (request) => {
           });
 
           await setOAuthCodeResult(code, { success: "tokens_updated" });
-
-          const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-          successUrl.searchParams.set("success", "tokens_updated");
-          const successResponse = NextResponse.redirect(successUrl);
-          successResponse.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-
-          return successResponse;
+          return createAccountLinkingRedirect({
+            query: { success: "tokens_updated" },
+            stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+          });
         }
       }
 
@@ -263,13 +255,10 @@ export const GET = withError("google/linking/callback", async (request) => {
       }
 
       await setOAuthCodeResult(code, { success: "account_created_and_linked" });
-
-      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-      successUrl.searchParams.set("success", "account_created_and_linked");
-      const successResponse = NextResponse.redirect(successUrl);
-      successResponse.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-
-      return successResponse;
+      return createAccountLinkingRedirect({
+        query: { success: "account_created_and_linked" },
+        stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      });
     }
 
     if (linkingResult.type === "update_tokens") {
@@ -297,13 +286,10 @@ export const GET = withError("google/linking/callback", async (request) => {
       });
 
       await setOAuthCodeResult(code, { success: "tokens_updated" });
-
-      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-      successUrl.searchParams.set("success", "tokens_updated");
-      const successResponse = NextResponse.redirect(successUrl);
-      successResponse.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-
-      return successResponse;
+      return createAccountLinkingRedirect({
+        query: { success: "tokens_updated" },
+        stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      });
     }
 
     logger.info("Merging Google account (user confirmed).", {
@@ -341,20 +327,14 @@ export const GET = withError("google/linking/callback", async (request) => {
     });
 
     await setOAuthCodeResult(code, { success: successMessage });
-
-    const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-    successUrl.searchParams.set("success", successMessage);
-    const successResponse = NextResponse.redirect(successUrl);
-    successResponse.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-
-    return successResponse;
+    return createAccountLinkingRedirect({
+      query: { success: successMessage },
+      stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+    });
   } catch (error) {
     await clearOAuthCode(code);
-
-    const errorUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
     return handleOAuthCallbackError({
       error,
-      redirectUrl: errorUrl,
       stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
       logger,
     });
