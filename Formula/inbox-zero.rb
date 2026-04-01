@@ -3,13 +3,13 @@
 class InboxZero < Formula
   desc "CLI tool for setting up Inbox Zero - AI email assistant"
   homepage "https://www.getinboxzero.com"
-  version "2.29.1"
+  version "2.29.2"
   license "AGPL-3.0-only"
 
   on_macos do
     on_arm do
-      url "https://github.com/elie222/inbox-zero/releases/download/v2.29.1/inbox-zero-darwin-arm64.tar.gz"
-      sha256 "ca1f436f67e47b50d7c44239ab11850ca4a37b42e467ad0fe3747c52c4e0145e"
+      url "https://github.com/elie222/inbox-zero/releases/download/v2.29.2/inbox-zero-darwin-arm64.tar.gz"
+      sha256 "82c16d708e8b892818c38c3250ffc45c9e80e9cff2341faf7580cb920523c0ee"
 
       def install
         bin.install "inbox-zero-darwin-arm64" => "inbox-zero"
@@ -17,8 +17,8 @@ class InboxZero < Formula
     end
 
     on_intel do
-      url "https://github.com/elie222/inbox-zero/releases/download/v2.29.1/inbox-zero-darwin-x64.tar.gz"
-      sha256 "f691f2ab56f34d0a24f0bb00b686ed11082a38b3e72d1e72d48b6b4701b281ce"
+      url "https://github.com/elie222/inbox-zero/releases/download/v2.29.2/inbox-zero-darwin-x64.tar.gz"
+      sha256 "9e1de1c0e65c68024faf7f31d3c6830f517914625415fa31af614cc43bbfabc6"
 
       def install
         bin.install "inbox-zero-darwin-x64" => "inbox-zero"
@@ -28,8 +28,8 @@ class InboxZero < Formula
 
   on_linux do
     on_intel do
-      url "https://github.com/elie222/inbox-zero/releases/download/v2.29.1/inbox-zero-linux-x64.tar.gz"
-      sha256 "8be318f74f51c2b9dfd526661805513eb4ef59e74c425766d7ce7f1200d6bec4"
+      url "https://github.com/elie222/inbox-zero/releases/download/v2.29.2/inbox-zero-linux-x64.tar.gz"
+      sha256 "ef257ee5bafe474275d405099b05ce2c5c63fa2ecf675737ea3b6d45d97deac7"
 
       def install
         bin.install "inbox-zero-linux-x64" => "inbox-zero"
