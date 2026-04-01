@@ -6,7 +6,7 @@ import {
 } from "@/utils/drive/client";
 import { DRIVE_STATE_COOKIE_NAME } from "@/utils/drive/constants";
 import {
-  generateOAuthState,
+  generateSignedOAuthState,
   oauthStateCookieOptions,
 } from "@/utils/oauth/state";
 
@@ -40,7 +40,7 @@ const getAuthUrl = ({
   emailAccountId: string;
   accessLevel: GoogleDriveAccessLevel;
 }) => {
-  const state = generateOAuthState({
+  const state = generateSignedOAuthState({
     emailAccountId,
     type: "drive",
   });

@@ -5,7 +5,7 @@ import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { SCOPES } from "@/utils/gmail/scopes";
 import { hasActiveAccountLinkingUser } from "@/utils/oauth/account-linking";
 import {
-  generateOAuthState,
+  generateSignedOAuthState,
   oauthStateCookieOptions,
 } from "@/utils/oauth/state";
 
@@ -14,7 +14,7 @@ export type GetAuthLinkUrlResponse = { url: string };
 const getAuthUrl = ({ userId }: { userId: string }) => {
   const googleAuth = getLinkingOAuth2Client();
 
-  const state = generateOAuthState({ userId });
+  const state = generateSignedOAuthState({ userId });
 
   const url = googleAuth.generateAuthUrl({
     access_type: "offline",

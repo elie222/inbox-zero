@@ -5,14 +5,14 @@ import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import { hasActiveAccountLinkingUser } from "@/utils/oauth/account-linking";
 import {
-  generateOAuthState,
+  generateSignedOAuthState,
   oauthStateCookieOptions,
 } from "@/utils/oauth/state";
 
 export type GetOutlookAuthLinkUrlResponse = { url: string };
 
 const getAuthUrl = ({ userId }: { userId: string }) => {
-  const state = generateOAuthState({ userId });
+  const state = generateSignedOAuthState({ userId });
 
   const baseUrl = getLinkingOAuth2Url();
   const url = `${baseUrl}&state=${state}`;

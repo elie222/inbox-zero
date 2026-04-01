@@ -24,6 +24,7 @@ const {
 
 vi.mock("@/env", () => ({
   env: {
+    AUTH_SECRET: "test-auth-secret",
     NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
     MICROSOFT_CLIENT_ID: "client-id",
     MICROSOFT_CLIENT_SECRET: "client-secret",
@@ -59,9 +60,14 @@ vi.mock("@/utils/error", async (importActual) => {
   };
 });
 
-vi.mock("@/utils/oauth/callback-validation", () => ({
-  validateOAuthCallback: mockValidateOAuthCallback,
-}));
+vi.mock("@/utils/oauth/callback-validation", async (importActual) => {
+  const actual =
+    await importActual<typeof import("@/utils/oauth/callback-validation")>();
+  return {
+    ...actual,
+    validateOAuthCallback: mockValidateOAuthCallback,
+  };
+});
 
 vi.mock("@/utils/oauth/account-linking", () => ({
   handleAccountLinking: mockHandleAccountLinking,
@@ -95,10 +101,14 @@ vi.mock("@/utils/outlook/scopes", () => ({
   ],
 }));
 
+import { generateSignedOAuthState } from "@/utils/oauth/state";
 import { GET } from "./route";
 
 describe("outlook linking callback route", () => {
-  const createRequest = (url: string, state = "valid-state") =>
+  const createSignedState = (userId = "user-123") =>
+    generateSignedOAuthState({ userId });
+
+  const createRequest = (url: string, state = createSignedState()) =>
     new NextRequest(url, {
       headers: {
         cookie: `outlook_linking_state=${state}`,
@@ -199,9 +209,11 @@ describe("outlook linking callback route", () => {
   });
 
   it("redirects with admin_consent_required when Microsoft returns an AADSTS65001 callback error", async () => {
+    const state = createSignedState();
     const response = await GET(
       createRequest(
-        "http://localhost:3000/api/outlook/linking/callback?error=access_denied&error_description=AADSTS65001&state=valid-state",
+        `http://localhost:3000/api/outlook/linking/callback?error=access_denied&error_description=AADSTS65001&state=${encodeURIComponent(state)}`,
+        state,
       ),
     );
 
@@ -213,9 +225,11 @@ describe("outlook linking callback route", () => {
   });
 
   it("redirects with consent_declined when Microsoft consent is canceled", async () => {
+    const state = createSignedState();
     const response = await GET(
       createRequest(
-        "http://localhost:3000/api/outlook/linking/callback?error=access_denied&error_description=AADSTS65004&state=valid-state",
+        `http://localhost:3000/api/outlook/linking/callback?error=access_denied&error_description=AADSTS65004&state=${encodeURIComponent(state)}`,
+        state,
       ),
     );
 
@@ -227,9 +241,12 @@ describe("outlook linking callback route", () => {
   });
 
   it("redirects with invalid_state for Microsoft callback errors with mismatched state", async () => {
+    const cookieState = createSignedState();
+    const queryState = createSignedState();
     const response = await GET(
       createRequest(
-        "http://localhost:3000/api/outlook/linking/callback?error=access_denied&error_description=AADSTS65001&state=wrong-state",
+        `http://localhost:3000/api/outlook/linking/callback?error=access_denied&error_description=AADSTS65001&state=${encodeURIComponent(queryState)}`,
+        cookieState,
       ),
     );
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
-import { parseOAuthState } from "@/utils/oauth/state";
+import { parseSignedOAuthState } from "@/utils/oauth/state";
 
 interface ValidateCallbackParams {
   code: string | null;
@@ -32,30 +32,13 @@ export function validateOAuthCallback({
   const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
   const response = NextResponse.redirect(redirectUrl);
 
-  if (!storedState || !receivedState || storedState !== receivedState) {
-    logger.warn("Invalid state during OAuth callback", {
-      receivedState,
-      hasStoredState: !!storedState,
-    });
-    redirectUrl.searchParams.set("error", "invalid_state");
-    response.cookies.delete(stateCookieName);
-    return {
-      success: false,
-      response: NextResponse.redirect(redirectUrl, {
-        headers: response.headers,
-      }),
-    };
-  }
-
-  let decodedState: {
-    userId: string;
-    nonce: string;
-  };
-  try {
-    decodedState = parseOAuthState(storedState);
-  } catch (error) {
-    logger.error("Failed to decode state", { error });
-    redirectUrl.searchParams.set("error", "invalid_state_format");
+  const stateValidation = validateMatchingSignedOAuthState({
+    logger,
+    receivedState,
+    storedState,
+  });
+  if (!stateValidation.success) {
+    redirectUrl.searchParams.set("error", stateValidation.error);
     response.cookies.delete(stateCookieName);
     return {
       success: false,
@@ -79,7 +62,91 @@ export function validateOAuthCallback({
 
   return {
     success: true,
-    targetUserId: decodedState.userId,
+    targetUserId: stateValidation.targetUserId,
     code,
   };
+}
+
+export function hasValidMatchingSignedOAuthState(params: {
+  logger: Logger;
+  receivedState: string | null;
+  storedState: string | undefined;
+}) {
+  return validateMatchingSignedOAuthState(params).success;
+}
+
+function validateMatchingSignedOAuthState(params: {
+  logger: Logger;
+  receivedState: string | null;
+  storedState: string | undefined;
+}):
+  | {
+      success: true;
+      targetUserId: string;
+    }
+  | {
+      success: false;
+      error: "invalid_state" | "invalid_state_format";
+    } {
+  if (!params.storedState || !params.receivedState) {
+    params.logger.warn("Invalid state during OAuth callback", {
+      receivedState: params.receivedState,
+      hasStoredState: !!params.storedState,
+    });
+    return {
+      success: false,
+      error: "invalid_state",
+    };
+  }
+
+  try {
+    const storedPayload = parseSignedOAuthState<{ userId: string }>(
+      params.storedState,
+    );
+    const receivedPayload = parseSignedOAuthState<{ userId: string }>(
+      params.receivedState,
+    );
+
+    if (
+      typeof storedPayload.userId !== "string" ||
+      typeof receivedPayload.userId !== "string"
+    ) {
+      params.logger.error("Failed to decode OAuth callback state", {
+        hasStoredState: !!params.storedState,
+      });
+      return {
+        success: false,
+        error: "invalid_state_format",
+      };
+    }
+
+    if (
+      storedPayload.userId !== receivedPayload.userId ||
+      storedPayload.nonce !== receivedPayload.nonce ||
+      storedPayload.issuedAt !== receivedPayload.issuedAt
+    ) {
+      params.logger.warn("Invalid state during OAuth callback", {
+        receivedState: params.receivedState,
+        hasStoredState: !!params.storedState,
+      });
+      return {
+        success: false,
+        error: "invalid_state",
+      };
+    }
+
+    return {
+      success: true,
+      targetUserId: storedPayload.userId,
+    };
+  } catch (error) {
+    params.logger.error("Failed to verify OAuth callback state", {
+      error,
+      hasStoredState: !!params.storedState,
+    });
+    return {
+      success: false,
+      error: "invalid_state_format",
+    };
+  }
 }

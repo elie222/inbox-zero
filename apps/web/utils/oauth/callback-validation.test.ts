@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { validateOAuthCallback } from "./callback-validation";
-import { parseOAuthState } from "@/utils/oauth/state";
+import { parseSignedOAuthState } from "@/utils/oauth/state";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const logger = createTestLogger();
@@ -13,6 +13,18 @@ describe("validateOAuthCallback", () => {
   });
 
   it("should return error when state mismatch", () => {
+    vi.mocked(parseSignedOAuthState)
+      .mockReturnValueOnce({
+        userId: "user-id",
+        nonce: "stored-nonce",
+        issuedAt: 123,
+      })
+      .mockReturnValueOnce({
+        userId: "user-id",
+        nonce: "received-nonce",
+        issuedAt: 123,
+      });
+
     const result = validateOAuthCallback({
       code: "valid-code",
       receivedState: "received-state",
@@ -29,9 +41,10 @@ describe("validateOAuthCallback", () => {
   });
 
   it("should return error when code is missing", () => {
-    vi.mocked(parseOAuthState).mockReturnValue({
+    vi.mocked(parseSignedOAuthState).mockReturnValue({
       userId: "user-id",
       nonce: "nonce",
+      issuedAt: Date.now(),
     });
 
     const result = validateOAuthCallback({
@@ -50,7 +63,7 @@ describe("validateOAuthCallback", () => {
   });
 
   it("should return error when state decode fails", () => {
-    vi.mocked(parseOAuthState).mockImplementation(() => {
+    vi.mocked(parseSignedOAuthState).mockImplementation(() => {
       throw new Error("Invalid state");
     });
 
@@ -69,17 +82,51 @@ describe("validateOAuthCallback", () => {
     }
   });
 
-  it("should return success when validation passes", () => {
-    vi.mocked(parseOAuthState).mockReturnValue({
-      userId: "user-id",
-      action: "auto",
-      nonce: "nonce",
-    });
+  it("should return error when signed state payloads do not match", () => {
+    vi.mocked(parseSignedOAuthState)
+      .mockReturnValueOnce({
+        userId: "user-id",
+        nonce: "stored-nonce",
+        issuedAt: 123,
+      })
+      .mockReturnValueOnce({
+        userId: "user-id",
+        nonce: "received-nonce",
+        issuedAt: 123,
+      });
 
     const result = validateOAuthCallback({
       code: "valid-code",
-      receivedState: "state",
-      storedState: "state",
+      receivedState: "received-state",
+      storedState: "stored-state",
+      stateCookieName: "test_cookie",
+      logger,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const url = new URL(result.response.headers.get("location") || "");
+      expect(url.searchParams.get("error")).toBe("invalid_state");
+    }
+  });
+
+  it("should return success when validation passes", () => {
+    vi.mocked(parseSignedOAuthState)
+      .mockReturnValueOnce({
+        userId: "user-id",
+        nonce: "nonce",
+        issuedAt: 123,
+      })
+      .mockReturnValueOnce({
+        userId: "user-id",
+        nonce: "nonce",
+        issuedAt: 123,
+      });
+
+    const result = validateOAuthCallback({
+      code: "valid-code",
+      receivedState: "received-state",
+      storedState: "stored-state",
       stateCookieName: "test_cookie",
       logger,
     });

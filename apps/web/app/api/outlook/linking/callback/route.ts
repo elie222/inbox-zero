@@ -8,6 +8,7 @@ import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
+import { hasValidMatchingSignedOAuthState } from "@/utils/oauth/callback-validation";
 import {
   classifyMicrosoftOAuthCallbackError,
   extractAadstsCode,
@@ -530,9 +531,11 @@ function validateMicrosoftOAuthErrorState(params: {
   logger: Logger;
 }) {
   if (
-    params.storedState &&
-    params.receivedState &&
-    params.storedState === params.receivedState
+    hasValidMatchingSignedOAuthState({
+      receivedState: params.receivedState,
+      storedState: params.storedState,
+      logger: params.logger,
+    })
   ) {
     return null;
   }
