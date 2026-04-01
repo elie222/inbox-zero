@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { hash } from "@/utils/hash";
@@ -8,6 +7,7 @@ import { withError } from "@/utils/middleware";
 import { captureException, SafeError } from "@/utils/error";
 import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
+import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
 import { hasValidMatchingSignedOAuthState } from "@/utils/oauth/callback-validation";
@@ -98,11 +98,10 @@ export const GET = withError("outlook/linking/callback", async (request) => {
   });
 
   if (actorUserId && actorUserId !== targetUserId) {
-    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-    redirectUrl.searchParams.set("error", "invalid_state");
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-    return response;
+    return createAccountLinkingRedirect({
+      query: { error: "invalid_state" },
+      stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+    });
   }
 
   const cachedResult = await getOAuthCodeResult(code);
@@ -110,13 +109,10 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     logger.info("OAuth code already processed, returning cached result", {
       targetUserId,
     });
-    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-    for (const [key, value] of Object.entries(cachedResult.params)) {
-      redirectUrl.searchParams.set(key, value);
-    }
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-    return response;
+    return createAccountLinkingRedirect({
+      query: cachedResult.params,
+      stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+    });
   }
 
   const acquiredLock = await acquireOAuthCodeLock(code);
@@ -124,10 +120,9 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     logger.info("OAuth code is being processed by another request", {
       targetUserId,
     });
-    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-    return response;
+    return createAccountLinkingRedirect({
+      stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+    });
   }
 
   try {
@@ -336,13 +331,10 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       }
 
       await setOAuthCodeResult(code, { success: "account_created_and_linked" });
-
-      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-      successUrl.searchParams.set("success", "account_created_and_linked");
-      const successResponse = NextResponse.redirect(successUrl);
-      successResponse.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-
-      return successResponse;
+      return createAccountLinkingRedirect({
+        query: { success: "account_created_and_linked" },
+        stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+      });
     }
 
     if (linkingResult.type === "update_tokens") {
@@ -370,13 +362,10 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       });
 
       await setOAuthCodeResult(code, { success: "tokens_updated" });
-
-      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-      successUrl.searchParams.set("success", "tokens_updated");
-      const successResponse = NextResponse.redirect(successUrl);
-      successResponse.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-
-      return successResponse;
+      return createAccountLinkingRedirect({
+        query: { success: "tokens_updated" },
+        stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+      });
     }
 
     logger.info("Merging Microsoft account (user confirmed).", {
@@ -412,20 +401,14 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     });
 
     await setOAuthCodeResult(code, { success: successMessage });
-
-    const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-    successUrl.searchParams.set("success", successMessage);
-    const successResponse = NextResponse.redirect(successUrl);
-    successResponse.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-
-    return successResponse;
+    return createAccountLinkingRedirect({
+      query: { success: successMessage },
+      stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+    });
   } catch (error) {
     await clearOAuthCode(code);
-
-    const errorUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
     return handleOAuthCallbackError({
       error,
-      redirectUrl: errorUrl,
       stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
       logger,
       provider: "microsoft",
@@ -541,7 +524,6 @@ function handleMicrosoftOAuthAuthorizeError(params: {
   redirectUri: string;
   requestedScopes: readonly string[];
 }) {
-  const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
   const mappedError = classifyMicrosoftOAuthCallbackError({
     oauthError: params.oauthError,
     errorDescription: params.errorDescription,
@@ -559,21 +541,24 @@ function handleMicrosoftOAuthAuthorizeError(params: {
   });
 
   if (mappedError) {
-    redirectUrl.searchParams.set("error", mappedError.errorCode);
-    redirectUrl.searchParams.set("error_description", mappedError.userMessage);
-  } else {
-    redirectUrl.searchParams.set("error", "link_failed");
-    const safeErrorDescription = getSafeMicrosoftOAuthErrorDescription(
-      params.errorDescription,
-    );
-    if (safeErrorDescription) {
-      redirectUrl.searchParams.set("error_description", safeErrorDescription);
-    }
+    return createAccountLinkingRedirect({
+      query: {
+        error: mappedError.errorCode,
+        error_description: mappedError.userMessage,
+      },
+      stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+    });
   }
 
-  const response = NextResponse.redirect(redirectUrl);
-  response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-  return response;
+  return createAccountLinkingRedirect({
+    query: {
+      error: "link_failed",
+      error_description: getSafeMicrosoftOAuthErrorDescription(
+        params.errorDescription,
+      ),
+    },
+    stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+  });
 }
 
 function validateMicrosoftOAuthErrorState(params: {
@@ -595,10 +580,8 @@ function validateMicrosoftOAuthErrorState(params: {
     receivedState: params.receivedState,
     hasStoredState: !!params.storedState,
   });
-
-  const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-  redirectUrl.searchParams.set("error", "invalid_state");
-  const response = NextResponse.redirect(redirectUrl);
-  response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-  return response;
+  return createAccountLinkingRedirect({
+    query: { error: "invalid_state" },
+    stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+  });
 }

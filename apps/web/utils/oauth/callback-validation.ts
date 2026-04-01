@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
-import { env } from "@/env";
+import type { NextResponse } from "next/server";
 import type { Logger } from "@/utils/logger";
+import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
 import { parseSignedOAuthState } from "@/utils/oauth/state";
 
 interface ValidateCallbackParams {
@@ -30,33 +30,28 @@ export function validateOAuthCallback({
   stateCookieName,
   logger,
 }: ValidateCallbackParams): ValidationResult {
-  const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-  const response = NextResponse.redirect(redirectUrl);
-
   const stateValidation = validateMatchingSignedOAuthState({
     logger,
     receivedState,
     storedState,
   });
   if (!stateValidation.success) {
-    redirectUrl.searchParams.set("error", stateValidation.error);
-    response.cookies.delete(stateCookieName);
     return {
       success: false,
-      response: NextResponse.redirect(redirectUrl, {
-        headers: response.headers,
+      response: createAccountLinkingRedirect({
+        query: { error: stateValidation.error },
+        stateCookieName,
       }),
     };
   }
 
   if (!code) {
     logger.warn("Missing code in OAuth callback");
-    redirectUrl.searchParams.set("error", "missing_code");
-    response.cookies.delete(stateCookieName);
     return {
       success: false,
-      response: NextResponse.redirect(redirectUrl, {
-        headers: response.headers,
+      response: createAccountLinkingRedirect({
+        query: { error: "missing_code" },
+        stateCookieName,
       }),
     };
   }

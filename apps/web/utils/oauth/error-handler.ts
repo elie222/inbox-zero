@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import type { NextResponse } from "next/server";
 import type { Logger } from "@/utils/logger";
+import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
 import {
   classifyMicrosoftOAuthError,
   getSafeMicrosoftOAuthErrorDescription,
@@ -9,13 +10,11 @@ interface ErrorHandlerParams {
   error: unknown;
   logger: Logger;
   provider?: "google" | "microsoft";
-  redirectUrl: URL;
   stateCookieName: string;
 }
 
 export function handleOAuthCallbackError({
   error,
-  redirectUrl,
   stateCookieName,
   logger,
   provider,
@@ -31,30 +30,31 @@ export function handleOAuthCallbackError({
         mappedError: mappedError.errorCode,
         aadstsCode: mappedError.aadstsCode,
       });
-      redirectUrl.searchParams.set("error", mappedError.errorCode);
-      redirectUrl.searchParams.set(
-        "error_description",
-        mappedError.userMessage,
-      );
-      const response = NextResponse.redirect(redirectUrl);
-      response.cookies.delete(stateCookieName);
-      return response;
+      return createAccountLinkingRedirect({
+        query: {
+          error: mappedError.errorCode,
+          error_description: mappedError.userMessage,
+        },
+        stateCookieName,
+      });
     }
 
     const safeErrorDescription =
       getSafeMicrosoftOAuthErrorDescription(errorMessage);
-    redirectUrl.searchParams.set("error", "link_failed");
-    if (safeErrorDescription) {
-      redirectUrl.searchParams.set("error_description", safeErrorDescription);
-    }
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(stateCookieName);
-    return response;
+    return createAccountLinkingRedirect({
+      query: {
+        error: "link_failed",
+        error_description: safeErrorDescription,
+      },
+      stateCookieName,
+    });
   }
 
-  redirectUrl.searchParams.set("error", "link_failed");
-  redirectUrl.searchParams.set("error_description", errorMessage);
-  const response = NextResponse.redirect(redirectUrl);
-  response.cookies.delete(stateCookieName);
-  return response;
+  return createAccountLinkingRedirect({
+    query: {
+      error: "link_failed",
+      error_description: errorMessage,
+    },
+    stateCookieName,
+  });
 }
