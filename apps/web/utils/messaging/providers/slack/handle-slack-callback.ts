@@ -9,7 +9,10 @@ import {
 } from "@/utils/oauth/redirect";
 import { SLACK_STATE_COOKIE_NAME } from "./constants";
 import prisma from "@/utils/prisma";
-import { parseSignedOAuthState } from "@/utils/oauth/state";
+import {
+  parseSignedOAuthState,
+  validateSignedOAuthState,
+} from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import {
@@ -41,6 +44,7 @@ const slackOAuthResponseSchema = z.object({
 });
 
 type SlackOAuthResponse = z.infer<typeof slackOAuthResponseSchema>;
+type SlackOAuthState = z.infer<typeof slackOAuthStateSchema>;
 
 export async function handleSlackCallback(
   request: NextRequest,
@@ -51,19 +55,14 @@ export async function handleSlackCallback(
   let callbackLogger = logger;
 
   try {
-    const { code, redirectUrl, response, receivedState } =
-      validateOAuthCallback(request, logger);
+    const { code, response, slackState } = validateOAuthCallback(
+      request,
+      logger,
+    );
     codeForCleanup = code;
     redirectHeaders = response.headers;
 
-    const decodedState = parseAndValidateSlackState(
-      receivedState,
-      logger,
-      redirectUrl,
-      response.headers,
-    );
-
-    const { emailAccountId } = decodedState;
+    const { emailAccountId } = slackState;
     callbackLogger = logger.with({ emailAccountId });
 
     const finalRedirectUrl = buildSettingsRedirectUrl(emailAccountId);
@@ -205,9 +204,8 @@ function validateOAuthCallback(
   logger: Logger,
 ): {
   code: string;
-  redirectUrl: URL;
   response: NextResponse;
-  receivedState: string;
+  slackState: SlackOAuthState;
 } {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
@@ -241,41 +239,43 @@ function validateOAuthCallback(
     throw new RedirectError(redirectUrl, response.headers);
   }
 
-  if (storedState && storedState !== receivedState) {
+  const stateValidation = validateSignedOAuthState<{
+    emailAccountId: string;
+    type: "slack";
+  }>({
+    receivedState,
+    storedState,
+  });
+  if (!stateValidation.success) {
     logger.warn("Invalid state during Slack callback", {
       receivedState,
       hasStoredState: !!storedState,
+      error: stateValidation.error,
     });
-    redirectUrl.searchParams.set("error", "invalid_state");
+    redirectUrl.searchParams.set("error", stateValidation.error);
     throw new RedirectError(redirectUrl, response.headers);
   }
 
+  const slackState = parseAndValidateSlackState(
+    stateValidation.state,
+    logger,
+    redirectUrl,
+    response.headers,
+  );
+
   return {
     code,
-    redirectUrl,
     response,
-    receivedState,
+    slackState,
   };
 }
 
 function parseAndValidateSlackState(
-  receivedState: string,
+  rawState: unknown,
   logger: Logger,
   redirectUrl: URL,
   responseHeaders: Headers,
 ) {
-  let rawState: unknown;
-  try {
-    rawState = parseSignedOAuthState<{
-      emailAccountId: string;
-      type: "slack";
-    }>(receivedState);
-  } catch (signedError) {
-    logger.error("Failed to decode signed state", { error: signedError });
-    redirectUrl.searchParams.set("error", "invalid_state_format");
-    throw new RedirectError(redirectUrl, responseHeaders);
-  }
-
   const validationResult = slackOAuthStateSchema.safeParse(rawState);
   if (!validationResult.success) {
     logger.error("State validation failed", {
