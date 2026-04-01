@@ -44,6 +44,24 @@ const parsedEnv = createEnv({
 
     AUTH_SECRET: z.string().optional(),
     NEXTAUTH_SECRET: z.string().optional(),
+    AUTH_ALLOWED_EMAILS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value
+          ?.split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      ),
+    AUTH_ALLOWED_EMAIL_DOMAINS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value
+          ?.split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      ),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     // Local Google emulation only; used for both OAuth and resource APIs.

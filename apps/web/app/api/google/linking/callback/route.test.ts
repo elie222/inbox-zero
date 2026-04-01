@@ -209,7 +209,7 @@ describe("google linking callback route", () => {
     expect(prisma.account.update).not.toHaveBeenCalled();
   });
 
-  it("logs an audit warning when the callback actor differs from the target user", async () => {
+  it("rejects the callback when the actor differs from the target user", async () => {
     const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockAuth.mockResolvedValue({
       user: {
@@ -226,10 +226,13 @@ describe("google linking callback route", () => {
       type: "continue_create",
     });
 
-    await GET(
+    const response = await GET(
       createRequest("http://localhost:3000/api/google/linking/callback"),
     );
 
+    expect(response.headers.get("location")).toContain("error=invalid_state");
+    expect(mockGetToken).not.toHaveBeenCalled();
+    expect(mockHandleAccountLinking).not.toHaveBeenCalled();
     const warning = consoleWarn.mock.calls[0]?.[0];
     expect(warning).toContain("OAuth linking callback actor mismatch");
     expect(warning).toContain('"actorUserId": "actor-user"');

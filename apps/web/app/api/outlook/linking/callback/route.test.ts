@@ -356,7 +356,7 @@ describe("outlook linking callback route", () => {
     );
   });
 
-  it("logs an audit warning when the callback actor differs from the target user", async () => {
+  it("rejects the callback when the actor differs from the target user", async () => {
     const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockAuth.mockResolvedValue({
       user: {
@@ -401,10 +401,12 @@ describe("outlook linking callback route", () => {
         }),
     );
 
-    await GET(
+    const response = await GET(
       createRequest("http://localhost:3000/api/outlook/linking/callback"),
     );
 
+    expect(response.headers.get("location")).toContain("error=invalid_state");
+    expect(mockHandleAccountLinking).not.toHaveBeenCalled();
     const warning = consoleWarn.mock.calls[0]?.[0];
     expect(warning).toContain("OAuth linking callback actor mismatch");
     expect(warning).toContain('"actorUserId": "actor-user"');
