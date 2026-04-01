@@ -188,7 +188,7 @@ function withMiddleware<T extends NextRequest>(
       if (error instanceof SafeError) {
         return NextResponse.json(
           { error: error.safeMessage, isKnownError: true },
-          { status: 400 },
+          { status: error.statusCode ?? 400 },
         );
       }
 
