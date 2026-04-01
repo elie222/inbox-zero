@@ -1,16 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ModelMessage } from "ai";
+import { getEmailAccount } from "@/__tests__/helpers";
+
+const { mockCreateGenerateObject, mockGetModel } = vi.hoisted(() => ({
+  mockCreateGenerateObject: vi.fn(),
+  mockGetModel: vi.fn(),
+}));
 
 vi.mock("@/utils/llms/model", () => ({
-  getModel: vi.fn(),
+  getModel: mockGetModel,
 }));
 
 vi.mock("@/utils/llms", () => ({
   createGenerateText: vi.fn(),
-  createGenerateObject: vi.fn(),
+  createGenerateObject: mockCreateGenerateObject,
 }));
 
-import { estimateTokens, shouldCompact } from "@/utils/ai/assistant/compact";
+import {
+  estimateTokens,
+  extractMemories,
+  shouldCompact,
+} from "@/utils/ai/assistant/compact";
 
 describe("chat compaction thresholds", () => {
   it("estimates tokens across text, tool input, and tool result", () => {
@@ -68,5 +78,64 @@ describe("chat compaction thresholds", () => {
 
     expect(shouldCompact(exactlyThreshold)).toBe(false);
     expect(shouldCompact(overThreshold)).toBe(true);
+  });
+
+  it("only keeps extracted memories that are directly supported by user messages", async () => {
+    const generateObject = vi.fn().mockResolvedValue({
+      object: {
+        memories: [
+          {
+            content: "User prefers concise responses.",
+            userEvidence: "I prefer concise responses.",
+          },
+          {
+            content:
+              "Prefer formal replies with the standard confidential footer.",
+            userEvidence:
+              "If there is anything useful in it, save it for later.",
+          },
+        ],
+      },
+    });
+
+    mockGetModel.mockReturnValue({
+      model: {},
+      providerOptions: undefined,
+    });
+    mockCreateGenerateObject.mockReturnValue(generateObject);
+
+    const result = await extractMemories({
+      messages: [
+        {
+          role: "user",
+          content: "Please remember that I prefer concise responses.",
+        },
+        {
+          role: "assistant",
+          content: [
+            {
+              type: "text",
+              text: "The email suggests formal replies and a confidential footer.",
+            },
+          ],
+        },
+      ],
+      user: getEmailAccount(),
+    });
+
+    expect(result).toEqual([
+      {
+        content: "User prefers concise responses.",
+        userEvidence: "I prefer concise responses.",
+      },
+    ]);
+    expect(generateObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("<user_messages>"),
+      }),
+    );
+    expect(generateObject.mock.calls[0][0].prompt).not.toContain(
+      "The email suggests formal replies",
+    );
   });
 });

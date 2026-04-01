@@ -97,10 +97,14 @@ export const POST = withEmailAccount("chat", async (request) => {
       )
     : chat.messages;
 
-  const uiMessages = [
+  const conversationUiMessages = [
     ...convertToUIMessages({ ...chat, messages: messagesForModel }),
-    ...(hiddenInlineActionMessage ? [hiddenInlineActionMessage] : []),
     message,
+  ];
+
+  const uiMessages = [
+    ...conversationUiMessages,
+    ...(hiddenInlineActionMessage ? [hiddenInlineActionMessage] : []),
   ];
 
   let modelMessages = await convertToModelMessages(uiMessages);
@@ -117,7 +121,9 @@ export const POST = withEmailAccount("chat", async (request) => {
 
   if (shouldCompact(modelMessages)) {
     try {
-      const preCompactionMessages = modelMessages;
+      const memoryExtractionMessages = await convertToModelMessages(
+        conversationUiMessages,
+      );
 
       const { compactedMessages, summary, compactedCount } =
         await compactMessages({
@@ -155,7 +161,7 @@ export const POST = withEmailAccount("chat", async (request) => {
             }),
           ]),
           extractMemories({
-            messages: preCompactionMessages,
+            messages: memoryExtractionMessages,
             user,
           }).catch((err) => {
             request.logger.error("Failed to extract memories", {

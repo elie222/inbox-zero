@@ -574,6 +574,7 @@ export async function toolCallAgentStream({
   userEmail,
   usageLabel: label,
   providerOptions: requestProviderOptions,
+  experimentalContext,
   onFinish,
   onStepFinish,
 }: {
@@ -590,6 +591,7 @@ export async function toolCallAgentStream({
   userEmail: string;
   usageLabel: string;
   providerOptions?: LLMProviderOptions;
+  experimentalContext?: unknown;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
@@ -701,6 +703,7 @@ export async function toolCallAgentStream({
     try {
       return await agent.stream({
         messages: hardenedMessages,
+        experimental_context: experimentalContext,
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish: onStepFinish
           ? async (stepResult) => {
