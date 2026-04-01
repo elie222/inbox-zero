@@ -1099,7 +1099,7 @@ export function buildMessagingRuleNotificationText({
 }: {
   actionType: ActionType;
   content: NotificationContent;
-  provider: MessagingProvider.TEAMS | MessagingProvider.TELEGRAM;
+  provider: typeof MessagingProvider.TEAMS | typeof MessagingProvider.TELEGRAM;
 }) {
   const sections = [
     content.title,
@@ -1395,7 +1395,7 @@ function getLinkedProviderLimitationText({
   provider,
 }: {
   actionType: ActionType;
-  provider: MessagingProvider.TEAMS | MessagingProvider.TELEGRAM;
+  provider: typeof MessagingProvider.TEAMS | typeof MessagingProvider.TELEGRAM;
 }) {
   const providerName =
     provider === MessagingProvider.TEAMS ? "Teams" : "Telegram";
@@ -1408,7 +1408,7 @@ function getLinkedProviderLimitationText({
 }
 
 function hasLinkedNotificationTarget(channel: {
-  provider: MessagingProvider.TEAMS | MessagingProvider.TELEGRAM;
+  provider: MessagingProvider;
   providerUserId: string | null;
   teamId: string | null;
 }) {
@@ -1416,5 +1416,9 @@ function hasLinkedNotificationTarget(channel: {
     return Boolean(channel.providerUserId);
   }
 
-  return Boolean(channel.teamId || channel.providerUserId);
+  if (channel.provider === MessagingProvider.TELEGRAM) {
+    return Boolean(channel.teamId || channel.providerUserId);
+  }
+
+  return false;
 }

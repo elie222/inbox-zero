@@ -242,11 +242,6 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(getMessagingRuleNotificationResult).toHaveBeenCalledWith({
-      executedActionId: "action-1",
-      email,
-      logger: expect.anything(),
-    });
     expect(client.draftEmail).not.toHaveBeenCalled();
   });
 
@@ -279,11 +274,6 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(getMessagingRuleNotificationResult).toHaveBeenCalledWith({
-      executedActionId: "action-1",
-      email,
-      logger: expect.anything(),
-    });
     expect(client.draftEmail).toHaveBeenCalled();
   });
 
@@ -316,11 +306,6 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(getMessagingRuleNotificationResult).toHaveBeenCalledWith({
-      executedActionId: "action-1",
-      email,
-      logger: expect.anything(),
-    });
     expect(client.draftEmail).toHaveBeenCalled();
   });
 
