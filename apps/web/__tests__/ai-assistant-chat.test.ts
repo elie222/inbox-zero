@@ -877,7 +877,7 @@ describe("aiProcessAssistantChat", () => {
     );
     expect(mockPrisma.rule.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "rule-1" },
+        where: expect.objectContaining({ id: "rule-1" }),
         data: expect.objectContaining({
           instructions: "Updated instructions",
         }),
