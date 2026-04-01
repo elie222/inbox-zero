@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
+import { auth } from "@/utils/auth";
+import { hash } from "@/utils/hash";
 import prisma from "@/utils/prisma";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { withError } from "@/utils/middleware";
@@ -8,6 +10,11 @@ import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
+import { hasValidMatchingSignedOAuthState } from "@/utils/oauth/callback-validation";
+import {
+  hashOAuthAuditIdentifier,
+  logOAuthLinkingCallbackValidation,
+} from "@/utils/oauth/linking-audit";
 import {
   classifyMicrosoftOAuthCallbackError,
   extractAadstsCode,
@@ -30,7 +37,13 @@ import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import type { Logger } from "@/utils/logger";
 
 export const GET = withError("outlook/linking/callback", async (request) => {
-  const logger = request.logger;
+  const actorUserId = (await auth())?.user.id ?? null;
+  let logger = request.logger.with({
+    actorUserId,
+    auditType: "oauth_linking",
+    hasActorSession: !!actorUserId,
+    provider: "microsoft",
+  });
   const linkingRedirectUri = `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/linking/callback`;
 
   if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET)
@@ -75,7 +88,14 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     return validation.response;
   }
 
-  const { targetUserId, code } = validation;
+  const { targetUserId, code, stateNonce } = validation;
+  logger = logOAuthLinkingCallbackValidation({
+    actorUserId,
+    logger,
+    provider: "microsoft",
+    stateNonce,
+    targetUserId,
+  });
 
   const cachedResult = await getOAuthCodeResult(code);
   if (cachedResult) {
@@ -264,6 +284,12 @@ export const GET = withError("outlook/linking/callback", async (request) => {
           targetUserId,
           accountId: newAccount.id,
         });
+        logger.info("OAuth linking callback completed", {
+          accountId: newAccount.id,
+          outcome: "account_created_and_linked",
+          providerEmailHash: hash(providerEmail),
+          providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
+        });
       } catch (createError: unknown) {
         if (isDuplicateError(createError)) {
           const accountNow = await prisma.account.findUnique({
@@ -287,6 +313,12 @@ export const GET = withError("outlook/linking/callback", async (request) => {
             );
 
             await updateMicrosoftAccountTokens(accountNow.id, tokens);
+            logger.info("OAuth linking callback completed", {
+              accountId: accountNow.id,
+              outcome: "tokens_updated",
+              providerEmailHash: hash(providerEmail),
+              providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
+            });
           } else {
             throw createError;
           }
@@ -321,6 +353,12 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         email: providerEmail,
         targetUserId,
         accountId: linkingResult.existingAccountId,
+      });
+      logger.info("OAuth linking callback completed", {
+        accountId: linkingResult.existingAccountId,
+        outcome: "tokens_updated",
+        providerEmailHash: hash(providerEmail),
+        providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
       });
 
       await setOAuthCodeResult(code, { success: "tokens_updated" });
@@ -357,6 +395,12 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       targetUserId,
       sourceUserId: linkingResult.sourceUserId,
       mergeType,
+    });
+    logger.info("OAuth linking callback completed", {
+      outcome: successMessage,
+      providerEmailHash: hash(providerEmail),
+      providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
+      sourceUserId: linkingResult.sourceUserId,
     });
 
     await setOAuthCodeResult(code, { success: successMessage });
@@ -530,9 +574,11 @@ function validateMicrosoftOAuthErrorState(params: {
   logger: Logger;
 }) {
   if (
-    params.storedState &&
-    params.receivedState &&
-    params.storedState === params.receivedState
+    hasValidMatchingSignedOAuthState({
+      receivedState: params.receivedState,
+      storedState: params.storedState,
+      logger: params.logger,
+    })
   ) {
     return null;
   }

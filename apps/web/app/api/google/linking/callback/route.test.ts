@@ -14,6 +14,7 @@ const {
   mockGetToken,
   mockFetchGoogleOpenIdProfile,
   mockIsGoogleOauthEmulationEnabled,
+  mockAuth,
 } = vi.hoisted(() => ({
   mockValidateOAuthCallback: vi.fn(),
   mockHandleAccountLinking: vi.fn(),
@@ -24,10 +25,13 @@ const {
   mockGetToken: vi.fn(),
   mockFetchGoogleOpenIdProfile: vi.fn(),
   mockIsGoogleOauthEmulationEnabled: vi.fn(() => true),
+  mockAuth: vi.fn(),
 }));
 
 vi.mock("@/env", () => ({
   env: {
+    AUTH_SECRET: "test-auth-secret",
+    EMAIL_ENCRYPT_SALT: "test-email-salt",
     NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
     GOOGLE_CLIENT_ID: "client-id",
   },
@@ -87,6 +91,10 @@ vi.mock("@/utils/google/oauth", () => ({
   isGoogleOauthEmulationEnabled: mockIsGoogleOauthEmulationEnabled,
 }));
 
+vi.mock("@/utils/auth", () => ({
+  auth: mockAuth,
+}));
+
 vi.mock("@/utils/error", async (importActual) => {
   const actual = await importActual<typeof import("@/utils/error")>();
   return actual;
@@ -107,10 +115,16 @@ describe("google linking callback route", () => {
     mockValidateOAuthCallback.mockReturnValue({
       success: true,
       targetUserId: "user-123",
+      stateNonce: "state-nonce",
       code: "valid-auth-code",
     });
     mockGetOAuthCodeResult.mockResolvedValue(null);
     mockAcquireOAuthCodeLock.mockResolvedValue(true);
+    mockAuth.mockResolvedValue({
+      user: {
+        id: "user-123",
+      },
+    });
     mockGetToken.mockResolvedValue({
       tokens: {
         access_token: "access-token",
@@ -193,5 +207,33 @@ describe("google linking callback route", () => {
     expect(redirectLocation).toContain("success=account_created_and_linked");
     expect(prisma.account.create).toHaveBeenCalled();
     expect(prisma.account.update).not.toHaveBeenCalled();
+  });
+
+  it("logs an audit warning when the callback actor differs from the target user", async () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockAuth.mockResolvedValue({
+      user: {
+        id: "actor-user",
+      },
+    });
+    mockValidateOAuthCallback.mockReturnValue({
+      success: true,
+      targetUserId: "target-user",
+      stateNonce: "state-nonce",
+      code: "valid-auth-code",
+    });
+    mockHandleAccountLinking.mockResolvedValue({
+      type: "continue_create",
+    });
+
+    await GET(
+      createRequest("http://localhost:3000/api/google/linking/callback"),
+    );
+
+    const warning = consoleWarn.mock.calls[0]?.[0];
+    expect(warning).toContain("OAuth linking callback actor mismatch");
+    expect(warning).toContain('"actorUserId": "actor-user"');
+    expect(warning).toContain('"targetUserId": "target-user"');
+    consoleWarn.mockRestore();
   });
 });

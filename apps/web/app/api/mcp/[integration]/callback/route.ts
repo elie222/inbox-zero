@@ -4,8 +4,8 @@ import { SafeError } from "@/utils/error";
 import {
   getMcpPkceCookieName,
   getMcpStateCookieName,
-  parseOAuthState,
   getMcpOAuthStateType,
+  validateSignedOAuthState,
 } from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
 import prisma from "@/utils/prisma";
@@ -69,13 +69,22 @@ export const GET = withError("mcp/callback", async (request, { params }) => {
     return buildRedirectResponse(redirectUrl);
   }
 
-  if (!storedState || !receivedState || storedState !== receivedState) {
+  const stateValidation = validateSignedOAuthState<{
+    userId: string;
+    emailAccountId: string;
+    type: string;
+  }>({
+    receivedState,
+    storedState,
+  });
+  if (!stateValidation.success) {
     logger.warn("Invalid state during MCP callback", {
       integration,
       receivedState,
       hasStoredState: !!storedState,
+      error: stateValidation.error,
     });
-    redirectUrl.searchParams.set("error", "invalid_state");
+    redirectUrl.searchParams.set("error", stateValidation.error);
     return buildRedirectResponse(redirectUrl);
   }
 
@@ -85,16 +94,14 @@ export const GET = withError("mcp/callback", async (request, { params }) => {
     return buildRedirectResponse(redirectUrl);
   }
 
-  let decodedState: {
-    userId: string;
-    emailAccountId: string;
-    type: string;
-    nonce: string;
-  };
-  try {
-    decodedState = parseOAuthState(storedState);
-  } catch (error) {
-    logger.error("Failed to decode state", { error, integration });
+  const decodedState = stateValidation.state;
+
+  if (
+    typeof decodedState.userId !== "string" ||
+    typeof decodedState.emailAccountId !== "string" ||
+    typeof decodedState.type !== "string"
+  ) {
+    logger.error("Failed to decode state", { integration });
     redirectUrl.searchParams.set("error", "invalid_state_format");
     return buildRedirectResponse(redirectUrl);
   }
