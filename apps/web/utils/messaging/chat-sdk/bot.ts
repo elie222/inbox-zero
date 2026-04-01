@@ -63,7 +63,10 @@ import {
 } from "@/utils/messaging/rule-notifications";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
-import { getEmailUrlForOptionalMessage } from "@/utils/url";
+import {
+  getEmailUrlForMessage,
+  getEmailUrlForOptionalMessage,
+} from "@/utils/url";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const MAX_CHAT_CONTEXT_MESSAGES = 12;
