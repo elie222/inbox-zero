@@ -103,6 +103,9 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `DIGEST_MAX_SUMMARIES_PER_24H` | No | Maximum digest summaries per email account in a rolling 24-hour window. Set to `0` to disable the cap. | `50` |
 | **Admin & Access Control** ||||
 | `ADMINS` | No | Comma-separated list of admin emails | — |
+| `AUTH_ALLOWED_EMAILS` | No | Comma-separated list of exact email addresses allowed to create new auth users. Useful for self-hosted or enterprise deployments that want to restrict sign-up. | Open sign-up |
+| `AUTH_ALLOWED_EMAIL_DOMAINS` | No | Comma-separated list of email domains allowed to create new auth users (for example `company.com,subsidiary.org`). | Open sign-up |
+| `AUTO_JOIN_ORGANIZATION_ENABLED` | No | Automatically add new users to the single organization on sign-up. Only enable this if your deployment explicitly wants automatic org membership. | `false` |
 | `AUTO_ENABLE_ORG_ANALYTICS` | No | Default new organization memberships to analytics enabled | `false` |
 | **Feature Flags** ||||
 | `NEXT_PUBLIC_CONTACTS_ENABLED` | No | Enable contacts feature | `false` |
@@ -140,3 +143,6 @@ For detailed setup instructions, see the [Setup Guides](/hosting/setup-guides):
 - When using Docker Compose with `--profile all`, database and Redis URLs are auto-configured. See the [Docker/VPS Deployment Guide](/hosting/self-hosting) for details.
 - For Azure OpenAI, set `AZURE_RESOURCE_NAME` and either `AZURE_API_KEY` or `LLM_API_KEY` when using `azure` as a default or fallback provider.
 - For Google Vertex, set `GOOGLE_VERTEX_PROJECT` when using `vertex` as a provider. For auth, use either `GOOGLE_APPLICATION_CREDENTIALS` (recommended for Node.js) or both `GOOGLE_VERTEX_CLIENT_EMAIL` and `GOOGLE_VERTEX_PRIVATE_KEY`. You do not need to set all three auth variables. See [AI SDK Google Vertex documentation](https://ai-sdk.dev/providers/ai-sdk-providers/google-vertex).
+- `AUTH_ALLOWED_EMAILS` and `AUTH_ALLOWED_EMAIL_DOMAINS` only restrict creation of new auth users. They do not retroactively block existing users, and they do not replace invitation-based organization access control.
+- If both auth allowlist variables are unset, sign-up remains open.
+- You can combine exact email allowlisting with domain allowlisting. For example, allow `company.com` broadly while also permitting a few personal addresses such as founders or contractors.

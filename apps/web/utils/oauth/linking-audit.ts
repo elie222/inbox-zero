@@ -53,10 +53,12 @@ export function hashOAuthAuditIdentifier(value: string) {
 }
 
 function getOAuthAuditSecret() {
-  return (
-    env.AUTH_SECRET ||
-    env.NEXTAUTH_SECRET ||
-    env.INTERNAL_API_KEY ||
-    env.EMAIL_ENCRYPT_SALT
-  );
+  const secret = env.AUTH_SECRET || env.NEXTAUTH_SECRET;
+  if (!secret) {
+    throw new Error(
+      "Either AUTH_SECRET or NEXTAUTH_SECRET environment variable must be defined",
+    );
+  }
+
+  return secret;
 }

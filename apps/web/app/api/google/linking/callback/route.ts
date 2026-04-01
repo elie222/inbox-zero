@@ -62,6 +62,14 @@ export const GET = withError("google/linking/callback", async (request) => {
     targetUserId,
   });
 
+  if (actorUserId && actorUserId !== targetUserId) {
+    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+    redirectUrl.searchParams.set("error", "invalid_state");
+    const response = NextResponse.redirect(redirectUrl);
+    response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
+    return response;
+  }
+
   const cachedResult = await getOAuthCodeResult(code);
   if (cachedResult) {
     logger.info("OAuth code already processed, returning cached result", {
