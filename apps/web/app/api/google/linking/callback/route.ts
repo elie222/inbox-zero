@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
+import { auth } from "@/utils/auth";
+import { hash } from "@/utils/hash";
 import prisma from "@/utils/prisma";
 import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { withError } from "@/utils/middleware";
 import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
+import {
+  hashOAuthAuditIdentifier,
+  logOAuthLinkingCallbackValidation,
+} from "@/utils/oauth/linking-audit";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
@@ -22,7 +28,13 @@ import { isDuplicateError } from "@/utils/prisma-helpers";
 import { SafeError } from "@/utils/error";
 
 export const GET = withError("google/linking/callback", async (request) => {
-  const logger = request.logger;
+  const actorUserId = (await auth())?.user.id ?? null;
+  let logger = request.logger.with({
+    actorUserId,
+    auditType: "oauth_linking",
+    hasActorSession: !!actorUserId,
+    provider: "google",
+  });
 
   const searchParams = request.nextUrl.searchParams;
   const storedState = request.cookies.get(
@@ -41,7 +53,14 @@ export const GET = withError("google/linking/callback", async (request) => {
     return validation.response;
   }
 
-  const { targetUserId, code } = validation;
+  const { targetUserId, code, stateNonce } = validation;
+  logger = logOAuthLinkingCallbackValidation({
+    actorUserId,
+    logger,
+    provider: "google",
+    stateNonce,
+    targetUserId,
+  });
 
   const cachedResult = await getOAuthCodeResult(code);
   if (cachedResult) {
@@ -188,6 +207,12 @@ export const GET = withError("google/linking/callback", async (request) => {
           targetUserId,
           accountId: newAccount.id,
         });
+        logger.info("OAuth linking callback completed", {
+          accountId: newAccount.id,
+          outcome: "account_created_and_linked",
+          providerEmailHash: hash(providerEmail),
+          providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
+        });
       } catch (createError: unknown) {
         if (isDuplicateError(createError)) {
           const accountNow = await prisma.account.findUnique({
@@ -213,6 +238,13 @@ export const GET = withError("google/linking/callback", async (request) => {
             await updateGoogleAccount({
               accountId: accountNow.id,
               tokens,
+            });
+
+            logger.info("OAuth linking callback completed", {
+              accountId: accountNow.id,
+              outcome: "tokens_updated",
+              providerEmailHash: hash(providerEmail),
+              providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
             });
           } else {
             throw createError;
@@ -248,6 +280,12 @@ export const GET = withError("google/linking/callback", async (request) => {
         email: providerEmail,
         targetUserId,
         accountId: linkingResult.existingAccountId,
+      });
+      logger.info("OAuth linking callback completed", {
+        accountId: linkingResult.existingAccountId,
+        outcome: "tokens_updated",
+        providerEmailHash: hash(providerEmail),
+        providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
       });
 
       await setOAuthCodeResult(code, { success: "tokens_updated" });
@@ -286,6 +324,12 @@ export const GET = withError("google/linking/callback", async (request) => {
       targetUserId,
       originalUserId: linkingResult.sourceUserId,
       mergeType,
+    });
+    logger.info("OAuth linking callback completed", {
+      outcome: successMessage,
+      providerEmailHash: hash(providerEmail),
+      providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
+      sourceUserId: linkingResult.sourceUserId,
     });
 
     await setOAuthCodeResult(code, { success: successMessage });

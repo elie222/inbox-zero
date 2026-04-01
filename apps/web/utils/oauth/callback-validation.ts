@@ -15,6 +15,7 @@ type ValidationResult =
   | {
       success: true;
       targetUserId: string;
+      stateNonce: string;
       code: string;
     }
   | {
@@ -63,6 +64,7 @@ export function validateOAuthCallback({
   return {
     success: true,
     targetUserId: stateValidation.targetUserId,
+    stateNonce: stateValidation.stateNonce,
     code,
   };
 }
@@ -83,12 +85,17 @@ function validateMatchingSignedOAuthState(params: {
   | {
       success: true;
       targetUserId: string;
+      stateNonce: string;
     }
   | {
       success: false;
       error: "invalid_state" | "invalid_state_format";
     } {
-  if (!params.storedState || !params.receivedState) {
+  if (
+    !params.storedState ||
+    !params.receivedState ||
+    params.storedState !== params.receivedState
+  ) {
     params.logger.warn("Invalid state during OAuth callback", {
       receivedState: params.receivedState,
       hasStoredState: !!params.storedState,
@@ -100,17 +107,11 @@ function validateMatchingSignedOAuthState(params: {
   }
 
   try {
-    const storedPayload = parseSignedOAuthState<{ userId: string }>(
+    const payload = parseSignedOAuthState<{ userId: string }>(
       params.storedState,
     );
-    const receivedPayload = parseSignedOAuthState<{ userId: string }>(
-      params.receivedState,
-    );
 
-    if (
-      typeof storedPayload.userId !== "string" ||
-      typeof receivedPayload.userId !== "string"
-    ) {
+    if (typeof payload.userId !== "string") {
       params.logger.error("Failed to decode OAuth callback state", {
         hasStoredState: !!params.storedState,
       });
@@ -120,24 +121,10 @@ function validateMatchingSignedOAuthState(params: {
       };
     }
 
-    if (
-      storedPayload.userId !== receivedPayload.userId ||
-      storedPayload.nonce !== receivedPayload.nonce ||
-      storedPayload.issuedAt !== receivedPayload.issuedAt
-    ) {
-      params.logger.warn("Invalid state during OAuth callback", {
-        receivedState: params.receivedState,
-        hasStoredState: !!params.storedState,
-      });
-      return {
-        success: false,
-        error: "invalid_state",
-      };
-    }
-
     return {
       success: true,
-      targetUserId: storedPayload.userId,
+      targetUserId: payload.userId,
+      stateNonce: payload.nonce,
     };
   } catch (error) {
     params.logger.error("Failed to verify OAuth callback state", {

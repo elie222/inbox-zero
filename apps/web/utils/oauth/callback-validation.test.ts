@@ -13,18 +13,6 @@ describe("validateOAuthCallback", () => {
   });
 
   it("should return error when state mismatch", () => {
-    vi.mocked(parseSignedOAuthState)
-      .mockReturnValueOnce({
-        userId: "user-id",
-        nonce: "stored-nonce",
-        issuedAt: 123,
-      })
-      .mockReturnValueOnce({
-        userId: "user-id",
-        nonce: "received-nonce",
-        issuedAt: 123,
-      });
-
     const result = validateOAuthCallback({
       code: "valid-code",
       receivedState: "received-state",
@@ -82,51 +70,17 @@ describe("validateOAuthCallback", () => {
     }
   });
 
-  it("should return error when signed state payloads do not match", () => {
-    vi.mocked(parseSignedOAuthState)
-      .mockReturnValueOnce({
-        userId: "user-id",
-        nonce: "stored-nonce",
-        issuedAt: 123,
-      })
-      .mockReturnValueOnce({
-        userId: "user-id",
-        nonce: "received-nonce",
-        issuedAt: 123,
-      });
-
-    const result = validateOAuthCallback({
-      code: "valid-code",
-      receivedState: "received-state",
-      storedState: "stored-state",
-      stateCookieName: "test_cookie",
-      logger,
+  it("should return success when validation passes", () => {
+    vi.mocked(parseSignedOAuthState).mockReturnValueOnce({
+      userId: "user-id",
+      nonce: "nonce",
+      issuedAt: 123,
     });
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const url = new URL(result.response.headers.get("location") || "");
-      expect(url.searchParams.get("error")).toBe("invalid_state");
-    }
-  });
-
-  it("should return success when validation passes", () => {
-    vi.mocked(parseSignedOAuthState)
-      .mockReturnValueOnce({
-        userId: "user-id",
-        nonce: "nonce",
-        issuedAt: 123,
-      })
-      .mockReturnValueOnce({
-        userId: "user-id",
-        nonce: "nonce",
-        issuedAt: 123,
-      });
-
     const result = validateOAuthCallback({
       code: "valid-code",
-      receivedState: "received-state",
-      storedState: "stored-state",
+      receivedState: "matching-state",
+      storedState: "matching-state",
       stateCookieName: "test_cookie",
       logger,
     });
@@ -134,6 +88,7 @@ describe("validateOAuthCallback", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.targetUserId).toBe("user-id");
+      expect(result.stateNonce).toBe("nonce");
       expect(result.code).toBe("valid-code");
     }
   });

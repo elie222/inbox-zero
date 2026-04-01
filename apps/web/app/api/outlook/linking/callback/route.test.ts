@@ -12,6 +12,7 @@ const {
   mockSetOAuthCodeResult,
   mockClearOAuthCode,
   mockCaptureException,
+  mockAuth,
 } = vi.hoisted(() => ({
   mockValidateOAuthCallback: vi.fn(),
   mockHandleAccountLinking: vi.fn(),
@@ -20,11 +21,13 @@ const {
   mockSetOAuthCodeResult: vi.fn(),
   mockClearOAuthCode: vi.fn(),
   mockCaptureException: vi.fn(),
+  mockAuth: vi.fn(),
 }));
 
 vi.mock("@/env", () => ({
   env: {
     AUTH_SECRET: "test-auth-secret",
+    EMAIL_ENCRYPT_SALT: "test-email-salt",
     NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
     MICROSOFT_CLIENT_ID: "client-id",
     MICROSOFT_CLIENT_SECRET: "client-secret",
@@ -88,6 +91,10 @@ vi.mock("@/utils/prisma-helpers", () => ({
   isDuplicateError: vi.fn(() => false),
 }));
 
+vi.mock("@/utils/auth", () => ({
+  auth: mockAuth,
+}));
+
 vi.mock("@/utils/outlook/scopes", () => ({
   SCOPES: [
     "openid",
@@ -120,10 +127,16 @@ describe("outlook linking callback route", () => {
     mockValidateOAuthCallback.mockReturnValue({
       success: true,
       targetUserId: "user-123",
+      stateNonce: "state-nonce",
       code: "valid-auth-code",
     });
     mockGetOAuthCodeResult.mockResolvedValue(null);
     mockAcquireOAuthCodeLock.mockResolvedValue(true);
+    mockAuth.mockResolvedValue({
+      user: {
+        id: "user-123",
+      },
+    });
     prisma.account.findUnique.mockResolvedValue(null);
   });
 
@@ -341,5 +354,61 @@ describe("outlook linking callback route", () => {
     expect(redirectLocation).toContain(
       "error_description=Microsoft+error+AADSTS700016.",
     );
+  });
+
+  it("logs an audit warning when the callback actor differs from the target user", async () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockAuth.mockResolvedValue({
+      user: {
+        id: "actor-user",
+      },
+    });
+    mockValidateOAuthCallback.mockReturnValue({
+      success: true,
+      targetUserId: "target-user",
+      stateNonce: "state-nonce",
+      code: "valid-auth-code",
+    });
+    mockHandleAccountLinking.mockResolvedValue({
+      type: "continue_create",
+    });
+    prisma.account.create.mockResolvedValue({
+      id: "account-123",
+    } as Awaited<ReturnType<typeof prisma.account.create>>);
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            access_token: "access-token",
+            refresh_token: "refresh-token",
+            scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
+            token_type: "Bearer",
+            expires_in: 3600,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "provider-account-id",
+            userPrincipalName: "user@example.com",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+        }),
+    );
+
+    await GET(
+      createRequest("http://localhost:3000/api/outlook/linking/callback"),
+    );
+
+    const warning = consoleWarn.mock.calls[0]?.[0];
+    expect(warning).toContain("OAuth linking callback actor mismatch");
+    expect(warning).toContain('"actorUserId": "actor-user"');
+    expect(warning).toContain('"targetUserId": "target-user"');
+    consoleWarn.mockRestore();
   });
 });
