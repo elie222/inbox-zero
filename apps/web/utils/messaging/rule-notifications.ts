@@ -91,16 +91,7 @@ export async function sendMessagingRuleNotification({
   logger,
 }: {
   executedActionId: string;
-  email: {
-    headers: {
-      from: string;
-      subject: string;
-    };
-    snippet: string;
-    textPlain?: string;
-    textHtml?: string;
-    attachments?: Array<{ filename: string }>;
-  };
+  email: NotificationEmailPreview;
   logger: Logger;
 }): Promise<boolean> {
   const context = await getNotificationContext(executedActionId);
@@ -127,16 +118,7 @@ export async function sendSlackRuleNotification({
   logger,
 }: {
   executedActionId: string;
-  email: {
-    headers: {
-      from: string;
-      subject: string;
-    };
-    snippet: string;
-    textPlain?: string;
-    textHtml?: string;
-    attachments?: Array<{ filename: string }>;
-  };
+  email: NotificationEmailPreview;
   logger: Logger;
 }): Promise<boolean> {
   const context = await getNotificationContext(executedActionId);
@@ -155,16 +137,7 @@ async function sendSlackRuleNotificationWithContext({
   logger,
 }: {
   context: NotificationContext;
-  email: {
-    headers: {
-      from: string;
-      subject: string;
-    };
-    snippet: string;
-    textPlain?: string;
-    textHtml?: string;
-    attachments?: Array<{ filename: string }>;
-  };
+  email: NotificationEmailPreview;
   logger: Logger;
 }): Promise<boolean> {
   if (
