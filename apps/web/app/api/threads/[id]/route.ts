@@ -2,6 +2,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import type { EmailProvider } from "@/utils/email/types";
+import { rewriteMessagesRemoteAssets } from "@/utils/email/image-proxy.server";
 
 const threadQuery = z.object({ id: z.string() });
 export type ThreadQuery = z.infer<typeof threadQuery>;
@@ -18,7 +19,12 @@ async function getThread(
     ? thread.messages
     : thread.messages.filter((msg) => !msg.labelIds?.includes("DRAFT"));
 
-  return { thread: { ...thread, messages: filteredMessages } };
+  return {
+    thread: {
+      ...thread,
+      messages: await rewriteMessagesRemoteAssets(filteredMessages),
+    },
+  };
 }
 
 export const maxDuration = 30;

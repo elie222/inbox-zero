@@ -204,6 +204,7 @@ const parsedEnv = createEnv({
     WHITELIST_FROM: z.string().optional(),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
+    IMAGE_PROXY_SIGNING_SECRET: z.string().min(16).optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
     IS_OAUTH_PROXY_SERVER: booleanString.optional().default(false),
     // Additional trusted origins for CORS (comma-separated, supports wildcards like https://*.vercel.app)
@@ -271,6 +272,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_POSTHOG_HERO_AB: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string(),
+    NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: z.string().url().optional(),
     NEXT_PUBLIC_BRAND_NAME: z.string().trim().min(1).default("Inbox Zero"),
     NEXT_PUBLIC_BRAND_LOGO_URL: z.string().optional(),
     NEXT_PUBLIC_BRAND_ICON_URL: z.string().optional().default("/icon.png"),
@@ -356,6 +358,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
       process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,
     NEXT_PUBLIC_BASE_URL: getBaseUrl(),
+    NEXT_PUBLIC_IMAGE_PROXY_BASE_URL:
+      process.env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL,
     NEXT_PUBLIC_BRAND_NAME: process.env.NEXT_PUBLIC_BRAND_NAME,
     NEXT_PUBLIC_BRAND_LOGO_URL: process.env.NEXT_PUBLIC_BRAND_LOGO_URL,
     NEXT_PUBLIC_BRAND_ICON_URL: process.env.NEXT_PUBLIC_BRAND_ICON_URL,

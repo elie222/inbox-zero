@@ -1,0 +1,16 @@
+{
+  "name": "@inboxzero/image-proxy-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "dependencies": {
+    "@inboxzero/image-proxy": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "wrangler": "4.43.0"
+  }
+}

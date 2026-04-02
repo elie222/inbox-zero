@@ -3,6 +3,7 @@ import { withEmailProvider } from "@/utils/middleware";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
+import { rewriteMessagesRemoteAssets } from "@/utils/email/image-proxy.server";
 
 export type ThreadsBatchResponse = {
   threads: ThreadsResponse["threads"];
@@ -38,30 +39,36 @@ export const GET = withEmailProvider("threads/batch", async (request) => {
       run: (threadId) => emailProvider.getThread(threadId),
     });
 
-    const validThreads: ThreadsResponse["threads"] = [];
-
     for (const { item: threadId, result } of results) {
-      if (result.status === "fulfilled") {
-        const thread = result.value;
-        const filteredMessages = thread.messages.filter((message) => {
-          if (!message.headers?.from) return true;
-          return !isIgnoredSender(message.headers.from);
-        });
-        if (!filteredMessages.length) continue;
-
-        validThreads.push({
-          id: thread.id,
-          messages: filteredMessages,
-          snippet: thread.snippet,
-          plan: undefined,
-        });
-      } else {
+      if (result.status === "rejected") {
         request.logger.error("Error fetching thread", {
           error: result.reason,
           threadId,
         });
       }
     }
+
+    const validThreads = (
+      await Promise.all(
+        results
+          .filter((r) => r.result.status === "fulfilled")
+          .map(async ({ result }) => {
+            const thread = (result as PromiseFulfilledResult<any>).value;
+            const filteredMessages = thread.messages.filter((message: any) => {
+              if (!message.headers?.from) return true;
+              return !isIgnoredSender(message.headers.from);
+            });
+            if (!filteredMessages.length) return null;
+
+            return {
+              id: thread.id,
+              messages: await rewriteMessagesRemoteAssets(filteredMessages),
+              snippet: thread.snippet,
+              plan: undefined,
+            };
+          }),
+      )
+    ).filter(Boolean) as ThreadsResponse["threads"];
 
     return NextResponse.json({ threads: validThreads });
   } catch (error) {

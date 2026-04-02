@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import type { ThreadsResponse } from "@/app/api/threads/route";
+import { rewriteMessagesRemoteAssets } from "@/utils/email/image-proxy.server";
 
 export type GetThreadsResponse = {
   threads: ThreadsResponse["threads"];
@@ -24,7 +25,14 @@ export const GET = withEmailProvider("threads/basic", async (request) => {
       },
     });
 
-    return NextResponse.json({ threads });
+    return NextResponse.json({
+      threads: await Promise.all(
+        threads.map(async (thread) => ({
+          ...thread,
+          messages: await rewriteMessagesRemoteAssets(thread.messages),
+        })),
+      ),
+    });
   } catch (error) {
     request.logger.error("Error fetching basic threads", {
       error,

@@ -5,6 +5,7 @@ import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { EmailProvider } from "@/utils/email/types";
+import { rewriteMessagesRemoteAssets } from "@/utils/email/image-proxy.server";
 
 export const maxDuration = 30;
 
@@ -106,7 +107,7 @@ async function getThreads({
 
       return {
         id: thread.id,
-        messages: filteredMessages,
+        messages: await rewriteMessagesRemoteAssets(filteredMessages),
         snippet: thread.snippet,
         plan,
       };

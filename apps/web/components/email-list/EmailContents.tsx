@@ -1,6 +1,11 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useTheme } from "next-themes";
 import DOMPurify from "dompurify";
+import { env } from "@/env";
+
+const IMAGE_PROXY_ORIGIN = env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL
+  ? new URL(env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL).origin
+  : null;
 
 export function HtmlEmail({ html }: { html: string }) {
   const [showReplies, setShowReplies] = useState(false);
@@ -15,7 +20,12 @@ export function HtmlEmail({ html }: { html: string }) {
   );
 
   const srcDoc = useMemo(
-    () => getIframeHtml(showReplies ? sanitizedHtml : mainContent, isDarkMode),
+    () =>
+      getIframeHtml(
+        showReplies ? sanitizedHtml : mainContent,
+        isDarkMode,
+        IMAGE_PROXY_ORIGIN,
+      ),
     [sanitizedHtml, mainContent, showReplies, isDarkMode],
   );
 
@@ -68,7 +78,11 @@ function getEmailContent(html: string) {
   };
 }
 
-function getIframeHtml(html: string, isDarkMode: boolean) {
+function getIframeHtml(
+  html: string,
+  isDarkMode: boolean,
+  imageProxyOrigin: string | null,
+) {
   // Count style attributes safely
   const styleAttributeCount = (html.match(/style=/g) || []).length;
 
@@ -162,7 +176,7 @@ function getIframeHtml(html: string, isDarkMode: boolean) {
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'none';
       style-src 'unsafe-inline';
-      img-src data: https:;
+      img-src data: ${imageProxyOrigin || "https:"};
       font-src 'none';
       script-src 'none';
       frame-src 'none';
