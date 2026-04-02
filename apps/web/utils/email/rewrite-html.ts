@@ -198,7 +198,7 @@ function splitSrcsetCandidates(srcset: string) {
   for (let i = 0; i < srcset.length; i++) {
     const char = srcset[i];
 
-    if (char === "," && isSrcsetDelimiter(srcset, i)) {
+    if (char === "," && isSrcsetDelimiter(current, srcset, i)) {
       const trimmed = current.trim();
       if (trimmed) candidates.push(trimmed);
       current = "";
@@ -292,13 +292,17 @@ function decodeHtmlValue(value: string) {
   return he.decode(value, { isAttributeValue: true });
 }
 
-function isSrcsetDelimiter(value: string, index: number) {
+function isSrcsetDelimiter(
+  currentCandidate: string,
+  value: string,
+  index: number,
+) {
+  if (!/\s/.test(currentCandidate.trim())) return false;
+
   const rest = value.slice(index + 1);
-
-  if (!/^\s+/.test(rest)) return false;
-
   const nextToken = rest.trimStart();
-  return /^(https?:\/\/|\/\/|\/)/i.test(nextToken);
+
+  return /^(https?:\/\/|\/\/|\/|[A-Za-z0-9._%@-])/i.test(nextToken);
 }
 
 function escapeCssUrl(value: string) {

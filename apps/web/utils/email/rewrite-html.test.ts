@@ -115,4 +115,32 @@ describe("rewriteHtmlRemoteAssetUrls", () => {
       encodeURIComponent("https://cdn.example.com/photo@2x.png"),
     );
   });
+
+  it("splits compact srcset candidates without whitespace after commas", async () => {
+    const html =
+      '<img srcset="https://cdn.example.com/photo.png 1x,https://cdn.example.com/photo@2x.png 2x" />';
+
+    const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
+
+    expect(rewrittenHtml).toContain(
+      encodeURIComponent("https://cdn.example.com/photo.png"),
+    );
+    expect(rewrittenHtml).toContain(
+      encodeURIComponent("https://cdn.example.com/photo@2x.png"),
+    );
+  });
+
+  it("keeps splitting srcset candidates when a compact list contains relative urls", async () => {
+    const html =
+      '<img srcset="https://cdn.example.com/photo.png 1x,photo@2x.png 2x,https://cdn.example.com/photo@3x.png 3x" />';
+
+    const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
+
+    expect(rewrittenHtml).toContain(
+      encodeURIComponent("https://cdn.example.com/photo.png"),
+    );
+    expect(rewrittenHtml).toContain(
+      encodeURIComponent("https://cdn.example.com/photo@3x.png"),
+    );
+  });
 });

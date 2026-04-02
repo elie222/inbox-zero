@@ -125,4 +125,24 @@ describe("handler", () => {
     const [request] = vi.mocked(handleImageProxyRequest).mock.calls[0];
     await expect(request.text()).resolves.toBe("");
   });
+
+  it("preserves bodies for API Gateway v1 requests", async () => {
+    vi.mocked(handleImageProxyRequest).mockResolvedValue(
+      new Response("accepted", {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+      }),
+    );
+
+    await handler({
+      body: "payload",
+      headers: { host: "proxy.example.com" },
+      httpMethod: "POST",
+      rawPath: "/proxy",
+    });
+
+    const [request] = vi.mocked(handleImageProxyRequest).mock.calls[0];
+    expect(request.method).toBe("POST");
+    await expect(request.text()).resolves.toBe("payload");
+  });
 });

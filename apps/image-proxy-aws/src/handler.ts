@@ -7,11 +7,13 @@ declare const process: {
 type LambdaEvent = {
   body?: string | null;
   headers?: Record<string, string | undefined>;
+  httpMethod?: string;
   isBase64Encoded?: boolean;
   rawPath?: string;
   rawQueryString?: string;
   requestContext?: {
     domainName?: string;
+    httpMethod?: string;
     http?: {
       method?: string;
     };
@@ -50,9 +52,15 @@ function buildRequest(event: LambdaEvent) {
     "localhost";
   const path = event.rawPath || "/";
   const query = event.rawQueryString ? `?${event.rawQueryString}` : "";
-  const method = event.requestContext?.http?.method || "GET";
+  const method =
+    event.requestContext?.http?.method ||
+    event.httpMethod ||
+    event.requestContext?.httpMethod ||
+    "GET";
   const body =
-    method === "GET" || method === "HEAD" ? undefined : getRequestBody(event);
+    method.toUpperCase() === "GET" || method.toUpperCase() === "HEAD"
+      ? undefined
+      : getRequestBody(event);
 
   return new Request(`${protocol}://${host}${path}${query}`, {
     method,

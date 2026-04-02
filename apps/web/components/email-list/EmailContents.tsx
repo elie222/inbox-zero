@@ -8,7 +8,6 @@ const IMAGE_PROXY_ORIGIN = env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL
   : null;
 const IMAGE_PROXY_ENABLED = Boolean(env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL);
 const IMAGE_PROXY_RENDER_ROUTE = "/api/email/render-html";
-const proxiedHtmlCache = new Map<string, string>();
 
 export function HtmlEmail({ html }: { html: string }) {
   const sanitizedHtml = useMemo(() => sanitize(html), [html]);
@@ -31,19 +30,9 @@ export function HtmlEmail({ html }: { html: string }) {
       };
     }
 
-    const cachedHtml = proxiedHtmlCache.get(sanitizedHtml);
-    if (cachedHtml) {
-      startTransition(() => setRenderHtml(cachedHtml));
-      return () => {
-        cancelled = true;
-        controller.abort();
-      };
-    }
-
     rewriteHtmlWithProxy(sanitizedHtml, controller.signal).then(
       (rewrittenHtml) => {
         if (cancelled) return;
-        proxiedHtmlCache.set(sanitizedHtml, rewrittenHtml);
         startTransition(() => setRenderHtml(rewrittenHtml));
       },
       () => {
