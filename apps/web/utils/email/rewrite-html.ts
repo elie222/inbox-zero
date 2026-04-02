@@ -1,31 +1,15 @@
+import * as cheerio from "cheerio";
 import he from "he";
 import {
   buildSignedAssetProxyUrl,
   type AssetProxyRewriteOptions,
 } from "@inboxzero/image-proxy/proxy-url";
 
-const STYLE_ELEMENT_PATTERN = /<style\b([^>]*)>([\s\S]*?)<\/style>/gi;
-const STYLE_ATTRIBUTE_PATTERN = /\bstyle\s*=\s*(["'])([\s\S]*?)\1/gi;
-const SRCSET_ATTRIBUTE_PATTERN = /\bsrcset\s*=\s*(["'])([\s\S]*?)\1/gi;
 const CSS_URL_PATTERN = /url\(\s*(['"]?)([^"')]+)\1\s*\)/gi;
-const SVG_IMAGE_TAG_PATTERN = /<(feImage|image|use)\b[\s\S]*?>/gi;
+const DOCUMENT_PATTERN = /<!doctype|<html[\s>]|<head[\s>]|<body[\s>]/i;
+const SVG_URL_ATTRIBUTES = ["href", "xlink:href"] as const;
+const SVG_URL_TAGS = ["feimage", "image", "use"] as const;
 const URL_ATTRIBUTES = ["background", "poster", "src"] as const;
-
-const URL_ATTRIBUTE_PATTERNS = Object.fromEntries(
-  URL_ATTRIBUTES.map((attr) => [
-    attr,
-    {
-      quoted: new RegExp(
-        `(^|[^\\w:-])(${attr})\\s*=\\s*(["'])([\\s\\S]*?)\\3`,
-        "gi",
-      ),
-      unquoted: new RegExp(`(^|[^\\w:-])(${attr})\\s*=\\s*([^\\s"'>]+)`, "gi"),
-    },
-  ]),
-) as Record<
-  (typeof URL_ATTRIBUTES)[number],
-  { quoted: RegExp; unquoted: RegExp }
->;
 
 export async function rewriteHtmlRemoteAssetUrls(
   html: string,
@@ -34,62 +18,106 @@ export async function rewriteHtmlRemoteAssetUrls(
   if (!html) return html;
 
   const getSignedUrl = createSignedUrlMemo(options);
+  const isDocument = DOCUMENT_PATTERN.test(html);
+  const $ = cheerio.load(html, { decodeEntities: false }, isDocument);
+  let changed = false;
 
-  let rewrittenHtml = await replaceAsync(
-    html,
-    STYLE_ELEMENT_PATTERN,
-    async (_match, attributes, css) =>
-      `<style${attributes}>${await rewriteCssRemoteAssetUrls(
-        css,
-        getSignedUrl,
-      )}</style>`,
+  await Promise.all(
+    $("style")
+      .toArray()
+      .map(async (element) => {
+        const css = $(element).html();
+        if (typeof css !== "string") return;
+
+        const rewrittenCss = await rewriteCssRemoteAssetUrls(css, getSignedUrl);
+        if (rewrittenCss === css) return;
+
+        $(element).html(rewrittenCss);
+        changed = true;
+      }),
   );
 
-  rewrittenHtml = await replaceAsync(
-    rewrittenHtml,
-    STYLE_ATTRIBUTE_PATTERN,
-    async (_match, quote, styleValue) => {
-      const rewrittenStyle = await rewriteCssRemoteAssetUrls(
-        decodeHtmlValue(styleValue),
-        getSignedUrl,
-      );
+  await Promise.all(
+    $("[style]")
+      .toArray()
+      .map(async (element) => {
+        const styleValue = $(element).attr("style");
+        if (typeof styleValue !== "string") return;
 
-      return `style=${quote}${escapeHtmlAttributeValue(
-        rewrittenStyle,
-      )}${quote}`;
-    },
+        const rewrittenStyle = await rewriteCssRemoteAssetUrls(
+          styleValue,
+          getSignedUrl,
+        );
+        if (rewrittenStyle === styleValue) return;
+
+        $(element).attr("style", rewrittenStyle);
+        changed = true;
+      }),
   );
 
-  rewrittenHtml = await replaceAsync(
-    rewrittenHtml,
-    SRCSET_ATTRIBUTE_PATTERN,
-    async (_match, quote, srcsetValue) => {
-      const rewrittenSrcset = await rewriteSrcsetAttribute(
-        decodeHtmlValue(srcsetValue),
-        getSignedUrl,
-      );
+  await Promise.all(
+    $("[srcset]")
+      .toArray()
+      .map(async (element) => {
+        const srcsetValue = $(element).attr("srcset");
+        if (typeof srcsetValue !== "string") return;
 
-      return `srcset=${quote}${escapeHtmlAttributeValue(
-        rewrittenSrcset,
-      )}${quote}`;
-    },
-  );
+        const rewrittenSrcset = await rewriteSrcsetAttribute(
+          srcsetValue,
+          getSignedUrl,
+        );
+        if (rewrittenSrcset === srcsetValue) return;
 
-  rewrittenHtml = await replaceAsync(
-    rewrittenHtml,
-    SVG_IMAGE_TAG_PATTERN,
-    async (tag) => rewriteTagHrefAttributes(tag, getSignedUrl),
+        $(element).attr("srcset", rewrittenSrcset);
+        changed = true;
+      }),
   );
 
   for (const attribute of URL_ATTRIBUTES) {
-    rewrittenHtml = await rewriteUrlAttribute(
-      rewrittenHtml,
-      attribute,
-      getSignedUrl,
+    await Promise.all(
+      $(`[${attribute}]`)
+        .toArray()
+        .map(async (element) => {
+          const attrValue = $(element).attr(attribute);
+          if (typeof attrValue !== "string") return;
+
+          const rewrittenValue = await rewriteAttributeUrl(
+            attrValue,
+            getSignedUrl,
+          );
+          if (rewrittenValue === attrValue) return;
+
+          $(element).attr(attribute, rewrittenValue);
+          changed = true;
+        }),
     );
   }
 
-  return rewrittenHtml;
+  for (const tagName of SVG_URL_TAGS) {
+    await Promise.all(
+      $(tagName)
+        .toArray()
+        .flatMap((element) =>
+          SVG_URL_ATTRIBUTES.map(async (attribute) => {
+            const attrValue = $(element).attr(attribute);
+            if (typeof attrValue !== "string") return;
+
+            const rewrittenValue = await rewriteAttributeUrl(
+              attrValue,
+              getSignedUrl,
+            );
+            if (rewrittenValue === attrValue) return;
+
+            $(element).attr(attribute, rewrittenValue);
+            changed = true;
+          }),
+        ),
+    );
+  }
+
+  if (!changed) return html;
+
+  return isDocument ? $.html() : ($.root().html() ?? html);
 }
 
 export async function rewriteCssRemoteAssetUrls(
@@ -135,38 +163,17 @@ function createSignedUrlMemo(options: AssetProxyRewriteOptions) {
   };
 }
 
-async function rewriteUrlAttribute(
-  html: string,
-  attribute: (typeof URL_ATTRIBUTES)[number],
+async function rewriteAttributeUrl(
+  value: string,
   getSignedUrl: (assetUrl: string) => Promise<string>,
 ) {
-  const { quoted, unquoted } = URL_ATTRIBUTE_PATTERNS[attribute];
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return value;
 
-  const rewrittenQuotedHtml = await replaceAsync(
-    html,
-    quoted,
-    async (match, prefix, attributeName, quote, rawValue) => {
-      const signedUrl = await getSignedUrl(decodeHtmlValue(rawValue.trim()));
-      if (signedUrl === rawValue.trim()) return match;
+  const rewrittenValue = await getSignedUrl(trimmedValue);
+  if (rewrittenValue === trimmedValue) return value;
 
-      return `${prefix}${attributeName}=${quote}${escapeHtmlAttributeValue(
-        signedUrl,
-      )}${quote}`;
-    },
-  );
-
-  return replaceAsync(
-    rewrittenQuotedHtml,
-    unquoted,
-    async (match, prefix, attributeName, rawValue) => {
-      const signedUrl = await getSignedUrl(decodeHtmlValue(rawValue.trim()));
-      if (signedUrl === rawValue.trim()) return match;
-
-      return `${prefix}${attributeName}="${escapeHtmlAttributeValue(
-        signedUrl,
-      )}"`;
-    },
-  );
+  return preserveOuterWhitespace(value, rewrittenValue);
 }
 
 async function rewriteSrcsetAttribute(
@@ -189,74 +196,6 @@ async function rewriteSrcsetAttribute(
   );
 
   return rewrittenCandidates.join(", ");
-}
-
-function splitSrcsetCandidates(srcset: string) {
-  const candidates: string[] = [];
-  let current = "";
-
-  for (let i = 0; i < srcset.length; i++) {
-    const char = srcset[i];
-
-    if (char === "," && isSrcsetDelimiter(current, srcset, i)) {
-      const trimmed = current.trim();
-      if (trimmed) candidates.push(trimmed);
-      current = "";
-      continue;
-    }
-
-    current += char;
-  }
-
-  const trimmed = current.trim();
-  if (trimmed) candidates.push(trimmed);
-
-  return candidates;
-}
-
-async function rewriteTagHrefAttributes(
-  tag: string,
-  getSignedUrl: (assetUrl: string) => Promise<string>,
-) {
-  let rewrittenTag = tag;
-
-  for (const attribute of ["href", "xlink:href"] as const) {
-    const escapedAttribute = attribute.replace(":", "\\:");
-    const quotedPattern = new RegExp(
-      `(^|\\s)${escapedAttribute}\\s*=\\s*(["'])([\\s\\S]*?)\\2`,
-      "gi",
-    );
-    const unquotedPattern = new RegExp(
-      `(^|\\s)${escapedAttribute}\\s*=\\s*([^\\s"'>]+)`,
-      "gi",
-    );
-
-    rewrittenTag = await replaceAsync(
-      rewrittenTag,
-      quotedPattern,
-      async (match, prefix, quote, rawValue) => {
-        const signedUrl = await getSignedUrl(decodeHtmlValue(rawValue.trim()));
-        if (signedUrl === rawValue.trim()) return match;
-
-        return `${prefix}${attribute}=${quote}${escapeHtmlAttributeValue(
-          signedUrl,
-        )}${quote}`;
-      },
-    );
-
-    rewrittenTag = await replaceAsync(
-      rewrittenTag,
-      unquotedPattern,
-      async (match, prefix, rawValue) => {
-        const signedUrl = await getSignedUrl(decodeHtmlValue(rawValue.trim()));
-        if (signedUrl === rawValue.trim()) return match;
-
-        return `${prefix}${attribute}="${escapeHtmlAttributeValue(signedUrl)}"`;
-      },
-    );
-  }
-
-  return rewrittenTag;
 }
 
 async function replaceAsync(
@@ -288,8 +227,35 @@ async function replaceAsync(
   return segments.join("");
 }
 
+function splitSrcsetCandidates(srcset: string) {
+  const candidates: string[] = [];
+  let current = "";
+
+  for (let i = 0; i < srcset.length; i++) {
+    const char = srcset[i];
+
+    if (char === "," && isSrcsetDelimiter(current, srcset, i)) {
+      const trimmed = current.trim();
+      if (trimmed) candidates.push(trimmed);
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  const trimmed = current.trim();
+  if (trimmed) candidates.push(trimmed);
+
+  return candidates;
+}
+
 function decodeHtmlValue(value: string) {
   return he.decode(value, { isAttributeValue: true });
+}
+
+function escapeCssUrl(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 function isSrcsetDelimiter(
@@ -305,13 +271,9 @@ function isSrcsetDelimiter(
   return /^(https?:\/\/|\/\/|\/|[A-Za-z0-9._%@-])/i.test(nextToken);
 }
 
-function escapeCssUrl(value: string) {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
+function preserveOuterWhitespace(value: string, replacement: string) {
+  const leadingWhitespace = value.match(/^\s*/)?.[0] ?? "";
+  const trailingWhitespace = value.match(/\s*$/)?.[0] ?? "";
 
-function escapeHtmlAttributeValue(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  return `${leadingWhitespace}${replacement}${trailingWhitespace}`;
 }

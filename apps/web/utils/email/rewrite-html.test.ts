@@ -74,6 +74,14 @@ describe("rewriteHtmlRemoteAssetUrls", () => {
     expect(rewrittenHtml).toBe(html);
   });
 
+  it("does not rewrite attribute-like text content", async () => {
+    const html = '<p>src="https://cdn.example.com/photo.png"</p>';
+
+    const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
+
+    expect(rewrittenHtml).toBe(html);
+  });
+
   it("decodes numeric HTML entities before rewriting asset URLs", async () => {
     const html = '<img src="https://cdn.example.com/photo.png?x=1&#38;y=2" />';
 
