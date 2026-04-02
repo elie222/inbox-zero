@@ -2,7 +2,6 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import type { EmailProvider } from "@/utils/email/types";
-import { rewriteMessagesRemoteAssets } from "@/utils/email/image-proxy.server";
 
 const threadQuery = z.object({ id: z.string() });
 export type ThreadQuery = z.infer<typeof threadQuery>;
@@ -22,7 +21,7 @@ async function getThread(
   return {
     thread: {
       ...thread,
-      messages: await rewriteMessagesRemoteAssets(filteredMessages),
+      messages: filteredMessages,
     },
   };
 }

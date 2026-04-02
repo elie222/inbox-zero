@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect } from "react";
+import { startTransition, useMemo, useState, useRef, useEffect } from "react";
 import { useTheme } from "next-themes";
 import DOMPurify from "dompurify";
 import { env } from "@/env";
@@ -6,27 +6,71 @@ import { env } from "@/env";
 const IMAGE_PROXY_ORIGIN = env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL
   ? new URL(env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL).origin
   : null;
+const IMAGE_PROXY_ENABLED = Boolean(env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL);
+const IMAGE_PROXY_RENDER_ROUTE = "/api/email/render-html";
+const proxiedHtmlCache = new Map<string, string>();
 
 export function HtmlEmail({ html }: { html: string }) {
+  const sanitizedHtml = useMemo(() => sanitize(html), [html]);
   const [showReplies, setShowReplies] = useState(false);
+  const [renderHtml, setRenderHtml] = useState(() => sanitizedHtml);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { theme } = useTheme();
   const isDarkMode = theme === "dark";
 
-  const sanitizedHtml = useMemo(() => sanitize(html), [html]);
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    setRenderHtml(sanitizedHtml);
+
+    if (!IMAGE_PROXY_ENABLED) {
+      return () => {
+        cancelled = true;
+        controller.abort();
+      };
+    }
+
+    const cachedHtml = proxiedHtmlCache.get(sanitizedHtml);
+    if (cachedHtml) {
+      startTransition(() => setRenderHtml(cachedHtml));
+      return () => {
+        cancelled = true;
+        controller.abort();
+      };
+    }
+
+    rewriteHtmlWithProxy(sanitizedHtml, controller.signal).then(
+      (rewrittenHtml) => {
+        if (cancelled) return;
+        proxiedHtmlCache.set(sanitizedHtml, rewrittenHtml);
+        startTransition(() => setRenderHtml(rewrittenHtml));
+      },
+      () => {
+        if (cancelled) return;
+        startTransition(() => setRenderHtml(sanitizedHtml));
+      },
+    );
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [sanitizedHtml]);
+
   const { mainContent, hasReplies } = useMemo(
-    () => getEmailContent(sanitizedHtml),
-    [sanitizedHtml],
+    () => getEmailContent(renderHtml),
+    [renderHtml],
   );
 
   const srcDoc = useMemo(
     () =>
       getIframeHtml(
-        showReplies ? sanitizedHtml : mainContent,
+        showReplies ? renderHtml : mainContent,
         isDarkMode,
         IMAGE_PROXY_ORIGIN,
       ),
-    [sanitizedHtml, mainContent, showReplies, isDarkMode],
+    [renderHtml, mainContent, showReplies, isDarkMode],
   );
 
   const iframeHeight = useIframeHeight(iframeRef);
@@ -178,6 +222,12 @@ function getIframeHtml(
       style-src 'unsafe-inline';
       img-src data: ${imageProxyOrigin || "https:"};
       font-src 'none';
+      media-src 'none';
+      connect-src 'none';
+      manifest-src 'none';
+      prefetch-src 'none';
+      worker-src 'none';
+      child-src 'none';
       script-src 'none';
       frame-src 'none';
       object-src 'none';
@@ -214,6 +264,22 @@ function getIframeHtml(
 
 const sanitize = (html: string) =>
   DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+
+async function rewriteHtmlWithProxy(html: string, signal: AbortSignal) {
+  const response = await fetch(IMAGE_PROXY_RENDER_ROUTE, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ html }),
+    signal,
+  });
+
+  if (!response.ok) return html;
+
+  const data = await response.json();
+  return typeof data?.html === "string" ? data.html : html;
+}
 
 function addDarkModeClass(html: string, isDarkMode: boolean) {
   try {

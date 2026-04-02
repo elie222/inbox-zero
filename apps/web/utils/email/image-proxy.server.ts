@@ -2,35 +2,20 @@ import "server-only";
 import { DEFAULT_ASSET_PROXY_TTL_SECONDS } from "@inboxzero/image-proxy/proxy-url";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
-import type { ParsedMessage } from "@/utils/types";
 import { rewriteHtmlRemoteAssetUrls } from "./rewrite-html";
 
 let hasWarnedAboutUnsignedImageProxy = false;
 const logger = createScopedLogger("image-proxy");
 
-export async function rewriteMessagesRemoteAssets(messages: ParsedMessage[]) {
+export async function rewriteHtmlForImageProxy(html: string) {
   const config = getImageProxyConfig();
-  if (!config) return messages;
+  if (!config || !html) return html;
 
-  return Promise.all(
-    messages.map((message) => rewriteMessageRemoteAssets(message, config)),
-  );
-}
-
-async function rewriteMessageRemoteAssets(
-  message: ParsedMessage,
-  config: { proxyBaseUrl: string; signingSecret?: string },
-) {
-  if (!message.textHtml) return message;
-
-  return {
-    ...message,
-    textHtml: await rewriteHtmlRemoteAssetUrls(message.textHtml, {
-      proxyBaseUrl: config.proxyBaseUrl,
-      signingSecret: config.signingSecret,
-      ttlSeconds: DEFAULT_ASSET_PROXY_TTL_SECONDS,
-    }),
-  };
+  return rewriteHtmlRemoteAssetUrls(html, {
+    proxyBaseUrl: config.proxyBaseUrl,
+    signingSecret: config.signingSecret,
+    ttlSeconds: DEFAULT_ASSET_PROXY_TTL_SECONDS,
+  });
 }
 
 function getImageProxyConfig() {

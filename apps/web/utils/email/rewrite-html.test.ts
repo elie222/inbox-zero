@@ -75,4 +75,22 @@ describe("rewriteHtmlRemoteAssetUrls", () => {
       encodeURIComponent("https://cdn.example.com/photo.png?x=1&y=2"),
     );
   });
+
+  it("rewrites remote SVG href attributes", async () => {
+    const html = `
+      <svg xmlns="http://www.w3.org/2000/svg">
+        <image href="https://cdn.example.com/photo.png" />
+        <use xlink:href="https://cdn.example.com/sprite.svg#icon" />
+      </svg>
+    `;
+
+    const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
+
+    expect(rewrittenHtml).toContain(
+      encodeURIComponent("https://cdn.example.com/photo.png"),
+    );
+    expect(rewrittenHtml).toContain(
+      encodeURIComponent("https://cdn.example.com/sprite.svg#icon"),
+    );
+  });
 });

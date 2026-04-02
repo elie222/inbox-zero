@@ -1,63 +1,58 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ParsedMessage } from "@/utils/types";
 
 vi.mock("server-only", () => ({}));
 
-describe("rewriteMessagesRemoteAssets", () => {
+describe("rewriteHtmlForImageProxy", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.restoreAllMocks();
   });
 
-  it("leaves messages unchanged when no proxy base URL is configured", async () => {
-    const { rewriteMessagesRemoteAssets } = await loadModule({});
-    const messages = [
-      createMessage('<img src="https://cdn.example.com/photo.png" />'),
-    ];
+  it("leaves html unchanged when no proxy base URL is configured", async () => {
+    const { rewriteHtmlForImageProxy } = await loadModule({});
+    const html = '<img src="https://cdn.example.com/photo.png" />';
 
-    const rewritten = await rewriteMessagesRemoteAssets(messages);
+    const rewritten = await rewriteHtmlForImageProxy(html);
 
-    expect(rewritten).toBe(messages);
+    expect(rewritten).toBe(html);
   });
 
   it("rewrites remote assets through an unsigned proxy and warns once", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { rewriteMessagesRemoteAssets } = await loadModule({
+    const { rewriteHtmlForImageProxy } = await loadModule({
       NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: "https://proxy.example.com/image",
     });
 
-    const messages = [
-      createMessage('<img src="https://cdn.example.com/photo.png" />'),
-    ];
+    const html = '<img src="https://cdn.example.com/photo.png" />';
 
-    const firstRewrite = await rewriteMessagesRemoteAssets(messages);
-    const secondRewrite = await rewriteMessagesRemoteAssets(messages);
+    const firstRewrite = await rewriteHtmlForImageProxy(html);
+    const secondRewrite = await rewriteHtmlForImageProxy(html);
 
-    expect(firstRewrite[0].textHtml).toContain(
+    expect(firstRewrite).toContain(
       'src="https://proxy.example.com/image?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png"',
     );
-    expect(firstRewrite[0].textHtml).not.toContain("&amp;e=");
-    expect(firstRewrite[0].textHtml).not.toContain("&amp;s=");
-    expect(secondRewrite[0].textHtml).toBe(firstRewrite[0].textHtml);
+    expect(firstRewrite).not.toContain("&amp;e=");
+    expect(firstRewrite).not.toContain("&amp;s=");
+    expect(secondRewrite).toBe(firstRewrite);
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
   it("rewrites remote assets with signed proxy URLs when a signing secret is configured", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { rewriteMessagesRemoteAssets } = await loadModule({
+    const { rewriteHtmlForImageProxy } = await loadModule({
       IMAGE_PROXY_SIGNING_SECRET: "test-signing-secret-123",
       NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: "https://proxy.example.com/image",
     });
 
-    const rewritten = await rewriteMessagesRemoteAssets([
-      createMessage('<img src="https://cdn.example.com/photo.png" />'),
-    ]);
+    const rewritten = await rewriteHtmlForImageProxy(
+      '<img src="https://cdn.example.com/photo.png" />',
+    );
 
-    expect(rewritten[0].textHtml).toContain(
+    expect(rewritten).toContain(
       'src="https://proxy.example.com/image?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png',
     );
-    expect(rewritten[0].textHtml).toContain("&amp;e=");
-    expect(rewritten[0].textHtml).toContain("&amp;s=");
+    expect(rewritten).toContain("&amp;e=");
+    expect(rewritten).toContain("&amp;s=");
     expect(warnSpy).not.toHaveBeenCalled();
   });
 });
@@ -81,23 +76,4 @@ async function loadModule(
   }));
 
   return import("./image-proxy.server");
-}
-
-function createMessage(textHtml: string): ParsedMessage {
-  return {
-    date: "2026-04-03T10:00:00.000Z",
-    headers: {
-      date: "Fri, 3 Apr 2026 10:00:00 +0000",
-      from: "sender@example.com",
-      subject: "Subject",
-      to: "user@example.com",
-    },
-    historyId: "history-1",
-    id: "message-1",
-    inline: [],
-    snippet: "Snippet",
-    subject: "Subject",
-    textHtml,
-    threadId: "thread-1",
-  };
 }

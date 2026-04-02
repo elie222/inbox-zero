@@ -8,6 +8,7 @@ const STYLE_ELEMENT_PATTERN = /<style\b([^>]*)>([\s\S]*?)<\/style>/gi;
 const STYLE_ATTRIBUTE_PATTERN = /\bstyle\s*=\s*(["'])([\s\S]*?)\1/gi;
 const SRCSET_ATTRIBUTE_PATTERN = /\bsrcset\s*=\s*(["'])([\s\S]*?)\1/gi;
 const CSS_URL_PATTERN = /url\(\s*(['"]?)([^"')]+)\1\s*\)/gi;
+const SVG_IMAGE_TAG_PATTERN = /<(feImage|image|use)\b[\s\S]*?>/gi;
 const URL_ATTRIBUTES = ["background", "poster", "src"] as const;
 
 const URL_ATTRIBUTE_PATTERNS = Object.fromEntries(
@@ -69,6 +70,12 @@ export async function rewriteHtmlRemoteAssetUrls(
         rewrittenSrcset,
       )}${quote}`;
     },
+  );
+
+  rewrittenHtml = await replaceAsync(
+    rewrittenHtml,
+    SVG_IMAGE_TAG_PATTERN,
+    async (tag) => rewriteTagHrefAttributes(tag, getSignedUrl),
   );
 
   for (const attribute of URL_ATTRIBUTES) {
@@ -180,6 +187,51 @@ async function rewriteSrcsetAttribute(
   );
 
   return rewrittenCandidates.join(", ");
+}
+
+async function rewriteTagHrefAttributes(
+  tag: string,
+  getSignedUrl: (assetUrl: string) => Promise<string>,
+) {
+  let rewrittenTag = tag;
+
+  for (const attribute of ["href", "xlink:href"] as const) {
+    const escapedAttribute = attribute.replace(":", "\\:");
+    const quotedPattern = new RegExp(
+      `(^|\\s)${escapedAttribute}\\s*=\\s*(["'])([\\s\\S]*?)\\2`,
+      "gi",
+    );
+    const unquotedPattern = new RegExp(
+      `(^|\\s)${escapedAttribute}\\s*=\\s*([^\\s"'>]+)`,
+      "gi",
+    );
+
+    rewrittenTag = await replaceAsync(
+      rewrittenTag,
+      quotedPattern,
+      async (match, prefix, quote, rawValue) => {
+        const signedUrl = await getSignedUrl(decodeHtmlValue(rawValue.trim()));
+        if (signedUrl === rawValue.trim()) return match;
+
+        return `${prefix}${attribute}=${quote}${escapeHtmlAttributeValue(
+          signedUrl,
+        )}${quote}`;
+      },
+    );
+
+    rewrittenTag = await replaceAsync(
+      rewrittenTag,
+      unquotedPattern,
+      async (match, prefix, rawValue) => {
+        const signedUrl = await getSignedUrl(decodeHtmlValue(rawValue.trim()));
+        if (signedUrl === rawValue.trim()) return match;
+
+        return `${prefix}${attribute}="${escapeHtmlAttributeValue(signedUrl)}"`;
+      },
+    );
+  }
+
+  return rewrittenTag;
 }
 
 async function replaceAsync(
