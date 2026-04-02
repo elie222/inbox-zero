@@ -103,4 +103,26 @@ describe("handler", () => {
     const [request] = vi.mocked(handleImageProxyRequest).mock.calls[0];
     await expect(request.text()).resolves.toBe("payload");
   });
+
+  it("does not attach a body to GET requests", async () => {
+    vi.mocked(handleImageProxyRequest).mockResolvedValue(
+      new Response("ok", {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+      }),
+    );
+
+    await expect(
+      handler({
+        body: "cGF5bG9hZA==",
+        headers: { host: "proxy.example.com" },
+        isBase64Encoded: true,
+        rawPath: "/proxy",
+        requestContext: { http: { method: "GET" } },
+      }),
+    ).resolves.toMatchObject({ statusCode: 200 });
+
+    const [request] = vi.mocked(handleImageProxyRequest).mock.calls[0];
+    await expect(request.text()).resolves.toBe("");
+  });
 });

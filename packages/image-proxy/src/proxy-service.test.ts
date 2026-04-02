@@ -264,6 +264,27 @@ describe("handleImageProxyRequest", () => {
     await expect(response.text()).resolves.toBe("Upstream fetch failed");
   });
 
+  it("returns a controlled 502 when an upstream redirect location is malformed", async () => {
+    const response = await handleImageProxyRequest(
+      new Request(
+        "https://proxy.example.com/proxy?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png",
+      ),
+      {},
+      {
+        fetchImpl: vi.fn().mockResolvedValue(
+          // biome-ignore lint/suspicious/useStaticResponseMethods: invalid redirect targets cannot be expressed with Response.redirect()
+          new Response(null, {
+            status: 302,
+            headers: { location: "https://%" },
+          }),
+        ) as typeof fetch,
+      },
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.text()).resolves.toBe("Upstream fetch failed");
+  });
+
   it("stops redirect loops after the maximum depth", async () => {
     const upstreamFetch = vi
       .fn()

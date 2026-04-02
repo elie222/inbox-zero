@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
 
@@ -12,7 +13,10 @@ describe("rewriteHtmlForImageProxy", () => {
     const { rewriteHtmlForImageProxy } = await loadModule({});
     const html = '<img src="https://cdn.example.com/photo.png" />';
 
-    const rewritten = await rewriteHtmlForImageProxy(html);
+    const rewritten = await rewriteHtmlForImageProxy(
+      html,
+      createScopedLogger("image-proxy-test"),
+    );
 
     expect(rewritten).toBe(html);
   });
@@ -25,8 +29,9 @@ describe("rewriteHtmlForImageProxy", () => {
 
     const html = '<img src="https://cdn.example.com/photo.png" />';
 
-    const firstRewrite = await rewriteHtmlForImageProxy(html);
-    const secondRewrite = await rewriteHtmlForImageProxy(html);
+    const logger = createScopedLogger("image-proxy-test");
+    const firstRewrite = await rewriteHtmlForImageProxy(html, logger);
+    const secondRewrite = await rewriteHtmlForImageProxy(html, logger);
 
     expect(firstRewrite).toContain(
       'src="https://proxy.example.com/image?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png"',
@@ -46,6 +51,7 @@ describe("rewriteHtmlForImageProxy", () => {
 
     const rewritten = await rewriteHtmlForImageProxy(
       '<img src="https://cdn.example.com/photo.png" />',
+      createScopedLogger("image-proxy-test"),
     );
 
     expect(rewritten).toContain(

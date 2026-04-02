@@ -1,14 +1,13 @@
 import "server-only";
 import { DEFAULT_ASSET_PROXY_TTL_SECONDS } from "@inboxzero/image-proxy/proxy-url";
 import { env } from "@/env";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { rewriteHtmlRemoteAssetUrls } from "./rewrite-html";
 
 let hasWarnedAboutUnsignedImageProxy = false;
-const logger = createScopedLogger("image-proxy");
 
-export async function rewriteHtmlForImageProxy(html: string) {
-  const config = getImageProxyConfig();
+export async function rewriteHtmlForImageProxy(html: string, logger: Logger) {
+  const config = getImageProxyConfig(logger);
   if (!config || !html) return html;
 
   return rewriteHtmlRemoteAssetUrls(html, {
@@ -18,7 +17,7 @@ export async function rewriteHtmlForImageProxy(html: string) {
   });
 }
 
-function getImageProxyConfig() {
+function getImageProxyConfig(logger: Logger) {
   const proxyBaseUrl = env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL;
   const signingSecret = env.IMAGE_PROXY_SIGNING_SECRET;
 

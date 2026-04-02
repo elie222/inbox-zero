@@ -50,11 +50,14 @@ function buildRequest(event: LambdaEvent) {
     "localhost";
   const path = event.rawPath || "/";
   const query = event.rawQueryString ? `?${event.rawQueryString}` : "";
+  const method = event.requestContext?.http?.method || "GET";
+  const body =
+    method === "GET" || method === "HEAD" ? undefined : getRequestBody(event);
 
   return new Request(`${protocol}://${host}${path}${query}`, {
-    method: event.requestContext?.http?.method || "GET",
+    method,
     headers,
-    body: getRequestBody(event),
+    body,
   });
 }
 

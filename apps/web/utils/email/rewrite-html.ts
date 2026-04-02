@@ -15,8 +15,11 @@ const URL_ATTRIBUTE_PATTERNS = Object.fromEntries(
   URL_ATTRIBUTES.map((attr) => [
     attr,
     {
-      quoted: new RegExp(`\\b${attr}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "gi"),
-      unquoted: new RegExp(`\\b${attr}\\s*=\\s*([^\\s"'>]+)`, "gi"),
+      quoted: new RegExp(
+        `(^|[^\\w:-])(${attr})\\s*=\\s*(["'])([\\s\\S]*?)\\3`,
+        "gi",
+      ),
+      unquoted: new RegExp(`(^|[^\\w:-])(${attr})\\s*=\\s*([^\\s"'>]+)`, "gi"),
     },
   ]),
 ) as Record<
@@ -142,11 +145,11 @@ async function rewriteUrlAttribute(
   const rewrittenQuotedHtml = await replaceAsync(
     html,
     quoted,
-    async (match, quote, rawValue) => {
+    async (match, prefix, attributeName, quote, rawValue) => {
       const signedUrl = await getSignedUrl(decodeHtmlValue(rawValue.trim()));
       if (signedUrl === rawValue.trim()) return match;
 
-      return `${attribute}=${quote}${escapeHtmlAttributeValue(
+      return `${prefix}${attributeName}=${quote}${escapeHtmlAttributeValue(
         signedUrl,
       )}${quote}`;
     },
@@ -155,11 +158,13 @@ async function rewriteUrlAttribute(
   return replaceAsync(
     rewrittenQuotedHtml,
     unquoted,
-    async (match, rawValue) => {
+    async (match, prefix, attributeName, rawValue) => {
       const signedUrl = await getSignedUrl(decodeHtmlValue(rawValue.trim()));
       if (signedUrl === rawValue.trim()) return match;
 
-      return `${attribute}="${escapeHtmlAttributeValue(signedUrl)}"`;
+      return `${prefix}${attributeName}="${escapeHtmlAttributeValue(
+        signedUrl,
+      )}"`;
     },
   );
 }
@@ -168,10 +173,7 @@ async function rewriteSrcsetAttribute(
   srcset: string,
   getSignedUrl: (assetUrl: string) => Promise<string>,
 ) {
-  const candidates = srcset
-    .split(",")
-    .map((candidate) => candidate.trim())
-    .filter(Boolean);
+  const candidates = splitSrcsetCandidates(srcset);
 
   const rewrittenCandidates = await Promise.all(
     candidates.map(async (candidate) => {
@@ -187,6 +189,29 @@ async function rewriteSrcsetAttribute(
   );
 
   return rewrittenCandidates.join(", ");
+}
+
+function splitSrcsetCandidates(srcset: string) {
+  const candidates: string[] = [];
+  let current = "";
+
+  for (let i = 0; i < srcset.length; i++) {
+    const char = srcset[i];
+
+    if (char === "," && isSrcsetDelimiter(srcset, i)) {
+      const trimmed = current.trim();
+      if (trimmed) candidates.push(trimmed);
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  const trimmed = current.trim();
+  if (trimmed) candidates.push(trimmed);
+
+  return candidates;
 }
 
 async function rewriteTagHrefAttributes(
@@ -265,6 +290,15 @@ async function replaceAsync(
 
 function decodeHtmlValue(value: string) {
   return he.decode(value, { isAttributeValue: true });
+}
+
+function isSrcsetDelimiter(value: string, index: number) {
+  const rest = value.slice(index + 1);
+
+  if (!/^\s+/.test(rest)) return false;
+
+  const nextToken = rest.trimStart();
+  return /^(https?:\/\/|\/\/|\/)/i.test(nextToken);
 }
 
 function escapeCssUrl(value: string) {

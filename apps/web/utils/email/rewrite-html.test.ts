@@ -66,6 +66,14 @@ describe("rewriteHtmlRemoteAssetUrls", () => {
     expect(rewrittenHtml).not.toContain("&amp;s=");
   });
 
+  it("does not rewrite data-src attributes", async () => {
+    const html = '<img data-src="https://cdn.example.com/photo.png" />';
+
+    const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
+
+    expect(rewrittenHtml).toBe(html);
+  });
+
   it("decodes numeric HTML entities before rewriting asset URLs", async () => {
     const html = '<img src="https://cdn.example.com/photo.png?x=1&#38;y=2" />';
 
@@ -91,6 +99,20 @@ describe("rewriteHtmlRemoteAssetUrls", () => {
     );
     expect(rewrittenHtml).toContain(
       encodeURIComponent("https://cdn.example.com/sprite.svg#icon"),
+    );
+  });
+
+  it("preserves srcset candidates when a url contains commas", async () => {
+    const html =
+      '<img srcset="https://cdn.example.com/photo,name.png 1x, https://cdn.example.com/photo@2x.png 2x" />';
+
+    const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
+
+    expect(rewrittenHtml).toContain(
+      encodeURIComponent("https://cdn.example.com/photo,name.png"),
+    );
+    expect(rewrittenHtml).toContain(
+      encodeURIComponent("https://cdn.example.com/photo@2x.png"),
     );
   });
 });

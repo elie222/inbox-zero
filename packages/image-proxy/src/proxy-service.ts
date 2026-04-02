@@ -183,7 +183,13 @@ async function fetchUpstreamAsset(
       return new Response("Redirect missing location", { status: 502 });
     }
 
-    const redirectedUrl = new URL(location, assetUrl);
+    let redirectedUrl: URL;
+    try {
+      redirectedUrl = new URL(location, assetUrl);
+    } catch {
+      return new Response("Redirect target is invalid", { status: 502 });
+    }
+
     if (!isProxyableRemoteUrl(redirectedUrl.toString())) {
       return new Response("Unsupported redirect target", { status: 400 });
     }
