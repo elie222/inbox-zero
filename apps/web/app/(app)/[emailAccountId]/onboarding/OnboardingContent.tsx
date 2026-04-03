@@ -42,7 +42,7 @@ import {
   type StepKey,
 } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { useOnboardingFlowVariant } from "@/hooks/useFeatureFlags";
-import { getActionErrorMessage } from "@/utils/error";
+import { captureException, getActionErrorMessage } from "@/utils/error";
 
 interface OnboardingContentProps {
   step?: string;
@@ -207,6 +207,16 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
       const result = await completeOnboarding();
       if (result?.serverError || result?.validationErrors) {
+        captureException(new Error("Failed to complete onboarding"), {
+          extra: {
+            context: "onboarding",
+            step: "complete",
+            serverError: result?.serverError,
+            validationErrors: result?.validationErrors,
+            destination: isPremium ? "setup" : "welcome-upgrade",
+            flowVariant,
+          },
+        });
         toastError({
           description: getActionErrorMessage(
             {
@@ -238,6 +248,7 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
     isPremium,
     completeOnboarding,
     analyticsProps,
+    flowVariant,
     getOnboardingStepPath,
   ]);
 
