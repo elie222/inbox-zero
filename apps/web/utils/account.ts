@@ -145,9 +145,12 @@ export async function redirectToEmailAccountPath(
   searchParams?: Record<string, string | string[] | undefined>,
 ) {
   const session = await auth();
-  const userId = session?.user.id;
-  if (!userId) {
+  if (!session?.user) {
     redirect(buildLoginRedirectUrl(buildRedirectUrl(path, searchParams)));
+  }
+  const userId = session.user.id;
+  if (!userId) {
+    redirect("/logout");
   }
 
   const lastEmailAccountId = await getLastEmailAccountFromCookie(userId);
