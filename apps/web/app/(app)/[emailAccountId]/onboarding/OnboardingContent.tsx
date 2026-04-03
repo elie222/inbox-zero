@@ -205,7 +205,28 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
         ...analyticsProps,
       });
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-      const result = await completeOnboarding();
+      let result: Awaited<ReturnType<typeof completeOnboarding>>;
+      try {
+        result = await completeOnboarding();
+      } catch (error) {
+        captureException(error, {
+          extra: {
+            context: "onboarding",
+            step: "complete",
+            destination: isPremium ? "setup" : "welcome-upgrade",
+            flowVariant,
+          },
+        });
+        toastError({
+          description: getActionErrorMessage(
+            {},
+            {
+              prefix: "There was an error finishing onboarding",
+            },
+          ),
+        });
+        return;
+      }
       if (result?.serverError || result?.validationErrors) {
         captureException(new Error("Failed to complete onboarding"), {
           extra: {

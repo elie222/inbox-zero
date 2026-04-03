@@ -151,9 +151,21 @@ export function StepWho({
                     step: "role",
                   },
                 });
+                const actionError =
+                  typeof error === "object" &&
+                  error !== null &&
+                  "error" in error
+                    ? (
+                        error as {
+                          error: Parameters<typeof getActionErrorMessage>[0];
+                        }
+                      ).error
+                    : {};
                 toastError({
-                  description:
-                    "We couldn't save that answer, but you can keep going.",
+                  description: getActionErrorMessage(actionError, {
+                    prefix:
+                      "We couldn't save that answer, but you can keep going",
+                  }),
                 });
               });
           })}
