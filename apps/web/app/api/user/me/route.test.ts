@@ -60,6 +60,20 @@ describe("user/me route", () => {
     } as unknown as Awaited<ReturnType<typeof prisma.user.findUnique>>);
   });
 
+  it("returns 401 with isKnownError when not authenticated", async () => {
+    authMock.mockResolvedValue(null);
+
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/user/me"),
+      {} as never,
+    );
+
+    expect(response.status).toBe(401);
+    const body = await response.json();
+    expect(body.error).toBe("Not authenticated");
+    expect(body.isKnownError).toBe(true);
+  });
+
   it("returns secret presence flags instead of raw secret values", async () => {
     const response = await GET(
       new NextRequest("http://localhost:3000/api/user/me"),

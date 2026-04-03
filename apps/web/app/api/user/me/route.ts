@@ -82,11 +82,16 @@ async function getUser({
   };
 }
 
-// Intentionally not using withAuth because we want to return null if the user is not authenticated
+// Not using withAuth — unauthenticated requests return 401 with isKnownError
+// so the client can distinguish "not logged in" from real errors without Sentry noise
 export const GET = withError("user/me", async (request) => {
   const session = await auth();
   const userId = session?.user.id;
-  if (!userId) return NextResponse.json(null);
+  if (!userId)
+    return NextResponse.json(
+      { error: "Not authenticated", isKnownError: true },
+      { status: 401 },
+    );
 
   const includeImage =
     request.nextUrl.searchParams.get("includeImage") === "true";
