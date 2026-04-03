@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ArrowRightIcon, SendIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useAction } from "next-safe-action/hooks";
 import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
 import { PageHeading, TypographyP } from "@/components/Typography";
@@ -20,6 +21,7 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { updateEmailAccountRoleAction } from "@/utils/actions/email-account";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 
 export function StepWho({
   initialRole,
@@ -42,6 +44,18 @@ export function StepWho({
     resolver: zodResolver(stepWhoSchema),
     defaultValues: { role: defaultRole },
   });
+  const { execute: saveRole } = useAction(
+    updateEmailAccountRoleAction.bind(null, emailAccountId),
+    {
+      onError: ({ error }) => {
+        toastError({
+          description: getActionErrorMessage(error, {
+            prefix: "We couldn't save that answer, but you can keep going",
+          }),
+        });
+      },
+    },
+  );
   const { watch, setValue } = form;
   const watchedRole = watch("role");
   const displayedRoles = useMemo(
@@ -109,28 +123,9 @@ export function StepWho({
               values.role === "Other" ? customRole : values.role;
             onNext();
 
-            updateEmailAccountRoleAction(emailAccountId, {
+            saveRole({
               role: roleToSave,
-            })
-              .then((result) => {
-                if (result?.serverError) {
-                  console.error(
-                    "Failed to save onboarding role:",
-                    result.serverError,
-                  );
-                  toastError({
-                    description:
-                      "We couldn't save that answer, but you can keep going.",
-                  });
-                }
-              })
-              .catch((error) => {
-                console.error("Failed to save onboarding role:", error);
-                toastError({
-                  description:
-                    "We couldn't save that answer, but you can keep going.",
-                });
-              });
+            });
           })}
         >
           <div className="max-w-md w-full mx-auto">
