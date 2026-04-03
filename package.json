@@ -44,8 +44,12 @@
   },
   "pnpm": {
     "overrides": {
-      "@types/react": "19.0.10",
-      "@types/react-dom": "19.0.4"
+      "@types/react": "19.2.14",
+      "@types/react-dom": "19.2.3",
+      "@xmldom/xmldom": "0.8.12",
+      "fast-xml-parser": "5.5.9",
+      "jws": "4.0.1",
+      "lodash": "4.18.1"
     }
   }
 }
