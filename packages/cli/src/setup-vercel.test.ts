@@ -6,9 +6,9 @@ describe("buildVercelEnvValues", () => {
   it("seeds required placeholders and target-specific base urls", () => {
     const llmEnv = {
       DEFAULT_LLM_PROVIDER: "openai",
-      DEFAULT_LLM_MODEL: "gpt-5.1",
+      DEFAULT_LLM_MODEL: "gpt-5.4-mini",
       ECONOMY_LLM_PROVIDER: "openai",
-      ECONOMY_LLM_MODEL: "gpt-5-mini",
+      ECONOMY_LLM_MODEL: "gpt-5.4-nano",
       LLM_API_KEY: "replace-me",
     };
 
@@ -62,9 +62,9 @@ describe("buildVercelEnvValues", () => {
   it("marks generated secrets as sensitive and includes optional microsoft envs", () => {
     const llmEnv = {
       DEFAULT_LLM_PROVIDER: "openai",
-      DEFAULT_LLM_MODEL: "gpt-5.1",
+      DEFAULT_LLM_MODEL: "gpt-5.4-mini",
       ECONOMY_LLM_PROVIDER: "openai",
-      ECONOMY_LLM_MODEL: "gpt-5-mini",
+      ECONOMY_LLM_MODEL: "gpt-5.4-nano",
       LLM_API_KEY: "replace-me",
     };
 

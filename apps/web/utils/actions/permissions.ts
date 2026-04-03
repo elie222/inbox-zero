@@ -6,7 +6,7 @@ import { actionClient, adminActionClient } from "@/utils/actions/safe-action";
 import {
   getGmailAndAccessTokenForEmail,
   getOutlookClientForEmail,
-} from "@/utils/account";
+} from "@/utils/email-account-client";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import {

@@ -3,7 +3,7 @@ import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 type RuleFormAction = CreateRuleBody["actions"][number];
-export type DraftReplyDelivery = "EMAIL" | "SLACK" | "EMAIL_AND_SLACK";
+export type DraftReplyDelivery = "EMAIL" | "MESSAGING" | "EMAIL_AND_MESSAGING";
 
 export function normalizeDraftReplyActions(actions: RuleFormAction[]) {
   return actions.map((action) => {
@@ -108,9 +108,9 @@ export function getDraftReplyDelivery({
   primaryAction?: RuleFormAction;
   draftMessagingAction?: RuleFormAction | null;
 }): DraftReplyDelivery {
-  if (draftMessagingAction) return "EMAIL_AND_SLACK";
+  if (draftMessagingAction) return "EMAIL_AND_MESSAGING";
   if (primaryAction?.type === ActionType.DRAFT_MESSAGING_CHANNEL)
-    return "SLACK";
+    return "MESSAGING";
   return "EMAIL";
 }
 

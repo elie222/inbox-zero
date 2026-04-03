@@ -1,7 +1,7 @@
 import {
   getGmailClientForEmail,
   getOutlookClientForEmail,
-} from "@/utils/account";
+} from "@/utils/email-account-client";
 import { GmailProvider } from "@/utils/email/google";
 import { OutlookProvider } from "@/utils/email/microsoft";
 import type { EmailProvider } from "@/utils/email/types";

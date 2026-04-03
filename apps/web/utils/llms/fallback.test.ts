@@ -335,6 +335,189 @@ describe("createGenerateText fallback chain", () => {
     });
   });
 
+  it("forwards provider costs and step metadata to usage analytics", async () => {
+    const model = { id: "openrouter-model" };
+    const modelOptions: SelectModel = {
+      provider: "openrouter",
+      modelName: "openai/gpt-5-mini",
+      model: model as SelectModel["model"],
+      providerOptions: undefined,
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: {
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+      },
+      providerMetadata: {
+        openrouter: {
+          usage: {
+            cost: 0.42,
+            cost_details: {
+              upstream_inference_cost: 0.12,
+            },
+          },
+        },
+      },
+      steps: [
+        {
+          toolCalls: [{ toolName: "searchEmails" }],
+        },
+        {
+          toolCalls: [{ toolName: "finalizeResults" }],
+        },
+      ],
+      toolCalls: [],
+    });
+
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "user-1",
+      },
+      label: "Reply context collector",
+      modelOptions,
+      promptHardening: { trust: "trusted" },
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: model as SelectModel["model"],
+      tools: {} as Record<string, never>,
+    });
+
+    expect(mockSaveAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerReportedCost: 0.42,
+        providerUpstreamInferenceCost: 0.12,
+        providerCostSource: "openrouter_usage",
+        stepCount: 2,
+        toolCallCount: 2,
+      }),
+    );
+  });
+
+  it("fills missing provider cost fields from step metadata", async () => {
+    const model = { id: "openrouter-model" };
+    const modelOptions: SelectModel = {
+      provider: "openrouter",
+      modelName: "openai/gpt-5-mini",
+      model: model as SelectModel["model"],
+      providerOptions: undefined,
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: {
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+      },
+      providerMetadata: {
+        openrouter: {
+          usage: {
+            cost: 0.42,
+          },
+        },
+      },
+      steps: [
+        {
+          toolCalls: [{ toolName: "searchEmails" }],
+          providerMetadata: {
+            openrouter: {
+              usage: {
+                cost_details: {
+                  upstream_inference_cost: 0.12,
+                },
+              },
+            },
+          },
+        },
+      ],
+      toolCalls: [],
+    });
+
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "user-1",
+      },
+      label: "Reply context collector",
+      modelOptions,
+      promptHardening: { trust: "trusted" },
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: model as SelectModel["model"],
+      tools: {} as Record<string, never>,
+    });
+
+    expect(mockSaveAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerReportedCost: 0.42,
+        providerUpstreamInferenceCost: 0.12,
+        providerCostSource: "openrouter_usage_with_step_fallback",
+      }),
+    );
+  });
+
+  it("counts top-level tool calls when steps are absent", async () => {
+    const model = { id: "openrouter-model" };
+    const modelOptions: SelectModel = {
+      provider: "openrouter",
+      modelName: "openai/gpt-5-mini",
+      model: model as SelectModel["model"],
+      providerOptions: undefined,
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: {
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+      },
+      toolCalls: [
+        { toolName: "searchEmails" },
+        { toolName: "finalizeResults" },
+      ],
+    });
+
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "user-1",
+      },
+      label: "Reply context collector",
+      modelOptions,
+      promptHardening: { trust: "trusted" },
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: model as SelectModel["model"],
+      tools: {} as Record<string, never>,
+    });
+
+    expect(mockSaveAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolCallCount: 2,
+      }),
+    );
+  });
+
   it("adds direct PostHog tracing with privacy mode", async () => {
     const model = { id: "openai-model" };
     const tracedModel = { id: "posthog-traced-model" };
