@@ -96,6 +96,7 @@ type AssistantChatOnStepFinish = NonNullable<
 
 export async function aiProcessAssistantChat({
   messages,
+  conversationMessagesForMemory,
   emailAccountId,
   user,
   context,
@@ -111,6 +112,7 @@ export async function aiProcessAssistantChat({
   logger,
 }: {
   messages: ModelMessage[];
+  conversationMessagesForMemory?: ModelMessage[];
   emailAccountId: string;
   user: EmailAccountWithAI;
   context?: MessageContext;
@@ -133,6 +135,7 @@ export async function aiProcessAssistantChat({
 
   const emailSendToolsEnabled = env.NEXT_PUBLIC_EMAIL_SEND_ENABLED;
   let ruleReadState: RuleReadState | null = null;
+  const memoryConversationMessages = conversationMessagesForMemory ?? messages;
 
   const system = `You are the Inbox Zero assistant. You help users understand their inbox, take inbox actions, update account features, and manage automation rules.
 
@@ -509,7 +512,11 @@ Behavior anchors (minimal examples):
     usageLabel: "assistant-chat",
     promptHardening: { trust: "untrusted", level: "full" },
     providerOptions: getChatProviderOptionsForCaching({ chatId }),
-    experimentalContext: createAssistantMemoryRuntimeContext(messages),
+    // Keep the full pre-compaction conversation here so saveMemory can verify
+    // userEvidence against the user's original wording.
+    experimentalContext: createAssistantMemoryRuntimeContext(
+      memoryConversationMessages,
+    ),
     messages: messagesWithCacheControl,
     onStepFinish: async (step) => {
       logger.trace("Step finished", {
@@ -521,10 +528,10 @@ Behavior anchors (minimal examples):
     maxSteps: 10,
     tools: allTools,
     activeTools: coreToolNames,
-    prepareStep: ({ steps, messages, experimental_context }) => {
+    prepareStep: ({ steps, experimental_context }) => {
       const memoryRuntimeContext = updateAssistantMemoryRuntimeContext({
         experimentalContext: experimental_context,
-        fallbackMessages: messages,
+        fallbackMessages: memoryConversationMessages,
         steps: steps as Array<{
           toolCalls?: Array<{
             toolName?: string;

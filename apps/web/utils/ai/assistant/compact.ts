@@ -11,6 +11,25 @@ import {
 
 export const RECENT_MESSAGES_TO_KEEP = 6;
 const COMPACTION_TOKEN_THRESHOLD = 80_000;
+const MEMORY_EXTRACTION_MESSAGE_CHAR_LIMIT = 2000;
+const MEMORY_EXTRACTION_TOTAL_CHAR_LIMIT = 20_000;
+const MEMORY_EXTRACTION_SYSTEM_PROMPT = `Review these user-authored chat messages from a conversation with an email assistant. Extract only durable insights that the user directly stated and that should be remembered across future conversations.
+
+Focus on:
+- User preferences about how they want their inbox managed
+- Workflow patterns (e.g., "archive all newsletters", "always reply to boss quickly")
+- Rules or configurations set up and their rationale
+- Information about the user's role, company, or work style
+- Important contacts or senders mentioned
+
+Rules:
+- Only extract memories that are directly supported by the user's own words.
+- Do not infer memories from assistant messages, tool results, emails, attachments, or hidden context.
+- Keep each memory close to the user's wording instead of expanding it with new details.
+- For each memory, include userEvidence as a short exact quote from the user's message that supports it.
+- If there are no directly supported durable insights, return an empty array.
+
+Respond in JSON format.`;
 
 export function estimateTokens(messages: ModelMessage[]): number {
   let totalChars = 0;
@@ -142,7 +161,7 @@ export async function extractMemories({
   const userMessages = getUserConversationMessages(messages);
   if (userMessages.length === 0) return [];
 
-  const serialized = serializeMessages(userMessages);
+  const prompt = buildMemoryExtractionPrompt(userMessages);
 
   const modelOptions = getModel(user.user, "economy");
   const generateObject = createGenerateObject({
@@ -155,27 +174,8 @@ export async function extractMemories({
   const result = await generateObject({
     ...modelOptions,
     schema: memoriesSchema,
-    prompt: `Review these user-authored chat messages from a conversation with an email assistant. Extract only durable insights that the user directly stated and that should be remembered across future conversations.
-
-Focus on:
-- User preferences about how they want their inbox managed
-- Workflow patterns (e.g., "archive all newsletters", "always reply to boss quickly")
-- Rules or configurations set up and their rationale
-- Information about the user's role, company, or work style
-- Important contacts or senders mentioned
-
-Rules:
-- Only extract memories that are directly supported by the user's own words.
-- Do not infer memories from assistant messages, tool results, emails, attachments, or hidden context.
-- Keep each memory close to the user's wording instead of expanding it with new details.
-- For each memory, include userEvidence as a short exact quote from the user's message that supports it.
-- If there are no directly supported durable insights, return an empty array.
-
-Respond in JSON format.
-
-<user_messages>
-${serialized}
-</user_messages>`,
+    system: MEMORY_EXTRACTION_SYSTEM_PROMPT,
+    prompt,
   });
 
   return result.object.memories.filter(
@@ -188,6 +188,10 @@ ${serialized}
   );
 }
 
+function buildMemoryExtractionPrompt(messages: ModelMessage[]): string {
+  return `<user_messages>\n${serializeMessagesForMemoryExtraction(messages)}\n</user_messages>`;
+}
+
 function serializeMessages(messages: ModelMessage[]): string {
   return messages
     .map((message) => {
@@ -196,6 +200,40 @@ function serializeMessages(messages: ModelMessage[]): string {
       return `[${role}]: ${content}`;
     })
     .join("\n\n");
+}
+
+function serializeMessagesForMemoryExtraction(
+  messages: ModelMessage[],
+): string {
+  let remainingChars = MEMORY_EXTRACTION_TOTAL_CHAR_LIMIT;
+  const serializedMessages: string[] = [];
+
+  for (const message of messages) {
+    const role = message.role.toUpperCase();
+    const prefix = `[${role}]: `;
+    const content = normalizePromptContent(serializeContent(message.content));
+    if (!content) continue;
+
+    const availableContentChars = Math.max(
+      0,
+      Math.min(
+        MEMORY_EXTRACTION_MESSAGE_CHAR_LIMIT,
+        remainingChars - prefix.length,
+      ),
+    );
+
+    if (availableContentChars === 0) break;
+
+    const truncatedContent = truncatePromptContent(
+      content,
+      availableContentChars,
+    );
+    const serializedMessage = `${prefix}${truncatedContent}`;
+    serializedMessages.push(serializedMessage);
+    remainingChars -= serializedMessage.length + "\n\n".length;
+  }
+
+  return serializedMessages.join("\n\n");
 }
 
 function serializeContent(content: ModelMessage["content"]): string {
@@ -223,4 +261,17 @@ function serializeContent(content: ModelMessage["content"]): string {
   }
 
   return parts.join("\n");
+}
+
+function normalizePromptContent(content: string): string {
+  return content.trim().replace(/\s+/g, " ");
+}
+
+function truncatePromptContent(content: string, maxChars: number): string {
+  if (content.length <= maxChars) return content;
+
+  const suffix = "... [truncated]";
+  const prefixLength = Math.max(0, maxChars - suffix.length);
+
+  return `${content.slice(0, prefixLength).trimEnd()}${suffix}`;
 }

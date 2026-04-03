@@ -131,11 +131,44 @@ describe("chat compaction thresholds", () => {
     ]);
     expect(generateObject).toHaveBeenCalledWith(
       expect.objectContaining({
+        system: expect.stringContaining(
+          "Extract only durable insights that the user directly stated",
+        ),
         prompt: expect.stringContaining("<user_messages>"),
       }),
     );
     expect(generateObject.mock.calls[0][0].prompt).not.toContain(
       "The email suggests formal replies",
     );
+  });
+
+  it("normalizes and truncates memory extraction prompt content", async () => {
+    const generateObject = vi.fn().mockResolvedValue({
+      object: {
+        memories: [],
+      },
+    });
+
+    mockGetModel.mockReturnValue({
+      model: {},
+      providerOptions: undefined,
+    });
+    mockCreateGenerateObject.mockReturnValue(generateObject);
+
+    await extractMemories({
+      messages: [
+        {
+          role: "user",
+          content: `  Please    remember   ${"x".repeat(3000)}  `,
+        },
+      ],
+      user: getEmailAccount(),
+    });
+
+    expect(generateObject.mock.calls[0][0].prompt).toContain(
+      "[USER]: Please remember",
+    );
+    expect(generateObject.mock.calls[0][0].prompt).toContain("[truncated]");
+    expect(generateObject.mock.calls[0][0].prompt).not.toContain("    ");
   });
 });

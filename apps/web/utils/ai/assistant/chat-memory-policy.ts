@@ -2,10 +2,14 @@ import type { ModelMessage } from "ai";
 import * as stringSimilarity from "string-similarity";
 
 const MEMORY_EVIDENCE_SIMILARITY_THRESHOLD = 0.45;
+// These tools surface inbox-derived content from the provider, so anything
+// learned from them should be treated as untrusted for durable memory writes.
 const untrustedRetrievalToolNames = new Set([
   "searchInbox",
   "readEmail",
   "readAttachment",
+  "replyEmail",
+  "forwardEmail",
 ]);
 
 export type AssistantMemoryRuntimeContext = {
