@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildRedirectUrl } from "@/utils/redirect";
+import { buildLoginRedirectUrl, buildRedirectUrl } from "@/utils/redirect";
 
 describe("buildRedirectUrl", () => {
   it("returns base path when no searchParams", () => {
@@ -48,5 +48,19 @@ describe("buildRedirectUrl", () => {
   it("encodes special characters", () => {
     const result = buildRedirectUrl("/settings", { q: "hello world" });
     expect(result).toBe("/settings?q=hello+world");
+  });
+});
+
+describe("buildLoginRedirectUrl", () => {
+  it("preserves an internal next path", () => {
+    expect(buildLoginRedirectUrl("/automation?tab=settings")).toBe(
+      "/login?next=%2Fautomation%3Ftab%3Dsettings",
+    );
+  });
+
+  it("drops invalid next paths", () => {
+    expect(buildLoginRedirectUrl("https://example.com/automation")).toBe(
+      "/login",
+    );
   });
 });

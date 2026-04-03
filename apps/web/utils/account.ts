@@ -16,7 +16,7 @@ import {
   parseLastEmailAccountCookieValue,
 } from "@/utils/cookies";
 import type { Logger } from "@/utils/logger";
-import { buildRedirectUrl } from "@/utils/redirect";
+import { buildLoginRedirectUrl, buildRedirectUrl } from "@/utils/redirect";
 
 export async function getGmailClientForEmail({
   emailAccountId,
@@ -146,7 +146,9 @@ export async function redirectToEmailAccountPath(
 ) {
   const session = await auth();
   const userId = session?.user.id;
-  if (!userId) throw new Error("Not authenticated");
+  if (!userId) {
+    redirect(buildLoginRedirectUrl(buildRedirectUrl(path, searchParams)));
+  }
 
   const lastEmailAccountId = await getLastEmailAccountFromCookie(userId);
 
