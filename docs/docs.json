@@ -94,10 +94,10 @@
             "group": "Self-Hosting",
             "pages": [
               "hosting/self-hosting",
-              "hosting/image-proxy",
               "hosting/vercel",
               "hosting/environment-variables",
-              "hosting/troubleshooting"
+              "hosting/troubleshooting",
+              "hosting/image-proxy"
             ]
           },
           {
