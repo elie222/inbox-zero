@@ -129,6 +129,11 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_003,
     cachedInput: 5e-8,
   },
+  "google/gemini-3-pro-preview": {
+    input: 0.000_002,
+    output: 0.000_012,
+    cachedInput: 2e-7,
+  },
   "gpt-3.5-turbo-0125": {
     input: 5e-7,
     output: 0.000_001_5,
@@ -164,6 +169,16 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_01,
     cachedInput: 1.25e-7,
   },
+  "gemini-3-pro": {
+    input: 0.000_002,
+    output: 0.000_012,
+    cachedInput: 2e-7,
+  },
+  "gemini-3-pro-preview": {
+    input: 0.000_002,
+    output: 0.000_012,
+    cachedInput: 2e-7,
+  },
   "gpt-5.4-mini": {
     input: 7.5e-7,
     output: 0.000_004_5,
@@ -185,9 +200,9 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     cachedInput: 1.5e-7,
   },
   "moonshotai/kimi-k2": {
-    input: 5.7e-7,
-    output: 0.000_002_3,
-    cachedInput: 5.7e-7,
+    input: 5e-7,
+    output: 0.000_002_4,
+    cachedInput: 5e-7,
   },
   "openai/gpt-5-nano": {
     input: 5e-8,
