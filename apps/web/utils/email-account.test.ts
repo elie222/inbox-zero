@@ -35,12 +35,12 @@ describe("checkUserOwnsEmailAccount", () => {
     ).rejects.toThrow("redirect:/login");
   });
 
-  it("redirects users to login when the session is missing a user id", async () => {
+  it("logs out users whose session is missing a user id", async () => {
     authMock.mockResolvedValue({ user: { email: "user@example.com" } });
 
     await expect(
       checkUserOwnsEmailAccount({ emailAccountId: "email-account-1" }),
-    ).rejects.toThrow("redirect:/login");
+    ).rejects.toThrow("redirect:/logout");
   });
 
   it("redirects users away from accounts they do not own", async () => {

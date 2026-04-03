@@ -32,7 +32,7 @@ export default async function AuthenticationPage(props: {
   const session = await auth();
   const nextPath = normalizeInternalPath(searchParams?.next);
 
-  if (session?.user?.id && !searchParams?.error) {
+  if (session?.user && !searchParams?.error) {
     redirect(nextPath ?? WELCOME_PATH);
   }
 
