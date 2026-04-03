@@ -22,8 +22,8 @@ export async function rewriteHtmlRemoteAssetUrls(
   const $ = cheerio.load(html, null, isDocument);
   let changed = false;
 
-  await Promise.all(
-    $("style")
+  await Promise.all([
+    ...$("style")
       .toArray()
       .map(async (element) => {
         const css = $(element).html();
@@ -35,10 +35,7 @@ export async function rewriteHtmlRemoteAssetUrls(
         $(element).html(rewrittenCss);
         changed = true;
       }),
-  );
-
-  await Promise.all(
-    $("[style]")
+    ...$("[style]")
       .toArray()
       .map(async (element) => {
         const styleValue = $(element).attr("style");
@@ -53,10 +50,7 @@ export async function rewriteHtmlRemoteAssetUrls(
         $(element).attr("style", rewrittenStyle);
         changed = true;
       }),
-  );
-
-  await Promise.all(
-    $("[srcset]")
+    ...$("[srcset]")
       .toArray()
       .map(async (element) => {
         const srcsetValue = $(element).attr("srcset");
@@ -71,10 +65,7 @@ export async function rewriteHtmlRemoteAssetUrls(
         $(element).attr("srcset", rewrittenSrcset);
         changed = true;
       }),
-  );
-
-  for (const attribute of URL_ATTRIBUTES) {
-    await Promise.all(
+    ...URL_ATTRIBUTES.flatMap((attribute) =>
       $(`[${attribute}]`)
         .toArray()
         .map(async (element) => {
@@ -90,11 +81,8 @@ export async function rewriteHtmlRemoteAssetUrls(
           $(element).attr(attribute, rewrittenValue);
           changed = true;
         }),
-    );
-  }
-
-  for (const tagName of SVG_URL_TAGS) {
-    await Promise.all(
+    ),
+    ...SVG_URL_TAGS.flatMap((tagName) =>
       $(tagName)
         .toArray()
         .flatMap((element) =>
@@ -112,8 +100,8 @@ export async function rewriteHtmlRemoteAssetUrls(
             changed = true;
           }),
         ),
-    );
-  }
+    ),
+  ]);
 
   if (!changed) return html;
 
