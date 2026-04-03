@@ -23,6 +23,12 @@ export async function saveAiUsage({
   usage,
   label,
   hasUserApiKey,
+  providerReportedCost,
+  providerUpstreamInferenceCost,
+  providerCostSource,
+  stepCount,
+  toolCallCount,
+  data,
 }: {
   email: string;
   emailAccountId: string;
@@ -31,6 +37,12 @@ export async function saveAiUsage({
   usage: LanguageModelUsage;
   label: string;
   hasUserApiKey?: boolean;
+  providerReportedCost?: number;
+  providerUpstreamInferenceCost?: number;
+  providerCostSource?: string;
+  stepCount?: number;
+  toolCallCount?: number;
+  data?: Record<string, unknown>;
 }) {
   const estimatedCost = calculateUsageCost({ provider, model, usage });
   const isUserApiKey = !!hasUserApiKey;
@@ -50,9 +62,15 @@ export async function saveAiUsage({
         reasoningTokens: usage.reasoningTokens ?? 0,
         cost: platformCost,
         estimatedCost,
+        providerReportedCost,
+        providerUpstreamInferenceCost,
+        providerCostSource,
         isUserApiKey: toTinybirdBoolean(isUserApiKey),
         timestamp: Date.now(),
         label,
+        stepCount,
+        toolCallCount,
+        data: serializeUsageData(data),
       }),
       saveUsage({ email, cost: platformCost, usage }),
     ]);
@@ -79,12 +97,13 @@ export function calculateUsageCost(options: {
   const cachedInputTokens = Math.min(inputTokens, normalizedCachedInputTokens);
   const uncachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
   const outputTokens = Math.max(0, usage.outputTokens ?? 0);
+  const reasoningTokens = Math.max(0, usage.reasoningTokens ?? 0);
   const cachedInputTokenPrice = pricing.cachedInput ?? pricing.input;
 
   return (
     uncachedInputTokens * pricing.input +
     cachedInputTokens * cachedInputTokenPrice +
-    outputTokens * pricing.output
+    (outputTokens + reasoningTokens) * pricing.output
   );
 }
 
@@ -144,4 +163,10 @@ function buildModelLookupCandidates({
 
 function toTinybirdBoolean(value: boolean): 0 | 1 {
   return value ? 1 : 0;
+}
+
+function serializeUsageData(data?: Record<string, unknown>) {
+  if (!data || Object.keys(data).length === 0) return undefined;
+
+  return JSON.stringify(data);
 }

@@ -89,6 +89,15 @@ type RepairAttemptState = {
   successfulCandidateKind?: RepairCandidateKind;
 };
 
+type UsageMetadata = {
+  providerReportedCost?: number;
+  providerUpstreamInferenceCost?: number;
+  providerCostSource?: string;
+  stepCount?: number;
+  toolCallCount?: number;
+  data?: Record<string, unknown>;
+};
+
 const commonOptions: {
   experimental_telemetry: { isEnabled: boolean };
   headers?: Record<string, string>;
@@ -174,6 +183,7 @@ export function createGenerateText({
       });
 
       if (result.usage) {
+        const usageMetadata = getUsageMetadata(result);
         await saveAiUsage({
           email: emailAccount.email,
           emailAccountId: emailAccount.id,
@@ -182,6 +192,13 @@ export function createGenerateText({
           model: candidate.modelName,
           label,
           hasUserApiKey: effectiveModelOptions.hasUserApiKey,
+          providerReportedCost: usageMetadata.providerReportedCost,
+          providerUpstreamInferenceCost:
+            usageMetadata.providerUpstreamInferenceCost,
+          providerCostSource: usageMetadata.providerCostSource,
+          stepCount: usageMetadata.stepCount,
+          toolCallCount: usageMetadata.toolCallCount,
+          data: usageMetadata.data,
         });
       }
 
@@ -341,6 +358,7 @@ export function createGenerateObject({
       });
 
       if (result.usage) {
+        const usageMetadata = getUsageMetadata(result);
         await saveAiUsage({
           email: emailAccount.email,
           emailAccountId: emailAccount.id,
@@ -349,6 +367,13 @@ export function createGenerateObject({
           model: candidate.modelName,
           label,
           hasUserApiKey: effectiveModelOptions.hasUserApiKey,
+          providerReportedCost: usageMetadata.providerReportedCost,
+          providerUpstreamInferenceCost:
+            usageMetadata.providerUpstreamInferenceCost,
+          providerCostSource: usageMetadata.providerCostSource,
+          stepCount: usageMetadata.stepCount,
+          toolCallCount: usageMetadata.toolCallCount,
+          data: usageMetadata.data,
         });
       }
 
@@ -492,6 +517,7 @@ export async function chatCompletionStream({
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish,
         onFinish: async (result) => {
+          const usageMetadata = getUsageMetadata(result);
           const usagePromise = saveAiUsage({
             email: userEmail,
             emailAccountId,
@@ -500,6 +526,13 @@ export async function chatCompletionStream({
             usage: result.usage,
             label,
             hasUserApiKey: modelOptions.hasUserApiKey,
+            providerReportedCost: usageMetadata.providerReportedCost,
+            providerUpstreamInferenceCost:
+              usageMetadata.providerUpstreamInferenceCost,
+            providerCostSource: usageMetadata.providerCostSource,
+            stepCount: usageMetadata.stepCount,
+            toolCallCount: usageMetadata.toolCallCount,
+            data: usageMetadata.data,
           });
 
           const finishPromise = onFinish?.(result);
@@ -665,6 +698,7 @@ export async function toolCallAgentStream({
       ...commonOptions,
       providerOptions,
       onFinish: async (result) => {
+        const usageMetadata = getUsageMetadata(result);
         const usagePromise = saveAiUsage({
           email: userEmail,
           emailAccountId,
@@ -673,6 +707,13 @@ export async function toolCallAgentStream({
           usage: result.totalUsage,
           label,
           hasUserApiKey: modelOptions.hasUserApiKey,
+          providerReportedCost: usageMetadata.providerReportedCost,
+          providerUpstreamInferenceCost:
+            usageMetadata.providerUpstreamInferenceCost,
+          providerCostSource: usageMetadata.providerCostSource,
+          stepCount: usageMetadata.stepCount,
+          toolCallCount: usageMetadata.toolCallCount,
+          data: usageMetadata.data,
         });
 
         const finishPromise = onFinish?.(
@@ -1261,6 +1302,144 @@ function dedupeRepairCandidates(
     seen.add(candidate.text);
     return [{ kind: candidate.kind, text: candidate.text }];
   });
+}
+
+function getUsageMetadata(result: unknown): UsageMetadata {
+  const stepCount = getStepCount(result);
+  const toolCallCount = getToolCallCount(result);
+  const providerCost = getOpenRouterProviderCost(result);
+
+  return {
+    stepCount,
+    toolCallCount,
+    providerReportedCost: providerCost.providerReportedCost,
+    providerUpstreamInferenceCost: providerCost.providerUpstreamInferenceCost,
+    providerCostSource: providerCost.providerCostSource,
+  };
+}
+
+function getStepCount(result: unknown) {
+  const steps = getObjectArrayProperty(result, "steps");
+  if (!steps) return;
+
+  return steps.length;
+}
+
+function getToolCallCount(result: unknown) {
+  const steps = getObjectArrayProperty(result, "steps");
+  if (!steps) return;
+
+  return steps.reduce((count, step) => {
+    const toolCalls = getObjectArrayProperty(step, "toolCalls");
+    return count + (toolCalls?.length ?? 0);
+  }, 0);
+}
+
+function getOpenRouterProviderCost(result: unknown): {
+  providerReportedCost?: number;
+  providerUpstreamInferenceCost?: number;
+  providerCostSource?: string;
+} {
+  const directUsage = getOpenRouterUsage(result);
+  if (directUsage) {
+    return {
+      providerReportedCost: directUsage.cost,
+      providerUpstreamInferenceCost: directUsage.upstreamInferenceCost,
+      providerCostSource: "openrouter_usage",
+    };
+  }
+
+  const steps = getObjectArrayProperty(result, "steps");
+  if (!steps) return {};
+
+  let totalCost = 0;
+  let foundCost = false;
+  let totalUpstreamInferenceCost = 0;
+  let foundUpstreamInferenceCost = false;
+
+  for (const step of steps) {
+    const stepUsage = getOpenRouterUsage(step);
+    if (!stepUsage) continue;
+
+    if (stepUsage.cost !== undefined) {
+      totalCost += stepUsage.cost;
+      foundCost = true;
+    }
+
+    if (stepUsage.upstreamInferenceCost !== undefined) {
+      totalUpstreamInferenceCost += stepUsage.upstreamInferenceCost;
+      foundUpstreamInferenceCost = true;
+    }
+  }
+
+  if (!foundCost && !foundUpstreamInferenceCost) return {};
+
+  return {
+    providerReportedCost: foundCost ? totalCost : undefined,
+    providerUpstreamInferenceCost: foundUpstreamInferenceCost
+      ? totalUpstreamInferenceCost
+      : undefined,
+    providerCostSource: "openrouter_step_usage_sum",
+  };
+}
+
+function getOpenRouterUsage(value: unknown): {
+  cost?: number;
+  upstreamInferenceCost?: number;
+} | null {
+  const providerMetadata = getObjectProperty(value, "providerMetadata");
+  const openRouterMetadata = getObjectProperty(providerMetadata, "openrouter");
+  const usage = getObjectProperty(openRouterMetadata, "usage");
+  const costDetails = getObjectProperty(usage, "cost_details");
+  const cost = getFiniteNumber(getProperty(usage, "cost"));
+  const upstreamInferenceCost = getFiniteNumber(
+    getProperty(costDetails, "upstream_inference_cost"),
+  );
+
+  if (cost === undefined && upstreamInferenceCost === undefined) return null;
+
+  return { cost, upstreamInferenceCost };
+}
+
+function getObjectArrayProperty(value: unknown, key: string) {
+  const property = getProperty(value, key);
+  if (!Array.isArray(property)) return;
+
+  return property.filter(
+    (item): item is Record<string, unknown> =>
+      typeof item === "object" && item !== null,
+  );
+}
+
+function getObjectProperty(value: unknown, key: string) {
+  const property = getProperty(value, key);
+  if (
+    typeof property !== "object" ||
+    property === null ||
+    Array.isArray(property)
+  ) {
+    return;
+  }
+
+  return property as Record<string, unknown> & { cost?: unknown };
+}
+
+function getProperty(value: unknown, key: string) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return;
+  }
+
+  const record = value as Record<string, unknown>;
+  return record[key];
+}
+
+function getFiniteNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  if (typeof value === "string" && value) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
 }
 
 function isJsonObject(
