@@ -6,7 +6,6 @@ import { ArrowRightIcon, SendIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
-import { saveOnboardingAnswersAction } from "@/utils/actions/onboarding";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import { USER_ROLES } from "@/utils/constants/user-roles";
@@ -20,6 +19,7 @@ import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { updateEmailAccountRoleAction } from "@/utils/actions/email-account";
 import { Button } from "@/components/ui/button";
+import { toastError } from "@/components/Toast";
 
 export function StepWho({
   initialRole,
@@ -107,25 +107,31 @@ export function StepWho({
           onSubmit={form.handleSubmit(async (values) => {
             const roleToSave =
               values.role === "Other" ? customRole : values.role;
+            try {
+              const result = await updateEmailAccountRoleAction(
+                emailAccountId,
+                {
+                  role: roleToSave,
+                },
+              );
 
-            const updateEmailAccountRolePromise = updateEmailAccountRoleAction(
-              emailAccountId,
-              {
-                role: roleToSave,
-              },
-            );
+              if (result?.serverError) {
+                toastError({
+                  description:
+                    result.serverError ||
+                    "There was an error saving your selection. Please try again.",
+                });
+                return;
+              }
 
-            // may deprecate this in the future, but to keep consistency with old data we're storing this too
-            const saveOnboardingAnswersPromise = saveOnboardingAnswersAction({
-              answers: { role: roleToSave },
-            });
-
-            await Promise.all([
-              updateEmailAccountRolePromise,
-              saveOnboardingAnswersPromise,
-            ]);
-
-            onNext();
+              onNext();
+            } catch (error) {
+              console.error("Failed to save onboarding role:", error);
+              toastError({
+                description:
+                  "There was an error saving your selection. Please try again.",
+              });
+            }
           })}
         >
           <div className="max-w-md w-full mx-auto">
