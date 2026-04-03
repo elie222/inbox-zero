@@ -39,6 +39,10 @@ export type ImageProxyExecutionContext = {
   waitUntil(promise: Promise<unknown>): void;
 };
 
+export type ImageProxyLogger = {
+  warn(message: string, context?: Record<string, unknown>): void;
+};
+
 export async function handleImageProxyRequest(
   request: Request,
   config: ImageProxyConfig,
@@ -46,6 +50,7 @@ export async function handleImageProxyRequest(
     cache?: ImageProxyCache;
     executionContext?: ImageProxyExecutionContext;
     fetchImpl?: typeof fetch;
+    logger?: ImageProxyLogger;
   },
 ) {
   const url = new URL(request.url);
@@ -115,6 +120,7 @@ export async function handleImageProxyRequest(
     request.method,
     MAX_REDIRECTS,
     fetchImpl,
+    options?.logger,
   );
 
   if (!upstreamResponse.ok) {
@@ -159,6 +165,9 @@ async function fetchUpstreamAsset(
   method: string,
   redirectsRemaining: number,
   fetchImpl: typeof fetch,
+  logger?: ImageProxyLogger,
+  redirectChain: string[] = [],
+  initialAssetUrl = assetUrl,
 ): Promise<Response> {
   const upstreamResponse = await fetchImpl(assetUrl, {
     method,
@@ -173,6 +182,11 @@ async function fetchUpstreamAsset(
   if (isRedirectResponse(upstreamResponse.status)) {
     if (redirectsRemaining <= 0) {
       upstreamResponse.body?.cancel();
+      logger?.warn("Image proxy redirect limit exceeded", {
+        initialUrl: sanitizeUrlForLogs(initialAssetUrl),
+        method,
+        redirectChain,
+      });
       return new Response("Too many redirects", { status: 508 });
     }
 
@@ -187,14 +201,30 @@ async function fetchUpstreamAsset(
     try {
       redirectedUrl = new URL(location, assetUrl);
     } catch {
+      logger?.warn("Image proxy redirect target is invalid", {
+        initialUrl: sanitizeUrlForLogs(initialAssetUrl),
+        method,
+        redirectChain,
+        location: sanitizeLocationForLogs(location),
+      });
       return new Response("Redirect target is invalid", { status: 502 });
     }
 
     if (!isProxyableRemoteUrl(redirectedUrl.toString())) {
+      logger?.warn("Image proxy redirect target has unsupported scheme", {
+        initialUrl: sanitizeUrlForLogs(initialAssetUrl),
+        method,
+        redirectChain: [...redirectChain, sanitizeUrlForLogs(redirectedUrl)],
+      });
       return new Response("Unsupported redirect target", { status: 400 });
     }
 
     if (isBlockedHostname(redirectedUrl.hostname)) {
+      logger?.warn("Image proxy redirect target is blocked", {
+        initialUrl: sanitizeUrlForLogs(initialAssetUrl),
+        method,
+        redirectChain: [...redirectChain, sanitizeUrlForLogs(redirectedUrl)],
+      });
       return new Response("Blocked redirect target", { status: 403 });
     }
 
@@ -203,6 +233,9 @@ async function fetchUpstreamAsset(
       method,
       redirectsRemaining - 1,
       fetchImpl,
+      logger,
+      [...redirectChain, sanitizeUrlForLogs(redirectedUrl)],
+      initialAssetUrl,
     );
   }
 
@@ -229,6 +262,19 @@ function isCacheableContentType(contentType: string) {
 
 function isRedirectResponse(status: number) {
   return status >= 300 && status < 400;
+}
+
+function sanitizeUrlForLogs(value: string | URL) {
+  const url = typeof value === "string" ? new URL(value) : value;
+  return `${url.origin}${url.pathname}`;
+}
+
+function sanitizeLocationForLogs(value: string) {
+  try {
+    return sanitizeUrlForLogs(value);
+  } catch {
+    return value.slice(0, 200);
+  }
 }
 
 function isBlockedHostname(hostname: string) {
