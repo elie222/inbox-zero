@@ -34,7 +34,7 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `TELEGRAM_BOT_SECRET_TOKEN` | No | Optional Telegram webhook secret token (sent in `x-telegram-bot-api-secret-token`) | — |
 | **Google PubSub** ||||
 | `GOOGLE_PUBSUB_TOPIC_NAME` | Yes | Full topic name (e.g., `projects/my-project/topics/gmail`) | — |
-| `GOOGLE_PUBSUB_VERIFICATION_TOKEN` | No | Token for webhook verification | — |
+| `GOOGLE_PUBSUB_VERIFICATION_TOKEN` | Yes* | Token for webhook verification | — |
 | **Redis** ||||
 | `UPSTASH_REDIS_URL` | No* | Upstash Redis URL or any Upstash-compatible HTTP Redis endpoint (*required if not using Docker Compose with local Redis) | — |
 | `UPSTASH_REDIS_TOKEN` | No* | Upstash Redis token or serverless-redis-http token (*required if not using Docker Compose) | — |
@@ -126,6 +126,8 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `DISABLE_LOG_ZOD_ERRORS` | No | Disable logging Zod validation errors | — |
 | `ENABLE_DEBUG_LOGS` | No | Enable debug logging | `false` |
 | `NEXT_PUBLIC_LOG_SCOPES` | No | Comma-separated log scopes | — |
+
+\* `GOOGLE_PUBSUB_VERIFICATION_TOKEN` is required when Gmail Pub/Sub push is enabled. If your deployment authenticates `/api/google/webhook` upstream, you can set it to an empty string to intentionally disable query-parameter verification.
 
 ## Setup Guides
 

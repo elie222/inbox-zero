@@ -62,6 +62,31 @@ vi.mock("@/utils/webhook-validation", () => ({
   validateWebhookUrl: vi.fn().mockResolvedValue({ valid: true }),
 }));
 
+vi.mock("@/utils/network/safe-http-url", () => ({
+  resolveSafeExternalHttpUrl: vi.fn(async (url: string) => ({
+    url: new URL(url),
+    lookup: (
+      _hostname: string,
+      options: number | { all?: boolean; family?: number } | undefined,
+      callback: (
+        error: NodeJS.ErrnoException | null,
+        address: string | Array<{ address: string; family: number }>,
+        family?: number,
+      ) => void,
+    ) => {
+      const normalizedOptions =
+        typeof options === "number" ? { family: options } : options || {};
+
+      if ("all" in normalizedOptions && normalizedOptions.all) {
+        callback(null, [{ address: "127.0.0.1", family: 4 }]);
+        return;
+      }
+
+      callback(null, "127.0.0.1", 4);
+    },
+  })),
+}));
+
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;
 const TEST_EMAIL = "webhook-test@example.com";
 const EMULATOR_PORT = 4107;

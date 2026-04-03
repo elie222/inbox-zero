@@ -63,6 +63,8 @@ export default defineConfig({
         GOOGLE_BASE_URL: emulateBaseUrl,
         GOOGLE_PUBSUB_TOPIC_NAME:
           process.env.GOOGLE_PUBSUB_TOPIC_NAME ?? "topic",
+        GOOGLE_PUBSUB_VERIFICATION_TOKEN:
+          process.env.GOOGLE_PUBSUB_VERIFICATION_TOKEN ?? "smoke-test-token",
         EMAIL_ENCRYPT_SECRET: process.env.EMAIL_ENCRYPT_SECRET ?? "secret",
         EMAIL_ENCRYPT_SALT: process.env.EMAIL_ENCRYPT_SALT ?? "salt",
         INTERNAL_API_KEY: process.env.INTERNAL_API_KEY ?? "secret",
