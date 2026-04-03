@@ -171,6 +171,8 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         filename: "invoice-2026-03.pdf",
         folderPath: "Finance/Invoices/2026",
         driveProvider: "google",
+        senderEmail: "vendor@example.com",
+        fileId: "abc123",
       });
 
       const history = await emulatorClient.conversations.history({

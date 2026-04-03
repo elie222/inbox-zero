@@ -1,0 +1,124 @@
+---
+title: 'Image Proxy'
+description: 'Deploy the optional email image proxy for stronger privacy in web and desktop clients'
+---
+
+Inbox Zero can proxy remote email images and CSS-loaded assets so senders do not see the end user's IP address when an email is rendered.
+
+This is optional, but recommended if you host Inbox Zero for other people.
+
+## What It Does
+
+When enabled:
+
+- Remote `img`, `srcset`, `background`, `poster`, inline `style`, and `<style>` asset URLs are rewritten at render time.
+- The browser loads those assets from your proxy instead of directly from the sender-controlled host.
+- The iframe renderer also applies a restrictive CSP so direct remote fetches are blocked even if the rewriter misses a case.
+
+The proxy is a separate service from the main app. The app signs proxy URLs, and the proxy fetches the upstream image.
+
+## Deploy On Cloudflare Workers
+
+The repo includes a ready-to-deploy Worker in [apps/image-proxy](https://github.com/elie222/inbox-zero/tree/main/apps/image-proxy).
+
+### 1. Log In To Cloudflare
+
+```bash
+cd apps/image-proxy
+pnpm exec wrangler login
+pnpm exec wrangler whoami
+```
+
+### 2. Create a Signing Secret
+
+Use the same secret in both the Worker and the web app:
+
+```bash
+openssl rand -hex 32
+```
+
+### 3. Set the Worker Secret
+
+```bash
+cd apps/image-proxy
+pnpm exec wrangler secret put IMAGE_PROXY_SIGNING_SECRET
+```
+
+### 4. Deploy Without Editing Any Repo Files
+
+Replace `img.example.com` with your own hostname:
+
+```bash
+cd apps/image-proxy
+pnpm exec wrangler deploy --domains img.example.com
+```
+
+This is the recommended self-hosting path because it avoids editing `wrangler.jsonc` just to choose a domain.
+
+### 5. Configure the Inbox Zero App
+
+In your app environment:
+
+```bash
+NEXT_PUBLIC_IMAGE_PROXY_BASE_URL=https://img.example.com/proxy
+IMAGE_PROXY_SIGNING_SECRET=your-generated-secret
+```
+
+The values must match:
+
+- `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` tells the app where to send proxied asset requests.
+- `IMAGE_PROXY_SIGNING_SECRET` must match the Worker secret so the proxy can validate signed URLs.
+
+## Unsigned Custom Proxy Mode
+
+If you set `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` without `IMAGE_PROXY_SIGNING_SECRET`, Inbox Zero emits unsigned `?u=` proxy URLs.
+
+That mode is only for a custom proxy that intentionally accepts unsigned requests. The bundled Cloudflare Worker expects signed URLs when `IMAGE_PROXY_SIGNING_SECRET` is set.
+
+For production use, signed mode is recommended.
+
+## AWS Option
+
+If you do not want Cloudflare, the repo also includes an AWS Lambda adapter in [apps/image-proxy-aws](https://github.com/elie222/inbox-zero/tree/main/apps/image-proxy-aws).
+
+The deployment model is:
+
+- deploy the Lambda
+- put CloudFront in front of it
+- set `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` to your CloudFront URL
+- use the same `IMAGE_PROXY_SIGNING_SECRET`
+
+## Troubleshooting
+
+### Health Check
+
+Once deployed, this should return `200`:
+
+```bash
+curl -I https://img.example.com/health
+```
+
+### A Specific Image Fails
+
+If an upstream image has redirect issues or unsupported content, the image will fail closed instead of leaking the user's IP.
+
+The Worker logs redirect-chain failures with sanitized URLs that omit query strings, which helps debug upstream redirect loops without logging tracking parameters.
+
+### The App Still Loads Images Directly
+
+Double-check:
+
+- `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` is set
+- the browser is rendering email through the normal HTML email viewer
+- your proxy hostname is reachable from the browser
+
+## Recommended Setup
+
+For most self-hosters:
+
+1. Deploy the main app normally.
+2. Deploy the image proxy separately on Cloudflare Workers.
+3. Set `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` and `IMAGE_PROXY_SIGNING_SECRET`.
+4. Leave the Worker domain selection to the CLI via `wrangler deploy --domains ...`.
+
+That keeps the main app and the proxy decoupled, avoids file edits for domain choice, and makes upgrades easier when the upstream repo changes.

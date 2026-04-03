@@ -16,7 +16,10 @@ import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { resolveActionAttachments } from "@/utils/ai/action-attachments";
-import { sendSlackRuleNotification } from "@/utils/messaging/rule-notifications";
+import {
+  getMessagingRuleNotificationResult,
+  sendMessagingRuleNotification,
+} from "@/utils/messaging/rule-notifications";
 import { isMessagingDraftActionType } from "@/utils/actions/draft-reply";
 
 const MODULE = "ai-actions";
@@ -191,20 +194,27 @@ const draft: ActionFunction<{
     })
   ) {
     if (args.id) {
-      const delivered = await sendSlackRuleNotification({
+      const notificationResult = await getMessagingRuleNotificationResult({
         executedActionId: args.id,
         email,
         logger,
       });
 
-      if (delivered) return;
+      if (
+        notificationResult.delivered &&
+        notificationResult.kind === "interactive"
+      ) {
+        return;
+      }
 
-      logger.warn(
-        "Falling back to mailbox draft after messaging delivery failure",
-        {
-          actionId: args.id,
-        },
-      );
+      if (!notificationResult.delivered) {
+        logger.warn(
+          "Falling back to mailbox draft after messaging delivery failure",
+          {
+            actionId: args.id,
+          },
+        );
+      }
     }
   }
 
@@ -265,7 +275,7 @@ const draft_messaging_channel: ActionFunction<{
     });
   }
 
-  const delivered = await sendSlackRuleNotification({
+  const delivered = await sendMessagingRuleNotification({
     executedActionId: args.id,
     email,
     logger,
@@ -295,7 +305,7 @@ const notify_messaging_channel: ActionFunction<{
     });
   }
 
-  const delivered = await sendSlackRuleNotification({
+  const delivered = await sendMessagingRuleNotification({
     executedActionId: args.id,
     email,
     logger,

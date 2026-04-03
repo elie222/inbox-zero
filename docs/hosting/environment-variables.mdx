@@ -34,11 +34,14 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `TELEGRAM_BOT_SECRET_TOKEN` | No | Optional Telegram webhook secret token (sent in `x-telegram-bot-api-secret-token`) | — |
 | **Google PubSub** ||||
 | `GOOGLE_PUBSUB_TOPIC_NAME` | Yes | Full topic name (e.g., `projects/my-project/topics/gmail`) | — |
-| `GOOGLE_PUBSUB_VERIFICATION_TOKEN` | No | Token for webhook verification | — |
+| `GOOGLE_PUBSUB_VERIFICATION_TOKEN` | Yes* | Token for webhook verification | — |
 | **Redis** ||||
 | `UPSTASH_REDIS_URL` | No* | Upstash Redis URL or any Upstash-compatible HTTP Redis endpoint (*required if not using Docker Compose with local Redis) | — |
 | `UPSTASH_REDIS_TOKEN` | No* | Upstash Redis token or serverless-redis-http token (*required if not using Docker Compose) | — |
 | `REDIS_URL` | No | Redis URL for subscriptions and the optional BullMQ worker | — |
+| **Image Proxy (Optional)** ||||
+| `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` | No | Base URL for the optional remote-image proxy. Example: `https://img.example.com/proxy` | — |
+| `IMAGE_PROXY_SIGNING_SECRET` | No | Shared HMAC secret used to sign proxy URLs for the bundled Cloudflare Worker or a compatible proxy | — |
 | **LLM Provider Selection** ||||
 | `DEFAULT_LLM_PROVIDER` | Yes | Primary LLM provider (`anthropic`, `azure`, `vertex`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`) | — |
 | `DEFAULT_LLM_MODEL` | No | Model to use with default provider | Provider default |
@@ -103,6 +106,9 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `DIGEST_MAX_SUMMARIES_PER_24H` | No | Maximum digest summaries per email account in a rolling 24-hour window. Set to `0` to disable the cap. | `50` |
 | **Admin & Access Control** ||||
 | `ADMINS` | No | Comma-separated list of admin emails | — |
+| `AUTH_ALLOWED_EMAILS` | No | Comma-separated list of exact email addresses allowed to create new auth users. Useful for self-hosted or enterprise deployments that want to restrict sign-up. | Open sign-up |
+| `AUTH_ALLOWED_EMAIL_DOMAINS` | No | Comma-separated list of email domains allowed to create new auth users (for example `company.com,subsidiary.org`). | Open sign-up |
+| `AUTO_JOIN_ORGANIZATION_ENABLED` | No | Automatically add new users to the single organization on sign-up. Only enable this if your deployment explicitly wants automatic org membership. | `false` |
 | `AUTO_ENABLE_ORG_ANALYTICS` | No | Default new organization memberships to analytics enabled | `false` |
 | **Feature Flags** ||||
 | `NEXT_PUBLIC_CONTACTS_ENABLED` | No | Enable contacts feature | `false` |
@@ -124,6 +130,8 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | `ENABLE_DEBUG_LOGS` | No | Enable debug logging | `false` |
 | `NEXT_PUBLIC_LOG_SCOPES` | No | Comma-separated log scopes | — |
 
+\* `GOOGLE_PUBSUB_VERIFICATION_TOKEN` is required when Gmail Pub/Sub push is enabled. If your deployment authenticates `/api/google/webhook` upstream, you can set it to an empty string to intentionally disable query-parameter verification.
+
 ## Setup Guides
 
 For detailed setup instructions, see the [Setup Guides](/hosting/setup-guides):
@@ -138,5 +146,9 @@ For detailed setup instructions, see the [Setup Guides](/hosting/setup-guides):
 - If running the app in Docker and Ollama locally, use `http://host.docker.internal:11434/api` as the `OLLAMA_BASE_URL`.
 - If running the app in Docker and an OpenAI-compatible server locally, replace `localhost` with `host.docker.internal` in `OPENAI_COMPATIBLE_BASE_URL`.
 - When using Docker Compose with `--profile all`, database and Redis URLs are auto-configured. See the [Docker/VPS Deployment Guide](/hosting/self-hosting) for details.
+- For image privacy, you can deploy the optional proxy separately and point `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` at it. See the [Image Proxy guide](/hosting/image-proxy).
 - For Azure OpenAI, set `AZURE_RESOURCE_NAME` and either `AZURE_API_KEY` or `LLM_API_KEY` when using `azure` as a default or fallback provider.
 - For Google Vertex, set `GOOGLE_VERTEX_PROJECT` when using `vertex` as a provider. For auth, use either `GOOGLE_APPLICATION_CREDENTIALS` (recommended for Node.js) or both `GOOGLE_VERTEX_CLIENT_EMAIL` and `GOOGLE_VERTEX_PRIVATE_KEY`. You do not need to set all three auth variables. See [AI SDK Google Vertex documentation](https://ai-sdk.dev/providers/ai-sdk-providers/google-vertex).
+- `AUTH_ALLOWED_EMAILS` and `AUTH_ALLOWED_EMAIL_DOMAINS` only restrict creation of new auth users. They do not retroactively block existing users, and they do not replace invitation-based organization access control.
+- If both auth allowlist variables are unset, sign-up remains open.
+- You can combine exact email allowlisting with domain allowlisting. For example, allow `company.com` broadly while also permitting a few personal addresses such as founders or contractors.
