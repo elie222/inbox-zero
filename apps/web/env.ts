@@ -146,7 +146,7 @@ const parsedEnv = createEnv({
     QUEUE_BACKEND: z.enum(["bullmq", "internal", "qstash"]).optional(),
 
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
-    GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().min(1),
+    GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),
 
     MICROSOFT_WEBHOOK_CLIENT_STATE: z.string().optional(),
 
