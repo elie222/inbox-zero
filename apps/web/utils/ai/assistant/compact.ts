@@ -267,11 +267,17 @@ function normalizePromptContent(content: string): string {
   return content.trim().replace(/\s+/g, " ");
 }
 
-function truncatePromptContent(content: string, maxChars: number): string {
+export function truncatePromptContent(
+  content: string,
+  maxChars: number,
+): string {
   if (content.length <= maxChars) return content;
 
   const suffix = "... [truncated]";
-  const prefixLength = Math.max(0, maxChars - suffix.length);
+  if (maxChars <= suffix.length) {
+    return content.slice(0, maxChars).trimEnd();
+  }
+  const prefixLength = maxChars - suffix.length;
 
   return `${content.slice(0, prefixLength).trimEnd()}${suffix}`;
 }

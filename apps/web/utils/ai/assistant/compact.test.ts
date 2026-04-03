@@ -20,6 +20,7 @@ import {
   estimateTokens,
   extractMemories,
   shouldCompact,
+  truncatePromptContent,
 } from "@/utils/ai/assistant/compact";
 
 describe("chat compaction thresholds", () => {
@@ -170,5 +171,9 @@ describe("chat compaction thresholds", () => {
     );
     expect(generateObject.mock.calls[0][0].prompt).toContain("[truncated]");
     expect(generateObject.mock.calls[0][0].prompt).not.toContain("    ");
+  });
+
+  it("hard slices when the truncation suffix would exceed maxChars", () => {
+    expect(truncatePromptContent("abcdefghij", 5)).toBe("abcde");
   });
 });
