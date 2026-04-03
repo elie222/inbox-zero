@@ -18,7 +18,7 @@ export const POST = withError("google/webhook", async (request) => {
 
   const verificationToken = env.GOOGLE_PUBSUB_VERIFICATION_TOKEN;
 
-  if (!verificationToken) {
+  if (verificationToken == null) {
     logger.error("Google webhook verification token is not configured");
     return NextResponse.json(
       { message: "Google webhook is not configured" },
@@ -26,7 +26,9 @@ export const POST = withError("google/webhook", async (request) => {
     );
   }
 
-  if (token !== verificationToken) {
+  // Empty string intentionally disables query-param verification when
+  // requests are authenticated upstream, such as via the OIDC gateway.
+  if (verificationToken !== "" && token !== verificationToken) {
     logger.error("Invalid verification token");
     return NextResponse.json(
       { message: "Invalid verification token" },

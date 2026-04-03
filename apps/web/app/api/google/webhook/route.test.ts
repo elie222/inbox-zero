@@ -86,6 +86,25 @@ describe("Google webhook route", () => {
     expect(processHistoryForUserMock).not.toHaveBeenCalled();
   });
 
+  it("allows requests without a token when verification is intentionally disabled", async () => {
+    envMock.GOOGLE_PUBSUB_VERIFICATION_TOKEN = "";
+    const request = createRequest({
+      emailAddress: "user@example.com",
+      historyId: 123,
+    });
+
+    const response = await POST(request as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ ok: true });
+    expect(processHistoryForUserMock).toHaveBeenCalledWith(
+      { emailAddress: "user@example.com", historyId: 123 },
+      {},
+      request.logger,
+    );
+  });
+
   it("acknowledges valid requests and processes history asynchronously", async () => {
     const request = createRequest({
       token: "test-google-webhook-token",

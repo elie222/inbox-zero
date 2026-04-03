@@ -70,4 +70,23 @@ describe("watchGmail", () => {
       },
     });
   });
+
+  it("allows intentionally-empty verification tokens", async () => {
+    envMock.GOOGLE_PUBSUB_VERIFICATION_TOKEN = "";
+    const watchMock = vi.fn().mockResolvedValue({
+      data: { expiration: "123" },
+    });
+    const gmail = {
+      users: {
+        watch: watchMock,
+      },
+    } as any;
+
+    await expect(watchGmail(gmail)).resolves.toEqual({
+      expiration: "123",
+    });
+
+    expect(withGmailRetryMock).toHaveBeenCalledTimes(1);
+    expect(watchMock).toHaveBeenCalledTimes(1);
+  });
 });

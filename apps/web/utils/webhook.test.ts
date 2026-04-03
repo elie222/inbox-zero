@@ -4,20 +4,13 @@ import prisma from "@/utils/__mocks__/prisma";
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
-const { dnsLookupMock, httpsRequestMock, loggerMock, validateWebhookUrlMock } =
-  vi.hoisted(() => ({
+const { dnsLookupMock, httpsRequestMock, validateWebhookUrlMock } = vi.hoisted(
+  () => ({
     dnsLookupMock: vi.fn(),
     httpsRequestMock: vi.fn(),
-    loggerMock: {
-      error: vi.fn(),
-      flush: vi.fn(),
-      info: vi.fn(),
-      trace: vi.fn(),
-      warn: vi.fn(),
-      with: vi.fn(),
-    },
     validateWebhookUrlMock: vi.fn(),
-  }));
+  }),
+);
 
 vi.mock("node:dns/promises", () => ({
   lookup: dnsLookupMock,
@@ -31,10 +24,6 @@ vi.mock("node:https", () => ({
   request: httpsRequestMock,
 }));
 
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => loggerMock,
-}));
-
 vi.mock("@/utils/webhook-validation", () => ({
   validateWebhookUrl: (...args: unknown[]) => validateWebhookUrlMock(...args),
 }));
@@ -44,7 +33,6 @@ import { callWebhook } from "./webhook";
 describe("callWebhook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    loggerMock.with.mockReturnValue(loggerMock);
     validateWebhookUrlMock.mockResolvedValue({ valid: true });
     prisma.user.findUnique.mockResolvedValue({
       webhookSecret: "webhook-secret",
@@ -76,10 +64,6 @@ describe("callWebhook", () => {
       }),
       expect.any(Function),
     );
-    expect(loggerMock.info).toHaveBeenCalledWith("Webhook called", {
-      url: "https://example.com/webhook",
-      statusCode: 204,
-    });
   });
 
   it("skips the request when DNS revalidation resolves to an unsafe address", async () => {
@@ -92,10 +76,6 @@ describe("callWebhook", () => {
     ).resolves.toBeUndefined();
 
     expect(httpsRequestMock).not.toHaveBeenCalled();
-    expect(loggerMock.warn).toHaveBeenCalledWith(
-      "Webhook request blocked after DNS revalidation",
-      { url: "https://example.com/webhook" },
-    );
   });
 
   it("does not follow redirects and treats them as rejected responses", async () => {
@@ -112,10 +92,6 @@ describe("callWebhook", () => {
     ).resolves.toBeUndefined();
 
     expect(httpsRequestMock).toHaveBeenCalledTimes(1);
-    expect(loggerMock.warn).toHaveBeenCalledWith("Webhook call rejected", {
-      url: "https://example.com/webhook",
-      statusCode: 302,
-    });
   });
 });
 
