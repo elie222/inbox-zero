@@ -183,22 +183,15 @@ export function createGenerateText({
       });
 
       if (result.usage) {
-        const usageMetadata = getUsageMetadata(result);
-        await saveAiUsage({
+        await saveUsageWithMetadata({
+          result,
+          usage: result.usage,
           email: emailAccount.email,
           emailAccountId: emailAccount.id,
-          usage: result.usage,
           provider: candidate.provider,
           model: candidate.modelName,
           label,
           hasUserApiKey: effectiveModelOptions.hasUserApiKey,
-          providerReportedCost: usageMetadata.providerReportedCost,
-          providerUpstreamInferenceCost:
-            usageMetadata.providerUpstreamInferenceCost,
-          providerCostSource: usageMetadata.providerCostSource,
-          stepCount: usageMetadata.stepCount,
-          toolCallCount: usageMetadata.toolCallCount,
-          data: usageMetadata.data,
         });
       }
 
@@ -358,22 +351,15 @@ export function createGenerateObject({
       });
 
       if (result.usage) {
-        const usageMetadata = getUsageMetadata(result);
-        await saveAiUsage({
+        await saveUsageWithMetadata({
+          result,
+          usage: result.usage,
           email: emailAccount.email,
           emailAccountId: emailAccount.id,
-          usage: result.usage,
           provider: candidate.provider,
           model: candidate.modelName,
           label,
           hasUserApiKey: effectiveModelOptions.hasUserApiKey,
-          providerReportedCost: usageMetadata.providerReportedCost,
-          providerUpstreamInferenceCost:
-            usageMetadata.providerUpstreamInferenceCost,
-          providerCostSource: usageMetadata.providerCostSource,
-          stepCount: usageMetadata.stepCount,
-          toolCallCount: usageMetadata.toolCallCount,
-          data: usageMetadata.data,
         });
       }
 
@@ -517,22 +503,15 @@ export async function chatCompletionStream({
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish,
         onFinish: async (result) => {
-          const usageMetadata = getUsageMetadata(result);
-          const usagePromise = saveAiUsage({
+          const usagePromise = saveUsageWithMetadata({
+            result,
+            usage: result.usage,
             email: userEmail,
             emailAccountId,
             provider: candidate.provider,
             model: candidate.modelName,
-            usage: result.usage,
             label,
             hasUserApiKey: modelOptions.hasUserApiKey,
-            providerReportedCost: usageMetadata.providerReportedCost,
-            providerUpstreamInferenceCost:
-              usageMetadata.providerUpstreamInferenceCost,
-            providerCostSource: usageMetadata.providerCostSource,
-            stepCount: usageMetadata.stepCount,
-            toolCallCount: usageMetadata.toolCallCount,
-            data: usageMetadata.data,
           });
 
           const finishPromise = onFinish?.(result);
@@ -698,22 +677,15 @@ export async function toolCallAgentStream({
       ...commonOptions,
       providerOptions,
       onFinish: async (result) => {
-        const usageMetadata = getUsageMetadata(result);
-        const usagePromise = saveAiUsage({
+        const usagePromise = saveUsageWithMetadata({
+          result,
+          usage: result.totalUsage,
           email: userEmail,
           emailAccountId,
           provider: candidate.provider,
           model: candidate.modelName,
-          usage: result.totalUsage,
           label,
           hasUserApiKey: modelOptions.hasUserApiKey,
-          providerReportedCost: usageMetadata.providerReportedCost,
-          providerUpstreamInferenceCost:
-            usageMetadata.providerUpstreamInferenceCost,
-          providerCostSource: usageMetadata.providerCostSource,
-          stepCount: usageMetadata.stepCount,
-          toolCallCount: usageMetadata.toolCallCount,
-          data: usageMetadata.data,
         });
 
         const finishPromise = onFinish?.(
@@ -1318,6 +1290,44 @@ function getUsageMetadata(result: unknown): UsageMetadata {
   };
 }
 
+async function saveUsageWithMetadata({
+  result,
+  usage,
+  email,
+  emailAccountId,
+  provider,
+  model,
+  label,
+  hasUserApiKey,
+}: {
+  result: unknown;
+  usage: Parameters<typeof saveAiUsage>[0]["usage"];
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  model: string;
+  label: string;
+  hasUserApiKey: boolean;
+}) {
+  const usageMetadata = getUsageMetadata(result);
+
+  await saveAiUsage({
+    email,
+    emailAccountId,
+    usage,
+    provider,
+    model,
+    label,
+    hasUserApiKey,
+    providerReportedCost: usageMetadata.providerReportedCost,
+    providerUpstreamInferenceCost: usageMetadata.providerUpstreamInferenceCost,
+    providerCostSource: usageMetadata.providerCostSource,
+    stepCount: usageMetadata.stepCount,
+    toolCallCount: usageMetadata.toolCallCount,
+    data: usageMetadata.data,
+  });
+}
+
 function getStepCount(result: unknown) {
   const steps = getObjectArrayProperty(result, "steps");
   if (!steps) return;
@@ -1341,46 +1351,72 @@ function getOpenRouterProviderCost(result: unknown): {
   providerCostSource?: string;
 } {
   const directUsage = getOpenRouterUsage(result);
-  if (directUsage) {
-    return {
-      providerReportedCost: directUsage.cost,
-      providerUpstreamInferenceCost: directUsage.upstreamInferenceCost,
-      providerCostSource: "openrouter_usage",
-    };
-  }
 
   const steps = getObjectArrayProperty(result, "steps");
-  if (!steps) return {};
+  if (!steps && !directUsage) return {};
 
   let totalCost = 0;
   let foundCost = false;
   let totalUpstreamInferenceCost = 0;
   let foundUpstreamInferenceCost = false;
 
-  for (const step of steps) {
-    const stepUsage = getOpenRouterUsage(step);
-    if (!stepUsage) continue;
+  if (steps) {
+    for (const step of steps) {
+      const stepUsage = getOpenRouterUsage(step);
+      if (!stepUsage) continue;
 
-    if (stepUsage.cost !== undefined) {
-      totalCost += stepUsage.cost;
-      foundCost = true;
-    }
+      if (stepUsage.cost !== undefined) {
+        totalCost += stepUsage.cost;
+        foundCost = true;
+      }
 
-    if (stepUsage.upstreamInferenceCost !== undefined) {
-      totalUpstreamInferenceCost += stepUsage.upstreamInferenceCost;
-      foundUpstreamInferenceCost = true;
+      if (stepUsage.upstreamInferenceCost !== undefined) {
+        totalUpstreamInferenceCost += stepUsage.upstreamInferenceCost;
+        foundUpstreamInferenceCost = true;
+      }
     }
   }
 
-  if (!foundCost && !foundUpstreamInferenceCost) return {};
+  const providerReportedCost =
+    directUsage?.cost ?? (foundCost ? totalCost : undefined);
+  const providerUpstreamInferenceCost =
+    directUsage?.upstreamInferenceCost ??
+    (foundUpstreamInferenceCost ? totalUpstreamInferenceCost : undefined);
+
+  if (
+    providerReportedCost === undefined &&
+    providerUpstreamInferenceCost === undefined
+  ) {
+    return {};
+  }
 
   return {
-    providerReportedCost: foundCost ? totalCost : undefined,
-    providerUpstreamInferenceCost: foundUpstreamInferenceCost
-      ? totalUpstreamInferenceCost
-      : undefined,
-    providerCostSource: "openrouter_step_usage_sum",
+    providerReportedCost,
+    providerUpstreamInferenceCost,
+    providerCostSource: getOpenRouterCostSource({
+      directUsage,
+      usedStepFallback:
+        (directUsage?.cost === undefined && foundCost) ||
+        (directUsage?.upstreamInferenceCost === undefined &&
+          foundUpstreamInferenceCost),
+    }),
   };
+}
+
+function getOpenRouterCostSource({
+  directUsage,
+  usedStepFallback,
+}: {
+  directUsage: ReturnType<typeof getOpenRouterUsage>;
+  usedStepFallback: boolean;
+}) {
+  if (directUsage && usedStepFallback) {
+    return "openrouter_usage_with_step_fallback";
+  }
+
+  if (directUsage) return "openrouter_usage";
+
+  return "openrouter_step_usage_sum";
 }
 
 function getOpenRouterUsage(value: unknown): {
