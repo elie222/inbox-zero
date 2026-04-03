@@ -21,7 +21,7 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { updateEmailAccountRoleAction } from "@/utils/actions/email-account";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
-import { getActionErrorMessage } from "@/utils/error";
+import { captureException, getActionErrorMessage } from "@/utils/error";
 
 export function StepWho({
   initialRole,
@@ -44,17 +44,8 @@ export function StepWho({
     resolver: zodResolver(stepWhoSchema),
     defaultValues: { role: defaultRole },
   });
-  const { execute: saveRole } = useAction(
+  const { executeAsync: saveRole } = useAction(
     updateEmailAccountRoleAction.bind(null, emailAccountId),
-    {
-      onError: ({ error }) => {
-        toastError({
-          description: getActionErrorMessage(error, {
-            prefix: "We couldn't save that answer, but you can keep going",
-          }),
-        });
-      },
-    },
   );
   const { watch, setValue } = form;
   const watchedRole = watch("role");
@@ -125,7 +116,46 @@ export function StepWho({
 
             saveRole({
               role: roleToSave,
-            });
+            })
+              .then((result) => {
+                if (result?.serverError || result?.validationErrors) {
+                  captureException(
+                    new Error("Failed to save onboarding role"),
+                    {
+                      extra: {
+                        context: "onboarding",
+                        step: "role",
+                        serverError: result?.serverError,
+                        validationErrors: result?.validationErrors,
+                      },
+                    },
+                  );
+                  toastError({
+                    description: getActionErrorMessage(
+                      {
+                        serverError: result?.serverError,
+                        validationErrors: result?.validationErrors,
+                      },
+                      {
+                        prefix:
+                          "We couldn't save that answer, but you can keep going",
+                      },
+                    ),
+                  });
+                }
+              })
+              .catch((error) => {
+                captureException(error, {
+                  extra: {
+                    context: "onboarding",
+                    step: "role",
+                  },
+                });
+                toastError({
+                  description:
+                    "We couldn't save that answer, but you can keep going.",
+                });
+              });
           })}
         >
           <div className="max-w-md w-full mx-auto">
