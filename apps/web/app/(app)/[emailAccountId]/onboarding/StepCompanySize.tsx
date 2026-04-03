@@ -46,22 +46,19 @@ const COMPANY_SIZES = [
 
 export function StepCompanySize({ onNext }: { onNext: () => void }) {
   const onSelectCompanySize = useCallback(
-    async (companySize: number) => {
-      try {
-        await saveOnboardingAnswersAction({
-          surveyId: "onboarding",
-          questions: [{ key: "company_size", type: "single_choice" }],
-          answers: { $survey_response: companySize },
-        });
+    (companySize: number) => {
+      onNext();
 
-        onNext();
-      } catch (error) {
+      saveOnboardingAnswersAction({
+        surveyId: "onboarding",
+        questions: [{ key: "company_size", type: "single_choice" }],
+        answers: { $survey_response: companySize },
+      }).catch((error) => {
         console.error("Failed to save company size:", error);
         toastError({
-          description:
-            "There was an error saving your selection. Please try again.",
+          description: "We couldn't save that answer, but you can keep going.",
         });
-      }
+      });
     },
     [onNext],
   );

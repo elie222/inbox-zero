@@ -104,34 +104,33 @@ export function StepWho({
       <Form {...form}>
         <form
           className="space-y-6 mt-4"
-          onSubmit={form.handleSubmit(async (values) => {
+          onSubmit={form.handleSubmit((values) => {
             const roleToSave =
               values.role === "Other" ? customRole : values.role;
-            try {
-              const result = await updateEmailAccountRoleAction(
-                emailAccountId,
-                {
-                  role: roleToSave,
-                },
-              );
+            onNext();
 
-              if (result?.serverError) {
+            updateEmailAccountRoleAction(emailAccountId, {
+              role: roleToSave,
+            })
+              .then((result) => {
+                if (result?.serverError) {
+                  console.error(
+                    "Failed to save onboarding role:",
+                    result.serverError,
+                  );
+                  toastError({
+                    description:
+                      "We couldn't save that answer, but you can keep going.",
+                  });
+                }
+              })
+              .catch((error) => {
+                console.error("Failed to save onboarding role:", error);
                 toastError({
                   description:
-                    result.serverError ||
-                    "There was an error saving your selection. Please try again.",
+                    "We couldn't save that answer, but you can keep going.",
                 });
-                return;
-              }
-
-              onNext();
-            } catch (error) {
-              console.error("Failed to save onboarding role:", error);
-              toastError({
-                description:
-                  "There was an error saving your selection. Please try again.",
               });
-            }
           })}
         >
           <div className="max-w-md w-full mx-auto">

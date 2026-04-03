@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
 import { StepWelcome } from "@/app/(app)/[emailAccountId]/onboarding/StepWelcome";
@@ -128,7 +128,7 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
   const totalSteps = visibleStepKeys.length;
   const currentStepKey = visibleStepKeys[currentStepIndex];
   const nextStepKey = visibleStepKeys[currentStepIndex + 1];
-  const analyticsProps = { flowVariant };
+  const analyticsProps = useMemo(() => ({ flowVariant }), [flowVariant]);
 
   const router = useRouter();
   const analytics = useOnboardingAnalytics("onboarding");
@@ -166,7 +166,7 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
     });
   }, [
     analytics,
-    analyticsProps.flowVariant,
+    analyticsProps,
     clampedStep,
     currentStepKey,
     isMembershipLoading,
@@ -199,7 +199,9 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
         ...analyticsProps,
       });
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-      await completedOnboardingAction();
+      completedOnboardingAction().catch((error) => {
+        console.error("Failed to mark onboarding complete:", error);
+      });
       if (isPremium) {
         router.push(prefixPath(emailAccountId, "/setup"));
       } else {
