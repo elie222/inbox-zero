@@ -89,13 +89,17 @@ type RepairAttemptState = {
   successfulCandidateKind?: RepairCandidateKind;
 };
 
+type ProviderCostSource =
+  | "openrouter_usage"
+  | "openrouter_usage_with_step_fallback"
+  | "openrouter_step_usage_sum";
+
 type UsageMetadata = {
   providerReportedCost?: number;
   providerUpstreamInferenceCost?: number;
-  providerCostSource?: string;
+  providerCostSource?: ProviderCostSource;
   stepCount?: number;
   toolCallCount?: number;
-  data?: Record<string, unknown>;
 };
 
 const commonOptions: {
@@ -1324,7 +1328,6 @@ async function saveUsageWithMetadata({
     providerCostSource: usageMetadata.providerCostSource,
     stepCount: usageMetadata.stepCount,
     toolCallCount: usageMetadata.toolCallCount,
-    data: usageMetadata.data,
   });
 }
 
@@ -1350,7 +1353,7 @@ function getToolCallCount(result: unknown) {
 function getOpenRouterProviderCost(result: unknown): {
   providerReportedCost?: number;
   providerUpstreamInferenceCost?: number;
-  providerCostSource?: string;
+  providerCostSource?: ProviderCostSource;
 } {
   const directUsage = getOpenRouterUsage(result);
 
@@ -1459,7 +1462,7 @@ function getObjectProperty(value: unknown, key: string) {
     return;
   }
 
-  return property as Record<string, unknown> & { cost?: unknown };
+  return property as Record<string, unknown>;
 }
 
 function getProperty(value: unknown, key: string) {

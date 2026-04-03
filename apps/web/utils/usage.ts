@@ -28,7 +28,6 @@ export async function saveAiUsage({
   providerCostSource,
   stepCount,
   toolCallCount,
-  data,
 }: {
   email: string;
   emailAccountId: string;
@@ -42,7 +41,6 @@ export async function saveAiUsage({
   providerCostSource?: string;
   stepCount?: number;
   toolCallCount?: number;
-  data?: Record<string, unknown>;
 }) {
   const estimatedCost = calculateUsageCost({ provider, model, usage });
   const isUserApiKey = !!hasUserApiKey;
@@ -70,7 +68,6 @@ export async function saveAiUsage({
         label,
         stepCount,
         toolCallCount,
-        data: serializeUsageData(data),
       }),
       saveUsage({ email, cost: platformCost, usage }),
     ]);
@@ -163,10 +160,4 @@ function buildModelLookupCandidates({
 
 function toTinybirdBoolean(value: boolean): 0 | 1 {
   return value ? 1 : 0;
-}
-
-function serializeUsageData(data?: Record<string, unknown>) {
-  if (!data || Object.keys(data).length === 0) return undefined;
-
-  return JSON.stringify(data);
 }
