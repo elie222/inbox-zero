@@ -175,7 +175,12 @@ const OUTLOOK_SEARCH_DISALLOWED_CHARS = /[?]/g;
 // Pattern to detect KQL field syntax: fieldname:value (e.g., participants:email@example.com)
 // Excludes URL schemes (http, https, ftp, mailto, file) which should be treated as text
 const KQL_FIELD_PATTERN = /^(\w+):.+$/;
+const KQL_FIELD_TOKEN_PATTERN = /\b(\w+):(?:"([^"]*)"|(\S+))/g;
 const URL_SCHEME_PATTERN = /^(https?|ftp|mailto|file):/i;
+const KQL_BOOLEAN_OPERATOR_PATTERN = /\b(?:AND|OR|NOT)\b/i;
+const KQL_BOOLEAN_PATTERN = /\b(?:AND|OR|NOT)\b/gi;
+const KQL_GROUPING_DETECTION_PATTERN = /[()]/;
+const KQL_GROUPING_PATTERN = /[()]/g;
 
 /**
  * Sanitizes a value for use in KQL queries.
@@ -240,6 +245,51 @@ export function sanitizeKqlTextQuery(query: string): string {
   return `"${sanitized}"`;
 }
 
+function sanitizeComplexKqlQueryAsText(query: string): string {
+  const collapsedToText = query
+    .replace(
+      KQL_FIELD_TOKEN_PATTERN,
+      (_match, field: string, quotedValue?: string, bareValue?: string) => {
+        const value = quotedValue ?? bareValue ?? "";
+        if (
+          /^(true|false)$/i.test(value) &&
+          /^(hasattachments?|attachment|isread|read|unread)$/i.test(field)
+        ) {
+          return " ";
+        }
+
+        return ` ${value} `;
+      },
+    )
+    .replace(KQL_GROUPING_PATTERN, " ")
+    .replace(KQL_BOOLEAN_PATTERN, " ");
+
+  return sanitizeKqlTextQuery(collapsedToText);
+}
+
+function hasTrailingContentAfterQuotedFieldValue(value: string): boolean {
+  if (!value.startsWith('"')) return false;
+
+  const closingQuoteIndex = value.indexOf('"', 1);
+  if (closingQuoteIndex === -1) return false;
+
+  return value.slice(closingQuoteIndex + 1).trim().length > 0;
+}
+
+function isComplexKqlFieldQuery(query: string): boolean {
+  const colonIndex = query.indexOf(":");
+  if (colonIndex === -1) return false;
+
+  const value = query.slice(colonIndex + 1).trim();
+  if (!value) return false;
+
+  if (KQL_BOOLEAN_OPERATOR_PATTERN.test(query)) return true;
+  if (KQL_GROUPING_DETECTION_PATTERN.test(query)) return true;
+  if (/\s+\w+:(?:"[^"]*"|\S+)/.test(value)) return true;
+
+  return hasTrailingContentAfterQuotedFieldValue(value);
+}
+
 export function sanitizeOutlookSearchQuery(query: string): {
   sanitized: string;
   wasSanitized: boolean;
@@ -255,6 +305,13 @@ export function sanitizeOutlookSearchQuery(query: string): {
     KQL_FIELD_PATTERN.test(normalized) &&
     !URL_SCHEME_PATTERN.test(normalized)
   ) {
+    if (isComplexKqlFieldQuery(normalized)) {
+      return {
+        sanitized: sanitizeComplexKqlQueryAsText(normalized),
+        wasSanitized: true,
+      };
+    }
+
     return {
       sanitized: sanitizeKqlFieldQuery(normalized),
       wasSanitized: true,
