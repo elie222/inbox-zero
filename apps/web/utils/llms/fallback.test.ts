@@ -470,6 +470,54 @@ describe("createGenerateText fallback chain", () => {
     );
   });
 
+  it("counts top-level tool calls when steps are absent", async () => {
+    const model = { id: "openrouter-model" };
+    const modelOptions: SelectModel = {
+      provider: "openrouter",
+      modelName: "openai/gpt-5-mini",
+      model: model as SelectModel["model"],
+      providerOptions: undefined,
+      fallbackModels: [],
+      hasUserApiKey: false,
+    };
+
+    mockGenerateText.mockResolvedValue({
+      text: "ok",
+      usage: {
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+      },
+      toolCalls: [
+        { toolName: "searchEmails" },
+        { toolName: "finalizeResults" },
+      ],
+    });
+
+    const generateText = createGenerateText({
+      emailAccount: {
+        email: "user@example.com",
+        id: "email-account-1",
+        userId: "user-1",
+      },
+      label: "Reply context collector",
+      modelOptions,
+      promptHardening: { trust: "trusted" },
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: model as SelectModel["model"],
+      tools: {} as Record<string, never>,
+    });
+
+    expect(mockSaveAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolCallCount: 2,
+      }),
+    );
+  });
+
   it("adds direct PostHog tracing with privacy mode", async () => {
     const model = { id: "openai-model" };
     const tracedModel = { id: "posthog-traced-model" };

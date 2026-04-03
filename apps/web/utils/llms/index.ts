@@ -1337,7 +1337,9 @@ function getStepCount(result: unknown) {
 
 function getToolCallCount(result: unknown) {
   const steps = getObjectArrayProperty(result, "steps");
-  if (!steps) return;
+  if (!steps) {
+    return getObjectArrayProperty(result, "toolCalls")?.length;
+  }
 
   return steps.reduce((count, step) => {
     const toolCalls = getObjectArrayProperty(step, "toolCalls");
