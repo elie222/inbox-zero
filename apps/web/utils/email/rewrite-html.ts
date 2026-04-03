@@ -19,7 +19,7 @@ export async function rewriteHtmlRemoteAssetUrls(
 
   const getSignedUrl = createSignedUrlMemo(options);
   const isDocument = DOCUMENT_PATTERN.test(html);
-  const $ = cheerio.load(html, { decodeEntities: false }, isDocument);
+  const $ = cheerio.load(html, null, isDocument);
   let changed = false;
 
   await Promise.all(
