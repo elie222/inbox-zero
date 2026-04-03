@@ -1,0 +1,20 @@
+{
+  "name": "@inboxzero/image-proxy",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./proxy-url": "./src/proxy-url.ts",
+    "./proxy-service": "./src/proxy-service.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "4.1.0",
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.0"
+  }
+}
