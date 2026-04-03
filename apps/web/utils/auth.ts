@@ -185,7 +185,8 @@ export const betterAuthConfig = betterAuth({
     },
     cookieCache: {
       enabled: true,
-      maxAge: 60 * 5, // 5 minutes — short TTL so sign-out and token expiry are enforced promptly
+      maxAge: 60 * 5, // 5 minutes — normal sign-out clears the cache cookie immediately;
+      // this TTL only limits exposure for stolen-token scenarios
     },
     expiresIn: 60 * 60 * 24 * 30, // 30 days
     updateAge: 60 * 60 * 24 * 3, // 1 day (every 1 day the session expiration is updated)
