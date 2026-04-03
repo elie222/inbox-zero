@@ -13,6 +13,7 @@ import {
   sendAskNotification,
 } from "@/utils/drive/filing-notifications";
 import { sendFilingSlackNotifications } from "@/utils/drive/filing-slack-notifications";
+import { extractEmailAddress } from "@/utils/email";
 
 // ============================================================================
 // Types
@@ -302,6 +303,7 @@ export async function processAttachment({
       await sendFilingSlackNotifications({
         emailAccountId: emailAccount.id,
         filingId: filing.id,
+        senderEmail: extractEmailAddress(message.headers.from),
         logger: log,
       });
     } catch (slackError) {

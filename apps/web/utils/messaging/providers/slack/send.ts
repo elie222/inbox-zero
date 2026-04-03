@@ -84,12 +84,16 @@ export async function sendDocumentFiledToSlack({
   filename,
   folderPath,
   driveProvider,
+  senderEmail,
+  fileId,
 }: SlackDocumentFiledParams): Promise<void> {
   const client = createSlackClient(accessToken);
   const blocks = buildDocumentFiledBlocks({
     filename,
     folderPath,
     driveProvider,
+    senderEmail,
+    fileId,
   });
 
   await postMessageWithJoin(client, channelId, {
@@ -108,9 +112,10 @@ export async function sendDocumentAskToSlack({
   channelId,
   filename,
   reasoning,
+  senderEmail,
 }: SlackDocumentAskParams): Promise<void> {
   const client = createSlackClient(accessToken);
-  const blocks = buildDocumentAskBlocks({ filename, reasoning });
+  const blocks = buildDocumentAskBlocks({ filename, reasoning, senderEmail });
 
   await postMessageWithJoin(client, channelId, {
     blocks,

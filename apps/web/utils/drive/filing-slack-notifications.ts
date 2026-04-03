@@ -12,10 +12,12 @@ import { getMessagingDeliveryTargetWhere } from "@/utils/messaging/delivery-targ
 export async function sendFilingSlackNotifications({
   emailAccountId,
   filingId,
+  senderEmail,
   logger,
 }: {
   emailAccountId: string;
   filingId: string;
+  senderEmail?: string | null;
   logger: Logger;
 }): Promise<void> {
   const log = logger.with({ action: "sendFilingSlackNotifications", filingId });
@@ -73,6 +75,7 @@ export async function sendFilingSlackNotifications({
               channelId: destination,
               filename: filing.filename,
               reasoning: filing.reasoning,
+              senderEmail,
             }),
           );
         } else {
@@ -83,6 +86,8 @@ export async function sendFilingSlackNotifications({
               filename: filing.filename,
               folderPath: filing.folderPath,
               driveProvider: filing.driveConnection.provider,
+              senderEmail,
+              fileId: filing.fileId,
             }),
           );
         }
@@ -97,11 +102,12 @@ export async function sendFilingSlackNotifications({
               ? formatDocumentAskText({
                   filename: filing.filename,
                   reasoning: filing.reasoning,
+                  senderEmail,
                 })
               : formatDocumentFiledText({
                   filename: filing.filename,
                   folderPath: filing.folderPath,
-                  driveProvider: filing.driveConnection.provider,
+                  senderEmail,
                 }),
             logger: log,
           }),
@@ -124,23 +130,26 @@ export async function sendFilingSlackNotifications({
 function formatDocumentAskText({
   filename,
   reasoning,
+  senderEmail,
 }: {
   filename: string;
   reasoning: string | null;
+  senderEmail?: string | null;
 }) {
-  return reasoning
-    ? `Where should I file ${filename}?\n\nReason: ${reasoning}`
-    : `Where should I file ${filename}?`;
+  const fromPart = senderEmail ? ` from ${senderEmail}` : "";
+  const reasonPart = reasoning ? ` — ${reasoning}` : "";
+  return `📄 Where should I file ${filename}${fromPart}?${reasonPart}`;
 }
 
 function formatDocumentFiledText({
   filename,
   folderPath,
-  driveProvider,
+  senderEmail,
 }: {
   filename: string;
   folderPath: string;
-  driveProvider: string;
+  senderEmail?: string | null;
 }) {
-  return `Filed ${filename} to ${folderPath} on ${driveProvider}.`;
+  const fromPart = senderEmail ? ` from ${senderEmail}` : "";
+  return `📨 Filed ${filename}${fromPart} to ${folderPath}`;
 }

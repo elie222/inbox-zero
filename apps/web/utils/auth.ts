@@ -11,6 +11,10 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { cookies, headers } from "next/headers";
 import { env } from "@/env";
+import {
+  assertAllowedAuthSignupEmail,
+  isAllowedAuthSignupEmail,
+} from "@/utils/auth-signup-policy";
 import { trackDubSignUp } from "@/utils/dub";
 import {
   isGoogleProvider,
@@ -214,6 +218,14 @@ export const betterAuthConfig = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        before: async (user) => {
+          if (isAllowedAuthSignupEmail(user.email)) return;
+
+          logger.warn("Blocked auth sign-up outside configured allowlist", {
+            emailDomain: user.email.split("@")[1]?.toLowerCase(),
+          });
+          assertAllowedAuthSignupEmail(user.email);
+        },
         after: async (user) => {
           await postSignUp({
             id: user.id,
