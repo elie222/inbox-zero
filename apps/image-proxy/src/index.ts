@@ -18,6 +18,7 @@ export default {
       {
         cache,
         executionContext: ctx,
+        logger: console,
       },
     );
   },

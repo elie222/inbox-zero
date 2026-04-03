@@ -181,6 +181,10 @@ describe("handleImageProxyRequest", () => {
   });
 
   it("rejects invalid signatures", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(
+      new Date("2026-04-03T10:00:00.000Z").getTime(),
+    );
+
     const proxyUrl = await buildSignedAssetProxyUrl({
       assetUrl: "https://cdn.example.com/photo.png",
       proxyBaseUrl: "https://proxy.example.com/proxy",
@@ -291,18 +295,33 @@ describe("handleImageProxyRequest", () => {
       .mockResolvedValue(
         Response.redirect("https://cdn.example.com/photo.png", 302),
       );
+    const logger = {
+      warn: vi.fn(),
+    };
 
     const response = await handleImageProxyRequest(
       new Request(
         "https://proxy.example.com/proxy?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png",
       ),
       {},
-      { fetchImpl: upstreamFetch as typeof fetch },
+      { fetchImpl: upstreamFetch as typeof fetch, logger },
     );
 
     expect(response.status).toBe(508);
     await expect(response.text()).resolves.toBe("Upstream fetch failed");
     expect(upstreamFetch).toHaveBeenCalledTimes(4);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Image proxy redirect limit exceeded",
+      {
+        initialUrl: "https://cdn.example.com/photo.png",
+        method: "GET",
+        redirectChain: [
+          "https://cdn.example.com/photo.png",
+          "https://cdn.example.com/photo.png",
+          "https://cdn.example.com/photo.png",
+        ],
+      },
+    );
   });
 
   it("stores successful GET responses in cache via waitUntil", async () => {

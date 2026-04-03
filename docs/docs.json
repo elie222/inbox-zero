@@ -96,7 +96,8 @@
               "hosting/self-hosting",
               "hosting/vercel",
               "hosting/environment-variables",
-              "hosting/troubleshooting"
+              "hosting/troubleshooting",
+              "hosting/image-proxy"
             ]
           },
           {
