@@ -132,6 +132,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/roadmap",
+        destination: "https://go.getinboxzero.com/feature-requests",
+        permanent: true,
+      },
+      {
         source: "/feedback",
         destination: "https://go.getinboxzero.com/feedback",
         permanent: true,
@@ -197,6 +202,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/api-reference/cli",
+        destination: "https://docs.getinboxzero.com",
+        permanent: true,
+      },
+      {
         source: "/request-access",
         destination: "/early-access",
         permanent: true,
@@ -205,6 +215,11 @@ const nextConfig: NextConfig = {
         source: "/reply-tracker",
         destination: "/reply-zero",
         permanent: false,
+      },
+      {
+        source: "/new-senders",
+        destination: "/",
+        permanent: true,
       },
       {
         source: "/game",
