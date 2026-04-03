@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useAction } from "next-safe-action/hooks";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
 import { StepWelcome } from "@/app/(app)/[emailAccountId]/onboarding/StepWelcome";
 import { StepEmailsSorted } from "@/app/(app)/[emailAccountId]/onboarding/StepEmailsSorted";
@@ -27,6 +28,7 @@ import { isDefined } from "@/utils/types";
 import { env } from "@/env";
 import { StepCompanySize } from "@/app/(app)/[emailAccountId]/onboarding/StepCompanySize";
 import { StepInviteTeam } from "@/app/(app)/[emailAccountId]/onboarding/StepInviteTeam";
+import { toastError } from "@/components/Toast";
 import { usePremium } from "@/components/PremiumAlert";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
 import {
@@ -40,6 +42,7 @@ import {
   type StepKey,
 } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { useOnboardingFlowVariant } from "@/hooks/useFeatureFlags";
+import { getActionErrorMessage } from "@/utils/error";
 
 interface OnboardingContentProps {
   step?: string;
@@ -128,11 +131,14 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
   const totalSteps = visibleStepKeys.length;
   const currentStepKey = visibleStepKeys[currentStepIndex];
   const nextStepKey = visibleStepKeys[currentStepIndex + 1];
-  const analyticsProps = { flowVariant };
+  const analyticsProps = useMemo(() => ({ flowVariant }), [flowVariant]);
 
   const router = useRouter();
   const analytics = useOnboardingAnalytics("onboarding");
   const hasTrackedStart = useRef(false);
+  const { executeAsync: completeOnboarding } = useAction(
+    completedOnboardingAction,
+  );
 
   const getOnboardingStepPath = useCallback(
     (stepKey: string) => {
@@ -166,7 +172,7 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
     });
   }, [
     analytics,
-    analyticsProps.flowVariant,
+    analyticsProps,
     clampedStep,
     currentStepKey,
     isMembershipLoading,
@@ -199,7 +205,21 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
         ...analyticsProps,
       });
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-      await completedOnboardingAction();
+      const result = await completeOnboarding();
+      if (result?.serverError || result?.validationErrors) {
+        toastError({
+          description: getActionErrorMessage(
+            {
+              serverError: result?.serverError,
+              validationErrors: result?.validationErrors,
+            },
+            {
+              prefix: "There was an error finishing onboarding",
+            },
+          ),
+        });
+        return;
+      }
       if (isPremium) {
         router.push(prefixPath(emailAccountId, "/setup"));
       } else {
@@ -216,6 +236,7 @@ export function OnboardingContent({ step, variant }: OnboardingContentProps) {
     nextStepKey,
     steps.length,
     isPremium,
+    completeOnboarding,
     analyticsProps,
     getOnboardingStepPath,
   ]);

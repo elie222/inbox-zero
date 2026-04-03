@@ -20,7 +20,7 @@ export const updateEmailAccountRoleAction = actionClient
   .inputSchema(z.object({ role: z.string() }))
   .action(
     async ({
-      ctx: { emailAccountId, userEmail, logger },
+      ctx: { emailAccountId, userEmail, userId, logger },
       parsedInput: { role },
     }) => {
       after(async () => {
@@ -32,10 +32,19 @@ export const updateEmailAccountRoleAction = actionClient
         });
       });
 
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: { role },
-      });
+      await prisma.$transaction([
+        prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data: { role },
+        }),
+        prisma.user.update({
+          where: { id: userId },
+          data: {
+            onboardingAnswers: { answers: { role } },
+            surveyRole: role,
+          },
+        }),
+      ]);
     },
   );
 
