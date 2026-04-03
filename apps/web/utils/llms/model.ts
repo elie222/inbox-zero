@@ -105,7 +105,7 @@ function selectModel(
 ): ResolvedModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
-      const modelName = aiModel || "gpt-5.1";
+      const modelName = aiModel || "gpt-5.4-mini";
       // When Zero Data Retention is enabled, set store: false to avoid
       // "Items are not persisted for Zero Data Retention organizations" errors
       // See: https://github.com/vercel/ai/issues/10060
@@ -126,7 +126,7 @@ function selectModel(
       };
     }
     case Provider.AZURE: {
-      const modelName = aiModel || "gpt-5-mini";
+      const modelName = aiModel || "gpt-5.4-mini";
       const baseOptions = providerOptions ?? {};
       const resourceName = env.AZURE_RESOURCE_NAME;
       if (!resourceName) {
@@ -196,7 +196,11 @@ function selectModel(
           "X-Title": "Inbox Zero",
         },
       });
-      const chatModel = openrouter.chat(modelName);
+      const chatModel = openrouter.chat(modelName, {
+        usage: {
+          include: true,
+        },
+      });
 
       return {
         provider: Provider.OPENROUTER,

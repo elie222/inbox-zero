@@ -12,10 +12,15 @@ const tinybirdAiCall = z.object({
   reasoningTokens: z.number().int(),
   cost: z.number(),
   estimatedCost: z.number(),
+  providerReportedCost: z.number().optional(),
+  providerUpstreamInferenceCost: z.number().optional(),
+  providerCostSource: z.string().optional(),
   isUserApiKey: z.number().int(),
   model: z.string(),
   provider: z.string(),
   label: z.string().optional(),
+  stepCount: z.number().int().optional(),
+  toolCallCount: z.number().int().optional(),
   data: z.string().optional(),
 });
 export type TinybirdAiCall = z.infer<typeof tinybirdAiCall>;
