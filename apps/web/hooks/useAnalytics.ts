@@ -24,15 +24,24 @@ export function useOnboardingAnalytics(variant: "onboarding" | "welcome") {
         ? { step: properties }
         : (properties ?? {});
 
+    const safeCapture = (
+      event: string,
+      properties?: OnboardingAnalyticsProps | Record<string, unknown>,
+    ) => {
+      try {
+        posthog.capture(event, properties);
+      } catch {}
+    };
+
     return {
       onStart: (properties?: number | OnboardingAnalyticsProps) => {
-        posthog.capture("onboarding_started", {
+        safeCapture("onboarding_started", {
           variant,
           ...getProperties(properties),
         });
       },
       onStepViewed: (properties?: number | OnboardingAnalyticsProps) => {
-        posthog.capture("onboarding_step_viewed", {
+        safeCapture("onboarding_step_viewed", {
           variant,
           ...getProperties(properties),
         });
@@ -40,20 +49,20 @@ export function useOnboardingAnalytics(variant: "onboarding" | "welcome") {
       onNext: (properties?: number | OnboardingAnalyticsProps) => {
         const stepProperties = getProperties(properties);
 
-        posthog.capture("onboarding_next", { variant, ...stepProperties });
-        posthog.capture("onboarding_step_completed", {
+        safeCapture("onboarding_next", { variant, ...stepProperties });
+        safeCapture("onboarding_step_completed", {
           variant,
           ...stepProperties,
         });
       },
       onSkip: (properties?: number | OnboardingAnalyticsProps) => {
-        posthog.capture("onboarding_step_skipped", {
+        safeCapture("onboarding_step_skipped", {
           variant,
           ...getProperties(properties),
         });
       },
       onComplete: (properties?: OnboardingAnalyticsProps) => {
-        posthog.capture("onboarding_completed", {
+        safeCapture("onboarding_completed", {
           variant,
           ...getProperties(properties),
         });

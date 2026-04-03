@@ -32,36 +32,47 @@ export const GET = withEmailProvider("threads/batch", async (request) => {
   }
 
   try {
+    type Thread = Awaited<ReturnType<typeof emailProvider.getThread>>;
+    type ThreadMessage = Thread["messages"][number];
+
     const results = await runWithBoundedConcurrency({
       items: threadIds,
       concurrency: THREAD_FETCH_CONCURRENCY,
       run: (threadId) => emailProvider.getThread(threadId),
     });
 
-    const validThreads: ThreadsResponse["threads"] = [];
-
     for (const { item: threadId, result } of results) {
-      if (result.status === "fulfilled") {
-        const thread = result.value;
-        const filteredMessages = thread.messages.filter((message) => {
-          if (!message.headers?.from) return true;
-          return !isIgnoredSender(message.headers.from);
-        });
-        if (!filteredMessages.length) continue;
-
-        validThreads.push({
-          id: thread.id,
-          messages: filteredMessages,
-          snippet: thread.snippet,
-          plan: undefined,
-        });
-      } else {
+      if (result.status === "rejected") {
         request.logger.error("Error fetching thread", {
           error: result.reason,
           threadId,
         });
       }
     }
+
+    const validThreads = (
+      await Promise.all(
+        results
+          .filter((r) => r.result.status === "fulfilled")
+          .map(async ({ result }) => {
+            const thread = (result as PromiseFulfilledResult<Thread>).value;
+            const filteredMessages = thread.messages.filter(
+              (message: ThreadMessage) => {
+                if (!message.headers?.from) return true;
+                return !isIgnoredSender(message.headers.from);
+              },
+            );
+            if (!filteredMessages.length) return null;
+
+            return {
+              id: thread.id,
+              messages: filteredMessages,
+              snippet: thread.snippet,
+              plan: undefined,
+            };
+          }),
+      )
+    ).filter(Boolean) as ThreadsResponse["threads"];
 
     return NextResponse.json({ threads: validThreads });
   } catch (error) {
