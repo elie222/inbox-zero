@@ -1081,6 +1081,7 @@ function DraftReplyReviewChannelsSection({
         </div>
 
         {availableChannels.map((channel) => {
+          const channelLabel = formatDraftReplyReviewChannelLabel(channel);
           const isSelectedChannel =
             includeMessaging && selectedChannel?.id === channel.id;
           const canToggleChannel = includeEmail || !isSelectedChannel;
@@ -1106,10 +1107,10 @@ function DraftReplyReviewChannelsSection({
                         : (selectedChannel?.id ?? null),
                   })
                 }
-                aria-label={`Toggle ${formatDraftReplyReviewChannelLabel(channel)} draft delivery`}
+                aria-label={`Toggle ${channelLabel} draft delivery`}
               />
               <span className="font-medium text-foreground">
-                {formatDraftReplyReviewChannelLabel(channel)}
+                {channelLabel}
               </span>
             </div>
           );
