@@ -58,6 +58,7 @@
     "@headlessui/react": "2.2.9",
     "@hookform/resolvers": "5.2.2",
     "@inboxzero/loops": "workspace:*",
+    "@inboxzero/image-proxy": "workspace:*",
     "@inboxzero/resend": "workspace:*",
     "@inboxzero/tinybird": "workspace:*",
     "@inboxzero/tinybird-ai-analytics": "workspace:*",
