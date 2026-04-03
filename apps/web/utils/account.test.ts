@@ -70,14 +70,16 @@ describe("redirectToEmailAccountPath", () => {
     expect(prisma.emailAccount.findFirst).not.toHaveBeenCalled();
   });
 
-  it("logs out users whose session is missing a user id", async () => {
+  it("redirects users to login when the session is missing a user id", async () => {
     authMock.mockResolvedValue({ user: { email: "user@example.com" } });
 
     await expect(
       redirectToEmailAccountPath("/automation", { tab: "settings" }),
-    ).rejects.toThrow("redirect:/logout");
+    ).rejects.toThrow("redirect:/login?next=%2Fautomation%3Ftab%3Dsettings");
 
-    expect(redirectMock).toHaveBeenCalledWith("/logout");
+    expect(redirectMock).toHaveBeenCalledWith(
+      "/login?next=%2Fautomation%3Ftab%3Dsettings",
+    );
     expect(prisma.emailAccount.findFirst).not.toHaveBeenCalled();
   });
 

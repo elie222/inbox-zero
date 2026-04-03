@@ -50,7 +50,7 @@ export default async function AppLayout({
 }) {
   const session = await auth();
 
-  if (!session?.user.email) redirect("/login");
+  if (!session?.user?.id || !session.user.email) redirect("/login");
 
   const cookieStore = await cookies();
   const isClosed = cookieStore.get("left-sidebar:state")?.value === "false";

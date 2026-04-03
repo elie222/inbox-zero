@@ -8,9 +8,8 @@ export async function checkUserOwnsEmailAccount({
   emailAccountId: string;
 }) {
   const session = await auth();
-  if (!session?.user) redirect("/login");
-  const userId = session.user.id;
-  if (!userId) redirect("/logout");
+  const userId = session?.user.id;
+  if (!userId) redirect("/login");
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId, userId },

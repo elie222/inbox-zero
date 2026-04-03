@@ -8,7 +8,7 @@ export default async function WelcomeRedirectPage(props: {
   const searchParams = await props.searchParams;
   const session = await auth();
 
-  if (!session?.user) redirect("/login");
+  if (!session?.user?.id) redirect("/login");
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
