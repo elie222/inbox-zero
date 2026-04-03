@@ -340,14 +340,11 @@ export function RuleForm({
   const typeOptions = useMemo(() => {
     const connectedMessagingChannels =
       messagingChannelsData?.channels.filter(
-        (channel) =>
-          channel.provider === "SLACK" &&
-          channel.isConnected &&
-          channel.hasSendDestination,
+        (channel) => channel.isConnected && channel.hasSendDestination,
       ) ?? [];
-    const slackIsAvailable =
+    const messagingIsAvailable =
       connectedMessagingChannels.length > 0 ||
-      messagingChannelsData?.availableProviders.includes("SLACK");
+      (messagingChannelsData?.availableProviders.length ?? 0) > 0;
 
     const options: {
       label: string;
@@ -416,7 +413,7 @@ export function RuleForm({
         value: ActionType.CALL_WEBHOOK,
         icon: getActionIcon(ActionType.CALL_WEBHOOK),
       },
-      ...(slackIsAvailable
+      ...(messagingIsAvailable
         ? [
             {
               label: "Notify via chat app",
@@ -559,11 +556,7 @@ export function RuleForm({
             typeOptions={typeOptions}
             folders={folders}
             foldersLoading={foldersLoading}
-            messagingChannels={
-              messagingChannelsData?.channels.filter(
-                (channel) => channel.provider === "SLACK",
-              ) ?? []
-            }
+            messagingChannels={messagingChannelsData?.channels ?? []}
             availableMessagingProviders={
               messagingChannelsData?.availableProviders ?? []
             }
