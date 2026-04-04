@@ -20,8 +20,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { env } from "@/env";
 
 export function WebhookSection() {
+  if (env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED === false) return null;
+
   const { data, isLoading, error, mutate } = useUser();
   const [generatedSecret, setGeneratedSecret] = useState<string | null>(null);
   const [open, setOpen] = useState(false);

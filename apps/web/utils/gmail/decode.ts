@@ -1,6 +1,10 @@
 import he from "he";
 
+export function decodeHtmlEntities(text?: string | null) {
+  if (!text) return "";
+  return he.decode(text);
+}
+
 export function decodeSnippet(snippet?: string | null) {
-  if (!snippet) return "";
-  return he.decode(snippet).replace(/\u200C|\u200D|\uFEFF/g, "");
+  return decodeHtmlEntities(snippet).replace(/\u200C|\u200D|\uFEFF/g, "");
 }

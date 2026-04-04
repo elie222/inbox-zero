@@ -37,32 +37,29 @@ const BLOCKED_HOSTNAMES = [
   "metadata.gcp.internal",
 ];
 
+const IPV4_PATTERN = /^(\d{1,3}\.){3}\d{1,3}$/;
+const IPV6_PATTERN = /^(\[)?([0-9a-fA-F:]+)(\])?$/;
+
 export type WebhookUrlValidationResult =
   | { valid: true }
   | { valid: false; error: string };
 
 /**
- * Validates a webhook URL to prevent SSRF attacks.
- *
- * Validation includes:
- * - Only HTTPS scheme allowed
- * - No IP addresses in the hostname (must use DNS names)
- * - No private/internal hostnames (localhost, metadata endpoints, etc.)
- * - DNS resolution must not resolve to private/internal IP addresses (both IPv4 and IPv6)
+ * Validates webhook URL format without DNS resolution.
+ * Use at rule creation/update time for immediate feedback.
+ * Checks: URL parsing, scheme, blocked hostnames, private IP literals.
  */
-export async function validateWebhookUrl(
+export function validateWebhookUrlFormat(
   url: string,
-): Promise<WebhookUrlValidationResult> {
+): WebhookUrlValidationResult {
   let parsedUrl: URL;
 
-  // Parse the URL
   try {
     parsedUrl = new URL(url);
   } catch {
     return { valid: false, error: "Invalid URL format" };
   }
 
-  // Only allow HTTPS in production, allow HTTP in development
   const isProduction = process.env.NODE_ENV === "production";
   const allowedProtocols = isProduction ? ["https:"] : ["https:", "http:"];
 
@@ -77,7 +74,6 @@ export async function validateWebhookUrl(
 
   const hostname = parsedUrl.hostname.toLowerCase();
 
-  // Block known internal hostnames
   if (BLOCKED_HOSTNAMES.includes(hostname)) {
     return {
       valid: false,
@@ -85,34 +81,29 @@ export async function validateWebhookUrl(
     };
   }
 
-  // Check if hostname is an IP address (IPv4 or IPv6)
-  // IPv4 pattern
-  const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
-  // IPv6 pattern (simplified - catches most cases including [::1] format)
-  const ipv6Pattern = /^(\[)?([0-9a-fA-F:]+)(\])?$/;
+  const ipCheck = checkPrivateIpLiteral(hostname);
+  if (ipCheck) return ipCheck;
 
-  if (ipv4Pattern.test(hostname)) {
-    // It's an IPv4 address - check if it's private
-    if (isPrivateIP(hostname)) {
-      return {
-        valid: false,
-        error: "Webhook URL cannot point to private IP addresses",
-      };
-    }
-    // Even if it's not private, we should still resolve to verify
-  }
+  return { valid: true };
+}
 
-  // Handle IPv6 addresses (may be wrapped in brackets)
-  const ipv6Match = hostname.match(ipv6Pattern);
-  if (ipv6Match) {
-    const ipv6Addr = ipv6Match[2];
-    if (isPrivateIP(ipv6Addr)) {
-      return {
-        valid: false,
-        error: "Webhook URL cannot point to private IP addresses",
-      };
-    }
-  }
+/**
+ * Validates a webhook URL to prevent SSRF attacks.
+ *
+ * Validation includes:
+ * - Only HTTPS scheme allowed
+ * - No IP addresses in the hostname (must use DNS names)
+ * - No private/internal hostnames (localhost, metadata endpoints, etc.)
+ * - DNS resolution must not resolve to private/internal IP addresses (both IPv4 and IPv6)
+ */
+export async function validateWebhookUrl(
+  url: string,
+): Promise<WebhookUrlValidationResult> {
+  const formatResult = validateWebhookUrlFormat(url);
+  if (!formatResult.valid) return formatResult;
+
+  const parsedUrl = new URL(url);
+  const hostname = parsedUrl.hostname.toLowerCase();
 
   // Resolve DNS and check if any resolved IP is private
   // Check both IPv4 (A records) and IPv6 (AAAA records) to prevent bypass
@@ -152,8 +143,8 @@ export async function validateWebhookUrl(
   // If no addresses were resolved at all, the hostname might be an IP literal
   // which we've already validated above
   if (allAddresses.length === 0) {
-    // For IP literals, dns.resolve fails but we've already checked them
-    const isIpLiteral = ipv4Pattern.test(hostname) || ipv6Match;
+    const isIpLiteral =
+      IPV4_PATTERN.test(hostname) || IPV6_PATTERN.test(hostname);
     if (!isIpLiteral) {
       return {
         valid: false,
@@ -177,4 +168,30 @@ export async function validateWebhookUrl(
 
 function isPrivateIP(ip: string): boolean {
   return PRIVATE_IP_RANGES.some((range) => range.test(ip));
+}
+
+function checkPrivateIpLiteral(
+  hostname: string,
+): WebhookUrlValidationResult | null {
+  if (IPV4_PATTERN.test(hostname)) {
+    if (isPrivateIP(hostname)) {
+      return {
+        valid: false,
+        error: "Webhook URL cannot point to private IP addresses",
+      };
+    }
+  }
+
+  const ipv6Match = hostname.match(IPV6_PATTERN);
+  if (ipv6Match) {
+    const ipv6Addr = ipv6Match[2];
+    if (isPrivateIP(ipv6Addr)) {
+      return {
+        valid: false,
+        error: "Webhook URL cannot point to private IP addresses",
+      };
+    }
+  }
+
+  return null;
 }

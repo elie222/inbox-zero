@@ -1,48 +1,82 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { callWebhook } from "./webhook";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
-const { dnsLookupMock, httpsRequestMock, validateWebhookUrlMock } = vi.hoisted(
-  () => ({
-    dnsLookupMock: vi.fn(),
-    httpsRequestMock: vi.fn(),
-    validateWebhookUrlMock: vi.fn(),
-  }),
-);
-
-vi.mock("node:dns/promises", () => ({
-  lookup: dnsLookupMock,
+const {
+  mockEnv,
+  httpsRequestMock,
+  resolveSafeExternalHttpUrlMock,
+  validateWebhookUrlMock,
+} = vi.hoisted(() => ({
+  mockEnv: {
+    webhookActionsEnabled: true,
+  },
+  httpsRequestMock: vi.fn(),
+  resolveSafeExternalHttpUrlMock: vi.fn(),
+  validateWebhookUrlMock: vi.fn(),
 }));
 
-vi.mock("node:http", () => ({
-  request: vi.fn(),
+vi.mock("@/env", () => ({
+  env: {
+    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
+      return mockEnv.webhookActionsEnabled;
+    },
+  },
 }));
 
 vi.mock("node:https", () => ({
   request: httpsRequestMock,
 }));
 
+vi.mock("@/utils/network/safe-http-url", () => ({
+  resolveSafeExternalHttpUrl: (...args: unknown[]) =>
+    resolveSafeExternalHttpUrlMock(...args),
+}));
+
 vi.mock("@/utils/webhook-validation", () => ({
   validateWebhookUrl: (...args: unknown[]) => validateWebhookUrlMock(...args),
 }));
 
-import { callWebhook } from "./webhook";
-
 describe("callWebhook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.webhookActionsEnabled = true;
     validateWebhookUrlMock.mockResolvedValue({ valid: true });
     prisma.user.findUnique.mockResolvedValue({
       webhookSecret: "webhook-secret",
-    } as any);
+    } as never);
+    resolveSafeExternalHttpUrlMock.mockResolvedValue({
+      url: new URL("https://example.com/webhook"),
+      lookup: vi.fn(),
+    });
   });
 
-  it("sends the webhook using a pinned DNS lookup", async () => {
-    dnsLookupMock.mockResolvedValue([
-      { address: "93.184.216.34", family: 4 },
-    ] as Awaited<ReturnType<typeof dnsLookupMock>>);
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("skips existing webhook actions when webhook actions are disabled", async () => {
+    mockEnv.webhookActionsEnabled = false;
+
+    await expect(
+      callWebhook("user-1", "https://example.com/webhook", getPayload()),
+    ).resolves.toBeUndefined();
+
+    expect(validateWebhookUrlMock).not.toHaveBeenCalled();
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(resolveSafeExternalHttpUrlMock).not.toHaveBeenCalled();
+    expect(httpsRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("sends the webhook using the resolved safe URL", async () => {
+    const lookup = vi.fn();
+    resolveSafeExternalHttpUrlMock.mockResolvedValue({
+      url: new URL("https://example.com/webhook"),
+      lookup,
+    });
     queueHttpsResponse({ statusCode: 204 });
 
     await expect(
@@ -52,11 +86,14 @@ describe("callWebhook", () => {
     expect(validateWebhookUrlMock).toHaveBeenCalledWith(
       "https://example.com/webhook",
     );
+    expect(resolveSafeExternalHttpUrlMock).toHaveBeenCalledWith(
+      "https://example.com/webhook",
+    );
     expect(httpsRequestMock).toHaveBeenCalledWith(
       expect.any(URL),
       expect.objectContaining({
         method: "POST",
-        lookup: expect.any(Function),
+        lookup,
         headers: expect.objectContaining({
           "Content-Type": "application/json",
           "X-Webhook-Secret": "webhook-secret",
@@ -66,10 +103,8 @@ describe("callWebhook", () => {
     );
   });
 
-  it("skips the request when DNS revalidation resolves to an unsafe address", async () => {
-    dnsLookupMock.mockResolvedValue([
-      { address: "10.0.0.8", family: 4 },
-    ] as Awaited<ReturnType<typeof dnsLookupMock>>);
+  it("skips the request when safe URL resolution fails", async () => {
+    resolveSafeExternalHttpUrlMock.mockResolvedValue(null);
 
     await expect(
       callWebhook("user-1", "https://example.com/webhook", getPayload()),
@@ -79,9 +114,6 @@ describe("callWebhook", () => {
   });
 
   it("does not follow redirects and treats them as rejected responses", async () => {
-    dnsLookupMock.mockResolvedValue([
-      { address: "93.184.216.34", family: 4 },
-    ] as Awaited<ReturnType<typeof dnsLookupMock>>);
     queueHttpsResponse({
       statusCode: 302,
       headers: { location: "https://redirected.example.com/webhook" },
@@ -109,7 +141,7 @@ function getPayload() {
       ruleId: "rule-1",
       reason: "matched",
       automated: true,
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      createdAt: new Date("2026-04-01T10:00:00.000Z"),
     },
   };
 }

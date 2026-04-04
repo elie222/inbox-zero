@@ -6,12 +6,12 @@ import { withPrismaRetry } from "@/utils/prisma-retry";
 import { calculateSimilarity } from "@/utils/similarity-score";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
-import { emailToContent } from "@/utils/mail";
 import {
   isMeaningfulDraftEdit,
   saveDraftSendLogReplyMemory,
   syncReplyMemoriesFromDraftSendLogs,
 } from "@/utils/ai/reply/reply-memory";
+import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 import { logReplyTrackerError } from "./error-logging";
 
 /**
@@ -389,7 +389,7 @@ function queueReplyMemoryLearning({
 }) {
   if (!draftText) return;
 
-  const sentText = emailToContent(message, {
+  const sentText = emailToContentForAI(message, {
     maxLength: 4000,
     extractReply: true,
     removeForwarded: false,

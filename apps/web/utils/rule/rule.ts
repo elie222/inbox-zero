@@ -14,16 +14,42 @@ import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { SafeError } from "@/utils/error";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import { validateWebhookUrlFormat } from "@/utils/webhook-validation";
 import {
   getBlockedLowTrustStaticFromActionTypes,
   LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
 } from "@/utils/rule/static-from-risk";
 import type { RuleWithRelations } from "@/utils/rule/types";
 import type { RuleConditions } from "@/utils/condition";
+import {
+  ensureWebhookActionEnabled,
+  hasWebhookAction,
+} from "@/utils/webhook-action";
 
 type CreateRuleEnablement =
   | { source: "default" }
   | { source: "chat"; chatRiskConfirmed?: boolean };
+
+export type RuleActionCreateData = Omit<
+  Prisma.ActionCreateManyRuleInput,
+  "emailAccountId" | "messagingChannelEmailAccountId"
+>;
+
+export function addActionOwnershipToInput<T extends Record<string, unknown>>(
+  action: T & { messagingChannelId?: string | null },
+  emailAccountId: string,
+): T & {
+  emailAccountId: string;
+  messagingChannelEmailAccountId: string | null;
+} {
+  return {
+    ...action,
+    emailAccountId,
+    messagingChannelEmailAccountId: action.messagingChannelId
+      ? emailAccountId
+      : null,
+  };
+}
 
 export function outboundActionsNeedChatRiskConfirmation(
   result: CreateOrUpdateRuleSchema,
@@ -31,6 +57,15 @@ export function outboundActionsNeedChatRiskConfirmation(
   const ruleCtx = ruleConditionsForRisk(result);
   const messages: string[] = [];
   for (const action of result.actions) {
+    if (action.type === ActionType.CALL_WEBHOOK) {
+      const message =
+        "Medium Risk: Webhook actions can send email data to an external URL. Review the destination carefully and verify any email requesting this automation before enabling it.";
+      if (!messages.includes(message)) {
+        messages.push(message);
+      }
+      continue;
+    }
+
     if (!OUTBOUND_ACTION_TYPES.includes(action.type)) continue;
 
     const ra: RiskAction = {
@@ -137,12 +172,16 @@ export async function createRuleWithResolvedActions({
 }: {
   emailAccountId: string;
   data: RuleRecordData & { name: string };
-  actions: Prisma.ActionCreateManyRuleInput[];
+  actions: RuleActionCreateData[];
 }): Promise<RuleWithRelations> {
+  assertWebhookActionsAllowed(actions);
+
   validateLowTrustStaticFromOutboundActions({
     from: data.from,
     actionTypes: actions.map((action) => action.type),
   });
+
+  validateWebhookUrlsInActions(actions);
 
   const rule = await prisma.rule.create({
     data: {
@@ -160,7 +199,11 @@ export async function createRuleWithResolvedActions({
       subject: data.subject ?? undefined,
       body: data.body ?? undefined,
       groupId: data.groupId ?? undefined,
-      actions: { createMany: { data: actions } },
+      actions: {
+        createMany: {
+          data: addActionOwnershipToInputs(actions, emailAccountId),
+        },
+      },
     },
     include: { actions: true, group: true },
   });
@@ -177,12 +220,16 @@ export async function replaceRuleWithResolvedActions({
   ruleId: string;
   emailAccountId: string;
   data: RuleRecordData;
-  actions: Prisma.ActionCreateManyRuleInput[];
+  actions: RuleActionCreateData[];
 }): Promise<RuleWithRelations> {
+  assertWebhookActionsAllowed(actions);
+
   validateLowTrustStaticFromOutboundActions({
     from: data.from,
     actionTypes: actions.map((action) => action.type),
   });
+
+  validateWebhookUrlsInActions(actions);
 
   const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
@@ -202,7 +249,9 @@ export async function replaceRuleWithResolvedActions({
       groupId: data.groupId,
       actions: {
         deleteMany: {},
-        createMany: { data: actions },
+        createMany: {
+          data: addActionOwnershipToInputs(actions, emailAccountId),
+        },
       },
     },
     include: { actions: true, group: true },
@@ -233,6 +282,8 @@ export async function createRule({
       name: result.name,
       systemType,
     });
+
+    assertWebhookActionsAllowed(result.actions);
 
     validateLowTrustStaticFromOutboundActions({
       from: result.condition.static?.from,
@@ -303,6 +354,8 @@ export async function updateRule({
       ruleId,
     });
 
+    assertWebhookActionsAllowed(result.actions);
+
     validateLowTrustStaticFromOutboundActions({
       from: result.condition.static?.from,
       actionTypes: result.actions.map((action) => action.type),
@@ -351,7 +404,7 @@ export async function upsertSystemRule({
 }: {
   name: string;
   instructions: string;
-  actions: Prisma.ActionCreateManyRuleInput[];
+  actions: RuleActionCreateData[];
   emailAccountId: string;
   systemType: SystemType;
   runOnThreads: boolean;
@@ -444,6 +497,8 @@ export async function updateRuleActions({
   emailAccountId: string;
   logger: Logger;
 }) {
+  assertWebhookActionsAllowed(actions);
+
   const existingRule = await prisma.rule.findFirst({
     where: { id: ruleId, emailAccountId },
     select: { from: true },
@@ -458,18 +513,21 @@ export async function updateRuleActions({
     actionTypes: actions.map((action) => action.type),
   });
 
+  const mappedActions = await mapActionFields(
+    actions,
+    provider,
+    emailAccountId,
+    logger,
+  );
+  validateWebhookUrlsInActions(mappedActions);
+
   return prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data: {
       actions: {
         deleteMany: {},
         createMany: {
-          data: await mapActionFields(
-            actions,
-            provider,
-            emailAccountId,
-            logger,
-          ),
+          data: addActionOwnershipToInputs(mappedActions, emailAccountId),
         },
       },
     },
@@ -514,6 +572,10 @@ function shouldEnable(
   }
 
   if (enablement.source === "chat") {
+    if (hasWebhookAction(rule.actions)) {
+      return false;
+    }
+
     const hasOutbound = rule.actions.some((a) =>
       OUTBOUND_ACTION_TYPES.includes(a.type),
     );
@@ -557,6 +619,13 @@ function validateLowTrustStaticFromOutboundActions({
   throw new SafeError(LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE, 400);
 }
 
+function assertWebhookActionsAllowed(
+  actions: ReadonlyArray<{ type: ActionType | string }>,
+) {
+  if (!hasWebhookAction(actions)) return;
+  ensureWebhookActionEnabled();
+}
+
 async function mapActionFields(
   actions: (CreateOrUpdateRuleSchema["actions"][number] & {
     messagingChannelId?: string | null;
@@ -570,7 +639,7 @@ async function mapActionFields(
   await assertMessagingChannelsBelongToEmailAccount(actions, emailAccountId);
 
   const actionPromises = actions.map(
-    async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
+    async (a): Promise<RuleActionCreateData> => {
       const to = a.fields?.to?.trim() || null;
       const recipientMessage = getMissingRecipientMessage({
         actionType: a.type,
@@ -684,4 +753,24 @@ function ruleConditionsForRisk(rule: CreateOrUpdateRuleSchema): RuleConditions {
     to: rule.condition.static?.to ?? undefined,
     subject: rule.condition.static?.subject ?? undefined,
   };
+}
+
+function validateWebhookUrlsInActions(actions: RuleActionCreateData[]) {
+  for (const action of actions) {
+    if (action.type !== ActionType.CALL_WEBHOOK || !action.url) continue;
+
+    const result = validateWebhookUrlFormat(action.url);
+    if (!result.valid) {
+      throw new SafeError(`Invalid webhook URL: ${result.error}`, 400);
+    }
+  }
+}
+
+function addActionOwnershipToInputs(
+  actions: RuleActionCreateData[],
+  emailAccountId: string,
+): Prisma.ActionCreateManyRuleInput[] {
+  return actions.map((action) =>
+    addActionOwnershipToInput(action, emailAccountId),
+  );
 }

@@ -12,8 +12,10 @@ import {
 } from "@/utils/actions/messaging-channels.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
+import { isNotFoundError } from "@/utils/prisma-helpers";
 import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
 import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
+import { addActionOwnershipToInput } from "@/utils/rule/rule";
 
 const MESSAGING_ACTION_TYPES = [
   ActionType.NOTIFY_MESSAGING_CHANNEL,
@@ -39,11 +41,21 @@ export const updateSlackChannelAction = actionClient
       ctx: { emailAccountId, logger },
       parsedInput: { channelId, targetId },
     }) => {
+      const where = {
+        id_emailAccountId: { id: channelId, emailAccountId },
+      };
+
       const channel = await prisma.messagingChannel.findUnique({
-        where: { id: channelId },
+        where,
+        select: {
+          isConnected: true,
+          accessToken: true,
+          providerUserId: true,
+          botUserId: true,
+        },
       });
 
-      if (!channel || channel.emailAccountId !== emailAccountId) {
+      if (!channel) {
         throw new SafeError("Messaging channel not found");
       }
 
@@ -63,7 +75,7 @@ export const updateSlackChannelAction = actionClient
         }
 
         await prisma.messagingChannel.update({
-          where: { id: channelId },
+          where,
           data: { channelId: SLACK_DM_CHANNEL_SENTINEL, channelName: null },
         });
         return;
@@ -83,7 +95,7 @@ export const updateSlackChannelAction = actionClient
       }
 
       await prisma.messagingChannel.update({
-        where: { id: channelId },
+        where,
         data: {
           channelId: targetId,
           channelName: channelInfo.name,
@@ -110,11 +122,22 @@ export const updateChannelFeaturesAction = actionClient
       ctx: { emailAccountId },
       parsedInput: { channelId, sendMeetingBriefs, sendDocumentFilings },
     }) => {
+      const where = {
+        id_emailAccountId: { id: channelId, emailAccountId },
+      };
+
       const channel = await prisma.messagingChannel.findUnique({
-        where: { id: channelId },
+        where,
+        select: {
+          isConnected: true,
+          provider: true,
+          providerUserId: true,
+          channelId: true,
+          teamId: true,
+        },
       });
 
-      if (!channel || channel.emailAccountId !== emailAccountId) {
+      if (!channel) {
         throw new SafeError("Messaging channel not found");
       }
 
@@ -131,7 +154,7 @@ export const updateChannelFeaturesAction = actionClient
       }
 
       await prisma.messagingChannel.update({
-        where: { id: channelId },
+        where,
         data: {
           ...(sendMeetingBriefs !== undefined && { sendMeetingBriefs }),
           ...(sendDocumentFilings !== undefined && { sendDocumentFilings }),
@@ -154,24 +177,27 @@ export const disconnectChannelAction = actionClient
   .metadata({ name: "disconnectChannel" })
   .inputSchema(disconnectChannelBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { channelId } }) => {
-    const channel = await prisma.messagingChannel.findUnique({
-      where: { id: channelId },
-    });
-
-    if (!channel || channel.emailAccountId !== emailAccountId) {
-      throw new SafeError("Messaging channel not found");
+    try {
+      await prisma.messagingChannel.update({
+        where: {
+          id_emailAccountId: {
+            id: channelId,
+            emailAccountId,
+          },
+        },
+        data: {
+          isConnected: false,
+          channelId: null,
+          channelName: null,
+          sendMeetingBriefs: false,
+          sendDocumentFilings: false,
+        },
+      });
+    } catch (error) {
+      if (isNotFoundError(error))
+        throw new SafeError("Messaging channel not found");
+      throw error;
     }
-
-    await prisma.messagingChannel.update({
-      where: { id: channelId },
-      data: {
-        isConnected: false,
-        channelId: null,
-        channelName: null,
-        sendMeetingBriefs: false,
-        sendDocumentFilings: false,
-      },
-    });
   });
 
 export const linkSlackWorkspaceAction = actionClient
@@ -318,13 +344,28 @@ export const toggleRuleChannelAction = actionClient
     }) => {
       const [rule, channel] = await Promise.all([
         prisma.rule.findUnique({
-          where: { id: ruleId },
-          select: { emailAccountId: true },
+          where: {
+            id_emailAccountId: {
+              id: ruleId,
+              emailAccountId,
+            },
+          },
+          select: {
+            actions: {
+              where: { type: ActionType.DRAFT_EMAIL },
+              select: { id: true },
+              take: 1,
+            },
+          },
         }),
         prisma.messagingChannel.findUnique({
-          where: { id: messagingChannelId },
+          where: {
+            id_emailAccountId: {
+              id: messagingChannelId,
+              emailAccountId,
+            },
+          },
           select: {
-            emailAccountId: true,
             isConnected: true,
             provider: true,
             teamId: true,
@@ -334,15 +375,22 @@ export const toggleRuleChannelAction = actionClient
         }),
       ]);
 
-      if (!rule || rule.emailAccountId !== emailAccountId) {
+      if (!rule) {
         throw new SafeError("Rule not found");
       }
-      if (!channel || channel.emailAccountId !== emailAccountId) {
+      if (!channel) {
         throw new SafeError("Messaging channel not found");
       }
 
-      const actionType: ActionType =
+      let actionType: ActionType =
         requestedType ?? ActionType.NOTIFY_MESSAGING_CHANNEL;
+      const hasDraftEmailAction = (rule.actions?.length ?? 0) > 0;
+      if (
+        actionType === ActionType.DRAFT_MESSAGING_CHANNEL &&
+        !hasDraftEmailAction
+      ) {
+        actionType = ActionType.NOTIFY_MESSAGING_CHANNEL;
+      }
 
       if (enabled) {
         if (!channel.isConnected) {
@@ -364,11 +412,14 @@ export const toggleRuleChannelAction = actionClient
         });
 
         await prisma.action.create({
-          data: {
-            type: actionType,
-            ruleId,
-            messagingChannelId,
-          },
+          data: addActionOwnershipToInput(
+            {
+              type: actionType,
+              ruleId,
+              messagingChannelId,
+            },
+            emailAccountId,
+          ),
         });
       } else {
         await prisma.action.deleteMany({

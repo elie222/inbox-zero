@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelMessage } from "ai";
 import { getEmailAccount, getMockMessage } from "@/__tests__/helpers";
+import { ActionType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
@@ -15,6 +16,7 @@ const {
 } = vi.hoisted(() => ({
   envState: {
     sendEmailEnabled: true,
+    webhookActionsEnabled: true,
   },
   mockToolCallAgentStream: vi.fn(),
   mockCreateEmailProvider: vi.fn(),
@@ -65,6 +67,9 @@ vi.mock("@/env", () => ({
     get NEXT_PUBLIC_EMAIL_SEND_ENABLED() {
       return envState.sendEmailEnabled;
     },
+    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
+      return envState.webhookActionsEnabled;
+    },
   },
 }));
 
@@ -77,8 +82,15 @@ const baseMessages: ModelMessage[] = [
   },
 ];
 
-async function loadAssistantChatModule({ emailSend }: { emailSend: boolean }) {
+async function loadAssistantChatModule({
+  emailSend,
+  webhookActions = true,
+}: {
+  emailSend: boolean;
+  webhookActions?: boolean;
+}) {
   envState.sendEmailEnabled = emailSend;
+  envState.webhookActionsEnabled = webhookActions;
   vi.resetModules();
   return await import("@/utils/ai/assistant/chat");
 }
@@ -111,6 +123,7 @@ describe("aiProcessAssistantChat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envState.sendEmailEnabled = true;
+    envState.webhookActionsEnabled = true;
   });
 
   it("includes expanded prompt guidance and new tool set when email sending is enabled", async () => {
@@ -238,6 +251,66 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     expect(args.tools.sendEmail).toBeUndefined();
     expect(args.tools.forwardEmail).toBeUndefined();
+  });
+
+  it("does not expose webhook rule actions when webhook actions are disabled", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+      webhookActions: false,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+
+    expect(
+      args.tools.createRule.inputSchema.safeParse(getWebhookRuleInput())
+        .success,
+    ).toBe(false);
+    expect(
+      args.tools.updateRuleActions.inputSchema.safeParse(
+        getWebhookRuleActionsInput(),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("uses generic createRule confirmation guidance in the prompt", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+      webhookActions: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+
+    expect(args.messages[0].content).toContain(
+      "If createRule returns requiresConfirmation, explain that the rule is pending confirmation in the UI and was not created yet.",
+    );
+    expect(args.messages[0].content).not.toContain(
+      "When createRule automates reply, send, or forward with medium-or-higher risk",
+    );
+    expect(args.messages[0].content).not.toContain(
+      "When createRule includes a webhook action",
+    );
   });
 
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
@@ -2013,3 +2086,51 @@ describe("aiProcessAssistantChat", () => {
     });
   });
 });
+
+function getWebhookRuleInput() {
+  return {
+    name: "Webhook",
+    condition: {
+      conditionalOperator: null,
+      aiInstructions: "Send matching emails to the webhook",
+      static: null,
+    },
+    actions: [
+      {
+        type: ActionType.CALL_WEBHOOK,
+        fields: {
+          label: null,
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: "https://example.com/webhook",
+        },
+        delayInMinutes: null,
+      },
+    ],
+  };
+}
+
+function getWebhookRuleActionsInput() {
+  return {
+    ruleName: "Existing rule",
+    actions: [
+      {
+        type: ActionType.CALL_WEBHOOK,
+        fields: {
+          label: null,
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: "https://example.com/webhook",
+          folderName: null,
+        },
+        delayInMinutes: null,
+      },
+    ],
+  };
+}

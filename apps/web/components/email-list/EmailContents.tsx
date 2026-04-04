@@ -2,11 +2,18 @@ import { startTransition, useMemo, useState, useRef, useEffect } from "react";
 import { useTheme } from "next-themes";
 import DOMPurify from "dompurify";
 import { env } from "@/env";
+import { decodeHtmlEntities } from "@/utils/gmail/decode";
+import { getImageProxyBaseUrl } from "@/utils/email/image-proxy-config";
 
-const IMAGE_PROXY_ORIGIN = env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL
-  ? new URL(env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL).origin
+const IMAGE_PROXY_BASE_URL = getImageProxyBaseUrl({
+  baseUrl: env.NEXT_PUBLIC_BASE_URL,
+  externalProxyBaseUrl: env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL,
+  useAppRoute: env.NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE,
+});
+const IMAGE_PROXY_ORIGIN = IMAGE_PROXY_BASE_URL
+  ? new URL(IMAGE_PROXY_BASE_URL).origin
   : null;
-const IMAGE_PROXY_ENABLED = Boolean(env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL);
+const IMAGE_PROXY_ENABLED = Boolean(IMAGE_PROXY_BASE_URL);
 const IMAGE_PROXY_RENDER_ROUTE = "/api/email/render-html";
 
 export function HtmlEmail({ html }: { html: string }) {
@@ -57,6 +64,7 @@ export function HtmlEmail({ html }: { html: string }) {
       getIframeHtml(
         showReplies ? renderHtml : mainContent,
         isDarkMode,
+        IMAGE_PROXY_BASE_URL,
         IMAGE_PROXY_ORIGIN,
       ),
     [renderHtml, mainContent, showReplies, isDarkMode],
@@ -89,7 +97,11 @@ export function HtmlEmail({ html }: { html: string }) {
 }
 
 export function PlainEmail({ text }: { text: string }) {
-  return <pre className="whitespace-pre-wrap text-foreground">{text}</pre>;
+  return (
+    <pre className="whitespace-pre-wrap text-foreground">
+      {decodeHtmlEntities(text)}
+    </pre>
+  );
 }
 
 function getEmailContent(html: string) {
@@ -114,6 +126,7 @@ function getEmailContent(html: string) {
 function getIframeHtml(
   html: string,
   isDarkMode: boolean,
+  imageProxyBaseUrl: string | null,
   imageProxyOrigin: string | null,
 ) {
   // Count style attributes safely
@@ -205,11 +218,18 @@ function getIframeHtml(
     </style>
   `;
 
+  // The server can fail closed to the original HTML when proxy signing is unavailable,
+  // so only lock CSP to the proxy after the rendered markup actually points at it.
+  const imageSourceDirective =
+    imageProxyBaseUrl && imageProxyOrigin && html.includes(imageProxyBaseUrl)
+      ? imageProxyOrigin
+      : "https:";
+
   const securityHeaders = `
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'none';
       style-src 'unsafe-inline';
-      img-src data: ${imageProxyOrigin || "https:"};
+      img-src data: ${imageSourceDirective};
       font-src 'none';
       media-src 'none';
       connect-src 'none';

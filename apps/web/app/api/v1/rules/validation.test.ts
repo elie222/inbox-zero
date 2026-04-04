@@ -1,8 +1,27 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType } from "@/generated/prisma/enums";
 import { ruleRequestBodySchema, rulesResponseSchema } from "./validation";
+import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
+
+const { mockEnv } = vi.hoisted(() => ({
+  mockEnv: {
+    webhookActionsEnabled: true,
+  },
+}));
+
+vi.mock("@/env", () => ({
+  env: {
+    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
+      return mockEnv.webhookActionsEnabled;
+    },
+  },
+}));
 
 describe("rule API validation", () => {
+  beforeEach(() => {
+    mockEnv.webhookActionsEnabled = true;
+  });
+
   it.each([
     {
       type: ActionType.LABEL,
@@ -161,5 +180,31 @@ describe("rule API validation", () => {
       0,
       "messagingChannelId",
     ]);
+  });
+
+  it("rejects CALL_WEBHOOK when webhook actions are disabled", () => {
+    mockEnv.webhookActionsEnabled = false;
+
+    const result = ruleRequestBodySchema.safeParse({
+      name: "Rule",
+      runOnThreads: true,
+      condition: {
+        aiInstructions: "Match this email",
+      },
+      actions: [
+        {
+          type: ActionType.CALL_WEBHOOK,
+          fields: {
+            webhookUrl: "https://example.com/webhook",
+          },
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(
+      WEBHOOK_ACTION_DISABLED_MESSAGE,
+    );
+    expect(result.error?.issues[0]?.path).toEqual(["actions", 0, "type"]);
   });
 });

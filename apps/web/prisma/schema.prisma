@@ -192,6 +192,7 @@ model EmailAccount {
   digests          Digest[]
   scheduledActions ScheduledAction[]
   responseTimes    ResponseTime[]
+  actions          Action[]
 
   members             Member[]
   invitations         Invitation[]
@@ -471,6 +472,7 @@ model Rule {
 
   history RuleHistory[]
 
+  @@unique([id, emailAccountId])
   @@unique([name, emailAccountId])
   @@unique([emailAccountId, systemType])
 }
@@ -481,9 +483,14 @@ model Action {
   updatedAt DateTime   @updatedAt
   type      ActionType
   ruleId    String
-  rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  emailAccountId String
+  rule      Rule       @relation(fields: [ruleId, emailAccountId], references: [id, emailAccountId], onDelete: Cascade)
+  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   messagingChannelId String?
-  messagingChannel   MessagingChannel? @relation(fields: [messagingChannelId], references: [id], onDelete: SetNull)
+  // Keep the channel owner separate so channel deletes can null the relation
+  // without nulling Action.emailAccountId.
+  messagingChannelEmailAccountId String?
+  messagingChannel   MessagingChannel? @relation(fields: [messagingChannelId, messagingChannelEmailAccountId], references: [id, emailAccountId], onDelete: SetNull)
 
   label             String? // labelName - labelId is the source of truth, and we use it when set
   labelId           String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
@@ -499,6 +506,8 @@ model Action {
   staticAttachments Json? // AttachmentSourceInput[] — explicit files to attach for email actions
 
   @@index([ruleId])
+  @@index([emailAccountId])
+  @@index([messagingChannelId, messagingChannelEmailAccountId])
 }
 
 model RuleHistory {

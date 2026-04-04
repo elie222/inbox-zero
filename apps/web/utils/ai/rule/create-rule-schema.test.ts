@@ -1,6 +1,32 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType } from "@/generated/prisma/enums";
-import { createRuleSchema, getAvailableActions } from "./create-rule-schema";
+import {
+  createRuleSchema,
+  getAvailableActions,
+  getExtraActions,
+} from "./create-rule-schema";
+
+const { mockEnv } = vi.hoisted(() => ({
+  mockEnv: {
+    emailSendEnabled: true,
+    autoDraftDisabled: false,
+    webhookActionsEnabled: true,
+  },
+}));
+
+vi.mock("@/env", () => ({
+  env: {
+    get NEXT_PUBLIC_EMAIL_SEND_ENABLED() {
+      return mockEnv.emailSendEnabled;
+    },
+    get NEXT_PUBLIC_AUTO_DRAFT_DISABLED() {
+      return mockEnv.autoDraftDisabled;
+    },
+    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
+      return mockEnv.webhookActionsEnabled;
+    },
+  },
+}));
 
 describe("createRuleSchema", () => {
   const provider = "google";
@@ -14,6 +40,12 @@ describe("createRuleSchema", () => {
       );
     }
   };
+
+  beforeEach(() => {
+    mockEnv.emailSendEnabled = true;
+    mockEnv.autoDraftDisabled = false;
+    mockEnv.webhookActionsEnabled = true;
+  });
 
   it("includes SEND_EMAIL in available actions for this test provider", () => {
     assertSendEmailAvailable();
@@ -234,28 +266,46 @@ describe("createRuleSchema", () => {
       ).toBe(true);
     }
   });
-
-  function buildRule(action: {
-    type: ActionType;
-    fields: {
-      label: string | null;
-      to: string | null;
-      cc: string | null;
-      bcc: string | null;
-      subject: string | null;
-      content: string | null;
-      webhookUrl: string | null;
-    };
-    delayInMinutes: number | null;
-  }) {
-    return {
-      name: "AutoReplyRule",
-      condition: {
-        conditionalOperator: null,
-        aiInstructions: "Auto reply to support emails",
-        static: null,
-      },
-      actions: [action],
-    };
-  }
 });
+
+describe("getExtraActions", () => {
+  beforeEach(() => {
+    mockEnv.emailSendEnabled = true;
+    mockEnv.autoDraftDisabled = false;
+    mockEnv.webhookActionsEnabled = true;
+  });
+
+  it("includes CALL_WEBHOOK when webhook actions are enabled", () => {
+    expect(getExtraActions()).toContain(ActionType.CALL_WEBHOOK);
+  });
+
+  it("omits CALL_WEBHOOK when webhook actions are disabled", () => {
+    mockEnv.webhookActionsEnabled = false;
+
+    expect(getExtraActions()).not.toContain(ActionType.CALL_WEBHOOK);
+  });
+});
+
+function buildRule(action: {
+  type: ActionType;
+  fields: {
+    label: string | null;
+    to: string | null;
+    cc: string | null;
+    bcc: string | null;
+    subject: string | null;
+    content: string | null;
+    webhookUrl: string | null;
+  };
+  delayInMinutes: number | null;
+}) {
+  return {
+    name: "AutoReplyRule",
+    condition: {
+      conditionalOperator: null,
+      aiInstructions: "Auto reply to support emails",
+      static: null,
+    },
+    actions: [action],
+  };
+}

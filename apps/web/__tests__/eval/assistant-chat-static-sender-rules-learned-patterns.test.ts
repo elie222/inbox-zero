@@ -110,11 +110,18 @@ const {
   mockUnsubscribeSenderAndMark: vi.fn(),
 }));
 
-vi.mock("@/utils/rule/rule", () => ({
-  createRule: mockCreateRule,
-  partialUpdateRule: mockPartialUpdateRule,
-  updateRuleActions: mockUpdateRuleActions,
-}));
+vi.mock("@/utils/rule/rule", async (importOriginal) => {
+  const { buildRuleModuleMutationMock } = await import(
+    "@/__tests__/eval/assistant-chat-rule-eval-test-utils"
+  );
+
+  return buildRuleModuleMutationMock({
+    importOriginal: () => importOriginal<typeof import("@/utils/rule/rule")>(),
+    mockCreateRule,
+    mockPartialUpdateRule,
+    mockUpdateRuleActions,
+  });
+});
 
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPatterns: mockSaveLearnedPatterns,
