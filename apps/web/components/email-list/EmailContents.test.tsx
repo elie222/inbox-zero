@@ -14,7 +14,7 @@ vi.mock("@/env", () => ({
   },
 }));
 
-import { HtmlEmail } from "./EmailContents";
+import { HtmlEmail, PlainEmail } from "./EmailContents";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -48,5 +48,21 @@ describe("HtmlEmail", () => {
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
+  });
+});
+
+describe("PlainEmail", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("decodes html entities in plain text email content", () => {
+    const text =
+      "Hi, I was curious to know-do you have a preference for puzzle games or more action-oriented ones? I&#39;ve found that mobile gaming is such a fascinating way to pass the time, and I&#39;m always";
+
+    const { container } = render(<PlainEmail text={text} />);
+
+    expect(container.textContent).toContain("I've found");
+    expect(container.textContent).not.toContain("&#39;");
   });
 });

@@ -2,6 +2,7 @@ import { startTransition, useMemo, useState, useRef, useEffect } from "react";
 import { useTheme } from "next-themes";
 import DOMPurify from "dompurify";
 import { env } from "@/env";
+import { decodeHtmlEntities } from "@/utils/gmail/decode";
 
 const IMAGE_PROXY_ORIGIN = env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL
   ? new URL(env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL).origin
@@ -89,7 +90,11 @@ export function HtmlEmail({ html }: { html: string }) {
 }
 
 export function PlainEmail({ text }: { text: string }) {
-  return <pre className="whitespace-pre-wrap text-foreground">{text}</pre>;
+  return (
+    <pre className="whitespace-pre-wrap text-foreground">
+      {decodeHtmlEntities(text)}
+    </pre>
+  );
 }
 
 function getEmailContent(html: string) {
