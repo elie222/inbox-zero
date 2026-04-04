@@ -14,6 +14,7 @@ import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { SafeError } from "@/utils/error";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import { validateWebhookUrlFormat } from "@/utils/webhook-validation";
 import {
   getBlockedLowTrustStaticFromActionTypes,
   LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
@@ -159,6 +160,8 @@ export async function createRuleWithResolvedActions({
     actionTypes: actions.map((action) => action.type),
   });
 
+  validateWebhookUrlsInActions(actions);
+
   const rule = await prisma.rule.create({
     data: {
       emailAccountId,
@@ -200,6 +203,8 @@ export async function replaceRuleWithResolvedActions({
     from: data.from,
     actionTypes: actions.map((action) => action.type),
   });
+
+  validateWebhookUrlsInActions(actions);
 
   const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
@@ -718,4 +723,17 @@ function ruleConditionsForRisk(rule: CreateOrUpdateRuleSchema): RuleConditions {
     to: rule.condition.static?.to ?? undefined,
     subject: rule.condition.static?.subject ?? undefined,
   };
+}
+
+function validateWebhookUrlsInActions(
+  actions: Prisma.ActionCreateManyRuleInput[],
+) {
+  for (const action of actions) {
+    if (action.type !== ActionType.CALL_WEBHOOK || !action.url) continue;
+
+    const result = validateWebhookUrlFormat(action.url);
+    if (!result.valid) {
+      throw new SafeError(`Invalid webhook URL: ${result.error}`, 400);
+    }
+  }
 }

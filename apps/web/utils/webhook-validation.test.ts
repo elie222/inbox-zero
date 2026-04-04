@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { validateWebhookUrl } from "./webhook-validation";
+import {
+  validateWebhookUrl,
+  validateWebhookUrlFormat,
+} from "./webhook-validation";
 import * as dns from "node:dns/promises";
 
 // Mock dns.resolve and dns.resolve6
@@ -306,5 +309,78 @@ describe("validateWebhookUrl", () => {
       const result = await validateWebhookUrl("https://example.com/webhook");
       expect(result.valid).toBe(true);
     });
+  });
+});
+
+describe("validateWebhookUrlFormat", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("rejects invalid URLs", () => {
+    const result = validateWebhookUrlFormat("not-a-url");
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.error).toBe("Invalid URL format");
+  });
+
+  it("rejects file:// scheme", () => {
+    const result = validateWebhookUrlFormat("file:///etc/passwd");
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects ftp:// scheme", () => {
+    const result = validateWebhookUrlFormat("ftp://example.com/file");
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects localhost", () => {
+    const result = validateWebhookUrlFormat("https://localhost/webhook");
+    expect(result.valid).toBe(false);
+    if (!result.valid)
+      expect(result.error).toBe("Webhook URL hostname is not allowed");
+  });
+
+  it("rejects cloud metadata endpoints", () => {
+    const result = validateWebhookUrlFormat(
+      "https://metadata.google.internal/computeMetadata/v1/",
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid)
+      expect(result.error).toBe("Webhook URL hostname is not allowed");
+  });
+
+  it("rejects private IPv4 addresses", () => {
+    expect(validateWebhookUrlFormat("https://127.0.0.1/hook").valid).toBe(
+      false,
+    );
+    expect(validateWebhookUrlFormat("https://10.0.0.1/hook").valid).toBe(false);
+    expect(validateWebhookUrlFormat("https://192.168.1.1/hook").valid).toBe(
+      false,
+    );
+    expect(validateWebhookUrlFormat("https://169.254.169.254/hook").valid).toBe(
+      false,
+    );
+  });
+
+  it("accepts valid public URLs without DNS resolution", () => {
+    const result = validateWebhookUrlFormat("https://example.com/webhook");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts valid URLs with ports", () => {
+    const result = validateWebhookUrlFormat("https://example.com:8443/webhook");
+    expect(result.valid).toBe(true);
+  });
+
+  it("allows HTTP in development", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const result = validateWebhookUrlFormat("http://example.com/webhook");
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects HTTP in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const result = validateWebhookUrlFormat("http://example.com/webhook");
+    expect(result.valid).toBe(false);
   });
 });
