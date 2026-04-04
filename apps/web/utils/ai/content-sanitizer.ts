@@ -5,13 +5,13 @@ import type { ParsedMessage } from "@/utils/types";
 const DOCUMENT_PATTERN = /<!doctype|<html[\s>]|<head[\s>]|<body[\s>]/i;
 type SanitizableNode = ReturnType<CheerioAPI> | ReturnType<CheerioAPI["root"]>;
 
-export function stripHiddenText(text: string): string {
+function stripHiddenText(text: string): string {
   let result = text.replace(/\u200B|\u200C|\u200D|\u2060|\uFEFF/g, "");
   result = result.replace(/[\u202A-\u202E\u2066-\u2069]/g, "");
   return result;
 }
 
-export function stripHiddenHtml(html: string): string {
+function stripHiddenHtml(html: string): string {
   const normalizedHtml = stripHiddenText(html);
   const isDocument = DOCUMENT_PATTERN.test(normalizedHtml);
   const $ = load(normalizedHtml, null, isDocument);
@@ -21,10 +21,10 @@ export function stripHiddenHtml(html: string): string {
   return isDocument ? $.html() : ($.root().html() ?? normalizedHtml);
 }
 
-export function sanitizeForAI(input: {
+function sanitizeForAI(input: { textPlain?: string; textHtml?: string }): {
   textPlain?: string;
   textHtml?: string;
-}): { textPlain?: string; textHtml?: string } {
+} {
   return {
     textPlain: input.textPlain
       ? stripHiddenText(input.textPlain)
