@@ -1,4 +1,4 @@
-import * as ipaddr from "ipaddr.js";
+import ipaddr from "ipaddr.js";
 
 const BLOCKED_HOSTNAMES = new Set([
   "ip6-localhost",
@@ -10,13 +10,18 @@ const BLOCKED_HOSTNAMES = new Set([
 ]);
 
 const BLOCKED_IP_RANGES = new Set([
+  "6to4",
   "broadcast",
   "carrierGradeNat",
+  "ipv4Mapped",
   "linkLocal",
   "loopback",
   "multicast",
   "private",
+  "rfc6052",
+  "rfc6145",
   "reserved",
+  "teredo",
   "uniqueLocal",
   "unspecified",
 ]);
