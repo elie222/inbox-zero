@@ -3,6 +3,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import { ActionType } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
 import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
+import { getActionRiskLevel } from "@/utils/risk";
 
 const { mockEnv } = vi.hoisted(() => ({
   mockEnv: {
@@ -58,6 +59,10 @@ describe("deleteRule", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockEnv.webhookActionsEnabled = true;
+    vi.mocked(getActionRiskLevel).mockReturnValue({
+      level: "low",
+      message: "safe",
+    });
   });
 
   it("deletes the group first and relies on cascade delete for grouped rules", async () => {
@@ -113,6 +118,10 @@ describe("outbound action guardrails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockEnv.webhookActionsEnabled = true;
+    vi.mocked(getActionRiskLevel).mockReturnValue({
+      level: "low",
+      message: "safe",
+    });
   });
 
   it("rejects creating a low-trust from rule with FORWARD", async () => {
@@ -346,6 +355,94 @@ describe("outbound action guardrails", () => {
 describe("draft messaging actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getActionRiskLevel).mockReturnValue({
+      level: "low",
+      message: "safe",
+    });
+  });
+
+  it("rejects creating a draft messaging rule with a channel from another account", async () => {
+    prisma.rule.create.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([] as any);
+
+    await expect(
+      createRule({
+        result: {
+          name: "To Reply",
+          condition: {
+            aiInstructions: null,
+            conditionalOperator: null,
+            static: {
+              from: null,
+              to: null,
+              subject: null,
+            },
+          },
+          actions: [
+            {
+              type: ActionType.DRAFT_MESSAGING_CHANNEL,
+              messagingChannelId: "cmessagingchannel1234567890123",
+              fields: {
+                content: "",
+              } as any,
+              delayInMinutes: null,
+            },
+          ],
+        },
+        emailAccountId: "email-account-id",
+        provider: "gmail",
+        runOnThreads: true,
+        logger,
+      }),
+    ).rejects.toThrow("Messaging channel not found");
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects updating a draft messaging rule with a channel from another account", async () => {
+    prisma.rule.update.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([] as any);
+
+    await expect(
+      updateRule({
+        ruleId: "rule-id",
+        result: {
+          name: "To Reply",
+          condition: {
+            aiInstructions: null,
+            conditionalOperator: null,
+            static: {
+              from: null,
+              to: null,
+              subject: null,
+            },
+          },
+          actions: [
+            {
+              type: ActionType.DRAFT_MESSAGING_CHANNEL,
+              messagingChannelId: "cmessagingchannel1234567890123",
+              fields: {
+                content: "",
+              } as any,
+              delayInMinutes: null,
+            },
+          ],
+        },
+        emailAccountId: "email-account-id",
+        provider: "gmail",
+        logger,
+      }),
+    ).rejects.toThrow("Messaging channel not found");
+
+    expect(prisma.rule.update).not.toHaveBeenCalled();
   });
 
   it("preserves messagingChannelId when updating a draft messaging rule", async () => {
@@ -354,6 +451,11 @@ describe("draft messaging actions", () => {
       actions: [],
       group: null,
     } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([
+      {
+        id: "cmessagingchannel1234567890123",
+      },
+    ] as any);
 
     await updateRule({
       ruleId: "rule-id",

@@ -267,7 +267,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
 
     test("sendSlackRuleNotification posts a draft card with interactive actions", async () => {
-      const { sendSlackRuleNotification } = await import(
+      const { sendMessagingRuleNotification } = await import(
         "@/utils/messaging/rule-notifications"
       );
 
@@ -286,7 +286,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       prisma.executedAction.findFirst.mockResolvedValue(null);
       prisma.executedAction.update.mockResolvedValue({} as never);
 
-      await sendSlackRuleNotification({
+      await sendMessagingRuleNotification({
         executedActionId: "draft-action-1",
         email: {
           headers: {
@@ -326,7 +326,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
     test("edited Slack drafts send the synced Gmail draft", async () => {
       const {
-        sendSlackRuleNotification,
+        sendMessagingRuleNotification,
         handleSlackRuleNotificationAction,
         handleSlackRuleNotificationModalSubmit,
       } = await import("@/utils/messaging/rule-notifications");
@@ -397,6 +397,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           },
           messagingChannel: {
             id: "channel-1",
+            emailAccountId: "email-account-1",
             provider: MessagingProvider.SLACK,
             isConnected: true,
             teamId: "team-1",
@@ -513,7 +514,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           },
         );
 
-        await sendSlackRuleNotification({
+        await sendMessagingRuleNotification({
           executedActionId: slackActionState.id,
           email: {
             headers: {
@@ -628,8 +629,8 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       }
     });
 
-    test("sendSlackRuleNotification posts a generic info card with archive actions", async () => {
-      const { sendSlackRuleNotification } = await import(
+    test("sendMessagingRuleNotification posts a generic info card with archive actions", async () => {
+      const { sendMessagingRuleNotification } = await import(
         "@/utils/messaging/rule-notifications"
       );
 
@@ -648,7 +649,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       prisma.executedAction.findFirst.mockResolvedValue(null);
       prisma.executedAction.update.mockResolvedValue({} as never);
 
-      await sendSlackRuleNotification({
+      await sendMessagingRuleNotification({
         executedActionId: "notify-action-1",
         email: {
           headers: {
@@ -674,8 +675,8 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       );
     });
 
-    test("sendSlackRuleNotification replies in a thread for later actions on the same email thread", async () => {
-      const { sendSlackRuleNotification } = await import(
+    test("sendMessagingRuleNotification replies in a thread for later actions on the same email thread", async () => {
+      const { sendMessagingRuleNotification } = await import(
         "@/utils/messaging/rule-notifications"
       );
 
@@ -732,7 +733,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         },
       );
 
-      await sendSlackRuleNotification({
+      await sendMessagingRuleNotification({
         executedActionId: "thread-action-1",
         email: {
           headers: {
@@ -744,7 +745,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         logger,
       });
 
-      await sendSlackRuleNotification({
+      await sendMessagingRuleNotification({
         executedActionId: "thread-action-2",
         email: {
           headers: {
@@ -852,6 +853,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
       prisma.executedAction.findFirst.mockResolvedValue(null);
       prisma.executedAction.update.mockResolvedValue({} as never);
+      prisma.messagingChannel.findMany.mockResolvedValue([
+        {
+          id: "channel-1",
+        },
+      ] as never);
 
       const updatedRule = await updateRule({
         ruleId: "rule-1",
@@ -988,6 +994,7 @@ function getNotificationContext({
     messagingChannel: messagingChannelId
       ? {
           id: messagingChannelId,
+          emailAccountId: "email-account-1",
           provider: MessagingProvider.SLACK,
           isConnected: true,
           teamId: "team-1",

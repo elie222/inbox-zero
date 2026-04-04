@@ -238,6 +238,45 @@ describe("sendMessagingRuleNotification", () => {
     expect(mockSendAutomationMessage).not.toHaveBeenCalled();
     expect(prisma.executedAction.update).not.toHaveBeenCalled();
   });
+
+  it("skips notifications when the messaging channel belongs to another account", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        content: null,
+        messagingChannel: {
+          id: "channel-1",
+          emailAccountId: "other-email-account-id",
+          provider: MessagingProvider.SLACK,
+          isConnected: true,
+          teamId: "team-1",
+          providerUserId: null,
+          accessToken: "token",
+          channelId: "C123",
+        },
+      }) as never,
+    );
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(false);
+    expect(prisma.executedAction.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("buildMessagingRuleNotificationText", () => {
@@ -274,6 +313,7 @@ function getNotificationContext({
   content: string | null;
   messagingChannel?: {
     id: string;
+    emailAccountId?: string;
     provider: MessagingProvider;
     isConnected: boolean;
     teamId: string | null;
@@ -311,14 +351,20 @@ function getNotificationContext({
         systemType: null,
       },
     },
-    messagingChannel: messagingChannel ?? {
-      id: "channel-1",
-      provider: MessagingProvider.SLACK,
-      isConnected: true,
-      teamId: "team-1",
-      providerUserId: null,
-      accessToken: "token",
-      channelId: "C123",
-    },
+    messagingChannel: messagingChannel
+      ? {
+          emailAccountId: "email-account-1",
+          ...messagingChannel,
+        }
+      : {
+          id: "channel-1",
+          emailAccountId: "email-account-1",
+          provider: MessagingProvider.SLACK,
+          isConnected: true,
+          teamId: "team-1",
+          providerUserId: null,
+          accessToken: "token",
+          channelId: "C123",
+        },
   };
 }
