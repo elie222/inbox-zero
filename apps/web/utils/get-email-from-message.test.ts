@@ -66,6 +66,32 @@ describe("getEmailForLLM", () => {
     expect(result.content).not.toContain("secret instruction");
   });
 
+  it("strips hidden elements with single-quoted styles from HTML content", () => {
+    const msg = makeParsedMessage({
+      textHtml:
+        "<p>Visible</p><span style='display:none'>hidden one</span><div style='visibility:hidden'>hidden two</div><span style='font-size:0px'>hidden three</span><p>End</p>",
+    });
+    const result = getEmailForLLM(msg);
+    expect(result.content).toContain("Visible");
+    expect(result.content).toContain("End");
+    expect(result.content).not.toContain("hidden one");
+    expect(result.content).not.toContain("hidden two");
+    expect(result.content).not.toContain("hidden three");
+  });
+
+  it("strips hidden elements with !important and zero-unit styles", () => {
+    const msg = makeParsedMessage({
+      textHtml:
+        '<p>Visible</p><span style="display:none !important">hidden one</span><div style="visibility:hidden !important">hidden two</div><span style="font-size:0rem">hidden three</span><p>End</p>',
+    });
+    const result = getEmailForLLM(msg);
+    expect(result.content).toContain("Visible");
+    expect(result.content).toContain("End");
+    expect(result.content).not.toContain("hidden one");
+    expect(result.content).not.toContain("hidden two");
+    expect(result.content).not.toContain("hidden three");
+  });
+
   it("strips visibility:hidden elements from HTML content", () => {
     const msg = makeParsedMessage({
       textHtml:
@@ -92,5 +118,15 @@ describe("getEmailForLLM", () => {
     });
     const result = getEmailForLLM(msg);
     expect(result.content).toContain("Normal email content here");
+  });
+
+  it("strips hidden characters from snippet fallback content", () => {
+    const msg = makeParsedMessage({
+      snippet: "Hello\u200B world\u2060",
+      textPlain: undefined,
+      textHtml: undefined,
+    });
+    const result = getEmailForLLM(msg);
+    expect(result.content).toBe("Hello world");
   });
 });
