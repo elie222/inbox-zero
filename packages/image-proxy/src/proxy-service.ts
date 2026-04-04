@@ -108,7 +108,10 @@ export async function handleImageProxyRequest(
 
     ttlSeconds = Math.max(0, expiresAt - nowSeconds);
   } else if (config.allowUnsignedRequests === false) {
-    return new Response("Missing proxy signature", { status: 400 });
+    return new Response(
+      "Proxy misconfigured: IMAGE_PROXY_SIGNING_SECRET is required when unsigned requests are disabled",
+      { status: 500 },
+    );
   }
 
   const cache = options?.cache;
