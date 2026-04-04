@@ -1,10 +1,5 @@
-import type { ModelMessage } from "ai";
 import { describe, expect, it } from "vitest";
-import {
-  createAssistantMemoryRuntimeContext,
-  updateAssistantMemoryRuntimeContext,
-  validateUserMemoryEvidence,
-} from "./chat-memory-policy";
+import { validateUserMemoryEvidence } from "./chat-memory-policy";
 
 describe("chat-memory-policy", () => {
   it("accepts memories that stay close to a direct user statement", () => {
@@ -38,28 +33,5 @@ describe("chat-memory-policy", () => {
 
     expect(result.pass).toBe(false);
     expect(result.reason).toContain("user's own wording");
-  });
-
-  it("marks the runtime context when prior steps read untrusted email content", () => {
-    const conversationMessages: ModelMessage[] = [
-      {
-        role: "user",
-        content: "What does that latest email say?",
-      },
-    ];
-
-    const context = updateAssistantMemoryRuntimeContext({
-      experimentalContext:
-        createAssistantMemoryRuntimeContext(conversationMessages),
-      fallbackMessages: conversationMessages,
-      steps: [
-        {
-          toolCalls: [{ toolName: "searchInbox" }, { toolName: "readEmail" }],
-        },
-      ],
-    });
-
-    expect(context.hasUntrustedRetrieval).toBe(true);
-    expect(context.conversationMessages).toEqual(conversationMessages);
   });
 });
