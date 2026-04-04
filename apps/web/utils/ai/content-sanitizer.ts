@@ -1,3 +1,7 @@
+import * as cheerio from "cheerio";
+
+const DOCUMENT_PATTERN = /<!doctype|<html[\s>]|<head[\s>]|<body[\s>]/i;
+
 export function stripHiddenText(text: string): string {
   let result = text.replace(/\u200B|\u200C|\u200D|\u2060|\uFEFF/g, "");
   result = result.replace(/[\u202A-\u202E\u2066-\u2069]/g, "");
@@ -5,21 +9,13 @@ export function stripHiddenText(text: string): string {
 }
 
 export function stripHiddenHtml(html: string): string {
-  let result = stripHiddenText(html);
-  result = result.replace(/<!--[\s\S]*?-->/g, "");
-  result = result.replace(
-    /<[^>]+style\s*=\s*(?:"[^"]*display\s*:\s*none[^"]*"|'[^']*display\s*:\s*none[^']*')[^>]*>[\s\S]*?<\/[^>]+>/gi,
-    "",
-  );
-  result = result.replace(
-    /<[^>]+style\s*=\s*(?:"[^"]*visibility\s*:\s*hidden[^"]*"|'[^']*visibility\s*:\s*hidden[^']*')[^>]*>[\s\S]*?<\/[^>]+>/gi,
-    "",
-  );
-  result = result.replace(
-    /<[^>]+style\s*=\s*(?:"[^"]*font-size\s*:\s*0(?:px|em|%)?[^"]*"|'[^']*font-size\s*:\s*0(?:px|em|%)?[^']*')[^>]*>[\s\S]*?<\/[^>]+>/gi,
-    "",
-  );
-  return result;
+  const normalizedHtml = stripHiddenText(html);
+  const isDocument = DOCUMENT_PATTERN.test(normalizedHtml);
+  const $ = cheerio.load(normalizedHtml, null, isDocument);
+
+  sanitizeNode($, $.root());
+
+  return isDocument ? $.html() : ($.root().html() ?? normalizedHtml);
 }
 
 export function sanitizeForAI(input: {
@@ -32,4 +28,59 @@ export function sanitizeForAI(input: {
       : input.textPlain,
     textHtml: input.textHtml ? stripHiddenHtml(input.textHtml) : input.textHtml,
   };
+}
+
+function sanitizeNode(
+  $: cheerio.CheerioAPI,
+  node: cheerio.Cheerio<cheerio.AnyNode>,
+) {
+  node.contents().each((_index, child) => {
+    if (child.type === "comment") {
+      $(child).remove();
+      return;
+    }
+
+    if (child.type === "text") {
+      child.data = stripHiddenText(child.data);
+      return;
+    }
+
+    if (child.type !== "tag") return;
+
+    const style = $(child).attr("style");
+    if (style && hasHiddenInlineStyle(style)) {
+      $(child).remove();
+      return;
+    }
+
+    sanitizeNode($, $(child));
+  });
+}
+
+function hasHiddenInlineStyle(style: string) {
+  const declarations = style
+    .split(";")
+    .map((declaration) => declaration.trim())
+    .filter(Boolean);
+
+  for (const declaration of declarations) {
+    const separatorIndex = declaration.indexOf(":");
+    if (separatorIndex === -1) continue;
+
+    const property = declaration.slice(0, separatorIndex).trim().toLowerCase();
+    const value = declaration
+      .slice(separatorIndex + 1)
+      .trim()
+      .toLowerCase();
+
+    if (property === "display" && value === "none") return true;
+    if (property === "visibility" && value === "hidden") return true;
+    if (property === "font-size" && isZeroLength(value)) return true;
+  }
+
+  return false;
+}
+
+function isZeroLength(value: string) {
+  return value === "0" || value === "0px" || value === "0em" || value === "0%";
 }
