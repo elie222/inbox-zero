@@ -319,7 +319,14 @@ export const toggleRuleChannelAction = actionClient
       const [rule, channel] = await Promise.all([
         prisma.rule.findUnique({
           where: { id: ruleId },
-          select: { emailAccountId: true },
+          select: {
+            emailAccountId: true,
+            actions: {
+              where: { type: ActionType.DRAFT_EMAIL },
+              select: { id: true },
+              take: 1,
+            },
+          },
         }),
         prisma.messagingChannel.findUnique({
           where: { id: messagingChannelId },
@@ -341,8 +348,15 @@ export const toggleRuleChannelAction = actionClient
         throw new SafeError("Messaging channel not found");
       }
 
-      const actionType: ActionType =
+      let actionType: ActionType =
         requestedType ?? ActionType.NOTIFY_MESSAGING_CHANNEL;
+      const hasDraftEmailAction = (rule.actions?.length ?? 0) > 0;
+      if (
+        actionType === ActionType.DRAFT_MESSAGING_CHANNEL &&
+        !hasDraftEmailAction
+      ) {
+        actionType = ActionType.NOTIFY_MESSAGING_CHANNEL;
+      }
 
       if (enabled) {
         if (!channel.isConnected) {
