@@ -527,7 +527,7 @@ export async function updateRuleActions({
       actions: {
         deleteMany: {},
         createMany: {
-          data: mappedActions,
+          data: addActionOwnershipToInputs(mappedActions, emailAccountId),
         },
       },
     },
