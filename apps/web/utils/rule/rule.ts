@@ -486,18 +486,21 @@ export async function updateRuleActions({
     actionTypes: actions.map((action) => action.type),
   });
 
+  const mappedActions = await mapActionFields(
+    actions,
+    provider,
+    emailAccountId,
+    logger,
+  );
+  validateWebhookUrlsInActions(mappedActions);
+
   return prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data: {
       actions: {
         deleteMany: {},
         createMany: {
-          data: await mapActionFields(
-            actions,
-            provider,
-            emailAccountId,
-            logger,
-          ),
+          data: mappedActions,
         },
       },
     },
