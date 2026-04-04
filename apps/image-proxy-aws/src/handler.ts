@@ -1,3 +1,4 @@
+import { createSafeImageProxyFetch } from "@inboxzero/image-proxy/node-safe-fetch";
 import { handleImageProxyRequest } from "@inboxzero/image-proxy/proxy-service";
 
 declare const process: {
@@ -29,9 +30,16 @@ type LambdaResponse = {
 
 export async function handler(event: LambdaEvent): Promise<LambdaResponse> {
   const request = buildRequest(event);
-  const response = await handleImageProxyRequest(request, {
-    signingSecret: process.env.IMAGE_PROXY_SIGNING_SECRET,
-  });
+  const response = await handleImageProxyRequest(
+    request,
+    {
+      allowUnsignedRequests: false,
+      signingSecret: process.env.IMAGE_PROXY_SIGNING_SECRET,
+    },
+    {
+      fetchImpl: createSafeImageProxyFetch as typeof fetch,
+    },
+  );
 
   return toLambdaResponse(response, request.method);
 }

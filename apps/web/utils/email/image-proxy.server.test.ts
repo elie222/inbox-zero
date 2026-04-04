@@ -21,7 +21,7 @@ describe("rewriteHtmlForImageProxy", () => {
     expect(rewritten).toBe(html);
   });
 
-  it("rewrites remote assets through an unsigned proxy and warns once", async () => {
+  it("rewrites remote assets through an unsigned proxy outside production and warns once", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { rewriteHtmlForImageProxy } = await loadModule({
       NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: "https://proxy.example.com/image",
@@ -61,11 +61,29 @@ describe("rewriteHtmlForImageProxy", () => {
     expect(rewritten).toContain("&amp;s=");
     expect(warnSpy).not.toHaveBeenCalled();
   });
+
+  it("disables proxy rewriting in production when the signing secret is missing", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { rewriteHtmlForImageProxy } = await loadModule({
+      NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: "https://proxy.example.com/image",
+      NODE_ENV: "production",
+    });
+
+    const html = '<img src="https://cdn.example.com/photo.png" />';
+    const rewritten = await rewriteHtmlForImageProxy(
+      html,
+      createScopedLogger("image-proxy-test"),
+    );
+
+    expect(rewritten).toBe(html);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
 });
 
 async function loadModule(
   overrides: Partial<{
     IMAGE_PROXY_SIGNING_SECRET: string;
+    NODE_ENV: "development" | "production" | "test";
     NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: string;
   }>,
 ) {
@@ -77,7 +95,7 @@ async function loadModule(
       NEXT_PUBLIC_IMAGE_PROXY_BASE_URL:
         overrides.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL,
       NEXT_PUBLIC_LOG_SCOPES: undefined,
-      NODE_ENV: "test",
+      NODE_ENV: overrides.NODE_ENV || "test",
     },
   }));
 

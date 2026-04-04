@@ -2,6 +2,7 @@ import {
   isProxyableRemoteUrl,
   validateAssetProxySignature,
 } from "./proxy-url.js";
+import { isBlockedHostname } from "./upstream-host-policy.js";
 
 const CACHEABLE_CONTENT_TYPES = [
   "application/font-sfnt",
@@ -27,6 +28,7 @@ const MAX_REDIRECTS = 3;
 const DEFAULT_UNSIGNED_PROXY_TTL_SECONDS = 60 * 60;
 
 export type ImageProxyConfig = {
+  allowUnsignedRequests?: boolean;
   signingSecret?: string;
 };
 
@@ -105,6 +107,8 @@ export async function handleImageProxyRequest(
     }
 
     ttlSeconds = Math.max(0, expiresAt - nowSeconds);
+  } else if (config.allowUnsignedRequests === false) {
+    return new Response("Missing proxy signature", { status: 400 });
   }
 
   const cache = options?.cache;
@@ -275,51 +279,4 @@ function sanitizeLocationForLogs(value: string) {
   } catch {
     return value.slice(0, 200);
   }
-}
-
-function isBlockedHostname(hostname: string) {
-  const normalized = hostname
-    .trim()
-    .toLowerCase()
-    .replace(/^\[|\]$/g, "");
-  const isIpv6Literal = normalized.includes(":");
-
-  return (
-    normalized === "localhost" ||
-    normalized.endsWith(".localhost") ||
-    normalized.endsWith(".local") ||
-    normalized === "0.0.0.0" ||
-    normalized.startsWith("0.") ||
-    normalized === "::1" ||
-    normalized === "::" ||
-    (isIpv6Literal && normalized.startsWith("fc")) ||
-    (isIpv6Literal && normalized.startsWith("fd")) ||
-    (isIpv6Literal && normalized.startsWith("fe80")) ||
-    (isIpv6Literal && normalized.includes("::ffff:")) ||
-    normalized.startsWith("127.") ||
-    normalized.startsWith("10.") ||
-    normalized.startsWith("192.168.") ||
-    normalized.startsWith("169.254.") ||
-    normalized.startsWith("100.64.") ||
-    normalized === "metadata.google.internal" ||
-    normalized === "metadata.gcp.internal" ||
-    isPrivate172Range(normalized) ||
-    isPrivate100Range(normalized)
-  );
-}
-
-function isPrivate172Range(hostname: string) {
-  const match = hostname.match(/^172\.(\d{1,3})\./);
-  if (!match) return false;
-
-  const secondOctet = Number.parseInt(match[1], 10);
-  return secondOctet >= 16 && secondOctet <= 31;
-}
-
-function isPrivate100Range(hostname: string) {
-  const match = hostname.match(/^100\.(\d{1,3})\./);
-  if (!match) return false;
-
-  const secondOctet = Number.parseInt(match[1], 10);
-  return secondOctet >= 64 && secondOctet <= 127;
 }
