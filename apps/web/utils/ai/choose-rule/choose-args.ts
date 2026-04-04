@@ -249,7 +249,7 @@ export function filterIncompleteDraftActions<T extends Action>(
  *
  * Note: Only returns actions that have fields containing {{template variables}}
  */
-function extractActionsNeedingAiGeneration(actions: Action[]) {
+export function extractActionsNeedingAiGeneration(actions: Action[]) {
   return actions
     .map((action) => {
       const fields = getParameterFieldsForAction(action);
