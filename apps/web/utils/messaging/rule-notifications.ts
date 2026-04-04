@@ -121,6 +121,23 @@ export async function getMessagingRuleNotificationResult({
   const context = await getNotificationContext(executedActionId);
   if (!context) return { delivered: false, kind: "none" };
 
+  if (
+    context.messagingChannel &&
+    context.messagingChannel.emailAccountId !==
+      context.executedRule.emailAccount.id
+  ) {
+    logger.warn(
+      "Skipping messaging notification for mismatched channel owner",
+      {
+        executedActionId: context.id,
+        messagingChannelId: context.messagingChannelId,
+        emailAccountId: context.executedRule.emailAccount.id,
+        channelEmailAccountId: context.messagingChannel.emailAccountId,
+      },
+    );
+    return { delivered: false, kind: "none" };
+  }
+
   if (context.messagingChannel?.provider === MessagingProvider.SLACK) {
     return sendSlackRuleNotificationWithContext({
       context,
@@ -840,6 +857,7 @@ async function getNotificationContext(executedActionId: string) {
       messagingChannel: {
         select: {
           id: true,
+          emailAccountId: true,
           provider: true,
           isConnected: true,
           teamId: true,
