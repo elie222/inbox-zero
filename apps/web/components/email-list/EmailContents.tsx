@@ -3,11 +3,17 @@ import { useTheme } from "next-themes";
 import DOMPurify from "dompurify";
 import { env } from "@/env";
 import { decodeHtmlEntities } from "@/utils/gmail/decode";
+import { getImageProxyBaseUrl } from "@/utils/email/image-proxy-config";
 
-const IMAGE_PROXY_ORIGIN = env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL
-  ? new URL(env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL).origin
+const IMAGE_PROXY_BASE_URL = getImageProxyBaseUrl({
+  baseUrl: env.NEXT_PUBLIC_BASE_URL,
+  externalProxyBaseUrl: env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL,
+  useAppRoute: env.NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE,
+});
+const IMAGE_PROXY_ORIGIN = IMAGE_PROXY_BASE_URL
+  ? new URL(IMAGE_PROXY_BASE_URL).origin
   : null;
-const IMAGE_PROXY_ENABLED = Boolean(env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL);
+const IMAGE_PROXY_ENABLED = Boolean(IMAGE_PROXY_BASE_URL);
 const IMAGE_PROXY_RENDER_ROUTE = "/api/email/render-html";
 
 export function HtmlEmail({ html }: { html: string }) {
