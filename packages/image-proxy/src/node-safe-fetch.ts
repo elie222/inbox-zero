@@ -12,7 +12,7 @@ import {
   isBlockedHostname,
   normalizeHostname,
   stripIpv6Brackets,
-} from "./upstream-host-policy.js";
+} from "./upstream-host-policy";
 
 type ResolvedAddress = {
   address: string;

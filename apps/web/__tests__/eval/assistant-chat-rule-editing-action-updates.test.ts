@@ -73,14 +73,16 @@ const {
 }));
 
 vi.mock("@/utils/rule/rule", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/utils/rule/rule")>();
+  const { buildRuleModuleMutationMock } = await import(
+    "@/__tests__/eval/assistant-chat-rule-eval-test-utils"
+  );
 
-  return {
-    ...actual,
-    createRule: mockCreateRule,
-    partialUpdateRule: mockPartialUpdateRule,
-    updateRuleActions: mockUpdateRuleActions,
-  };
+  return buildRuleModuleMutationMock({
+    importOriginal: () => importOriginal<typeof import("@/utils/rule/rule")>(),
+    mockCreateRule,
+    mockPartialUpdateRule,
+    mockUpdateRuleActions,
+  });
 });
 
 vi.mock("@/utils/rule/learned-patterns", () => ({

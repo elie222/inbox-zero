@@ -5,7 +5,6 @@ import type { Logger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { DriveConnection } from "@/generated/prisma/client";
 import { extractEmailAddress } from "@/utils/email";
-import { emailToContent } from "@/utils/mail";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
 import { aiParseFilingReply } from "@/utils/ai/document-filing/parse-filing-reply";
@@ -13,6 +12,7 @@ import {
   getFilebotFrom,
   getFilebotReplyTo,
 } from "@/utils/filebot/is-filebot-email";
+import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 
 interface ProcessFilingReplyArgs {
   emailAccount: EmailAccountWithAI;
@@ -68,7 +68,9 @@ export async function processFilingReply({
 
   logger = logger.with({ filingId: filing.id });
 
-  const replyContent = emailToContent(message, { extractReply: true }).trim();
+  const replyContent = emailToContentForAI(message, {
+    extractReply: true,
+  }).trim();
 
   if (!replyContent) {
     return;

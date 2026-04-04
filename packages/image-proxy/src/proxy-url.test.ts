@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSignedAssetProxyUrl,
   validateAssetProxySignature,
-} from "./proxy-url.js";
+} from "./proxy-url";
 
 describe("buildSignedAssetProxyUrl", () => {
   it("builds a signed proxy URL that can be verified", async () => {
