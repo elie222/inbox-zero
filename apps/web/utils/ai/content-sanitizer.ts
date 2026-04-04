@@ -1,8 +1,9 @@
-import * as cheerio from "cheerio";
+import { load, type CheerioAPI } from "cheerio";
 import { emailToContent, type EmailToContentOptions } from "@/utils/mail";
 import type { ParsedMessage } from "@/utils/types";
 
 const DOCUMENT_PATTERN = /<!doctype|<html[\s>]|<head[\s>]|<body[\s>]/i;
+type SanitizableNode = ReturnType<CheerioAPI> | ReturnType<CheerioAPI["root"]>;
 
 export function stripHiddenText(text: string): string {
   let result = text.replace(/\u200B|\u200C|\u200D|\u2060|\uFEFF/g, "");
@@ -13,7 +14,7 @@ export function stripHiddenText(text: string): string {
 export function stripHiddenHtml(html: string): string {
   const normalizedHtml = stripHiddenText(html);
   const isDocument = DOCUMENT_PATTERN.test(normalizedHtml);
-  const $ = cheerio.load(normalizedHtml, null, isDocument);
+  const $ = load(normalizedHtml, null, isDocument);
 
   sanitizeNode($, $.root());
 
@@ -45,12 +46,13 @@ export function emailToContentForAI(
     {
       ...email,
       ...sanitizedContent,
+      snippet: email.snippet ? stripHiddenText(email.snippet) : email.snippet,
     },
     contentOptions,
   );
 }
 
-function sanitizeNode($: cheerio.CheerioAPI, node: cheerio.Cheerio<any>) {
+function sanitizeNode($: CheerioAPI, node: SanitizableNode) {
   node.contents().each((_index, child) => {
     if (child.type === "comment") {
       $(child).remove();
@@ -89,15 +91,25 @@ function hasHiddenInlineStyle(style: string) {
       .slice(separatorIndex + 1)
       .trim()
       .toLowerCase();
+    const normalizedValue = normalizeStyleValue(value);
 
-    if (property === "display" && value === "none") return true;
-    if (property === "visibility" && value === "hidden") return true;
-    if (property === "font-size" && isZeroLength(value)) return true;
+    if (property === "display" && normalizedValue === "none") return true;
+    if (property === "visibility" && normalizedValue === "hidden") return true;
+    if (property === "font-size" && isZeroLength(normalizedValue)) return true;
   }
 
   return false;
 }
 
+function normalizeStyleValue(value: string) {
+  return value
+    .replace(/\s*!important\s*$/i, "")
+    .trim()
+    .replace(/^['"]|['"]$/g, "")
+    .split(/\s+/, 1)[0]
+    .toLowerCase();
+}
+
 function isZeroLength(value: string) {
-  return value === "0" || value === "0px" || value === "0em" || value === "0%";
+  return /^(?:0+|0*\.0+)(?:[a-z%]+)?$/.test(value);
 }
