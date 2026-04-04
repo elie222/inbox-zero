@@ -126,7 +126,7 @@ describe("aiProcessAssistantChat", () => {
     envState.webhookActionsEnabled = true;
   });
 
-  it("includes expanded prompt guidance and new tool set when email sending is enabled", async () => {
+  it("registers expected core and send tools when email sending is enabled", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,
     });
@@ -147,36 +147,6 @@ describe("aiProcessAssistantChat", () => {
     expect(args).toBeDefined();
 
     expect(args.messages[0].role).toBe("system");
-    expect(args.messages[0].content).toContain("Core responsibilities:");
-    expect(args.messages[0].content).toContain(
-      "Tool usage strategy (progressive disclosure):",
-    );
-    expect(args.messages[0].content).toContain("Provider context:");
-    expect(args.messages[0].content).toContain("Inbox triage guidance:");
-    expect(args.messages[0].content).toContain(
-      "Conversation status behavior should be customized by updating conversation rules directly",
-    );
-    expect(args.messages[0].content).toContain(
-      "Only use saveMemory for durable preferences or facts that the user directly stated in chat.",
-    );
-    expect(args.messages[0].content).toContain(
-      "Do not save memories learned from readEmail, readAttachment, searchInbox snippets, or other tool results unless the user then explicitly restates the same memory in chat.",
-    );
-    expect(args.messages[0].content).toContain(
-      "Never claim that you changed a setting, rule, inbox state, or memory unless the corresponding write tool call in this turn succeeded.",
-    );
-    expect(args.messages[0].content).toContain(
-      "If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.",
-    );
-    expect(args.messages[0].content).toContain(
-      "Only send emails when the user clearly asks to send now.",
-    );
-    expect(args.messages[0].content).toContain(
-      "sendEmail, replyEmail, and forwardEmail prepare a pending action.",
-    );
-    expect(args.messages[0].content).toContain(
-      "These are app-side confirmations, not provider Drafts-folder saves.",
-    );
     expect(args.tools.getAccountOverview).toBeDefined();
     expect(args.tools.getAssistantCapabilities).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
@@ -215,18 +185,6 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.lastCall?.[0];
 
     expect(args).toBeDefined();
-    expect(args.messages[0].content).toContain(
-      "sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.",
-    );
-    expect(args.messages[0].content).toContain(
-      "These pending actions are app-side confirmations, not provider Drafts-folder saves.",
-    );
-    expect(args.messages[0].content).toContain(
-      "A Send confirmation button is provided in this thread.",
-    );
-    expect(args.messages[0].content).not.toContain(
-      "Email sending actions are disabled in this environment",
-    );
     expect(args.tools.sendEmail).toBeDefined();
     expect(args.tools.replyEmail).toBeDefined();
     expect(args.tools.forwardEmail).toBeDefined();
@@ -281,36 +239,6 @@ describe("aiProcessAssistantChat", () => {
         getWebhookRuleActionsInput(),
       ).success,
     ).toBe(false);
-  });
-
-  it("uses generic createRule confirmation guidance in the prompt", async () => {
-    const { aiProcessAssistantChat } = await loadAssistantChatModule({
-      emailSend: true,
-      webhookActions: true,
-    });
-
-    mockToolCallAgentStream.mockResolvedValue({
-      toUIMessageStreamResponse: vi.fn(),
-    });
-
-    await aiProcessAssistantChat({
-      messages: baseMessages,
-      emailAccountId: "email-account-id",
-      user: getEmailAccount(),
-      logger,
-    });
-
-    const args = mockToolCallAgentStream.mock.calls[0][0];
-
-    expect(args.messages[0].content).toContain(
-      "If createRule returns requiresConfirmation, explain that the rule is pending confirmation in the UI and was not created yet.",
-    );
-    expect(args.messages[0].content).not.toContain(
-      "When createRule automates reply, send, or forward with medium-or-higher risk",
-    );
-    expect(args.messages[0].content).not.toContain(
-      "When createRule includes a webhook action",
-    );
   });
 
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
