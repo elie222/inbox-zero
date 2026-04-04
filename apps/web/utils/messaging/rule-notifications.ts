@@ -153,27 +153,6 @@ export async function getMessagingRuleNotificationResult({
   });
 }
 
-export async function sendSlackRuleNotification({
-  executedActionId,
-  email,
-  logger,
-}: {
-  executedActionId: string;
-  email: NotificationEmailPreview;
-  logger: Logger;
-}): Promise<boolean> {
-  const context = await getNotificationContext(executedActionId);
-  if (!context) return false;
-
-  const result = await sendSlackRuleNotificationWithContext({
-    context,
-    email,
-    logger,
-  });
-
-  return result.delivered;
-}
-
 async function sendSlackRuleNotificationWithContext({
   context,
   email,
