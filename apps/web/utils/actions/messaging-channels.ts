@@ -12,6 +12,7 @@ import {
 } from "@/utils/actions/messaging-channels.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
+import { isNotFoundError } from "@/utils/prisma-helpers";
 import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
 import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
 import { addActionOwnershipToInput } from "@/utils/rule/rule";
@@ -40,12 +41,17 @@ export const updateSlackChannelAction = actionClient
       ctx: { emailAccountId, logger },
       parsedInput: { channelId, targetId },
     }) => {
+      const where = {
+        id_emailAccountId: { id: channelId, emailAccountId },
+      };
+
       const channel = await prisma.messagingChannel.findUnique({
-        where: {
-          id_emailAccountId: {
-            id: channelId,
-            emailAccountId,
-          },
+        where,
+        select: {
+          isConnected: true,
+          accessToken: true,
+          providerUserId: true,
+          botUserId: true,
         },
       });
 
@@ -69,12 +75,7 @@ export const updateSlackChannelAction = actionClient
         }
 
         await prisma.messagingChannel.update({
-          where: {
-            id_emailAccountId: {
-              id: channelId,
-              emailAccountId,
-            },
-          },
+          where,
           data: { channelId: SLACK_DM_CHANNEL_SENTINEL, channelName: null },
         });
         return;
@@ -94,12 +95,7 @@ export const updateSlackChannelAction = actionClient
       }
 
       await prisma.messagingChannel.update({
-        where: {
-          id_emailAccountId: {
-            id: channelId,
-            emailAccountId,
-          },
-        },
+        where,
         data: {
           channelId: targetId,
           channelName: channelInfo.name,
@@ -126,12 +122,18 @@ export const updateChannelFeaturesAction = actionClient
       ctx: { emailAccountId },
       parsedInput: { channelId, sendMeetingBriefs, sendDocumentFilings },
     }) => {
+      const where = {
+        id_emailAccountId: { id: channelId, emailAccountId },
+      };
+
       const channel = await prisma.messagingChannel.findUnique({
-        where: {
-          id_emailAccountId: {
-            id: channelId,
-            emailAccountId,
-          },
+        where,
+        select: {
+          isConnected: true,
+          provider: true,
+          providerUserId: true,
+          channelId: true,
+          teamId: true,
         },
       });
 
@@ -152,12 +154,7 @@ export const updateChannelFeaturesAction = actionClient
       }
 
       await prisma.messagingChannel.update({
-        where: {
-          id_emailAccountId: {
-            id: channelId,
-            emailAccountId,
-          },
-        },
+        where,
         data: {
           ...(sendMeetingBriefs !== undefined && { sendMeetingBriefs }),
           ...(sendDocumentFilings !== undefined && { sendDocumentFilings }),
@@ -180,34 +177,27 @@ export const disconnectChannelAction = actionClient
   .metadata({ name: "disconnectChannel" })
   .inputSchema(disconnectChannelBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { channelId } }) => {
-    const channel = await prisma.messagingChannel.findUnique({
-      where: {
-        id_emailAccountId: {
-          id: channelId,
-          emailAccountId,
+    try {
+      await prisma.messagingChannel.update({
+        where: {
+          id_emailAccountId: {
+            id: channelId,
+            emailAccountId,
+          },
         },
-      },
-    });
-
-    if (!channel) {
-      throw new SafeError("Messaging channel not found");
+        data: {
+          isConnected: false,
+          channelId: null,
+          channelName: null,
+          sendMeetingBriefs: false,
+          sendDocumentFilings: false,
+        },
+      });
+    } catch (error) {
+      if (isNotFoundError(error))
+        throw new SafeError("Messaging channel not found");
+      throw error;
     }
-
-    await prisma.messagingChannel.update({
-      where: {
-        id_emailAccountId: {
-          id: channelId,
-          emailAccountId,
-        },
-      },
-      data: {
-        isConnected: false,
-        channelId: null,
-        channelName: null,
-        sendMeetingBriefs: false,
-        sendDocumentFilings: false,
-      },
-    });
   });
 
 export const linkSlackWorkspaceAction = actionClient
