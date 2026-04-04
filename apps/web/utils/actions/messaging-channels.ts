@@ -383,7 +383,7 @@ export const toggleRuleChannelAction = actionClient
             ruleId,
             emailAccountId,
             messagingChannelId,
-            messagingChannelEmailAccountId: emailAccountId,
+            messagingChannelOwnerId: emailAccountId,
           },
         });
       } else {

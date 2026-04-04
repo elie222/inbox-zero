@@ -1,11 +1,11 @@
 ALTER TABLE "Action"
 ADD COLUMN "emailAccountId" TEXT,
-ADD COLUMN "messagingChannelEmailAccountId" TEXT;
+ADD COLUMN "messagingChannelOwnerId" TEXT;
 
 UPDATE "Action" AS a
 SET
   "emailAccountId" = r."emailAccountId",
-  "messagingChannelEmailAccountId" = CASE
+  "messagingChannelOwnerId" = CASE
     WHEN a."messagingChannelId" IS NULL THEN NULL
     ELSE r."emailAccountId"
   END
@@ -15,7 +15,7 @@ WHERE a."ruleId" = r.id;
 UPDATE "Action" AS a
 SET
   "messagingChannelId" = NULL,
-  "messagingChannelEmailAccountId" = NULL
+  "messagingChannelOwnerId" = NULL
 WHERE a."messagingChannelId" IS NOT NULL
   AND NOT EXISTS (
     SELECT 1
@@ -30,8 +30,8 @@ ALTER COLUMN "emailAccountId" SET NOT NULL;
 CREATE UNIQUE INDEX "Rule_id_emailAccountId_key" ON "Rule"("id", "emailAccountId");
 
 CREATE INDEX "Action_emailAccountId_idx" ON "Action"("emailAccountId");
-CREATE INDEX "Action_messagingChannelId_messagingChannelEmailAccountId_idx"
-ON "Action"("messagingChannelId", "messagingChannelEmailAccountId");
+CREATE INDEX "Action_messagingChannelId_messagingChannelOwnerId_idx"
+ON "Action"("messagingChannelId", "messagingChannelOwnerId");
 
 ALTER TABLE "Action"
 DROP CONSTRAINT "Action_ruleId_fkey",
@@ -42,11 +42,11 @@ ADD CONSTRAINT "Action_messagingChannel_owner_check"
 CHECK (
   (
     "messagingChannelId" IS NULL
-    AND "messagingChannelEmailAccountId" IS NULL
+    AND "messagingChannelOwnerId" IS NULL
   )
   OR (
     "messagingChannelId" IS NOT NULL
-    AND "messagingChannelEmailAccountId" = "emailAccountId"
+    AND "messagingChannelOwnerId" = "emailAccountId"
   )
 ),
 ADD CONSTRAINT "Action_ruleId_emailAccountId_fkey"
@@ -55,7 +55,7 @@ ON DELETE CASCADE ON UPDATE CASCADE,
 ADD CONSTRAINT "Action_emailAccountId_fkey"
 FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id")
 ON DELETE CASCADE ON UPDATE CASCADE,
-ADD CONSTRAINT "Action_messagingChannelId_messagingChannelEmailAccountId_fkey"
-FOREIGN KEY ("messagingChannelId", "messagingChannelEmailAccountId")
+ADD CONSTRAINT "Action_messagingChannelId_messagingChannelOwnerId_fkey"
+FOREIGN KEY ("messagingChannelId", "messagingChannelOwnerId")
 REFERENCES "MessagingChannel"("id", "emailAccountId")
 ON DELETE SET NULL ON UPDATE CASCADE;

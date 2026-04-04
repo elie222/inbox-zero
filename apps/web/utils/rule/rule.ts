@@ -32,7 +32,7 @@ type CreateRuleEnablement =
 
 export type RuleActionWriteInput = Omit<
   Prisma.ActionCreateManyRuleInput,
-  "emailAccountId" | "messagingChannelEmailAccountId"
+  "emailAccountId" | "messagingChannelOwnerId"
 >;
 
 export function outboundActionsNeedChatRiskConfirmation(
@@ -757,8 +757,6 @@ function addActionOwnershipToInputs(
   return actions.map((action) => ({
     ...action,
     emailAccountId,
-    messagingChannelEmailAccountId: action.messagingChannelId
-      ? emailAccountId
-      : null,
+    messagingChannelOwnerId: action.messagingChannelId ? emailAccountId : null,
   }));
 }

@@ -487,8 +487,10 @@ model Action {
   rule      Rule       @relation(fields: [ruleId, emailAccountId], references: [id, emailAccountId], onDelete: Cascade)
   emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   messagingChannelId String?
-  messagingChannelEmailAccountId String?
-  messagingChannel   MessagingChannel? @relation(fields: [messagingChannelId, messagingChannelEmailAccountId], references: [id, emailAccountId], onDelete: SetNull)
+  // Keep the channel owner separate so channel deletes can null the relation
+  // without nulling Action.emailAccountId.
+  messagingChannelOwnerId String?
+  messagingChannel   MessagingChannel? @relation(fields: [messagingChannelId, messagingChannelOwnerId], references: [id, emailAccountId], onDelete: SetNull)
 
   label             String? // labelName - labelId is the source of truth, and we use it when set
   labelId           String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
@@ -505,7 +507,7 @@ model Action {
 
   @@index([ruleId])
   @@index([emailAccountId])
-  @@index([messagingChannelId, messagingChannelEmailAccountId])
+  @@index([messagingChannelId, messagingChannelOwnerId])
 }
 
 model RuleHistory {
