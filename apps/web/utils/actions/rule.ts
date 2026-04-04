@@ -33,7 +33,7 @@ import {
   replaceRuleWithResolvedActions,
   setRuleEnabled,
   updateRuleInstructions,
-  type RuleActionWriteInput,
+  type RuleActionCreateData,
   addActionOwnershipToInput,
 } from "@/utils/rule/rule";
 import { SafeError } from "@/utils/error";
@@ -280,7 +280,7 @@ export const deleteRuleAction = actionClient
           emailAccountId,
         },
       },
-      include: { actions: true, group: true },
+      select: { systemType: true, groupId: true },
     });
     if (!rule) return; // already deleted
     if (rule.systemType) {
@@ -720,7 +720,7 @@ async function toggleRule({
   const ruleConfig = getRuleConfig(systemType);
   const actionTypes = getSystemRuleActionTypes(systemType, provider);
 
-  const actions: RuleActionWriteInput[] = [];
+  const actions: RuleActionCreateData[] = [];
 
   for (const actionType of actionTypes) {
     if (actionType.includeFolder) {
@@ -936,7 +936,7 @@ async function getActionsFromCategoryAction({
   provider: string;
   logger: Logger;
   systemType?: SystemType;
-}): Promise<RuleActionWriteInput[]> {
+}): Promise<RuleActionCreateData[]> {
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider,
@@ -967,7 +967,7 @@ async function getActionsFromCategoryAction({
     hasDigest,
   });
 
-  const actions: RuleActionWriteInput[] = [];
+  const actions: RuleActionCreateData[] = [];
 
   for (const actionType of actionTypes) {
     switch (actionType.type) {

@@ -30,7 +30,7 @@ type CreateRuleEnablement =
   | { source: "default" }
   | { source: "chat"; chatRiskConfirmed?: boolean };
 
-export type RuleActionWriteInput = Omit<
+export type RuleActionCreateData = Omit<
   Prisma.ActionCreateManyRuleInput,
   "emailAccountId" | "messagingChannelEmailAccountId"
 >;
@@ -172,7 +172,7 @@ export async function createRuleWithResolvedActions({
 }: {
   emailAccountId: string;
   data: RuleRecordData & { name: string };
-  actions: RuleActionWriteInput[];
+  actions: RuleActionCreateData[];
 }): Promise<RuleWithRelations> {
   assertWebhookActionsAllowed(actions);
 
@@ -220,7 +220,7 @@ export async function replaceRuleWithResolvedActions({
   ruleId: string;
   emailAccountId: string;
   data: RuleRecordData;
-  actions: RuleActionWriteInput[];
+  actions: RuleActionCreateData[];
 }): Promise<RuleWithRelations> {
   assertWebhookActionsAllowed(actions);
 
@@ -404,7 +404,7 @@ export async function upsertSystemRule({
 }: {
   name: string;
   instructions: string;
-  actions: RuleActionWriteInput[];
+  actions: RuleActionCreateData[];
   emailAccountId: string;
   systemType: SystemType;
   runOnThreads: boolean;
@@ -639,7 +639,7 @@ async function mapActionFields(
   await assertMessagingChannelsBelongToEmailAccount(actions, emailAccountId);
 
   const actionPromises = actions.map(
-    async (a): Promise<RuleActionWriteInput> => {
+    async (a): Promise<RuleActionCreateData> => {
       const to = a.fields?.to?.trim() || null;
       const recipientMessage = getMissingRecipientMessage({
         actionType: a.type,
@@ -755,7 +755,7 @@ function ruleConditionsForRisk(rule: CreateOrUpdateRuleSchema): RuleConditions {
   };
 }
 
-function validateWebhookUrlsInActions(actions: RuleActionWriteInput[]) {
+function validateWebhookUrlsInActions(actions: RuleActionCreateData[]) {
   for (const action of actions) {
     if (action.type !== ActionType.CALL_WEBHOOK || !action.url) continue;
 
@@ -767,7 +767,7 @@ function validateWebhookUrlsInActions(actions: RuleActionWriteInput[]) {
 }
 
 function addActionOwnershipToInputs(
-  actions: RuleActionWriteInput[],
+  actions: RuleActionCreateData[],
   emailAccountId: string,
 ): Prisma.ActionCreateManyRuleInput[] {
   return actions.map((action) =>
