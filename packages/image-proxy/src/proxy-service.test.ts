@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { handleImageProxyRequest } from "./proxy-service.js";
-import { buildSignedAssetProxyUrl } from "./proxy-url.js";
+import { handleImageProxyRequest } from "./proxy-service";
+import { buildSignedAssetProxyUrl } from "./proxy-url";
 
 describe("handleImageProxyRequest", () => {
   beforeEach(() => {
