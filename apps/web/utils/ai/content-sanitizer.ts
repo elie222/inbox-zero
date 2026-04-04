@@ -50,10 +50,7 @@ export function emailToContentForAI(
   );
 }
 
-function sanitizeNode(
-  $: cheerio.CheerioAPI,
-  node: cheerio.Cheerio<cheerio.AnyNode>,
-) {
+function sanitizeNode($: cheerio.CheerioAPI, node: cheerio.Cheerio<any>) {
   node.contents().each((_index, child) => {
     if (child.type === "comment") {
       $(child).remove();

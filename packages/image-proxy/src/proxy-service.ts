@@ -1,8 +1,5 @@
-import {
-  isProxyableRemoteUrl,
-  validateAssetProxySignature,
-} from "./proxy-url.js";
-import { isBlockedHostname } from "./upstream-host-policy.js";
+import { isProxyableRemoteUrl, validateAssetProxySignature } from "./proxy-url";
+import { isBlockedHostname } from "./upstream-host-policy";
 
 const CACHEABLE_CONTENT_TYPES = [
   "application/font-sfnt",
