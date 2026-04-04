@@ -279,6 +279,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SLACK_BOT_NAME: z.string().trim().min(1).default("Inbox Zero"),
     NEXT_PUBLIC_CONTACTS_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: booleanString.default(true),
+    NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: booleanString.optional().default(true),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
     NEXT_PUBLIC_SUPPORT_EMAIL: z
       .string()
@@ -366,6 +367,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SLACK_BOT_NAME: process.env.NEXT_PUBLIC_SLACK_BOT_NAME,
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: process.env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
+    NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED:
+      process.env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED,
     NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS:
       process.env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,

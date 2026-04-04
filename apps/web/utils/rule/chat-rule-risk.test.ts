@@ -66,4 +66,29 @@ describe("outboundActionsNeedChatRiskConfirmation", () => {
     });
     expect(result.needsConfirmation).toBe(false);
   });
+
+  it("returns needsConfirmation true for webhook actions", () => {
+    const result = outboundActionsNeedChatRiskConfirmation({
+      name: "x",
+      condition: {
+        aiInstructions: null,
+        conditionalOperator: null,
+        static: { from: "@vendor.com", to: null, subject: null },
+      },
+      actions: [
+        {
+          type: ActionType.CALL_WEBHOOK,
+          fields: {
+            webhookUrl: "https://api.example.com/webhook",
+          },
+          delayInMinutes: null,
+        },
+      ],
+    });
+
+    expect(result.needsConfirmation).toBe(true);
+    expect(result.riskMessages).toEqual([
+      expect.stringContaining("Webhook actions can send email data"),
+    ]);
+  });
 });

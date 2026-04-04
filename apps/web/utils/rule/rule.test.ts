@@ -2,7 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { ActionType } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
+import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
 import { getActionRiskLevel } from "@/utils/risk";
+
+const { mockEnv } = vi.hoisted(() => ({
+  mockEnv: {
+    webhookActionsEnabled: true,
+  },
+}));
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/risk", () => ({
@@ -29,6 +36,13 @@ vi.mock("@/utils/rule/recipient-validation", () => ({
 vi.mock("@/utils/prisma-helpers", () => ({
   isDuplicateError: vi.fn(() => false),
 }));
+vi.mock("@/env", () => ({
+  env: {
+    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
+      return mockEnv.webhookActionsEnabled;
+    },
+  },
+}));
 
 import {
   createRule,
@@ -44,6 +58,7 @@ const logger = createTestLogger();
 describe("deleteRule", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.webhookActionsEnabled = true;
     vi.mocked(getActionRiskLevel).mockReturnValue({
       level: "low",
       message: "safe",
@@ -102,6 +117,7 @@ describe("deleteRule", () => {
 describe("outbound action guardrails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.webhookActionsEnabled = true;
     vi.mocked(getActionRiskLevel).mockReturnValue({
       level: "low",
       message: "safe",
@@ -300,6 +316,39 @@ describe("outbound action guardrails", () => {
       data: { instructions: "updated instructions" },
       include: { actions: true, group: true },
     });
+  });
+
+  it("rejects creating webhook rules when webhook actions are disabled", async () => {
+    mockEnv.webhookActionsEnabled = false;
+
+    await expect(
+      createRule({
+        result: {
+          name: "Webhook rule",
+          condition: {
+            aiInstructions: "Match these emails",
+            conditionalOperator: null,
+            static: null,
+          },
+          actions: [
+            {
+              type: ActionType.CALL_WEBHOOK,
+              fields: {
+                webhookUrl: "https://example.com/webhook",
+              } as any,
+              delayInMinutes: null,
+            },
+          ],
+        },
+        emailAccountId: "email-account-id",
+        provider: "gmail",
+        runOnThreads: true,
+        logger,
+      }),
+    ).rejects.toThrow(WEBHOOK_ACTION_DISABLED_MESSAGE);
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
+    expect(createEmailProvider).not.toHaveBeenCalled();
   });
 });
 

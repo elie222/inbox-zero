@@ -63,7 +63,9 @@ export function getAvailableActions(provider: string) {
 
 export const getExtraActions = () => [
   ActionType.DIGEST,
-  ActionType.CALL_WEBHOOK,
+  ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false
+    ? [ActionType.CALL_WEBHOOK]
+    : []),
 ];
 
 const actionSchema = (provider: string) =>
