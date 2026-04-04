@@ -49,7 +49,7 @@ function sanitizeRedirectUrl(redirectUrl: URL): URL {
   // OAuth callbacks should always land back on this app, even if a caller
   // hands us an absolute URL from outside our origin.
   return new URL(
-    `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`,
+    `/${redirectUrl.pathname.replace(/^\/+/u, "")}${redirectUrl.search}${redirectUrl.hash}`,
     env.NEXT_PUBLIC_BASE_URL,
   );
 }
