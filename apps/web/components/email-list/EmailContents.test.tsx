@@ -95,9 +95,11 @@ describe("HtmlEmail", () => {
     });
 
     const iframe = getByTitle("Email content preview");
-    expect(iframe.getAttribute("srcdoc")).toContain(
-      "img-src data: https://app.example.com;",
-    );
+    await waitFor(() => {
+      expect(iframe.getAttribute("srcdoc")).toContain(
+        "img-src data: https://app.example.com;",
+      );
+    });
   });
 });
 
