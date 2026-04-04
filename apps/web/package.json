@@ -148,8 +148,6 @@
     "ioredis": "5.10.0",
     "jotai": "2.18.1",
     "jsonrepair": "3.13.3",
-    "linkify-react": "4.3.2",
-    "linkifyjs": "4.3.2",
     "lodash": "4.18.1",
     "lucide-react": "0.577.0",
     "mammoth": "1.12.0",
