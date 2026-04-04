@@ -1,4 +1,6 @@
 import * as cheerio from "cheerio";
+import { emailToContent, type EmailToContentOptions } from "@/utils/mail";
+import type { ParsedMessage } from "@/utils/types";
 
 const DOCUMENT_PATTERN = /<!doctype|<html[\s>]|<head[\s>]|<body[\s>]/i;
 
@@ -28,6 +30,24 @@ export function sanitizeForAI(input: {
       : input.textPlain,
     textHtml: input.textHtml ? stripHiddenHtml(input.textHtml) : input.textHtml,
   };
+}
+
+export function emailToContentForAI(
+  email: Pick<ParsedMessage, "textHtml" | "textPlain" | "snippet">,
+  contentOptions?: EmailToContentOptions,
+) {
+  const sanitizedContent = sanitizeForAI({
+    textPlain: email.textPlain,
+    textHtml: email.textHtml,
+  });
+
+  return emailToContent(
+    {
+      ...email,
+      ...sanitizedContent,
+    },
+    contentOptions,
+  );
 }
 
 function sanitizeNode(
