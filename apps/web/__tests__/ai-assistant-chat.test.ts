@@ -277,6 +277,36 @@ describe("aiProcessAssistantChat", () => {
     ).toBe(false);
   });
 
+  it("uses generic createRule confirmation guidance in the prompt", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+      webhookActions: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+
+    expect(args.messages[0].content).toContain(
+      "If createRule returns requiresConfirmation, explain that the rule is pending confirmation in the UI and was not created yet.",
+    );
+    expect(args.messages[0].content).not.toContain(
+      "When createRule automates reply, send, or forward with medium-or-higher risk",
+    );
+    expect(args.messages[0].content).not.toContain(
+      "When createRule includes a webhook action",
+    );
+  });
+
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,
