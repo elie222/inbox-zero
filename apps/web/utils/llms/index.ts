@@ -89,6 +89,19 @@ type RepairAttemptState = {
   successfulCandidateKind?: RepairCandidateKind;
 };
 
+type ProviderCostSource =
+  | "openrouter_usage"
+  | "openrouter_usage_with_step_fallback"
+  | "openrouter_step_usage_sum";
+
+type UsageMetadata = {
+  providerReportedCost?: number;
+  providerUpstreamInferenceCost?: number;
+  providerCostSource?: ProviderCostSource;
+  stepCount?: number;
+  toolCallCount?: number;
+};
+
 const commonOptions: {
   experimental_telemetry: { isEnabled: boolean };
   headers?: Record<string, string>;
@@ -174,10 +187,11 @@ export function createGenerateText({
       });
 
       if (result.usage) {
-        await saveAiUsage({
+        await saveUsageWithMetadata({
+          result,
+          usage: result.usage,
           email: emailAccount.email,
           emailAccountId: emailAccount.id,
-          usage: result.usage,
           provider: candidate.provider,
           model: candidate.modelName,
           label,
@@ -341,10 +355,11 @@ export function createGenerateObject({
       });
 
       if (result.usage) {
-        await saveAiUsage({
+        await saveUsageWithMetadata({
+          result,
+          usage: result.usage,
           email: emailAccount.email,
           emailAccountId: emailAccount.id,
-          usage: result.usage,
           provider: candidate.provider,
           model: candidate.modelName,
           label,
@@ -492,12 +507,13 @@ export async function chatCompletionStream({
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish,
         onFinish: async (result) => {
-          const usagePromise = saveAiUsage({
+          const usagePromise = saveUsageWithMetadata({
+            result,
+            usage: result.usage,
             email: userEmail,
             emailAccountId,
             provider: candidate.provider,
             model: candidate.modelName,
-            usage: result.usage,
             label,
             hasUserApiKey: modelOptions.hasUserApiKey,
           });
@@ -668,12 +684,13 @@ export async function toolCallAgentStream({
       providerOptions,
       experimental_context: experimentalContext,
       onFinish: async (result) => {
-        const usagePromise = saveAiUsage({
+        const usagePromise = saveUsageWithMetadata({
+          result,
+          usage: result.totalUsage,
           email: userEmail,
           emailAccountId,
           provider: candidate.provider,
           model: candidate.modelName,
-          usage: result.totalUsage,
           label,
           hasUserApiKey: modelOptions.hasUserApiKey,
         });
@@ -1264,6 +1281,209 @@ function dedupeRepairCandidates(
     seen.add(candidate.text);
     return [{ kind: candidate.kind, text: candidate.text }];
   });
+}
+
+function getUsageMetadata(result: unknown): UsageMetadata {
+  const stepCount = getStepCount(result);
+  const toolCallCount = getToolCallCount(result);
+  const providerCost = getOpenRouterProviderCost(result);
+
+  return {
+    stepCount,
+    toolCallCount,
+    providerReportedCost: providerCost.providerReportedCost,
+    providerUpstreamInferenceCost: providerCost.providerUpstreamInferenceCost,
+    providerCostSource: providerCost.providerCostSource,
+  };
+}
+
+async function saveUsageWithMetadata({
+  result,
+  usage,
+  email,
+  emailAccountId,
+  provider,
+  model,
+  label,
+  hasUserApiKey,
+}: {
+  result: unknown;
+  usage: Parameters<typeof saveAiUsage>[0]["usage"];
+  email: string;
+  emailAccountId: string;
+  provider: string;
+  model: string;
+  label: string;
+  hasUserApiKey: boolean;
+}) {
+  const usageMetadata = getUsageMetadata(result);
+
+  await saveAiUsage({
+    email,
+    emailAccountId,
+    usage,
+    provider,
+    model,
+    label,
+    hasUserApiKey,
+    providerReportedCost: usageMetadata.providerReportedCost,
+    providerUpstreamInferenceCost: usageMetadata.providerUpstreamInferenceCost,
+    providerCostSource: usageMetadata.providerCostSource,
+    stepCount: usageMetadata.stepCount,
+    toolCallCount: usageMetadata.toolCallCount,
+  });
+}
+
+function getStepCount(result: unknown) {
+  const steps = getObjectArrayProperty(result, "steps");
+  if (!steps) return;
+
+  return steps.length;
+}
+
+function getToolCallCount(result: unknown) {
+  const steps = getObjectArrayProperty(result, "steps");
+  if (!steps) {
+    return getObjectArrayProperty(result, "toolCalls")?.length;
+  }
+
+  return steps.reduce((count, step) => {
+    const toolCalls = getObjectArrayProperty(step, "toolCalls");
+    return count + (toolCalls?.length ?? 0);
+  }, 0);
+}
+
+function getOpenRouterProviderCost(result: unknown): {
+  providerReportedCost?: number;
+  providerUpstreamInferenceCost?: number;
+  providerCostSource?: ProviderCostSource;
+} {
+  const directUsage = getOpenRouterUsage(result);
+
+  const steps = getObjectArrayProperty(result, "steps");
+  if (!steps && !directUsage) return {};
+
+  let totalCost = 0;
+  let foundCost = false;
+  let totalUpstreamInferenceCost = 0;
+  let foundUpstreamInferenceCost = false;
+
+  if (steps) {
+    for (const step of steps) {
+      const stepUsage = getOpenRouterUsage(step);
+      if (!stepUsage) continue;
+
+      if (stepUsage.cost !== undefined) {
+        totalCost += stepUsage.cost;
+        foundCost = true;
+      }
+
+      if (stepUsage.upstreamInferenceCost !== undefined) {
+        totalUpstreamInferenceCost += stepUsage.upstreamInferenceCost;
+        foundUpstreamInferenceCost = true;
+      }
+    }
+  }
+
+  const providerReportedCost =
+    directUsage?.cost ?? (foundCost ? totalCost : undefined);
+  const providerUpstreamInferenceCost =
+    directUsage?.upstreamInferenceCost ??
+    (foundUpstreamInferenceCost ? totalUpstreamInferenceCost : undefined);
+
+  if (
+    providerReportedCost === undefined &&
+    providerUpstreamInferenceCost === undefined
+  ) {
+    return {};
+  }
+
+  return {
+    providerReportedCost,
+    providerUpstreamInferenceCost,
+    providerCostSource: getOpenRouterCostSource({
+      directUsage,
+      usedStepFallback:
+        (directUsage?.cost === undefined && foundCost) ||
+        (directUsage?.upstreamInferenceCost === undefined &&
+          foundUpstreamInferenceCost),
+    }),
+  };
+}
+
+function getOpenRouterCostSource({
+  directUsage,
+  usedStepFallback,
+}: {
+  directUsage: ReturnType<typeof getOpenRouterUsage>;
+  usedStepFallback: boolean;
+}) {
+  if (directUsage && usedStepFallback) {
+    return "openrouter_usage_with_step_fallback";
+  }
+
+  if (directUsage) return "openrouter_usage";
+
+  return "openrouter_step_usage_sum";
+}
+
+function getOpenRouterUsage(value: unknown): {
+  cost?: number;
+  upstreamInferenceCost?: number;
+} | null {
+  const providerMetadata = getObjectProperty(value, "providerMetadata");
+  const openRouterMetadata = getObjectProperty(providerMetadata, "openrouter");
+  const usage = getObjectProperty(openRouterMetadata, "usage");
+  const costDetails = getObjectProperty(usage, "cost_details");
+  const cost = getFiniteNumber(getProperty(usage, "cost"));
+  const upstreamInferenceCost = getFiniteNumber(
+    getProperty(costDetails, "upstream_inference_cost"),
+  );
+
+  if (cost === undefined && upstreamInferenceCost === undefined) return null;
+
+  return { cost, upstreamInferenceCost };
+}
+
+function getObjectArrayProperty(value: unknown, key: string) {
+  const property = getProperty(value, key);
+  if (!Array.isArray(property)) return;
+
+  return property.filter(
+    (item): item is Record<string, unknown> =>
+      typeof item === "object" && item !== null,
+  );
+}
+
+function getObjectProperty(value: unknown, key: string) {
+  const property = getProperty(value, key);
+  if (
+    typeof property !== "object" ||
+    property === null ||
+    Array.isArray(property)
+  ) {
+    return;
+  }
+
+  return property as Record<string, unknown>;
+}
+
+function getProperty(value: unknown, key: string) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return;
+  }
+
+  const record = value as Record<string, unknown>;
+  return record[key];
+}
+
+function getFiniteNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  if (typeof value === "string" && value) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
 }
 
 function isJsonObject(

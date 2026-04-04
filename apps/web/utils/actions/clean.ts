@@ -20,7 +20,7 @@ import prisma from "@/utils/prisma";
 import { CleanAction } from "@/generated/prisma/enums";
 import { updateThread } from "@/utils/redis/clean";
 import { getUnhandledCount } from "@/utils/assess";
-import { getGmailClientForEmail } from "@/utils/account";
+import { getGmailClientForEmail } from "@/utils/email-account-client";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";

@@ -18,10 +18,16 @@ import {
   vi,
 } from "vitest";
 import { createEmulator, type Emulator } from "emulate";
+import { cardToBlockKit, cardToFallbackText } from "@chat-adapter/slack";
 import { WebClient } from "@slack/web-api";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  MessagingMessageStatus,
+  MessagingProvider,
+} from "@/generated/prisma/enums";
+import { createGmailTestHarness } from "./helpers";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -33,6 +39,11 @@ vi.mock("@/utils/rule/rule-history", () => ({
 let emulatorClient: WebClient;
 vi.mock("@/utils/messaging/providers/slack/client", () => ({
   createSlackClient: () => emulatorClient,
+}));
+
+const mockCreateEmailProvider = vi.fn();
+vi.mock("@/utils/email/provider", () => ({
+  createEmailProvider: (...args: unknown[]) => mockCreateEmailProvider(...args),
 }));
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === "true";
@@ -256,7 +267,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
 
     test("sendSlackRuleNotification posts a draft card with interactive actions", async () => {
-      const { sendSlackRuleNotification } = await import(
+      const { sendMessagingRuleNotification } = await import(
         "@/utils/messaging/rule-notifications"
       );
 
@@ -275,7 +286,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       prisma.executedAction.findFirst.mockResolvedValue(null);
       prisma.executedAction.update.mockResolvedValue({} as never);
 
-      await sendSlackRuleNotification({
+      await sendMessagingRuleNotification({
         executedActionId: "draft-action-1",
         email: {
           headers: {
@@ -313,8 +324,313 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
     });
 
-    test("sendSlackRuleNotification posts a generic info card with archive actions", async () => {
-      const { sendSlackRuleNotification } = await import(
+    test("edited Slack drafts send the synced Gmail draft", async () => {
+      const {
+        sendMessagingRuleNotification,
+        handleSlackRuleNotificationAction,
+        handleSlackRuleNotificationModalSubmit,
+      } = await import("@/utils/messaging/rule-notifications");
+
+      const gmailEmail = "slack-draft-send@example.com";
+      const subject = getUniqueSubject("Edited draft");
+      const editedContent = "I reviewed this and sent the update.";
+      const gmailHarness = await createGmailTestHarness({
+        port: 4112,
+        email: gmailEmail,
+        messages: [
+          {
+            id: "msg_original",
+            user_email: gmailEmail,
+            from: "sender@example.com",
+            to: gmailEmail,
+            subject,
+            body_text: "Can you send the update back to me?",
+            body_html: "<p>Can you send the update back to me?</p>",
+            label_ids: ["INBOX", "UNREAD"],
+            internal_date: "1711900000000",
+          },
+        ],
+      });
+
+      try {
+        mockCreateEmailProvider.mockResolvedValue(gmailHarness.provider);
+
+        const sourceMessage =
+          await gmailHarness.provider.getMessage("msg_original");
+        const createdDraft = await gmailHarness.provider.createDraft({
+          to: "sender@example.com",
+          subject: `Re: ${subject}`,
+          messageHtml: "<p>Initial draft body.</p>",
+          replyToMessageId: sourceMessage.id,
+        });
+
+        const slackActionState = {
+          id: "draft-action-edit-send",
+          type: ActionType.DRAFT_MESSAGING_CHANNEL,
+          content: "Initial draft body.",
+          subject: null as string | null,
+          to: null as string | null,
+          cc: null as string | null,
+          bcc: null as string | null,
+          draftId: null as string | null,
+          staticAttachments: null as unknown,
+          messagingChannelId: "channel-1",
+          messagingMessageId: null as string | null,
+          messagingMessageStatus: null as MessagingMessageStatus | null,
+          wasDraftSent: false,
+          executedRule: {
+            id: "executed-rule-edit-send",
+            ruleId: "rule-1",
+            messageId: sourceMessage.id,
+            threadId: sourceMessage.threadId,
+            emailAccount: {
+              id: "email-account-1",
+              userId: "user-1",
+              email: gmailEmail,
+              account: {
+                provider: "google",
+              },
+            },
+            rule: {
+              systemType: null,
+            },
+          },
+          messagingChannel: {
+            id: "channel-1",
+            emailAccountId: "email-account-1",
+            provider: MessagingProvider.SLACK,
+            isConnected: true,
+            teamId: "team-1",
+            providerUserId: null,
+            accessToken: "emulator-token",
+            channelId: notifChannelId,
+          },
+        };
+
+        const siblingDraftActionState = {
+          id: "email-draft-action-edit-send",
+          draftId: createdDraft.id,
+          subject: `Re: ${subject}`,
+          content: "Initial draft body.",
+          wasDraftSent: false,
+        };
+
+        prisma.executedAction.findUnique.mockImplementation(
+          async ({ where }) => {
+            if (where?.id !== slackActionState.id) return null;
+
+            return {
+              id: slackActionState.id,
+              type: slackActionState.type,
+              content: slackActionState.content,
+              subject: slackActionState.subject,
+              to: slackActionState.to,
+              cc: slackActionState.cc,
+              bcc: slackActionState.bcc,
+              draftId: slackActionState.draftId,
+              staticAttachments: slackActionState.staticAttachments,
+              messagingChannelId: slackActionState.messagingChannelId,
+              messagingMessageStatus: slackActionState.messagingMessageStatus,
+              executedRule: slackActionState.executedRule,
+              messagingChannel: slackActionState.messagingChannel,
+            } as never;
+          },
+        );
+
+        prisma.executedAction.findFirst.mockImplementation(
+          async ({ where }) => {
+            if (
+              where?.executedRuleId === slackActionState.executedRule.id &&
+              where?.type === ActionType.DRAFT_EMAIL &&
+              where?.draftId?.not === null
+            ) {
+              return {
+                id: siblingDraftActionState.id,
+                draftId: siblingDraftActionState.draftId,
+                subject: siblingDraftActionState.subject,
+              } as never;
+            }
+
+            if (
+              where?.messagingChannelId ===
+                slackActionState.messagingChannelId &&
+              where?.executedRule?.threadId ===
+                slackActionState.executedRule.threadId &&
+              slackActionState.messagingMessageId
+            ) {
+              return {
+                messagingMessageId: slackActionState.messagingMessageId,
+              } as never;
+            }
+
+            return null;
+          },
+        );
+
+        prisma.executedAction.update.mockImplementation(
+          async ({ where, data }) => {
+            if (where?.id === slackActionState.id) {
+              if (typeof data?.messagingMessageId === "string") {
+                slackActionState.messagingMessageId = data.messagingMessageId;
+              }
+              if (data?.messagingMessageStatus) {
+                slackActionState.messagingMessageStatus =
+                  data.messagingMessageStatus as MessagingMessageStatus;
+              }
+              if (typeof data?.content === "string") {
+                slackActionState.content = data.content;
+              }
+              if (typeof data?.wasDraftSent === "boolean") {
+                slackActionState.wasDraftSent = data.wasDraftSent;
+              }
+            }
+
+            if (where?.id === siblingDraftActionState.id) {
+              if (typeof data?.content === "string") {
+                siblingDraftActionState.content = data.content;
+              }
+              if (typeof data?.wasDraftSent === "boolean") {
+                siblingDraftActionState.wasDraftSent = data.wasDraftSent;
+              }
+            }
+
+            return {} as never;
+          },
+        );
+
+        prisma.executedAction.updateMany.mockImplementation(
+          async ({ where, data }) => {
+            const ids = where?.id?.in ?? [];
+            if (typeof data?.content === "string") {
+              if (ids.includes(slackActionState.id)) {
+                slackActionState.content = data.content;
+              }
+              if (ids.includes(siblingDraftActionState.id)) {
+                siblingDraftActionState.content = data.content;
+              }
+            }
+
+            return { count: ids.length } as never;
+          },
+        );
+
+        await sendMessagingRuleNotification({
+          executedActionId: slackActionState.id,
+          email: {
+            headers: {
+              from: sourceMessage.headers.from,
+              subject: sourceMessage.headers.subject,
+            },
+            snippet: sourceMessage.snippet,
+          },
+          logger,
+        });
+
+        const postedMessage = await findMessageBySubject({
+          channelId: notifChannelId,
+          subject,
+        });
+
+        expect(postedMessage?.text).toContain("Initial draft body.");
+
+        const editResponse = await handleSlackRuleNotificationModalSubmit({
+          event: {
+            privateMetadata: slackActionState.id,
+            values: {
+              draft_content: editedContent,
+            },
+            user: { userId: "user-1" },
+            raw: { team: { id: "team-1" } },
+            relatedMessage: {
+              edit: (card: unknown) =>
+                updateSlackCardMessage({
+                  channelId: notifChannelId,
+                  messageId: postedMessage!.ts!,
+                  card,
+                }),
+            },
+          } as any,
+          logger,
+        });
+
+        expect(editResponse).toEqual({ action: "close" });
+
+        const updatedDraft = await gmailHarness.provider.getDraft(
+          createdDraft.id,
+        );
+        const updatedDraftText =
+          updatedDraft?.textPlain || updatedDraft?.textHtml || "";
+        const sentMessageId = updatedDraft?.id;
+
+        expect(updatedDraftText).toContain(editedContent);
+        expect(sentMessageId).toBeDefined();
+        expect(slackActionState.messagingMessageStatus).toBe(
+          MessagingMessageStatus.DRAFT_EDITED,
+        );
+
+        const editedSlackMessage = await findMessageBySubject({
+          channelId: notifChannelId,
+          subject,
+        });
+
+        expect(editedSlackMessage?.text).toContain(editedContent);
+
+        await handleSlackRuleNotificationAction({
+          event: {
+            actionId: "rule_draft_send",
+            value: slackActionState.id,
+            user: { userId: "user-1" },
+            raw: { team: { id: "team-1" } },
+            threadId: postedMessage!.ts!,
+            messageId: postedMessage!.ts!,
+            adapter: {
+              editMessage: (
+                _threadId: string,
+                messageId: string,
+                card: unknown,
+              ) =>
+                updateSlackCardMessage({
+                  channelId: notifChannelId,
+                  messageId,
+                  card,
+                }),
+            },
+            thread: { postEphemeral: vi.fn() },
+          } as any,
+          logger,
+        });
+
+        expect(
+          await gmailHarness.provider.getDraft(createdDraft.id),
+        ).toBeNull();
+        expect(slackActionState.messagingMessageStatus).toBe(
+          MessagingMessageStatus.DRAFT_SENT,
+        );
+        expect(slackActionState.wasDraftSent).toBe(true);
+        expect(siblingDraftActionState.wasDraftSent).toBe(true);
+
+        const sentReply = await gmailHarness.provider.getMessage(
+          sentMessageId!,
+        );
+
+        expect(sentReply.headers.subject).toBe(`Re: ${subject}`);
+        expect(sentReply.textPlain || sentReply.textHtml || "").toContain(
+          editedContent,
+        );
+
+        const handledSlackMessage = await findMessageBySubject({
+          channelId: notifChannelId,
+          subject,
+        });
+
+        expect(handledSlackMessage?.text).toContain("Reply sent.");
+      } finally {
+        await gmailHarness.emulator.close();
+      }
+    });
+
+    test("sendMessagingRuleNotification posts a generic info card with archive actions", async () => {
+      const { sendMessagingRuleNotification } = await import(
         "@/utils/messaging/rule-notifications"
       );
 
@@ -333,7 +649,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       prisma.executedAction.findFirst.mockResolvedValue(null);
       prisma.executedAction.update.mockResolvedValue({} as never);
 
-      await sendSlackRuleNotification({
+      await sendMessagingRuleNotification({
         executedActionId: "notify-action-1",
         email: {
           headers: {
@@ -359,8 +675,8 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       );
     });
 
-    test("sendSlackRuleNotification replies in a thread for later actions on the same email thread", async () => {
-      const { sendSlackRuleNotification } = await import(
+    test("sendMessagingRuleNotification replies in a thread for later actions on the same email thread", async () => {
+      const { sendMessagingRuleNotification } = await import(
         "@/utils/messaging/rule-notifications"
       );
 
@@ -417,7 +733,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         },
       );
 
-      await sendSlackRuleNotification({
+      await sendMessagingRuleNotification({
         executedActionId: "thread-action-1",
         email: {
           headers: {
@@ -429,7 +745,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         logger,
       });
 
-      await sendSlackRuleNotification({
+      await sendMessagingRuleNotification({
         executedActionId: "thread-action-2",
         email: {
           headers: {
@@ -537,6 +853,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
       prisma.executedAction.findFirst.mockResolvedValue(null);
       prisma.executedAction.update.mockResolvedValue({} as never);
+      prisma.messagingChannel.findMany.mockResolvedValue([
+        {
+          id: "channel-1",
+        },
+      ] as never);
 
       const updatedRule = await updateRule({
         ruleId: "rule-1",
@@ -673,6 +994,7 @@ function getNotificationContext({
     messagingChannel: messagingChannelId
       ? {
           id: messagingChannelId,
+          emailAccountId: "email-account-1",
           provider: MessagingProvider.SLACK,
           isConnected: true,
           teamId: "team-1",
@@ -696,6 +1018,23 @@ async function findMessageBySubject({
   });
 
   return history.messages?.find((message) => message.text?.includes(subject));
+}
+
+async function updateSlackCardMessage({
+  channelId,
+  messageId,
+  card,
+}: {
+  channelId: string;
+  messageId: string;
+  card: unknown;
+}) {
+  await emulatorClient.chat.update({
+    channel: channelId,
+    ts: messageId,
+    text: cardToFallbackText(card as never),
+    blocks: cardToBlockKit(card as never),
+  });
 }
 
 function getActionLabels(blocks: unknown[] | undefined) {

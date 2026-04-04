@@ -8,6 +8,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createGateway } from "@ai-sdk/gateway";
 import { createVertex } from "@ai-sdk/google-vertex";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
 // Mock AI provider imports
 vi.mock("@ai-sdk/openai", () => ({
@@ -147,7 +148,7 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.modelName).toBe("gpt-5.1");
+      expect(result.modelName).toBe("gpt-5.4-mini");
     });
 
     it("should use LLM_API_KEY when provider-specific OpenAI key is not set", () => {
@@ -189,7 +190,7 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.modelName).toBe("gpt-5.1");
+      expect(result.modelName).toBe("gpt-5.4-mini");
     });
 
     it("should configure Google model correctly", () => {
@@ -770,6 +771,33 @@ describe("Models", () => {
       ]);
     });
 
+    it("should enable usage accounting for OpenRouter models", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).ECONOMY_LLM_PROVIDER = "openrouter";
+      vi.mocked(env).ECONOMY_LLM_MODEL = "openai/gpt-5-mini";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      getModel(userAi, "economy");
+
+      const openRouterFactory = vi
+        .mocked(createOpenRouter)
+        .mock.results.at(-1)?.value;
+
+      expect(openRouterFactory?.chat).toHaveBeenCalledWith(
+        "openai/gpt-5-mini",
+        {
+          usage: {
+            include: true,
+          },
+        },
+      );
+    });
+
     it("should use default model when modelType is 'default'", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
@@ -783,7 +811,7 @@ describe("Models", () => {
 
       const result = getModel(userAi, "default");
       expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.modelName).toBe("gpt-5.1");
+      expect(result.modelName).toBe("gpt-5.4-mini");
     });
 
     it("should use OpenRouter with provider options for default model", () => {

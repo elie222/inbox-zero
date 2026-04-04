@@ -68,6 +68,18 @@ describe("handleImageProxyRequest", () => {
     await expect(response.text()).resolves.toBe("Blocked upstream host");
   });
 
+  it("blocks hostname variants that rely on trailing dots", async () => {
+    const response = await handleImageProxyRequest(
+      new Request(
+        "https://proxy.example.com/proxy?u=http%3A%2F%2Fmetadata.google.internal..%2Fimage.png",
+      ),
+      {},
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.text()).resolves.toBe("Blocked upstream host");
+  });
+
   it("does not block legitimate domains that start with fc or fd", async () => {
     const upstreamFetch = vi.fn().mockResolvedValue(createImageResponse());
 
@@ -101,6 +113,18 @@ describe("handleImageProxyRequest", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("s-maxage=3600");
+  });
+
+  it("rejects unsigned requests when configured to require signatures", async () => {
+    const response = await handleImageProxyRequest(
+      new Request(
+        "https://proxy.example.com/proxy?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png",
+      ),
+      { allowUnsignedRequests: false },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.text()).resolves.toBe("Missing proxy signature");
   });
 
   it("returns cached responses without hitting upstream fetch", async () => {
