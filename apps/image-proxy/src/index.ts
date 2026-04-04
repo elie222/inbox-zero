@@ -14,7 +14,10 @@ export default {
 
     return handleImageProxyRequest(
       request,
-      { signingSecret: env.IMAGE_PROXY_SIGNING_SECRET },
+      {
+        allowUnsignedRequests: false,
+        signingSecret: env.IMAGE_PROXY_SIGNING_SECRET,
+      },
       {
         cache,
         executionContext: ctx,

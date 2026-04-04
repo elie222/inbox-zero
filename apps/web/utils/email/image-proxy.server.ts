@@ -5,6 +5,7 @@ import type { Logger } from "@/utils/logger";
 import { rewriteHtmlRemoteAssetUrls } from "./rewrite-html";
 
 let hasWarnedAboutUnsignedImageProxy = false;
+let hasWarnedAboutDisabledProductionImageProxy = false;
 
 export async function rewriteHtmlForImageProxy(html: string, logger: Logger) {
   const config = getImageProxyConfig(logger);
@@ -23,11 +24,24 @@ function getImageProxyConfig(logger: Logger) {
 
   if (!proxyBaseUrl) return null;
 
-  if (!signingSecret && !hasWarnedAboutUnsignedImageProxy) {
-    hasWarnedAboutUnsignedImageProxy = true;
-    logger.warn(
-      "Email image proxy is enabled without IMAGE_PROXY_SIGNING_SECRET. External assets will be routed through the configured proxy base URL using unsigned ?u= URLs.",
-    );
+  if (!signingSecret) {
+    if (env.NODE_ENV === "production") {
+      if (!hasWarnedAboutDisabledProductionImageProxy) {
+        hasWarnedAboutDisabledProductionImageProxy = true;
+        logger.warn(
+          "Email image proxy is disabled in production because IMAGE_PROXY_SIGNING_SECRET is missing.",
+        );
+      }
+
+      return null;
+    }
+
+    if (!hasWarnedAboutUnsignedImageProxy) {
+      hasWarnedAboutUnsignedImageProxy = true;
+      logger.warn(
+        "Email image proxy is enabled without IMAGE_PROXY_SIGNING_SECRET outside production. External assets will be routed through the configured proxy base URL using unsigned ?u= URLs.",
+      );
+    }
   }
 
   return { proxyBaseUrl, signingSecret: signingSecret || undefined };

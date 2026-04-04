@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createSafeImageProxyFetch } from "@inboxzero/image-proxy/node-safe-fetch";
 import { handler } from "./handler";
 import { handleImageProxyRequest } from "@inboxzero/image-proxy/proxy-service";
 
@@ -37,12 +38,19 @@ describe("handler", () => {
     });
 
     expect(handleImageProxyRequest).toHaveBeenCalledTimes(1);
-    const [request, config] = vi.mocked(handleImageProxyRequest).mock.calls[0];
+    const [request, config, options] = vi.mocked(handleImageProxyRequest).mock
+      .calls[0];
     expect(request.url).toBe(
       "http://proxy.example.com/proxy?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png",
     );
     expect(request.method).toBe("GET");
-    expect(config).toEqual({ signingSecret: undefined });
+    expect(config).toEqual({
+      allowUnsignedRequests: false,
+      signingSecret: undefined,
+    });
+    expect(options).toMatchObject({
+      fetchImpl: createSafeImageProxyFetch,
+    });
   });
 
   it("base64-encodes binary responses for Lambda", async () => {
