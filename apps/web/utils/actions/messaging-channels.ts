@@ -381,7 +381,9 @@ export const toggleRuleChannelAction = actionClient
           data: {
             type: actionType,
             ruleId,
+            emailAccountId,
             messagingChannelId,
+            messagingChannelEmailAccountId: emailAccountId,
           },
         });
       } else {

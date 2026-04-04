@@ -74,6 +74,7 @@ describe("enableDraftRepliesAction", () => {
     });
     expect(prisma.action.create).toHaveBeenCalledWith({
       data: {
+        emailAccountId: "ea_1",
         ruleId: "rule-1",
         type: ActionType.DRAFT_EMAIL,
       },

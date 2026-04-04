@@ -23,7 +23,6 @@ import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import { flattenConditions } from "@/utils/condition";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
-import type { Prisma } from "@/generated/prisma/client";
 import { sanitizeActionFields } from "@/utils/action-item";
 import {
   deleteRule,
@@ -34,6 +33,7 @@ import {
   replaceRuleWithResolvedActions,
   setRuleEnabled,
   updateRuleInstructions,
+  type RuleActionWriteInput,
 } from "@/utils/rule/rule";
 import { SafeError } from "@/utils/error";
 import {
@@ -228,6 +228,7 @@ export const enableDraftRepliesAction = actionClient
           await prisma.action.create({
             data: {
               ruleId: rule.id,
+              emailAccountId,
               type: ActionType.DRAFT_EMAIL,
             },
           });
@@ -713,7 +714,7 @@ async function toggleRule({
   const ruleConfig = getRuleConfig(systemType);
   const actionTypes = getSystemRuleActionTypes(systemType, provider);
 
-  const actions: Prisma.ActionCreateManyRuleInput[] = [];
+  const actions: RuleActionWriteInput[] = [];
 
   for (const actionType of actionTypes) {
     if (actionType.includeFolder) {
@@ -929,7 +930,7 @@ async function getActionsFromCategoryAction({
   provider: string;
   logger: Logger;
   systemType?: SystemType;
-}): Promise<Prisma.ActionCreateManyRuleInput[]> {
+}): Promise<RuleActionWriteInput[]> {
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider,
@@ -960,7 +961,7 @@ async function getActionsFromCategoryAction({
     hasDigest,
   });
 
-  const actions: Prisma.ActionCreateManyRuleInput[] = [];
+  const actions: RuleActionWriteInput[] = [];
 
   for (const actionType of actionTypes) {
     switch (actionType.type) {

@@ -30,6 +30,11 @@ type CreateRuleEnablement =
   | { source: "default" }
   | { source: "chat"; chatRiskConfirmed?: boolean };
 
+export type RuleActionWriteInput = Omit<
+  Prisma.ActionCreateManyRuleInput,
+  "emailAccountId" | "messagingChannelEmailAccountId"
+>;
+
 export function outboundActionsNeedChatRiskConfirmation(
   result: CreateOrUpdateRuleSchema,
 ): { needsConfirmation: boolean; riskMessages: string[] } {
@@ -151,7 +156,7 @@ export async function createRuleWithResolvedActions({
 }: {
   emailAccountId: string;
   data: RuleRecordData & { name: string };
-  actions: Prisma.ActionCreateManyRuleInput[];
+  actions: RuleActionWriteInput[];
 }): Promise<RuleWithRelations> {
   assertWebhookActionsAllowed(actions);
 
@@ -178,7 +183,11 @@ export async function createRuleWithResolvedActions({
       subject: data.subject ?? undefined,
       body: data.body ?? undefined,
       groupId: data.groupId ?? undefined,
-      actions: { createMany: { data: actions } },
+      actions: {
+        createMany: {
+          data: addActionOwnershipToInputs(actions, emailAccountId),
+        },
+      },
     },
     include: { actions: true, group: true },
   });
@@ -195,7 +204,7 @@ export async function replaceRuleWithResolvedActions({
   ruleId: string;
   emailAccountId: string;
   data: RuleRecordData;
-  actions: Prisma.ActionCreateManyRuleInput[];
+  actions: RuleActionWriteInput[];
 }): Promise<RuleWithRelations> {
   assertWebhookActionsAllowed(actions);
 
@@ -224,7 +233,9 @@ export async function replaceRuleWithResolvedActions({
       groupId: data.groupId,
       actions: {
         deleteMany: {},
-        createMany: { data: actions },
+        createMany: {
+          data: addActionOwnershipToInputs(actions, emailAccountId),
+        },
       },
     },
     include: { actions: true, group: true },
@@ -377,7 +388,7 @@ export async function upsertSystemRule({
 }: {
   name: string;
   instructions: string;
-  actions: Prisma.ActionCreateManyRuleInput[];
+  actions: RuleActionWriteInput[];
   emailAccountId: string;
   systemType: SystemType;
   runOnThreads: boolean;
@@ -612,7 +623,7 @@ async function mapActionFields(
   await assertMessagingChannelsBelongToEmailAccount(actions, emailAccountId);
 
   const actionPromises = actions.map(
-    async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
+    async (a): Promise<RuleActionWriteInput> => {
       const to = a.fields?.to?.trim() || null;
       const recipientMessage = getMissingRecipientMessage({
         actionType: a.type,
@@ -728,9 +739,7 @@ function ruleConditionsForRisk(rule: CreateOrUpdateRuleSchema): RuleConditions {
   };
 }
 
-function validateWebhookUrlsInActions(
-  actions: Prisma.ActionCreateManyRuleInput[],
-) {
+function validateWebhookUrlsInActions(actions: RuleActionWriteInput[]) {
   for (const action of actions) {
     if (action.type !== ActionType.CALL_WEBHOOK || !action.url) continue;
 
@@ -739,4 +748,17 @@ function validateWebhookUrlsInActions(
       throw new SafeError(`Invalid webhook URL: ${result.error}`, 400);
     }
   }
+}
+
+function addActionOwnershipToInputs(
+  actions: RuleActionWriteInput[],
+  emailAccountId: string,
+): Prisma.ActionCreateManyRuleInput[] {
+  return actions.map((action) => ({
+    ...action,
+    emailAccountId,
+    messagingChannelEmailAccountId: action.messagingChannelId
+      ? emailAccountId
+      : null,
+  }));
 }

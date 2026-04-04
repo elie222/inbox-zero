@@ -162,6 +162,7 @@ async function executeDelayedAction({
   const executedAction = await prisma.executedAction.create({
     data: {
       type: actionItem.type,
+      messagingChannelId: actionItem.messagingChannelId,
       label: actionItem.label,
       subject: actionItem.subject,
       content: actionItem.content,
@@ -170,9 +171,7 @@ async function executeDelayedAction({
       bcc: actionItem.bcc,
       url: actionItem.url,
       staticAttachments: actionItem.staticAttachments ?? undefined,
-      executedRule: {
-        connect: { id: scheduledAction.executedRuleId },
-      },
+      executedRuleId: scheduledAction.executedRuleId,
     },
   });
 

@@ -168,6 +168,7 @@ export const updateDigestItemsAction = actionClient
             await prisma.action.create({
               data: {
                 ruleId: rule.id,
+                emailAccountId,
                 type: ActionType.DIGEST,
               },
             });
@@ -228,7 +229,11 @@ export const toggleDigestAction = actionClient
           !newsletterRule.actions.some((a) => a.type === ActionType.DIGEST)
         ) {
           await prisma.action.create({
-            data: { ruleId: newsletterRule.id, type: ActionType.DIGEST },
+            data: {
+              ruleId: newsletterRule.id,
+              emailAccountId,
+              type: ActionType.DIGEST,
+            },
           });
         }
       } else {
