@@ -162,7 +162,6 @@ async function executeDelayedAction({
   const executedAction = await prisma.executedAction.create({
     data: {
       type: actionItem.type,
-      messagingChannelId: actionItem.messagingChannelId,
       label: actionItem.label,
       subject: actionItem.subject,
       content: actionItem.content,
