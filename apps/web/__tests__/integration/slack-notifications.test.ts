@@ -852,6 +852,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
       prisma.executedAction.findFirst.mockResolvedValue(null);
       prisma.executedAction.update.mockResolvedValue({} as never);
+      prisma.messagingChannel.findMany.mockResolvedValue([
+        {
+          id: "channel-1",
+        },
+      ] as never);
 
       const updatedRule = await updateRule({
         ruleId: "rule-1",
@@ -988,6 +993,7 @@ function getNotificationContext({
     messagingChannel: messagingChannelId
       ? {
           id: messagingChannelId,
+          emailAccountId: "email-account-1",
           provider: MessagingProvider.SLACK,
           isConnected: true,
           teamId: "team-1",
