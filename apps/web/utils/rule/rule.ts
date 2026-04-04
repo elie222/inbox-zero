@@ -567,6 +567,8 @@ async function mapActionFields(
   emailAccountId: string,
   logger: Logger,
 ) {
+  await assertMessagingChannelsBelongToEmailAccount(actions, emailAccountId);
+
   const actionPromises = actions.map(
     async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
       const to = a.fields?.to?.trim() || null;
@@ -640,6 +642,33 @@ async function mapActionFields(
   );
 
   return Promise.all(actionPromises);
+}
+
+async function assertMessagingChannelsBelongToEmailAccount(
+  actions: readonly { messagingChannelId?: string | null }[],
+  emailAccountId: string,
+) {
+  const messagingChannelIds = [
+    ...new Set(
+      actions
+        .map((action) => action.messagingChannelId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  if (!messagingChannelIds.length) return;
+
+  const channels = await prisma.messagingChannel.findMany({
+    where: {
+      id: { in: messagingChannelIds },
+      emailAccountId,
+    },
+    select: { id: true },
+  });
+
+  if (channels.length !== messagingChannelIds.length) {
+    throw new SafeError("Messaging channel not found");
+  }
 }
 
 const OUTBOUND_ACTION_TYPES: ActionType[] = [
