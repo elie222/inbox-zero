@@ -11,6 +11,7 @@
 - Run single test: `pnpm test __tests__/test-file.test.ts`
 - Run specific AI test: `pnpm test-ai ai-categorize-senders`
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
+- Do not use root `tsc --noEmit`; it is not a supported validation step in this monorepo and surfaces unrelated repo-wide debt. If you need the app's CI-aligned type/build check, use `pnpm --filter inbox-zero-ai build:ci` instead, and only when explicitly asked.
 - Do not run `dev` or `build` unless explicitly asked
 - Run `pnpm install` before running tests or build if not already done
 - Before writing or updating tests, review `.claude/skills/testing/SKILL.md`.
