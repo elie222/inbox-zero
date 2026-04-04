@@ -66,7 +66,7 @@ async function getUnreadEmailCount(client: EmailProvider) {
   }
 }
 
-async function getInboxCount(client: EmailProvider) {
+export async function getInboxCount(client: EmailProvider) {
   if (client instanceof GmailProvider) {
     const label = await client.getLabelById(GmailLabel.INBOX);
     return label?.threadsTotal || 0;
@@ -76,7 +76,7 @@ async function getInboxCount(client: EmailProvider) {
   }
 }
 
-async function getUnreadCount(client: EmailProvider) {
+export async function getUnreadCount(client: EmailProvider) {
   if (client instanceof GmailProvider) {
     const label = await client.getLabelById(GmailLabel.UNREAD);
     return label?.threadsTotal || 0;
