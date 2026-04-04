@@ -160,7 +160,12 @@ describe("updateChannelFeaturesAction", () => {
 
     expect(result?.serverError).toBeUndefined();
     expect(prisma.messagingChannel.update).toHaveBeenCalledWith({
-      where: { id: "channel-1" },
+      where: {
+        id_emailAccountId: {
+          id: "channel-1",
+          emailAccountId: "email-account-1",
+        },
+      },
       data: { sendMeetingBriefs: true },
     });
   });

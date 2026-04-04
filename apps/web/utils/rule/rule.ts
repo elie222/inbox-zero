@@ -35,6 +35,22 @@ export type RuleActionWriteInput = Omit<
   "emailAccountId" | "messagingChannelEmailAccountId"
 >;
 
+export function addActionOwnershipToInput<T extends Record<string, unknown>>(
+  action: T & { messagingChannelId?: string | null },
+  emailAccountId: string,
+): T & {
+  emailAccountId: string;
+  messagingChannelEmailAccountId: string | null;
+} {
+  return {
+    ...action,
+    emailAccountId,
+    messagingChannelEmailAccountId: action.messagingChannelId
+      ? emailAccountId
+      : null,
+  };
+}
+
 export function outboundActionsNeedChatRiskConfirmation(
   result: CreateOrUpdateRuleSchema,
 ): { needsConfirmation: boolean; riskMessages: string[] } {
@@ -754,11 +770,7 @@ function addActionOwnershipToInputs(
   actions: RuleActionWriteInput[],
   emailAccountId: string,
 ): Prisma.ActionCreateManyRuleInput[] {
-  return actions.map((action) => ({
-    ...action,
-    emailAccountId,
-    messagingChannelEmailAccountId: action.messagingChannelId
-      ? emailAccountId
-      : null,
-  }));
+  return actions.map((action) =>
+    addActionOwnershipToInput(action, emailAccountId),
+  );
 }

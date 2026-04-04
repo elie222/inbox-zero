@@ -20,6 +20,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 import { SafeError } from "@/utils/error";
 import { env } from "@/env";
+import { addActionOwnershipToInput } from "@/utils/rule/rule";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
@@ -166,11 +167,13 @@ export const updateDigestItemsAction = actionClient
           if (enabled && !hasDigestAction) {
             // Add DIGEST action
             await prisma.action.create({
-              data: {
-                ruleId: rule.id,
+              data: addActionOwnershipToInput(
+                {
+                  ruleId: rule.id,
+                  type: ActionType.DIGEST,
+                },
                 emailAccountId,
-                type: ActionType.DIGEST,
-              },
+              ),
             });
           } else if (!enabled && hasDigestAction) {
             // Remove DIGEST action
@@ -229,11 +232,13 @@ export const toggleDigestAction = actionClient
           !newsletterRule.actions.some((a) => a.type === ActionType.DIGEST)
         ) {
           await prisma.action.create({
-            data: {
-              ruleId: newsletterRule.id,
+            data: addActionOwnershipToInput(
+              {
+                ruleId: newsletterRule.id,
+                type: ActionType.DIGEST,
+              },
               emailAccountId,
-              type: ActionType.DIGEST,
-            },
+            ),
           });
         }
       } else {

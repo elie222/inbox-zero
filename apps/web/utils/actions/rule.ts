@@ -34,6 +34,7 @@ import {
   setRuleEnabled,
   updateRuleInstructions,
   type RuleActionWriteInput,
+  addActionOwnershipToInput,
 } from "@/utils/rule/rule";
 import { SafeError } from "@/utils/error";
 import {
@@ -226,11 +227,13 @@ export const enableDraftRepliesAction = actionClient
         );
         if (!alreadyDraftingReplies) {
           await prisma.action.create({
-            data: {
-              ruleId: rule.id,
+            data: addActionOwnershipToInput(
+              {
+                ruleId: rule.id,
+                type: ActionType.DRAFT_EMAIL,
+              },
               emailAccountId,
-              type: ActionType.DRAFT_EMAIL,
-            },
+            ),
           });
         }
       } else {
@@ -271,12 +274,15 @@ export const deleteRuleAction = actionClient
   .inputSchema(deleteRuleBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     const rule = await prisma.rule.findUnique({
-      where: { id, emailAccountId },
+      where: {
+        id_emailAccountId: {
+          id,
+          emailAccountId,
+        },
+      },
       include: { actions: true, group: true },
     });
     if (!rule) return; // already deleted
-    if (rule.emailAccountId !== emailAccountId)
-      throw new SafeError("You don't have permission to delete this rule");
     if (rule.systemType) {
       throw new SafeError(
         "Default rules cannot be deleted. Disable them instead.",
