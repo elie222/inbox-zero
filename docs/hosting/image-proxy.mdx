@@ -88,6 +88,25 @@ The deployment model is:
 - set `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` to your CloudFront URL
 - use the same `IMAGE_PROXY_SIGNING_SECRET`
 
+## Self-Hosted Next.js Option
+
+If you are self-hosting and want the simplest setup, Inbox Zero can proxy remote images through its own Next.js app route instead of a separate service.
+
+Set these app environment variables:
+
+```bash
+NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE=true
+IMAGE_PROXY_SIGNING_SECRET=your-generated-secret
+```
+
+In this mode, Inbox Zero signs image proxy URLs and routes them to `${NEXT_PUBLIC_BASE_URL}/api/image-proxy`.
+
+Notes:
+
+- this runs in the main app process, so it is simpler but less isolated than a separate proxy service
+- the Next.js route uses the same SSRF protections as the AWS adapter, including DNS resolution and pinned public-address lookups
+- keep `IMAGE_PROXY_SIGNING_SECRET` set; production rewriting stays disabled without it
+
 ## Troubleshooting
 
 ### Health Check
@@ -117,8 +136,8 @@ Double-check:
 For most self-hosters:
 
 1. Deploy the main app normally.
-2. Deploy the image proxy separately on Cloudflare Workers.
-3. Set `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` and `IMAGE_PROXY_SIGNING_SECRET`.
-4. Leave the Worker domain selection to the CLI via `wrangler deploy --domains ...`.
+2. Choose one proxy mode:
+3. Simplest: set `NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE=true` and `IMAGE_PROXY_SIGNING_SECRET`.
+4. More isolated: deploy the image proxy separately on Cloudflare Workers and set `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` plus `IMAGE_PROXY_SIGNING_SECRET`.
 
-That keeps the main app and the proxy decoupled, avoids file edits for domain choice, and makes upgrades easier when the upstream repo changes.
+The in-app route is the easiest self-hosted setup. The separate proxy service is still the better fit when you want stronger isolation or independent scaling.

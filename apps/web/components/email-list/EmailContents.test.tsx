@@ -10,7 +10,9 @@ vi.mock("next-themes", () => ({
 
 vi.mock("@/env", () => ({
   env: {
+    NEXT_PUBLIC_BASE_URL: "https://app.example.com",
     NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: "https://img.example.com/proxy",
+    NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE: true,
   },
 }));
 
@@ -48,6 +50,54 @@ describe("HtmlEmail", () => {
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it("keeps https images allowed when proxy rewriting leaves the html unchanged", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          html: '<img src="https://cdn.example.com/photo.png" />',
+        }),
+      }),
+    );
+
+    const { getByTitle } = render(
+      <HtmlEmail html={'<img src="https://cdn.example.com/photo.png" />'} />,
+    );
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    const iframe = getByTitle("Email content preview");
+    expect(iframe.getAttribute("srcdoc")).toContain("img-src data: https:;");
+  });
+
+  it("locks image loading to the proxy origin after rewriting succeeds", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          html: '<img src="https://app.example.com/api/image-proxy?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png&amp;e=1&amp;s=test" />',
+        }),
+      }),
+    );
+
+    const { getByTitle } = render(
+      <HtmlEmail html={'<img src="https://cdn.example.com/photo.png" />'} />,
+    );
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    const iframe = getByTitle("Email content preview");
+    expect(iframe.getAttribute("srcdoc")).toContain(
+      "img-src data: https://app.example.com;",
+    );
   });
 });
 

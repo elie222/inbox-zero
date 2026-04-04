@@ -273,6 +273,9 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string(),
     NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: z.string().url().optional(),
+    NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE: booleanString
+      .optional()
+      .default(false),
     NEXT_PUBLIC_BRAND_NAME: z.string().trim().min(1).default("Inbox Zero"),
     NEXT_PUBLIC_BRAND_LOGO_URL: z.string().optional(),
     NEXT_PUBLIC_BRAND_ICON_URL: z.string().optional().default("/icon.png"),
@@ -361,6 +364,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_BASE_URL: getBaseUrl(),
     NEXT_PUBLIC_IMAGE_PROXY_BASE_URL:
       process.env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL,
+    NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE:
+      process.env.NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE,
     NEXT_PUBLIC_BRAND_NAME: process.env.NEXT_PUBLIC_BRAND_NAME,
     NEXT_PUBLIC_BRAND_LOGO_URL: process.env.NEXT_PUBLIC_BRAND_LOGO_URL,
     NEXT_PUBLIC_BRAND_ICON_URL: process.env.NEXT_PUBLIC_BRAND_ICON_URL,
