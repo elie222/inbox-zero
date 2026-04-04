@@ -31,8 +31,10 @@ vi.mock("@/utils/prisma-helpers", () => ({
 
 import {
   createRule,
+  createRuleWithResolvedActions,
   deleteRule,
   partialUpdateRule,
+  replaceRuleWithResolvedActions,
   updateRule,
   updateRuleActions,
 } from "./rule";
@@ -291,6 +293,107 @@ describe("outbound action guardrails", () => {
       data: { instructions: "updated instructions" },
       include: { actions: true, group: true },
     });
+  });
+});
+
+describe("webhook URL validation at save time", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects creating a rule with a localhost webhook URL", async () => {
+    await expect(
+      createRuleWithResolvedActions({
+        emailAccountId: "email-account-id",
+        data: { name: "Webhook rule" },
+        actions: [
+          { type: ActionType.CALL_WEBHOOK, url: "https://localhost/hook" },
+        ],
+      }),
+    ).rejects.toThrow("Invalid webhook URL");
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects creating a rule with a private IP webhook URL", async () => {
+    await expect(
+      createRuleWithResolvedActions({
+        emailAccountId: "email-account-id",
+        data: { name: "Webhook rule" },
+        actions: [
+          {
+            type: ActionType.CALL_WEBHOOK,
+            url: "https://169.254.169.254/metadata",
+          },
+        ],
+      }),
+    ).rejects.toThrow("Invalid webhook URL");
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects creating a rule with a non-http scheme webhook URL", async () => {
+    await expect(
+      createRuleWithResolvedActions({
+        emailAccountId: "email-account-id",
+        data: { name: "Webhook rule" },
+        actions: [{ type: ActionType.CALL_WEBHOOK, url: "file:///etc/passwd" }],
+      }),
+    ).rejects.toThrow("Invalid webhook URL");
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects updating a rule with an internal webhook URL", async () => {
+    await expect(
+      replaceRuleWithResolvedActions({
+        ruleId: "rule-id",
+        emailAccountId: "email-account-id",
+        data: {},
+        actions: [
+          {
+            type: ActionType.CALL_WEBHOOK,
+            url: "https://metadata.google.internal/computeMetadata/v1/",
+          },
+        ],
+      }),
+    ).rejects.toThrow("Invalid webhook URL");
+
+    expect(prisma.rule.update).not.toHaveBeenCalled();
+  });
+
+  it("allows a valid public webhook URL", async () => {
+    prisma.rule.create.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+
+    await createRuleWithResolvedActions({
+      emailAccountId: "email-account-id",
+      data: { name: "Webhook rule" },
+      actions: [
+        { type: ActionType.CALL_WEBHOOK, url: "https://example.com/webhook" },
+      ],
+    });
+
+    expect(prisma.rule.create).toHaveBeenCalled();
+  });
+
+  it("skips validation for non-webhook actions", async () => {
+    prisma.rule.create.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+
+    await createRuleWithResolvedActions({
+      emailAccountId: "email-account-id",
+      data: { name: "Archive rule" },
+      actions: [{ type: ActionType.ARCHIVE }],
+    });
+
+    expect(prisma.rule.create).toHaveBeenCalled();
   });
 });
 
