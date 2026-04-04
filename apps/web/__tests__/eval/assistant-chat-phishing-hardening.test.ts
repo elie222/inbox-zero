@@ -14,6 +14,7 @@ import {
   formatSemanticJudgeActual,
   judgeEvalOutput,
 } from "@/__tests__/eval/semantic-judge";
+import { configureRuleMutationMocks } from "@/__tests__/eval/assistant-chat-rule-eval-test-utils";
 import { getMockMessage } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -78,13 +79,16 @@ const {
 }));
 
 vi.mock("@/utils/rule/rule", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/utils/rule/rule")>();
-  return {
-    ...actual,
-    createRule: mockCreateRule,
-    partialUpdateRule: mockPartialUpdateRule,
-    updateRuleActions: mockUpdateRuleActions,
-  };
+  const { buildRuleModuleMutationMock } = await import(
+    "@/__tests__/eval/assistant-chat-rule-eval-test-utils"
+  );
+
+  return buildRuleModuleMutationMock({
+    importOriginal: () => importOriginal<typeof import("@/utils/rule/rule")>(),
+    mockCreateRule,
+    mockPartialUpdateRule,
+    mockUpdateRuleActions,
+  });
 });
 
 vi.mock("@/utils/rule/learned-patterns", () => ({
@@ -125,10 +129,12 @@ describe.runIf(shouldRunEval)(
     beforeEach(() => {
       vi.clearAllMocks();
 
-      mockCreateRule.mockResolvedValue({ id: "created-rule-id" });
-      mockPartialUpdateRule.mockResolvedValue({ id: "updated-rule-id" });
-      mockUpdateRuleActions.mockResolvedValue({ id: "updated-rule-id" });
-      mockSaveLearnedPatterns.mockResolvedValue({ success: true });
+      configureRuleMutationMocks({
+        mockCreateRule,
+        mockPartialUpdateRule,
+        mockUpdateRuleActions,
+        mockSaveLearnedPatterns,
+      });
 
       prisma.emailAccount.findUnique.mockImplementation(async ({ select }) => {
         if (select?.rules) {
