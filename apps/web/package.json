@@ -236,7 +236,7 @@
     "vitest-mock-extended": "3.1.0"
   },
   "engines": {
-    "node": ">=24.0.0"
+    "node": "24.x"
   },
   "optionalDependencies": {
     "@sanity/client": "7.17.0",
