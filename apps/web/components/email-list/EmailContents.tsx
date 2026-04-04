@@ -64,6 +64,7 @@ export function HtmlEmail({ html }: { html: string }) {
       getIframeHtml(
         showReplies ? renderHtml : mainContent,
         isDarkMode,
+        IMAGE_PROXY_BASE_URL,
         IMAGE_PROXY_ORIGIN,
       ),
     [renderHtml, mainContent, showReplies, isDarkMode],
@@ -125,6 +126,7 @@ function getEmailContent(html: string) {
 function getIframeHtml(
   html: string,
   isDarkMode: boolean,
+  imageProxyBaseUrl: string | null,
   imageProxyOrigin: string | null,
 ) {
   // Count style attributes safely
@@ -216,11 +218,18 @@ function getIframeHtml(
     </style>
   `;
 
+  // The server can fail closed to the original HTML when proxy signing is unavailable,
+  // so only lock CSP to the proxy after the rendered markup actually points at it.
+  const imageSourceDirective =
+    imageProxyBaseUrl && imageProxyOrigin && html.includes(imageProxyBaseUrl)
+      ? imageProxyOrigin
+      : "https:";
+
   const securityHeaders = `
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'none';
       style-src 'unsafe-inline';
-      img-src data: ${imageProxyOrigin || "https:"};
+      img-src data: ${imageSourceDirective};
       font-src 'none';
       media-src 'none';
       connect-src 'none';

@@ -13,7 +13,11 @@ export function getImageProxyBaseUrl({
 }: ImageProxyConfigInput) {
   if (useAppRoute) {
     if (!baseUrl) return null;
-    return new URL(APP_IMAGE_PROXY_PATH, baseUrl).toString();
+    try {
+      return new URL(APP_IMAGE_PROXY_PATH, baseUrl).toString();
+    } catch {
+      return null;
+    }
   }
 
   return externalProxyBaseUrl || null;
