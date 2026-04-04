@@ -160,7 +160,12 @@ describe("updateChannelFeaturesAction", () => {
 
     expect(result?.serverError).toBeUndefined();
     expect(prisma.messagingChannel.update).toHaveBeenCalledWith({
-      where: { id: "channel-1" },
+      where: {
+        id_emailAccountId: {
+          id: "channel-1",
+          emailAccountId: "email-account-1",
+        },
+      },
       data: { sendMeetingBriefs: true },
     });
   });
@@ -231,6 +236,8 @@ describe("toggleRuleChannelAction", () => {
     });
     expect(prisma.action.create).toHaveBeenCalledWith({
       data: {
+        emailAccountId: "email-account-1",
+        messagingChannelEmailAccountId: "email-account-1",
         type: "NOTIFY_MESSAGING_CHANNEL",
         ruleId: "rule-1",
         messagingChannelId: "channel-1",
@@ -262,6 +269,8 @@ describe("toggleRuleChannelAction", () => {
     expect(result?.serverError).toBeUndefined();
     expect(prisma.action.create).toHaveBeenCalledWith({
       data: {
+        emailAccountId: "email-account-1",
+        messagingChannelEmailAccountId: "email-account-1",
         type: "NOTIFY_MESSAGING_CHANNEL",
         ruleId: "rule-1",
         messagingChannelId: "channel-1",
@@ -293,6 +302,8 @@ describe("toggleRuleChannelAction", () => {
     expect(result?.serverError).toBeUndefined();
     expect(prisma.action.create).toHaveBeenCalledWith({
       data: {
+        emailAccountId: "email-account-1",
+        messagingChannelEmailAccountId: "email-account-1",
         type: "DRAFT_MESSAGING_CHANNEL",
         ruleId: "rule-1",
         messagingChannelId: "channel-1",

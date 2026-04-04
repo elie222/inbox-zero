@@ -98,10 +98,14 @@ export const saveAutomationJobAction = actionClient
       }
 
       const channel = await prisma.messagingChannel.findUnique({
-        where: { id: messagingChannelId },
+        where: {
+          id_emailAccountId: {
+            id: messagingChannelId,
+            emailAccountId,
+          },
+        },
         select: {
           id: true,
-          emailAccountId: true,
           provider: true,
           isConnected: true,
           accessToken: true,
@@ -111,7 +115,7 @@ export const saveAutomationJobAction = actionClient
         },
       });
 
-      if (!channel || channel.emailAccountId !== emailAccountId) {
+      if (!channel) {
         throw new SafeError("Messaging channel not found");
       }
 

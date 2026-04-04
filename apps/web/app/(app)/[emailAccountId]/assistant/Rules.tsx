@@ -102,7 +102,11 @@ export function Rules({
         enabled: false,
         runOnThreads: false,
         automate: true,
-        actions: getDefaultActions(systemType, provider),
+        actions: getDefaultActions(systemType, provider).map((action) => ({
+          ...action,
+          emailAccountId,
+          messagingChannelEmailAccountId: null,
+        })),
         group: null,
         emailAccountId: emailAccountId,
         createdAt: new Date(),

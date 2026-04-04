@@ -260,6 +260,53 @@ describe("outbound action guardrails", () => {
     expect(prisma.rule.update).not.toHaveBeenCalled();
   });
 
+  it("adds action ownership fields when updating messaging actions", async () => {
+    prisma.rule.findFirst.mockResolvedValue({
+      from: null,
+    } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([
+      { id: "cmessagingchannel1234567890123" },
+    ] as any);
+    prisma.rule.update.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+    } as any);
+
+    await updateRuleActions({
+      ruleId: "rule-id",
+      actions: [
+        {
+          type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+          messagingChannelId: "cmessagingchannel1234567890123",
+          fields: null,
+          delayInMinutes: null,
+        } as any,
+      ],
+      provider: "gmail",
+      emailAccountId: "email-account-id",
+      logger,
+    });
+
+    expect(prisma.rule.update).toHaveBeenCalledWith({
+      where: { id: "rule-id", emailAccountId: "email-account-id" },
+      data: {
+        actions: {
+          deleteMany: {},
+          createMany: {
+            data: [
+              expect.objectContaining({
+                type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+                messagingChannelId: "cmessagingchannel1234567890123",
+                emailAccountId: "email-account-id",
+                messagingChannelEmailAccountId: "email-account-id",
+              }),
+            ],
+          },
+        },
+      },
+    });
+  });
+
   it("scopes full rule updates to the email account", async () => {
     prisma.rule.update.mockResolvedValue({
       id: "rule-id",
