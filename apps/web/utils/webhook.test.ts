@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { callWebhook } from "./webhook";
-import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -59,12 +58,12 @@ describe("callWebhook", () => {
     vi.unstubAllGlobals();
   });
 
-  it("rejects before hitting validation, the database, or the network when webhook actions are disabled", async () => {
+  it("skips existing webhook actions when webhook actions are disabled", async () => {
     mockEnv.webhookActionsEnabled = false;
 
     await expect(
       callWebhook("user-1", "https://example.com/webhook", getPayload()),
-    ).rejects.toThrow(WEBHOOK_ACTION_DISABLED_MESSAGE);
+    ).resolves.toBeUndefined();
 
     expect(validateWebhookUrlMock).not.toHaveBeenCalled();
     expect(prisma.user.findUnique).not.toHaveBeenCalled();

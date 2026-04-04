@@ -6,7 +6,10 @@ import prisma from "@/utils/prisma";
 import type { ExecutedRule } from "@/generated/prisma/client";
 import { resolveSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
 import { validateWebhookUrl } from "@/utils/webhook-validation";
-import { ensureWebhookActionEnabled } from "@/utils/webhook-action";
+import {
+  ensureWebhookActionEnabled,
+  WEBHOOK_ACTION_DISABLED_MESSAGE,
+} from "@/utils/webhook-action";
 
 const logger = createScopedLogger("webhook");
 const WEBHOOK_REQUEST_TIMEOUT_MS = 1000;
@@ -32,7 +35,21 @@ export const callWebhook = async (
   url: string,
   payload: WebhookPayload,
 ) => {
-  ensureWebhookActionEnabled();
+  try {
+    ensureWebhookActionEnabled();
+  } catch (error) {
+    if (
+      error instanceof SafeError &&
+      error.message === WEBHOOK_ACTION_DISABLED_MESSAGE
+    ) {
+      logger.info(
+        "Skipping webhook action because webhook actions are disabled",
+      );
+      return;
+    }
+
+    throw error;
+  }
 
   if (!url) throw new Error("Webhook URL is required");
 

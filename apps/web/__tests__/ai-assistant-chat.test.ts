@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelMessage } from "ai";
 import { getEmailAccount, getMockMessage } from "@/__tests__/helpers";
+import { ActionType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
@@ -246,7 +247,7 @@ describe("aiProcessAssistantChat", () => {
     expect(args.tools.forwardEmail).toBeUndefined();
   });
 
-  it("omits webhook action guidance when webhook actions are disabled", async () => {
+  it("does not expose webhook rule actions when webhook actions are disabled", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,
       webhookActions: false,
@@ -264,10 +265,16 @@ describe("aiProcessAssistantChat", () => {
     });
 
     const args = mockToolCallAgentStream.mock.calls[0][0];
-    expect(args.messages[0].content).not.toContain("- Call a webhook");
-    expect(args.messages[0].content).not.toContain(
-      "When createRule includes a webhook action",
-    );
+
+    expect(
+      args.tools.createRule.inputSchema.safeParse(getWebhookRuleInput())
+        .success,
+    ).toBe(false);
+    expect(
+      args.tools.updateRuleActions.inputSchema.safeParse(
+        getWebhookRuleActionsInput(),
+      ).success,
+    ).toBe(false);
   });
 
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
@@ -1890,3 +1897,51 @@ describe("aiProcessAssistantChat", () => {
     });
   });
 });
+
+function getWebhookRuleInput() {
+  return {
+    name: "Webhook",
+    condition: {
+      conditionalOperator: null,
+      aiInstructions: "Send matching emails to the webhook",
+      static: null,
+    },
+    actions: [
+      {
+        type: ActionType.CALL_WEBHOOK,
+        fields: {
+          label: null,
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: "https://example.com/webhook",
+        },
+        delayInMinutes: null,
+      },
+    ],
+  };
+}
+
+function getWebhookRuleActionsInput() {
+  return {
+    ruleName: "Existing rule",
+    actions: [
+      {
+        type: ActionType.CALL_WEBHOOK,
+        fields: {
+          label: null,
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: "https://example.com/webhook",
+          folderName: null,
+        },
+        delayInMinutes: null,
+      },
+    ],
+  };
+}
