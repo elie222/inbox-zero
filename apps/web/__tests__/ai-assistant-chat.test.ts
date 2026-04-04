@@ -98,6 +98,7 @@ async function loadAssistantChatModule({
 async function captureToolSet(
   emailSend = true,
   provider: "google" | "microsoft" = "google",
+  messages: ModelMessage[] = baseMessages,
 ) {
   const { aiProcessAssistantChat } = await loadAssistantChatModule({
     emailSend,
@@ -110,7 +111,8 @@ async function captureToolSet(
   });
 
   await aiProcessAssistantChat({
-    messages: baseMessages,
+    messages,
+    conversationMessagesForMemory: messages,
     emailAccountId: "email-account-id",
     user,
     logger,
@@ -1305,24 +1307,19 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("saveMemory creates a new memory", async () => {
-    const tools = await captureToolSet();
+    const tools = await captureToolSet(true, "google", [
+      {
+        role: "user",
+        content: "Please remember that I prefer concise responses.",
+      },
+    ]);
     mockPrisma.chatMemory.findFirst.mockResolvedValue(null);
 
-    const result = await tools.saveMemory.execute(
-      {
-        content: "User prefers concise responses",
-        source: "user_message",
-        userEvidence: "I prefer concise responses",
-      },
-      {
-        messages: [
-          {
-            role: "user",
-            content: "Please remember that I prefer concise responses.",
-          },
-        ],
-      },
-    );
+    const result = await tools.saveMemory.execute({
+      content: "User prefers concise responses",
+      source: "user_message",
+      userEvidence: "I prefer concise responses",
+    });
 
     expect(result.success).toBe(true);
     expect(result.saved).toBe(true);
@@ -1337,24 +1334,19 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("saveMemory deduplicates when identical memory exists", async () => {
-    const tools = await captureToolSet();
+    const tools = await captureToolSet(true, "google", [
+      {
+        role: "user",
+        content: "Please remember that I prefer concise responses.",
+      },
+    ]);
     mockPrisma.chatMemory.findFirst.mockResolvedValue({ id: "existing-id" });
 
-    const result = await tools.saveMemory.execute(
-      {
-        content: "User prefers concise responses",
-        source: "user_message",
-        userEvidence: "I prefer concise responses",
-      },
-      {
-        messages: [
-          {
-            role: "user",
-            content: "Please remember that I prefer concise responses.",
-          },
-        ],
-      },
-    );
+    const result = await tools.saveMemory.execute({
+      content: "User prefers concise responses",
+      source: "user_message",
+      userEvidence: "I prefer concise responses",
+    });
 
     expect(result.success).toBe(true);
     expect(result.saved).toBe(true);
@@ -1396,6 +1388,58 @@ describe("aiProcessAssistantChat", () => {
     });
 
     expect(parsed.success).toBe(true);
+  });
+
+  it("saveMemory uses pre-compaction conversation messages when provided", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: [
+        {
+          role: "system",
+          content:
+            "Summary of earlier conversation:\nThe user prefers short replies.",
+        },
+      ],
+      conversationMessagesForMemory: [
+        {
+          role: "user",
+          content: "Please remember that I prefer concise responses.",
+        },
+      ],
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    mockPrisma.chatMemory.findFirst.mockResolvedValue(null);
+    const tools = mockToolCallAgentStream.mock.lastCall?.[0].tools;
+
+    const result = await tools.saveMemory.execute(
+      {
+        content: "User prefers concise responses",
+        source: "user_message",
+        userEvidence: "I prefer concise responses",
+      },
+      {
+        messages: [
+          {
+            role: "system",
+            content:
+              "Summary of earlier conversation:\nThe user prefers short replies.",
+          },
+        ],
+      },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.saved).toBe(true);
   });
 
   it("injects memories into model messages when provided", async () => {
@@ -1886,115 +1930,6 @@ describe("aiProcessAssistantChat", () => {
       // Should NOT include non-activated groups
       expect(result?.activeTools).not.toContain("getCalendarEvents");
       expect(result?.activeTools).not.toContain("addToKnowledgeBase");
-    });
-
-    it("prepareStep adds memory-safety context after untrusted retrieval", async () => {
-      const args = await captureStreamArgs();
-
-      const result = args.prepareStep({
-        steps: [
-          {
-            toolCalls: [{ toolName: "searchInbox", args: { query: "test" } }],
-          },
-        ],
-        stepNumber: 1,
-        model: {},
-        messages: [],
-        experimental_context: undefined,
-      });
-
-      expect(result?.activeTools).toContain("searchInbox");
-      expect(result?.activeTools).toContain("activateTools");
-      expect(result?.activeTools).not.toContain("saveMemory");
-      expect(result?.system).toContain("Memory safety:");
-      expect(result?.experimental_context).toEqual({
-        conversationMessages: baseMessages,
-        hasUntrustedRetrieval: true,
-      });
-    });
-
-    it("prepareStep treats reply preparation as untrusted retrieval", async () => {
-      const args = await captureStreamArgs();
-
-      const result = args.prepareStep({
-        steps: [
-          {
-            toolCalls: [
-              { toolName: "replyEmail", args: { messageId: "msg-1" } },
-            ],
-          },
-        ],
-        stepNumber: 1,
-        model: {},
-        messages: [],
-        experimental_context: undefined,
-      });
-
-      expect(result?.system).toContain("Memory safety:");
-      expect(result?.experimental_context).toEqual({
-        conversationMessages: baseMessages,
-        hasUntrustedRetrieval: true,
-      });
-    });
-
-    it("seeds memory runtime context from pre-compaction conversation messages", async () => {
-      const { aiProcessAssistantChat } = await loadAssistantChatModule({
-        emailSend: true,
-      });
-
-      mockToolCallAgentStream.mockResolvedValue({
-        toUIMessageStreamResponse: vi.fn(),
-      });
-
-      const conversationMessagesForMemory: ModelMessage[] = [
-        {
-          role: "user",
-          content: "Please remember that I prefer concise responses.",
-        },
-      ];
-
-      await aiProcessAssistantChat({
-        messages: [
-          {
-            role: "system",
-            content:
-              "Summary of earlier conversation:\nThe user prefers short replies.",
-          },
-        ],
-        conversationMessagesForMemory,
-        emailAccountId: "email-account-id",
-        user: getEmailAccount(),
-        logger,
-      });
-
-      const args = mockToolCallAgentStream.mock.lastCall?.[0];
-      expect(args.experimentalContext).toEqual({
-        conversationMessages: conversationMessagesForMemory,
-        hasUntrustedRetrieval: false,
-      });
-
-      const result = args.prepareStep({
-        steps: [
-          {
-            toolCalls: [{ toolName: "searchInbox", args: { query: "today" } }],
-          },
-        ],
-        stepNumber: 1,
-        model: {},
-        messages: [
-          {
-            role: "system",
-            content:
-              "Summary of earlier conversation:\nThe user prefers short replies.",
-          },
-        ],
-        experimental_context: undefined,
-      });
-
-      expect(result?.experimental_context).toEqual({
-        conversationMessages: conversationMessagesForMemory,
-        hasUntrustedRetrieval: true,
-      });
     });
 
     it("includes send tools in activeTools when email send enabled", async () => {

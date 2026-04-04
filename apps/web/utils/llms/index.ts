@@ -590,7 +590,6 @@ export async function toolCallAgentStream({
   userEmail,
   usageLabel: label,
   providerOptions: requestProviderOptions,
-  experimentalContext,
   onFinish,
   onStepFinish,
 }: {
@@ -607,7 +606,6 @@ export async function toolCallAgentStream({
   userEmail: string;
   usageLabel: string;
   providerOptions?: LLMProviderOptions;
-  experimentalContext?: unknown;
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
@@ -682,7 +680,6 @@ export async function toolCallAgentStream({
       stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
       ...commonOptions,
       providerOptions,
-      experimental_context: experimentalContext,
       onFinish: async (result) => {
         const usagePromise = saveUsageWithMetadata({
           result,

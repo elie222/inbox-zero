@@ -1,12 +1,10 @@
 import { type InferUITool, tool } from "ai";
+import type { ModelMessage } from "ai";
 import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { formatUtcDate } from "@/utils/date";
 import type { Logger } from "@/utils/logger";
-import {
-  getAssistantMemoryRuntimeContext,
-  validateUserMemoryEvidence,
-} from "./chat-memory-policy";
+import { validateUserMemoryEvidence } from "./chat-memory-policy";
 
 export const searchMemoriesTool = ({
   email,
@@ -119,11 +117,13 @@ export const saveMemoryTool = ({
   email,
   emailAccountId,
   chatId,
+  conversationMessages,
   logger,
 }: {
   email: string;
   emailAccountId: string;
   chatId?: string;
+  conversationMessages?: ModelMessage[];
   logger: Logger;
 }) =>
   tool({
@@ -133,11 +133,6 @@ export const saveMemoryTool = ({
     execute: async (input, options) => {
       logger.trace("Tool call: save_memory", { email });
       try {
-        const runtimeContext = getAssistantMemoryRuntimeContext(
-          options?.experimental_context,
-          options?.messages,
-        );
-
         if (input.source !== "user_message") {
           return {
             success: true,
@@ -152,7 +147,7 @@ export const saveMemoryTool = ({
         const validation = validateUserMemoryEvidence({
           content: input.content,
           userEvidence: input.userEvidence,
-          conversationMessages: runtimeContext.conversationMessages,
+          conversationMessages: conversationMessages ?? options?.messages ?? [],
         });
 
         if (!validation.pass) {
