@@ -115,7 +115,7 @@ describe("handleImageProxyRequest", () => {
     expect(response.headers.get("cache-control")).toContain("s-maxage=3600");
   });
 
-  it("rejects unsigned requests when configured to require signatures", async () => {
+  it("returns a configuration error when signed mode is required without a secret", async () => {
     const response = await handleImageProxyRequest(
       new Request(
         "https://proxy.example.com/proxy?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png",
@@ -123,8 +123,10 @@ describe("handleImageProxyRequest", () => {
       { allowUnsignedRequests: false },
     );
 
-    expect(response.status).toBe(400);
-    await expect(response.text()).resolves.toBe("Missing proxy signature");
+    expect(response.status).toBe(500);
+    await expect(response.text()).resolves.toBe(
+      "Proxy misconfigured: IMAGE_PROXY_SIGNING_SECRET is required when unsigned requests are disabled",
+    );
   });
 
   it("returns cached responses without hitting upstream fetch", async () => {

@@ -1,6 +1,7 @@
-import * as dns from "node:dns/promises";
+import { lookup } from "node:dns/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  createSafeImageProxyFetch,
   isSafeExternalHttpUrl,
   resolveSafeExternalHttpUrl,
 } from "./node-safe-fetch";
@@ -36,10 +37,16 @@ describe("isSafeExternalHttpUrl", () => {
     );
   });
 
+  it("rejects 6to4 IPv6 addresses that tunnel private IPv4 space", () => {
+    expect(isSafeExternalHttpUrl("http://[2002:0a00:0001::1]/photo.png")).toBe(
+      false,
+    );
+  });
+
   it("rejects hostnames that resolve to private IP addresses", async () => {
-    vi.mocked(dns.lookup).mockResolvedValue([
+    vi.mocked(lookup).mockResolvedValue([
       { address: "10.0.0.8", family: 4 },
-    ] as Awaited<ReturnType<typeof dns.lookup>>);
+    ] as Awaited<ReturnType<typeof lookup>>);
 
     await expect(
       resolveSafeExternalHttpUrl("https://news.example.com/photo.png"),
@@ -47,16 +54,16 @@ describe("isSafeExternalHttpUrl", () => {
   });
 
   it("returns a pinned DNS lookup for public hostnames", async () => {
-    vi.mocked(dns.lookup).mockResolvedValue([
+    vi.mocked(lookup).mockResolvedValue([
       { address: "93.184.216.34", family: 4 },
-    ] as Awaited<ReturnType<typeof dns.lookup>>);
+    ] as Awaited<ReturnType<typeof lookup>>);
 
     const resolved = await resolveSafeExternalHttpUrl(
       "https://news.example.com/photo.png",
     );
 
     expect(resolved).not.toBeNull();
-    expect(dns.lookup).toHaveBeenCalledWith("news.example.com", {
+    expect(lookup).toHaveBeenCalledWith("news.example.com", {
       all: true,
       verbatim: true,
     });
@@ -81,5 +88,20 @@ describe("isSafeExternalHttpUrl", () => {
       address: "93.184.216.34",
       family: 4,
     });
+  });
+
+  it("returns 502 when DNS resolution fails during fetch setup", async () => {
+    vi.mocked(lookup).mockRejectedValue(
+      Object.assign(new Error("temporary failure"), {
+        code: "EAI_AGAIN",
+      }),
+    );
+
+    const response = await createSafeImageProxyFetch(
+      "https://news.example.com/photo.png",
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.text()).resolves.toBe("Upstream host lookup failed");
   });
 });

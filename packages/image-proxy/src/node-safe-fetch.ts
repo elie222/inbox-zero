@@ -36,7 +36,13 @@ export async function createSafeImageProxyFetch(
   input: string | URL,
   init?: RequestInit,
 ): Promise<Response> {
-  const resolved = await resolveSafeExternalHttpUrl(input.toString());
+  let resolved: ResolvedSafeExternalHttpUrl | null;
+  try {
+    resolved = await resolveSafeExternalHttpUrl(input.toString());
+  } catch {
+    return new Response("Upstream host lookup failed", { status: 502 });
+  }
+
   if (!resolved) {
     return new Response("Blocked upstream host", { status: 403 });
   }
@@ -56,9 +62,7 @@ export function isSafeExternalHttpUrl(url: string) {
     if (isBlockedHostname(hostname)) return false;
 
     const ipAddress = stripIpv6Brackets(hostname);
-    const ipVersion = isIP(ipAddress);
-    if (ipVersion === 4) return !isPrivateIpv4(ipAddress);
-    if (ipVersion === 6) return !isPrivateIpv6(ipAddress);
+    if (isIP(ipAddress)) return true;
 
     if (!hostname.includes(".")) return false;
     return true;
@@ -189,17 +193,6 @@ async function resolvePublicAddresses(
 }
 
 function isResolvedAddressPrivate(address: string) {
-  const ipVersion = isIP(address);
-  if (ipVersion === 4) return isPrivateIpv4(address);
-  if (ipVersion === 6) return isPrivateIpv6(address);
-  return true;
-}
-
-function isPrivateIpv4(address: string) {
-  return isBlockedHostname(address);
-}
-
-function isPrivateIpv6(address: string) {
   return isBlockedHostname(address);
 }
 
