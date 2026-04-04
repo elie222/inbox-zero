@@ -66,6 +66,19 @@ describe("getEmailForLLM", () => {
     expect(result.content).not.toContain("secret instruction");
   });
 
+  it("strips hidden elements with single-quoted styles from HTML content", () => {
+    const msg = makeParsedMessage({
+      textHtml:
+        "<p>Visible</p><span style='display:none'>hidden one</span><div style='visibility:hidden'>hidden two</div><span style='font-size:0px'>hidden three</span><p>End</p>",
+    });
+    const result = getEmailForLLM(msg);
+    expect(result.content).toContain("Visible");
+    expect(result.content).toContain("End");
+    expect(result.content).not.toContain("hidden one");
+    expect(result.content).not.toContain("hidden two");
+    expect(result.content).not.toContain("hidden three");
+  });
+
   it("strips visibility:hidden elements from HTML content", () => {
     const msg = makeParsedMessage({
       textHtml:

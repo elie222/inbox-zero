@@ -8,15 +8,15 @@ export function stripHiddenHtml(html: string): string {
   let result = stripHiddenText(html);
   result = result.replace(/<!--[\s\S]*?-->/g, "");
   result = result.replace(
-    /<[^>]+style\s*=\s*"[^"]*display\s*:\s*none[^"]*"[^>]*>[\s\S]*?<\/[^>]+>/gi,
+    /<[^>]+style\s*=\s*(?:"[^"]*display\s*:\s*none[^"]*"|'[^']*display\s*:\s*none[^']*')[^>]*>[\s\S]*?<\/[^>]+>/gi,
     "",
   );
   result = result.replace(
-    /<[^>]+style\s*=\s*"[^"]*visibility\s*:\s*hidden[^"]*"[^>]*>[\s\S]*?<\/[^>]+>/gi,
+    /<[^>]+style\s*=\s*(?:"[^"]*visibility\s*:\s*hidden[^"]*"|'[^']*visibility\s*:\s*hidden[^']*')[^>]*>[\s\S]*?<\/[^>]+>/gi,
     "",
   );
   result = result.replace(
-    /<[^>]+style\s*=\s*"[^"]*font-size\s*:\s*0(?:px|em|%)?[^"]*"[^>]*>[\s\S]*?<\/[^>]+>/gi,
+    /<[^>]+style\s*=\s*(?:"[^"]*font-size\s*:\s*0(?:px|em|%)?[^"]*"|'[^']*font-size\s*:\s*0(?:px|em|%)?[^']*')[^>]*>[\s\S]*?<\/[^>]+>/gi,
     "",
   );
   return result;
