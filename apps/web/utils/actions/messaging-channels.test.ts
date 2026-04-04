@@ -204,6 +204,7 @@ describe("toggleRuleChannelAction", () => {
   it("allows Telegram notifications when the DM chat id is present", async () => {
     prisma.rule.findUnique.mockResolvedValue({
       emailAccountId: "email-account-1",
+      actions: [],
     } as any);
     prisma.messagingChannel.findUnique.mockResolvedValue({
       emailAccountId: "email-account-1",
@@ -231,6 +232,68 @@ describe("toggleRuleChannelAction", () => {
     expect(prisma.action.create).toHaveBeenCalledWith({
       data: {
         type: "NOTIFY_MESSAGING_CHANNEL",
+        ruleId: "rule-1",
+        messagingChannelId: "channel-1",
+      },
+    });
+  });
+
+  it("falls back to NOTIFY when the client requests DRAFT but the rule has no DRAFT_EMAIL action", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-1",
+      actions: [],
+    } as any);
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-1",
+      provider: "SLACK",
+      isConnected: true,
+      teamId: "team-1",
+      channelId: "C123",
+      providerUserId: "U123",
+    } as any);
+
+    const result = await toggleRuleChannelAction("email-account-1" as any, {
+      ruleId: "rule-1",
+      messagingChannelId: "channel-1",
+      enabled: true,
+      actionType: "DRAFT_MESSAGING_CHANNEL",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.action.create).toHaveBeenCalledWith({
+      data: {
+        type: "NOTIFY_MESSAGING_CHANNEL",
+        ruleId: "rule-1",
+        messagingChannelId: "channel-1",
+      },
+    });
+  });
+
+  it("creates DRAFT_MESSAGING_CHANNEL when the rule has a DRAFT_EMAIL action", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-1",
+      actions: [{ id: "draft-action-1" }],
+    } as any);
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-1",
+      provider: "SLACK",
+      isConnected: true,
+      teamId: "team-1",
+      channelId: "C123",
+      providerUserId: "U123",
+    } as any);
+
+    const result = await toggleRuleChannelAction("email-account-1" as any, {
+      ruleId: "rule-1",
+      messagingChannelId: "channel-1",
+      enabled: true,
+      actionType: "DRAFT_MESSAGING_CHANNEL",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.action.create).toHaveBeenCalledWith({
+      data: {
+        type: "DRAFT_MESSAGING_CHANNEL",
         ruleId: "rule-1",
         messagingChannelId: "channel-1",
       },
