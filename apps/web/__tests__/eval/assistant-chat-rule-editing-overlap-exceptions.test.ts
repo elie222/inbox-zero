@@ -99,11 +99,16 @@ const {
   mockUnsubscribeSenderAndMark: vi.fn(),
 }));
 
-vi.mock("@/utils/rule/rule", () => ({
-  createRule: mockCreateRule,
-  partialUpdateRule: mockPartialUpdateRule,
-  updateRuleActions: mockUpdateRuleActions,
-}));
+vi.mock("@/utils/rule/rule", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/utils/rule/rule")>();
+
+  return {
+    ...actual,
+    createRule: mockCreateRule,
+    partialUpdateRule: mockPartialUpdateRule,
+    updateRuleActions: mockUpdateRuleActions,
+  };
+});
 
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPatterns: mockSaveLearnedPatterns,

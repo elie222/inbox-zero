@@ -357,6 +357,7 @@ describe("outbound action guardrails", () => {
 describe("webhook URL validation at save time", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.webhookActionsEnabled = true;
   });
 
   it("rejects creating a rule with a localhost webhook URL", async () => {
@@ -414,6 +415,33 @@ describe("webhook URL validation at save time", () => {
             url: "https://metadata.google.internal/computeMetadata/v1/",
           },
         ],
+      }),
+    ).rejects.toThrow("Invalid webhook URL");
+
+    expect(prisma.rule.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects updating assistant actions with an internal webhook URL", async () => {
+    prisma.rule.findFirst.mockResolvedValue({
+      from: null,
+    } as any);
+
+    await expect(
+      updateRuleActions({
+        ruleId: "rule-id",
+        actions: [
+          {
+            type: ActionType.CALL_WEBHOOK,
+            fields: {
+              webhookUrl:
+                "https://metadata.google.internal/computeMetadata/v1/",
+            } as any,
+            delayInMinutes: null,
+          },
+        ],
+        provider: "gmail",
+        emailAccountId: "email-account-id",
+        logger,
       }),
     ).rejects.toThrow("Invalid webhook URL");
 

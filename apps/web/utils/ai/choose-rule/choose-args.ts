@@ -14,7 +14,6 @@ import {
   type ActionArgResponse,
   aiGenerateArgs,
 } from "@/utils/ai/choose-rule/ai-choose-args";
-import { createScopedLogger } from "@/utils/logger";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
@@ -22,7 +21,6 @@ import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metada
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 const MODULE = "choose-args";
-const fieldValidationLogger = createScopedLogger(MODULE);
 
 export type EmailAccountForDrafting = EmailAccountWithAI & {
   draftReplyConfidence: DraftReplyConfidence;
@@ -180,23 +178,10 @@ export function combineActionsWithAiArgs(
         aiArgsAttribution?.pipelineVersion ?? null;
     }
 
-    // Defense-in-depth: only allow AI to fill fields that actually have {{template}} variables
-    const fieldsWithTemplates = new Set(
-      Object.keys(getParameterFieldsForAction(action)),
-    );
-
     // Merge variables for each field that has AI-generated content
     for (const [field, vars] of Object.entries(aiAction)) {
       // Skip content field only if the action originally had no content and we've already set a draft
       if (field === "content" && draft && !action.content) continue;
-
-      if (!fieldsWithTemplates.has(field)) {
-        fieldValidationLogger.warn(
-          "AI returned value for field without template variable",
-          { actionId: action.id, field },
-        );
-        continue;
-      }
 
       // Only process fields that we know can contain template strings
       if (

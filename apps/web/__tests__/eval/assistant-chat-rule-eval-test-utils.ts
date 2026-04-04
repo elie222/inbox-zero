@@ -120,7 +120,12 @@ export function configureRuleEvalPrisma({
     const matchedRule = defaultRuleRowsByName.get(ruleName);
     if (!matchedRule) return null;
 
-    return matchedRule;
+    return {
+      ...matchedRule,
+      emailAccount: {
+        rulesRevision: 1,
+      },
+    };
   });
 }
 
@@ -136,6 +141,10 @@ export function configureRuleEvalProvider({
   const labels = buildDefaultRuleLabels(ruleRows);
   const provider = {
     getMessagesWithPagination: vi.fn().mockResolvedValue({
+      messages: [],
+      nextPageToken: undefined,
+    }),
+    searchMessages: vi.fn().mockResolvedValue({
       messages: [],
       nextPageToken: undefined,
     }),
