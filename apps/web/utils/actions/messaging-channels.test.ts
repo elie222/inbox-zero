@@ -232,7 +232,7 @@ describe("toggleRuleChannelAction", () => {
     expect(prisma.action.create).toHaveBeenCalledWith({
       data: {
         emailAccountId: "email-account-1",
-        messagingChannelOwnerId: "email-account-1",
+        messagingChannelEmailAccountId: "email-account-1",
         type: "NOTIFY_MESSAGING_CHANNEL",
         ruleId: "rule-1",
         messagingChannelId: "channel-1",
@@ -265,7 +265,7 @@ describe("toggleRuleChannelAction", () => {
     expect(prisma.action.create).toHaveBeenCalledWith({
       data: {
         emailAccountId: "email-account-1",
-        messagingChannelOwnerId: "email-account-1",
+        messagingChannelEmailAccountId: "email-account-1",
         type: "NOTIFY_MESSAGING_CHANNEL",
         ruleId: "rule-1",
         messagingChannelId: "channel-1",
@@ -298,7 +298,7 @@ describe("toggleRuleChannelAction", () => {
     expect(prisma.action.create).toHaveBeenCalledWith({
       data: {
         emailAccountId: "email-account-1",
-        messagingChannelOwnerId: "email-account-1",
+        messagingChannelEmailAccountId: "email-account-1",
         type: "DRAFT_MESSAGING_CHANNEL",
         ruleId: "rule-1",
         messagingChannelId: "channel-1",
