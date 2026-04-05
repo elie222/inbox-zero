@@ -297,7 +297,6 @@ describe("outbound action guardrails", () => {
               expect.objectContaining({
                 type: ActionType.NOTIFY_MESSAGING_CHANNEL,
                 messagingChannelId: "cmessagingchannel1234567890123",
-                emailAccountId: "email-account-id",
                 messagingChannelEmailAccountId: "email-account-id",
               }),
             ],

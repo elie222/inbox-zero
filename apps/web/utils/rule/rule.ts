@@ -770,7 +770,10 @@ function addActionOwnershipToInputs(
   actions: RuleActionCreateData[],
   emailAccountId: string,
 ): Prisma.ActionCreateManyRuleInput[] {
-  return actions.map((action) =>
-    addActionOwnershipToInput(action, emailAccountId),
-  );
+  return actions.map((action) => ({
+    ...action,
+    messagingChannelEmailAccountId: action.messagingChannelId
+      ? emailAccountId
+      : null,
+  }));
 }
