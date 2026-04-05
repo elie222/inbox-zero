@@ -132,4 +132,10 @@ describe("seedLlmPlaceholderCredentials", () => {
       BEDROCK_REGION: "us-west-2",
     });
   });
+
+  it("rejects unsupported providers with a clear error", () => {
+    expect(() =>
+      seedLlmPlaceholderCredentials("unknown-provider", {}),
+    ).toThrowError("Unsupported LLM provider: unknown-provider");
+  });
 });
