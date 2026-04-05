@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, type RefCallback } from "react";
 
 interface UseTableKeyboardNavigationOptions<T> {
   items: T[];
-  onKeyAction?: (index: number, key: string) => void;
+  onKeyAction?: (index: number, key: string, event: KeyboardEvent) => void;
 }
 
 export function useTableKeyboardNavigation<T>({
@@ -48,7 +48,8 @@ export function useTableKeyboardNavigation<T>({
           prev >= items.length - 1 ? items.length - 1 : prev + 1,
         );
       } else if (onKeyAction && selectedIndex >= 0) {
-        onKeyAction(selectedIndex, e.key);
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        onKeyAction(selectedIndex, e.key, e);
       }
     },
     [items.length, onKeyAction, selectedIndex],
