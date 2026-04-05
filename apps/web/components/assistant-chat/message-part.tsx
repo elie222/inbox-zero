@@ -489,9 +489,23 @@ export function MessagePart({
     return renderToolStatus({
       part,
       loadingText: "Saving memory...",
-      renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text="Memory saved" />
-      ),
+      renderSuccess: ({ toolCallId, output }) => {
+        const requiresConfirmation = getOutputField<boolean>(
+          output,
+          "requiresConfirmation",
+        );
+
+        if (requiresConfirmation) {
+          return (
+            <BasicToolInfo
+              key={toolCallId}
+              text="Confirmation needed before saving memory"
+            />
+          );
+        }
+
+        return <BasicToolInfo key={toolCallId} text="Memory saved" />;
+      },
     });
   }
 
