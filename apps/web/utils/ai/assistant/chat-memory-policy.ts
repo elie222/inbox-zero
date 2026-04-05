@@ -47,7 +47,7 @@ export function validateUserMemoryEvidence({
     return {
       pass: false,
       reason:
-        "Memory save content must use the user's exact wording from chat instead of a rephrased inference.",
+        "Memory save content must copy the user's exact wording from chat instead of rephrasing it in assistant voice.",
     };
   }
 
