@@ -22,6 +22,12 @@ describe("markdownToSlackMrkdwn", () => {
     );
   });
 
+  it("escapes link labels inside generated Slack links", () => {
+    expect(markdownToSlackMrkdwn("[Click > here](https://example.com)")).toBe(
+      "<https://example.com|Click &gt; here>",
+    );
+  });
+
   it("converts headings to bold", () => {
     expect(markdownToSlackMrkdwn("# Heading")).toBe("*Heading*");
     expect(markdownToSlackMrkdwn("### Sub heading")).toBe("*Sub heading*");
@@ -103,6 +109,12 @@ describe("markdownToSlackMrkdwn", () => {
     expect(
       markdownToSlackMrkdwn("Display Name <notifications@github.com>"),
     ).toBe("Display Name &lt;notifications@github.com&gt;");
+  });
+
+  it("preserves valid Slack mrkdwn blocks", () => {
+    expect(
+      markdownToSlackMrkdwn("Ping <@U123ABC> in <#C123ABC456> or <!here>."),
+    ).toBe("Ping <@U123ABC> in <#C123ABC456> or <!here>.");
   });
 });
 

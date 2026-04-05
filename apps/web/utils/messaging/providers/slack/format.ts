@@ -14,13 +14,13 @@ export function markdownToSlackMrkdwn(text: string): string {
     .replace(
       /\[([^[\]]+)\]\(([^()]+)\)/g,
       (_match, label: string, href: string) => {
-        const safeHref = sanitizeSlackMarkdownLinkHref(href);
+        const safeHref = sanitizeSlackHref(href, { canonicalize: false });
         if (!safeHref) return label;
 
         const token = createSlackLinkToken({ sourceText: text, links });
         links.push({
           token,
-          replacement: `<${safeHref}|${label}>`,
+          replacement: `<${safeHref}|${escapeSlackText(label)}>`,
         });
         return token;
       },
@@ -38,7 +38,7 @@ export function markdownToSlackMrkdwn(text: string): string {
 
   return links.reduce(
     (result, link) => result.replaceAll(link.token, link.replacement),
-    escapeSlackAngleBrackets(mrkdwn),
+    escapeInvalidSlackAngleBracketBlocks(mrkdwn),
   );
 }
 
@@ -53,7 +53,7 @@ export function richTextToSlackMrkdwn(text: string): string {
     text.replace(
       /<a\b[^>]*href=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi,
       (_match, _quote, href: string, label: string) => {
-        const safeHref = sanitizeSlackLinkHref(href);
+        const safeHref = sanitizeSlackHref(href, { canonicalize: true });
         const safeLabel =
           normalizeSlackRichText(label).trim() || normalizeSlackRichText(href);
 
@@ -165,11 +165,47 @@ function escapeSlackTextCharacter(char: string): string {
   return char;
 }
 
-function escapeSlackAngleBrackets(text: string): string {
-  return text.replace(/[<>]/g, (char) => {
-    if (char === "<") return "&lt;";
-    return "&gt;";
-  });
+function escapeInvalidSlackAngleBracketBlocks(text: string): string {
+  let result = "";
+  let index = 0;
+
+  while (index < text.length) {
+    const openIndex = text.indexOf("<", index);
+
+    if (openIndex === -1) {
+      result += text.slice(index);
+      break;
+    }
+
+    result += text.slice(index, openIndex);
+
+    const closeIndex = text.indexOf(">", openIndex + 1);
+
+    if (closeIndex === -1) {
+      result += "&lt;";
+      index = openIndex + 1;
+      continue;
+    }
+
+    const block = text.slice(openIndex, closeIndex + 1);
+    result += isSlackAngleBracketBlock(block) ? block : escapeSlackText(block);
+    index = closeIndex + 1;
+  }
+
+  return result;
+}
+
+function isSlackAngleBracketBlock(block: string): boolean {
+  const contents = block.slice(1, -1);
+
+  return (
+    /^(?:https?:\/\/|mailto:)[^|>]+(?:\|[^>]*)?$/i.test(contents) ||
+    /^@[A-Z0-9]+(?:\|[^>]*)?$/.test(contents) ||
+    /^#[A-Z0-9]+(?:\|[^>]*)?$/.test(contents) ||
+    /^!(?:subteam\^[A-Z0-9]+(?:\^[^>]*)?|date\^[^>]+|here|channel|everyone)(?:\|[^>]*)?$/.test(
+      contents,
+    )
+  );
 }
 
 function readHtmlEntity(text: string, index: number): string | null {
@@ -203,7 +239,10 @@ function createSlackLinkToken({
   }
 }
 
-function sanitizeSlackLinkHref(href: string): string | null {
+function sanitizeSlackHref(
+  href: string,
+  options: { canonicalize: boolean },
+): string | null {
   try {
     const url = new URL(href);
 
@@ -211,21 +250,10 @@ function sanitizeSlackLinkHref(href: string): string | null {
       return null;
     }
 
-    return url.toString().replace(/[|<>]/g, encodeURIComponent);
-  } catch {
-    return null;
-  }
-}
-
-function sanitizeSlackMarkdownLinkHref(href: string): string | null {
-  try {
-    const url = new URL(href);
-
-    if (!["http:", "https:", "mailto:"].includes(url.protocol)) {
-      return null;
-    }
-
-    return href.replace(/[|<>]/g, encodeURIComponent);
+    return (options.canonicalize ? url.toString() : href).replace(
+      /[|<>]/g,
+      encodeURIComponent,
+    );
   } catch {
     return null;
   }
