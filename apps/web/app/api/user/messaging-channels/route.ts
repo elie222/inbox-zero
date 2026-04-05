@@ -3,8 +3,8 @@ import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { env } from "@/env";
 import type { MessagingProvider } from "@/generated/prisma/enums";
-import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
-import { isSlackDmChannel } from "@/utils/messaging/providers/slack/send";
+import { MessagingRoutePurpose } from "@/generated/prisma/enums";
+import { getMessagingRouteSummary } from "@/utils/messaging/routes";
 
 export type GetMessagingChannelsResponse = Awaited<ReturnType<typeof getData>>;
 
@@ -26,11 +26,14 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       teamName: true,
       teamId: true,
       providerUserId: true,
-      channelId: true,
-      channelName: true,
       isConnected: true,
-      sendMeetingBriefs: true,
-      sendDocumentFilings: true,
+      routes: {
+        select: {
+          purpose: true,
+          targetType: true,
+          targetId: true,
+        },
+      },
       actions: {
         select: {
           id: true,
@@ -44,20 +47,25 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
   });
 
   return {
-    channels: channels.map(({ providerUserId, ...channel }) => {
-      const isDm = isSlackDmChannel(channel.channelId);
-      return {
-        ...channel,
-        hasSendDestination: hasMessagingDeliveryTarget({
-          provider: channel.provider,
-          providerUserId,
-          channelId: channel.channelId,
-          teamId: channel.teamId,
-        }),
-        canSendAsDm: channel.provider === "SLACK" && Boolean(providerUserId),
-        isDm,
-      };
-    }),
+    channels: channels.map(({ routes, ...channel }) => ({
+      ...channel,
+      canSendAsDm:
+        channel.provider === "SLACK" && Boolean(channel.providerUserId),
+      destinations: {
+        ruleNotifications: getMessagingRouteSummary(
+          routes,
+          MessagingRoutePurpose.RULE_NOTIFICATIONS,
+        ),
+        meetingBriefs: getMessagingRouteSummary(
+          routes,
+          MessagingRoutePurpose.MEETING_BRIEFS,
+        ),
+        documentFilings: getMessagingRouteSummary(
+          routes,
+          MessagingRoutePurpose.DOCUMENT_FILINGS,
+        ),
+      },
+    })),
     availableProviders: getAvailableProviders(),
   };
 }

@@ -70,7 +70,8 @@ export function ProactiveUpdatesSetting({
   const connectedMessagingChannels = useMemo(
     () =>
       channelsData?.channels.filter(
-        (channel) => channel.isConnected && channel.hasSendDestination,
+        (channel) =>
+          channel.isConnected && channel.destinations.ruleNotifications.enabled,
       ) ?? [],
     [channelsData?.channels],
   );
@@ -362,13 +363,17 @@ export function ProactiveUpdatesSetting({
 
 function formatMessagingChannelLabel(channel: {
   provider: "SLACK" | "TEAMS" | "TELEGRAM";
-  channelName: string | null;
-  channelId: string | null;
+  destinations: {
+    ruleNotifications: {
+      targetLabel: string | null;
+    };
+  };
   teamName: string | null;
 }) {
   const provider = getMessagingProviderName(channel.provider);
-  if (channel.channelName) return `${provider} · #${channel.channelName}`;
-  if (channel.channelId) return `${provider} · ${channel.channelId}`;
+  if (channel.destinations.ruleNotifications.targetLabel) {
+    return `${provider} · ${channel.destinations.ruleNotifications.targetLabel}`;
+  }
   if (channel.teamName) return `${provider} · ${channel.teamName}`;
   return provider;
 }

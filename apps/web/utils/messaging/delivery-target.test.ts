@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { MessagingProvider } from "@/generated/prisma/enums";
+import {
+  MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
 import {
   getMessagingDeliveryTargetWhere,
   hasMessagingDeliveryTarget,
@@ -59,20 +62,11 @@ describe("hasMessagingDeliveryTarget", () => {
 
   it("builds a provider-specific query for persisted delivery targets", () => {
     expect(getMessagingDeliveryTargetWhere()).toEqual({
-      OR: [
-        {
-          provider: MessagingProvider.SLACK,
-          channelId: { not: null },
+      routes: {
+        some: {
+          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
         },
-        {
-          provider: MessagingProvider.TEAMS,
-          providerUserId: { not: null },
-        },
-        {
-          provider: MessagingProvider.TELEGRAM,
-          OR: [{ teamId: { not: "" } }, { providerUserId: { not: null } }],
-        },
-      ],
+      },
     });
   });
 });

@@ -4,6 +4,8 @@ import {
   ActionType,
   MessagingMessageStatus,
   MessagingProvider,
+  MessagingRoutePurpose,
+  MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
@@ -185,6 +187,11 @@ describe("sendMessagingRuleNotification", () => {
         provider: MessagingProvider.TEAMS,
         providerUserId: "29:teams-user",
       }),
+      route: {
+        purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+        targetId: "29:teams-user",
+        targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+      },
       text: expect.stringContaining(
         "Quick actions like archive and mark read are Slack-only right now",
       ),
@@ -320,8 +327,35 @@ function getNotificationContext({
     providerUserId: string | null;
     accessToken: string | null;
     channelId: string | null;
+    routes?: Array<{
+      purpose: MessagingRoutePurpose;
+      targetId: string;
+      targetType: MessagingRouteTargetType;
+    }>;
   };
 }) {
+  const defaultRoutes =
+    messagingChannel?.routes ??
+    (messagingChannel?.provider === MessagingProvider.SLACK &&
+    messagingChannel.channelId
+      ? [
+          {
+            purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            targetType: MessagingRouteTargetType.CHANNEL,
+            targetId: messagingChannel.channelId,
+          },
+        ]
+      : messagingChannel?.provider === MessagingProvider.TEAMS &&
+          messagingChannel.providerUserId
+        ? [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+              targetId: messagingChannel.providerUserId,
+            },
+          ]
+        : []);
+
   return {
     id,
     type,
@@ -355,6 +389,7 @@ function getNotificationContext({
       ? {
           emailAccountId: "email-account-1",
           ...messagingChannel,
+          routes: defaultRoutes,
         }
       : {
           id: "channel-1",
@@ -365,6 +400,13 @@ function getNotificationContext({
           providerUserId: null,
           accessToken: "token",
           channelId: "C123",
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetType: MessagingRouteTargetType.CHANNEL,
+              targetId: "C123",
+            },
+          ],
         },
   };
 }

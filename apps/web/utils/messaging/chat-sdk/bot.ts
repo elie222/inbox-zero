@@ -34,7 +34,11 @@ import {
 } from "chat";
 import { env } from "@/env";
 import type { Prisma } from "@/generated/prisma/client";
-import { MessagingProvider } from "@/generated/prisma/enums";
+import {
+  MessagingProvider,
+  MessagingRoutePurpose,
+  MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
 import { confirmAssistantEmailActionForAccount } from "@/utils/actions/assistant-chat";
 import type { AssistantPendingEmailActionType } from "@/utils/actions/assistant-chat.validation";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
@@ -109,7 +113,11 @@ type SlackCandidate = {
   accessToken: string | null;
   botUserId: string | null;
   emailAccountId: string;
-  channelId: string | null;
+  routes: Array<{
+    purpose: MessagingRoutePurpose;
+    targetId: string;
+    targetType: MessagingRouteTargetType;
+  }>;
 };
 
 type LinkedProviderCandidate = {
@@ -1700,7 +1708,7 @@ async function handleMessagingLinkCommand({
     return true;
   }
 
-  await prisma.messagingChannel.upsert({
+  const messagingChannel = await prisma.messagingChannel.upsert({
     where: {
       emailAccountId_provider_teamId: {
         emailAccountId: emailAccount.id,
@@ -1720,6 +1728,27 @@ async function handleMessagingLinkCommand({
       providerUserId: identity.providerUserId,
       emailAccountId: emailAccount.id,
       isConnected: true,
+    },
+  });
+
+  await prisma.messagingRoute.upsert({
+    where: {
+      messagingChannelId_purpose: {
+        messagingChannelId: messagingChannel.id,
+        purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+      },
+    },
+    update: {
+      targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+      targetId:
+        provider === "telegram" ? identity.teamId : identity.providerUserId,
+    },
+    create: {
+      messagingChannelId: messagingChannel.id,
+      purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+      targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+      targetId:
+        provider === "telegram" ? identity.teamId : identity.providerUserId,
     },
   });
 
@@ -1955,7 +1984,16 @@ async function resolveSlackMessagingContext({
       accessToken: true,
       botUserId: true,
       emailAccountId: true,
-      channelId: true,
+      routes: {
+        where: {
+          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+        },
+        select: {
+          purpose: true,
+          targetType: true,
+          targetId: true,
+        },
+      },
     },
   });
 
@@ -2316,8 +2354,12 @@ async function resolveSlackMessagingChannel({
   thread: Thread;
 }): Promise<SlackCandidate | null> {
   if (!isDirectMessage) {
-    const channelMatch = candidates.find(
-      (candidate) => candidate.channelId === channel,
+    const channelMatch = candidates.find((candidate) =>
+      candidate.routes.some(
+        (route) =>
+          route.targetType === MessagingRouteTargetType.CHANNEL &&
+          route.targetId === channel,
+      ),
     );
     if (channelMatch) return channelMatch;
 

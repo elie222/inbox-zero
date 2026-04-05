@@ -1,8 +1,14 @@
 import { z } from "zod";
 import { LINKABLE_MESSAGING_PROVIDERS } from "@/utils/messaging/chat-sdk/link-code";
+import { MessagingRoutePurpose } from "@/generated/prisma/enums";
 
-export const updateSlackChannelBody = z.object({
+export const updateSlackRouteBody = z.object({
   channelId: z.string().min(1),
+  purpose: z.enum([
+    MessagingRoutePurpose.RULE_NOTIFICATIONS,
+    MessagingRoutePurpose.MEETING_BRIEFS,
+    MessagingRoutePurpose.DOCUMENT_FILINGS,
+  ]),
   targetId: z.string().min(1),
 });
 

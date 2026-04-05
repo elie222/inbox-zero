@@ -1,12 +1,32 @@
 import type { Prisma } from "@/generated/prisma/client";
-import { MessagingProvider } from "@/generated/prisma/enums";
+import {
+  MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
+import { hasMessagingRoute } from "@/utils/messaging/routes";
 
-export function hasMessagingDeliveryTarget(channel: {
+type LegacyChannelTarget = {
   provider: MessagingProvider;
   providerUserId: string | null;
   channelId: string | null;
   teamId?: string | null;
-}) {
+};
+
+type RouteBackedChannelTarget = {
+  routes: Array<{
+    purpose: MessagingRoutePurpose;
+    targetId: string;
+  }>;
+};
+
+export function hasMessagingDeliveryTarget(
+  channel: LegacyChannelTarget | RouteBackedChannelTarget,
+  purpose: MessagingRoutePurpose = MessagingRoutePurpose.RULE_NOTIFICATIONS,
+) {
+  if ("routes" in channel) {
+    return hasMessagingRoute(channel.routes, purpose);
+  }
+
   if (channel.provider === MessagingProvider.SLACK) {
     return Boolean(channel.channelId);
   }
@@ -18,21 +38,14 @@ export function hasMessagingDeliveryTarget(channel: {
   return Boolean(channel.providerUserId);
 }
 
-export function getMessagingDeliveryTargetWhere(): Prisma.MessagingChannelWhereInput {
+export function getMessagingDeliveryTargetWhere(
+  purpose: MessagingRoutePurpose = MessagingRoutePurpose.RULE_NOTIFICATIONS,
+): Prisma.MessagingChannelWhereInput {
   return {
-    OR: [
-      {
-        provider: MessagingProvider.SLACK,
-        channelId: { not: null },
+    routes: {
+      some: {
+        purpose,
       },
-      {
-        provider: MessagingProvider.TEAMS,
-        providerUserId: { not: null },
-      },
-      {
-        provider: MessagingProvider.TELEGRAM,
-        OR: [{ teamId: { not: "" } }, { providerUserId: { not: null } }],
-      },
-    ],
+    },
   };
 }

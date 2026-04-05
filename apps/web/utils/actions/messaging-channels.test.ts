@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  MessagingRoutePurpose,
+  MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
+import {
   createMessagingLinkCodeAction,
   toggleRuleChannelAction,
   updateChannelFeaturesAction,
@@ -148,9 +152,13 @@ describe("updateChannelFeaturesAction", () => {
       emailAccountId: "email-account-1",
       provider: "TELEGRAM",
       isConnected: true,
-      teamId: "telegram-chat-1",
-      providerUserId: null,
-      channelId: null,
+      routes: [
+        {
+          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+          targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+          targetId: "telegram-chat-1",
+        },
+      ],
     } as any);
 
     const result = await updateChannelFeaturesAction("email-account-1" as any, {
@@ -159,14 +167,13 @@ describe("updateChannelFeaturesAction", () => {
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(prisma.messagingChannel.update).toHaveBeenCalledWith({
-      where: {
-        id_emailAccountId: {
-          id: "channel-1",
-          emailAccountId: "email-account-1",
-        },
+    expect(prisma.messagingRoute.create).toHaveBeenCalledWith({
+      data: {
+        messagingChannelId: "channel-1",
+        purpose: MessagingRoutePurpose.MEETING_BRIEFS,
+        targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+        targetId: "telegram-chat-1",
       },
-      data: { sendMeetingBriefs: true },
     });
   });
 
@@ -176,9 +183,7 @@ describe("updateChannelFeaturesAction", () => {
       emailAccountId: "email-account-1",
       provider: "TEAMS",
       isConnected: true,
-      teamId: "teams-thread-1",
-      providerUserId: null,
-      channelId: null,
+      routes: [],
     } as any);
 
     const result = await updateChannelFeaturesAction("email-account-1" as any, {
@@ -215,9 +220,13 @@ describe("toggleRuleChannelAction", () => {
       emailAccountId: "email-account-1",
       provider: "TELEGRAM",
       isConnected: true,
-      teamId: "telegram-chat-1",
-      providerUserId: null,
-      channelId: null,
+      routes: [
+        {
+          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+          targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+          targetId: "telegram-chat-1",
+        },
+      ],
     } as any);
 
     const result = await toggleRuleChannelAction("email-account-1" as any, {
@@ -254,9 +263,13 @@ describe("toggleRuleChannelAction", () => {
       emailAccountId: "email-account-1",
       provider: "SLACK",
       isConnected: true,
-      teamId: "team-1",
-      channelId: "C123",
-      providerUserId: "U123",
+      routes: [
+        {
+          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+          targetType: MessagingRouteTargetType.CHANNEL,
+          targetId: "C123",
+        },
+      ],
     } as any);
 
     const result = await toggleRuleChannelAction("email-account-1" as any, {
@@ -287,9 +300,13 @@ describe("toggleRuleChannelAction", () => {
       emailAccountId: "email-account-1",
       provider: "SLACK",
       isConnected: true,
-      teamId: "team-1",
-      channelId: "C123",
-      providerUserId: "U123",
+      routes: [
+        {
+          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+          targetType: MessagingRouteTargetType.CHANNEL,
+          targetId: "C123",
+        },
+      ],
     } as any);
 
     const result = await toggleRuleChannelAction("email-account-1" as any, {

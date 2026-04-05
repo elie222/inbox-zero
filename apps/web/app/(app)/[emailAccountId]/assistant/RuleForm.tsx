@@ -340,7 +340,8 @@ export function RuleForm({
   const typeOptions = useMemo(() => {
     const connectedMessagingChannels =
       messagingChannelsData?.channels.filter(
-        (channel) => channel.isConnected && channel.hasSendDestination,
+        (channel) =>
+          channel.isConnected && channel.destinations.ruleNotifications.enabled,
       ) ?? [];
     const messagingIsAvailable =
       connectedMessagingChannels.length > 0 ||

@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { AutomationJobRunStatus } from "@/generated/prisma/enums";
+import {
+  AutomationJobRunStatus,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
 import { AutomationJobConfigurationError } from "@/utils/automation-jobs/slack";
 import { isStaleAutomationJobRun } from "@/utils/automation-jobs/stale";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -9,6 +12,7 @@ import { isActivePremium } from "@/utils/premium";
 import prisma from "@/utils/prisma";
 import { getUserPremium } from "@/utils/user/get";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
+import { getMessagingRoute } from "@/utils/messaging/routes";
 
 export const executeAutomationJobBody = z.object({
   automationJobRunId: z.string().min(1, "Automation job run ID is required"),
@@ -28,6 +32,13 @@ export async function executeAutomationJobRun({
         include: {
           messagingChannel: {
             include: {
+              routes: {
+                select: {
+                  purpose: true,
+                  targetType: true,
+                  targetId: true,
+                },
+              },
               emailAccount: {
                 select: {
                   id: true,
@@ -180,9 +191,14 @@ export async function executeAutomationJobRun({
       emailAccount: run.automationJob.messagingChannel.emailAccount,
       logger: runLogger,
     });
+    const route = getMessagingRoute(
+      run.automationJob.messagingChannel.routes,
+      MessagingRoutePurpose.RULE_NOTIFICATIONS,
+    );
 
     const messagingResult = await sendAutomationMessage({
       channel: run.automationJob.messagingChannel,
+      route,
       text: outboundMessage,
       logger: runLogger,
     });

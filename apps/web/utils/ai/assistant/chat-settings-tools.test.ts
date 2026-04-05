@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import {
+  MessagingRoutePurpose,
+  MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
@@ -24,6 +28,11 @@ vi.mock("@/utils/user/get", () => ({
 const logger = createScopedLogger("chat-settings-tools-test");
 const mockGetUserPremium = vi.mocked(getUserPremium);
 const mockIsActivePremium = vi.mocked(isActivePremium);
+const slackRulesRoute = {
+  purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+  targetType: MessagingRouteTargetType.CHANNEL,
+  targetId: "C123",
+};
 
 const baseAccountSnapshot = {
   id: "email-account-1",
@@ -72,19 +81,19 @@ const baseAccountSnapshot = {
     nextRunAt: new Date("2026-02-21T09:00:00.000Z"),
     messagingChannelId: "channel-1",
     messagingChannel: {
-      channelName: "inbox-updates",
+      provider: "SLACK",
       teamName: "Acme",
+      routes: [slackRulesRoute],
     },
   },
   messagingChannels: [
     {
       id: "channel-1",
-      channelName: "inbox-updates",
+      provider: "SLACK",
       teamName: "Acme",
       isConnected: true,
       accessToken: "token-1",
-      providerUserId: "U123",
-      channelId: null,
+      routes: [slackRulesRoute],
     },
   ],
   knowledge: [
@@ -491,8 +500,7 @@ describe("chat settings tools", () => {
           id: "channel-stale",
           isConnected: false,
           accessToken: null,
-          providerUserId: null,
-          channelId: null,
+          routes: [],
         },
       ],
     });
@@ -500,8 +508,15 @@ describe("chat settings tools", () => {
       ...baseAccountSnapshot.automationJob,
       messagingChannelId: "channel-stale",
       messagingChannel: {
-        channelName: "legacy-channel",
+        provider: "SLACK",
         teamName: "Acme",
+        routes: [
+          {
+            purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            targetType: MessagingRouteTargetType.CHANNEL,
+            targetId: "C999",
+          },
+        ],
       },
     });
     prisma.automationJob.update.mockResolvedValue({});

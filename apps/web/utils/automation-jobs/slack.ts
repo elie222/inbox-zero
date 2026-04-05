@@ -1,16 +1,18 @@
-import { MessagingProvider } from "@/generated/prisma/enums";
+import {
+  MessagingProvider,
+  MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 import {
   formatSlackAppMention,
-  isSlackDmChannel,
-  resolveSlackDestination,
+  resolveSlackRouteDestination,
 } from "@/utils/messaging/providers/slack/send";
 import type { AutomationMessagingChannel } from "./messaging-channel";
 
 type SlackMessagingChannel = Pick<
   AutomationMessagingChannel,
-  "provider" | "accessToken" | "botUserId" | "providerUserId" | "channelId"
+  "provider" | "accessToken" | "botUserId"
 >;
 
 export class AutomationJobConfigurationError extends Error {
@@ -22,16 +24,21 @@ export class AutomationJobConfigurationError extends Error {
 
 export async function sendAutomationMessageToSlack({
   channel,
+  route,
   text,
   logger,
 }: {
   channel: SlackMessagingChannel;
+  route?: {
+    targetId: string;
+    targetType: MessagingRouteTargetType;
+  } | null;
   text: string;
   logger: Logger;
 }) {
   const slackLogger = logger.with({
     component: "sendAutomationMessageToSlack",
-    destination: channel.channelId ?? channel.providerUserId ?? null,
+    destination: route?.targetId ?? null,
   });
 
   if (channel.provider !== MessagingProvider.SLACK) {
@@ -54,16 +61,16 @@ export async function sendAutomationMessageToSlack({
   }
 
   const client = createSlackClient(channel.accessToken);
-  const formattedText = isSlackDmChannel(channel.channelId)
-    ? text
-    : `${text}\n\n_Reply with ${formatSlackAppMention(channel.botUserId)} to chat about your emails._`;
+  const formattedText =
+    route?.targetType === MessagingRouteTargetType.DIRECT_MESSAGE
+      ? text
+      : `${text}\n\n_Reply with ${formatSlackAppMention(channel.botUserId)} to chat about your emails._`;
 
   slackLogger.info("Sending Slack automation message");
 
-  const destinationChannelId = await resolveSlackDestination({
+  const destinationChannelId = await resolveSlackRouteDestination({
     accessToken: channel.accessToken,
-    channelId: channel.channelId,
-    providerUserId: channel.providerUserId,
+    route,
   });
 
   if (!destinationChannelId) {
@@ -71,8 +78,7 @@ export async function sendAutomationMessageToSlack({
       "No Slack destination available for automation job",
     );
     slackLogger.error("No Slack destination available for automation job", {
-      hasProviderUserId: Boolean(channel.providerUserId),
-      hasChannelId: Boolean(channel.channelId),
+      hasRoute: Boolean(route),
       error,
     });
     throw error;
@@ -91,7 +97,7 @@ export async function sendAutomationMessageToSlack({
     };
   } catch (error) {
     if (isSlackError(error) && error.data?.error === "not_in_channel") {
-      if (!channel.channelId) {
+      if (!route || route.targetType !== MessagingRouteTargetType.CHANNEL) {
         slackLogger.error("Slack destination is not a joinable channel", {
           slackError: error.data?.error,
           error,
@@ -100,15 +106,15 @@ export async function sendAutomationMessageToSlack({
       }
 
       slackLogger.info("Joining Slack channel before retrying message");
-      await client.conversations.join({ channel: channel.channelId });
+      await client.conversations.join({ channel: route.targetId });
       const response = await client.chat.postMessage({
-        channel: channel.channelId,
+        channel: route.targetId,
         text: formattedText,
       });
       slackLogger.info("Slack automation message sent after joining channel");
 
       return {
-        channelId: channel.channelId,
+        channelId: route.targetId,
         messageId: response.ts ?? null,
       };
     }

@@ -2,7 +2,7 @@
 
 import { actionClient } from "@/utils/actions/safe-action";
 import {
-  updateSlackChannelBody,
+  updateSlackRouteBody,
   updateChannelFeaturesBody,
   updateEmailDeliveryBody,
   disconnectChannelBody,
@@ -13,33 +13,35 @@ import {
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { isNotFoundError } from "@/utils/prisma-helpers";
-import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
-import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
+import {
+  ActionType,
+  MessagingProvider,
+  MessagingRoutePurpose,
+  MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
 import { addActionOwnershipToInput } from "@/utils/rule/rule";
+import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
+import { env } from "@/env";
+import { getChannelInfo } from "@/utils/messaging/providers/slack/channels";
+import { createSlackClient } from "@/utils/messaging/providers/slack/client";
+import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send";
+import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
+import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
+import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
+import { getMessagingRoute, hasMessagingRoute } from "@/utils/messaging/routes";
 
 const MESSAGING_ACTION_TYPES = [
   ActionType.NOTIFY_MESSAGING_CHANNEL,
   ActionType.DRAFT_MESSAGING_CHANNEL,
 ] as const;
-import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
-import { env } from "@/env";
-import { getChannelInfo } from "@/utils/messaging/providers/slack/channels";
-import { createSlackClient } from "@/utils/messaging/providers/slack/client";
-import {
-  sendChannelConfirmation,
-  SLACK_DM_CHANNEL_SENTINEL,
-} from "@/utils/messaging/providers/slack/send";
-import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
-import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
-import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
 
-export const updateSlackChannelAction = actionClient
-  .metadata({ name: "updateSlackChannel" })
-  .inputSchema(updateSlackChannelBody)
+export const updateSlackRouteAction = actionClient
+  .metadata({ name: "updateSlackRoute" })
+  .inputSchema(updateSlackRouteBody)
   .action(
     async ({
       ctx: { emailAccountId, logger },
-      parsedInput: { channelId, targetId },
+      parsedInput: { channelId, purpose, targetId },
     }) => {
       const where = {
         id_emailAccountId: { id: channelId, emailAccountId },
@@ -48,6 +50,7 @@ export const updateSlackChannelAction = actionClient
       const channel = await prisma.messagingChannel.findUnique({
         where,
         select: {
+          provider: true,
           isConnected: true,
           accessToken: true,
           providerUserId: true,
@@ -59,6 +62,10 @@ export const updateSlackChannelAction = actionClient
         throw new SafeError("Messaging channel not found");
       }
 
+      if (channel.provider !== MessagingProvider.SLACK) {
+        throw new SafeError("Messaging channel is not Slack");
+      }
+
       if (!channel.isConnected) {
         throw new SafeError("Messaging channel is not connected");
       }
@@ -67,49 +74,40 @@ export const updateSlackChannelAction = actionClient
         throw new SafeError("Messaging channel has no access token");
       }
 
-      if (targetId === "dm") {
-        if (!channel.providerUserId) {
-          throw new SafeError(
-            "Direct messages are not available for this channel",
-          );
-        }
+      const target = await resolveSlackRouteTarget({
+        accessToken: channel.accessToken,
+        providerUserId: channel.providerUserId,
+        targetId,
+      });
 
-        await prisma.messagingChannel.update({
-          where,
-          data: { channelId: SLACK_DM_CHANNEL_SENTINEL, channelName: null },
-        });
-        return;
-      }
-
-      const client = createSlackClient(channel.accessToken);
-      const channelInfo = await getChannelInfo(client, targetId);
-
-      if (!channelInfo) {
-        throw new SafeError("Could not find the selected Slack channel");
-      }
-
-      if (!channelInfo.isPrivate) {
-        throw new SafeError(
-          "Only private channels are allowed. Please select a private channel.",
-        );
-      }
-
-      await prisma.messagingChannel.update({
-        where,
-        data: {
-          channelId: targetId,
-          channelName: channelInfo.name,
+      await prisma.messagingRoute.upsert({
+        where: {
+          messagingChannelId_purpose: {
+            messagingChannelId: channelId,
+            purpose,
+          },
+        },
+        update: target,
+        create: {
+          messagingChannelId: channelId,
+          purpose,
+          ...target,
         },
       });
 
-      try {
-        await sendChannelConfirmation({
-          accessToken: channel.accessToken,
-          channelId: targetId,
-          botUserId: channel.botUserId,
-        });
-      } catch (error) {
-        logger.error("Failed to send channel confirmation", { error });
+      if (
+        purpose === MessagingRoutePurpose.RULE_NOTIFICATIONS &&
+        target.targetType === MessagingRouteTargetType.CHANNEL
+      ) {
+        try {
+          await sendChannelConfirmation({
+            accessToken: channel.accessToken,
+            channelId: target.targetId,
+            botUserId: channel.botUserId,
+          });
+        } catch (error) {
+          logger.error("Failed to send channel confirmation", { error });
+        }
       }
     },
   );
@@ -129,11 +127,15 @@ export const updateChannelFeaturesAction = actionClient
       const channel = await prisma.messagingChannel.findUnique({
         where,
         select: {
+          id: true,
           isConnected: true,
-          provider: true,
-          providerUserId: true,
-          channelId: true,
-          teamId: true,
+          routes: {
+            select: {
+              purpose: true,
+              targetType: true,
+              targetId: true,
+            },
+          },
         },
       });
 
@@ -145,21 +147,23 @@ export const updateChannelFeaturesAction = actionClient
         throw new SafeError("Messaging channel is not connected");
       }
 
-      const enablingFeature =
-        sendMeetingBriefs === true || sendDocumentFilings === true;
-      if (enablingFeature && !hasMessagingDeliveryTarget(channel)) {
-        throw new SafeError(
-          "Please select a target channel before enabling features",
-        );
+      if (sendMeetingBriefs !== undefined) {
+        await syncMessagingFeatureRoute({
+          messagingChannelId: channel.id,
+          routes: channel.routes,
+          purpose: MessagingRoutePurpose.MEETING_BRIEFS,
+          enabled: sendMeetingBriefs,
+        });
       }
 
-      await prisma.messagingChannel.update({
-        where,
-        data: {
-          ...(sendMeetingBriefs !== undefined && { sendMeetingBriefs }),
-          ...(sendDocumentFilings !== undefined && { sendDocumentFilings }),
-        },
-      });
+      if (sendDocumentFilings !== undefined) {
+        await syncMessagingFeatureRoute({
+          messagingChannelId: channel.id,
+          routes: channel.routes,
+          purpose: MessagingRoutePurpose.DOCUMENT_FILINGS,
+          enabled: sendDocumentFilings,
+        });
+      }
     },
   );
 
@@ -187,10 +191,9 @@ export const disconnectChannelAction = actionClient
         },
         data: {
           isConnected: false,
-          channelId: null,
-          channelName: null,
-          sendMeetingBriefs: false,
-          sendDocumentFilings: false,
+          routes: {
+            deleteMany: {},
+          },
         },
       });
     } catch (error) {
@@ -221,7 +224,6 @@ export const linkSlackWorkspaceAction = actionClient
         throw new SafeError("Workspace already connected");
       }
 
-      // Find an org-mate's connected channel for the same Slack workspace
       const orgMateChannel = await prisma.messagingChannel.findFirst({
         where: {
           provider: MessagingProvider.SLACK,
@@ -368,9 +370,13 @@ export const toggleRuleChannelAction = actionClient
           select: {
             isConnected: true,
             provider: true,
-            teamId: true,
-            channelId: true,
-            providerUserId: true,
+            routes: {
+              select: {
+                purpose: true,
+                targetType: true,
+                targetId: true,
+              },
+            },
           },
         }),
       ]);
@@ -396,13 +402,17 @@ export const toggleRuleChannelAction = actionClient
         if (!channel.isConnected) {
           throw new SafeError("Messaging channel is not connected");
         }
-        if (!hasMessagingDeliveryTarget(channel)) {
+        if (
+          !hasMessagingRoute(
+            channel.routes,
+            MessagingRoutePurpose.RULE_NOTIFICATIONS,
+          )
+        ) {
           throw new SafeError(
             "Please select a target channel before enabling notifications",
           );
         }
 
-        // Remove any existing messaging channel actions for this rule+channel
         await prisma.action.deleteMany({
           where: {
             ruleId,
@@ -450,4 +460,94 @@ async function getTelegramBotUrl() {
   } catch {
     return undefined;
   }
+}
+
+async function resolveSlackRouteTarget({
+  accessToken,
+  providerUserId,
+  targetId,
+}: {
+  accessToken: string;
+  providerUserId: string | null;
+  targetId: string;
+}) {
+  if (targetId === "dm") {
+    if (!providerUserId) {
+      throw new SafeError("Direct messages are not available for this channel");
+    }
+
+    return {
+      targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+      targetId: providerUserId,
+    };
+  }
+
+  const client = createSlackClient(accessToken);
+  const channelInfo = await getChannelInfo(client, targetId);
+
+  if (!channelInfo) {
+    throw new SafeError("Could not find the selected Slack channel");
+  }
+
+  if (!channelInfo.isPrivate) {
+    throw new SafeError(
+      "Only private channels are allowed. Please select a private channel.",
+    );
+  }
+
+  return {
+    targetType: MessagingRouteTargetType.CHANNEL,
+    targetId,
+  };
+}
+
+async function syncMessagingFeatureRoute({
+  messagingChannelId,
+  routes,
+  purpose,
+  enabled,
+}: {
+  messagingChannelId: string;
+  routes: Array<{
+    purpose: MessagingRoutePurpose;
+    targetType: MessagingRouteTargetType;
+    targetId: string;
+  }>;
+  purpose:
+    | MessagingRoutePurpose.MEETING_BRIEFS
+    | MessagingRoutePurpose.DOCUMENT_FILINGS;
+  enabled: boolean;
+}) {
+  if (!enabled) {
+    await prisma.messagingRoute.deleteMany({
+      where: {
+        messagingChannelId,
+        purpose,
+      },
+    });
+    return;
+  }
+
+  const featureRoute = getMessagingRoute(routes, purpose);
+  if (featureRoute) return;
+
+  const rulesRoute = getMessagingRoute(
+    routes,
+    MessagingRoutePurpose.RULE_NOTIFICATIONS,
+  );
+
+  if (!rulesRoute) {
+    throw new SafeError(
+      "Please select a target channel before enabling features",
+    );
+  }
+
+  await prisma.messagingRoute.create({
+    data: {
+      messagingChannelId,
+      purpose,
+      targetType: rulesRoute.targetType,
+      targetId: rulesRoute.targetId,
+    },
+  });
 }

@@ -1,13 +1,17 @@
 import prisma from "@/utils/prisma";
-import { MessagingProvider } from "@/generated/prisma/enums";
 import {
-  resolveSlackDestination,
+  MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
+import {
+  resolveSlackRouteDestination,
   sendDocumentFiledToSlack,
   sendDocumentAskToSlack,
 } from "@/utils/messaging/providers/slack/send";
 import type { Logger } from "@/utils/logger";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import { getMessagingDeliveryTargetWhere } from "@/utils/messaging/delivery-target";
+import { getMessagingRoute } from "@/utils/messaging/routes";
 
 export async function sendFilingSlackNotifications({
   emailAccountId,
@@ -26,15 +30,23 @@ export async function sendFilingSlackNotifications({
     where: {
       emailAccountId,
       isConnected: true,
-      sendDocumentFilings: true,
-      ...getMessagingDeliveryTargetWhere(),
+      ...getMessagingDeliveryTargetWhere(
+        MessagingRoutePurpose.DOCUMENT_FILINGS,
+      ),
     },
     select: {
+      id: true,
       provider: true,
       accessToken: true,
       teamId: true,
-      channelId: true,
       providerUserId: true,
+      routes: {
+        select: {
+          purpose: true,
+          targetType: true,
+          targetId: true,
+        },
+      },
     },
   });
 
@@ -55,13 +67,18 @@ export async function sendFilingSlackNotifications({
   const deliveryPromises: Promise<unknown>[] = [];
 
   for (const channel of channels) {
+    const route = getMessagingRoute(
+      channel.routes,
+      MessagingRoutePurpose.DOCUMENT_FILINGS,
+    );
+    if (!route) continue;
+
     switch (channel.provider) {
       case MessagingProvider.SLACK: {
         if (!channel.accessToken) continue;
-        const destination = await resolveSlackDestination({
+        const destination = await resolveSlackRouteDestination({
           accessToken: channel.accessToken,
-          channelId: channel.channelId,
-          providerUserId: channel.providerUserId,
+          route,
         }).catch((error: unknown) => {
           log.error("Slack destination resolution failed", { error });
           return null;
@@ -98,6 +115,7 @@ export async function sendFilingSlackNotifications({
         deliveryPromises.push(
           sendAutomationMessage({
             channel,
+            route,
             text: filing.wasAsked
               ? formatDocumentAskText({
                   filename: filing.filename,
