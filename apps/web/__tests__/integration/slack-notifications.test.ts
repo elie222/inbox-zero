@@ -26,6 +26,8 @@ import {
   ActionType,
   MessagingMessageStatus,
   MessagingProvider,
+  MessagingRoutePurpose,
+  MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import { createGmailTestHarness } from "./helpers";
 
@@ -403,7 +405,13 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
             teamId: "team-1",
             providerUserId: null,
             accessToken: "emulator-token",
-            channelId: notifChannelId,
+            routes: [
+              {
+                purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+                targetType: MessagingRouteTargetType.CHANNEL,
+                targetId: notifChannelId,
+              },
+            ],
           },
         };
 
@@ -1000,7 +1008,13 @@ function getNotificationContext({
           teamId: "team-1",
           providerUserId: null,
           accessToken: "emulator-token",
-          channelId,
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetType: MessagingRouteTargetType.CHANNEL,
+              targetId: channelId,
+            },
+          ],
         }
       : null,
   };
