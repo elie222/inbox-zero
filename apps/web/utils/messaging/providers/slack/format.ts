@@ -165,6 +165,27 @@ function escapeSlackTextCharacter(char: string): string {
   return char;
 }
 
+function escapeSlackTextPreservingEntities(text: string): string {
+  const parts: string[] = [];
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (char === "&") {
+      const entity = readHtmlEntity(text, index);
+      if (entity) {
+        parts.push(entity);
+        index += entity.length - 1;
+        continue;
+      }
+    }
+
+    parts.push(escapeSlackTextCharacter(char));
+  }
+
+  return parts.join("");
+}
+
 function escapeInvalidSlackAngleBracketBlocks(text: string): string {
   let result = "";
   let index = 0;
@@ -188,7 +209,9 @@ function escapeInvalidSlackAngleBracketBlocks(text: string): string {
     }
 
     const block = text.slice(openIndex, closeIndex + 1);
-    result += isSlackAngleBracketBlock(block) ? block : escapeSlackText(block);
+    result += isSlackAngleBracketBlock(block)
+      ? block
+      : escapeSlackTextPreservingEntities(block);
     index = closeIndex + 1;
   }
 
@@ -250,10 +273,11 @@ function sanitizeSlackHref(
       return null;
     }
 
-    return (options.canonicalize ? url.toString() : href).replace(
-      /[|<>]/g,
-      encodeURIComponent,
-    );
+    const normalizedHref = options.canonicalize
+      ? url.toString()
+      : encodeURI(href);
+
+    return normalizedHref.replace(/[|<>]/g, encodeURIComponent);
   } catch {
     return null;
   }

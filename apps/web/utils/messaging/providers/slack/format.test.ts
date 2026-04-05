@@ -22,6 +22,12 @@ describe("markdownToSlackMrkdwn", () => {
     );
   });
 
+  it("encodes spaces in markdown link hrefs", () => {
+    expect(
+      markdownToSlackMrkdwn("[Click here](https://example.com/has a space)"),
+    ).toBe("<https://example.com/has%20a%20space|Click here>");
+  });
+
   it("escapes link labels inside generated Slack links", () => {
     expect(markdownToSlackMrkdwn("[Click > here](https://example.com)")).toBe(
       "<https://example.com|Click &gt; here>",
@@ -109,6 +115,12 @@ describe("markdownToSlackMrkdwn", () => {
     expect(
       markdownToSlackMrkdwn("Display Name <notifications@github.com>"),
     ).toBe("Display Name &lt;notifications@github.com&gt;");
+  });
+
+  it("preserves existing entities inside invalid angle-bracket blocks", () => {
+    expect(markdownToSlackMrkdwn("Keep <abc &amp; def> safe")).toBe(
+      "Keep &lt;abc &amp; def&gt; safe",
+    );
   });
 
   it("preserves valid Slack mrkdwn blocks", () => {
