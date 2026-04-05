@@ -816,17 +816,11 @@ export function limitDraftEmailActions<
   });
 }
 
-const RULE_LOOP_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const RULE_LOOP_WINDOW_MS = 5 * 60 * 1000;
 const RULE_LOOP_MAX_EXECUTIONS = 3;
 
-/**
- * Detects potential rule loops by checking how many times the same rule
- * has been executed on the same thread within a recent time window.
- * A REPLY action can create a new message in the same thread which
- * re-triggers the same rule, causing an unbounded loop.
- *
- * @internal Exported for testing
- */
+// REPLY actions can create a new message in the same thread, re-triggering
+// the same rule and causing an unbounded loop.
 export async function isRuleLooping({
   emailAccountId,
   threadId,
