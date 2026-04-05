@@ -8,6 +8,7 @@ import { StartedInMinutes } from "@/components/new-landing/sections/StartedInMin
 import { BulkUnsubscribe } from "@/components/new-landing/sections/BulkUnsubscribe";
 import { OrganizedInbox } from "@/components/new-landing/sections/OrganizedInbox";
 import { PreWrittenDrafts } from "@/components/new-landing/sections/PreWrittenDrafts";
+import { ManageFromAnywhere } from "@/components/new-landing/sections/ManageFromAnywhere";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { FinalCTA } from "@/app/(landing)/home/FinalCTA";
@@ -65,6 +66,7 @@ export default function NewLanding() {
         title="Pre-written drafts waiting in your inbox"
         subtitle="When you check your inbox, every email needing a response will have a pre-drafted reply in your tone, ready for you to send."
       />
+      <ManageFromAnywhere />
       <StartedInMinutes
         title="Get started in minutes"
         subtitle="One-click setup. Start organizing and drafting replies in minutes."

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 import { DisplayCard } from "@/components/new-landing/common/DisplayCard";
@@ -12,7 +13,6 @@ import {
 import { Analytics } from "@/components/new-landing/icons/Analytics";
 import { ChatTwo } from "@/components/new-landing/icons/ChatTwo";
 import { Link } from "@/components/new-landing/icons/Link";
-import Image from "next/image";
 
 export function EverythingElseSection() {
   return (
