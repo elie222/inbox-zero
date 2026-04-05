@@ -1141,13 +1141,11 @@ function buildScheduledCheckInsSnapshot(
   emailAccount: ScheduledCheckInsSnapshotSource,
 ) {
   const availableChannels = emailAccount.messagingChannels
-    .filter(
-      (channel) =>
-        channel.isConnected &&
-        hasMessagingRoute(
-          channel.routes,
-          MessagingRoutePurpose.RULE_NOTIFICATIONS,
-        ),
+    .filter((channel) =>
+      hasMessagingRoute(
+        channel.routes,
+        MessagingRoutePurpose.RULE_NOTIFICATIONS,
+      ),
     )
     .map((channel) => ({
       id: channel.id,

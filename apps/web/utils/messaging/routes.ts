@@ -27,6 +27,11 @@ export type MessagingFeatureRoutePurpose =
   | MessagingRoutePurpose.MEETING_BRIEFS
   | MessagingRoutePurpose.DOCUMENT_FILINGS;
 
+type ConnectedMessagingChannelLike = {
+  isConnected: boolean;
+  destinations: MessagingChannelDestinations;
+};
+
 export function getMessagingRoute(
   routes: MessagingRouteLike[] | null | undefined,
   purpose: MessagingRoutePurpose,
@@ -88,4 +93,29 @@ export function getMessagingFeatureRouteSummary(
     case MessagingRoutePurpose.DOCUMENT_FILINGS:
       return destinations.documentFilings;
   }
+}
+
+export function hasRuleNotificationRoute(
+  destinations: MessagingChannelDestinations,
+) {
+  return destinations.ruleNotifications.enabled;
+}
+
+export function canEnableMessagingFeatureRoute(
+  destinations: MessagingChannelDestinations,
+  purpose: MessagingFeatureRoutePurpose,
+) {
+  return (
+    getMessagingFeatureRouteSummary(destinations, purpose).enabled ||
+    hasRuleNotificationRoute(destinations)
+  );
+}
+
+export function getConnectedRuleNotificationChannels<
+  T extends ConnectedMessagingChannelLike,
+>(channels: T[] | null | undefined) {
+  return (channels ?? []).filter(
+    (channel) =>
+      channel.isConnected && hasRuleNotificationRoute(channel.destinations),
+  );
 }

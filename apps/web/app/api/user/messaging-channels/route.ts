@@ -47,10 +47,9 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
   });
 
   return {
-    channels: channels.map(({ routes, ...channel }) => ({
+    channels: channels.map(({ routes, providerUserId, ...channel }) => ({
       ...channel,
-      canSendAsDm:
-        channel.provider === "SLACK" && Boolean(channel.providerUserId),
+      canSendAsDm: channel.provider === "SLACK" && Boolean(providerUserId),
       destinations: {
         ruleNotifications: getMessagingRouteSummary(
           routes,

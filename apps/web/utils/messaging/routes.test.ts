@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  MessagingProvider,
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { getMessagingRouteSummary } from "./routes";
+import {
+  canEnableMessagingFeatureRoute,
+  getConnectedRuleNotificationChannels,
+  getMessagingRouteSummary,
+} from "./routes";
 
 const routes = [
   {
@@ -42,5 +47,126 @@ describe("getMessagingRouteSummary", () => {
       targetLabel: null,
       isDm: false,
     });
+  });
+});
+
+describe("canEnableMessagingFeatureRoute", () => {
+  it("allows a feature toggle when the feature route already exists", () => {
+    expect(
+      canEnableMessagingFeatureRoute(
+        {
+          ruleNotifications: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          meetingBriefs: {
+            enabled: true,
+            targetId: "U123",
+            targetLabel: "Direct message",
+            isDm: true,
+          },
+          documentFilings: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+        },
+        MessagingRoutePurpose.MEETING_BRIEFS,
+      ),
+    ).toBe(true);
+  });
+
+  it("requires either the feature route or the rule notification route", () => {
+    expect(
+      canEnableMessagingFeatureRoute(
+        {
+          ruleNotifications: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          meetingBriefs: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          documentFilings: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+        },
+        MessagingRoutePurpose.DOCUMENT_FILINGS,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("getConnectedRuleNotificationChannels", () => {
+  it("keeps only connected channels with a rule notification route", () => {
+    expect(
+      getConnectedRuleNotificationChannels([
+        {
+          id: "channel-1",
+          provider: MessagingProvider.SLACK,
+          isConnected: true,
+          destinations: {
+            ruleNotifications: {
+              enabled: true,
+              targetId: "C123",
+              targetLabel: "#C123",
+              isDm: false,
+            },
+            meetingBriefs: {
+              enabled: false,
+              targetId: null,
+              targetLabel: null,
+              isDm: false,
+            },
+            documentFilings: {
+              enabled: false,
+              targetId: null,
+              targetLabel: null,
+              isDm: false,
+            },
+          },
+        },
+        {
+          id: "channel-2",
+          provider: MessagingProvider.TEAMS,
+          isConnected: false,
+          destinations: {
+            ruleNotifications: {
+              enabled: true,
+              targetId: "29:teams-user",
+              targetLabel: "Direct message",
+              isDm: true,
+            },
+            meetingBriefs: {
+              enabled: false,
+              targetId: null,
+              targetLabel: null,
+              isDm: false,
+            },
+            documentFilings: {
+              enabled: false,
+              targetId: null,
+              targetLabel: null,
+              isDm: false,
+            },
+          },
+        },
+      ]),
+    ).toEqual([
+      expect.objectContaining({
+        id: "channel-1",
+      }),
+    ]);
   });
 });

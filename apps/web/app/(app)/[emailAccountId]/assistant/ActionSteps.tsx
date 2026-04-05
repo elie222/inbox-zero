@@ -51,6 +51,7 @@ import { BRAND_NAME } from "@/utils/branding";
 import { ActionAttachmentsField } from "@/app/(app)/[emailAccountId]/assistant/ActionAttachmentsField";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
+import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import { prefixPath } from "@/utils/path";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
@@ -643,10 +644,8 @@ function ActionCard({
     />
   ) : null;
 
-  const connectedMessagingChannels = messagingChannels.filter(
-    (channel) =>
-      channel.isConnected && channel.destinations.ruleNotifications.enabled,
-  );
+  const connectedMessagingChannels =
+    getConnectedRuleNotificationChannels(messagingChannels);
   const canConnectMessagingApp = availableMessagingProviders.length > 0;
 
   const deliveryField = isDraftReplyActionType(rawActionType) ? (
@@ -1213,7 +1212,11 @@ function formatMessagingDestinationLabel(channel: MessagingChannelOption) {
   if (destination.targetLabel && channel.teamName) {
     return `${destination.targetLabel} (${channel.teamName})`;
   }
-  if (destination.targetLabel) return destination.targetLabel;
+  if (destination.targetLabel) {
+    return provider === "Slack"
+      ? `${destination.targetLabel} (Slack workspace)`
+      : destination.targetLabel;
+  }
   if (channel.teamName) return `${provider} (${channel.teamName})`;
 
   return provider === "Slack" ? "Slack workspace" : provider;

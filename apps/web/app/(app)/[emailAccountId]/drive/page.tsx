@@ -34,6 +34,7 @@ import {
 import { updateMessagingFeatureRouteAction } from "@/utils/actions/messaging-channels";
 import { getActionErrorMessage } from "@/utils/error";
 import {
+  canEnableMessagingFeatureRoute,
   getMessagingFeatureRouteSummary,
   type MessagingChannelDestinations,
 } from "@/utils/messaging/routes";
@@ -187,7 +188,8 @@ function DeliveryPopover({
   const configurableChannels = allConnected.filter(
     (channel) =>
       channel.provider === MessagingProvider.SLACK ||
-      channel.destinations.ruleNotifications.enabled,
+      channel.destinations.ruleNotifications.enabled ||
+      channel.destinations.documentFilings.enabled,
   );
   const availableProviders = data?.availableProviders ?? [];
   const slackAvailable = availableProviders.includes("SLACK");
@@ -283,6 +285,10 @@ function DeliveryChannelRow({
     channel.destinations,
     MessagingRoutePurpose.DOCUMENT_FILINGS,
   );
+  const canEnableFeatureRoute = canEnableMessagingFeatureRoute(
+    channel.destinations,
+    MessagingRoutePurpose.DOCUMENT_FILINGS,
+  );
   const { execute } = useAction(
     updateMessagingFeatureRouteAction.bind(null, emailAccountId),
     {
@@ -330,18 +336,15 @@ function DeliveryChannelRow({
       <Toggle
         name={`filing-${channel.id}`}
         enabled={destination.enabled}
-        disabled={
-          !destination.enabled &&
-          !channel.destinations.ruleNotifications.enabled &&
-          channel.provider !== MessagingProvider.SLACK
-        }
-        onChange={(enabled) =>
+        disabled={!canEnableFeatureRoute}
+        onChange={(enabled) => {
+          if (!canEnableFeatureRoute) return;
           execute({
             channelId: channel.id,
             purpose: MessagingRoutePurpose.DOCUMENT_FILINGS,
             enabled,
-          })
-        }
+          });
+        }}
       />
     </div>
   );

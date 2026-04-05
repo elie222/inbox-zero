@@ -49,6 +49,7 @@ import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/
 import { toastSuccess, toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
 import {
+  canEnableMessagingFeatureRoute,
   getMessagingFeatureRouteSummary,
   type MessagingFeatureRoutePurpose,
   type MessagingRouteSummary,
@@ -240,7 +241,6 @@ function ConnectedChannelSection({
   onUpdate: () => void;
 }) {
   const config = PROVIDER_CONFIG[channel.provider];
-  const hasTarget = channel.destinations.ruleNotifications.enabled;
   const isSlack = channel.provider === "SLACK";
 
   const { execute: executeDisconnect, status: disconnectStatus } = useAction(
@@ -390,7 +390,12 @@ function ConnectedChannelSection({
                 canSendAsDm={channel.canSendAsDm}
                 emailAccountId={emailAccountId}
                 onUpdate={onUpdate}
-                disabled={!destination.enabled && !hasTarget && !isSlack}
+                disabled={
+                  !canEnableMessagingFeatureRoute(
+                    channel.destinations,
+                    feature.purpose,
+                  )
+                }
               />
             </div>
           );
@@ -711,9 +716,10 @@ function FeatureRouteToggle({
             name={`feature-${purpose}-${messagingChannelId}`}
             enabled={destination.enabled}
             disabled={disabled || status === "executing"}
-            onChange={(enabled) =>
-              execute({ channelId: messagingChannelId, purpose, enabled })
-            }
+            onChange={(enabled) => {
+              if (disabled) return;
+              execute({ channelId: messagingChannelId, purpose, enabled });
+            }}
           />
         </div>
       </ItemActions>

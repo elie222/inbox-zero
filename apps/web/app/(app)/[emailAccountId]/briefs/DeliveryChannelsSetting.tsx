@@ -22,6 +22,7 @@ import {
 } from "@/utils/actions/messaging-channels";
 import { getActionErrorMessage } from "@/utils/error";
 import {
+  canEnableMessagingFeatureRoute,
   getMessagingFeatureRouteSummary,
   type MessagingChannelDestinations,
 } from "@/utils/messaging/routes";
@@ -157,6 +158,10 @@ function ChannelRow({
     channel.destinations,
     MessagingRoutePurpose.MEETING_BRIEFS,
   );
+  const canEnableFeatureRoute = canEnableMessagingFeatureRoute(
+    channel.destinations,
+    MessagingRoutePurpose.MEETING_BRIEFS,
+  );
 
   const { execute: executeFeatures } = useAction(
     updateMessagingFeatureRouteAction.bind(null, emailAccountId),
@@ -211,18 +216,15 @@ function ChannelRow({
       <Toggle
         name={`briefs-${channel.id}`}
         enabled={destination.enabled}
-        disabled={
-          !destination.enabled &&
-          !channel.destinations.ruleNotifications.enabled &&
-          !config.supportsBriefTargetSelection
-        }
-        onChange={(enabled) =>
+        disabled={!canEnableFeatureRoute}
+        onChange={(enabled) => {
+          if (!canEnableFeatureRoute) return;
           executeFeatures({
             channelId: channel.id,
             purpose: MessagingRoutePurpose.MEETING_BRIEFS,
             enabled,
-          })
-        }
+          });
+        }}
       />
     </div>
   );

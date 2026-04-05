@@ -1176,7 +1176,6 @@ model MessagingRoute {
   messagingChannel   MessagingChannel @relation(fields: [messagingChannelId], references: [id], onDelete: Cascade)
 
   @@unique([messagingChannelId, purpose])
-  @@index([messagingChannelId, purpose])
 }
 
 model AutomationJob {

@@ -41,6 +41,7 @@ import {
 } from "@/utils/automation-jobs/defaults";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
+import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import { cn } from "@/utils";
 
 export function ProactiveUpdatesSetting({
@@ -68,11 +69,7 @@ export function ProactiveUpdatesSetting({
   } = useMessagingChannels(emailAccountIdProp);
 
   const connectedMessagingChannels = useMemo(
-    () =>
-      channelsData?.channels.filter(
-        (channel) =>
-          channel.isConnected && channel.destinations.ruleNotifications.enabled,
-      ) ?? [],
+    () => getConnectedRuleNotificationChannels(channelsData?.channels),
     [channelsData?.channels],
   );
 
@@ -371,9 +368,11 @@ function formatMessagingChannelLabel(channel: {
   teamName: string | null;
 }) {
   const provider = getMessagingProviderName(channel.provider);
-  if (channel.destinations.ruleNotifications.targetLabel) {
-    return `${provider} · ${channel.destinations.ruleNotifications.targetLabel}`;
+  const targetLabel = channel.destinations.ruleNotifications.targetLabel;
+  if (targetLabel) {
+    return `${provider} · ${targetLabel}`;
   }
   if (channel.teamName) return `${provider} · ${channel.teamName}`;
+  if (channel.provider === "SLACK") return "Slack workspace";
   return provider;
 }

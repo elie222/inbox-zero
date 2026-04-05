@@ -169,10 +169,6 @@ WHERE mc."sendDocumentFilings" = true
 CREATE UNIQUE INDEX "MessagingRoute_messagingChannelId_purpose_key"
 ON "MessagingRoute"("messagingChannelId", "purpose");
 
--- CreateIndex
-CREATE INDEX "MessagingRoute_messagingChannelId_purpose_idx"
-ON "MessagingRoute"("messagingChannelId", "purpose");
-
 -- AddForeignKey
 ALTER TABLE "MessagingRoute"
 ADD CONSTRAINT "MessagingRoute_messagingChannelId_fkey"

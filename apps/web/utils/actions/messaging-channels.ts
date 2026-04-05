@@ -28,6 +28,7 @@ import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send"
 import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/providers/slack/send-onboarding-direct-message";
 import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
 import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
+import type { Logger } from "@/utils/logger";
 import { getMessagingRoute, hasMessagingRoute } from "@/utils/messaging/routes";
 
 const MESSAGING_ACTION_TYPES = [
@@ -78,6 +79,7 @@ export const updateSlackRouteAction = actionClient
         accessToken: channel.accessToken,
         providerUserId: channel.providerUserId,
         targetId,
+        logger,
       });
 
       await prisma.messagingRoute.upsert({
@@ -455,13 +457,20 @@ async function resolveSlackRouteTarget({
   accessToken,
   providerUserId,
   targetId,
+  logger,
 }: {
   accessToken: string;
   providerUserId: string | null;
   targetId: string;
+  logger: Logger;
 }) {
   if (targetId === "dm") {
+    logger.trace("Resolving Slack direct-message target", {
+      hasProviderUserId: Boolean(providerUserId),
+    });
+
     if (!providerUserId) {
+      logger.error("Slack direct-message target is unavailable");
       throw new SafeError("Direct messages are not available for this channel");
     }
 
@@ -472,13 +481,23 @@ async function resolveSlackRouteTarget({
   }
 
   const client = createSlackClient(accessToken);
-  const channelInfo = await getChannelInfo(client, targetId);
+  logger.trace("Resolving Slack channel target", { targetId });
+
+  let channelInfo: Awaited<ReturnType<typeof getChannelInfo>> = null;
+  try {
+    channelInfo = await getChannelInfo(client, targetId);
+  } catch (error) {
+    logger.error("Failed to resolve Slack channel target", { error, targetId });
+    throw error;
+  }
 
   if (!channelInfo) {
+    logger.error("Slack channel target not found", { targetId });
     throw new SafeError("Could not find the selected Slack channel");
   }
 
   if (!channelInfo.isPrivate) {
+    logger.error("Slack channel target is not private", { targetId });
     throw new SafeError(
       "Only private channels are allowed. Please select a private channel.",
     );
