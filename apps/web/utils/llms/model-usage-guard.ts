@@ -46,14 +46,12 @@ export async function shouldForceNanoModel(options: {
       weeklyLimitUsd,
     };
   } catch (error) {
-    // Fail closed: when Redis is down we cannot verify spend, so default to
-    // the cheapest model to prevent unbounded cost accumulation.
     logger.error("Failed to evaluate nano model guard", {
       label: options.label,
       userId: options.userId,
       emailAccountId: options.emailAccountId,
       error,
     });
-    return { shouldForce: true, weeklySpendUsd: null, weeklyLimitUsd };
+    return { shouldForce: false, weeklySpendUsd: null, weeklyLimitUsd };
   }
 }

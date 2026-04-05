@@ -97,23 +97,4 @@ describe("shouldForceNanoModel", () => {
     expect(result.weeklySpendUsd).toBe(2.99);
     expect(result.weeklyLimitUsd).toBe(3);
   });
-
-  it("fails closed by forcing nano when Redis errors", async () => {
-    vi.mocked(env).AI_NANO_WEEKLY_SPEND_LIMIT_USD = 3;
-    vi.mocked(env).NANO_LLM_PROVIDER = "openai";
-    vi.mocked(env).NANO_LLM_MODEL = "gpt-5-nano";
-    vi.mocked(getWeeklyUsageCost).mockRejectedValue(
-      new Error("Redis connection refused"),
-    );
-
-    const result = await shouldForceNanoModel({
-      userEmail: "user@example.com",
-      hasUserApiKey: false,
-      label: "assistant-chat",
-    });
-
-    expect(result.shouldForce).toBe(true);
-    expect(result.weeklySpendUsd).toBeNull();
-    expect(result.weeklyLimitUsd).toBe(3);
-  });
 });
