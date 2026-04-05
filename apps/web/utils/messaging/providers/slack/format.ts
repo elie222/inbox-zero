@@ -8,20 +8,37 @@
  * - Bullets: * item / - item → • item
  */
 export function markdownToSlackMrkdwn(text: string): string {
-  return (
-    text
-      // Links: [text](url) → <url|text>  (must come before bold conversion)
-      .replace(/\[([^[\]]+)\]\(([^()]+)\)/g, "<$2|$1>")
-      // Handle escaped Markdown from model outputs: \*\*text\*\* → *text*
-      .replace(/\\\*\\\*(.+?)\\\*\\\*/g, "*$1*")
-      // Bold: **text** → *text*
-      .replace(/\*\*(.+?)\*\*/g, "*$1*")
-      // Headings: # text → *text*
-      .replace(/^#{1,6}\s+(.+)$/gm, "*$1*")
-      // Escaped unordered list bullets: \* item / \- item → • item
-      .replace(/^(\s*)\\[*-]\s+/gm, "$1• ")
-      // Unordered list bullets: * item or - item → • item
-      .replace(/^(\s*)[*-]\s+/gm, "$1• ")
+  const links: Array<{ token: string; replacement: string }> = [];
+
+  const mrkdwn = text
+    .replace(
+      /\[([^[\]]+)\]\(([^()]+)\)/g,
+      (_match, label: string, href: string) => {
+        const safeHref = sanitizeSlackMarkdownLinkHref(href);
+        if (!safeHref) return label;
+
+        const token = createSlackLinkToken({ sourceText: text, links });
+        links.push({
+          token,
+          replacement: `<${safeHref}|${label}>`,
+        });
+        return token;
+      },
+    )
+    // Handle escaped Markdown from model outputs: \*\*text\*\* → *text*
+    .replace(/\\\*\\\*(.+?)\\\*\\\*/g, "*$1*")
+    // Bold: **text** → *text*
+    .replace(/\*\*(.+?)\*\*/g, "*$1*")
+    // Headings: # text → *text*
+    .replace(/^#{1,6}\s+(.+)$/gm, "*$1*")
+    // Escaped unordered list bullets: \* item / \- item → • item
+    .replace(/^(\s*)\\[*-]\s+/gm, "$1• ")
+    // Unordered list bullets: * item or - item → • item
+    .replace(/^(\s*)[*-]\s+/gm, "$1• ");
+
+  return links.reduce(
+    (result, link) => result.replaceAll(link.token, link.replacement),
+    escapeSlackAngleBrackets(mrkdwn),
   );
 }
 
@@ -148,6 +165,13 @@ function escapeSlackTextCharacter(char: string): string {
   return char;
 }
 
+function escapeSlackAngleBrackets(text: string): string {
+  return text.replace(/[<>]/g, (char) => {
+    if (char === "<") return "&lt;";
+    return "&gt;";
+  });
+}
+
 function readHtmlEntity(text: string, index: number): string | null {
   const remainder = text.slice(index);
   const match = remainder.match(
@@ -188,6 +212,20 @@ function sanitizeSlackLinkHref(href: string): string | null {
     }
 
     return url.toString().replace(/[|<>]/g, encodeURIComponent);
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeSlackMarkdownLinkHref(href: string): string | null {
+  try {
+    const url = new URL(href);
+
+    if (!["http:", "https:", "mailto:"].includes(url.protocol)) {
+      return null;
+    }
+
+    return href.replace(/[|<>]/g, encodeURIComponent);
   } catch {
     return null;
   }

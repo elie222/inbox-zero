@@ -98,6 +98,12 @@ describe("markdownToSlackMrkdwn", () => {
   it("preserves code blocks", () => {
     expect(markdownToSlackMrkdwn("`code`")).toBe("`code`");
   });
+
+  it("escapes plain-text email addresses wrapped in angle brackets", () => {
+    expect(
+      markdownToSlackMrkdwn("Display Name <notifications@github.com>"),
+    ).toBe("Display Name &lt;notifications@github.com&gt;");
+  });
 });
 
 describe("richTextToSlackMrkdwn", () => {
