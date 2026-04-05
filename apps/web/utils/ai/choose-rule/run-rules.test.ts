@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   ensureConversationRuleContinuity,
   CONVERSATION_TRACKING_META_RULE_ID,
-  isRuleLooping,
   limitDraftEmailActions,
   runRules,
 } from "./run-rules";
@@ -1006,57 +1005,5 @@ describe("runRules - double draft prevention", () => {
     expect(executedDraftContents[0]).toBe(
       "Hi {{name}}, Please submit via our form.",
     );
-  });
-});
-
-describe("isRuleLooping", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("returns false when few recent executions exist", async () => {
-    prisma.executedRule.count.mockResolvedValue(2);
-
-    const result = await isRuleLooping({
-      emailAccountId,
-      threadId,
-      ruleId: "rule-1",
-      logger,
-    });
-
-    expect(result).toBe(false);
-  });
-
-  it("returns true when executions reach the threshold", async () => {
-    prisma.executedRule.count.mockResolvedValue(3);
-
-    const result = await isRuleLooping({
-      emailAccountId,
-      threadId,
-      ruleId: "rule-1",
-      logger,
-    });
-
-    expect(result).toBe(true);
-  });
-
-  it("scopes the query to the correct rule, thread, and time window", async () => {
-    prisma.executedRule.count.mockResolvedValue(0);
-
-    await isRuleLooping({
-      emailAccountId,
-      threadId,
-      ruleId: "rule-1",
-      logger,
-    });
-
-    expect(prisma.executedRule.count).toHaveBeenCalledWith({
-      where: {
-        emailAccountId,
-        threadId,
-        ruleId: "rule-1",
-        createdAt: { gte: expect.any(Date) },
-      },
-    });
   });
 });

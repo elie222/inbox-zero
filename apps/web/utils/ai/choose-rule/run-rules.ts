@@ -225,18 +225,6 @@ export async function runRules({
     const ruleToExecute = result.rule;
     const reasonToUse = result.resolvedReason || results.reasoning;
 
-    if (
-      !isTest &&
-      (await isRuleLooping({
-        emailAccountId: emailAccount.id,
-        threadId: message.threadId,
-        ruleId: ruleToExecute.id,
-        logger,
-      }))
-    ) {
-      continue;
-    }
-
     if (!result.isConversationRule) {
       analyzeSenderPatternIfAiMatch({
         isTest,
@@ -814,44 +802,4 @@ export function limitDraftEmailActions<
       },
     };
   });
-}
-
-const RULE_LOOP_WINDOW_MS = 5 * 60 * 1000;
-const RULE_LOOP_MAX_EXECUTIONS = 3;
-
-// REPLY actions can create a new message in the same thread, re-triggering
-// the same rule and causing an unbounded loop.
-export async function isRuleLooping({
-  emailAccountId,
-  threadId,
-  ruleId,
-  logger,
-}: {
-  emailAccountId: string;
-  threadId: string;
-  ruleId: string;
-  logger: Logger;
-}): Promise<boolean> {
-  const windowStart = new Date(Date.now() - RULE_LOOP_WINDOW_MS);
-
-  const recentExecutions = await prisma.executedRule.count({
-    where: {
-      emailAccountId,
-      threadId,
-      ruleId,
-      createdAt: { gte: windowStart },
-    },
-  });
-
-  if (recentExecutions >= RULE_LOOP_MAX_EXECUTIONS) {
-    logger.warn("Rule loop detected, skipping execution", {
-      ruleId,
-      threadId,
-      recentExecutions,
-      windowMs: RULE_LOOP_WINDOW_MS,
-    });
-    return true;
-  }
-
-  return false;
 }
