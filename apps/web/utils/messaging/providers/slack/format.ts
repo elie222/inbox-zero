@@ -8,9 +8,23 @@
  * - Bullets: * item / - item → • item
  */
 export function markdownToSlackMrkdwn(text: string): string {
+  const links: Array<{ token: string; replacement: string }> = [];
+
   const mrkdwn = text
-    // Links: [text](url) → <url|text>  (must come before bold conversion)
-    .replace(/\[([^[\]]+)\]\(([^()]+)\)/g, "<$2|$1>")
+    .replace(
+      /\[([^[\]]+)\]\(([^()]+)\)/g,
+      (_match, label: string, href: string) => {
+        const safeHref = sanitizeSlackMarkdownLinkHref(href);
+        if (!safeHref) return label;
+
+        const token = createSlackLinkToken({ sourceText: text, links });
+        links.push({
+          token,
+          replacement: `<${safeHref}|${label}>`,
+        });
+        return token;
+      },
+    )
     // Handle escaped Markdown from model outputs: \*\*text\*\* → *text*
     .replace(/\\\*\\\*(.+?)\\\*\\\*/g, "*$1*")
     // Bold: **text** → *text*
@@ -22,7 +36,10 @@ export function markdownToSlackMrkdwn(text: string): string {
     // Unordered list bullets: * item or - item → • item
     .replace(/^(\s*)[*-]\s+/gm, "$1• ");
 
-  return escapeInvalidSlackAngleBracketBlocks(mrkdwn);
+  return links.reduce(
+    (result, link) => result.replaceAll(link.token, link.replacement),
+    escapeSlackAngleBrackets(mrkdwn),
+  );
 }
 
 /**
@@ -148,47 +165,11 @@ function escapeSlackTextCharacter(char: string): string {
   return char;
 }
 
-function escapeInvalidSlackAngleBracketBlocks(text: string): string {
-  let result = "";
-  let index = 0;
-
-  while (index < text.length) {
-    const openIndex = text.indexOf("<", index);
-
-    if (openIndex === -1) {
-      result += text.slice(index);
-      break;
-    }
-
-    result += text.slice(index, openIndex);
-
-    const closeIndex = text.indexOf(">", openIndex + 1);
-
-    if (closeIndex === -1) {
-      result += "&lt;";
-      index = openIndex + 1;
-      continue;
-    }
-
-    const block = text.slice(openIndex, closeIndex + 1);
-    result += isSlackAngleBracketBlock(block) ? block : escapeSlackText(block);
-    index = closeIndex + 1;
-  }
-
-  return result;
-}
-
-function isSlackAngleBracketBlock(block: string): boolean {
-  const contents = block.slice(1, -1);
-
-  return (
-    /^(?:https?:\/\/|mailto:)[^|>]+(?:\|[^>]*)?$/i.test(contents) ||
-    /^@[A-Z0-9]+(?:\|[^>]*)?$/.test(contents) ||
-    /^#[A-Z0-9]+(?:\|[^>]*)?$/.test(contents) ||
-    /^!(?:subteam\^[A-Z0-9]+(?:\^[^>]*)?|date\^[^>]+|here|channel|everyone)(?:\|[^>]*)?$/.test(
-      contents,
-    )
-  );
+function escapeSlackAngleBrackets(text: string): string {
+  return text.replace(/[<>]/g, (char) => {
+    if (char === "<") return "&lt;";
+    return "&gt;";
+  });
 }
 
 function readHtmlEntity(text: string, index: number): string | null {
@@ -231,6 +212,20 @@ function sanitizeSlackLinkHref(href: string): string | null {
     }
 
     return url.toString().replace(/[|<>]/g, encodeURIComponent);
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeSlackMarkdownLinkHref(href: string): string | null {
+  try {
+    const url = new URL(href);
+
+    if (!["http:", "https:", "mailto:"].includes(url.protocol)) {
+      return null;
+    }
+
+    return href.replace(/[|<>]/g, encodeURIComponent);
   } catch {
     return null;
   }
