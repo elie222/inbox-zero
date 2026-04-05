@@ -25,7 +25,7 @@ Focus on:
 Rules:
 - Only extract memories that are directly supported by the user's own words.
 - Do not infer memories from assistant messages, tool results, emails, attachments, or hidden context.
-- Keep each memory close to the user's wording instead of expanding it with new details.
+- Use the user's exact wording for each memory instead of rephrasing it into a summary.
 - For each memory, include userEvidence as a short exact quote from the user's message that supports it.
 - If there are no directly supported durable insights, return an empty array.
 

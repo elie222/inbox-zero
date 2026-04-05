@@ -1316,18 +1316,18 @@ describe("aiProcessAssistantChat", () => {
     mockPrisma.chatMemory.findFirst.mockResolvedValue(null);
 
     const result = await tools.saveMemory.execute({
-      content: "User prefers concise responses",
+      content: "I prefer concise responses",
       source: "user_message",
       userEvidence: "I prefer concise responses",
     });
 
     expect(result.success).toBe(true);
     expect(result.saved).toBe(true);
-    expect(result.content).toBe("User prefers concise responses");
+    expect(result.content).toBe("I prefer concise responses");
     expect(result.deduplicated).toBeUndefined();
     expect(mockPrisma.chatMemory.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        content: "User prefers concise responses",
+        content: "I prefer concise responses",
         emailAccountId: "email-account-id",
       }),
     });
@@ -1343,7 +1343,7 @@ describe("aiProcessAssistantChat", () => {
     mockPrisma.chatMemory.findFirst.mockResolvedValue({ id: "existing-id" });
 
     const result = await tools.saveMemory.execute({
-      content: "User prefers concise responses",
+      content: "I prefer concise responses",
       source: "user_message",
       userEvidence: "I prefer concise responses",
     });
@@ -1423,7 +1423,7 @@ describe("aiProcessAssistantChat", () => {
 
     const result = await tools.saveMemory.execute(
       {
-        content: "User prefers concise responses",
+        content: "I prefer concise responses",
         source: "user_message",
         userEvidence: "I prefer concise responses",
       },

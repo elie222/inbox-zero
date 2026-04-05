@@ -1,7 +1,4 @@
 import type { ModelMessage } from "ai";
-import * as stringSimilarity from "string-similarity";
-
-const MEMORY_EVIDENCE_SIMILARITY_THRESHOLD = 0.45;
 
 export function validateUserMemoryEvidence({
   content,
@@ -17,7 +14,6 @@ export function validateUserMemoryEvidence({
     return {
       pass: false,
       reason: "Memory save requires a direct quote from a user chat message.",
-      similarityScore: 0,
     };
   }
 
@@ -31,28 +27,33 @@ export function validateUserMemoryEvidence({
       pass: false,
       reason:
         "Memory save requires an exact supporting quote from a user-authored chat message.",
-      similarityScore: 0,
     };
   }
 
-  const similarityScore = stringSimilarity.compareTwoStrings(
-    normalizeMemoryText(content),
-    normalizedEvidence,
-  );
-
-  if (similarityScore < MEMORY_EVIDENCE_SIMILARITY_THRESHOLD) {
+  const normalizedContent = normalizeMemoryText(content);
+  if (!normalizedContent) {
     return {
       pass: false,
       reason:
-        "The memory must stay close to the user's own wording instead of being inferred from retrieved content.",
-      similarityScore,
+        "Memory save content must use the user's exact wording from chat.",
+    };
+  }
+
+  const contentFoundInUserMessage = normalizedUserMessages.some((message) =>
+    message.includes(normalizedContent),
+  );
+
+  if (!contentFoundInUserMessage) {
+    return {
+      pass: false,
+      reason:
+        "Memory save content must use the user's exact wording from chat instead of a rephrased inference.",
     };
   }
 
   return {
     pass: true,
     reason: null,
-    similarityScore,
   };
 }
 

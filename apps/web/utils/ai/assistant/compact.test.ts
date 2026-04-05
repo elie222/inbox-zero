@@ -86,7 +86,7 @@ describe("chat compaction thresholds", () => {
       object: {
         memories: [
           {
-            content: "User prefers concise responses.",
+            content: "I prefer concise responses.",
             userEvidence: "I prefer concise responses.",
           },
           {
@@ -126,7 +126,7 @@ describe("chat compaction thresholds", () => {
 
     expect(result).toEqual([
       {
-        content: "User prefers concise responses.",
+        content: "I prefer concise responses.",
         userEvidence: "I prefer concise responses.",
       },
     ]);

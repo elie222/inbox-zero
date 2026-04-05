@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { validateUserMemoryEvidence } from "./chat-memory-policy";
 
 describe("chat-memory-policy", () => {
-  it("accepts memories that stay close to a direct user statement", () => {
+  it("accepts memories that use the user's exact wording from chat", () => {
     const result = validateUserMemoryEvidence({
-      content: "User prefers concise responses.",
+      content: "I prefer concise responses.",
       userEvidence: "I prefer concise responses.",
       conversationMessages: [
         {
@@ -32,6 +32,6 @@ describe("chat-memory-policy", () => {
     });
 
     expect(result.pass).toBe(false);
-    expect(result.reason).toContain("user's own wording");
+    expect(result.reason).toContain("exact wording");
   });
 });
