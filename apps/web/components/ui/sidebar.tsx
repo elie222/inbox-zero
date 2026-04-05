@@ -26,6 +26,23 @@ const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
+function dismissActiveInput() {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const activeElement = document.activeElement;
+
+  if (
+    !(activeElement instanceof HTMLElement) ||
+    activeElement === document.body
+  ) {
+    return;
+  }
+
+  activeElement.blur();
+}
+
 type SidebarContext = {
   state: string[];
   open: string[];
@@ -35,6 +52,7 @@ type SidebarContext = {
   closeMobileSidebar: (name: string) => void;
   isMobile: boolean;
   toggleSidebar: (names: string[]) => void;
+  dismissMobileKeyboard: () => void;
 };
 
 const SidebarContext = React.createContext<SidebarContext | null>(null);
@@ -72,6 +90,9 @@ const SidebarProvider = React.forwardRef<
   ) => {
     const isMobile = useIsMobile();
     const [openMobile, setOpenMobile] = React.useState<string[]>([]);
+    const dismissMobileKeyboard = React.useCallback(() => {
+      dismissActiveInput();
+    }, []);
 
     // This is the internal state of the sidebar.
     // We use openProp and setOpenProp for control from outside the component.
@@ -114,9 +135,20 @@ const SidebarProvider = React.forwardRef<
           return temp;
         };
 
-        return isMobile ? setOpenMobile(setOpenState) : setOpen(setOpenState);
+        if (isMobile) {
+          return setOpenMobile((prev) => {
+            const next = setOpenState(prev);
+            const isOpening = next.some((name) => !prev.includes(name));
+            if (isOpening) {
+              dismissMobileKeyboard();
+            }
+            return next;
+          });
+        }
+
+        return setOpen(setOpenState);
       },
-      [isMobile, setOpen, setOpenMobile],
+      [dismissMobileKeyboard, isMobile, setOpen, setOpenMobile],
     );
 
     const closeMobileSidebar = React.useCallback((name: string) => {
@@ -156,6 +188,7 @@ const SidebarProvider = React.forwardRef<
         setOpenMobile,
         closeMobileSidebar,
         toggleSidebar,
+        dismissMobileKeyboard,
       }),
       [
         state,
@@ -166,6 +199,7 @@ const SidebarProvider = React.forwardRef<
         setOpenMobile,
         closeMobileSidebar,
         toggleSidebar,
+        dismissMobileKeyboard,
       ],
     );
 
@@ -217,7 +251,13 @@ const Sidebar = React.forwardRef<
     },
     ref,
   ) => {
-    const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+    const {
+      isMobile,
+      state,
+      openMobile,
+      setOpenMobile,
+      dismissMobileKeyboard,
+    } = useSidebar();
 
     if (collapsible === "none") {
       return (
@@ -238,11 +278,18 @@ const Sidebar = React.forwardRef<
       return (
         <Sheet
           open={openMobile.includes(name)}
-          onOpenChange={(open) =>
-            setOpenMobile((prev) =>
-              open ? [...prev, name] : prev.filter((n) => n !== name),
-            )
-          }
+          onOpenChange={(open) => {
+            if (open) {
+              dismissMobileKeyboard();
+            }
+            setOpenMobile((prev) => {
+              if (open) {
+                return prev.includes(name) ? prev : [...prev, name];
+              }
+
+              return prev.filter((n) => n !== name);
+            });
+          }}
           {...props}
         >
           <SheetContent
