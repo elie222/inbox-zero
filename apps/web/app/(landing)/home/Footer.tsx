@@ -23,6 +23,7 @@ export const footerNavigation = {
     { name: "Cold Email Blocker", href: "/block-cold-emails" },
     { name: "Email Analytics", href: "/email-analytics" },
     { name: "Auto Forward Emails", href: "/auto-forward-emails" },
+    { name: "Auto-File Attachments", href: "/auto-file-email-attachments" },
     { name: "Open Source", href: "/github", target: "_blank" },
   ],
   useCases: [
