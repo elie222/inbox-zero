@@ -23,8 +23,8 @@ vi.mock("@/utils/drive/filing-notifications", () => ({
   sendFiledNotification: vi.fn(),
   sendAskNotification: vi.fn(),
 }));
-vi.mock("@/utils/drive/filing-slack-notifications", () => ({
-  sendFilingSlackNotifications: vi.fn(),
+vi.mock("@/utils/drive/filing-messaging-notifications", () => ({
+  sendFilingMessagingNotifications: vi.fn(),
 }));
 
 import { analyzeDocument } from "@/utils/ai/document-filing/analyze-document";
@@ -33,7 +33,7 @@ import {
   sendAskNotification,
   sendFiledNotification,
 } from "@/utils/drive/filing-notifications";
-import { sendFilingSlackNotifications } from "@/utils/drive/filing-slack-notifications";
+import { sendFilingMessagingNotifications } from "@/utils/drive/filing-messaging-notifications";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 
 const logger = createScopedLogger("filing-engine-test");
@@ -70,7 +70,7 @@ describe("processAttachment", () => {
     } as any);
     vi.mocked(sendFiledNotification).mockResolvedValue(undefined);
     vi.mocked(sendAskNotification).mockResolvedValue(undefined);
-    vi.mocked(sendFilingSlackNotifications).mockResolvedValue(undefined);
+    vi.mocked(sendFilingMessagingNotifications).mockResolvedValue(undefined);
   });
 
   it("sends filed confirmation emails by default", async () => {

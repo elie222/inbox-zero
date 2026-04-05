@@ -1,6 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import {
-  type MessagingRoutePurpose,
+  MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 
@@ -17,6 +17,16 @@ export type MessagingRouteSummary = {
   isDm: boolean;
 };
 
+export type MessagingChannelDestinations = {
+  ruleNotifications: MessagingRouteSummary;
+  meetingBriefs: MessagingRouteSummary;
+  documentFilings: MessagingRouteSummary;
+};
+
+export type MessagingFeatureRoutePurpose =
+  | MessagingRoutePurpose.MEETING_BRIEFS
+  | MessagingRoutePurpose.DOCUMENT_FILINGS;
+
 export function getMessagingRoute(
   routes: MessagingRouteLike[] | null | undefined,
   purpose: MessagingRoutePurpose,
@@ -32,7 +42,7 @@ export function hasMessagingRoute(
   return Boolean(getMessagingRoute(routes, purpose));
 }
 
-export function getMessagingChannelRouteWhere(
+export function getMessagingRouteWhere(
   purpose: MessagingRoutePurpose,
 ): Prisma.MessagingChannelWhereInput {
   return {
@@ -66,4 +76,16 @@ export function getMessagingRouteSummary(
     targetLabel: formatRouteTargetLabel(route),
     isDm: isDirectMessageRoute(route),
   };
+}
+
+export function getMessagingFeatureRouteSummary(
+  destinations: MessagingChannelDestinations,
+  purpose: MessagingFeatureRoutePurpose,
+) {
+  switch (purpose) {
+    case MessagingRoutePurpose.MEETING_BRIEFS:
+      return destinations.meetingBriefs;
+    case MessagingRoutePurpose.DOCUMENT_FILINGS:
+      return destinations.documentFilings;
+  }
 }

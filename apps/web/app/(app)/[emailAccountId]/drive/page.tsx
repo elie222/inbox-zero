@@ -31,8 +31,12 @@ import {
   updateFilingConfirmationEmailAction,
   updateFilingEnabledAction,
 } from "@/utils/actions/drive";
-import { updateChannelFeaturesAction } from "@/utils/actions/messaging-channels";
+import { updateMessagingFeatureRouteAction } from "@/utils/actions/messaging-channels";
 import { getActionErrorMessage } from "@/utils/error";
+import {
+  getMessagingFeatureRouteSummary,
+  type MessagingChannelDestinations,
+} from "@/utils/messaging/routes";
 import { prefixPath } from "@/utils/path";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { cn } from "@/utils";
@@ -269,24 +273,18 @@ function DeliveryChannelRow({
   channel: {
     id: string;
     provider: MessagingProvider;
-    destinations: {
-      ruleNotifications: {
-        enabled: boolean;
-      };
-      documentFilings: {
-        enabled: boolean;
-        targetId: string | null;
-        targetLabel: string | null;
-        isDm: boolean;
-      };
-    };
+    destinations: MessagingChannelDestinations;
     canSendAsDm: boolean;
   };
   emailAccountId: string;
   onUpdate: () => void;
 }) {
+  const destination = getMessagingFeatureRouteSummary(
+    channel.destinations,
+    MessagingRoutePurpose.DOCUMENT_FILINGS,
+  );
   const { execute } = useAction(
-    updateChannelFeaturesAction.bind(null, emailAccountId),
+    updateMessagingFeatureRouteAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "Settings saved" });
@@ -313,9 +311,9 @@ function DeliveryChannelRow({
               emailAccountId={emailAccountId}
               messagingChannelId={channel.id}
               purpose={MessagingRoutePurpose.DOCUMENT_FILINGS}
-              targetId={channel.destinations.documentFilings.targetId}
-              targetLabel={channel.destinations.documentFilings.targetLabel}
-              isDm={channel.destinations.documentFilings.isDm}
+              targetId={destination.targetId}
+              targetLabel={destination.targetLabel}
+              isDm={destination.isDm}
               canSendAsDm={channel.canSendAsDm}
               onUpdate={onUpdate}
               placeholder="Select destination"
@@ -331,14 +329,18 @@ function DeliveryChannelRow({
       </div>
       <Toggle
         name={`filing-${channel.id}`}
-        enabled={channel.destinations.documentFilings.enabled}
+        enabled={destination.enabled}
         disabled={
-          !channel.destinations.documentFilings.enabled &&
+          !destination.enabled &&
           !channel.destinations.ruleNotifications.enabled &&
           channel.provider !== MessagingProvider.SLACK
         }
-        onChange={(sendDocumentFilings) =>
-          execute({ channelId: channel.id, sendDocumentFilings })
+        onChange={(enabled) =>
+          execute({
+            channelId: channel.id,
+            purpose: MessagingRoutePurpose.DOCUMENT_FILINGS,
+            enabled,
+          })
         }
       />
     </div>

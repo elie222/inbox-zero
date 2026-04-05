@@ -39,7 +39,7 @@ import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useRules } from "@/hooks/useRules";
 import { useSlackConnect } from "@/hooks/useSlackConnect";
 import {
-  updateChannelFeaturesAction,
+  updateMessagingFeatureRouteAction,
   toggleRuleChannelAction,
   createMessagingLinkCodeAction,
   disconnectChannelAction,
@@ -48,6 +48,11 @@ import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/Con
 import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
+import {
+  getMessagingFeatureRouteSummary,
+  type MessagingFeatureRoutePurpose,
+  type MessagingRouteSummary,
+} from "@/utils/messaging/routes";
 import { sortRulesForAutomation } from "@/utils/rule/sort";
 import {
   type MessagingProvider,
@@ -69,6 +74,23 @@ const PROVIDER_CONFIG: Record<
 };
 
 const PROVIDER_ORDER: MessagingProvider[] = ["SLACK", "TEAMS", "TELEGRAM"];
+
+const CHANNEL_FEATURES: Array<{
+  purpose: MessagingFeatureRoutePurpose;
+  name: string;
+  description: string;
+}> = [
+  {
+    purpose: MessagingRoutePurpose.MEETING_BRIEFS,
+    name: "Meeting briefs",
+    description: "Get a summary before your meetings.",
+  },
+  {
+    purpose: MessagingRoutePurpose.DOCUMENT_FILINGS,
+    name: "Document filing alerts",
+    description: "Notifications when documents are auto-filed.",
+  },
+];
 
 type ChannelFromResponse = GetMessagingChannelsResponse["channels"][number];
 
@@ -349,45 +371,30 @@ function ConnectedChannelSection({
       </ItemCard>
 
       <ItemCard>
-        <FeatureRouteToggle
-          name="Meeting briefs"
-          description="Get a summary before your meetings."
-          purpose={MessagingRoutePurpose.MEETING_BRIEFS}
-          messagingChannelId={channel.id}
-          enabled={channel.destinations.meetingBriefs.enabled}
-          targetId={channel.destinations.meetingBriefs.targetId}
-          targetLabel={channel.destinations.meetingBriefs.targetLabel}
-          isDm={channel.destinations.meetingBriefs.isDm}
-          showTargetSelect={isSlack}
-          canSendAsDm={channel.canSendAsDm}
-          emailAccountId={emailAccountId}
-          onUpdate={onUpdate}
-          disabled={
-            !channel.destinations.meetingBriefs.enabled &&
-            !hasTarget &&
-            !isSlack
-          }
-        />
-        <ItemSeparator />
-        <FeatureRouteToggle
-          name="Document filing alerts"
-          description="Notifications when documents are auto-filed."
-          purpose={MessagingRoutePurpose.DOCUMENT_FILINGS}
-          messagingChannelId={channel.id}
-          enabled={channel.destinations.documentFilings.enabled}
-          targetId={channel.destinations.documentFilings.targetId}
-          targetLabel={channel.destinations.documentFilings.targetLabel}
-          isDm={channel.destinations.documentFilings.isDm}
-          showTargetSelect={isSlack}
-          canSendAsDm={channel.canSendAsDm}
-          emailAccountId={emailAccountId}
-          onUpdate={onUpdate}
-          disabled={
-            !channel.destinations.documentFilings.enabled &&
-            !hasTarget &&
-            !isSlack
-          }
-        />
+        {CHANNEL_FEATURES.map((feature, index) => {
+          const destination = getMessagingFeatureRouteSummary(
+            channel.destinations,
+            feature.purpose,
+          );
+
+          return (
+            <div key={feature.purpose}>
+              {index > 0 && <ItemSeparator />}
+              <FeatureRouteToggle
+                name={feature.name}
+                description={feature.description}
+                purpose={feature.purpose}
+                messagingChannelId={channel.id}
+                destination={destination}
+                showTargetSelect={isSlack}
+                canSendAsDm={channel.canSendAsDm}
+                emailAccountId={emailAccountId}
+                onUpdate={onUpdate}
+                disabled={!destination.enabled && !hasTarget && !isSlack}
+              />
+            </div>
+          );
+        })}
       </ItemCard>
     </SectionGroup>
   );
@@ -647,10 +654,7 @@ function FeatureRouteToggle({
   description,
   purpose,
   messagingChannelId,
-  enabled,
-  targetId,
-  targetLabel,
-  isDm,
+  destination,
   showTargetSelect,
   canSendAsDm,
   emailAccountId,
@@ -659,14 +663,9 @@ function FeatureRouteToggle({
 }: {
   name: string;
   description: string;
-  purpose:
-    | MessagingRoutePurpose.MEETING_BRIEFS
-    | MessagingRoutePurpose.DOCUMENT_FILINGS;
+  purpose: MessagingFeatureRoutePurpose;
   messagingChannelId: string;
-  enabled: boolean;
-  targetId: string | null;
-  targetLabel: string | null;
-  isDm: boolean;
+  destination: MessagingRouteSummary;
   showTargetSelect: boolean;
   canSendAsDm: boolean;
   emailAccountId: string;
@@ -674,7 +673,7 @@ function FeatureRouteToggle({
   disabled?: boolean;
 }) {
   const { execute, status } = useAction(
-    updateChannelFeaturesAction.bind(null, emailAccountId),
+    updateMessagingFeatureRouteAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "Settings saved" });
@@ -687,21 +686,6 @@ function FeatureRouteToggle({
       },
     },
   );
-
-  const handleToggleChange = (value: boolean) => {
-    if (purpose === MessagingRoutePurpose.MEETING_BRIEFS) {
-      execute({
-        channelId: messagingChannelId,
-        sendMeetingBriefs: value,
-      });
-      return;
-    }
-
-    execute({
-      channelId: messagingChannelId,
-      sendDocumentFilings: value,
-    });
-  };
 
   return (
     <Item size="sm">
@@ -716,18 +700,20 @@ function FeatureRouteToggle({
               emailAccountId={emailAccountId}
               messagingChannelId={messagingChannelId}
               purpose={purpose}
-              targetId={targetId}
-              targetLabel={targetLabel}
-              isDm={isDm}
+              targetId={destination.targetId}
+              targetLabel={destination.targetLabel}
+              isDm={destination.isDm}
               canSendAsDm={canSendAsDm}
               onUpdate={onUpdate}
             />
           )}
           <Toggle
             name={`feature-${purpose}-${messagingChannelId}`}
-            enabled={enabled}
+            enabled={destination.enabled}
             disabled={disabled || status === "executing"}
-            onChange={handleToggleChange}
+            onChange={(enabled) =>
+              execute({ channelId: messagingChannelId, purpose, enabled })
+            }
           />
         </div>
       </ItemActions>

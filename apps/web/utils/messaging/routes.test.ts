@@ -3,10 +3,7 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import {
-  getMessagingChannelRouteWhere,
-  getMessagingRouteSummary,
-} from "./routes";
+import { getMessagingRouteSummary } from "./routes";
 
 const routes = [
   {
@@ -44,20 +41,6 @@ describe("getMessagingRouteSummary", () => {
       targetId: null,
       targetLabel: null,
       isDm: false,
-    });
-  });
-});
-
-describe("getMessagingChannelRouteWhere", () => {
-  it("builds a relation filter for a route purpose", () => {
-    expect(
-      getMessagingChannelRouteWhere(MessagingRoutePurpose.DOCUMENT_FILINGS),
-    ).toEqual({
-      routes: {
-        some: {
-          purpose: MessagingRoutePurpose.DOCUMENT_FILINGS,
-        },
-      },
     });
   });
 });

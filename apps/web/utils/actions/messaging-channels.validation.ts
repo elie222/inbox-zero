@@ -12,10 +12,13 @@ export const updateSlackRouteBody = z.object({
   targetId: z.string().min(1),
 });
 
-export const updateChannelFeaturesBody = z.object({
+export const updateMessagingFeatureRouteBody = z.object({
   channelId: z.string().min(1),
-  sendMeetingBriefs: z.boolean().optional(),
-  sendDocumentFilings: z.boolean().optional(),
+  purpose: z.enum([
+    MessagingRoutePurpose.MEETING_BRIEFS,
+    MessagingRoutePurpose.DOCUMENT_FILINGS,
+  ]),
+  enabled: z.boolean(),
 });
 
 export const updateEmailDeliveryBody = z.object({

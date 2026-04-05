@@ -7,7 +7,7 @@ import {
 import {
   createMessagingLinkCodeAction,
   toggleRuleChannelAction,
-  updateChannelFeaturesAction,
+  updateMessagingFeatureRouteAction,
 } from "@/utils/actions/messaging-channels";
 
 vi.mock("server-only", () => ({}));
@@ -133,7 +133,7 @@ describe("createMessagingLinkCodeAction", () => {
   });
 });
 
-describe("updateChannelFeaturesAction", () => {
+describe("updateMessagingFeatureRouteAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -161,10 +161,14 @@ describe("updateChannelFeaturesAction", () => {
       ],
     } as any);
 
-    const result = await updateChannelFeaturesAction("email-account-1" as any, {
-      channelId: "channel-1",
-      sendMeetingBriefs: true,
-    });
+    const result = await updateMessagingFeatureRouteAction(
+      "email-account-1" as any,
+      {
+        channelId: "channel-1",
+        purpose: MessagingRoutePurpose.MEETING_BRIEFS,
+        enabled: true,
+      },
+    );
 
     expect(result?.serverError).toBeUndefined();
     expect(prisma.messagingRoute.create).toHaveBeenCalledWith({
@@ -186,10 +190,14 @@ describe("updateChannelFeaturesAction", () => {
       routes: [],
     } as any);
 
-    const result = await updateChannelFeaturesAction("email-account-1" as any, {
-      channelId: "channel-1",
-      sendMeetingBriefs: true,
-    });
+    const result = await updateMessagingFeatureRouteAction(
+      "email-account-1" as any,
+      {
+        channelId: "channel-1",
+        purpose: MessagingRoutePurpose.MEETING_BRIEFS,
+        enabled: true,
+      },
+    );
 
     expect(result?.serverError).toBe(
       "Please select a target channel before enabling features",

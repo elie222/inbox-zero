@@ -3,7 +3,7 @@
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   updateSlackRouteBody,
-  updateChannelFeaturesBody,
+  updateMessagingFeatureRouteBody,
   updateEmailDeliveryBody,
   disconnectChannelBody,
   linkSlackWorkspaceBody,
@@ -112,13 +112,13 @@ export const updateSlackRouteAction = actionClient
     },
   );
 
-export const updateChannelFeaturesAction = actionClient
-  .metadata({ name: "updateChannelFeatures" })
-  .inputSchema(updateChannelFeaturesBody)
+export const updateMessagingFeatureRouteAction = actionClient
+  .metadata({ name: "updateMessagingFeatureRoute" })
+  .inputSchema(updateMessagingFeatureRouteBody)
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { channelId, sendMeetingBriefs, sendDocumentFilings },
+      parsedInput: { channelId, purpose, enabled },
     }) => {
       const where = {
         id_emailAccountId: { id: channelId, emailAccountId },
@@ -147,23 +147,12 @@ export const updateChannelFeaturesAction = actionClient
         throw new SafeError("Messaging channel is not connected");
       }
 
-      if (sendMeetingBriefs !== undefined) {
-        await syncMessagingFeatureRoute({
-          messagingChannelId: channel.id,
-          routes: channel.routes,
-          purpose: MessagingRoutePurpose.MEETING_BRIEFS,
-          enabled: sendMeetingBriefs,
-        });
-      }
-
-      if (sendDocumentFilings !== undefined) {
-        await syncMessagingFeatureRoute({
-          messagingChannelId: channel.id,
-          routes: channel.routes,
-          purpose: MessagingRoutePurpose.DOCUMENT_FILINGS,
-          enabled: sendDocumentFilings,
-        });
-      }
+      await syncMessagingFeatureRoute({
+        messagingChannelId: channel.id,
+        routes: channel.routes,
+        purpose,
+        enabled,
+      });
     },
   );
 

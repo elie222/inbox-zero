@@ -2,7 +2,7 @@ import {
   MessagingProvider,
   MessagingRoutePurpose,
 } from "@/generated/prisma/enums";
-import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
+import { hasMessagingRoute } from "@/utils/messaging/routes";
 
 export const SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS: MessagingProvider[] = [
   MessagingProvider.SLACK,
@@ -33,10 +33,7 @@ export function isAutomationMessagingChannelReady(
   if (!channel.isConnected) return false;
   if (!isSupportedAutomationMessagingProvider(channel.provider)) return false;
   if (
-    !hasMessagingDeliveryTarget(
-      channel,
-      MessagingRoutePurpose.RULE_NOTIFICATIONS,
-    )
+    !hasMessagingRoute(channel.routes, MessagingRoutePurpose.RULE_NOTIFICATIONS)
   ) {
     return false;
   }

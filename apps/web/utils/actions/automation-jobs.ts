@@ -13,7 +13,7 @@ import {
   MessagingRoutePurpose,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
-import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
+import { hasMessagingRoute } from "@/utils/messaging/routes";
 import {
   getNextAutomationJobRunAt,
   validateAutomationCronExpression,
@@ -289,10 +289,7 @@ function getAutomationMessagingChannelValidationError(channel: {
   }
 
   if (
-    !hasMessagingDeliveryTarget(
-      channel,
-      MessagingRoutePurpose.RULE_NOTIFICATIONS,
-    )
+    !hasMessagingRoute(channel.routes, MessagingRoutePurpose.RULE_NOTIFICATIONS)
   ) {
     return "Select a messaging destination first";
   }

@@ -16,12 +16,14 @@ import {
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
-import { getMessagingDeliveryTargetWhere } from "@/utils/messaging/delivery-target";
 import {
   resolveSlackRouteDestination,
   sendMeetingBriefingToSlack,
 } from "@/utils/messaging/providers/slack/send";
-import { getMessagingRoute } from "@/utils/messaging/routes";
+import {
+  getMessagingRoute,
+  getMessagingRouteWhere,
+} from "@/utils/messaging/routes";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { formatTimeInUserTimezone } from "@/utils/date";
 import prisma from "@/utils/prisma";
@@ -67,7 +69,7 @@ export async function sendBriefing({
     where: {
       emailAccountId,
       isConnected: true,
-      ...getMessagingDeliveryTargetWhere(MessagingRoutePurpose.MEETING_BRIEFS),
+      ...getMessagingRouteWhere(MessagingRoutePurpose.MEETING_BRIEFS),
     },
     select: {
       id: true,

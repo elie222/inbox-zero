@@ -10,10 +10,12 @@ import {
 } from "@/utils/messaging/providers/slack/send";
 import type { Logger } from "@/utils/logger";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
-import { getMessagingDeliveryTargetWhere } from "@/utils/messaging/delivery-target";
-import { getMessagingRoute } from "@/utils/messaging/routes";
+import {
+  getMessagingRoute,
+  getMessagingRouteWhere,
+} from "@/utils/messaging/routes";
 
-export async function sendFilingSlackNotifications({
+export async function sendFilingMessagingNotifications({
   emailAccountId,
   filingId,
   senderEmail,
@@ -24,15 +26,16 @@ export async function sendFilingSlackNotifications({
   senderEmail?: string | null;
   logger: Logger;
 }): Promise<void> {
-  const log = logger.with({ action: "sendFilingSlackNotifications", filingId });
+  const log = logger.with({
+    action: "sendFilingMessagingNotifications",
+    filingId,
+  });
 
   const channels = await prisma.messagingChannel.findMany({
     where: {
       emailAccountId,
       isConnected: true,
-      ...getMessagingDeliveryTargetWhere(
-        MessagingRoutePurpose.DOCUMENT_FILINGS,
-      ),
+      ...getMessagingRouteWhere(MessagingRoutePurpose.DOCUMENT_FILINGS),
     },
     select: {
       id: true,
@@ -60,7 +63,7 @@ export async function sendFilingSlackNotifications({
   });
 
   if (!filing) {
-    log.error("Filing not found for Slack notification");
+    log.error("Filing not found for messaging notification");
     return;
   }
 
@@ -139,7 +142,7 @@ export async function sendFilingSlackNotifications({
   const failures = results.filter((r) => r.status === "rejected");
 
   for (const failure of failures) {
-    log.error("Slack filing notification failed", {
+    log.error("Filing notification failed", {
       reason: (failure as PromiseRejectedResult).reason,
     });
   }

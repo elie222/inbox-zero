@@ -17,10 +17,14 @@ import {
   MessagingRoutePurpose,
 } from "@/generated/prisma/enums";
 import {
-  updateChannelFeaturesAction,
+  updateMessagingFeatureRouteAction,
   updateEmailDeliveryAction,
 } from "@/utils/actions/messaging-channels";
 import { getActionErrorMessage } from "@/utils/error";
+import {
+  getMessagingFeatureRouteSummary,
+  type MessagingChannelDestinations,
+} from "@/utils/messaging/routes";
 import { prefixPath } from "@/utils/path";
 
 const PROVIDER_CONFIG: Record<
@@ -141,17 +145,7 @@ function ChannelRow({
   channel: {
     id: string;
     provider: MessagingProvider;
-    destinations: {
-      ruleNotifications: {
-        enabled: boolean;
-      };
-      meetingBriefs: {
-        enabled: boolean;
-        targetId: string | null;
-        targetLabel: string | null;
-        isDm: boolean;
-      };
-    };
+    destinations: MessagingChannelDestinations;
     canSendAsDm: boolean;
   };
   emailAccountId: string;
@@ -159,9 +153,13 @@ function ChannelRow({
 }) {
   const config = PROVIDER_CONFIG[channel.provider];
   const Icon = config.icon;
+  const destination = getMessagingFeatureRouteSummary(
+    channel.destinations,
+    MessagingRoutePurpose.MEETING_BRIEFS,
+  );
 
   const { execute: executeFeatures } = useAction(
-    updateChannelFeaturesAction.bind(null, emailAccountId),
+    updateMessagingFeatureRouteAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "Settings saved" });
@@ -186,9 +184,9 @@ function ChannelRow({
               emailAccountId={emailAccountId}
               messagingChannelId={channel.id}
               purpose={MessagingRoutePurpose.MEETING_BRIEFS}
-              targetId={channel.destinations.meetingBriefs.targetId}
-              targetLabel={channel.destinations.meetingBriefs.targetLabel}
-              isDm={channel.destinations.meetingBriefs.isDm}
+              targetId={destination.targetId}
+              targetLabel={destination.targetLabel}
+              isDm={destination.isDm}
               canSendAsDm={channel.canSendAsDm}
               onUpdate={onUpdate}
               placeholder="Select destination"
@@ -212,16 +210,17 @@ function ChannelRow({
 
       <Toggle
         name={`briefs-${channel.id}`}
-        enabled={channel.destinations.meetingBriefs.enabled}
+        enabled={destination.enabled}
         disabled={
-          !channel.destinations.meetingBriefs.enabled &&
+          !destination.enabled &&
           !channel.destinations.ruleNotifications.enabled &&
           !config.supportsBriefTargetSelection
         }
-        onChange={(sendMeetingBriefs) =>
+        onChange={(enabled) =>
           executeFeatures({
             channelId: channel.id,
-            sendMeetingBriefs,
+            purpose: MessagingRoutePurpose.MEETING_BRIEFS,
+            enabled,
           })
         }
       />

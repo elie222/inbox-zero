@@ -12,10 +12,10 @@ import {
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
 import { DEFAULT_AUTOMATION_JOB_CRON } from "@/utils/automation-jobs/defaults";
 import { SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS } from "@/utils/automation-jobs/messaging-channel";
-import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
 import {
   formatRouteTargetLabel,
   getMessagingRoute,
+  hasMessagingRoute,
 } from "@/utils/messaging/routes";
 import {
   getNextAutomationJobRunAt,
@@ -1142,7 +1142,12 @@ function buildScheduledCheckInsSnapshot(
 ) {
   const availableChannels = emailAccount.messagingChannels
     .filter(
-      (channel) => channel.isConnected && hasMessagingDeliveryTarget(channel),
+      (channel) =>
+        channel.isConnected &&
+        hasMessagingRoute(
+          channel.routes,
+          MessagingRoutePurpose.RULE_NOTIFICATIONS,
+        ),
     )
     .map((channel) => ({
       id: channel.id,
