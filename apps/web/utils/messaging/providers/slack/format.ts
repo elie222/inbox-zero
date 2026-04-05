@@ -84,16 +84,11 @@ function normalizeSlackRichText(text: string): string {
     const char = text[index];
 
     if (char !== "<") {
-      if (char === "&") {
-        const entity = readHtmlEntity(text, index);
-        if (entity) {
-          parts.push(entity);
-          index += entity.length - 1;
-          continue;
-        }
-      }
-
-      parts.push(escapeSlackTextCharacter(char));
+      index = appendEscapedSlackCharOrEntity({
+        parts,
+        text,
+        index,
+      });
       continue;
     }
 
@@ -169,18 +164,11 @@ function escapeSlackTextPreservingEntities(text: string): string {
   const parts: string[] = [];
 
   for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-
-    if (char === "&") {
-      const entity = readHtmlEntity(text, index);
-      if (entity) {
-        parts.push(entity);
-        index += entity.length - 1;
-        continue;
-      }
-    }
-
-    parts.push(escapeSlackTextCharacter(char));
+    index = appendEscapedSlackCharOrEntity({
+      parts,
+      text,
+      index,
+    });
   }
 
   return parts.join("");
@@ -237,6 +225,29 @@ function readHtmlEntity(text: string, index: number): string | null {
     /^&(?:[a-zA-Z][a-zA-Z0-9]+|#\d+|#x[0-9a-fA-F]+);/,
   );
   return match?.[0] ?? null;
+}
+
+function appendEscapedSlackCharOrEntity({
+  parts,
+  text,
+  index,
+}: {
+  parts: string[];
+  text: string;
+  index: number;
+}): number {
+  const char = text[index];
+
+  if (char === "&") {
+    const entity = readHtmlEntity(text, index);
+    if (entity) {
+      parts.push(entity);
+      return index + entity.length - 1;
+    }
+  }
+
+  parts.push(escapeSlackTextCharacter(char));
+  return index;
 }
 
 function createSlackLinkToken({
