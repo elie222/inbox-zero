@@ -27,6 +27,7 @@ import {
 import { normalizeInlineEmailThreadIds } from "@/utils/ai/assistant/inline-email-actions";
 import { getEmailUrlForMessage } from "@/utils/url";
 import { formatShortDate } from "@/utils/date";
+import { cn } from "@/utils";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
@@ -206,7 +207,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
       {collapsed ? (
         <button
           type="button"
-          className="my-2 flex w-full items-center justify-between gap-3 overflow-hidden rounded-lg border bg-card px-3 py-2 text-left shadow-sm transition-colors hover:bg-muted/30"
+          className="my-3 flex w-full items-center justify-between gap-3 overflow-hidden rounded-lg border bg-card px-3 py-2 text-left shadow-sm transition-colors hover:bg-muted/30 sm:my-2"
           onClick={() => setCollapsed(false)}
         >
           <div className="min-w-0">
@@ -222,7 +223,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
           <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
         </button>
       ) : (
-        <div className="my-2 overflow-hidden rounded-lg border bg-card shadow-sm">
+        <div className="my-3 overflow-hidden rounded-lg border bg-card shadow-sm sm:my-2">
           {threadIds.length > 0 && (
             <div className="flex items-center justify-end gap-1 border-b px-3 py-1.5">
               <Tooltip
@@ -282,6 +283,9 @@ export function InlineEmailCard({
   const isArchived = !!threadId && !!listState?.archivedThreadIds.has(threadId);
   const isMarkedRead = !!threadId && !!listState?.readThreadIds.has(threadId);
   const isUnread = !!meta?.isUnread && !isMarkedRead && !isArchived;
+  const formattedDate = meta?.date
+    ? formatShortDate(new Date(meta.date), { lowercase: true })
+    : null;
 
   const externalUrl = threadId
     ? getEmailUrlForMessage(
@@ -323,7 +327,13 @@ export function InlineEmailCard({
       <div
         role={threadId ? "button" : undefined}
         tabIndex={threadId ? 0 : undefined}
-        className={`group flex items-center border-b border-border/40 px-3 py-2 text-sm last:border-b-0 ${threadId ? "cursor-pointer" : ""} ${isDone ? "bg-muted/30 line-through opacity-50" : "hover:bg-muted/50"}`}
+        className={cn(
+          "group flex items-start gap-2 border-b border-border/40 px-3 py-3 text-sm transition-colors last:border-b-0 md:items-center md:py-2",
+          threadId && "cursor-pointer",
+          isDone
+            ? "bg-muted/30 line-through opacity-50"
+            : "hover:bg-muted/50",
+        )}
         onClick={() => threadId && setExpanded(!expanded)}
         onKeyDown={(e) => {
           if (threadId && (e.key === "Enter" || e.key === " ")) {
@@ -333,7 +343,7 @@ export function InlineEmailCard({
         }}
       >
         {threadId && (
-          <div className="mr-1 flex w-4 shrink-0 justify-center text-muted-foreground">
+          <div className="mt-0.5 flex w-4 shrink-0 justify-center text-muted-foreground md:mt-0">
             {expanded ? (
               <ChevronDownIcon className="size-3.5" />
             ) : (
@@ -344,40 +354,57 @@ export function InlineEmailCard({
 
         {meta ? (
           <>
-            <div className="flex w-4 shrink-0 justify-center">
+            <div className="mt-1 flex w-4 shrink-0 justify-center md:mt-0">
               {isUnread ? (
                 <div className="size-2 rounded-full bg-blue-500" />
               ) : null}
             </div>
 
-            <span
-              className={`w-40 shrink-0 truncate pr-3 text-xs ${isUnread ? "font-semibold" : ""}`}
-            >
-              {meta.from}
-            </span>
-
-            <span className="min-w-0 flex-1 truncate">
-              <span className={isUnread ? "font-medium" : ""}>
-                {meta.subject}
-              </span>
-              {children ? (
-                <span className="ml-2 text-muted-foreground/60">
-                  {" "}
-                  — {children}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-3">
+                <span
+                  className={cn(
+                    "min-w-0 truncate text-xs text-muted-foreground md:w-40 md:shrink-0 md:pr-3",
+                    isUnread && "font-semibold text-foreground",
+                  )}
+                >
+                  {meta.from}
                 </span>
-              ) : null}
-            </span>
+                {formattedDate ? (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formattedDate}
+                  </span>
+                ) : null}
+              </div>
 
-            <span className="shrink-0 px-2 text-xs text-muted-foreground">
-              {formatShortDate(new Date(meta.date), { lowercase: true })}
-            </span>
+              <div className="mt-1 min-w-0 md:mt-0">
+                <div
+                  className={cn(
+                    "min-w-0 break-words leading-snug md:truncate",
+                    isUnread && "font-medium",
+                  )}
+                >
+                  {meta.subject}
+                  {children ? (
+                    <span className="ml-1.5 text-xs text-muted-foreground/80 md:ml-2">
+                      - {children}
+                    </span>
+                  ) : null}
+                </div>
+                {meta.snippet ? (
+                  <div className="mt-1 text-xs leading-relaxed text-muted-foreground md:hidden">
+                    {meta.snippet}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </>
         ) : (
           <span className="min-w-0 flex-1 truncate">{children}</span>
         )}
 
         <div
-          className="flex shrink-0 items-center gap-1"
+          className="ml-auto flex shrink-0 items-start gap-1 self-start md:self-center"
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
@@ -396,14 +423,14 @@ export function InlineEmailCard({
 
           {showArchive ? (
             isDone ? (
-              <span className="flex items-center gap-1 px-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
                 <CheckIcon className="size-3" />
                 Archived
               </span>
             ) : (
               <Button
                 variant="outline"
-                size="xs"
+                size="xs-2"
                 loading={actionState === "loading"}
                 onClick={handleArchive}
                 Icon={ArchiveIcon}
