@@ -8,21 +8,21 @@
  * - Bullets: * item / - item → • item
  */
 export function markdownToSlackMrkdwn(text: string): string {
-  return (
-    text
-      // Links: [text](url) → <url|text>  (must come before bold conversion)
-      .replace(/\[([^[\]]+)\]\(([^()]+)\)/g, "<$2|$1>")
-      // Handle escaped Markdown from model outputs: \*\*text\*\* → *text*
-      .replace(/\\\*\\\*(.+?)\\\*\\\*/g, "*$1*")
-      // Bold: **text** → *text*
-      .replace(/\*\*(.+?)\*\*/g, "*$1*")
-      // Headings: # text → *text*
-      .replace(/^#{1,6}\s+(.+)$/gm, "*$1*")
-      // Escaped unordered list bullets: \* item / \- item → • item
-      .replace(/^(\s*)\\[*-]\s+/gm, "$1• ")
-      // Unordered list bullets: * item or - item → • item
-      .replace(/^(\s*)[*-]\s+/gm, "$1• ")
-  );
+  const mrkdwn = text
+    // Links: [text](url) → <url|text>  (must come before bold conversion)
+    .replace(/\[([^[\]]+)\]\(([^()]+)\)/g, "<$2|$1>")
+    // Handle escaped Markdown from model outputs: \*\*text\*\* → *text*
+    .replace(/\\\*\\\*(.+?)\\\*\\\*/g, "*$1*")
+    // Bold: **text** → *text*
+    .replace(/\*\*(.+?)\*\*/g, "*$1*")
+    // Headings: # text → *text*
+    .replace(/^#{1,6}\s+(.+)$/gm, "*$1*")
+    // Escaped unordered list bullets: \* item / \- item → • item
+    .replace(/^(\s*)\\[*-]\s+/gm, "$1• ")
+    // Unordered list bullets: * item or - item → • item
+    .replace(/^(\s*)[*-]\s+/gm, "$1• ");
+
+  return escapeInvalidSlackAngleBracketBlocks(mrkdwn);
 }
 
 /**
@@ -146,6 +146,49 @@ function escapeSlackTextCharacter(char: string): string {
   if (char === ">") return "&gt;";
   if (char === "<") return "&lt;";
   return char;
+}
+
+function escapeInvalidSlackAngleBracketBlocks(text: string): string {
+  let result = "";
+  let index = 0;
+
+  while (index < text.length) {
+    const openIndex = text.indexOf("<", index);
+
+    if (openIndex === -1) {
+      result += text.slice(index);
+      break;
+    }
+
+    result += text.slice(index, openIndex);
+
+    const closeIndex = text.indexOf(">", openIndex + 1);
+
+    if (closeIndex === -1) {
+      result += "&lt;";
+      index = openIndex + 1;
+      continue;
+    }
+
+    const block = text.slice(openIndex, closeIndex + 1);
+    result += isSlackAngleBracketBlock(block) ? block : escapeSlackText(block);
+    index = closeIndex + 1;
+  }
+
+  return result;
+}
+
+function isSlackAngleBracketBlock(block: string): boolean {
+  const contents = block.slice(1, -1);
+
+  return (
+    /^(?:https?:\/\/|mailto:)[^|>]+(?:\|[^>]*)?$/i.test(contents) ||
+    /^@[A-Z0-9]+(?:\|[^>]*)?$/.test(contents) ||
+    /^#[A-Z0-9]+(?:\|[^>]*)?$/.test(contents) ||
+    /^!(?:subteam\^[A-Z0-9]+(?:\^[^>]*)?|date\^[^>]+|here|channel|everyone)(?:\|[^>]*)?$/.test(
+      contents,
+    )
+  );
 }
 
 function readHtmlEntity(text: string, index: number): string | null {
