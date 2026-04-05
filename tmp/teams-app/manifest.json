@@ -1,0 +1,36 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.1",
+  "id": "353681cf-2c06-4e7f-be47-6340739487cc",
+  "packageName": "com.getinboxzero.inboxzero",
+  "developer": {
+    "name": "Inbox Zero Inc.",
+    "websiteUrl": "https://www.getinboxzero.com",
+    "privacyUrl": "https://www.getinboxzero.com/privacy",
+    "termsOfUseUrl": "https://www.getinboxzero.com/terms"
+  },
+  "name": {
+    "short": "Inbox Zero",
+    "full": "Inbox Zero Assistant"
+  },
+  "description": {
+    "short": "AI email assistant",
+    "full": "Chat with your Inbox Zero AI assistant directly from Teams."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#38BDF8",
+  "bots": [
+    {
+      "botId": "353681cf-2c06-4e7f-be47-6340739487cc",
+      "scopes": ["personal"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": ["www.getinboxzero.com", "getinboxzero.com"]
+}
