@@ -845,7 +845,6 @@ export async function isRuleLooping({
 
   if (recentExecutions >= RULE_LOOP_MAX_EXECUTIONS) {
     logger.warn("Rule loop detected, skipping execution", {
-      module: MODULE,
       ruleId,
       threadId,
       recentExecutions,
