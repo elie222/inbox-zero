@@ -16,6 +16,7 @@ import {
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
 import prisma from "@/utils/__mocks__/prisma";
+import { normalizeMemoryText } from "@/utils/ai/assistant/chat-memory-policy";
 import { createScopedLogger } from "@/utils/logger";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
@@ -508,14 +509,6 @@ async function evaluateScenario(
 
 function hasNoToolCalls(toolCalls: RecordedToolCall[], toolNames: string[]) {
   return !toolCalls.some((toolCall) => toolNames.includes(toolCall.toolName));
-}
-
-function normalizeMemoryText(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function summarizeToolCall(toolCall: RecordedToolCall) {

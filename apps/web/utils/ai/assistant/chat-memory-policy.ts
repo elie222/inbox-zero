@@ -78,7 +78,7 @@ function extractMessageText(content: ModelMessage["content"]) {
     .join("\n");
 }
 
-function normalizeMemoryText(value: string) {
+export function normalizeMemoryText(value: string) {
   return value
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")

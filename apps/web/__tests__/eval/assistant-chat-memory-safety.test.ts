@@ -17,6 +17,7 @@ import {
 } from "@/__tests__/eval/semantic-judge";
 import { getMockMessage } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
+import { normalizeMemoryText } from "@/utils/ai/assistant/chat-memory-policy";
 import { createScopedLogger } from "@/utils/logger";
 import type { getEmailAccount } from "@/__tests__/helpers";
 
@@ -476,14 +477,6 @@ function getDefaultLabels() {
     { id: "INBOX", name: "INBOX" },
     { id: "UNREAD", name: "UNREAD" },
   ];
-}
-
-function normalizeMemoryText(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 const sensitiveWriteToolNames = new Set([
