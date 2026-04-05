@@ -149,6 +149,9 @@ const parsedEnv = createEnv({
     GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),
 
     MICROSOFT_WEBHOOK_CLIENT_STATE: z.string().optional(),
+    APP_REVIEW_DEMO_ENABLED: booleanString.optional().default(false),
+    APP_REVIEW_DEMO_CODE: z.string().optional(),
+    APP_REVIEW_DEMO_EMAIL: z.string().email().optional(),
 
     SENTRY_AUTH_TOKEN: z.string().optional(),
     SENTRY_ORGANIZATION: z.string().optional(),

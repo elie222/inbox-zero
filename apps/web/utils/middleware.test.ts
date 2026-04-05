@@ -163,6 +163,21 @@ describe("Middleware", () => {
       });
     });
 
+    it("should respect SafeError status codes", async () => {
+      const safeError = new SafeError("Slow down", 429);
+      const handler = vi.fn().mockRejectedValue(safeError);
+      const wrappedHandler = withError(handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(429);
+      expect(responseBody).toEqual({
+        error: "Slow down",
+        isKnownError: true,
+      });
+    });
+
     it("should handle common errors using checkCommonErrors", async () => {
       const commonError = { message: "API Error", code: 409, type: "Conflict" };
       mockCheckCommonErrors.mockReturnValue(commonError);
