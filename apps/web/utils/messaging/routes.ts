@@ -4,7 +4,7 @@ import {
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 
-export type MessagingRouteLike = {
+type MessagingRouteLike = {
   purpose: MessagingRoutePurpose;
   targetType: MessagingRouteTargetType;
   targetId: string;
