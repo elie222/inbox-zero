@@ -34,4 +34,24 @@ describe("chat-memory-policy", () => {
     expect(result.pass).toBe(false);
     expect(result.reason).toContain("exact wording");
   });
+
+  it("rejects memories when the content and evidence come from different user messages", () => {
+    const result = validateUserMemoryEvidence({
+      content: "I prefer concise responses.",
+      userEvidence: "I batch newsletters in the afternoon.",
+      conversationMessages: [
+        {
+          role: "user",
+          content: "Please remember that I prefer concise responses.",
+        },
+        {
+          role: "user",
+          content: "I batch newsletters in the afternoon.",
+        },
+      ],
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.reason).toContain("same user chat message");
+  });
 });

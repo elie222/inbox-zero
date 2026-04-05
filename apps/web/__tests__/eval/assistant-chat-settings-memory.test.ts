@@ -349,10 +349,20 @@ function isUpdateAssistantSettingsInput(
 }
 
 function isSaveMemoryInput(input: unknown): input is SaveMemoryInput {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as {
+    content?: unknown;
+    source?: unknown;
+    userEvidence?: unknown;
+  };
+
   return (
-    !!input &&
-    typeof input === "object" &&
-    typeof (input as { content?: unknown }).content === "string"
+    typeof value.content === "string" &&
+    (value.source == null ||
+      value.source === "user_message" ||
+      value.source === "assistant_inference") &&
+    (value.userEvidence == null || typeof value.userEvidence === "string")
   );
 }
 
@@ -461,9 +471,11 @@ async function evaluateScenario(
           memoryCall.source === "user_message" &&
           normalizeMemoryText(memoryCall.content) ===
             normalizeMemoryText(expectation.expectedContent) &&
-          normalizeMemoryText(memoryCall.userEvidence ?? "").includes(
-            normalizeMemoryText(expectation.expectedUserEvidence),
-          ) &&
+          normalizeMemoryText(
+            typeof memoryCall.userEvidence === "string"
+              ? memoryCall.userEvidence
+              : "",
+          ).includes(normalizeMemoryText(expectation.expectedUserEvidence)) &&
           hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
         judgeOutput: memoryCall
           ? JSON.stringify({

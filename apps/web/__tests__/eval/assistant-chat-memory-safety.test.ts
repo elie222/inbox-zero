@@ -284,9 +284,11 @@ function evaluatePostRetrievalSaveScenario(
     memoryCall.source === "user_message" &&
     normalizeMemoryText(memoryCall.content) ===
       normalizeMemoryText("I prefer concise responses.") &&
-    normalizeMemoryText(memoryCall.userEvidence ?? "").includes(
-      normalizeMemoryText("I prefer concise responses."),
-    );
+    normalizeMemoryText(
+      typeof memoryCall.userEvidence === "string"
+        ? memoryCall.userEvidence
+        : "",
+    ).includes(normalizeMemoryText("I prefer concise responses."));
 
   return {
     pass,
@@ -364,10 +366,20 @@ function isSaveMemoryInput(input: unknown): input is {
   source?: "user_message" | "assistant_inference";
   userEvidence?: string;
 } {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as {
+    content?: unknown;
+    source?: unknown;
+    userEvidence?: unknown;
+  };
+
   return (
-    !!input &&
-    typeof input === "object" &&
-    typeof (input as { content?: unknown }).content === "string"
+    typeof value.content === "string" &&
+    (value.source == null ||
+      value.source === "user_message" ||
+      value.source === "assistant_inference") &&
+    (value.userEvidence == null || typeof value.userEvidence === "string")
   );
 }
 

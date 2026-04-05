@@ -39,15 +39,17 @@ export function validateUserMemoryEvidence({
     };
   }
 
-  const contentFoundInUserMessage = normalizedUserMessages.some((message) =>
-    message.includes(normalizedContent),
+  const contentAndEvidenceFoundInSameUserMessage = normalizedUserMessages.some(
+    (message) =>
+      message.includes(normalizedEvidence) &&
+      message.includes(normalizedContent),
   );
 
-  if (!contentFoundInUserMessage) {
+  if (!contentAndEvidenceFoundInSameUserMessage) {
     return {
       pass: false,
       reason:
-        "Memory save content must copy the user's exact wording from chat instead of rephrasing it in assistant voice.",
+        "Memory save content must copy the user's exact wording from the same user chat message as the supporting quote instead of rephrasing it in assistant voice.",
     };
   }
 
