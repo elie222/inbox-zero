@@ -51,6 +51,20 @@ export function addActionOwnershipToInput<T extends Record<string, unknown>>(
   };
 }
 
+function addNestedActionOwnershipToInput<T extends Record<string, unknown>>(
+  action: T & { messagingChannelId?: string | null },
+  emailAccountId: string,
+): T & {
+  messagingChannelEmailAccountId: string | null;
+} {
+  return {
+    ...action,
+    messagingChannelEmailAccountId: action.messagingChannelId
+      ? emailAccountId
+      : null,
+  };
+}
+
 export function outboundActionsNeedChatRiskConfirmation(
   result: CreateOrUpdateRuleSchema,
 ): { needsConfirmation: boolean; riskMessages: string[] } {
@@ -201,7 +215,7 @@ export async function createRuleWithResolvedActions({
       groupId: data.groupId ?? undefined,
       actions: {
         createMany: {
-          data: addActionOwnershipToInputs(actions, emailAccountId),
+          data: addNestedActionOwnershipToInputs(actions, emailAccountId),
         },
       },
     },
@@ -250,7 +264,7 @@ export async function replaceRuleWithResolvedActions({
       actions: {
         deleteMany: {},
         createMany: {
-          data: addActionOwnershipToInputs(actions, emailAccountId),
+          data: addNestedActionOwnershipToInputs(actions, emailAccountId),
         },
       },
     },
@@ -527,7 +541,7 @@ export async function updateRuleActions({
       actions: {
         deleteMany: {},
         createMany: {
-          data: addActionOwnershipToInputs(mappedActions, emailAccountId),
+          data: addNestedActionOwnershipToInputs(mappedActions, emailAccountId),
         },
       },
     },
@@ -766,11 +780,11 @@ function validateWebhookUrlsInActions(actions: RuleActionCreateData[]) {
   }
 }
 
-function addActionOwnershipToInputs(
+function addNestedActionOwnershipToInputs(
   actions: RuleActionCreateData[],
   emailAccountId: string,
 ): Prisma.ActionCreateManyRuleInput[] {
   return actions.map((action) =>
-    addActionOwnershipToInput(action, emailAccountId),
+    addNestedActionOwnershipToInput(action, emailAccountId),
   );
 }

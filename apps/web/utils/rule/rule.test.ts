@@ -297,7 +297,6 @@ describe("outbound action guardrails", () => {
               expect.objectContaining({
                 type: ActionType.NOTIFY_MESSAGING_CHANNEL,
                 messagingChannelId: "cmessagingchannel1234567890123",
-                emailAccountId: "email-account-id",
                 messagingChannelEmailAccountId: "email-account-id",
               }),
             ],
@@ -305,6 +304,35 @@ describe("outbound action guardrails", () => {
         },
       },
     });
+  });
+
+  it("keeps nested rule action writes free of emailAccountId", async () => {
+    prisma.rule.create.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+
+    await createRuleWithResolvedActions({
+      emailAccountId: "email-account-id",
+      data: { name: "Messaging rule" },
+      actions: [
+        {
+          type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+          messagingChannelId: "cmessagingchannel1234567890123",
+        },
+      ],
+    });
+
+    const createArgs = prisma.rule.create.mock.calls[0]?.[0];
+    const actionData = createArgs?.data.actions.createMany.data?.[0];
+
+    expect(actionData).toMatchObject({
+      type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+      messagingChannelId: "cmessagingchannel1234567890123",
+      messagingChannelEmailAccountId: "email-account-id",
+    });
+    expect(actionData).not.toHaveProperty("emailAccountId");
   });
 
   it("scopes full rule updates to the email account", async () => {
