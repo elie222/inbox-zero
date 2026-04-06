@@ -60,7 +60,7 @@ import {
   buildDraftMessagingAction,
   buildVisibleDraftReplyGroups,
   getDraftReplyDelivery,
-  getDraftReplyMessagingChannelId,
+  getDraftReplyMessagingChannelIds,
   type DraftReplyDelivery,
 } from "@/app/(app)/[emailAccountId]/assistant/draftReplyActions";
 
@@ -80,7 +80,7 @@ export function ActionSteps({
   mutate,
   emailAccountId,
   remove,
-  insert,
+  replaceActions,
   typeOptions,
   folders,
   foldersLoading,
@@ -101,7 +101,7 @@ export function ActionSteps({
   mutate: () => Promise<unknown>;
   emailAccountId: string;
   remove: (index?: number | number[]) => void;
-  insert: (index: number, action: CreateRuleBody["actions"][number]) => void;
+  replaceActions: (actions: CreateRuleBody["actions"]) => void;
   typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
@@ -123,11 +123,11 @@ export function ActionSteps({
       addButtonLabel="Add Action"
       addButtonDisabled={false}
     >
-      {visibleActionGroups.map(({ primaryIndex, draftMessagingIndex }) => (
+      {visibleActionGroups.map(({ primaryIndex, draftMessagingIndexes }) => (
         <ActionCard
           key={actionFields[primaryIndex]?.id ?? `action-${primaryIndex}`}
           index={primaryIndex}
-          draftMessagingIndex={draftMessagingIndex}
+          draftMessagingIndexes={draftMessagingIndexes}
           register={register}
           watch={watch}
           setValue={setValue}
@@ -138,7 +138,7 @@ export function ActionSteps({
           mutate={mutate}
           emailAccountId={emailAccountId}
           remove={remove}
-          insert={insert}
+          replaceActions={replaceActions}
           typeOptions={typeOptions}
           folders={folders}
           foldersLoading={foldersLoading}
@@ -154,7 +154,7 @@ export function ActionSteps({
 
 function ActionCard({
   index,
-  draftMessagingIndex,
+  draftMessagingIndexes,
   register,
   watch,
   setValue,
@@ -165,7 +165,7 @@ function ActionCard({
   mutate,
   emailAccountId,
   remove,
-  insert,
+  replaceActions,
   typeOptions,
   folders,
   foldersLoading,
@@ -175,7 +175,7 @@ function ActionCard({
   onAttachmentSourcesChange,
 }: {
   index: number;
-  draftMessagingIndex: number | null;
+  draftMessagingIndexes: number[];
   register: ReturnType<typeof useForm<CreateRuleBody>>["register"];
   watch: ReturnType<typeof useForm<CreateRuleBody>>["watch"];
   setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
@@ -186,7 +186,7 @@ function ActionCard({
   mutate: () => Promise<unknown>;
   emailAccountId: string;
   remove: (index?: number | number[]) => void;
-  insert: (index: number, action: CreateRuleBody["actions"][number]) => void;
+  replaceActions: (actions: CreateRuleBody["actions"]) => void;
   typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
@@ -195,11 +195,14 @@ function ActionCard({
   attachmentSources: AttachmentSourceInput[];
   onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
+  const actions = useWatch({ control, name: "actions" }) ?? [];
   const primaryAction = watch(`actions.${index}`);
-  const draftMessagingAction =
-    draftMessagingIndex != null
-      ? watch(`actions.${draftMessagingIndex}`)
-      : undefined;
+  const draftMessagingActions = draftMessagingIndexes
+    .map((draftMessagingIndex) => watch(`actions.${draftMessagingIndex}`))
+    .filter(
+      (action): action is NonNullable<CreateRuleBody["actions"][number]> =>
+        Boolean(action),
+    );
   const rawActionType = primaryAction?.type ?? ActionType.LABEL;
   const actionType = isDraftReplyActionType(rawActionType)
     ? ActionType.DRAFT_EMAIL
@@ -228,21 +231,24 @@ function ActionCard({
 
   const delayValue = watch(`actions.${index}.delayInMinutes`);
   const delayEnabled = !!delayValue;
-  const selectedMessagingChannelId = getDraftReplyMessagingChannelId({
+  const selectedMessagingChannelIds = getDraftReplyMessagingChannelIds({
     primaryAction,
-    draftMessagingAction,
+    draftMessagingActions,
   });
-  const selectedMessagingChannel = messagingChannels.find(
-    (channel) => channel.id === selectedMessagingChannelId,
-  );
+  const selectedMessagingChannels = selectedMessagingChannelIds
+    .map((channelId) =>
+      messagingChannels.find((channel) => channel.id === channelId),
+    )
+    .filter((channel): channel is MessagingChannelOption => Boolean(channel));
+  const selectedMessagingChannel = selectedMessagingChannels[0];
+  const draftReplyGroupIndexes = [index, ...draftMessagingIndexes];
   const draftReplyDelivery = getDraftReplyDelivery({
     primaryAction,
-    draftMessagingAction,
+    draftMessagingActions,
   });
   const deliveryErrorMessage = getMessagingChannelError({
     errors,
-    primaryIndex: index,
-    draftMessagingIndex,
+    actionIndexes: draftReplyGroupIndexes,
   });
 
   // Helper function to determine if a field can use variables based on context
@@ -302,7 +308,7 @@ function ActionCard({
           updateActionType({
             nextType: nextValue as ActionType,
             index,
-            draftMessagingIndex,
+            draftMessagingIndexes,
             primaryAction,
             setValue,
             remove,
@@ -648,30 +654,7 @@ function ActionCard({
     getConnectedRuleNotificationChannels(messagingChannels);
   const canConnectMessagingApp = availableMessagingProviders.length > 0;
 
-  const deliveryField = isDraftReplyActionType(rawActionType) ? (
-    <DraftReplyDeliveryField
-      label="Deliver to"
-      delivery={draftReplyDelivery}
-      messagingChannels={connectedMessagingChannels}
-      selectedChannelId={selectedMessagingChannelId}
-      selectedChannel={selectedMessagingChannel}
-      errorMessage={deliveryErrorMessage}
-      onChange={(nextValue) =>
-        updateDraftReplyDelivery({
-          delivery: nextValue,
-          index,
-          draftMessagingIndex,
-          primaryAction,
-          draftMessagingAction,
-          selectedChannelId: selectedMessagingChannelId,
-          setValue,
-          insert,
-          remove,
-          fallbackChannelId: connectedMessagingChannels[0]?.id ?? null,
-        })
-      }
-    />
-  ) : isMessagingNotification ? (
+  const deliveryField = isMessagingNotification ? (
     <MessagingChannelField
       control={control}
       index={index}
@@ -687,7 +670,7 @@ function ActionCard({
       <span className="font-medium text-foreground">
         {formatDraftReplyDeliverySummary({
           delivery: draftReplyDelivery,
-          selectedChannel: selectedMessagingChannel,
+          selectedChannels: selectedMessagingChannels,
         })}
       </span>
     </MutedText>
@@ -719,45 +702,29 @@ function ActionCard({
   const handleDraftReplyDeliveryChange = useCallback(
     ({
       includeEmail,
-      includeMessaging,
-      messagingChannelId,
+      selectedMessagingChannelIds,
     }: {
       includeEmail: boolean;
-      includeMessaging: boolean;
-      messagingChannelId: string | null;
+      selectedMessagingChannelIds: string[];
     }) => {
-      if (!includeEmail && !includeMessaging) return;
-
       updateDraftReplyDelivery({
-        delivery: {
-          delivery: includeEmail
-            ? includeMessaging
-              ? "EMAIL_AND_MESSAGING"
-              : "EMAIL"
-            : "MESSAGING",
-          messagingChannelId,
-        },
+        includeEmail,
+        selectedMessagingChannelIds,
+        actions,
         index,
-        draftMessagingIndex,
+        draftMessagingIndexes,
         primaryAction,
-        draftMessagingAction,
-        selectedChannelId: selectedMessagingChannelId,
-        setValue,
-        insert,
-        remove,
-        fallbackChannelId: connectedMessagingChannels[0]?.id ?? null,
+        draftMessagingActions,
+        replaceActions,
       });
     },
     [
-      connectedMessagingChannels,
-      draftMessagingAction,
-      draftMessagingIndex,
+      actions,
+      draftMessagingActions,
+      draftMessagingIndexes,
       index,
-      insert,
       primaryAction,
-      remove,
-      selectedMessagingChannelId,
-      setValue,
+      replaceActions,
     ],
   );
 
@@ -766,7 +733,7 @@ function ActionCard({
       <DraftReplyReviewChannelsSection
         emailAccountId={emailAccountId}
         delivery={draftReplyDelivery}
-        selectedChannel={selectedMessagingChannel}
+        selectedChannels={selectedMessagingChannels}
         connectedChannels={connectedMessagingChannels}
         errorMessage={deliveryErrorMessage}
         onChange={handleDraftReplyDeliveryChange}
@@ -893,7 +860,7 @@ function ActionCard({
       <RuleStep
         onRemove={() =>
           remove(
-            draftMessagingIndex != null ? [index, draftMessagingIndex] : index,
+            draftReplyGroupIndexes.length > 1 ? draftReplyGroupIndexes : index,
           )
         }
         removeAriaLabel="Remove action"
@@ -954,96 +921,38 @@ function ActionCard({
   );
 }
 
-function DraftReplyDeliveryField({
-  label,
-  delivery,
-  messagingChannels,
-  selectedChannelId,
-  selectedChannel,
-  errorMessage,
-  onChange,
-}: {
-  label: string;
-  delivery: DraftReplyDelivery;
-  messagingChannels: MessagingChannelOption[];
-  selectedChannelId: string | null;
-  selectedChannel?: MessagingChannelOption;
-  errorMessage?: string;
-  onChange: (value: DraftReplyDeliverySelection) => void;
-}) {
-  const options = buildDraftReplyDeliveryOptions({
-    messagingChannels,
-    selectedChannelId,
-    selectedChannel,
-  });
-  const selectedValue =
-    options.find(
-      (option) =>
-        option.delivery === delivery &&
-        option.messagingChannelId === selectedChannelId,
-    )?.value ?? (delivery === "EMAIL" ? "email" : undefined);
-
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <Select
-        value={selectedValue}
-        onValueChange={(nextValue) =>
-          onChange(parseDraftReplyDeliverySelection(nextValue))
-        }
-      >
-        <FormControl>
-          <SelectTrigger>
-            <SelectValue
-              placeholder={
-                messagingChannels.length > 0 ? "Choose a destination" : "Email"
-              }
-            />
-          </SelectTrigger>
-        </FormControl>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {errorMessage ? <ErrorMessage message={errorMessage} /> : null}
-    </div>
-  );
-}
-
 function DraftReplyReviewChannelsSection({
   emailAccountId,
   delivery,
-  selectedChannel,
+  selectedChannels,
   connectedChannels,
   errorMessage,
   onChange,
 }: {
   emailAccountId: string;
   delivery: DraftReplyDelivery;
-  selectedChannel?: MessagingChannelOption;
+  selectedChannels: MessagingChannelOption[];
   connectedChannels: MessagingChannelOption[];
   errorMessage?: string;
   onChange: (value: {
     includeEmail: boolean;
-    includeMessaging: boolean;
-    messagingChannelId: string | null;
+    selectedMessagingChannelIds: string[];
   }) => void;
 }) {
   const availableChannels = [...connectedChannels];
-  if (
-    selectedChannel &&
-    !availableChannels.some((channel) => channel.id === selectedChannel.id)
-  ) {
-    availableChannels.push(selectedChannel);
+  for (const selectedChannel of selectedChannels) {
+    if (
+      !availableChannels.some((channel) => channel.id === selectedChannel.id)
+    ) {
+      availableChannels.push(selectedChannel);
+    }
   }
 
   const includeEmail = delivery !== "MESSAGING";
-  const includeMessaging = delivery !== "EMAIL";
-  const canToggleEmail = includeMessaging;
+  const selectedMessagingChannelIds = selectedChannels.map(
+    (channel) => channel.id,
+  );
+  const canToggleEmail = selectedMessagingChannelIds.length > 0;
   const hasConnectedMessagingDestination = connectedChannels.length > 0;
 
   return (
@@ -1065,8 +974,7 @@ function DraftReplyReviewChannelsSection({
             onCheckedChange={(checked) =>
               onChange({
                 includeEmail: checked === true,
-                includeMessaging,
-                messagingChannelId: selectedChannel?.id ?? null,
+                selectedMessagingChannelIds,
               })
             }
             aria-label="Toggle email draft delivery"
@@ -1082,9 +990,13 @@ function DraftReplyReviewChannelsSection({
 
         {availableChannels.map((channel) => {
           const channelLabel = formatDraftReplyReviewChannelLabel(channel);
-          const isSelectedChannel =
-            includeMessaging && selectedChannel?.id === channel.id;
-          const canToggleChannel = includeEmail || !isSelectedChannel;
+          const isSelectedChannel = selectedMessagingChannelIds.includes(
+            channel.id,
+          );
+          const canToggleChannel =
+            includeEmail ||
+            !isSelectedChannel ||
+            selectedMessagingChannelIds.length > 1;
 
           return (
             <div
@@ -1097,16 +1009,21 @@ function DraftReplyReviewChannelsSection({
               <Checkbox
                 checked={isSelectedChannel}
                 disabled={!canToggleChannel}
-                onCheckedChange={(checked) =>
+                onCheckedChange={(checked) => {
+                  const nextSelectedMessagingChannelIds =
+                    checked === true
+                      ? [...selectedMessagingChannelIds, channel.id]
+                      : selectedMessagingChannelIds.filter(
+                          (selectedChannelId) =>
+                            selectedChannelId !== channel.id,
+                        );
+
                   onChange({
                     includeEmail,
-                    includeMessaging: checked === true,
-                    messagingChannelId:
-                      checked === true
-                        ? channel.id
-                        : (selectedChannel?.id ?? null),
-                  })
-                }
+                    selectedMessagingChannelIds:
+                      nextSelectedMessagingChannelIds,
+                  });
+                }}
                 aria-label={`Toggle ${channelLabel} draft delivery`}
               />
               <span className="font-medium text-foreground">
@@ -1235,22 +1152,17 @@ function formatDraftReplyReviewChannelLabel(channel?: MessagingChannelOption) {
   return channel.isConnected ? label : `${label} (Disconnected)`;
 }
 
-type DraftReplyDeliverySelection = {
-  delivery: DraftReplyDelivery;
-  messagingChannelId: string | null;
-};
-
 function updateActionType({
   nextType,
   index,
-  draftMessagingIndex,
+  draftMessagingIndexes,
   primaryAction,
   setValue,
   remove,
 }: {
   nextType: ActionType;
   index: number;
-  draftMessagingIndex: number | null;
+  draftMessagingIndexes: number[];
   primaryAction?: CreateRuleBody["actions"][number];
   setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
   remove: (index?: number | number[]) => void;
@@ -1259,181 +1171,123 @@ function updateActionType({
 
   if (nextType === ActionType.DRAFT_EMAIL) {
     setValue(`actions.${index}`, buildDraftEmailAction(primaryAction));
-    if (draftMessagingIndex != null) {
-      remove(draftMessagingIndex);
+    if (draftMessagingIndexes.length > 0) {
+      remove(draftMessagingIndexes);
     }
     return;
   }
 
   setValue(`actions.${index}.type`, nextType);
   setValue(`actions.${index}.messagingChannelId`, null);
-  if (draftMessagingIndex != null) {
-    remove(draftMessagingIndex);
+  if (draftMessagingIndexes.length > 0) {
+    remove(draftMessagingIndexes);
   }
 }
 
 function updateDraftReplyDelivery({
-  delivery,
+  includeEmail,
+  selectedMessagingChannelIds,
+  actions,
   index,
-  draftMessagingIndex,
+  draftMessagingIndexes,
   primaryAction,
-  draftMessagingAction,
-  selectedChannelId,
-  setValue,
-  insert,
-  remove,
-  fallbackChannelId,
+  draftMessagingActions,
+  replaceActions,
 }: {
-  delivery: DraftReplyDeliverySelection;
+  includeEmail: boolean;
+  selectedMessagingChannelIds: string[];
+  actions: CreateRuleBody["actions"];
   index: number;
-  draftMessagingIndex: number | null;
+  draftMessagingIndexes: number[];
   primaryAction?: CreateRuleBody["actions"][number];
-  draftMessagingAction?: CreateRuleBody["actions"][number];
-  selectedChannelId: string | null;
-  setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
-  insert: (index: number, action: CreateRuleBody["actions"][number]) => void;
-  remove: (index?: number | number[]) => void;
-  fallbackChannelId: string | null;
+  draftMessagingActions: CreateRuleBody["actions"];
+  replaceActions: (actions: CreateRuleBody["actions"]) => void;
 }) {
   if (!primaryAction) return;
 
-  const messagingChannelId =
-    delivery.messagingChannelId ?? selectedChannelId ?? fallbackChannelId;
+  const nextSelectedMessagingChannelIds = Array.from(
+    new Set(selectedMessagingChannelIds.filter(Boolean)),
+  );
+  if (!includeEmail && nextSelectedMessagingChannelIds.length === 0) return;
 
-  if (delivery.delivery === "EMAIL") {
-    setValue(`actions.${index}`, buildDraftEmailAction(primaryAction));
-    if (draftMessagingIndex != null) {
-      remove(draftMessagingIndex);
-    }
-    return;
-  }
+  const sourceAction =
+    primaryAction.type === ActionType.DRAFT_EMAIL
+      ? primaryAction
+      : (draftMessagingActions[0] ?? primaryAction);
+  const existingMessagingActions = [
+    primaryAction.type === ActionType.DRAFT_MESSAGING_CHANNEL
+      ? primaryAction
+      : null,
+    ...draftMessagingActions,
+  ].filter((action): action is NonNullable<CreateRuleBody["actions"][number]> =>
+    Boolean(action),
+  );
 
-  if (delivery.delivery === "MESSAGING") {
-    setValue(
-      `actions.${index}`,
+  const nextGroupActions: CreateRuleBody["actions"] = includeEmail
+    ? [buildDraftEmailAction(sourceAction)]
+    : [];
+
+  for (const messagingChannelId of nextSelectedMessagingChannelIds) {
+    const existingMessagingAction =
+      existingMessagingActions.find(
+        (action) => action.messagingChannelId === messagingChannelId,
+      ) ?? primaryAction;
+
+    nextGroupActions.push(
       buildDraftMessagingAction({
-        action: primaryAction,
-        sourceAction: primaryAction,
+        action: existingMessagingAction,
+        sourceAction,
         messagingChannelId,
       }),
     );
-    if (draftMessagingIndex != null) {
-      remove(draftMessagingIndex);
-    }
-    return;
   }
 
-  setValue(`actions.${index}`, buildDraftEmailAction(primaryAction));
-  const nextDraftMessagingAction = buildDraftMessagingAction({
-    action: draftMessagingAction ?? primaryAction,
-    sourceAction: primaryAction,
-    messagingChannelId,
-  });
+  const nextActions = [
+    ...actions.slice(0, index),
+    ...nextGroupActions,
+    ...actions.slice(index + draftMessagingIndexes.length + 1),
+  ];
 
-  if (draftMessagingIndex != null) {
-    setValue(`actions.${draftMessagingIndex}`, nextDraftMessagingAction);
-    return;
-  }
-
-  insert(index + 1, nextDraftMessagingAction);
+  replaceActions(nextActions);
 }
 
 function getMessagingChannelError({
   errors,
-  primaryIndex,
-  draftMessagingIndex,
+  actionIndexes,
 }: {
   errors: FieldErrors<CreateRuleBody>;
-  primaryIndex: number;
-  draftMessagingIndex: number | null;
+  actionIndexes: number[];
 }) {
-  return (
-    errors.actions?.[
-      draftMessagingIndex ?? primaryIndex
-    ]?.messagingChannelId?.message?.toString() || undefined
-  );
+  for (const actionIndex of actionIndexes) {
+    const errorMessage =
+      errors.actions?.[actionIndex]?.messagingChannelId?.message?.toString();
+    if (errorMessage) return errorMessage;
+  }
+
+  return undefined;
 }
 
 function formatDraftReplyDeliverySummary({
   delivery,
-  selectedChannel,
+  selectedChannels,
 }: {
   delivery: DraftReplyDelivery;
-  selectedChannel?: MessagingChannelOption;
+  selectedChannels: MessagingChannelOption[];
 }) {
   if (delivery === "EMAIL") return "Email";
-  if (!selectedChannel) {
+
+  const destinations = selectedChannels.map((selectedChannel) =>
+    formatDraftReplyReviewChannelLabel(selectedChannel),
+  );
+
+  if (destinations.length === 0) {
     return delivery === "MESSAGING" ? "Chat app" : "Email + chat app";
   }
 
-  const destination = formatDraftReplyReviewChannelLabel(selectedChannel);
-  return delivery === "MESSAGING" ? destination : `Email + ${destination}`;
-}
-
-function buildDraftReplyDeliveryOptions({
-  messagingChannels,
-  selectedChannelId,
-  selectedChannel,
-}: {
-  messagingChannels: MessagingChannelOption[];
-  selectedChannelId: string | null;
-  selectedChannel?: MessagingChannelOption;
-}) {
-  const options: Array<{
-    value: string;
-    label: string;
-    delivery: DraftReplyDelivery;
-    messagingChannelId: string | null;
-  }> = [
-    {
-      value: "email",
-      label: "Email",
-      delivery: "EMAIL",
-      messagingChannelId: null,
-    },
-  ];
-
-  const channels = [...messagingChannels];
-  if (
-    selectedChannelId &&
-    selectedChannel &&
-    !channels.some((channel) => channel.id === selectedChannelId)
-  ) {
-    channels.push(selectedChannel);
-  }
-
-  for (const channel of channels) {
-    const destination = formatDraftReplyReviewChannelLabel(channel);
-    options.push({
-      value: `messaging:${channel.id}`,
-      label: destination,
-      delivery: "MESSAGING",
-      messagingChannelId: channel.id,
-    });
-    options.push({
-      value: `email+messaging:${channel.id}`,
-      label: `Email + ${destination}`,
-      delivery: "EMAIL_AND_MESSAGING",
-      messagingChannelId: channel.id,
-    });
-  }
-
-  return options;
-}
-
-function parseDraftReplyDeliverySelection(
-  value: string,
-): DraftReplyDeliverySelection {
-  if (value === "email") {
-    return { delivery: "EMAIL", messagingChannelId: null };
-  }
-
-  const [delivery, messagingChannelId] = value.split(":");
-  return {
-    delivery:
-      delivery === "email+messaging" ? "EMAIL_AND_MESSAGING" : "MESSAGING",
-    messagingChannelId: messagingChannelId || null,
-  };
+  const destinationSummary = destinations.join(", ");
+  return delivery === "MESSAGING"
+    ? destinationSummary
+    : `Email + ${destinationSummary}`;
 }
 
 function VariableExamplesDialog() {

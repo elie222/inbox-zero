@@ -4,6 +4,7 @@ import {
   buildVisibleDraftReplyGroups,
   denormalizeDraftReplyActions,
   getDraftReplyDelivery,
+  getDraftReplyMessagingChannelIds,
   normalizeDraftReplyActions,
 } from "@/app/(app)/[emailAccountId]/assistant/draftReplyActions";
 
@@ -24,7 +25,7 @@ describe("draftReplyActions", () => {
     ]);
   });
 
-  it("denormalizes paired draft actions by syncing the messaging companion fields", () => {
+  it("denormalizes all adjacent draft messaging actions with the email content", () => {
     const actions = denormalizeDraftReplyActions([
       {
         type: ActionType.DRAFT_EMAIL,
@@ -46,6 +47,10 @@ describe("draftReplyActions", () => {
         type: ActionType.DRAFT_MESSAGING_CHANNEL,
         messagingChannelId: "cmessagingchannel1234567890123",
       },
+      {
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "cmessagingchannel1234567890456",
+      },
     ]);
 
     expect(actions[0]).toEqual(
@@ -64,6 +69,16 @@ describe("draftReplyActions", () => {
         cc: { value: "cc@example.com" },
       }),
     );
+    expect(actions[2]).toEqual(
+      expect.objectContaining({
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "cmessagingchannel1234567890456",
+        subject: { value: "Re: hello" },
+        content: { value: "Thanks for the note.", setManually: true },
+        to: { value: "reply@example.com" },
+        cc: { value: "cc@example.com" },
+      }),
+    );
   });
 
   it("collapses adjacent email and chat draft actions into one visible draft card", () => {
@@ -74,20 +89,46 @@ describe("draftReplyActions", () => {
         type: ActionType.DRAFT_MESSAGING_CHANNEL,
         messagingChannelId: "cmessagingchannel1234567890123",
       },
+      {
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "cmessagingchannel1234567890456",
+      },
     ]);
 
     expect(groups).toEqual([
       {
         primaryIndex: 0,
-        draftMessagingIndex: null,
+        draftMessagingIndexes: [],
         actionType: ActionType.LABEL,
       },
       {
         primaryIndex: 1,
-        draftMessagingIndex: 2,
+        draftMessagingIndexes: [2, 3],
         actionType: ActionType.DRAFT_EMAIL,
       },
     ]);
+  });
+
+  it("keeps messaging-only draft groups in sync across every destination", () => {
+    const actions = denormalizeDraftReplyActions([
+      {
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "cmessagingchannel1234567890123",
+        content: { value: "Thanks for the note.", setManually: true },
+      },
+      {
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "cmessagingchannel1234567890456",
+      },
+    ]);
+
+    expect(actions[1]).toEqual(
+      expect.objectContaining({
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "cmessagingchannel1234567890456",
+        content: { value: "Thanks for the note.", setManually: true },
+      }),
+    );
   });
 
   it("reports the current draft delivery mode for email, chat, and both", () => {
@@ -109,11 +150,51 @@ describe("draftReplyActions", () => {
     expect(
       getDraftReplyDelivery({
         primaryAction: { type: ActionType.DRAFT_EMAIL },
-        draftMessagingAction: {
+        draftMessagingActions: [
+          {
+            type: ActionType.DRAFT_MESSAGING_CHANNEL,
+            messagingChannelId: "cmessagingchannel1234567890123",
+          },
+        ],
+      }),
+    ).toBe("EMAIL_AND_MESSAGING");
+
+    expect(
+      getDraftReplyDelivery({
+        primaryAction: {
           type: ActionType.DRAFT_MESSAGING_CHANNEL,
           messagingChannelId: "cmessagingchannel1234567890123",
         },
+        draftMessagingActions: [
+          {
+            type: ActionType.DRAFT_MESSAGING_CHANNEL,
+            messagingChannelId: "cmessagingchannel1234567890456",
+          },
+        ],
       }),
-    ).toBe("EMAIL_AND_MESSAGING");
+    ).toBe("MESSAGING");
+  });
+
+  it("returns every selected draft messaging channel id in order", () => {
+    expect(
+      getDraftReplyMessagingChannelIds({
+        primaryAction: {
+          type: ActionType.DRAFT_EMAIL,
+        },
+        draftMessagingActions: [
+          {
+            type: ActionType.DRAFT_MESSAGING_CHANNEL,
+            messagingChannelId: "cmessagingchannel1234567890123",
+          },
+          {
+            type: ActionType.DRAFT_MESSAGING_CHANNEL,
+            messagingChannelId: "cmessagingchannel1234567890456",
+          },
+        ],
+      }),
+    ).toEqual([
+      "cmessagingchannel1234567890123",
+      "cmessagingchannel1234567890456",
+    ]);
   });
 });
