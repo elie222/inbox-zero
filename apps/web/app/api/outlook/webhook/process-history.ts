@@ -48,6 +48,7 @@ export async function processHistoryForUser({
   }
 
   logger = logger.with({
+    emailAddress,
     email: emailAccount?.email,
     emailAccountId: emailAccount?.id,
     subscriptionId,
