@@ -73,7 +73,7 @@ export function HtmlEmail({ html }: { html: string }) {
   const iframeHeight = useIframeHeight(iframeRef);
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0 overflow-x-hidden">
       <iframe
         ref={iframeRef}
         srcDoc={srcDoc}
@@ -160,6 +160,8 @@ function getIframeHtml(
       body {
         background-color: white;
       }
+      table { max-width: 100% !important; overflow-x: auto; }
+      img { max-width: 100% !important; height: auto; }
     </style>
   `
     : `
@@ -177,6 +179,10 @@ function getIframeHtml(
         --muted-foreground: 240 5% 64.9%;
         --background: 240 10% 3.9%;
       }
+
+      /* Contain wide content within the pane */
+      table { max-width: 100% !important; overflow-x: auto; }
+      img { max-width: 100% !important; height: auto; }
 
       /* Base styles with low specificity - only apply to completely unstyled content */
       body:not([style]):not([bgcolor]) {
