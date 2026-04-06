@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { LockIcon, MessageSquareIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import {
@@ -40,16 +39,12 @@ export function SlackNotificationTargetSelect({
   placeholder?: string;
   className?: string;
 }) {
-  const [loadTargets, setLoadTargets] = useState(false);
   const {
     data: targetsData,
     isLoading,
     error,
     mutate: mutateTargets,
-  } = useChannelTargets(
-    loadTargets ? messagingChannelId : null,
-    emailAccountId,
-  );
+  } = useChannelTargets(messagingChannelId, emailAccountId);
 
   const privateTargets = targetsData?.targets ?? [];
   const hasError = Boolean(error || targetsData?.error);
@@ -88,9 +83,6 @@ export function SlackNotificationTargetSelect({
         });
       }}
       disabled={isLoading || status === "executing"}
-      onOpenChange={(open) => {
-        if (open) setLoadTargets(true);
-      }}
     >
       <SelectTrigger className={className}>
         <SelectValue
