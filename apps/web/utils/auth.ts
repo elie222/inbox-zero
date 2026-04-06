@@ -37,6 +37,10 @@ import {
 } from "@/utils/microsoft/oauth";
 import { createOutlookClient } from "@/utils/outlook/client";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
+import {
+  claimPendingPremiumInvite,
+  updateAccountSeats,
+} from "@/utils/premium/seats";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 import prisma from "@/utils/prisma";
 
@@ -350,9 +354,6 @@ async function handlePendingPremiumInvite({ email }: { email: string }) {
       });
 
       if (user) {
-        const { claimPendingPremiumInvite } = await import(
-          "@/utils/premium/seats"
-        );
         await claimPendingPremiumInvite({
           visitorId: user.id,
           premiumId: premium.id,
@@ -622,7 +623,6 @@ async function handleLinkAccount(account: Account) {
     }
 
     // Handle premium account seats
-    const { updateAccountSeats } = await import("@/utils/premium/seats");
     await updateAccountSeats({ userId: account.userId }).catch((error) => {
       logger.error("[linkAccount] Error updating premium account seats:", {
         userId: account.userId,

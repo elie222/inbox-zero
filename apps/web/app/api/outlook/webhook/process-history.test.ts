@@ -124,6 +124,25 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
   });
 
+  it("looks up the account by email when no subscription ID is provided", async () => {
+    const inboxMessage = getMockParsedMessage({ labelIds: ["INBOX"] });
+    const mockProvider = {
+      getMessage: vi.fn().mockResolvedValue(inboxMessage),
+    };
+    vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
+
+    await processHistoryForUser({
+      emailAddress: "user@test.com",
+      resourceData: mockResourceData as any,
+      logger,
+    });
+
+    expect(getWebhookEmailAccount).toHaveBeenCalledWith(
+      { email: "user@test.com" },
+      logger,
+    );
+  });
+
   it("processes messages in SENT folder", async () => {
     const sentMessage = getMockParsedMessage({ labelIds: ["SENT"] });
     const mockProvider = { getMessage: vi.fn().mockResolvedValue(sentMessage) };

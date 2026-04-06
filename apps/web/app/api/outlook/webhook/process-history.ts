@@ -18,23 +18,36 @@ import { withRateLimitRecording } from "@/utils/email/rate-limit";
 
 export async function processHistoryForUser({
   subscriptionId,
+  emailAddress,
   resourceData,
   logger,
 }: {
-  subscriptionId: string;
+  subscriptionId?: string;
+  emailAddress?: string;
   resourceData: OutlookResourceData;
   logger: Logger;
 }) {
-  const emailAccount = await getWebhookEmailAccount(
-    {
-      watchEmailsSubscriptionId: subscriptionId,
-    },
-    logger,
-  );
+  const emailAccount = subscriptionId
+    ? await getWebhookEmailAccount(
+        {
+          watchEmailsSubscriptionId: subscriptionId,
+        },
+        logger,
+      )
+    : emailAddress
+      ? await getWebhookEmailAccount(
+          {
+            email: emailAddress.toLowerCase(),
+          },
+          logger,
+        )
+      : null;
 
   logger = logger.with({
+    emailAddress,
     email: emailAccount?.email,
     emailAccountId: emailAccount?.id,
+    subscriptionId,
   });
 
   const validation = await validateWebhookAccount(emailAccount, logger);
@@ -181,7 +194,7 @@ export async function processHistoryForUser({
     captureException(error, {
       emailAccountId: validatedEmailAccount.id,
       userEmail: validatedEmailAccount.email,
-      extra: { subscriptionId, resourceData },
+      extra: { emailAddress, subscriptionId, resourceData },
     });
     await logErrorWithDedupe({
       logger,

@@ -41,20 +41,23 @@ export async function processProviderHistory({
   }
 
   if (isMicrosoftProvider(provider)) {
-    if (!subscriptionId) {
+    if (!resourceData) {
       throw new Error(
-        "subscriptionId is required for Outlook history processing",
+        "resourceData is required for Outlook history processing",
       );
     }
 
-    await processOutlookHistoryForUser({
-      subscriptionId,
-      resourceData: resourceData || {
-        id: historyId?.toString() || "0",
-        conversationId: startHistoryId?.toString() || null,
-      },
-      logger,
-    });
+    await (subscriptionId
+      ? processOutlookHistoryForUser({
+          subscriptionId,
+          resourceData,
+          logger,
+        })
+      : processOutlookHistoryForUser({
+          emailAddress,
+          resourceData,
+          logger,
+        }));
     return;
   }
 
