@@ -56,7 +56,7 @@ export function AutoFileAttachments() {
               {filedItems.map((item) => (
                 <div
                   key={item.file}
-                  className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-4 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm sm:gap-x-6"
+                  className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-2 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:gap-x-6 sm:gap-y-0"
                 >
                   <GradientIconTile
                     borderColor={item.fileBorderColor}
@@ -71,10 +71,10 @@ export function AutoFileAttachments() {
                     {item.file}
                   </p>
                   <ChevronRight
-                    className="h-4 w-4 text-gray-300"
+                    className="hidden h-4 w-4 text-gray-300 sm:block"
                     strokeWidth={1.75}
                   />
-                  <div className="grid w-40 shrink-0 grid-cols-[auto_1fr] items-center gap-2 justify-self-end text-left">
+                  <div className="col-start-2 grid grid-cols-[auto_1fr] items-center gap-2 text-left sm:col-start-auto sm:w-40 sm:shrink-0 sm:justify-self-end">
                     <GradientIconTile
                       borderColor={folderTileStyles.borderColor}
                       gradient={folderTileStyles.gradient}

@@ -27,7 +27,7 @@ export function ManageFromAnywhere() {
       </SectionSubtitle>
       <SectionContent className="flex justify-center">
         <BlurFade inView>
-          <div className="flex items-start gap-6 sm:gap-10">
+          <div className="grid grid-cols-2 items-start justify-items-center gap-6 sm:grid-cols-4 sm:gap-10">
             {platforms.map((platform) => (
               <PlatformIcon key={platform.name} {...platform} />
             ))}
@@ -66,7 +66,15 @@ function PlatformIcon({
       <CardWrapper padding="xs-2" rounded="full">
         <Card variant="circle">
           <div className="p-3">
-            <Image src={src} alt={name} width={56} height={56} />
+            <div className="relative h-14 w-14">
+              <Image
+                src={src}
+                alt={name}
+                fill
+                sizes="56px"
+                className="object-contain"
+              />
+            </div>
           </div>
         </Card>
       </CardWrapper>
