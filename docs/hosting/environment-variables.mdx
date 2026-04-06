@@ -42,7 +42,7 @@ Comprehensive reference for all environment variables relevant to self-hosting I
 | **Image Proxy (Optional)** ||||
 | `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` | No | Base URL for the optional remote-image proxy. Example: `https://img.example.com/proxy` | — |
 | `NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE` | No | Set to `true` to proxy remote images through the app's own Next.js route at `/api/image-proxy` instead of a separate proxy service | `false` |
-| `IMAGE_PROXY_SIGNING_SECRET` | No | Shared HMAC secret used to sign proxy URLs for the bundled Cloudflare Worker or a compatible proxy | — |
+| `IMAGE_PROXY_SIGNING_SECRET` | No | Shared HMAC secret used to sign proxy URLs for the bundled Cloudflare Worker or a compatible proxy. Proxy validators may use a comma-separated list, but each signer should still be configured with a single secret. | — |
 | **LLM Provider Selection** ||||
 | `DEFAULT_LLM_PROVIDER` | Yes | Primary LLM provider (`anthropic`, `azure`, `vertex`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`) | — |
 | `DEFAULT_LLM_MODEL` | No | Model to use with default provider | Provider default |

@@ -53,6 +53,7 @@ export function SlackNotificationTargetSelect({
     targetId,
     targetLabel,
     privateTargets,
+    isLoading,
   });
 
   const { execute, status } = useAction(
@@ -143,16 +144,23 @@ function getSelectedTargetLabel({
   targetId,
   targetLabel,
   privateTargets,
+  isLoading,
 }: {
   isDm: boolean;
   targetId: string | null;
   targetLabel: string | null;
   privateTargets: Array<{ id: string; name: string }>;
+  isLoading: boolean;
 }) {
   if (isDm) return "Direct message";
   if (!targetId) return targetLabel;
 
-  return (
-    privateTargets.find((target) => target.id === targetId)?.name ?? targetLabel
-  );
+  const loadedTargetLabel = privateTargets.find(
+    (target) => target.id === targetId,
+  )?.name;
+  if (loadedTargetLabel) return loadedTargetLabel;
+
+  if (isLoading && targetLabel === `#${targetId}`) return null;
+
+  return targetLabel;
 }
