@@ -4,7 +4,7 @@ import type {
 } from "@microsoft/microsoft-graph-types";
 import type { ParsedMessage, Attachment } from "@/utils/types";
 import type { OutlookClient } from "@/utils/outlook/client";
-import { OutlookLabel } from "./label";
+import { OutlookLabel, WELL_KNOWN_FOLDERS } from "./constants";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { formatEmailWithName } from "@/utils/email";
@@ -19,16 +19,6 @@ export const MESSAGE_SELECT_FIELDS =
 // Expand attachments to get metadata (name, type, size) without fetching content
 export const MESSAGE_EXPAND_ATTACHMENTS =
   "attachments($select=id,name,contentType,size)";
-
-// Well-known folder names in Outlook that are consistent across all languages
-export const WELL_KNOWN_FOLDERS = {
-  inbox: "inbox",
-  sentitems: "sentitems",
-  drafts: "drafts",
-  archive: "archive",
-  deleteditems: "deleteditems",
-  junkemail: "junkemail",
-} as const;
 
 export async function getFolderIds(
   client: OutlookClient,

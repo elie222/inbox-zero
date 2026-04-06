@@ -16,7 +16,8 @@ import {
 } from "@/utils/queue/ai-queue";
 import { sleep } from "@/utils/sleep";
 import { toastError } from "@/components/Toast";
-import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
+import { PremiumAlertWithData } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 import { SetDateDropdown } from "@/app/(app)/[emailAccountId]/assistant/SetDateDropdown";
 import { useThreads } from "@/hooks/useThreads";
 import { useBeforeUnload } from "@/hooks/useBeforeUnload";

@@ -7,7 +7,7 @@ import { Placeholder } from "@tiptap/extension-placeholder";
 import { useImperativeHandle, forwardRef } from "react";
 import { cn } from "@/utils";
 import { createLabelMentionExtension } from "./extensions/LabelMention";
-import type { EmailLabel } from "@/providers/EmailProvider";
+import type { EmailLabel } from "@/providers/email-label-types";
 import "./SimpleRichTextEditor.css";
 
 interface SimpleRichTextEditorProps {

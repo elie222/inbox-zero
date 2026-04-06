@@ -3,7 +3,7 @@
 import { BotIcon, CoinsIcon, CpuIcon } from "lucide-react";
 import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
-import { usePremium } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 import { LoadingContent } from "@/components/LoadingContent";
 import { env } from "@/env";
 import { isPremium } from "@/utils/premium";

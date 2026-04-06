@@ -1,7 +1,7 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Logger } from "@/utils/logger";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
-import { WELL_KNOWN_FOLDERS } from "./message";
+import { OutlookLabel, WELL_KNOWN_FOLDERS } from "./constants";
 import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
 import {
   processThreadMessagesFallback,
@@ -17,20 +17,6 @@ import type {
   OutlookCategory,
   Message,
 } from "@microsoft/microsoft-graph-types";
-
-// Outlook doesn't have system labels like Gmail, but we map common categories
-// Using same format as Gmail for consistency
-export const OutlookLabel = {
-  INBOX: "INBOX",
-  SENT: "SENT",
-  UNREAD: "UNREAD",
-  STARRED: "STARRED",
-  IMPORTANT: "IMPORTANT",
-  SPAM: "SPAM",
-  TRASH: "TRASH",
-  DRAFT: "DRAFT",
-  ARCHIVE: "ARCHIVE",
-} as const;
 
 // Outlook supported colors
 export const OUTLOOK_COLORS: Array<string> = [

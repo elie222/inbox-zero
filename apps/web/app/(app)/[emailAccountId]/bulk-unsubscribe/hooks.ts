@@ -17,7 +17,10 @@ import {
   useArchiveSenderQueueActions,
 } from "@/store/archive-sender-queue";
 import { deleteEmails } from "@/store/archive-queue";
-import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
+import type {
+  NewsletterFilterType,
+  Row,
+} from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { fetchWithAccount } from "@/utils/fetch";
@@ -30,13 +33,6 @@ import {
   getHttpUnsubscribeLink,
   getUserFacingUnsubscribeLink,
 } from "@/utils/parse/unsubscribe";
-
-export type NewsletterFilterType =
-  | "all"
-  | "unhandled"
-  | "unsubscribed"
-  | "autoArchived"
-  | "approved";
 
 // Shared type for SWR mutate function
 type MutateFn = (

@@ -43,6 +43,9 @@ vi.mock("@/components/Tooltip", () => ({
 
 vi.mock("@/components/PremiumAlert", () => ({
   PremiumTooltip: ({ children }: { children: ReactNode }) => children,
+}));
+
+vi.mock("@/hooks/usePremium", () => ({
   usePremium: () => ({ hasAiAccess: true }),
 }));
 

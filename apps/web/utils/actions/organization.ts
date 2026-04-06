@@ -19,7 +19,7 @@ import {
   claimPendingPremiumInvite,
   removeFromPendingInvites,
   removeUserFromPremium,
-} from "@/utils/premium/server";
+} from "@/utils/premium/seats";
 import { env } from "@/env";
 import { slugify } from "@/utils/string";
 

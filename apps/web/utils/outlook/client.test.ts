@@ -12,7 +12,7 @@ vi.mock("@microsoft/microsoft-graph-client", () => ({
   },
 }));
 
-vi.mock("@/utils/auth", () => ({
+vi.mock("@/utils/auth/save-tokens", () => ({
   saveTokens: vi.fn(),
 }));
 

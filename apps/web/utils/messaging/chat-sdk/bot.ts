@@ -1,16 +1,7 @@
-import {
-  createSlackAdapter,
-  type SlackAdapter,
-  type SlackEvent,
-} from "@chat-adapter/slack";
+import type { SlackAdapter, SlackEvent } from "@chat-adapter/slack";
 import { createIoRedisState } from "@chat-adapter/state-ioredis";
 import { createMemoryState } from "@chat-adapter/state-memory";
-import { createTeamsAdapter, type TeamsAdapter } from "@chat-adapter/teams";
-import {
-  createTelegramAdapter,
-  type TelegramRawMessage,
-  type TelegramAdapter,
-} from "@chat-adapter/telegram";
+import type { TelegramRawMessage } from "@chat-adapter/telegram";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import {
@@ -65,6 +56,10 @@ import {
   SLACK_DRAFT_EDIT_MODAL_ID,
   SLACK_RULE_NOTIFICATION_ACTION_IDS,
 } from "@/utils/messaging/rule-notifications";
+import {
+  getMessagingAdapterRegistry,
+  type MessagingAdapters,
+} from "@/utils/messaging/chat-sdk/adapters";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import {
@@ -96,12 +91,6 @@ const SLACK_ASSISTANT_SUGGESTED_PROMPTS = [
 ];
 
 type SupportedPlatform = MessagingPlatform;
-
-type MessagingAdapters = {
-  slack?: SlackAdapter;
-  teams?: TeamsAdapter;
-  telegram?: TelegramAdapter;
-};
 
 type MessagingChatSdkContext = {
   bot: Chat<Record<string, Adapter>>;
@@ -353,51 +342,7 @@ export async function syncSlackInstallation({
 }
 
 function createMessagingChatSdkBot(): MessagingChatSdkContext {
-  const adapters: Record<string, Adapter> = {};
-  const typedAdapters: MessagingAdapters = {};
-
-  if (env.SLACK_SIGNING_SECRET) {
-    const slackAdapterConfig: Parameters<typeof createSlackAdapter>[0] = {
-      signingSecret: env.SLACK_SIGNING_SECRET,
-    };
-
-    if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) {
-      slackAdapterConfig.clientId = env.SLACK_CLIENT_ID;
-      slackAdapterConfig.clientSecret = env.SLACK_CLIENT_SECRET;
-    }
-
-    const slackAdapter = createSlackAdapter(slackAdapterConfig);
-    adapters.slack = slackAdapter;
-    typedAdapters.slack = slackAdapter;
-  }
-
-  if (env.TEAMS_BOT_APP_ID && env.TEAMS_BOT_APP_PASSWORD) {
-    const teamsAdapter = createTeamsAdapter({
-      appId: env.TEAMS_BOT_APP_ID,
-      appPassword: env.TEAMS_BOT_APP_PASSWORD,
-      appTenantId: env.TEAMS_BOT_APP_TENANT_ID,
-      ...(env.TEAMS_BOT_APP_TYPE ? { appType: env.TEAMS_BOT_APP_TYPE } : {}),
-    });
-
-    adapters.teams = teamsAdapter;
-    typedAdapters.teams = teamsAdapter;
-  }
-
-  if (env.TELEGRAM_BOT_TOKEN) {
-    const telegramAdapter = createTelegramAdapter({
-      botToken: env.TELEGRAM_BOT_TOKEN,
-      secretToken: env.TELEGRAM_BOT_SECRET_TOKEN,
-    });
-
-    adapters.telegram = telegramAdapter;
-    typedAdapters.telegram = telegramAdapter;
-  }
-
-  if (!Object.keys(adapters).length) {
-    throw new Error(
-      "No messaging adapters configured. Configure Slack, Teams, or Telegram credentials.",
-    );
-  }
+  const { adapters, typedAdapters } = getMessagingAdapterRegistry();
 
   const bot = new Chat<Record<string, Adapter>>({
     userName: "inboxzero",

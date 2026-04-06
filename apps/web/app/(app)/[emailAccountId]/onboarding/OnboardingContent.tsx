@@ -29,7 +29,7 @@ import { env } from "@/env";
 import { StepCompanySize } from "@/app/(app)/[emailAccountId]/onboarding/StepCompanySize";
 import { StepInviteTeam } from "@/app/(app)/[emailAccountId]/onboarding/StepInviteTeam";
 import { toastError } from "@/components/Toast";
-import { usePremium } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
 import {
   getOnboardingStepHref,
