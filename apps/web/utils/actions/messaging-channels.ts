@@ -19,7 +19,6 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { addActionOwnershipToInput } from "@/utils/rule/rule";
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
 import { env } from "@/env";
 import { getChannelInfo } from "@/utils/messaging/providers/slack/channels";
@@ -417,14 +416,13 @@ export const toggleRuleChannelAction = actionClient
         });
 
         await prisma.action.create({
-          data: addActionOwnershipToInput(
-            {
-              type: actionType,
-              ruleId,
-              messagingChannelId,
-            },
+          data: {
+            type: actionType,
+            ruleId,
+            messagingChannelId,
             emailAccountId,
-          ),
+            messagingChannelEmailAccountId: emailAccountId,
+          },
         });
       } else {
         await prisma.action.deleteMany({
