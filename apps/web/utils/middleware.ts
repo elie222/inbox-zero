@@ -188,7 +188,7 @@ function withMiddleware<T extends NextRequest>(
       if (error instanceof SafeError) {
         return NextResponse.json(
           { error: error.safeMessage, isKnownError: true },
-          { status: error.statusCode ?? 400 },
+          { status: getSafeErrorStatusCode(error.statusCode) },
         );
       }
 
@@ -219,6 +219,14 @@ function withMiddleware<T extends NextRequest>(
       requestTimer?.stop();
     }
   };
+}
+
+function getSafeErrorStatusCode(statusCode?: number) {
+  return Number.isInteger(statusCode) &&
+    statusCode! >= 400 &&
+    statusCode! <= 599
+    ? statusCode
+    : 400;
 }
 
 async function authMiddleware(

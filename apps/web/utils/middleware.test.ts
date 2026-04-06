@@ -178,6 +178,21 @@ describe("Middleware", () => {
       });
     });
 
+    it("should ignore non-error SafeError status codes", async () => {
+      const safeError = new SafeError("User-friendly message", 200);
+      const handler = vi.fn().mockRejectedValue(safeError);
+      const wrappedHandler = withError(handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(responseBody).toEqual({
+        error: "User-friendly message",
+        isKnownError: true,
+      });
+    });
+
     it("should handle common errors using checkCommonErrors", async () => {
       const commonError = { message: "API Error", code: 409, type: "Conflict" };
       mockCheckCommonErrors.mockReturnValue(commonError);
