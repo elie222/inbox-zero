@@ -82,6 +82,7 @@ export async function handleImageProxyRequest(
   const nowSeconds = Math.floor(Date.now() / 1000);
   let ttlSeconds = DEFAULT_UNSIGNED_PROXY_TTL_SECONDS;
   const signingSecrets = getConfiguredSigningSecrets(config);
+  const rawSigningSecret = config.signingSecret?.trim();
 
   if (signingSecrets.length > 0) {
     if (!expiresAtParam || !signature) {
@@ -96,6 +97,7 @@ export async function handleImageProxyRequest(
     const isValidSignature = await validateAssetProxySignatureAgainstSecrets({
       assetUrl,
       expiresAt,
+      rawSigningSecret,
       signature,
       signingSecrets,
     });
@@ -259,11 +261,13 @@ function getConfiguredSigningSecrets(config: ImageProxyConfig): string[] {
 async function validateAssetProxySignatureAgainstSecrets({
   assetUrl,
   expiresAt,
+  rawSigningSecret,
   signature,
   signingSecrets,
 }: {
   assetUrl: string;
   expiresAt: number;
+  rawSigningSecret?: string;
   signature: string;
   signingSecrets: readonly string[];
 }) {
@@ -276,6 +280,17 @@ async function validateAssetProxySignatureAgainstSecrets({
     });
 
     if (isValidSignature) return true;
+  }
+
+  // Keep validation backward-compatible for signers that still use the full
+  // comma-separated env value as the HMAC key.
+  if (rawSigningSecret && !signingSecrets.includes(rawSigningSecret)) {
+    return validateAssetProxySignature({
+      assetUrl,
+      expiresAt,
+      signature,
+      signingSecret: rawSigningSecret,
+    });
   }
 
   return false;

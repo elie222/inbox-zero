@@ -204,6 +204,28 @@ describe("handleImageProxyRequest", () => {
     expect(upstreamFetch).toHaveBeenCalledTimes(1);
   });
 
+  it("accepts signatures generated with the combined signing secret value", async () => {
+    const proxyUrl = await buildSignedAssetProxyUrl({
+      assetUrl: "https://cdn.example.com/photo.png",
+      proxyBaseUrl: "https://proxy.example.com/proxy",
+      signingSecret: "server-signing-secret, desktop-signing-secret",
+      ttlSeconds: 300,
+      now: Date.now(),
+    });
+    const upstreamFetch = vi.fn().mockResolvedValue(createImageResponse());
+
+    const response = await handleImageProxyRequest(
+      new Request(proxyUrl),
+      {
+        signingSecret: "server-signing-secret, desktop-signing-secret",
+      },
+      { fetchImpl: upstreamFetch as typeof fetch },
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects signed mode requests without signature params", async () => {
     const response = await handleImageProxyRequest(
       new Request(
