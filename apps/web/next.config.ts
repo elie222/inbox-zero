@@ -262,10 +262,6 @@ const nextConfig: NextConfig = {
   async headers() {
     const securityHeaders = [
       {
-        key: "X-Frame-Options",
-        value: "DENY",
-      },
-      {
         key: "X-XSS-Protection",
         value: "1; mode=block",
       },
@@ -297,8 +293,8 @@ const nextConfig: NextConfig = {
           "connect-src 'self' https: wss: https://*.mux.com https://*.litix.io",
           // iframes for Mux player
           "frame-src 'self' https:",
-          // Prevent embedding in iframes
-          "frame-ancestors 'none'",
+          // CSP owns iframe embedding policy; X-Frame-Options would block rankinpublic.xyz.
+          "frame-ancestors 'self' https://rankinpublic.xyz",
         ].join("; "),
       },
       {
