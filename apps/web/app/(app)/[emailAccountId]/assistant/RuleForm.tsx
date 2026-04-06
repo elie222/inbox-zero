@@ -155,8 +155,8 @@ export function RuleForm({
   const {
     fields: actionFields,
     append,
-    insert,
     remove,
+    replace,
   } = useFieldArray({ control, name: "actions" });
 
   const { userLabels, isLoading, mutate: mutateLabels } = useLabels();
@@ -550,7 +550,7 @@ export function RuleForm({
             setValue={setValue}
             append={append}
             remove={remove}
-            insert={insert}
+            replaceActions={replace}
             control={control}
             errors={errors}
             userLabels={userLabels}

@@ -38,6 +38,23 @@ describe("getMessagingRouteSummary", () => {
     });
   });
 
+  it("prefers a resolved target name when one is available", () => {
+    expect(
+      getMessagingRouteSummary(
+        routes,
+        MessagingRoutePurpose.RULE_NOTIFICATIONS,
+        {
+          C123: "#ops-alerts",
+        },
+      ),
+    ).toEqual({
+      enabled: true,
+      targetId: "C123",
+      targetLabel: "#ops-alerts",
+      isDm: false,
+    });
+  });
+
   it("returns a disabled summary when no route exists", () => {
     expect(
       getMessagingRouteSummary(routes, MessagingRoutePurpose.DOCUMENT_FILINGS),

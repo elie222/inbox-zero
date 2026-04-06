@@ -5,6 +5,8 @@ import { env } from "@/env";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 import { MessagingRoutePurpose } from "@/generated/prisma/enums";
 import { getMessagingRouteSummary } from "@/utils/messaging/routes";
+import { listChannels } from "@/utils/messaging/providers/slack/channels";
+import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
 export type GetMessagingChannelsResponse = Awaited<ReturnType<typeof getData>>;
 
@@ -26,6 +28,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       teamName: true,
       teamId: true,
       providerUserId: true,
+      accessToken: true,
       isConnected: true,
       routes: {
         select: {
@@ -46,25 +49,32 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     orderBy: { createdAt: "desc" },
   });
 
+  const slackTargetNamesByChannelId = await getSlackTargetNames(channels);
+
   return {
-    channels: channels.map(({ routes, providerUserId, ...channel }) => ({
-      ...channel,
-      canSendAsDm: channel.provider === "SLACK" && Boolean(providerUserId),
-      destinations: {
-        ruleNotifications: getMessagingRouteSummary(
-          routes,
-          MessagingRoutePurpose.RULE_NOTIFICATIONS,
-        ),
-        meetingBriefs: getMessagingRouteSummary(
-          routes,
-          MessagingRoutePurpose.MEETING_BRIEFS,
-        ),
-        documentFilings: getMessagingRouteSummary(
-          routes,
-          MessagingRoutePurpose.DOCUMENT_FILINGS,
-        ),
-      },
-    })),
+    channels: channels.map(
+      ({ routes, providerUserId, accessToken: _accessToken, ...channel }) => ({
+        ...channel,
+        canSendAsDm: channel.provider === "SLACK" && Boolean(providerUserId),
+        destinations: {
+          ruleNotifications: getMessagingRouteSummary(
+            routes,
+            MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            slackTargetNamesByChannelId[channel.id],
+          ),
+          meetingBriefs: getMessagingRouteSummary(
+            routes,
+            MessagingRoutePurpose.MEETING_BRIEFS,
+            slackTargetNamesByChannelId[channel.id],
+          ),
+          documentFilings: getMessagingRouteSummary(
+            routes,
+            MessagingRoutePurpose.DOCUMENT_FILINGS,
+            slackTargetNamesByChannelId[channel.id],
+          ),
+        },
+      }),
+    ),
     availableProviders: getAvailableProviders(),
   };
 }
@@ -76,4 +86,52 @@ function getAvailableProviders(): MessagingProvider[] {
     providers.push("TEAMS");
   if (env.TELEGRAM_BOT_TOKEN) providers.push("TELEGRAM");
   return providers;
+}
+
+async function getSlackTargetNames(
+  channels: Array<{
+    id: string;
+    provider: MessagingProvider;
+    isConnected: boolean;
+    accessToken: string | null;
+  }>,
+) {
+  const targetNamesByChannelId = Object.fromEntries(
+    channels.map((channel) => [channel.id, {} as Record<string, string>]),
+  );
+
+  const slackChannels = channels.filter(
+    (channel) =>
+      channel.provider === "SLACK" &&
+      channel.isConnected &&
+      Boolean(channel.accessToken),
+  );
+  const channelIdsByToken = new Map<string, string[]>();
+  for (const channel of slackChannels) {
+    const accessToken = channel.accessToken!;
+    const channelIds = channelIdsByToken.get(accessToken) ?? [];
+    channelIds.push(channel.id);
+    channelIdsByToken.set(accessToken, channelIds);
+  }
+
+  await Promise.all(
+    Array.from(channelIdsByToken.entries()).map(
+      async ([accessToken, channelIds]) => {
+        try {
+          const client = createSlackClient(accessToken);
+          const targets = await listChannels(client);
+          const targetNames = Object.fromEntries(
+            targets.map((target) => [target.id, `#${target.name}`]),
+          );
+          for (const channelId of channelIds) {
+            targetNamesByChannelId[channelId] = targetNames;
+          }
+        } catch {
+          // Empty objects were already initialized; nothing to do.
+        }
+      },
+    ),
+  );
+
+  return targetNamesByChannelId;
 }

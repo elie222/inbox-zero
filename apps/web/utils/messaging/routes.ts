@@ -72,16 +72,26 @@ export function formatRouteTargetLabel(route: MessagingRouteLike | null) {
   return `#${route.targetId}`;
 }
 
+export function formatRouteTargetLabelWithNames(
+  route: MessagingRouteLike | null,
+  targetNamesById?: Record<string, string>,
+) {
+  if (!route) return null;
+  if (isDirectMessageRoute(route)) return "Direct message";
+  return targetNamesById?.[route.targetId] ?? formatRouteTargetLabel(route);
+}
+
 export function getMessagingRouteSummary(
   routes: MessagingRouteLike[] | null | undefined,
   purpose: MessagingRoutePurpose,
+  targetNamesById?: Record<string, string>,
 ): MessagingRouteSummary {
   const route = getMessagingRoute(routes, purpose);
 
   return {
     enabled: Boolean(route),
     targetId: route?.targetId ?? null,
-    targetLabel: formatRouteTargetLabel(route),
+    targetLabel: formatRouteTargetLabelWithNames(route, targetNamesById),
     isDm: isDirectMessageRoute(route),
   };
 }
