@@ -59,7 +59,6 @@ import {
   buildDraftEmailAction,
   buildDraftMessagingAction,
   buildVisibleDraftReplyGroups,
-  getDraftReplyDelivery,
   getDraftReplyMessagingChannelIds,
   type DraftReplyDelivery,
 } from "@/app/(app)/[emailAccountId]/assistant/draftReplyActions";
@@ -235,23 +234,23 @@ function ActionCard({
     primaryAction,
     draftMessagingActions,
   });
-  const selectedMessagingChannels: MessagingChannelOption[] = [];
-  const seenSelectedMessagingChannelIds = new Set<string>();
-  for (const channelId of selectedMessagingChannelIds) {
-    if (seenSelectedMessagingChannelIds.has(channelId)) continue;
-    const channel = messagingChannels.find(
-      (messagingChannel) => messagingChannel.id === channelId,
+  const selectedMessagingChannels = selectedMessagingChannelIds
+    .map((channelId) =>
+      messagingChannels.find(
+        (messagingChannel) => messagingChannel.id === channelId,
+      ),
+    )
+    .filter(
+      (channel): channel is MessagingChannelOption => channel !== undefined,
     );
-    if (!channel) continue;
-    seenSelectedMessagingChannelIds.add(channel.id);
-    selectedMessagingChannels.push(channel);
-  }
   const selectedMessagingChannel = selectedMessagingChannels[0];
   const draftReplyGroupIndexes = [index, ...draftMessagingIndexes];
-  const draftReplyDelivery = getDraftReplyDelivery({
-    primaryAction,
-    draftMessagingActions,
-  });
+  const draftReplyDelivery: DraftReplyDelivery =
+    selectedMessagingChannelIds.length === 0
+      ? "EMAIL"
+      : primaryAction?.type === ActionType.DRAFT_MESSAGING_CHANNEL
+        ? "MESSAGING"
+        : "EMAIL_AND_MESSAGING";
   const deliveryErrorMessage = getMessagingChannelError({
     errors,
     actionIndexes: draftReplyGroupIndexes,
@@ -1283,13 +1282,9 @@ function formatDraftReplyDeliverySummary({
 }) {
   if (delivery === "EMAIL") return "Email";
 
-  const seenChannelIds = new Set<string>();
-  const destinations: string[] = [];
-  for (const selectedChannel of selectedChannels) {
-    if (seenChannelIds.has(selectedChannel.id)) continue;
-    seenChannelIds.add(selectedChannel.id);
-    destinations.push(formatDraftReplyReviewChannelLabel(selectedChannel));
-  }
+  const destinations = selectedChannels.map((channel) =>
+    formatDraftReplyReviewChannelLabel(channel),
+  );
 
   if (destinations.length === 0) {
     return delivery === "MESSAGING" ? "Chat app" : "Email + chat app";

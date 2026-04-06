@@ -127,9 +127,7 @@ async function getSlackTargetNames(
             targetNamesByChannelId[channelId] = targetNames;
           }
         } catch {
-          for (const channelId of channelIds) {
-            targetNamesByChannelId[channelId] = {};
-          }
+          // Empty objects were already initialized; nothing to do.
         }
       },
     ),
