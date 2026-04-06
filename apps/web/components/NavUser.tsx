@@ -9,10 +9,10 @@ import {
   MessageCircleReplyIcon,
   ShieldCheckIcon,
   LogOutIcon,
-  ChromeIcon,
   Building2Icon,
   CrownIcon,
   GiftIcon,
+  GlobeIcon,
   SettingsIcon,
 } from "lucide-react";
 import {
@@ -133,7 +133,7 @@ export function NavUser() {
                   rel="noopener noreferrer"
                   onClick={() => closeMobileSidebar("left-sidebar")}
                 >
-                  <ChromeIcon className="mr-2 size-4" />
+                  <GlobeIcon className="mr-2 size-4" />
                   Install extension
                 </Link>
               </DropdownMenuItem>

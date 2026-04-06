@@ -7,9 +7,9 @@ import {
   CreditCardIcon,
   MailIcon,
   MessageCircleIcon,
+  MessagesSquareIcon,
   PlugIcon,
   SendIcon,
-  SlackIcon,
   SparklesIcon,
   UserIcon,
   WebhookIcon,
@@ -292,7 +292,7 @@ function ProviderIcon({
 }) {
   switch (provider) {
     case "SLACK":
-      return <SlackIcon className={className} />;
+      return <MessagesSquareIcon className={className} />;
     case "TEAMS":
       return <MessageCircleIcon className={className} />;
     case "TELEGRAM":
@@ -301,7 +301,6 @@ function ProviderIcon({
       return <PlugIcon className={className} />;
   }
 }
-
 
 function SettingsGroup({
   icon,
