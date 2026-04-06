@@ -14,5 +14,3 @@ export type RuleWithRelations = Rule & {
       })
     | null;
 };
-
-export type CreateRuleResult = RuleWithRelations;
