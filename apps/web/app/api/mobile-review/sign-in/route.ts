@@ -1,7 +1,11 @@
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { createMobileReviewSession } from "@/utils/mobile-review";
-import { signInSchema } from "@/utils/actions/mobile-review.validation";
+
+const signInSchema = z.object({
+  code: z.string().trim().min(1).max(128),
+});
 
 export const POST = withError("mobile-review/sign-in", async (request) => {
   const body = signInSchema.parse(await request.json());
