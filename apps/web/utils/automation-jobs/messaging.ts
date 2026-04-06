@@ -85,9 +85,11 @@ async function sendAutomationMessageToTeams({
     );
   }
 
-  let teamsAdapter: Awaited<ReturnType<typeof getTeamsAdapter>>;
+  let teamsAdapter: ReturnType<
+    typeof getMessagingAdapterRegistry
+  >["typedAdapters"]["teams"];
   try {
-    teamsAdapter = await getTeamsAdapter();
+    teamsAdapter = getMessagingAdapterRegistry().typedAdapters.teams;
   } catch {
     throw new AutomationJobConfigurationError(
       "Teams adapter is not configured",
@@ -137,9 +139,11 @@ async function sendAutomationMessageToTelegram({
     );
   }
 
-  let telegramAdapter: Awaited<ReturnType<typeof getTelegramAdapter>>;
+  let telegramAdapter: ReturnType<
+    typeof getMessagingAdapterRegistry
+  >["typedAdapters"]["telegram"];
   try {
-    telegramAdapter = await getTelegramAdapter();
+    telegramAdapter = getMessagingAdapterRegistry().typedAdapters.telegram;
   } catch {
     throw new AutomationJobConfigurationError(
       "Telegram adapter is not configured",
@@ -168,12 +172,4 @@ async function sendAutomationMessageToTelegram({
     channelId: threadId,
     messageId: response.id ?? null,
   };
-}
-
-async function getTeamsAdapter() {
-  return getMessagingAdapterRegistry().typedAdapters.teams;
-}
-
-async function getTelegramAdapter() {
-  return getMessagingAdapterRegistry().typedAdapters.telegram;
 }
