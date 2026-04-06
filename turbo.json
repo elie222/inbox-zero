@@ -207,7 +207,10 @@
         "NEXT_PUBLIC_SMART_FILING_ENABLED",
         "NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED",
         "NEXT_PUBLIC_CLEANER_ENABLED",
-        "NEXT_PUBLIC_AUTO_DRAFT_DISABLED"
+        "NEXT_PUBLIC_AUTO_DRAFT_DISABLED",
+        "APP_REVIEW_DEMO_ENABLED",
+        "APP_REVIEW_DEMO_CODE",
+        "APP_REVIEW_DEMO_EMAIL"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
@@ -283,7 +286,10 @@
         "NEXT_PUBLIC_SMART_FILING_ENABLED",
         "NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED",
         "NEXT_PUBLIC_CLEANER_ENABLED",
-        "NEXT_PUBLIC_AUTO_DRAFT_DISABLED"
+        "NEXT_PUBLIC_AUTO_DRAFT_DISABLED",
+        "APP_REVIEW_DEMO_ENABLED",
+        "APP_REVIEW_DEMO_CODE",
+        "APP_REVIEW_DEMO_EMAIL"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },

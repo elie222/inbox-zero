@@ -188,7 +188,7 @@ function withMiddleware<T extends NextRequest>(
       if (error instanceof SafeError) {
         return NextResponse.json(
           { error: error.safeMessage, isKnownError: true },
-          { status: 400 },
+          { status: getSafeErrorStatusCode(error.statusCode) },
         );
       }
 
@@ -668,4 +668,13 @@ function logSlowMiddlewareTotal({
       durationMs,
     });
   }
+}
+
+function getSafeErrorStatusCode(statusCode?: number) {
+  return typeof statusCode === "number" &&
+    Number.isInteger(statusCode) &&
+    statusCode >= 400 &&
+    statusCode <= 599
+    ? statusCode
+    : 400;
 }

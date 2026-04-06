@@ -134,7 +134,7 @@ describe("api-middleware", () => {
     const response = await wrappedHandler(request, mockContext);
     const responseBody = await response.json();
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(401);
     expect(responseBody).toEqual({
       error: "Invalid API key",
       isKnownError: true,
