@@ -81,8 +81,9 @@ export async function handleImageProxyRequest(
 
   const nowSeconds = Math.floor(Date.now() / 1000);
   let ttlSeconds = DEFAULT_UNSIGNED_PROXY_TTL_SECONDS;
+  const signingSecrets = getConfiguredSigningSecrets(config);
 
-  if (config.signingSecret) {
+  if (signingSecrets.length > 0) {
     if (!expiresAtParam || !signature) {
       return new Response("Missing proxy signature", { status: 400 });
     }
@@ -92,11 +93,11 @@ export async function handleImageProxyRequest(
       return new Response("Expired proxy URL", { status: 410 });
     }
 
-    const isValidSignature = await validateAssetProxySignature({
+    const isValidSignature = await validateAssetProxySignatureAgainstSecrets({
       assetUrl,
       expiresAt,
       signature,
-      signingSecret: config.signingSecret,
+      signingSecrets,
     });
 
     if (!isValidSignature) {
@@ -244,6 +245,40 @@ async function fetchUpstreamAsset(
   }
 
   return upstreamResponse;
+}
+
+function getConfiguredSigningSecrets(config: ImageProxyConfig): string[] {
+  return config.signingSecret
+    ? config.signingSecret
+        .split(",")
+        .map((secret) => secret.trim())
+        .filter(Boolean)
+    : [];
+}
+
+async function validateAssetProxySignatureAgainstSecrets({
+  assetUrl,
+  expiresAt,
+  signature,
+  signingSecrets,
+}: {
+  assetUrl: string;
+  expiresAt: number;
+  signature: string;
+  signingSecrets: readonly string[];
+}) {
+  for (const signingSecret of signingSecrets) {
+    const isValidSignature = await validateAssetProxySignature({
+      assetUrl,
+      expiresAt,
+      signature,
+      signingSecret,
+    });
+
+    if (isValidSignature) return true;
+  }
+
+  return false;
 }
 
 function copyResponseHeaders(source: Headers) {

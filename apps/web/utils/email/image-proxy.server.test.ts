@@ -61,7 +61,6 @@ describe("rewriteHtmlForImageProxy", () => {
     expect(rewritten).toContain("&amp;s=");
     expect(warnSpy).not.toHaveBeenCalled();
   });
-
   it("rewrites remote assets through the app proxy route when enabled", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { rewriteHtmlForImageProxy } = await loadModule({
