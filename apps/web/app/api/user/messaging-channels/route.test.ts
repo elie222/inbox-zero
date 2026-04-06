@@ -1,5 +1,9 @@
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/__mocks__/prisma";
+import { createScopedLogger } from "@/utils/logger";
+import type { RequestWithEmailAccount } from "@/utils/middleware";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/middleware", () => ({
@@ -20,13 +24,48 @@ vi.mock("@/env", () => ({
 
 import { GET } from "./route";
 
+const messagingChannelSelect = {
+  id: true,
+  provider: true,
+  teamName: true,
+  teamId: true,
+  providerUserId: true,
+  isConnected: true,
+  routes: {
+    select: {
+      purpose: true,
+      targetType: true,
+      targetId: true,
+    },
+  },
+  actions: {
+    select: {
+      id: true,
+      type: true,
+      ruleId: true,
+      rule: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.MessagingChannelSelect;
+
+type MessagingChannelRecord = Prisma.MessagingChannelGetPayload<{
+  select: typeof messagingChannelSelect;
+}>;
+
+const logger = createScopedLogger("test");
+
 describe("GET /api/user/messaging-channels", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("omits provider user ids while returning route summaries", async () => {
-    prisma.messagingChannel.findMany.mockResolvedValue([
+    const channels = [
       {
         id: "channel-1",
         provider: "SLACK",
@@ -48,13 +87,10 @@ describe("GET /api/user/messaging-channels", () => {
         ],
         actions: [],
       },
-    ] as any);
+    ] satisfies MessagingChannelRecord[];
+    prisma.messagingChannel.findMany.mockResolvedValue(channels);
 
-    const response = await GET({
-      auth: {
-        emailAccountId: "email-account-1",
-      },
-    } as any);
+    const response = await GET(createRequest("email-account-1"));
     const body = await response.json();
 
     expect(body.channels).toEqual([
@@ -92,3 +128,17 @@ describe("GET /api/user/messaging-channels", () => {
     expect(body.availableProviders).toEqual(["SLACK"]);
   });
 });
+
+function createRequest(emailAccountId: string): RequestWithEmailAccount {
+  return Object.assign(
+    new NextRequest("http://localhost:3000/api/user/messaging-channels"),
+    {
+      logger,
+      auth: {
+        userId: "user-1",
+        emailAccountId,
+        email: "user@example.com",
+      },
+    },
+  );
+}
