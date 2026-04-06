@@ -102,9 +102,6 @@ The deployment model is:
 - set `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` to your CloudFront URL
 - use the same `IMAGE_PROXY_SIGNING_SECRET`
 
-For AWS and Cloudflare deployments, the proxy can also accept a comma-separated list of secrets if you need to validate requests from multiple clients.
-Each client that signs proxy URLs should still use a single secret.
-
 ## Self-Hosted Next.js Option
 
 If you are self-hosting and want the simplest setup, Inbox Zero can proxy remote images through its own Next.js app route instead of a separate service.
@@ -123,9 +120,6 @@ Notes:
 - this runs in the main app process, so it is simpler but less isolated than a separate proxy service
 - the Next.js route uses the same SSRF protections as the AWS adapter, including DNS resolution and pinned public-address lookups
 - keep `IMAGE_PROXY_SIGNING_SECRET` set; production rewriting stays disabled without it
-
-Because the Next.js app route signs and validates in the same process, keep `IMAGE_PROXY_SIGNING_SECRET` to a single value in this mode.
-If you need the proxy to accept multiple signer secrets, use a separate proxy deployment.
 
 ## Troubleshooting
 
