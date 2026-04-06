@@ -235,11 +235,17 @@ function ActionCard({
     primaryAction,
     draftMessagingActions,
   });
-  const selectedMessagingChannels = selectedMessagingChannelIds
-    .map((channelId) =>
-      messagingChannels.find((channel) => channel.id === channelId),
-    )
-    .filter((channel): channel is MessagingChannelOption => Boolean(channel));
+  const selectedMessagingChannels: MessagingChannelOption[] = [];
+  const seenSelectedMessagingChannelIds = new Set<string>();
+  for (const channelId of selectedMessagingChannelIds) {
+    if (seenSelectedMessagingChannelIds.has(channelId)) continue;
+    const channel = messagingChannels.find(
+      (messagingChannel) => messagingChannel.id === channelId,
+    );
+    if (!channel) continue;
+    seenSelectedMessagingChannelIds.add(channel.id);
+    selectedMessagingChannels.push(channel);
+  }
   const selectedMessagingChannel = selectedMessagingChannels[0];
   const draftReplyGroupIndexes = [index, ...draftMessagingIndexes];
   const draftReplyDelivery = getDraftReplyDelivery({
@@ -1208,7 +1214,8 @@ function updateDraftReplyDelivery({
   const nextSelectedMessagingChannelIds = Array.from(
     new Set(selectedMessagingChannelIds.filter(Boolean)),
   );
-  if (!includeEmail && nextSelectedMessagingChannelIds.length === 0) return;
+  const nextIncludeEmail =
+    includeEmail || nextSelectedMessagingChannelIds.length === 0;
 
   const sourceAction =
     primaryAction.type === ActionType.DRAFT_EMAIL
@@ -1223,7 +1230,7 @@ function updateDraftReplyDelivery({
     Boolean(action),
   );
 
-  const nextGroupActions: CreateRuleBody["actions"] = includeEmail
+  const nextGroupActions: CreateRuleBody["actions"] = nextIncludeEmail
     ? [buildDraftEmailAction(sourceAction)]
     : [];
 
@@ -1276,9 +1283,13 @@ function formatDraftReplyDeliverySummary({
 }) {
   if (delivery === "EMAIL") return "Email";
 
-  const destinations = selectedChannels.map((selectedChannel) =>
-    formatDraftReplyReviewChannelLabel(selectedChannel),
-  );
+  const seenChannelIds = new Set<string>();
+  const destinations: string[] = [];
+  for (const selectedChannel of selectedChannels) {
+    if (seenChannelIds.has(selectedChannel.id)) continue;
+    seenChannelIds.add(selectedChannel.id);
+    destinations.push(formatDraftReplyReviewChannelLabel(selectedChannel));
+  }
 
   if (destinations.length === 0) {
     return delivery === "MESSAGING" ? "Chat app" : "Email + chat app";

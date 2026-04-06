@@ -146,6 +146,108 @@ describe("GET /api/user/messaging-channels", () => {
     expect(body.channels[0]).not.toHaveProperty("accessToken");
     expect(body.availableProviders).toEqual(["SLACK"]);
   });
+
+  it("reuses a workspace target lookup for channels with the same Slack token", async () => {
+    const channels = [
+      {
+        id: "channel-1",
+        provider: "SLACK",
+        teamName: "Workspace",
+        teamId: "team-1",
+        providerUserId: "U123",
+        accessToken: "xoxb-shared-token",
+        isConnected: true,
+        routes: [
+          {
+            purpose: "RULE_NOTIFICATIONS",
+            targetType: "CHANNEL",
+            targetId: "C123",
+          },
+        ],
+        actions: [],
+      },
+      {
+        id: "channel-2",
+        provider: "SLACK",
+        teamName: "Workspace",
+        teamId: "team-1",
+        providerUserId: "U456",
+        accessToken: "xoxb-shared-token",
+        isConnected: true,
+        routes: [
+          {
+            purpose: "RULE_NOTIFICATIONS",
+            targetType: "CHANNEL",
+            targetId: "C123",
+          },
+        ],
+        actions: [],
+      },
+    ] satisfies MessagingChannelRecord[];
+    prisma.messagingChannel.findMany.mockResolvedValue(channels);
+    vi.mocked(createSlackClient).mockReturnValue({} as never);
+    vi.mocked(listChannels).mockResolvedValue([
+      {
+        id: "C123",
+        name: "ops-alerts",
+        isPrivate: true,
+      },
+    ]);
+
+    const response = await GET(createRequest("email-account-1"));
+    const body = await response.json();
+
+    expect(createSlackClient).toHaveBeenCalledTimes(1);
+    expect(listChannels).toHaveBeenCalledTimes(1);
+    expect(body.channels).toEqual([
+      expect.objectContaining({
+        id: "channel-1",
+        destinations: {
+          ruleNotifications: {
+            enabled: true,
+            targetId: "C123",
+            targetLabel: "#ops-alerts",
+            isDm: false,
+          },
+          meetingBriefs: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          documentFilings: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+        },
+      }),
+      expect.objectContaining({
+        id: "channel-2",
+        destinations: {
+          ruleNotifications: {
+            enabled: true,
+            targetId: "C123",
+            targetLabel: "#ops-alerts",
+            isDm: false,
+          },
+          meetingBriefs: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+          documentFilings: {
+            enabled: false,
+            targetId: null,
+            targetLabel: null,
+            isDm: false,
+          },
+        },
+      }),
+    ]);
+  });
 });
 
 function createRequest(emailAccountId: string): RequestWithEmailAccount {

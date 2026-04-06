@@ -33,14 +33,14 @@ export function denormalizeDraftReplyActions(actions: RuleFormAction[]) {
         messagingChannelId: null,
       });
 
-      const nextAction = actions[index + 1];
-      if (nextAction?.type === ActionType.DRAFT_MESSAGING_CHANNEL) {
-        let nextIndex = index + 1;
-
-        while (
-          actions[nextIndex]?.type === ActionType.DRAFT_MESSAGING_CHANNEL
-        ) {
-          const messagingAction = actions[nextIndex];
+      const { draftMessagingIndexes, nextIndex } = collectDraftMessagingIndexes(
+        actions,
+        index + 1,
+      );
+      if (draftMessagingIndexes.length > 0) {
+        for (const draftMessagingIndex of draftMessagingIndexes) {
+          const messagingAction = actions[draftMessagingIndex];
+          if (!messagingAction) continue;
           normalizedActions.push(
             buildDraftMessagingAction({
               action: messagingAction,
@@ -48,7 +48,6 @@ export function denormalizeDraftReplyActions(actions: RuleFormAction[]) {
               messagingChannelId: messagingAction.messagingChannelId ?? null,
             }),
           );
-          nextIndex += 1;
         }
 
         index = nextIndex - 1;
@@ -58,10 +57,13 @@ export function denormalizeDraftReplyActions(actions: RuleFormAction[]) {
     }
 
     if (action.type === ActionType.DRAFT_MESSAGING_CHANNEL) {
-      let nextIndex = index;
-
-      while (actions[nextIndex]?.type === ActionType.DRAFT_MESSAGING_CHANNEL) {
-        const messagingAction = actions[nextIndex];
+      const { draftMessagingIndexes, nextIndex } = collectDraftMessagingIndexes(
+        actions,
+        index,
+      );
+      for (const draftMessagingIndex of draftMessagingIndexes) {
+        const messagingAction = actions[draftMessagingIndex];
+        if (!messagingAction) continue;
         normalizedActions.push(
           buildDraftMessagingAction({
             action: messagingAction,
@@ -69,7 +71,6 @@ export function denormalizeDraftReplyActions(actions: RuleFormAction[]) {
             messagingChannelId: messagingAction.messagingChannelId ?? null,
           }),
         );
-        nextIndex += 1;
       }
 
       index = nextIndex - 1;
@@ -94,13 +95,10 @@ export function buildVisibleDraftReplyGroups(actions: RuleFormAction[]) {
     if (!action) continue;
 
     if (action.type === ActionType.DRAFT_EMAIL) {
-      const draftMessagingIndexes: number[] = [];
-      let nextIndex = index + 1;
-
-      while (actions[nextIndex]?.type === ActionType.DRAFT_MESSAGING_CHANNEL) {
-        draftMessagingIndexes.push(nextIndex);
-        nextIndex += 1;
-      }
+      const { draftMessagingIndexes, nextIndex } = collectDraftMessagingIndexes(
+        actions,
+        index + 1,
+      );
 
       groups.push({
         primaryIndex: index,
@@ -112,13 +110,10 @@ export function buildVisibleDraftReplyGroups(actions: RuleFormAction[]) {
     }
 
     if (action.type === ActionType.DRAFT_MESSAGING_CHANNEL) {
-      const draftMessagingIndexes: number[] = [];
-      let nextIndex = index + 1;
-
-      while (actions[nextIndex]?.type === ActionType.DRAFT_MESSAGING_CHANNEL) {
-        draftMessagingIndexes.push(nextIndex);
-        nextIndex += 1;
-      }
+      const { draftMessagingIndexes, nextIndex } = collectDraftMessagingIndexes(
+        actions,
+        index + 1,
+      );
 
       groups.push({
         primaryIndex: index,
@@ -148,10 +143,16 @@ export function getDraftReplyDelivery({
   primaryAction?: RuleFormAction;
   draftMessagingActions?: RuleFormAction[] | null;
 }): DraftReplyDelivery {
+  const hasMessagingDestinations =
+    getDraftReplyMessagingChannelIds({
+      primaryAction,
+      draftMessagingActions,
+    }).length > 0;
+
+  if (!hasMessagingDestinations) return "EMAIL";
   if (primaryAction?.type === ActionType.DRAFT_MESSAGING_CHANNEL)
     return "MESSAGING";
-  if (draftMessagingActions?.length) return "EMAIL_AND_MESSAGING";
-  return "EMAIL";
+  return "EMAIL_AND_MESSAGING";
 }
 
 export function getDraftReplyMessagingChannelIds({
@@ -161,19 +162,19 @@ export function getDraftReplyMessagingChannelIds({
   primaryAction?: RuleFormAction;
   draftMessagingActions?: RuleFormAction[] | null;
 }) {
-  const messagingChannelIds: string[] = [];
+  const messagingChannelIds = new Set<string>();
 
   if (primaryAction?.type === ActionType.DRAFT_MESSAGING_CHANNEL) {
     const primaryChannelId = primaryAction.messagingChannelId?.trim();
-    if (primaryChannelId) messagingChannelIds.push(primaryChannelId);
+    if (primaryChannelId) messagingChannelIds.add(primaryChannelId);
   }
 
   for (const action of draftMessagingActions ?? []) {
     const messagingChannelId = action.messagingChannelId?.trim();
-    if (messagingChannelId) messagingChannelIds.push(messagingChannelId);
+    if (messagingChannelId) messagingChannelIds.add(messagingChannelId);
   }
 
-  return messagingChannelIds;
+  return Array.from(messagingChannelIds);
 }
 
 export function buildDraftEmailAction(action: RuleFormAction): RuleFormAction {
@@ -205,4 +206,19 @@ export function buildDraftMessagingAction({
     delayInMinutes: sourceAction.delayInMinutes,
     staticAttachments: sourceAction.staticAttachments,
   };
+}
+
+function collectDraftMessagingIndexes(
+  actions: RuleFormAction[],
+  startIndex: number,
+) {
+  const draftMessagingIndexes: number[] = [];
+  let nextIndex = startIndex;
+
+  while (actions[nextIndex]?.type === ActionType.DRAFT_MESSAGING_CHANNEL) {
+    draftMessagingIndexes.push(nextIndex);
+    nextIndex += 1;
+  }
+
+  return { draftMessagingIndexes, nextIndex };
 }

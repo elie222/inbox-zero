@@ -106,19 +106,33 @@ async function getSlackTargetNames(
       channel.isConnected &&
       Boolean(channel.accessToken),
   );
+  const channelIdsByToken = new Map<string, string[]>();
+  for (const channel of slackChannels) {
+    const accessToken = channel.accessToken!;
+    const channelIds = channelIdsByToken.get(accessToken) ?? [];
+    channelIds.push(channel.id);
+    channelIdsByToken.set(accessToken, channelIds);
+  }
 
   await Promise.all(
-    slackChannels.map(async (channel) => {
-      try {
-        const client = createSlackClient(channel.accessToken!);
-        const targets = await listChannels(client);
-        targetNamesByChannelId[channel.id] = Object.fromEntries(
-          targets.map((target) => [target.id, `#${target.name}`]),
-        );
-      } catch {
-        targetNamesByChannelId[channel.id] = {};
-      }
-    }),
+    Array.from(channelIdsByToken.entries()).map(
+      async ([accessToken, channelIds]) => {
+        try {
+          const client = createSlackClient(accessToken);
+          const targets = await listChannels(client);
+          const targetNames = Object.fromEntries(
+            targets.map((target) => [target.id, `#${target.name}`]),
+          );
+          for (const channelId of channelIds) {
+            targetNamesByChannelId[channelId] = targetNames;
+          }
+        } catch {
+          for (const channelId of channelIds) {
+            targetNamesByChannelId[channelId] = {};
+          }
+        }
+      },
+    ),
   );
 
   return targetNamesByChannelId;

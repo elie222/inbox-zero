@@ -173,9 +173,18 @@ describe("draftReplyActions", () => {
         ],
       }),
     ).toBe("MESSAGING");
+
+    expect(
+      getDraftReplyDelivery({
+        primaryAction: {
+          type: ActionType.DRAFT_MESSAGING_CHANNEL,
+          messagingChannelId: null,
+        },
+      }),
+    ).toBe("EMAIL");
   });
 
-  it("returns every selected draft messaging channel id in order", () => {
+  it("returns every selected draft messaging channel id in order without duplicates", () => {
     expect(
       getDraftReplyMessagingChannelIds({
         primaryAction: {
@@ -189,6 +198,10 @@ describe("draftReplyActions", () => {
           {
             type: ActionType.DRAFT_MESSAGING_CHANNEL,
             messagingChannelId: "cmessagingchannel1234567890456",
+          },
+          {
+            type: ActionType.DRAFT_MESSAGING_CHANNEL,
+            messagingChannelId: "cmessagingchannel1234567890123",
           },
         ],
       }),
