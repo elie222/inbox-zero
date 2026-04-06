@@ -36,6 +36,7 @@ export async function createMobileReviewSession(input: {
   const user = await prisma.user.findUnique({
     where: { email: env.APP_REVIEW_DEMO_EMAIL!.trim().toLowerCase() },
     select: {
+      email: true,
       id: true,
       emailAccounts: {
         select: {
@@ -67,6 +68,7 @@ export async function createMobileReviewSession(input: {
 
   return {
     userId: user.id,
+    userEmail: user.email,
     emailAccountId: user.emailAccounts[0].id,
     sessionCookie: await buildSessionCookie({
       authContext,

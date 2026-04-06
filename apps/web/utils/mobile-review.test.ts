@@ -59,6 +59,7 @@ describe("createMobileReviewSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.user.findUnique.mockResolvedValue({
+      email: "demo@example.com",
       id: "user-1",
       emailAccounts: [{ id: "account-1" }],
     } as never);
@@ -111,6 +112,7 @@ describe("createMobileReviewSession", () => {
         },
         value: "session-token.cookie-signature",
       },
+      userEmail: "demo@example.com",
       userId: "user-1",
     });
     expect(mockRedis.del).toHaveBeenCalledTimes(1);

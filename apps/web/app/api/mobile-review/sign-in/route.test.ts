@@ -3,9 +3,9 @@ vi.mock("server-only", () => ({}));
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createMobileReviewSessionMock, loggerTraceMock } = vi.hoisted(() => ({
+const { createMobileReviewSessionMock, loggerInfoMock } = vi.hoisted(() => ({
   createMobileReviewSessionMock: vi.fn(),
-  loggerTraceMock: vi.fn(),
+  loggerInfoMock: vi.fn(),
 }));
 
 vi.mock("@/utils/mobile-review", () => ({
@@ -39,6 +39,7 @@ describe("mobile review sign-in route", () => {
         },
         value: "signed-session-token",
       },
+      userEmail: "review@example.com",
       userId: "user-1",
     });
   });
@@ -55,8 +56,8 @@ describe("mobile review sign-in route", () => {
         },
         method: "POST",
       },
-    ) as NextRequest & { logger: { trace: typeof loggerTraceMock } };
-    request.logger = { trace: loggerTraceMock };
+    ) as NextRequest & { logger: { info: typeof loggerInfoMock } };
+    request.logger = { info: loggerInfoMock };
 
     const response = await POST(request, {} as never);
     const body = await response.json();
@@ -72,10 +73,11 @@ describe("mobile review sign-in route", () => {
       "__Secure-better-auth.session_token=signed-session-token",
     );
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(loggerTraceMock).toHaveBeenCalledWith(
+    expect(loggerInfoMock).toHaveBeenCalledWith(
       "Created mobile review session",
       {
         reviewEmailAccountId: "account-1",
+        reviewUserEmail: "review@example.com",
         reviewUserId: "user-1",
       },
     );
