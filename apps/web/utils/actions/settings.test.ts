@@ -18,6 +18,8 @@ const { clearSpecificErrorMessagesMock } = vi.hoisted(() => ({
 vi.mock("@/env", () => ({
   env: {
     AZURE_RESOURCE_NAME: "azure-resource",
+    EMAIL_ENCRYPT_SECRET: "test-email-secret",
+    EMAIL_ENCRYPT_SALT: "test-email-salt",
   },
 }));
 

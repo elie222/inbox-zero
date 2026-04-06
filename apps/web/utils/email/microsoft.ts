@@ -54,7 +54,6 @@ import {
   createAutoArchiveFilter,
 } from "@/utils/outlook/filter";
 import { queryMessagesWithFilters } from "@/utils/outlook/message";
-import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
 import type {
   EmailProvider,
   EmailThread,
@@ -1811,33 +1810,6 @@ export class OutlookProvider implements EmailProvider {
       limit,
       this.logger,
     );
-  }
-
-  async processHistory(options: {
-    emailAddress: string;
-    historyId?: number;
-    startHistoryId?: number;
-    subscriptionId?: string;
-    resourceData?: {
-      id: string;
-      conversationId?: string;
-    };
-    logger?: Logger;
-  }): Promise<void> {
-    if (!options.subscriptionId) {
-      throw new Error(
-        "subscriptionId is required for Outlook history processing",
-      );
-    }
-
-    await processHistoryForUser({
-      subscriptionId: options.subscriptionId,
-      resourceData: options.resourceData || {
-        id: options.historyId?.toString() || "0",
-        conversationId: options.startHistoryId?.toString() || null,
-      },
-      logger: options.logger || this.logger,
-    });
   }
 
   async watchEmails(): Promise<{

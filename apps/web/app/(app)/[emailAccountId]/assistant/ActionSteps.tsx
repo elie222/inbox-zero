@@ -14,7 +14,7 @@ import { useWatch } from "react-hook-form";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { ActionType } from "@/generated/prisma/enums";
 import { RuleSteps } from "@/app/(app)/[emailAccountId]/assistant/RuleSteps";
-import type { EmailLabel } from "@/providers/EmailProvider";
+import type { EmailLabel } from "@/providers/email-label-types";
 import type { OutlookFolder } from "@/utils/outlook/folders";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input } from "@/components/Input";

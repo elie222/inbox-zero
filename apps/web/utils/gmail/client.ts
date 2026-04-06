@@ -1,6 +1,6 @@
 import { auth, gmail, type gmail_v1 } from "@googleapis/gmail";
 import { people } from "@googleapis/people";
-import { saveTokens } from "@/utils/auth";
+import { saveTokens } from "@/utils/auth/save-tokens";
 import type { Logger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";

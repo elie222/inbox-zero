@@ -65,7 +65,6 @@ import {
   deleteFilter,
   createAutoArchiveFilter,
 } from "@/utils/gmail/filter";
-import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
 import { watchGmail, unwatchGmail } from "@/utils/gmail/watch";
 import type {
   EmailProvider,
@@ -1485,29 +1484,6 @@ export class GmailProvider implements EmailProvider {
       this.getAccessToken(),
       sender,
       limit,
-    );
-  }
-
-  async processHistory(options: {
-    emailAddress: string;
-    historyId?: number;
-    startHistoryId?: number;
-    subscriptionId?: string;
-    resourceData?: {
-      id: string;
-      conversationId?: string;
-    };
-    logger?: Logger;
-  }): Promise<void> {
-    await processHistoryForUser(
-      {
-        emailAddress: options.emailAddress,
-        historyId: options.historyId || 0,
-      },
-      {
-        startHistoryId: options.startHistoryId?.toString(),
-      },
-      options.logger || this.logger,
     );
   }
 

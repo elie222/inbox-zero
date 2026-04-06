@@ -9,6 +9,7 @@ import { SafeError } from "@/utils/error";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { getStripe } from "@/ee/billing/stripe";
 import { createEmailProvider } from "@/utils/email/provider";
+import { processProviderHistory } from "@/utils/webhook/process-history";
 import { hash } from "@/utils/hash";
 import {
   hashEmailBody,
@@ -59,13 +60,8 @@ export const adminProcessHistoryAction = adminActionClient
         throw new SafeError("No provider found for email account");
       }
 
-      const emailProvider = await createEmailProvider({
-        emailAccountId: emailAccount.id,
+      await processProviderHistory({
         provider,
-        logger,
-      });
-
-      await emailProvider.processHistory({
         emailAddress,
         historyId,
         startHistoryId,
@@ -74,6 +70,7 @@ export const adminProcessHistoryAction = adminActionClient
           id: historyId?.toString() || "0",
           conversationId: startHistoryId?.toString(),
         },
+        logger,
       });
     },
   );

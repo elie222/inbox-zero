@@ -7,7 +7,7 @@ import {
   sendAutomationMessageToSlack,
 } from "@/utils/automation-jobs/slack";
 import type { Logger } from "@/utils/logger";
-import { getMessagingChatSdkBot } from "@/utils/messaging/chat-sdk/bot";
+import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
 
 export async function sendAutomationMessage({
   channel,
@@ -86,10 +86,10 @@ async function sendAutomationMessageToTeams({
   }
 
   let teamsAdapter: ReturnType<
-    typeof getMessagingChatSdkBot
-  >["adapters"]["teams"];
+    typeof getMessagingAdapterRegistry
+  >["typedAdapters"]["teams"];
   try {
-    teamsAdapter = getMessagingChatSdkBot().adapters.teams;
+    teamsAdapter = getMessagingAdapterRegistry().typedAdapters.teams;
   } catch {
     throw new AutomationJobConfigurationError(
       "Teams adapter is not configured",
@@ -140,10 +140,10 @@ async function sendAutomationMessageToTelegram({
   }
 
   let telegramAdapter: ReturnType<
-    typeof getMessagingChatSdkBot
-  >["adapters"]["telegram"];
+    typeof getMessagingAdapterRegistry
+  >["typedAdapters"]["telegram"];
   try {
-    telegramAdapter = getMessagingChatSdkBot().adapters.telegram;
+    telegramAdapter = getMessagingAdapterRegistry().typedAdapters.telegram;
   } catch {
     throw new AutomationJobConfigurationError(
       "Telegram adapter is not configured",

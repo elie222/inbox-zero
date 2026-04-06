@@ -19,7 +19,7 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { CreateRuleResult } from "@/utils/rule/types";
+import type { RuleWithRelations } from "@/utils/rule/types";
 
 export const runRulesAction = actionClient
   .metadata({ name: "runRules" })
@@ -285,7 +285,7 @@ export const createRulesAction = actionClient
 
       logger.info("Rules to be added", { count: addedRules?.length || 0 });
 
-      const createdRules: CreateRuleResult[] = [];
+      const createdRules: RuleWithRelations[] = [];
       const errors: { ruleName: string; error: string }[] = [];
 
       for (const rule of addedRules || []) {

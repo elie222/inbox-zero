@@ -18,7 +18,7 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { prefixPath } from "@/utils/path";
-import type { CreateRuleResult } from "@/utils/rule/types";
+import type { RuleWithRelations } from "@/utils/rule/types";
 import { useLabels } from "@/hooks/useLabels";
 
 export function CreatedRulesModal({
@@ -28,7 +28,7 @@ export function CreatedRulesModal({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  rules: CreateRuleResult[] | null;
+  rules: RuleWithRelations[] | null;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -43,7 +43,7 @@ export function CreatedRulesContent({
   rules,
   onOpenChange,
 }: {
-  rules: CreateRuleResult[];
+  rules: RuleWithRelations[];
   onOpenChange: (open: boolean) => void;
 }) {
   const { emailAccountId, provider } = useAccount();

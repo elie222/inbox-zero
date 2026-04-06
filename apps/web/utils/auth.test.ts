@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { cookies } from "next/headers";
 import { createReferral } from "@/utils/referral/referral-code";
 import { captureException } from "@/utils/error";
-import { handleReferralOnSignUp, saveTokens } from "@/utils/auth";
+import { saveTokens } from "@/utils/auth/save-tokens";
+import { handleReferralOnSignUp } from "@/utils/auth";
 import prisma from "@/utils/__mocks__/prisma";
 import { clearSpecificErrorMessages } from "@/utils/error-messages";
 

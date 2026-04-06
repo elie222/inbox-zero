@@ -13,7 +13,7 @@ import {
 } from "@/utils/google/oauth";
 import { gmail } from "@googleapis/gmail";
 
-vi.mock("@/utils/auth", () => ({
+vi.mock("@/utils/auth/save-tokens", () => ({
   saveTokens: vi.fn(),
 }));
 

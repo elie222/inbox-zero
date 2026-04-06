@@ -6,7 +6,7 @@ import { getEmailClient } from "@/utils/mail";
 import { isDefined } from "@/utils/types";
 import type { Logger } from "@/utils/logger";
 import { GmailLabel } from "@/utils/gmail/label";
-import { OutlookLabel } from "@/utils/outlook/label";
+import { OutlookLabel } from "@/utils/outlook/constants";
 import { getFilters, getForwardingAddresses } from "@/utils/gmail/settings";
 
 export async function assessUser({

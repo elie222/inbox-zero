@@ -9,9 +9,9 @@ import { env } from "@/env";
 import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
 import {
   cancelPremiumLemon,
-  syncPremiumSeats,
   upgradeToPremiumLemon,
 } from "@/utils/premium/server";
+import { syncPremiumSeats } from "@/utils/premium/seats";
 import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import {
   activateLemonLicenseKey,

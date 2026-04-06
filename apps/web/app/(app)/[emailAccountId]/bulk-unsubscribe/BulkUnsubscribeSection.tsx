@@ -24,12 +24,12 @@ import type {
 import { getDateRangeParams } from "@/app/(app)/[emailAccountId]/stats/params";
 import { NewsletterModal } from "@/app/(app)/[emailAccountId]/stats/NewsletterModal";
 import { useEmailsToIncludeFilter } from "@/app/(app)/[emailAccountId]/stats/EmailsToIncludeFilter";
-import { usePremium } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 import {
   useNewsletterFilter,
   useBulkUnsubscribeShortcuts,
-  type NewsletterFilterType,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
+import type { NewsletterFilterType } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";

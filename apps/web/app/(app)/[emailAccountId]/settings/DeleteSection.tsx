@@ -26,7 +26,7 @@ import {
 import { deleteAccountAction } from "@/utils/actions/user";
 import { logOut } from "@/utils/user";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
-import { usePremium } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 
 export function DeleteSection() {
   const { onCancelLoadBatch } = useStatLoader();
