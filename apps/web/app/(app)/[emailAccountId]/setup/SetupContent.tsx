@@ -10,8 +10,8 @@ import {
   CheckIcon,
   BotIcon,
   type LucideIcon,
-  ChromeIcon,
   CalendarIcon,
+  GlobeIcon,
   UsersIcon,
   MessageSquareIcon,
   InboxIcon,
@@ -410,7 +410,7 @@ function Checklist({
         <StepItem
           href={EXTENSION_URL}
           linkProps={{ target: "_blank", rel: "noopener noreferrer" }}
-          icon={<ChromeIcon size={18} />}
+          icon={<GlobeIcon size={18} />}
           title={`Optional: Install the ${BRAND_NAME} Tabs extension`}
           timeEstimate="1 minute"
           completed={isTabsExtensionCompleted}

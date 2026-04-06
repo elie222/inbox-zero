@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRightIcon, ChromeIcon, MailsIcon } from "lucide-react";
+import { ArrowRightIcon, GlobeIcon, MailsIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
@@ -34,7 +34,7 @@ export function StepExtension({ onNext }: { onNext: () => Promise<void> }) {
         <div className="flex justify-center mt-8">
           <Button asChild size="sm">
             <a href={EXTENSION_URL} target="_blank" rel="noopener noreferrer">
-              <ChromeIcon className="size-4 mr-2" />
+              <GlobeIcon className="size-4 mr-2" />
               Install Extension
             </a>
           </Button>

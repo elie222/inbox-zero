@@ -3,11 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  HashIcon,
   MessageCircleIcon,
   MessageSquareIcon,
+  MessagesSquareIcon,
   SendIcon,
-  SlackIcon,
   XIcon,
 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
@@ -56,7 +55,7 @@ type LinkableMessagingProvider = "TEAMS" | "TELEGRAM";
 const PROVIDER_CONFIG: Partial<
   Record<MessagingProvider, { name: string; icon: typeof MessageSquareIcon }>
 > = {
-  SLACK: { name: "Slack", icon: HashIcon },
+  SLACK: { name: "Slack", icon: MessagesSquareIcon },
   TEAMS: { name: "Teams", icon: MessageCircleIcon },
   TELEGRAM: { name: "Telegram", icon: SendIcon },
 };
@@ -216,7 +215,7 @@ export function ConnectedAppsSection({
                     disabled={linkStatus === "executing"}
                     onClick={handleLinkSlack}
                   >
-                    <SlackIcon className="mr-2 h-4 w-4" />
+                    <MessagesSquareIcon className="mr-2 h-4 w-4" />
                     {linkStatus === "executing"
                       ? "Linking..."
                       : `Link to ${existingWorkspace.teamName}`}
@@ -238,7 +237,7 @@ export function ConnectedAppsSection({
                   disabled={connectingSlack || isLoading}
                   onClick={handleConnectSlack}
                 >
-                  <SlackIcon className="mr-2 h-4 w-4" />
+                  <MessagesSquareIcon className="mr-2 h-4 w-4" />
                   {connectingSlack ? "Connecting..." : "Connect Slack"}
                 </Button>
               ))}
