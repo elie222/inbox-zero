@@ -1,13 +1,9 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import { makeSignature } from "better-auth/crypto";
 import { env } from "@/env";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
-import { redis } from "@/utils/redis";
-
-const RATE_LIMIT_MAX_ATTEMPTS = 5;
-const RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
 
 export function isMobileReviewEnabled(): boolean {
   return Boolean(
@@ -25,9 +21,6 @@ export async function createMobileReviewSession(input: {
   if (!isMobileReviewEnabled()) {
     throw new SafeError("Review access is unavailable");
   }
-
-  const rateLimitKey = getRateLimitKey(input.ipAddress, input.userAgent);
-  await assertWithinRateLimit(rateLimitKey);
 
   const reviewDemoCode = env.APP_REVIEW_DEMO_CODE?.trim();
   const reviewDemoEmail = env.APP_REVIEW_DEMO_EMAIL?.trim().toLowerCase();
@@ -71,8 +64,6 @@ export async function createMobileReviewSession(input: {
     },
   );
 
-  await clearRateLimit(rateLimitKey);
-
   return {
     userId: user.id,
     userEmail: user.email,
@@ -112,33 +103,6 @@ async function buildSessionCookie(input: {
   };
 }
 
-async function assertWithinRateLimit(rateLimitKey: string) {
-  if (!isRateLimitConfigured()) {
-    return;
-  }
-
-  const attempts = await redis.incr(rateLimitKey);
-
-  if (attempts === 1) {
-    await redis.expire(rateLimitKey, RATE_LIMIT_WINDOW_SECONDS);
-  }
-
-  if (attempts > RATE_LIMIT_MAX_ATTEMPTS) {
-    throw new SafeError(
-      "Too many review access attempts. Please try again later.",
-      429,
-    );
-  }
-}
-
-async function clearRateLimit(rateLimitKey: string) {
-  if (!isRateLimitConfigured()) {
-    return;
-  }
-
-  await redis.del(rateLimitKey);
-}
-
 function codesMatch(input: string, expected: string): boolean {
   const normalizedInput = normalizeCode(input);
   const normalizedExpected = normalizeCode(expected);
@@ -158,16 +122,4 @@ function normalizeSameSite(
   sameSite: "Strict" | "Lax" | "None" | "strict" | "lax" | "none" | undefined,
 ) {
   return sameSite?.toLowerCase() as "strict" | "lax" | "none" | undefined;
-}
-
-function getRateLimitKey(ipAddress: string | null, userAgent: string | null) {
-  const fingerprint = createHash("sha256")
-    .update(`${ipAddress ?? "unknown"}:${userAgent ?? "unknown"}`)
-    .digest("hex");
-
-  return `mobile-review:attempts:${fingerprint}`;
-}
-
-function isRateLimitConfigured() {
-  return Boolean(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN);
 }

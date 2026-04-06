@@ -3,7 +3,7 @@ vi.mock("server-only", () => ({}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 
-const { mockAuthContext, mockMakeSignature, mockRedis } = vi.hoisted(() => ({
+const { mockAuthContext, mockMakeSignature } = vi.hoisted(() => ({
   mockAuthContext: {
     authCookies: {
       sessionToken: {
@@ -24,11 +24,6 @@ const { mockAuthContext, mockMakeSignature, mockRedis } = vi.hoisted(() => ({
     secret: "test-secret",
   },
   mockMakeSignature: vi.fn(),
-  mockRedis: {
-    del: vi.fn(),
-    expire: vi.fn(),
-    incr: vi.fn(),
-  },
 }));
 
 vi.mock("@/env", () => ({
@@ -48,9 +43,6 @@ vi.mock("@/utils/auth", () => ({
 }));
 
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/redis", () => ({
-  redis: mockRedis,
-}));
 vi.mock("better-auth/crypto", () => ({
   makeSignature: mockMakeSignature,
 }));
@@ -68,7 +60,6 @@ describe("createMobileReviewSession", () => {
       token: "session-token",
     });
     mockMakeSignature.mockResolvedValue("cookie-signature");
-    mockRedis.incr.mockResolvedValue(1);
   });
 
   it("creates a signed Better Auth session cookie", async () => {
@@ -92,10 +83,6 @@ describe("createMobileReviewSession", () => {
       "session-token",
       "test-secret",
     );
-    expect(mockRedis.expire).toHaveBeenCalledWith(
-      expect.stringContaining("mobile-review:attempts:"),
-      15 * 60,
-    );
     expect(result).toEqual({
       emailAccountId: "account-1",
       sessionCookie: {
@@ -115,28 +102,5 @@ describe("createMobileReviewSession", () => {
       userEmail: "demo@example.com",
       userId: "user-1",
     });
-    expect(mockRedis.del).toHaveBeenCalledTimes(1);
-  });
-
-  it("blocks excessive attempts before checking the code", async () => {
-    mockRedis.incr.mockResolvedValue(6);
-
-    const { createMobileReviewSession } = await import("./mobile-review");
-
-    await expect(
-      createMobileReviewSession({
-        code: "wrong-code",
-        ipAddress: "203.0.113.11",
-        userAgent: "Inbox Zero Mobile",
-      }),
-    ).rejects.toMatchObject({
-      safeMessage: "Too many review access attempts. Please try again later.",
-      statusCode: 429,
-    });
-
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
-    expect(
-      mockAuthContext.internalAdapter.createSession,
-    ).not.toHaveBeenCalled();
   });
 });
