@@ -10,7 +10,7 @@
     "@inboxzero/image-proxy": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
-    "wrangler": "4.43.0"
+    "typescript": "6.0.2",
+    "wrangler": "4.80.0"
   }
 }

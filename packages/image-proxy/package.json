@@ -9,16 +9,16 @@
     "./proxy-service": "./src/proxy-service.ts"
   },
   "dependencies": {
-    "ipaddr.js": "1.9.1"
+    "ipaddr.js": "2.3.0"
   },
   "scripts": {
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "4.1.0",
+    "@vitest/coverage-v8": "4.1.2",
     "@types/node": "24.10.1",
-    "typescript": "5.9.3",
-    "vitest": "4.1.0"
+    "typescript": "6.0.2",
+    "vitest": "4.1.2"
   }
 }
