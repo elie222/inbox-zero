@@ -671,9 +671,7 @@ function logSlowMiddlewareTotal({
 }
 
 function getSafeErrorStatusCode(statusCode?: number) {
-  return Number.isInteger(statusCode) &&
-    statusCode! >= 400 &&
-    statusCode! <= 599
+  return Number.isInteger(statusCode) && statusCode >= 400 && statusCode <= 599
     ? statusCode
     : 400;
 }

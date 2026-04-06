@@ -25,7 +25,7 @@
 - NextJS app router with (app) directory, tailwindcss
 - For version-sensitive or unclear Next.js behavior, check the relevant doc in `node_modules/next/dist/docs/` before changing framework code.
 - Only add comments for "why", not "what". Prefer self-documenting code.
-- Logging: avoid duplicating logger context fields from higher in the call chain. Use `logger.trace()` for PII fields (from, to, subject, etc.).
+- Logging: avoid duplicating logger context fields from higher in the call chain. Use `logger.trace()` for PII fields (from, to, subject, etc.). Exception: the authenticated user's own email is fine to log at any level.
 - Tests should use the real logger implementation (do not mock `@/utils/logger`).
 - Avoid low-value tests that mostly restate implementation details; prefer tests that catch a real behavioral regression.
 - Helper functions go at the bottom of files, not the top
