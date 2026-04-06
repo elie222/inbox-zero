@@ -53,6 +53,12 @@ export function SlackNotificationTargetSelect({
 
   const privateTargets = targetsData?.targets ?? [];
   const hasError = Boolean(error || targetsData?.error);
+  const selectedTargetLabel = getSelectedTargetLabel({
+    isDm,
+    targetId,
+    targetLabel,
+    privateTargets,
+  });
 
   const { execute, status } = useAction(
     updateSlackRouteAction.bind(null, emailAccountId),
@@ -92,7 +98,7 @@ export function SlackNotificationTargetSelect({
             isLoading ? "Loading..." : hasError ? "Failed to load" : placeholder
           }
         >
-          {targetLabel ?? undefined}
+          {selectedTargetLabel ?? undefined}
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
@@ -137,5 +143,24 @@ export function SlackNotificationTargetSelect({
         )}
       </SelectContent>
     </Select>
+  );
+}
+
+function getSelectedTargetLabel({
+  isDm,
+  targetId,
+  targetLabel,
+  privateTargets,
+}: {
+  isDm: boolean;
+  targetId: string | null;
+  targetLabel: string | null;
+  privateTargets: Array<{ id: string; name: string }>;
+}) {
+  if (isDm) return "Direct message";
+  if (!targetId) return targetLabel;
+
+  return (
+    privateTargets.find((target) => target.id === targetId)?.name ?? targetLabel
   );
 }
