@@ -29,12 +29,19 @@ export async function createMobileReviewSession(input: {
   const rateLimitKey = getRateLimitKey(input.ipAddress, input.userAgent);
   await assertWithinRateLimit(rateLimitKey);
 
-  if (!codesMatch(input.code, env.APP_REVIEW_DEMO_CODE!)) {
+  const reviewDemoCode = env.APP_REVIEW_DEMO_CODE?.trim();
+  const reviewDemoEmail = env.APP_REVIEW_DEMO_EMAIL?.trim().toLowerCase();
+
+  if (!reviewDemoCode || !reviewDemoEmail) {
+    throw new SafeError("Review access is unavailable");
+  }
+
+  if (!codesMatch(input.code, reviewDemoCode)) {
     throw new SafeError("Invalid review access code", 401);
   }
 
   const user = await prisma.user.findUnique({
-    where: { email: env.APP_REVIEW_DEMO_EMAIL!.trim().toLowerCase() },
+    where: { email: reviewDemoEmail },
     select: {
       email: true,
       id: true,
