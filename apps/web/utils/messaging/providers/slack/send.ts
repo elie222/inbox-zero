@@ -1,5 +1,6 @@
 import type { KnownBlock, Block } from "@slack/types";
 import type { WebClient } from "@slack/web-api";
+import { MessagingRouteTargetType } from "@/generated/prisma/enums";
 import { createSlackClient } from "./client";
 import {
   buildMeetingBriefingBlocks,
@@ -84,12 +85,16 @@ export async function sendDocumentFiledToSlack({
   filename,
   folderPath,
   driveProvider,
+  senderEmail,
+  fileId,
 }: SlackDocumentFiledParams): Promise<void> {
   const client = createSlackClient(accessToken);
   const blocks = buildDocumentFiledBlocks({
     filename,
     folderPath,
     driveProvider,
+    senderEmail,
+    fileId,
   });
 
   await postMessageWithJoin(client, channelId, {
@@ -108,9 +113,10 @@ export async function sendDocumentAskToSlack({
   channelId,
   filename,
   reasoning,
+  senderEmail,
 }: SlackDocumentAskParams): Promise<void> {
   const client = createSlackClient(accessToken);
-  const blocks = buildDocumentAskBlocks({ filename, reasoning });
+  const blocks = buildDocumentAskBlocks({ filename, reasoning, senderEmail });
 
   await postMessageWithJoin(client, channelId, {
     blocks,
@@ -148,6 +154,32 @@ export async function resolveSlackDestination({
   }
 
   return null;
+}
+
+export async function resolveSlackRouteDestination({
+  accessToken,
+  route,
+}: {
+  accessToken: string;
+  route:
+    | {
+        targetType: MessagingRouteTargetType;
+        targetId: string;
+      }
+    | null
+    | undefined;
+}): Promise<string | null> {
+  if (!route) return null;
+
+  if (route.targetType === MessagingRouteTargetType.CHANNEL) {
+    return route.targetId;
+  }
+
+  const client = createSlackClient(accessToken);
+  const response = await client.conversations.open({
+    users: route.targetId,
+  });
+  return response.channel?.id ?? null;
 }
 
 export function formatSlackAppMention(botUserId: string | null | undefined) {

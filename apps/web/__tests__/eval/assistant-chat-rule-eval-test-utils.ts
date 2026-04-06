@@ -17,6 +17,11 @@ type RuleGroupItem = {
 };
 
 type RuleRow = ReturnType<typeof buildDefaultSystemRuleRows>[number];
+type RuleMutationMocks = {
+  mockCreateRule: AnyMock;
+  mockPartialUpdateRule: AnyMock;
+  mockUpdateRuleActions: AnyMock;
+};
 
 export function buildDefaultSystemRuleRows(updatedAt: Date) {
   return SYSTEM_RULE_ORDER.map((systemType) => {
@@ -120,7 +125,12 @@ export function configureRuleEvalPrisma({
     const matchedRule = defaultRuleRowsByName.get(ruleName);
     if (!matchedRule) return null;
 
-    return matchedRule;
+    return {
+      ...matchedRule,
+      emailAccount: {
+        rulesRevision: 1,
+      },
+    };
   });
 }
 
@@ -136,6 +146,10 @@ export function configureRuleEvalProvider({
   const labels = buildDefaultRuleLabels(ruleRows);
   const provider = {
     getMessagesWithPagination: vi.fn().mockResolvedValue({
+      messages: [],
+      nextPageToken: undefined,
+    }),
+    searchMessages: vi.fn().mockResolvedValue({
       messages: [],
       nextPageToken: undefined,
     }),
@@ -175,6 +189,24 @@ export function senderListHasValue(senderList: string, expectedSender: string) {
   return splitSenderValues(senderList).includes(
     normalizeSender(expectedSender),
   );
+}
+
+export async function buildRuleModuleMutationMock({
+  importOriginal,
+  mockCreateRule,
+  mockPartialUpdateRule,
+  mockUpdateRuleActions,
+}: RuleMutationMocks & {
+  importOriginal: () => Promise<typeof import("@/utils/rule/rule")>;
+}) {
+  const actual = await importOriginal();
+
+  return {
+    ...actual,
+    createRule: mockCreateRule,
+    partialUpdateRule: mockPartialUpdateRule,
+    updateRuleActions: mockUpdateRuleActions,
+  };
 }
 
 function normalizeSender(value: string) {

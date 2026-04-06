@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  MessagingRoutePurpose,
+  MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
+import {
   createMessagingLinkCodeAction,
   toggleRuleChannelAction,
-  updateChannelFeaturesAction,
+  updateMessagingFeatureRouteAction,
 } from "@/utils/actions/messaging-channels";
 
 vi.mock("server-only", () => ({}));
@@ -129,7 +133,7 @@ describe("createMessagingLinkCodeAction", () => {
   });
 });
 
-describe("updateChannelFeaturesAction", () => {
+describe("updateMessagingFeatureRouteAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -148,20 +152,32 @@ describe("updateChannelFeaturesAction", () => {
       emailAccountId: "email-account-1",
       provider: "TELEGRAM",
       isConnected: true,
-      teamId: "telegram-chat-1",
-      providerUserId: null,
-      channelId: null,
+      routes: [
+        {
+          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+          targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+          targetId: "telegram-chat-1",
+        },
+      ],
     } as any);
 
-    const result = await updateChannelFeaturesAction("email-account-1" as any, {
-      channelId: "channel-1",
-      sendMeetingBriefs: true,
-    });
+    const result = await updateMessagingFeatureRouteAction(
+      "email-account-1" as any,
+      {
+        channelId: "channel-1",
+        purpose: MessagingRoutePurpose.MEETING_BRIEFS,
+        enabled: true,
+      },
+    );
 
     expect(result?.serverError).toBeUndefined();
-    expect(prisma.messagingChannel.update).toHaveBeenCalledWith({
-      where: { id: "channel-1" },
-      data: { sendMeetingBriefs: true },
+    expect(prisma.messagingRoute.create).toHaveBeenCalledWith({
+      data: {
+        messagingChannelId: "channel-1",
+        purpose: MessagingRoutePurpose.MEETING_BRIEFS,
+        targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+        targetId: "telegram-chat-1",
+      },
     });
   });
 
@@ -171,15 +187,17 @@ describe("updateChannelFeaturesAction", () => {
       emailAccountId: "email-account-1",
       provider: "TEAMS",
       isConnected: true,
-      teamId: "teams-thread-1",
-      providerUserId: null,
-      channelId: null,
+      routes: [],
     } as any);
 
-    const result = await updateChannelFeaturesAction("email-account-1" as any, {
-      channelId: "channel-1",
-      sendMeetingBriefs: true,
-    });
+    const result = await updateMessagingFeatureRouteAction(
+      "email-account-1" as any,
+      {
+        channelId: "channel-1",
+        purpose: MessagingRoutePurpose.MEETING_BRIEFS,
+        enabled: true,
+      },
+    );
 
     expect(result?.serverError).toBe(
       "Please select a target channel before enabling features",
@@ -204,14 +222,19 @@ describe("toggleRuleChannelAction", () => {
   it("allows Telegram notifications when the DM chat id is present", async () => {
     prisma.rule.findUnique.mockResolvedValue({
       emailAccountId: "email-account-1",
+      actions: [],
     } as any);
     prisma.messagingChannel.findUnique.mockResolvedValue({
       emailAccountId: "email-account-1",
       provider: "TELEGRAM",
       isConnected: true,
-      teamId: "telegram-chat-1",
-      providerUserId: null,
-      channelId: null,
+      routes: [
+        {
+          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+          targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+          targetId: "telegram-chat-1",
+        },
+      ],
     } as any);
 
     const result = await toggleRuleChannelAction("email-account-1" as any, {
@@ -230,7 +253,83 @@ describe("toggleRuleChannelAction", () => {
     });
     expect(prisma.action.create).toHaveBeenCalledWith({
       data: {
+        emailAccountId: "email-account-1",
+        messagingChannelEmailAccountId: "email-account-1",
         type: "NOTIFY_MESSAGING_CHANNEL",
+        ruleId: "rule-1",
+        messagingChannelId: "channel-1",
+      },
+    });
+  });
+
+  it("falls back to NOTIFY when the client requests DRAFT but the rule has no DRAFT_EMAIL action", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-1",
+      actions: [],
+    } as any);
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-1",
+      provider: "SLACK",
+      isConnected: true,
+      routes: [
+        {
+          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+          targetType: MessagingRouteTargetType.CHANNEL,
+          targetId: "C123",
+        },
+      ],
+    } as any);
+
+    const result = await toggleRuleChannelAction("email-account-1" as any, {
+      ruleId: "rule-1",
+      messagingChannelId: "channel-1",
+      enabled: true,
+      actionType: "DRAFT_MESSAGING_CHANNEL",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.action.create).toHaveBeenCalledWith({
+      data: {
+        emailAccountId: "email-account-1",
+        messagingChannelEmailAccountId: "email-account-1",
+        type: "NOTIFY_MESSAGING_CHANNEL",
+        ruleId: "rule-1",
+        messagingChannelId: "channel-1",
+      },
+    });
+  });
+
+  it("creates DRAFT_MESSAGING_CHANNEL when the rule has a DRAFT_EMAIL action", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-1",
+      actions: [{ id: "draft-action-1" }],
+    } as any);
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-1",
+      provider: "SLACK",
+      isConnected: true,
+      routes: [
+        {
+          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+          targetType: MessagingRouteTargetType.CHANNEL,
+          targetId: "C123",
+        },
+      ],
+    } as any);
+
+    const result = await toggleRuleChannelAction("email-account-1" as any, {
+      ruleId: "rule-1",
+      messagingChannelId: "channel-1",
+      enabled: true,
+      actionType: "DRAFT_MESSAGING_CHANNEL",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.action.create).toHaveBeenCalledWith({
+      data: {
+        emailAccountId: "email-account-1",
+        messagingChannelEmailAccountId: "email-account-1",
+        type: "DRAFT_MESSAGING_CHANNEL",
         ruleId: "rule-1",
         messagingChannelId: "channel-1",
       },

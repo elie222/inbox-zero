@@ -192,6 +192,7 @@ model EmailAccount {
   digests          Digest[]
   scheduledActions ScheduledAction[]
   responseTimes    ResponseTime[]
+  actions          Action[]
 
   members             Member[]
   invitations         Invitation[]
@@ -201,9 +202,9 @@ model EmailAccount {
   meetingBriefings    MeetingBriefing[]
   driveConnections    DriveConnection[]
   messagingChannels   MessagingChannel[]
-  documentFilings       DocumentFiling[]
-  filingFolders         FilingFolder[]
-  apiKeys               ApiKey[]
+  documentFilings    DocumentFiling[]
+  filingFolders      FilingFolder[]
+  apiKeys            ApiKey[]
   classificationFeedback ClassificationFeedback[]
 
   @@index([userId])
@@ -471,6 +472,7 @@ model Rule {
 
   history RuleHistory[]
 
+  @@unique([id, emailAccountId])
   @@unique([name, emailAccountId])
   @@unique([emailAccountId, systemType])
 }
@@ -481,9 +483,14 @@ model Action {
   updatedAt DateTime   @updatedAt
   type      ActionType
   ruleId    String
-  rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  emailAccountId String
+  rule      Rule       @relation(fields: [ruleId, emailAccountId], references: [id, emailAccountId], onDelete: Cascade)
+  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   messagingChannelId String?
-  messagingChannel   MessagingChannel? @relation(fields: [messagingChannelId], references: [id], onDelete: SetNull)
+  // Keep the channel owner separate so channel deletes can null the relation
+  // without nulling Action.emailAccountId.
+  messagingChannelEmailAccountId String?
+  messagingChannel   MessagingChannel? @relation(fields: [messagingChannelId, messagingChannelEmailAccountId], references: [id, emailAccountId], onDelete: SetNull)
 
   label             String? // labelName - labelId is the source of truth, and we use it when set
   labelId           String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
@@ -499,6 +506,8 @@ model Action {
   staticAttachments Json? // AttachmentSourceInput[] — explicit files to attach for email actions
 
   @@index([ruleId])
+  @@index([emailAccountId])
+  @@index([messagingChannelId, messagingChannelEmailAccountId])
 }
 
 model RuleHistory {
@@ -1137,16 +1146,9 @@ model MessagingChannel {
   refreshToken String?
   expiresAt    DateTime?
 
-  // Target channel for notifications (meeting briefs, alerts)
-  channelId   String?
-  channelName String?
-
-  // Feature toggles
-  sendMeetingBriefs   Boolean @default(false)
-  sendDocumentFilings Boolean @default(false)
-
   emailAccountId String
-  emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  routes         MessagingRoute[]
   automationJobs AutomationJob[]
   actions        Action[]
   executedActions ExecutedAction[]
@@ -1155,6 +1157,25 @@ model MessagingChannel {
   @@unique([id, emailAccountId])
   @@index([emailAccountId])
   @@index([provider, teamId])
+}
+
+model MessagingRoute {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Which Inbox Zero feature this route is for.
+  purpose MessagingRoutePurpose
+
+  // Whether the provider-native destination is a direct message or channel.
+  targetType MessagingRouteTargetType
+  // Provider-native destination ID, for example a Slack channel ID.
+  targetId   String
+
+  messagingChannelId String
+  messagingChannel   MessagingChannel @relation(fields: [messagingChannelId], references: [id], onDelete: Cascade)
+
+  @@unique([messagingChannelId, purpose])
 }
 
 model AutomationJob {
@@ -1632,6 +1653,19 @@ enum MessagingProvider {
   SLACK
   TEAMS
   TELEGRAM
+}
+
+enum MessagingRoutePurpose {
+  RULE_NOTIFICATIONS
+  MEETING_BRIEFS
+  DOCUMENT_FILINGS
+  // DIGESTS
+  // FOLLOW_UPS
+}
+
+enum MessagingRouteTargetType {
+  CHANNEL
+  DIRECT_MESSAGE
 }
 
 enum AutomationJobRunStatus {

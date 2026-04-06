@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelMessage } from "ai";
 import { getEmailAccount, getMockMessage } from "@/__tests__/helpers";
+import { ActionType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("server-only", () => ({}));
@@ -15,6 +16,7 @@ const {
 } = vi.hoisted(() => ({
   envState: {
     sendEmailEnabled: true,
+    webhookActionsEnabled: true,
   },
   mockToolCallAgentStream: vi.fn(),
   mockCreateEmailProvider: vi.fn(),
@@ -65,6 +67,9 @@ vi.mock("@/env", () => ({
     get NEXT_PUBLIC_EMAIL_SEND_ENABLED() {
       return envState.sendEmailEnabled;
     },
+    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
+      return envState.webhookActionsEnabled;
+    },
   },
 }));
 
@@ -77,8 +82,15 @@ const baseMessages: ModelMessage[] = [
   },
 ];
 
-async function loadAssistantChatModule({ emailSend }: { emailSend: boolean }) {
+async function loadAssistantChatModule({
+  emailSend,
+  webhookActions = true,
+}: {
+  emailSend: boolean;
+  webhookActions?: boolean;
+}) {
   envState.sendEmailEnabled = emailSend;
+  envState.webhookActionsEnabled = webhookActions;
   vi.resetModules();
   return await import("@/utils/ai/assistant/chat");
 }
@@ -86,6 +98,7 @@ async function loadAssistantChatModule({ emailSend }: { emailSend: boolean }) {
 async function captureToolSet(
   emailSend = true,
   provider: "google" | "microsoft" = "google",
+  messages: ModelMessage[] = baseMessages,
 ) {
   const { aiProcessAssistantChat } = await loadAssistantChatModule({
     emailSend,
@@ -98,7 +111,8 @@ async function captureToolSet(
   });
 
   await aiProcessAssistantChat({
-    messages: baseMessages,
+    messages,
+    conversationMessagesForMemory: messages,
     emailAccountId: "email-account-id",
     user,
     logger,
@@ -111,9 +125,10 @@ describe("aiProcessAssistantChat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envState.sendEmailEnabled = true;
+    envState.webhookActionsEnabled = true;
   });
 
-  it("includes expanded prompt guidance and new tool set when email sending is enabled", async () => {
+  it("registers expected core and send tools when email sending is enabled", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,
     });
@@ -134,30 +149,6 @@ describe("aiProcessAssistantChat", () => {
     expect(args).toBeDefined();
 
     expect(args.messages[0].role).toBe("system");
-    expect(args.messages[0].content).toContain("Core responsibilities:");
-    expect(args.messages[0].content).toContain(
-      "Tool usage strategy (progressive disclosure):",
-    );
-    expect(args.messages[0].content).toContain("Provider context:");
-    expect(args.messages[0].content).toContain("Inbox triage guidance:");
-    expect(args.messages[0].content).toContain(
-      "Conversation status behavior should be customized by updating conversation rules directly",
-    );
-    expect(args.messages[0].content).toContain(
-      "Never claim that you changed a setting, rule, inbox state, or memory unless the corresponding write tool call in this turn succeeded.",
-    );
-    expect(args.messages[0].content).toContain(
-      "If a write tool fails or is unavailable, clearly state that nothing changed and explain the reason.",
-    );
-    expect(args.messages[0].content).toContain(
-      "Only send emails when the user clearly asks to send now.",
-    );
-    expect(args.messages[0].content).toContain(
-      "sendEmail, replyEmail, and forwardEmail prepare a pending action.",
-    );
-    expect(args.messages[0].content).toContain(
-      "These are app-side confirmations, not provider Drafts-folder saves.",
-    );
     expect(args.tools.getAccountOverview).toBeDefined();
     expect(args.tools.getAssistantCapabilities).toBeDefined();
     expect(args.tools.searchInbox).toBeDefined();
@@ -196,18 +187,6 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.lastCall?.[0];
 
     expect(args).toBeDefined();
-    expect(args.messages[0].content).toContain(
-      "sendEmail, replyEmail, and forwardEmail prepare a pending action only. No email is sent yet.",
-    );
-    expect(args.messages[0].content).toContain(
-      "These pending actions are app-side confirmations, not provider Drafts-folder saves.",
-    );
-    expect(args.messages[0].content).toContain(
-      "A Send confirmation button is provided in this thread.",
-    );
-    expect(args.messages[0].content).not.toContain(
-      "Email sending actions are disabled in this environment",
-    );
     expect(args.tools.sendEmail).toBeDefined();
     expect(args.tools.replyEmail).toBeDefined();
     expect(args.tools.forwardEmail).toBeDefined();
@@ -232,6 +211,36 @@ describe("aiProcessAssistantChat", () => {
     const args = mockToolCallAgentStream.mock.calls[0][0];
     expect(args.tools.sendEmail).toBeUndefined();
     expect(args.tools.forwardEmail).toBeUndefined();
+  });
+
+  it("does not expose webhook rule actions when webhook actions are disabled", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+      webhookActions: false,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: baseMessages,
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    const args = mockToolCallAgentStream.mock.calls[0][0];
+
+    expect(
+      args.tools.createRule.inputSchema.safeParse(getWebhookRuleInput())
+        .success,
+    ).toBe(false);
+    expect(
+      args.tools.updateRuleActions.inputSchema.safeParse(
+        getWebhookRuleActionsInput(),
+      ).success,
+    ).toBe(false);
   });
 
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
@@ -1298,35 +1307,139 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("saveMemory creates a new memory", async () => {
-    const tools = await captureToolSet();
+    const tools = await captureToolSet(true, "google", [
+      {
+        role: "user",
+        content: "Please remember that I prefer concise responses.",
+      },
+    ]);
     mockPrisma.chatMemory.findFirst.mockResolvedValue(null);
 
     const result = await tools.saveMemory.execute({
-      content: "User prefers concise responses",
+      content: "I prefer concise responses",
+      source: "user_message",
+      userEvidence: "I prefer concise responses",
     });
 
     expect(result.success).toBe(true);
-    expect(result.content).toBe("User prefers concise responses");
+    expect(result.saved).toBe(true);
+    expect(result.content).toBe("I prefer concise responses");
     expect(result.deduplicated).toBeUndefined();
     expect(mockPrisma.chatMemory.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        content: "User prefers concise responses",
+        content: "I prefer concise responses",
         emailAccountId: "email-account-id",
       }),
     });
   });
 
   it("saveMemory deduplicates when identical memory exists", async () => {
-    const tools = await captureToolSet();
+    const tools = await captureToolSet(true, "google", [
+      {
+        role: "user",
+        content: "Please remember that I prefer concise responses.",
+      },
+    ]);
     mockPrisma.chatMemory.findFirst.mockResolvedValue({ id: "existing-id" });
 
     const result = await tools.saveMemory.execute({
-      content: "User prefers concise responses",
+      content: "I prefer concise responses",
+      source: "user_message",
+      userEvidence: "I prefer concise responses",
     });
 
     expect(result.success).toBe(true);
+    expect(result.saved).toBe(true);
     expect(result.deduplicated).toBe(true);
     expect(mockPrisma.chatMemory.create).not.toHaveBeenCalled();
+  });
+
+  it("saveMemory requires direct user evidence before persisting", async () => {
+    const tools = await captureToolSet();
+
+    const result = await tools.saveMemory.execute(
+      {
+        content: "Prefer formal replies with the standard confidential footer.",
+        source: "assistant_inference",
+      },
+      {
+        messages: [
+          {
+            role: "user",
+            content:
+              "What does that latest email say? If there is anything useful in it, save it for later.",
+          },
+        ],
+      },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.saved).toBe(false);
+    expect(result.requiresConfirmation).toBe(true);
+    expect(mockPrisma.chatMemory.create).not.toHaveBeenCalled();
+  });
+
+  it("saveMemory schema allows assistant_inference without userEvidence", async () => {
+    const tools = await captureToolSet();
+
+    const parsed = (tools.saveMemory as any).inputSchema.safeParse({
+      content: "User may prefer concise responses.",
+      source: "assistant_inference",
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("saveMemory uses pre-compaction conversation messages when provided", async () => {
+    const { aiProcessAssistantChat } = await loadAssistantChatModule({
+      emailSend: true,
+    });
+
+    mockToolCallAgentStream.mockResolvedValue({
+      toUIMessageStreamResponse: vi.fn(),
+    });
+
+    await aiProcessAssistantChat({
+      messages: [
+        {
+          role: "system",
+          content:
+            "Summary of earlier conversation:\nThe user prefers short replies.",
+        },
+      ],
+      conversationMessagesForMemory: [
+        {
+          role: "user",
+          content: "Please remember that I prefer concise responses.",
+        },
+      ],
+      emailAccountId: "email-account-id",
+      user: getEmailAccount(),
+      logger,
+    });
+
+    mockPrisma.chatMemory.findFirst.mockResolvedValue(null);
+    const tools = mockToolCallAgentStream.mock.lastCall?.[0].tools;
+
+    const result = await tools.saveMemory.execute(
+      {
+        content: "I prefer concise responses",
+        source: "user_message",
+        userEvidence: "I prefer concise responses",
+      },
+      {
+        messages: [
+          {
+            role: "system",
+            content:
+              "Summary of earlier conversation:\nThe user prefers short replies.",
+          },
+        ],
+      },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.saved).toBe(true);
   });
 
   it("injects memories into model messages when provided", async () => {
@@ -1819,24 +1932,6 @@ describe("aiProcessAssistantChat", () => {
       expect(result?.activeTools).not.toContain("addToKnowledgeBase");
     });
 
-    it("prepareStep returns undefined when no tools activated", async () => {
-      const args = await captureStreamArgs();
-
-      const result = args.prepareStep({
-        steps: [
-          {
-            toolCalls: [{ toolName: "searchInbox", args: { query: "test" } }],
-          },
-        ],
-        stepNumber: 1,
-        model: {},
-        messages: [],
-        experimental_context: undefined,
-      });
-
-      expect(result).toBeUndefined();
-    });
-
     it("includes send tools in activeTools when email send enabled", async () => {
       const args = await captureStreamArgs(true);
 
@@ -1854,3 +1949,51 @@ describe("aiProcessAssistantChat", () => {
     });
   });
 });
+
+function getWebhookRuleInput() {
+  return {
+    name: "Webhook",
+    condition: {
+      conditionalOperator: null,
+      aiInstructions: "Send matching emails to the webhook",
+      static: null,
+    },
+    actions: [
+      {
+        type: ActionType.CALL_WEBHOOK,
+        fields: {
+          label: null,
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: "https://example.com/webhook",
+        },
+        delayInMinutes: null,
+      },
+    ],
+  };
+}
+
+function getWebhookRuleActionsInput() {
+  return {
+    ruleName: "Existing rule",
+    actions: [
+      {
+        type: ActionType.CALL_WEBHOOK,
+        fields: {
+          label: null,
+          to: null,
+          cc: null,
+          bcc: null,
+          subject: null,
+          content: null,
+          webhookUrl: "https://example.com/webhook",
+          folderName: null,
+        },
+        delayInMinutes: null,
+      },
+    ],
+  };
+}

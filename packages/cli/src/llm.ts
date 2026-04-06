@@ -39,7 +39,7 @@ const DEFAULT_MODELS: Record<string, { default: string; economy: string }> = {
     default: "claude-sonnet-4-6",
     economy: "claude-haiku-4-5-20251001",
   },
-  openai: { default: "gpt-5.1", economy: "gpt-5-mini" },
+  openai: { default: "gpt-5.4-mini", economy: "gpt-5.4-nano" },
   google: { default: "gemini-3-flash", economy: "gemini-2-5-flash" },
   openrouter: {
     default: "anthropic/claude-sonnet-4.6",

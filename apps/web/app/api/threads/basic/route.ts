@@ -24,7 +24,9 @@ export const GET = withEmailProvider("threads/basic", async (request) => {
       },
     });
 
-    return NextResponse.json({ threads });
+    return NextResponse.json({
+      threads,
+    });
   } catch (error) {
     request.logger.error("Error fetching basic threads", {
       error,

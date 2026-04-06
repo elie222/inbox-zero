@@ -51,6 +51,7 @@ import { BRAND_NAME } from "@/utils/branding";
 import { ActionAttachmentsField } from "@/app/(app)/[emailAccountId]/assistant/ActionAttachmentsField";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
+import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import { prefixPath } from "@/utils/path";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
@@ -643,10 +644,9 @@ function ActionCard({
     />
   ) : null;
 
-  const connectedMessagingChannels = messagingChannels.filter(
-    (channel) => channel.isConnected && channel.hasSendDestination,
-  );
-  const canConnectSlack = availableMessagingProviders.includes("SLACK");
+  const connectedMessagingChannels =
+    getConnectedRuleNotificationChannels(messagingChannels);
+  const canConnectMessagingApp = availableMessagingProviders.length > 0;
 
   const deliveryField = isDraftReplyActionType(rawActionType) ? (
     <DraftReplyDeliveryField
@@ -719,21 +719,23 @@ function ActionCard({
   const handleDraftReplyDeliveryChange = useCallback(
     ({
       includeEmail,
-      includeSlack,
+      includeMessaging,
+      messagingChannelId,
     }: {
       includeEmail: boolean;
-      includeSlack: boolean;
+      includeMessaging: boolean;
+      messagingChannelId: string | null;
     }) => {
-      if (!includeEmail && !includeSlack) return;
+      if (!includeEmail && !includeMessaging) return;
 
       updateDraftReplyDelivery({
         delivery: {
           delivery: includeEmail
-            ? includeSlack
-              ? "EMAIL_AND_SLACK"
+            ? includeMessaging
+              ? "EMAIL_AND_MESSAGING"
               : "EMAIL"
-            : "SLACK",
-          messagingChannelId: selectedMessagingChannelId,
+            : "MESSAGING",
+          messagingChannelId,
         },
         index,
         draftMessagingIndex,
@@ -918,15 +920,16 @@ function ActionCard({
           </DialogHeader>
           <div className="space-y-4">
             {deliveryField}
-            {connectedMessagingChannels.length === 0 && canConnectSlack ? (
+            {connectedMessagingChannels.length === 0 &&
+            canConnectMessagingApp ? (
               <div className="rounded-md border bg-muted/40 p-3 space-y-3">
                 <MutedText>
-                  Connect Slack in Settings to deliver outside email.
+                  Connect Slack, Telegram, or Teams to deliver outside email.
                 </MutedText>
                 <div className="flex flex-wrap gap-2">
                   <Button asChild size="sm" variant="outline">
-                    <Link href={prefixPath(emailAccountId, "/settings")}>
-                      Connect Slack
+                    <Link href={prefixPath(emailAccountId, "/channels")}>
+                      Connect app
                     </Link>
                   </Button>
                 </div>
@@ -1024,15 +1027,24 @@ function DraftReplyReviewChannelsSection({
   selectedChannel?: MessagingChannelOption;
   connectedChannels: MessagingChannelOption[];
   errorMessage?: string;
-  onChange: (value: { includeEmail: boolean; includeSlack: boolean }) => void;
+  onChange: (value: {
+    includeEmail: boolean;
+    includeMessaging: boolean;
+    messagingChannelId: string | null;
+  }) => void;
 }) {
-  const hasConnectedSlackDestination =
-    connectedChannels.length > 0 || !!selectedChannel?.isConnected;
-  const hasSlackDestination = hasConnectedSlackDestination || !!selectedChannel;
-  const includeEmail = delivery !== "SLACK";
-  const includeSlack = delivery !== "EMAIL";
-  const canToggleEmail = includeSlack;
-  const canToggleSlack = hasConnectedSlackDestination && includeEmail;
+  const availableChannels = [...connectedChannels];
+  if (
+    selectedChannel &&
+    !availableChannels.some((channel) => channel.id === selectedChannel.id)
+  ) {
+    availableChannels.push(selectedChannel);
+  }
+
+  const includeEmail = delivery !== "MESSAGING";
+  const includeMessaging = delivery !== "EMAIL";
+  const canToggleEmail = includeMessaging;
+  const hasConnectedMessagingDestination = connectedChannels.length > 0;
 
   return (
     <div className="space-y-4">
@@ -1053,7 +1065,8 @@ function DraftReplyReviewChannelsSection({
             onCheckedChange={(checked) =>
               onChange({
                 includeEmail: checked === true,
-                includeSlack,
+                includeMessaging,
+                messagingChannelId: selectedChannel?.id ?? null,
               })
             }
             aria-label="Toggle email draft delivery"
@@ -1067,32 +1080,44 @@ function DraftReplyReviewChannelsSection({
           </div>
         </div>
 
-        {hasSlackDestination ? (
-          <div
-            className={cn(
-              "flex items-center gap-2 text-sm",
-              !canToggleSlack && "opacity-60",
-            )}
-          >
-            <Checkbox
-              checked={includeSlack}
-              disabled={!canToggleSlack}
-              onCheckedChange={(checked) =>
-                onChange({
-                  includeEmail,
-                  includeSlack: checked === true,
-                })
-              }
-              aria-label="Toggle Slack draft delivery"
-            />
-            <span className="font-medium text-foreground">
-              {formatDraftReplyReviewChannelLabel(selectedChannel)}
-            </span>
-          </div>
-        ) : null}
+        {availableChannels.map((channel) => {
+          const channelLabel = formatDraftReplyReviewChannelLabel(channel);
+          const isSelectedChannel =
+            includeMessaging && selectedChannel?.id === channel.id;
+          const canToggleChannel = includeEmail || !isSelectedChannel;
+
+          return (
+            <div
+              key={channel.id}
+              className={cn(
+                "flex items-center gap-2 text-sm",
+                !canToggleChannel && "opacity-60",
+              )}
+            >
+              <Checkbox
+                checked={isSelectedChannel}
+                disabled={!canToggleChannel}
+                onCheckedChange={(checked) =>
+                  onChange({
+                    includeEmail,
+                    includeMessaging: checked === true,
+                    messagingChannelId:
+                      checked === true
+                        ? channel.id
+                        : (selectedChannel?.id ?? null),
+                  })
+                }
+                aria-label={`Toggle ${channelLabel} draft delivery`}
+              />
+              <span className="font-medium text-foreground">
+                {channelLabel}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
-      {!hasConnectedSlackDestination ? (
+      {!hasConnectedMessagingDestination ? (
         <Button asChild size="sm" variant="outline" className="w-fit">
           <Link href={prefixPath(emailAccountId, "/channels")}>
             Connect app
@@ -1181,22 +1206,32 @@ function MessagingChannelField({
 
 function formatMessagingDestinationLabel(channel: MessagingChannelOption) {
   const provider = getMessagingProviderName(channel.provider);
+  const destination = channel.destinations.ruleNotifications;
 
-  if (channel.isDm) return `${provider} DM`;
-  if (channel.channelName && channel.teamName) {
-    return `#${channel.channelName} (${channel.teamName})`;
+  if (destination.isDm) return `${provider} DM`;
+  if (destination.targetLabel && channel.teamName) {
+    return `${destination.targetLabel} (${channel.teamName})`;
   }
-  if (channel.channelName) return `#${channel.channelName}`;
+  if (destination.targetLabel) {
+    return provider === "Slack"
+      ? `${destination.targetLabel} (Slack workspace)`
+      : destination.targetLabel;
+  }
   if (channel.teamName) return `${provider} (${channel.teamName})`;
 
   return provider === "Slack" ? "Slack workspace" : provider;
 }
 
 function formatDraftReplyReviewChannelLabel(channel?: MessagingChannelOption) {
-  if (!channel) return "Slack";
+  if (!channel) return "Chat app";
 
   const destination = formatMessagingDestinationLabel(channel);
-  const label = channel.isDm ? destination : `Slack · ${destination}`;
+  const provider = getMessagingProviderName(channel.provider);
+  const label =
+    channel.destinations.ruleNotifications.isDm ||
+    destination.startsWith(provider)
+      ? destination
+      : `${provider} · ${destination}`;
   return channel.isConnected ? label : `${label} (Disconnected)`;
 }
 
@@ -1273,7 +1308,7 @@ function updateDraftReplyDelivery({
     return;
   }
 
-  if (delivery.delivery === "SLACK") {
+  if (delivery.delivery === "MESSAGING") {
     setValue(
       `actions.${index}`,
       buildDraftMessagingAction({
@@ -1328,12 +1363,11 @@ function formatDraftReplyDeliverySummary({
 }) {
   if (delivery === "EMAIL") return "Email";
   if (!selectedChannel) {
-    return delivery === "SLACK" ? "Slack" : "Email + Slack";
+    return delivery === "MESSAGING" ? "Chat app" : "Email + chat app";
   }
 
-  return delivery === "SLACK"
-    ? `Slack · ${formatMessagingDestinationLabel(selectedChannel)}`
-    : `Email + Slack · ${formatMessagingDestinationLabel(selectedChannel)}`;
+  const destination = formatDraftReplyReviewChannelLabel(selectedChannel);
+  return delivery === "MESSAGING" ? destination : `Email + ${destination}`;
 }
 
 function buildDraftReplyDeliveryOptions({
@@ -1369,17 +1403,17 @@ function buildDraftReplyDeliveryOptions({
   }
 
   for (const channel of channels) {
-    const destination = formatMessagingDestinationLabel(channel);
+    const destination = formatDraftReplyReviewChannelLabel(channel);
     options.push({
-      value: `slack:${channel.id}`,
-      label: `Slack · ${destination}`,
-      delivery: "SLACK",
+      value: `messaging:${channel.id}`,
+      label: destination,
+      delivery: "MESSAGING",
       messagingChannelId: channel.id,
     });
     options.push({
-      value: `email+slack:${channel.id}`,
-      label: `Email + Slack · ${destination}`,
-      delivery: "EMAIL_AND_SLACK",
+      value: `email+messaging:${channel.id}`,
+      label: `Email + ${destination}`,
+      delivery: "EMAIL_AND_MESSAGING",
       messagingChannelId: channel.id,
     });
   }
@@ -1396,7 +1430,8 @@ function parseDraftReplyDeliverySelection(
 
   const [delivery, messagingChannelId] = value.split(":");
   return {
-    delivery: delivery === "email+slack" ? "EMAIL_AND_SLACK" : "SLACK",
+    delivery:
+      delivery === "email+messaging" ? "EMAIL_AND_MESSAGING" : "MESSAGING",
     messagingChannelId: messagingChannelId || null,
   };
 }

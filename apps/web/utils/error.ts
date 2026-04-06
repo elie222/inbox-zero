@@ -165,7 +165,7 @@ export function isGmailQuotaExceededError(error: unknown): boolean {
   return (error as any)?.errors?.[0]?.reason === "quotaExceeded";
 }
 
-export function isIncorrectAPIKeyError(error: APICallError): boolean {
+function isIncorrectAPIKeyError(error: APICallError): boolean {
   return (
     error.message.includes("Incorrect API key provided") ||
     error.statusCode === 401
@@ -174,12 +174,6 @@ export function isIncorrectAPIKeyError(error: APICallError): boolean {
 
 /** @deprecated Use isIncorrectAPIKeyError */
 export const isIncorrectOpenAIAPIKeyError = isIncorrectAPIKeyError;
-
-export function isInvalidOpenAIModelError(error: APICallError): boolean {
-  return error.message.includes(
-    "does not exist or you do not have access to it",
-  );
-}
 
 export function isInvalidAIModelError(error: APICallError): boolean {
   // OpenAI: "The model `xyz` does not exist or you do not have access to it"
@@ -210,7 +204,7 @@ export function isInvalidAIModelError(error: APICallError): boolean {
   return false;
 }
 
-export function isAPIKeyDeactivatedError(error: APICallError): boolean {
+function isAPIKeyDeactivatedError(error: APICallError): boolean {
   return error.message.includes("this API key has been deactivated");
 }
 
@@ -301,10 +295,6 @@ export function isKnownOutlookError(error: unknown): boolean {
     isOutlookAccessDeniedError(error) ||
     isOutlookItemNotFoundError(error)
   );
-}
-
-export function isAICallError(error: unknown): error is APICallError {
-  return APICallError.isInstance(error);
 }
 
 // we don't want to capture these errors in Sentry

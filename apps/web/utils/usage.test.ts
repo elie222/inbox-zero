@@ -37,6 +37,28 @@ describe("calculateUsageCost", () => {
     expect(calculateUsageCost({ provider, model, usage })).toBe(expected);
   });
 
+  it("charges reasoning tokens at the output rate", () => {
+    const provider = "openrouter";
+    const model = "openai/gpt-5.1";
+    const pricing = OPENROUTER_MODEL_PRICING["gpt-5.1"];
+
+    expect(pricing).toBeDefined();
+    if (!pricing) throw new Error("Expected pricing for gpt-5.1");
+
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 200,
+      reasoningTokens: 50,
+      totalTokens: 1200,
+    };
+
+    const expected =
+      usage.inputTokens! * pricing.input +
+      (usage.outputTokens! + usage.reasoningTokens!) * pricing.output;
+
+    expect(calculateUsageCost({ provider, model, usage })).toBe(expected);
+  });
+
   it("uses fallback pricing first for non-openrouter providers", () => {
     const provider = "openai";
     const model = "gpt-4o";
@@ -244,6 +266,55 @@ describe("saveAiUsage", () => {
         email: "user@example.com",
         usage,
         cost: 0,
+      }),
+    );
+  });
+
+  it("stores provider-reported cost separately from local estimates", async () => {
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      reasoningTokens: 200,
+      totalTokens: 1400,
+    };
+
+    const estimatedCost = calculateUsageCost({
+      provider: "openrouter",
+      model: "openai/gpt-5.1",
+      usage,
+    });
+
+    await saveAiUsage({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "openrouter",
+      model: "openai/gpt-5.1",
+      usage,
+      label: "assistant-chat",
+      providerReportedCost: 1.2345,
+      providerUpstreamInferenceCost: 0.3456,
+      providerCostSource: "openrouter_usage",
+      stepCount: 4,
+      toolCallCount: 3,
+    });
+
+    expect(publishAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cost: estimatedCost,
+        estimatedCost,
+        providerReportedCost: 1.2345,
+        providerUpstreamInferenceCost: 0.3456,
+        providerCostSource: "openrouter_usage",
+        stepCount: 4,
+        toolCallCount: 3,
+      }),
+    );
+
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "user@example.com",
+        usage,
+        cost: estimatedCost,
       }),
     );
   });

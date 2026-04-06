@@ -12,7 +12,7 @@ import { aiAnalyzeLabelOptimization } from "@/utils/ai/report/analyze-label-opti
 import { aiGenerateActionableRecommendations } from "@/utils/ai/report/generate-actionable-recommendations";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountWithAi } from "@/utils/user/get";
-import { getGmailClientForEmail } from "@/utils/account";
+import { getGmailClientForEmail } from "@/utils/email-account-client";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";

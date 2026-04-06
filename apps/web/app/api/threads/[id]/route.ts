@@ -18,7 +18,12 @@ async function getThread(
     ? thread.messages
     : thread.messages.filter((msg) => !msg.labelIds?.includes("DRAFT"));
 
-  return { thread: { ...thread, messages: filteredMessages } };
+  return {
+    thread: {
+      ...thread,
+      messages: filteredMessages,
+    },
+  };
 }
 
 export const maxDuration = 30;

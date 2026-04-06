@@ -44,6 +44,24 @@ const parsedEnv = createEnv({
 
     AUTH_SECRET: z.string().optional(),
     NEXTAUTH_SECRET: z.string().optional(),
+    AUTH_ALLOWED_EMAILS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value
+          ?.split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      ),
+    AUTH_ALLOWED_EMAIL_DOMAINS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value
+          ?.split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      ),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     // Local Google emulation only; used for both OAuth and resource APIs.
@@ -189,6 +207,7 @@ const parsedEnv = createEnv({
     WHITELIST_FROM: z.string().optional(),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
+    IMAGE_PROXY_SIGNING_SECRET: z.string().min(16).optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
     IS_OAUTH_PROXY_SERVER: booleanString.optional().default(false),
     // Additional trusted origins for CORS (comma-separated, supports wildcards like https://*.vercel.app)
@@ -256,12 +275,17 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_POSTHOG_HERO_AB: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string(),
+    NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: z.string().url().optional(),
+    NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE: booleanString
+      .optional()
+      .default(false),
     NEXT_PUBLIC_BRAND_NAME: z.string().trim().min(1).default("Inbox Zero"),
     NEXT_PUBLIC_BRAND_LOGO_URL: z.string().optional(),
     NEXT_PUBLIC_BRAND_ICON_URL: z.string().optional().default("/icon.png"),
     NEXT_PUBLIC_SLACK_BOT_NAME: z.string().trim().min(1).default("Inbox Zero"),
     NEXT_PUBLIC_CONTACTS_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: booleanString.default(true),
+    NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: booleanString.optional().default(true),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
     NEXT_PUBLIC_SUPPORT_EMAIL: z
       .string()
@@ -341,12 +365,18 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
       process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,
     NEXT_PUBLIC_BASE_URL: getBaseUrl(),
+    NEXT_PUBLIC_IMAGE_PROXY_BASE_URL:
+      process.env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL,
+    NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE:
+      process.env.NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE,
     NEXT_PUBLIC_BRAND_NAME: process.env.NEXT_PUBLIC_BRAND_NAME,
     NEXT_PUBLIC_BRAND_LOGO_URL: process.env.NEXT_PUBLIC_BRAND_LOGO_URL,
     NEXT_PUBLIC_BRAND_ICON_URL: process.env.NEXT_PUBLIC_BRAND_ICON_URL,
     NEXT_PUBLIC_SLACK_BOT_NAME: process.env.NEXT_PUBLIC_SLACK_BOT_NAME,
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: process.env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
+    NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED:
+      process.env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED,
     NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS:
       process.env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,

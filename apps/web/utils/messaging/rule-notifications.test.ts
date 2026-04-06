@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  MessagingMessageStatus,
+  MessagingProvider,
+  MessagingRoutePurpose,
+  MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 
@@ -8,14 +14,24 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 
 const mockCreateEmailProvider = vi.fn();
+const mockSendAutomationMessage = vi.fn();
 
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: (...args: unknown[]) => mockCreateEmailProvider(...args),
 }));
 
+vi.mock("@/utils/automation-jobs/messaging", () => ({
+  sendAutomationMessage: (...args: unknown[]) =>
+    mockSendAutomationMessage(...args),
+}));
+
 describe("handleSlackRuleNotificationAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSendAutomationMessage.mockResolvedValue({
+      channelId: "teams-thread-1",
+      messageId: "teams-message-1",
+    });
   });
 
   it("keeps the draft preview visible after sending from Slack", async () => {
@@ -121,15 +137,225 @@ describe("handleSlackRuleNotificationAction", () => {
   });
 });
 
+describe("sendMessagingRuleNotification", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSendAutomationMessage.mockResolvedValue({
+      channelId: "teams-thread-1",
+      messageId: "teams-message-1",
+    });
+  });
+
+  it("delivers Teams notifications through the linked messaging fallback", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        content: null,
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TEAMS,
+          isConnected: true,
+          teamId: "tenant-1",
+          providerUserId: "29:teams-user",
+          accessToken: null,
+          channelId: null,
+        },
+      }) as never,
+    );
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSendAutomationMessage).toHaveBeenCalledWith({
+      channel: expect.objectContaining({
+        provider: MessagingProvider.TEAMS,
+        providerUserId: "29:teams-user",
+      }),
+      route: {
+        purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+        targetId: "29:teams-user",
+        targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+      },
+      text: expect.stringContaining(
+        "Quick actions like archive and mark read are Slack-only right now",
+      ),
+      logger: expect.anything(),
+    });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        messagingMessageId: "teams-message-1",
+        messagingMessageSentAt: expect.any(Date),
+        messagingMessageStatus: MessagingMessageStatus.SENT,
+      },
+    });
+  });
+
+  it("skips linked notifications when provider routing data is incomplete", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        content: null,
+        messagingChannel: {
+          id: "channel-1",
+          provider: MessagingProvider.TEAMS,
+          isConnected: true,
+          teamId: "tenant-1",
+          providerUserId: null,
+          accessToken: null,
+          channelId: null,
+        },
+      }) as never,
+    );
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(false);
+    expect(mockSendAutomationMessage).not.toHaveBeenCalled();
+    expect(prisma.executedAction.update).not.toHaveBeenCalled();
+  });
+
+  it("skips notifications when the messaging channel belongs to another account", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        content: null,
+        messagingChannel: {
+          id: "channel-1",
+          emailAccountId: "other-email-account-id",
+          provider: MessagingProvider.SLACK,
+          isConnected: true,
+          teamId: "team-1",
+          providerUserId: null,
+          accessToken: "token",
+          channelId: "C123",
+        },
+      }) as never,
+    );
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(false);
+    expect(prisma.executedAction.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("buildMessagingRuleNotificationText", () => {
+  it("adds a Slack-only caveat for Telegram draft fallbacks", async () => {
+    const { buildMessagingRuleNotificationText } = await import(
+      "./rule-notifications"
+    );
+
+    const text = buildMessagingRuleNotificationText({
+      actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: {
+        title: "Draft reply",
+        summary:
+          'You got an email from *Sender* about "Test".\n\nI drafted a reply for you:\n>See <https://example.com|details>.',
+      },
+      provider: MessagingProvider.TELEGRAM,
+    });
+
+    expect(text).toContain("Draft reply");
+    expect(text).toContain('You got an email from Sender about "Test".');
+    expect(text).toContain("details: https://example.com");
+    expect(text).toContain("Slack-only");
+  });
+});
+
 function getNotificationContext({
   id,
   type,
   content,
+  messagingChannel,
 }: {
   id: string;
   type: ActionType;
   content: string | null;
+  messagingChannel?: {
+    id: string;
+    emailAccountId?: string;
+    provider: MessagingProvider;
+    isConnected: boolean;
+    teamId: string | null;
+    providerUserId: string | null;
+    accessToken: string | null;
+    channelId: string | null;
+    routes?: Array<{
+      purpose: MessagingRoutePurpose;
+      targetId: string;
+      targetType: MessagingRouteTargetType;
+    }>;
+  };
 }) {
+  const defaultRoutes =
+    messagingChannel?.routes ??
+    (messagingChannel?.provider === MessagingProvider.SLACK &&
+    messagingChannel.channelId
+      ? [
+          {
+            purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            targetType: MessagingRouteTargetType.CHANNEL,
+            targetId: messagingChannel.channelId,
+          },
+        ]
+      : messagingChannel?.provider === MessagingProvider.TEAMS &&
+          messagingChannel.providerUserId
+        ? [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+              targetId: messagingChannel.providerUserId,
+            },
+          ]
+        : []);
+
   return {
     id,
     type,
@@ -159,14 +385,28 @@ function getNotificationContext({
         systemType: null,
       },
     },
-    messagingChannel: {
-      id: "channel-1",
-      provider: MessagingProvider.SLACK,
-      isConnected: true,
-      teamId: "team-1",
-      providerUserId: null,
-      accessToken: "token",
-      channelId: "C123",
-    },
+    messagingChannel: messagingChannel
+      ? {
+          emailAccountId: "email-account-1",
+          ...messagingChannel,
+          routes: defaultRoutes,
+        }
+      : {
+          id: "channel-1",
+          emailAccountId: "email-account-1",
+          provider: MessagingProvider.SLACK,
+          isConnected: true,
+          teamId: "team-1",
+          providerUserId: null,
+          accessToken: "token",
+          channelId: "C123",
+          routes: [
+            {
+              purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+              targetType: MessagingRouteTargetType.CHANNEL,
+              targetId: "C123",
+            },
+          ],
+        },
   };
 }

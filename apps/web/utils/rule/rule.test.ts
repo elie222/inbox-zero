@@ -2,6 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { ActionType } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
+import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
+import { getActionRiskLevel } from "@/utils/risk";
+
+const { mockEnv } = vi.hoisted(() => ({
+  mockEnv: {
+    webhookActionsEnabled: true,
+  },
+}));
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/risk", () => ({
@@ -28,11 +36,20 @@ vi.mock("@/utils/rule/recipient-validation", () => ({
 vi.mock("@/utils/prisma-helpers", () => ({
   isDuplicateError: vi.fn(() => false),
 }));
+vi.mock("@/env", () => ({
+  env: {
+    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
+      return mockEnv.webhookActionsEnabled;
+    },
+  },
+}));
 
 import {
   createRule,
+  createRuleWithResolvedActions,
   deleteRule,
   partialUpdateRule,
+  replaceRuleWithResolvedActions,
   updateRule,
   updateRuleActions,
 } from "./rule";
@@ -43,6 +60,11 @@ const logger = createTestLogger();
 describe("deleteRule", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.webhookActionsEnabled = true;
+    vi.mocked(getActionRiskLevel).mockReturnValue({
+      level: "low",
+      message: "safe",
+    });
   });
 
   it("deletes the group first and relies on cascade delete for grouped rules", async () => {
@@ -97,6 +119,11 @@ describe("deleteRule", () => {
 describe("outbound action guardrails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.webhookActionsEnabled = true;
+    vi.mocked(getActionRiskLevel).mockReturnValue({
+      level: "low",
+      message: "safe",
+    });
   });
 
   it("rejects creating a low-trust from rule with FORWARD", async () => {
@@ -233,6 +260,81 @@ describe("outbound action guardrails", () => {
     expect(prisma.rule.update).not.toHaveBeenCalled();
   });
 
+  it("adds action ownership fields when updating messaging actions", async () => {
+    prisma.rule.findFirst.mockResolvedValue({
+      from: null,
+    } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([
+      { id: "cmessagingchannel1234567890123" },
+    ] as any);
+    prisma.rule.update.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+    } as any);
+
+    await updateRuleActions({
+      ruleId: "rule-id",
+      actions: [
+        {
+          type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+          messagingChannelId: "cmessagingchannel1234567890123",
+          fields: null,
+          delayInMinutes: null,
+        } as any,
+      ],
+      provider: "gmail",
+      emailAccountId: "email-account-id",
+      logger,
+    });
+
+    expect(prisma.rule.update).toHaveBeenCalledWith({
+      where: { id: "rule-id", emailAccountId: "email-account-id" },
+      data: {
+        actions: {
+          deleteMany: {},
+          createMany: {
+            data: [
+              expect.objectContaining({
+                type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+                messagingChannelId: "cmessagingchannel1234567890123",
+                messagingChannelEmailAccountId: "email-account-id",
+              }),
+            ],
+          },
+        },
+      },
+    });
+  });
+
+  it("keeps nested rule action writes free of emailAccountId", async () => {
+    prisma.rule.create.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+
+    await createRuleWithResolvedActions({
+      emailAccountId: "email-account-id",
+      data: { name: "Messaging rule" },
+      actions: [
+        {
+          type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+          messagingChannelId: "cmessagingchannel1234567890123",
+        },
+      ],
+    });
+
+    const createArgs = prisma.rule.create.mock.calls[0]?.[0];
+    const actionData = createArgs?.data.actions.createMany.data?.[0];
+
+    expect(actionData).toMatchObject({
+      type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+      messagingChannelId: "cmessagingchannel1234567890123",
+      messagingChannelEmailAccountId: "email-account-id",
+    });
+    expect(actionData).not.toHaveProperty("emailAccountId");
+  });
+
   it("scopes full rule updates to the email account", async () => {
     prisma.rule.update.mockResolvedValue({
       id: "rule-id",
@@ -292,11 +394,261 @@ describe("outbound action guardrails", () => {
       include: { actions: true, group: true },
     });
   });
+
+  it("rejects creating webhook rules when webhook actions are disabled", async () => {
+    mockEnv.webhookActionsEnabled = false;
+
+    await expect(
+      createRule({
+        result: {
+          name: "Webhook rule",
+          condition: {
+            aiInstructions: "Match these emails",
+            conditionalOperator: null,
+            static: null,
+          },
+          actions: [
+            {
+              type: ActionType.CALL_WEBHOOK,
+              fields: {
+                webhookUrl: "https://example.com/webhook",
+              } as any,
+              delayInMinutes: null,
+            },
+          ],
+        },
+        emailAccountId: "email-account-id",
+        provider: "gmail",
+        runOnThreads: true,
+        logger,
+      }),
+    ).rejects.toThrow(WEBHOOK_ACTION_DISABLED_MESSAGE);
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
+    expect(createEmailProvider).not.toHaveBeenCalled();
+  });
+});
+
+describe("webhook URL validation at save time", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEnv.webhookActionsEnabled = true;
+  });
+
+  it("rejects creating a rule with a localhost webhook URL", async () => {
+    await expect(
+      createRuleWithResolvedActions({
+        emailAccountId: "email-account-id",
+        data: { name: "Webhook rule" },
+        actions: [
+          { type: ActionType.CALL_WEBHOOK, url: "https://localhost/hook" },
+        ],
+      }),
+    ).rejects.toThrow("Invalid webhook URL");
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects creating a rule with a private IP webhook URL", async () => {
+    await expect(
+      createRuleWithResolvedActions({
+        emailAccountId: "email-account-id",
+        data: { name: "Webhook rule" },
+        actions: [
+          {
+            type: ActionType.CALL_WEBHOOK,
+            url: "https://169.254.169.254/metadata",
+          },
+        ],
+      }),
+    ).rejects.toThrow("Invalid webhook URL");
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects creating a rule with a non-http scheme webhook URL", async () => {
+    await expect(
+      createRuleWithResolvedActions({
+        emailAccountId: "email-account-id",
+        data: { name: "Webhook rule" },
+        actions: [{ type: ActionType.CALL_WEBHOOK, url: "file:///etc/passwd" }],
+      }),
+    ).rejects.toThrow("Invalid webhook URL");
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects updating a rule with an internal webhook URL", async () => {
+    await expect(
+      replaceRuleWithResolvedActions({
+        ruleId: "rule-id",
+        emailAccountId: "email-account-id",
+        data: {},
+        actions: [
+          {
+            type: ActionType.CALL_WEBHOOK,
+            url: "https://metadata.google.internal/computeMetadata/v1/",
+          },
+        ],
+      }),
+    ).rejects.toThrow("Invalid webhook URL");
+
+    expect(prisma.rule.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects updating assistant actions with an internal webhook URL", async () => {
+    prisma.rule.findFirst.mockResolvedValue({
+      from: null,
+    } as any);
+
+    await expect(
+      updateRuleActions({
+        ruleId: "rule-id",
+        actions: [
+          {
+            type: ActionType.CALL_WEBHOOK,
+            fields: {
+              webhookUrl:
+                "https://metadata.google.internal/computeMetadata/v1/",
+            } as any,
+            delayInMinutes: null,
+          },
+        ],
+        provider: "gmail",
+        emailAccountId: "email-account-id",
+        logger,
+      }),
+    ).rejects.toThrow("Invalid webhook URL");
+
+    expect(prisma.rule.update).not.toHaveBeenCalled();
+  });
+
+  it("allows a valid public webhook URL", async () => {
+    prisma.rule.create.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+
+    await createRuleWithResolvedActions({
+      emailAccountId: "email-account-id",
+      data: { name: "Webhook rule" },
+      actions: [
+        { type: ActionType.CALL_WEBHOOK, url: "https://example.com/webhook" },
+      ],
+    });
+
+    expect(prisma.rule.create).toHaveBeenCalled();
+  });
+
+  it("skips validation for non-webhook actions", async () => {
+    prisma.rule.create.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+
+    await createRuleWithResolvedActions({
+      emailAccountId: "email-account-id",
+      data: { name: "Archive rule" },
+      actions: [{ type: ActionType.ARCHIVE }],
+    });
+
+    expect(prisma.rule.create).toHaveBeenCalled();
+  });
 });
 
 describe("draft messaging actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getActionRiskLevel).mockReturnValue({
+      level: "low",
+      message: "safe",
+    });
+  });
+
+  it("rejects creating a draft messaging rule with a channel from another account", async () => {
+    prisma.rule.create.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([] as any);
+
+    await expect(
+      createRule({
+        result: {
+          name: "To Reply",
+          condition: {
+            aiInstructions: null,
+            conditionalOperator: null,
+            static: {
+              from: null,
+              to: null,
+              subject: null,
+            },
+          },
+          actions: [
+            {
+              type: ActionType.DRAFT_MESSAGING_CHANNEL,
+              messagingChannelId: "cmessagingchannel1234567890123",
+              fields: {
+                content: "",
+              } as any,
+              delayInMinutes: null,
+            },
+          ],
+        },
+        emailAccountId: "email-account-id",
+        provider: "gmail",
+        runOnThreads: true,
+        logger,
+      }),
+    ).rejects.toThrow("Messaging channel not found");
+
+    expect(prisma.rule.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects updating a draft messaging rule with a channel from another account", async () => {
+    prisma.rule.update.mockResolvedValue({
+      id: "rule-id",
+      actions: [],
+      group: null,
+    } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([] as any);
+
+    await expect(
+      updateRule({
+        ruleId: "rule-id",
+        result: {
+          name: "To Reply",
+          condition: {
+            aiInstructions: null,
+            conditionalOperator: null,
+            static: {
+              from: null,
+              to: null,
+              subject: null,
+            },
+          },
+          actions: [
+            {
+              type: ActionType.DRAFT_MESSAGING_CHANNEL,
+              messagingChannelId: "cmessagingchannel1234567890123",
+              fields: {
+                content: "",
+              } as any,
+              delayInMinutes: null,
+            },
+          ],
+        },
+        emailAccountId: "email-account-id",
+        provider: "gmail",
+        logger,
+      }),
+    ).rejects.toThrow("Messaging channel not found");
+
+    expect(prisma.rule.update).not.toHaveBeenCalled();
   });
 
   it("preserves messagingChannelId when updating a draft messaging rule", async () => {
@@ -305,6 +657,11 @@ describe("draft messaging actions", () => {
       actions: [],
       group: null,
     } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([
+      {
+        id: "cmessagingchannel1234567890123",
+      },
+    ] as any);
 
     await updateRule({
       ruleId: "rule-id",

@@ -13,10 +13,8 @@ import {
 import { cardToBlockKit, cardToFallbackText } from "@chat-adapter/slack";
 import prisma from "@/utils/prisma";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
-import {
-  isSlackDmChannel,
-  resolveSlackDestination,
-} from "@/utils/messaging/providers/slack/send";
+import { resolveSlackRouteDestination } from "@/utils/messaging/providers/slack/send";
+import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import {
   escapeSlackText,
   richTextToSlackMrkdwn,
@@ -25,6 +23,8 @@ import {
   ActionType,
   MessagingMessageStatus,
   MessagingProvider,
+  MessagingRoutePurpose,
+  MessagingRouteTargetType,
   SystemType,
 } from "@/generated/prisma/enums";
 import type { ExecutedRule } from "@/generated/prisma/client";
@@ -44,6 +44,7 @@ import type { ParsedMessage } from "@/utils/types";
 import he from "he";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 import { extractNameFromEmail } from "@/utils/email";
+import { getMessagingRoute } from "@/utils/messaging/routes";
 
 const DRAFT_PREVIEW_MAX_CHARS = 900;
 const SUMMARY_PREVIEW_MAX_CHARS = 280;
@@ -84,27 +85,82 @@ type NotificationEmailPreview = {
   attachments?: Array<{ filename: string }>;
 };
 
-export async function sendSlackRuleNotification({
+type MessagingRuleNotificationResult = {
+  delivered: boolean;
+  kind: "interactive" | "view_only" | "none";
+};
+
+export async function sendMessagingRuleNotification({
   executedActionId,
   email,
   logger,
 }: {
   executedActionId: string;
-  email: {
-    headers: {
-      from: string;
-      subject: string;
-    };
-    snippet: string;
-    textPlain?: string;
-    textHtml?: string;
-    attachments?: Array<{ filename: string }>;
-  };
+  email: NotificationEmailPreview;
   logger: Logger;
 }): Promise<boolean> {
-  const context = await getNotificationContext(executedActionId);
-  if (!context) return false;
+  const result = await getMessagingRuleNotificationResult({
+    executedActionId,
+    email,
+    logger,
+  });
 
+  return result.delivered;
+}
+
+export async function getMessagingRuleNotificationResult({
+  executedActionId,
+  email,
+  logger,
+}: {
+  executedActionId: string;
+  email: NotificationEmailPreview;
+  logger: Logger;
+}): Promise<MessagingRuleNotificationResult> {
+  const context = await getNotificationContext(executedActionId);
+  if (!context) return { delivered: false, kind: "none" };
+
+  if (
+    context.messagingChannel &&
+    context.messagingChannel.emailAccountId !==
+      context.executedRule.emailAccount.id
+  ) {
+    logger.warn(
+      "Skipping messaging notification for mismatched channel owner",
+      {
+        executedActionId: context.id,
+        messagingChannelId: context.messagingChannelId,
+        emailAccountId: context.executedRule.emailAccount.id,
+        channelEmailAccountId: context.messagingChannel.emailAccountId,
+      },
+    );
+    return { delivered: false, kind: "none" };
+  }
+
+  if (context.messagingChannel?.provider === MessagingProvider.SLACK) {
+    return sendSlackRuleNotificationWithContext({
+      context,
+      email,
+      logger,
+    });
+  }
+
+  return sendLinkedRuleNotification({
+    context,
+    email,
+    logger,
+  });
+}
+
+async function sendSlackRuleNotificationWithContext({
+  context,
+  email,
+  logger,
+}: {
+  context: NotificationContext;
+  email: NotificationEmailPreview;
+  logger: Logger;
+}): Promise<MessagingRuleNotificationResult> {
   if (
     !context.messagingChannel ||
     !context.messagingChannel.isConnected ||
@@ -112,24 +168,36 @@ export async function sendSlackRuleNotification({
     !context.messagingChannel.accessToken
   ) {
     logger.warn("Skipping messaging notification with inactive Slack channel", {
-      executedActionId,
+      executedActionId: context.id,
       messagingChannelId: context.messagingChannelId,
     });
-    return false;
+    return { delivered: false, kind: "none" };
   }
 
-  const destinationChannelId = await resolveSlackDestination({
+  const route = getMessagingRoute(
+    context.messagingChannel.routes,
+    MessagingRoutePurpose.RULE_NOTIFICATIONS,
+  );
+
+  if (!route) {
+    logger.warn("Skipping messaging notification with no Slack route", {
+      executedActionId: context.id,
+      messagingChannelId: context.messagingChannelId,
+    });
+    return { delivered: false, kind: "none" };
+  }
+
+  const destinationChannelId = await resolveSlackRouteDestination({
     accessToken: context.messagingChannel.accessToken,
-    channelId: context.messagingChannel.channelId,
-    providerUserId: context.messagingChannel.providerUserId,
+    route,
   });
 
   if (!destinationChannelId) {
     logger.warn("Skipping messaging notification with no Slack destination", {
-      executedActionId,
+      executedActionId: context.id,
       messagingChannelId: context.messagingChannelId,
     });
-    return false;
+    return { delivered: false, kind: "none" };
   }
 
   const content = buildNotificationContent({
@@ -141,7 +209,7 @@ export async function sendSlackRuleNotification({
 
   const rootMessageId =
     (await findSlackRootMessageId({
-      executedActionId,
+      executedActionId: context.id,
       messagingChannelId: context.messagingChannel.id,
       threadId: context.executedRule.threadId,
     })) ?? null;
@@ -156,7 +224,7 @@ export async function sendSlackRuleNotification({
     const responseTs = await postSlackCard({
       accessToken: context.messagingChannel.accessToken,
       card,
-      channelId: context.messagingChannel.channelId,
+      route,
       destinationChannelId,
       rootMessageId,
     });
@@ -169,13 +237,94 @@ export async function sendSlackRuleNotification({
         messagingMessageStatus: MessagingMessageStatus.SENT,
       },
     });
-    return true;
+    return { delivered: true, kind: "interactive" };
   } catch (error) {
     logger.warn("Failed to send Slack rule notification", {
-      executedActionId,
+      executedActionId: context.id,
       error,
     });
-    return false;
+    return { delivered: false, kind: "none" };
+  }
+}
+
+async function sendLinkedRuleNotification({
+  context,
+  email,
+  logger,
+}: {
+  context: NotificationContext;
+  email: NotificationEmailPreview;
+  logger: Logger;
+}): Promise<MessagingRuleNotificationResult> {
+  if (
+    !context.messagingChannel ||
+    !context.messagingChannel.isConnected ||
+    (context.messagingChannel.provider !== MessagingProvider.TEAMS &&
+      context.messagingChannel.provider !== MessagingProvider.TELEGRAM)
+  ) {
+    logger.warn(
+      "Skipping messaging notification with inactive linked channel",
+      {
+        executedActionId: context.id,
+        messagingChannelId: context.messagingChannelId,
+      },
+    );
+    return { delivered: false, kind: "none" };
+  }
+
+  const route = getMessagingRoute(
+    context.messagingChannel.routes,
+    MessagingRoutePurpose.RULE_NOTIFICATIONS,
+  );
+
+  if (!route) {
+    logger.warn(
+      "Skipping messaging notification with no linked channel route",
+      {
+        executedActionId: context.id,
+        messagingChannelId: context.messagingChannelId,
+        provider: context.messagingChannel.provider,
+      },
+    );
+    return { delivered: false, kind: "none" };
+  }
+
+  const content = buildNotificationContent({
+    actionType: context.type,
+    email,
+    systemType: context.executedRule.rule?.systemType ?? null,
+    draftContent: context.content,
+  });
+  const text = buildMessagingRuleNotificationText({
+    actionType: context.type,
+    content,
+    provider: context.messagingChannel.provider,
+  });
+
+  try {
+    const response = await sendAutomationMessage({
+      channel: context.messagingChannel,
+      route,
+      text,
+      logger,
+    });
+
+    await prisma.executedAction.update({
+      where: { id: context.id },
+      data: {
+        messagingMessageId: response.messageId ?? response.channelId ?? null,
+        messagingMessageSentAt: new Date(),
+        messagingMessageStatus: MessagingMessageStatus.SENT,
+      },
+    });
+    return { delivered: true, kind: "view_only" };
+  } catch (error) {
+    logger.warn("Failed to send linked messaging rule notification", {
+      executedActionId: context.id,
+      provider: context.messagingChannel.provider,
+      error,
+    });
+    return { delivered: false, kind: "none" };
   }
 }
 
@@ -697,12 +846,19 @@ async function getNotificationContext(executedActionId: string) {
       messagingChannel: {
         select: {
           id: true,
+          emailAccountId: true,
           provider: true,
           isConnected: true,
           teamId: true,
           providerUserId: true,
           accessToken: true,
-          channelId: true,
+          routes: {
+            select: {
+              purpose: true,
+              targetType: true,
+              targetId: true,
+            },
+          },
         },
       },
     },
@@ -957,6 +1113,32 @@ function buildNotificationCardBody(content: NotificationContent): CardChild[] {
   return children;
 }
 
+export function buildMessagingRuleNotificationText({
+  actionType,
+  content,
+  provider,
+}: {
+  actionType: ActionType;
+  content: NotificationContent;
+  provider: typeof MessagingProvider.TEAMS | typeof MessagingProvider.TELEGRAM;
+}) {
+  const sections = [
+    content.title,
+    stripSlackFormatting(content.summary),
+    ...(content.details?.map(stripSlackFormatting) ?? []),
+  ].filter(Boolean);
+
+  const limitation = getLinkedProviderLimitationText({
+    actionType,
+    provider,
+  });
+  if (limitation) {
+    sections.push(limitation);
+  }
+
+  return sections.join("\n\n");
+}
+
 function buildEmailSummary(email: {
   headers: {
     from: string;
@@ -1039,13 +1221,16 @@ async function findSlackRootMessageId({
 async function postSlackCard({
   accessToken,
   card,
-  channelId,
+  route,
   destinationChannelId,
   rootMessageId,
 }: {
   accessToken: string;
   card: CardElement;
-  channelId: string | null;
+  route: {
+    targetId: string;
+    targetType: MessagingRouteTargetType;
+  } | null;
   destinationChannelId: string;
   rootMessageId: string | null;
 }) {
@@ -1065,13 +1250,12 @@ async function postSlackCard({
     if (
       isSlackError(error) &&
       error.data?.error === "not_in_channel" &&
-      channelId &&
-      !isSlackDmChannel(channelId)
+      route?.targetType === MessagingRouteTargetType.CHANNEL
     ) {
-      await client.conversations.join({ channel: channelId });
+      await client.conversations.join({ channel: route.targetId });
       const response = await client.chat.postMessage({
         ...args,
-        channel: channelId,
+        channel: route.targetId,
       });
       return response.ts ?? null;
     }
@@ -1221,4 +1405,27 @@ function blockquote(text: string): string {
     .split("\n")
     .map((line) => `>${line}`)
     .join("\n");
+}
+
+function stripSlackFormatting(text: string) {
+  return text
+    .replace(/<([^|>]+)\|([^>]+)>/g, "$2: $1")
+    .replace(/\*([^*]+)\*/g, "$1");
+}
+
+function getLinkedProviderLimitationText({
+  actionType,
+  provider,
+}: {
+  actionType: ActionType;
+  provider: typeof MessagingProvider.TEAMS | typeof MessagingProvider.TELEGRAM;
+}) {
+  const providerName =
+    provider === MessagingProvider.TEAMS ? "Teams" : "Telegram";
+
+  if (isDraftReplyActionType(actionType)) {
+    return "One-click draft editing and sending are Slack-only right now. Use Inbox Zero or Slack if you want to edit or send this draft from chat.";
+  }
+
+  return `Quick actions like archive and mark read are Slack-only right now, so this ${providerName} message is view-only.`;
 }

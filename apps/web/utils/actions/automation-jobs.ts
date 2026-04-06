@@ -10,9 +10,10 @@ import { SafeError } from "@/utils/error";
 import {
   AutomationJobRunStatus,
   MessagingProvider,
+  MessagingRoutePurpose,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
-import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
+import { hasMessagingRoute } from "@/utils/messaging/routes";
 import {
   getNextAutomationJobRunAt,
   validateAutomationCronExpression,
@@ -98,20 +99,27 @@ export const saveAutomationJobAction = actionClient
       }
 
       const channel = await prisma.messagingChannel.findUnique({
-        where: { id: messagingChannelId },
+        where: {
+          id_emailAccountId: {
+            id: messagingChannelId,
+            emailAccountId,
+          },
+        },
         select: {
           id: true,
-          emailAccountId: true,
           provider: true,
           isConnected: true,
           accessToken: true,
-          teamId: true,
-          providerUserId: true,
-          channelId: true,
+          routes: {
+            select: {
+              purpose: true,
+              targetId: true,
+            },
+          },
         },
       });
 
-      if (!channel || channel.emailAccountId !== emailAccountId) {
+      if (!channel) {
         throw new SafeError("Messaging channel not found");
       }
 
@@ -178,9 +186,12 @@ export const triggerTestCheckInAction = actionClient
             provider: true,
             isConnected: true,
             accessToken: true,
-            teamId: true,
-            providerUserId: true,
-            channelId: true,
+            routes: {
+              select: {
+                purpose: true,
+                targetId: true,
+              },
+            },
           },
         },
       },
@@ -235,9 +246,12 @@ async function getDefaultMessagingChannel(emailAccountId: string) {
       provider: true,
       isConnected: true,
       accessToken: true,
-      teamId: true,
-      providerUserId: true,
-      channelId: true,
+      routes: {
+        select: {
+          purpose: true,
+          targetId: true,
+        },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -259,9 +273,10 @@ function getAutomationMessagingChannelValidationError(channel: {
   provider: MessagingProvider;
   isConnected: boolean;
   accessToken: string | null;
-  teamId?: string | null;
-  providerUserId: string | null;
-  channelId: string | null;
+  routes: Array<{
+    purpose: MessagingRoutePurpose;
+    targetId: string;
+  }>;
 }) {
   if (!isSupportedAutomationMessagingProvider(channel.provider)) {
     return "Messaging provider is not supported";
@@ -273,7 +288,9 @@ function getAutomationMessagingChannelValidationError(channel: {
     return "Slack channel is not connected";
   }
 
-  if (!hasMessagingDeliveryTarget(channel)) {
+  if (
+    !hasMessagingRoute(channel.routes, MessagingRoutePurpose.RULE_NOTIFICATIONS)
+  ) {
     return "Select a messaging destination first";
   }
 

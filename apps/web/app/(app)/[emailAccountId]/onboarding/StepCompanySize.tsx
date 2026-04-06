@@ -8,6 +8,7 @@ import {
   Landmark,
   User,
 } from "lucide-react";
+import { useAction } from "next-safe-action/hooks";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
@@ -15,6 +16,7 @@ import { useCallback } from "react";
 import { saveOnboardingAnswersAction } from "@/utils/actions/onboarding";
 import { toastError } from "@/components/Toast";
 import { OnboardingButton } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingButton";
+import { captureException, getActionErrorMessage } from "@/utils/error";
 
 const COMPANY_SIZES = [
   {
@@ -45,25 +47,60 @@ const COMPANY_SIZES = [
 ];
 
 export function StepCompanySize({ onNext }: { onNext: () => void }) {
-  const onSelectCompanySize = useCallback(
-    async (companySize: number) => {
-      try {
-        await saveOnboardingAnswersAction({
-          surveyId: "onboarding",
-          questions: [{ key: "company_size", type: "single_choice" }],
-          answers: { $survey_response: companySize },
-        });
+  const { executeAsync: saveCompanySize } = useAction(
+    saveOnboardingAnswersAction,
+  );
 
-        onNext();
-      } catch (error) {
-        console.error("Failed to save company size:", error);
-        toastError({
-          description:
-            "There was an error saving your selection. Please try again.",
+  const onSelectCompanySize = useCallback(
+    (companySize: number) => {
+      onNext();
+
+      saveCompanySize({
+        surveyId: "onboarding",
+        questions: [{ key: "company_size", type: "single_choice" }],
+        answers: { $survey_response: companySize },
+      })
+        .then((result) => {
+          if (result?.serverError || result?.validationErrors) {
+            captureException(
+              new Error("Failed to save onboarding company size"),
+              {
+                extra: {
+                  context: "onboarding",
+                  step: "company_size",
+                  serverError: result?.serverError,
+                  validationErrors: result?.validationErrors,
+                },
+              },
+            );
+            toastError({
+              description: getActionErrorMessage(
+                {
+                  serverError: result?.serverError,
+                  validationErrors: result?.validationErrors,
+                },
+                {
+                  prefix:
+                    "We couldn't save that answer, but you can keep going",
+                },
+              ),
+            });
+          }
+        })
+        .catch((error) => {
+          captureException(error, {
+            extra: {
+              context: "onboarding",
+              step: "company_size",
+            },
+          });
+          toastError({
+            description:
+              "We couldn't save that answer, but you can keep going.",
+          });
         });
-      }
     },
-    [onNext],
+    [onNext, saveCompanySize],
   );
 
   return (

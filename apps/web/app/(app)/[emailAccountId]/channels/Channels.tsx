@@ -1,15 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  CheckIcon,
-  LockIcon,
-  LogOutIcon,
-  MessageSquareIcon,
-  MoreVerticalIcon,
-} from "lucide-react";
+import { CheckIcon, LogOutIcon, MoreVerticalIcon } from "lucide-react";
 import Image from "next/image";
 import { useAction } from "next-safe-action/hooks";
+import { SlackNotificationTargetSelect } from "@/components/SlackNotificationTargetSelect";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Toggle } from "@/components/Toggle";
@@ -39,23 +34,12 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import {
-  useMessagingChannels,
-  useChannelTargets,
-} from "@/hooks/useMessagingChannels";
+import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useRules } from "@/hooks/useRules";
 import { useSlackConnect } from "@/hooks/useSlackConnect";
 import {
-  updateChannelFeaturesAction,
-  updateSlackChannelAction,
+  updateMessagingFeatureRouteAction,
   toggleRuleChannelAction,
   createMessagingLinkCodeAction,
   disconnectChannelAction,
@@ -64,9 +48,17 @@ import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/Con
 import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
-import { env } from "@/env";
+import {
+  canEnableMessagingFeatureRoute,
+  getMessagingFeatureRouteSummary,
+  type MessagingFeatureRoutePurpose,
+  type MessagingRouteSummary,
+} from "@/utils/messaging/routes";
 import { sortRulesForAutomation } from "@/utils/rule/sort";
-import type { MessagingProvider } from "@/generated/prisma/enums";
+import {
+  type MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import type { MessagingActionType } from "@/utils/actions/messaging-channels.validation";
@@ -82,12 +74,24 @@ const PROVIDER_CONFIG: Record<
   TELEGRAM: { name: "Telegram", logo: "/images/telegram.svg" },
 };
 
-const FEATURE_DESCRIPTIONS: Record<string, string> = {
-  sendMeetingBriefs: "Get a summary before your meetings.",
-  sendDocumentFilings: "Notifications when documents are auto-filed.",
-};
-
 const PROVIDER_ORDER: MessagingProvider[] = ["SLACK", "TEAMS", "TELEGRAM"];
+
+const CHANNEL_FEATURES: Array<{
+  purpose: MessagingFeatureRoutePurpose;
+  name: string;
+  description: string;
+}> = [
+  {
+    purpose: MessagingRoutePurpose.MEETING_BRIEFS,
+    name: "Meeting briefs",
+    description: "Get a summary before your meetings.",
+  },
+  {
+    purpose: MessagingRoutePurpose.DOCUMENT_FILINGS,
+    name: "Document filing alerts",
+    description: "Notifications when documents are auto-filed.",
+  },
+];
 
 type ChannelFromResponse = GetMessagingChannelsResponse["channels"][number];
 
@@ -237,7 +241,6 @@ function ConnectedChannelSection({
   onUpdate: () => void;
 }) {
   const config = PROVIDER_CONFIG[channel.provider];
-  const hasTarget = channel.hasSendDestination;
   const isSlack = channel.provider === "SLACK";
 
   const { execute: executeDisconnect, status: disconnectStatus } = useAction(
@@ -314,16 +317,20 @@ function ConnectedChannelSection({
         <ItemCard>
           <Item size="sm">
             <ItemContent>
-              <ItemTitle>Deliver to</ItemTitle>
+              <ItemTitle>Rule notifications</ItemTitle>
+              <ItemDescription>
+                Choose where rule notifications and chat replies go.
+              </ItemDescription>
             </ItemContent>
             <ItemActions>
-              <SlackTargetSelect
-                channelId={channel.id}
-                targetId={channel.channelId}
-                channelName={channel.channelName}
-                isDm={channel.isDm}
-                canSendAsDm={channel.canSendAsDm}
+              <SlackNotificationTargetSelect
                 emailAccountId={emailAccountId}
+                messagingChannelId={channel.id}
+                purpose={MessagingRoutePurpose.RULE_NOTIFICATIONS}
+                targetId={channel.destinations.ruleNotifications.targetId}
+                targetLabel={channel.destinations.ruleNotifications.targetLabel}
+                isDm={channel.destinations.ruleNotifications.isDm}
+                canSendAsDm={channel.canSendAsDm}
                 onUpdate={onUpdate}
               />
             </ItemActions>
@@ -364,25 +371,35 @@ function ConnectedChannelSection({
       </ItemCard>
 
       <ItemCard>
-        <FeatureToggle
-          name="Meeting briefs"
-          channelId={channel.id}
-          enabled={channel.sendMeetingBriefs}
-          featureKey="sendMeetingBriefs"
-          emailAccountId={emailAccountId}
-          onUpdate={onUpdate}
-          disabled={!hasTarget}
-        />
-        <ItemSeparator />
-        <FeatureToggle
-          name="Document filing alerts"
-          channelId={channel.id}
-          enabled={channel.sendDocumentFilings}
-          featureKey="sendDocumentFilings"
-          emailAccountId={emailAccountId}
-          onUpdate={onUpdate}
-          disabled={!hasTarget}
-        />
+        {CHANNEL_FEATURES.map((feature, index) => {
+          const destination = getMessagingFeatureRouteSummary(
+            channel.destinations,
+            feature.purpose,
+          );
+
+          return (
+            <div key={feature.purpose}>
+              {index > 0 && <ItemSeparator />}
+              <FeatureRouteToggle
+                name={feature.name}
+                description={feature.description}
+                purpose={feature.purpose}
+                messagingChannelId={channel.id}
+                destination={destination}
+                showTargetSelect={isSlack}
+                canSendAsDm={channel.canSendAsDm}
+                emailAccountId={emailAccountId}
+                onUpdate={onUpdate}
+                disabled={
+                  !canEnableMessagingFeatureRoute(
+                    channel.destinations,
+                    feature.purpose,
+                  )
+                }
+              />
+            </div>
+          );
+        })}
       </ItemCard>
     </SectionGroup>
   );
@@ -525,123 +542,6 @@ function LinkCodeDialog({
   );
 }
 
-function SlackTargetSelect({
-  channelId,
-  targetId,
-  channelName,
-  isDm,
-  canSendAsDm,
-  emailAccountId,
-  onUpdate,
-}: {
-  channelId: string;
-  targetId: string | null;
-  channelName: string | null;
-  isDm: boolean;
-  canSendAsDm: boolean;
-  emailAccountId: string;
-  onUpdate: () => void;
-}) {
-  const [loadTargets, setLoadTargets] = useState(false);
-  const {
-    data: targetsData,
-    isLoading,
-    error,
-    mutate: mutateTargets,
-  } = useChannelTargets(loadTargets ? channelId : null, emailAccountId);
-
-  const privateTargets = targetsData?.targets ?? [];
-  const hasError = Boolean(error || targetsData?.error);
-
-  const { execute, status } = useAction(
-    updateSlackChannelAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        toastSuccess({ description: "Channel updated" });
-        onUpdate();
-      },
-      onError: (err) => {
-        toastError({
-          description:
-            getActionErrorMessage(err.error) ?? "Failed to update channel",
-        });
-      },
-    },
-  );
-
-  return (
-    <Select
-      value={isDm ? "dm" : (targetId ?? "")}
-      onValueChange={(value) => {
-        execute({ channelId, targetId: value === "dm" ? "dm" : value });
-      }}
-      disabled={isLoading || status === "executing"}
-      onOpenChange={(open) => {
-        if (open) setLoadTargets(true);
-      }}
-    >
-      <SelectTrigger className="h-8 w-[180px]">
-        <SelectValue
-          placeholder={
-            isLoading
-              ? "Loading..."
-              : hasError
-                ? "Failed to load"
-                : "Select channel"
-          }
-        >
-          {isDm
-            ? "Direct message"
-            : channelName
-              ? `#${channelName}`
-              : undefined}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {canSendAsDm && (
-          <SelectItem value="dm">
-            <MessageSquareIcon className="mr-1 inline h-3 w-3" />
-            Direct message
-          </SelectItem>
-        )}
-        {privateTargets.map((target) => (
-          <SelectItem key={target.id} value={target.id}>
-            <LockIcon className="mr-1 inline h-3 w-3" />
-            {target.name}
-          </SelectItem>
-        ))}
-        {!isLoading && !hasError && (
-          <div className="border-t px-2 py-1.5 text-xs text-muted-foreground">
-            <div>
-              {privateTargets.length === 0
-                ? "No channels found."
-                : "Don't see your channel?"}
-            </div>
-            <div>
-              Invite the bot with{" "}
-              <code className="rounded bg-muted px-1">
-                /invite @{env.NEXT_PUBLIC_SLACK_BOT_NAME}
-              </code>
-            </div>
-          </div>
-        )}
-        {hasError && (
-          <div className="px-2 py-1.5 text-xs text-muted-foreground">
-            Failed to load channels.{" "}
-            <button
-              type="button"
-              className="underline underline-offset-4"
-              onClick={() => mutateTargets()}
-            >
-              Retry
-            </button>
-          </div>
-        )}
-      </SelectContent>
-    </Select>
-  );
-}
-
 function RuleToggle({
   rule,
   channelId,
@@ -754,25 +654,31 @@ function RuleToggle({
   );
 }
 
-function FeatureToggle({
+function FeatureRouteToggle({
   name,
-  channelId,
-  enabled,
-  featureKey,
+  description,
+  purpose,
+  messagingChannelId,
+  destination,
+  showTargetSelect,
+  canSendAsDm,
   emailAccountId,
   onUpdate,
   disabled,
 }: {
   name: string;
-  channelId: string;
-  enabled: boolean;
-  featureKey: "sendMeetingBriefs" | "sendDocumentFilings";
+  description: string;
+  purpose: MessagingFeatureRoutePurpose;
+  messagingChannelId: string;
+  destination: MessagingRouteSummary;
+  showTargetSelect: boolean;
+  canSendAsDm: boolean;
   emailAccountId: string;
   onUpdate: () => void;
   disabled?: boolean;
 }) {
   const { execute, status } = useAction(
-    updateChannelFeaturesAction.bind(null, emailAccountId),
+    updateMessagingFeatureRouteAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "Settings saved" });
@@ -790,15 +696,32 @@ function FeatureToggle({
     <Item size="sm">
       <ItemContent>
         <ItemTitle>{name}</ItemTitle>
-        <ItemDescription>{FEATURE_DESCRIPTIONS[featureKey]}</ItemDescription>
+        <ItemDescription>{description}</ItemDescription>
       </ItemContent>
       <ItemActions>
-        <Toggle
-          name={`feature-${featureKey}-${channelId}`}
-          enabled={enabled}
-          disabled={disabled || status === "executing"}
-          onChange={(value) => execute({ channelId, [featureKey]: value })}
-        />
+        <div className="flex items-center gap-2">
+          {showTargetSelect && (
+            <SlackNotificationTargetSelect
+              emailAccountId={emailAccountId}
+              messagingChannelId={messagingChannelId}
+              purpose={purpose}
+              targetId={destination.targetId}
+              targetLabel={destination.targetLabel}
+              isDm={destination.isDm}
+              canSendAsDm={canSendAsDm}
+              onUpdate={onUpdate}
+            />
+          )}
+          <Toggle
+            name={`feature-${purpose}-${messagingChannelId}`}
+            enabled={destination.enabled}
+            disabled={disabled || status === "executing"}
+            onChange={(enabled) => {
+              if (disabled) return;
+              execute({ channelId: messagingChannelId, purpose, enabled });
+            }}
+          />
+        </div>
       </ItemActions>
     </Item>
   );

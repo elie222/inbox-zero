@@ -12,21 +12,34 @@ export async function handleSlackAppUninstalled({
 }): Promise<void> {
   logger.info("Handling Slack app uninstall", { teamId });
 
-  const result = await prisma.messagingChannel.updateMany({
+  const disconnectedChannels = await prisma.messagingChannel.findMany({
     where: {
       provider: MessagingProvider.SLACK,
       teamId,
     },
-    data: {
-      isConnected: false,
-      accessToken: null,
-      refreshToken: null,
-      channelId: null,
-      channelName: null,
-      sendMeetingBriefs: false,
-      sendDocumentFilings: false,
-    },
+    select: { id: true },
   });
+
+  const channelIds = disconnectedChannels.map((channel) => channel.id);
+
+  const [, result] = await prisma.$transaction([
+    prisma.messagingRoute.deleteMany({
+      where: {
+        messagingChannelId: { in: channelIds },
+      },
+    }),
+    prisma.messagingChannel.updateMany({
+      where: {
+        provider: MessagingProvider.SLACK,
+        teamId,
+      },
+      data: {
+        isConnected: false,
+        accessToken: null,
+        refreshToken: null,
+      },
+    }),
+  ]);
 
   logger.info("Disconnected Slack channels", {
     teamId,

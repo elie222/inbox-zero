@@ -161,10 +161,16 @@ describe("chat route rule freshness persistence", () => {
       compactions: [],
     });
     prisma.chat.create.mockResolvedValue(null);
+    prisma.chatCompaction.create.mockResolvedValue({
+      id: "compaction-1",
+    } as any);
     prisma.chatMessage.create.mockResolvedValue({ id: "message-1" });
     prisma.chatMessage.createMany.mockResolvedValue({ count: 1 });
+    prisma.chat.update.mockResolvedValue({ id: "chat-1" } as any);
     prisma.chat.updateMany.mockResolvedValue({ count: 1 });
+    prisma.chatMemory.createMany.mockResolvedValue({ count: 0 });
     prisma.chatMemory.findMany.mockResolvedValue([]);
+    prisma.$transaction.mockResolvedValue([{}, {}] as any);
 
     mockAiProcessAssistantChat.mockResolvedValue(createAssistantStreamResult());
   });
@@ -264,6 +270,129 @@ describe("chat route rule freshness persistence", () => {
     expect(mockAiProcessAssistantChat).toHaveBeenCalledWith(
       expect.objectContaining({
         chatHasHistory: true,
+      }),
+    );
+  });
+
+  it("extracts and persists memories from the pre-compaction conversation stream", async () => {
+    const compactedBeforeCreatedAt = new Date("2026-03-27T09:00:00.000Z");
+    const recentMessageCreatedAt = new Date("2026-03-27T10:00:00.000Z");
+
+    prisma.chat.findUnique.mockResolvedValueOnce({
+      id: "chat-1",
+      emailAccountId: "email-account-id",
+      lastSeenRulesRevision: null,
+      messages: [
+        {
+          id: "user-message-0",
+          role: "user",
+          parts: [
+            {
+              type: "text",
+              text: "Please remember that I prefer concise responses.",
+            },
+          ],
+          createdAt: recentMessageCreatedAt,
+        },
+      ],
+      compactions: [
+        {
+          id: "compaction-0",
+          summary: "The user prefers short replies.",
+          compactedBeforeCreatedAt,
+        },
+      ],
+    });
+    mockConvertToUIMessages.mockReturnValue([
+      {
+        id: "user-message-0",
+        role: "user",
+        parts: [
+          {
+            type: "text",
+            text: "Please remember that I prefer concise responses.",
+          },
+        ],
+      },
+    ]);
+    mockConvertToModelMessages.mockResolvedValueOnce([
+      {
+        role: "user",
+        content: "Please remember that I prefer concise responses.",
+      },
+      {
+        role: "user",
+        content: "Update my rules",
+      },
+    ]);
+    mockShouldCompact.mockReturnValueOnce(true);
+    mockCompactMessages.mockResolvedValueOnce({
+      compactedMessages: [
+        {
+          role: "system",
+          content: "Summary of earlier conversation:\nCompacted summary",
+        },
+        {
+          role: "user",
+          content: "Update my rules",
+        },
+      ],
+      summary: "Compacted summary",
+      compactedCount: 2,
+    });
+    mockExtractMemories.mockResolvedValueOnce([
+      {
+        content: "I prefer concise responses.",
+      },
+    ]);
+
+    await POST(createRequest());
+
+    expect(mockExtractMemories).toHaveBeenCalledWith({
+      messages: [
+        {
+          role: "user",
+          content: "Please remember that I prefer concise responses.",
+        },
+        {
+          role: "user",
+          content: "Update my rules",
+        },
+      ],
+      user: expect.anything(),
+    });
+    expect(prisma.chatMemory.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          content: "I prefer concise responses.",
+          chatId: "chat-1",
+          emailAccountId: "email-account-id",
+        },
+      ],
+      skipDuplicates: true,
+    });
+    expect(mockAiProcessAssistantChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          {
+            role: "system",
+            content: "Summary of earlier conversation:\nCompacted summary",
+          },
+          {
+            role: "user",
+            content: "Update my rules",
+          },
+        ],
+        conversationMessagesForMemory: [
+          {
+            role: "user",
+            content: "Please remember that I prefer concise responses.",
+          },
+          {
+            role: "user",
+            content: "Update my rules",
+          },
+        ],
       }),
     );
   });

@@ -23,7 +23,6 @@ import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import { flattenConditions } from "@/utils/condition";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
-import type { Prisma } from "@/generated/prisma/client";
 import { sanitizeActionFields } from "@/utils/action-item";
 import {
   deleteRule,
@@ -34,6 +33,8 @@ import {
   replaceRuleWithResolvedActions,
   setRuleEnabled,
   updateRuleInstructions,
+  type RuleActionCreateData,
+  addActionOwnershipToInput,
 } from "@/utils/rule/rule";
 import { SafeError } from "@/utils/error";
 import {
@@ -226,10 +227,13 @@ export const enableDraftRepliesAction = actionClient
         );
         if (!alreadyDraftingReplies) {
           await prisma.action.create({
-            data: {
-              ruleId: rule.id,
-              type: ActionType.DRAFT_EMAIL,
-            },
+            data: addActionOwnershipToInput(
+              {
+                ruleId: rule.id,
+                type: ActionType.DRAFT_EMAIL,
+              },
+              emailAccountId,
+            ),
           });
         }
       } else {
@@ -270,12 +274,15 @@ export const deleteRuleAction = actionClient
   .inputSchema(deleteRuleBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     const rule = await prisma.rule.findUnique({
-      where: { id, emailAccountId },
-      include: { actions: true, group: true },
+      where: {
+        id_emailAccountId: {
+          id,
+          emailAccountId,
+        },
+      },
+      select: { systemType: true, groupId: true },
     });
     if (!rule) return; // already deleted
-    if (rule.emailAccountId !== emailAccountId)
-      throw new SafeError("You don't have permission to delete this rule");
     if (rule.systemType) {
       throw new SafeError(
         "Default rules cannot be deleted. Disable them instead.",
@@ -713,7 +720,7 @@ async function toggleRule({
   const ruleConfig = getRuleConfig(systemType);
   const actionTypes = getSystemRuleActionTypes(systemType, provider);
 
-  const actions: Prisma.ActionCreateManyRuleInput[] = [];
+  const actions: RuleActionCreateData[] = [];
 
   for (const actionType of actionTypes) {
     if (actionType.includeFolder) {
@@ -929,7 +936,7 @@ async function getActionsFromCategoryAction({
   provider: string;
   logger: Logger;
   systemType?: SystemType;
-}): Promise<Prisma.ActionCreateManyRuleInput[]> {
+}): Promise<RuleActionCreateData[]> {
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider,
@@ -960,7 +967,7 @@ async function getActionsFromCategoryAction({
     hasDigest,
   });
 
-  const actions: Prisma.ActionCreateManyRuleInput[] = [];
+  const actions: RuleActionCreateData[] = [];
 
   for (const actionType of actionTypes) {
     switch (actionType.type) {

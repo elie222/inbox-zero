@@ -11,6 +11,10 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { cookies, headers } from "next/headers";
 import { env } from "@/env";
+import {
+  assertAllowedAuthSignupEmail,
+  isAllowedAuthSignupEmail,
+} from "@/utils/auth-signup-policy";
 import { trackDubSignUp } from "@/utils/dub";
 import {
   isGoogleProvider,
@@ -181,7 +185,8 @@ export const betterAuthConfig = betterAuth({
     },
     cookieCache: {
       enabled: true,
-      maxAge: 60 * 60 * 24 * 30, // 30 days
+      maxAge: 60 * 5, // 5 minutes — normal sign-out clears the cache cookie immediately;
+      // this TTL only limits exposure for stolen-token scenarios
     },
     expiresIn: 60 * 60 * 24 * 30, // 30 days
     updateAge: 60 * 60 * 24 * 3, // 1 day (every 1 day the session expiration is updated)
@@ -214,6 +219,14 @@ export const betterAuthConfig = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        before: async (user) => {
+          if (isAllowedAuthSignupEmail(user.email)) return;
+
+          logger.warn("Blocked auth sign-up outside configured allowlist", {
+            emailDomain: user.email.split("@")[1]?.toLowerCase(),
+          });
+          assertAllowedAuthSignupEmail(user.email);
+        },
         after: async (user) => {
           await postSignUp({
             id: user.id,

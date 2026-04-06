@@ -11,7 +11,10 @@ import {
   selectDraftAttachmentsForRule,
 } from "@/utils/attachments/draft-attachments";
 import { getReplyWithConfidence } from "@/utils/redis/reply";
-import { sendSlackRuleNotification } from "@/utils/messaging/rule-notifications";
+import {
+  getMessagingRuleNotificationResult,
+  sendMessagingRuleNotification,
+} from "@/utils/messaging/rule-notifications";
 import type { ParsedMessage } from "@/utils/types";
 import { createTestLogger } from "@/__tests__/helpers";
 vi.mock("server-only", () => ({}));
@@ -29,7 +32,11 @@ vi.mock("@/utils/attachments/draft-attachments", () => ({
 }));
 
 vi.mock("@/utils/messaging/rule-notifications", () => ({
-  sendSlackRuleNotification: vi.fn().mockResolvedValue(true),
+  getMessagingRuleNotificationResult: vi.fn().mockResolvedValue({
+    delivered: true,
+    kind: "interactive",
+  }),
+  sendMessagingRuleNotification: vi.fn().mockResolvedValue(true),
 }));
 
 describe("runActionFunction", () => {
@@ -53,6 +60,10 @@ describe("runActionFunction", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getMessagingRuleNotificationResult).mockResolvedValue({
+      delivered: true,
+      kind: "interactive",
+    });
   });
 
   it("passes resolved drive attachments into draft creation", async () => {
@@ -198,7 +209,7 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(sendSlackRuleNotification).toHaveBeenCalledWith({
+    expect(sendMessagingRuleNotification).toHaveBeenCalledWith({
       executedActionId: "action-1",
       email,
       logger: expect.anything(),
@@ -231,17 +242,15 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(sendSlackRuleNotification).toHaveBeenCalledWith({
-      executedActionId: "action-1",
-      email,
-      logger: expect.anything(),
-    });
     expect(client.draftEmail).not.toHaveBeenCalled();
   });
 
   it("falls back to mailbox drafts when legacy chat delivery is unavailable", async () => {
     const client = createMockEmailProvider();
-    vi.mocked(sendSlackRuleNotification).mockResolvedValueOnce(false);
+    vi.mocked(getMessagingRuleNotificationResult).mockResolvedValueOnce({
+      delivered: false,
+      kind: "none",
+    });
 
     await runActionFunction({
       client,
@@ -265,17 +274,44 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(sendSlackRuleNotification).toHaveBeenCalledWith({
-      executedActionId: "action-1",
-      email,
-      logger: expect.anything(),
+    expect(client.draftEmail).toHaveBeenCalled();
+  });
+
+  it("still creates mailbox drafts when linked providers only send a view-only message", async () => {
+    const client = createMockEmailProvider();
+    vi.mocked(getMessagingRuleNotificationResult).mockResolvedValueOnce({
+      delivered: true,
+      kind: "view_only",
     });
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.DRAFT_EMAIL,
+        messagingChannelId: "channel-1",
+        content: "Draft in chat",
+      },
+      userEmail: "user@example.com",
+      userId: "user-1",
+      emailAccountId: "account-1",
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+        actionItems: [{ type: ActionType.DRAFT_EMAIL }],
+      } as any,
+      logger,
+    });
+
     expect(client.draftEmail).toHaveBeenCalled();
   });
 
   it("throws when chat draft delivery cannot be completed", async () => {
     const client = createMockEmailProvider();
-    vi.mocked(sendSlackRuleNotification).mockResolvedValueOnce(false);
+    vi.mocked(sendMessagingRuleNotification).mockResolvedValueOnce(false);
 
     await expect(
       runActionFunction({
@@ -324,7 +360,7 @@ describe("runActionFunction", () => {
       logger,
     });
 
-    expect(sendSlackRuleNotification).toHaveBeenCalledWith({
+    expect(sendMessagingRuleNotification).toHaveBeenCalledWith({
       executedActionId: "action-1",
       email,
       logger: expect.anything(),

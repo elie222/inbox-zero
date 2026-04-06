@@ -54,6 +54,7 @@ import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps"
 import { RuleLoader } from "@/app/(app)/[emailAccountId]/assistant/RuleLoader";
 import { handleRuleAttachmentSourceSave } from "@/utils/attachments/rule";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import {
   denormalizeDraftReplyActions,
   normalizeDraftReplyActions,
@@ -338,16 +339,12 @@ export function RuleForm({
   }, [formState]);
 
   const typeOptions = useMemo(() => {
-    const connectedMessagingChannels =
-      messagingChannelsData?.channels.filter(
-        (channel) =>
-          channel.provider === "SLACK" &&
-          channel.isConnected &&
-          channel.hasSendDestination,
-      ) ?? [];
-    const slackIsAvailable =
+    const connectedMessagingChannels = getConnectedRuleNotificationChannels(
+      messagingChannelsData?.channels,
+    );
+    const messagingIsAvailable =
       connectedMessagingChannels.length > 0 ||
-      messagingChannelsData?.availableProviders.includes("SLACK");
+      (messagingChannelsData?.availableProviders.length ?? 0) > 0;
 
     const options: {
       label: string;
@@ -411,12 +408,16 @@ export function RuleForm({
         value: ActionType.MARK_SPAM,
         icon: getActionIcon(ActionType.MARK_SPAM),
       },
-      {
-        label: "Call webhook",
-        value: ActionType.CALL_WEBHOOK,
-        icon: getActionIcon(ActionType.CALL_WEBHOOK),
-      },
-      ...(slackIsAvailable
+      ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false
+        ? [
+            {
+              label: "Call webhook",
+              value: ActionType.CALL_WEBHOOK,
+              icon: getActionIcon(ActionType.CALL_WEBHOOK),
+            },
+          ]
+        : []),
+      ...(messagingIsAvailable
         ? [
             {
               label: "Notify via chat app",
@@ -559,11 +560,7 @@ export function RuleForm({
             typeOptions={typeOptions}
             folders={folders}
             foldersLoading={foldersLoading}
-            messagingChannels={
-              messagingChannelsData?.channels.filter(
-                (channel) => channel.provider === "SLACK",
-              ) ?? []
-            }
+            messagingChannels={messagingChannelsData?.channels ?? []}
             availableMessagingProviders={
               messagingChannelsData?.availableProviders ?? []
             }

@@ -21,6 +21,7 @@ import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metada
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 
 const MODULE = "choose-args";
+
 export type EmailAccountForDrafting = EmailAccountWithAI & {
   draftReplyConfidence: DraftReplyConfidence;
 };
@@ -249,7 +250,7 @@ export function filterIncompleteDraftActions<T extends Action>(
  *
  * Note: Only returns actions that have fields containing {{template variables}}
  */
-function extractActionsNeedingAiGeneration(actions: Action[]) {
+export function extractActionsNeedingAiGeneration(actions: Action[]) {
   return actions
     .map((action) => {
       const fields = getParameterFieldsForAction(action);

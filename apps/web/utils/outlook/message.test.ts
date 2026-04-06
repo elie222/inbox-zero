@@ -341,5 +341,24 @@ describe("sanitizeOutlookSearchQuery", () => {
         "participants:john.doe@company.example.com",
       );
     });
+
+    it("falls back to plain text when a field query also includes extra terms", () => {
+      const query = 'from:"Loren Rock" RockMedical "user list" OR userlist';
+      const result = sanitizeOutlookSearchQuery(query);
+
+      expect(result.sanitized).toBe(
+        '"Loren Rock RockMedical user list userlist"',
+      );
+      expect(result.wasSanitized).toBe(true);
+    });
+
+    it("drops helper-only boolean field filters when collapsing complex queries", () => {
+      const query =
+        'from:"Loren Rock" (RockMedical OR "Rock Medical") hasattachments:true';
+      const result = sanitizeOutlookSearchQuery(query);
+
+      expect(result.sanitized).toBe('"Loren Rock RockMedical Rock Medical"');
+      expect(result.wasSanitized).toBe(true);
+    });
   });
 });

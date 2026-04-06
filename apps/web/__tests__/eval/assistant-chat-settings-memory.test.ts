@@ -16,6 +16,7 @@ import {
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
 import prisma from "@/utils/__mocks__/prisma";
+import { normalizeMemoryText } from "@/utils/ai/assistant/chat-memory-policy";
 import { createScopedLogger } from "@/utils/logger";
 import { isActivePremium } from "@/utils/premium";
 import { getUserPremium } from "@/utils/user/get";
@@ -70,8 +71,8 @@ const scenarios: EvalScenario[] = [
     expectation: {
       kind: "save_memory",
       forbiddenTools: ["searchMemories"],
-      semanticExpectation:
-        "Saved memory content that captures the durable preference to batch newsletters in the afternoon.",
+      expectedContent: "I like batching newsletters in the afternoon.",
+      expectedUserEvidence: "I like batching newsletters in the afternoon.",
     },
   },
   {
@@ -291,6 +292,8 @@ type UpdateAssistantSettingsInput = {
 
 type SaveMemoryInput = {
   content: string;
+  source?: "user_message" | "assistant_inference";
+  userEvidence?: string;
 };
 
 type SearchMemoriesInput = {
@@ -320,7 +323,8 @@ type ScenarioExpectation =
   | {
       kind: "save_memory";
       forbiddenTools: string[];
-      semanticExpectation: string;
+      expectedContent: string;
+      expectedUserEvidence: string;
     }
   | {
       kind: "search_memories";
@@ -345,10 +349,20 @@ function isUpdateAssistantSettingsInput(
 }
 
 function isSaveMemoryInput(input: unknown): input is SaveMemoryInput {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as {
+    content?: unknown;
+    source?: unknown;
+    userEvidence?: unknown;
+  };
+
   return (
-    !!input &&
-    typeof input === "object" &&
-    typeof (input as { content?: unknown }).content === "string"
+    typeof value.content === "string" &&
+    (value.source == null ||
+      value.source === "user_message" ||
+      value.source === "assistant_inference") &&
+    (value.userEvidence == null || typeof value.userEvidence === "string")
   );
 }
 
@@ -450,26 +464,27 @@ async function evaluateScenario(
         "saveMemory",
         isSaveMemoryInput,
       )?.input;
-      const judgeResult = memoryCall
-        ? await judgeEvalOutput({
-            input: prompt,
-            output: memoryCall.content,
-            expected: expectation.semanticExpectation,
-            criterion: {
-              name: "Saved memory semantics",
-              description:
-                "The saved memory content should semantically capture the requested durable preference, even if the wording differs from the prompt.",
-            },
-          })
-        : null;
 
       return {
         pass:
           !!memoryCall &&
-          !!judgeResult?.pass &&
+          memoryCall.source === "user_message" &&
+          normalizeMemoryText(memoryCall.content) ===
+            normalizeMemoryText(expectation.expectedContent) &&
+          normalizeMemoryText(
+            typeof memoryCall.userEvidence === "string"
+              ? memoryCall.userEvidence
+              : "",
+          ).includes(normalizeMemoryText(expectation.expectedUserEvidence)) &&
           hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
-        judgeOutput: memoryCall?.content ?? null,
-        judgeResult,
+        judgeOutput: memoryCall
+          ? JSON.stringify({
+              content: memoryCall.content,
+              source: memoryCall.source,
+              userEvidence: memoryCall.userEvidence,
+            })
+          : null,
+        judgeResult: null,
       };
     }
 

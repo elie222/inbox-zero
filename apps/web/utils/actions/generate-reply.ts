@@ -2,12 +2,12 @@
 
 import { generateReplySchema } from "@/utils/actions/generate-reply.validation";
 import { aiGenerateNudge } from "@/utils/ai/reply/generate-nudge";
-import { emailToContent } from "@/utils/mail";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
 
 export const generateNudgeReplyAction = actionClient
   .metadata({ name: "generateNudgeReply" })
@@ -35,7 +35,7 @@ export const generateNudgeReplyAction = actionClient
       const messages = inputMessages.map((msg) => ({
         ...msg,
         date: new Date(msg.date),
-        content: emailToContent({
+        content: emailToContentForAI({
           textPlain: msg.textPlain,
           textHtml: msg.textHtml,
           snippet: "",

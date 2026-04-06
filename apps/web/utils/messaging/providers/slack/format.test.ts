@@ -22,6 +22,18 @@ describe("markdownToSlackMrkdwn", () => {
     );
   });
 
+  it("encodes spaces in markdown link hrefs", () => {
+    expect(
+      markdownToSlackMrkdwn("[Click here](https://example.com/has a space)"),
+    ).toBe("<https://example.com/has%20a%20space|Click here>");
+  });
+
+  it("escapes link labels inside generated Slack links", () => {
+    expect(markdownToSlackMrkdwn("[Click > here](https://example.com)")).toBe(
+      "<https://example.com|Click &gt; here>",
+    );
+  });
+
   it("converts headings to bold", () => {
     expect(markdownToSlackMrkdwn("# Heading")).toBe("*Heading*");
     expect(markdownToSlackMrkdwn("### Sub heading")).toBe("*Sub heading*");
@@ -98,6 +110,75 @@ describe("markdownToSlackMrkdwn", () => {
   it("preserves code blocks", () => {
     expect(markdownToSlackMrkdwn("`code`")).toBe("`code`");
   });
+
+  it("escapes plain-text email addresses wrapped in angle brackets", () => {
+    expect(
+      markdownToSlackMrkdwn("Display Name <notifications@github.com>"),
+    ).toBe("Display Name &lt;notifications@github.com&gt;");
+  });
+
+  it("preserves existing entities inside invalid angle-bracket blocks", () => {
+    expect(markdownToSlackMrkdwn("Keep <abc &amp; def> safe")).toBe(
+      "Keep &lt;abc &amp; def&gt; safe",
+    );
+  });
+
+  it("preserves valid Slack mrkdwn blocks", () => {
+    expect(
+      markdownToSlackMrkdwn("Ping <@U123ABC> in <#C123ABC456> or <!here>."),
+    ).toBe("Ping <@U123ABC> in <#C123ABC456> or <!here>.");
+  });
+
+  it.each([
+    ["user mention", "<@U123ABC>"],
+    ["channel reference", "<#C123ABC456>"],
+    ["special mention", "<!everyone>"],
+    ["subteam mention", "<!subteam^S123ABC>"],
+    ["date token", "<!date^1735689600^{date_short}|Jan 1>"],
+    ["mailto link", "<mailto:test@example.com|Email me>"],
+    ["http link", "<https://example.com/path?a=1&b=2|Example>"],
+  ])("preserves valid Slack token: %s", (_label, token) => {
+    expect(markdownToSlackMrkdwn(`Before ${token} after`)).toBe(
+      `Before ${token} after`,
+    );
+  });
+
+  it.each([
+    ["unknown token", "Before <abc> after", "Before &lt;abc&gt; after"],
+    [
+      "email-like token",
+      "Before <person@example.com> after",
+      "Before &lt;person@example.com&gt; after",
+    ],
+    [
+      "entity-bearing invalid token",
+      "Before <abc &amp; def> after",
+      "Before &lt;abc &amp; def&gt; after",
+    ],
+    [
+      "broken mention shape",
+      "Before <@user-name> after",
+      "Before &lt;@user-name&gt; after",
+    ],
+  ])("escapes invalid angle-bracket block: %s", (_label, input, expected) => {
+    expect(markdownToSlackMrkdwn(input)).toBe(expected);
+  });
+
+  it.each([
+    ["unsafe protocol", "[Click me](ftp://example.com/file)", "Click me"],
+    [
+      "escaped label characters",
+      "[A < B & C > D](https://example.com)",
+      "<https://example.com|A &lt; B &amp; C &gt; D>",
+    ],
+    [
+      "mailto href with spaces",
+      "[Email](mailto:test@example.com?subject=hello world)",
+      "<mailto:test@example.com?subject=hello%20world|Email>",
+    ],
+  ])("handles markdown link edge case: %s", (_label, input, expected) => {
+    expect(markdownToSlackMrkdwn(input)).toBe(expected);
+  });
 });
 
 describe("richTextToSlackMrkdwn", () => {
@@ -153,5 +234,25 @@ describe("richTextToSlackMrkdwn", () => {
     expect(
       richTextToSlackMrkdwn('<a href="https://example.com/?a=1&b=2"></a>'),
     ).toBe("<https://example.com/?a=1&b=2|https://example.com/?a=1&amp;b=2>");
+  });
+
+  it.each([
+    [
+      "unsafe anchor href",
+      '<a href="javascript:alert(1)">Click me</a>',
+      "Click me",
+    ],
+    [
+      "empty unsafe anchor href",
+      '<a href="javascript:alert(1)"></a>',
+      "javascript:alert(1)",
+    ],
+    [
+      "preserves valid entity text outside tags",
+      "A &amp; B <span>inside</span>",
+      "A &amp; B &lt;span&gt;inside&lt;/span&gt;",
+    ],
+  ])("handles rich text edge case: %s", (_label, input, expected) => {
+    expect(richTextToSlackMrkdwn(input)).toBe(expected);
   });
 });
