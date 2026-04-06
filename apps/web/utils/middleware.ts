@@ -221,14 +221,6 @@ function withMiddleware<T extends NextRequest>(
   };
 }
 
-function getSafeErrorStatusCode(statusCode?: number) {
-  return Number.isInteger(statusCode) &&
-    statusCode! >= 400 &&
-    statusCode! <= 599
-    ? statusCode
-    : 400;
-}
-
 async function authMiddleware(
   req: NextRequest,
 ): Promise<RequestWithAuth | Response> {
@@ -676,4 +668,12 @@ function logSlowMiddlewareTotal({
       durationMs,
     });
   }
+}
+
+function getSafeErrorStatusCode(statusCode?: number) {
+  return Number.isInteger(statusCode) &&
+    statusCode! >= 400 &&
+    statusCode! <= 599
+    ? statusCode
+    : 400;
 }
