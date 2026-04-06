@@ -27,24 +27,27 @@ export async function processHistoryForUser({
   resourceData: OutlookResourceData;
   logger: Logger;
 }) {
-  const emailAccount = subscriptionId
-    ? await getWebhookEmailAccount(
-        {
-          watchEmailsSubscriptionId: subscriptionId,
-        },
-        logger,
-      )
-    : emailAddress
-      ? await getWebhookEmailAccount(
-          {
-            email: emailAddress.toLowerCase(),
-          },
-          logger,
-        )
-      : null;
+  let emailAccount = null;
+
+  if (subscriptionId) {
+    emailAccount = await getWebhookEmailAccount(
+      {
+        watchEmailsSubscriptionId: subscriptionId,
+      },
+      logger,
+    );
+  }
+
+  if (!emailAccount && emailAddress) {
+    emailAccount = await getWebhookEmailAccount(
+      {
+        email: emailAddress.toLowerCase(),
+      },
+      logger,
+    );
+  }
 
   logger = logger.with({
-    emailAddress,
     email: emailAccount?.email,
     emailAccountId: emailAccount?.id,
     subscriptionId,
