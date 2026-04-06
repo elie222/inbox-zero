@@ -1,3 +1,5 @@
+export const OUTLOOK_LINKING_STATE_COOKIE_NAME = "outlook_linking_state";
+
 export const WELL_KNOWN_FOLDERS = {
   inbox: "inbox",
   sentitems: "sentitems",

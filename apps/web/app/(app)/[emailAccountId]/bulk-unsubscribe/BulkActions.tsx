@@ -37,7 +37,7 @@ import { DomainIcon } from "@/components/charts/DomainIcon";
 import { extractDomainFromEmail } from "@/utils/email";
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import { NewsletterStatus } from "@/generated/prisma/enums";
-import type { NewsletterFilterType } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
+import type { NewsletterFilterType } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 

@@ -40,8 +40,6 @@ import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 import prisma from "@/utils/prisma";
 
-export { saveTokens } from "@/utils/auth/save-tokens";
-
 const logger = createScopedLogger("auth");
 const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();

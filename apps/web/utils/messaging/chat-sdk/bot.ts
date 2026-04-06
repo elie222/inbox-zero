@@ -1,11 +1,7 @@
-import { type SlackEvent } from "@chat-adapter/slack";
+import type { SlackAdapter, SlackEvent } from "@chat-adapter/slack";
 import { createIoRedisState } from "@chat-adapter/state-ioredis";
 import { createMemoryState } from "@chat-adapter/state-memory";
-import type { TeamsAdapter } from "@chat-adapter/teams";
-import {
-  type TelegramRawMessage,
-  type TelegramAdapter,
-} from "@chat-adapter/telegram";
+import type { TelegramRawMessage } from "@chat-adapter/telegram";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import {
