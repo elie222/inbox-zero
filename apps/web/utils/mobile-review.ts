@@ -79,6 +79,7 @@ async function buildSessionCookie(input: {
     input.authContext.secret,
   );
   const attributes = input.authContext.authCookies.sessionToken.attributes;
+  const sameSite = attributes.sameSite;
 
   return {
     name: input.authContext.authCookies.sessionToken.name,
@@ -90,7 +91,9 @@ async function buildSessionCookie(input: {
       maxAge: attributes.maxAge,
       partitioned: attributes.partitioned,
       path: attributes.path,
-      sameSite: normalizeSameSite(attributes.sameSite),
+      sameSite: sameSite
+        ? (sameSite.toLowerCase() as "strict" | "lax" | "none")
+        : undefined,
       secure: attributes.secure,
     },
   };
@@ -109,10 +112,4 @@ function codesMatch(input: string, expected: string): boolean {
 
 function normalizeCode(code: string): Buffer {
   return Buffer.from(code.trim(), "utf8");
-}
-
-function normalizeSameSite(
-  sameSite: "Strict" | "Lax" | "None" | "strict" | "lax" | "none" | undefined,
-) {
-  return sameSite?.toLowerCase() as "strict" | "lax" | "none" | undefined;
 }
