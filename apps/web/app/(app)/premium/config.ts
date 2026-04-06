@@ -16,6 +16,8 @@ export type Tier = {
   mostPopular?: boolean;
 };
 
+const DEFAULT_INCLUDED_EMAIL_ACCOUNTS_PER_USER = 1;
+
 const pricing: Record<PremiumTier, number> = {
   BASIC_MONTHLY: 16,
   BASIC_ANNUALLY: 8,
@@ -53,14 +55,22 @@ const STRIPE_PRICE_ID_CONFIG: Record<
     priceId?: string;
     // Allow handling of old price ids
     oldPriceIds?: string[];
+    includedEmailAccountsPerUser?: number;
   }
 > = {
-  BASIC_MONTHLY: { priceId: "price_1RfeDLKGf8mwZWHn6UW8wJcY" },
-  BASIC_ANNUALLY: { priceId: "price_1RfeDLKGf8mwZWHn5kfC8gcM" },
+  BASIC_MONTHLY: {
+    priceId: "price_1RfeDLKGf8mwZWHn6UW8wJcY",
+    includedEmailAccountsPerUser: 2,
+  },
+  BASIC_ANNUALLY: {
+    priceId: "price_1RfeDLKGf8mwZWHn5kfC8gcM",
+    includedEmailAccountsPerUser: 2,
+  },
   PRO_MONTHLY: {},
   PRO_ANNUALLY: {},
   STARTER_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
+    includedEmailAccountsPerUser: 2,
     oldPriceIds: [
       "price_1T9FhCKGf8mwZWHn1olNzv6X",
       "price_1S5u73KGf8mwZWHn8VYFdALA",
@@ -77,6 +87,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   },
   STARTER_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
+    includedEmailAccountsPerUser: 2,
     oldPriceIds: [
       "price_1S5u6uKGf8mwZWHnEvPWuQzG",
       "price_1S1QGGKGf8mwZWHnYpUcqNua",
@@ -88,12 +99,15 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   },
   PLUS_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
+    includedEmailAccountsPerUser: 2,
   },
   PLUS_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID,
+    includedEmailAccountsPerUser: 2,
   },
   PROFESSIONAL_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
+    includedEmailAccountsPerUser: 2,
     oldPriceIds: [
       "price_1S5u6NKGf8mwZWHnZCfy4D5n",
       "price_1RMSoMKGf8mwZWHn5fAKBT19",
@@ -101,6 +115,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   },
   PROFESSIONAL_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID,
+    includedEmailAccountsPerUser: 2,
     oldPriceIds: [
       "price_1S5u6XKGf8mwZWHnba8HX1H2",
       "price_1RMSoMKGf8mwZWHnGjf6fRmh",
@@ -131,6 +146,29 @@ export function getStripePriceId({
   tier: PremiumTier;
 }): string | null {
   return STRIPE_PRICE_ID_CONFIG[tier]?.priceId ?? null;
+}
+
+export function getIncludedEmailAccountsPerUserForStripePrice({
+  priceId,
+}: {
+  priceId: string;
+}): number {
+  const entries = Object.values(STRIPE_PRICE_ID_CONFIG);
+
+  for (const config of entries) {
+    if (config.priceId === priceId) {
+      return (
+        config.includedEmailAccountsPerUser ??
+        DEFAULT_INCLUDED_EMAIL_ACCOUNTS_PER_USER
+      );
+    }
+
+    if (config.oldPriceIds?.includes(priceId)) {
+      return DEFAULT_INCLUDED_EMAIL_ACCOUNTS_PER_USER;
+    }
+  }
+
+  return DEFAULT_INCLUDED_EMAIL_ACCOUNTS_PER_USER;
 }
 
 export function hasLegacyStripePriceId({

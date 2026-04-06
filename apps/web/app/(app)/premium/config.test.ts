@@ -23,9 +23,36 @@ vi.mock("@/env", () => ({
 }));
 
 import {
+  getIncludedEmailAccountsPerUserForStripePrice,
   hasLegacyStripePriceId,
   shouldShowLegacyStripePricingNotice,
 } from "./config";
+
+describe("getIncludedEmailAccountsPerUserForStripePrice", () => {
+  it("applies the included-account allowance to active Stripe prices", () => {
+    expect(
+      getIncludedEmailAccountsPerUserForStripePrice({
+        priceId: "price_current_plus_monthly",
+      }),
+    ).toBe(2);
+  });
+
+  it("keeps legacy Stripe prices on the default billing quantity", () => {
+    expect(
+      getIncludedEmailAccountsPerUserForStripePrice({
+        priceId: "price_1S5u73KGf8mwZWHn8VYFdALA",
+      }),
+    ).toBe(1);
+  });
+
+  it("defaults unknown prices to the legacy billing quantity", () => {
+    expect(
+      getIncludedEmailAccountsPerUserForStripePrice({
+        priceId: "price_unknown",
+      }),
+    ).toBe(1);
+  });
+});
 
 describe("hasLegacyStripePriceId", () => {
   it("returns false when the subscription uses the current Stripe price", () => {
