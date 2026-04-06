@@ -10,6 +10,8 @@ type MessagingRouteLike = {
   targetId: string;
 };
 
+type MessagingRoutePurposeLike = Pick<MessagingRouteLike, "purpose">;
+
 export type MessagingRouteSummary = {
   enabled: boolean;
   targetId: string | null;
@@ -24,8 +26,8 @@ export type MessagingChannelDestinations = {
 };
 
 export type MessagingFeatureRoutePurpose =
-  | MessagingRoutePurpose.MEETING_BRIEFS
-  | MessagingRoutePurpose.DOCUMENT_FILINGS;
+  | typeof MessagingRoutePurpose.MEETING_BRIEFS
+  | typeof MessagingRoutePurpose.DOCUMENT_FILINGS;
 
 type ConnectedMessagingChannelLike = {
   isConnected: boolean;
@@ -41,10 +43,11 @@ export function getMessagingRoute(
 }
 
 export function hasMessagingRoute(
-  routes: MessagingRouteLike[] | null | undefined,
+  routes: MessagingRoutePurposeLike[] | null | undefined,
   purpose: MessagingRoutePurpose,
 ) {
-  return Boolean(getMessagingRoute(routes, purpose));
+  if (!routes) return false;
+  return routes.some((route) => route.purpose === purpose);
 }
 
 export function getMessagingRouteWhere(
@@ -86,13 +89,12 @@ export function getMessagingRouteSummary(
 export function getMessagingFeatureRouteSummary(
   destinations: MessagingChannelDestinations,
   purpose: MessagingFeatureRoutePurpose,
-) {
-  switch (purpose) {
-    case MessagingRoutePurpose.MEETING_BRIEFS:
-      return destinations.meetingBriefs;
-    case MessagingRoutePurpose.DOCUMENT_FILINGS:
-      return destinations.documentFilings;
+): MessagingRouteSummary {
+  if (purpose === MessagingRoutePurpose.MEETING_BRIEFS) {
+    return destinations.meetingBriefs;
   }
+
+  return destinations.documentFilings;
 }
 
 export function hasRuleNotificationRoute(

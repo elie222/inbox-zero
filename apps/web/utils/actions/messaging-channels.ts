@@ -29,7 +29,11 @@ import { sendSlackOnboardingDirectMessageWithLogging } from "@/utils/messaging/p
 import { lookupSlackUserByEmail } from "@/utils/messaging/providers/slack/users";
 import { callTelegramBotApi } from "@/utils/messaging/providers/telegram/api";
 import type { Logger } from "@/utils/logger";
-import { getMessagingRoute, hasMessagingRoute } from "@/utils/messaging/routes";
+import {
+  getMessagingRoute,
+  hasMessagingRoute,
+  type MessagingFeatureRoutePurpose,
+} from "@/utils/messaging/routes";
 
 const MESSAGING_ACTION_TYPES = [
   ActionType.NOTIFY_MESSAGING_CHANNEL,
@@ -521,9 +525,7 @@ async function syncMessagingFeatureRoute({
     targetType: MessagingRouteTargetType;
     targetId: string;
   }>;
-  purpose:
-    | MessagingRoutePurpose.MEETING_BRIEFS
-    | MessagingRoutePurpose.DOCUMENT_FILINGS;
+  purpose: MessagingFeatureRoutePurpose;
   enabled: boolean;
 }) {
   if (!enabled) {
