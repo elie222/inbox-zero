@@ -8,7 +8,7 @@ import { Integrations } from "@/app/(app)/[emailAccountId]/integrations/Integrat
 import { Button } from "@/components/ui/button";
 import { ActionCard } from "@/components/ui/card";
 import { RequestAccessDialog } from "./RequestAccessDialog";
-import { usePremium } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 import { hasTierAccess } from "@/utils/premium";
 import { IntegrationsPremiumAlert } from "./IntegrationsPremiumAlert";
 import { useIntegrationsEnabled } from "@/hooks/useFeatureFlags";

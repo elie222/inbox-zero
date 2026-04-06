@@ -24,7 +24,7 @@ import type {
 import { getDateRangeParams } from "@/app/(app)/[emailAccountId]/stats/params";
 import { NewsletterModal } from "@/app/(app)/[emailAccountId]/stats/NewsletterModal";
 import { useEmailsToIncludeFilter } from "@/app/(app)/[emailAccountId]/stats/EmailsToIncludeFilter";
-import { usePremium } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 import {
   useNewsletterFilter,
   useBulkUnsubscribeShortcuts,

@@ -46,7 +46,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { ResubscribeDialog } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog";
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
-import type { EmailLabel } from "@/providers/EmailProvider";
+import type { EmailLabel } from "@/providers/email-label-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getEmailTerminology } from "@/utils/terminology";

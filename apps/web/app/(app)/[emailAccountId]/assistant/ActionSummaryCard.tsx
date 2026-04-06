@@ -8,7 +8,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/assistant/constants";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { getEmailTerminology } from "@/utils/terminology";
-import type { EmailLabel } from "@/providers/EmailProvider";
+import type { EmailLabel } from "@/providers/email-label-types";
 import { BRAND_NAME } from "@/utils/branding";
 
 export function ActionSummaryCard({

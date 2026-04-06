@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePremium } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 import {
   ManageSubscription,
   ViewInvoicesButton,

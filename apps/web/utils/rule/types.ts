@@ -1,9 +1,4 @@
-import type { createRule } from "@/utils/rule/rule";
 import type { Action, Rule, Prisma } from "@/generated/prisma/client";
-
-export type CreateRuleResult = NonNullable<
-  Awaited<ReturnType<typeof createRule>>
->;
 
 export type RuleWithRelations = Rule & {
   actions: Action[];
@@ -19,3 +14,5 @@ export type RuleWithRelations = Rule & {
       })
     | null;
 };
+
+export type CreateRuleResult = RuleWithRelations;

@@ -8,7 +8,7 @@ import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
-import { usePremium } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 import { Button } from "@/components/ui/button";
 import {
   PricingFrequencyToggle,

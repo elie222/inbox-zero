@@ -18,7 +18,8 @@ import {
   useBulkArchive,
   useBulkDelete,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
-import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
+import { PremiumTooltip } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";

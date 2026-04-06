@@ -1,5 +1,5 @@
 import type { MailFolder } from "@microsoft/microsoft-graph-types";
-import type { OutlookClient } from "./client";
+import type { OutlookClient } from "./client-types";
 import type { Logger } from "@/utils/logger";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 

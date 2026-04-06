@@ -10,7 +10,7 @@ import {
   type OnboardingFlowVariant,
 } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
-import { usePremium } from "@/components/PremiumAlert";
+import { usePremium } from "@/hooks/usePremium";
 
 export function StepInboxProcessed({
   flowVariant,
