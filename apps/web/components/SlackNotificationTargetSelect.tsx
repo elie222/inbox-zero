@@ -98,7 +98,7 @@ export function SlackNotificationTargetSelect({
             isLoading ? "Loading..." : hasError ? "Failed to load" : placeholder
           }
         >
-          {selectedTargetLabel ?? undefined}
+          {selectedTargetLabel}
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
