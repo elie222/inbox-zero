@@ -1,5 +1,7 @@
-import { MessagingProvider } from "@/generated/prisma/enums";
-import type { AutomationMessagingChannel } from "@/utils/automation-jobs/messaging-channel";
+import {
+  MessagingProvider,
+  MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
 import {
   AutomationJobConfigurationError,
   sendAutomationMessageToSlack,
@@ -9,18 +11,21 @@ import { getMessagingChatSdkBot } from "@/utils/messaging/chat-sdk/bot";
 
 export async function sendAutomationMessage({
   channel,
+  route,
   text,
   logger,
 }: {
-  channel: Pick<
-    AutomationMessagingChannel,
-    | "provider"
-    | "accessToken"
-    | "botUserId"
-    | "providerUserId"
-    | "channelId"
-    | "teamId"
-  >;
+  channel: {
+    provider: MessagingProvider;
+    accessToken: string | null;
+    botUserId?: string | null;
+    providerUserId?: string | null;
+    teamId?: string | null;
+  };
+  route?: {
+    targetId: string;
+    targetType: MessagingRouteTargetType;
+  } | null;
   text: string;
   logger: Logger;
 }) {
@@ -28,21 +33,31 @@ export async function sendAutomationMessage({
     case MessagingProvider.SLACK: {
       return sendAutomationMessageToSlack({
         channel,
+        route,
         text,
         logger,
       });
     }
     case MessagingProvider.TEAMS: {
       return sendAutomationMessageToTeams({
-        providerUserId: channel.providerUserId,
+        providerUserId:
+          route?.targetType === MessagingRouteTargetType.DIRECT_MESSAGE
+            ? route.targetId
+            : (channel.providerUserId ?? null),
         text,
         logger,
       });
     }
     case MessagingProvider.TELEGRAM: {
       return sendAutomationMessageToTelegram({
-        teamId: channel.teamId,
-        providerUserId: channel.providerUserId,
+        teamId:
+          route?.targetType === MessagingRouteTargetType.DIRECT_MESSAGE
+            ? route.targetId
+            : (channel.teamId ?? null),
+        providerUserId:
+          route?.targetType === MessagingRouteTargetType.DIRECT_MESSAGE
+            ? route.targetId
+            : (channel.providerUserId ?? null),
         text,
         logger,
       });

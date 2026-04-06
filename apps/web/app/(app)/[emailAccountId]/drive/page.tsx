@@ -8,6 +8,7 @@ import { HashIcon, MailIcon } from "lucide-react";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingContent } from "@/components/LoadingContent";
+import { SlackNotificationTargetSelect } from "@/components/SlackNotificationTargetSelect";
 import { Toggle } from "@/components/Toggle";
 import { MutedText } from "@/components/Typography";
 import {
@@ -30,12 +31,22 @@ import {
   updateFilingConfirmationEmailAction,
   updateFilingEnabledAction,
 } from "@/utils/actions/drive";
-import { updateChannelFeaturesAction } from "@/utils/actions/messaging-channels";
+import { updateMessagingFeatureRouteAction } from "@/utils/actions/messaging-channels";
 import { getActionErrorMessage } from "@/utils/error";
+import {
+  canEnableMessagingFeatureRoute,
+  getMessagingFeatureRouteSummary,
+  type MessagingChannelDestinations,
+} from "@/utils/messaging/routes";
 import { prefixPath } from "@/utils/path";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { cn } from "@/utils";
 import { Badge } from "@/components/ui/badge";
+import { getMessagingProviderName } from "@/utils/messaging/platforms";
+import {
+  MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
 
 type DriveView = "onboarding" | "setup" | "settings";
 
@@ -172,8 +183,14 @@ function DeliveryPopover({
     },
   );
 
-  const allConnected = data?.channels.filter((c) => c.isConnected) ?? [];
-  const withChannel = allConnected.filter((c) => c.channelId);
+  const allConnected =
+    data?.channels.filter((channel) => channel.isConnected) ?? [];
+  const configurableChannels = allConnected.filter(
+    (channel) =>
+      channel.provider === MessagingProvider.SLACK ||
+      channel.destinations.ruleNotifications.enabled ||
+      channel.destinations.documentFilings.enabled,
+  );
   const availableProviders = data?.availableProviders ?? [];
   const slackAvailable = availableProviders.includes("SLACK");
 
@@ -211,34 +228,35 @@ function DeliveryPopover({
             </MutedText>
           </div>
 
-          {!isLoading && (withChannel.length > 0 || slackAvailable) && (
-            <div className="space-y-2 border-t pt-3">
-              <MutedText className="text-xs">Connected apps</MutedText>
-              {withChannel.length > 0 ? (
-                <div className="space-y-2">
-                  {withChannel.map((channel) => (
-                    <SlackChannelToggle
-                      key={channel.id}
-                      channel={channel}
-                      emailAccountId={emailAccountId}
-                      onUpdate={mutate}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <MutedText className="text-xs">
-                  Select a target channel in{" "}
-                  <Link
-                    href={prefixPath(emailAccountId, "/briefs")}
-                    className="underline text-foreground"
-                  >
-                    Meeting Briefs
-                  </Link>{" "}
-                  to enable Slack notifications.
-                </MutedText>
-              )}
-            </div>
-          )}
+          {!isLoading &&
+            (configurableChannels.length > 0 || slackAvailable) && (
+              <div className="space-y-2 border-t pt-3">
+                <MutedText className="text-xs">Connected apps</MutedText>
+                {configurableChannels.length > 0 ? (
+                  <div className="space-y-2">
+                    {configurableChannels.map((channel) => (
+                      <DeliveryChannelRow
+                        key={channel.id}
+                        channel={channel}
+                        emailAccountId={emailAccountId}
+                        onUpdate={mutate}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <MutedText className="text-xs">
+                    Select a destination in{" "}
+                    <Link
+                      href={prefixPath(emailAccountId, "/channels")}
+                      className="underline text-foreground"
+                    >
+                      Channels
+                    </Link>{" "}
+                    to enable app notifications.
+                  </MutedText>
+                )}
+              </div>
+            )}
 
           {isLoading && (
             <MutedText className="text-xs">Loading connected apps...</MutedText>
@@ -249,21 +267,30 @@ function DeliveryPopover({
   );
 }
 
-function SlackChannelToggle({
+function DeliveryChannelRow({
   channel,
   emailAccountId,
   onUpdate,
 }: {
   channel: {
     id: string;
-    channelName: string | null;
-    sendDocumentFilings: boolean;
+    provider: MessagingProvider;
+    destinations: MessagingChannelDestinations;
+    canSendAsDm: boolean;
   };
   emailAccountId: string;
   onUpdate: () => void;
 }) {
+  const destination = getMessagingFeatureRouteSummary(
+    channel.destinations,
+    MessagingRoutePurpose.DOCUMENT_FILINGS,
+  );
+  const canEnableFeatureRoute = canEnableMessagingFeatureRoute(
+    channel.destinations,
+    MessagingRoutePurpose.DOCUMENT_FILINGS,
+  );
   const { execute } = useAction(
-    updateChannelFeaturesAction.bind(null, emailAccountId),
+    updateMessagingFeatureRouteAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "Settings saved" });
@@ -281,22 +308,43 @@ function SlackChannelToggle({
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         <HashIcon className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm">
-          Slack
-          {channel.channelName && (
-            <span className="text-muted-foreground">
-              {" "}
-              &middot; #{channel.channelName}
-            </span>
+        <div className="space-y-1">
+          <span className="text-sm">
+            {getMessagingProviderName(channel.provider)}
+          </span>
+          {channel.provider === MessagingProvider.SLACK ? (
+            <SlackNotificationTargetSelect
+              emailAccountId={emailAccountId}
+              messagingChannelId={channel.id}
+              purpose={MessagingRoutePurpose.DOCUMENT_FILINGS}
+              targetId={destination.targetId}
+              targetLabel={destination.targetLabel}
+              isDm={destination.isDm}
+              canSendAsDm={channel.canSendAsDm}
+              onUpdate={onUpdate}
+              placeholder="Select destination"
+              className="h-8 w-44 text-xs"
+            />
+          ) : (
+            <MutedText className="text-xs">
+              Filing updates use this connected app&apos;s direct message
+              destination.
+            </MutedText>
           )}
-        </span>
+        </div>
       </div>
       <Toggle
         name={`filing-${channel.id}`}
-        enabled={channel.sendDocumentFilings}
-        onChange={(sendDocumentFilings) =>
-          execute({ channelId: channel.id, sendDocumentFilings })
-        }
+        enabled={destination.enabled}
+        disabled={!canEnableFeatureRoute}
+        onChange={(enabled) => {
+          if (!canEnableFeatureRoute) return;
+          execute({
+            channelId: channel.id,
+            purpose: MessagingRoutePurpose.DOCUMENT_FILINGS,
+            enabled,
+          });
+        }}
       />
     </div>
   );

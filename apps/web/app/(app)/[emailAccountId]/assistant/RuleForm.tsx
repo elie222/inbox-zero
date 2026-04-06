@@ -54,6 +54,7 @@ import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps"
 import { RuleLoader } from "@/app/(app)/[emailAccountId]/assistant/RuleLoader";
 import { handleRuleAttachmentSourceSave } from "@/utils/attachments/rule";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import {
   denormalizeDraftReplyActions,
   normalizeDraftReplyActions,
@@ -338,10 +339,9 @@ export function RuleForm({
   }, [formState]);
 
   const typeOptions = useMemo(() => {
-    const connectedMessagingChannels =
-      messagingChannelsData?.channels.filter(
-        (channel) => channel.isConnected && channel.hasSendDestination,
-      ) ?? [];
+    const connectedMessagingChannels = getConnectedRuleNotificationChannels(
+      messagingChannelsData?.channels,
+    );
     const messagingIsAvailable =
       connectedMessagingChannels.length > 0 ||
       (messagingChannelsData?.availableProviders.length ?? 0) > 0;

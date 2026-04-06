@@ -202,9 +202,9 @@ model EmailAccount {
   meetingBriefings    MeetingBriefing[]
   driveConnections    DriveConnection[]
   messagingChannels   MessagingChannel[]
-  documentFilings       DocumentFiling[]
-  filingFolders         FilingFolder[]
-  apiKeys               ApiKey[]
+  documentFilings    DocumentFiling[]
+  filingFolders      FilingFolder[]
+  apiKeys            ApiKey[]
   classificationFeedback ClassificationFeedback[]
 
   @@index([userId])
@@ -1146,16 +1146,9 @@ model MessagingChannel {
   refreshToken String?
   expiresAt    DateTime?
 
-  // Target channel for notifications (meeting briefs, alerts)
-  channelId   String?
-  channelName String?
-
-  // Feature toggles
-  sendMeetingBriefs   Boolean @default(false)
-  sendDocumentFilings Boolean @default(false)
-
   emailAccountId String
-  emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  routes         MessagingRoute[]
   automationJobs AutomationJob[]
   actions        Action[]
   executedActions ExecutedAction[]
@@ -1164,6 +1157,25 @@ model MessagingChannel {
   @@unique([id, emailAccountId])
   @@index([emailAccountId])
   @@index([provider, teamId])
+}
+
+model MessagingRoute {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Which Inbox Zero feature this route is for.
+  purpose MessagingRoutePurpose
+
+  // Whether the provider-native destination is a direct message or channel.
+  targetType MessagingRouteTargetType
+  // Provider-native destination ID, for example a Slack channel ID.
+  targetId   String
+
+  messagingChannelId String
+  messagingChannel   MessagingChannel @relation(fields: [messagingChannelId], references: [id], onDelete: Cascade)
+
+  @@unique([messagingChannelId, purpose])
 }
 
 model AutomationJob {
@@ -1641,6 +1653,19 @@ enum MessagingProvider {
   SLACK
   TEAMS
   TELEGRAM
+}
+
+enum MessagingRoutePurpose {
+  RULE_NOTIFICATIONS
+  MEETING_BRIEFS
+  DOCUMENT_FILINGS
+  // DIGESTS
+  // FOLLOW_UPS
+}
+
+enum MessagingRouteTargetType {
+  CHANNEL
+  DIRECT_MESSAGE
 }
 
 enum AutomationJobRunStatus {

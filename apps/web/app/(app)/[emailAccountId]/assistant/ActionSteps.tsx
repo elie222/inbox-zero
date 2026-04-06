@@ -51,6 +51,7 @@ import { BRAND_NAME } from "@/utils/branding";
 import { ActionAttachmentsField } from "@/app/(app)/[emailAccountId]/assistant/ActionAttachmentsField";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
+import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import { prefixPath } from "@/utils/path";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
@@ -643,9 +644,8 @@ function ActionCard({
     />
   ) : null;
 
-  const connectedMessagingChannels = messagingChannels.filter(
-    (channel) => channel.isConnected && channel.hasSendDestination,
-  );
+  const connectedMessagingChannels =
+    getConnectedRuleNotificationChannels(messagingChannels);
   const canConnectMessagingApp = availableMessagingProviders.length > 0;
 
   const deliveryField = isDraftReplyActionType(rawActionType) ? (
@@ -1206,12 +1206,17 @@ function MessagingChannelField({
 
 function formatMessagingDestinationLabel(channel: MessagingChannelOption) {
   const provider = getMessagingProviderName(channel.provider);
+  const destination = channel.destinations.ruleNotifications;
 
-  if (channel.isDm) return `${provider} DM`;
-  if (channel.channelName && channel.teamName) {
-    return `#${channel.channelName} (${channel.teamName})`;
+  if (destination.isDm) return `${provider} DM`;
+  if (destination.targetLabel && channel.teamName) {
+    return `${destination.targetLabel} (${channel.teamName})`;
   }
-  if (channel.channelName) return `#${channel.channelName}`;
+  if (destination.targetLabel) {
+    return provider === "Slack"
+      ? `${destination.targetLabel} (Slack workspace)`
+      : destination.targetLabel;
+  }
   if (channel.teamName) return `${provider} (${channel.teamName})`;
 
   return provider === "Slack" ? "Slack workspace" : provider;
@@ -1223,7 +1228,8 @@ function formatDraftReplyReviewChannelLabel(channel?: MessagingChannelOption) {
   const destination = formatMessagingDestinationLabel(channel);
   const provider = getMessagingProviderName(channel.provider);
   const label =
-    channel.isDm || destination.startsWith(provider)
+    channel.destinations.ruleNotifications.isDm ||
+    destination.startsWith(provider)
       ? destination
       : `${provider} · ${destination}`;
   return channel.isConnected ? label : `${label} (Disconnected)`;

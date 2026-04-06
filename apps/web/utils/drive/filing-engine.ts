@@ -12,7 +12,7 @@ import {
   sendFiledNotification,
   sendAskNotification,
 } from "@/utils/drive/filing-notifications";
-import { sendFilingSlackNotifications } from "@/utils/drive/filing-slack-notifications";
+import { sendFilingMessagingNotifications } from "@/utils/drive/filing-messaging-notifications";
 import { extractEmailAddress } from "@/utils/email";
 
 // ============================================================================
@@ -300,14 +300,16 @@ export async function processAttachment({
     }
 
     try {
-      await sendFilingSlackNotifications({
+      await sendFilingMessagingNotifications({
         emailAccountId: emailAccount.id,
         filingId: filing.id,
         senderEmail: extractEmailAddress(message.headers.from),
         logger: log,
       });
-    } catch (slackError) {
-      log.error("Failed to send Slack notification", { error: slackError });
+    } catch (messagingError) {
+      log.error("Failed to send messaging notification", {
+        error: messagingError,
+      });
     }
 
     return {

@@ -1,15 +1,21 @@
 import prisma from "@/utils/prisma";
-import { MessagingProvider } from "@/generated/prisma/enums";
 import {
-  resolveSlackDestination,
+  MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
+import {
+  resolveSlackRouteDestination,
   sendDocumentFiledToSlack,
   sendDocumentAskToSlack,
 } from "@/utils/messaging/providers/slack/send";
 import type { Logger } from "@/utils/logger";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
-import { getMessagingDeliveryTargetWhere } from "@/utils/messaging/delivery-target";
+import {
+  getMessagingRoute,
+  getMessagingRouteWhere,
+} from "@/utils/messaging/routes";
 
-export async function sendFilingSlackNotifications({
+export async function sendFilingMessagingNotifications({
   emailAccountId,
   filingId,
   senderEmail,
@@ -20,21 +26,30 @@ export async function sendFilingSlackNotifications({
   senderEmail?: string | null;
   logger: Logger;
 }): Promise<void> {
-  const log = logger.with({ action: "sendFilingSlackNotifications", filingId });
+  const log = logger.with({
+    action: "sendFilingMessagingNotifications",
+    filingId,
+  });
 
   const channels = await prisma.messagingChannel.findMany({
     where: {
       emailAccountId,
       isConnected: true,
-      sendDocumentFilings: true,
-      ...getMessagingDeliveryTargetWhere(),
+      ...getMessagingRouteWhere(MessagingRoutePurpose.DOCUMENT_FILINGS),
     },
     select: {
+      id: true,
       provider: true,
       accessToken: true,
       teamId: true,
-      channelId: true,
       providerUserId: true,
+      routes: {
+        select: {
+          purpose: true,
+          targetType: true,
+          targetId: true,
+        },
+      },
     },
   });
 
@@ -48,20 +63,25 @@ export async function sendFilingSlackNotifications({
   });
 
   if (!filing) {
-    log.error("Filing not found for Slack notification");
+    log.error("Filing not found for messaging notification");
     return;
   }
 
   const deliveryPromises: Promise<unknown>[] = [];
 
   for (const channel of channels) {
+    const route = getMessagingRoute(
+      channel.routes,
+      MessagingRoutePurpose.DOCUMENT_FILINGS,
+    );
+    if (!route) continue;
+
     switch (channel.provider) {
       case MessagingProvider.SLACK: {
         if (!channel.accessToken) continue;
-        const destination = await resolveSlackDestination({
+        const destination = await resolveSlackRouteDestination({
           accessToken: channel.accessToken,
-          channelId: channel.channelId,
-          providerUserId: channel.providerUserId,
+          route,
         }).catch((error: unknown) => {
           log.error("Slack destination resolution failed", { error });
           return null;
@@ -98,6 +118,7 @@ export async function sendFilingSlackNotifications({
         deliveryPromises.push(
           sendAutomationMessage({
             channel,
+            route,
             text: filing.wasAsked
               ? formatDocumentAskText({
                   filename: filing.filename,
@@ -121,7 +142,7 @@ export async function sendFilingSlackNotifications({
   const failures = results.filter((r) => r.status === "rejected");
 
   for (const failure of failures) {
-    log.error("Slack filing notification failed", {
+    log.error("Filing notification failed", {
       reason: (failure as PromiseRejectedResult).reason,
     });
   }

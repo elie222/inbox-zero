@@ -4,11 +4,19 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { posthogCaptureEvent } from "@/utils/posthog";
-import { ActionType, MessagingProvider } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
 import { describeCronSchedule } from "@/utils/automation-jobs/describe";
 import { DEFAULT_AUTOMATION_JOB_CRON } from "@/utils/automation-jobs/defaults";
 import { SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS } from "@/utils/automation-jobs/messaging-channel";
-import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
+import {
+  formatRouteTargetLabel,
+  getMessagingRoute,
+  hasMessagingRoute,
+} from "@/utils/messaging/routes";
 import {
   getNextAutomationJobRunAt,
   validateAutomationCronExpression,
@@ -266,33 +274,35 @@ const accountSettingsSnapshotRawSelect = {
       provider: {
         in: SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
       },
+      routes: {
+        some: {
+          purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+        },
+      },
       OR: [
         {
           provider: MessagingProvider.SLACK,
           accessToken: { not: null },
-          OR: [{ providerUserId: { not: null } }, { channelId: { not: null } }],
         },
         {
           provider: {
-            in: [MessagingProvider.TEAMS],
+            in: [MessagingProvider.TEAMS, MessagingProvider.TELEGRAM],
           },
-          providerUserId: { not: null },
-        },
-        {
-          provider: MessagingProvider.TELEGRAM,
-          OR: [{ teamId: { not: "" } }, { providerUserId: { not: null } }],
         },
       ],
     },
     select: {
       id: true,
       provider: true,
-      channelName: true,
       teamName: true,
       isConnected: true,
-      teamId: true,
-      providerUserId: true,
-      channelId: true,
+      routes: {
+        select: {
+          purpose: true,
+          targetType: true,
+          targetId: true,
+        },
+      },
     },
   },
   knowledge: {
@@ -320,8 +330,14 @@ const scheduledCheckInsAutomationJobSelect = {
   messagingChannel: {
     select: {
       provider: true,
-      channelName: true,
       teamName: true,
+      routes: {
+        select: {
+          purpose: true,
+          targetType: true,
+          targetId: true,
+        },
+      },
     },
   },
 } satisfies Prisma.AutomationJobSelect;
@@ -1125,15 +1141,23 @@ function buildScheduledCheckInsSnapshot(
   emailAccount: ScheduledCheckInsSnapshotSource,
 ) {
   const availableChannels = emailAccount.messagingChannels
-    .filter(
-      (channel) => channel.isConnected && hasMessagingDeliveryTarget(channel),
+    .filter((channel) =>
+      hasMessagingRoute(
+        channel.routes,
+        MessagingRoutePurpose.RULE_NOTIFICATIONS,
+      ),
     )
     .map((channel) => ({
       id: channel.id,
       label: formatMessagingChannelLabel({
         provider: channel.provider,
-        channelName: channel.channelName,
         teamName: channel.teamName,
+        routeLabel: formatRouteTargetLabel(
+          getMessagingRoute(
+            channel.routes,
+            MessagingRoutePurpose.RULE_NOTIFICATIONS,
+          ),
+        ),
       }),
     }));
 
@@ -1150,8 +1174,13 @@ function buildScheduledCheckInsSnapshot(
     messagingChannelName: emailAccount.automationJob?.messagingChannel
       ? formatMessagingChannelLabel({
           provider: emailAccount.automationJob.messagingChannel.provider,
-          channelName: emailAccount.automationJob.messagingChannel.channelName,
           teamName: emailAccount.automationJob.messagingChannel.teamName,
+          routeLabel: formatRouteTargetLabel(
+            getMessagingRoute(
+              emailAccount.automationJob.messagingChannel.routes,
+              MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            ),
+          ),
         })
       : null,
     availableChannels,
@@ -1160,15 +1189,15 @@ function buildScheduledCheckInsSnapshot(
 
 function formatMessagingChannelLabel({
   provider,
-  channelName,
   teamName,
+  routeLabel,
 }: {
   provider: MessagingProvider;
-  channelName: string | null;
   teamName: string | null;
+  routeLabel: string | null;
 }) {
-  if (channelName && teamName) return `#${channelName} (${teamName})`;
-  if (channelName) return `#${channelName}`;
+  if (routeLabel && teamName) return `${routeLabel} (${teamName})`;
+  if (routeLabel) return routeLabel;
   if (teamName) return teamName;
 
   if (provider === MessagingProvider.TEAMS) return "Teams destination";

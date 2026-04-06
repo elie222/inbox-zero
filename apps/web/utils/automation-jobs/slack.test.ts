@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MessagingProvider } from "@/generated/prisma/enums";
+import {
+  MessagingProvider,
+  MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 
 const {
   mockCreateSlackClient,
   mockPostMessage,
   mockJoinConversation,
-  mockResolveSlackDestination,
+  mockResolveSlackRouteDestination,
 } = vi.hoisted(() => ({
   mockCreateSlackClient: vi.fn(),
   mockPostMessage: vi.fn(),
   mockJoinConversation: vi.fn(),
-  mockResolveSlackDestination: vi.fn(),
+  mockResolveSlackRouteDestination: vi.fn(),
 }));
 
 vi.mock("@/utils/messaging/providers/slack/client", () => ({
@@ -25,12 +28,11 @@ vi.mock("@/utils/messaging/providers/slack/send", async () => {
 
   return {
     ...actual,
-    resolveSlackDestination: mockResolveSlackDestination,
+    resolveSlackRouteDestination: mockResolveSlackRouteDestination,
   };
 });
 
 import { sendAutomationMessageToSlack } from "./slack";
-import { SLACK_DM_CHANNEL_SENTINEL } from "@/utils/messaging/providers/slack/send";
 
 const logger = createScopedLogger("automation-jobs-slack-test");
 
@@ -46,7 +48,7 @@ describe("sendAutomationMessageToSlack", () => {
         join: mockJoinConversation,
       },
     });
-    mockResolveSlackDestination.mockResolvedValue("C123");
+    mockResolveSlackRouteDestination.mockResolvedValue("C123");
     mockPostMessage.mockResolvedValue({ ts: "123.456" });
   });
 
@@ -56,8 +58,10 @@ describe("sendAutomationMessageToSlack", () => {
         provider: MessagingProvider.SLACK,
         accessToken: "xoxb-token",
         botUserId: "UAPP123",
-        providerUserId: "U123",
-        channelId: "C123",
+      },
+      route: {
+        targetId: "C123",
+        targetType: MessagingRouteTargetType.CHANNEL,
       },
       text: "You currently have 3 unread emails. Want to go through them now?",
       logger,
@@ -72,14 +76,16 @@ describe("sendAutomationMessageToSlack", () => {
   });
 
   it("keeps direct messages unchanged", async () => {
-    mockResolveSlackDestination.mockResolvedValue("D123");
+    mockResolveSlackRouteDestination.mockResolvedValue("D123");
 
     await sendAutomationMessageToSlack({
       channel: {
         provider: MessagingProvider.SLACK,
         accessToken: "xoxb-token",
-        providerUserId: "U123",
-        channelId: SLACK_DM_CHANNEL_SENTINEL,
+      },
+      route: {
+        targetId: "U123",
+        targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
       },
       text: "Your inbox looks clear right now. Want me to keep monitoring and ping again later?",
       logger,

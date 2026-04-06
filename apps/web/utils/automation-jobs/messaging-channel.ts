@@ -1,5 +1,8 @@
-import { MessagingProvider } from "@/generated/prisma/enums";
-import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
+import {
+  MessagingProvider,
+  MessagingRoutePurpose,
+} from "@/generated/prisma/enums";
+import { hasMessagingRoute } from "@/utils/messaging/routes";
 
 export const SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS: MessagingProvider[] = [
   MessagingProvider.SLACK,
@@ -12,9 +15,10 @@ export type AutomationMessagingChannel = {
   isConnected: boolean;
   accessToken: string | null;
   botUserId?: string | null;
-  teamId?: string | null;
-  providerUserId: string | null;
-  channelId: string | null;
+  routes: Array<{
+    purpose: MessagingRoutePurpose;
+    targetId: string;
+  }>;
 };
 
 export function isSupportedAutomationMessagingProvider(
@@ -28,7 +32,11 @@ export function isAutomationMessagingChannelReady(
 ) {
   if (!channel.isConnected) return false;
   if (!isSupportedAutomationMessagingProvider(channel.provider)) return false;
-  if (!hasMessagingDeliveryTarget(channel)) return false;
+  if (
+    !hasMessagingRoute(channel.routes, MessagingRoutePurpose.RULE_NOTIFICATIONS)
+  ) {
+    return false;
+  }
 
   if (channel.provider === MessagingProvider.SLACK && !channel.accessToken) {
     return false;

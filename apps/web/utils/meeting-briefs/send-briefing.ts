@@ -8,15 +8,22 @@ import MeetingBriefingEmail, {
   type BriefingContent,
   type InternalTeamMember,
 } from "@inboxzero/resend/emails/meeting-briefing";
-import { MessagingProvider } from "@/generated/prisma/enums";
+import {
+  MessagingProvider,
+  MessagingRoutePurpose,
+  type MessagingRouteTargetType,
+} from "@/generated/prisma/enums";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
-import { getMessagingDeliveryTargetWhere } from "@/utils/messaging/delivery-target";
 import {
-  resolveSlackDestination,
+  resolveSlackRouteDestination,
   sendMeetingBriefingToSlack,
 } from "@/utils/messaging/providers/slack/send";
+import {
+  getMessagingRoute,
+  getMessagingRouteWhere,
+} from "@/utils/messaging/routes";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { formatTimeInUserTimezone } from "@/utils/date";
 import prisma from "@/utils/prisma";
@@ -62,15 +69,21 @@ export async function sendBriefing({
     where: {
       emailAccountId,
       isConnected: true,
-      sendMeetingBriefs: true,
-      ...getMessagingDeliveryTargetWhere(),
+      ...getMessagingRouteWhere(MessagingRoutePurpose.MEETING_BRIEFS),
     },
     select: {
+      id: true,
       provider: true,
       accessToken: true,
       teamId: true,
-      channelId: true,
       providerUserId: true,
+      routes: {
+        select: {
+          purpose: true,
+          targetType: true,
+          targetId: true,
+        },
+      },
     },
   });
 
@@ -91,14 +104,19 @@ export async function sendBriefing({
   }
 
   for (const channel of channels) {
+    const route = getMessagingRoute(
+      channel.routes,
+      MessagingRoutePurpose.MEETING_BRIEFS,
+    );
+    if (!route) continue;
+
     switch (channel.provider) {
       case MessagingProvider.SLACK:
         if (!channel.accessToken) continue;
         deliveryPromises.push(
           sendBriefingViaSlack({
             accessToken: channel.accessToken,
-            channelId: channel.channelId,
-            providerUserId: channel.providerUserId,
+            route,
             meetingTitle: event.title,
             formattedTime,
             videoConferenceLink: event.videoConferenceLink ?? undefined,
@@ -113,6 +131,7 @@ export async function sendBriefing({
         deliveryPromises.push(
           sendBriefingViaMessagingApp({
             channel,
+            route,
             meetingTitle: event.title,
             formattedTime,
             videoConferenceLink: event.videoConferenceLink ?? undefined,
@@ -214,8 +233,7 @@ async function sendBriefingViaEmail({
 
 async function sendBriefingViaSlack({
   accessToken,
-  channelId,
-  providerUserId,
+  route,
   meetingTitle,
   formattedTime,
   videoConferenceLink,
@@ -224,8 +242,10 @@ async function sendBriefingViaSlack({
   logger,
 }: {
   accessToken: string;
-  channelId: string | null;
-  providerUserId: string | null;
+  route: {
+    targetId: string;
+    targetType: MessagingRouteTargetType;
+  };
   meetingTitle: string;
   formattedTime: string;
   videoConferenceLink?: string;
@@ -233,10 +253,9 @@ async function sendBriefingViaSlack({
   briefingContent: BriefingContent;
   logger: Logger;
 }): Promise<void> {
-  const destination = await resolveSlackDestination({
+  const destination = await resolveSlackRouteDestination({
     accessToken,
-    channelId,
-    providerUserId,
+    route,
   });
 
   if (!destination) {
@@ -259,6 +278,7 @@ async function sendBriefingViaSlack({
 
 async function sendBriefingViaMessagingApp({
   channel,
+  route,
   meetingTitle,
   formattedTime,
   videoConferenceLink,
@@ -267,11 +287,20 @@ async function sendBriefingViaMessagingApp({
   logger,
 }: {
   channel: {
+    id: string;
     provider: MessagingProvider;
     accessToken: string | null;
     teamId: string | null;
-    channelId: string | null;
     providerUserId: string | null;
+    routes: Array<{
+      purpose: MessagingRoutePurpose;
+      targetId: string;
+      targetType: MessagingRouteTargetType;
+    }>;
+  };
+  route: {
+    targetId: string;
+    targetType: MessagingRouteTargetType;
   };
   meetingTitle: string;
   formattedTime: string;
@@ -286,6 +315,7 @@ async function sendBriefingViaMessagingApp({
 
   await sendAutomationMessage({
     channel,
+    route,
     text: formatMeetingBriefingText({
       meetingTitle,
       formattedTime,

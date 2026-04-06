@@ -2,8 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/utils/prisma", () => ({
   default: {
+    $transaction: vi.fn((operations) => Promise.all(operations)),
     messagingChannel: {
+      findMany: vi
+        .fn()
+        .mockResolvedValue([{ id: "channel-1" }, { id: "channel-2" }]),
       updateMany: vi.fn().mockResolvedValue({ count: 2 }),
+    },
+    messagingRoute: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 3 }),
     },
   },
 }));
@@ -34,6 +41,14 @@ describe("handleSlackAppUninstalled", () => {
   it("marks all channels for the team as disconnected and clears tokens", async () => {
     await handleSlackAppUninstalled({ teamId: "T123", logger });
 
+    expect(prisma.messagingChannel.findMany).toHaveBeenCalledWith({
+      where: {
+        provider: "SLACK",
+        teamId: "T123",
+      },
+      select: { id: true },
+    });
+
     expect(prisma.messagingChannel.updateMany).toHaveBeenCalledWith({
       where: {
         provider: "SLACK",
@@ -43,10 +58,12 @@ describe("handleSlackAppUninstalled", () => {
         isConnected: false,
         accessToken: null,
         refreshToken: null,
-        channelId: null,
-        channelName: null,
-        sendMeetingBriefs: false,
-        sendDocumentFilings: false,
+      },
+    });
+
+    expect(prisma.messagingRoute.deleteMany).toHaveBeenCalledWith({
+      where: {
+        messagingChannelId: { in: ["channel-1", "channel-2"] },
       },
     });
   });

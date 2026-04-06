@@ -13,11 +13,7 @@ import {
 import { cardToBlockKit, cardToFallbackText } from "@chat-adapter/slack";
 import prisma from "@/utils/prisma";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
-import { hasMessagingDeliveryTarget } from "@/utils/messaging/delivery-target";
-import {
-  isSlackDmChannel,
-  resolveSlackDestination,
-} from "@/utils/messaging/providers/slack/send";
+import { resolveSlackRouteDestination } from "@/utils/messaging/providers/slack/send";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import {
   escapeSlackText,
@@ -27,6 +23,8 @@ import {
   ActionType,
   MessagingMessageStatus,
   MessagingProvider,
+  MessagingRoutePurpose,
+  MessagingRouteTargetType,
   SystemType,
 } from "@/generated/prisma/enums";
 import type { ExecutedRule } from "@/generated/prisma/client";
@@ -46,6 +44,7 @@ import type { ParsedMessage } from "@/utils/types";
 import he from "he";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 import { extractNameFromEmail } from "@/utils/email";
+import { getMessagingRoute } from "@/utils/messaging/routes";
 
 const DRAFT_PREVIEW_MAX_CHARS = 900;
 const SUMMARY_PREVIEW_MAX_CHARS = 280;
@@ -175,10 +174,22 @@ async function sendSlackRuleNotificationWithContext({
     return { delivered: false, kind: "none" };
   }
 
-  const destinationChannelId = await resolveSlackDestination({
+  const route = getMessagingRoute(
+    context.messagingChannel.routes,
+    MessagingRoutePurpose.RULE_NOTIFICATIONS,
+  );
+
+  if (!route) {
+    logger.warn("Skipping messaging notification with no Slack route", {
+      executedActionId: context.id,
+      messagingChannelId: context.messagingChannelId,
+    });
+    return { delivered: false, kind: "none" };
+  }
+
+  const destinationChannelId = await resolveSlackRouteDestination({
     accessToken: context.messagingChannel.accessToken,
-    channelId: context.messagingChannel.channelId,
-    providerUserId: context.messagingChannel.providerUserId,
+    route,
   });
 
   if (!destinationChannelId) {
@@ -213,7 +224,7 @@ async function sendSlackRuleNotificationWithContext({
     const responseTs = await postSlackCard({
       accessToken: context.messagingChannel.accessToken,
       card,
-      channelId: context.messagingChannel.channelId,
+      route,
       destinationChannelId,
       rootMessageId,
     });
@@ -261,16 +272,14 @@ async function sendLinkedRuleNotification({
     return { delivered: false, kind: "none" };
   }
 
-  if (
-    !hasMessagingDeliveryTarget({
-      provider: context.messagingChannel.provider,
-      providerUserId: context.messagingChannel.providerUserId,
-      channelId: null,
-      teamId: context.messagingChannel.teamId,
-    })
-  ) {
+  const route = getMessagingRoute(
+    context.messagingChannel.routes,
+    MessagingRoutePurpose.RULE_NOTIFICATIONS,
+  );
+
+  if (!route) {
     logger.warn(
-      "Skipping messaging notification with incomplete linked channel",
+      "Skipping messaging notification with no linked channel route",
       {
         executedActionId: context.id,
         messagingChannelId: context.messagingChannelId,
@@ -295,6 +304,7 @@ async function sendLinkedRuleNotification({
   try {
     const response = await sendAutomationMessage({
       channel: context.messagingChannel,
+      route,
       text,
       logger,
     });
@@ -842,7 +852,13 @@ async function getNotificationContext(executedActionId: string) {
           teamId: true,
           providerUserId: true,
           accessToken: true,
-          channelId: true,
+          routes: {
+            select: {
+              purpose: true,
+              targetType: true,
+              targetId: true,
+            },
+          },
         },
       },
     },
@@ -1205,13 +1221,16 @@ async function findSlackRootMessageId({
 async function postSlackCard({
   accessToken,
   card,
-  channelId,
+  route,
   destinationChannelId,
   rootMessageId,
 }: {
   accessToken: string;
   card: CardElement;
-  channelId: string | null;
+  route: {
+    targetId: string;
+    targetType: MessagingRouteTargetType;
+  } | null;
   destinationChannelId: string;
   rootMessageId: string | null;
 }) {
@@ -1231,13 +1250,12 @@ async function postSlackCard({
     if (
       isSlackError(error) &&
       error.data?.error === "not_in_channel" &&
-      channelId &&
-      !isSlackDmChannel(channelId)
+      route?.targetType === MessagingRouteTargetType.CHANNEL
     ) {
-      await client.conversations.join({ channel: channelId });
+      await client.conversations.join({ channel: route.targetId });
       const response = await client.chat.postMessage({
         ...args,
-        channel: channelId,
+        channel: route.targetId,
       });
       return response.ts ?? null;
     }
