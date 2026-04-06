@@ -67,17 +67,12 @@ describe("createMobileReviewSession", () => {
 
     const result = await createMobileReviewSession({
       code: "review-code",
-      ipAddress: "203.0.113.10",
-      userAgent: "Inbox Zero Mobile",
     });
 
     expect(mockAuthContext.internalAdapter.createSession).toHaveBeenCalledWith(
       "user-1",
       false,
-      {
-        ipAddress: "203.0.113.10",
-        userAgent: "Inbox Zero Mobile",
-      },
+      {},
     );
     expect(mockMakeSignature).toHaveBeenCalledWith(
       "session-token",

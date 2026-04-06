@@ -51,8 +51,6 @@ describe("mobile review sign-in route", () => {
         body: JSON.stringify({ code: "review-code" }),
         headers: {
           "content-type": "application/json",
-          "user-agent": "Inbox Zero Mobile",
-          "x-forwarded-for": "203.0.113.10, 198.51.100.4",
         },
         method: "POST",
       },
@@ -64,8 +62,6 @@ describe("mobile review sign-in route", () => {
 
     expect(createMobileReviewSessionMock).toHaveBeenCalledWith({
       code: "review-code",
-      ipAddress: "203.0.113.10",
-      userAgent: "Inbox Zero Mobile",
     });
     expect(body).toEqual({ success: true });
     expect(body.setCookie).toBeUndefined();

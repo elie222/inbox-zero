@@ -11,8 +11,6 @@ export const POST = withError("mobile-review/sign-in", async (request) => {
   const body = signInSchema.parse(await request.json());
   const result = await createMobileReviewSession({
     code: body.code,
-    userAgent: request.headers.get("user-agent"),
-    ipAddress: getIpAddress(request),
   });
 
   request.logger.info("Created mobile review session", {
@@ -29,12 +27,3 @@ export const POST = withError("mobile-review/sign-in", async (request) => {
 
   return response;
 });
-
-function getIpAddress(request: Request): string | null {
-  const forwardedForHeader =
-    request.headers.get("cf-connecting-ip") ||
-    request.headers.get("x-real-ip") ||
-    request.headers.get("x-forwarded-for");
-
-  return forwardedForHeader?.split(",")[0]?.trim() || null;
-}

@@ -13,11 +13,7 @@ export function isMobileReviewEnabled(): boolean {
   );
 }
 
-export async function createMobileReviewSession(input: {
-  code: string;
-  ipAddress: string | null;
-  userAgent: string | null;
-}) {
+export async function createMobileReviewSession(input: { code: string }) {
   if (!isMobileReviewEnabled()) {
     throw new SafeError("Review access is unavailable");
   }
@@ -58,10 +54,7 @@ export async function createMobileReviewSession(input: {
   const session = await authContext.internalAdapter.createSession(
     user.id,
     false,
-    {
-      ipAddress: input.ipAddress ?? undefined,
-      userAgent: input.userAgent ?? undefined,
-    },
+    {},
   );
 
   return {
