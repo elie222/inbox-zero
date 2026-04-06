@@ -69,6 +69,20 @@ The values must match:
 - `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` tells the app where to send proxied asset requests.
 - `IMAGE_PROXY_SIGNING_SECRET` must match the Worker secret so the proxy can validate signed URLs.
 
+If you need separate secrets for different clients, configure each signer with its own single `IMAGE_PROXY_SIGNING_SECRET`, and configure the proxy validator with a comma-separated list.
+Example:
+
+```bash
+# web app signer
+IMAGE_PROXY_SIGNING_SECRET=server-secret
+
+# desktop app signer
+IMAGE_PROXY_SIGNING_SECRET=desktop-secret
+
+# proxy validator
+IMAGE_PROXY_SIGNING_SECRET=server-secret,desktop-secret
+```
+
 ## Unsigned Custom Proxy Mode
 
 If you set `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` without `IMAGE_PROXY_SIGNING_SECRET`, Inbox Zero emits unsigned `?u=` proxy URLs.
