@@ -2,14 +2,13 @@ import { oAuthProtectedResourceMetadata } from "better-auth/plugins";
 import { env } from "@/env";
 import { betterAuthConfig } from "@/utils/auth";
 
-const protectedResourceHandler = env.MCP_SERVER_ENABLED
-  ? oAuthProtectedResourceMetadata(betterAuthConfig)
-  : null;
-
 export async function GET(request: Request) {
-  if (!protectedResourceHandler) {
+  if (!env.MCP_SERVER_ENABLED) {
     return new Response(null, { status: 404 });
   }
+
+  const protectedResourceHandler =
+    oAuthProtectedResourceMetadata(betterAuthConfig);
 
   return protectedResourceHandler(request);
 }
