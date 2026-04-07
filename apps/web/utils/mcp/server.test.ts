@@ -64,13 +64,6 @@ vi.mock("@/utils/branding", () => ({
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn(),
 }));
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: vi.fn(() => ({
-    with: vi.fn(() => ({
-      with: vi.fn(),
-    })),
-  })),
-}));
 vi.mock("@/utils/mcp/account-selection", () => ({
   listMcpEmailAccounts: vi.fn(),
   resolveMcpEmailAccount: vi.fn(),
