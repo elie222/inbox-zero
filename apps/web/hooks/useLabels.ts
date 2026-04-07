@@ -39,18 +39,27 @@ function isHidden(label: EmailLabel): boolean {
   return label.labelListVisibility === "labelHide";
 }
 
-export function useAllLabels() {
+function useLabelsResponse() {
   const {
     emailAccount,
     isLoading: isLoadingEmailAccount,
     providerRateLimit,
   } = useAccount();
-  const { data, isLoading, error, mutate } = useSWR<LabelsResponse>(
+  const swr = useSWR<LabelsResponse>(
     !isLoadingEmailAccount && emailAccount && !providerRateLimit
       ? "/api/labels"
       : null,
     { shouldRetryOnError: false },
   );
+
+  return {
+    ...swr,
+    isLoading: isLoadingEmailAccount || swr.isLoading,
+  };
+}
+
+export function useAllLabels() {
+  const { data, isLoading, error, mutate } = useLabelsResponse();
 
   const userLabels = useMemo(() => {
     if (!data?.labels) return [];
@@ -63,24 +72,14 @@ export function useAllLabels() {
   return {
     userLabels,
     data,
-    isLoading: isLoadingEmailAccount || isLoading,
+    isLoading,
     error,
     mutate,
   };
 }
 
 export function useLabels() {
-  const {
-    emailAccount,
-    isLoading: isLoadingEmailAccount,
-    providerRateLimit,
-  } = useAccount();
-  const { data, isLoading, error, mutate } = useSWR<LabelsResponse>(
-    !isLoadingEmailAccount && emailAccount && !providerRateLimit
-      ? "/api/labels"
-      : null,
-    { shouldRetryOnError: false },
-  );
+  const { data, isLoading, error, mutate } = useLabelsResponse();
 
   const userLabels: EmailLabel[] = useMemo(() => {
     if (!data?.labels) return [];
@@ -100,7 +99,7 @@ export function useLabels() {
 
   return {
     userLabels,
-    isLoading: isLoadingEmailAccount || isLoading,
+    isLoading,
     error,
     mutate,
   };
