@@ -169,11 +169,19 @@ export async function cleanupWebhookAccountOnRateLimitSkip(
 
   if (!shouldUnwatch) return;
 
-  const provider = await createEmailProviderForWebhookCleanup({
-    emailAccountId: emailAccount.id,
-    provider: emailAccount.account?.provider,
-    logger,
-  });
+  let provider = null;
+  try {
+    provider = await createEmailProviderForWebhookCleanup({
+      emailAccountId: emailAccount.id,
+      provider: emailAccount.account?.provider,
+      logger,
+    });
+  } catch (error) {
+    logger.warn("Provider creation failed for webhook cleanup", {
+      emailAccountId: emailAccount.id,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
 
   if (provider) {
     await unwatchEmails({

@@ -68,7 +68,17 @@ export const POST = withError("google/webhook", async (request) => {
     });
 
     if (isGoogleProvider(activeRateLimit?.provider)) {
-      await cleanupWebhookAccountOnRateLimitSkip(emailAccount, logger);
+      await cleanupWebhookAccountOnRateLimitSkip(emailAccount, logger).catch(
+        (error) => {
+          logger.warn(
+            "Failed to cleanup webhook account during rate-limit skip",
+            {
+              error: error instanceof Error ? error.message : error,
+              emailAccountId: emailAccount.id,
+            },
+          );
+        },
+      );
       logger.warn("Skipping webhook enqueue due to active Gmail rate limit", {
         emailAccountId: emailAccount.id,
         retryAt: activeRateLimit.retryAt.toISOString(),

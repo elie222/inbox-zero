@@ -41,8 +41,9 @@ export async function processHistoryForUser(
   const email = emailAddress.toLowerCase();
 
   const emailAccount =
-    options.preloadedEmailAccount ??
-    (await getWebhookEmailAccount({ email }, logger));
+    options.preloadedEmailAccount !== undefined
+      ? options.preloadedEmailAccount
+      : await getWebhookEmailAccount({ email }, logger);
 
   // biome-ignore lint/style/noParameterAssign: allowed for logging
   logger = logger.with({ email, emailAccountId: emailAccount?.id });
