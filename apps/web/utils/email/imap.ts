@@ -249,10 +249,10 @@ export class ImapProvider implements EmailProvider {
 
   async getThreadMessages(threadId: string): Promise<ParsedMessage[]> {
     return this.withConnection(async (client) => {
-      await client.mailboxOpen("INBOX", { readOnly: true });
-      // Search all messages and filter by computed threadId
-      const uids = await searchImapMessages(client, { all: true }, 200);
-      const messages = await fetchMessagesByUids(client, uids);
+      const mailbox = await client.mailboxOpen("INBOX", { readOnly: true });
+      // Use sequence range fetch (single IMAP command) instead of
+      // fetching UIDs one-by-one which is slow on WorkMail
+      const messages = await fetchRecentMessages(client, mailbox, 200);
       return messages
         .filter((m) => m.threadId === threadId)
         .sort(

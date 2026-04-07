@@ -18,28 +18,32 @@ export async function fetchMessageBySeq(
 
   if (!msg) return null;
 
-  const body = await downloadMessageBody(client, msg.uid);
+  const body = await downloadMessageBody(client, seq);
   return convertImapMessage(msg, body);
 }
 
 /**
  * Fetch a single message by UID with full body content.
+ * Uses SEARCH to find the sequence number first (WorkMail-compatible).
  */
 export async function fetchMessageByUid(
   client: ImapFlow,
   uid: number,
 ): Promise<ParsedMessage | null> {
-  // Use fetchOne with '*' and search for the UID
-  // WorkMail doesn't support direct UID FETCH with high UIDs well
   try {
-    const msg = await client.fetchOne(String(uid), {
+    // Find the sequence number for this UID
+    const seqNums = await client.search({ uid: `${uid}` }, { uid: false });
+    if (seqNums.length === 0) return null;
+
+    const seq = seqNums[0];
+    const msg = await client.fetchOne(String(seq), {
       uid: true,
       envelope: true,
       flags: true,
     });
-    if (!msg || msg.uid !== uid) return null;
+    if (!msg) return null;
 
-    const body = await downloadMessageBody(client, uid);
+    const body = await downloadMessageBody(client, seq);
     return convertImapMessage(msg, body);
   } catch {
     return null;
@@ -78,7 +82,8 @@ export async function fetchRecentMessages(
 
 /**
  * Fetch multiple messages by UIDs - envelope only (no body).
- * Fetches one at a time for compatibility with all IMAP servers.
+ * Uses UID-based SEARCH to find each message's sequence number,
+ * then fetches by sequence range (WorkMail-compatible).
  */
 export async function fetchMessagesByUids(
   client: ImapFlow,
@@ -86,19 +91,23 @@ export async function fetchMessagesByUids(
 ): Promise<ParsedMessage[]> {
   if (uids.length === 0) return [];
 
+  // Find the sequence numbers for these UIDs via SEARCH
+  // Then fetch by sequence range which works on all servers
   const messages: ParsedMessage[] = [];
 
   for (const uid of uids) {
     try {
-      for await (const msg of client.fetch(
-        String(uid),
-        {
-          uid: true,
-          envelope: true,
-          flags: true,
-        },
-        { uid: true },
-      )) {
+      // SEARCH UID <uid> returns matching sequence numbers
+      const seqNums = await client.search({ uid: `${uid}` }, { uid: false });
+      if (seqNums.length === 0) continue;
+
+      const seq = seqNums[0];
+      const msg = await client.fetchOne(String(seq), {
+        uid: true,
+        envelope: true,
+        flags: true,
+      });
+      if (msg) {
         const parsed = await convertImapMessage(msg);
         if (parsed) messages.push(parsed);
       }
@@ -111,16 +120,14 @@ export async function fetchMessagesByUids(
 }
 
 /**
- * Download the full body of a message by UID.
+ * Download the full body of a message by sequence number.
  */
 async function downloadMessageBody(
   client: ImapFlow,
-  uid: number,
+  seq: number,
 ): Promise<{ textHtml?: string; textPlain?: string; references?: string }> {
   try {
-    const downloaded = await client.download(String(uid), undefined, {
-      uid: true,
-    });
+    const downloaded = await client.download(String(seq));
     const chunks: Buffer[] = [];
     for await (const chunk of downloaded.content) {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
