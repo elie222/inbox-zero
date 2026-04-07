@@ -473,6 +473,7 @@ model OauthConsent {
 
   @@index([clientId])
   @@index([userId])
+  @@unique([clientId, userId])
   @@map("oauthConsent")
 }
 

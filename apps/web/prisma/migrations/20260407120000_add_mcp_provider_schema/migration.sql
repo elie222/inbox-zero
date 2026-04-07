@@ -69,6 +69,9 @@ CREATE INDEX "oauthConsent_clientId_idx" ON "oauthConsent"("clientId");
 -- CreateIndex
 CREATE INDEX "oauthConsent_userId_idx" ON "oauthConsent"("userId");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "oauthConsent_clientId_userId_key" ON "oauthConsent"("clientId", "userId");
+
 -- AddForeignKey
 ALTER TABLE "oauthApplication" ADD CONSTRAINT "oauthApplication_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
