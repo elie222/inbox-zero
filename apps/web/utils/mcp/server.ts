@@ -18,6 +18,7 @@ import {
 } from "@/utils/mcp/account-selection";
 
 const logger = createScopedLogger("mcp-server");
+type ToolResultData = Record<string, unknown>;
 const accountSelectorShape = {
   emailAccountId: z.string().optional(),
   emailAddress: z.string().email().optional(),
@@ -305,7 +306,7 @@ export async function handleMcpServerRequest(
   return transport.handleRequest(request);
 }
 
-function createToolResult(data: unknown) {
+function createToolResult(data: ToolResultData) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
     structuredContent: data,
