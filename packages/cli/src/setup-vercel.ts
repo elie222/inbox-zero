@@ -634,6 +634,7 @@ async function runVercelProcess(
     stderr: string;
     stdout: string;
   }>((resolvePromise) => {
+    let settled = false;
     const child = spawn(
       "vercel",
       [...getVercelGlobalArgs(config.scope), ...args],
@@ -645,12 +646,28 @@ async function runVercelProcess(
 
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
+    const resolveResult = (result: {
+      status: number;
+      stderr: string;
+      stdout: string;
+    }) => {
+      if (settled) return;
+      settled = true;
+      resolvePromise(result);
+    };
 
     child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
+    child.stdin.on("error", (error) => {
+      resolveResult({
+        status: 1,
+        stdout: Buffer.concat(stdoutChunks).toString(),
+        stderr: Buffer.concat(stderrChunks).toString() || error.message,
+      });
+    });
 
     child.on("close", (code) => {
-      resolvePromise({
+      resolveResult({
         status: code ?? 1,
         stdout: Buffer.concat(stdoutChunks).toString(),
         stderr: Buffer.concat(stderrChunks).toString(),
@@ -658,7 +675,7 @@ async function runVercelProcess(
     });
 
     child.on("error", (error) => {
-      resolvePromise({
+      resolveResult({
         status: 1,
         stdout: "",
         stderr: error.message,

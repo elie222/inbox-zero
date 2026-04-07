@@ -483,12 +483,24 @@ async function getProfileData(providerId: string, accessToken: string) {
   }
 }
 
-async function handleLinkAccount(account: Account) {
+function shouldLinkEmailAccount(providerId: string) {
+  return isGoogleProvider(providerId) || isMicrosoftProvider(providerId);
+}
+
+export async function handleLinkAccount(account: Account) {
   let primaryEmail: string | null | undefined;
   let primaryName: string | null | undefined;
   let primaryPhotoUrl: string | null | undefined;
 
   try {
+    if (!shouldLinkEmailAccount(account.providerId)) {
+      logger.info("[linkAccount] Skipping email account linking", {
+        userId: account.userId,
+        accountId: account.id,
+      });
+      return;
+    }
+
     if (!account.accessToken) {
       logger.error(
         "[linkAccount] No access_token found in data, cannot fetch profile.",
