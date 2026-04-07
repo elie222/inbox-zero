@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import useSWR from "swr";
 import type { LabelsResponse } from "@/app/api/labels/route";
 import type { EmailLabel } from "@/providers/email-label-types";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export type UserLabel = {
   id: string;
@@ -39,8 +40,17 @@ function isHidden(label: EmailLabel): boolean {
 }
 
 export function useAllLabels() {
-  const { data, isLoading, error, mutate } =
-    useSWR<LabelsResponse>("/api/labels");
+  const {
+    emailAccount,
+    isLoading: isLoadingEmailAccount,
+    providerRateLimit,
+  } = useAccount();
+  const { data, isLoading, error, mutate } = useSWR<LabelsResponse>(
+    !isLoadingEmailAccount && emailAccount && !providerRateLimit
+      ? "/api/labels"
+      : null,
+    { shouldRetryOnError: false },
+  );
 
   const userLabels = useMemo(() => {
     if (!data?.labels) return [];
@@ -53,15 +63,24 @@ export function useAllLabels() {
   return {
     userLabels,
     data,
-    isLoading,
+    isLoading: isLoadingEmailAccount || isLoading,
     error,
     mutate,
   };
 }
 
 export function useLabels() {
-  const { data, isLoading, error, mutate } =
-    useSWR<LabelsResponse>("/api/labels");
+  const {
+    emailAccount,
+    isLoading: isLoadingEmailAccount,
+    providerRateLimit,
+  } = useAccount();
+  const { data, isLoading, error, mutate } = useSWR<LabelsResponse>(
+    !isLoadingEmailAccount && emailAccount && !providerRateLimit
+      ? "/api/labels"
+      : null,
+    { shouldRetryOnError: false },
+  );
 
   const userLabels: EmailLabel[] = useMemo(() => {
     if (!data?.labels) return [];
@@ -81,7 +100,7 @@ export function useLabels() {
 
   return {
     userLabels,
-    isLoading,
+    isLoading: isLoadingEmailAccount || isLoading,
     error,
     mutate,
   };
