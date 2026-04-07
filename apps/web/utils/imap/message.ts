@@ -1,29 +1,84 @@
-import type { ImapFlow, FetchMessageObject } from "imapflow";
+import type { ImapFlow, FetchMessageObject, MailboxObject } from "imapflow";
 import { simpleParser } from "mailparser";
 import type { ParsedMessage, ParsedMessageHeaders } from "@/utils/types";
 import { buildThreadId } from "@/utils/imap/thread";
 
 /**
- * Fetch a single message by UID from the currently selected mailbox.
+ * Fetch a single message by sequence number with full body content.
+ */
+export async function fetchMessageBySeq(
+  client: ImapFlow,
+  seq: number,
+): Promise<ParsedMessage | null> {
+  const msg = await client.fetchOne(String(seq), {
+    uid: true,
+    envelope: true,
+    flags: true,
+  });
+
+  if (!msg) return null;
+
+  const body = await downloadMessageBody(client, msg.uid);
+  return convertImapMessage(msg, body);
+}
+
+/**
+ * Fetch a single message by UID with full body content.
  */
 export async function fetchMessageByUid(
   client: ImapFlow,
   uid: number,
 ): Promise<ParsedMessage | null> {
-  const msg = await client.fetchOne(String(uid), {
-    uid: true,
-    envelope: true,
-    source: true,
-    flags: true,
-    labels: true,
-  });
+  // Use fetchOne with '*' and search for the UID
+  // WorkMail doesn't support direct UID FETCH with high UIDs well
+  try {
+    const msg = await client.fetchOne(String(uid), {
+      uid: true,
+      envelope: true,
+      flags: true,
+    });
+    if (!msg || msg.uid !== uid) return null;
 
-  if (!msg) return null;
-  return convertImapMessage(msg);
+    const body = await downloadMessageBody(client, uid);
+    return convertImapMessage(msg, body);
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Fetch multiple messages by UIDs from the currently selected mailbox.
+ * Fetch the most recent N messages from the currently selected mailbox.
+ * Uses sequence numbers (most reliable across IMAP servers).
+ */
+export async function fetchRecentMessages(
+  client: ImapFlow,
+  mailbox: MailboxObject,
+  maxResults: number,
+): Promise<ParsedMessage[]> {
+  const total = mailbox.exists || 0;
+  if (total === 0) return [];
+
+  const start = Math.max(1, total - maxResults + 1);
+  const range = `${start}:*`;
+
+  const messages: ParsedMessage[] = [];
+  for await (const msg of client.fetch(range, {
+    uid: true,
+    envelope: true,
+    flags: true,
+  })) {
+    const parsed = await convertImapMessage(msg);
+    if (parsed) messages.push(parsed);
+  }
+
+  // Return newest first
+  messages.reverse();
+  return messages;
+}
+
+/**
+ * Fetch multiple messages by UIDs - envelope only (no body).
+ * Fetches one at a time for compatibility with all IMAP servers.
  */
 export async function fetchMessagesByUids(
   client: ImapFlow,
@@ -32,20 +87,62 @@ export async function fetchMessagesByUids(
   if (uids.length === 0) return [];
 
   const messages: ParsedMessage[] = [];
-  const uidRange = uids.join(",");
 
-  for await (const msg of client.fetch(uidRange, {
-    uid: true,
-    envelope: true,
-    source: true,
-    flags: true,
-    labels: true,
-  })) {
-    const parsed = await convertImapMessage(msg);
-    if (parsed) messages.push(parsed);
+  for (const uid of uids) {
+    try {
+      for await (const msg of client.fetch(
+        String(uid),
+        {
+          uid: true,
+          envelope: true,
+          flags: true,
+        },
+        { uid: true },
+      )) {
+        const parsed = await convertImapMessage(msg);
+        if (parsed) messages.push(parsed);
+      }
+    } catch {
+      // Skip messages that fail to fetch
+    }
   }
 
   return messages;
+}
+
+/**
+ * Download the full body of a message by UID.
+ */
+async function downloadMessageBody(
+  client: ImapFlow,
+  uid: number,
+): Promise<{ textHtml?: string; textPlain?: string; references?: string }> {
+  try {
+    const downloaded = await client.download(String(uid), undefined, {
+      uid: true,
+    });
+    const chunks: Buffer[] = [];
+    for await (const chunk of downloaded.content) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    const raw = Buffer.concat(chunks);
+    const parsed = await simpleParser(raw);
+
+    let references: string | undefined;
+    if (parsed.references) {
+      references = Array.isArray(parsed.references)
+        ? parsed.references.join(" ")
+        : parsed.references;
+    }
+
+    return {
+      textHtml: parsed.html || undefined,
+      textPlain: parsed.text || undefined,
+      references,
+    };
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -73,20 +170,15 @@ export async function searchImapMessages(
  */
 export async function convertImapMessage(
   msg: FetchMessageObject,
+  body?: { textHtml?: string; textPlain?: string; references?: string },
 ): Promise<ParsedMessage | null> {
   try {
     const envelope = msg.envelope;
     if (!envelope) return null;
 
-    let textHtml: string | undefined;
-    let textPlain: string | undefined;
-
-    // Parse the full source to extract body
-    if (msg.source) {
-      const parsed = await simpleParser(msg.source);
-      textHtml = parsed.html || undefined;
-      textPlain = parsed.text || undefined;
-    }
+    const textHtml = body?.textHtml;
+    const textPlain = body?.textPlain;
+    const references = body?.references;
 
     const fromAddr = envelope.from?.[0];
     const fromStr = fromAddr
@@ -110,17 +202,6 @@ export async function convertImapMessage(
 
     const messageId = envelope.messageId || undefined;
     const inReplyTo = envelope.inReplyTo || undefined;
-    // imapflow envelope doesn't include references directly;
-    // if we parsed the source above, we could extract it
-    let references: string | undefined;
-    if (msg.source) {
-      const parsed = await simpleParser(msg.source);
-      if (parsed.references) {
-        references = Array.isArray(parsed.references)
-          ? parsed.references.join(" ")
-          : parsed.references;
-      }
-    }
 
     const date = envelope.date
       ? new Date(envelope.date).toISOString()
@@ -145,7 +226,7 @@ export async function convertImapMessage(
 
     const snippet = textPlain
       ? textPlain.slice(0, 200).replace(/\n/g, " ")
-      : "";
+      : envelope.subject || "";
 
     return {
       id: String(msg.uid),
@@ -177,7 +258,6 @@ function formatAddress(
 
 /**
  * Build an IMAP SEARCH criteria object from a simple query string.
- * Supports basic patterns like: from:x, to:x, subject:x, is:unread
  */
 export function parseSearchQuery(query: string): Record<string, unknown> {
   const criteria: Record<string, unknown>[] = [];
@@ -201,10 +281,8 @@ export function parseSearchQuery(query: string): Record<string, unknown> {
     } else if (part.startsWith("before:")) {
       criteria.push({ before: new Date(part.slice(7)) });
     } else if (part === "has:attachment") {
-      // Not directly supported by all IMAP servers
       criteria.push({ header: { "Content-Type": "multipart/mixed" } });
     } else {
-      // Free text search - use BODY or TEXT
       criteria.push({ body: part });
     }
   }

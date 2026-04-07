@@ -16,8 +16,10 @@ import type { ImapCredentialConfig } from "@/utils/imap/types";
 import { UnsupportedImapOperationError } from "@/utils/imap/types";
 import { withImapConnection } from "@/utils/imap/client";
 import {
+  convertImapMessage,
   fetchMessageByUid,
   fetchMessagesByUids,
+  fetchRecentMessages,
   parseSearchQuery,
   searchImapMessages,
 } from "@/utils/imap/message";
@@ -97,13 +99,8 @@ export class ImapProvider implements EmailProvider {
 
   async getInboxMessages(maxResults?: number): Promise<ParsedMessage[]> {
     return this.withConnection(async (client) => {
-      await client.mailboxOpen("INBOX", { readOnly: true });
-      const uids = await searchImapMessages(
-        client,
-        { all: true },
-        maxResults || 50,
-      );
-      return fetchMessagesByUids(client, uids);
+      const mailbox = await client.mailboxOpen("INBOX", { readOnly: true });
+      return fetchRecentMessages(client, mailbox, maxResults || 50);
     });
   }
 
@@ -129,8 +126,41 @@ export class ImapProvider implements EmailProvider {
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
     return this.withConnection(async (client) => {
       const folder = options.inboxOnly !== false ? "INBOX" : "INBOX";
-      await client.mailboxOpen(folder, { readOnly: true });
+      const mailbox = await client.mailboxOpen(folder, { readOnly: true });
+      const total = mailbox.exists || 0;
 
+      const maxResults = options.maxResults || 20;
+      const offset = options.pageToken ? Number(options.pageToken) : 0;
+
+      // For simple listing without query, use sequence numbers (most reliable)
+      if (
+        !options.query &&
+        !options.before &&
+        !options.after &&
+        !options.unreadOnly
+      ) {
+        const end = Math.max(1, total - offset);
+        const start = Math.max(1, end - maxResults + 1);
+        if (end < 1) return { messages: [] };
+
+        const messages: ParsedMessage[] = [];
+        for await (const msg of client.fetch(`${start}:${end}`, {
+          uid: true,
+          envelope: true,
+          flags: true,
+        })) {
+          const parsed = await convertImapMessage(msg);
+          if (parsed) messages.push(parsed);
+        }
+        messages.reverse();
+
+        const nextOffset = offset + maxResults;
+        const nextPageToken =
+          nextOffset < total ? String(nextOffset) : undefined;
+        return { messages, nextPageToken };
+      }
+
+      // For queries, use IMAP SEARCH then fetch by UID
       const criteria: Record<string, unknown> = {};
       if (options.query) {
         Object.assign(criteria, parseSearchQuery(options.query));
@@ -140,9 +170,6 @@ export class ImapProvider implements EmailProvider {
       if (options.before) criteria.before = options.before;
       if (options.after) criteria.since = options.after;
       if (options.unreadOnly) criteria.unseen = true;
-
-      const maxResults = options.maxResults || 20;
-      const offset = options.pageToken ? Number(options.pageToken) : 0;
 
       const allUids = await searchImapMessages(client, criteria);
       const pageUids = allUids.slice(offset, offset + maxResults);
@@ -241,9 +268,8 @@ export class ImapProvider implements EmailProvider {
   async getThreads(_folderId?: string): Promise<EmailThread[]> {
     return this.withConnection(async (client) => {
       const folder = _folderId || "INBOX";
-      await client.mailboxOpen(folder, { readOnly: true });
-      const uids = await searchImapMessages(client, { all: true }, 50);
-      const messages = await fetchMessagesByUids(client, uids);
+      const mailbox = await client.mailboxOpen(folder, { readOnly: true });
+      const messages = await fetchRecentMessages(client, mailbox, 50);
 
       // Group messages by threadId
       const threadMap = new Map<string, ParsedMessage[]>();
