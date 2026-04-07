@@ -16,6 +16,7 @@ import {
   listMcpEmailAccounts,
   resolveMcpEmailAccount,
 } from "@/utils/mcp/account-selection";
+import { isMcpServerEnabledForUser } from "@/utils/mcp/access";
 
 const logger = createScopedLogger("mcp-server");
 type ToolResultData = Record<string, unknown>;
@@ -31,6 +32,10 @@ export async function handleMcpServerRequest(
   const userId = session.userId;
   if (!userId) {
     return new Response(null, { status: 401 });
+  }
+
+  if (!(await isMcpServerEnabledForUser(userId))) {
+    return new Response(null, { status: 403 });
   }
 
   const server = new McpServer(

@@ -87,6 +87,7 @@ model User {
   aiModel       String?
   aiApiKey      String?
   webhookSecret String?
+  mcpServerEnabled Boolean @default(false)
 
   // referral system
   referralCode String? @unique // User's own referral code

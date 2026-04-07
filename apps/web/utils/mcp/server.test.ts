@@ -64,6 +64,9 @@ vi.mock("@/utils/branding", () => ({
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn(),
 }));
+vi.mock("@/utils/mcp/access", () => ({
+  isMcpServerEnabledForUser: vi.fn(),
+}));
 vi.mock("@/utils/mcp/account-selection", () => ({
   listMcpEmailAccounts: vi.fn(),
   resolveMcpEmailAccount: vi.fn(),
@@ -76,11 +79,13 @@ vi.mock("@/utils/rule/rule", () => ({
 }));
 
 import { handleMcpServerRequest } from "@/utils/mcp/server";
+import { isMcpServerEnabledForUser } from "@/utils/mcp/access";
 
 describe("mcp-server", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     handleRequest.mockResolvedValue(new Response("ok"));
+    vi.mocked(isMcpServerEnabledForUser).mockResolvedValue(true);
   });
 
   it("returns 401 when the MCP access token has no user id", async () => {
@@ -111,5 +116,17 @@ describe("mcp-server", () => {
     });
     expect(handleRequest).toHaveBeenCalledWith(request);
     expect(response).toBeInstanceOf(Response);
+  });
+
+  it("returns 403 when MCP access is disabled for the user", async () => {
+    vi.mocked(isMcpServerEnabledForUser).mockResolvedValue(false);
+
+    const response = await handleMcpServerRequest(
+      new Request("http://localhost/api/mcp-server", { method: "POST" }),
+      { userId: "user_1" } as never,
+    );
+
+    expect(response.status).toBe(403);
+    expect(mcpServerConstructor).not.toHaveBeenCalled();
   });
 });
