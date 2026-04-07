@@ -192,9 +192,13 @@ export async function handleMcpServerRequest(
         select: apiRuleSelect,
       });
 
+      if (!updatedRule) {
+        throw new Error("Updated rule could not be loaded.");
+      }
+
       return createToolResult({
         emailAccount,
-        rule: updatedRule ? serializeRule(updatedRule) : null,
+        rule: serializeRule(updatedRule),
       });
     },
   );

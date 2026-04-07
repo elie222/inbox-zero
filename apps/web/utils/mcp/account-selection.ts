@@ -1,14 +1,17 @@
+import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
+
+const mcpEmailAccountSelect = {
+  id: true,
+  email: true,
+  name: true,
+  account: { select: { provider: true } },
+} satisfies Prisma.EmailAccountSelect;
 
 export async function listMcpEmailAccounts(userId: string) {
   const accounts = await prisma.emailAccount.findMany({
     where: { userId },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      account: { select: { provider: true } },
-    },
+    select: mcpEmailAccountSelect,
     orderBy: { createdAt: "asc" },
   });
 
@@ -36,12 +39,7 @@ export async function resolveMcpEmailAccount({
   if (emailAccountId) {
     const account = await prisma.emailAccount.findFirst({
       where: { id: emailAccountId, userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        account: { select: { provider: true } },
-      },
+      select: mcpEmailAccountSelect,
     });
 
     if (!account) {
@@ -59,12 +57,7 @@ export async function resolveMcpEmailAccount({
   if (emailAddress) {
     const account = await prisma.emailAccount.findFirst({
       where: { email: emailAddress, userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        account: { select: { provider: true } },
-      },
+      select: mcpEmailAccountSelect,
     });
 
     if (!account) {
@@ -81,12 +74,7 @@ export async function resolveMcpEmailAccount({
 
   const account = await prisma.emailAccount.findFirst({
     where: { userId },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      account: { select: { provider: true } },
-    },
+    select: mcpEmailAccountSelect,
     orderBy: { createdAt: "asc" },
   });
 
