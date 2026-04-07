@@ -7,6 +7,7 @@ import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
 import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export const maxDuration = 300;
 
@@ -63,7 +64,7 @@ export const POST = withError("google/webhook", async (request) => {
       return null;
     });
 
-    if (activeRateLimit?.provider === "google") {
+    if (isGoogleProvider(activeRateLimit?.provider)) {
       logger.warn("Skipping webhook enqueue due to active Gmail rate limit", {
         emailAccountId: emailAccount.id,
         retryAt: activeRateLimit.retryAt.toISOString(),
