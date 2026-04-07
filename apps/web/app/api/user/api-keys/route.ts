@@ -12,20 +12,21 @@ async function getApiKeys({
   userId: string;
   emailAccountId: string;
 }) {
-  const apiKeys = await prisma.apiKey.findMany({
-    where: { userId, emailAccountId, isActive: true },
-    select: {
-      id: true,
-      name: true,
-      createdAt: true,
-      expiresAt: true,
-      lastUsedAt: true,
-      scopes: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const mcpServerAccess = await getMcpServerAccess(userId);
+  const [apiKeys, mcpServerAccess] = await Promise.all([
+    prisma.apiKey.findMany({
+      where: { userId, emailAccountId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        expiresAt: true,
+        lastUsedAt: true,
+        scopes: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    getMcpServerAccess(userId),
+  ]);
 
   return {
     apiKeys,

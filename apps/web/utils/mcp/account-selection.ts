@@ -8,6 +8,19 @@ const mcpEmailAccountSelect = {
   account: { select: { provider: true } },
 } satisfies Prisma.EmailAccountSelect;
 
+type McpEmailAccountRow = Prisma.EmailAccountGetPayload<{
+  select: typeof mcpEmailAccountSelect;
+}>;
+
+function toMcpEmailAccount(account: McpEmailAccountRow) {
+  return {
+    id: account.id,
+    email: account.email,
+    name: account.name,
+    provider: account.account.provider,
+  };
+}
+
 export async function listMcpEmailAccounts(userId: string) {
   const accounts = await prisma.emailAccount.findMany({
     where: { userId },
@@ -15,12 +28,7 @@ export async function listMcpEmailAccounts(userId: string) {
     orderBy: { createdAt: "asc" },
   });
 
-  return accounts.map((account) => ({
-    id: account.id,
-    email: account.email,
-    name: account.name,
-    provider: account.account.provider,
-  }));
+  return accounts.map(toMcpEmailAccount);
 }
 
 export async function resolveMcpEmailAccount({
@@ -36,56 +44,26 @@ export async function resolveMcpEmailAccount({
     throw new Error("Provide either emailAccountId or emailAddress, not both.");
   }
 
-  if (emailAccountId) {
-    const account = await prisma.emailAccount.findFirst({
-      where: { id: emailAccountId, userId },
-      select: mcpEmailAccountSelect,
-    });
-
-    if (!account) {
-      throw new Error("Email account not found for the authenticated user.");
-    }
-
-    return {
-      id: account.id,
-      email: account.email,
-      name: account.name,
-      provider: account.account.provider,
-    };
-  }
-
-  if (emailAddress) {
-    const account = await prisma.emailAccount.findFirst({
-      where: { email: emailAddress, userId },
-      select: mcpEmailAccountSelect,
-    });
-
-    if (!account) {
-      throw new Error("Email account not found for the authenticated user.");
-    }
-
-    return {
-      id: account.id,
-      email: account.email,
-      name: account.name,
-      provider: account.account.provider,
-    };
-  }
+  const where = emailAccountId
+    ? { id: emailAccountId, userId }
+    : emailAddress
+      ? { email: emailAddress, userId }
+      : { userId };
 
   const account = await prisma.emailAccount.findFirst({
-    where: { userId },
+    where,
     select: mcpEmailAccountSelect,
-    orderBy: { createdAt: "asc" },
+    ...(!emailAccountId &&
+      !emailAddress && { orderBy: { createdAt: "asc" as const } }),
   });
 
   if (!account) {
-    throw new Error("No email accounts are linked to the authenticated user.");
+    throw new Error(
+      emailAccountId || emailAddress
+        ? "Email account not found for the authenticated user."
+        : "No email accounts are linked to the authenticated user.",
+    );
   }
 
-  return {
-    id: account.id,
-    email: account.email,
-    name: account.name,
-    provider: account.account.provider,
-  };
+  return toMcpEmailAccount(account);
 }
