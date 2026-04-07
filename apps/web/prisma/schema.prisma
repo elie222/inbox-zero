@@ -472,7 +472,6 @@ model OauthConsent {
   userId String
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([clientId])
   @@index([userId])
   @@unique([clientId, userId])
   @@map("oauthConsent")

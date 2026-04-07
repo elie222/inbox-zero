@@ -64,9 +64,6 @@ CREATE INDEX "oauthAccessToken_clientId_idx" ON "oauthAccessToken"("clientId");
 CREATE INDEX "oauthAccessToken_userId_idx" ON "oauthAccessToken"("userId");
 
 -- CreateIndex
-CREATE INDEX "oauthConsent_clientId_idx" ON "oauthConsent"("clientId");
-
--- CreateIndex
 CREATE INDEX "oauthConsent_userId_idx" ON "oauthConsent"("userId");
 
 -- CreateIndex
