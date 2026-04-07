@@ -6,6 +6,7 @@ import type { Logger } from "@/utils/logger";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
+import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 
 export const maxDuration = 300;
 
@@ -45,6 +46,32 @@ export const POST = withError("google/webhook", async (request) => {
   });
 
   logger.info("Received webhook - acknowledging immediately");
+
+  const emailAccount = await getWebhookEmailAccount(
+    { email: decodedData.emailAddress.toLowerCase() },
+    logger,
+  );
+
+  if (emailAccount) {
+    const activeRateLimit = await getEmailProviderRateLimitState({
+      emailAccountId: emailAccount.id,
+      logger,
+    }).catch((error) => {
+      logger.warn("Failed to read provider rate-limit state before enqueue", {
+        error: error instanceof Error ? error.message : error,
+      });
+      return null;
+    });
+
+    if (activeRateLimit?.provider === "google") {
+      logger.warn("Skipping webhook enqueue due to active Gmail rate limit", {
+        emailAccountId: emailAccount.id,
+        retryAt: activeRateLimit.retryAt.toISOString(),
+        rateLimitSource: activeRateLimit.source,
+      });
+      return NextResponse.json({ ok: true });
+    }
+  }
 
   // Process history asynchronously using after() to avoid Pub/Sub acknowledgment timeout
   // This ensures we acknowledge the message quickly while still processing it fully
