@@ -3,6 +3,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { AlertCircle, Home, RotateCcw } from "lucide-react";
 import Link from "next/link";
+import { useParams, usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { createClientLogger } from "@/utils/logger-client";
 
 export function AppErrorBoundary({
   error,
@@ -21,9 +23,28 @@ export function AppErrorBoundary({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const params = useParams<{
+    emailAccountId?: string;
+    ruleId?: string;
+  }>();
+
   useEffect(() => {
+    const logger = createClientLogger("app-error-boundary");
+    logger.error("App error boundary triggered", {
+      digest: error.digest,
+      emailAccountId: params.emailAccountId,
+      errorMessage: error.message,
+      errorName: error.name,
+      errorStack: error.stack,
+      pathname,
+      ruleId: params.ruleId,
+      search: searchParams.toString(),
+    });
+    void logger.flush();
     Sentry.captureException(error);
-  }, [error]);
+  }, [error, params.emailAccountId, params.ruleId, pathname, searchParams]);
 
   return (
     <div className="flex h-full items-center justify-center p-4">
