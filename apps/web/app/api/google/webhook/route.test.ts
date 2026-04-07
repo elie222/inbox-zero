@@ -8,6 +8,7 @@ const {
   runWithBackgroundLoggerFlushMock,
   getWebhookEmailAccountMock,
   getEmailProviderRateLimitStateMock,
+  cleanupWebhookAccountOnRateLimitSkipMock,
 } = vi.hoisted(() => ({
   envMock: {
     GOOGLE_PUBSUB_VERIFICATION_TOKEN: "test-google-webhook-token" as
@@ -18,6 +19,7 @@ const {
   runWithBackgroundLoggerFlushMock: vi.fn(),
   getWebhookEmailAccountMock: vi.fn(),
   getEmailProviderRateLimitStateMock: vi.fn(),
+  cleanupWebhookAccountOnRateLimitSkipMock: vi.fn(),
 }));
 
 vi.mock("@/utils/middleware", () => ({
@@ -53,6 +55,8 @@ vi.mock("@/utils/logger-flush", () => ({
 vi.mock("@/utils/webhook/validate-webhook-account", () => ({
   getWebhookEmailAccount: (...args: unknown[]) =>
     getWebhookEmailAccountMock(...args),
+  cleanupWebhookAccountOnRateLimitSkip: (...args: unknown[]) =>
+    cleanupWebhookAccountOnRateLimitSkipMock(...args),
 }));
 
 vi.mock("@/utils/email/rate-limit", () => ({
@@ -69,6 +73,7 @@ describe("Google webhook route", () => {
     processHistoryForUserMock.mockResolvedValue(undefined);
     getWebhookEmailAccountMock.mockResolvedValue(null);
     getEmailProviderRateLimitStateMock.mockResolvedValue(null);
+    cleanupWebhookAccountOnRateLimitSkipMock.mockResolvedValue(undefined);
     runWithBackgroundLoggerFlushMock.mockImplementation(
       ({ task }: { task: () => Promise<void> }) => task(),
     );
@@ -161,6 +166,10 @@ describe("Google webhook route", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true });
+    expect(cleanupWebhookAccountOnRateLimitSkipMock).toHaveBeenCalledWith(
+      { id: "account-1" },
+      request.logger,
+    );
     expect(runWithBackgroundLoggerFlushMock).not.toHaveBeenCalled();
     expect(processHistoryForUserMock).not.toHaveBeenCalled();
   });

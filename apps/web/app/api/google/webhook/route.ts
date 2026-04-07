@@ -5,7 +5,10 @@ import { processHistoryForUser } from "@/app/api/google/webhook/process-history"
 import type { Logger } from "@/utils/logger";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
-import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
+import {
+  cleanupWebhookAccountOnRateLimitSkip,
+  getWebhookEmailAccount,
+} from "@/utils/webhook/validate-webhook-account";
 import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
@@ -65,6 +68,7 @@ export const POST = withError("google/webhook", async (request) => {
     });
 
     if (isGoogleProvider(activeRateLimit?.provider)) {
+      await cleanupWebhookAccountOnRateLimitSkip(emailAccount, logger);
       logger.warn("Skipping webhook enqueue due to active Gmail rate limit", {
         emailAccountId: emailAccount.id,
         retryAt: activeRateLimit.retryAt.toISOString(),
