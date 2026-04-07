@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Button } from "@/components/Button";
 import { Button as UIButton } from "@/components/ui/button";
 import {
@@ -14,7 +14,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { signIn, signInWithOauth2 } from "@/utils/auth-client";
+import { Input } from "@/components/ui/input";
+import { signIn, signUp, signInWithOauth2 } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 import { toastError } from "@/components/Toast";
 import { normalizeInternalPath } from "@/utils/path";
@@ -36,6 +37,9 @@ export function LoginForm({
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
+  const [loadingEmail, setLoadingEmail] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
@@ -79,6 +83,50 @@ export function LoginForm({
       errorCallbackURL,
       setLoading: setLoadingMicrosoft,
     });
+  };
+
+  const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoadingEmail(true);
+    setEmailError(null);
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const name = formData.get("name") as string | null;
+
+    try {
+      if (isSignUp) {
+        const result = await signUp.email({
+          email,
+          password,
+          name: name || email.split("@")[0],
+          callbackURL,
+        });
+        if (result.error) {
+          throw new Error(result.error.message || "Sign up failed");
+        }
+      } else {
+        const result = await signIn.email({
+          email,
+          password,
+          callbackURL,
+        });
+        if (result.error) {
+          throw new Error(result.error.message || "Sign in failed");
+        }
+      }
+    } catch (error) {
+      const description = getSocialSignInErrorMessage(error);
+      logger.error("Error with email auth", { error });
+      setEmailError(description);
+      toastError({
+        title: isSignUp ? "Error signing up" : "Error signing in",
+        description,
+      });
+    } finally {
+      setLoadingEmail(false);
+    }
   };
 
   return (
@@ -153,6 +201,60 @@ export function LoginForm({
       >
         <Link href="/login/sso">Sign in with SSO</Link>
       </UIButton>
+
+      <div className="relative my-2">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">
+            Or continue with email
+          </span>
+        </div>
+      </div>
+
+      <form onSubmit={handleEmailSubmit} className="flex flex-col gap-2">
+        {isSignUp && (
+          <Input
+            name="name"
+            type="text"
+            placeholder="Name"
+            autoComplete="name"
+          />
+        )}
+        <Input
+          name="email"
+          type="email"
+          placeholder="Email"
+          required
+          autoComplete="email"
+        />
+        <Input
+          name="password"
+          type="password"
+          placeholder="Password"
+          required
+          minLength={8}
+          autoComplete={isSignUp ? "new-password" : "current-password"}
+        />
+        {emailError && <p className="text-sm text-destructive">{emailError}</p>}
+        <Button loading={loadingEmail} type="submit">
+          {isSignUp ? "Sign up" : "Sign in"} with email
+        </Button>
+        <UIButton
+          variant="link"
+          type="button"
+          className="text-xs"
+          onClick={() => {
+            setIsSignUp((v) => !v);
+            setEmailError(null);
+          }}
+        >
+          {isSignUp
+            ? "Already have an account? Sign in"
+            : "Don't have an account? Sign up"}
+        </UIButton>
+      </form>
     </div>
   );
 }

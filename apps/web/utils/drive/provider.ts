@@ -44,7 +44,7 @@ function createDriveProvider(
     return new GoogleDriveProvider(accessToken, logger);
   }
 
-  throw new Error(`Unsupported drive provider: ${provider}`);
+  throw new Error(`Drive is not supported for ${provider} accounts`);
 }
 
 /**

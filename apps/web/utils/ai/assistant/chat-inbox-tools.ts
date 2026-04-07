@@ -23,7 +23,10 @@ import {
   type AutomaticUnsubscribeResult,
   unsubscribeSenderAndMark,
 } from "@/utils/senders/unsubscribe";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  isImapProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 
 const emptyInputSchema = z.object({}).describe("No parameters required");
 const recipientListSchema = z
@@ -175,6 +178,9 @@ export type GetAccountOverviewTool = InferUITool<
 function getSearchQueryDescription(provider: string): string {
   if (isMicrosoftProvider(provider)) {
     return "Search query using KQL syntax. Supports: unread, read, from:, to:, subject:, received>=YYYY-MM-DD, keyword search. For unread inbox triage, use unread. Do not use Gmail-specific operators like in:, is:, label:, or after:/before:.";
+  }
+  if (isImapProvider(provider)) {
+    return "Search query. Supports: from:, to:, subject:, is:unread, is:read, since:YYYY-MM-DD, before:YYYY-MM-DD, has:attachment. Do not use Gmail-specific operators like in:, label:, or KQL syntax.";
   }
   return "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.";
 }

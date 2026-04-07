@@ -1,4 +1,7 @@
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  isImapProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 
 interface EmailTerminology {
   label: {
@@ -12,12 +15,10 @@ interface EmailTerminology {
 
 /**
  * Get email terminology based on the provider
- * Gmail uses "labels" while Outlook uses "categories"
+ * Gmail uses "labels", Outlook uses "categories", IMAP uses "folders"
  */
 export function getEmailTerminology(provider: string): EmailTerminology {
-  const isOutlook = isMicrosoftProvider(provider);
-
-  if (isOutlook) {
+  if (isMicrosoftProvider(provider)) {
     return {
       label: {
         singular: "category",
@@ -25,6 +26,18 @@ export function getEmailTerminology(provider: string): EmailTerminology {
         singularCapitalized: "Category",
         pluralCapitalized: "Categories",
         action: "Categorize",
+      },
+    };
+  }
+
+  if (isImapProvider(provider)) {
+    return {
+      label: {
+        singular: "folder",
+        plural: "folders",
+        singularCapitalized: "Folder",
+        pluralCapitalized: "Folders",
+        action: "Move to folder",
       },
     };
   }

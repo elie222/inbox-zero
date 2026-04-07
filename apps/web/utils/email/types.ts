@@ -2,7 +2,6 @@ import type { ParsedMessage } from "@/utils/types";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
 import type { OutlookFolder } from "@/utils/outlook/folders";
-import type { Logger } from "@/utils/logger";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 
 export interface EmailThread {
@@ -220,7 +219,7 @@ export interface EmailProvider {
     ownerEmail: string,
     folderName: string,
   ): Promise<void>;
-  readonly name: "google" | "microsoft";
+  readonly name: "google" | "microsoft" | "imap";
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
   replyToEmail(

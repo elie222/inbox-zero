@@ -9,3 +9,9 @@ export function isMicrosoftProvider(
 ): provider is "microsoft" {
   return provider === "microsoft";
 }
+
+export function isImapProvider(
+  provider: string | null | undefined,
+): provider is "imap" {
+  return provider === "imap";
+}

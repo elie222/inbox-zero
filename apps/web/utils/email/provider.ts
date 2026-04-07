@@ -3,10 +3,12 @@ import {
   getOutlookClientForEmail,
 } from "@/utils/email-account-client";
 import { GmailProvider } from "@/utils/email/google";
+import { ImapProvider } from "@/utils/email/imap";
 import { OutlookProvider } from "@/utils/email/microsoft";
 import type { EmailProvider } from "@/utils/email/types";
 import { assertProviderNotRateLimited } from "@/utils/email/rate-limit";
 import { toRateLimitProvider } from "@/utils/email/rate-limit-mode-error";
+import { getImapCredentials } from "@/utils/imap/credential";
 import type { Logger } from "@/utils/logger";
 
 export async function createEmailProvider({
@@ -31,6 +33,11 @@ export async function createEmailProvider({
   if (rateLimitProvider === "google") {
     const client = await getGmailClientForEmail({ emailAccountId, logger });
     return new GmailProvider(client, logger, emailAccountId);
+  }
+
+  if (rateLimitProvider === "imap") {
+    const credentials = await getImapCredentials(emailAccountId);
+    return new ImapProvider(credentials, logger);
   }
 
   const client = await getOutlookClientForEmail({ emailAccountId, logger });
