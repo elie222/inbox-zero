@@ -3,14 +3,12 @@ import { env } from "@/env";
 import { betterAuthConfig } from "@/utils/auth";
 import { handleMcpServerRequest } from "@/utils/mcp/server";
 
-const mcpHandler = env.MCP_SERVER_ENABLED
-  ? withMcpAuth(betterAuthConfig, handleMcpServerRequest)
-  : null;
-
 export async function POST(request: Request) {
-  if (!mcpHandler) {
+  if (!env.MCP_SERVER_ENABLED) {
     return new Response(null, { status: 404 });
   }
+
+  const mcpHandler = withMcpAuth(betterAuthConfig, handleMcpServerRequest);
 
   return mcpHandler(request);
 }
