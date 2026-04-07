@@ -12,6 +12,8 @@ import { HoverCard } from "@/components/HoverCard";
 import { MutedText } from "@/components/Typography";
 
 interface PremiumData {
+  appleExpiresAt?: Date | string | null;
+  appleRevokedAt?: Date | string | null;
   lemonSqueezyRenewsAt?: Date | string | null;
   lemonSqueezySubscriptionId?: number | string | null;
   stripeSubscriptionId?: string | null;
@@ -35,10 +37,22 @@ export function PremiumExpiredCardContent({
       ? new Date(premium.lemonSqueezyRenewsAt)
       : premium.lemonSqueezyRenewsAt
     : null;
+  const appleExpiresAt = premium?.appleExpiresAt
+    ? typeof premium.appleExpiresAt === "string"
+      ? new Date(premium.appleExpiresAt)
+      : premium.appleExpiresAt
+    : null;
+  const appleRevokedAt = premium?.appleRevokedAt
+    ? typeof premium.appleRevokedAt === "string"
+      ? new Date(premium.appleRevokedAt)
+      : premium.appleRevokedAt
+    : null;
 
   const isUserPremium = isPremium(
     lemonSqueezyRenewsAt,
     premium?.stripeSubscriptionStatus || null,
+    appleExpiresAt,
+    appleRevokedAt,
   );
 
   if (isUserPremium) return null;

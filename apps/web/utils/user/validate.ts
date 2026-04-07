@@ -24,6 +24,8 @@ export async function validateUserAndAiAccess({
           aiApiKey: true,
           premium: {
             select: {
+              appleExpiresAt: true,
+              appleRevokedAt: true,
               tier: true,
               lemonSqueezyRenewsAt: true,
               stripeSubscriptionStatus: true,
@@ -39,6 +41,8 @@ export async function validateUserAndAiAccess({
   const isUserPremium = isPremium(
     emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
     emailAccount.user.premium?.stripeSubscriptionStatus || null,
+    emailAccount.user.premium?.appleExpiresAt || null,
+    emailAccount.user.premium?.appleRevokedAt || null,
   );
   if (!isUserPremium) throw new SafeError("Please upgrade for AI access");
 

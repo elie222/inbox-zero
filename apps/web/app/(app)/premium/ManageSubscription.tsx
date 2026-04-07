@@ -7,17 +7,31 @@ import { env } from "@/env";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import { getBillingPortalUrlAction } from "@/utils/actions/premium";
+import { hasActiveAppleSubscription } from "@/utils/premium";
+
+const APPLE_SUBSCRIPTION_HELP_URL = "https://support.apple.com/en-us/118428";
 
 export function ManageSubscription({
-  premium: { stripeSubscriptionId, lemonSqueezyCustomerId },
+  premium: {
+    appleExpiresAt,
+    appleRevokedAt,
+    stripeSubscriptionId,
+    lemonSqueezyCustomerId,
+  },
 }: {
   premium: {
+    appleExpiresAt?: string | Date | null | undefined;
+    appleRevokedAt?: string | Date | null | undefined;
     stripeSubscriptionId: string | null | undefined;
     lemonSqueezyCustomerId: number | null | undefined;
   };
 }) {
   const { loading: loadingBillingPortal, openBillingPortal } =
     useOpenBillingPortal();
+  const hasAppleSubscription = hasActiveAppleSubscription(
+    appleExpiresAt || null,
+    appleRevokedAt || null,
+  );
 
   const hasBothStripeAndLemon = !!(
     stripeSubscriptionId && lemonSqueezyCustomerId
@@ -40,6 +54,15 @@ export function ManageSubscription({
           >
             <CreditCardIcon className="mr-2 h-4 w-4" />
             Manage{hasBothStripeAndLemon ? " Lemon" : ""} subscription
+          </Link>
+        </Button>
+      )}
+
+      {hasAppleSubscription && (
+        <Button asChild variant="outline">
+          <Link href={APPLE_SUBSCRIPTION_HELP_URL} target="_blank">
+            <CreditCardIcon className="mr-2 h-4 w-4" />
+            Manage in App Store
           </Link>
         </Button>
       )}

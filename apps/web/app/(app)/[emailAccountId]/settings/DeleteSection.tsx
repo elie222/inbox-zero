@@ -27,13 +27,20 @@ import { deleteAccountAction } from "@/utils/actions/user";
 import { logOut } from "@/utils/user";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremium } from "@/hooks/usePremium";
+import { hasActiveAppleSubscription } from "@/utils/premium";
 
 export function DeleteSection() {
   const { onCancelLoadBatch } = useStatLoader();
   const { premium } = usePremium();
+  const hasAppleSubscription = hasActiveAppleSubscription(
+    premium?.appleExpiresAt || null,
+    premium?.appleRevokedAt || null,
+  );
 
   const hasSubscription =
-    premium?.stripeSubscriptionId || premium?.lemonSqueezySubscriptionId;
+    premium?.stripeSubscriptionId ||
+    premium?.lemonSqueezySubscriptionId ||
+    hasAppleSubscription;
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [hasConfirmedCancellation, setHasConfirmedCancellation] =
@@ -98,16 +105,25 @@ export function DeleteSection() {
                         account.
                       </p>
                       <p className="mb-3">
-                        You can manage your subscription by clicking "Manage
-                        Subscription" above or going to the{" "}
-                        <Link
-                          href="/premium"
-                          className="text-blue-600 underline hover:text-blue-800"
-                          onClick={() => setIsDialogOpen(false)}
-                        >
-                          premium page
-                        </Link>{" "}
-                        and clicking "Manage subscription".
+                        {hasAppleSubscription ? (
+                          <>
+                            You can manage your subscription from your iPhone or
+                            iPad subscription settings.
+                          </>
+                        ) : (
+                          <>
+                            You can manage your subscription by clicking "Manage
+                            Subscription" above or going to the{" "}
+                            <Link
+                              href="/premium"
+                              className="text-blue-600 underline hover:text-blue-800"
+                              onClick={() => setIsDialogOpen(false)}
+                            >
+                              premium page
+                            </Link>{" "}
+                            and clicking "Manage subscription".
+                          </>
+                        )}
                       </p>
                       <p className="text-sm text-gray-600">
                         Already cancelled your subscription? Click the button

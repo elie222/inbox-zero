@@ -121,6 +121,8 @@ export async function checkHasAccess({
     select: {
       premium: {
         select: {
+          appleExpiresAt: true,
+          appleRevokedAt: true,
           tier: true,
           stripeSubscriptionStatus: true,
           lemonSqueezyRenewsAt: true,
@@ -135,6 +137,8 @@ export async function checkHasAccess({
     !isPremium(
       user?.premium?.lemonSqueezyRenewsAt || null,
       user?.premium?.stripeSubscriptionStatus || null,
+      user?.premium?.appleExpiresAt || null,
+      user?.premium?.appleRevokedAt || null,
     )
   ) {
     return false;

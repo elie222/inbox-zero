@@ -46,6 +46,8 @@ export const decrementUnsubscribeCreditAction = actionClientUser
             id: true,
             unsubscribeCredits: true,
             unsubscribeMonth: true,
+            appleExpiresAt: true,
+            appleRevokedAt: true,
             lemonSqueezyRenewsAt: true,
             stripeSubscriptionStatus: true,
           },
@@ -58,6 +60,8 @@ export const decrementUnsubscribeCreditAction = actionClientUser
     const isUserPremium = isPremium(
       user.premium?.lemonSqueezyRenewsAt || null,
       user.premium?.stripeSubscriptionStatus || null,
+      user.premium?.appleExpiresAt || null,
+      user.premium?.appleRevokedAt || null,
     );
     if (isUserPremium) return;
 

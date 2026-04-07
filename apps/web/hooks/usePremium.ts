@@ -25,7 +25,12 @@ export function usePremium() {
 
   const isUserPremium = !!(
     premium &&
-    isPremium(premium.lemonSqueezyRenewsAt, premium.stripeSubscriptionStatus)
+    isPremium(
+      premium.lemonSqueezyRenewsAt,
+      premium.stripeSubscriptionStatus,
+      premium.appleExpiresAt,
+      premium.appleRevokedAt,
+    )
   );
 
   const isProPlanWithoutApiKey =

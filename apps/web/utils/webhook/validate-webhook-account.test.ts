@@ -84,6 +84,8 @@ describe("validateWebhookAccount", () => {
         aiModel: null,
         aiApiKey: null,
         premium: {
+          appleExpiresAt: null,
+          appleRevokedAt: null,
           lemonSqueezyRenewsAt: new Date(Date.now() + 86_400_000), // Tomorrow
           stripeSubscriptionStatus: "active",
           tier: PremiumTier.PRO_MONTHLY,

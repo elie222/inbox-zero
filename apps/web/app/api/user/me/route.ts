@@ -27,6 +27,15 @@ async function getUser({
       dismissedHints: true,
       premium: {
         select: {
+          appleAppAccountToken: true,
+          appleEnvironment: true,
+          appleExpiresAt: true,
+          appleLatestTransactionId: true,
+          appleOriginalTransactionId: true,
+          appleProductId: true,
+          applePurchaseDate: true,
+          appleRevokedAt: true,
+          appleSubscriptionStatus: true,
           lemonSqueezyCustomerId: true,
           lemonSqueezySubscriptionId: true,
           lemonSqueezyRenewsAt: true,

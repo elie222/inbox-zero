@@ -44,6 +44,8 @@ const webhookEmailAccountSelect = {
       aiApiKey: true,
       premium: {
         select: {
+          appleExpiresAt: true,
+          appleRevokedAt: true,
           lemonSqueezyRenewsAt: true,
           stripeSubscriptionStatus: true,
           tier: true,
@@ -161,6 +163,8 @@ export async function validateWebhookAccount(
     : isPremium(
           emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
           emailAccount.user.premium?.stripeSubscriptionStatus || null,
+          emailAccount.user.premium?.appleExpiresAt || null,
+          emailAccount.user.premium?.appleRevokedAt || null,
         )
       ? emailAccount.user.premium
       : undefined;
@@ -174,6 +178,8 @@ export async function validateWebhookAccount(
   if (!premium) {
     logger.info("Account not premium", {
       lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
+      appleExpiresAt: emailAccount.user.premium?.appleExpiresAt,
+      appleRevokedAt: emailAccount.user.premium?.appleRevokedAt,
       stripeSubscriptionStatus:
         emailAccount.user.premium?.stripeSubscriptionStatus,
     });

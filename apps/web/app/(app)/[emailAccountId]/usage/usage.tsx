@@ -21,6 +21,8 @@ export function Usage(props: { usage: RedisUsage | null }) {
             value: isPremium(
               premium?.lemonSqueezyRenewsAt || null,
               premium?.stripeSubscriptionStatus || null,
+              premium?.appleExpiresAt || null,
+              premium?.appleRevokedAt || null,
             )
               ? "Unlimited"
               : formatStat(
