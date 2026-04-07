@@ -28,7 +28,10 @@ export async function processHistoryForUser(
     emailAddress: string;
     historyId: number;
   },
-  options: { startHistoryId?: string },
+  options: {
+    startHistoryId?: string;
+    preloadedEmailAccount?: ValidatedWebhookAccountData | null;
+  },
   logger: Logger,
 ) {
   const { emailAddress, historyId } = decodedData;
@@ -37,7 +40,9 @@ export async function processHistoryForUser(
   // So we need to convert it to lowercase
   const email = emailAddress.toLowerCase();
 
-  const emailAccount = await getWebhookEmailAccount({ email }, logger);
+  const emailAccount =
+    options.preloadedEmailAccount ??
+    (await getWebhookEmailAccount({ email }, logger));
 
   // biome-ignore lint/style/noParameterAssign: allowed for logging
   logger = logger.with({ email, emailAccountId: emailAccount?.id });

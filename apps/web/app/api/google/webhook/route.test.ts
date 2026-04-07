@@ -115,12 +115,14 @@ describe("Google webhook route", () => {
     expect(body).toEqual({ ok: true });
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
       { emailAddress: "user@example.com", historyId: 123 },
-      {},
+      { preloadedEmailAccount: null },
       request.logger,
     );
   });
 
   it("acknowledges valid requests and processes history asynchronously", async () => {
+    getWebhookEmailAccountMock.mockResolvedValue({ id: "account-1" });
+
     const request = createRequest({
       token: "test-google-webhook-token",
       emailAddress: "user@example.com",
@@ -135,7 +137,7 @@ describe("Google webhook route", () => {
     expect(runWithBackgroundLoggerFlushMock).toHaveBeenCalledTimes(1);
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
       { emailAddress: "user@example.com", historyId: 123 },
-      {},
+      { preloadedEmailAccount: { id: "account-1" } },
       request.logger,
     );
   });

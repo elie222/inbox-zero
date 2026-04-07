@@ -79,7 +79,7 @@ export const POST = withError("google/webhook", async (request) => {
   after(() =>
     runWithBackgroundLoggerFlush({
       logger,
-      task: () => processWebhookAsync(decodedData, logger),
+      task: () => processWebhookAsync(decodedData, logger, emailAccount),
       extra: { url: "/api/google/webhook" },
     }),
   );
@@ -90,9 +90,14 @@ export const POST = withError("google/webhook", async (request) => {
 async function processWebhookAsync(
   decodedData: { emailAddress: string; historyId: number },
   logger: Logger,
+  emailAccount?: Awaited<ReturnType<typeof getWebhookEmailAccount>> | null,
 ) {
   try {
-    await processHistoryForUser(decodedData, {}, logger);
+    await processHistoryForUser(
+      decodedData,
+      { preloadedEmailAccount: emailAccount },
+      logger,
+    );
   } catch (error) {
     // Look up email account to get emailAccountId for error tracking
     const emailAccount = await getWebhookEmailAccount(
