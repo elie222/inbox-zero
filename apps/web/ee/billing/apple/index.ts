@@ -3,7 +3,11 @@ import {
   APIException,
   AppStoreServerAPIClient,
   Environment,
+  SignedDataVerifier,
   Status,
+  VerificationException,
+  VerificationStatus,
+  type JWSRenewalInfoDecodedPayload,
   type JWSTransactionDecodedPayload,
   type ResponseBodyV2DecodedPayload,
 } from "@apple/app-store-server-library";
@@ -15,8 +19,21 @@ import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { createPremiumForUser } from "@/utils/premium/create-premium";
+import { APPLE_ROOT_CERTIFICATES } from "./root-certificates";
 
 type AppleEnvironment = Environment.PRODUCTION | Environment.SANDBOX;
+
+type AppleLookupReference = {
+  originalTransactionId?: string | null;
+  transactionId?: string | null;
+};
+
+type AppleVerifiedNotification = {
+  environment: AppleEnvironment;
+  notification: ResponseBodyV2DecodedPayload;
+  renewalInfo: JWSRenewalInfoDecodedPayload | null;
+  transaction: JWSTransactionDecodedPayload | null;
+};
 
 type AppleSubscriptionState = {
   appAccountToken: string | null;
@@ -40,6 +57,8 @@ const APPLE_ACTIVE_STATUSES = new Set([
 
 let productionClient: AppStoreServerAPIClient | null = null;
 let sandboxClient: AppStoreServerAPIClient | null = null;
+let productionVerifier: SignedDataVerifier | null = null;
+let sandboxVerifier: SignedDataVerifier | null = null;
 
 function getAppleSigningKey() {
   return env.APPLE_IAP_PRIVATE_KEY?.replace(/\\n/g, "\n");
@@ -53,6 +72,16 @@ function assertAppleConfig() {
     !env.APPLE_IAP_BUNDLE_ID
   ) {
     throw new Error("Apple IAP server configuration is incomplete");
+  }
+}
+
+function assertAppleVerificationConfig(environment: AppleEnvironment) {
+  assertAppleConfig();
+
+  if (environment === Environment.PRODUCTION && !env.APPLE_IAP_APPLE_ID) {
+    throw new Error(
+      "Apple IAP notification verification requires APPLE_IAP_APPLE_ID in production",
+    );
   }
 }
 
@@ -82,6 +111,31 @@ function getAppleClient(environment: AppleEnvironment) {
   return sandboxClient;
 }
 
+function getAppleVerifier(environment: AppleEnvironment) {
+  assertAppleVerificationConfig(environment);
+
+  if (environment === Environment.PRODUCTION) {
+    productionVerifier ||= new SignedDataVerifier(
+      APPLE_ROOT_CERTIFICATES,
+      true,
+      Environment.PRODUCTION,
+      env.APPLE_IAP_BUNDLE_ID!,
+      env.APPLE_IAP_APPLE_ID!,
+    );
+
+    return productionVerifier;
+  }
+
+  sandboxVerifier ||= new SignedDataVerifier(
+    APPLE_ROOT_CERTIFICATES,
+    true,
+    Environment.SANDBOX,
+    env.APPLE_IAP_BUNDLE_ID!,
+  );
+
+  return sandboxVerifier;
+}
+
 function normalizeAppleEnvironment(
   value: string | null | undefined,
 ): AppleEnvironment | null {
@@ -103,6 +157,14 @@ function isRetryableAppleLookupError(error: unknown) {
     error instanceof APIException &&
     (error.apiError === APIError.INVALID_TRANSACTION_ID ||
       error.apiError === APIError.INVALID_ORIGINAL_TRANSACTION_ID)
+  );
+}
+
+function isRetryableAppleVerificationError(error: unknown) {
+  return (
+    error instanceof VerificationException &&
+    (error.status === VerificationStatus.INVALID_APP_IDENTIFIER ||
+      error.status === VerificationStatus.INVALID_ENVIRONMENT)
   );
 }
 
@@ -176,32 +238,98 @@ function sortAppleStatusCandidates(
   return bPurchased - aPurchased;
 }
 
+async function verifyAppleNotificationInEnvironment({
+  environment,
+  signedPayload,
+}: {
+  environment: AppleEnvironment;
+  signedPayload: string;
+}) {
+  const verifier = getAppleVerifier(environment);
+  const notification =
+    await verifier.verifyAndDecodeNotification(signedPayload);
+
+  const transaction = notification.data?.signedTransactionInfo
+    ? await verifier.verifyAndDecodeTransaction(
+        notification.data.signedTransactionInfo,
+      )
+    : null;
+  const renewalInfo = notification.data?.signedRenewalInfo
+    ? await verifier.verifyAndDecodeRenewalInfo(
+        notification.data.signedRenewalInfo,
+      )
+    : null;
+
+  return {
+    environment,
+    notification,
+    renewalInfo,
+    transaction,
+  } satisfies AppleVerifiedNotification;
+}
+
+export async function verifyAppleNotificationPayload(signedPayload: string) {
+  let lastError: unknown;
+
+  for (const environment of getLookupEnvironments()) {
+    try {
+      return await verifyAppleNotificationInEnvironment({
+        environment,
+        signedPayload,
+      });
+    } catch (error) {
+      lastError = error;
+
+      if (!isRetryableAppleVerificationError(error)) {
+        break;
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Apple notification verification failed");
+}
+
 async function lookupTransactionInEnvironment({
   environment,
   logger,
+  originalTransactionId,
   transactionId,
 }: {
   environment: AppleEnvironment;
   logger: Logger;
-  transactionId: string;
-}) {
+} & AppleLookupReference) {
   const client = getAppleClient(environment);
-  const transactionInfo = await client.getTransactionInfo(transactionId);
-  const signedTransactionInfo = transactionInfo.signedTransactionInfo;
 
-  if (!signedTransactionInfo) {
+  let baseTransaction: JWSTransactionDecodedPayload | null = null;
+  let lookupOriginalTransactionId = originalTransactionId || null;
+
+  if (transactionId) {
+    const transactionInfo = await client.getTransactionInfo(transactionId);
+    const signedTransactionInfo = transactionInfo.signedTransactionInfo;
+
+    if (!signedTransactionInfo) {
+      throw new Error(
+        "Apple transaction lookup returned no signedTransactionInfo",
+      );
+    }
+
+    baseTransaction = decodeSignedPayloadUnsafe<JWSTransactionDecodedPayload>(
+      signedTransactionInfo,
+    );
+    lookupOriginalTransactionId =
+      baseTransaction.originalTransactionId || originalTransactionId || null;
+  }
+
+  if (!lookupOriginalTransactionId) {
     throw new Error(
-      "Apple transaction lookup returned no signedTransactionInfo",
+      "Apple lookup requires a transactionId or originalTransactionId",
     );
   }
 
-  const baseTransaction =
-    decodeSignedPayloadUnsafe<JWSTransactionDecodedPayload>(
-      signedTransactionInfo,
-    );
-
   const statusResponse = await client.getAllSubscriptionStatuses(
-    baseTransaction.originalTransactionId || transactionId,
+    lookupOriginalTransactionId,
   );
 
   const candidates =
@@ -231,6 +359,7 @@ async function lookupTransactionInEnvironment({
             logger.warn("Failed to decode Apple subscription candidate", {
               environment,
               error,
+              originalTransactionId: lookupOriginalTransactionId,
               transactionId,
             });
             return null;
@@ -239,12 +368,13 @@ async function lookupTransactionInEnvironment({
         .filter((value): value is NonNullable<typeof value> => Boolean(value)),
     ) || [];
 
-  const baseOriginalTransactionId =
-    baseTransaction.originalTransactionId || transactionId;
+  if (!candidates.length && !baseTransaction) {
+    throw new Error("Apple subscription lookup returned no transactions");
+  }
 
   const matchingCandidates = candidates.filter(
     (candidate) =>
-      candidate.originalTransactionId === baseOriginalTransactionId,
+      candidate.originalTransactionId === lookupOriginalTransactionId,
   );
 
   const chosenCandidate = (
@@ -256,14 +386,24 @@ async function lookupTransactionInEnvironment({
   const selectedTransaction = chosenCandidate?.decoded || baseTransaction;
   const selectedItem = chosenCandidate?.item;
 
+  if (!selectedTransaction) {
+    throw new Error(
+      "Apple subscription lookup failed to resolve a transaction",
+    );
+  }
+
+  const resolvedOriginalTransactionId =
+    selectedTransaction.originalTransactionId || lookupOriginalTransactionId;
+  const resolvedProductId = selectedTransaction.productId || "";
+
   return {
     appAccountToken: selectedTransaction.appAccountToken || null,
     environment,
     expiresAt: toDate(selectedTransaction.expiresDate),
-    latestTransactionId: selectedTransaction.transactionId || null,
-    originalTransactionId:
-      selectedTransaction.originalTransactionId || transactionId,
-    productId: selectedTransaction.productId || "",
+    latestTransactionId:
+      selectedTransaction.transactionId || transactionId || null,
+    originalTransactionId: resolvedOriginalTransactionId,
+    productId: resolvedProductId,
     purchaseDate: toDate(selectedTransaction.purchaseDate),
     revokedAt: toDate(selectedTransaction.revocationDate),
     status:
@@ -271,8 +411,8 @@ async function lookupTransactionInEnvironment({
       deriveFallbackAppleStatus(selectedTransaction),
     subscriptionGroupIdentifier:
       selectedTransaction.subscriptionGroupIdentifier || null,
-    tier: selectedTransaction.productId
-      ? getAppleSubscriptionTier({ productId: selectedTransaction.productId })
+    tier: resolvedProductId
+      ? getAppleSubscriptionTier({ productId: resolvedProductId })
       : null,
   } satisfies AppleSubscriptionState;
 }
@@ -280,12 +420,12 @@ async function lookupTransactionInEnvironment({
 export async function getAppleSubscriptionState({
   environmentHint,
   logger,
+  originalTransactionId,
   transactionId,
 }: {
   environmentHint?: string | null;
   logger: Logger;
-  transactionId: string;
-}) {
+} & AppleLookupReference) {
   let lastError: unknown;
 
   for (const environment of getLookupEnvironments(environmentHint)) {
@@ -293,6 +433,7 @@ export async function getAppleSubscriptionState({
       const result = await lookupTransactionInEnvironment({
         environment,
         logger,
+        originalTransactionId,
         transactionId,
       });
 
@@ -307,6 +448,7 @@ export async function getAppleSubscriptionState({
       logger.warn("Apple transaction lookup failed in environment", {
         environment,
         error,
+        originalTransactionId,
         transactionId,
       });
 
@@ -316,7 +458,9 @@ export async function getAppleSubscriptionState({
     }
   }
 
-  captureException(lastError, { extra: { transactionId } });
+  captureException(lastError, {
+    extra: { originalTransactionId, transactionId },
+  });
   throw lastError instanceof Error
     ? lastError
     : new Error("Apple lookup failed");
@@ -350,20 +494,18 @@ async function resolvePremiumRecord({
   const existingUserIds = existingPremium?.users.map((user) => user.id) || [];
 
   if (
+    existingPremium?.id &&
     authenticatedUserId &&
-    state.appAccountToken &&
-    state.appAccountToken !== authenticatedUserId &&
     !existingUserIds.includes(authenticatedUserId)
   ) {
     throw new SafeError("Apple purchase belongs to a different user");
   }
 
-  const ownerUserId =
-    authenticatedUserId || state.appAccountToken || existingUserIds[0] || null;
-
   if (existingPremium?.id) {
     return { premiumId: existingPremium.id, userIds: existingUserIds };
   }
+
+  const ownerUserId = authenticatedUserId || null;
 
   if (!ownerUserId) {
     logger.warn("Unable to map Apple subscription to a user", {
@@ -397,16 +539,17 @@ export async function syncAppleSubscriptionToDb({
   authenticatedUserId,
   environmentHint,
   logger,
+  originalTransactionId,
   transactionId,
 }: {
   authenticatedUserId?: string;
   environmentHint?: string | null;
   logger: Logger;
-  transactionId: string;
-}) {
+} & AppleLookupReference) {
   const state = await getAppleSubscriptionState({
     environmentHint,
     logger,
+    originalTransactionId,
     transactionId,
   });
 
@@ -485,14 +628,4 @@ export async function syncAppleSubscriptionToDb({
   });
 
   return updatedPremium;
-}
-
-export function decodeAppleNotificationPayload(signedPayload: string) {
-  return decodeSignedPayloadUnsafe<ResponseBodyV2DecodedPayload>(signedPayload);
-}
-
-export function decodeAppleTransactionPayload(signedTransactionInfo: string) {
-  return decodeSignedPayloadUnsafe<JWSTransactionDecodedPayload>(
-    signedTransactionInfo,
-  );
 }

@@ -1,9 +1,8 @@
 import { after, NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import {
-  decodeAppleNotificationPayload,
-  decodeAppleTransactionPayload,
   syncAppleSubscriptionToDb,
+  verifyAppleNotificationPayload,
 } from "@/ee/billing/apple";
 import { captureException } from "@/utils/error";
 
@@ -19,26 +18,35 @@ export const POST = withError("apple/webhook", async (request) => {
     return NextResponse.json({}, { status: 400 });
   }
 
+  let verifiedNotification: Awaited<
+    ReturnType<typeof verifyAppleNotificationPayload>
+  >;
+  try {
+    verifiedNotification = await verifyAppleNotificationPayload(
+      body.signedPayload,
+    );
+  } catch (error) {
+    logger.warn("Apple webhook verification failed", { error });
+    captureException(error);
+    return NextResponse.json(
+      { error: "Invalid signed payload" },
+      { status: 400 },
+    );
+  }
+
   after(async () => {
     try {
-      const notification = decodeAppleNotificationPayload(body.signedPayload);
+      const { environment, notification, renewalInfo, transaction } =
+        verifiedNotification;
 
-      if (!notification.data?.signedTransactionInfo) {
-        logger.info("Skipping Apple notification without transaction payload", {
-          notificationType: notification.notificationType,
-          notificationUUID: notification.notificationUUID,
-        });
-        return;
-      }
+      const resolvedTransactionId = transaction?.transactionId || null;
+      const resolvedOriginalTransactionId =
+        transaction?.originalTransactionId ||
+        renewalInfo?.originalTransactionId ||
+        null;
 
-      const transaction = decodeAppleTransactionPayload(
-        notification.data.signedTransactionInfo,
-      );
-      const transactionId =
-        transaction.originalTransactionId || transaction.transactionId;
-
-      if (!transactionId) {
-        logger.warn("Skipping Apple notification without transaction ID", {
+      if (!resolvedTransactionId && !resolvedOriginalTransactionId) {
+        logger.info("Skipping Apple notification without subscription IDs", {
           notificationType: notification.notificationType,
           notificationUUID: notification.notificationUUID,
         });
@@ -46,17 +54,17 @@ export const POST = withError("apple/webhook", async (request) => {
       }
 
       await syncAppleSubscriptionToDb({
-        environmentHint:
-          notification.data.environment || transaction.environment || null,
+        environmentHint: environment,
         logger,
-        transactionId,
+        originalTransactionId: resolvedOriginalTransactionId,
+        transactionId: resolvedTransactionId,
       });
 
       logger.info("Apple webhook processed successfully", {
         notificationType: notification.notificationType,
         notificationUUID: notification.notificationUUID,
-        originalTransactionId: transaction.originalTransactionId,
-        transactionId: transaction.transactionId,
+        originalTransactionId: resolvedOriginalTransactionId,
+        transactionId: resolvedTransactionId,
       });
     } catch (error) {
       logger.error("Apple webhook processing failed", { error });
