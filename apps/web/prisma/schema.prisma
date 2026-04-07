@@ -99,6 +99,9 @@ model User {
   premiumAdmin   Premium? @relation(fields: [premiumAdminId], references: [id])
 
   apiKeys ApiKey[]
+  oauthApplications OauthApplication[]
+  oauthAccessTokens OauthAccessToken[]
+  oauthConsents     OauthConsent[]
 
   emailAccounts EmailAccount[]
 
@@ -409,6 +412,68 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model OauthApplication {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  name         String
+  icon         String?
+  metadata     String?  @db.Text
+  clientId     String   @unique
+  clientSecret String?
+  redirectUrls String   @db.Text
+  type         String
+  disabled     Boolean  @default(false)
+
+  userId String?
+  user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  accessTokens OauthAccessToken[]
+  consents     OauthConsent[]
+
+  @@index([userId])
+  @@map("oauthApplication")
+}
+
+model OauthAccessToken {
+  id                    String   @id @default(cuid())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  accessToken           String   @unique
+  refreshToken          String   @unique
+  accessTokenExpiresAt  DateTime
+  refreshTokenExpiresAt DateTime
+  scopes                String
+
+  clientId String
+  client   OauthApplication @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  userId String?
+  user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([userId])
+  @@map("oauthAccessToken")
+}
+
+model OauthConsent {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  scopes       String
+  consentGiven Boolean
+
+  clientId String
+  client   OauthApplication @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([userId])
+  @@map("oauthConsent")
 }
 
 model Label {

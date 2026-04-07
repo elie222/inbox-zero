@@ -2,7 +2,7 @@ import { sso } from "@better-auth/sso";
 import { expo } from "@better-auth/expo";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
-import { oAuthProxy } from "better-auth/plugins";
+import { mcp, oAuthProxy } from "better-auth/plugins";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
 import type { Account, AuthContext } from "better-auth";
@@ -125,6 +125,12 @@ const socialProviders = {
   ...(googleSocialProvider ? { google: googleSocialProvider } : {}),
   ...(microsoftSocialProvider ? { microsoft: microsoftSocialProvider } : {}),
 };
+const mcpPlugin = env.MCP_SERVER_ENABLED
+  ? mcp({
+      loginPage: "/login",
+      resource: `${env.NEXT_PUBLIC_BASE_URL}/api/mcp-server`,
+    })
+  : null;
 
 export const betterAuthConfig = betterAuth({
   advanced: {
@@ -174,6 +180,7 @@ export const betterAuthConfig = betterAuth({
           }),
         ]
       : []),
+    ...(mcpPlugin ? [mcpPlugin] : []),
     nextCookies(), // Must be last
   ],
   session: {
