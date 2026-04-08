@@ -30,8 +30,11 @@ export function AppErrorBoundary({
     ruleId?: string;
   }>();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: log each boundary error once with the route context captured at that time
   useEffect(() => {
     const logger = createClientLogger("app-error-boundary");
+    const search = searchParams.toString();
+
     logger.error("App error boundary triggered", {
       digest: error.digest,
       emailAccountId: params.emailAccountId,
@@ -40,11 +43,11 @@ export function AppErrorBoundary({
       errorStack: error.stack,
       pathname,
       ruleId: params.ruleId,
-      search: searchParams.toString(),
+      search,
     });
     void logger.flush();
     Sentry.captureException(error);
-  }, [error, params.emailAccountId, params.ruleId, pathname, searchParams]);
+  }, [error]);
 
   return (
     <div className="flex h-full items-center justify-center p-4">
