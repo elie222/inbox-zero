@@ -14,6 +14,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { getAppErrorBoundaryLogContext } from "@/components/app-error-boundary-log-context";
 import { createClientLogger } from "@/utils/logger-client";
 
 export function AppErrorBoundary({
@@ -33,19 +34,17 @@ export function AppErrorBoundary({
   // biome-ignore lint/correctness/useExhaustiveDependencies: log each boundary error once with the route context captured at that time
   useEffect(() => {
     const logger = createClientLogger("app-error-boundary");
-    const search = searchParams.toString();
 
-    logger.error("App error boundary triggered", {
-      digest: error.digest,
-      emailAccountId: params.emailAccountId,
-      errorMessage: error.message,
-      errorName: error.name,
-      errorStack: error.stack,
-      pathname,
-      ruleId: params.ruleId,
-      search,
-    });
-    void logger.flush();
+    logger.error(
+      "App error boundary triggered",
+      getAppErrorBoundaryLogContext({
+        error,
+        params,
+        pathname,
+        searchParams,
+      }),
+    );
+    logger.flush().catch(() => undefined);
     Sentry.captureException(error);
   }, [error]);
 
