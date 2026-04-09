@@ -179,6 +179,7 @@ const parsedEnv = createEnv({
     APPLE_IAP_PRIVATE_KEY: z.string().min(1).optional(),
     APPLE_IAP_BUNDLE_ID: z.string().min(1).optional(),
     APPLE_IAP_APPLE_ID: z.coerce.number().int().positive().optional(),
+    SUPERWALL_APP_STORE_CONNECT_FORWARD_URL: z.string().url().optional(),
 
     TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
+import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 import {
   LAST_EMAIL_ACCOUNT_COOKIE,
   parseLastEmailAccountCookieValue,
@@ -44,7 +45,26 @@ async function getEmailAccounts({ userId }: { userId: string }) {
     },
   });
 
-  const accountsWithNames = emailAccounts.map((account) => {
+  const accountsWithRateLimits = await Promise.all(
+    emailAccounts.map(async (account) => {
+      const providerRateLimit = await getEmailProviderRateLimitState({
+        emailAccountId: account.id,
+      });
+
+      return {
+        ...account,
+        providerRateLimit: providerRateLimit
+          ? {
+              provider: providerRateLimit.provider,
+              retryAt: providerRateLimit.retryAt.toISOString(),
+              source: providerRateLimit.source,
+            }
+          : null,
+      };
+    }),
+  );
+
+  const accountsWithNames = accountsWithRateLimits.map((account) => {
     // Old accounts don't have a name attached, so use the name from the user
     if (account.user.email === account.email) {
       return {

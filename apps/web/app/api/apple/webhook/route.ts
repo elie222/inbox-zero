@@ -1,4 +1,6 @@
+import { z } from "zod";
 import { after, NextResponse } from "next/server";
+import { env } from "@/env";
 import { withError } from "@/utils/middleware";
 import {
   syncAppleSubscriptionToDb,
@@ -6,17 +8,30 @@ import {
 } from "@/ee/billing/apple";
 import { captureException } from "@/utils/error";
 
-type AppleNotificationBody = {
-  signedPayload?: string;
-};
+const appleNotificationBodySchema = z
+  .object({
+    signedPayload: z.string().min(1),
+  })
+  .passthrough();
 
 export const POST = withError("apple/webhook", async (request) => {
   const logger = request.logger;
-  const body = (await request.json()) as AppleNotificationBody;
+  const rawBody = await request.text();
+  let parsedBody: unknown;
 
-  if (!body.signedPayload) {
+  try {
+    parsedBody = JSON.parse(rawBody);
+  } catch {
     return NextResponse.json({}, { status: 400 });
   }
+
+  const parsedResult = appleNotificationBodySchema.safeParse(parsedBody);
+
+  if (!parsedResult.success) {
+    return NextResponse.json({}, { status: 400 });
+  }
+
+  const body = parsedResult.data;
 
   let verifiedNotification: Awaited<
     ReturnType<typeof verifyAppleNotificationPayload>
@@ -36,6 +51,32 @@ export const POST = withError("apple/webhook", async (request) => {
 
   after(async () => {
     try {
+      if (env.SUPERWALL_APP_STORE_CONNECT_FORWARD_URL) {
+        try {
+          const response = await fetch(
+            env.SUPERWALL_APP_STORE_CONNECT_FORWARD_URL,
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+              },
+              body: rawBody,
+              signal: AbortSignal.timeout(5000),
+            },
+          );
+
+          if (!response.ok) {
+            logger.warn("Failed to forward Apple webhook to Superwall", {
+              status: response.status,
+              statusText: response.statusText,
+            });
+          }
+        } catch (error) {
+          logger.warn("Error forwarding Apple webhook to Superwall", { error });
+          captureException(error);
+        }
+      }
+
       const { environment, notification, renewalInfo, transaction } =
         verifiedNotification;
 

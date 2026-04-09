@@ -1,3 +1,6 @@
+// Apple publishes these root CA certificates publicly via Apple PKI.
+// They are required to verify signed App Store Server payloads and are safe
+// to commit. Do not store the App Store Connect .p8 private key in git.
 export const APPLE_ROOT_CERTIFICATES = [
   `-----BEGIN CERTIFICATE-----
 MIIFkjCCA3qgAwIBAgIIAeDltYNno+AwDQYJKoZIhvcNAQEMBQAwZzEbMBkGA1UE

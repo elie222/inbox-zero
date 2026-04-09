@@ -3,10 +3,20 @@ import { env } from "@/env";
 import { hasAiAccess, isPremium } from "@/utils/premium";
 import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
+import {
+  getGmailClientForEmail,
+  getOutlookClientForEmail,
+} from "@/utils/email-account-client";
+import { GmailProvider } from "@/utils/email/google";
+import { OutlookProvider } from "@/utils/email/microsoft";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import type { Prisma } from "@/generated/prisma/client";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 
 const webhookEmailAccountSelect = {
   id: true,
@@ -145,6 +155,61 @@ type ValidationResult =
   | { success: true; data: ValidatedWebhookAccount }
   | { success: false; response: NextResponse };
 
+export async function cleanupWebhookAccountOnRateLimitSkip(
+  emailAccount: ValidatedWebhookAccountData | null,
+  logger: Logger,
+) {
+  if (!emailAccount) return;
+
+  const premium = getWebhookAccountPremium(emailAccount);
+  const userHasAiAccess = hasAiAccess(
+    premium?.tier || null,
+    !!emailAccount.user.aiApiKey,
+  );
+  const shouldUnwatch =
+    !!emailAccount.account?.disconnectedAt || !premium || !userHasAiAccess;
+
+  if (!shouldUnwatch) return;
+
+  let provider = null;
+  try {
+    provider = await createEmailProviderForWebhookCleanup({
+      emailAccountId: emailAccount.id,
+      provider: emailAccount.account?.provider,
+      logger,
+    });
+  } catch (error) {
+    logger.warn("Provider creation failed for webhook cleanup", {
+      emailAccountId: emailAccount.id,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+
+  if (provider) {
+    await unwatchEmails({
+      emailAccountId: emailAccount.id,
+      provider,
+      subscriptionId: emailAccount.watchEmailsSubscriptionId,
+      logger,
+    });
+    return;
+  }
+
+  logger.warn(
+    "Unable to create provider for webhook cleanup, clearing watch state locally",
+    {
+      emailAccountId: emailAccount.id,
+    },
+  );
+  await prisma.emailAccount.updateMany({
+    where: { id: emailAccount.id },
+    data: {
+      watchEmailsExpirationDate: null,
+      watchEmailsSubscriptionId: null,
+    },
+  });
+}
+
 export async function validateWebhookAccount(
   emailAccount: ValidatedWebhookAccountData | null,
   logger: Logger,
@@ -158,16 +223,7 @@ export async function validateWebhookAccount(
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
 
-  const premium = env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS
-    ? { tier: "PROFESSIONAL_ANNUALLY" as const }
-    : isPremium(
-          emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
-          emailAccount.user.premium?.stripeSubscriptionStatus || null,
-          emailAccount.user.premium?.appleExpiresAt || null,
-          emailAccount.user.premium?.appleRevokedAt || null,
-        )
-      ? emailAccount.user.premium
-      : undefined;
+  const premium = getWebhookAccountPremium(emailAccount);
 
   const provider = await createEmailProvider({
     emailAccountId: emailAccount.id,
@@ -236,4 +292,41 @@ export async function validateWebhookAccount(
       hasAiAccess: userHasAiAccess,
     },
   };
+}
+
+function getWebhookAccountPremium(
+  emailAccount: NonNullable<ValidatedWebhookAccountData>,
+) {
+  return env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS
+    ? { tier: "PROFESSIONAL_ANNUALLY" as const }
+    : isPremium(
+          emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
+          emailAccount.user.premium?.stripeSubscriptionStatus || null,
+          emailAccount.user.premium?.appleExpiresAt || null,
+          emailAccount.user.premium?.appleRevokedAt || null,
+        )
+      ? emailAccount.user.premium
+      : undefined;
+}
+
+async function createEmailProviderForWebhookCleanup({
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  emailAccountId: string;
+  provider: string | null | undefined;
+  logger: Logger;
+}) {
+  if (isGoogleProvider(provider)) {
+    const client = await getGmailClientForEmail({ emailAccountId, logger });
+    return new GmailProvider(client, logger, emailAccountId);
+  }
+
+  if (isMicrosoftProvider(provider)) {
+    const client = await getOutlookClientForEmail({ emailAccountId, logger });
+    return new OutlookProvider(client, logger);
+  }
+
+  return null;
 }

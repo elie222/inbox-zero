@@ -2,16 +2,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { envMock, processHistoryForUserMock, runWithBackgroundLoggerFlushMock } =
-  vi.hoisted(() => ({
-    envMock: {
-      GOOGLE_PUBSUB_VERIFICATION_TOKEN: "test-google-webhook-token" as
-        | string
-        | undefined,
-    },
-    processHistoryForUserMock: vi.fn(),
-    runWithBackgroundLoggerFlushMock: vi.fn(),
-  }));
+const {
+  envMock,
+  processHistoryForUserMock,
+  runWithBackgroundLoggerFlushMock,
+  getWebhookEmailAccountMock,
+  getEmailProviderRateLimitStateMock,
+  cleanupWebhookAccountOnRateLimitSkipMock,
+} = vi.hoisted(() => ({
+  envMock: {
+    GOOGLE_PUBSUB_VERIFICATION_TOKEN: "test-google-webhook-token" as
+      | string
+      | undefined,
+  },
+  processHistoryForUserMock: vi.fn(),
+  runWithBackgroundLoggerFlushMock: vi.fn(),
+  getWebhookEmailAccountMock: vi.fn(),
+  getEmailProviderRateLimitStateMock: vi.fn(),
+  cleanupWebhookAccountOnRateLimitSkipMock: vi.fn(),
+}));
 
 vi.mock("@/utils/middleware", () => ({
   withError: (
@@ -44,7 +53,15 @@ vi.mock("@/utils/logger-flush", () => ({
 }));
 
 vi.mock("@/utils/webhook/validate-webhook-account", () => ({
-  getWebhookEmailAccount: vi.fn(),
+  getWebhookEmailAccount: (...args: unknown[]) =>
+    getWebhookEmailAccountMock(...args),
+  cleanupWebhookAccountOnRateLimitSkip: (...args: unknown[]) =>
+    cleanupWebhookAccountOnRateLimitSkipMock(...args),
+}));
+
+vi.mock("@/utils/email/rate-limit", () => ({
+  getEmailProviderRateLimitState: (...args: unknown[]) =>
+    getEmailProviderRateLimitStateMock(...args),
 }));
 
 import { POST } from "./route";
@@ -54,6 +71,9 @@ describe("Google webhook route", () => {
     vi.clearAllMocks();
     envMock.GOOGLE_PUBSUB_VERIFICATION_TOKEN = "test-google-webhook-token";
     processHistoryForUserMock.mockResolvedValue(undefined);
+    getWebhookEmailAccountMock.mockResolvedValue(null);
+    getEmailProviderRateLimitStateMock.mockResolvedValue(null);
+    cleanupWebhookAccountOnRateLimitSkipMock.mockResolvedValue(undefined);
     runWithBackgroundLoggerFlushMock.mockImplementation(
       ({ task }: { task: () => Promise<void> }) => task(),
     );
@@ -100,12 +120,14 @@ describe("Google webhook route", () => {
     expect(body).toEqual({ ok: true });
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
       { emailAddress: "user@example.com", historyId: 123 },
-      {},
+      { preloadedEmailAccount: null },
       request.logger,
     );
   });
 
   it("acknowledges valid requests and processes history asynchronously", async () => {
+    getWebhookEmailAccountMock.mockResolvedValue({ id: "account-1" });
+
     const request = createRequest({
       token: "test-google-webhook-token",
       emailAddress: "user@example.com",
@@ -120,9 +142,36 @@ describe("Google webhook route", () => {
     expect(runWithBackgroundLoggerFlushMock).toHaveBeenCalledTimes(1);
     expect(processHistoryForUserMock).toHaveBeenCalledWith(
       { emailAddress: "user@example.com", historyId: 123 },
-      {},
+      { preloadedEmailAccount: { id: "account-1" } },
       request.logger,
     );
+  });
+
+  it("skips enqueueing background processing while provider rate limit is active", async () => {
+    getWebhookEmailAccountMock.mockResolvedValue({ id: "account-1" });
+    getEmailProviderRateLimitStateMock.mockResolvedValue({
+      provider: "google",
+      retryAt: new Date(Date.now() + 60_000),
+      source: "google/webhook",
+    });
+
+    const request = createRequest({
+      token: "test-google-webhook-token",
+      emailAddress: "user@example.com",
+      historyId: 123,
+    });
+
+    const response = await POST(request as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ ok: true });
+    expect(cleanupWebhookAccountOnRateLimitSkipMock).toHaveBeenCalledWith(
+      { id: "account-1" },
+      request.logger,
+    );
+    expect(runWithBackgroundLoggerFlushMock).not.toHaveBeenCalled();
+    expect(processHistoryForUserMock).not.toHaveBeenCalled();
   });
 });
 
