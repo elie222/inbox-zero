@@ -429,6 +429,66 @@ describe("outbound action guardrails", () => {
   });
 });
 
+describe("replaceRuleWithResolvedActions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEnv.webhookActionsEnabled = true;
+    vi.mocked(getActionRiskLevel).mockReturnValue({
+      level: "low",
+      message: "safe",
+    });
+  });
+
+  it("deletes the previous learned pattern group when the rule is detached from it", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      groupId: "old-group-id",
+    } as any);
+    prisma.rule.update.mockResolvedValue({
+      id: "rule-id",
+      groupId: null,
+      actions: [],
+      group: null,
+    } as any);
+    prisma.group.deleteMany.mockResolvedValue({ count: 1 });
+
+    await replaceRuleWithResolvedActions({
+      ruleId: "rule-id",
+      emailAccountId: "email-account-id",
+      data: { groupId: null },
+      actions: [],
+    });
+
+    expect(prisma.rule.findUnique).toHaveBeenCalledWith({
+      where: { id: "rule-id", emailAccountId: "email-account-id" },
+      select: { groupId: true },
+    });
+    expect(prisma.group.deleteMany).toHaveBeenCalledWith({
+      where: { id: "old-group-id", emailAccountId: "email-account-id" },
+    });
+  });
+
+  it("keeps the learned pattern group when it is unchanged", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      groupId: "group-id",
+    } as any);
+    prisma.rule.update.mockResolvedValue({
+      id: "rule-id",
+      groupId: "group-id",
+      actions: [],
+      group: { id: "group-id" },
+    } as any);
+
+    await replaceRuleWithResolvedActions({
+      ruleId: "rule-id",
+      emailAccountId: "email-account-id",
+      data: { groupId: "group-id" },
+      actions: [],
+    });
+
+    expect(prisma.group.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
 describe("webhook URL validation at save time", () => {
   beforeEach(() => {
     vi.clearAllMocks();
