@@ -14,7 +14,10 @@ import {
 import { cardToBlockKit, cardToFallbackText } from "@chat-adapter/slack";
 import prisma from "@/utils/prisma";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
-import { resolveSlackRouteDestination } from "@/utils/messaging/providers/slack/send";
+import {
+  disableSlackLinkUnfurls,
+  resolveSlackRouteDestination,
+} from "@/utils/messaging/providers/slack/send";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import {
   escapeSlackText,
@@ -1281,12 +1284,12 @@ async function postSlackCard({
 }) {
   const client = createSlackClient(accessToken);
 
-  const args = {
+  const args = disableSlackLinkUnfurls({
     channel: destinationChannelId,
     text: cardToFallbackText(card),
     blocks: cardToBlockKit(card),
     ...(rootMessageId ? { thread_ts: rootMessageId } : {}),
-  };
+  });
 
   try {
     const response = await client.chat.postMessage(args);

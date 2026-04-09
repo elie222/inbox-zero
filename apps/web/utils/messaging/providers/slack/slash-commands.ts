@@ -15,6 +15,7 @@ import {
 import type { Logger } from "@/utils/logger";
 import { normalizeMessagingAssistantText } from "@/utils/messaging/chat-sdk/bot";
 import { PROMPT_COMMANDS } from "@/utils/messaging/prompt-commands";
+import { disableSlackLinkUnfurls } from "@/utils/messaging/providers/slack/send";
 import prisma from "@/utils/prisma";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
@@ -263,7 +264,7 @@ async function postToSlackResponseUrl(
   const response = await fetch(responseUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(disableSlackLinkUnfurls(body)),
   });
 
   if (!response.ok) {
