@@ -71,6 +71,7 @@ type PremiumStatusRecord = {
 export const isPremiumRecord = (
   premium?: PremiumStatusRecord | null,
 ): boolean => {
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
   if (!premium) return false;
 
   return isPremium(

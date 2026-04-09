@@ -1,9 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/env", () => ({
-  env: {
+const { envMock } = vi.hoisted(() => ({
+  envMock: {
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: false,
   },
+}));
+
+vi.mock("@/env", () => ({
+  env: envMock,
 }));
 
 import {
@@ -14,6 +18,10 @@ import {
 } from "./index";
 
 describe("Apple premium helpers", () => {
+  afterEach(() => {
+    envMock.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = false;
+  });
+
   it("treats grace and retry states as active", () => {
     const expiredDate = new Date(Date.now() - 60_000).toISOString();
 
@@ -58,5 +66,11 @@ describe("Apple premium helpers", () => {
         stripeSubscriptionStatus: null,
       }),
     ).toBe("STARTER_MONTHLY");
+  });
+
+  it("treats missing premium records as premium when bypass checks are enabled", () => {
+    envMock.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = true;
+
+    expect(isPremiumRecord(null)).toBe(true);
   });
 });
