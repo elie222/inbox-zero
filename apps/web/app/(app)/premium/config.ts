@@ -110,6 +110,11 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   LIFETIME: {},
 };
 
+const APPLE_PRODUCT_ID_CONFIG: Partial<Record<PremiumTier, string>> = {
+  STARTER_MONTHLY: env.NEXT_PUBLIC_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID,
+  STARTER_ANNUALLY: env.NEXT_PUBLIC_APPLE_IAP_STARTER_ANNUALLY_PRODUCT_ID,
+};
+
 export function getStripeSubscriptionTier({
   priceId,
 }: {
@@ -131,6 +136,22 @@ export function getStripePriceId({
   tier: PremiumTier;
 }): string | null {
   return STRIPE_PRICE_ID_CONFIG[tier]?.priceId ?? null;
+}
+
+export function getAppleSubscriptionTier({
+  productId,
+}: {
+  productId: string;
+}): PremiumTier | null {
+  for (const [tier, configuredProductId] of Object.entries(
+    APPLE_PRODUCT_ID_CONFIG,
+  )) {
+    if (configuredProductId === productId) {
+      return tier as PremiumTier;
+    }
+  }
+
+  return null;
 }
 
 export function hasLegacyStripePriceId({

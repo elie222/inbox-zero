@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import type { PremiumTier } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
-import { hasTierAccess, isPremium } from "@/utils/premium";
+import { hasTierAccess, isPremiumRecord } from "@/utils/premium";
 import { SafeError } from "@/utils/error";
 import { env } from "@/env";
 
@@ -121,6 +121,9 @@ export async function checkHasAccess({
     select: {
       premium: {
         select: {
+          appleExpiresAt: true,
+          appleRevokedAt: true,
+          appleSubscriptionStatus: true,
           tier: true,
           stripeSubscriptionStatus: true,
           lemonSqueezyRenewsAt: true,
@@ -131,12 +134,7 @@ export async function checkHasAccess({
 
   if (!user) throw new SafeError("User not found");
 
-  if (
-    !isPremium(
-      user?.premium?.lemonSqueezyRenewsAt || null,
-      user?.premium?.stripeSubscriptionStatus || null,
-    )
-  ) {
+  if (!isPremiumRecord(user?.premium)) {
     return false;
   }
 

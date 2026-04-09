@@ -19,10 +19,13 @@ vi.mock("@/env", () => ({
       "price_current_professional_monthly",
     NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID:
       "price_current_professional_annual",
+    NEXT_PUBLIC_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID: "starter.monthly",
+    NEXT_PUBLIC_APPLE_IAP_STARTER_ANNUALLY_PRODUCT_ID: "starter.annual",
   },
 }));
 
 import {
+  getAppleSubscriptionTier,
   hasLegacyStripePriceId,
   shouldShowLegacyStripePricingNotice,
 } from "./config";
@@ -120,5 +123,22 @@ describe("shouldShowLegacyStripePricingNotice", () => {
         stripeSubscriptionStatus: "active",
       }),
     ).toBe(false);
+  });
+});
+
+describe("getAppleSubscriptionTier", () => {
+  it("maps configured starter Apple product ids", () => {
+    expect(getAppleSubscriptionTier({ productId: "starter.monthly" })).toBe(
+      "STARTER_MONTHLY",
+    );
+    expect(getAppleSubscriptionTier({ productId: "starter.annual" })).toBe(
+      "STARTER_ANNUALLY",
+    );
+  });
+
+  it("returns null for unknown Apple products", () => {
+    expect(getAppleSubscriptionTier({ productId: "unknown.apple.plan" })).toBe(
+      null,
+    );
   });
 });

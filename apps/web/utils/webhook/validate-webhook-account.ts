@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
-import { hasAiAccess, isPremium } from "@/utils/premium";
+import { hasAiAccess, isPremiumRecord } from "@/utils/premium";
 import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
@@ -54,6 +54,9 @@ const webhookEmailAccountSelect = {
       aiApiKey: true,
       premium: {
         select: {
+          appleExpiresAt: true,
+          appleRevokedAt: true,
+          appleSubscriptionStatus: true,
           lemonSqueezyRenewsAt: true,
           stripeSubscriptionStatus: true,
           tier: true,
@@ -232,6 +235,8 @@ export async function validateWebhookAccount(
   if (!premium) {
     logger.info("Account not premium", {
       lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
+      appleExpiresAt: emailAccount.user.premium?.appleExpiresAt,
+      appleRevokedAt: emailAccount.user.premium?.appleRevokedAt,
       stripeSubscriptionStatus:
         emailAccount.user.premium?.stripeSubscriptionStatus,
     });
@@ -295,10 +300,7 @@ function getWebhookAccountPremium(
 ) {
   return env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS
     ? { tier: "PROFESSIONAL_ANNUALLY" as const }
-    : isPremium(
-          emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
-          emailAccount.user.premium?.stripeSubscriptionStatus || null,
-        )
+    : isPremiumRecord(emailAccount.user.premium)
       ? emailAccount.user.premium
       : undefined;
 }

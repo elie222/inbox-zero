@@ -2,34 +2,89 @@ import type { PremiumTier } from "@/generated/prisma/enums";
 import type { Premium } from "@/generated/prisma/client";
 import { env } from "@/env";
 
+const APPLE_ACTIVE_STATUSES = new Set([
+  "ACTIVE",
+  "BILLING_GRACE_PERIOD",
+  "BILLING_RETRY",
+]);
+
 function isPremiumStripe(stripeSubscriptionStatus: string | null): boolean {
   if (!stripeSubscriptionStatus) return false;
   const activeStatuses = ["active", "trialing"];
   return activeStatuses.includes(stripeSubscriptionStatus);
 }
 
-function isPremiumLemonSqueezy(lemonSqueezyRenewsAt: Date | null): boolean {
+function isPremiumLemonSqueezy(
+  lemonSqueezyRenewsAt: Date | string | null,
+): boolean {
   if (!lemonSqueezyRenewsAt) return false;
   return new Date(lemonSqueezyRenewsAt) > new Date();
 }
 
+export function hasActiveAppleSubscription(
+  appleExpiresAt: Date | string | null,
+  appleRevokedAt: Date | string | null,
+  appleSubscriptionStatus?: string | null,
+): boolean {
+  if (appleRevokedAt) return false;
+
+  if (
+    appleSubscriptionStatus &&
+    APPLE_ACTIVE_STATUSES.has(appleSubscriptionStatus)
+  ) {
+    return true;
+  }
+
+  if (!appleExpiresAt) return false;
+
+  return new Date(appleExpiresAt) > new Date();
+}
+
 export const isPremium = (
-  lemonSqueezyRenewsAt: Date | null,
+  lemonSqueezyRenewsAt: Date | string | null,
   stripeSubscriptionStatus: string | null,
+  appleExpiresAt?: Date | string | null,
+  appleRevokedAt?: Date | string | null,
+  appleSubscriptionStatus?: string | null,
 ): boolean => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
 
   return (
     isPremiumStripe(stripeSubscriptionStatus) ||
-    isPremiumLemonSqueezy(lemonSqueezyRenewsAt)
+    isPremiumLemonSqueezy(lemonSqueezyRenewsAt) ||
+    hasActiveAppleSubscription(
+      appleExpiresAt || null,
+      appleRevokedAt || null,
+      appleSubscriptionStatus,
+    )
+  );
+};
+
+type PremiumStatusRecord = {
+  appleExpiresAt?: Date | string | null;
+  appleRevokedAt?: Date | string | null;
+  appleSubscriptionStatus?: string | null;
+  lemonSqueezyRenewsAt?: Date | string | null;
+  stripeSubscriptionStatus?: string | null;
+};
+
+export const isPremiumRecord = (
+  premium?: PremiumStatusRecord | null,
+): boolean => {
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
+  if (!premium) return false;
+
+  return isPremium(
+    premium.lemonSqueezyRenewsAt ?? null,
+    premium.stripeSubscriptionStatus ?? null,
+    premium.appleExpiresAt ?? null,
+    premium.appleRevokedAt ?? null,
+    premium.appleSubscriptionStatus ?? null,
   );
 };
 
 export const isActivePremium = (
-  premium: Pick<
-    Premium,
-    "lemonSqueezyRenewsAt" | "stripeSubscriptionStatus"
-  > | null,
+  premium?: PremiumStatusRecord | null,
 ): boolean => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
 
@@ -37,30 +92,35 @@ export const isActivePremium = (
 
   return (
     premium.stripeSubscriptionStatus === "active" ||
-    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt)
+    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt ?? null) ||
+    hasActiveAppleSubscription(
+      premium.appleExpiresAt ?? null,
+      premium.appleRevokedAt ?? null,
+      premium.appleSubscriptionStatus,
+    )
   );
 };
 
 export const getUserTier = (
   premium?: Pick<
     Premium,
-    "tier" | "lemonSqueezyRenewsAt" | "stripeSubscriptionStatus"
+    | "appleExpiresAt"
+    | "appleRevokedAt"
+    | "appleSubscriptionStatus"
+    | "tier"
+    | "lemonSqueezyRenewsAt"
+    | "stripeSubscriptionStatus"
   > | null,
 ) => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
     return "PROFESSIONAL_ANNUALLY" as const;
   }
 
-  if (!premium) return null;
-
-  const isActive = isPremium(
-    premium.lemonSqueezyRenewsAt || null,
-    premium.stripeSubscriptionStatus || null,
-  );
+  const isActive = isPremiumRecord(premium);
 
   if (!isActive) return null;
 
-  return premium.tier || null;
+  return premium?.tier || null;
 };
 
 export const isAdminForPremium = (
@@ -151,6 +211,12 @@ export function getPremiumUserFilter() {
     user: {
       premium: {
         OR: [
+          {
+            AND: [
+              { appleExpiresAt: { gt: new Date() } },
+              { appleRevokedAt: null },
+            ],
+          },
           { lemonSqueezyRenewsAt: { gt: new Date() } },
           { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
         ],

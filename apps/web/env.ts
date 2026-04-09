@@ -173,6 +173,14 @@ const parsedEnv = createEnv({
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
     STRIPE_AI_GENERATION_OVERAGE_CONFIG: z.string().optional(),
 
+    // Apple App Store
+    APPLE_IAP_ISSUER_ID: z.string().uuid().optional(),
+    APPLE_IAP_KEY_ID: z.string().min(1).optional(),
+    APPLE_IAP_PRIVATE_KEY: z.string().min(1).optional(),
+    APPLE_IAP_BUNDLE_ID: z.string().min(1).optional(),
+    APPLE_IAP_APPLE_ID: z.coerce.number().int().positive().optional(),
+    SUPERWALL_APP_STORE_CONNECT_FORWARD_URL: z.string().url().optional(),
+
     TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
     TINYBIRD_ENCRYPT_SECRET: z.string().optional(),
@@ -255,6 +263,10 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID: z.string().optional(),
     NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID: z.string().optional(),
     NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID: z.string().optional(),
+
+    // apple app store
+    NEXT_PUBLIC_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID: z.string().optional(),
+    NEXT_PUBLIC_APPLE_IAP_STARTER_ANNUALLY_PRODUCT_ID: z.string().optional(),
 
     // lemon squeezy
     NEXT_PUBLIC_LEMON_STORE_ID: z.string().nullish().default("inboxzero"),
@@ -340,6 +352,12 @@ const parsedEnv = createEnv({
       process.env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
     NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID:
       process.env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID,
+
+    // apple app store
+    NEXT_PUBLIC_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID:
+      process.env.NEXT_PUBLIC_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID,
+    NEXT_PUBLIC_APPLE_IAP_STARTER_ANNUALLY_PRODUCT_ID:
+      process.env.NEXT_PUBLIC_APPLE_IAP_STARTER_ANNUALLY_PRODUCT_ID,
 
     // lemon squeezy
     NEXT_PUBLIC_LEMON_STORE_ID: process.env.NEXT_PUBLIC_LEMON_STORE_ID,
