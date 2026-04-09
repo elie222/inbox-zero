@@ -26,7 +26,14 @@ import {
   delayInMinutesLlmSchema,
   updateRuleConditionSchema,
 } from "@/utils/actions/rule.validation";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  isImapProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
+
+function isFolderBasedProvider(provider: string) {
+  return isMicrosoftProvider(provider) || isImapProvider(provider);
+}
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import {
   buildRuleReadState,
@@ -55,7 +62,7 @@ export function buildCreateRuleSchemaFromChatToolInput(
             webhookUrl: action.fields.webhookUrl ?? null,
             cc: action.fields.cc ?? null,
             bcc: action.fields.bcc ?? null,
-            ...(isMicrosoftProvider(provider) && {
+            ...(isFolderBasedProvider(provider) && {
               folderName: action.fields.folderName ?? null,
             }),
           }
@@ -557,7 +564,7 @@ export const updateRuleActionsTool = ({
             bcc: action.bcc,
             subject: action.subject,
             webhookUrl: action.url,
-            ...(isMicrosoftProvider(provider) && {
+            ...(isFolderBasedProvider(provider) && {
               folderName: action.folderName,
             }),
           }),
@@ -576,7 +583,7 @@ export const updateRuleActionsTool = ({
               subject: action.fields?.subject ?? null,
               content: action.fields?.content ?? null,
               webhookUrl: action.fields?.webhookUrl ?? null,
-              ...(isMicrosoftProvider(provider) && {
+              ...(isFolderBasedProvider(provider) && {
                 folderName: action.fields?.folderName ?? null,
               }),
             },

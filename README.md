@@ -15,6 +15,8 @@
   </p>
 </p>
 
+> **This fork adds generic IMAP/SMTP support.** Connect any standard email account (Amazon WorkMail, Fastmail, Yahoo, iCloud, self-hosted Dovecot/Postfix, and more) with the full AI assistant experience. No Google or Microsoft account required - sign up with email/password and add your IMAP mailbox. See the [IMAP setup guide](#imap-setup) below.
+
 <div align="center">
 
 ![Stars](https://img.shields.io/github/stars/elie222/inbox-zero?labelColor=black&style=for-the-badge&color=2563EB)
@@ -32,6 +34,7 @@ To help you spend less time in your inbox, so you can focus on what matters most
 
 ## Features
 
+- **IMAP/SMTP Support:** Connect any standard IMAP mailbox - Amazon WorkMail, Fastmail, Yahoo, iCloud, ProtonMail Bridge, self-hosted servers. No Google or Microsoft account needed.
 - **AI Personal Assistant:** Organizes your inbox and pre-drafts replies in your tone and style.
 - **Cursor Rules for email:** Explain in plain English how your AI should handle your inbox.
 - **Reply Zero:** Track emails to reply to and those awaiting responses.
@@ -75,6 +78,54 @@ This repo is packaged as a [Cursor plugin](https://cursor.com/docs/reference/plu
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=elie222/inbox-zero&type=Date)](https://www.star-history.com/#elie222/inbox-zero&Date)
+
+## IMAP Setup
+
+This fork lets you use Inbox Zero with any standard IMAP/SMTP email provider.
+
+### Quick Start
+
+1. **Sign up** with email and password on the login page (no Google/Microsoft account needed)
+2. Go to **Accounts** and click **Add IMAP Account**
+3. Select a **provider preset** (Amazon WorkMail, Fastmail, Yahoo, iCloud, ProtonMail Bridge) or enter your server details manually
+4. Click **Test Connection** to verify IMAP and SMTP connectivity
+5. Click **Add Account** - you're ready to go
+
+### Supported Providers
+
+| Provider | IMAP Host | IMAP Port | SMTP Host | SMTP Port |
+|----------|-----------|-----------|-----------|-----------|
+| Amazon WorkMail (us-east-1) | imap.mail.us-east-1.awsapps.com | 993 (TLS) | smtp.mail.us-east-1.awsapps.com | 465 (TLS) |
+| Amazon WorkMail (eu-west-1) | imap.mail.eu-west-1.awsapps.com | 993 (TLS) | smtp.mail.eu-west-1.awsapps.com | 465 (TLS) |
+| Fastmail | imap.fastmail.com | 993 (TLS) | smtp.fastmail.com | 465 (TLS) |
+| Yahoo Mail | imap.mail.yahoo.com | 993 (TLS) | smtp.mail.yahoo.com | 465 (TLS) |
+| iCloud Mail | imap.mail.me.com | 993 (TLS) | smtp.mail.me.com | 587 (STARTTLS) |
+| ProtonMail Bridge | 127.0.0.1 | 1143 (STARTTLS) | 127.0.0.1 | 1025 (STARTTLS) |
+
+Any IMAP/SMTP server works - these are just presets for convenience. Use an **app-specific password** when your provider supports it.
+
+### New Email Notifications
+
+IMAP doesn't support push notifications like Gmail or Outlook. Set up a cron job to poll for new messages:
+
+```bash
+# Poll every 3 minutes
+*/3 * * * * curl -X POST http://localhost:3000/api/imap/poll -H "Authorization: Bearer $CRON_SECRET"
+```
+
+### Database Migration
+
+After deploying this fork, run the migration to add the IMAP credentials table:
+
+```bash
+cd apps/web && npx prisma migrate dev --name add-imap-credentials
+```
+
+### What Works
+
+All core features work with IMAP accounts: AI assistant, inbox management, send/reply/forward, archive, trash, folder management, bulk operations, and rules with folder-based actions.
+
+Server-side email filters and calendar/drive integrations are not available for IMAP accounts (they require provider-specific APIs).
 
 ## Feature Requests
 

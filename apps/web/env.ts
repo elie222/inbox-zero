@@ -62,8 +62,8 @@ const parsedEnv = createEnv({
           .map((entry) => entry.trim())
           .filter(Boolean),
       ),
-    GOOGLE_CLIENT_ID: z.string().min(1),
-    GOOGLE_CLIENT_SECRET: z.string().min(1),
+    GOOGLE_CLIENT_ID: z.string().optional().default(""),
+    GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
     // Local Google emulation only; used for both OAuth and resource APIs.
     GOOGLE_BASE_URL: z.string().url().optional(),
     // Local Microsoft emulation only; used for both OAuth and Microsoft Graph APIs.
@@ -145,7 +145,7 @@ const parsedEnv = createEnv({
     QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
     QUEUE_BACKEND: z.enum(["bullmq", "internal", "qstash"]).optional(),
 
-    GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
+    GOOGLE_PUBSUB_TOPIC_NAME: z.string().optional().default(""),
     GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),
 
     MICROSOFT_WEBHOOK_CLIENT_STATE: z.string().optional(),

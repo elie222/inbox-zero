@@ -154,7 +154,7 @@ export const betterAuthConfig = betterAuth({
   ],
   secret: env.AUTH_SECRET || env.NEXTAUTH_SECRET,
   emailAndPassword: {
-    enabled: false,
+    enabled: true,
   },
   database: prismaAdapter(prisma, {
     provider: "postgresql",
@@ -477,6 +477,7 @@ async function getProfileData(providerId: string, accessToken: string) {
 }
 
 function shouldLinkEmailAccount(providerId: string) {
+  // IMAP accounts are linked separately via /api/imap/linking/create
   return isGoogleProvider(providerId) || isMicrosoftProvider(providerId);
 }
 

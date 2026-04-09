@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  isImapProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
 import { env } from "@/env";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
@@ -48,7 +51,9 @@ const conditionSchema = z
 export function getAvailableActions(provider: string) {
   const availableActions: ActionType[] = [
     ActionType.LABEL,
-    ...(isMicrosoftProvider(provider) ? [ActionType.MOVE_FOLDER] : []),
+    ...(isMicrosoftProvider(provider) || isImapProvider(provider)
+      ? [ActionType.MOVE_FOLDER]
+      : []),
     ActionType.ARCHIVE,
     ActionType.MARK_READ,
     ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED ? [] : [ActionType.DRAFT_EMAIL]),
@@ -115,7 +120,7 @@ const actionSchema = (provider: string) =>
             .nullable()
             .transform((v) => v ?? null)
             .describe("The webhook URL to call"),
-          ...(isMicrosoftProvider(provider) && {
+          ...((isMicrosoftProvider(provider) || isImapProvider(provider)) && {
             folderName: z
               .string()
               .nullable()

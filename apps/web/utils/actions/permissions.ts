@@ -74,7 +74,8 @@ export const adminCheckPermissionsAction = adminActionClient
       }
 
       if (!isGoogleProvider(emailAccount.account.provider)) {
-        throw new SafeError("Unsupported provider");
+        // IMAP and other non-OAuth providers don't need permission checks
+        return { hasAllPermissions: true, hasRefreshToken: true };
       }
 
       const { accessToken, tokens } = await getGmailAndAccessTokenForEmail({

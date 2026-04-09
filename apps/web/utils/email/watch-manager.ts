@@ -6,7 +6,10 @@ import { captureException } from "@/utils/error";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import type { EmailProvider } from "@/utils/email/types";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  isImapProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 
 export type WatchEmailAccountResult =
@@ -152,6 +155,12 @@ async function watchEmailAccount(
       });
     }
 
+    return null;
+  }
+
+  // IMAP accounts use polling instead of push webhooks
+  if (isImapProvider(account?.provider)) {
+    logger.info("Skipping watch for IMAP account (uses polling)");
     return null;
   }
 

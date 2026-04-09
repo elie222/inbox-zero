@@ -27,11 +27,31 @@ model Account {
   scope                 String?
   id_token              String?       @db.Text
   session_state         String?
+  password              String?       @db.Text // For email/password auth (better-auth credential provider)
   user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   emailAccount          EmailAccount?
+  imapCredential        ImapCredential?
 
   @@unique([provider, providerAccountId])
   @@index([userId])
+}
+
+model ImapCredential {
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  imapHost     String
+  imapPort     Int       @default(993)
+  imapSecurity String    @default("tls") // "tls" | "starttls" | "none"
+  smtpHost     String
+  smtpPort     Int       @default(587)
+  smtpSecurity String    @default("starttls") // "tls" | "starttls" | "none"
+  username     String
+  password     String    @db.Text // Encrypted with encryptToken()
+  lastPolledAt DateTime?
+  lastSeenUid  Int?
+  accountId    String    @unique
+  account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
 }
 
 // not in use. we only use jwt for sessions
@@ -61,6 +81,7 @@ model User {
   email         String    @unique
   emailVerified Boolean?  @default(false)
   image         String?
+  password      String?   // For email/password authentication (better-auth)
   accounts      Account[]
   sessions      Session[]
 
