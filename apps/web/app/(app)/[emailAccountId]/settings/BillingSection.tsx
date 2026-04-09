@@ -27,6 +27,7 @@ export function BillingSection() {
   const hasAppleSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
     premium?.appleRevokedAt || null,
+    premium?.appleSubscriptionStatus || null,
   );
 
   return (

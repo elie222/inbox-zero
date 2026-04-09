@@ -23,6 +23,7 @@ export function Usage(props: { usage: RedisUsage | null }) {
               premium?.stripeSubscriptionStatus || null,
               premium?.appleExpiresAt || null,
               premium?.appleRevokedAt || null,
+              premium?.appleSubscriptionStatus || null,
             )
               ? "Unlimited"
               : formatStat(

@@ -56,6 +56,7 @@ const webhookEmailAccountSelect = {
         select: {
           appleExpiresAt: true,
           appleRevokedAt: true,
+          appleSubscriptionStatus: true,
           lemonSqueezyRenewsAt: true,
           stripeSubscriptionStatus: true,
           tier: true,
@@ -304,6 +305,7 @@ function getWebhookAccountPremium(
           emailAccount.user.premium?.stripeSubscriptionStatus || null,
           emailAccount.user.premium?.appleExpiresAt || null,
           emailAccount.user.premium?.appleRevokedAt || null,
+          emailAccount.user.premium?.appleSubscriptionStatus || null,
         )
       ? emailAccount.user.premium
       : undefined;

@@ -136,9 +136,9 @@ describe("getAppleSubscriptionTier", () => {
     );
   });
 
-  it("falls back to the starter tier for unknown Apple products", () => {
+  it("returns null for unknown Apple products", () => {
     expect(getAppleSubscriptionTier({ productId: "unknown.apple.plan" })).toBe(
-      "STARTER_MONTHLY",
+      null,
     );
   });
 });

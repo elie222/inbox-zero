@@ -151,7 +151,7 @@ export function getAppleSubscriptionTier({
     }
   }
 
-  return "STARTER_MONTHLY";
+  return null;
 }
 
 export function hasLegacyStripePriceId({

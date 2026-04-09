@@ -19,6 +19,7 @@ import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { createPremiumForUser } from "@/utils/premium/create-premium";
+import { isOnHigherTier } from "@/utils/premium";
 import { APPLE_ROOT_CERTIFICATES } from "./root-certificates";
 
 type AppleEnvironment = Environment.PRODUCTION | Environment.SANDBOX;
@@ -573,10 +574,20 @@ export async function syncAppleSubscriptionToDb({
       appleExpiresAt: true,
       appleRevokedAt: true,
       appleSubscriptionStatus: true,
+      emailAccountsAccess: true,
       tier: true,
       users: { select: { id: true } },
     },
   });
+
+  const resolvedTier =
+    previousPremium?.tier && isOnHigherTier(previousPremium.tier, state.tier)
+      ? previousPremium.tier
+      : state.tier;
+  const resolvedEmailAccountsAccess = Math.max(
+    previousPremium?.emailAccountsAccess ?? 0,
+    1,
+  );
 
   const updatedPremium = await prisma.premium.update({
     where: { id: premiumRecord.premiumId },
@@ -591,8 +602,8 @@ export async function syncAppleSubscriptionToDb({
       appleRevokedAt: state.revokedAt,
       appleSubscriptionGroupIdentifier: state.subscriptionGroupIdentifier,
       appleSubscriptionStatus: state.status,
-      emailAccountsAccess: 1,
-      tier: state.tier,
+      emailAccountsAccess: resolvedEmailAccountsAccess,
+      tier: resolvedTier,
     },
     select: {
       id: true,
@@ -614,7 +625,8 @@ export async function syncAppleSubscriptionToDb({
         state.revokedAt?.getTime() ||
       previousPremium?.appleExpiresAt?.getTime() !==
         state.expiresAt?.getTime() ||
-      previousPremium?.tier !== state.tier;
+      previousPremium?.tier !== resolvedTier ||
+      previousPremium?.emailAccountsAccess !== resolvedEmailAccountsAccess;
 
     if (userIds.length && (!previousPremium || statusChanged)) {
       ensureEmailAccountsWatched({ userIds, logger }).catch((error) => {

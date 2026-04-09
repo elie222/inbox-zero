@@ -45,7 +45,7 @@ export type PricingProps = {
 
 export default function Pricing(props: PricingProps) {
   const posthog = usePostHog();
-  const { premium, isLoading, error, data } = usePremium();
+  const { premium, isPremium, isLoading, error, data } = usePremium();
   const hasTrackedPricingView = useRef(false);
 
   const isLoggedIn = !!data?.id;
@@ -56,9 +56,11 @@ export default function Pricing(props: PricingProps) {
   const hasActiveAppleManagedSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
     premium?.appleRevokedAt || null,
+    premium?.appleSubscriptionStatus || null,
   );
   const hasExistingSubscription = Boolean(
-    premium?.stripeSubscriptionId ||
+    isPremium ||
+      premium?.stripeSubscriptionId ||
       premium?.lemonSqueezyCustomerId ||
       hasActiveAppleManagedSubscription,
   );
@@ -118,13 +120,9 @@ export default function Pricing(props: PricingProps) {
       >
         {header}
 
-        {!!(
-          premium?.stripeSubscriptionId ||
-          premium?.lemonSqueezyCustomerId ||
-          hasActiveAppleManagedSubscription
-        ) && (
+        {hasExistingSubscription && (
           <div className="mb-8 mt-8 text-center">
-            <ManageSubscription premium={premium} />
+            <ManageSubscription premium={premium ?? null} />
 
             {userPremiumTier && (
               <>

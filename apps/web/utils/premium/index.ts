@@ -2,6 +2,12 @@ import type { PremiumTier } from "@/generated/prisma/enums";
 import type { Premium } from "@/generated/prisma/client";
 import { env } from "@/env";
 
+const APPLE_ACTIVE_STATUSES = new Set([
+  "ACTIVE",
+  "BILLING_GRACE_PERIOD",
+  "BILLING_RETRY",
+]);
+
 function isPremiumStripe(stripeSubscriptionStatus: string | null): boolean {
   if (!stripeSubscriptionStatus) return false;
   const activeStatuses = ["active", "trialing"];
@@ -16,8 +22,18 @@ function isPremiumLemonSqueezy(lemonSqueezyRenewsAt: Date | null): boolean {
 export function hasActiveAppleSubscription(
   appleExpiresAt: Date | string | null,
   appleRevokedAt: Date | string | null,
+  appleSubscriptionStatus?: string | null,
 ): boolean {
-  if (!appleExpiresAt || appleRevokedAt) return false;
+  if (appleRevokedAt) return false;
+
+  if (
+    appleSubscriptionStatus &&
+    APPLE_ACTIVE_STATUSES.has(appleSubscriptionStatus)
+  ) {
+    return true;
+  }
+
+  if (!appleExpiresAt) return false;
 
   return new Date(appleExpiresAt) > new Date();
 }
@@ -27,13 +43,18 @@ export const isPremium = (
   stripeSubscriptionStatus: string | null,
   appleExpiresAt?: Date | string | null,
   appleRevokedAt?: Date | string | null,
+  appleSubscriptionStatus?: string | null,
 ): boolean => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
 
   return (
     isPremiumStripe(stripeSubscriptionStatus) ||
     isPremiumLemonSqueezy(lemonSqueezyRenewsAt) ||
-    hasActiveAppleSubscription(appleExpiresAt || null, appleRevokedAt || null)
+    hasActiveAppleSubscription(
+      appleExpiresAt || null,
+      appleRevokedAt || null,
+      appleSubscriptionStatus,
+    )
   );
 };
 
@@ -42,6 +63,7 @@ export const isActivePremium = (
     Premium,
     | "appleExpiresAt"
     | "appleRevokedAt"
+    | "appleSubscriptionStatus"
     | "lemonSqueezyRenewsAt"
     | "stripeSubscriptionStatus"
   > | null,
@@ -53,7 +75,11 @@ export const isActivePremium = (
   return (
     premium.stripeSubscriptionStatus === "active" ||
     isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt) ||
-    hasActiveAppleSubscription(premium.appleExpiresAt, premium.appleRevokedAt)
+    hasActiveAppleSubscription(
+      premium.appleExpiresAt,
+      premium.appleRevokedAt,
+      premium.appleSubscriptionStatus,
+    )
   );
 };
 
@@ -62,6 +88,7 @@ export const getUserTier = (
     Premium,
     | "appleExpiresAt"
     | "appleRevokedAt"
+    | "appleSubscriptionStatus"
     | "tier"
     | "lemonSqueezyRenewsAt"
     | "stripeSubscriptionStatus"
@@ -78,6 +105,7 @@ export const getUserTier = (
     premium.stripeSubscriptionStatus || null,
     premium.appleExpiresAt || null,
     premium.appleRevokedAt || null,
+    premium.appleSubscriptionStatus || null,
   );
 
   if (!isActive) return null;

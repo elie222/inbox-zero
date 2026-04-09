@@ -30,6 +30,7 @@ export function usePremium() {
       premium.stripeSubscriptionStatus,
       premium.appleExpiresAt,
       premium.appleRevokedAt,
+      premium.appleSubscriptionStatus,
     )
   );
 

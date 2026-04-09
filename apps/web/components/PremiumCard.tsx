@@ -14,6 +14,7 @@ import { MutedText } from "@/components/Typography";
 interface PremiumData {
   appleExpiresAt?: Date | string | null;
   appleRevokedAt?: Date | string | null;
+  appleSubscriptionStatus?: string | null;
   lemonSqueezyRenewsAt?: Date | string | null;
   lemonSqueezySubscriptionId?: number | string | null;
   stripeSubscriptionId?: string | null;
@@ -53,6 +54,7 @@ export function PremiumExpiredCardContent({
     premium?.stripeSubscriptionStatus || null,
     appleExpiresAt,
     appleRevokedAt,
+    premium?.appleSubscriptionStatus || null,
   );
 
   if (isUserPremium) return null;
