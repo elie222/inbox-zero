@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { XIcon, CreditCardIcon, AlertTriangleIcon } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
-import { isPremium } from "@/utils/premium";
+import { isPremiumRecord } from "@/utils/premium";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/utils";
@@ -32,30 +32,13 @@ export function PremiumExpiredCardContent({
   onDismiss,
   isCollapsed = false,
 }: PremiumExpiredCardProps & { isCollapsed?: boolean }) {
-  // Convert string dates to Date objects if needed
   const lemonSqueezyRenewsAt = premium?.lemonSqueezyRenewsAt
     ? typeof premium.lemonSqueezyRenewsAt === "string"
       ? new Date(premium.lemonSqueezyRenewsAt)
       : premium.lemonSqueezyRenewsAt
     : null;
-  const appleExpiresAt = premium?.appleExpiresAt
-    ? typeof premium.appleExpiresAt === "string"
-      ? new Date(premium.appleExpiresAt)
-      : premium.appleExpiresAt
-    : null;
-  const appleRevokedAt = premium?.appleRevokedAt
-    ? typeof premium.appleRevokedAt === "string"
-      ? new Date(premium.appleRevokedAt)
-      : premium.appleRevokedAt
-    : null;
 
-  const isUserPremium = isPremium(
-    lemonSqueezyRenewsAt,
-    premium?.stripeSubscriptionStatus || null,
-    appleExpiresAt,
-    appleRevokedAt,
-    premium?.appleSubscriptionStatus || null,
-  );
+  const isUserPremium = isPremiumRecord(premium);
 
   if (isUserPremium) return null;
 

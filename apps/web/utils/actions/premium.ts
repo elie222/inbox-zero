@@ -6,7 +6,11 @@ import uniq from "lodash/uniq";
 import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
-import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
+import {
+  isAdminForPremium,
+  isOnHigherTier,
+  isPremiumRecord,
+} from "@/utils/premium";
 import {
   cancelPremiumLemon,
   upgradeToPremiumLemon,
@@ -58,13 +62,7 @@ export const decrementUnsubscribeCreditAction = actionClientUser
 
     if (!user) throw new SafeError("User not found");
 
-    const isUserPremium = isPremium(
-      user.premium?.lemonSqueezyRenewsAt || null,
-      user.premium?.stripeSubscriptionStatus || null,
-      user.premium?.appleExpiresAt || null,
-      user.premium?.appleRevokedAt || null,
-      user.premium?.appleSubscriptionStatus || null,
-    );
+    const isUserPremium = isPremiumRecord(user.premium);
     if (isUserPremium) return;
 
     const currentMonth = new Date().getMonth() + 1;

@@ -25,7 +25,7 @@ vi.mock("@/utils/log-error-with-dedupe", () => ({
 }));
 vi.mock("server-only", () => ({}));
 
-import { isPremium, hasAiAccess } from "@/utils/premium";
+import { hasAiAccess, isPremiumRecord } from "@/utils/premium";
 import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
@@ -130,7 +130,7 @@ describe("validateWebhookAccount", () => {
         },
       });
 
-      vi.mocked(isPremium).mockReturnValue(false);
+      vi.mocked(isPremiumRecord).mockReturnValue(false);
 
       await cleanupWebhookAccountOnRateLimitSkip(emailAccount, logger);
 
@@ -180,7 +180,7 @@ describe("validateWebhookAccount", () => {
         },
       });
 
-      vi.mocked(isPremium).mockReturnValue(false);
+      vi.mocked(isPremiumRecord).mockReturnValue(false);
 
       const result = await validateWebhookAccount(emailAccount, logger);
 
@@ -207,7 +207,7 @@ describe("validateWebhookAccount", () => {
     it("should unwatch emails and return failure", async () => {
       const emailAccount = createMockEmailAccount();
 
-      vi.mocked(isPremium).mockReturnValue(true);
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(false);
 
       const result = await validateWebhookAccount(emailAccount, logger);
@@ -232,7 +232,7 @@ describe("validateWebhookAccount", () => {
         rules: [],
       });
 
-      vi.mocked(isPremium).mockReturnValue(true);
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
       const result = await validateWebhookAccount(emailAccount, logger);
@@ -257,7 +257,7 @@ describe("validateWebhookAccount", () => {
         },
       });
 
-      vi.mocked(isPremium).mockReturnValue(true);
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
       const result = await validateWebhookAccount(emailAccount, logger);
@@ -281,7 +281,7 @@ describe("validateWebhookAccount", () => {
         },
       });
 
-      vi.mocked(isPremium).mockReturnValue(true);
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
       const result = await validateWebhookAccount(emailAccount, logger);
@@ -300,7 +300,7 @@ describe("validateWebhookAccount", () => {
         account: null,
       } as any as ValidatedWebhookAccountData;
 
-      vi.mocked(isPremium).mockReturnValue(true);
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
       const result = await validateWebhookAccount(emailAccount, logger);
@@ -316,7 +316,7 @@ describe("validateWebhookAccount", () => {
     it("should return success with validated data", async () => {
       const emailAccount = createMockEmailAccount();
 
-      vi.mocked(isPremium).mockReturnValue(true);
+      vi.mocked(isPremiumRecord).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
       const result = await validateWebhookAccount(emailAccount, logger);

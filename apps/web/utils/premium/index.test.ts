@@ -6,7 +6,12 @@ vi.mock("@/env", () => ({
   },
 }));
 
-import { getUserTier, hasActiveAppleSubscription, isPremium } from "./index";
+import {
+  getUserTier,
+  hasActiveAppleSubscription,
+  isPremium,
+  isPremiumRecord,
+} from "./index";
 
 describe("Apple premium helpers", () => {
   it("treats grace and retry states as active", () => {
@@ -24,6 +29,20 @@ describe("Apple premium helpers", () => {
     const expiredDate = new Date(Date.now() - 60_000).toISOString();
 
     expect(isPremium(null, null, expiredDate, null, "ACTIVE")).toBe(true);
+  });
+
+  it("treats active Apple premium records as premium even when the expiry is past", () => {
+    const expiredDate = new Date(Date.now() - 60_000).toISOString();
+
+    expect(
+      isPremiumRecord({
+        appleExpiresAt: expiredDate,
+        appleRevokedAt: null,
+        appleSubscriptionStatus: "ACTIVE",
+        lemonSqueezyRenewsAt: null,
+        stripeSubscriptionStatus: null,
+      }),
+    ).toBe(true);
   });
 
   it("preserves the tier for active Apple subscriptions", () => {

@@ -14,7 +14,9 @@ function isPremiumStripe(stripeSubscriptionStatus: string | null): boolean {
   return activeStatuses.includes(stripeSubscriptionStatus);
 }
 
-function isPremiumLemonSqueezy(lemonSqueezyRenewsAt: Date | null): boolean {
+function isPremiumLemonSqueezy(
+  lemonSqueezyRenewsAt: Date | string | null,
+): boolean {
   if (!lemonSqueezyRenewsAt) return false;
   return new Date(lemonSqueezyRenewsAt) > new Date();
 }
@@ -39,7 +41,7 @@ export function hasActiveAppleSubscription(
 }
 
 export const isPremium = (
-  lemonSqueezyRenewsAt: Date | null,
+  lemonSqueezyRenewsAt: Date | string | null,
   stripeSubscriptionStatus: string | null,
   appleExpiresAt?: Date | string | null,
   appleRevokedAt?: Date | string | null,
@@ -55,6 +57,28 @@ export const isPremium = (
       appleRevokedAt || null,
       appleSubscriptionStatus,
     )
+  );
+};
+
+type PremiumStatusRecord = {
+  appleExpiresAt?: Date | string | null;
+  appleRevokedAt?: Date | string | null;
+  appleSubscriptionStatus?: string | null;
+  lemonSqueezyRenewsAt?: Date | string | null;
+  stripeSubscriptionStatus?: string | null;
+};
+
+export const isPremiumRecord = (
+  premium?: PremiumStatusRecord | null,
+): boolean => {
+  if (!premium) return false;
+
+  return isPremium(
+    premium.lemonSqueezyRenewsAt ?? null,
+    premium.stripeSubscriptionStatus ?? null,
+    premium.appleExpiresAt ?? null,
+    premium.appleRevokedAt ?? null,
+    premium.appleSubscriptionStatus ?? null,
   );
 };
 
@@ -98,19 +122,11 @@ export const getUserTier = (
     return "PROFESSIONAL_ANNUALLY" as const;
   }
 
-  if (!premium) return null;
-
-  const isActive = isPremium(
-    premium.lemonSqueezyRenewsAt || null,
-    premium.stripeSubscriptionStatus || null,
-    premium.appleExpiresAt || null,
-    premium.appleRevokedAt || null,
-    premium.appleSubscriptionStatus || null,
-  );
+  const isActive = isPremiumRecord(premium);
 
   if (!isActive) return null;
 
-  return premium.tier || null;
+  return premium?.tier || null;
 };
 
 export const isAdminForPremium = (

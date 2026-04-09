@@ -22,18 +22,11 @@ async function getUser({
       aiModel: true,
       aiApiKey: true,
       webhookSecret: true,
-      referralCode: true,
       announcementDismissedAt: true,
       dismissedHints: true,
       premium: {
         select: {
-          appleAppAccountToken: true,
-          appleEnvironment: true,
           appleExpiresAt: true,
-          appleLatestTransactionId: true,
-          appleOriginalTransactionId: true,
-          appleProductId: true,
-          applePurchaseDate: true,
           appleRevokedAt: true,
           appleSubscriptionStatus: true,
           lemonSqueezyCustomerId: true,
@@ -81,10 +74,19 @@ async function getUser({
     })),
   );
 
-  const { aiApiKey, webhookSecret, ...publicUser } = user;
+  const {
+    aiApiKey,
+    webhookSecret,
+    referralCode: _referralCode,
+    emailAccounts,
+    ...publicUser
+  } = user;
 
   return {
     ...publicUser,
+    emailAccounts: emailAccounts.map(({ members: _members, ...account }) => ({
+      ...account,
+    })),
     hasAiApiKey: !!aiApiKey,
     hasWebhookSecret: !!webhookSecret,
     members,

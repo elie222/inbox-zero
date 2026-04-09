@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
-import { hasAiAccess, isPremium } from "@/utils/premium";
+import { hasAiAccess, isPremiumRecord } from "@/utils/premium";
 import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
@@ -300,13 +300,7 @@ function getWebhookAccountPremium(
 ) {
   return env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS
     ? { tier: "PROFESSIONAL_ANNUALLY" as const }
-    : isPremium(
-          emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
-          emailAccount.user.premium?.stripeSubscriptionStatus || null,
-          emailAccount.user.premium?.appleExpiresAt || null,
-          emailAccount.user.premium?.appleRevokedAt || null,
-          emailAccount.user.premium?.appleSubscriptionStatus || null,
-        )
+    : isPremiumRecord(emailAccount.user.premium)
       ? emailAccount.user.premium
       : undefined;
 }
