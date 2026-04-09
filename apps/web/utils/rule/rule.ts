@@ -245,6 +245,11 @@ export async function replaceRuleWithResolvedActions({
 
   validateWebhookUrlsInActions(actions);
 
+  const existingRule = await prisma.rule.findUnique({
+    where: { id: ruleId, emailAccountId },
+    select: { groupId: true },
+  });
+
   const rule = await prisma.rule.update({
     where: { id: ruleId, emailAccountId },
     data: {
@@ -270,6 +275,12 @@ export async function replaceRuleWithResolvedActions({
     },
     include: { actions: true, group: true },
   });
+
+  if (existingRule?.groupId && existingRule.groupId !== rule.groupId) {
+    await prisma.group.deleteMany({
+      where: { id: existingRule.groupId, emailAccountId },
+    });
+  }
 
   return rule as RuleWithRelations;
 }
