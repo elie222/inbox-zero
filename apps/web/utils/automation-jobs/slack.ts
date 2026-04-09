@@ -5,6 +5,7 @@ import {
 import type { Logger } from "@/utils/logger";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 import {
+  disableSlackLinkUnfurls,
   formatSlackAppMention,
   resolveSlackRouteDestination,
 } from "@/utils/messaging/providers/slack/send";
@@ -85,10 +86,12 @@ export async function sendAutomationMessageToSlack({
   }
 
   try {
-    const response = await client.chat.postMessage({
-      channel: destinationChannelId,
-      text: formattedText,
-    });
+    const response = await client.chat.postMessage(
+      disableSlackLinkUnfurls({
+        channel: destinationChannelId,
+        text: formattedText,
+      }),
+    );
     slackLogger.info("Slack automation message sent");
 
     return {
@@ -107,10 +110,12 @@ export async function sendAutomationMessageToSlack({
 
       slackLogger.info("Joining Slack channel before retrying message");
       await client.conversations.join({ channel: route.targetId });
-      const response = await client.chat.postMessage({
-        channel: route.targetId,
-        text: formattedText,
-      });
+      const response = await client.chat.postMessage(
+        disableSlackLinkUnfurls({
+          channel: route.targetId,
+          text: formattedText,
+        }),
+      );
       slackLogger.info("Slack automation message sent after joining channel");
 
       return {

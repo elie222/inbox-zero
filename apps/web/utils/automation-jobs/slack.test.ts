@@ -71,6 +71,8 @@ describe("sendAutomationMessageToSlack", () => {
       expect.objectContaining({
         channel: "C123",
         text: expect.stringContaining("_Reply with <@UAPP123>"),
+        unfurl_links: false,
+        unfurl_media: false,
       }),
     );
   });
@@ -91,9 +93,13 @@ describe("sendAutomationMessageToSlack", () => {
       logger,
     });
 
-    expect(mockPostMessage).toHaveBeenCalledWith({
-      channel: "D123",
-      text: "Your inbox looks clear right now. Want me to keep monitoring and ping again later?",
-    });
+    expect(mockPostMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "D123",
+        text: "Your inbox looks clear right now. Want me to keep monitoring and ping again later?",
+        unfurl_links: false,
+        unfurl_media: false,
+      }),
+    );
   });
 });
