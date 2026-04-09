@@ -84,14 +84,7 @@ export const isPremiumRecord = (
 };
 
 export const isActivePremium = (
-  premium: Pick<
-    Premium,
-    | "appleExpiresAt"
-    | "appleRevokedAt"
-    | "appleSubscriptionStatus"
-    | "lemonSqueezyRenewsAt"
-    | "stripeSubscriptionStatus"
-  > | null,
+  premium?: PremiumStatusRecord | null,
 ): boolean => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
 
@@ -99,10 +92,10 @@ export const isActivePremium = (
 
   return (
     premium.stripeSubscriptionStatus === "active" ||
-    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt) ||
+    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt ?? null) ||
     hasActiveAppleSubscription(
-      premium.appleExpiresAt,
-      premium.appleRevokedAt,
+      premium.appleExpiresAt ?? null,
+      premium.appleRevokedAt ?? null,
       premium.appleSubscriptionStatus,
     )
   );

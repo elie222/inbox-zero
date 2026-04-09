@@ -74,16 +74,16 @@ async function getUser({
     })),
   );
 
-  const {
-    aiApiKey,
-    webhookSecret,
-    referralCode: _referralCode,
-    emailAccounts,
-    ...publicUser
-  } = user;
+  const { aiApiKey, webhookSecret, emailAccounts } = user;
 
   return {
-    ...publicUser,
+    id: user.id,
+    createdAt: user.createdAt,
+    aiProvider: user.aiProvider,
+    aiModel: user.aiModel,
+    announcementDismissedAt: user.announcementDismissedAt,
+    dismissedHints: user.dismissedHints,
+    premium: user.premium,
     emailAccounts: emailAccounts.map(({ members: _members, ...account }) => ({
       ...account,
     })),
