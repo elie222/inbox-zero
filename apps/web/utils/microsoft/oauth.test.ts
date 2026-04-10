@@ -96,6 +96,69 @@ describe("microsoft oauth helpers", () => {
       },
     );
   });
+
+  it("retries Microsoft token requests with IPv4 after an IPv6 reachability failure", async () => {
+    const oauth = await importMicrosoftOauthModule();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(createFetchFailedError("ENETUNREACH"))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await oauth.requestMicrosoftToken({
+      client_id: "client-id",
+      grant_type: "refresh_token",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({
+        dispatcher: expect.any(Object),
+        method: "POST",
+      }),
+    );
+    await expect(response.json()).resolves.toEqual({});
+  });
+
+  it("returns the Microsoft user profile and derived email", async () => {
+    const oauth = await importMicrosoftOauthModule();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "user-id",
+        userPrincipalName: "user@example.com",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      oauth.fetchMicrosoftUserProfile("access-token"),
+    ).resolves.toEqual({
+      profile: {
+        id: "user-id",
+        userPrincipalName: "user@example.com",
+      },
+      email: "user@example.com",
+    });
+  });
+
+  it("throws a typed error when the Microsoft profile request fails", async () => {
+    const oauth = await importMicrosoftOauthModule();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+
+    await expect(
+      oauth.fetchMicrosoftUserProfile("access-token"),
+    ).rejects.toMatchObject({
+      message: "Failed to fetch Microsoft user profile",
+      status: 503,
+    });
+  });
 });
 
 async function importMicrosoftOauthModule(
@@ -113,4 +176,15 @@ async function importMicrosoftOauthModule(
   }));
 
   return import("./oauth");
+}
+
+function createFetchFailedError(code: string) {
+  const connectError = Object.assign(new Error(`connect ${code}`), { code });
+  const error = new TypeError("fetch failed") as TypeError & {
+    cause: AggregateError;
+  };
+
+  error.cause = new AggregateError([connectError], `connect ${code}`);
+
+  return error;
 }

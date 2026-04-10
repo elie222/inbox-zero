@@ -3,8 +3,8 @@ import type { DriveItem } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
 import { createScopedLogger } from "@/utils/logger";
 import {
+  fetchMicrosoftGraph,
   getMicrosoftGraphClientOptions,
-  getMicrosoftGraphUrl,
 } from "@/utils/microsoft/oauth";
 import { isNotFoundError } from "@/utils/outlook/errors";
 import type {
@@ -236,8 +236,8 @@ export class OneDriveProvider implements DriveProvider {
     const file = await this.getFile(fileId);
     if (!file) return null;
 
-    const response = await fetch(
-      getMicrosoftGraphUrl(`/me/drive/items/${fileId}/content`),
+    const response = await fetchMicrosoftGraph(
+      `/me/drive/items/${fileId}/content`,
       {
         headers: {
           Authorization: `Bearer ${this.accessToken}`,

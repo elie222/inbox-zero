@@ -6,7 +6,7 @@ import {
   isGoogleOauthEmulationEnabled,
 } from "@/utils/google/oauth";
 import {
-  getMicrosoftGraphUrl,
+  fetchMicrosoftUserProfile,
   getMicrosoftOauthAuthorizeUrl,
   requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
@@ -152,23 +152,7 @@ export async function exchangeMicrosoftDriveCode(code: string) {
     throw new Error("No access or refresh token returned from Microsoft");
   }
 
-  // Get user email from Microsoft Graph
-  const profileResponse = await fetch(getMicrosoftGraphUrl("/me"), {
-    headers: {
-      Authorization: `Bearer ${tokens.access_token}`,
-    },
-  });
-
-  if (!profileResponse.ok) {
-    throw new Error("Failed to get user profile from Microsoft");
-  }
-
-  const profile = await profileResponse.json();
-  const email = profile.mail || profile.userPrincipalName;
-
-  if (!email) {
-    throw new Error("Could not get email from Microsoft profile");
-  }
+  const { email } = await fetchMicrosoftUserProfile(tokens.access_token);
 
   return {
     accessToken: tokens.access_token as string,
@@ -176,6 +160,6 @@ export async function exchangeMicrosoftDriveCode(code: string) {
     expiresAt: tokens.expires_in
       ? new Date(Date.now() + tokens.expires_in * 1000)
       : null,
-    email: email as string,
+    email,
   };
 }

@@ -333,6 +333,51 @@ describe("outlook linking callback route", () => {
     expect(mockClearOAuthCode).toHaveBeenCalledWith("valid-auth-code");
   });
 
+  it("retries Microsoft token exchange with IPv4 when the first request fails with ENETUNREACH", async () => {
+    mockHandleAccountLinking.mockResolvedValue({
+      type: "continue_create",
+    });
+    prisma.account.create.mockResolvedValue({
+      id: "account-123",
+    } as Awaited<ReturnType<typeof prisma.account.create>>);
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockRejectedValueOnce(createFetchFailedError("ENETUNREACH"))
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            access_token: "access-token",
+            refresh_token: "refresh-token",
+            scope: "Mail.ReadWrite Mail.Send MailboxSettings.ReadWrite",
+            token_type: "Bearer",
+            expires_in: 3600,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "provider-account-id",
+            userPrincipalName: "user@example.com",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+        }),
+    );
+
+    const response = await GET(
+      createRequest("http://localhost:3000/api/outlook/linking/callback"),
+    );
+
+    expect(response.headers.get("location")).toContain(
+      "success=account_created_and_linked",
+    );
+    expect(mockHandleAccountLinking).toHaveBeenCalled();
+    expect(prisma.account.create).toHaveBeenCalled();
+  });
+
   it("sanitizes unmapped Microsoft token errors before redirecting", async () => {
     vi.stubGlobal(
       "fetch",
@@ -414,3 +459,14 @@ describe("outlook linking callback route", () => {
     consoleWarn.mockRestore();
   });
 });
+
+function createFetchFailedError(code: string) {
+  const connectError = Object.assign(new Error(`connect ${code}`), { code });
+  const error = new TypeError("fetch failed") as TypeError & {
+    cause: AggregateError;
+  };
+
+  error.cause = new AggregateError([connectError], `connect ${code}`);
+
+  return error;
+}
