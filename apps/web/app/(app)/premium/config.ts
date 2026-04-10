@@ -46,6 +46,19 @@ export const BRIEF_MY_MEETING_PRICE_ID_MONTHLY =
 export const BRIEF_MY_MEETING_PRICE_ID_ANNUALLY =
   "price_1SjoawKGf8mwZWHnfAeShYhb";
 
+const STRIPE_STARTER_MONTHLY_INCLUDED_EMAILS_PRICE_ID =
+  "price_placeholder_starter_monthly_included_emails";
+const STRIPE_PLUS_MONTHLY_INCLUDED_EMAILS_PRICE_ID =
+  "price_placeholder_plus_monthly_included_emails";
+const STRIPE_PROFESSIONAL_MONTHLY_INCLUDED_EMAILS_PRICE_ID =
+  "price_placeholder_professional_monthly_included_emails";
+
+const INCLUDED_EMAIL_ACCOUNT_PRICE_IDS = [
+  STRIPE_STARTER_MONTHLY_INCLUDED_EMAILS_PRICE_ID,
+  STRIPE_PLUS_MONTHLY_INCLUDED_EMAILS_PRICE_ID,
+  STRIPE_PROFESSIONAL_MONTHLY_INCLUDED_EMAILS_PRICE_ID,
+];
+
 const STRIPE_PRICE_ID_CONFIG: Record<
   PremiumTier,
   {
@@ -60,8 +73,9 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   PRO_MONTHLY: {},
   PRO_ANNUALLY: {},
   STARTER_MONTHLY: {
-    priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
-    oldPriceIds: [
+    priceId: STRIPE_STARTER_MONTHLY_INCLUDED_EMAILS_PRICE_ID,
+    oldPriceIds: getConfiguredPriceIds(
+      env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
       "price_1T9FhCKGf8mwZWHn1olNzv6X",
       "price_1S5u73KGf8mwZWHn8VYFdALA",
       "price_1RMSnIKGf8mwZWHnlHP0212n",
@@ -71,9 +85,8 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       "price_1Rg0QfKGf8mwZWHnDsiocBVD",
       "price_1Rg0LEKGf8mwZWHndYXYg7ie",
       "price_1Rg03pKGf8mwZWHnWMNeQzLc",
-      // brief my meeting
       BRIEF_MY_MEETING_PRICE_ID_MONTHLY,
-    ],
+    ),
   },
   STARTER_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
@@ -87,17 +100,21 @@ const STRIPE_PRICE_ID_CONFIG: Record<
     ],
   },
   PLUS_MONTHLY: {
-    priceId: env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
+    priceId: STRIPE_PLUS_MONTHLY_INCLUDED_EMAILS_PRICE_ID,
+    oldPriceIds: getConfiguredPriceIds(
+      env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
+    ),
   },
   PLUS_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID,
   },
   PROFESSIONAL_MONTHLY: {
-    priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
-    oldPriceIds: [
+    priceId: STRIPE_PROFESSIONAL_MONTHLY_INCLUDED_EMAILS_PRICE_ID,
+    oldPriceIds: getConfiguredPriceIds(
+      env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
       "price_1S5u6NKGf8mwZWHnZCfy4D5n",
       "price_1RMSoMKGf8mwZWHn5fAKBT19",
-    ],
+    ),
   },
   PROFESSIONAL_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID,
@@ -136,6 +153,14 @@ export function getStripePriceId({
   tier: PremiumTier;
 }): string | null {
   return STRIPE_PRICE_ID_CONFIG[tier]?.priceId ?? null;
+}
+
+export function hasIncludedEmailAccountsStripePriceId(
+  priceId: string | null | undefined,
+): boolean {
+  if (!priceId) return false;
+
+  return INCLUDED_EMAIL_ACCOUNT_PRICE_IDS.includes(priceId);
 }
 
 export function getAppleSubscriptionTier({
@@ -253,6 +278,11 @@ const starterTier: Tier = {
     },
     {
       text: "Email analytics",
+    },
+    {
+      text: "New monthly plans include 2 email accounts for one user",
+      tooltip:
+        "Designed for one person managing multiple inboxes. A personal inbox can be included, but additional same-domain work inboxes and extra users count separately.",
     },
     {
       text: "Pre-meeting briefings",
@@ -382,3 +412,14 @@ export function getLemonSubscriptionTier({
 
 export const tiers: Tier[] = [starterTier, plusTier, professionalTier];
 export { enterpriseTier };
+
+function getConfiguredPriceIds(
+  ...priceIds: Array<string | null | undefined>
+): string[] | undefined {
+  const configuredPriceIds = [
+    ...new Set(
+      priceIds.filter((priceId): priceId is string => Boolean(priceId)),
+    ),
+  ];
+  return configuredPriceIds.length ? configuredPriceIds : undefined;
+}

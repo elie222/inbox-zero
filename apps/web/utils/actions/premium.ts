@@ -3,7 +3,6 @@
 import { z } from "zod";
 import { after } from "next/server";
 import uniq from "lodash/uniq";
-import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import {
@@ -24,6 +23,7 @@ import {
 import { PremiumTier } from "@/generated/prisma/enums";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import { getStripePriceId } from "@/app/(app)/premium/config";
+import { getStripeBillingQuantity } from "@/utils/premium/billing";
 import {
   actionClientUser,
   adminActionClient,
@@ -314,7 +314,12 @@ export const adminChangePremiumStatusAction = adminActionClient
           );
           if (!subscription) throw new SafeError("Subscription not found");
           lemonSqueezySubscriptionId = Number.parseInt(subscription.id);
-          const attributes = subscription.attributes as any;
+          const attributes = subscription.attributes as {
+            first_subscription_item?: { id?: string | null };
+            order_id?: string;
+            product_id?: string;
+            variant_id?: string;
+          };
           lemonSqueezyOrderId = Number.parseInt(attributes.order_id);
           lemonSqueezyProductId = Number.parseInt(attributes.product_id);
           lemonSqueezyVariantId = Number.parseInt(attributes.variant_id);
@@ -404,6 +409,13 @@ export const getBillingPortalUrlAction = actionClientUser
             stripeSubscriptionId: true,
             stripeSubscriptionItemId: true,
             stripeSubscriptionStatus: true,
+            users: {
+              select: {
+                emailAccounts: {
+                  select: { email: true },
+                },
+              },
+            },
           },
         },
       },
@@ -434,6 +446,11 @@ export const getBillingPortalUrlAction = actionClientUser
       return { url: null };
     }
 
+    const quantity = getStripeBillingQuantity({
+      priceId,
+      users: user.premium?.users || [],
+    });
+
     const { url } = await stripe.billingPortal.sessions.create({
       customer: user.premium.stripeCustomerId,
       return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
@@ -450,6 +467,7 @@ export const getBillingPortalUrlAction = actionClientUser
                   {
                     id: user.premium.stripeSubscriptionItemId,
                     price: priceId,
+                    quantity,
                   },
                 ],
               },
@@ -483,13 +501,18 @@ export const generateCheckoutSessionAction = actionClientUser
         where: { id: userId },
         select: {
           email: true,
+          emailAccounts: {
+            select: { email: true },
+          },
           premium: {
             select: {
               id: true,
               stripeCustomerId: true,
               users: {
                 select: {
-                  _count: { select: { emailAccounts: true } },
+                  emailAccounts: {
+                    select: { email: true },
+                  },
                 },
               },
             },
@@ -527,8 +550,10 @@ export const generateCheckoutSessionAction = actionClientUser
         });
       }
 
-      const quantity =
-        sumBy(user.premium?.users || [], (u) => u._count.emailAccounts) || 1;
+      const quantity = getStripeBillingQuantity({
+        priceId,
+        users: user.premium?.users || [{ emailAccounts: user.emailAccounts }],
+      });
 
       // ALWAYS create a checkout with a stripeCustomerId
       const checkout = await stripe.checkout.sessions.create({

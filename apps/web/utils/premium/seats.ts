@@ -1,8 +1,8 @@
-import sumBy from "lodash/sumBy";
 import { updateSubscriptionItemQuantity } from "@/ee/billing/lemon/index";
 import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { getStripeBillingQuantity } from "@/utils/premium/billing";
 
 const logger = createScopedLogger("premium");
 
@@ -28,8 +28,13 @@ export async function syncPremiumSeats(premiumId: string) {
     select: {
       lemonSqueezySubscriptionItemId: true,
       stripeSubscriptionItemId: true,
+      stripePriceId: true,
       users: {
-        select: { _count: { select: { emailAccounts: true } } },
+        select: {
+          emailAccounts: {
+            select: { email: true },
+          },
+        },
       },
     },
   });
@@ -39,7 +44,10 @@ export async function syncPremiumSeats(premiumId: string) {
     return;
   }
 
-  const totalSeats = sumBy(premium.users, (user) => user._count.emailAccounts);
+  const totalSeats = getStripeBillingQuantity({
+    priceId: premium.stripePriceId,
+    users: premium.users,
+  });
   await updateAccountSeatsForPremium(premium, totalSeats);
 }
 
