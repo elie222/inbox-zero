@@ -24,7 +24,7 @@ type MicrosoftGraphClientOptions = {
   };
 };
 
-export type MicrosoftUserProfile = {
+type MicrosoftUserProfile = {
   id?: string | null;
   mail?: string | null;
   userPrincipalName?: string | null;

@@ -186,7 +186,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     const providerAccountId = profile.id;
 
     if (!providerAccountId) {
-      throw new SafeError("Profile missing required id or email");
+      throw new SafeError("Profile missing required id");
     }
 
     const existingAccount = await prisma.account.findUnique({
