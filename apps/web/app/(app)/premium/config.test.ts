@@ -10,13 +10,13 @@ vi.mock("@/env", () => ({
     NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID: 6,
     NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID: 7,
     NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID:
-      "price_legacy_starter_monthly",
+      "price_current_starter_monthly",
     NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID:
       "price_current_starter_annual",
-    NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID: "price_legacy_plus_monthly",
+    NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID: "price_current_plus_monthly",
     NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID: "price_current_plus_annual",
     NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID:
-      "price_legacy_professional_monthly",
+      "price_current_professional_monthly",
     NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID:
       "price_current_professional_annual",
     NEXT_PUBLIC_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID: "starter.monthly",
@@ -37,7 +37,7 @@ describe("hasLegacyStripePriceId", () => {
     expect(
       hasLegacyStripePriceId({
         tier: "STARTER_MONTHLY",
-        priceId: "price_placeholder_starter_monthly_included_emails",
+        priceId: "price_current_starter_monthly",
       }),
     ).toBe(false);
   });
@@ -64,7 +64,7 @@ describe("hasLegacyStripePriceId", () => {
     expect(
       hasLegacyStripePriceId({
         tier: null,
-        priceId: "price_placeholder_starter_monthly_included_emails",
+        priceId: "price_current_starter_monthly",
       }),
     ).toBe(false);
 
@@ -121,7 +121,7 @@ describe("shouldShowLegacyStripePricingNotice", () => {
     expect(
       shouldShowLegacyStripePricingNotice({
         tier: "STARTER_MONTHLY",
-        stripePriceId: "price_placeholder_starter_monthly_included_emails",
+        stripePriceId: "price_current_starter_monthly",
         stripeSubscriptionStatus: "active",
       }),
     ).toBe(false);
@@ -129,32 +129,28 @@ describe("shouldShowLegacyStripePricingNotice", () => {
 });
 
 describe("monthly pricing config", () => {
-  it("uses the new monthly Stripe price ids for checkout", () => {
+  it("uses the active monthly Stripe price ids for checkout", () => {
     expect(getStripePriceId({ tier: "STARTER_MONTHLY" })).toBe(
-      "price_placeholder_starter_monthly_included_emails",
+      "price_current_starter_monthly",
     );
     expect(getStripePriceId({ tier: "PLUS_MONTHLY" })).toBe(
-      "price_placeholder_plus_monthly_included_emails",
+      "price_current_plus_monthly",
     );
     expect(getStripePriceId({ tier: "PROFESSIONAL_MONTHLY" })).toBe(
-      "price_placeholder_professional_monthly_included_emails",
+      "price_current_professional_monthly",
     );
   });
 
-  it("marks only the new included-email monthly prices for special seat billing", () => {
+  it("marks only the active monthly prices for special seat billing", () => {
     expect(
-      hasIncludedEmailAccountsStripePriceId(
-        "price_placeholder_starter_monthly_included_emails",
-      ),
+      hasIncludedEmailAccountsStripePriceId("price_current_starter_monthly"),
+    ).toBe(true);
+    expect(
+      hasIncludedEmailAccountsStripePriceId("price_current_plus_monthly"),
     ).toBe(true);
     expect(
       hasIncludedEmailAccountsStripePriceId(
-        "price_placeholder_plus_monthly_included_emails",
-      ),
-    ).toBe(true);
-    expect(
-      hasIncludedEmailAccountsStripePriceId(
-        "price_placeholder_professional_monthly_included_emails",
+        "price_current_professional_monthly",
       ),
     ).toBe(true);
     expect(
