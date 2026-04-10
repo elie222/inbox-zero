@@ -35,3 +35,4 @@ pnpm lint
 - `npm-check-updates` reads `.ncurc.cjs`, so the reject list is applied during the manifest update.
 - `pnpm install` may also bump the root `packageManager` field and regenerate `pnpm-lock.yaml`.
 - Do not run `pnpm dev` or `pnpm build` unless the user explicitly asks.
+- Pin `@hookform/resolvers` to `4.1.0` while `apps/web` remains on `zod@3.25.76`. The `5.x` resolver line imports `zod/v4/core`, which has caused local Next.js/Turbopack resolution failures even though the app code still uses Zod 3.
