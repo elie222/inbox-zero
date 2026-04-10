@@ -52,15 +52,15 @@ function addRequiredActionFieldIssues({
 }: {
   action: {
     type: ActionType;
-    fields?: {
-      label?: string | null;
-      webhookUrl?: string | null;
-      folderName?: string | null;
-    } | null;
+    fields?: Record<string, unknown> | null;
   };
   ctx: RefinementCtx;
 }) {
-  if (action.type === ActionType.LABEL && !action.fields?.label?.trim()) {
+  const label = getOptionalString(action.fields?.label);
+  const webhookUrl = getOptionalString(action.fields?.webhookUrl);
+  const folderName = getOptionalString(action.fields?.folderName);
+
+  if (action.type === ActionType.LABEL && !label) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "LABEL requires fields.label.",
@@ -68,10 +68,7 @@ function addRequiredActionFieldIssues({
     });
   }
 
-  if (
-    action.type === ActionType.CALL_WEBHOOK &&
-    !action.fields?.webhookUrl?.trim()
-  ) {
+  if (action.type === ActionType.CALL_WEBHOOK && !webhookUrl) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "CALL_WEBHOOK requires fields.webhookUrl.",
@@ -79,10 +76,7 @@ function addRequiredActionFieldIssues({
     });
   }
 
-  if (
-    action.type === ActionType.MOVE_FOLDER &&
-    !action.fields?.folderName?.trim()
-  ) {
+  if (action.type === ActionType.MOVE_FOLDER && !folderName) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "MOVE_FOLDER requires fields.folderName.",
@@ -204,3 +198,7 @@ export type CreateOrUpdateRuleSchema = CreateRuleSchema & {
   ruleId?: string;
 };
 export { addRequiredActionFieldIssues };
+
+function getOptionalString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
+}
