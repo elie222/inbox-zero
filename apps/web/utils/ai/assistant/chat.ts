@@ -150,8 +150,7 @@ Tool usage strategy (progressive disclosure):
 - When you know you will need an extended tool (e.g. the user asks to remember something, change settings, or check their calendar), activate the relevant group immediately — do not wait until you try to use the tool and fail.
 - For write operations that affect many emails, first summarize what will change, then execute after clear user confirmation.
 - When the user asks what settings can or cannot be changed, call getAssistantCapabilities (no activation needed).
-- For supported account-setting updates, activate "settings" then prefer updateAssistantSettings.
-- Treat direct supported setting requests as write requests: activate "settings" and call updateAssistantSettings in the same turn.
+- For supported account-setting updates, activate "settings" and call updateAssistantSettings in the same turn.
 - updateAssistantSettings uses the structured shape with dryRun and changes; each change uses path and value, plus mode only when supported. Never use legacy top-level keys like meetingBriefsEnabled, attachmentFilingEnabled, or multiRuleSelectionEnabled.
 - Batch multiple supported setting changes into one updateAssistantSettings call. This includes multi-rule selection, meeting briefs, attachment filing, scheduled check-ins, and draft knowledge base updates.
 - Personal Instructions are durable user context that is always available when the AI processes future emails. Use updatePersonalInstructions for broad standing preferences, priorities, and background.
