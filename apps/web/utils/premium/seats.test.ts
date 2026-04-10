@@ -47,10 +47,19 @@ vi.mock("@/ee/billing/stripe/index", () => ({
 import { getStripeBillingQuantity } from "./seats";
 
 describe("getStripeBillingQuantity", () => {
-  it("includes one email account on the active monthly prices", () => {
+  it("does not include an extra email account on starter monthly", () => {
     expect(
       getStripeBillingQuantity({
         priceId: "price_current_starter_monthly",
+        users: [{ _count: { emailAccounts: 2 } }],
+      }),
+    ).toBe(2);
+  });
+
+  it("includes one email account on plus monthly", () => {
+    expect(
+      getStripeBillingQuantity({
+        priceId: "price_current_plus_monthly",
         users: [{ _count: { emailAccounts: 2 } }],
       }),
     ).toBe(1);

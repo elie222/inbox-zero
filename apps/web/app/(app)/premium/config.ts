@@ -47,7 +47,6 @@ export const BRIEF_MY_MEETING_PRICE_ID_ANNUALLY =
   "price_1SjoawKGf8mwZWHnfAeShYhb";
 
 const INCLUDED_EMAIL_ACCOUNT_PRICE_IDS = [
-  env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
   env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
   env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
 ];
@@ -268,11 +267,6 @@ const starterTier: Tier = {
       text: "Email analytics",
     },
     {
-      text: "2 email accounts included per user",
-      tooltip:
-        "Each user gets 2 email accounts included. Additional email accounts are billed at the standard per-seat rate.",
-    },
-    {
       text: "Pre-meeting briefings",
       tooltip:
         "Get AI briefings before every meeting with research on attendees and context from your inbox.",
@@ -301,6 +295,11 @@ const plusTier: Tier = {
   features: [
     {
       text: "Everything in Starter, plus:",
+    },
+    {
+      text: "2 email accounts included per user",
+      tooltip:
+        "Each user gets 2 email accounts included. Additional email accounts are billed at the standard per-seat rate.",
     },
     {
       text: "Slack integration",

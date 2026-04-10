@@ -144,7 +144,7 @@ describe("monthly pricing config", () => {
   it("marks only the active monthly prices for special seat billing", () => {
     expect(
       hasIncludedEmailAccountsStripePriceId("price_current_starter_monthly"),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       hasIncludedEmailAccountsStripePriceId("price_current_plus_monthly"),
     ).toBe(true);
