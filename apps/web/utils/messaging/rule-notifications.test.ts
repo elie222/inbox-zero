@@ -15,6 +15,8 @@ vi.mock("@/utils/prisma");
 
 const mockCreateEmailProvider = vi.fn();
 const mockSendAutomationMessage = vi.fn();
+const mockSlackPostMessage = vi.fn();
+const mockSlackJoin = vi.fn();
 
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: (...args: unknown[]) => mockCreateEmailProvider(...args),
@@ -25,6 +27,17 @@ vi.mock("@/utils/automation-jobs/messaging", () => ({
     mockSendAutomationMessage(...args),
 }));
 
+vi.mock("@/utils/messaging/providers/slack/client", () => ({
+  createSlackClient: () => ({
+    chat: {
+      postMessage: (...args: unknown[]) => mockSlackPostMessage(...args),
+    },
+    conversations: {
+      join: (...args: unknown[]) => mockSlackJoin(...args),
+    },
+  }),
+}));
+
 describe("handleSlackRuleNotificationAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -32,6 +45,8 @@ describe("handleSlackRuleNotificationAction", () => {
       channelId: "teams-thread-1",
       messageId: "teams-message-1",
     });
+    mockSlackPostMessage.mockResolvedValue({ ts: "slack-ts-1" });
+    mockSlackJoin.mockResolvedValue({});
   });
 
   it("keeps the draft preview visible after sending from Slack", async () => {
@@ -134,6 +149,10 @@ describe("handleSlackRuleNotificationAction", () => {
       "Drafted by <https://getinboxzero.com/?ref=ABC|Inbox Zero>.",
     );
     expect(cardText).toContain("Status: Reply sent.");
+    expect(cardText).toContain("Open in Gmail");
+    expect(cardText).toContain(
+      "https://mail.google.com/mail/u/user@example.com/#all/message-1",
+    );
   });
 });
 
@@ -144,6 +163,133 @@ describe("sendMessagingRuleNotification", () => {
       channelId: "teams-thread-1",
       messageId: "teams-message-1",
     });
+    mockSlackPostMessage.mockResolvedValue({ ts: "slack-ts-1" });
+    mockSlackJoin.mockResolvedValue({});
+  });
+
+  it("adds an Open in Gmail button for Slack draft notifications on Google accounts", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+      }) as never,
+    );
+    prisma.executedAction.findFirst.mockResolvedValue(null as never);
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const serializedBlocks = JSON.stringify(args.blocks);
+
+    expect(serializedBlocks).toContain("Open in Gmail");
+    expect(serializedBlocks).toContain(
+      "https://mail.google.com/mail/u/user@example.com/#all/message-1",
+    );
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        messagingMessageId: "slack-ts-1",
+        messagingMessageSentAt: expect.any(Date),
+        messagingMessageStatus: MessagingMessageStatus.SENT,
+      },
+    });
+  });
+
+  it("adds an Open in Outlook button for Slack draft notifications on Microsoft accounts", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        accountProvider: "microsoft",
+      }) as never,
+    );
+    prisma.executedAction.findFirst.mockResolvedValue(null as never);
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const serializedBlocks = JSON.stringify(args.blocks);
+
+    expect(serializedBlocks).toContain("Open in Outlook");
+    expect(serializedBlocks).toContain(
+      "https://outlook.live.com/mail/0/inbox/id/message-1",
+    );
+  });
+
+  it("does not add a mailbox link for unsupported account providers", async () => {
+    prisma.executedAction.findUnique.mockResolvedValue(
+      getNotificationContext({
+        id: "action-1",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        content: "Draft body",
+        accountProvider: "imap",
+      }) as never,
+    );
+    prisma.executedAction.findFirst.mockResolvedValue(null as never);
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: {
+          from: "sender@example.com",
+          subject: "Test subject",
+        },
+        snippet: "Preview text",
+      },
+      logger: createScopedLogger("test"),
+    });
+
+    expect(delivered).toBe(true);
+    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const serializedBlocks = JSON.stringify(args.blocks);
+
+    expect(serializedBlocks).not.toContain("Open in Gmail");
+    expect(serializedBlocks).not.toContain("Open in Outlook");
   });
 
   it("delivers Teams notifications through the linked messaging fallback", async () => {
@@ -296,8 +442,10 @@ describe("buildMessagingRuleNotificationText", () => {
       actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
       content: {
         title: "Draft reply",
-        summary:
-          'You got an email from *Sender* about "Test".\n\nI drafted a reply for you:\n>See <https://example.com|details>.',
+        summary: '📩 You got an email from *Sender* about "Test".',
+        details: [
+          "✍️ *I drafted a reply for you:*\nSee <https://example.com|details>.",
+        ],
       },
       provider: MessagingProvider.TELEGRAM,
     });
@@ -307,6 +455,30 @@ describe("buildMessagingRuleNotificationText", () => {
     expect(text).toContain("details: https://example.com");
     expect(text).toContain("Slack-only");
   });
+
+  it("unescapes Slack entities for Teams fallback", async () => {
+    const { buildMessagingRuleNotificationText } = await import(
+      "./rule-notifications"
+    );
+
+    const text = buildMessagingRuleNotificationText({
+      actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: {
+        title: "Draft reply",
+        summary:
+          '📩 You got an email from *Tom &amp; Jerry* about "A &lt;B&gt;".',
+        details: ["💬 *They wrote:*\nHello &amp; welcome"],
+      },
+      provider: MessagingProvider.TEAMS,
+    });
+
+    expect(text).toContain("Tom & Jerry");
+    expect(text).toContain("A <B>");
+    expect(text).toContain("Hello & welcome");
+    expect(text).not.toContain("&amp;");
+    expect(text).not.toContain("&lt;");
+    expect(text).not.toContain("&gt;");
+  });
 });
 
 function getNotificationContext({
@@ -314,6 +486,7 @@ function getNotificationContext({
   type,
   content,
   messagingChannel,
+  accountProvider = "google",
 }: {
   id: string;
   type: ActionType;
@@ -333,6 +506,7 @@ function getNotificationContext({
       targetType: MessagingRouteTargetType;
     }>;
   };
+  accountProvider?: "google" | "microsoft" | "imap";
 }) {
   const defaultRoutes =
     messagingChannel?.routes ??
@@ -378,7 +552,7 @@ function getNotificationContext({
         userId: "user-1",
         email: "user@example.com",
         account: {
-          provider: "google",
+          provider: accountProvider,
         },
       },
       rule: {

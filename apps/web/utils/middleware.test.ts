@@ -298,6 +298,26 @@ describe("Middleware", () => {
         isKnownError: true,
       });
     });
+
+    it("should return 500 if auth throws", async () => {
+      const authError = new Error("Session lookup failed");
+      mockAuth.mockRejectedValue(authError);
+      const handler: NextHandler<RequestWithAuth> = vi.fn();
+      const wrappedHandler = withAuth(handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(auth).toHaveBeenCalledTimes(1);
+      expect(handler).not.toHaveBeenCalled();
+      expect(mockCaptureException).toHaveBeenCalledWith(authError, {
+        extra: { url: mockReq.url },
+      });
+      expect(response.status).toBe(500);
+      expect(responseBody).toEqual({
+        error: "An unexpected error occurred",
+      });
+    });
   });
 
   describe("withAdmin", () => {

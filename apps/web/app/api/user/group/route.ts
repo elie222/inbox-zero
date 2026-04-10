@@ -6,7 +6,7 @@ export type GroupsResponse = Awaited<ReturnType<typeof getGroups>>;
 
 async function getGroups({ emailAccountId }: { emailAccountId: string }) {
   const groups = await prisma.group.findMany({
-    where: { emailAccountId },
+    where: { emailAccountId, rule: { isNot: null } },
     select: {
       id: true,
       name: true,

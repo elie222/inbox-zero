@@ -46,6 +46,11 @@ export const BRIEF_MY_MEETING_PRICE_ID_MONTHLY =
 export const BRIEF_MY_MEETING_PRICE_ID_ANNUALLY =
   "price_1SjoawKGf8mwZWHnfAeShYhb";
 
+const INCLUDED_EMAIL_ACCOUNT_PRICE_IDS = [
+  env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
+  env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
+];
+
 const STRIPE_PRICE_ID_CONFIG: Record<
   PremiumTier,
   {
@@ -71,7 +76,6 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       "price_1Rg0QfKGf8mwZWHnDsiocBVD",
       "price_1Rg0LEKGf8mwZWHndYXYg7ie",
       "price_1Rg03pKGf8mwZWHnWMNeQzLc",
-      // brief my meeting
       BRIEF_MY_MEETING_PRICE_ID_MONTHLY,
     ],
   },
@@ -110,6 +114,11 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   LIFETIME: {},
 };
 
+const APPLE_PRODUCT_ID_CONFIG: Partial<Record<PremiumTier, string>> = {
+  STARTER_MONTHLY: env.NEXT_PUBLIC_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID,
+  STARTER_ANNUALLY: env.NEXT_PUBLIC_APPLE_IAP_STARTER_ANNUALLY_PRODUCT_ID,
+};
+
 export function getStripeSubscriptionTier({
   priceId,
 }: {
@@ -131,6 +140,30 @@ export function getStripePriceId({
   tier: PremiumTier;
 }): string | null {
   return STRIPE_PRICE_ID_CONFIG[tier]?.priceId ?? null;
+}
+
+export function hasIncludedEmailAccountsStripePriceId(
+  priceId: string | null | undefined,
+): boolean {
+  if (!priceId) return false;
+
+  return INCLUDED_EMAIL_ACCOUNT_PRICE_IDS?.includes(priceId) ?? false;
+}
+
+export function getAppleSubscriptionTier({
+  productId,
+}: {
+  productId: string;
+}): PremiumTier | null {
+  for (const [tier, configuredProductId] of Object.entries(
+    APPLE_PRODUCT_ID_CONFIG,
+  )) {
+    if (configuredProductId === productId) {
+      return tier as PremiumTier;
+    }
+  }
+
+  return null;
 }
 
 export function hasLegacyStripePriceId({
@@ -262,6 +295,11 @@ const plusTier: Tier = {
   features: [
     {
       text: "Everything in Starter, plus:",
+    },
+    {
+      text: "2 email accounts included per user",
+      tooltip:
+        "Each user gets 2 email accounts included. Additional email accounts are billed at the standard per-seat rate.",
     },
     {
       text: "Slack integration",

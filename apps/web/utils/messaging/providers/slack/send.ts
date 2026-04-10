@@ -68,10 +68,12 @@ export async function sendConnectionOnboardingDirectMessage({
 }): Promise<void> {
   const client = createSlackClient(accessToken);
 
-  await client.chat.postMessage({
-    channel: userId,
-    text: "Inbox Zero connected. Next, choose a private channel in Inbox Zero Settings for meeting brief and attachment notifications, then invite @InboxZero there. You can also DM me anytime to chat about your emails.",
-  });
+  await client.chat.postMessage(
+    disableSlackLinkUnfurls({
+      channel: userId,
+      text: "Inbox Zero connected. Next, choose a private channel in Inbox Zero Settings for meeting brief and attachment notifications, then invite @InboxZero there. You can also DM me anytime to chat about your emails.",
+    }),
+  );
 }
 
 export type SlackDocumentFiledParams = DocumentFiledBlocksParams & {
@@ -186,6 +188,14 @@ export function formatSlackAppMention(botUserId: string | null | undefined) {
   return botUserId ? `<@${botUserId}>` : "@Inbox Zero";
 }
 
+export function disableSlackLinkUnfurls<T extends object>(message: T) {
+  return {
+    ...message,
+    unfurl_links: false,
+    unfurl_media: false,
+  };
+}
+
 type Blocks = (KnownBlock | Block)[];
 
 async function postMessageWithJoin(
@@ -193,9 +203,11 @@ async function postMessageWithJoin(
   channelId: string,
   message: { text: string; blocks?: Blocks },
 ): Promise<void> {
-  const args = message.blocks
-    ? { channel: channelId, blocks: message.blocks, text: message.text }
-    : { channel: channelId, text: message.text };
+  const args = disableSlackLinkUnfurls(
+    message.blocks
+      ? { channel: channelId, blocks: message.blocks, text: message.text }
+      : { channel: channelId, text: message.text },
+  );
 
   try {
     await client.chat.postMessage(args);

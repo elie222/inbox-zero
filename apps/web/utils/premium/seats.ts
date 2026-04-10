@@ -1,4 +1,5 @@
 import sumBy from "lodash/sumBy";
+import { hasIncludedEmailAccountsStripePriceId } from "@/app/(app)/premium/config";
 import { updateSubscriptionItemQuantity } from "@/ee/billing/lemon/index";
 import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index";
 import prisma from "@/utils/prisma";
@@ -28,6 +29,7 @@ export async function syncPremiumSeats(premiumId: string) {
     select: {
       lemonSqueezySubscriptionItemId: true,
       stripeSubscriptionItemId: true,
+      stripePriceId: true,
       users: {
         select: { _count: { select: { emailAccounts: true } } },
       },
@@ -39,7 +41,10 @@ export async function syncPremiumSeats(premiumId: string) {
     return;
   }
 
-  const totalSeats = sumBy(premium.users, (user) => user._count.emailAccounts);
+  const totalSeats = getStripeBillingQuantity({
+    priceId: premium.stripePriceId,
+    users: premium.users,
+  });
   await updateAccountSeatsForPremium(premium, totalSeats);
 }
 
@@ -131,4 +136,22 @@ export async function updateAccountSeatsForPremium(
       logger,
     });
   }
+}
+
+export function getStripeBillingQuantity({
+  priceId,
+  users,
+}: {
+  priceId: string | null | undefined;
+  users: { _count: { emailAccounts: number } }[];
+}): number {
+  const totalSeats = hasIncludedEmailAccountsStripePriceId(priceId)
+    ? sumBy(users, (user) =>
+        user._count.emailAccounts <= 1
+          ? user._count.emailAccounts
+          : user._count.emailAccounts - 1,
+      )
+    : sumBy(users, (user) => user._count.emailAccounts);
+
+  return Math.max(1, totalSeats);
 }

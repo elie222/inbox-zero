@@ -3,6 +3,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { AlertCircle, Home, RotateCcw } from "lucide-react";
 import Link from "next/link";
+import { useParams, usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { getAppErrorBoundaryLogContext } from "@/components/app-error-boundary-log-context";
+import { createClientLogger } from "@/utils/logger-client";
 
 export function AppErrorBoundary({
   error,
@@ -21,7 +24,27 @@ export function AppErrorBoundary({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const params = useParams<{
+    emailAccountId?: string;
+    ruleId?: string;
+  }>();
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: log each boundary error once with the route context captured at that time
   useEffect(() => {
+    const logger = createClientLogger("app-error-boundary");
+
+    logger.error(
+      "App error boundary triggered",
+      getAppErrorBoundaryLogContext({
+        error,
+        params,
+        pathname,
+        searchParams,
+      }),
+    );
+    logger.flush().catch(() => undefined);
     Sentry.captureException(error);
   }, [error]);
 

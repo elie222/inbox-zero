@@ -19,11 +19,16 @@ vi.mock("@/env", () => ({
       "price_current_professional_monthly",
     NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID:
       "price_current_professional_annual",
+    NEXT_PUBLIC_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID: "starter.monthly",
+    NEXT_PUBLIC_APPLE_IAP_STARTER_ANNUALLY_PRODUCT_ID: "starter.annual",
   },
 }));
 
 import {
+  getAppleSubscriptionTier,
+  getStripePriceId,
   hasLegacyStripePriceId,
+  hasIncludedEmailAccountsStripePriceId,
   shouldShowLegacyStripePricingNotice,
 } from "./config";
 
@@ -120,5 +125,56 @@ describe("shouldShowLegacyStripePricingNotice", () => {
         stripeSubscriptionStatus: "active",
       }),
     ).toBe(false);
+  });
+});
+
+describe("monthly pricing config", () => {
+  it("uses the active monthly Stripe price ids for checkout", () => {
+    expect(getStripePriceId({ tier: "STARTER_MONTHLY" })).toBe(
+      "price_current_starter_monthly",
+    );
+    expect(getStripePriceId({ tier: "PLUS_MONTHLY" })).toBe(
+      "price_current_plus_monthly",
+    );
+    expect(getStripePriceId({ tier: "PROFESSIONAL_MONTHLY" })).toBe(
+      "price_current_professional_monthly",
+    );
+  });
+
+  it("marks only the active monthly prices for special seat billing", () => {
+    expect(
+      hasIncludedEmailAccountsStripePriceId("price_current_starter_monthly"),
+    ).toBe(false);
+    expect(
+      hasIncludedEmailAccountsStripePriceId("price_current_plus_monthly"),
+    ).toBe(true);
+    expect(
+      hasIncludedEmailAccountsStripePriceId(
+        "price_current_professional_monthly",
+      ),
+    ).toBe(true);
+    expect(
+      hasIncludedEmailAccountsStripePriceId("price_current_starter_annual"),
+    ).toBe(false);
+    expect(
+      hasIncludedEmailAccountsStripePriceId("price_1S5u6NKGf8mwZWHnZCfy4D5n"),
+    ).toBe(false);
+  });
+});
+
+describe("getAppleSubscriptionTier", () => {
+  it("maps configured starter Apple product ids", () => {
+    expect(getAppleSubscriptionTier({ productId: "starter.monthly" })).toBe(
+      "STARTER_MONTHLY",
+    );
+    expect(getAppleSubscriptionTier({ productId: "starter.annual" })).toBe(
+      "STARTER_ANNUALLY",
+    );
+  });
+
+  it("returns null for unknown Apple products", () => {
+    expect(getAppleSubscriptionTier({ productId: "unknown.apple.plan" })).toBe(
+      null,
+    );
   });
 });

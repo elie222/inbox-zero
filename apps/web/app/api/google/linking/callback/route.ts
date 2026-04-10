@@ -28,7 +28,7 @@ import { isDuplicateError } from "@/utils/prisma-helpers";
 import { SafeError } from "@/utils/error";
 
 export const GET = withError("google/linking/callback", async (request) => {
-  const actorUserId = (await auth())?.user.id ?? null;
+  const actorUserId = (await auth(request.headers))?.user.id ?? null;
   let logger = request.logger.with({
     actorUserId,
     auditType: "oauth_linking",

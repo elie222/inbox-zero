@@ -80,6 +80,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
     let labels = [
       { id: "Label_Existing", name: "Existing", type: "user" },
       { id: "Label_Travel", name: "Travel", type: "user" },
+      { id: "Label_04_ARCHIVES", name: "04 ARCHIVES", type: "user" },
     ];
 
     prisma.emailAccount.findUnique.mockResolvedValue({
@@ -342,6 +343,56 @@ describe.runIf(shouldRunEval)("Eval: assistant chat label management", () => {
 
           evalReporter.record({
             testName: "apply existing label to multiple threads",
+            model: model.label,
+            pass,
+            actual,
+          });
+
+          expect(pass).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "keeps spaced label names separate from the label_threads action",
+        async () => {
+          const { toolCalls, actual } = await runAssistantChat({
+            emailAccount,
+            messages: [
+              {
+                role: "user",
+                content:
+                  'Apply my existing "04 ARCHIVES" label to thread-1 and thread-2.',
+              },
+            ],
+          });
+
+          const labelThreadsMatch = getLastMatchingToolCall(
+            toolCalls,
+            "manageInbox",
+            isManageInboxLabelThreadsInput,
+          );
+          const labelThreadsCall = labelThreadsMatch?.input ?? null;
+          const pass =
+            !!labelThreadsCall &&
+            labelThreadsCall.action === "label_threads" &&
+            labelThreadsCall.labelName === "04 ARCHIVES" &&
+            labelThreadsCall.threadIds.length === 2 &&
+            labelThreadsCall.threadIds.includes("thread-1") &&
+            labelThreadsCall.threadIds.includes("thread-2") &&
+            !toolCalls.some(
+              (toolCall) =>
+                toolCall.toolName === "createOrGetLabel" &&
+                isCreateOrGetLabelInput(toolCall.input),
+            ) &&
+            !toolCalls.some(
+              (toolCall) =>
+                toolCall.toolName === "listLabels" &&
+                isListLabelsInput(toolCall.input),
+            );
+
+          evalReporter.record({
+            testName: "apply spaced existing label to explicit threads",
             model: model.label,
             pass,
             actual,

@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   CardText,
+  LinkButton,
   type ActionEvent,
   type CardElement,
   type CardChild,
@@ -13,7 +14,10 @@ import {
 import { cardToBlockKit, cardToFallbackText } from "@chat-adapter/slack";
 import prisma from "@/utils/prisma";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
-import { resolveSlackRouteDestination } from "@/utils/messaging/providers/slack/send";
+import {
+  disableSlackLinkUnfurls,
+  resolveSlackRouteDestination,
+} from "@/utils/messaging/providers/slack/send";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import {
   escapeSlackText,
@@ -44,10 +48,15 @@ import type { ParsedMessage } from "@/utils/types";
 import he from "he";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 import { extractNameFromEmail } from "@/utils/email";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { getMessagingRoute } from "@/utils/messaging/routes";
+import { getEmailUrlForOptionalMessage } from "@/utils/url";
 
 const DRAFT_PREVIEW_MAX_CHARS = 900;
-const SUMMARY_PREVIEW_MAX_CHARS = 280;
+const SUMMARY_PREVIEW_MAX_CHARS = 2000;
 const SLACK_DRAFT_SEND_ACTION_ID = "rule_draft_send";
 const SLACK_DRAFT_EDIT_ACTION_ID = "rule_draft_edit";
 const SLACK_DRAFT_DISMISS_ACTION_ID = "rule_draft_dismiss";
@@ -72,6 +81,11 @@ type NotificationContent = {
   details?: string[];
   summary: string;
   title: string;
+};
+
+type NotificationOpenLink = {
+  label: string;
+  url: string;
 };
 
 type NotificationEmailPreview = {
@@ -162,8 +176,7 @@ async function sendSlackRuleNotificationWithContext({
   logger: Logger;
 }): Promise<MessagingRuleNotificationResult> {
   if (
-    !context.messagingChannel ||
-    !context.messagingChannel.isConnected ||
+    !context.messagingChannel?.isConnected ||
     context.messagingChannel.provider !== MessagingProvider.SLACK ||
     !context.messagingChannel.accessToken
   ) {
@@ -218,6 +231,7 @@ async function sendSlackRuleNotificationWithContext({
     actionId: context.id,
     actionType: context.type,
     content,
+    openLink: getNotificationOpenLink(context),
   });
 
   try {
@@ -257,8 +271,7 @@ async function sendLinkedRuleNotification({
   logger: Logger;
 }): Promise<MessagingRuleNotificationResult> {
   if (
-    !context.messagingChannel ||
-    !context.messagingChannel.isConnected ||
+    !context.messagingChannel?.isConnected ||
     (context.messagingChannel.provider !== MessagingProvider.TEAMS &&
       context.messagingChannel.provider !== MessagingProvider.TELEGRAM)
   ) {
@@ -470,6 +483,7 @@ export async function handleSlackRuleNotificationModalSubmit({
         actionId: context.id,
         actionType: context.type,
         content,
+        openLink: getNotificationOpenLink(context),
       }),
     );
   }
@@ -594,6 +608,7 @@ async function handleDraftSend({
       event.messageId,
       buildHandledNotificationCard({
         content: notificationContent,
+        openLink: getNotificationOpenLink(context),
         status: "Reply sent.",
       }),
     );
@@ -965,17 +980,18 @@ function buildNotificationContent({
     const emailPreview = buildEmailPreview(email);
     const draftPreview = buildDraftPreview(draftContent);
 
-    const parts = [`You got an email from *${senderName}* about "${subject}".`];
+    const summary = `📩 You got an email from *${senderName}* about "${subject}".`;
 
+    const details: string[] = [];
     if (emailPreview) {
-      parts.push(`They wrote:\n${blockquote(emailPreview)}`);
+      details.push(`💬 *They wrote:*\n${emailPreview}`);
     }
-
-    parts.push(`I drafted a reply for you:\n${blockquote(draftPreview)}`);
+    details.push(`✍️ *I drafted a reply for you:*\n${draftPreview}`);
 
     return {
       title: "Draft reply",
-      summary: parts.join("\n\n"),
+      summary,
+      details,
     };
   }
 
@@ -1015,10 +1031,12 @@ function buildNotificationCard({
   actionId,
   actionType,
   content,
+  openLink,
 }: {
   actionId: string;
   actionType: ActionType;
   content: NotificationContent;
+  openLink?: NotificationOpenLink | null;
 }): CardElement {
   const children = buildNotificationCardBody(content);
 
@@ -1037,6 +1055,7 @@ function buildNotificationCard({
               label: "Edit draft",
               value: actionId,
             }),
+            ...(openLink ? [LinkButton(openLink)] : []),
             Button({
               id: SLACK_DRAFT_DISMISS_ACTION_ID,
               label: "Dismiss",
@@ -1080,13 +1099,18 @@ function buildTerminalCard({
 
 function buildHandledNotificationCard({
   content,
+  openLink,
   status,
 }: {
   content: NotificationContent;
+  openLink?: NotificationOpenLink | null;
   status: string;
 }): CardElement {
   const children = buildNotificationCardBody(content);
   children.push(CardText(`Status: ${status}`));
+  if (openLink) {
+    children.push(Actions([LinkButton(openLink)]));
+  }
 
   return Card({
     title: content.title,
@@ -1153,7 +1177,9 @@ function buildEmailSummary(email: {
 
 function buildEmailPreview(email: { snippet: string; textPlain?: string }) {
   const rawPreview = email.snippet || email.textPlain || "";
-  const preview = removeExcessiveWhitespace(rawPreview).trim();
+  const preview = escapeSlackText(
+    removeExcessiveWhitespace(he.decode(rawPreview)).trim(),
+  );
   if (!preview) return null;
 
   return truncate(preview, SUMMARY_PREVIEW_MAX_CHARS);
@@ -1187,6 +1213,31 @@ function getInfoNotificationTitle(systemType: SystemType | string | null) {
   return systemType === SystemType.CALENDAR
     ? "Calendar invite"
     : "Email notification";
+}
+
+function getNotificationOpenLink(
+  context: NotificationContext,
+): NotificationOpenLink | null {
+  const provider = context.executedRule.emailAccount.account.provider;
+  const label = isGoogleProvider(provider)
+    ? "Open in Gmail"
+    : isMicrosoftProvider(provider)
+      ? "Open in Outlook"
+      : null;
+  if (!label) return null;
+
+  const url = getEmailUrlForOptionalMessage({
+    messageId: context.executedRule.messageId,
+    threadId: context.executedRule.threadId,
+    emailAddress: context.executedRule.emailAccount.email,
+    provider,
+  });
+  if (!url) return null;
+
+  return {
+    label,
+    url,
+  };
 }
 
 async function findSlackRootMessageId({
@@ -1236,12 +1287,12 @@ async function postSlackCard({
 }) {
   const client = createSlackClient(accessToken);
 
-  const args = {
+  const args = disableSlackLinkUnfurls({
     channel: destinationChannelId,
     text: cardToFallbackText(card),
     blocks: cardToBlockKit(card),
     ...(rootMessageId ? { thread_ts: rootMessageId } : {}),
-  };
+  });
 
   try {
     const response = await client.chat.postMessage(args);
@@ -1400,17 +1451,13 @@ function toCalendarPreviewMessage(
   };
 }
 
-function blockquote(text: string): string {
-  return text
-    .split("\n")
-    .map((line) => `>${line}`)
-    .join("\n");
-}
-
 function stripSlackFormatting(text: string) {
   return text
     .replace(/<([^|>]+)\|([^>]+)>/g, "$2: $1")
-    .replace(/\*([^*]+)\*/g, "$1");
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
 }
 
 function getLinkedProviderLimitationText({

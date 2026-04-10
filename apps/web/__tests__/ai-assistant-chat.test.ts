@@ -243,6 +243,123 @@ describe("aiProcessAssistantChat", () => {
     ).toBe(false);
   });
 
+  it("accepts sparse rule action fields for createRule and updateRuleActions", async () => {
+    const tools = await captureToolSet(true);
+
+    expect(
+      tools.createRule.inputSchema.safeParse({
+        name: "Finance",
+        condition: {
+          conditionalOperator: null,
+          aiInstructions: null,
+          static: {
+            from: "@billing.example",
+          },
+        },
+        actions: [
+          {
+            type: ActionType.LABEL,
+            fields: {
+              label: "Finance",
+            },
+            delayInMinutes: null,
+          },
+          {
+            type: ActionType.ARCHIVE,
+            fields: {},
+            delayInMinutes: null,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      tools.updateRuleActions.inputSchema.safeParse({
+        ruleName: "Finance",
+        actions: [
+          {
+            type: ActionType.LABEL,
+            fields: {
+              label: "Finance",
+            },
+            delayInMinutes: null,
+          },
+          {
+            type: ActionType.ARCHIVE,
+            fields: {},
+            delayInMinutes: null,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects updateRuleActions payloads that omit required action fields", async () => {
+    const tools = await captureToolSet(true);
+
+    expect(
+      tools.updateRuleActions.inputSchema.safeParse({
+        ruleName: "Finance",
+        actions: [
+          {
+            type: ActionType.LABEL,
+            fields: {},
+            delayInMinutes: null,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+
+    expect(
+      tools.updateRuleActions.inputSchema.safeParse({
+        ruleName: "Webhook",
+        actions: [
+          {
+            type: ActionType.CALL_WEBHOOK,
+            fields: {},
+            delayInMinutes: null,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("gates MOVE_FOLDER rule actions by provider", async () => {
+    const googleTools = await captureToolSet(true, "google");
+    vi.clearAllMocks();
+    const microsoftTools = await captureToolSet(true, "microsoft");
+
+    expect(
+      googleTools.updateRuleActions.inputSchema.safeParse({
+        ruleName: "Finance",
+        actions: [
+          {
+            type: ActionType.MOVE_FOLDER,
+            fields: {
+              folderName: "Archive",
+            },
+            delayInMinutes: null,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+
+    expect(
+      microsoftTools.updateRuleActions.inputSchema.safeParse({
+        ruleName: "Finance",
+        actions: [
+          {
+            type: ActionType.MOVE_FOLDER,
+            fields: {
+              folderName: "Archive",
+            },
+            delayInMinutes: null,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,

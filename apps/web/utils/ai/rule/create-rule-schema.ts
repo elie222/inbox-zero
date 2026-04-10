@@ -3,7 +3,6 @@ import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
 import { env } from "@/env";
-import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import { delayInMinutesLlmSchema } from "@/utils/actions/rule.validation";
 import {
   AI_INSTRUCTIONS_PROMPT_DESCRIPTION,
@@ -68,78 +67,60 @@ export const getExtraActions = () => [
     : []),
 ];
 
-const actionSchema = (provider: string) =>
-  z
-    .object({
-      type: z
-        .enum([...getAvailableActions(provider), ...getExtraActions()])
-        .describe(
-          `The type of the action. '${ActionType.DIGEST}' means emails will be added to the digest email the user receives. ${isMicrosoftProvider(provider) ? `'${ActionType.LABEL}' means emails will be categorized in Outlook.` : ""}`,
-        ),
-      fields: z
-        .object({
-          label: z
-            .string()
-            .nullable()
-            .transform((v) => v ?? null)
-            .describe("The label to apply to the email"),
-          to: z
-            .string()
-            .nullable()
-            .transform((v) => v ?? null)
-            .describe(
-              "The recipient email address. Required for SEND_EMAIL and FORWARD. Use REPLY when responding to the triggering inbound email.",
-            ),
-          cc: z
-            .string()
-            .nullable()
-            .transform((v) => v ?? null)
-            .describe("The cc email address to send the email to"),
-          bcc: z
-            .string()
-            .nullable()
-            .transform((v) => v ?? null)
-            .describe("The bcc email address to send the email to"),
-          subject: z
-            .string()
-            .nullable()
-            .transform((v) => v ?? null)
-            .describe("The subject of the email"),
-          content: z
-            .string()
-            .nullable()
-            .transform((v) => v ?? null)
-            .describe("The content of the email"),
-          webhookUrl: z
-            .string()
-            .nullable()
-            .transform((v) => v ?? null)
-            .describe("The webhook URL to call"),
-          ...(isMicrosoftProvider(provider) && {
-            folderName: z
-              .string()
-              .nullable()
-              .transform((v) => v ?? null)
-              .describe("The folder to move the email to"),
-          }),
-        })
-        .nullable()
-        .describe(
-          "The fields to use for the action. Static text can be combined with dynamic values using double braces {{}}. For example: 'Hi {{sender's name}}' or 'Re: {{subject}}' or '{{when I'm available for a meeting}}'. Dynamic values will be replaced with actual email data when the rule is executed. Dynamic values are generated in real time by the AI. Only use dynamic values where absolutely necessary. Otherwise, use plain static text. A field can be also be fully static or fully dynamic.",
-        ),
-      delayInMinutes: delayInMinutesLlmSchema,
-    })
-    .superRefine((action, ctx) => {
-      addMissingRecipientIssue({
-        actionType: action.type,
-        recipient: action.fields?.to,
-        ctx,
-        path: ["fields", "to"],
-        sendEmailMessage:
-          "SEND_EMAIL requires a recipient in fields.to. Use REPLY for auto-responses.",
-        forwardMessage: "FORWARD requires a recipient in fields.to.",
-      });
-    });
+export const createRuleActionSchema = (provider: string) => {
+  const supportsMoveFolder = isMicrosoftProvider(provider);
+  const optionalFieldsSchema = createOptionalActionFieldsSchema(provider);
+
+  const actionSchemas: [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]] = [
+    createActionObjectSchema(ActionType.ARCHIVE, optionalFieldsSchema),
+    createActionObjectSchema(
+      ActionType.LABEL,
+      createRequiredLabelFieldsSchema(provider),
+    ),
+    createActionObjectSchema(ActionType.MARK_READ, optionalFieldsSchema),
+    createActionObjectSchema(ActionType.MARK_SPAM, optionalFieldsSchema),
+    createActionObjectSchema(ActionType.DIGEST, optionalFieldsSchema),
+    ...(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED
+      ? []
+      : [
+          createActionObjectSchema(
+            ActionType.DRAFT_EMAIL,
+            optionalFieldsSchema,
+          ),
+        ]),
+    ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+      ? [
+          createActionObjectSchema(ActionType.REPLY, optionalFieldsSchema),
+          createActionObjectSchema(
+            ActionType.FORWARD,
+            createRequiredRecipientFieldsSchema(provider),
+          ),
+          createActionObjectSchema(
+            ActionType.SEND_EMAIL,
+            createRequiredRecipientFieldsSchema(provider),
+          ),
+        ]
+      : []),
+    ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false
+      ? [
+          createActionObjectSchema(
+            ActionType.CALL_WEBHOOK,
+            createRequiredWebhookFieldsSchema(provider),
+          ),
+        ]
+      : []),
+    ...(supportsMoveFolder
+      ? [
+          createActionObjectSchema(
+            ActionType.MOVE_FOLDER,
+            createRequiredFolderFieldsSchema(provider),
+          ),
+        ]
+      : []),
+  ];
+
+  return z.union(actionSchemas);
+};
 
 export const createRuleSchema = (provider: string) =>
   z.object({
@@ -149,10 +130,103 @@ export const createRuleSchema = (provider: string) =>
         "A short, concise name for the rule (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.",
       ),
     condition: conditionSchema,
-    actions: z.array(actionSchema(provider)).describe("The actions to take"),
+    actions: z
+      .array(createRuleActionSchema(provider))
+      .describe("The actions to take"),
   });
 
 export type CreateRuleSchema = z.infer<ReturnType<typeof createRuleSchema>>;
 export type CreateOrUpdateRuleSchema = CreateRuleSchema & {
   ruleId?: string;
 };
+
+function createActionObjectSchema(type: ActionType, fields: z.ZodTypeAny) {
+  return z.object({
+    type: z.literal(type),
+    fields,
+    delayInMinutes: delayInMinutesLlmSchema,
+  });
+}
+
+function createOptionalActionFieldsSchema(provider: string) {
+  return z.object(createActionFieldShape(provider)).nullish();
+}
+
+function createRequiredLabelFieldsSchema(provider: string) {
+  return z.object({
+    ...createActionFieldShape(provider),
+    label: requiredStringField(
+      "The label to apply to the email",
+      "LABEL requires fields.label.",
+    ),
+  });
+}
+
+function createRequiredRecipientFieldsSchema(provider: string) {
+  return z.object({
+    ...createActionFieldShape(provider),
+    to: requiredStringField(
+      "The recipient email address. Required for SEND_EMAIL and FORWARD. Use REPLY when responding to the triggering inbound email.",
+      "fields.to is required.",
+    ),
+  });
+}
+
+function createRequiredWebhookFieldsSchema(provider: string) {
+  return z.object({
+    ...createActionFieldShape(provider),
+    webhookUrl: requiredStringField(
+      "The webhook URL to call",
+      "CALL_WEBHOOK requires fields.webhookUrl.",
+    ),
+  });
+}
+
+function createRequiredFolderFieldsSchema(provider: string) {
+  const fieldShape = createActionFieldShape(provider);
+
+  if (!("folderName" in fieldShape)) {
+    throw new Error("MOVE_FOLDER is only supported for Microsoft providers.");
+  }
+
+  return z.object({
+    ...fieldShape,
+    folderName: requiredStringField(
+      "The folder to move the email to",
+      "MOVE_FOLDER requires fields.folderName.",
+    ),
+  });
+}
+
+function createActionFieldShape(provider: string) {
+  return {
+    label: optionalStringField("The label to apply to the email"),
+    to: optionalStringField(
+      "The recipient email address. Required for SEND_EMAIL and FORWARD. Use REPLY when responding to the triggering inbound email.",
+    ),
+    cc: optionalStringField("The cc email address to send the email to"),
+    bcc: optionalStringField("The bcc email address to send the email to"),
+    subject: optionalStringField("The subject of the email"),
+    content: optionalStringField("The content of the email"),
+    webhookUrl: optionalStringField("The webhook URL to call"),
+    ...(isMicrosoftProvider(provider) && {
+      folderName: optionalStringField("The folder to move the email to"),
+    }),
+  };
+}
+
+function optionalStringField(description: string) {
+  return z
+    .string()
+    .nullish()
+    .transform((value) => value ?? null)
+    .describe(description);
+}
+
+function requiredStringField(description: string, message: string) {
+  return z
+    .string()
+    .transform((value) => value.trim())
+    .refine(Boolean, message)
+    .describe(description);
+}

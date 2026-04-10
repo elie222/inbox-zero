@@ -224,8 +224,40 @@ function withMiddleware<T extends NextRequest>(
 async function authMiddleware(
   req: NextRequest,
 ): Promise<RequestWithAuth | Response> {
-  const session = await auth();
+  const baseLogger = getLogger(req);
+  const authLogContext = {
+    path: new URL(req.url).pathname,
+    method: req.method,
+    hasCookie: req.headers.has("cookie"),
+    cookieNames: parseCookieNames(req.headers.get("cookie")),
+    hasAuthorization: req.headers.has("authorization"),
+    expoOrigin: req.headers.get("expo-origin") ?? null,
+    userAgent: req.headers.get("user-agent") ?? null,
+  };
+
+  let session: Awaited<ReturnType<typeof auth>>;
+  try {
+    session = await auth(req.headers);
+  } catch (error) {
+    baseLogger.warn("Auth middleware failed", {
+      ...authLogContext,
+      authError:
+        error instanceof Error
+          ? { name: error.name, message: error.message }
+          : error,
+    });
+    throw error;
+  }
+
   if (!session?.user) {
+    baseLogger.warn("Auth middleware returning 401", {
+      ...authLogContext,
+      reason:
+        session === null || session === undefined
+          ? "no_session"
+          : "session_without_user",
+    });
+
     return NextResponse.json(
       { error: "Unauthorized", isKnownError: true },
       { status: 401 },
@@ -235,10 +267,17 @@ async function authMiddleware(
   const authReq = req.clone() as RequestWithAuth;
   authReq.auth = { userId: session.user.id };
 
-  const baseLogger = getLogger(req);
   authReq.logger = baseLogger.with({ userId: session.user.id });
 
   return authReq;
+}
+
+function parseCookieNames(cookieHeader: string | null): string[] {
+  if (!cookieHeader) return [];
+  return cookieHeader
+    .split(";")
+    .map((part) => part.split("=")[0]?.trim())
+    .filter((name): name is string => Boolean(name));
 }
 
 async function emailAccountMiddleware(
@@ -308,7 +347,7 @@ async function emailAccountMiddleware(
           }),
       });
 
-      if (!targetMember || !targetMember.allowOrgAdminAnalytics) {
+      if (!targetMember?.allowOrgAdminAnalytics) {
         emailAccountLogger.error(
           "Member has not enabled org admin analytics access",
         );

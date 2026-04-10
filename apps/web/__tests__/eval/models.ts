@@ -25,15 +25,15 @@ const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     model: "google/gemini-3.1-flash-lite-preview",
     label: "Gemini 3.1 Flash Lite",
   },
-  "grok-4.1-fast": {
+  "gpt-5.4-nano": {
     provider: "openrouter",
-    model: "x-ai/grok-4.1-fast",
-    label: "Grok 4.1 Fast",
+    model: "openai/gpt-5.4-nano",
+    label: "GPT-5.4 Nano",
   },
-  "gpt-5-nano": {
+  "gpt-5.4-mini": {
     provider: "openrouter",
-    model: "openai/gpt-5-nano",
-    label: "GPT-5 Nano",
+    model: "openai/gpt-5.4-mini",
+    label: "GPT-5.4 Mini",
   },
 };
 
@@ -43,7 +43,7 @@ const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
  * - Not set:                         single run with default env-configured model
  * - EVAL_MODELS=all                  every model in the catalog
  * - EVAL_MODELS=gemini-2.5-flash     single model by shorthand
- * - EVAL_MODELS=gemini-2.5-flash,grok-4.1-fast   comma-separated shorthand picks
+ * - EVAL_MODELS=gemini-2.5-flash,gpt-5.4-mini   comma-separated shorthand picks
  * - EVAL_MODELS=[{...}]             custom JSON array
  */
 export function getEvalModels(): EvalModel[] {

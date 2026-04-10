@@ -2,7 +2,7 @@ import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import {
-  getMicrosoftGraphUrl,
+  fetchMicrosoftUserProfile,
   requestMicrosoftToken,
 } from "@/utils/microsoft/oauth";
 import {
@@ -40,23 +40,9 @@ export function createMicrosoftCalendarProvider(
         );
       }
 
-      // Get user profile using the access token
-      const profileResponse = await fetch(getMicrosoftGraphUrl("/me"), {
-        headers: {
-          Authorization: `Bearer ${tokens.access_token}`,
-        },
-      });
-
-      if (!profileResponse.ok) {
-        throw new Error("Failed to fetch user profile");
-      }
-
-      const profile = await profileResponse.json();
-      const microsoftEmail = profile.mail || profile.userPrincipalName;
-
-      if (!microsoftEmail) {
-        throw new Error("Profile missing required email");
-      }
+      const { email: microsoftEmail } = await fetchMicrosoftUserProfile(
+        tokens.access_token,
+      );
 
       if (!tokens.refresh_token) {
         throw new Error(

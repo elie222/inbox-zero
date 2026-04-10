@@ -385,6 +385,18 @@ model Premium {
   stripeAiOverageLastPeriodEnd DateTime?
   stripeAiOverageLastUnits     Int?
 
+  // apple app store
+  appleOriginalTransactionId      String?   @unique
+  appleLatestTransactionId        String?   @unique
+  appleProductId                  String?
+  appleSubscriptionGroupIdentifier String?
+  appleAppAccountToken            String?
+  appleSubscriptionStatus         String? // The current App Store status (e.g. 'ACTIVE', 'EXPIRED', 'BILLING_GRACE_PERIOD', 'REVOKED').
+  appleEnvironment                String? // App Store environment (e.g. 'Sandbox' or 'Production').
+  applePurchaseDate               DateTime?
+  appleExpiresAt                  DateTime?
+  appleRevokedAt                  DateTime?
+
   tier PremiumTier?
 
   emailAccountsAccess Int?
