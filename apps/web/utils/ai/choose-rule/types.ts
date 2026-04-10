@@ -66,13 +66,13 @@ export type SerializedMatchReason =
       group: { id: string; name: string };
       groupItem: {
         id: string;
-        type: string;
+        type: GroupItemType;
         value: string;
         exclude: boolean;
       };
     }
   | { type: "AI" }
-  | { type: "PRESET"; systemType: string };
+  | { type: "PRESET"; systemType: SystemType };
 
 /**
  * Serializes match reasons to a JSON-safe format for database storage
