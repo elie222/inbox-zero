@@ -165,18 +165,13 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       profile = result.profile;
       providerEmail = result.email;
     } catch (error) {
-      if (
-        error instanceof MicrosoftUserProfileError &&
-        typeof error.status === "number"
-      ) {
-        logger.error("Failed to fetch Microsoft user profile", {
-          targetUserId,
-          status: error.status,
-        });
-        throw new SafeError("Failed to fetch user profile");
-      }
-
       if (error instanceof MicrosoftUserProfileError) {
+        if (error.status) {
+          logger.error("Failed to fetch Microsoft user profile", {
+            targetUserId,
+            status: error.status,
+          });
+        }
         throw new SafeError(error.message);
       }
 
@@ -237,16 +232,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         },
       );
 
-      let expiresAt: Date | null = null;
-      if (tokens.expires_at) {
-        expiresAt = new Date(tokens.expires_at * 1000);
-      } else if (tokens.expires_in) {
-        const expiresInSeconds =
-          typeof tokens.expires_in === "string"
-            ? Number.parseInt(tokens.expires_in, 10)
-            : tokens.expires_in;
-        expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
-      }
+      const expiresAt = parseMicrosoftExpiresAt(tokens);
 
       let profileImage = null;
       try {

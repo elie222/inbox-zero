@@ -155,7 +155,7 @@ async function fetchMicrosoftUrl(url: string, init?: RequestInit) {
     }
 
     return fetch(url, {
-      ...(init || {}),
+      ...init,
       dispatcher: microsoftIpv4Dispatcher,
     } as RequestInit & { dispatcher: Dispatcher });
   }
@@ -176,14 +176,11 @@ function shouldRetryWithIpv4(url: string, error: unknown) {
   return false;
 }
 
-function extractErrorCodes(error: unknown): Set<string> {
-  const codes = new Set<string>();
-  collectErrorCodes(error, codes);
-  return codes;
-}
-
-function collectErrorCodes(error: unknown, codes: Set<string>) {
-  if (!error || typeof error !== "object") return;
+function extractErrorCodes(
+  error: unknown,
+  codes = new Set<string>(),
+): Set<string> {
+  if (!error || typeof error !== "object") return codes;
 
   const code =
     "code" in error && typeof error.code === "string" ? error.code : null;
@@ -193,11 +190,13 @@ function collectErrorCodes(error: unknown, codes: Set<string>) {
 
   if ("errors" in error && Array.isArray(error.errors)) {
     for (const nestedError of error.errors) {
-      collectErrorCodes(nestedError, codes);
+      extractErrorCodes(nestedError, codes);
     }
   }
 
   if ("cause" in error) {
-    collectErrorCodes(error.cause, codes);
+    extractErrorCodes(error.cause, codes);
   }
+
+  return codes;
 }

@@ -160,6 +160,6 @@ export async function exchangeMicrosoftDriveCode(code: string) {
     expiresAt: tokens.expires_in
       ? new Date(Date.now() + tokens.expires_in * 1000)
       : null,
-    email: email as string,
+    email,
   };
 }
