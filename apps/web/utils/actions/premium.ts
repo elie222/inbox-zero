@@ -320,10 +320,17 @@ export const adminChangePremiumStatusAction = adminActionClient
             product_id?: string;
             variant_id?: string;
           };
-          lemonSqueezyOrderId = Number.parseInt(attributes.order_id);
-          lemonSqueezyProductId = Number.parseInt(attributes.product_id);
-          lemonSqueezyVariantId = Number.parseInt(attributes.variant_id);
-          lemonSqueezySubscriptionItemId = attributes.first_subscription_item.id
+          lemonSqueezyOrderId = attributes.order_id
+            ? Number.parseInt(attributes.order_id)
+            : null;
+          lemonSqueezyProductId = attributes.product_id
+            ? Number.parseInt(attributes.product_id)
+            : null;
+          lemonSqueezyVariantId = attributes.variant_id
+            ? Number.parseInt(attributes.variant_id)
+            : null;
+          lemonSqueezySubscriptionItemId = attributes.first_subscription_item
+            ?.id
             ? Number.parseInt(attributes.first_subscription_item.id)
             : null;
         }
