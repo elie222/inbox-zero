@@ -149,46 +149,37 @@ function createActionObjectSchema(type: ActionType, fields: z.ZodTypeAny) {
 }
 
 function createOptionalActionFieldsSchema(provider: string) {
-  return z
-    .object(createActionFieldShape(provider))
-    .nullish()
-    .describe(ACTION_FIELDS_DESCRIPTION);
+  return z.object(createActionFieldShape(provider)).nullish();
 }
 
 function createRequiredLabelFieldsSchema(provider: string) {
-  return z
-    .object({
-      ...createActionFieldShape(provider),
-      label: requiredStringField(
-        "The label to apply to the email",
-        "LABEL requires fields.label.",
-      ),
-    })
-    .describe(ACTION_FIELDS_DESCRIPTION);
+  return z.object({
+    ...createActionFieldShape(provider),
+    label: requiredStringField(
+      "The label to apply to the email",
+      "LABEL requires fields.label.",
+    ),
+  });
 }
 
 function createRequiredRecipientFieldsSchema(provider: string) {
-  return z
-    .object({
-      ...createActionFieldShape(provider),
-      to: requiredStringField(
-        "The recipient email address. Required for SEND_EMAIL and FORWARD. Use REPLY when responding to the triggering inbound email.",
-        "fields.to is required.",
-      ),
-    })
-    .describe(ACTION_FIELDS_DESCRIPTION);
+  return z.object({
+    ...createActionFieldShape(provider),
+    to: requiredStringField(
+      "The recipient email address. Required for SEND_EMAIL and FORWARD. Use REPLY when responding to the triggering inbound email.",
+      "fields.to is required.",
+    ),
+  });
 }
 
 function createRequiredWebhookFieldsSchema(provider: string) {
-  return z
-    .object({
-      ...createActionFieldShape(provider),
-      webhookUrl: requiredStringField(
-        "The webhook URL to call",
-        "CALL_WEBHOOK requires fields.webhookUrl.",
-      ),
-    })
-    .describe(ACTION_FIELDS_DESCRIPTION);
+  return z.object({
+    ...createActionFieldShape(provider),
+    webhookUrl: requiredStringField(
+      "The webhook URL to call",
+      "CALL_WEBHOOK requires fields.webhookUrl.",
+    ),
+  });
 }
 
 function createRequiredFolderFieldsSchema(provider: string) {
@@ -198,15 +189,13 @@ function createRequiredFolderFieldsSchema(provider: string) {
     throw new Error("MOVE_FOLDER is only supported for Microsoft providers.");
   }
 
-  return z
-    .object({
-      ...fieldShape,
-      folderName: requiredStringField(
-        "The folder to move the email to",
-        "MOVE_FOLDER requires fields.folderName.",
-      ),
-    })
-    .describe(ACTION_FIELDS_DESCRIPTION);
+  return z.object({
+    ...fieldShape,
+    folderName: requiredStringField(
+      "The folder to move the email to",
+      "MOVE_FOLDER requires fields.folderName.",
+    ),
+  });
 }
 
 function createActionFieldShape(provider: string) {
@@ -241,6 +230,3 @@ function requiredStringField(description: string, message: string) {
     .refine(Boolean, message)
     .describe(description);
 }
-
-const ACTION_FIELDS_DESCRIPTION =
-  "Only include the fields relevant to this action.";
