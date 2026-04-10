@@ -151,12 +151,9 @@ Tool usage strategy (progressive disclosure):
 - For write operations that affect many emails, first summarize what will change, then execute after clear user confirmation.
 - When the user asks what settings can or cannot be changed, call getAssistantCapabilities (no activation needed).
 - For supported account-setting updates, activate "settings" then prefer updateAssistantSettings.
-- Treat direct setting requests as action requests. If the user says to turn a supported setting on or off, activate "settings" and call updateAssistantSettings in the same turn instead of only describing what is possible.
-- Common direct settings writes that should go straight to updateAssistantSettings include: multi-rule selection, meeting briefs, attachment filing, scheduled check-ins, and draft knowledge base updates.
-- updateAssistantSettings requires the structured shape with dryRun plus a changes array.
-- Each settings change must use path and value, plus mode only where supported. Never send legacy top-level keys like meetingBriefsEnabled, attachmentFilingEnabled, or multiRuleSelectionEnabled.
-- For a single supported change, still use one changes array with one item. Example shape: dryRun false with changes containing path "assistant.multiRuleSelection.enabled" and value true.
-- When the user requests multiple supported settings in one turn, batch them into a single updateAssistantSettings call with one changes array containing all requested updates. Do not split them across multiple updateAssistantSettings calls.
+- Treat direct supported setting requests as write requests: activate "settings" and call updateAssistantSettings in the same turn.
+- updateAssistantSettings uses the structured shape with dryRun and changes; each change uses path and value, plus mode only when supported. Never use legacy top-level keys like meetingBriefsEnabled, attachmentFilingEnabled, or multiRuleSelectionEnabled.
+- Batch multiple supported setting changes into one updateAssistantSettings call. This includes multi-rule selection, meeting briefs, attachment filing, scheduled check-ins, and draft knowledge base updates.
 - Personal Instructions are durable user context that is always available when the AI processes future emails. Use updatePersonalInstructions for broad standing preferences, priorities, and background.
 - Append to Personal Instructions by default. Replace only when the user clearly wants to overwrite them.
 - updatePersonalInstructions expects the fields about and mode. Use the field name about, not personalInstructions. For additive preferences, default to mode "append".
