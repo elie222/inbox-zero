@@ -442,8 +442,10 @@ describe("buildMessagingRuleNotificationText", () => {
       actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
       content: {
         title: "Draft reply",
-        summary:
-          'You got an email from *Sender* about "Test".\n\nI drafted a reply for you:\n>See <https://example.com|details>.',
+        summary: '📩 You got an email from *Sender* about "Test".',
+        details: [
+          "✍️ *I drafted a reply for you:*\nSee <https://example.com|details>.",
+        ],
       },
       provider: MessagingProvider.TELEGRAM,
     });

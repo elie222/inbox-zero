@@ -56,7 +56,7 @@ import { getMessagingRoute } from "@/utils/messaging/routes";
 import { getEmailUrlForOptionalMessage } from "@/utils/url";
 
 const DRAFT_PREVIEW_MAX_CHARS = 900;
-const SUMMARY_PREVIEW_MAX_CHARS = 280;
+const SUMMARY_PREVIEW_MAX_CHARS = 2000;
 const SLACK_DRAFT_SEND_ACTION_ID = "rule_draft_send";
 const SLACK_DRAFT_EDIT_ACTION_ID = "rule_draft_edit";
 const SLACK_DRAFT_DISMISS_ACTION_ID = "rule_draft_dismiss";
@@ -980,17 +980,18 @@ function buildNotificationContent({
     const emailPreview = buildEmailPreview(email);
     const draftPreview = buildDraftPreview(draftContent);
 
-    const parts = [`You got an email from *${senderName}* about "${subject}".`];
+    const summary = `📩 You got an email from *${senderName}* about "${subject}".`;
 
+    const details: string[] = [];
     if (emailPreview) {
-      parts.push(`They wrote:\n${blockquote(emailPreview)}`);
+      details.push(`💬 *They wrote:*\n${emailPreview}`);
     }
-
-    parts.push(`I drafted a reply for you:\n${blockquote(draftPreview)}`);
+    details.push(`✍️ *I drafted a reply for you:*\n${draftPreview}`);
 
     return {
       title: "Draft reply",
-      summary: parts.join("\n\n"),
+      summary,
+      details,
     };
   }
 
@@ -1176,7 +1177,9 @@ function buildEmailSummary(email: {
 
 function buildEmailPreview(email: { snippet: string; textPlain?: string }) {
   const rawPreview = email.snippet || email.textPlain || "";
-  const preview = removeExcessiveWhitespace(rawPreview).trim();
+  const preview = escapeSlackText(
+    removeExcessiveWhitespace(he.decode(rawPreview)).trim(),
+  );
   if (!preview) return null;
 
   return truncate(preview, SUMMARY_PREVIEW_MAX_CHARS);
@@ -1446,13 +1449,6 @@ function toCalendarPreviewMessage(
     textPlain: email.textPlain,
     threadId: "",
   };
-}
-
-function blockquote(text: string): string {
-  return text
-    .split("\n")
-    .map((line) => `>${line}`)
-    .join("\n");
 }
 
 function stripSlackFormatting(text: string) {
