@@ -442,8 +442,10 @@ describe("buildMessagingRuleNotificationText", () => {
       actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
       content: {
         title: "Draft reply",
-        summary:
-          'You got an email from *Sender* about "Test".\n\nI drafted a reply for you:\n>See <https://example.com|details>.',
+        summary: '📩 You got an email from *Sender* about "Test".',
+        details: [
+          "✍️ *I drafted a reply for you:*\nSee <https://example.com|details>.",
+        ],
       },
       provider: MessagingProvider.TELEGRAM,
     });
@@ -452,6 +454,30 @@ describe("buildMessagingRuleNotificationText", () => {
     expect(text).toContain('You got an email from Sender about "Test".');
     expect(text).toContain("details: https://example.com");
     expect(text).toContain("Slack-only");
+  });
+
+  it("unescapes Slack entities for Teams fallback", async () => {
+    const { buildMessagingRuleNotificationText } = await import(
+      "./rule-notifications"
+    );
+
+    const text = buildMessagingRuleNotificationText({
+      actionType: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: {
+        title: "Draft reply",
+        summary:
+          '📩 You got an email from *Tom &amp; Jerry* about "A &lt;B&gt;".',
+        details: ["💬 *They wrote:*\nHello &amp; welcome"],
+      },
+      provider: MessagingProvider.TEAMS,
+    });
+
+    expect(text).toContain("Tom & Jerry");
+    expect(text).toContain("A <B>");
+    expect(text).toContain("Hello & welcome");
+    expect(text).not.toContain("&amp;");
+    expect(text).not.toContain("&lt;");
+    expect(text).not.toContain("&gt;");
   });
 });
 
